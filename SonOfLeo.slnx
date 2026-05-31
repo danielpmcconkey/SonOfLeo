@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Ledger/Ledger.fsproj" />
+    <Project Path="src/Model/Model.fsproj" />
+    <Project Path="src\SonOfLeoCli\SonOfLeoCli.fsproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Tests.Model/Tests.Model.fsproj" />
+    <Project Path="tests\Tests.Ledger\Tests.Ledger.fsproj" />
+  </Folder>
+</Solution>
