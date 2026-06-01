@@ -1,11 +1,11 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="src/Ledger/Ledger.fsproj" />
-    <Project Path="src/Model/Model.fsproj" />
-    <Project Path="src\SonOfLeoCli\SonOfLeoCli.fsproj" />
+  <Folder Name="/Src/">
+    <Project Path="Src\Ledger\Ledger.fsproj" Type="Classic F#" />
+    <Project Path="Src\Model\Model.fsproj" Type="Classic F#" />
+    <Project Path="Src\SonOfLeoCli\SonOfLeoCli.fsproj" Type="Classic F#" />
   </Folder>
-  <Folder Name="/tests/">
-    <Project Path="tests/Tests.Model/Tests.Model.fsproj" />
-    <Project Path="tests\Tests.Ledger\Tests.Ledger.fsproj" />
+  <Folder Name="/Tests/">
+    <Project Path="Tests\Tests.Ledger\Tests.Ledger.fsproj" Type="Classic F#" />
+    <Project Path="Tests\Tests.Model\Tests.Model.fsproj" Type="Classic F#" />
   </Folder>
 </Solution>
