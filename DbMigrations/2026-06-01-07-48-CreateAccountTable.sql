@@ -6,39 +6,39 @@ create schema sonofledger authorization claude;
 
 CREATE TABLE IF NOT EXISTS sonofledger.account_type
 (
-    id integer primary key,
-    name character varying(20) COLLATE pg_catalog."default" NOT NULL,
-    normal_balance character varying(6) COLLATE pg_catalog."default" NOT NULL,
+    id integer primary key,                                                      -- @FT-AC-1.1.11–1.1.15
+    name character varying(20) COLLATE pg_catalog."default" NOT NULL,            -- @FT-AC-1.1.10
+    normal_balance character varying(6) COLLATE pg_catalog."default" NOT NULL,   -- @FT-AC-1.1.9
     CONSTRAINT account_type_name_key UNIQUE (name)
     );
 
 ALTER TABLE IF EXISTS sonofledger.account_type
     OWNER to claude;
 
-INSERT INTO sonofledger.account_type(id, name, normal_balance) VALUES (1,'asset','debit');
-INSERT INTO sonofledger.account_type(id, name, normal_balance) VALUES (2,'liability','credit');
-INSERT INTO sonofledger.account_type(id, name, normal_balance) VALUES (3,'equity','credit');
-INSERT INTO sonofledger.account_type(id, name, normal_balance) VALUES (4,'revenue','credit');
-INSERT INTO sonofledger.account_type(id, name, normal_balance) VALUES (5,'expense','debit');
+INSERT INTO sonofledger.account_type(id, name, normal_balance) VALUES (1,'asset','debit');      -- @FT-AC-1.1.11, @FT-AC-1.1.16
+INSERT INTO sonofledger.account_type(id, name, normal_balance) VALUES (2,'liability','credit'); -- @FT-AC-1.1.12, @FT-AC-1.1.17
+INSERT INTO sonofledger.account_type(id, name, normal_balance) VALUES (3,'equity','credit');    -- @FT-AC-1.1.13, @FT-AC-1.1.17
+INSERT INTO sonofledger.account_type(id, name, normal_balance) VALUES (4,'revenue','credit');   -- @FT-AC-1.1.14, @FT-AC-1.1.17
+INSERT INTO sonofledger.account_type(id, name, normal_balance) VALUES (5,'expense','debit');    -- @FT-AC-1.1.15, @FT-AC-1.1.16
 
 CREATE TABLE IF NOT EXISTS sonofledger.account
 (
-    id uuid primary key,
-    code character varying(10) COLLATE pg_catalog."default" NOT NULL,
-    name character varying(100) COLLATE pg_catalog."default" NOT NULL,
-    account_type_id integer NOT NULL,
-    is_active boolean NOT NULL DEFAULT true,
-    created_at timestamp with time zone NOT NULL DEFAULT now(),
-    modified_at timestamp with time zone NOT NULL DEFAULT now(),
-    account_subtype character varying(25) COLLATE pg_catalog."default",
-    parent_id uuid,
-    external_ref character varying(50) COLLATE pg_catalog."default",
-    CONSTRAINT account_code_key UNIQUE (code),
+    id uuid primary key,                                                         -- @FT-AC-1.1.21, @FT-AC-1.1.22
+    code character varying(10) COLLATE pg_catalog."default" NOT NULL,            -- @FT-AC-1.1.1, @FT-AC-1.1.3
+    name character varying(100) COLLATE pg_catalog."default" NOT NULL,           -- @FT-AC-1.1.6, @FT-AC-1.1.8
+    account_type_id integer NOT NULL,                                            -- @FT-AC-1.1.23
+    is_active boolean NOT NULL DEFAULT true,                                     -- @FT-AC-1.1.24
+    created_at timestamp with time zone NOT NULL DEFAULT now(),                  -- @FT-AC-1.1.25
+    modified_at timestamp with time zone NOT NULL DEFAULT now(),                 -- @FT-AC-1.1.26
+    account_subtype character varying(25) COLLATE pg_catalog."default",          -- @FT-AC-1.1.19
+    parent_id uuid,                                                              -- @FT-AC-1.1.37
+    external_ref character varying(50) COLLATE pg_catalog."default",             -- @FT-AC-1.1.20, @FT-AC-1.1.41
+    CONSTRAINT account_code_key UNIQUE (code),                                   -- @FT-AC-1.1.4
     CONSTRAINT account_account_type_id_fkey FOREIGN KEY (account_type_id)
     REFERENCES sonofledger.account_type (id) MATCH SIMPLE
                          ON UPDATE NO ACTION
                          ON DELETE RESTRICT,
-    CONSTRAINT account_parent_id_fkey FOREIGN KEY (parent_id)
+    CONSTRAINT account_parent_id_fkey FOREIGN KEY (parent_id)                    -- @FT-AC-1.1.40
     REFERENCES sonofledger.account (id) MATCH SIMPLE
                          ON UPDATE NO ACTION
                          ON DELETE RESTRICT

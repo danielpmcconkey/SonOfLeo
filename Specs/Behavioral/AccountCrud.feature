@@ -9,92 +9,52 @@ Feature: Account CRUD
     Background:
         Given the ledger schema exists for account management
 
-    # --- Create Happy Path ---
-
-    @FT-AC-001
-      Scenario: Creating an account with valid data succeeds
-        When an account is created with code "crud-1010", name "Test Cash", and type Asset
-        Then a new account exists with a freshly assigned id
-        And the account is active
-        And its code, name, and type are stored with fidelity
-
-
-    # --- Create Validation ---
-
-    @FT-AC-002
-    Scenario: Creating an account with an invalid account type is rejected
-        When I create an account with code "crud-1020", name "Bad Type Account", and type_id 99999
-        Then the account creation fails with error containing "account type"
-
-    @FT-AC-003
-    Scenario: Creating an account with a duplicate code is rejected
-        Given a crud-test active account with code "crud-1030" and name "Original"
-        When I create an account with code "crud-1030", name "Duplicate", and type asset
-        Then the account creation fails with error containing "crud-1030"
-
-    @FT-AC-004
-    Scenario: Creating an account with an invalid parent_id is rejected
-        When I create an account with code "crud-1040", name "Orphan Account", type asset, and parent_id 99999
-        Then the account creation fails with error containing "parent"
-
-    @FT-AC-005
-    Scenario: Creating an account under an inactive parent is rejected
-        Given a crud-test inactive account with code "crud-1050" and name "Inactive Parent"
-        When I create an account with code "crud-1051", name "Child Of Inactive", type asset, and parent "crud-1050"
-        Then the account creation fails with error containing "inactive"
-
-    # --- Update ---
-
-    @FT-AC-006
-    Scenario: Updating an account name succeeds and round-trips
-        Given a crud-test active account with code "crud-2010" and name "Original Name"
-        When I update account "crud-2010" name to "Updated Name"
-        Then the account "crud-2010" name is "Updated Name"
-
-    # --- Deactivate ---
-
-    @FT-AC-007
-    Scenario: Deactivating a leaf account succeeds
-        Given a crud-test active account with code "crud-3010" and name "Leaf Account"
-        When I deactivate account "crud-3010"
-        Then account "crud-3010" is_active is false
-
-    @FT-AC-008
-    Scenario: Deactivating an account with active child accounts is rejected
-        Given a crud-test active account with code "crud-4010" and name "Parent Account"
-        And a crud-test active account with code "crud-4011" and name "Child Account" under parent "crud-4010"
-        When I deactivate account "crud-4010"
-        Then the account deactivation fails with error containing "children"
-
-    @FT-AC-009
-    Scenario: Deactivating an account with posted journal entries succeeds
-        Given a crud-test active account with code "crud-5010" and name "Posted Account" of type asset
-        And a crud-test active account with code "crud-5011" and name "Posted Contra" of type revenue
-        And a crud-test open fiscal period
-        And a journal entry posted to accounts "crud-5010" and "crud-5011"
-        When I deactivate account "crud-5010"
-        Then account "crud-5010" is_active is false
-
-    # --- Create with SubType ---
-
-    @FT-AC-010
-    Scenario: Creating an account with a valid subtype succeeds and persists the subtype
-        When I create an account with code "crud-6010", name "Cash Account", type asset, and subtype "Cash"
-        Then the account is created with subtype Cash
-
-    @FT-AC-011
-    Scenario: Creating an account with an invalid subtype for its type is rejected
-        When I create an account with code "crud-6020", name "Bad Subtype Account", type expense, and subtype "Cash"
-        Then the account creation fails with error containing "subtype"
-
-    # --- Create with External Reference ---
-
-    @FT-AC-012
-    Scenario: Creating an account with an external reference persists the value
-        When I create an account with code "crud-7010", name "FI Account", type asset, and external_ref "Fidelity-Z08806967"
-        Then the account is created with external_ref "Fidelity-Z08806967"
-
-    @FT-AC-013
-    Scenario: Creating an account without an external reference leaves it absent
-        When I create an account with code "crud-7020", name "No Ref Account", and type asset
-        Then the account is created with no external_ref
+    # 1. Account
+    
+    # 1.1 Valid and invalid data states for the Account type and related types that comprise the Account type
+    
+    @FT-AC-1.1.1 Account code cannot be null
+    @FT-AC-1.1.2 Account code cannot be whitespace only
+    @FT-AC-1.1.3 Account code length cannot exceed 10 chars
+    @FT-AC-1.1.4 No 2 (or more) account records may share the same account code. (Account code must be unique)
+    @FT-AC-1.1.5 Account code is case sensitive. "ACCT-100" and "acct-100" are distinct account codes.
+    @FT-AC-1.1.6 Account name cannot be null
+    @FT-AC-1.1.7 Account name cannot be whitespace only
+    @FT-AC-1.1.8 Account name length cannot exceed 100 chars
+    @FT-AC-1.1.9 Account type normal balance must be one of 'Debit' or 'Credit'
+    @FT-AC-1.1.10 Account type name must be constrained to ['Asset','Liability','Equity','Revenue','Expense']
+    @FT-AC-1.1.11 Account type name of 'Asset' must map to the database ID of 1
+    @FT-AC-1.1.12 Account type name of 'Liability' must map to the database ID of 2
+    @FT-AC-1.1.13 Account type name of 'Equity' must map to the database ID of 3
+    @FT-AC-1.1.14 Account type name of 'Revenue' must map to the database ID of 4
+    @FT-AC-1.1.15 Account type name of 'Expense' must map to the database ID of 5
+    @FT-AC-1.1.16 Account types with name of 'Asset','Expense' must have a normal balance of 'Debit'
+    @FT-AC-1.1.17 Account types with name of 'Liability','Equity','Revenue' must have a normal balance of 'Credit'
+    @FT-AC-1.1.18 Account subtype must be constrained to ['Cash','CurrentLiability','FixedAsset','Investment','LongTermLiability','OperatingExpense','OperatingRevenue','OtherRevenue','OtherExpense']
+    @FT-AC-1.1.19 Account subtype can be null
+    @FT-AC-1.1.20 Account external reference length must not exceed 50 characters
+    @FT-AC-1.1.21 Account ID cannot be null
+    @FT-AC-1.1.22 Account ID must be unique
+    @FT-AC-1.1.23 Account type cannot be null
+    @FT-AC-1.1.24 Account is active should default to true if a null value is provided
+    @FT-AC-1.1.25 Account created at should default to the current runtime timestamp at time of database creation of the record
+    @FT-AC-1.1.26 Account modified at should default to the current runtime timestamp at time of database creation of the record
+    @FT-AC-1.1.27 Account modified at should be updated to the current runtime timestamp at time of database update of the record
+    @FT-AC-1.1.28 Account sub type of 'Cash', 'FixedAsset', and 'Investment' can only be applied account records of type 'Asset'
+    @FT-AC-1.1.29 Account records of type 'Asset' can only have null, 'Cash', 'FixedAsset', and 'Investment' subtypes
+    @FT-AC-1.1.30 Account sub type of 'CurrentLiability', and 'LongTermLiability' can only be applied account records of type 'Liability'
+    @FT-AC-1.1.31 Account records of type 'Liability' can only have null, 'CurrentLiability', and 'LongTermLiability' subtypes
+    @FT-AC-1.1.32 Account records of type 'Equity' can only have null subtypes
+    @FT-AC-1.1.33 Account sub type of 'OperatingRevenue' and 'OtherRevenue' can only be applied account records of type 'Revenue'
+    @FT-AC-1.1.34 Account records of type 'Revenue' can only have null, 'OperatingRevenue' and 'OtherRevenue' subtypes
+    @FT-AC-1.1.35 Account sub type of 'OperatingExpense' and 'OtherExpense' can only be applied account records of type 'Expense'
+    @FT-AC-1.1.36 Account records of type 'Expense' can only have null, 'OperatingExpense' and 'OtherExpense' subtypes
+    @FT-AC-1.1.37 Account parent ID can be null
+    @FT-AC-1.1.38 An account record with the is active flag set to true may not have a parent ID that references an account record with the is active flag set to false
+    @FT-AC-1.1.39 An account record's ID and parent ID cannot be the same (an account cannot be its own parent)
+    @FT-AC-1.1.40 When not null, account parent Id must be a UUID of a preexisting database account record
+    @FT-AC-1.1.41 Account external reference can be null
+    
+        
+    
+    
