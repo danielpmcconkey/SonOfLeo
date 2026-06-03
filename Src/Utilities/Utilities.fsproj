@@ -6,11 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Ledger.fs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Utilities\Utilities.fsproj" />
+    <Compile Include="ResultCE.fs" />
   </ItemGroup>
 
 </Project>

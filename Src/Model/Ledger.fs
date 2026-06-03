@@ -1,5 +1,8 @@
 ﻿namespace Model
 
+open System
+open Utilities.ResultCE
+
 module Ledger =
     
     type AccountCode = private AccountCode of string
@@ -50,7 +53,15 @@ module Ledger =
             | 3 -> Ok Equity
             | 4 -> Ok Revenue
             | 5 -> Ok Expense
-            | _ -> Error (sprintf "Invalid AccountTypeId: '%d'" id)            
+            | _ -> Error $"Invalid AccountTypeId: '%d{id}'"
+        let fromString (accountType: string) : Result<AccountType, string> = // @FT-AC-1.1.10 (parse boundary)
+            match accountType with
+            | "Asset" -> Ok Asset
+            | "Liability" -> Ok Liability
+            | "Equity" -> Ok Equity
+            | "Revenue" -> Ok Revenue
+            | "Expense" -> Ok Expense
+            | _ -> Error $"Invalid AccountTypeString: '%s{accountType}'"   
         let normalBalance (t: AccountType) : AccountTypeNormalBalance =
             match t with
             | Asset | Expense -> Debit                  // @FT-AC-1.1.16
@@ -68,7 +79,7 @@ module Ledger =
         | OtherExpense
     
     module AccountSubtype =
-        let toDbString (st: AccountSubtype) : string =
+        let toString (st: AccountSubtype) : string =
             match st with
             | Cash -> "Cash"
             | CurrentLiability -> "CurrentLiability"
@@ -79,7 +90,7 @@ module Ledger =
             | OperatingExpense -> "OperatingExpense"
             | OtherRevenue -> "OtherRevenue"
             | OtherExpense -> "OtherExpense"
-        let fromDbString (s: string) : Result<AccountSubtype, string> = // @FT-AC-1.1.18 (parse boundary)
+        let fromString (s: string) : Result<AccountSubtype, string> = // @FT-AC-1.1.18 (parse boundary)
             match s with
             | "Cash" -> Ok Cash
             | "CurrentLiability" -> Ok CurrentLiability
@@ -91,12 +102,26 @@ module Ledger =
             | "OtherRevenue" -> Ok OtherRevenue
             | "OtherExpense" -> Ok OtherExpense
             | _ -> Error $"Invalid account_subtype: '%s{s}'"
-        let validFor (st: AccountSubtype) : AccountType =
+        let validFor (st: AccountSubtype) : AccountType = // confirms that subtype A, B, C can only be associated to type Y
             match st with
             | Cash | FixedAsset | Investment -> Asset  // @FT-AC-1.1.28 
             | CurrentLiability | LongTermLiability -> Liability // @FT-AC-1.1.30 
             | OperatingRevenue | OtherRevenue -> Revenue // @FT-AC-1.1.33
             | OperatingExpense | OtherExpense -> Expense // @FT-AC-1.1.35
+        
+        let validWith (t: AccountType) : AccountSubtype list = // confirms that type Y can only accept subtype A, B, C  
+            match t with
+            | Asset -> [Cash; FixedAsset; Investment] // @FT-AC-1.1.29 
+            | Liability -> [CurrentLiability; LongTermLiability] // @FT-AC-1.1.31
+            | Equity -> [] // @FT-AC-1.1.32 Account records of type 'Equity' can only have null subtypes
+            | Revenue -> [OperatingRevenue; OtherRevenue] // @FT-AC-1.1.34
+            | Expense -> [OperatingExpense; OtherExpense] // @FT-AC-1.1.36
+            
+        let validTypeSubtypeCombination (t: AccountType, st: AccountSubtype option) : bool =
+            match st with
+            | None -> true
+            | Some x -> validWith t |> List.contains x
+        
             
     type AccountExternalReference = private AccountExternalReference of string
     
@@ -107,15 +132,70 @@ module Ledger =
             else
                 Ok (AccountExternalReference raw)
     type Account =
-      { id: System.Guid                                    // @FT-AC-1.1.21, @FT-AC-1.1.22
-        code: AccountCode                                  // @FT-AC-1.1.1–1.1.5
-        name: AccountName                                  // @FT-AC-1.1.6–1.1.8
-        accountType: AccountType                           // @FT-AC-1.1.10, @FT-AC-1.1.23
-        isActive: bool                                     // @FT-AC-1.1.24
-        createdAt: System.DateTimeOffset                   // @FT-AC-1.1.25
-        modifiedAt: System.DateTimeOffset                  // @FT-AC-1.1.26, @FT-AC-1.1.27
-        accountSubType: AccountSubtype option              // @FT-AC-1.1.19, @FT-AC-1.1.28–1.1.36
-        parentId: System.Guid option                       // @FT-AC-1.1.37–1.1.40
-        externalReference: AccountExternalReference option // @FT-AC-1.1.20, @FT-AC-1.1.41
-        }                                                  
+      private  {    id: Guid                                           // @FT-AC-1.1.21, @FT-AC-1.1.22
+                    code: AccountCode                                  // @FT-AC-1.1.1–1.1.5
+                    name: AccountName                                  // @FT-AC-1.1.6–1.1.8
+                    accountType: AccountType                           // @FT-AC-1.1.10, @FT-AC-1.1.23
+                    isActive: bool                                     // @FT-AC-1.1.24
+                    createdAt: DateTimeOffset                          // @FT-AC-1.1.25
+                    modifiedAt: DateTimeOffset                         // @FT-AC-1.1.26, @FT-AC-1.1.27
+                    accountSubType: AccountSubtype option              // @FT-AC-1.1.19, @FT-AC-1.1.28–1.1.36
+                    parentId: Guid option                              // @FT-AC-1.1.37–1.1.40
+                    externalReference: AccountExternalReference option // @FT-AC-1.1.20, @FT-AC-1.1.41
+        }
+    
+    module Account =
+        let create
+                (code: AccountCode)
+                (name: AccountName)
+                (accountType: AccountType)
+                (isActive: bool option)
+                (subType: AccountSubtype option)
+                (parentId: Guid option)
+                (reference: AccountExternalReference option)
+                : Result<Account, string> =
+            if AccountSubtype.validTypeSubtypeCombination(accountType, subType) then Ok {
+                id = Guid.NewGuid() // @FT-AC-1.1.39
+                code = code
+                name = name
+                accountType = accountType
+                isActive = match isActive with | None -> true | Some ia -> ia // @FT-AC-1.1.24
+                createdAt = DateTimeOffset.UtcNow // @FT-AC-1.1.25
+                modifiedAt = DateTimeOffset.UtcNow // @FT-AC-1.1.26
+                accountSubType = subType
+                parentId = parentId // todo: check that parent isActive matches child isActive // @FT-AC-1.1.38
+                externalReference = reference
+            } else
+                Error ($"Invalid AccountType / AccountSubType combo: {accountType} / {subType}")
         
+        let createFromPrimitives
+                (code: string)
+                (name: string)
+                (accountType: string)
+                (isActive: bool option)
+                (subType: string option)
+                (parentId: Guid option)
+                (reference: string option)
+                : Result<Account, string> =            
+            let codeResult = AccountCode.create(code)
+            let nameResult = AccountName.create(name)
+            let typeResult = AccountType.fromString(accountType)
+            let subTypeResult = 
+                match subType with
+                | Some st -> AccountSubtype.fromString(st) |> Result.map Some
+                | None -> Ok None
+            let referenceResult =
+                match reference with
+                | Some r -> AccountExternalReference.create(r) |> Result.map Some
+                | None -> Ok None
+            
+            result {
+                let! validCode = codeResult
+                let! validName = nameResult
+                let! validType = typeResult
+                let! validSubType = subTypeResult
+                let! validRef = referenceResult
+                return! create validCode validName validType isActive validSubType parentId validRef
+            }
+            
+            

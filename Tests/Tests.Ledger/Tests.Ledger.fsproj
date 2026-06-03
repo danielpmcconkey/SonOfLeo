@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\SonOfLeoCli\SonOfLeoCli.fsproj" />
+    <ProjectReference Include="..\..\Src\SonOfLeoCli\SonOfLeoCli.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
