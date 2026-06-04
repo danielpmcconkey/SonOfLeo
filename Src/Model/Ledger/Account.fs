@@ -1,18 +1,18 @@
-﻿namespace Model
+namespace Model.Ledger
 
 open System
 open Utilities.ResultCE
 
-module Ledger =
+module Account =
     
     type AccountCode = private AccountCode of string
     
     module AccountCode =
         let create (raw: string) : Result<AccountCode, string> =
             if System.String.IsNullOrWhiteSpace raw then
-                Error "Account code cannot be empty"  // @FT-AC-1.1.1, @FT-AC-1.1.2
+                Error "Account code cannot be empty"  // @FT-AC-1.1, @FT-AC-1.2
             elif raw.Length > 10 then
-                Error "Account code cannot exceed 10 characters" // @FT-AC-1.1.3
+                Error "Account code cannot exceed 10 characters" // @FT-AC-1.3
             else
                 Ok (AccountCode raw)
 
@@ -21,17 +21,17 @@ module Ledger =
     module AccountName =
         let create (raw: string) : Result<AccountName, string> =
             if System.String.IsNullOrWhiteSpace raw then
-                Error "Account name cannot be empty"  // @FT-AC-1.1.6, @FT-AC-1.1.7
+                Error "Account name cannot be empty"  // @FT-AC-1.6, @FT-AC-1.7
             elif raw.Length > 100 then
-                Error "Account name cannot exceed 100 characters"  // @FT-AC-1.1.8
+                Error "Account name cannot exceed 100 characters"  // @FT-AC-1.8
             else
                 Ok (AccountName raw)
     
-    type AccountTypeNormalBalance =  // @FT-AC-1.1.9
+    type AccountTypeNormalBalance =  // @FT-AC-1.9
         | Debit
         | Credit
         
-    type AccountType =  // @FT-AC-1.1.10
+    type AccountType =  // @FT-AC-1.10
         | Asset
         | Liability
         | Equity
@@ -41,12 +41,12 @@ module Ledger =
     module AccountType =
         let toDbId(id: AccountType) : int =
             match id with
-            | Asset -> 1      // @FT-AC-1.1.11
-            | Liability -> 2  // @FT-AC-1.1.12
-            | Equity -> 3     // @FT-AC-1.1.13
-            | Revenue -> 4    // @FT-AC-1.1.14
-            | Expense -> 5    // @FT-AC-1.1.15
-        let fromDbId (id: int) : Result<AccountType, string> = // @FT-AC-1.1.10 (parse boundary)
+            | Asset -> 1      // @FT-AC-1.11
+            | Liability -> 2  // @FT-AC-1.12
+            | Equity -> 3     // @FT-AC-1.13
+            | Revenue -> 4    // @FT-AC-1.14
+            | Expense -> 5    // @FT-AC-1.15
+        let fromDbId (id: int) : Result<AccountType, string> = // @FT-AC-1.10 (parse boundary)
             match id with
             | 1 -> Ok Asset
             | 2 -> Ok Liability
@@ -54,7 +54,7 @@ module Ledger =
             | 4 -> Ok Revenue
             | 5 -> Ok Expense
             | _ -> Error $"Invalid AccountTypeId: '%d{id}'"
-        let fromString (accountType: string) : Result<AccountType, string> = // @FT-AC-1.1.10 (parse boundary)
+        let fromString (accountType: string) : Result<AccountType, string> = // @FT-AC-1.10 (parse boundary)
             match accountType with
             | "Asset" -> Ok Asset
             | "Liability" -> Ok Liability
@@ -64,10 +64,10 @@ module Ledger =
             | _ -> Error $"Invalid AccountTypeString: '%s{accountType}'"   
         let normalBalance (t: AccountType) : AccountTypeNormalBalance =
             match t with
-            | Asset | Expense -> Debit                  // @FT-AC-1.1.16
-            | Liability | Equity | Revenue -> Credit  // @FT-AC-1.1.17
+            | Asset | Expense -> Debit                  // @FT-AC-1.16
+            | Liability | Equity | Revenue -> Credit  // @FT-AC-1.17
     
-    type AccountSubtype =  // @FT-AC-1.1.18
+    type AccountSubtype =  // @FT-AC-1.18
         | Cash
         | CurrentLiability
         | FixedAsset
@@ -90,7 +90,7 @@ module Ledger =
             | OperatingExpense -> "OperatingExpense"
             | OtherRevenue -> "OtherRevenue"
             | OtherExpense -> "OtherExpense"
-        let fromString (s: string) : Result<AccountSubtype, string> = // @FT-AC-1.1.18 (parse boundary)
+        let fromString (s: string) : Result<AccountSubtype, string> = // @FT-AC-1.18 (parse boundary)
             match s with
             | "Cash" -> Ok Cash
             | "CurrentLiability" -> Ok CurrentLiability
@@ -104,18 +104,18 @@ module Ledger =
             | _ -> Error $"Invalid account_subtype: '%s{s}'"
         let validFor (st: AccountSubtype) : AccountType = // confirms that subtype A, B, C can only be associated to type Y
             match st with
-            | Cash | FixedAsset | Investment -> Asset  // @FT-AC-1.1.28 
-            | CurrentLiability | LongTermLiability -> Liability // @FT-AC-1.1.30 
-            | OperatingRevenue | OtherRevenue -> Revenue // @FT-AC-1.1.33
-            | OperatingExpense | OtherExpense -> Expense // @FT-AC-1.1.35
+            | Cash | FixedAsset | Investment -> Asset  // @FT-AC-1.28
+            | CurrentLiability | LongTermLiability -> Liability // @FT-AC-1.30
+            | OperatingRevenue | OtherRevenue -> Revenue // @FT-AC-1.33
+            | OperatingExpense | OtherExpense -> Expense // @FT-AC-1.35
         
         let validWith (t: AccountType) : AccountSubtype list = // confirms that type Y can only accept subtype A, B, C  
             match t with
-            | Asset -> [Cash; FixedAsset; Investment] // @FT-AC-1.1.29 
-            | Liability -> [CurrentLiability; LongTermLiability] // @FT-AC-1.1.31
-            | Equity -> [] // @FT-AC-1.1.32 Account records of type 'Equity' can only have null subtypes
-            | Revenue -> [OperatingRevenue; OtherRevenue] // @FT-AC-1.1.34
-            | Expense -> [OperatingExpense; OtherExpense] // @FT-AC-1.1.36
+            | Asset -> [Cash; FixedAsset; Investment] // @FT-AC-1.29
+            | Liability -> [CurrentLiability; LongTermLiability] // @FT-AC-1.31
+            | Equity -> [] // @FT-AC-1.32 Account records of type 'Equity' can only have null subtypes
+            | Revenue -> [OperatingRevenue; OtherRevenue] // @FT-AC-1.34
+            | Expense -> [OperatingExpense; OtherExpense] // @FT-AC-1.36
             
         let validTypeSubtypeCombination (t: AccountType, st: AccountSubtype option) : bool =
             match st with
@@ -128,20 +128,20 @@ module Ledger =
     module AccountExternalReference =
         let create (raw: string) : Result<AccountExternalReference, string> =
             if raw.Length > 50 then
-                Error "Account external reference cannot exceed 50 characters"  // @FT-AC-1.1.20
+                Error "Account external reference cannot exceed 50 characters"  // @FT-AC-1.20
             else
                 Ok (AccountExternalReference raw)
     type Account =
-      private  {    id: Guid                                           // @FT-AC-1.1.21, @FT-AC-1.1.22
-                    code: AccountCode                                  // @FT-AC-1.1.1–1.1.5
-                    name: AccountName                                  // @FT-AC-1.1.6–1.1.8
-                    accountType: AccountType                           // @FT-AC-1.1.10, @FT-AC-1.1.23
-                    isActive: bool                                     // @FT-AC-1.1.24
-                    createdAt: DateTimeOffset                          // @FT-AC-1.1.25
-                    modifiedAt: DateTimeOffset                         // @FT-AC-1.1.26, @FT-AC-1.1.27
-                    accountSubType: AccountSubtype option              // @FT-AC-1.1.19, @FT-AC-1.1.28–1.1.36
-                    parentId: Guid option                              // @FT-AC-1.1.37–1.1.40
-                    externalReference: AccountExternalReference option // @FT-AC-1.1.20, @FT-AC-1.1.41
+      private  {    id: Guid                                           // @FT-AC-1.21, @FT-AC-1.22
+                    code: AccountCode                                  // @FT-AC-1.1–1.5
+                    name: AccountName                                  // @FT-AC-1.6–1.8
+                    accountType: AccountType                           // @FT-AC-1.10, @FT-AC-1.23
+                    isActive: bool                                     // @FT-AC-1.24
+                    createdAt: DateTimeOffset                          // @FT-AC-1.25
+                    modifiedAt: DateTimeOffset                         // @FT-AC-1.26, @FT-AC-1.27
+                    accountSubType: AccountSubtype option              // @FT-AC-1.19, @FT-AC-1.28–1.36
+                    parentId: Guid option                              // @FT-AC-1.37–1.40
+                    externalReference: AccountExternalReference option // @FT-AC-1.20, @FT-AC-1.41
         }
     
     module Account =
@@ -155,15 +155,15 @@ module Ledger =
                 (reference: AccountExternalReference option)
                 : Result<Account, string> =
             if AccountSubtype.validTypeSubtypeCombination(accountType, subType) then Ok {
-                id = Guid.NewGuid() // @FT-AC-1.1.39
+                id = Guid.NewGuid() // @FT-AC-1.39
                 code = code
                 name = name
                 accountType = accountType
-                isActive = match isActive with | None -> true | Some ia -> ia // @FT-AC-1.1.24
-                createdAt = DateTimeOffset.UtcNow // @FT-AC-1.1.25
-                modifiedAt = DateTimeOffset.UtcNow // @FT-AC-1.1.26
+                isActive = match isActive with | None -> true | Some ia -> ia // @FT-AC-1.24
+                createdAt = DateTimeOffset.UtcNow // @FT-AC-1.25
+                modifiedAt = DateTimeOffset.UtcNow // @FT-AC-1.26
                 accountSubType = subType
-                parentId = parentId // todo: check that parent isActive matches child isActive // @FT-AC-1.1.38
+                parentId = parentId // todo: check that parent isActive matches child isActive // @FT-AC-1.38
                 externalReference = reference
             } else
                 Error ($"Invalid AccountType / AccountSubType combo: {accountType} / {subType}")

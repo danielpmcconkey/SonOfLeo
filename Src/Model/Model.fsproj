@@ -6,7 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Ledger.fs" />
+    <Compile Include="Ledger\Account.fs" />
+    <Folder Include="Ops\" />
+    <Folder Include="Portfolio\" />
+    <Folder Include="Reporting\" />
   </ItemGroup>
 
   <ItemGroup>
