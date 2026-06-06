@@ -6,9 +6,6 @@ Feature: Account CRUD
     inputs with meaningful error messages before any DB round-trip where
     possible.
 
-    Background:
-        Given the ledger schema exists for account management
-
     # 1. Valid and invalid data states for the Account type and related types that comprise the Account type
     
     @FT-AC-1.1 Account code cannot be null

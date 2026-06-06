@@ -2,14 +2,16 @@ namespace Model.Ledger
 
 open System
 open Utilities.ResultCE
+open Utilities.DAL
 
 module Account =
     
     type AccountCode = private AccountCode of string
     
     module AccountCode =
+        let value (AccountCode ac) = ac // required because AccountCode is a private string
         let create (raw: string) : Result<AccountCode, string> =
-            if System.String.IsNullOrWhiteSpace raw then
+            if String.IsNullOrWhiteSpace raw then
                 Error "Account code cannot be empty"  // @FT-AC-1.1, @FT-AC-1.2
             elif raw.Length > 10 then
                 Error "Account code cannot exceed 10 characters" // @FT-AC-1.3
@@ -19,8 +21,9 @@ module Account =
     type AccountName = private AccountName of string
     
     module AccountName =
+        let value (AccountName an) = an // required because AccountName is a private string
         let create (raw: string) : Result<AccountName, string> =
-            if System.String.IsNullOrWhiteSpace raw then
+            if String.IsNullOrWhiteSpace raw then
                 Error "Account name cannot be empty"  // @FT-AC-1.6, @FT-AC-1.7
             elif raw.Length > 100 then
                 Error "Account name cannot exceed 100 characters"  // @FT-AC-1.8
@@ -66,7 +69,7 @@ module Account =
             match t with
             | Asset | Expense -> Debit                  // @FT-AC-1.16
             | Liability | Equity | Revenue -> Credit  // @FT-AC-1.17
-    
+  
     type AccountSubtype =  // @FT-AC-1.18
         | Cash
         | CurrentLiability
@@ -126,6 +129,7 @@ module Account =
     type AccountExternalReference = private AccountExternalReference of string
     
     module AccountExternalReference =
+        let value (AccountExternalReference er) = er // required due to private value 
         let create (raw: string) : Result<AccountExternalReference, string> =
             if raw.Length > 50 then
                 Error "Account external reference cannot exceed 50 characters"  // @FT-AC-1.20
@@ -145,6 +149,18 @@ module Account =
         }
     
     module Account =
+        
+        // accessor functions
+        let id (a:Account) = a.id
+        let code (a:Account) = a.code
+        let accountType (a:Account) = a.accountType
+        let isActive (a:Account) = a.isActive
+        let accountSubType (a:Account) = a.accountSubType
+        let parentId (a:Account) = a.parentId
+        let externalReference (a:Account) = a.externalReference
+        
+        // creation functions
+        
         let create
                 (code: AccountCode)
                 (name: AccountName)
@@ -166,7 +182,7 @@ module Account =
                 parentId = parentId // todo: check that parent isActive matches child isActive // @FT-AC-1.38
                 externalReference = reference
             } else
-                Error ($"Invalid AccountType / AccountSubType combo: {accountType} / {subType}")
+                Error $"Invalid AccountType / AccountSubType combo: {accountType} / {subType}"
         
         let createFromPrimitives
                 (code: string)
@@ -197,5 +213,80 @@ module Account =
                 let! validRef = referenceResult
                 return! create validCode validName validType isActive validSubType parentId validRef
             }
+        let insertNewToDb (account:Account): Result<unit, string> =            
+            let query = """
+                insert into ledger.account(
+	                id, 
+                    code, 
+                    name, 
+                    account_type_id, 
+                    is_active, 
+                    created_at, 
+                    modified_at, 
+                    account_subtype, 
+                    parent_id, 
+                    external_ref)
+                values (
+	                @id, 
+                    @code, 
+                    @name, 
+                    @account_type_id, 
+                    @is_active, 
+                    @created_at, 
+                    @modified_at, 
+                    @account_subtype, 
+                    @parent_id, 
+                    @external_ref);"""
+            let subTypeString:string option = account.accountSubType |> Option.map AccountSubtype.toString
+            let externalReferenceString:string option = Option.map AccountExternalReference.value account.externalReference
+            let parameters = [
+                { name = "@id"; value = UniqueId account.id };
+                { name = "@code"; value = CharString (AccountCode.value account.code) };
+                { name = "@name"; value = CharString (AccountName.value account.name) };
+                { name = "@account_type_id"; value = Integer (AccountType.toDbId account.accountType) };
+                { name = "@is_active"; value = Boolean account.isActive };
+                { name = "@created_at"; value = DateTimeWithOffset account.createdAt };
+                { name = "@modified_at"; value = DateTimeWithOffset account.modifiedAt };
+                { name = "@account_subtype"; value = NullableCharString subTypeString };
+                { name = "@parent_id"; value = NullableUniqueId account.parentId };
+                { name = "@external_ref"; value = NullableCharString externalReferenceString }
+            ]
+            executeNonQuery query parameters
+            |> Result.bind (fun numRows ->
+                match numRows with
+                | n when n > 0 -> Ok()
+                | _ -> Error "No rows affected"
+            )
+                
+        let createAndSaveToDb 
+                (code: AccountCode)
+                (name: AccountName)
+                (accountType: AccountType)
+                (isActive: bool option)
+                (subType: AccountSubtype option)
+                (parentId: Guid option)
+                (reference: AccountExternalReference option)
+                : Result<Account, string> =
+                    
+            create code name accountType isActive subType parentId reference 
+            |> Result.bind( fun account ->
+                insertNewToDb(account)
+                |> Result.map (fun () -> account)
+            )
             
-            
+        let createFromPrimitivesAndSaveToDb 
+                (code: string)
+                (name: string)
+                (accountType: string)
+                (isActive: bool option)
+                (subType: string option)
+                (parentId: Guid option)
+                (reference: string option)
+                : Result<Account, string> =
+                    
+            createFromPrimitives code name accountType isActive subType parentId reference 
+            |> Result.bind( fun account ->
+                insertNewToDb(account)
+                |> Result.map (fun () -> account)
+            )
+        

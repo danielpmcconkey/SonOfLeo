@@ -7,6 +7,13 @@
 
   <ItemGroup>
     <Compile Include="Program.fs" />
+    <Content Include="appsettings.Development.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Model\Model.fsproj" />
   </ItemGroup>
 
 </Project>

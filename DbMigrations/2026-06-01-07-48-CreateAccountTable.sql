@@ -1,10 +1,10 @@
 /*
- executed manually in dev 6/1 07:50 
+ executed manually in dev 6/4 07:50 
  */
  
-create schema sonofledger authorization claude;
+create schema ledger authorization claude;
 
-CREATE TABLE IF NOT EXISTS sonofledger.account_type
+CREATE TABLE IF NOT EXISTS ledger.account_type
 (
     id integer primary key,                                                      -- @FT-AC-1.11–1.15
     name character varying(20) COLLATE pg_catalog."default" NOT NULL,            -- @FT-AC-1.10
@@ -12,16 +12,16 @@ CREATE TABLE IF NOT EXISTS sonofledger.account_type
     CONSTRAINT account_type_name_key UNIQUE (name)
     );
 
-ALTER TABLE IF EXISTS sonofledger.account_type
+ALTER TABLE IF EXISTS ledger.account_type
     OWNER to claude;
 
-INSERT INTO sonofledger.account_type(id, name, normal_balance) VALUES (1,'asset','debit');      -- @FT-AC-1.11, @FT-AC-1.16
-INSERT INTO sonofledger.account_type(id, name, normal_balance) VALUES (2,'liability','credit'); -- @FT-AC-1.12, @FT-AC-1.17
-INSERT INTO sonofledger.account_type(id, name, normal_balance) VALUES (3,'equity','credit');    -- @FT-AC-1.13, @FT-AC-1.17
-INSERT INTO sonofledger.account_type(id, name, normal_balance) VALUES (4,'revenue','credit');   -- @FT-AC-1.14, @FT-AC-1.17
-INSERT INTO sonofledger.account_type(id, name, normal_balance) VALUES (5,'expense','debit');    -- @FT-AC-1.15, @FT-AC-1.16
+INSERT INTO ledger.account_type(id, name, normal_balance) VALUES (1,'asset','debit');      -- @FT-AC-1.11, @FT-AC-1.16
+INSERT INTO ledger.account_type(id, name, normal_balance) VALUES (2,'liability','credit'); -- @FT-AC-1.12, @FT-AC-1.17
+INSERT INTO ledger.account_type(id, name, normal_balance) VALUES (3,'equity','credit');    -- @FT-AC-1.13, @FT-AC-1.17
+INSERT INTO ledger.account_type(id, name, normal_balance) VALUES (4,'revenue','credit');   -- @FT-AC-1.14, @FT-AC-1.17
+INSERT INTO ledger.account_type(id, name, normal_balance) VALUES (5,'expense','debit');    -- @FT-AC-1.15, @FT-AC-1.16
 
-CREATE TABLE IF NOT EXISTS sonofledger.account
+CREATE TABLE IF NOT EXISTS ledger.account
 (
     id uuid primary key,                                                         -- @FT-AC-1.21, @FT-AC-1.22
     code character varying(10) COLLATE pg_catalog."default" NOT NULL,            -- @FT-AC-1.1, @FT-AC-1.3
@@ -35,14 +35,14 @@ CREATE TABLE IF NOT EXISTS sonofledger.account
     external_ref character varying(50) COLLATE pg_catalog."default",             -- @FT-AC-1.20, @FT-AC-1.41
     CONSTRAINT account_code_key UNIQUE (code),                                   -- @FT-AC-1.4
     CONSTRAINT account_account_type_id_fkey FOREIGN KEY (account_type_id)
-    REFERENCES sonofledger.account_type (id) MATCH SIMPLE
+    REFERENCES ledger.account_type (id) MATCH SIMPLE
                          ON UPDATE NO ACTION
                          ON DELETE RESTRICT,
     CONSTRAINT account_parent_id_fkey FOREIGN KEY (parent_id)                    -- @FT-AC-1.40
-    REFERENCES sonofledger.account (id) MATCH SIMPLE
+    REFERENCES ledger.account (id) MATCH SIMPLE
                          ON UPDATE NO ACTION
                          ON DELETE RESTRICT
     );
 
-ALTER TABLE IF EXISTS sonofledger.account
+ALTER TABLE IF EXISTS ledger.account
     OWNER to claude;
