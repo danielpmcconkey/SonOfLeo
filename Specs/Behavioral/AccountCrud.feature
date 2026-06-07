@@ -45,7 +45,7 @@ Feature: Account CRUD
     @FT-AC-1.35 Account sub type of 'OperatingExpense' and 'OtherExpense' can only be applied account records of type 'Expense'
     @FT-AC-1.36 Account records of type 'Expense' can only have null, 'OperatingExpense' and 'OtherExpense' subtypes
     @FT-AC-1.37 Account parent ID can be null
-    @FT-AC-1.38 An account record with the is active flag set to true may not have a parent ID that references an account record with the is active flag set to false
+    [strikethrough deemed too computationally expensive to do at every Account construction event. Deferred to database create and update events] @FT-AC-1.38 An account record with the is active flag set to true may not have a parent ID that references an account record with the is active flag set to false[/strikethrough]
     @FT-AC-1.39 An account record's ID and parent ID cannot be the same (an account cannot be its own parent)
     @FT-AC-1.40 When not null, account parent Id must be a UUID of a preexisting database account record
     @FT-AC-1.41 Account external reference can be null
@@ -58,7 +58,7 @@ Feature: Account CRUD
     @FT-AC-2.4 When creating an Account record via primitive types, the passed in (and trimmed) string for account type must match one of the enumerated account types exactly or the creation must fail.
     @FT-AC-2.5 When creating an Account record, if the provided "is active" value is null, the newly created Account record will be active.
     @FT-AC-2.6 When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the ID maps to an existing Account in the database.
-    @FT-AC-2.7 When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the parent account's "is active" flag matches the new account record's "is active" state (with a passed null value on the child defaults to active)
+    @FT-AC-2.7 When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the parent account is active. Note: edited 2026-06-07 10:22 EDT
     @FT-AC-2.8 When creating an Account record, the system must reject any duplicated ID
     @FT-AC-2.9 When creating an Account record, the system must reject any duplicated account code
     @FT-AC-2.10 When creating an Account record via primitive types, the passed in (and trimmed) string for account sub-type must match one of the enumerated account sub-types exactly or the creation must fail.

@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Ledger\AccountComponent.fs" />
     <Compile Include="Ledger\Account.fs" />
     <Folder Include="Ops\" />
     <Folder Include="Portfolio\" />

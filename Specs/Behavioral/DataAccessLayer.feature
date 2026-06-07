@@ -20,5 +20,16 @@ Feature: Data Access Layer (DAL)
     # 2. Query execution
     
     @FT-DAL-2.1 All data inserted into the database must be parameterized in accordance with industry standard best practice to prevent SQL injection    
-    @FT-DAL-2.2 All insert, update, and delete queries must verify against expected rows affected 
+    @FT-DAL-2.2 All non-scalar queries (set-based read, insert, update, and delete) must verify against expected rows affected 
     @FT-DAL-2.3 All values originating from user input must be parameterized to prevent SQL injection
+    @FT-DAL-2.4 
+    
+    # 3. Database and data access architecture
+    
+    @FT-DAL-3.1 The DAL must be written to interface with a PostgreSQL 17.9 database
+    @FT-DAL-3.2 The DAL modules must build abstraction layers such that callers of DAL modules need not require any reference to PostgreSQL (preserving the ability to shift RDBMS architecture without upending the entire application).
+        3.2.1 An exception to @FT-DAL-3.2 is that client modules can pass non-Ansi-generic SQL strings to the DAL if needed.
+        3.2.2 An exception to @FT-DAL-3.2 is that customer-facing applications (e.g.: SonOfLeoCli) will need to create RDBMS-specific connection strings in their external configurations.
+    @FT-DAL-3.3 There must be a distinct production database where testing and development activities are not permitted 
+    
+    

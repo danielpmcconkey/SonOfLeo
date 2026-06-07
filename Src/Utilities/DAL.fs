@@ -2,14 +2,14 @@ namespace Utilities
 
 open System
 open System.Data
-open Npgsql
+open Npgsql // @FT-DAL-3.1
 open Microsoft.Extensions.Configuration
-open NpgsqlTypes
+open NpgsqlTypes // @FT-DAL-3.1
 open Utilities.ResultCE
 
 module DAL =
     
-    type QueryParameterValue = 
+    type QueryParameterValue = // @FT-DAL-3.2
         | Integer of int
         | Numeric of decimal
         | CharString of string
@@ -23,15 +23,15 @@ module DAL =
         | NullableUniqueId of Guid option
         | NullableBoolean of bool option
     
-    type QueryParameter = {
+    type QueryParameter = { // @FT-DAL-3.2
         name: string
         value: QueryParameterValue }
     
-    type AcceptableExpectedRows =
+    type AcceptableExpectedRows = // @FT-DAL-2.2
         | Zero
         | ExactlyOne
         | OneOrMany
-        | NoValidationNeeded
+        | AnyQuantityIsAcceptable
     
     let private getEnvironment(): Result<string, string> =
         let envVarOption = 
@@ -44,7 +44,7 @@ module DAL =
                 Error("Environment var LEOBLOOM_ENV cannot be empty") else // @FT-DAL-1.13
 #if DEBUG
 (*
- * IMPORTANT!
+ * IMPORTANT! @FT-DAL-3.3
  * note this is a fail guard. Dan does all his development work in the
  * host machine which, from a database perspective, is production and
  * the LEOBLOOM_ENV where Dan does his dev work is "Production". This
@@ -92,7 +92,7 @@ module DAL =
             return! injectPassword template
         }
     
-    let private convertParamToDbParam (parameter: QueryParameter) : NpgsqlParameter =
+    let private convertParamToDbParam (parameter: QueryParameter) : NpgsqlParameter = // @FT-DAL-3.2
         let dbType, value =
             match parameter.value with
             | Integer x -> NpgsqlDbType.Integer, box x
@@ -111,16 +111,16 @@ module DAL =
         p.Value <- value // necessary because NpgsqlParameter doesn't take a value in its constructor
         p
         
-    let private buildParamsList (parameters: QueryParameter list) : NpgsqlParameter list =
+    let private buildParamsList (parameters: QueryParameter list) : NpgsqlParameter list = // @FT-DAL-3.2
         List.map (fun x -> convertParamToDbParam(x)) parameters
         
-    let private validateNumRows (numRows: int) (expectation: AcceptableExpectedRows): Result<unit, string> =
+    let private validateNumRows (numRows: int) (expectation: AcceptableExpectedRows): Result<unit, string> = // @FT-DAL-2.2
         match expectation with
         | Zero when numRows = 0 -> Ok()
         | ExactlyOne when numRows = 1 -> Ok()
         | OneOrMany when numRows >= 1 -> Ok()
-        | NoValidationNeeded -> Ok()
-        | _ -> Error "Resultant rows didn't match expectation" // @FT-DAL-2.2
+        | AnyQuantityIsAcceptable -> Ok()
+        | _ -> Error "Resultant rows didn't match expectation"
         
     let executeNonQuery
         (query: string)
@@ -151,7 +151,7 @@ module DAL =
             reader: Common.DbDataReader
         }
     
-    module RowReader =
+    module RowReader = // @FT-DAL-3.2
         let create (reader: Common.DbDataReader) :RowReader =
             { reader = reader }
         let getInt (col: string) (r: RowReader) = r.reader.GetInt32(r.reader.GetOrdinal(col))
@@ -186,7 +186,7 @@ module DAL =
             if r.reader.IsDBNull(ordinal) then None
             else Some (r.reader.GetBoolean(ordinal))
     
-    let rec private readRows
+    let rec private readRows // @FT-DAL-3.2
             (reader: Common.DbDataReader)
             (mapRow: RowReader -> Result<'T,string>)
             (acc: 'T list) : Result<'T list, string> =
@@ -201,7 +201,7 @@ module DAL =
     let executeReaderQuery
             (query: string)
             (parameters: QueryParameter list)
-            (mapRow: RowReader -> Result<'T, string>)
+            (mapRow: RowReader -> Result<'T, string>) // @FT-DAL-3.2
             (expectedRows: AcceptableExpectedRows): Result<'T list, string> =
         result {
             let! connectionString = getConnectionString()
@@ -221,6 +221,9 @@ module DAL =
                     readRows nReader mapRow []
                 with
                 | ex -> Error $"Database error during non query execution {ex.Message}"
-            let! validRowsResult = validateNumRows rows.Length expectedRows
+            let! () = validateNumRows rows.Length expectedRows // @FT-DAL-2.2
             return rows
         }
+
+
+    
