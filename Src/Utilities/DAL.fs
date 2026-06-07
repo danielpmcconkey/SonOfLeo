@@ -1,6 +1,7 @@
 namespace Utilities
 
 open System
+open System.Data
 open Npgsql
 open Microsoft.Extensions.Configuration
 open NpgsqlTypes
@@ -25,7 +26,12 @@ module DAL =
     type QueryParameter = {
         name: string
         value: QueryParameterValue }
-            
+    
+    type AcceptableExpectedRows =
+        | Zero
+        | ExactlyOne
+        | OneOrMany
+        | NoValidationNeeded
     
     let private getEnvironment(): Result<string, string> =
         let envVarOption = 
@@ -36,6 +42,19 @@ module DAL =
             let trimX = x.Trim() // @FT-DAL-1.12
             if trimX = String.Empty then
                 Error("Environment var LEOBLOOM_ENV cannot be empty") else // @FT-DAL-1.13
+#if DEBUG
+(*
+ * IMPORTANT!
+ * note this is a fail guard. Dan does all his development work in the
+ * host machine which, from a database perspective, is production and
+ * the LEOBLOOM_ENV where Dan does his dev work is "Production". This
+ * guard prevents Dan from triggering runs that he thinks are just test
+ * and having those runs contaminate his database. 
+ *) 
+                if trimX = "Production" then
+                    Error "Debug builds cannot connect to Production"
+                else
+#endif
                 Ok trimX // @FT-DAL-1.12
         | None -> Error("Environment var LEOBLOOM_ENV cannot be null") // @FT-DAL-1.1
             
@@ -95,20 +114,113 @@ module DAL =
     let private buildParamsList (parameters: QueryParameter list) : NpgsqlParameter list =
         List.map (fun x -> convertParamToDbParam(x)) parameters
         
-    let executeNonQuery (query: string) (parameters: QueryParameter list) : Result<int, string> =
+    let private validateNumRows (numRows: int) (expectation: AcceptableExpectedRows): Result<unit, string> =
+        match expectation with
+        | Zero when numRows = 0 -> Ok()
+        | ExactlyOne when numRows = 1 -> Ok()
+        | OneOrMany when numRows >= 1 -> Ok()
+        | NoValidationNeeded -> Ok()
+        | _ -> Error "Resultant rows didn't match expectation" // @FT-DAL-2.2
+        
+    let executeNonQuery
+        (query: string)
+        (parameters: QueryParameter list)
+        (expectedRows: AcceptableExpectedRows) : Result<unit, string> =
         result {
             let! connectionString = getConnectionString()
             let parameters = buildParamsList parameters
-            return!
+            let! numRows =
+                (*
+                 * standard dotnet I/O libraries throw standard dotnet exceptions
+                 * we use a try/with block to convert their results into more
+                 * paradigmatic F# Result Ok/Error at the impure boundary
+                 *)
                 try
                     use connection = new NpgsqlConnection(connectionString)
                     connection.Open()
-                    use command = new NpgsqlCommand(query, connection)
+                    use command = new NpgsqlCommand(query, connection)                    
                     parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
                     Ok (command.ExecuteNonQuery())
                 with
                 | ex -> Error $"Database error during non query execution {ex.Message}"
+            return! validateNumRows numRows expectedRows  // @FT-DAL-2.2
         }
     
-        
+    type RowReader =
+        private {
+            reader: Common.DbDataReader
+        }
+    
+    module RowReader =
+        let create (reader: Common.DbDataReader) :RowReader =
+            { reader = reader }
+        let getInt (col: string) (r: RowReader) = r.reader.GetInt32(r.reader.GetOrdinal(col))
+        let getIntOption (col: string) (r: RowReader) : int option = 
+            let ordinal = r.reader.GetOrdinal(col)
+            if r.reader.IsDBNull(ordinal) then None
+            else Some (r.reader.GetInt32(ordinal))
+        let getNumeric (col: string) (r: RowReader) = r.reader.GetDecimal(r.reader.GetOrdinal(col))
+        let getNumericOption (col: string) (r: RowReader) : decimal option = 
+            let ordinal = r.reader.GetOrdinal(col)
+            if r.reader.IsDBNull(ordinal) then None
+            else Some (r.reader.GetDecimal(ordinal))
+        let getString (col: string) (r: RowReader) = r.reader.GetString(r.reader.GetOrdinal(col))
+        let getStringOption (col: string) (r: RowReader) : string option = 
+            let ordinal = r.reader.GetOrdinal(col)
+            if r.reader.IsDBNull(ordinal) then None
+            else Some (r.reader.GetString(ordinal))
+        let getDateTimeOffset (col: string) (r: RowReader) =
+            r.reader.GetFieldValue<DateTimeOffset>(r.reader.GetOrdinal(col))
+        let getDateTimeOffsetOption (col: string) (r: RowReader) : DateTimeOffset option = 
+            let ordinal = r.reader.GetOrdinal(col)
+            if r.reader.IsDBNull(ordinal) then None
+            else Some (r.reader.GetFieldValue<DateTimeOffset>(ordinal))
+        let getUuid (col: string) (r: RowReader) = r.reader.GetGuid(r.reader.GetOrdinal(col))
+        let getUuidOption (col: string) (r: RowReader) : Guid option = 
+            let ordinal = r.reader.GetOrdinal(col)
+            if r.reader.IsDBNull(ordinal) then None
+            else Some (r.reader.GetGuid(ordinal))
+        let getBool (col: string) (r: RowReader) = r.reader.GetBoolean(r.reader.GetOrdinal(col))
+        let getBoolOption (col: string) (r: RowReader) : bool option = 
+            let ordinal = r.reader.GetOrdinal(col)
+            if r.reader.IsDBNull(ordinal) then None
+            else Some (r.reader.GetBoolean(ordinal))
+    
+    let rec private readRows
+            (reader: Common.DbDataReader)
+            (mapRow: RowReader -> Result<'T,string>)
+            (acc: 'T list) : Result<'T list, string> =
+        if reader.Read() then
+            let row = RowReader.create reader
+            match mapRow row with
+            | Ok mapped -> readRows reader mapRow (mapped :: acc)
+            | Error e -> Error e
+        else
+            Ok (List.rev acc)
 
+    let executeReaderQuery
+            (query: string)
+            (parameters: QueryParameter list)
+            (mapRow: RowReader -> Result<'T, string>)
+            (expectedRows: AcceptableExpectedRows): Result<'T list, string> =
+        result {
+            let! connectionString = getConnectionString()
+            let parameters = buildParamsList parameters
+            let! rows =
+                (*
+                 * standard dotnet I/O libraries throw standard dotnet exceptions
+                 * we use a try/with block to convert their results into more
+                 * paradigmatic F# Result Ok/Error at the impure boundary
+                 *)
+                try
+                    use connection = new NpgsqlConnection(connectionString)
+                    connection.Open()
+                    use command = new NpgsqlCommand(query, connection)                    
+                    parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
+                    use nReader = command.ExecuteReader()
+                    readRows nReader mapRow []
+                with
+                | ex -> Error $"Database error during non query execution {ex.Message}"
+            let! validRowsResult = validateNumRows rows.Length expectedRows
+            return rows
+        }

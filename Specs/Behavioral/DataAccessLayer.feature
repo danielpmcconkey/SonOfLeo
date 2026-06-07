@@ -17,3 +17,8 @@ Feature: Data Access Layer (DAL)
     @FT-DAL-1.12 The system will trim leading and trailing white space from the LEOBLOOM_ENV environment variable
     @FT-DAL-1.13 If the trimmed LEOBLOOM_ENV environment variable is empty, all data access functions must fail with an error
     
+    # 2. Query execution
+    
+    @FT-DAL-2.1 All data inserted into the database must be parameterized in accordance with industry standard best practice to prevent SQL injection    
+    @FT-DAL-2.2 All insert, update, and delete queries must verify against expected rows affected 
+    @FT-DAL-2.3 All values originating from user input must be parameterized to prevent SQL injection

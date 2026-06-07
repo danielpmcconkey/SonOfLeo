@@ -23,9 +23,9 @@ INSERT INTO ledger.account_type(id, name, normal_balance) VALUES (5,'expense','d
 
 CREATE TABLE IF NOT EXISTS ledger.account
 (
-    id uuid primary key,                                                         -- @FT-AC-1.21, @FT-AC-1.22
-    code character varying(10) COLLATE pg_catalog."default" NOT NULL,            -- @FT-AC-1.1, @FT-AC-1.3
-    name character varying(100) COLLATE pg_catalog."default" NOT NULL,           -- @FT-AC-1.6, @FT-AC-1.8
+    id uuid primary key,                                                         -- @FT-AC-1.21, @FT-AC-1.22, @FT-AC-2.8 
+    code character varying(10) COLLATE "en_US.UTF-8" NOT NULL,                   -- @FT-AC-1.1, @FT-AC-1.3, @FT-AC-2.2
+    name character varying(100) COLLATE "en_US.UTF-8" NOT NULL,                  -- @FT-AC-1.6, @FT-AC-1.8, @FT-AC-2.2
     account_type_id integer NOT NULL,                                            -- @FT-AC-1.23
     is_active boolean NOT NULL DEFAULT true,                                     -- @FT-AC-1.24
     created_at timestamp with time zone NOT NULL DEFAULT now(),                  -- @FT-AC-1.25
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS ledger.account
     account_subtype character varying(25) COLLATE pg_catalog."default",          -- @FT-AC-1.19
     parent_id uuid,                                                              -- @FT-AC-1.37
     external_ref character varying(50) COLLATE pg_catalog."default",             -- @FT-AC-1.20, @FT-AC-1.41
-    CONSTRAINT account_code_key UNIQUE (code),                                   -- @FT-AC-1.4
+    CONSTRAINT account_code_key UNIQUE (code),                                   -- @FT-AC-1.4, @FT-AC-2.9
     CONSTRAINT account_account_type_id_fkey FOREIGN KEY (account_type_id)
     REFERENCES ledger.account_type (id) MATCH SIMPLE
                          ON UPDATE NO ACTION

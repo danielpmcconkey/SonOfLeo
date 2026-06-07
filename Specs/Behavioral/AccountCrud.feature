@@ -54,7 +54,7 @@ Feature: Account CRUD
         
     @FT-AC-2.1 When creating an Account record, either through primitive types or through defined types, all raw string values must be trimmed of any leading or trailing white space before being added to the persistence layer or being returned to the caller of the function.
     @FT-AC-2.2 When creating an Account record, the database must be able to persist strings with full UTF-8 support.
-    @FT-AC-2.3 When creating an Account record, any string field must be stored in the database with case-perfect fidelity (post-trim).
+    @FT-AC-2.3 When creating an Account record, any string field must be stored in the database with case-perfect fidelity (post-trim). 
     @FT-AC-2.4 When creating an Account record via primitive types, the passed in (and trimmed) string for account type must match one of the enumerated account types exactly or the creation must fail.
     @FT-AC-2.5 When creating an Account record, if the provided "is active" value is null, the newly created Account record will be active.
     @FT-AC-2.6 When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the ID maps to an existing Account in the database.
@@ -65,6 +65,6 @@ Feature: Account CRUD
     @FT-AC-2.11 When creating an Account record, the system must generate a "created at" timestamp that represents the system clock at time of creation.
     @FT-AC-2.12 When creating an Account record, the system must generate a "modified at" timestamp that represents the system clock at time of creation.
     @FT-AC-2.13 When creating an Account record, the creation function must generate a unique UUID for the ID (new UUIDs may not be passed in).
-    @FT-AC-2.14 When creating an Account record, if all validations pass and the passed in arguments represent a valid data state, the creation function must persist the fully validated account record in the database and return an account record with the created ID and created/modified timestamps
+    @FT-AC-2.14 When creating an Account record, if the calling system specifies that the record should be saved to the DB, and if all validations pass and the passed in arguments represent a valid data state, the creation function must persist the fully validated account record in the database and return an account record with the created ID and created/modified timestamps
     
     
