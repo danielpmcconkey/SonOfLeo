@@ -2,14 +2,14 @@ namespace Utilities
 
 open System
 open System.Data
-open Npgsql // @FT-DAL-3.1
+open Npgsql // FT-DAL-3.1
 open Microsoft.Extensions.Configuration
-open NpgsqlTypes // @FT-DAL-3.1
+open NpgsqlTypes // FT-DAL-3.1
 open Utilities.ResultCE
 
 module DAL =
     
-    type QueryParameterValue = // @FT-DAL-3.2
+    type QueryParameterValue = // FT-DAL-3.2
         | Integer of int
         | Numeric of decimal
         | CharString of string
@@ -23,11 +23,11 @@ module DAL =
         | NullableUniqueId of Guid option
         | NullableBoolean of bool option
     
-    type QueryParameter = { // @FT-DAL-3.2
+    type QueryParameter = { // FT-DAL-3.2
         name: string
         value: QueryParameterValue }
     
-    type AcceptableExpectedRows = // @FT-DAL-2.2
+    type AcceptableExpectedRows = // FT-DAL-2.2
         | Zero
         | ExactlyOne
         | OneOrMany
@@ -39,12 +39,12 @@ module DAL =
             |> Option.ofObj
         match envVarOption with
         | Some x ->
-            let trimX = x.Trim() // @FT-DAL-1.12
+            let trimX = x.Trim() // FT-DAL-1.12
             if trimX = String.Empty then
-                Error("Environment var LEOBLOOM_ENV cannot be empty") else // @FT-DAL-1.13
+                Error("Environment var LEOBLOOM_ENV cannot be empty") else // FT-DAL-1.13
 #if DEBUG
 (*
- * IMPORTANT! @FT-DAL-3.3
+ * IMPORTANT! FT-DAL-3.3
  * note this is a fail guard. Dan does all his development work in the
  * host machine which, from a database perspective, is production and
  * the LEOBLOOM_ENV where Dan does his dev work is "Production". This
@@ -55,23 +55,23 @@ module DAL =
                     Error "Debug builds cannot connect to Production"
                 else
 #endif
-                Ok trimX // @FT-DAL-1.12
-        | None -> Error("Environment var LEOBLOOM_ENV cannot be null") // @FT-DAL-1.1
+                Ok trimX // FT-DAL-1.12
+        | None -> Error("Environment var LEOBLOOM_ENV cannot be null") // FT-DAL-1.1
             
     let private getTemplate (env:string) : Result<string, string> =   
         try
             let config =
                 ConfigurationBuilder()
                     .SetBasePath(AppContext.BaseDirectory)
-                    .AddJsonFile($"appsettings.{env}.json", optional = false) // @FT-DAL-1.2
+                    .AddJsonFile($"appsettings.{env}.json", optional = false) // FT-DAL-1.2
                     .AddEnvironmentVariables()
                     .Build()
-            let template = config["ConnectionStrings:SonOfLeo"] // @FT-DAL-1.4
+            let template = config["ConnectionStrings:SonOfLeo"] // FT-DAL-1.4
             if String.IsNullOrWhiteSpace(template) then 
-                Error $"ConnectionStrings:SonOfLeo not found in appsettings.{env}.json" else // @FT-DAL-1.6, @FT-DAL-1.5
+                Error $"ConnectionStrings:SonOfLeo not found in appsettings.{env}.json" else // FT-DAL-1.6, FT-DAL-1.5
                 Ok(template)
         with
-        | ex -> Error $"Error retrieving appsettings.{env}.json. Error message: {ex.Message}" // @FT-DAL-1.3
+        | ex -> Error $"Error retrieving appsettings.{env}.json. Error message: {ex.Message}" // FT-DAL-1.3
             
     let private injectPassword (template: string): Result<string, string> =
         let envVarOption = 
@@ -79,11 +79,11 @@ module DAL =
             |> Option.ofObj
         match envVarOption with
         | Some x ->
-            let trimX = x.Trim() // @FT-DAL-1.10 
+            let trimX = x.Trim() // FT-DAL-1.10 
             if trimX = String.Empty then
-                Error("Environment var LEOBLOOM_DB_PASSWORD cannot be empty") else // @FT-DAL-1.11
-                Ok (template.Replace("{LEOBLOOM_DB_PASSWORD}", trimX)) // @FT-DAL-1.9,  @FT-DAL-1.10 
-        | None -> Error("Environment var LEOBLOOM_DB_PASSWORD cannot be null") // @FT-DAL-1.7
+                Error("Environment var LEOBLOOM_DB_PASSWORD cannot be empty") else // FT-DAL-1.11
+                Ok (template.Replace("{LEOBLOOM_DB_PASSWORD}", trimX)) // FT-DAL-1.9,  FT-DAL-1.10 
+        | None -> Error("Environment var LEOBLOOM_DB_PASSWORD cannot be null") // FT-DAL-1.7
             
     let private getConnectionString(): Result<string,string> =        
         result {
@@ -92,7 +92,7 @@ module DAL =
             return! injectPassword template
         }
     
-    let private convertParamToDbParam (parameter: QueryParameter) : NpgsqlParameter = // @FT-DAL-3.2
+    let private convertParamToDbParam (parameter: QueryParameter) : NpgsqlParameter = // FT-DAL-3.2
         let dbType, value =
             match parameter.value with
             | Integer x -> NpgsqlDbType.Integer, box x
@@ -111,10 +111,10 @@ module DAL =
         p.Value <- value // necessary because NpgsqlParameter doesn't take a value in its constructor
         p
         
-    let private buildParamsList (parameters: QueryParameter list) : NpgsqlParameter list = // @FT-DAL-3.2
+    let private buildParamsList (parameters: QueryParameter list) : NpgsqlParameter list = // FT-DAL-3.2
         List.map (fun x -> convertParamToDbParam(x)) parameters
         
-    let private validateNumRows (numRows: int) (expectation: AcceptableExpectedRows): Result<unit, string> = // @FT-DAL-2.2
+    let private validateNumRows (numRows: int) (expectation: AcceptableExpectedRows): Result<unit, string> = // FT-DAL-2.2
         match expectation with
         | Zero when numRows = 0 -> Ok()
         | ExactlyOne when numRows = 1 -> Ok()
@@ -143,7 +143,7 @@ module DAL =
                     Ok (command.ExecuteNonQuery())
                 with
                 | ex -> Error $"Database error during non query execution {ex.Message}"
-            return! validateNumRows numRows expectedRows  // @FT-DAL-2.2
+            return! validateNumRows numRows expectedRows  // FT-DAL-2.2
         }
     
     type RowReader =
@@ -151,7 +151,7 @@ module DAL =
             reader: Common.DbDataReader
         }
     
-    module RowReader = // @FT-DAL-3.2
+    module RowReader = // FT-DAL-3.2
         let create (reader: Common.DbDataReader) :RowReader =
             { reader = reader }
         let getInt (col: string) (r: RowReader) = r.reader.GetInt32(r.reader.GetOrdinal(col))
@@ -186,22 +186,23 @@ module DAL =
             if r.reader.IsDBNull(ordinal) then None
             else Some (r.reader.GetBoolean(ordinal))
     
-    let rec private readRows // @FT-DAL-3.2
+    let rec private readRows // FT-DAL-3.2
             (reader: Common.DbDataReader)
             (mapRow: RowReader -> Result<'T,string>)
-            (acc: 'T list) : Result<'T list, string> =
-        if reader.Read() then
+            (acc: 'T list) // the list that gets pre-pended with every recursion, the "accumulator"
+            : Result<'T list, string> =
+        if reader.Read() then // increment the reader and continue the pattern as long as there are rows to be read
             let row = RowReader.create reader
             match mapRow row with
-            | Ok mapped -> readRows reader mapRow (mapped :: acc)
-            | Error e -> Error e
-        else
-            Ok (List.rev acc)
+            | Ok mapped -> readRows reader mapRow (mapped :: acc) // map the row to an appropriately mapped object and call the next recursion layer (but only if that map didn't fail)
+            | Error e -> Error e // fail and bail cause one row not mapping is a catastrophe
+        else // no more rows to spool off the reader
+            Ok (List.rev acc) // reverse the list (because it was pre-pended the entire time), return the final state of the list back through the recursion stack
 
     let executeReaderQuery
             (query: string)
             (parameters: QueryParameter list)
-            (mapRow: RowReader -> Result<'T, string>) // @FT-DAL-3.2
+            (mapRow: RowReader -> Result<'T, string>) // FT-DAL-3.2
             (expectedRows: AcceptableExpectedRows): Result<'T list, string> =
         result {
             let! connectionString = getConnectionString()
@@ -221,7 +222,7 @@ module DAL =
                     readRows nReader mapRow []
                 with
                 | ex -> Error $"Database error during non query execution {ex.Message}"
-            let! () = validateNumRows rows.Length expectedRows // @FT-DAL-2.2
+            let! () = validateNumRows rows.Length expectedRows // FT-DAL-2.2
             return rows
         }
 
