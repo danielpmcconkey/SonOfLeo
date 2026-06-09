@@ -47,7 +47,10 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **FT-AC-1.43** Account records must be able to represent a date/time signifying when that account ceased being an "active" account
 - **FT-AC-1.44** An account record's "active begin" may not be null
 - **FT-AC-1.45** An account record's "active end" may be null
-- **FT-AC-1.46** An account record's "active end" may not be earlier or equal in time than its "active begin" 
+- **FT-AC-1.46** An account record's "active end" may not be earlier or equal in time than its "active begin"
+- **FT-AC-1.47** An Account record's parent ID can never reference one of its descendent accounts. (This will be difficult to enforce.)
+- **FT-AC-1.48** An Account record is considered "deactivated" (or "inactive") when its "active end" date is non-null and is earlier than or equal to a given reference point in time.
+  - **FT-AC-1.48.1** The reference point is context-dependent: it may be the current system clock or a date specific to the operation (e.g., a transaction's entry date). Each requirement that references deactivation status must specify which reference point applies.
 
 
 ## 2. Create behaviors
@@ -64,6 +67,11 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **FT-AC-2.13** When creating an Account record, the creation function must generate a unique UUID for the ID (new UUIDs may not be passed in).
 - **FT-AC-2.14** When creating an Account record, if the calling system specifies that the record should be saved to the DB, and if all validations pass and the passed in arguments represent a valid data state, the creation function must persist the fully validated account record in the database and return an account record with the created ID and created/modified timestamps
 - **FT-AC-2.15** The persistence layer must persist all Account properties in such a way as to be able to perfectly reconstitute the Account type upon subsequent read.
+- **FT-AC-2.16** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the parent account is not already a descendent (no circular relationships).
+- **FT-AC-2.17** When creating an Account record, it is the responsibility of the calling function to provide an accurate "active begin" date/time. There is not validation to confirm that the caller provided a correct begin date.
+- **FT-AC-2.18** When creating an Account record, the system will validate that any non-null "active end" is later in time than the provided "active begin".
+- **FT-AC-2.19** The system must reject any Account creation request that would result in an illegal data state as defined in section 1.
+
 
 ## 3. Read behaviors
 
@@ -73,6 +81,35 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **FT-AC-3.4** The system must be able to retrieve an Account record by the caller providing that record's account code string.
 - **FT-AC-3.5** The system must be able to retrieve all child records of an Account by the caller providing that parent record's ID.
 - **FT-AC-3.6** The system must be able to retrieve all Account records of a particular type by the caller providing that AccountType.
+
+
+## 4. Update behaviors
+
+- **FT-AC-4.1** The system must provide a means to deactivate an Account, using a provided "active end" date.
+- **FT-AC-4.2** When an Account deactivation is requested, the system must reject any request where the "active end" date would be before the "active begin" date.
+- **FT-AC-4.3** When an Account deactivation is requested, the system must reject any request where the Account to be deactivated has active children accounts (reference as-of system run-time).
+- **FT-AC-4.4** When an Account deactivation is requested, the system must reject any request where the Account has a non-zero balance at the time of the request.
+- **FT-AC-4.5** When an Account deactivation is requested, the system must reject any request where the Account already has a non-null "active end" date.
+- **FT-AC-4.6** When an Account deactivation is requested, the system must reject any request where the Account has any journal entry items dated (either entry date or post date) after the provided "active end" date.
+- **FT-AC-4.7** Any successful update to an Account record must also update the "modified at" timestamp for that Account record with the current system run date/time.
+- **FT-AC-4.8** The system must provide a means to update an Account record's "name" field.
+- **FT-AC-4.9** The system must provide a means to update an Account record's "external reference" field.
+- **FT-AC-4.10** The system must not provide a user interface for updating an Account record's ID. 
+- **FT-AC-4.11** The system must not provide a user interface for updating an Account record's "code" field.
+- **FT-AC-4.12** The system must not provide a user interface for updating an Account record's account type.
+- **FT-AC-4.13** The system must not provide a user interface for updating an Account record's "active begin" field.
+- **FT-AC-4.14** The system must not provide a user interface for updating an Account record's "created at" field.
+- **FT-AC-4.15** The system must not provide a user interface for updating an Account record's "subtype" field.
+- **FT-AC-4.16** The system must not provide a user interface for updating an Account record's parent ID.
+- **FT-AC-4.17** When updating an Account record, all updatable raw string values must be trimmed of any leading or trailing white space before being added to the persistence layer or being returned to the caller of the function.
+- **FT-AC-4.18** The system must reject any Account update request that would result in an illegal data state as defined in section 1.
+- **FT-AC-4.19** Updates to a deactivated Account record (with respect to system run-time) are permitted, provided that those updates meet all other requirements herein. 
+
+
+## 5. Deletion behaviors
+
+- **FT-AC-5.1** The system must not provide a user interface for hard-deleting an Account record.
+
 
 ## Withdrawn
 

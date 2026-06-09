@@ -14,14 +14,14 @@ module AccountComponent =
                     activeEnd: DateTimeOffset option                   // FT-AC-1.43, FT-AC-1.45
         }
     
-    module AccountActivityPeriod =
+    module AccountActivityPeriod = // FT-AC-2.17
         let activeBegin (a:AccountActivityPeriod) = a.activeBegin
         let activeEnd (a:AccountActivityPeriod) = a.activeEnd
         let create (rawBegin: DateTimeOffset) (rawEnd: DateTimeOffset option) : Result<AccountActivityPeriod, string> =
             match rawEnd with
             | None -> Ok { activeBegin = rawBegin; activeEnd = None }
             | Some x -> 
-                if x <= rawBegin then Error "Active end cannot be before active begin" else // FT-AC-1.46
+                if x <= rawBegin then Error "Active end cannot be before active begin" else // FT-AC-1.46, FT-AC-2.18
                     Ok { activeBegin = rawBegin; activeEnd = rawEnd }
     
     type AccountCode = private AccountCode of string

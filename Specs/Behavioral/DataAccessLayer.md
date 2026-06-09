@@ -33,3 +33,4 @@ Generic database functions: connecting, executing queries, parameterization, and
 - **FT-DAL-3.3** There must be a distinct production database where testing and development activities are not permitted
 - **FT-DAL-3.4** The database must default all character encoding to UTF-8.
 - **FT-DAL-3.5** The database must default collation to "en_US.UTF-8".
+- **FT-DAL-3.6** The system will generally not enforce business logic in the database layer outside of foreign key and unique key constraints. The application layer is responsible for all enforcement of legal data states. Therefore, it should be noted for all database administrators that granting write access to any table within this database should be kept to a minimum. Caveat emptor.  
