@@ -28,12 +28,22 @@ module Account =
         let code (a:Account) = a.code
         let name (a:Account) = a.name
         let accountType (a:Account) = a.accountType
-        let activeBegin (a:Account) = AccountActivityPeriod.activeBegin a.activityPeriod // here for convenience
-        let activeEnd (a:Account) = AccountActivityPeriod.activeEnd a.activityPeriod // here for convenience
+        let activeBegin (a:Account) = AccountActivityPeriod.activeBegin a.activityPeriod // derived property here for convenience
+        let activeEnd (a:Account) = AccountActivityPeriod.activeEnd a.activityPeriod // derived property here for convenience
         let activityPeriod (a:Account) = a.activityPeriod
         let accountSubType (a:Account) = a.accountSubType
         let parentId (a:Account) = a.parentId
         let externalReference (a:Account) = a.externalReference
+        let isActive // derived property here for convenience;
+                (a:Account)
+                (referencePoint: DateTimeOffset) // FT-AC-1.48.1
+                : bool =  
+            let beginDate = activeBegin a
+            let endDate = activeEnd a
+            match endDate with
+            | None when beginDate <= referencePoint -> true
+            | Some x when beginDate <= referencePoint && x > referencePoint -> true // FT-AC-1.48
+            | _ -> false
         
 // Private constructors
         
@@ -274,27 +284,119 @@ module Account =
             let typeId = AccountType.toDbId(accountType)
             let predicate = $"where account_type_id = @type_id"
             let parameters = [{ name = "@type_id"; value = Integer typeId };] // FT-DAL-2.3        
-            readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable            
+            readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable
  
 // Insert and update validation functions        
         
         /// confirmAccountIsValidAndActive checks that there is an account in the
-        /// database matching the passed ID and that account is valid as of the
-        /// system run-time
-        let private confirmAccountIsValidAndActive (id: Guid) : Result<unit, string> =
+        /// database matching the passed ID and that account is valid as of a
+        /// provided date/time
+        let private confirmAccountIsValidAndActive (id: Guid, referenceTime: DateTimeOffset) : Result<unit, string> =
             result {
                 let! validAccount = fetchById id
                 let ae = activeEnd validAccount
                 let ab = activeBegin validAccount                
                 let! activeAccount =
                     match ae with
-                    | None when ab <= DateTimeOffset.Now -> Ok ()
-                    | None when ab > DateTimeOffset.Now -> Error $"Account {id} failed \"is active\" check. The active begin date/time is in the future."
-                    | Some x when x <= DateTimeOffset.Now -> Error $"Account {id} failed \"is active\" check. The current runtime {DateTimeOffset.Now} is now past the active end date."
+                    | None when ab <= referenceTime -> Ok ()
+                    | None when ab > referenceTime -> Error $"Account {id} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
+                    | Some x when x <= referenceTime -> Error $"Account {id} failed \"is active\" check. The reference time ({referenceTime}) is now past the account's active end date ({ae})."
                     | _ -> Ok ()
                 return activeAccount
             }
+        
+        let private validateParentChildRelationship
+                (parentId: Guid)
+                (childId: Guid)
+                (referenceTime: DateTimeOffset)
+                : Result<unit, string> =
+            result {
+                let! () = confirmAccountIsValidAndActive(parentId, referenceTime) // FT-AC-2.6, FT-AC-2.7
+                (*
+                 * FT-AC-2.16
+                 * Note, this function no longer validates against circular ancestry. Since the child
+                 * ID is always created at the DB insertion, it is impossible for a newly created child
+                 * to already have descendents. And, since requirement FT-AC-4.16 explicitly forbids
+                 * reparenting an account, there is no "legal" vector for a circular ancestry chain to
+                 * come into being.
+                 *
+                 * I'm leaving this function here even though it does nothing new as we may someday devise
+                 * other parent/child relationship checks.  
+                *)
+                return ()
+            }
+        
+        let private validateProposedDeactivationDate
+                (account: Account)
+                (proposedDate: DateTimeOffset)
+                : Result<unit, string> =
+            let ab = activeBegin account
+            if proposedDate < ab then
+                Error $"Deactivating account {id account} failed because the active end ({proposedDate}) would be before the active begin ({ab})" else
+                Ok () // FT-AC-4.2
+                
+        let private validateNoActiveChildrenBeforeDeactivation (account: Account) : Result<unit, string> =
+            let accountId = id account
+            result {
+                let! children = fetchByParentId accountId
+                do!
+                    if children |> List.exists (fun x -> isActive x DateTimeOffset.Now) // FT-AC-4.3
+                    then Error $"Account {accountId} deactivation failed because one or more child account records is active"
+                    else Ok ()
+            }
+            
+// database update functions
+        
+        /// updateDb is a private function designed as a flexible Account update in support
+        /// of various public use case functions. It builds and returns an Account record to
+        /// confirm that the resultant state in the persistence layer still meets all
+        /// legal/illegal data-state rules.
+        let private updateDb
+                (accountId: Guid)
+                (nameUpdate: FieldUpdate<string>)
+                (activeEndUpdate: FieldUpdate<DateTimeOffset option>)
+                (referenceUpdate: FieldUpdate<string option>)
+                : Result<Account, string> =
+                    
+            let baseParams = [
+                { name = "@modified"; value = DateTimeWithOffset DateTimeOffset.Now }
+                { name = "@id"; value = UniqueId accountId };
+            ]
+            let updates =
+                [
+                    match nameUpdate with
+                    | NoChange -> None
+                    | SetTo n -> Some (", name = @name", { name = "@name"; value = CharString n })
+                    | Clear -> None // this will throw an error in the railroad below
+                    
+                    match activeEndUpdate with
+                    | NoChange -> None
+                    | SetTo e -> Some (", active_end = @active_end", { name = "@active_end"; value = NullableDateTimeWithOffset e })
+                    | Clear -> Some (", active_end = @active_end", { name = "@active_end"; value = NullableDateTimeWithOffset None })
+                    
+                    match referenceUpdate with
+                    | NoChange -> None
+                    | SetTo r -> Some (", external_ref = @external_ref", { name = "@external_ref"; value = NullableCharString r })
+                    | Clear -> Some (", external_ref = @external_ref", { name = "@external_ref"; value = NullableCharString None })
+                    
+                ] |> List.choose (fun x -> x)
+            let setClauses = updates |> List.map fst |> String.concat ""
+            let parameters = baseParams @ (updates |> List.map snd)
 
+            let query = $"""
+                        UPDATE ledger.account
+	                    set
+	                        modified_at = @modified
+	                        {setClauses}
+	                    WHERE id = @id;
+            """
+            result {
+                do! if updates.IsEmpty then Error "update Account record failed because at least one updatable parameter must be set" else Ok ()
+                do! if nameUpdate = Clear then Error "account.name cannot be updated to null" else Ok ()
+                let! () = executeNonQuery query parameters ExactlyOne
+                return! fetchById accountId
+            }
+        
 // public orchestrators
 
         /// constructNewAndSaveToDb is used where you want to construct a net new Account
@@ -312,11 +414,43 @@ module Account =
             
             result {
                 let! validAccount = constructNew code name accountType activeBegin activeEnd subType parentId reference
-                let! () = // FT-AC-2.6, FT-AC-2.7 
+                let! () = // FT-AC-2.6, FT-AC-2.7
+                    (*
+                     * Note, we only validate the parent ID here because this is the part
+                     * where the Account enters into the DB and the parent validation is
+                     * intrinsically a *database* operation. Keeping the validation in this
+                     * constructor allows us to keep the other constructors pure FP.
+                     *)
                     match parentId with
                     | None -> Ok ()
-                    | Some x -> confirmAccountIsValidAndActive(x) // FT-AC-2.6, FT-AC-2.7                   
+                    | Some x -> validateParentChildRelationship x (id validAccount) DateTimeOffset.Now               
                 let! () = insertNewToDb validAccount // FT-AC-2.14
                 return validAccount
             }
-           
+        
+        /// deactivateAccount updates the active_end date in the database and returns a
+        /// fully reconstituted (and inactive) account. If the caller provides the
+        /// explicitEnd, the system will update the active_end to that explicit time.
+        /// Otherwise, the active_end will be the system clock time 
+        let deactivateAccount
+                (accountId: Guid)
+                (explicitEnd: DateTimeOffset option)
+                : Result<Account, string> = // FT-AC-4.1
+            let deactivationDate =
+                match explicitEnd with
+                | Some m -> m
+                | None -> DateTimeOffset.Now
+            result {
+                let! accountCurrent = fetchById accountId
+                do! // FT-AC-4.5
+                    match activeEnd accountCurrent with
+                    | None -> Ok ()
+                    | Some x -> Error $"Account {accountId} deactivation failed because active end is already set to {x}"
+                let! () = validateProposedDeactivationDate accountCurrent deactivationDate // FT-AC-4.2
+                let! () = validateNoActiveChildrenBeforeDeactivation accountCurrent // FT-AC-4.3
+                // todo: validate non-zero balance FT-AC-4.4
+                // todo: validate no journal entries after deactivation date FT-AC-4.6
+                let! newAccount = updateDb accountId NoChange (SetTo (Some deactivationDate)) NoChange
+                return newAccount
+                
+            }

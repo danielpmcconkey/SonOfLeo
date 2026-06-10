@@ -9,6 +9,14 @@ open Utilities.ResultCE
 
 module DAL =
     
+    /// FieldUpdate is a simple DU to use for functions that can update one
+    /// or many columns. This allows us to easily distinguish between "don't
+    /// update" and "update it to null"
+    type FieldUpdate<'a> =
+        | NoChange
+        | SetTo of 'a
+        | Clear
+
     type QueryParameterValue = // FT-DAL-3.2
         | Integer of int
         | Numeric of decimal
