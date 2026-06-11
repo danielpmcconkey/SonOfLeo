@@ -2,7 +2,7 @@
 
 Code and naming conventions for the SonOfLeo solution. These are developer-facing rules
 enforced by review, not behavioral requirements verified by tests — that's why they live
-here and not in a Behavioral spec with FT- IDs.
+here and not in a Behavioral spec with REQ- IDs.
 
 *Status: seed document. Structure and home pending the docs-strategy discussion (2026-06-11).*
 

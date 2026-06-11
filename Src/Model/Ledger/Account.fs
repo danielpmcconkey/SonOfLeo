@@ -8,16 +8,16 @@ open AccountComponent
 module Account =
     
     type Account =
-      private  {    id: Guid                                           // FT-AC-1.21, FT-AC-1.22
-                    code: AccountCode                                  // FT-AC-1.1–1.5
-                    name: AccountName                                  // FT-AC-1.6–1.8
-                    accountType: AccountType                           // FT-AC-1.10, FT-AC-1.23
+      private  {    id: Guid                                           // REQ-AC-1.21, REQ-AC-1.22
+                    code: AccountCode                                  // REQ-AC-1.1–1.5
+                    name: AccountName                                  // REQ-AC-1.6–1.8
+                    accountType: AccountType                           // REQ-AC-1.10, REQ-AC-1.23
                     activityPeriod: AccountActivityPeriod
-                    createdAt: DateTimeOffset                          // FT-AC-1.25
-                    modifiedAt: DateTimeOffset                         // FT-AC-1.26, FT-AC-1.27
-                    accountSubType: AccountSubtype option              // FT-AC-1.19, FT-AC-1.28–1.36
-                    parentId: Guid option                              // FT-AC-1.37–1.40
-                    externalReference: AccountExternalReference option // FT-AC-1.20, FT-AC-1.41
+                    createdAt: DateTimeOffset                          // REQ-AC-1.25
+                    modifiedAt: DateTimeOffset                         // REQ-AC-1.26, REQ-AC-1.27
+                    accountSubType: AccountSubtype option              // REQ-AC-1.19, REQ-AC-1.28–1.36
+                    parentId: Guid option                              // REQ-AC-1.37–1.40
+                    externalReference: AccountExternalReference option // REQ-AC-1.20, REQ-AC-1.41
         }
     
     module Account =
@@ -36,13 +36,13 @@ module Account =
         let externalReference (a:Account) = a.externalReference
         let isActive // derived property here for convenience;
                 (a:Account)
-                (referencePoint: DateTimeOffset) // FT-AC-1.48.1
+                (referencePoint: DateTimeOffset) // REQ-AC-1.48.1
                 : bool =  
             let beginDate = activeBegin a
             let endDate = activeEnd a
             match endDate with
             | None when beginDate <= referencePoint -> true
-            | Some x when beginDate <= referencePoint && x > referencePoint -> true // FT-AC-1.48
+            | Some x when beginDate <= referencePoint && x > referencePoint -> true // REQ-AC-1.48
             | _ -> false
         
 // Private constructors
@@ -92,16 +92,16 @@ module Account =
                 (parentId: Guid option)
                 (reference: string option)
                 : Result<Account, string> =            
-            let id = Guid.NewGuid() // FT-AC-1.39, FT-AC-2.13
-            let createdAt = DateTimeOffset.UtcNow // FT-AC-1.25, FT-AC-2.11
-            let modifiedAt = DateTimeOffset.UtcNow // FT-AC-1.26, FT-AC-2.12
-            let activityPeriodResult = AccountActivityPeriod.create activeBegin activeEnd // FT-AC-2.17, FT-AC-2.18
+            let id = Guid.NewGuid() // REQ-AC-1.39, REQ-AC-2.13
+            let createdAt = DateTimeOffset.UtcNow // REQ-AC-1.25, REQ-AC-2.11
+            let modifiedAt = DateTimeOffset.UtcNow // REQ-AC-1.26, REQ-AC-2.12
+            let activityPeriodResult = AccountActivityPeriod.create activeBegin activeEnd // REQ-AC-2.17, REQ-AC-2.18
             let codeResult = AccountCode.create(code)
             let nameResult = AccountName.create(name)
-            let typeResult = AccountType.fromString(accountType) // FT-AC-2.4
+            let typeResult = AccountType.fromString(accountType) // REQ-AC-2.4
             let subTypeResult = 
                 match subType with
-                | Some st -> AccountSubtype.fromString(st) |> Result.map Some // FT-AC-2.10
+                | Some st -> AccountSubtype.fromString(st) |> Result.map Some // REQ-AC-2.10
                 | None -> Ok None
             let referenceResult =
                 match reference with
@@ -141,7 +141,7 @@ module Account =
             let typeResult = AccountType.fromDbId(accountTypeId)
             let subTypeResult = 
                 match subType with
-                | Some st -> AccountSubtype.fromString(st) |> Result.map Some // FT-AC-2.10
+                | Some st -> AccountSubtype.fromString(st) |> Result.map Some // REQ-AC-2.10
                 | None -> Ok None
             let referenceResult =
                 match reference with
@@ -150,14 +150,14 @@ module Account =
             
             result {
                 let! activityPeriod = activityPeriodResult
-                let! validCode = codeResult // FT-AC-3.1
-                let! validName = nameResult // FT-AC-3.1
-                let! validType = typeResult // FT-AC-3.1
-                let! validSubType = subTypeResult // FT-AC-3.1
-                let! validRef = referenceResult // FT-AC-3.1
+                let! validCode = codeResult // REQ-AC-3.1
+                let! validName = nameResult // REQ-AC-3.1
+                let! validType = typeResult // REQ-AC-3.1
+                let! validSubType = subTypeResult // REQ-AC-3.1
+                let! validRef = referenceResult // REQ-AC-3.1
                 return!
                     constructOmni id validCode validName validType activityPeriod
-                        createdAt modifiedAt validSubType parentId validRef // FT-AC-3.2 
+                        createdAt modifiedAt validSubType parentId validRef // REQ-AC-3.2 
             }
             
 // DAL interface functions
@@ -196,7 +196,7 @@ module Account =
                 | Some x -> $"limit {x}"
                 | None -> String.Empty
             let query = $"""
-                select  -- FT-AC-3.2 
+                select  -- REQ-AC-3.2 
 	                id, 
                     code, 
                     name, 
@@ -220,7 +220,7 @@ module Account =
         /// ensure only legal data states persist 
         let private insertNewToDb (account:Account): Result<unit, string> =            
             let query = """
-                insert into ledger.account( -- FT-AC-2.15
+                insert into ledger.account( -- REQ-AC-2.15
 	                id, 
                     code, 
                     name, 
@@ -232,7 +232,7 @@ module Account =
                     account_subtype, 
                     parent_id, 
                     external_ref)
-                values ( --  FT-DAL-2.1, FT-AC-2.15
+                values ( --  REQ-DAL-2.1, REQ-AC-2.15
 	                @id, 
                     @code, 
                     @name, 
@@ -246,7 +246,7 @@ module Account =
                     @external_ref);"""
             let subTypeString:string option = account.accountSubType |> Option.map AccountSubtype.toString
             let externalReferenceString:string option = Option.map AccountExternalReference.value account.externalReference
-            let parameters = [ //  FT-DAL-2.1, FT-DAL-2.3 
+            let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
                 { name = "@id"; value = UniqueId account.id };
                 { name = "@code"; value = CharString (AccountCode.value account.code) };
                 { name = "@name"; value = CharString (AccountName.value account.name) };
@@ -263,27 +263,27 @@ module Account =
 
 /// public read functions
 
-        let fetchById (id: Guid) : Result<Account, string> = // FT-AC-3.3
+        let fetchById (id: Guid) : Result<Account, string> = // REQ-AC-3.3
             let predicate = "where id = @id"
-            let parameters = [{ name = "@id"; value = UniqueId id };] // FT-DAL-2.3         
+            let parameters = [{ name = "@id"; value = UniqueId id };] // REQ-DAL-2.3         
             readRowsFromDb (Some predicate) None parameters ExactlyOne
             |> Result.map List.head
         
-        let fetchByCode (code: string) : Result<Account, string> = // FT-AC-3.4
+        let fetchByCode (code: string) : Result<Account, string> = // REQ-AC-3.4
             let predicate = "where code = @code"
-            let parameters = [{ name = "@code"; value = CharString code };] // FT-DAL-2.3        
+            let parameters = [{ name = "@code"; value = CharString code };] // REQ-DAL-2.3        
             readRowsFromDb (Some predicate) None parameters ExactlyOne
             |> Result.map List.head
         
-        let fetchByParentId (parentId: Guid) : Result<Account list, string> = // FT-AC-3.5
+        let fetchByParentId (parentId: Guid) : Result<Account list, string> = // REQ-AC-3.5
             let predicate = $"where parent_id = @parent_id"
-            let parameters = [{ name = "@parent_id"; value = UniqueId parentId };] // FT-DAL-2.3          
+            let parameters = [{ name = "@parent_id"; value = UniqueId parentId };] // REQ-DAL-2.3          
             readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable
         
-        let fetchByAccountType (accountType: AccountType): Result<Account list, string> = // FT-AC-3.6
+        let fetchByAccountType (accountType: AccountType): Result<Account list, string> = // REQ-AC-3.6
             let typeId = AccountType.toDbId(accountType)
             let predicate = $"where account_type_id = @type_id"
-            let parameters = [{ name = "@type_id"; value = Integer typeId };] // FT-DAL-2.3        
+            let parameters = [{ name = "@type_id"; value = Integer typeId };] // REQ-DAL-2.3        
             readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable
  
 // Insert and update validation functions        
@@ -312,12 +312,12 @@ module Account =
                 (referenceTime: DateTimeOffset)
                 : Result<unit, string> =
             result {
-                let! () = confirmAccountIsValidAndActive(parentId, referenceTime) // FT-AC-2.6, FT-AC-2.7
+                let! () = confirmAccountIsValidAndActive(parentId, referenceTime) // REQ-AC-2.6, REQ-AC-2.7
                 (*
-                 * FT-AC-2.16
+                 * REQ-AC-2.16
                  * Note, this function no longer validates against circular ancestry. Since the child
                  * ID is always created at the DB insertion, it is impossible for a newly created child
-                 * to already have descendents. And, since requirement FT-AC-4.16 explicitly forbids
+                 * to already have descendents. And, since requirement REQ-AC-4.16 explicitly forbids
                  * reparenting an account, there is no "legal" vector for a circular ancestry chain to
                  * come into being.
                  *
@@ -334,14 +334,14 @@ module Account =
             let ab = activeBegin account
             if proposedDate <= ab then
                 Error $"Deactivating account {id account} failed because the active end ({proposedDate}) would be before (or equal to) the active begin ({ab})" else
-                Ok () // FT-AC-4.2
+                Ok () // REQ-AC-4.2
                 
         let private validateNoActiveChildrenBeforeDeactivation (account: Account) : Result<unit, string> =
             let accountId = id account
             result {
                 let! children = fetchByParentId accountId
                 do!
-                    if children |> List.exists (fun x -> isActive x DateTimeOffset.Now) // FT-AC-4.3
+                    if children |> List.exists (fun x -> isActive x DateTimeOffset.Now) // REQ-AC-4.3
                     then Error $"Account {accountId} deactivation failed because one or more child account records is active"
                     else Ok ()
             }
@@ -360,7 +360,7 @@ module Account =
                 : Result<Account, string> =
                     
             let baseParams = [
-                { name = "@modified"; value = DateTimeWithOffset DateTimeOffset.Now } // FT-AC-4.7 
+                { name = "@modified"; value = DateTimeWithOffset DateTimeOffset.Now } // REQ-AC-4.7 
                 { name = "@id"; value = UniqueId accountId };
             ]
             let updates =
@@ -386,7 +386,7 @@ module Account =
             let query = $"""
                         UPDATE ledger.account
 	                    set
-	                        modified_at = @modified -- FT-AC-4.7
+	                        modified_at = @modified -- REQ-AC-4.7
 	                        {setClauses}
 	                    WHERE id = @id;
             """
@@ -413,7 +413,7 @@ module Account =
             
             result {
                 let! validAccount = constructNew code name accountType activeBegin activeEnd subType parentId reference
-                let! () = // FT-AC-2.6, FT-AC-2.7
+                let! () = // REQ-AC-2.6, REQ-AC-2.7
                     (*
                      * Note, we only validate the parent ID here because this is the part
                      * where the Account enters into the DB and the parent validation is
@@ -423,7 +423,7 @@ module Account =
                     match parentId with
                     | None -> Ok ()
                     | Some x -> validateParentChildRelationship x (id validAccount) DateTimeOffset.Now               
-                let! () = insertNewToDb validAccount // FT-AC-2.14
+                let! () = insertNewToDb validAccount // REQ-AC-2.14
                 return validAccount
             }
         
@@ -434,21 +434,21 @@ module Account =
         let deactivateAccount
                 (accountId: Guid)
                 (explicitEnd: DateTimeOffset option)
-                : Result<Account, string> = // FT-AC-4.1
+                : Result<Account, string> = // REQ-AC-4.1
             let deactivationDate =
                 match explicitEnd with
                 | Some m -> m
                 | None -> DateTimeOffset.Now
             result {
                 let! accountCurrent = fetchById accountId
-                do! // FT-AC-4.5
+                do! // REQ-AC-4.5
                     match activeEnd accountCurrent with
                     | None -> Ok ()
                     | Some x -> Error $"Account {accountId} deactivation failed because active end is already set to {x}"
-                let! () = validateProposedDeactivationDate accountCurrent deactivationDate // FT-AC-4.2
-                let! () = validateNoActiveChildrenBeforeDeactivation accountCurrent // FT-AC-4.3
-                // todo: validate non-zero balance FT-AC-4.4
-                // todo: validate no journal entries after deactivation date FT-AC-4.6
+                let! () = validateProposedDeactivationDate accountCurrent deactivationDate // REQ-AC-4.2
+                let! () = validateNoActiveChildrenBeforeDeactivation accountCurrent // REQ-AC-4.3
+                // todo: validate non-zero balance REQ-AC-4.4
+                // todo: validate no journal entries after deactivation date REQ-AC-4.6
                 let! newAccount = updateDb accountId NoChange (SetTo (Some deactivationDate)) NoChange
                 return newAccount                
             }
@@ -456,9 +456,9 @@ module Account =
         let updateAccountName
                 (accountId: Guid)
                 (newName: string)
-                : Result<Account, string> = // FT-AC-4.8
+                : Result<Account, string> = // REQ-AC-4.8
             result {
-                let! validAccountName = AccountName.create newName // FT-AC-4.21
+                let! validAccountName = AccountName.create newName // REQ-AC-4.21
                 let! newAccount = updateDb accountId (SetTo validAccountName) NoChange NoChange
                 return newAccount
             }
@@ -466,9 +466,9 @@ module Account =
         let updateExternalReference 
                 (accountId: Guid)
                 (newReference: string option)
-                : Result<Account, string> = // FT-AC-4.9
+                : Result<Account, string> = // REQ-AC-4.9
             result {                
-                let! validRef = // FT-AC-4.21
+                let! validRef = // REQ-AC-4.21
                     match newReference with
                     | Some x -> AccountExternalReference.create x |> Result.map Some
                     | None -> Ok None
