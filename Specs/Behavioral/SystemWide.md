@@ -26,11 +26,21 @@ per entity. Generic requirements state policy and scope, not vague aspiration.
 
 ## 4. Deletion
 
-- **REQ-SYS-4.1** The system must not provide a user interface for hard-deleting any entity record. (untestable)
+- **REQ-SYS-4.1** The system must not provide a user interface for hard-deleting any entity record.
 
 ## 5. Persistence fidelity
 
 - **REQ-SYS-5.1** The persistence layer must persist all entity properties in such a way that the entity type can be perfectly reconstituted upon subsequent read.
+
+## Waived from testing
+
+Active requirements that are deliberately not verified by tests. Two-state rule: every
+active requirement is either tested or in this table.
+
+| ID          | Reason testing is waived | Approved |
+|-------------|--------------------------|----------|
+| REQ-SYS-4.1 | A negative existence claim over the entire API surface ("no function exposes a hard delete") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | PENDING |
+
 
 ## Promotion candidates
 

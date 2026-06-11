@@ -86,12 +86,23 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-4.8** The system must provide a means to update an Account record's "name" field.
 - **REQ-AC-4.9** The system must provide a means to update an Account record's "external reference" field.
 - **REQ-AC-4.19** Updates to a deactivated Account record (with respect to system run-time) are permitted, provided that those updates meet all other requirements herein. 
-- **REQ-AC-4.22** The system must not provide a user interface for updating any of the following immutable Account fields: ID, "code", account type, subtype, "active begin", "created at", or parent ID. (untestable)
+- **REQ-AC-4.22** The system must not provide a user interface for updating any of the following immutable Account fields: ID, "code", account type, subtype, "active begin", "created at", or parent ID.
 
 
 ## 5. Deletion behaviors
 
 No Account-specific deletion requirements. Hard deletion is prohibited system-wide by REQ-SYS-4.1.
+
+
+## Waived from testing
+
+Active requirements that are deliberately not verified by tests. Two-state rule: every
+active requirement is either tested or in this table.
+
+| ID          | Reason testing is waived | Approved |
+|-------------|--------------------------|----------|
+| REQ-AC-2.17 | The requirement explicitly states there is no validation of the caller-provided "active begin" — there is no behavior to test, only an absence the API design documents. | PENDING |
+| REQ-AC-4.22 | A negative existence claim over the entire API surface ("no function exposes an update path for these fields") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | PENDING |
 
 
 ## Withdrawn

@@ -1,0 +1,67 @@
+# The SonOfLeo Documentation System
+
+This directory is the system of record. Code is an artifact; these documents are the asset.
+They exist for five jobs: training the lead, preserving the "why" behind every non-obvious
+decision, giving future agents a cheap navigation index into a large codebase (the "star
+chart"), feeding auditor agents something objective to audit, and driving a test suite where
+every requirement is either verified or explicitly waived.
+
+## Document species
+
+There are exactly three. Do not invent a fourth without a body of evidence.
+
+| Species | Home | Enforced by | Contains |
+|---------|------|-------------|----------|
+| **Requirements** | `Behavioral/` (later `Structural/`) | Tests + audit script | Testable statements about system behavior, with stable IDs |
+| **Conventions** | `SolutionConventions.md` | Code review | How we write code: naming, build practice, paradigm guardrails |
+| **Decisions** | `Decisions.md` | Nobody — it's a log | Structural "whys" that don't attach to any single requirement ID |
+
+## Requirement ID grammar
+
+`REQ-<DOMAIN>-<section>.<n>` — e.g., `REQ-AC-1.5`. Domains: `AC` (Account), `DAL` (data
+access), `SYS` (system-wide), more as entities arrive.
+
+**IDs are permanent.** Never renumbered, never reused. A dead requirement moves to its
+document's **Withdrawn** table with a reason — it does not vanish. Gaps in numbering are
+normal and meaningless.
+
+## Requirement anatomy
+
+```markdown
+- **REQ-AC-1.5** Account code is case sensitive. "ACCT-100" and "acct-100" are distinct.
+  - *Why:* <rationale, dated> (2026-06-11)
+```
+
+The *Why* line is optional and reserved for requirements where a reasonable reviewer would
+ask "wait, why?" — annotating the obvious is noise. Withdrawn-table rows carry their why in
+the Reason column. A requirement that cannot or should not be verified by a test gets a row
+in its document's **Waived from testing** table: ID, reason, and Dan's approval date. Every
+active requirement is therefore in exactly one of two states: tested or waived.
+
+## Linkage rules (the star chart)
+
+The map never lists coordinates. Spec documents **never** name source files, functions, or
+tests. All linkage lives at the destination:
+
+- Source code carries `// REQ-AC-1.5` annotations at the implementing site.
+- Test names begin with the ID(s) they verify (see SolutionConventions.md).
+- The requirement→code and requirement→test maps are **generated** by `Audit/audit.sh`,
+  never hand-maintained.
+
+To answer "how does X work": find the requirement for X here, then grep the codebase for
+its ID.
+
+## Audit invariants (`Audit/audit.sh`)
+
+1. **No phantoms** (hard fail): every REQ- ID referenced in `Src/` or `Tests/` must exist as
+   an active requirement. References to withdrawn or unknown IDs are defects.
+2. **No silent gaps** (report): every active requirement has ≥1 test annotation or a waiver
+   row. There is no third state.
+3. **Unimplemented** (report): active requirements with no code annotation — legitimate
+   under waterfall (spec precedes code), but listed so nothing is forgotten.
+4. **Bullshit-sniffer feed** (report): requirements ranked by test count, descending. A
+   requirement needing many tests is either boundary-rich (fine), badly factored (split it),
+   or carrying redundant AI-generated tests (delete them).
+
+**Exclusion:** `BdsNotes/` is an archaeological record and is never scanned or updated. It
+still contains the pre-2026-06-11 `FT-` prefix by design.
