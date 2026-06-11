@@ -51,6 +51,7 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **FT-AC-1.47** An Account record's parent ID can never reference one of its descendent accounts. (This will be difficult to enforce.)
 - **FT-AC-1.48** An Account record is considered "deactivated" (or "inactive") when its "active end" date is non-null and is earlier than or equal to a given reference point in time.
   - **FT-AC-1.48.1** The reference point is context-dependent: it may be the current system clock or a date specific to the operation (e.g., a transaction's entry date). Each requirement that references deactivation status must specify which reference point applies.
+- **FT-AC-1.49** Account external reference cannot be whitespace only (pre-trimmed) or empty
 
 
 ## 2. Create behaviors
@@ -86,7 +87,7 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 ## 4. Update behaviors
 
 - **FT-AC-4.1** The system must provide a means to deactivate an Account, using a provided "active end" date.
-- **FT-AC-4.2** When an Account deactivation is requested, the system must reject any request where the "active end" date would be before the "active begin" date.
+- **FT-AC-4.2** When an Account deactivation is requested, the system must reject any request where the "active end" date would be earlier or equal to the "active begin" date.
 - **FT-AC-4.3** When an Account deactivation is requested, the system must reject any request where the Account to be deactivated has active children accounts (reference as-of system run-time).
 - **FT-AC-4.4** When an Account deactivation is requested, the system must reject any request where the Account has a non-zero balance at the time of the request.
 - **FT-AC-4.5** When an Account deactivation is requested, the system must reject any request where the Account already has a non-null "active end" date.
@@ -94,21 +95,23 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **FT-AC-4.7** Any successful update to an Account record must also update the "modified at" timestamp for that Account record with the current system run date/time.
 - **FT-AC-4.8** The system must provide a means to update an Account record's "name" field.
 - **FT-AC-4.9** The system must provide a means to update an Account record's "external reference" field.
-- **FT-AC-4.10** The system must not provide a user interface for updating an Account record's ID. 
-- **FT-AC-4.11** The system must not provide a user interface for updating an Account record's "code" field.
-- **FT-AC-4.12** The system must not provide a user interface for updating an Account record's account type.
-- **FT-AC-4.13** The system must not provide a user interface for updating an Account record's "active begin" field.
-- **FT-AC-4.14** The system must not provide a user interface for updating an Account record's "created at" field.
-- **FT-AC-4.15** The system must not provide a user interface for updating an Account record's "subtype" field.
-- **FT-AC-4.16** The system must not provide a user interface for updating an Account record's parent ID.
+- **FT-AC-4.10** The system must not provide a user interface for updating an Account record's ID. (untestable) 
+- **FT-AC-4.11** The system must not provide a user interface for updating an Account record's "code" field. (untestable)
+- **FT-AC-4.12** The system must not provide a user interface for updating an Account record's account type. (untestable)
+- **FT-AC-4.13** The system must not provide a user interface for updating an Account record's "active begin" field. (untestable)
+- **FT-AC-4.14** The system must not provide a user interface for updating an Account record's "created at" field. (untestable)
+- **FT-AC-4.15** The system must not provide a user interface for updating an Account record's "subtype" field. (untestable)
+- **FT-AC-4.16** The system must not provide a user interface for updating an Account record's parent ID. (untestable)
 - **FT-AC-4.17** When updating an Account record, all updatable raw string values must be trimmed of any leading or trailing white space before being added to the persistence layer or being returned to the caller of the function.
 - **FT-AC-4.18** The system must reject any Account update request that would result in an illegal data state as defined in section 1.
 - **FT-AC-4.19** Updates to a deactivated Account record (with respect to system run-time) are permitted, provided that those updates meet all other requirements herein. 
+- **FT-AC-4.20** When updating an Account record, no updatable raw string may be updated to purely white-space.
+- **FT-AC-4.21** When updating an Account record, all legal/illegal data state rules (section 1) must be enforced
 
 
 ## 5. Deletion behaviors
 
-- **FT-AC-5.1** The system must not provide a user interface for hard-deleting an Account record.
+- **FT-AC-5.1** The system must not provide a user interface for hard-deleting an Account record. (untestable)
 
 
 ## Withdrawn

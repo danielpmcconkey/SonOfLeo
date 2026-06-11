@@ -15,7 +15,6 @@ module DAL =
     type FieldUpdate<'a> =
         | NoChange
         | SetTo of 'a
-        | Clear
 
     type QueryParameterValue = // FT-DAL-3.2
         | Integer of int

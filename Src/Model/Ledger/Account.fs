@@ -300,7 +300,8 @@ module Account =
                     match ae with
                     | None when ab <= referenceTime -> Ok ()
                     | None when ab > referenceTime -> Error $"Account {id} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
-                    | Some x when x <= referenceTime -> Error $"Account {id} failed \"is active\" check. The reference time ({referenceTime}) is now past the account's active end date ({ae})."
+                    | Some x when x <= referenceTime -> Error $"Account {id} failed \"is active\" check. The reference time ({referenceTime}) is now past (or equal to) the account's active end date ({ae})."
+                    | Some _ when ab > referenceTime -> Error $"Account {id} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
                     | _ -> Ok ()
                 return activeAccount
             }
@@ -331,8 +332,8 @@ module Account =
                 (proposedDate: DateTimeOffset)
                 : Result<unit, string> =
             let ab = activeBegin account
-            if proposedDate < ab then
-                Error $"Deactivating account {id account} failed because the active end ({proposedDate}) would be before the active begin ({ab})" else
+            if proposedDate <= ab then
+                Error $"Deactivating account {id account} failed because the active end ({proposedDate}) would be before (or equal to) the active begin ({ab})" else
                 Ok () // FT-AC-4.2
                 
         let private validateNoActiveChildrenBeforeDeactivation (account: Account) : Result<unit, string> =
@@ -353,31 +354,30 @@ module Account =
         /// legal/illegal data-state rules.
         let private updateDb
                 (accountId: Guid)
-                (nameUpdate: FieldUpdate<string>)
+                (nameUpdate: FieldUpdate<AccountName>)
                 (activeEndUpdate: FieldUpdate<DateTimeOffset option>)
-                (referenceUpdate: FieldUpdate<string option>)
+                (referenceUpdate: FieldUpdate<AccountExternalReference option>)
                 : Result<Account, string> =
                     
             let baseParams = [
-                { name = "@modified"; value = DateTimeWithOffset DateTimeOffset.Now }
+                { name = "@modified"; value = DateTimeWithOffset DateTimeOffset.Now } // FT-AC-4.7 
                 { name = "@id"; value = UniqueId accountId };
             ]
             let updates =
                 [
                     match nameUpdate with
                     | NoChange -> None
-                    | SetTo n -> Some (", name = @name", { name = "@name"; value = CharString n })
-                    | Clear -> None // this will throw an error in the railroad below
+                    | SetTo n -> Some (", name = @name", { name = "@name"; value = CharString (AccountName.value n) })
                     
                     match activeEndUpdate with
                     | NoChange -> None
                     | SetTo e -> Some (", active_end = @active_end", { name = "@active_end"; value = NullableDateTimeWithOffset e })
-                    | Clear -> Some (", active_end = @active_end", { name = "@active_end"; value = NullableDateTimeWithOffset None })
                     
                     match referenceUpdate with
                     | NoChange -> None
-                    | SetTo r -> Some (", external_ref = @external_ref", { name = "@external_ref"; value = NullableCharString r })
-                    | Clear -> Some (", external_ref = @external_ref", { name = "@external_ref"; value = NullableCharString None })
+                    | SetTo r ->
+                        let value = r |> Option.map AccountExternalReference.value
+                        Some (", external_ref = @external_ref", { name = "@external_ref"; value = NullableCharString  value })
                     
                 ] |> List.choose (fun x -> x)
             let setClauses = updates |> List.map fst |> String.concat ""
@@ -386,13 +386,12 @@ module Account =
             let query = $"""
                         UPDATE ledger.account
 	                    set
-	                        modified_at = @modified
+	                        modified_at = @modified -- FT-AC-4.7
 	                        {setClauses}
 	                    WHERE id = @id;
             """
             result {
                 do! if updates.IsEmpty then Error "update Account record failed because at least one updatable parameter must be set" else Ok ()
-                do! if nameUpdate = Clear then Error "account.name cannot be updated to null" else Ok ()
                 let! () = executeNonQuery query parameters ExactlyOne
                 return! fetchById accountId
             }
@@ -451,6 +450,28 @@ module Account =
                 // todo: validate non-zero balance FT-AC-4.4
                 // todo: validate no journal entries after deactivation date FT-AC-4.6
                 let! newAccount = updateDb accountId NoChange (SetTo (Some deactivationDate)) NoChange
+                return newAccount                
+            }
+        
+        let updateAccountName
+                (accountId: Guid)
+                (newName: string)
+                : Result<Account, string> = // FT-AC-4.8
+            result {
+                let! validAccountName = AccountName.create newName // FT-AC-4.21
+                let! newAccount = updateDb accountId (SetTo validAccountName) NoChange NoChange
                 return newAccount
-                
+            }
+        
+        let updateExternalReference 
+                (accountId: Guid)
+                (newReference: string option)
+                : Result<Account, string> = // FT-AC-4.9
+            result {                
+                let! validRef = // FT-AC-4.21
+                    match newReference with
+                    | Some x -> AccountExternalReference.create x |> Result.map Some
+                    | None -> Ok None
+                let! newAccount = updateDb accountId NoChange NoChange (SetTo validRef)
+                return newAccount
             }

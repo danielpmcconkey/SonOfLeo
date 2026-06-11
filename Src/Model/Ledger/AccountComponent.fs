@@ -151,7 +151,10 @@ module AccountComponent =
     module AccountExternalReference =
         let value (AccountExternalReference er) = er // required due to private value 
         let create (raw: string) : Result<AccountExternalReference, string> =
-            if raw.Length > 50 then
-                Error "Account external reference cannot exceed 50 characters"  // FT-AC-1.20
+            let trimmed = raw.Trim()
+            if trimmed = String.Empty then
+                Error $"Account external reference of \"{raw}\" is empty" // FT-AC-1.49
+            elif trimmed.Length > 50 then
+                Error $"Account external reference of \"{trimmed}\" exceeds 50 characters"  // FT-AC-1.20
             else
-                Ok (AccountExternalReference raw)
+                Ok (AccountExternalReference trimmed)
