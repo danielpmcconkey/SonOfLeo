@@ -78,7 +78,7 @@ module AccountComponent =
             | 5 -> Ok Expense
             | _ -> Error $"Invalid AccountTypeId: '%d{id}'"
         let fromString (accountType: string) : Result<AccountType, string> = // FT-AC-1.10 (parse boundary)
-            match accountType with
+            match accountType.Trim() with
             | "Asset" -> Ok Asset
             | "Liability" -> Ok Liability
             | "Equity" -> Ok Equity
@@ -114,7 +114,7 @@ module AccountComponent =
             | OtherRevenue -> "OtherRevenue"
             | OtherExpense -> "OtherExpense"
         let fromString (s: string) : Result<AccountSubtype, string> = // FT-AC-1.18 (parse boundary)
-            match s with
+            match s.Trim() with
             | "Cash" -> Ok Cash
             | "CurrentLiability" -> Ok CurrentLiability
             | "FixedAsset" -> Ok FixedAsset
