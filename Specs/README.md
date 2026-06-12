@@ -8,12 +8,13 @@ every requirement is either verified or explicitly waived.
 
 ## Document species
 
-There are exactly three. Do not invent a fourth without a body of evidence.
+There are exactly four. Do not invent a fifth without a body of evidence.
 
 | Species | Home | Enforced by | Contains |
 |---------|------|-------------|----------|
 | **Requirements** | `Behavioral/` (later `Structural/`) | Tests + audit script | Testable statements about system behavior, with stable IDs |
-| **Conventions** | `SolutionConventions.md` | Code review | How we write code: naming, build practice, paradigm guardrails |
+| **Definitions** | `Definitions.md` | Citation — every spec uses these terms as defined | Terms whose meaning changes which requirements apply or how they are verified |
+| **Conventions** | `Conventions/` (indexed by its card catalog, `Conventions/README.md`) | Code review | How we write code: naming, build practice, paradigm guardrails |
 | **Decisions** | `Decisions.md` | Nobody — it's a log | Structural "whys" that don't attach to any single requirement ID |
 
 ## Requirement ID grammar
@@ -44,7 +45,7 @@ The map never lists coordinates. Spec documents **never** name source files, fun
 tests. All linkage lives at the destination:
 
 - Source code carries `// REQ-AC-1.5` annotations at the implementing site.
-- Test names begin with the ID(s) they verify (see SolutionConventions.md).
+- Test names begin with the ID(s) they verify (see Conventions/traceability.md).
 - The requirement→code and requirement→test maps are **generated** by `Audit/audit.sh`,
   never hand-maintained.
 
