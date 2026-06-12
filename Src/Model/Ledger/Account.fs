@@ -13,8 +13,8 @@ module Account =
                     name: AccountName                                  // REQ-AC-1.6–1.8
                     accountType: AccountType                           // REQ-AC-1.10, REQ-AC-1.23
                     activityPeriod: AccountActivityPeriod
-                    createdAt: DateTimeOffset                          // REQ-AC-1.25
-                    modifiedAt: DateTimeOffset                         // REQ-AC-1.26, REQ-AC-1.27
+                    createdAt: DateTimeOffset                          // REQ-SYS-3.1
+                    modifiedAt: DateTimeOffset                         // REQ-SYS-3.1
                     accountSubType: AccountSubtype option              // REQ-AC-1.19, REQ-AC-1.28–1.36
                     parentId: Guid option                              // REQ-AC-1.37–1.40
                     externalReference: AccountExternalReference option // REQ-AC-1.20, REQ-AC-1.41
