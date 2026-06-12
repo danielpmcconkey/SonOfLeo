@@ -91,7 +91,7 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 
 ## 5. Deletion behaviors
 
-No Account-specific deletion requirements. Hard deletion is prohibited system-wide by REQ-SYS-4.1.
+- **REQ-AC-5.1** The system must not provide a user interface for hard-deleting an Account record.
 
 
 ## Waived from testing
@@ -101,8 +101,9 @@ active requirement is either tested or in this table.
 
 | ID          | Reason testing is waived | Approved |
 |-------------|--------------------------|----------|
-| REQ-AC-2.17 | The requirement explicitly states there is no validation of the caller-provided "active begin" — there is no behavior to test, only an absence the API design documents. | PENDING |
-| REQ-AC-4.22 | A negative existence claim over the entire API surface ("no function exposes an update path for these fields") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | PENDING |
+| REQ-AC-2.17 | Validating "active begin" is not AccountCrud's responsibility — the requirement assigns that responsibility to the caller. There is no AccountCrud behavior to test. | Dan, 2026-06-11 |
+| REQ-AC-4.22 | A negative existence claim over the entire API surface ("no function exposes an update path for these fields") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-06-11 |
+| REQ-AC-5.1  | A negative existence claim over the entire API surface ("no function exposes a hard delete") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-06-11 |
 
 
 ## Withdrawn
@@ -137,4 +138,3 @@ active requirement is either tested or in this table.
 | REQ-AC-4.18  | The system must reject any Account update request that would result in an illegal data state as defined in section 1. | Superseded by REQ-SYS-2.1 |
 | REQ-AC-4.20  | When updating an Account record, no updatable raw string may be updated to purely white-space. | Superseded by REQ-SYS-1.2 / REQ-SYS-1.3 (via REQ-SYS-2.1 and section 1 rules) |
 | REQ-AC-4.21  | When updating an Account record, all legal/illegal data state rules (section 1) must be enforced | Duplicate of REQ-AC-4.18; both superseded by REQ-SYS-2.1 |
-| REQ-AC-5.1   | The system must not provide a user interface for hard-deleting an Account record. (untestable) | Superseded by REQ-SYS-4.1 |

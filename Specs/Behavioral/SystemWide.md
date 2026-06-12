@@ -21,12 +21,13 @@ per entity. Generic requirements state policy and scope, not vague aspiration.
 ## 3. Audit timestamps
 
 - **REQ-SYS-3.1** Every persisted entity must carry a "created at" and a "modified at" timestamp.
-- **REQ-SYS-3.2** When a record is created, both timestamps must be set to the system clock at time of creation.
+- **REQ-SYS-3.2** When a record is created, both "created at" and "modified at" timestamps must be set to the system clock at time of creation.
 - **REQ-SYS-3.3** Every successful update to a record must set its "modified at" timestamp to the system clock at time of the update.
 
 ## 4. Deletion
 
-- **REQ-SYS-4.1** The system must not provide a user interface for hard-deleting any entity record.
+No system-wide deletion policy. Whether an entity's records may be hard-deleted is a
+domain-level decision, made in each entity's spec (for Accounts, see REQ-AC-5.1).
 
 ## 5. Persistence fidelity
 
@@ -37,9 +38,14 @@ per entity. Generic requirements state policy and scope, not vague aspiration.
 Active requirements that are deliberately not verified by tests. Two-state rule: every
 active requirement is either tested or in this table.
 
-| ID          | Reason testing is waived | Approved |
-|-------------|--------------------------|----------|
-| REQ-SYS-4.1 | A negative existence claim over the entire API surface ("no function exposes a hard delete") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | PENDING |
+None currently.
+
+
+## Withdrawn
+
+| ID          | Original Requirement | Reason |
+|-------------|----------------------|--------|
+| REQ-SYS-4.1 | The system must not provide a user interface for hard-deleting any entity record. | Deletion policy is per-entity, not system-wide (see Decisions, 2026-06-11). Account's prohibition restored to REQ-AC-5.1. |
 
 
 ## Promotion candidates
