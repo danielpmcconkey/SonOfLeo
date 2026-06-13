@@ -1,31 +1,41 @@
 # Definitions
 
-Terms with a SonOfLeo-specific meaning, defined once, above the individual domains so that
-behavioral specs, conventions, and decisions can all lean on the same words. Admission
-rule: a term earns an entry only when its meaning changes which requirements apply or how
-they are verified. Plain English stays in the dictionary.
+Terms with a SonOfLeo-specific meaning, defined once, above the individual domains so that behavioral specs, conventions, and decisions can all lean on the same words. Admission rule: a term earns an entry only when its meaning changes which requirements apply or how they are verified. Plain English stays in the dictionary.
 
-- **Entity** — a record type the system creates or mutates at runtime on behalf of the
-  user. Two litmus questions for any table: (1) does any user action ever insert or update
-  a row? Yes → entity. (2) Could the table's entire contents be regenerated from spec and
-  code alone? Yes → lookup, not an entity. System-wide requirements (REQ-SYS-*) bind to
-  entities; lookup tables and infrastructure metadata (e.g., migration history) are out of
-  scope. Classification is by behavior, not shape: a lookup-shaped table becomes an entity
-  the moment users can extend it at runtime. (Approved: Dan, 2026-06-11)
+## The system
+Any technology component whose source code or whose configuration exists in the SonOfLeo repository. Includes any binaries or CIL produced by building this solution and any database structure or behaviors defined in this repository. 
 
-- **Instant** — a globally agreed-upon point on the timeline, independent of the viewer's
-  geography or season. An instant carries no calendar date, no wall-clock face, and no
-  offset costume; those are renderings of an instant, not the instant itself. All temporal
-  values in this system are instants — there are no date-only or naive local-time values.
-  (Approved: Dan, 2026-06-11)
+## Money (as a variety of number)
+An amount denominated purely in currency (USD). Money is the only concept that sums meaningfully: totals, balances, and ledger entries are all sums of Money. Examples of real-world concepts that the system should define as Money:
+- Dan paid 600.06 USD at the liquor store (the total accumulated transaction)
+- Dan's checking account has a balance of -17.40 USD
 
-- **System clock** — the system's single source of the current instant, read at the time
-  of an operation. Says nothing about presentation: rendering an instant for a human
-  (zone, season, format) is a consumer concern, never a system one. (Approved: Dan,
-  2026-06-11)
+## Price (as a variety of number)
+A ratio of currency to a non-currency unit: USD per share, USD per month. A Price is never summed and never appears in a ledger; its only arithmetic role is converting a Quantity into Money by multiplication. Examples of real-world concepts that the system should define as Price:
+- The per-share valuation of a stock
+- A per-month rent obligation
 
-- **Public surface** — the set of functions a consumer of a module can call; the API the
-  orchestration and consumption layers see. Requirements phrased as "must not provide a
-  user interface for X" constrain the public surface — no public function may expose X —
-  not a visual UI, which does not exist. (PENDING — candidate alternative: reword
-  REQ-AC-4.22 and REQ-AC-5.1 to say "public means" and drop this entry.)
+## Quantity (as a variety of number)
+A count denominated in units other than currency: shares, months, items. A Quantity carries no monetary value of its own; it becomes Money only by multiplication with a Price. Examples of real-world concepts that the system should define as Quantity:
+- The number of stock shares purchased
+- The maximum number of tenants allowed in a property 
+
+## Rate (as a variety of number)
+A dimensionless proportion — a pure multiplier, usually expressed as a percentage and often per time period. A Rate is denominated in neither currency nor count; it scales a Money or Quantity value without changing its units. Examples of real-world concepts that the system should define as Rate:
+- The APR on a loan
+- A dividend yield
+
+## Entity (as a variety of record)
+A record type the system creates or mutates at runtime on behalf of the user. Two litmus questions for any table: (1) does any user action ever insert or update a row? Yes → entity. (2) Could the table's entire contents be regenerated from spec and code alone? Yes → lookup, not an entity. Classification is by behavior, not shape: a lookup-shaped table becomes an entity the moment users can extend it at runtime.
+
+## Instant (temporal)
+A singular and globally agreed-upon point in time, independent of the geography, civil prescript, or calendar convention.
+
+## Date (calendar)
+A calendar coordinate: the name of a single day within a specific calendar (e.g., 2026-03-30, Gregorian). A date has no time component and no fixed duration. The span of instants a date covers is determined only when an observer's time zone is applied--and may be 23, 24, or 25 hours when civil clocks shift. The same instant can fall on two different dates in two different places; mapping between dates and instants therefore always requires a declared time zone.
+
+## Calendar period
+The frequency of a regular event, expressed only in terms of years, days, months, weeks, or quarters. Never in temporal slices smaller than a single day. These are always relative to a specific calendar.
+
+## Interface
+The set of features, functions, services, windows, or reports that actors outside the system will trigger or consume.

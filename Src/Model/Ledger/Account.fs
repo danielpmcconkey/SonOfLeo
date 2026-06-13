@@ -3,7 +3,9 @@ namespace Model.Ledger
 open System
 open Utilities.ResultCE
 open Utilities.DAL
+open Model.Audit
 open AccountComponent
+open NodaTime
 
 module Account =
     
@@ -13,8 +15,8 @@ module Account =
                     name: AccountName                                  // REQ-AC-1.6–1.8
                     accountType: AccountType                           // REQ-AC-1.10, REQ-AC-1.23
                     activityPeriod: AccountActivityPeriod
-                    createdAt: DateTimeOffset                          // REQ-SYS-3.1
-                    modifiedAt: DateTimeOffset                         // REQ-SYS-3.1
+                    createdAt: Instant                                 // REQ-SYS-3.1
+                    modifiedAt: Instant                                // REQ-SYS-3.1
                     accountSubType: AccountSubtype option              // REQ-AC-1.19, REQ-AC-1.28–1.36
                     parentId: Guid option                              // REQ-AC-1.37–1.40
                     externalReference: AccountExternalReference option // REQ-AC-1.20, REQ-AC-1.41
@@ -36,7 +38,7 @@ module Account =
         let externalReference (a:Account) = a.externalReference
         let isActive // derived property here for convenience;
                 (a:Account)
-                (referencePoint: DateTimeOffset) // REQ-AC-1.48.1
+                (referencePoint: Instant) // REQ-AC-1.48.1
                 : bool =  
             let beginDate = activeBegin a
             let endDate = activeEnd a
@@ -57,8 +59,8 @@ module Account =
                 (name: AccountName)
                 (accountType: AccountType)
                 (activityPeriod: AccountActivityPeriod)
-                (createdAt: DateTimeOffset)
-                (modifiedAt: DateTimeOffset)
+                (createdAt: Instant)
+                (modifiedAt: Instant)
                 (subType: AccountSubtype option)
                 (parentId: Guid option)
                 (reference: AccountExternalReference option)
@@ -86,15 +88,17 @@ module Account =
                 (code: string)
                 (name: string)
                 (accountType: string)
-                (activeBegin: DateTimeOffset)
-                (activeEnd: DateTimeOffset option)
+                (activeBegin: Instant)
+                (activeEnd: Instant option)
                 (subType: string option)
                 (parentId: Guid option)
                 (reference: string option)
+                (auditEnvelope: AuditEnvelope)
                 : Result<Account, string> =            
             let id = Guid.NewGuid() // REQ-AC-1.39, REQ-AC-2.13
-            let createdAt = DateTimeOffset.UtcNow // REQ-AC-1.25, REQ-AC-2.11
-            let modifiedAt = DateTimeOffset.UtcNow // REQ-AC-1.26, REQ-AC-2.12
+            let now = AuditEnvelope.instant auditEnvelope
+            let createdAt =  now // REQ-AC-1.25, REQ-AC-2.11
+            let modifiedAt = now // REQ-AC-1.26, REQ-AC-2.12
             let activityPeriodResult = AccountActivityPeriod.create activeBegin activeEnd // REQ-AC-2.17, REQ-AC-2.18
             let codeResult = AccountCode.create(code)
             let nameResult = AccountName.create(name)
@@ -127,10 +131,10 @@ module Account =
                 (code: string)
                 (name: string)
                 (accountTypeId: int)
-                (activeBegin: DateTimeOffset)
-                (activeEnd: DateTimeOffset option)
-                (createdAt: DateTimeOffset)
-                (modifiedAt: DateTimeOffset)                
+                (activeBegin: Instant)
+                (activeEnd: Instant option)
+                (createdAt: Instant)
+                (modifiedAt: Instant)                
                 (subType: string option)
                 (parentId: Guid option)
                 (reference: string option)
@@ -172,10 +176,10 @@ module Account =
                 ( row |> RowReader.getString "code" )
                 ( row |> RowReader.getString "name" )
                 ( row |> RowReader.getInt "account_type_id" )
-                ( row |> RowReader.getDateTimeOffset "active_begin" )
-                ( row |> RowReader.getDateTimeOffsetOption "active_end" )
-                ( row |> RowReader.getDateTimeOffset "created_at" )
-                ( row |> RowReader.getDateTimeOffset "modified_at" )
+                ( row |> RowReader.getInstant "active_begin" )
+                ( row |> RowReader.getInstantOption "active_end" )
+                ( row |> RowReader.getInstant "created_at" )
+                ( row |> RowReader.getInstant "modified_at" )
                 ( row |> RowReader.getStringOption "account_subtype" )
                 ( row |> RowReader.getUuidOption "parent_id" )
                 ( row |> RowReader.getStringOption "external_ref" )
@@ -251,10 +255,10 @@ module Account =
                 { name = "@code"; value = CharString (AccountCode.value account.code) };
                 { name = "@name"; value = CharString (AccountName.value account.name) };
                 { name = "@account_type_id"; value = Integer (AccountType.toDbId account.accountType) };
-                { name = "@active_begin"; value = DateTimeWithOffset (AccountActivityPeriod.activeBegin account.activityPeriod) };
-                { name = "@active_end"; value = NullableDateTimeWithOffset(AccountActivityPeriod.activeEnd account.activityPeriod) };
-                { name = "@created_at"; value = DateTimeWithOffset account.createdAt };
-                { name = "@modified_at"; value = DateTimeWithOffset account.modifiedAt };
+                { name = "@active_begin"; value = DbInstant (AccountActivityPeriod.activeBegin account.activityPeriod) };
+                { name = "@active_end"; value = NullableDbInstant(AccountActivityPeriod.activeEnd account.activityPeriod) };
+                { name = "@created_at"; value = DbInstant account.createdAt };
+                { name = "@modified_at"; value = DbInstant account.modifiedAt };
                 { name = "@account_subtype"; value = NullableCharString subTypeString };
                 { name = "@parent_id"; value = NullableUniqueId account.parentId };
                 { name = "@external_ref"; value = NullableCharString externalReferenceString }
@@ -291,7 +295,7 @@ module Account =
         /// confirmAccountIsValidAndActive checks that there is an account in the
         /// database matching the passed ID and that account is valid as of a
         /// provided date/time
-        let private confirmAccountIsValidAndActive (id: Guid, referenceTime: DateTimeOffset) : Result<unit, string> =
+        let private confirmAccountIsValidAndActive (id: Guid, referenceTime: Instant) : Result<unit, string> =
             result {
                 let! validAccount = fetchById id
                 let ae = activeEnd validAccount
@@ -309,7 +313,7 @@ module Account =
         let private validateParentChildRelationship
                 (parentId: Guid)
                 (childId: Guid)
-                (referenceTime: DateTimeOffset)
+                (referenceTime: Instant)
                 : Result<unit, string> =
             result {
                 let! () = confirmAccountIsValidAndActive(parentId, referenceTime) // REQ-AC-2.6, REQ-AC-2.7
@@ -329,19 +333,22 @@ module Account =
         
         let private validateProposedDeactivationDate
                 (account: Account)
-                (proposedDate: DateTimeOffset)
+                (proposedDate: Instant)
                 : Result<unit, string> =
             let ab = activeBegin account
             if proposedDate <= ab then
                 Error $"Deactivating account {id account} failed because the active end ({proposedDate}) would be before (or equal to) the active begin ({ab})" else
                 Ok () // REQ-AC-4.2
                 
-        let private validateNoActiveChildrenBeforeDeactivation (account: Account) : Result<unit, string> =
+        let private validateNoActiveChildrenBeforeDeactivation
+            (account: Account)
+            (auditEnvelope: AuditEnvelope)
+            : Result<unit, string> =
             let accountId = id account
             result {
                 let! children = fetchByParentId accountId
                 do!
-                    if children |> List.exists (fun x -> isActive x DateTimeOffset.Now) // REQ-AC-4.3
+                    if children |> List.exists (fun x -> isActive x (AuditEnvelope.instant auditEnvelope)) // REQ-AC-4.3
                     then Error $"Account {accountId} deactivation failed because one or more child account records is active"
                     else Ok ()
             }
@@ -355,12 +362,13 @@ module Account =
         let private updateDb
                 (accountId: Guid)
                 (nameUpdate: FieldUpdate<AccountName>)
-                (activeEndUpdate: FieldUpdate<DateTimeOffset option>)
+                (activeEndUpdate: FieldUpdate<Instant option>)
                 (referenceUpdate: FieldUpdate<AccountExternalReference option>)
+                (auditEnvelope: AuditEnvelope)
                 : Result<Account, string> =
                     
             let baseParams = [
-                { name = "@modified"; value = DateTimeWithOffset DateTimeOffset.Now } // REQ-AC-4.7 
+                { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-AC-4.7 
                 { name = "@id"; value = UniqueId accountId };
             ]
             let updates =
@@ -371,7 +379,7 @@ module Account =
                     
                     match activeEndUpdate with
                     | NoChange -> None
-                    | SetTo e -> Some (", active_end = @active_end", { name = "@active_end"; value = NullableDateTimeWithOffset e })
+                    | SetTo e -> Some (", active_end = @active_end", { name = "@active_end"; value = NullableDbInstant e })
                     
                     match referenceUpdate with
                     | NoChange -> None
@@ -404,15 +412,16 @@ module Account =
                 (code: string)
                 (name: string)
                 (accountType: string)
-                (activeBegin: DateTimeOffset)
-                (activeEnd: DateTimeOffset option)
+                (activeBegin: Instant)
+                (activeEnd: Instant option)
                 (subType: string option)
                 (parentId: Guid option)
                 (reference: string option)
+                (auditEnvelope: AuditEnvelope)
                 : Result<Account, string> =            
             
             result {
-                let! validAccount = constructNew code name accountType activeBegin activeEnd subType parentId reference
+                let! validAccount = constructNew code name accountType activeBegin activeEnd subType parentId reference auditEnvelope
                 let! () = // REQ-AC-2.6, REQ-AC-2.7
                     (*
                      * Note, we only validate the parent ID here because this is the part
@@ -422,7 +431,7 @@ module Account =
                      *)
                     match parentId with
                     | None -> Ok ()
-                    | Some x -> validateParentChildRelationship x (id validAccount) DateTimeOffset.Now               
+                    | Some x -> validateParentChildRelationship x (id validAccount) (AuditEnvelope.instant auditEnvelope)               
                 let! () = insertNewToDb validAccount // REQ-AC-2.14
                 return validAccount
             }
@@ -433,12 +442,13 @@ module Account =
         /// Otherwise, the active_end will be the system clock time 
         let deactivateAccount
                 (accountId: Guid)
-                (explicitEnd: DateTimeOffset option)
+                (explicitEnd: Instant option)
+                (auditEnvelope: AuditEnvelope)
                 : Result<Account, string> = // REQ-AC-4.1
             let deactivationDate =
                 match explicitEnd with
                 | Some m -> m
-                | None -> DateTimeOffset.Now
+                | None -> AuditEnvelope.instant auditEnvelope
             result {
                 let! accountCurrent = fetchById accountId
                 do! // REQ-AC-4.5
@@ -446,32 +456,34 @@ module Account =
                     | None -> Ok ()
                     | Some x -> Error $"Account {accountId} deactivation failed because active end is already set to {x}"
                 let! () = validateProposedDeactivationDate accountCurrent deactivationDate // REQ-AC-4.2
-                let! () = validateNoActiveChildrenBeforeDeactivation accountCurrent // REQ-AC-4.3
+                let! () = validateNoActiveChildrenBeforeDeactivation accountCurrent auditEnvelope // REQ-AC-4.3
                 // todo: validate non-zero balance REQ-AC-4.4
                 // todo: validate no journal entries after deactivation date REQ-AC-4.6
-                let! newAccount = updateDb accountId NoChange (SetTo (Some deactivationDate)) NoChange
+                let! newAccount = updateDb accountId NoChange (SetTo (Some deactivationDate)) NoChange auditEnvelope
                 return newAccount                
             }
         
         let updateAccountName
                 (accountId: Guid)
                 (newName: string)
+                (auditEnvelope: AuditEnvelope)
                 : Result<Account, string> = // REQ-AC-4.8
             result {
                 let! validAccountName = AccountName.create newName // REQ-AC-4.21
-                let! newAccount = updateDb accountId (SetTo validAccountName) NoChange NoChange
+                let! newAccount = updateDb accountId (SetTo validAccountName) NoChange NoChange auditEnvelope
                 return newAccount
             }
         
         let updateExternalReference 
                 (accountId: Guid)
                 (newReference: string option)
+                (auditEnvelope: AuditEnvelope)
                 : Result<Account, string> = // REQ-AC-4.9
             result {                
                 let! validRef = // REQ-AC-4.21
                     match newReference with
                     | Some x -> AccountExternalReference.create x |> Result.map Some
                     | None -> Ok None
-                let! newAccount = updateDb accountId NoChange NoChange (SetTo validRef)
+                let! newAccount = updateDb accountId NoChange NoChange (SetTo validRef) auditEnvelope
                 return newAccount
             }

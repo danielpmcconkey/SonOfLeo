@@ -8,13 +8,16 @@
   <ItemGroup>
     <Compile Include="ResultCE.fs" />
     <Compile Include="DAL.fs" />
+    <Compile Include="Clock.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.8" />
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.8" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.8" />
+    <PackageReference Include="NodaTime" Version="3.3.2" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="Npgsql.NodaTime" Version="10.0.3" />
   </ItemGroup>
 
 </Project>

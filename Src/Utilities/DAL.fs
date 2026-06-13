@@ -2,6 +2,7 @@ namespace Utilities
 
 open System
 open System.Data
+open NodaTime
 open Npgsql // REQ-DAL-3.1
 open Microsoft.Extensions.Configuration
 open NpgsqlTypes // REQ-DAL-3.1
@@ -20,13 +21,13 @@ module DAL =
         | Integer of int
         | Numeric of decimal
         | CharString of string
-        | DateTimeWithOffset of DateTimeOffset
+        | DbInstant of Instant
         | UniqueId of Guid
         | Boolean of bool
         | NullableInteger of int option
         | NullableNumeric of decimal option
         | NullableCharString of string option
-        | NullableDateTimeWithOffset of DateTimeOffset option
+        | NullableDbInstant of Instant option
         | NullableUniqueId of Guid option
         | NullableBoolean of bool option
     
@@ -98,20 +99,29 @@ module DAL =
             let! template = getTemplate env
             return! injectPassword template
         }
-    
+        
+    let private dataSource : Lazy<Result<NpgsqlDataSource, string>> =
+        lazy (
+            getConnectionString()
+            |> Result.map (fun cs ->
+                let b = NpgsqlDataSourceBuilder(cs)
+                b.UseNodaTime() |> ignore
+                b.Build())
+        )
+       
     let private convertParamToDbParam (parameter: QueryParameter) : NpgsqlParameter = // REQ-DAL-3.2
         let dbType, value =
             match parameter.value with
             | Integer x -> NpgsqlDbType.Integer, box x
             | Numeric x -> NpgsqlDbType.Numeric, box x
             | CharString x -> NpgsqlDbType.Varchar, box x
-            | DateTimeWithOffset x -> NpgsqlDbType.TimestampTz, box x
+            | DbInstant x -> NpgsqlDbType.TimestampTz, box x
             | UniqueId x -> NpgsqlDbType.Uuid, box x
             | Boolean x -> NpgsqlDbType.Boolean, box x
             | NullableInteger x -> NpgsqlDbType.Integer, match x with Some b -> box b | None -> box DBNull.Value
             | NullableNumeric x -> NpgsqlDbType.Numeric, match x with Some b -> box b | None -> box DBNull.Value
             | NullableCharString x -> NpgsqlDbType.Varchar, match x with Some b -> box b | None -> box DBNull.Value
-            | NullableDateTimeWithOffset x -> NpgsqlDbType.TimestampTz, match x with Some b -> box b | None -> box DBNull.Value
+            | NullableDbInstant x -> NpgsqlDbType.TimestampTz, match x with Some b -> box b | None -> box DBNull.Value
             | NullableUniqueId x -> NpgsqlDbType.Uuid, match x with Some b -> box b | None -> box DBNull.Value
             | NullableBoolean x -> NpgsqlDbType.Boolean, match x with Some b -> box b | None -> box DBNull.Value
         let p = NpgsqlParameter(parameter.name, dbType)
@@ -134,7 +144,7 @@ module DAL =
         (parameters: QueryParameter list)
         (expectedRows: AcceptableExpectedRows) : Result<unit, string> =
         result {
-            let! connectionString = getConnectionString()
+            let! ds = dataSource.Value
             let parameters = buildParamsList parameters
             let! numRows =
                 (*
@@ -143,8 +153,7 @@ module DAL =
                  * paradigmatic F# Result Ok/Error at the impure boundary
                  *)
                 try
-                    use connection = new NpgsqlConnection(connectionString)
-                    connection.Open()
+                    use connection = ds.OpenConnection()
                     use command = new NpgsqlCommand(query, connection)                    
                     parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
                     Ok (command.ExecuteNonQuery())
@@ -176,12 +185,12 @@ module DAL =
             let ordinal = r.reader.GetOrdinal(col)
             if r.reader.IsDBNull(ordinal) then None
             else Some (r.reader.GetString(ordinal))
-        let getDateTimeOffset (col: string) (r: RowReader) =
-            r.reader.GetFieldValue<DateTimeOffset>(r.reader.GetOrdinal(col))
-        let getDateTimeOffsetOption (col: string) (r: RowReader) : DateTimeOffset option = 
+        let getInstant (col: string) (r: RowReader) =
+            r.reader.GetFieldValue<Instant>(r.reader.GetOrdinal(col))
+        let getInstantOption (col: string) (r: RowReader) : Instant option = 
             let ordinal = r.reader.GetOrdinal(col)
             if r.reader.IsDBNull(ordinal) then None
-            else Some (r.reader.GetFieldValue<DateTimeOffset>(ordinal))
+            else Some (r.reader.GetFieldValue<Instant>(ordinal))
         let getUuid (col: string) (r: RowReader) = r.reader.GetGuid(r.reader.GetOrdinal(col))
         let getUuidOption (col: string) (r: RowReader) : Guid option = 
             let ordinal = r.reader.GetOrdinal(col)
@@ -212,7 +221,7 @@ module DAL =
             (mapRow: RowReader -> Result<'T, string>) // REQ-DAL-3.2
             (expectedRows: AcceptableExpectedRows): Result<'T list, string> =
         result {
-            let! connectionString = getConnectionString()
+            let! ds = dataSource.Value
             let parameters = buildParamsList parameters
             let! rows =
                 (*
@@ -221,14 +230,13 @@ module DAL =
                  * paradigmatic F# Result Ok/Error at the impure boundary
                  *)
                 try
-                    use connection = new NpgsqlConnection(connectionString)
-                    connection.Open()
+                    use connection = ds.OpenConnection()
                     use command = new NpgsqlCommand(query, connection)                    
                     parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
                     use nReader = command.ExecuteReader()
                     readRows nReader mapRow []
                 with
-                | ex -> Error $"Database error during non query execution {ex.Message}"
+                | ex -> Error $"Database error during reader query execution {ex.Message}"
             let! () = validateNumRows rows.Length expectedRows // REQ-DAL-2.2
             return rows
         }

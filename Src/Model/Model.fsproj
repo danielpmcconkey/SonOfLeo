@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Audit.fs" />
     <Compile Include="Ledger\AccountComponent.fs" />
     <Compile Include="Ledger\Account.fs" />
     <Folder Include="Ops\" />
@@ -15,6 +16,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Utilities\Utilities.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NodaTime" Version="3.3.2" />
   </ItemGroup>
 
 </Project>

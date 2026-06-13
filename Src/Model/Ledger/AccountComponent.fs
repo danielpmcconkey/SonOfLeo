@@ -1,6 +1,7 @@
 namespace Model.Ledger
 
 open System
+open NodaTime
 
 module AccountComponent =
     
@@ -10,14 +11,14 @@ module AccountComponent =
      *)
 
     type AccountActivityPeriod =
-        private {   activeBegin: DateTimeOffset                        // REQ-AC-1.42, REQ-AC-1.44
-                    activeEnd: DateTimeOffset option                   // REQ-AC-1.43, REQ-AC-1.45
+        private {   activeBegin: Instant                        // REQ-AC-1.42, REQ-AC-1.44
+                    activeEnd: Instant option                   // REQ-AC-1.43, REQ-AC-1.45
         }
     
     module AccountActivityPeriod = // REQ-AC-2.17
         let activeBegin (a:AccountActivityPeriod) = a.activeBegin
         let activeEnd (a:AccountActivityPeriod) = a.activeEnd
-        let create (rawBegin: DateTimeOffset) (rawEnd: DateTimeOffset option) : Result<AccountActivityPeriod, string> =
+        let create (rawBegin: Instant) (rawEnd: Instant option) : Result<AccountActivityPeriod, string> =
             match rawEnd with
             | None -> Ok { activeBegin = rawBegin; activeEnd = None }
             | Some x -> 
