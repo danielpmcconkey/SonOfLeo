@@ -45,7 +45,7 @@ The map never lists coordinates. Spec documents **never** name source files, fun
 tests. All linkage lives at the destination:
 
 - Source code carries `// REQ-AC-1.5` annotations at the implementing site.
-- Test names begin with the ID(s) they verify (see Conventions/traceability.md).
+- Tests annotate which requirements they verify (see Conventions/Traceability.md).
 - The requirement→code and requirement→test maps are **generated** by `Audit/audit.sh`,
   never hand-maintained.
 
