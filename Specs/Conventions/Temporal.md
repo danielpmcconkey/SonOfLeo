@@ -40,24 +40,4 @@ Calendar arithmetic with dates may only ever involve years, months, or days.
 
 Calendar periods will be defined as discriminated unions whose contents may vary depending on the domain to which they belong. 
 
-Calendar periods are typically used to determine the expected date of a future event and will always use standard NodaTime library functions to determine those dates. 
-
-
-## stuff from the old file i didn't know what to do with
-
-
-- **One clock, injected.** Code never reads the clock inline (`SystemClock.Instance`
-  directly, `DateTimeOffset.UtcNow`, `.Now`). The clock arrives as a NodaTime `IClock`
-  dependency, which is what makes timestamp requirements (REQ-SYS-3.2, REQ-SYS-3.3)
-  testable at all.
-- **Truncate to microseconds at capture.** The clock wrapper truncates instants to
-  microsecond precision before anything sees them. Postgres stores microseconds; capturing
-  finer would make round-trips lossy and REQ-SYS-5.1 ("perfectly reconstituted") false.
-- **Postgres: `timestamptz` only.** No `timestamp`, `date`, `time`, or `timetz` columns,
-  ever — the first is a naive wall-clock, the rest are date-only/time-only values the
-  system has banned. `timestamptz` stores exactly the instant, normalized; the original
-  offset is deliberately discarded (localization is a presentation concern).
-- **
-- **Period ranges use `tstzrange`** (maps to NodaTime `Interval`), half-open `[)`, with a
-  gist exclusion constraint where overlap must be impossible. Don't model ranges as
-  begin/end column pairs. (Forward-looking: fiscal periods.)
+Calendar periods are typically used to determine the expected date of a future event and will always use standard NodaTime library functions to determine those dates.

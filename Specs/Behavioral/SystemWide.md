@@ -18,11 +18,12 @@ per entity. Generic requirements state policy and scope, not vague aspiration.
 - **REQ-SYS-2.1** Every operation that constructs, persists, or reconstitutes an entity — create, update, and read-from-persistence alike — must enforce that entity's legal data-state rules (the "valid and invalid data states" section of that entity's spec). No operation may produce, persist, or return an entity in an illegal data state.
 - **REQ-SYS-2.2** Where possible, rejections under REQ-SYS-2.1 must occur before any database write, and must produce a meaningful error message.
 
-## 3. Audit timestamps
+## 3. Audit
 
 - **REQ-SYS-3.1** Every persisted entity must carry a "created at" and a "modified at" timestamp.
 - **REQ-SYS-3.2** When a record is created, both "created at" and "modified at" timestamps must be set to the system clock at time of creation.
 - **REQ-SYS-3.3** Every successful update to a record must set its "modified at" timestamp to the system clock at time of the update.
+todo: add a requirement for logging audit activities to an external log
 
 ## 4. Deletion
 

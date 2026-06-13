@@ -39,3 +39,6 @@ The frequency of a regular event, expressed only in terms of years, days, months
 
 ## Interface
 The set of features, functions, services, windows, or reports that actors outside the system will trigger or consume.
+
+## Actors
+Humans or systems that interact with the system via the interface layer

@@ -3,13 +3,13 @@ namespace Utilities.Clock
 open System
 open NodaTime
 
-(*
- * note: this module is somewhat vestigial but I left it in here because writing
- * Clock.now is why faster than Instant.FromDateTimeOffset(DateTimeOffset.UtcNow)
- * all the time and I may decide that I want to build on having a centralized clock
- * some day
- *)
-
 module Clock =
+    
+    /// Clock.Now exists because the app layer creates time at a 1 * 10 ^ -7
+    /// precision but the persistence layer can only store at 1 * 10 ^ -6 precision.
+    /// We truncate here so we can more definitively test that "now" instances are
+    /// accurately persisted and reconstituted.
     let now () : Instant =
-        Instant.FromDateTimeOffset(DateTimeOffset.UtcNow)
+        let raw = Instant.FromDateTimeOffset(DateTimeOffset.UtcNow)
+        let ticks = raw.ToUnixTimeTicks()
+        Instant.FromUnixTimeTicks(ticks - (ticks % 10L))
