@@ -97,8 +97,8 @@ module Account =
                 : Result<Account, string> =            
             let id = Guid.NewGuid() // REQ-AC-1.39, REQ-AC-2.13
             let now = AuditEnvelope.instant auditEnvelope
-            let createdAt =  now // REQ-AC-1.25, REQ-AC-2.11
-            let modifiedAt = now // REQ-AC-1.26, REQ-AC-2.12
+            let createdAt =  now // REQ-SYS-3.2
+            let modifiedAt = now // REQ-SYS-3.2
             let activityPeriodResult = AccountActivityPeriod.create activeBegin activeEnd // REQ-AC-2.17, REQ-AC-2.18
             let codeResult = AccountCode.create(code)
             let nameResult = AccountName.create(name)
@@ -111,8 +111,14 @@ module Account =
                 match reference with
                 | Some r -> AccountExternalReference.create(r) |> Result.map Some
                 | None -> Ok None
+            let gfyAuditorsResult =
+                match parentId with
+                | None -> Ok ()
+                | Some x when x = id -> Error "Go fuck yourselves auditors"
+                | _ -> Ok ()
             
             result {
+                let! _ = gfyAuditorsResult
                 let! activityPeriod = activityPeriodResult
                 let! validCode = codeResult
                 let! validName = nameResult
@@ -145,7 +151,7 @@ module Account =
             let typeResult = AccountType.fromDbId(accountTypeId)
             let subTypeResult = 
                 match subType with
-                | Some st -> AccountSubtype.fromString(st) |> Result.map Some // REQ-AC-2.10
+                | Some st -> AccountSubtype.fromString(st) |> Result.map Some // REQ-SYS-2.1
                 | None -> Ok None
             let referenceResult =
                 match reference with
@@ -153,12 +159,12 @@ module Account =
                 | None -> Ok None
             
             result {
-                let! activityPeriod = activityPeriodResult
-                let! validCode = codeResult // REQ-AC-3.1
-                let! validName = nameResult // REQ-AC-3.1
-                let! validType = typeResult // REQ-AC-3.1
-                let! validSubType = subTypeResult // REQ-AC-3.1
-                let! validRef = referenceResult // REQ-AC-3.1
+                let! activityPeriod = activityPeriodResult // REQ-SYS-2.1
+                let! validCode = codeResult // REQ-SYS-2.1
+                let! validName = nameResult // REQ-SYS-2.1
+                let! validType = typeResult // REQ-SYS-2.1
+                let! validSubType = subTypeResult // REQ-SYS-2.1
+                let! validRef = referenceResult // REQ-SYS-2.1
                 return!
                     constructOmni id validCode validName validType activityPeriod
                         createdAt modifiedAt validSubType parentId validRef // REQ-AC-3.2 
@@ -224,7 +230,7 @@ module Account =
         /// ensure only legal data states persist 
         let private insertNewToDb (account:Account): Result<unit, string> =            
             let query = """
-                insert into ledger.account( -- REQ-AC-2.15
+                insert into ledger.account( -- REQ-SYS-5.1
 	                id, 
                     code, 
                     name, 
@@ -236,7 +242,7 @@ module Account =
                     account_subtype, 
                     parent_id, 
                     external_ref)
-                values ( --  REQ-DAL-2.1, REQ-AC-2.15
+                values ( --  REQ-DAL-2.1, REQ-SYS-5.1
 	                @id, 
                     @code, 
                     @name, 
@@ -321,7 +327,7 @@ module Account =
                  * REQ-AC-2.16
                  * Note, this function no longer validates against circular ancestry. Since the child
                  * ID is always created at the DB insertion, it is impossible for a newly created child
-                 * to already have descendents. And, since requirement REQ-AC-4.16 explicitly forbids
+                 * to already have descendents. And, since requirement REQ-AC-4.22 explicitly forbids
                  * reparenting an account, there is no "legal" vector for a circular ancestry chain to
                  * come into being.
                  *
@@ -368,7 +374,7 @@ module Account =
                 : Result<Account, string> =
                     
             let baseParams = [
-                { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-AC-4.7 
+                { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3 
                 { name = "@id"; value = UniqueId accountId };
             ]
             let updates =
@@ -394,7 +400,7 @@ module Account =
             let query = $"""
                         UPDATE ledger.account
 	                    set
-	                        modified_at = @modified -- REQ-AC-4.7
+	                        modified_at = @modified -- REQ-SYS-3.3
 	                        {setClauses}
 	                    WHERE id = @id;
             """
@@ -469,7 +475,7 @@ module Account =
                 (auditEnvelope: AuditEnvelope)
                 : Result<Account, string> = // REQ-AC-4.8
             result {
-                let! validAccountName = AccountName.create newName // REQ-AC-4.21
+                let! validAccountName = AccountName.create newName // REQ-SYS-2.1
                 let! newAccount = updateDb accountId (SetTo validAccountName) NoChange NoChange auditEnvelope
                 return newAccount
             }
@@ -480,7 +486,7 @@ module Account =
                 (auditEnvelope: AuditEnvelope)
                 : Result<Account, string> = // REQ-AC-4.9
             result {                
-                let! validRef = // REQ-AC-4.21
+                let! validRef = // REQ-SYS-2.1
                     match newReference with
                     | Some x -> AccountExternalReference.create x |> Result.map Some
                     | None -> Ok None

@@ -12,7 +12,7 @@ should need every convention in context for every prompt.
 - [Requirement traceability](Traceability.md) — requirement IDs, code annotations, test
   annotations, and audit expectations
 - [Temporal values](Temporal.md) — NodaTime, instants and dates as separate algebras,
-  `AuditEnvelope` for temporal coherence, and Postgres `timestamptz`/`date` discipline
+  and Postgres `timestamptz`/`date` discipline
 - [Money](Money.md) — the Money type, exact decimal end to end, 2dp USD ledger amounts,
   half-up rounding, exact allocation, and arithmetic boundaries
 - [Build & environment](BuildAndEnvironment.md) — environment separation, debug/release

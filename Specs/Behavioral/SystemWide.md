@@ -16,12 +16,13 @@ per entity. Generic requirements state policy and scope, not vague aspiration.
 ## 2. Legal data-state enforcement
 
 - **REQ-SYS-2.1** Every operation that constructs, persists, or reconstitutes an entity — create, update, and read-from-persistence alike — must enforce that entity's legal data-state rules (the "valid and invalid data states" section of that entity's spec). No operation may produce, persist, or return an entity in an illegal data state.
-- **REQ-SYS-2.2** Where possible, rejections under REQ-SYS-2.1 must occur before any database write, and must produce a meaningful error message.
+  - **REQ-SYS-2.1.1 Rejections determinable from the entity's own properties must occur before any database write. 
+  - **REQ-SYS-2.1.2 Rejections requiring database state may fall through to database constraints.
 
 ## 3. Audit
 
 - **REQ-SYS-3.1** Every persisted entity must carry a "created at" and a "modified at" timestamp.
-- **REQ-SYS-3.2** When a record is created, both "created at" and "modified at" timestamps must be set to the system clock at time of creation.
+- **REQ-SYS-3.2** When a record is created, both "created at" and "modified at" Instant properties must be set to the AuditEnvelope's system instant property at time of creation.
 - **REQ-SYS-3.3** Every successful update to a record must set its "modified at" timestamp to the system clock at time of the update.
 todo: add a requirement for logging audit activities to an external log
 
@@ -47,6 +48,7 @@ None currently.
 | ID          | Original Requirement | Reason |
 |-------------|----------------------|--------|
 | REQ-SYS-4.1 | The system must not provide a user interface for hard-deleting any entity record. | Deletion policy is per-entity, not system-wide (see Decisions, 2026-06-11). Account's prohibition restored to REQ-AC-5.1. |
+| REQ-SYS-2.2 | Rejections under REQ-SYS-2.1 must occur before any database write, and must produce a meaningful error message. | replaced with 2.1.1 and 2.1.2 for better clarity |
 
 
 ## Promotion candidates

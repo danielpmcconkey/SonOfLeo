@@ -2,10 +2,15 @@
 # Audits the REQ- traceability index. Invariants are documented in Specs/README.md.
 # BdsNotes/ is an archaeological record and is never scanned.
 #
+# Usage: traceability-audit.sh [repo-root]
+#   repo-root defaults to $(git rev-parse --show-toplevel)
+#
 # Exit code: 1 if phantom references exist (invariant 1), 0 otherwise.
 # Everything else is a report, not a failure.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+
+REPO_ROOT="${1:-$(git rev-parse --show-toplevel)}"
+cd "$REPO_ROOT"
 
 ID_RE='REQ-[A-Z]+-[0-9]+(\.[0-9]+)*'
 SPEC_FILES=(Specs/Behavioral/*.md)

@@ -40,30 +40,32 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-1.39** An account record's ID and parent ID cannot be the same (an account cannot be its own parent)
 - **REQ-AC-1.40** When not null, account parent Id must be a UUID of a preexisting database account record
 - **REQ-AC-1.41** Account external reference can be null
-- **REQ-AC-1.42** Account records must be able to represent a date/time signifying when that account began as an "active" account
-- **REQ-AC-1.43** Account records must be able to represent a date/time signifying when that account ceased being an "active" account
+- **REQ-AC-1.42** Account records must be able to represent a valid Instant signifying when that account began as an "active" account
+- **REQ-AC-1.43** Account records must be able to represent a valid Instant signifying when that account ceased being an "active" account
 - **REQ-AC-1.44** An account record's "active begin" may not be null
 - **REQ-AC-1.45** An account record's "active end" may be null
-- **REQ-AC-1.46** An account record's "active end" may not be earlier or equal in time than its "active begin"
-- **REQ-AC-1.47** An Account record's parent ID can never reference one of its descendent accounts. (This will be difficult to enforce.)
-- **REQ-AC-1.48** An Account record is considered "deactivated" (or "inactive") when its "active end" date is non-null and is earlier than or equal to a given reference point in time.
+- **REQ-AC-1.46** An account record's "active end" may not be earlier or equal than its "active begin"
+- **REQ-AC-1.47** An Account record's parent ID can never reference one of its descendent accounts.
+- **REQ-AC-1.48** An Account record is considered "deactivated" (or "inactive") when its "active end" Instant is non-null and is earlier than or equal to a given reference point.
   - **REQ-AC-1.48.1** The reference point is context-dependent: it may be the current system clock or a date specific to the operation (e.g., a transaction's entry date). Each requirement that references deactivation status must specify which reference point applies.
 - **REQ-AC-1.49** Account external reference cannot be whitespace only (pre-trimmed) or empty
+- **REQ-AC-1.50** An Account record is considered "active" when its "active begin" property is earlier than or equal to the provided reference Instant AND (its "active end" property is null OR its "active end" property is later than the reference Instant)
 
 
 ## 2. Create behaviors
 
 - **REQ-AC-2.4** When creating an Account record via primitive types, the passed in string (post-trim, per REQ-SYS-1.1) for account type must match one of the enumerated account types exactly or the creation must fail.
 - **REQ-AC-2.6** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the ID maps to an existing Account in the database.
-- **REQ-AC-2.7** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the parent account is active. *Note: edited 2026-06-07 10:22 EDT*
+- **REQ-AC-2.7** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the parent account is active (reference as-of the AuditEnvelope's instant property). 
 - **REQ-AC-2.8** When creating an Account record, the system must reject any duplicated ID
 - **REQ-AC-2.9** When creating an Account record, the system must reject any duplicated account code
 - **REQ-AC-2.10** When creating an Account record via primitive types, the passed in string (post-trim, per REQ-SYS-1.1) for account sub-type must match one of the enumerated account sub-types exactly or the creation must fail.
 - **REQ-AC-2.13** When creating an Account record, the creation function must generate a unique UUID for the ID (new UUIDs may not be passed in).
 - **REQ-AC-2.14** When creating an Account record, if the calling system specifies that the record should be saved to the DB, and if all validations pass and the passed in arguments represent a valid data state, the creation function must persist the fully validated account record in the database and return an account record with the created ID and created/modified timestamps
 - **REQ-AC-2.16** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the parent account is not already a descendent (no circular relationships).
-- **REQ-AC-2.17** When creating an Account record, it is the responsibility of the calling function to provide an accurate "active begin" date/time. There is not validation to confirm that the caller provided a correct begin date.
+- **REQ-AC-2.17** When creating an Account record, it is the responsibility of the calling function to provide an accurate "active begin" Instant. There is not validation to confirm that the caller provided a correct begin date.
 - **REQ-AC-2.18** When creating an Account record, the system will validate that any non-null "active end" is later in time than the provided "active begin".
+- **REQ-AC-2.19** When creating an Account with a parent ID, the child's AccountType must match the parent's AccountType.
 
 
 ## 3. Read behaviors
@@ -73,19 +75,20 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-3.4** The system must be able to retrieve an Account record by the caller providing that record's account code string.
 - **REQ-AC-3.5** The system must be able to retrieve all child records of an Account by the caller providing that parent record's ID.
 - **REQ-AC-3.6** The system must be able to retrieve all Account records of a particular type by the caller providing that AccountType.
-
+- **REQ-AC-3.7** The system must be able to retrieve all Account records without filter
+- **REQ-AC-3.8** The system must be able to retrieve all active Account records relative to a passed in reference time
 
 ## 4. Update behaviors
 
-- **REQ-AC-4.1** The system must provide a means to deactivate an Account, using a provided "active end" date.
-- **REQ-AC-4.2** When an Account deactivation is requested, the system must reject any request where the "active end" date would be earlier or equal to the "active begin" date.
-- **REQ-AC-4.3** When an Account deactivation is requested, the system must reject any request where the Account to be deactivated has active children accounts (reference as-of system run-time).
+- **REQ-AC-4.1** The system must provide a means to deactivate an Account, using a provided "active end" Instant.
+- **REQ-AC-4.2** When an Account deactivation is requested, the system must reject any request where the "active end" date would be earlier or equal to the "active begin" Instant.
+- **REQ-AC-4.3** When an Account deactivation is requested, the system must reject any request where the Account to be deactivated has active children accounts (reference as-of the AuditEnvelope's instant property).
 - **REQ-AC-4.4** When an Account deactivation is requested, the system must reject any request where the Account has a non-zero balance at the time of the request.
 - **REQ-AC-4.5** When an Account deactivation is requested, the system must reject any request where the Account already has a non-null "active end" date.
-- **REQ-AC-4.6** When an Account deactivation is requested, the system must reject any request where the Account has any journal entry items dated (either entry date or post date) after the provided "active end" date.
+- **REQ-AC-4.6** When an Account deactivation is requested, the system must reject any request where the Account has any journal entry items (either the entry Instant or posted Instant) after the provided "active end" Instant.
 - **REQ-AC-4.8** The system must provide a means to update an Account record's "name" field.
 - **REQ-AC-4.9** The system must provide a means to update an Account record's "external reference" field.
-- **REQ-AC-4.19** Updates to a deactivated Account record (with respect to system run-time) are permitted, provided that those updates meet all other requirements herein. 
+- **REQ-AC-4.19** Updates to a deactivated Account record are permitted, provided that those updates meet all other requirements herein.
 - **REQ-AC-4.22** The system must not provide a user interface for updating any of the following immutable Account fields: ID, "code", account type, subtype, "active begin", "created at", or parent ID.
 
 
@@ -104,6 +107,7 @@ active requirement is either tested or in this table.
 | REQ-AC-2.17 | Validating "active begin" is not AccountCrud's responsibility — the requirement assigns that responsibility to the caller. There is no AccountCrud behavior to test. | Dan, 2026-06-11 |
 | REQ-AC-4.22 | A negative existence claim over the entire API surface ("no function exposes an update path for these fields") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-06-11 |
 | REQ-AC-5.1  | A negative existence claim over the entire API surface ("no function exposes a hard delete") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-06-11 |
+| REQ-AC-1.47 | This is an impossible state if done through the code. The ID of the account is generated at creation time and therefore there can be no children of it. Only possible through direct DB editing | Dan, 2026-06-13 |
 
 
 ## Withdrawn
@@ -114,7 +118,7 @@ active requirement is either tested or in this table.
 | REQ-AC-1.25  | Account created at should default to the current runtime timestamp at time of database creation of the record | Superseded by REQ-SYS-3.2 |
 | REQ-AC-1.26  | Account modified at should default to the current runtime timestamp at time of database creation of the record | Superseded by REQ-SYS-3.2 |
 | REQ-AC-1.27  | Account modified at should be updated to the current runtime timestamp at time of database update of the record | Superseded by REQ-SYS-3.3 |
-| REQ-AC-1.38  | An account record with the is active flag set to true may not have a parent ID that references an account record with the is active flag set to false | Deemed too computationally expensive at every Account construction event. Deferred to database create and update events. |
+| REQ-AC-1.38  | An account record with the is active flag set to true may not have a parent ID that references an account record with the is active flag set to false | Deemed too computationally expensive at every Account construction event. Superseded by REQ-AC-2.7 and REQ-AC-4.3. |
 | REQ-AC-2.1   | When creating an Account record, either through primitive types or through defined types, all raw string values must be trimmed of any leading or trailing white space before being added to the persistence layer or being returned to the caller of the function. | Superseded by REQ-SYS-1.1 |
 | REQ-AC-2.2   | When creating an Account record, the database must be able to persist strings with full UTF-8 support. | Moved to DAL-level requirement (REQ-DAL-3.4) |
 | REQ-AC-2.3   | When creating an Account record, any string field must be stored in the database with case-perfect fidelity (post-trim). | Moved to DAL-level requirement |

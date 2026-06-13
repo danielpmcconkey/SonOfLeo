@@ -24,7 +24,7 @@ Any other primitive type or column types are prohibited from representing Money 
 
 Multiplication and division operations are strictly prohibited with Money records
 
-Addition and substraction operations are permitted, though the system must ensure all type enforcement rules are enforced on the result. 
+Addition and subtraction operations are permitted, though the system must ensure all type enforcement rules are enforced on the result. 
 
 ## Arithmetic with money amounts
 

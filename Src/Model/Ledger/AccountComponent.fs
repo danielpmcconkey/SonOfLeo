@@ -30,9 +30,9 @@ module AccountComponent =
     module AccountCode =
         let value (AccountCode ac) = ac // required because AccountCode is a private string
         let create (raw: string) : Result<AccountCode, string> =
-            let trimmed = raw.Trim() // REQ-AC-2.1
+            let trimmed = raw.Trim() // REQ-SYS-1.1
             if String.IsNullOrWhiteSpace trimmed then
-                Error "Account code cannot be empty"  // REQ-AC-1.1, REQ-AC-1.2
+                Error "Account code cannot be empty"  // REQ-AC-1.1, REQ-AC-1.2, REQ-SYS-1.2
             elif trimmed.Length > 10 then
                 Error "Account code cannot exceed 10 characters" // REQ-AC-1.3
             else
@@ -43,9 +43,9 @@ module AccountComponent =
     module AccountName =
         let value (AccountName an) = an // required because AccountName is a private string
         let create (raw: string) : Result<AccountName, string> =
-            let trimmed = raw.Trim() // REQ-AC-2.1
+            let trimmed = raw.Trim() // REQ-SYS-1.1
             if String.IsNullOrWhiteSpace trimmed then
-                Error "Account name cannot be empty"  // REQ-AC-1.6, REQ-AC-1.7
+                Error "Account name cannot be empty"  // REQ-AC-1.6, REQ-AC-1.7, REQ-SYS-1.2
             elif trimmed.Length > 100 then
                 Error "Account name cannot exceed 100 characters"  // REQ-AC-1.8
             else
@@ -79,7 +79,7 @@ module AccountComponent =
             | 5 -> Ok Expense
             | _ -> Error $"Invalid AccountTypeId: '%d{id}'"
         let fromString (accountType: string) : Result<AccountType, string> = // REQ-AC-1.10 (parse boundary)
-            match accountType.Trim() with
+            match accountType.Trim() with // REQ-SYS-1.1
             | "Asset" -> Ok Asset
             | "Liability" -> Ok Liability
             | "Equity" -> Ok Equity
@@ -115,7 +115,7 @@ module AccountComponent =
             | OtherRevenue -> "OtherRevenue"
             | OtherExpense -> "OtherExpense"
         let fromString (s: string) : Result<AccountSubtype, string> = // REQ-AC-1.18 (parse boundary)
-            match s.Trim() with
+            match s.Trim() with // REQ-SYS-1.1
             | "Cash" -> Ok Cash
             | "CurrentLiability" -> Ok CurrentLiability
             | "FixedAsset" -> Ok FixedAsset
@@ -152,9 +152,9 @@ module AccountComponent =
     module AccountExternalReference =
         let value (AccountExternalReference er) = er // required due to private value 
         let create (raw: string) : Result<AccountExternalReference, string> =
-            let trimmed = raw.Trim()
+            let trimmed = raw.Trim() // REQ-SYS-1.1
             if trimmed = String.Empty then
-                Error $"Account external reference of \"{raw}\" is empty" // REQ-AC-1.49
+                Error $"Account external reference of \"{raw}\" is empty" // REQ-AC-1.49, REQ-SYS-1.3
             elif trimmed.Length > 50 then
                 Error $"Account external reference of \"{trimmed}\" exceeds 50 characters"  // REQ-AC-1.20
             else

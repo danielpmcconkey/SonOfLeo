@@ -17,7 +17,7 @@ module Money =
         {amount = validD}
         
     let fromDecimal (raw: decimal) : Result<Money, string> =
-        let rounded = Math.Round(raw,2)
+        let rounded = Math.Round(raw, 2, MidpointRounding.AwayFromZero)
         match rounded with
         | x when x <> raw -> Error $"Failed to convert {raw} to Money record due to improper decimal precision"
         | x when x > maxMoney -> Error $"Failed to convert {raw} to Money record as value exceeds the maximum allowable value of {maxMoney}"

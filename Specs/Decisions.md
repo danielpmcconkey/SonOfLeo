@@ -29,10 +29,7 @@ here; put the *Why* under the ID.
   anywhere in the system; persistence stores the instant and deliberately discards the
   original local offset. *Why: date-only values are clumsy at best and wildly inaccurate at
   worst, and the system has no business knowing where the viewer was standing.* Note: the prohibition against date-only has been overturned. See Definitions.md
-- **2026-06-11** — Imported calendar dates anchor to US Eastern (America/New_York) to become
-  instants. *Why: Dan and (almost certainly) all his financial institutions operate in US-ET;
-  being wrong only matters at FI statement boundaries and period close, both of which get
-  specced explicitly when journaling and fiscal periods arrive.*
+
 - **2026-06-11** — NodaTime adopted as the temporal library, mapped through `Npgsql.NodaTime`.
   *Why: it makes the instants-only model compiler-enforced rather than review-enforced, and
   its injectable `IClock` is what makes the audit-timestamp requirements testable.* Note: we rejected the IClock in favor of the AuditEnvelope type.

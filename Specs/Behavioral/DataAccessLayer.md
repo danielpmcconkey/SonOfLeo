@@ -11,7 +11,7 @@ Generic database functions: connecting, executing queries, parameterization, and
 - **REQ-DAL-1.5** If the system cannot access the "SonOfLeo" connection string configuration, all data access functions must fail with an error
 - **REQ-DAL-1.6** If the "SonOfLeo" connection string configuration is empty or all white space, all data access functions must fail with an error
 - **REQ-DAL-1.7** The environment variable LEOBLOOM_DB_PASSWORD must be in place or all data access functions must fail with an error
-- **REQ-DAL-1.8** The "SonOfLeo" connection string will not print the database password in the external configuration file
+- **REQ-DAL-1.8** Any connection string in this system must use a parameter to represent the database password that will only be resolved at runtime when the system will read the password from a configured secret vault or environment variable
 - **REQ-DAL-1.9** The system will "inject" the environment variable LEOBLOOM_DB_PASSWORD contents into the final connection string at run-time
 - **REQ-DAL-1.10** The system will trim leading and trailing white space from the LEOBLOOM_DB_PASSWORD environment variable
 - **REQ-DAL-1.11** If the trimmed LEOBLOOM_DB_PASSWORD environment variable is empty, all data access functions must fail with an error

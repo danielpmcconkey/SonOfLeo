@@ -9,7 +9,7 @@ The application layer must use NodaTime's Instant type for operating with instan
 Any modules that require such reliance must keep standard dotnet DateTime and DateTime offsets as close to the edge as practical 
 
 ## Persistence layer conventions
-The database will persist all instances as timestamptz. No exceptions.
+The database will persist all `Instant` values as `timestamptz`. No exceptions.
 
 To ensure as much NodaTime compatibility, the application layer will use the Npgsql.NodaTime plugin so `timestamptz` maps to `Instant` end-to-end (avoiding the I/O edge described above).
 
@@ -35,6 +35,8 @@ Temporal arithmetic with instances involving days is discouraged. Feature design
 ## Dates
 
 Calendar arithmetic with dates may only ever involve years, months, or days.
+
+
 
 ## Calendar periods
 
