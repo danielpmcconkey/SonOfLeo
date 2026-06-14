@@ -1,6 +1,10 @@
-module Tests.Model.AccountComponentTests
+module Tests.Isolated.Model.Ledger.AccountComponent
 
+
+open System
+open Model.Audit
 open Xunit
+open Model.Ledger.Account
 open Model.Ledger.AccountComponent
 open NodaTime
 
@@ -9,26 +13,68 @@ open NodaTime
 // =============================================================================
 
 
+[<Fact>]
+let ``REQ-AC-1.2 REQ-SYS-1.2 AccountCode rejects empty input`` () =
+    let result = AccountCode.create String.Empty
+    Assert.True(Result.isError result)
+    
+
+[<Fact>]
+let ``REQ-AC-1.2 REQ-SYS-1.2 AccountCode rejects whitespace-only input`` () =
+    let result = AccountCode.create "     "
+    Assert.True(Result.isError result)
+
+[<Fact>]
+let ``REQ-AC-1.3 AccountCode rejects strings exceeding 10 chars`` () =
+    let result = AccountCode.create  (String('A', 11))
+    Assert.True(Result.isError result)
+
+[<Fact>]
+let ``REQ-AC-1.3 AccountCode accepts string at exactly 10 chars`` () =
+    let result = AccountCode.create  (String('A', 10))
+    Assert.True(Result.isOk result)
+
+[<Fact>]
+let ``REQ-SYS-1.1 AccountCode trims leading and trailing whitespace`` () =
+    let trimmed = "1010"
+    let result = AccountCode.create $"  {trimmed}   "
+    match result with
+    | Error e -> Assert.Fail e
+    | Ok a -> Assert.Equal(trimmed, (AccountCode.value a))
+
+[<Fact>]
+let ``REQ-AC-1.3 REQ-SYS-1.1 AccountCode length check applies post-trim`` () =
+    let result = AccountCode.create "   0123456789   "
+    Assert.True(Result.isOk result)
+
 
 // =============================================================================
 // AccountName
 // =============================================================================
 
 [<Fact>]
-let ``REQ-AC-1.6 REQ-AC-1.7 REQ-SYS-1.2 AccountName rejects empty and whitespace-only input`` () =
-    Assert.Fail "not implemented"
-
+let ``REQ-AC-1.7 REQ-SYS-1.2 AccountName rejects empty and whitespace-only input`` () =
+    let result = AccountName.create "      "
+    Assert.True(Result.isError result)
+    
 [<Fact>]
 let ``REQ-AC-1.8 AccountName rejects strings exceeding 100 chars`` () =
-    Assert.Fail "not implemented"
+    let result = AccountName.create (String('A', 101))
+    Assert.True(Result.isError result)
 
 [<Fact>]
 let ``REQ-AC-1.8 AccountName accepts string at exactly 100 chars`` () =
-    Assert.Fail "not implemented"
-
+    let result = AccountName.create (String('A', 100))
+    Assert.True(Result.isOk result)
+    
 [<Fact>]
 let ``REQ-SYS-1.1 AccountName trims leading and trailing whitespace`` () =
-    Assert.Fail "not implemented"
+    let trimmed = String('A', 25)
+    let result = AccountName.create $"  {trimmed}   "
+    match result with
+    | Error e -> Assert.Fail e
+    | Ok a -> Assert.Equal(trimmed, (AccountName.value a))
+
 
 // =============================================================================
 // AccountType

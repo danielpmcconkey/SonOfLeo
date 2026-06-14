@@ -1,4 +1,5 @@
-module Tests.Model.AccountTests
+module Tests.Isolated.Model.Ledger.Account
+
 
 open Xunit
 open Model.Ledger.Account

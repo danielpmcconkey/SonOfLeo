@@ -85,7 +85,16 @@ module AccountComponent =
             | "Equity" -> Ok Equity
             | "Revenue" -> Ok Revenue
             | "Expense" -> Ok Expense
-            | _ -> Error $"Invalid AccountTypeString: '%s{accountType}'"   
+            | _ -> Error $"Invalid AccountTypeString: '%s{accountType}'"
+        
+        let toString (at: AccountType) : string =
+            match at with
+            | Asset -> "Asset"
+            | Liability -> "Liability"
+            | Equity -> "Equity"
+            | Revenue -> "Revenue"
+            | Expense -> "Expense"
+            
         let normalBalance (t: AccountType) : AccountTypeNormalBalance =
             match t with
             | Asset | Expense -> Debit                  // REQ-AC-1.16

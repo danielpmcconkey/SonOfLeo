@@ -18,4 +18,10 @@
     <ProjectReference Include="..\..\Src\Model\Model.fsproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="Model\Ledger\AccountComponent.fs" />
+    <Compile Include="Model\Ledger\Account.fs" />
+    <Compile Include="Model\Money.fs" />
+  </ItemGroup>
+
 </Project>

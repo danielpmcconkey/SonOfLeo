@@ -1,4 +1,6 @@
-module Tests.Model.MoneyTests
+module Tests.Isolated.Model.Money
+
+
 
 open Xunit
 open Model.Money
