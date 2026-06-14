@@ -51,27 +51,27 @@ module DAL =
                     .Build()
             let configVal = config["ConnectionStringEnvVar"] 
             if String.IsNullOrWhiteSpace(configVal) then 
-                Error $"ConnectionStrings:SonOfLeo not found in appsettings.json" else
+                Error $"ConnectionStringEnvVar not found in appsettings.json" else // REQ-DAL-1.14, REQ-DAL-1.15
                 Ok(configVal)
         with
-        | ex -> Error $"Error retrieving appsettings.json. Error message: {ex.Message}"      
+        | ex -> Error $"Error retrieving appsettings.json. Error message: {ex.Message}" // REQ-DAL-1.3
 
     let private confirmConfigDoesntContainConnectionString (configVal: string) : Result<unit, string> =
         let doesContain = configVal.Contains(";") || configVal.Contains("Host=")
         match doesContain with
-        | true -> Error "ConnectionStrings:SonOfLeo contains a connection string, not an env var name."
+        | true -> Error "ConnectionStringEnvVar contains a connection string, not an env var name." // REQ-DAL-1.16
         | false -> Ok ()
     
     let private getRawConnectionString (envVarName:string) : Result<string, string> =
         match Environment.GetEnvironmentVariable envVarName |> Option.ofObj with
         | Some x -> Ok x
-        | None -> Error $"Environment variable {envVarName} not set or empty"
+        | None -> Error $"Environment variable {envVarName} not set or empty" // REQ-DAL-1.17
         
     let private getValidConnectionString (raw: string) : Result<string, string> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace(trimmed)
-        then Error "Connection string is empty"
-        else Ok trimmed
+        then Error "Connection string is empty" // REQ-DAL-1.18
+        else Ok trimmed // REQ-DAL-1.19
         
     let private getConnectionString(): Result<string, string> =
         result {
