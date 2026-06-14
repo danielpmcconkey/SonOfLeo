@@ -1,5 +1,7 @@
 /*
  executed manually in dev 6/13 15:00
+ executed manually in test 6/14 10:08
+ executed manually in prod 6/14 10:08
  
  drop table ledger.account;
  

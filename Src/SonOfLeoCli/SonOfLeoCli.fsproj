@@ -7,10 +7,14 @@
 
   <ItemGroup>
     <Compile Include="Program.fs" />
-    <Content Include="appsettings.Development.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <None Include="appsettings.Development.json" />
+    <None Include="appsettings.Production.json" />
   </ItemGroup>
+
+  <Target Name="CopyEnvConfig" AfterTargets="Build">
+    <Copy SourceFiles="appsettings.Development.json" DestinationFiles="$(OutputPath)appsettings.json" Condition="'$(Configuration)' == 'Debug'" />
+    <Copy SourceFiles="appsettings.Production.json" DestinationFiles="$(OutputPath)appsettings.json" Condition="'$(Configuration)' == 'Release'" />
+  </Target>
 
   <ItemGroup>
     <ProjectReference Include="..\Model\Model.fsproj" />

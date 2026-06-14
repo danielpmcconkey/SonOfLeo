@@ -8,25 +8,7 @@ open NodaTime
 // AccountCode
 // =============================================================================
 
-[<Fact>]
-let ``REQ-AC-1.1 REQ-AC-1.2 REQ-SYS-1.2 AccountCode rejects empty and whitespace-only input`` () =
-    Assert.Fail "not implemented"
 
-[<Fact>]
-let ``REQ-AC-1.3 AccountCode rejects strings exceeding 10 chars`` () =
-    Assert.Fail "not implemented"
-
-[<Fact>]
-let ``REQ-AC-1.3 AccountCode accepts string at exactly 10 chars`` () =
-    Assert.Fail "not implemented"
-
-[<Fact>]
-let ``REQ-SYS-1.1 AccountCode trims leading and trailing whitespace`` () =
-    Assert.Fail "not implemented"
-
-[<Fact>]
-let ``REQ-AC-1.3 REQ-SYS-1.1 AccountCode length check applies post-trim`` () =
-    Assert.Fail "not implemented"
 
 // =============================================================================
 // AccountName

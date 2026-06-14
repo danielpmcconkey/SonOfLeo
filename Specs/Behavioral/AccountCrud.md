@@ -108,6 +108,7 @@ active requirement is either tested or in this table.
 | REQ-AC-4.22 | A negative existence claim over the entire API surface ("no function exposes an update path for these fields") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-06-11 |
 | REQ-AC-5.1  | A negative existence claim over the entire API surface ("no function exposes a hard delete") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-06-11 |
 | REQ-AC-1.47 | This is an impossible state if done through the code. The ID of the account is generated at creation time and therefore there can be no children of it. Only possible through direct DB editing | Dan, 2026-06-13 |
+| REQ-AC-1.1 | Solution won't build if you try to pass a null value to AccountCode.create | Dan, 2026-06-14 |
 
 
 ## Withdrawn

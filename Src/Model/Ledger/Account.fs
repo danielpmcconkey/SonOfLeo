@@ -398,11 +398,11 @@ module Account =
             let parameters = baseParams @ (updates |> List.map snd)
 
             let query = $"""
-                        UPDATE ledger.account
-	                    set
-	                        modified_at = @modified -- REQ-SYS-3.3
-	                        {setClauses}
-	                    WHERE id = @id;
+                UPDATE ledger.account
+                set
+                    modified_at = @modified -- REQ-SYS-3.3
+                    {setClauses}
+                WHERE id = @id;
             """
             result {
                 do! if updates.IsEmpty then Error "update Account record failed because at least one updatable parameter must be set" else Ok ()

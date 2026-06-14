@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
-    <RootNamespace>Tests.Model</RootNamespace>
+    <RootNamespace>Tests.Integrated</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,11 +19,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="Ledger\AccountComponent.fs" />
-    <Compile Include="Ledger\Account.fs" />
-    <Compile Include="AccountComponentTests.fs" />
-    <Compile Include="AccountTests.fs" />
-    <Compile Include="MoneyTests.fs" />
+    <Content Include="appsettings.json" />
+    <Compile Include="_Cleanup.fs" />
+    <Compile Include="Model\Ledger\Account.fs" />
   </ItemGroup>
+
+  <Target Name="CopyEnvConfig" AfterTargets="Build">
+    <Copy SourceFiles="appsettings.Development.json" DestinationFiles="$(OutputPath)appsettings.json" />
+  </Target>
 
 </Project>

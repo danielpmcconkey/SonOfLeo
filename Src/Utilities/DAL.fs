@@ -41,63 +41,44 @@ module DAL =
         | OneOrMany
         | AnyQuantityIsAcceptable
     
-    let private getEnvironment(): Result<string, string> =
-        let envVarOption = 
-            Environment.GetEnvironmentVariable "LEOBLOOM_ENV"
-            |> Option.ofObj
-        match envVarOption with
-        | Some x ->
-            let trimX = x.Trim() // REQ-DAL-1.12
-            if trimX = String.Empty then
-                Error("Environment var LEOBLOOM_ENV cannot be empty") else // REQ-DAL-1.13
-#if DEBUG
-(*
- * IMPORTANT! REQ-DAL-3.3
- * note this is a fail guard. Dan does all his development work in the
- * host machine which, from a database perspective, is production and
- * the LEOBLOOM_ENV where Dan does his dev work is "Production". This
- * guard prevents Dan from triggering runs that he thinks are just test
- * and having those runs contaminate his database. 
- *) 
-                if trimX = "Production" then
-                    Error "Debug builds cannot connect to Production"
-                else
-#endif
-                Ok trimX // REQ-DAL-1.12
-        | None -> Error("Environment var LEOBLOOM_ENV cannot be null") // REQ-DAL-1.1
-            
-    let private getTemplate (env:string) : Result<string, string> =   
+    let private getConnectionStringConfig() : Result<string, string> =   
         try
             let config =
                 ConfigurationBuilder()
                     .SetBasePath(AppContext.BaseDirectory)
-                    .AddJsonFile($"appsettings.{env}.json", optional = false) // REQ-DAL-1.2
+                    .AddJsonFile($"appsettings.json", optional = false)
                     .AddEnvironmentVariables()
                     .Build()
-            let template = config["ConnectionStrings:SonOfLeo"] // REQ-DAL-1.4
-            if String.IsNullOrWhiteSpace(template) then 
-                Error $"ConnectionStrings:SonOfLeo not found in appsettings.{env}.json" else // REQ-DAL-1.6, REQ-DAL-1.5
-                Ok(template)
+            let configVal = config["ConnectionStringEnvVar"] 
+            if String.IsNullOrWhiteSpace(configVal) then 
+                Error $"ConnectionStrings:SonOfLeo not found in appsettings.json" else
+                Ok(configVal)
         with
-        | ex -> Error $"Error retrieving appsettings.{env}.json. Error message: {ex.Message}" // REQ-DAL-1.3
-            
-    let private injectPassword (template: string): Result<string, string> =
-        let envVarOption = 
-            Environment.GetEnvironmentVariable "LEOBLOOM_DB_PASSWORD"
-            |> Option.ofObj
-        match envVarOption with
-        | Some x ->
-            let trimX = x.Trim() // REQ-DAL-1.10 
-            if trimX = String.Empty then
-                Error("Environment var LEOBLOOM_DB_PASSWORD cannot be empty") else // REQ-DAL-1.11
-                Ok (template.Replace("{LEOBLOOM_DB_PASSWORD}", trimX)) // REQ-DAL-1.9,  REQ-DAL-1.10 
-        | None -> Error("Environment var LEOBLOOM_DB_PASSWORD cannot be null") // REQ-DAL-1.7
-            
-    let private getConnectionString(): Result<string,string> =        
+        | ex -> Error $"Error retrieving appsettings.json. Error message: {ex.Message}"      
+
+    let private confirmConfigDoesntContainConnectionString (configVal: string) : Result<unit, string> =
+        let doesContain = configVal.Contains(";") || configVal.Contains("Host=")
+        match doesContain with
+        | true -> Error "ConnectionStrings:SonOfLeo contains a connection string, not an env var name."
+        | false -> Ok ()
+    
+    let private getRawConnectionString (envVarName:string) : Result<string, string> =
+        match Environment.GetEnvironmentVariable envVarName |> Option.ofObj with
+        | Some x -> Ok x
+        | None -> Error $"Environment variable {envVarName} not set or empty"
+        
+    let private getValidConnectionString (raw: string) : Result<string, string> =
+        let trimmed = raw.Trim()
+        if String.IsNullOrWhiteSpace(trimmed)
+        then Error "Connection string is empty"
+        else Ok trimmed
+        
+    let private getConnectionString(): Result<string, string> =
         result {
-            let! env = getEnvironment()
-            let! template = getTemplate env
-            return! injectPassword template
+            let! config = getConnectionStringConfig ()
+            let! _ = confirmConfigDoesntContainConnectionString config
+            let! rawConnectionString = getRawConnectionString config
+            return! getValidConnectionString rawConnectionString
         }
         
     let private dataSource : Lazy<Result<NpgsqlDataSource, string>> =

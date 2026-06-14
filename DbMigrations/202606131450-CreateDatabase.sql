@@ -1,5 +1,9 @@
 /*
  executed manually in dev 6/13 14:53
+ executed manually in test 6/14 10:03
+  executed manually in prod 6/14 10:04
+ 
+ 
  drop database sonofleo_dev;
  
  */

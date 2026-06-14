@@ -6,6 +6,8 @@
     <Project Path="Src\SonOfLeoCli\SonOfLeoCli.fsproj" Type="F#" />
   </Folder>
   <Folder Name="/Tests/">
+    <Project Path="Tests\Tests.Integrated\Tests.Integrated.fsproj" Type="F#" />
+    <Project Path="Tests\Tests.Isolated\Tests.Isolated.fsproj" Type="F#" />
     <Project Path="Tests\Tests.Ledger\Tests.Ledger.fsproj" Type="F#" />
     <Project Path="Tests\Tests.Model\Tests.Model.fsproj" Type="F#" />
   </Folder>
