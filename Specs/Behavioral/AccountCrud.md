@@ -22,7 +22,8 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-1.16** Account types with name of 'Asset','Expense' must have a normal balance of 'Debit'
 - **REQ-AC-1.17** Account types with name of 'Liability','Equity','Revenue' must have a normal balance of 'Credit'
 - **REQ-AC-1.18** Account subtype must be constrained to ['Cash','CurrentLiability','FixedAsset','Investment','LongTermLiability','OperatingExpense','OperatingRevenue','OtherRevenue','OtherExpense']
-- **REQ-AC-1.19** Account subtype can be null
+- **REQ-AC-1.19** Account subtype can be null and a null subtype can be paired with any type
+- **REQ-AC-1.19.1** A null subtype can be paired with any type
 - **REQ-AC-1.20** Account external reference length must not exceed 50 characters
 - **REQ-AC-1.21** Account ID cannot be null
 - **REQ-AC-1.22** Account ID must be unique

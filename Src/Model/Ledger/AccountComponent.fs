@@ -120,7 +120,7 @@ module AccountComponent =
         | OperatingRevenue
         | OtherRevenue
         | OtherExpense
-    
+
     module AccountSubtype =
         let toString (st: AccountSubtype) : string =
             match st with
