@@ -38,14 +38,9 @@ module Account =
         let externalReference (a:Account) = a.externalReference
         let isActive // derived property here for convenience;
                 (a:Account)
-                (referencePoint: Instant) // REQ-AC-1.48.1
+                (referencePoint: Instant)
                 : bool =  
-            let beginDate = activeBegin a
-            let endDate = activeEnd a
-            match endDate with
-            | None when beginDate <= referencePoint -> true
-            | Some x when beginDate <= referencePoint && x > referencePoint -> true // REQ-AC-1.48
-            | _ -> false
+            AccountActivityPeriod.isActive (activityPeriod a) referencePoint
         
 // Private constructors
         

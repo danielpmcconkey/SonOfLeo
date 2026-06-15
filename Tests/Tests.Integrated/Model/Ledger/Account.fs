@@ -505,15 +505,178 @@ let ``REQ-AC-2.19 child AccountType must match parent AccountType`` () =
 
 [<Fact>]
 let ``REQ-AC-4.1 deactivateAccount sets active end and returns inactive account`` () =
-    Assert.Fail "not implemented"
+    let code = "REQ-AC-4.1"
+    let name = "deactivateAccount sets active end and returns inactive account"
+    let accountType = "Asset"
+    let activeBegin = Clock.now().Plus(Duration.FromDays -1)
+    let activeEnd = None
+    let subtype = None
+    let parentId = None
+    let reference = None
+    let envelope1 = AuditEnvelope.create AccountCreate
+    
+    let mutable idToCleanUp = None
+    try
+        let railroad = result {
+            let! pushAccount = Account.constructNewAndSaveToDb code name accountType activeBegin activeEnd subtype parentId reference envelope1
+            let pushId = Account.id pushAccount
+            idToCleanUp <- Some pushId
+            
+            let envelope2 = AuditEnvelope.create AccountDeactivation
+            let! pullAccount = Account.deactivateAccount pushId None envelope2
+            let pullId = Account.id pullAccount
+            
+            Assert.Equal(pushId, pullId)
+            Assert.True(Account.isActive pushAccount (AuditEnvelope.instant envelope1))
+            Assert.False(Account.isActive pullAccount (AuditEnvelope.instant envelope2))
+            
+            return ()
+        }
+        match railroad with
+        | Ok _ -> ()
+        | Error e -> Assert.Fail e
+    finally
+        match cleanUpAccountId idToCleanUp with
+        | Ok () -> ()
+        | Error e -> failwith e
 
 [<Fact>]
-let ``REQ-AC-4.2 deactivateAccount rejects end earlier than or equal to begin`` () =
-    Assert.Fail "not implemented"
+let ``REQ-AC-4.2 deactivateAccount rejects end earlier than begin`` () =
+    let code = "REQ-AC-4.2"
+    let name = "deactivateAccount rejects end earlier than begin"
+    let accountType = "Asset"
+    let activeBegin = Clock.now().Plus(Duration.FromDays -1)
+    let activeEnd = None
+    let subtype = None
+    let parentId = None
+    let reference = None
+    let envelope1 = AuditEnvelope.create AccountCreate
+    
+    let mutable idToCleanUp = None
+    try
+        let railroad = result {
+            let! pushAccount = Account.constructNewAndSaveToDb code name accountType activeBegin activeEnd subtype parentId reference envelope1
+            let pushId = Account.id pushAccount
+            idToCleanUp <- Some pushId
+            
+            let envelope2 = AuditEnvelope.create AccountDeactivation
+            let badActiveEnd = Some (activeBegin.Plus(Duration.FromDays -1))
+            let deactivationResult = Account.deactivateAccount pushId badActiveEnd envelope2
+            
+            let! checkResult =
+                match deactivationResult with
+                | Error _ -> Ok ()
+                | Ok _ ->
+                    Error "Account deactivation was allowed to succeed with an earlier end than begin"
+            
+            return ()
+            
+        }
+        match railroad with
+        | Ok _ -> ()
+        | Error e -> Assert.Fail e
+    finally
+        match cleanUpAccountId idToCleanUp with
+        | Ok () -> ()
+        | Error e -> failwith e
+    
+[<Fact>]
+let ``REQ-AC-4.2 deactivateAccount rejects end equal to begin`` () =
+    let code = "REQ-AC-4.2"
+    let name = "deactivateAccount rejects end equal to begin"
+    let accountType = "Asset"
+    let activeBegin = Clock.now().Plus(Duration.FromDays -1)
+    let activeEnd = None
+    let subtype = None
+    let parentId = None
+    let reference = None
+    let envelope1 = AuditEnvelope.create AccountCreate
+    
+    let mutable idToCleanUp = None
+    try
+        let railroad = result {
+            let! pushAccount = Account.constructNewAndSaveToDb code name accountType activeBegin activeEnd subtype parentId reference envelope1
+            let pushId = Account.id pushAccount
+            idToCleanUp <- Some pushId
+            
+            let envelope2 = AuditEnvelope.create AccountDeactivation
+            let badActiveEnd = Some (activeBegin)
+            let deactivationResult = Account.deactivateAccount pushId badActiveEnd envelope2
+            
+            let! checkResult =
+                match deactivationResult with
+                | Error _ -> Ok ()
+                | Ok _ ->
+                    Error "Account deactivation was allowed to succeed with an equal end and begin"
+            
+            return ()
+            
+        }
+        match railroad with
+        | Ok _ -> ()
+        | Error e -> Assert.Fail e
+    finally
+        match cleanUpAccountId idToCleanUp with
+        | Ok () -> ()
+        | Error e -> failwith e
 
 [<Fact>]
 let ``REQ-AC-4.3 deactivateAccount rejects when active children exist`` () =
-    Assert.Fail "not implemented"
+    let code_parent = "AC-4.3-P"
+    let name_parent = "deactivateAccount rejects when active children exist"
+    let accountType_parent = "Liability"
+    let activeBegin_parent = (Clock.now()).Plus(Duration.FromDays(-700))
+    let activeEnd_parent = None
+    let subtype_parent = None
+    let parentId_parent = None
+    let reference_parent= None
+    let envelope_parent = AuditEnvelope.create AccountCreate
+    
+    let code_child1 = "AC-4.3-C1"
+    let name_child1 = "deactivateAccount rejects when active children exist"
+    let accountType_child1 = "Liability"
+    let activeBegin_child1 = Clock.now()
+    let activeEnd_child1 = None
+    let subtype_child1 = None    
+    let reference_child1= None
+    let envelope_child1 = AuditEnvelope.create AccountCreate
+    
+    let mutable idToCleanUp_parent = None
+    let mutable idToCleanUp_child1 = None
+    try
+        let railroad = result {
+            let! account_parent = Account.constructNewAndSaveToDb
+                                      code_parent name_parent accountType_parent activeBegin_parent activeEnd_parent
+                                      subtype_parent parentId_parent reference_parent envelope_parent
+            let parentId = Account.id account_parent
+            idToCleanUp_parent <- Some parentId
+            
+            let! account_child1 = Account.constructNewAndSaveToDb
+                                      code_child1 name_child1 accountType_child1 activeBegin_child1 activeEnd_child1
+                                      subtype_child1 (Some parentId) reference_child1 envelope_child1
+            let id_child1 = Account.id account_child1
+            idToCleanUp_child1 <- Some id_child1
+            
+            
+            let envelope_deactivation = AuditEnvelope.create AccountDeactivation
+            let goodActiveEnd = Some (Clock.now ())
+            let deactivationResult = Account.deactivateAccount parentId goodActiveEnd envelope_deactivation
+            
+            let! checkResult =
+                match deactivationResult with
+                | Error _ -> Ok ()
+                | Ok _ ->
+                    Error "Account deactivation was allowed to succeed with an active child"
+            
+            return ()
+        }
+        match railroad with
+        | Ok _ -> ()
+        | Error e -> Assert.Fail e
+    finally
+        match cleanUpParentIdAndChildren idToCleanUp_parent [idToCleanUp_child1;] with
+        | Ok () -> ()
+        | Error e -> failwith e
 
 [<Fact>]
 let ``REQ-AC-4.5 deactivateAccount rejects already deactivated account`` () =
