@@ -36,6 +36,8 @@ module Account =
         let accountSubType (a:Account) = a.accountSubType
         let parentId (a:Account) = a.parentId
         let externalReference (a:Account) = a.externalReference
+        let createdAt (a:Account) = a.createdAt
+        let modifiedAt (a:Account) = a.modifiedAt
         let isActive // derived property here for convenience;
                 (a:Account)
                 (referencePoint: Instant)
