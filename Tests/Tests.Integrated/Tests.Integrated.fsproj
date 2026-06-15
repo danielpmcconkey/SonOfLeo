@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <Content Include="appsettings.json" />
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="_Cleanup.fs" />
     <Compile Include="Model\Ledger\Account.fs" />
   </ItemGroup>

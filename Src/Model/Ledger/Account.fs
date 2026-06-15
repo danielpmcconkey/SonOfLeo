@@ -301,9 +301,11 @@ module Account =
         /// confirmAccountIsValidAndActive checks that there is an account in the
         /// database matching the passed ID and that account is valid as of a
         /// provided date/time
-        let private confirmAccountIsValidAndActive (id: Guid, referenceTime: Instant) : Result<unit, string> =
-            result {
-                let! validAccount = fetchById id
+        let private confirmAccountIsValidAndActive
+                (validAccount: Account)
+                (referenceTime: Instant)
+                : Result<unit, string> =
+            result {                
                 let ae = activeEnd validAccount
                 let ab = activeBegin validAccount                
                 let! activeAccount =
@@ -315,24 +317,31 @@ module Account =
                     | _ -> Ok ()
                 return activeAccount
             }
-        
+            
+        let private confirmAccountTypesMatch
+                (parentAccountType: AccountType)
+                (childAccountType: AccountType)
+                : Result<unit, string> =
+            match parentAccountType = childAccountType with
+            | true -> Ok ()
+            | false -> Error "Account types do not match" // REQ-AC-2.19
+            
         let private validateParentChildRelationship
                 (parentId: Guid)
-                (childId: Guid)
+                (childAccountType: AccountType)
                 (referenceTime: Instant)
                 : Result<unit, string> =
             result {
-                let! () = confirmAccountIsValidAndActive(parentId, referenceTime) // REQ-AC-2.6, REQ-AC-2.7
+                let! validAccount = fetchById parentId
+                let! () = confirmAccountIsValidAndActive validAccount referenceTime // REQ-AC-2.6, REQ-AC-2.7
+                let! () = confirmAccountTypesMatch (accountType validAccount) (childAccountType)
                 (*
                  * REQ-AC-2.16
                  * Note, this function no longer validates against circular ancestry. Since the child
                  * ID is always created at the DB insertion, it is impossible for a newly created child
                  * to already have descendents. And, since requirement REQ-AC-4.22 explicitly forbids
                  * reparenting an account, there is no "legal" vector for a circular ancestry chain to
-                 * come into being.
-                 *
-                 * I'm leaving this function here even though it does nothing new as we may someday devise
-                 * other parent/child relationship checks.  
+                 * come into being.  
                 *)
                 return ()
             }
@@ -417,7 +426,7 @@ module Account =
         let constructNewAndSaveToDb 
                 (code: string)
                 (name: string)
-                (accountType: string)
+                (accountTypeSt: string)
                 (activeBegin: Instant)
                 (activeEnd: Instant option)
                 (subType: string option)
@@ -427,7 +436,7 @@ module Account =
                 : Result<Account, string> =            
             
             result {
-                let! validAccount = constructNew code name accountType activeBegin activeEnd subType parentId reference auditEnvelope
+                let! validAccount = constructNew code name accountTypeSt activeBegin activeEnd subType parentId reference auditEnvelope
                 let! () = // REQ-AC-2.6, REQ-AC-2.7
                     (*
                      * Note, we only validate the parent ID here because this is the part
@@ -437,7 +446,7 @@ module Account =
                      *)
                     match parentId with
                     | None -> Ok ()
-                    | Some x -> validateParentChildRelationship x (id validAccount) (AuditEnvelope.instant auditEnvelope)               
+                    | Some x -> validateParentChildRelationship x (accountType validAccount) (AuditEnvelope.instant auditEnvelope)               
                 let! () = insertNewToDb validAccount // REQ-AC-2.14
                 return validAccount
             }

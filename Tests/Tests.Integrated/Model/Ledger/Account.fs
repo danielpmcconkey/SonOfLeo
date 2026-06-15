@@ -1,5 +1,6 @@
 module Tests.Integrated.Model.Ledger.Account
 
+open System
 open Model.Audit
 open Xunit
 open Model.Ledger.Account
@@ -9,9 +10,8 @@ open Utilities.ResultCE
 open Tests.Integrated._Cleanup
 open Utilities.Clock
 
-
 [<Fact>]
-let ``REQ-AC-1.4 AccountCode must be unique`` () =    
+let ``REQ-AC-1.4 REQ-AC-2.9 AccountCode must be unique`` () =    
     let code1 = "REQ-AC-1.4"
     let code2 = code1
     let name1 = "AccountCode must be unique"
@@ -38,7 +38,6 @@ let ``REQ-AC-1.4 AccountCode must be unique`` () =
         match cleanUpAccountId idToCleanUp with
         | Ok () -> ()
         | Error e -> failwith e
-
 
 [<Fact>]
 let ``REQ-AC-1.5 Account code is case sensitive.`` () =    
@@ -77,9 +76,8 @@ let ``REQ-AC-1.5 Account code is case sensitive.`` () =
         |> cleanUpAccountList
         |> function
             | Ok _ -> ()
-            | Error e -> failwith e
- 
- 
+            | Error e -> failwith e 
+
 // =============================================================================
 // Create + Read round-trips
 // =============================================================================
@@ -129,7 +127,6 @@ let ``REQ-AC-2.14 REQ-SYS-5.1 create account and fetch by ID returns identical r
         match cleanUpAccountId idToCleanUp with
         | Ok () -> ()
         | Error e -> failwith e
-
 
 [<Fact>]
 let ``REQ-AC-3.4 fetch by code returns correct account`` () =
@@ -251,27 +248,256 @@ let ``REQ-AC-3.5 fetch by parent ID returns all children`` () =
 
 [<Fact>]
 let ``REQ-AC-3.6 fetch by account type returns matching accounts`` () =
-    Assert.Fail "not implemented"
-
+    let code_1 = "AC-3.6-1"
+    let name_1 = "fetch by account type returns matching accounts"
+    let accountType_1 = "Equity"
+    let activeBegin_1 = Clock.now()
+    let activeEnd_1 = None
+    let subtype_1 = None    
+    let reference_1= None
+    let envelope_1 = AuditEnvelope.create AccountCreate    
+    
+    let code_2 = "AC-3.6-2"
+    let name_2 = "fetch by account type returns matching accounts"
+    let accountType_2 = "Equity"
+    let activeBegin_2 = Clock.now()
+    let activeEnd_2 = None
+    let subtype_2 = None
+    let reference_2= None
+    let envelope_2 = AuditEnvelope.create AccountCreate  
+    
+    let code_3 = "AC-3.6-3"
+    let name_3 = "fetch by account type returns matching accounts"
+    let accountType_3 = "Equity"
+    let activeBegin_3 = Clock.now()
+    let activeEnd_3 = None
+    let subtype_3 = None
+    let reference_3= None
+    let envelope_3 = AuditEnvelope.create AccountCreate
+    
+    let mutable idToCleanUp_1 = None
+    let mutable idToCleanUp_2 = None
+    let mutable idToCleanUp_3 = None
+    try
+        let railroad = result {
+            let! account_1 = Account.constructNewAndSaveToDb
+                                      code_1 name_1 accountType_1 activeBegin_1 activeEnd_1
+                                      subtype_1 None reference_1 envelope_1
+            let id_1 = Account.id account_1
+            idToCleanUp_1 <- Some id_1
+            
+            let! account_2 = Account.constructNewAndSaveToDb
+                                      code_2 name_2 accountType_2 activeBegin_2 activeEnd_2
+                                      subtype_2 None reference_2 envelope_2
+            let id_2 = Account.id account_2
+            idToCleanUp_2 <- Some id_2
+            
+            let! account_3 = Account.constructNewAndSaveToDb
+                                      code_3 name_3 accountType_3 activeBegin_3 activeEnd_3
+                                      subtype_3 None reference_3 envelope_3
+            let id_3 = Account.id account_3
+            idToCleanUp_3 <- Some id_3
+            
+            let! fetchType = AccountType.fromString "Equity"
+            let! fetched = Account.fetchByAccountType fetchType
+            Assert.Equal(3, List.length fetched)
+            
+            [Option.get idToCleanUp_1;
+             Option.get idToCleanUp_2;
+             Option.get idToCleanUp_3]
+            |> List.forall(fun id -> fetched |> List.exists (fun a -> Account.id a = id))
+            |> Assert.True
+            return ()
+        }
+        match railroad with
+        | Ok _ -> ()
+        | Error e -> Assert.Fail e
+    finally
+        match cleanUpAccountList [idToCleanUp_1; idToCleanUp_2; idToCleanUp_3] with
+        | Ok () -> ()
+        | Error e -> failwith e
+        
 // =============================================================================
 // Create validations (DB-dependent)
 // =============================================================================
 
 [<Fact>]
-let ``REQ-AC-1.4 REQ-AC-2.9 duplicate account code is rejected`` () =
-    Assert.Fail "not implemented"
+let ``REQ-AC-2.6 parent ID must reference existing account`` () =    
+    let code = "AC-2.6"
+    let name = "parent ID must reference existing account"
+    let accountType = "Liability"
+    let activeBegin = Clock.now()
+    let activeEnd = None
+    let subtype = None
+    let parentId = Some (Guid.NewGuid())
+    let reference = None
+    let envelope = AuditEnvelope.create AccountCreate
+    
+    let mutable idToCleanUp = None
+    try
+        let result = (Account.constructNewAndSaveToDb code name accountType activeBegin activeEnd subtype parentId reference envelope)
+        let didFail =
+            match result with
+            | Error e -> true
+            | Ok x ->
+                idToCleanUp <- Some (Account.id x)
+                false
+        Assert.True(didFail, "Account creation was allowed to succeed with invalid parent")
+    finally
+        match cleanUpAccountId idToCleanUp with
+        | Ok () -> ()
+        | Error e -> failwith e
 
 [<Fact>]
-let ``REQ-AC-2.6 parent ID must reference existing account`` () =
-    Assert.Fail "not implemented"
+let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--positive`` () =
+    let code_parent = "AC-2.7-P"
+    let name_parent = "REQ-AC-2.7 parent account must be active at AuditEnvelope instant--positive"
+    let accountType_parent = "Expense"
+    let activeBegin_parent = (Clock.now()).Plus(Duration.FromDays(-700))
+    let activeEnd_parent = None
+    let subtype_parent = None
+    let parentId_parent = None
+    let reference_parent= None
+    let envelope_parent = AuditEnvelope.create AccountCreate
+    
+    let code_child1 = "AC-2.7-C1"
+    let name_child1 = "REQ-AC-2.7 parent account must be active at AuditEnvelope instant--positive"
+    let accountType_child1 = "Expense"
+    let activeBegin_child1 = Clock.now()
+    let activeEnd_child1 = None
+    let subtype_child1 = None    
+    let reference_child1= None
+    let envelope_child1 = AuditEnvelope.create AccountCreate
+    
+    let mutable idToCleanUp_parent = None
+    let mutable idToCleanUp_child1 = None
+    try
+        let railroad = result {
+            let! account_parent = Account.constructNewAndSaveToDb
+                                      code_parent name_parent accountType_parent activeBegin_parent activeEnd_parent
+                                      subtype_parent parentId_parent reference_parent envelope_parent
+            let parentId = Account.id account_parent
+            idToCleanUp_parent <- Some parentId
+            
+            let! account_child1 = Account.constructNewAndSaveToDb
+                                      code_child1 name_child1 accountType_child1 activeBegin_child1 activeEnd_child1
+                                      subtype_child1 (Some parentId) reference_child1 envelope_child1
+            let id_child1 = Account.id account_child1
+            idToCleanUp_child1 <- Some id_child1
+            
+            return ()
+        }
+        match railroad with
+        | Ok _ -> ()
+        | Error e -> Assert.Fail e
+    finally
+        match cleanUpParentIdAndChildren idToCleanUp_parent [idToCleanUp_child1;] with
+        | Ok () -> ()
+        | Error e -> failwith e
 
 [<Fact>]
-let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant`` () =
-    Assert.Fail "not implemented"
+let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--negative`` () =
+    let code_parent = "AC-2.7-P"
+    let name_parent = "REQ-AC-2.7 parent account must be active at AuditEnvelope instant--negative"
+    let accountType_parent = "Expense"
+    let activeBegin_parent = (Clock.now()).Plus(Duration.FromDays(-700))
+    let activeEnd_parent = (Clock.now()).Plus(Duration.FromDays(-1))
+    let subtype_parent = None
+    let parentId_parent = None
+    let reference_parent= None
+    let envelope_parent = AuditEnvelope.create AccountCreate
+    
+    let code_child1 = "AC-2.7-C1"
+    let name_child1 = "REQ-AC-2.7 parent account must be active at AuditEnvelope instant--negative"
+    let accountType_child1 = "Expense"
+    let activeBegin_child1 = Clock.now()
+    let activeEnd_child1 = None
+    let subtype_child1 = None    
+    let reference_child1= None
+    let envelope_child1 = AuditEnvelope.create AccountCreate
+    
+    let mutable idToCleanUp_parent = None
+    let mutable idToCleanUp_child1 = None
+    try
+        let railroad = result {
+            let! account_parent = Account.constructNewAndSaveToDb
+                                      code_parent name_parent accountType_parent activeBegin_parent (Some activeEnd_parent)
+                                      subtype_parent parentId_parent reference_parent envelope_parent
+            let parentId = Account.id account_parent
+            idToCleanUp_parent <- Some parentId
+            
+            let account_child1 = Account.constructNewAndSaveToDb
+                                      code_child1 name_child1 accountType_child1 activeBegin_child1 activeEnd_child1
+                                      subtype_child1 (Some parentId) reference_child1 envelope_child1
+            
+            let! checkResult =
+                match account_child1 with
+                | Error _ -> Ok ()
+                | Ok a ->
+                    idToCleanUp_child1 <- Some (Account.id a)
+                    Error "Child account creation was allowed to succeed with inactive parent"
+            
+            return ()
+        }
+        match railroad with
+        | Ok _ -> ()
+        | Error e -> Assert.Fail e
+    finally
+        match cleanUpParentIdAndChildren idToCleanUp_parent [idToCleanUp_child1;] with
+        | Ok () -> ()
+        | Error e -> failwith e
 
 [<Fact>]
 let ``REQ-AC-2.19 child AccountType must match parent AccountType`` () =
-    Assert.Fail "not implemented"
+    let code_parent = "AC-2.19-P"
+    let name_parent = "child AccountType must match parent AccountType"
+    let accountType_parent = "Expense"
+    let activeBegin_parent = (Clock.now()).Plus(Duration.FromDays(-700))
+    let activeEnd_parent = None
+    let subtype_parent = None
+    let parentId_parent = None
+    let reference_parent= None
+    let envelope_parent = AuditEnvelope.create AccountCreate
+    
+    let code_child1 = "AC-2.19-C1"
+    let name_child1 = "child AccountType must match parent AccountType"
+    let accountType_child1 = "Liability"
+    let activeBegin_child1 = Clock.now()
+    let activeEnd_child1 = None
+    let subtype_child1 = None    
+    let reference_child1= None
+    let envelope_child1 = AuditEnvelope.create AccountCreate
+    
+    let mutable idToCleanUp_parent = None
+    let mutable idToCleanUp_child1 = None
+    try
+        let railroad = result {
+            let! account_parent = Account.constructNewAndSaveToDb
+                                      code_parent name_parent accountType_parent activeBegin_parent activeEnd_parent
+                                      subtype_parent parentId_parent reference_parent envelope_parent
+            let parentId = Account.id account_parent
+            idToCleanUp_parent <- Some parentId
+            
+            let account_child1 = Account.constructNewAndSaveToDb
+                                      code_child1 name_child1 accountType_child1 activeBegin_child1 activeEnd_child1
+                                      subtype_child1 (Some parentId) reference_child1 envelope_child1
+            
+            let! checkResult =
+                match account_child1 with
+                | Error _ -> Ok ()
+                | Ok a ->
+                    idToCleanUp_child1 <- Some (Account.id a)
+                    Error "Child account creation was allowed to succeed with different account type from parent"
+            
+            return ()
+        }
+        match railroad with
+        | Ok _ -> ()
+        | Error e -> Assert.Fail e
+    finally
+        match cleanUpParentIdAndChildren idToCleanUp_parent [idToCleanUp_child1;] with
+        | Ok () -> ()
+        | Error e -> failwith e
 
 // =============================================================================
 // Deactivation
