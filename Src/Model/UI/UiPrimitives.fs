@@ -4,7 +4,7 @@ open System
 open NodaTime
 
 module UiPrimitives =
-    
+
     type AccountPrimitives = {
         id: Guid option
         code: string
