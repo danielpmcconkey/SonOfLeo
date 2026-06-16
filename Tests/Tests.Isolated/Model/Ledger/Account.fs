@@ -100,25 +100,56 @@ let ``REQ-AC-1.50 isActive returns true when begin <= ref and no end`` () =
     Account.constructNew genericCode genericName genericAccountTypePrimitive explicitBegin
         explicitEnd genericSubtype genericParentId genericReference genericEnvelope
     |> Result.defaultWith failwith
-    |> Account.isActive
+    |> Account.isActive (AuditEnvelope.instant genericEnvelope)
     |> Assert.True
 
 [<Fact>]
 let ``REQ-AC-1.50 isActive returns true when begin <= ref and end > ref`` () =
-    Assert.Fail "not implemented"
+    let explicitBegin = Clock.now().Plus(Duration.FromDays -1)
+    let explicitEnd = Some(Clock.now().Plus(Duration.FromDays 1))
+    Account.constructNew genericCode genericName genericAccountTypePrimitive explicitBegin
+        explicitEnd genericSubtype genericParentId genericReference genericEnvelope
+    |> Result.defaultWith failwith
+    |> Account.isActive (AuditEnvelope.instant genericEnvelope)
+    |> Assert.True
 
 [<Fact>]
 let ``REQ-AC-1.48 isActive returns false when end <= ref (deactivated)`` () =
-    Assert.Fail "not implemented"
+    let explicitBegin = Clock.now().Plus(Duration.FromDays -2)
+    let explicitEnd = Some(Clock.now().Plus(Duration.FromDays -1))
+    Account.constructNew genericCode genericName genericAccountTypePrimitive explicitBegin
+        explicitEnd genericSubtype genericParentId genericReference genericEnvelope
+    |> Result.defaultWith failwith
+    |> Account.isActive (AuditEnvelope.instant genericEnvelope)
+    |> Assert.False
 
 [<Fact>]
 let ``REQ-AC-1.50 isActive returns false when ref precedes begin (not yet started)`` () =
-    Assert.Fail "not implemented"
+    let explicitBegin = Clock.now().Plus(Duration.FromDays 1)
+    let explicitEnd = None
+    Account.constructNew genericCode genericName genericAccountTypePrimitive explicitBegin
+        explicitEnd genericSubtype genericParentId genericReference genericEnvelope
+    |> Result.defaultWith failwith
+    |> Account.isActive (AuditEnvelope.instant genericEnvelope)
+    |> Assert.False
 
 [<Fact>]
-let ``REQ-AC-1.50 isActive boundary - ref exactly equals begin is active`` () =
-    Assert.Fail "not implemented"
+let ``REQ-AC-1.50 isActive returns true when the reference point exactly equals begin`` () =
+    let explicitBegin = Clock.now()
+    let explicitEnd = None
+    Account.constructNew genericCode genericName genericAccountTypePrimitive explicitBegin
+        explicitEnd genericSubtype genericParentId genericReference genericEnvelope
+    |> Result.defaultWith failwith
+    |> Account.isActive explicitBegin
+    |> Assert.True
 
 [<Fact>]
-let ``REQ-AC-1.48 isActive boundary - ref exactly equals end is inactive`` () =
-    Assert.Fail "not implemented"
+let ``REQ-AC-1.48 isActive returns false when the reference point exactly equals end`` () =
+    let explicitBegin = Clock.now().Plus(Duration.FromDays -1)
+    let now = Clock.now()
+    let explicitEnd = Some now
+    Account.constructNew genericCode genericName genericAccountTypePrimitive explicitBegin
+        explicitEnd genericSubtype genericParentId genericReference genericEnvelope
+    |> Result.defaultWith failwith
+    |> Account.isActive now
+    |> Assert.False

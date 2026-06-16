@@ -39,10 +39,10 @@ module Account =
         let createdAt (a:Account) = a.createdAt
         let modifiedAt (a:Account) = a.modifiedAt
         let isActive // derived property here for convenience;
-                (a:Account)
                 (referencePoint: Instant)
+                (a:Account)
                 : bool =  
-            AccountActivityPeriod.isActive (activityPeriod a) referencePoint
+            AccountActivityPeriod.isActive referencePoint (activityPeriod a)
         
 // Private constructors
         
@@ -360,7 +360,7 @@ module Account =
             result {
                 let! children = fetchByParentId accountId
                 do!
-                    if children |> List.exists (fun x -> isActive x (AuditEnvelope.instant auditEnvelope)) // REQ-AC-4.3
+                    if children |> List.exists (fun x -> isActive (AuditEnvelope.instant auditEnvelope) x) // REQ-AC-4.3
                     then Error $"Account {accountId} deactivation failed because one or more child account records is active"
                     else Ok ()
             }

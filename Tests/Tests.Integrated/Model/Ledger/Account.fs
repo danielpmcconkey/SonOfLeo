@@ -527,8 +527,8 @@ let ``REQ-AC-4.1 deactivateAccount sets active end and returns inactive account`
             let pullId = Account.id pullAccount
             
             Assert.Equal(pushId, pullId)
-            Assert.True(Account.isActive pushAccount (AuditEnvelope.instant envelope1))
-            Assert.False(Account.isActive pullAccount (AuditEnvelope.instant envelope2))
+            Assert.True(Account.isActive (AuditEnvelope.instant envelope1) pushAccount)
+            Assert.False(Account.isActive (AuditEnvelope.instant envelope2) pullAccount)
             
             return ()
         }
@@ -699,13 +699,13 @@ let ``REQ-AC-4.5 deactivateAccount rejects already deactivated account`` () =
             let activeId = Account.id activeAccount
             idToCleanUp <- Some activeId
             
-            Assert.True(Account.isActive activeAccount (Clock.now ())) // account starts as active
+            Assert.True(Account.isActive (Clock.now ()) activeAccount) // account starts as active
             
             let envelope_deactivation1 = AuditEnvelope.create AccountDeactivation
             let goodActiveEnd = Some (Clock.now ())
             let! inactiveAccount = Account.deactivateAccount activeId goodActiveEnd envelope_deactivation1
             
-            Assert.False(Account.isActive inactiveAccount (Clock.now ())) // first deactivation succeeds
+            Assert.False(Account.isActive (Clock.now()) inactiveAccount) // first deactivation succeeds
             
             let envelope_deactivation2 = AuditEnvelope.create AccountDeactivation
             let betterActiveEnd = Some ((Clock.now ()).Plus(Duration.FromDays 1))
@@ -930,7 +930,7 @@ let ``REQ-AC-4.19 update to deactivated account is permitted`` () =
             idToCleanUp <- Some createdId
             
             // validate that it is *indeed* inactive
-            Assert.False(Account.isActive createdAccount (Clock.now()))
+            Assert.False(Account.isActive (Clock.now()) createdAccount)
             
             // update
             let envelope_update = AuditEnvelope.create AccountUpdateName
