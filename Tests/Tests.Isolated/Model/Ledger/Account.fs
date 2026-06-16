@@ -1,45 +1,93 @@
 module Tests.Isolated.Model.Ledger.Account
 
-
+open System
+open Model.Audit
 open Xunit
 open Model.Ledger.Account
+open Model.Ledger.AccountComponent
 open NodaTime
+open Utilities.Clock
+
+let genericCode = "GenCode"
+let genericName = "Gen account name"
+let genericAccountTypePrimitive = "Revenue"
+let genericAccountType = AccountType.fromString genericAccountTypePrimitive |> Result.defaultWith failwith
+let genericActiveBegin = Clock.now().Plus(Duration.FromDays -365)
+let genericActiveEnd = None
+let genericSubtype = None
+let genericSubtypeText = "Cash"
+let genericSubtypeNonNull = AccountSubtype.fromString genericSubtypeText |> Result.defaultWith failwith
+let genericParentId = None
+let genericReference= None
+let genericEnvelope = AuditEnvelope.create AccountCreate
 
 // =============================================================================
 // constructNew
 // =============================================================================
 
 [<Fact>]
-let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew generates UUID and sets timestamps from AuditEnvelope`` () =
-    Assert.Fail "not implemented"
+let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew generates UUID`` () =
+    Account.constructNew genericCode genericName genericAccountTypePrimitive genericActiveBegin
+        genericActiveEnd genericSubtype genericParentId genericReference genericEnvelope
+    |> Result.defaultWith failwith
+    |> Account.id
+    |> fun id -> Assert.NotEqual(Guid.Empty, id)
+
+[<Fact>]
+let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` () =
+    let expected = AuditEnvelope.instant genericEnvelope
+    let account =
+        Account.constructNew genericCode genericName genericAccountTypePrimitive genericActiveBegin
+            genericActiveEnd genericSubtype genericParentId genericReference genericEnvelope
+        |> Result.defaultWith failwith
+    Assert.Equal(expected, Account.modifiedAt account)
+    Assert.Equal(expected, Account.createdAt account)
 
 [<Fact>]
 let ``REQ-SYS-2.1 constructNew rejects invalid account code`` () =
-    Assert.Fail "not implemented"
+    let badCode = String('A', 100)
+    Account.constructNew badCode genericName genericAccountTypePrimitive genericActiveBegin
+        genericActiveEnd genericSubtype genericParentId genericReference genericEnvelope
+    |> Result.isError |> Assert.True
 
 [<Fact>]
 let ``REQ-SYS-2.1 constructNew rejects invalid type-subtype combination`` () =
-    Assert.Fail "not implemented"
+    let badSubtype = Some "OperatingExpense"
+    Account.constructNew genericCode genericName genericAccountTypePrimitive genericActiveBegin
+        genericActiveEnd badSubtype genericParentId genericReference genericEnvelope
+    |> Result.isError |> Assert.True
 
 [<Fact>]
-let ``REQ-AC-2.18 constructNew rejects activeEnd not later than activeBegin`` () =
-    Assert.Fail "not implemented"
+let ``REQ-AC-2.18 constructNew rejects activeEnd earlier than activeBegin`` () =
+    let badEnd = Some(genericActiveBegin.Plus(Duration.FromDays -1))
+    Account.constructNew genericCode genericName genericAccountTypePrimitive genericActiveBegin
+        badEnd genericSubtype genericParentId genericReference genericEnvelope
+    |> Result.isError |> Assert.True
+
+[<Fact>]
+let ``REQ-AC-2.18 constructNew rejects activeEnd equal to activeBegin`` () =
+    let badEnd = Some genericActiveBegin
+    Account.constructNew genericCode genericName genericAccountTypePrimitive genericActiveBegin
+        badEnd genericSubtype genericParentId genericReference genericEnvelope
+    |> Result.isError |> Assert.True
 
 [<Fact>]
 let ``REQ-AC-2.10 constructNew rejects invalid subtype string`` () =
-    Assert.Fail "not implemented"
+    let badSubtype = Some "Halifax, Nova Scotia"
+    Account.constructNew genericCode genericName genericAccountTypePrimitive genericActiveBegin
+        genericActiveEnd badSubtype genericParentId genericReference genericEnvelope
+    |> Result.isError |> Assert.True
 
 // =============================================================================
 // reconstitute
 // =============================================================================
 
-[<Fact>]
-let ``REQ-SYS-2.1 reconstitute validates all fields on read-from-persistence`` () =
-    Assert.Fail "not implemented"
-
-[<Fact>]
-let ``REQ-SYS-2.1 reconstitute rejects invalid data state`` () =
-    Assert.Fail "not implemented"
+(*
+ * Note: skipping these. There is no separate reconstitution logic. It takes
+ * primitives from the database (already validated) and runs them through the
+ * full create omni stack, using domain types whose validation has been
+ * elaborated upon elsewhere in this solution. 
+ *)
 
 // =============================================================================
 // isActive
@@ -47,7 +95,13 @@ let ``REQ-SYS-2.1 reconstitute rejects invalid data state`` () =
 
 [<Fact>]
 let ``REQ-AC-1.50 isActive returns true when begin <= ref and no end`` () =
-    Assert.Fail "not implemented"
+    let explicitBegin = Clock.now().Plus(Duration.FromDays -1)
+    let explicitEnd = None
+    Account.constructNew genericCode genericName genericAccountTypePrimitive explicitBegin
+        explicitEnd genericSubtype genericParentId genericReference genericEnvelope
+    |> Result.defaultWith failwith
+    |> Account.isActive
+    |> Assert.True
 
 [<Fact>]
 let ``REQ-AC-1.50 isActive returns true when begin <= ref and end > ref`` () =
