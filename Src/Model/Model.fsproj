@@ -13,6 +13,8 @@
     <Folder Include="Ops\" />
     <Folder Include="Portfolio\" />
     <Folder Include="Reporting\" />
+    <Compile Include="UI\UiPrimitives.fs" />
+    <Compile Include="UI\Json.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,7 +22,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="FSharp.SystemTextJson" Version="1.4.36" />
     <PackageReference Include="NodaTime" Version="3.3.2" />
+    <PackageReference Include="NodaTime.Serialization.SystemTextJson" Version="1.4.0" />
+    <PackageReference Include="System.Text.Json" Version="10.0.9" />
   </ItemGroup>
 
 </Project>

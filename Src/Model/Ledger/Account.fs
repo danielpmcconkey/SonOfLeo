@@ -331,7 +331,7 @@ module Account =
             result {
                 let! validAccount = fetchById parentId
                 let! () = confirmAccountIsValidAndActive validAccount referenceTime // REQ-AC-2.6, REQ-AC-2.7
-                let! () = confirmAccountTypesMatch (accountType validAccount) (childAccountType)
+                let! () = confirmAccountTypesMatch (accountType validAccount) childAccountType
                 (*
                  * REQ-AC-2.16
                  * Note, this function no longer validates against circular ancestry. Since the child
