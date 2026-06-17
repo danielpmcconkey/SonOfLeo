@@ -41,4 +41,13 @@ The frequency of a regular event, expressed only in terms of years, days, months
 The set of features, functions, services, windows, or reports that actors outside the system will trigger or consume.
 
 ## Actors
-Humans or systems that interact with the system via the interface layer
+Humans or systems that interact with the system via the interface layer. Note for any scheduled activities, "Time" may be conceived of as an actor.
+
+## Interface layer
+The application components in this system dedicated to the Interfaces (CLI applications, web pages, mobile apps, APIs, request routers, etc.)
+
+## Application layer
+The application components in this system dedicated to business logic (class libraries, domain types, orchestration modules, etc.)
+
+## Persistence layer
+The application components either within or outside of the SonOfLeo solution responsible for storing information about this system, its records, or its operation (database engine, schemas, logging components, etc.)
