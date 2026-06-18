@@ -30,6 +30,7 @@
   <ItemGroup>
     <Compile Include="SonOfLeoCli\CliExecutor.fs" />
     <Compile Include="SonOfLeoCli\Program.fs" />
+    <Compile Include="SonOfLeoCli\AccountRoutes.fs" />
   </ItemGroup>
 
   <Target Name="CopyEnvConfig" AfterTargets="Build">

@@ -66,7 +66,8 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-2.16** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the parent account is not already a descendent (no circular relationships).
 - **REQ-AC-2.17** When creating an Account record, it is the responsibility of the calling function to provide an accurate "active begin" Instant. There is not validation to confirm that the caller provided a correct begin date.
 - **REQ-AC-2.18** When creating an Account record, the system will validate that any non-null "active end" is later in time than the provided "active begin".
-- **REQ-AC-2.19** When creating an Account with a parent ID, the child's AccountType must match the parent's AccountType.
+- **REQ-AC-2.20** When creating an Account with a parent ID, the child's AccountType must match the parent's AccountType.
+- **REQ-AC-2.21** The system must provide a means to create a new acocunt
 
 
 ## 3. Read behaviors

@@ -1,19 +1,14 @@
 module Tests.Integrated.SonOfLeoCli.Program
 
 open System
-open Model.Audit
-open Model.UI
 open Model.UI.InterfaceContractTypes
 open Model.UI.Json
 open Tests.Integrated.GenericTestProperties
 open Tests.Integrated.SonOfLeoCli.CliExecutor
 open Xunit
 open Model.Ledger.Account
-open Model.Ledger.AccountComponent
-open NodaTime
 open Utilities.ResultCE
 open Tests.Integrated._Cleanup
-open Utilities.Clock
 
 
 [<Fact>]
@@ -37,7 +32,7 @@ let ``REQ-NGUI-1.3.1, REQ-NGUI-3.7 The stderr will comprise the error message`` 
     let payload = { id = Guid.NewGuid() } |> toJson<AccountFetchByIdInput> |> Result.defaultWith failwith
     let (_, _, e) = runCli args payload
     Assert.Equal(expectedError, e.Trim())
-    
+
 [<Fact>]
 let ``REQ-NGUI-3.6 System responds with the payload via stdout upon success`` () =  
     let explicitName = "System responds with the payload via stdout upon success"

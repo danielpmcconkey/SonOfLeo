@@ -358,10 +358,10 @@ let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--negativ
         | Error e -> failwith e
 
 [<Fact>]
-let ``REQ-AC-2.19 child AccountType must match parent AccountType`` () =
-    let code_parent = "AC-2.19-P"
+let ``REQ-AC-2.20 child AccountType must match parent AccountType`` () =
+    let code_parent = "AC-2.20-P"
     let accountType_parent = "Expense"
-    let code_child1 = "AC-2.19-C1"
+    let code_child1 = "AC-2.20-C1"
     let accountType_child1 = "Liability"
     
     let mutable idToCleanUp_parent = None

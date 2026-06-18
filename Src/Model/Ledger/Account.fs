@@ -337,7 +337,7 @@ module Account =
                 : Result<unit, string> =
             match parentAccountType = childAccountType with
             | true -> Ok ()
-            | false -> Error "Account types do not match" // REQ-AC-2.19
+            | false -> Error "Account types do not match" // REQ-AC-2.20
             
         let private validateParentChildRelationship
                 (parentId: Guid)
