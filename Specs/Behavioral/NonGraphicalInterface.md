@@ -29,6 +29,26 @@ Applies to command line, importing, reporting, API, etc. Any use case where an e
 - **REQ-NGUI-3.9** If the actor provides an incorrect or otherwise unsupported domain and verb combination, the CLI application must exit with an appropriate error 
 
 
+## Waived from testing
+
+Active requirements that are deliberately not verified by tests. Two-state rule: every
+active requirement is either tested or in this table.
+
+| ID             | Reason testing is waived  | Approved         |
+|----------------|---|------------------|
+| REQ-NGUI-1.1 | It's too broadly scoped | Dan, 2026-06-18  |
+| REQ-NGUI-1.2 | There are no use cases that meet this yet | Dan, 2026-06-18 |
+| REQ-NGUI-2.1   | It's too broadly scoped | Dan, 2026-06-18  |
+| REQ-NGUI-2.1.1 | It's too broadly scoped | Dan, 2026-06-18  |
+| REQ-NGUI-2.2   | It's too broadly scoped | Dan, 2026-06-18  |
+| REQ-NGUI-2.4   | It's too broadly scoped | Dan, 2026-06-18  |
+| REQ-NGUI-3.1   | It's too broadly scoped | Dan, 2026-06-18  |
+| REQ-NGUI-3.2   | It's too broadly scoped | Dan, 2026-06-18  |
+| REQ-NGUI-3.3   | It's too broadly scoped | Dan, 2026-06-18  |
+| REQ-NGUI-3.4   | It's too broadly scoped | Dan, 2026-06-18  |
+| REQ-NGUI-3.5   | It's too broadly scoped | Dan, 2026-06-18  |
+
+
 ## Withdrawn
 
 | ID          | Original Requirement | Reason |

@@ -16,13 +16,20 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Src\Model\Model.fsproj" />
+    <ProjectReference Include="..\..\Src\SonOfLeoCli\SonOfLeoCli.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="appsettings.json" />
     <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="_Cleanup.fs" />
+    <Compile Include="GenericTestProperties.fs" />
     <Compile Include="Model\Ledger\Account.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="SonOfLeoCli\CliExecutor.fs" />
+    <Compile Include="SonOfLeoCli\Program.fs" />
   </ItemGroup>
 
   <Target Name="CopyEnvConfig" AfterTargets="Build">

@@ -2,6 +2,7 @@ module Tests.Integrated.Model.Ledger.Account
 
 open System
 open Model.Audit
+open Tests.Integrated.GenericTestProperties
 open Xunit
 open Model.Ledger.Account
 open Model.Ledger.AccountComponent
@@ -14,25 +15,21 @@ open Utilities.Clock
 let ``REQ-AC-1.4 REQ-AC-2.9 AccountCode must be unique`` () =    
     let code1 = "REQ-AC-1.4"
     let code2 = code1
-    let name1 = "AccountCode must be unique"
-    let name2 = "AccountCode must still be unique"
-    let accountType = "Asset"
-    let activeBegin = Clock.now()
-    let activeEnd = None
-    let subtype = None
-    let parentId = None
-    let reference = None
-    let envelope1 = AuditEnvelope.create AccountCreate
-    let envelope2 = AuditEnvelope.create AccountCreate
     
     let mutable idToCleanUp = None
     try
-        let result1 = Account.constructNewAndSaveToDb code1 name1 accountType activeBegin activeEnd subtype parentId reference envelope1
+        let result1 =
+            Account.constructNewAndSaveToDb code1 genericAccountNameString genericAccountTypeString
+                genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                genericAccountReference genericAuditEnvelope
         match result1 with
         | Error e -> Assert.Fail e // need to ensure that the first made it into the DB to check the unique constraint
         | Ok a -> idToCleanUp <- Some (Account.id a)
         
-        let result2 = Account.constructNewAndSaveToDb code2 name2 accountType activeBegin activeEnd subtype parentId reference envelope2
+        let result2 = 
+            Account.constructNewAndSaveToDb code2 genericAccountNameString genericAccountTypeString
+                genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                genericAccountReference genericAuditEnvelope
         Assert.True(Result.isError result2)
     finally
         match cleanUpAccountId idToCleanUp with
@@ -43,23 +40,20 @@ let ``REQ-AC-1.4 REQ-AC-2.9 AccountCode must be unique`` () =
 let ``REQ-AC-1.5 Account code is case sensitive.`` () =    
     let code1 = "REQ-AC-1.5"
     let code2 = "req-ac-1.5"
-    let name = "AccountCode is case sensitive"
-    let accountType = "Asset"
-    let activeBegin = Clock.now()
-    let activeEnd = None
-    let subtype = None
-    let parentId = None
-    let reference = None
-    let envelope1 = AuditEnvelope.create AccountCreate
-    let envelope2 = AuditEnvelope.create AccountCreate
     
     let mutable idToCleanUp = None
     let mutable idToCleanUp2 = None
     try
         let railroad = result {
-            let! account1 = Account.constructNewAndSaveToDb code1 name accountType activeBegin activeEnd subtype parentId reference envelope1
+            let! account1 = 
+                Account.constructNewAndSaveToDb code1 genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
             idToCleanUp <- Some (Account.id account1)
-            let! account2 = Account.constructNewAndSaveToDb code2 name accountType activeBegin activeEnd subtype parentId reference envelope2
+            let! account2 =
+                Account.constructNewAndSaveToDb code2 genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
             idToCleanUp2 <- Some (Account.id account2)
             let dbCode1 = AccountCode.value (Account.code account1)
             let dbCode2 = AccountCode.value (Account.code account2)
@@ -129,24 +123,17 @@ let ``REQ-AC-2.14 REQ-SYS-5.1 create account and fetch by ID returns identical r
         | Error e -> failwith e
 
 [<Fact>]
-let ``REQ-AC-3.4 fetch by code returns correct account`` () =
-    let code = "REQ-AC-3.4"
-    let name = "fetch by code returns correct account"
-    let accountType = "Asset"
-    let activeBegin = Clock.now()
-    let activeEnd = None
-    let subtype = None
-    let parentId = None
-    let reference = None
-    let envelope = AuditEnvelope.create AccountCreate
-    
+let ``REQ-AC-3.4 fetch by code returns correct account`` () =    
     let mutable idToCleanUp = None
     try
         let railroad = result {
-            let! pushResult = Account.constructNewAndSaveToDb code name accountType activeBegin activeEnd subtype parentId reference envelope
+            let! pushResult = 
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
             let pushId = Account.id pushResult
             idToCleanUp <- Some pushId
-            let! pullResult = Account.fetchByCode code
+            let! pullResult = Account.fetchByCode genericAccountCodeString
             Assert.Equal(pushId, (Account.id pullResult))
             return ()
         }
@@ -161,41 +148,9 @@ let ``REQ-AC-3.4 fetch by code returns correct account`` () =
 [<Fact>]
 let ``REQ-AC-3.5 fetch by parent ID returns all children`` () =
     let code_parent = "AC-3.5-P"
-    let name_parent = "fetch by parent ID returns all children"
-    let accountType_parent = "Asset"
-    let activeBegin_parent = Clock.now()
-    let activeEnd_parent = None
-    let subtype_parent = None
-    let parentId_parent = None
-    let reference_parent= None
-    let envelope_parent = AuditEnvelope.create AccountCreate
-    
     let code_child1 = "AC-3.5-C1"
-    let name_child1 = "fetch by parent ID returns all children"
-    let accountType_child1 = "Asset"
-    let activeBegin_child1 = Clock.now()
-    let activeEnd_child1 = None
-    let subtype_child1 = None    
-    let reference_child1= None
-    let envelope_child1 = AuditEnvelope.create AccountCreate    
-    
     let code_child2 = "AC-3.5-C2"
-    let name_child2 = "fetch by parent ID returns all children"
-    let accountType_child2 = "Asset"
-    let activeBegin_child2 = Clock.now()
-    let activeEnd_child2 = None
-    let subtype_child2 = None
-    let reference_child2= None
-    let envelope_child2 = AuditEnvelope.create AccountCreate  
-    
     let code_child3 = "AC-3.5-C3"
-    let name_child3 = "fetch by parent ID returns all children"
-    let accountType_child3 = "Asset"
-    let activeBegin_child3 = Clock.now()
-    let activeEnd_child3 = None
-    let subtype_child3 = None
-    let reference_child3= None
-    let envelope_child3 = AuditEnvelope.create AccountCreate
     
     let mutable idToCleanUp_parent = None
     let mutable idToCleanUp_child1 = None
@@ -203,27 +158,31 @@ let ``REQ-AC-3.5 fetch by parent ID returns all children`` () =
     let mutable idToCleanUp_child3 = None
     try
         let railroad = result {
-            let! account_parent = Account.constructNewAndSaveToDb
-                                      code_parent name_parent accountType_parent activeBegin_parent activeEnd_parent
-                                      subtype_parent parentId_parent reference_parent envelope_parent
+            let! account_parent = 
+                Account.constructNewAndSaveToDb code_parent genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
             let parentId = Account.id account_parent
             idToCleanUp_parent <- Some parentId
             
-            let! account_child1 = Account.constructNewAndSaveToDb
-                                      code_child1 name_child1 accountType_child1 activeBegin_child1 activeEnd_child1
-                                      subtype_child1 (Some parentId) reference_child1 envelope_child1
+            let! account_child1 = 
+                Account.constructNewAndSaveToDb code_child1 genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
+                    genericAccountReference genericAuditEnvelope
             let id_child1 = Account.id account_child1
             idToCleanUp_child1 <- Some id_child1
             
-            let! account_child2 = Account.constructNewAndSaveToDb
-                                      code_child2 name_child2 accountType_child2 activeBegin_child2 activeEnd_child2
-                                      subtype_child2 (Some parentId) reference_child2 envelope_child2
+            let! account_child2 = 
+                Account.constructNewAndSaveToDb code_child2 genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
+                    genericAccountReference genericAuditEnvelope
             let id_child2 = Account.id account_child2
             idToCleanUp_child2 <- Some id_child2
             
-            let! account_child3 = Account.constructNewAndSaveToDb
-                                      code_child3 name_child3 accountType_child3 activeBegin_child3 activeEnd_child3
-                                      subtype_child3 (Some parentId) reference_child3 envelope_child3
+            let! account_child3 = 
+                Account.constructNewAndSaveToDb code_child3 genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
+                    genericAccountReference genericAuditEnvelope
             let id_child3 = Account.id account_child3
             idToCleanUp_child3 <- Some id_child3
             
@@ -249,56 +208,37 @@ let ``REQ-AC-3.5 fetch by parent ID returns all children`` () =
 [<Fact>]
 let ``REQ-AC-3.6 fetch by account type returns matching accounts`` () =
     let code_1 = "AC-3.6-1"
-    let name_1 = "fetch by account type returns matching accounts"
-    let accountType_1 = "Equity"
-    let activeBegin_1 = Clock.now()
-    let activeEnd_1 = None
-    let subtype_1 = None    
-    let reference_1= None
-    let envelope_1 = AuditEnvelope.create AccountCreate    
-    
     let code_2 = "AC-3.6-2"
-    let name_2 = "fetch by account type returns matching accounts"
-    let accountType_2 = "Equity"
-    let activeBegin_2 = Clock.now()
-    let activeEnd_2 = None
-    let subtype_2 = None
-    let reference_2= None
-    let envelope_2 = AuditEnvelope.create AccountCreate  
-    
     let code_3 = "AC-3.6-3"
-    let name_3 = "fetch by account type returns matching accounts"
-    let accountType_3 = "Equity"
-    let activeBegin_3 = Clock.now()
-    let activeEnd_3 = None
-    let subtype_3 = None
-    let reference_3= None
-    let envelope_3 = AuditEnvelope.create AccountCreate
+    let explicitAccountType = "Equity"
     
     let mutable idToCleanUp_1 = None
     let mutable idToCleanUp_2 = None
     let mutable idToCleanUp_3 = None
     try
         let railroad = result {
-            let! account_1 = Account.constructNewAndSaveToDb
-                                      code_1 name_1 accountType_1 activeBegin_1 activeEnd_1
-                                      subtype_1 None reference_1 envelope_1
+            let! account_1 = 
+                Account.constructNewAndSaveToDb code_1 genericAccountNameString explicitAccountType
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
             let id_1 = Account.id account_1
             idToCleanUp_1 <- Some id_1
             
-            let! account_2 = Account.constructNewAndSaveToDb
-                                      code_2 name_2 accountType_2 activeBegin_2 activeEnd_2
-                                      subtype_2 None reference_2 envelope_2
+            let! account_2 = 
+                Account.constructNewAndSaveToDb code_2 genericAccountNameString explicitAccountType
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
             let id_2 = Account.id account_2
             idToCleanUp_2 <- Some id_2
             
-            let! account_3 = Account.constructNewAndSaveToDb
-                                      code_3 name_3 accountType_3 activeBegin_3 activeEnd_3
-                                      subtype_3 None reference_3 envelope_3
+            let! account_3 = 
+                Account.constructNewAndSaveToDb code_3 genericAccountNameString explicitAccountType
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
             let id_3 = Account.id account_3
             idToCleanUp_3 <- Some id_3
             
-            let! fetchType = AccountType.fromString "Equity"
+            let! fetchType = AccountType.fromString explicitAccountType
             let! fetched = Account.fetchByAccountType fetchType
             Assert.Equal(3, List.length fetched)
             
@@ -323,22 +263,17 @@ let ``REQ-AC-3.6 fetch by account type returns matching accounts`` () =
 
 [<Fact>]
 let ``REQ-AC-2.6 parent ID must reference existing account`` () =    
-    let code = "AC-2.6"
-    let name = "parent ID must reference existing account"
-    let accountType = "Liability"
-    let activeBegin = Clock.now()
-    let activeEnd = None
-    let subtype = None
     let parentId = Some (Guid.NewGuid())
-    let reference = None
-    let envelope = AuditEnvelope.create AccountCreate
     
     let mutable idToCleanUp = None
     try
-        let result = (Account.constructNewAndSaveToDb code name accountType activeBegin activeEnd subtype parentId reference envelope)
+        let result = 
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype parentId
+                    genericAccountReference genericAuditEnvelope
         let didFail =
             match result with
-            | Error e -> true
+            | Error _ -> true
             | Ok x ->
                 idToCleanUp <- Some (Account.id x)
                 false
@@ -351,37 +286,24 @@ let ``REQ-AC-2.6 parent ID must reference existing account`` () =
 [<Fact>]
 let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--positive`` () =
     let code_parent = "AC-2.7-P"
-    let name_parent = "REQ-AC-2.7 parent account must be active at AuditEnvelope instant--positive"
-    let accountType_parent = "Expense"
-    let activeBegin_parent = (Clock.now()).Plus(Duration.FromDays(-700))
-    let activeEnd_parent = None
-    let subtype_parent = None
-    let parentId_parent = None
-    let reference_parent= None
-    let envelope_parent = AuditEnvelope.create AccountCreate
-    
     let code_child1 = "AC-2.7-C1"
-    let name_child1 = "REQ-AC-2.7 parent account must be active at AuditEnvelope instant--positive"
-    let accountType_child1 = "Expense"
-    let activeBegin_child1 = Clock.now()
-    let activeEnd_child1 = None
-    let subtype_child1 = None    
-    let reference_child1= None
-    let envelope_child1 = AuditEnvelope.create AccountCreate
+    let activeBegin_parent = Clock.now().Plus(Duration.FromDays(-700))
     
     let mutable idToCleanUp_parent = None
     let mutable idToCleanUp_child1 = None
     try
         let railroad = result {
-            let! account_parent = Account.constructNewAndSaveToDb
-                                      code_parent name_parent accountType_parent activeBegin_parent activeEnd_parent
-                                      subtype_parent parentId_parent reference_parent envelope_parent
+            let! account_parent = 
+                Account.constructNewAndSaveToDb code_parent genericAccountNameString genericAccountTypeString
+                    activeBegin_parent genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
             let parentId = Account.id account_parent
             idToCleanUp_parent <- Some parentId
             
-            let! account_child1 = Account.constructNewAndSaveToDb
-                                      code_child1 name_child1 accountType_child1 activeBegin_child1 activeEnd_child1
-                                      subtype_child1 (Some parentId) reference_child1 envelope_child1
+            let! account_child1 = 
+                Account.constructNewAndSaveToDb code_child1 genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
+                    genericAccountReference genericAuditEnvelope
             let id_child1 = Account.id account_child1
             idToCleanUp_child1 <- Some id_child1
             
@@ -398,39 +320,27 @@ let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--positiv
 [<Fact>]
 let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--negative`` () =
     let code_parent = "AC-2.7-P"
-    let name_parent = "REQ-AC-2.7 parent account must be active at AuditEnvelope instant--negative"
-    let accountType_parent = "Expense"
     let activeBegin_parent = Clock.now().Plus(Duration.FromDays(-700))
     let activeEnd_parent = Clock.now().Plus(Duration.FromDays(-1))
-    let subtype_parent = None
-    let parentId_parent = None
-    let reference_parent= None
-    let envelope_parent = AuditEnvelope.create AccountCreate
-    
     let code_child1 = "AC-2.7-C1"
-    let name_child1 = "REQ-AC-2.7 parent account must be active at AuditEnvelope instant--negative"
-    let accountType_child1 = "Expense"
-    let activeBegin_child1 = Clock.now()
-    let activeEnd_child1 = None
-    let subtype_child1 = None    
-    let reference_child1= None
-    let envelope_child1 = AuditEnvelope.create AccountCreate
     
     let mutable idToCleanUp_parent = None
     let mutable idToCleanUp_child1 = None
     try
         let railroad = result {
-            let! account_parent = Account.constructNewAndSaveToDb
-                                      code_parent name_parent accountType_parent activeBegin_parent (Some activeEnd_parent)
-                                      subtype_parent parentId_parent reference_parent envelope_parent
+            let! account_parent = 
+                Account.constructNewAndSaveToDb code_parent genericAccountNameString genericAccountTypeString
+                    activeBegin_parent (Some activeEnd_parent) genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
             let parentId = Account.id account_parent
             idToCleanUp_parent <- Some parentId
             
-            let account_child1 = Account.constructNewAndSaveToDb
-                                      code_child1 name_child1 accountType_child1 activeBegin_child1 activeEnd_child1
-                                      subtype_child1 (Some parentId) reference_child1 envelope_child1
+            let account_child1 = 
+                Account.constructNewAndSaveToDb code_child1 genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
+                    genericAccountReference genericAuditEnvelope
             
-            let! checkResult =
+            let! _ =
                 match account_child1 with
                 | Error _ -> Ok ()
                 | Ok a ->
@@ -450,39 +360,27 @@ let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--negativ
 [<Fact>]
 let ``REQ-AC-2.19 child AccountType must match parent AccountType`` () =
     let code_parent = "AC-2.19-P"
-    let name_parent = "child AccountType must match parent AccountType"
     let accountType_parent = "Expense"
-    let activeBegin_parent = (Clock.now()).Plus(Duration.FromDays(-700))
-    let activeEnd_parent = None
-    let subtype_parent = None
-    let parentId_parent = None
-    let reference_parent= None
-    let envelope_parent = AuditEnvelope.create AccountCreate
-    
     let code_child1 = "AC-2.19-C1"
-    let name_child1 = "child AccountType must match parent AccountType"
     let accountType_child1 = "Liability"
-    let activeBegin_child1 = Clock.now()
-    let activeEnd_child1 = None
-    let subtype_child1 = None    
-    let reference_child1= None
-    let envelope_child1 = AuditEnvelope.create AccountCreate
     
     let mutable idToCleanUp_parent = None
     let mutable idToCleanUp_child1 = None
     try
         let railroad = result {
-            let! account_parent = Account.constructNewAndSaveToDb
-                                      code_parent name_parent accountType_parent activeBegin_parent activeEnd_parent
-                                      subtype_parent parentId_parent reference_parent envelope_parent
+            let! account_parent = 
+                Account.constructNewAndSaveToDb code_parent genericAccountNameString accountType_parent
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
             let parentId = Account.id account_parent
             idToCleanUp_parent <- Some parentId
             
-            let account_child1 = Account.constructNewAndSaveToDb
-                                      code_child1 name_child1 accountType_child1 activeBegin_child1 activeEnd_child1
-                                      subtype_child1 (Some parentId) reference_child1 envelope_child1
+            let account_child1 = 
+                Account.constructNewAndSaveToDb code_child1 genericAccountNameString accountType_child1
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
+                    genericAccountReference genericAuditEnvelope
             
-            let! checkResult =
+            let! _ =
                 match account_child1 with
                 | Error _ -> Ok ()
                 | Ok a ->
@@ -505,24 +403,21 @@ let ``REQ-AC-2.19 child AccountType must match parent AccountType`` () =
 
 [<Fact>]
 let ``REQ-AC-4.1 deactivateAccount sets active end and returns inactive account`` () =
-    let code = "REQ-AC-4.1"
-    let name = "deactivateAccount sets active end and returns inactive account"
-    let accountType = "Asset"
-    let activeBegin = Clock.now().Plus(Duration.FromDays -1)
-    let activeEnd = None
-    let subtype = None
-    let parentId = None
-    let reference = None
+    
     let envelope1 = AuditEnvelope.create AccountCreate
+    let envelope2 = AuditEnvelope.create AccountDeactivation
     
     let mutable idToCleanUp = None
     try
         let railroad = result {
-            let! pushAccount = Account.constructNewAndSaveToDb code name accountType activeBegin activeEnd subtype parentId reference envelope1
+            let! pushAccount = 
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference envelope1
             let pushId = Account.id pushAccount
             idToCleanUp <- Some pushId
             
-            let envelope2 = AuditEnvelope.create AccountDeactivation
+            
             let! pullAccount = Account.deactivateAccount pushId None envelope2
             let pullId = Account.id pullAccount
             
@@ -542,28 +437,24 @@ let ``REQ-AC-4.1 deactivateAccount sets active end and returns inactive account`
 
 [<Fact>]
 let ``REQ-AC-4.2 deactivateAccount rejects end earlier than begin`` () =
-    let code = "REQ-AC-4.2"
-    let name = "deactivateAccount rejects end earlier than begin"
-    let accountType = "Asset"
-    let activeBegin = Clock.now().Plus(Duration.FromDays -1)
-    let activeEnd = None
-    let subtype = None
-    let parentId = None
-    let reference = None
     let envelope1 = AuditEnvelope.create AccountCreate
+    let envelope2 = AuditEnvelope.create AccountDeactivation
+    let activeBegin = Clock.now().Plus(Duration.FromDays -1)
+    let badActiveEnd = Some (activeBegin.Plus(Duration.FromDays -1))
     
     let mutable idToCleanUp = None
     try
         let railroad = result {
-            let! pushAccount = Account.constructNewAndSaveToDb code name accountType activeBegin activeEnd subtype parentId reference envelope1
+            let! pushAccount = 
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
+                    activeBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference envelope1
             let pushId = Account.id pushAccount
             idToCleanUp <- Some pushId
             
-            let envelope2 = AuditEnvelope.create AccountDeactivation
-            let badActiveEnd = Some (activeBegin.Plus(Duration.FromDays -1))
             let deactivationResult = Account.deactivateAccount pushId badActiveEnd envelope2
             
-            let! checkResult =
+            let! _ =
                 match deactivationResult with
                 | Error _ -> Ok ()
                 | Ok _ ->
@@ -582,28 +473,24 @@ let ``REQ-AC-4.2 deactivateAccount rejects end earlier than begin`` () =
     
 [<Fact>]
 let ``REQ-AC-4.2 deactivateAccount rejects end equal to begin`` () =
-    let code = "REQ-AC-4.2"
-    let name = "deactivateAccount rejects end equal to begin"
-    let accountType = "Asset"
-    let activeBegin = Clock.now().Plus(Duration.FromDays -1)
-    let activeEnd = None
-    let subtype = None
-    let parentId = None
-    let reference = None
     let envelope1 = AuditEnvelope.create AccountCreate
+    let envelope2 = AuditEnvelope.create AccountDeactivation
+    let activeBegin = Clock.now().Plus(Duration.FromDays -1)
+    let badActiveEnd = Some activeBegin
     
     let mutable idToCleanUp = None
     try
         let railroad = result {
-            let! pushAccount = Account.constructNewAndSaveToDb code name accountType activeBegin activeEnd subtype parentId reference envelope1
+            let! pushAccount = 
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
+                    activeBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference envelope1
             let pushId = Account.id pushAccount
             idToCleanUp <- Some pushId
             
-            let envelope2 = AuditEnvelope.create AccountDeactivation
-            let badActiveEnd = Some (activeBegin)
             let deactivationResult = Account.deactivateAccount pushId badActiveEnd envelope2
             
-            let! checkResult =
+            let! _ =
                 match deactivationResult with
                 | Error _ -> Ok ()
                 | Ok _ ->
@@ -623,46 +510,31 @@ let ``REQ-AC-4.2 deactivateAccount rejects end equal to begin`` () =
 [<Fact>]
 let ``REQ-AC-4.3 deactivateAccount rejects when active children exist`` () =
     let code_parent = "AC-4.3-P"
-    let name_parent = "deactivateAccount rejects when active children exist"
-    let accountType_parent = "Liability"
-    let activeBegin_parent = (Clock.now()).Plus(Duration.FromDays(-700))
-    let activeEnd_parent = None
-    let subtype_parent = None
-    let parentId_parent = None
-    let reference_parent= None
-    let envelope_parent = AuditEnvelope.create AccountCreate
-    
     let code_child1 = "AC-4.3-C1"
-    let name_child1 = "deactivateAccount rejects when active children exist"
-    let accountType_child1 = "Liability"
-    let activeBegin_child1 = Clock.now()
-    let activeEnd_child1 = None
-    let subtype_child1 = None    
-    let reference_child1= None
-    let envelope_child1 = AuditEnvelope.create AccountCreate
+    let envelope_deactivation = AuditEnvelope.create AccountDeactivation
+    let goodActiveEnd = Some (Clock.now ())
     
     let mutable idToCleanUp_parent = None
     let mutable idToCleanUp_child1 = None
     try
         let railroad = result {
-            let! account_parent = Account.constructNewAndSaveToDb
-                                      code_parent name_parent accountType_parent activeBegin_parent activeEnd_parent
-                                      subtype_parent parentId_parent reference_parent envelope_parent
+            let! account_parent = 
+                Account.constructNewAndSaveToDb code_parent genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
             let parentId = Account.id account_parent
             idToCleanUp_parent <- Some parentId
             
-            let! account_child1 = Account.constructNewAndSaveToDb
-                                      code_child1 name_child1 accountType_child1 activeBegin_child1 activeEnd_child1
-                                      subtype_child1 (Some parentId) reference_child1 envelope_child1
+            let! account_child1 = 
+                Account.constructNewAndSaveToDb code_child1 genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
+                    genericAccountReference genericAuditEnvelope
             let id_child1 = Account.id account_child1
             idToCleanUp_child1 <- Some id_child1
             
-            
-            let envelope_deactivation = AuditEnvelope.create AccountDeactivation
-            let goodActiveEnd = Some (Clock.now ())
             let deactivationResult = Account.deactivateAccount parentId goodActiveEnd envelope_deactivation
             
-            let! checkResult =
+            let! _ =
                 match deactivationResult with
                 | Error _ -> Ok ()
                 | Ok _ ->
@@ -680,29 +552,22 @@ let ``REQ-AC-4.3 deactivateAccount rejects when active children exist`` () =
 
 [<Fact>]
 let ``REQ-AC-4.5 deactivateAccount rejects already deactivated account`` () =
-    let code = "AC-4.5-P"
-    let name = "deactivateAccount rejects already deactivated account"
-    let accountType = "Liability"
-    let activeBegin = (Clock.now()).Plus(Duration.FromDays(-700))
-    let activeEnd = None
-    let subtype = None
-    let parentId = None
-    let reference= None
-    let envelope = AuditEnvelope.create AccountCreate
+    let envelope_deactivation1 = AuditEnvelope.create AccountDeactivation
+    let goodActiveEnd = Some (Clock.now ())
     
     let mutable idToCleanUp = None
     try
         let railroad = result {
-            let! activeAccount = Account.constructNewAndSaveToDb
-                                      code name accountType activeBegin activeEnd
-                                      subtype parentId reference envelope
+            let! activeAccount = 
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
             let activeId = Account.id activeAccount
             idToCleanUp <- Some activeId
             
             Assert.True(Account.isActive (Clock.now ()) activeAccount) // account starts as active
             
-            let envelope_deactivation1 = AuditEnvelope.create AccountDeactivation
-            let goodActiveEnd = Some (Clock.now ())
+            
             let! inactiveAccount = Account.deactivateAccount activeId goodActiveEnd envelope_deactivation1
             
             Assert.False(Account.isActive (Clock.now()) inactiveAccount) // first deactivation succeeds
@@ -711,7 +576,7 @@ let ``REQ-AC-4.5 deactivateAccount rejects already deactivated account`` () =
             let betterActiveEnd = Some ((Clock.now ()).Plus(Duration.FromDays 1))
             let deactivationResult2 = Account.deactivateAccount activeId betterActiveEnd envelope_deactivation2 // should fail            
             
-            let! checkResult =
+            let! _ =
                 match deactivationResult2 with
                 | Error _ -> Ok ()
                 | Ok _ ->
@@ -733,29 +598,21 @@ let ``REQ-AC-4.5 deactivateAccount rejects already deactivated account`` () =
 
 [<Fact>]
 let ``REQ-AC-4.8 updateAccountName succeeds with valid name`` () =
-    let code = "AC-4.8"
-    let startName = "updateAccountName succeeds with valid name"
-    let accountType = "Revenue"
-    let activeBegin = Clock.now()
-    let activeEnd = None
-    let subtype = None
-    let parentId = None
-    let reference= None
-    let envelope = AuditEnvelope.create AccountCreate
+    let envelope_rename = AuditEnvelope.create AccountUpdateName
+    let goodAccountName = "fahrvergnügen"
     
     let mutable idToCleanUp = None
     try
         let railroad = result {
-            let! createdAccount = Account.constructNewAndSaveToDb
-                                      code startName accountType activeBegin activeEnd
-                                      subtype parentId reference envelope
+            let! createdAccount =
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
             let createdId = Account.id createdAccount
             idToCleanUp <- Some createdId
             
-            Assert.Equal(startName, (AccountName.value (Account.name createdAccount))) // make sure we have the start name
+            Assert.Equal(genericAccountNameString, (AccountName.value (Account.name createdAccount))) // make sure we have the start name
             
-            let envelope_rename = AuditEnvelope.create AccountUpdateName
-            let goodAccountName = "fahrvergnügen"
             let! renamedAccount = Account.updateAccountName createdId goodAccountName envelope_rename
             
             Assert.Equal(goodAccountName, (AccountName.value (Account.name renamedAccount))) 
@@ -782,22 +639,17 @@ let ``REQ-AC-4.8 REQ-SYS-2.1 updateAccountName rejects invalid name`` () =
 
 [<Fact>]
 let ``REQ-AC-4.9 updateExternalReference succeeds with valid reference`` () =
-    let code = "AC-4.9"
-    let startName = "updateExternalReference succeeds with valid reference"
-    let accountType = "Revenue"
-    let activeBegin = Clock.now()
-    let activeEnd = None
-    let subtype = None
-    let parentId = None
-    let reference= None
-    let envelope = AuditEnvelope.create AccountCreate
+    let noneReference = None
+    let envelope_update = AuditEnvelope.create AccountUpdateExtReference
+    let goodReference = Some "Fliegende Ratte"
     
     let mutable idToCleanUp = None
     try
         let railroad = result {
-            let! createdAccount = Account.constructNewAndSaveToDb
-                                      code startName accountType activeBegin activeEnd
-                                      subtype parentId reference envelope
+            let! createdAccount = 
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    noneReference genericAuditEnvelope
             let createdId = Account.id createdAccount
             idToCleanUp <- Some createdId
             
@@ -806,8 +658,6 @@ let ``REQ-AC-4.9 updateExternalReference succeeds with valid reference`` () =
             Assert.Equal(None, startingReference)
             
             // update
-            let envelope_update = AuditEnvelope.create AccountUpdateExtReference
-            let goodReference = Some "Fliegende Ratte"
             let! updatedAccount = Account.updateExternalReference createdId goodReference envelope_update
             
             // verify that the new value got recorded
@@ -826,22 +676,17 @@ let ``REQ-AC-4.9 updateExternalReference succeeds with valid reference`` () =
 
 [<Fact>]
 let ``REQ-AC-4.9 updateExternalReference can be updated to None`` () =
-    let code = "AC-4.9"
-    let startName = "updateExternalReference can be updated to None"
-    let accountType = "Revenue"
-    let activeBegin = Clock.now()
-    let activeEnd = None
-    let subtype = None
-    let parentId = None
     let reference= Some "un poquito aburrido"
-    let envelope = AuditEnvelope.create AccountCreate
+    let envelope_update = AuditEnvelope.create AccountUpdateExtReference
+    let emptyReference = None
     
     let mutable idToCleanUp = None
     try
         let railroad = result {
-            let! createdAccount = Account.constructNewAndSaveToDb
-                                      code startName accountType activeBegin activeEnd
-                                      subtype parentId reference envelope
+            let! createdAccount = 
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    reference genericAuditEnvelope
             let createdId = Account.id createdAccount
             idToCleanUp <- Some createdId
             
@@ -850,8 +695,6 @@ let ``REQ-AC-4.9 updateExternalReference can be updated to None`` () =
             Assert.Equal(reference, startingReference)
             
             // update
-            let envelope_update = AuditEnvelope.create AccountUpdateExtReference
-            let emptyReference = None
             let! updatedAccount = Account.updateExternalReference createdId emptyReference envelope_update
             
             // verify that the None got recorded
@@ -870,29 +713,21 @@ let ``REQ-AC-4.9 updateExternalReference can be updated to None`` () =
 
 [<Fact>]
 let ``REQ-SYS-3.3 account update operations set modifiedAt from AuditEnvelope`` () =
-    let code = "SYS-3.3"
-    let startName = "account update operations set modifiedAt from AuditEnvelope"
-    let accountType = "Revenue"
-    let activeBegin = Clock.now()
-    let activeEnd = None
-    let subtype = None
-    let parentId = None
-    let reference= None
-    let envelope = AuditEnvelope.create AccountCreate
+    let newName = "Blah blah blah"
     
     let mutable idToCleanUp = None
     try
         let railroad = result {
-            let! createdAccount = Account.constructNewAndSaveToDb
-                                      code startName accountType activeBegin activeEnd
-                                      subtype parentId reference envelope
+            let! createdAccount = 
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
             let createdId = Account.id createdAccount
             idToCleanUp <- Some createdId
             
             // update
             System.Threading.Thread.Sleep(100) // ensure that the 2 clock calls don't fall on the same cycle
             let envelope_update = AuditEnvelope.create AccountUpdateName
-            let newName = "Blah blah blah"
             let! updatedAccount = Account.updateAccountName createdId newName envelope_update
             
             // verify that the modified date got set properly
@@ -910,22 +745,18 @@ let ``REQ-SYS-3.3 account update operations set modifiedAt from AuditEnvelope`` 
 
 [<Fact>]
 let ``REQ-AC-4.19 update to deactivated account is permitted`` () =
-    let code = "AC-4.19"
-    let startName = "update to deactivated account is permitted"
-    let accountType = "Revenue"
     let activeBegin = Clock.now().Plus(Duration.FromDays -365)
     let activeEnd = Clock.now().Plus(Duration.FromDays -1) // already deactive
-    let subtype = None
-    let parentId = None
-    let reference= None
-    let envelope = AuditEnvelope.create AccountCreate
+    let envelope_update = AuditEnvelope.create AccountUpdateName
+    let newName = "Blah blah blah"
     
     let mutable idToCleanUp = None
     try
         let railroad = result {
-            let! createdAccount = Account.constructNewAndSaveToDb
-                                      code startName accountType activeBegin (Some activeEnd)
-                                      subtype parentId reference envelope
+            let! createdAccount = 
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
+                    activeBegin (Some activeEnd) genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
             let createdId = Account.id createdAccount
             idToCleanUp <- Some createdId
             
@@ -933,8 +764,6 @@ let ``REQ-AC-4.19 update to deactivated account is permitted`` () =
             Assert.False(Account.isActive (Clock.now()) createdAccount)
             
             // update
-            let envelope_update = AuditEnvelope.create AccountUpdateName
-            let newName = "Blah blah blah"
             let! updatedAccount = Account.updateAccountName createdId newName envelope_update
             
             // verify that the update actually occurred
