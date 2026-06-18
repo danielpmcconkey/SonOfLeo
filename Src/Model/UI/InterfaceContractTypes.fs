@@ -5,13 +5,13 @@ open NodaTime
 
 module InterfaceContractTypes =
 
-    type CommandRoute = {
+    type CommandRoute = { // REQ-NGUI-1.1
         domain: string
         verb: string
         description: string
         inputType: string
         outputType: string
-        handler: string -> string list -> Result<string, string>
+        handler: string -> string list -> Result<string, string> // REQ-NGUI-1.2
     }
     
     
@@ -20,7 +20,7 @@ module InterfaceContractTypes =
     // ****************************************
     
     // return
-    type AccountReturn = {
+    type AccountReturn = { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
         id: Guid option
         code: string
         name: string
@@ -34,7 +34,7 @@ module InterfaceContractTypes =
         createdAt: Instant option
     }
     // create
-    type AccountCreateInput = {
+    type AccountCreateInput = { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
         code: string
         name: string
         accountTypeSt: string
@@ -44,14 +44,14 @@ module InterfaceContractTypes =
         parentId: Guid option
         reference: string option }
     // read
-    type AccountFetchByIdInput = { id: Guid }
-    type AccountFetchByCodeInput = { code: string }
-    type AccountFetchByParentIdInput = { parentId: Guid }
-    type AccountFetchByAccountTypeInput = { accountTypeSt: string }
-    type AccountFetchAllInput = { activeOnly: bool; }
+    type AccountFetchByIdInput = { id: Guid } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+    type AccountFetchByCodeInput = { code: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+    type AccountFetchByParentIdInput = { parentId: Guid } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+    type AccountFetchByAccountTypeInput = { accountTypeSt: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+    type AccountFetchAllInput = { activeOnly: bool; } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
     // update
-    type AccountDeactivationInput = { id: Guid; activeEnd: Instant }
-    type AccountUpdateNameInput = {id: Guid; newName: string }
-    type AccountUpdateExternalReferenceInput = {id: Guid; newReference: string option }
+    type AccountDeactivationInput = { id: Guid; activeEnd: Instant } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+    type AccountUpdateNameInput = {id: Guid; newName: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+    type AccountUpdateExternalReferenceInput = {id: Guid; newReference: string option } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
 
     

@@ -25,7 +25,7 @@ let convertAccountToAccountReturn a : AccountReturn = {
     
 let accountCreate payload _ =
     result {
-        let! accountCreateInput = Json.fromJson<AccountCreateInput> payload
+        let! accountCreateInput = Json.fromJson<AccountCreateInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create AccountCreate
         let! account = Account.constructNewAndSaveToDb
                          accountCreateInput.code
@@ -38,85 +38,85 @@ let accountCreate payload _ =
                          accountCreateInput.reference
                          envelope
         let returnAccount : AccountReturn = convertAccountToAccountReturn account
-        return! Json.toJson<AccountReturn> returnAccount
+        return! Json.toJson<AccountReturn> returnAccount // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
 let accountDeactivate payload _ =
     result {
-        let! accountDeactivation = Json.fromJson<AccountDeactivationInput> payload
+        let! accountDeactivation = Json.fromJson<AccountDeactivationInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create AccountDeactivation
         let! account = Account.deactivateAccount
                          accountDeactivation.id
                          (Some accountDeactivation.activeEnd)
                          envelope
         let returnAccount : AccountReturn = convertAccountToAccountReturn account
-        return! Json.toJson<AccountReturn> returnAccount
+        return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
     
 
 let accountUpdateName payload _ =
     result {
-        let! accountUpdate = Json.fromJson<AccountUpdateNameInput> payload
+        let! accountUpdate = Json.fromJson<AccountUpdateNameInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create AccountUpdateName
         let! account = Account.updateAccountName
                          accountUpdate.id
                          accountUpdate.newName
                          envelope
         let returnAccount : AccountReturn = convertAccountToAccountReturn account
-        return! Json.toJson<AccountReturn> returnAccount
+        return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
 let accountUpdateExternalReference payload _ =
     result {
-        let! accountUpdate = Json.fromJson<AccountUpdateExternalReferenceInput> payload
+        let! accountUpdate = Json.fromJson<AccountUpdateExternalReferenceInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create AccountUpdateExtReference
         let! account = Account.updateExternalReference
                          accountUpdate.id
                          accountUpdate.newReference
                          envelope
         let returnAccount : AccountReturn = convertAccountToAccountReturn account
-        return! Json.toJson<AccountReturn> returnAccount
+        return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
 let accountFetchById payload _ =
     result {
-        let! accountFetch = Json.fromJson<AccountFetchByIdInput> payload
+        let! accountFetch = Json.fromJson<AccountFetchByIdInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let! account = Account.fetchById accountFetch.id
         let returnAccount : AccountReturn = convertAccountToAccountReturn account
-        return! Json.toJson<AccountReturn> returnAccount
+        return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
 let accountFetchByCode payload _ =
     result {
-        let! accountFetch = Json.fromJson<AccountFetchByCodeInput> payload
+        let! accountFetch = Json.fromJson<AccountFetchByCodeInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let! account = Account.fetchByCode accountFetch.code
         let returnAccount : AccountReturn = convertAccountToAccountReturn account
-        return! Json.toJson<AccountReturn> returnAccount
+        return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
 let accountFetchByParentId payload _ =
     result {
-        let! accountFetch = Json.fromJson<AccountFetchByParentIdInput> payload
+        let! accountFetch = Json.fromJson<AccountFetchByParentIdInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let! accounts = Account.fetchByParentId accountFetch.parentId
-        let returnAccounts = accounts |> List.map(convertAccountToAccountReturn) //AccountReturn =  account
-        return! Json.toJson<AccountReturn list> returnAccounts
+        let returnAccounts = accounts |> List.map(convertAccountToAccountReturn) 
+        return! Json.toJson<AccountReturn list> returnAccounts// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
 let accountFetchByAccountType payload _ =
     result {
-        let! accountFetch = Json.fromJson<AccountFetchByAccountTypeInput> payload
+        let! accountFetch = Json.fromJson<AccountFetchByAccountTypeInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let! validType = AccountType.fromString accountFetch.accountTypeSt
         let! accounts = Account.fetchByAccountType validType
-        let returnAccounts = accounts |> List.map(convertAccountToAccountReturn) //AccountReturn =  account
-        return! Json.toJson<AccountReturn list> returnAccounts
+        let returnAccounts = accounts |> List.map(convertAccountToAccountReturn) 
+        return! Json.toJson<AccountReturn list> returnAccounts// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
 let accountFetchAll payload _ =
     result {
-        let! accountFetch = Json.fromJson<AccountFetchAllInput> payload
+        let! accountFetch = Json.fromJson<AccountFetchAllInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let! accounts = Account.fetchAll accountFetch.activeOnly
-        let returnAccounts = accounts |> List.map(convertAccountToAccountReturn) //AccountReturn =  account
-        return! Json.toJson<AccountReturn list> returnAccounts
+        let returnAccounts = accounts |> List.map(convertAccountToAccountReturn)
+        return! Json.toJson<AccountReturn list> returnAccounts// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
     
 let accountDomainCommandRoutes = [

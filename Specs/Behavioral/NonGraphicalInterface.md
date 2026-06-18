@@ -12,9 +12,8 @@ Applies to command line, importing, reporting, API, etc. Any use case where an e
 ## 2. UI domain types
 
 - **REQ-NGUI-2.1** The payloads described above will be represented by their own domain types in this system.
+- **REQ-NGUI-2.1.1** Such payload types should be considered the interface contracts for each use case.
 - **REQ-NGUI-2.2** The UI domain types do not provide any business validation beyond which fields are required vs optional.
-- **REQ-NGUI-2.3** UI domain types will provide a 1:1 map to the primary domain types. Example, if the primary domain type for Account has an accountType field, the UI domain type will have an accountType field. 
-- **REQ-NGUI-2.3.1** For compound types (e.g.: the Account type's activityPeriod), feature designers have the latitude to represent them as multiple peer fields in the UI domain type or as a compound "nested" type within the domain type.
 - **REQ-NGUI-2.4** The interface layer will be responsible for marshalling / unmarshalling between UI domain types and their serialized format. No other layer in this system will be allowed to perform such conversions. (See Definitions)
 
 ## 3. Command line interface
@@ -28,3 +27,11 @@ Applies to command line, importing, reporting, API, etc. Any use case where an e
 - **REQ-NGUI-3.7** Upon unsuccessful execution, the system will return the error via stderr and exit with a non-0 code.
 - **REQ-NGUI-3.8** The domain and verb command line arguments must be treated as case sensitive
 - **REQ-NGUI-3.9** If the actor provides an incorrect or otherwise unsupported domain and verb combination, the CLI application must exit with an appropriate error 
+
+
+## Withdrawn
+
+| ID          | Original Requirement | Reason |
+|-------------|----------------------|--------|
+| REQ-NGUI-2.3 | UI domain types will provide a 1:1 map to the primary domain types. Example, if the primary domain type for Account has an accountType field, the UI domain type will have an accountType field. | Moved to an interface contract paradigm |
+| REQ-NGUI-2.3.1 | For compound types (e.g.: the Account type's activityPeriod), feature designers have the latitude to represent them as multiple peer fields in the UI domain type or as a compound "nested" type within the domain type. | Moved to an interface contract paradigm |

@@ -273,13 +273,13 @@ module Account =
 
         let fetchById (id: Guid) : Result<Account, string> = // REQ-AC-3.3
             let predicate = "where id = @id"
-            let parameters = [{ name = "@id"; value = UniqueId id };] // REQ-DAL-2.3         
+            let parameters = [{ name = "@id"; value = UniqueId id };] // REQ-DAL-2.3
             readRowsFromDb (Some predicate) None parameters ExactlyOne
             |> Result.map List.head
         
         let fetchByCode (code: string) : Result<Account, string> = // REQ-AC-3.4
             let predicate = "where code = @code"
-            let parameters = [{ name = "@code"; value = CharString code };] // REQ-DAL-2.3        
+            let parameters = [{ name = "@code"; value = CharString code };] // REQ-DAL-2.3
             readRowsFromDb (Some predicate) None parameters ExactlyOne
             |> Result.map List.head
         
@@ -320,7 +320,7 @@ module Account =
                 : Result<unit, string> =
             result {                
                 let ae = activeEnd validAccount
-                let ab = activeBegin validAccount                
+                let ab = activeBegin validAccount
                 let! activeAccount =
                     match ae with
                     | None when ab <= referenceTime -> Ok ()
