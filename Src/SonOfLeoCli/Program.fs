@@ -1,48 +1,16 @@
 ﻿open System
-open Model.Audit
-open Model.Ledger.Account.Account
-open Model.Ledger.AccountComponent
-open NodaTime
-open Model.Ledger.Account
-open Model.UI
-open Model.UI.UiPrimitives
-open Utilities.ResultCE
-let accountCreate payload =
-    result {
-        let! accountPrimitives = Json.fromJson<AccountPrimitives> payload
-        let envelope = AuditEnvelope.create AccountCreate
-        let! account = Account.constructNewAndSaveToDb
-                         accountPrimitives.code
-                         accountPrimitives.name
-                         accountPrimitives.accountTypeSt
-                         accountPrimitives.activeBegin
-                         accountPrimitives.activeEnd
-                         accountPrimitives.subType
-                         accountPrimitives.parentId
-                         accountPrimitives.reference
-                         envelope
-        let returnAccount : AccountPrimitives = {
-            id = Some (Account.id account)
-            code = AccountCode.value (Account.code account)
-            name = AccountName.value (Account.name account)
-            accountTypeSt = AccountType.toString (Account.accountType account)
-            activeBegin = Account.activeBegin account
-            activeEnd = Account.activeEnd account
-            subType = Account.accountSubType account |> Option.map AccountSubtype.toString
-            parentId = Account.parentId account
-            reference = Account.externalReference account |> Option.map AccountExternalReference.value
-            modifiedAt = Some (Account.modifiedAt account)
-            createdAt = Some(Account.createdAt account)
-        }
-        return! Json.toJson<AccountPrimitives> returnAccount
-    }
+open Model.UI.InterfaceContractTypes
+open SonOfLeoCli.AccountRoutes
+
+
+let commandRoutes = accountDomainCommandRoutes // in future append other domain routes
+    
+
 let route (domain) (verb) (rest) (payload) : Result<string, string> =
-    match domain with
-    | "Account" ->
-        match verb with
-        | "Create" -> accountCreate payload
-        | _ -> Error $"Unknown account activity: {verb}"
-    | _ -> Error $"Unknown domain: {domain}"
+  match commandRoutes |> List.tryFind (fun r -> r.domain = domain && r.verb = verb) with
+  | Some command -> command.handler payload rest
+  | None -> Error $"Unknown command: {domain} {verb}"
+
     
 [<EntryPoint>]
 let main args =

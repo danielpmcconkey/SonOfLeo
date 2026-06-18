@@ -13,7 +13,7 @@
     <Folder Include="Ops\" />
     <Folder Include="Portfolio\" />
     <Folder Include="Reporting\" />
-    <Compile Include="UI\UiPrimitives.fs" />
+    <Compile Include="UI\InterfaceContractTypes.fs" />
     <Compile Include="UI\Json.fs" />
   </ItemGroup>
 

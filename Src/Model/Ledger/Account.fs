@@ -1,6 +1,7 @@
 namespace Model.Ledger
 
 open System
+open Utilities.Clock
 open Utilities.ResultCE
 open Utilities.DAL
 open Model.Audit
@@ -284,14 +285,29 @@ module Account =
         
         let fetchByParentId (parentId: Guid) : Result<Account list, string> = // REQ-AC-3.5
             let predicate = $"where parent_id = @parent_id"
-            let parameters = [{ name = "@parent_id"; value = UniqueId parentId };] // REQ-DAL-2.3          
+            let parameters = [{ name = "@parent_id"; value = UniqueId parentId };] // REQ-DAL-2.3
             readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable
         
         let fetchByAccountType (accountType: AccountType): Result<Account list, string> = // REQ-AC-3.6
             let typeId = AccountType.toDbId(accountType)
             let predicate = $"where account_type_id = @type_id"
-            let parameters = [{ name = "@type_id"; value = Integer typeId };] // REQ-DAL-2.3        
+            let parameters = [{ name = "@type_id"; value = Integer typeId };] // REQ-DAL-2.3
             readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable
+            
+        /// fetchAll returns all accounts or, if activeOnly is true, fetches all accounts
+        /// that are active with respect to the system runtime
+        let fetchAll (activeOnly: bool) : Result<Account list, string> = 
+            let predicate = String.Empty
+            let parameters = []
+            let activeReference = Clock.now()
+            result {
+                let! allRows = readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable
+                return!
+                    match activeOnly with
+                    | true -> allRows |> List.filter(isActive activeReference) |> Ok
+                    | false -> allRows |> Ok
+            }
+            
  
 // Insert and update validation functions        
         
