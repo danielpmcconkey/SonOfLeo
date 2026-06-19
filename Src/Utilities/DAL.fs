@@ -110,7 +110,7 @@ module DAL =
         p
         
     let private buildParamsList (parameters: QueryParameter list) : NpgsqlParameter list = // REQ-DAL-3.2
-        List.map (fun x -> convertParamToDbParam(x)) parameters
+        parameters |> List.map convertParamToDbParam
         
     let private validateNumRows (numRows: int) (expectation: AcceptableExpectedRows): Result<unit, string> = // REQ-DAL-2.2
         match expectation with

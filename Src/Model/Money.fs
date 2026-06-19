@@ -52,7 +52,7 @@ module Money =
             result {
                 let dList = firstShare :: List.replicate (n - 1) remainingShares // REQ-MON-2.4.5
                 let sumTotal = dList |> List.sum 
-                let! _ = if sumTotal = amount m then Ok () else Error $"sum of all shares {sumTotal} does not match original amount {amount m}" // REQ-MON-2.4.1
+                do! if sumTotal = amount m then Ok () else Error $"sum of all shares {sumTotal} does not match original amount {amount m}" // REQ-MON-2.4.1
                 return! fromDecimalList dList
             }
     
@@ -64,5 +64,5 @@ module Money =
         fromDecimal (m.amount - n.amount) // REQ-MON-2.6.1
     
     let sumList (l: Money list): Result<Money, string> = // REQ-MON-2.9
-        let sum_d = l |> List.sumBy(amount)
+        let sum_d = l |> List.sumBy amount
         fromDecimal sum_d // REQ-MON-2.9.1

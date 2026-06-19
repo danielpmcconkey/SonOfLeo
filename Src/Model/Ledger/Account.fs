@@ -63,7 +63,7 @@ module Account =
                 (parentId: Guid option)
                 (reference: AccountExternalReference option)
                 : Result<Account, string> =
-            if AccountSubtype.validTypeSubtypeCombination(accountType, subType) then Ok {
+            if AccountSubtype.validTypeSubtypeCombination accountType subType then Ok {
                 id = id
                 code = code
                 name = name
@@ -297,17 +297,15 @@ module Account =
         /// fetchAll returns all accounts or, if activeOnly is true, fetches all accounts
         /// that are active with respect to the system runtime
         let fetchAll (activeOnly: bool) : Result<Account list, string> = 
-            let predicate = String.Empty
+            let predicate = None
             let parameters = []
             let activeReference = Clock.now()
-            result {
-                let! allRows = readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable
-                return!
-                    match activeOnly with
-                    | true -> allRows |> List.filter(isActive activeReference) |> Ok
-                    | false -> allRows |> Ok
-            }
             
+            match readRowsFromDb predicate None parameters AnyQuantityIsAcceptable with
+            | Error e -> Error e
+            | Ok allRows ->
+                if activeOnly then allRows |> List.filter(isActive activeReference) |> Ok
+                else allRows |> Ok            
  
 // Insert and update validation functions        
         

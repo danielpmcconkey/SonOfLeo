@@ -160,7 +160,7 @@ module AccountComponent =
             | Revenue -> [OperatingRevenue; OtherRevenue] // REQ-AC-1.34
             | Expense -> [OperatingExpense; OtherExpense] // REQ-AC-1.36
             
-        let validTypeSubtypeCombination (t: AccountType, st: AccountSubtype option) : bool =
+        let validTypeSubtypeCombination (t: AccountType) (st: AccountSubtype option) : bool =
             match st with
             | None -> true
             | Some x -> validWith t |> List.contains x
