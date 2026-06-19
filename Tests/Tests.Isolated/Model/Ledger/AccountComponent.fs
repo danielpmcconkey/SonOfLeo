@@ -1,7 +1,6 @@
 module Tests.Isolated.Model.Ledger.AccountComponent
 
 open System
-open Utilities.ResultCE
 open Xunit
 open Model.Ledger.AccountComponent
 open Utilities.Clock
@@ -23,12 +22,12 @@ let ``REQ-AC-1.2 REQ-SYS-1.2 AccountCode rejects whitespace-only input`` () =
 
 [<Fact>]
 let ``REQ-AC-1.3 AccountCode rejects strings exceeding 10 chars`` () =
-    let result = AccountCode.create  (String('A', 11))
+    let result = AccountCode.create (String('A', 11))
     Assert.True(Result.isError result)
 
 [<Fact>]
 let ``REQ-AC-1.3 AccountCode accepts string at exactly 10 chars`` () =
-    let result = AccountCode.create  (String('A', 10))
+    let result = AccountCode.create (String('A', 10))
     Assert.True(Result.isOk result)
 
 [<Fact>]
@@ -77,57 +76,57 @@ let ``REQ-SYS-1.1 AccountName trims leading and trailing whitespace`` () =
 
 [<Fact>]
 let ``REQ-AC-2.4 REQ-AC-1.10 AccountType fromString accepts Asset`` () =
-    Assert.True(Result.isOk (AccountType.fromString("Asset")))
+    Assert.True(Result.isOk (AccountType.fromString "Asset"))
 
 [<Fact>]
 let ``REQ-AC-2.4 REQ-AC-1.10 AccountType fromString accepts Liability`` () =
-    Assert.True(Result.isOk (AccountType.fromString("Liability")))
+    Assert.True(Result.isOk (AccountType.fromString "Liability"))
 
 [<Fact>]
 let ``REQ-AC-2.4 REQ-AC-1.10 AccountType fromString accepts Equity`` () =
-    Assert.True(Result.isOk (AccountType.fromString("Equity")))
+    Assert.True(Result.isOk (AccountType.fromString "Equity"))
 
 [<Fact>]
 let ``REQ-AC-2.4 REQ-AC-1.10 AccountType fromString accepts Revenue`` () =
-    Assert.True(Result.isOk (AccountType.fromString("Revenue")))
+    Assert.True(Result.isOk (AccountType.fromString "Revenue"))
 
 [<Fact>]
 let ``REQ-AC-2.4 REQ-AC-1.10 AccountType fromString accepts Expense`` () =
-    Assert.True(Result.isOk (AccountType.fromString("Expense")))
+    Assert.True(Result.isOk (AccountType.fromString "Expense"))
 
 [<Fact>]
 let ``REQ-AC-2.4 AccountType fromString rejects invalid type name`` () =
-    Assert.True(Result.isError (AccountType.fromString("Valley Girl")))
+    Assert.True(Result.isError (AccountType.fromString "Valley Girl"))
 
 [<Fact>]
 let ``REQ-SYS-1.1 AccountType fromString trims input before matching`` () =
-    let trimmed = AccountType.fromString("Revenue")
-    let untrimmed = AccountType.fromString(" Revenue   ")
+    let trimmed = AccountType.fromString "Revenue"
+    let untrimmed = AccountType.fromString " Revenue   "
     Assert.Equal(trimmed, untrimmed)
 
 [<Fact>]
 let ``REQ-AC-1.11 AccountType of Asset must be represented by a 1 for database conversion`` () =
-    let at = AccountType.fromString("Asset") |> Result.defaultWith failwith
+    let at = AccountType.fromString "Asset" |> Result.defaultWith failwith
     Assert.Equal(1, AccountType.toDbId at)
 
 [<Fact>]
 let ``REQ-AC-1.12 AccountType of Liability must be represented by a 2 for database conversion`` () =
-    let at = AccountType.fromString("Liability") |> Result.defaultWith failwith
+    let at = AccountType.fromString "Liability" |> Result.defaultWith failwith
     Assert.Equal(2, AccountType.toDbId at)
 
 [<Fact>]
 let ``REQ-AC-1.13 AccountType of Equity must be represented by a 3 for database conversion`` () =
-    let at = AccountType.fromString("Equity") |> Result.defaultWith failwith
+    let at = AccountType.fromString "Equity" |> Result.defaultWith failwith
     Assert.Equal(3, AccountType.toDbId at)
 
 [<Fact>]
 let ``REQ-AC-1.14 AccountType of Revenue must be represented by a 4 for database conversion`` () =
-    let at = AccountType.fromString("Revenue") |> Result.defaultWith failwith
+    let at = AccountType.fromString "Revenue" |> Result.defaultWith failwith
     Assert.Equal(4, AccountType.toDbId at)
 
 [<Fact>]
 let ``REQ-AC-1.15 AccountType of Expense must be represented by a 5 for database conversion`` () =
-    let at = AccountType.fromString("Expense") |> Result.defaultWith failwith
+    let at = AccountType.fromString "Expense" |> Result.defaultWith failwith
     Assert.Equal(5, AccountType.toDbId at)
 
 // =============================================================================
@@ -136,39 +135,39 @@ let ``REQ-AC-1.15 AccountType of Expense must be represented by a 5 for database
 
 [<Fact>]
 let ``REQ-AC-1.18 AccountSubtype fromString accepts Cash`` () =
-    Assert.True(Result.isOk (AccountSubtype.fromString("Cash")))
+    Assert.True(Result.isOk (AccountSubtype.fromString "Cash"))
 
 [<Fact>]
 let ``REQ-AC-1.18 AccountSubtype fromString accepts CurrentLiability`` () =
-    Assert.True(Result.isOk (AccountSubtype.fromString("CurrentLiability")))
+    Assert.True(Result.isOk (AccountSubtype.fromString "CurrentLiability"))
 
 [<Fact>]
 let ``REQ-AC-1.18 AccountSubtype fromString accepts FixedAsset`` () =
-    Assert.True(Result.isOk (AccountSubtype.fromString("FixedAsset")))
+    Assert.True(Result.isOk (AccountSubtype.fromString "FixedAsset"))
 
 [<Fact>]
 let ``REQ-AC-1.18 AccountSubtype fromString accepts Investment`` () =
-    Assert.True(Result.isOk (AccountSubtype.fromString("Investment")))
+    Assert.True(Result.isOk (AccountSubtype.fromString "Investment"))
 
 [<Fact>]
 let ``REQ-AC-1.18 AccountSubtype fromString accepts LongTermLiability`` () =
-    Assert.True(Result.isOk (AccountSubtype.fromString("LongTermLiability")))
+    Assert.True(Result.isOk (AccountSubtype.fromString "LongTermLiability"))
 
 [<Fact>]
 let ``REQ-AC-1.18 AccountSubtype fromString accepts OperatingExpense`` () =
-    Assert.True(Result.isOk (AccountSubtype.fromString("OperatingExpense")))
+    Assert.True(Result.isOk (AccountSubtype.fromString "OperatingExpense"))
 
 [<Fact>]
 let ``REQ-AC-1.18 AccountSubtype fromString accepts OperatingRevenue`` () =
-    Assert.True(Result.isOk (AccountSubtype.fromString("OperatingRevenue")))
+    Assert.True(Result.isOk (AccountSubtype.fromString "OperatingRevenue"))
 
 [<Fact>]
 let ``REQ-AC-1.18 AccountSubtype fromString accepts OtherRevenue`` () =
-    Assert.True(Result.isOk (AccountSubtype.fromString("OtherRevenue")))
+    Assert.True(Result.isOk (AccountSubtype.fromString "OtherRevenue"))
 
 [<Fact>]
 let ``REQ-AC-1.18 AccountSubtype fromString accepts OtherExpense`` () =
-    Assert.True(Result.isOk (AccountSubtype.fromString("OtherExpense")))
+    Assert.True(Result.isOk (AccountSubtype.fromString "OtherExpense"))
 
 [<Fact>]
 let ``REQ-AC-1.18 AccountSubtype fromString rejects invalid subtype name`` () =
@@ -176,307 +175,307 @@ let ``REQ-AC-1.18 AccountSubtype fromString rejects invalid subtype name`` () =
 
 [<Fact>]
 let ``REQ-SYS-1.1 AccountSubtype fromString trims input before matching`` () =
-    let trimmed = AccountSubtype.fromString("OtherExpense")
-    let untrimmed = AccountSubtype.fromString(" OtherExpense   ")
+    let trimmed = AccountSubtype.fromString "OtherExpense"
+    let untrimmed = AccountSubtype.fromString " OtherExpense   "
     Assert.Equal(trimmed, untrimmed)
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type can be matched with Cash subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Asset"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("Cash"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Asset")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "Cash")
          Assert.True(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type cannot be matched with CurrentLiability subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Asset"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("CurrentLiability"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Asset")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "CurrentLiability")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type can be matched with FixedAsset subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Asset"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("FixedAsset"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Asset")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "FixedAsset")
          Assert.True(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type can be matched with Investment subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Asset"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("Investment"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Asset")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "Investment")
          Assert.True(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type cannot be matched with LongTermLiability subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Asset"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("LongTermLiability"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Asset")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "LongTermLiability")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type cannot be matched with OperatingExpense subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Asset"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OperatingExpense"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Asset")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OperatingExpense")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type cannot be matched with OperatingRevenue subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Asset"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OperatingRevenue"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Asset")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OperatingRevenue")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type cannot be matched with OtherRevenue subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Asset"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OtherRevenue"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Asset")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OtherRevenue")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type cannot be matched with OtherExpense subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Asset"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OtherExpense"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Asset")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OtherExpense")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type cannot be matched with Cash subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Liability"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("Cash"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Liability")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "Cash")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type can be matched with CurrentLiability subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Liability"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("CurrentLiability"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Liability")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "CurrentLiability")
          Assert.True(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type cannot be matched with FixedAsset subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Liability"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("FixedAsset"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Liability")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "FixedAsset")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type cannot be matched with Investment subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Liability"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("Investment"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Liability")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "Investment")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type can be matched with LongTermLiability subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Liability"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("LongTermLiability"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Liability")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "LongTermLiability")
          Assert.True(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type cannot be matched with OperatingExpense subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Liability"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OperatingExpense"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Liability")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OperatingExpense")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type cannot be matched with OperatingRevenue subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Liability"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OperatingRevenue"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Liability")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OperatingRevenue")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type cannot be matched with OtherRevenue subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Liability"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OtherRevenue"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Liability")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OtherRevenue")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type cannot be matched with OtherExpense subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Liability"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OtherExpense"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Liability")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OtherExpense")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with Cash subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Equity"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("Cash"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Equity")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "Cash")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with CurrentLiability subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Equity"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("CurrentLiability"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Equity")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "CurrentLiability")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with FixedAsset subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Equity"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("FixedAsset"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Equity")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "FixedAsset")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with Investment subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Equity"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("Investment"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Equity")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "Investment")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with LongTermLiability subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Equity"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("LongTermLiability"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Equity")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "LongTermLiability")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with OperatingExpense subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Equity"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OperatingExpense"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Equity")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OperatingExpense")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with OperatingRevenue subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Equity"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OperatingRevenue"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Equity")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OperatingRevenue")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with OtherRevenue subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Equity"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OtherRevenue"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Equity")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OtherRevenue")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with OtherExpense subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Equity"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OtherExpense"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Equity")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OtherExpense")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type cannot be matched with Cash subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Revenue"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("Cash"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Revenue")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "Cash")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type cannot be matched with CurrentLiability subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Revenue"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("CurrentLiability"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Revenue")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "CurrentLiability")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type cannot be matched with FixedAsset subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Revenue"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("FixedAsset"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Revenue")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "FixedAsset")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type cannot be matched with Investment subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Revenue"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("Investment"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Revenue")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "Investment")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type cannot be matched with LongTermLiability subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Revenue"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("LongTermLiability"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Revenue")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "LongTermLiability")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type cannot be matched with OperatingExpense subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Revenue"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OperatingExpense"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Revenue")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OperatingExpense")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type can be matched with OperatingRevenue subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Revenue"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OperatingRevenue"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Revenue")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OperatingRevenue")
          Assert.True(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type can be matched with OtherRevenue subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Revenue"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OtherRevenue"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Revenue")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OtherRevenue")
          Assert.True(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type cannot be matched with OtherExpense subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Revenue"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OtherExpense"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Revenue")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OtherExpense")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type cannot be matched with Cash subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Expense"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("Cash"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Expense")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "Cash")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type cannot be matched with CurrentLiability subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Expense"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("CurrentLiability"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Expense")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "CurrentLiability")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type cannot be matched with FixedAsset subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Expense"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("FixedAsset"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Expense")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "FixedAsset")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type cannot be matched with Investment subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Expense"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("Investment"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Expense")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "Investment")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type cannot be matched with LongTermLiability subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Expense"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("LongTermLiability"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Expense")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "LongTermLiability")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type can be matched with OperatingExpense subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Expense"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OperatingExpense"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Expense")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OperatingExpense")
          Assert.True(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type cannot be matched with OperatingRevenue subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Expense"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OperatingRevenue"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Expense")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OperatingRevenue")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type cannot be matched with OtherRevenue subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Expense"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OtherRevenue"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Expense")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OtherRevenue")
          Assert.False(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type can be matched with OtherExpense subtypes`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Expense"))
-         let st = Result.defaultWith failwith (AccountSubtype.fromString("OtherExpense"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Expense")
+         let st = Result.defaultWith failwith (AccountSubtype.fromString "OtherExpense")
          Assert.True(AccountSubtype.validTypeSubtypeCombination(t, (Some st)))
 
 [<Fact>]
 let ``REQ-AC-1.19.1 Asset type can be matched with a subtype of null`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Asset"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Asset")
          let st = None
          Assert.True(AccountSubtype.validTypeSubtypeCombination(t, st))
 
 [<Fact>]
 let ``REQ-AC-1.19.1 Liability type can be matched with a subtype of null`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Liability"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Liability")
          let st = None
          Assert.True(AccountSubtype.validTypeSubtypeCombination(t, st))
 
 [<Fact>]
 let ``REQ-AC-1.19.1 Equity type can be matched with a subtype of null`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Equity"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Equity")
          let st = None
          Assert.True(AccountSubtype.validTypeSubtypeCombination(t, st))
 
 [<Fact>]
 let ``REQ-AC-1.19.1 Revenue type can be matched with a subtype of null`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Revenue"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Revenue")
          let st = None
          Assert.True(AccountSubtype.validTypeSubtypeCombination(t, st))
 
 [<Fact>]
 let ``REQ-AC-1.19.1 Expense type can be matched with a subtype of null`` () =
-         let t = Result.defaultWith failwith (AccountType.fromString("Expense"))
+         let t = Result.defaultWith failwith (AccountType.fromString "Expense")
          let st = None
          Assert.True(AccountSubtype.validTypeSubtypeCombination(t, st))
 

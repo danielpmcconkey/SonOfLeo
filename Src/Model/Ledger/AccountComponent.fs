@@ -73,7 +73,7 @@ module AccountComponent =
         | Expense
         
     module AccountType =
-        let toDbId(id: AccountType) : int =
+        let toDbId (id: AccountType) : int =
             match id with
             | Asset -> 1      // REQ-AC-1.11
             | Liability -> 2  // REQ-AC-1.12

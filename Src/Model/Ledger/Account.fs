@@ -98,9 +98,9 @@ module Account =
             let createdAt =  now // REQ-SYS-3.2
             let modifiedAt = now // REQ-SYS-3.2
             let activityPeriodResult = AccountActivityPeriod.create activeBegin activeEnd // REQ-AC-2.17, REQ-AC-2.18
-            let codeResult = AccountCode.create(code)
-            let nameResult = AccountName.create(name)
-            let typeResult = AccountType.fromString(accountType) // REQ-AC-2.4
+            let codeResult = AccountCode.create code
+            let nameResult = AccountName.create name
+            let typeResult = AccountType.fromString accountType // REQ-AC-2.4
             let subTypeResult = 
                 match subType with
                 | Some st -> AccountSubtype.fromString(st) |> Result.map Some // REQ-AC-2.10
@@ -144,9 +144,9 @@ module Account =
                 (reference: string option)
                 : Result<Account, string> =            
             let activityPeriodResult = AccountActivityPeriod.create activeBegin activeEnd
-            let codeResult = AccountCode.create(code)
-            let nameResult = AccountName.create(name)
-            let typeResult = AccountType.fromDbId(accountTypeId)
+            let codeResult = AccountCode.create code
+            let nameResult = AccountName.create name
+            let typeResult = AccountType.fromDbId accountTypeId
             let subTypeResult = 
                 match subType with
                 | Some st -> AccountSubtype.fromString(st) |> Result.map Some // REQ-SYS-2.1
@@ -289,7 +289,7 @@ module Account =
             readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable
         
         let fetchByAccountType (accountType: AccountType): Result<Account list, string> = // REQ-AC-3.6
-            let typeId = AccountType.toDbId(accountType)
+            let typeId = AccountType.toDbId accountType
             let predicate = $"where account_type_id = @type_id"
             let parameters = [{ name = "@type_id"; value = Integer typeId };] // REQ-DAL-2.3
             readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable
@@ -324,9 +324,9 @@ module Account =
                 let! activeAccount =
                     match ae with
                     | None when ab <= referenceTime -> Ok ()
-                    | None when ab > referenceTime -> Error $"Account {id} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
-                    | Some x when x <= referenceTime -> Error $"Account {id} failed \"is active\" check. The reference time ({referenceTime}) is now past (or equal to) the account's active end date ({ae})."
-                    | Some _ when ab > referenceTime -> Error $"Account {id} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
+                    | None when ab > referenceTime -> Error $"Account {id validAccount} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
+                    | Some x when x <= referenceTime -> Error $"Account {id validAccount} failed \"is active\" check. The reference time ({referenceTime}) is now past (or equal to) the account's active end date ({ae})."
+                    | Some _ when ab > referenceTime -> Error $"Account {id validAccount} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
                     | _ -> Ok ()
                 return activeAccount
             }

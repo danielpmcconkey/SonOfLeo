@@ -54,3 +54,7 @@ here; put the *Why* under the ID.
 - **2026-06-11** — USD only, cash basis: foreign transactions enter the ledger as the USD
   amount the financial institution actually settled. *Why: cash-basis personal books record
   money that moved, not FX exposure; no revaluation, no multi-currency machinery.*
+- **2026-06-19** — No negative-amount tests for `splitByN`. *Why: the underlying operations
+  (decimal division, multiplication, subtraction, `MidpointRounding.AwayFromZero`) are all
+  sign-symmetric; positive-amount tests prove the arithmetic, and negative amounts traverse
+  identical code paths with no sign-dependent branching.*
