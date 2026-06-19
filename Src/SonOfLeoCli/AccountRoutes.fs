@@ -10,7 +10,7 @@ open Utilities.ResultCE
 open InterfaceContractTypes
 
 let convertAccountToAccountReturn a : AccountReturn = {
-            id = Some (Account.id a)
+            id = Account.id a
             code = AccountCode.value (Account.code a)
             name = AccountName.value (Account.name a)
             accountTypeSt = AccountType.toString (Account.accountType a)
@@ -19,8 +19,8 @@ let convertAccountToAccountReturn a : AccountReturn = {
             subType = Account.accountSubType a |> Option.map AccountSubtype.toString
             parentId = Account.parentId a
             reference = Account.externalReference a |> Option.map AccountExternalReference.value
-            modifiedAt = Some (Account.modifiedAt a)
-            createdAt = Some(Account.createdAt a)
+            modifiedAt = Account.modifiedAt a
+            createdAt = Account.createdAt a
         }
     
 let accountCreate payload _ =

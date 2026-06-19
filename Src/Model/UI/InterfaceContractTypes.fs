@@ -21,7 +21,7 @@ module InterfaceContractTypes =
     
     // return
     type AccountReturn = { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
-        id: Guid option
+        id: Guid
         code: string
         name: string
         accountTypeSt: string
@@ -30,8 +30,8 @@ module InterfaceContractTypes =
         subType: string option
         parentId: Guid option
         reference: string option
-        modifiedAt: Instant option
-        createdAt: Instant option
+        modifiedAt: Instant
+        createdAt: Instant
     }
     // create
     type AccountCreateInput = { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2

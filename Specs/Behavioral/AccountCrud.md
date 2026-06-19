@@ -78,7 +78,8 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-3.5** The system must be able to retrieve all child records of an Account by the caller providing that parent record's ID.
 - **REQ-AC-3.6** The system must be able to retrieve all Account records of a particular type by the caller providing that AccountType.
 - **REQ-AC-3.7** The system must be able to retrieve all Account records without filter
-- **REQ-AC-3.8** The system must be able to retrieve all active Account records relative to a passed in reference time
+- **REQ-AC-3.8** stricken
+- **REQ-AC-3.9** The system must be able to retrieve all active Account records relative to system run time
 
 ## 4. Update behaviors
 
@@ -104,15 +105,19 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 Active requirements that are deliberately not verified by tests. Two-state rule: every
 active requirement is either tested or in this table.
 
-| ID          | Reason testing is waived                                                                                                                                                                                                                   | Approved |
-|-------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|
-| REQ-AC-2.17 | Validating "active begin" is not AccountCrud's responsibility — the requirement assigns that responsibility to the caller. There is no AccountCrud behavior to test.                                                                       | Dan, 2026-06-11 |
+| ID          | Reason testing is waived                                                                                                                                                                                                                  | Approved |
+|-------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|
+| REQ-AC-2.17 | Validating "active begin" is not AccountCrud's responsibility — the requirement assigns that responsibility to the caller. There is no AccountCrud behavior to test.                                                                      | Dan, 2026-06-11 |
 | REQ-AC-4.22 | A negative existence claim over the entire API surface ("no function exposes an update path for these fields") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-06-11 |
-| REQ-AC-5.1  | A negative existence claim over the entire API surface ("no function exposes a hard delete") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface.                   | Dan, 2026-06-11 |
-| REQ-AC-1.47 | This is an impossible state if done through the code. The ID of the account is generated at creation time and therefore there can be no children of it. Only possible through direct DB editing                                            | Dan, 2026-06-13 |
-| REQ-AC-1.1  | Solution won't build if you try to pass a null value to AccountCode.create                                                                                                                                                                 | Dan, 2026-06-14 |
-| REQ-AC-1.6  | Solution won't build if you try to pass a null value to AccountName.create                                                                                                                                                                 | Dan, 2026-06-14 |
-
+| REQ-AC-5.1  | A negative existence claim over the entire API surface ("no function exposes a hard delete") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface.                  | Dan, 2026-06-11 |
+| REQ-AC-1.47 | This is an impossible state if done through the code. The ID of the account is generated at creation time and therefore there can be no children of it. Only possible through direct DB editing                                           | Dan, 2026-06-13 |
+| REQ-AC-1.1  | Solution won't build if you try to pass a null value to AccountCode.create                                                                                                                                                                | Dan, 2026-06-14 |
+| REQ-AC-1.6  | Solution won't build if you try to pass a null value to AccountName.create                                                                                                                                                                | Dan, 2026-06-14 |
+| REQ-AC-1.39 | It is impossible to try. You can't set the account ID manually so you can't set the parent to its own ID |
+| REQ-AC-2.16 | This is an impossible state if done through the code. See rationale for REQ-AC-1.47 |
+| REQ-AC-1.9  | It is impossible to test all strings other than "Debit" and "Credit" and it's quite obviously enforced in the type definition |
+| REQ-AC-1.16 | It's quite obviously enforced in the type definition |
+| REQ-AC-1.17 | It's quite obviously enforced in the type definition |
 
 ## Withdrawn
 
@@ -146,3 +151,4 @@ active requirement is either tested or in this table.
 | REQ-AC-4.18  | The system must reject any Account update request that would result in an illegal data state as defined in section 1. | Superseded by REQ-SYS-2.1 |
 | REQ-AC-4.20  | When updating an Account record, no updatable raw string may be updated to purely white-space. | Superseded by REQ-SYS-1.2 / REQ-SYS-1.3 (via REQ-SYS-2.1 and section 1 rules) |
 | REQ-AC-4.21  | When updating an Account record, all legal/illegal data state rules (section 1) must be enforced | Duplicate of REQ-AC-4.18; both superseded by REQ-SYS-2.1 |
+| REQ-AC-3.8 | The system must be able to retrieve all active Account records relative to a passed in reference time | Changed to system run time |

@@ -256,7 +256,136 @@ let ``REQ-AC-3.6 fetch by account type returns matching accounts`` () =
         match cleanUpAccountList [idToCleanUp_1; idToCleanUp_2; idToCleanUp_3] with
         | Ok () -> ()
         | Error e -> failwith e
-        
+
+[<Fact>]
+let ``REQ-AC-3.7 fetch all fetches everything`` () =
+    let code_1 = "AC-3.7-1"
+    let code_2 = "AC-3.7-2"
+    let code_3 = "AC-3.7-3"
+    let code_4 = "AC-3.7-4"
+    let explicitAccountType1 = "Liability"
+    let explicitAccountType2 = "Equity"
+    let explicitAccountType3 = "Revenue"
+    let explicitAccountType4 = "Expense"
+    let account4ActiveEnd = Some (Clock.now().Plus(Duration.FromHours -1))
+    
+    let mutable idToCleanUp_1 = None
+    let mutable idToCleanUp_2 = None
+    let mutable idToCleanUp_3 = None
+    let mutable idToCleanUp_4 = None
+    try
+        let railroad = result {
+            let! account_1 = 
+                Account.constructNewAndSaveToDb code_1 genericAccountNameString explicitAccountType1
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
+            let id_1 = Account.id account_1
+            idToCleanUp_1 <- Some id_1
+            
+            let! account_2 = 
+                Account.constructNewAndSaveToDb code_2 genericAccountNameString explicitAccountType2
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
+            let id_2 = Account.id account_2
+            idToCleanUp_2 <- Some id_2
+            
+            let! account_3 = 
+                Account.constructNewAndSaveToDb code_3 genericAccountNameString explicitAccountType3
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
+            let id_3 = Account.id account_3
+            idToCleanUp_3 <- Some id_3
+            
+            let! account_4 = 
+                Account.constructNewAndSaveToDb code_4 genericAccountNameString explicitAccountType4
+                    genericAccountActiveBegin account4ActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
+            let id_4 = Account.id account_4
+            idToCleanUp_4 <- Some id_4
+            
+            let! fetched = Account.fetchAll false
+            Assert.Equal(4, List.length fetched)
+            
+            [Option.get idToCleanUp_1
+             Option.get idToCleanUp_2
+             Option.get idToCleanUp_3
+             Option.get idToCleanUp_4]
+            |> List.forall(fun id -> fetched |> List.exists (fun a -> Account.id a = id))
+            |> Assert.True
+            return ()
+        }
+        match railroad with
+        | Ok _ -> ()
+        | Error e -> Assert.Fail e
+    finally
+        match cleanUpAccountList [idToCleanUp_1; idToCleanUp_2; idToCleanUp_3; idToCleanUp_4] with
+        | Ok () -> ()
+        | Error e -> failwith e
+
+[<Fact>]
+let ``REQ-AC-3.9 fetch all with active only fetches active accounts relative to system run time`` () =
+    let code_1 = "AC-3.9-1"
+    let code_2 = "AC-3.9-2"
+    let code_3 = "AC-3.9-3"
+    let code_4 = "AC-3.9-4"
+    let explicitAccountType1 = "Liability"
+    let explicitAccountType2 = "Equity"
+    let explicitAccountType3 = "Revenue"
+    let explicitAccountType4 = "Asset"
+    let account4ActiveEnd = Some (Clock.now().Plus(Duration.FromHours -1))
+    
+    let mutable idToCleanUp_1 = None
+    let mutable idToCleanUp_2 = None
+    let mutable idToCleanUp_3 = None
+    let mutable idToCleanUp_4 = None
+    try
+        let railroad = result {
+            let! account_1 = 
+                Account.constructNewAndSaveToDb code_1 genericAccountNameString explicitAccountType1
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
+            let id_1 = Account.id account_1
+            idToCleanUp_1 <- Some id_1
+            
+            let! account_2 = 
+                Account.constructNewAndSaveToDb code_2 genericAccountNameString explicitAccountType2
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
+            let id_2 = Account.id account_2
+            idToCleanUp_2 <- Some id_2
+            
+            let! account_3 = 
+                Account.constructNewAndSaveToDb code_3 genericAccountNameString explicitAccountType3
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
+            let id_3 = Account.id account_3
+            idToCleanUp_3 <- Some id_3
+            
+            let! account_4 = 
+                Account.constructNewAndSaveToDb code_4 genericAccountNameString explicitAccountType4
+                    genericAccountActiveBegin account4ActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope
+            let id_4 = Account.id account_4
+            idToCleanUp_4 <- Some id_4
+            
+            let! fetched = Account.fetchAll true
+            Assert.Equal(3, List.length fetched)
+            
+            [Option.get idToCleanUp_1
+             Option.get idToCleanUp_2
+             Option.get idToCleanUp_3]
+            |> List.forall(fun id -> fetched |> List.exists (fun a -> Account.id a = id))
+            |> Assert.True
+            return ()
+        }
+        match railroad with
+        | Ok _ -> ()
+        | Error e -> Assert.Fail e
+    finally
+        match cleanUpAccountList [idToCleanUp_1; idToCleanUp_2; idToCleanUp_3; idToCleanUp_4] with
+        | Ok () -> ()
+        | Error e -> failwith e
+
 // =============================================================================
 // Create validations (DB-dependent)
 // =============================================================================
