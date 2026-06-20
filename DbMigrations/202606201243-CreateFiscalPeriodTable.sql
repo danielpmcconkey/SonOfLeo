@@ -1,0 +1,21 @@
+-- run in all 3 environments (with different owners) 2026-06-13 12:45
+
+-- DROP TABLE IF EXISTS ledger.fiscal_period;
+
+CREATE TABLE IF NOT EXISTS ledger.fiscal_period
+(
+    id uuid NOT NULL,
+    period_key character varying(7) COLLATE pg_catalog."default" NOT NULL,
+    start_date date not null,
+    end_date date not null,
+    is_open boolean not null,
+    created_at timestamptz not null,
+    modified_at timestamptz not null,
+    CONSTRAINT fiscal_period_pkey PRIMARY KEY (id),
+    CONSTRAINT fiscal_period_period_key_unq UNIQUE (period_key)
+    )
+
+    TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS ledger.fiscal_period
+    OWNER to sonofleo_dev;

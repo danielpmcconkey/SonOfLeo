@@ -10,6 +10,8 @@
     <Compile Include="Money.fs" />
     <Compile Include="Ledger\AccountComponent.fs" />
     <Compile Include="Ledger\Account.fs" />
+    <Compile Include="Ledger\PeriodKey.fs" />
+    <Compile Include="Ledger\FiscalPeriod.fs" />
     <Folder Include="Ops\" />
     <Folder Include="Portfolio\" />
     <Folder Include="Reporting\" />
