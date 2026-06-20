@@ -58,3 +58,4 @@ here; put the *Why* under the ID.
   (decimal division, multiplication, subtraction, `MidpointRounding.AwayFromZero`) are all
   sign-symmetric; positive-amount tests prove the arithmetic, and negative amounts traverse
   identical code paths with no sign-dependent branching.*
+- **2026-06-20* — Account UUIDs are internal-only; the UI boundary speaks codes exclusively. Parent references, deactivation, and updates all accept codes and resolve to IDs at the boundary. Why: a surrogate key only pays off if it stays hidden (architecture-decisions-2026-06-19.md §1); exposing it costs the UI an opaque token with no benefit.

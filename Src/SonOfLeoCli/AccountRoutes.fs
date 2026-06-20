@@ -10,31 +10,30 @@ open Utilities.ResultCE
 open InterfaceContractTypes
 
 let convertAccountToAccountReturn a : AccountReturn = {
-            id = Account.id a
-            code = AccountCode.value (Account.code a)
-            name = AccountName.value (Account.name a)
-            accountTypeSt = AccountType.toString (Account.accountType a)
-            activeBegin = Account.activeBegin a
-            activeEnd = Account.activeEnd a
-            subType = Account.accountSubType a |> Option.map AccountSubtype.toString
-            parentId = Account.parentId a
-            reference = Account.externalReference a |> Option.map AccountExternalReference.value
-            modifiedAt = Account.modifiedAt a
-            createdAt = Account.createdAt a
+            code = AccountCode.value (code a)
+            name = AccountName.value (name a)
+            accountTypeSt = AccountType.toString (accountType a)
+            activeBegin = activeBegin a
+            activeEnd = activeEnd a
+            subType = accountSubType a |> Option.map AccountSubtype.toString
+            parentCode = fetchCodeOptionByIdOption (parentId a) |> Result.defaultWith failwith
+            reference = externalReference a |> Option.map AccountExternalReference.value
+            modifiedAt = modifiedAt a
+            createdAt = createdAt a
         }
     
 let accountCreate payload _ =
     result {
         let! accountCreateInput = Json.fromJson<AccountCreateInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create AccountCreate
-        let! account = Account.constructNewAndSaveToDb
+        let! account = constructNewAndSaveToDbUsingParentCode
                          accountCreateInput.code
                          accountCreateInput.name
                          accountCreateInput.accountTypeSt
                          accountCreateInput.activeBegin
                          accountCreateInput.activeEnd
                          accountCreateInput.subType
-                         accountCreateInput.parentId
+                         accountCreateInput.parentCode
                          accountCreateInput.reference
                          envelope
         let returnAccount : AccountReturn = convertAccountToAccountReturn account
@@ -45,8 +44,8 @@ let accountDeactivate payload _ =
     result {
         let! accountDeactivation = Json.fromJson<AccountDeactivationInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create AccountDeactivation
-        let! account = Account.deactivateAccount
-                         accountDeactivation.id
+        let! account = deactivateAccountByCode
+                         accountDeactivation.code
                          (Some accountDeactivation.activeEnd)
                          envelope
         let returnAccount : AccountReturn = convertAccountToAccountReturn account
@@ -58,8 +57,8 @@ let accountUpdateName payload _ =
     result {
         let! accountUpdate = Json.fromJson<AccountUpdateNameInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create AccountUpdateName
-        let! account = Account.updateAccountName
-                         accountUpdate.id
+        let! account = updateAccountNameByCode
+                         accountUpdate.code
                          accountUpdate.newName
                          envelope
         let returnAccount : AccountReturn = convertAccountToAccountReturn account
@@ -70,18 +69,10 @@ let accountUpdateExternalReference payload _ =
     result {
         let! accountUpdate = Json.fromJson<AccountUpdateExternalReferenceInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create AccountUpdateExtReference
-        let! account = Account.updateExternalReference
-                         accountUpdate.id
+        let! account = updateExternalReferenceByCode
+                         accountUpdate.code
                          accountUpdate.newReference
                          envelope
-        let returnAccount : AccountReturn = convertAccountToAccountReturn account
-        return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
-    }
-
-let accountFetchById payload _ =
-    result {
-        let! accountFetch = Json.fromJson<AccountFetchByIdInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
-        let! account = Account.fetchById accountFetch.id
         let returnAccount : AccountReturn = convertAccountToAccountReturn account
         return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
@@ -89,15 +80,15 @@ let accountFetchById payload _ =
 let accountFetchByCode payload _ =
     result {
         let! accountFetch = Json.fromJson<AccountFetchByCodeInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
-        let! account = Account.fetchByCode accountFetch.code
+        let! account = fetchByCode accountFetch.code
         let returnAccount : AccountReturn = convertAccountToAccountReturn account
         return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
-let accountFetchByParentId payload _ =
+let accountFetchByParentCode payload _ =
     result {
-        let! accountFetch = Json.fromJson<AccountFetchByParentIdInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
-        let! accounts = Account.fetchByParentId accountFetch.parentId
+        let! accountFetch = Json.fromJson<AccountFetchByParentCodeInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! accounts = fetchByParentCode accountFetch.parentCode
         let returnAccounts = accounts |> List.map(convertAccountToAccountReturn) 
         return! Json.toJson<AccountReturn list> returnAccounts// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
@@ -106,7 +97,7 @@ let accountFetchByAccountType payload _ =
     result {
         let! accountFetch = Json.fromJson<AccountFetchByAccountTypeInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let! validType = AccountType.fromString accountFetch.accountTypeSt
-        let! accounts = Account.fetchByAccountType validType
+        let! accounts = fetchByAccountType validType
         let returnAccounts = accounts |> List.map(convertAccountToAccountReturn) 
         return! Json.toJson<AccountReturn list> returnAccounts// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
@@ -114,7 +105,7 @@ let accountFetchByAccountType payload _ =
 let accountFetchAll payload _ =
     result {
         let! accountFetch = Json.fromJson<AccountFetchAllInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
-        let! accounts = Account.fetchAll accountFetch.activeOnly
+        let! accounts = fetchAll accountFetch.activeOnly
         let returnAccounts = accounts |> List.map(convertAccountToAccountReturn)
         return! Json.toJson<AccountReturn list> returnAccounts// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
@@ -124,12 +115,10 @@ let accountDomainCommandRoutes = [
     { domain = "Account"; verb = "Create"; description = "Create a new account and insert it into the database"
       inputType = typeof<AccountCreateInput>.Name; outputType = typeof<AccountReturn>.Name; handler =  accountCreate }
     // read
-    { domain = "Account"; verb = "FetchById"; description = "Returns the Account record matching the passed in UUID"
-      inputType = typeof<AccountFetchByIdInput>.Name; outputType = typeof<AccountReturn>.Name; handler =  accountFetchById }
     { domain = "Account"; verb = "FetchByCode"; description = "Returns the Account record matching the passed in account code string"
       inputType = typeof<AccountFetchByCodeInput>.Name; outputType = typeof<AccountReturn>.Name; handler =  accountFetchByCode }
-    { domain = "Account"; verb = "FetchByParentId"; description = "Returns all Account records whose parentID matches the passed in UUID"
-      inputType = typeof<AccountFetchByParentIdInput>.Name; outputType = typeof<AccountReturn list>.Name; handler =  accountFetchByParentId }
+    { domain = "Account"; verb = "FetchByParentCode"; description = "Returns all Account records whose parent account matches the passed in account code"
+      inputType = typeof<AccountFetchByParentCodeInput>.Name; outputType = typeof<AccountReturn list>.Name; handler =  accountFetchByParentCode }
     { domain = "Account"; verb = "FetchByAccountType"; description = "Returns all Account records whose account type parameter matches the passed in account type string"
       inputType = typeof<AccountFetchByAccountTypeInput>.Name; outputType = typeof<AccountReturn list>.Name; handler =  accountFetchByAccountType }
     { domain = "Account"; verb = "FetchAll"; description = "Returns all Account records. If activeOnly is true, it filters on account records currently active (referencing system run time)"

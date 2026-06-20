@@ -1,6 +1,6 @@
 module Tests.Integrated.SonOfLeoCli.AccountRoutes
 
-open System
+open Model.Ledger.AccountComponent
 open Model.UI.InterfaceContractTypes
 open Model.UI.Json
 open NodaTime
@@ -15,10 +15,10 @@ open Tests.Integrated._Cleanup
 let private createAccountInput codeToUse =
     { code = codeToUse; name = genericAccountNameString; accountTypeSt = genericAccountTypeString
       activeBegin =  genericAccountActiveBegin; activeEnd = genericAccountActiveEnd; subType = genericAccountSubtype
-      parentId = genericAccountParentId; reference = genericAccountReference }
+      parentCode = genericAccountParentCode; reference = genericAccountReference }
 
 let private createAccountInDb codeToUse = 
-    Account.constructNewAndSaveToDb codeToUse genericAccountNameString genericAccountTypeString
+    Account.constructNewAndSaveToDbUsingParentId codeToUse genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
 
@@ -37,26 +37,13 @@ let ``REQ-AC-2.21 Account Create happy path`` () =
     match code with
     | 0 ->
         let accountReturn:AccountReturn = fromJson<AccountReturn> a |> Result.defaultWith failwith
-        cleanUpAccountId (Some accountReturn.id) |> Result.defaultWith failwith
+        let cleanUpId = accountReturn.code |> Account.fetchIdByCode |> Result.defaultWith failwith
+        cleanUpAccountId (Some cleanUpId) |> Result.defaultWith failwith
     | _ -> Assert.Fail $"Create Account happy path returned a non-zero value: {e}"
 
 // =============================================================================
 // Read
 // =============================================================================
-
-[<Fact>]
-let ``REQ-AC-3.3 Account FetchById happy path`` () =
-    let accountResult = createAccountInDb genericAccountCodeString
-    match accountResult with
-    | Error e -> Assert.Fail $"Account setup failed: {e}"
-    | Ok account ->
-        let accountId = Account.id account
-        let payload = { id = accountId } |> toJson<AccountFetchByIdInput>  |> Result.defaultWith failwith
-        let args = ["Account"; "FetchById"]
-        let code, _, e = runCli args payload
-        match code with
-        | 0 -> cleanUpAccountId (Some accountId) |> Result.defaultWith failwith
-        | _ -> Assert.Fail $"Account FetchById happy path returned a non-zero value: {e}"
 
 [<Fact>]
 let ``REQ-AC-3.4 Account FetchByCode happy path`` () =
@@ -74,30 +61,32 @@ let ``REQ-AC-3.4 Account FetchByCode happy path`` () =
         | _ -> Assert.Fail $"Account FetchByCode happy path returned a non-zero value: {e}"  
 
 [<Fact>]
-let ``REQ-AC-3.5 Account FetchByParentId happy path`` () =
-    let code_parent = "AC-3.5-P"
-    let code_child1 = "AC-3.5-C1"
+let ``REQ-AC-3.10 Account FetchByParentCode happy path`` () =
+    let code_parent = "AC-3.10-P"
+    let code_child1 = "AC-3.10-C1"
     let explicitName = "Fabulous he, Ali Ababwa"
     let mutable idToCleanUp_parent = None
     let mutable idToCleanUp_child1 = None
     try
         let railroad = result {
             let! account_parent = 
-                Account.constructNewAndSaveToDb code_parent genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDbUsingParentId code_parent genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
+            let parentCode = Account.code account_parent
+            let parentCodeString = parentCode |> AccountCode.value
             let parentId = Account.id account_parent
             idToCleanUp_parent <- Some parentId
             
             let! account_child1 = 
-                Account.constructNewAndSaveToDb code_child1 explicitName genericAccountTypeString
+                Account.constructNewAndSaveToDbUsingParentId code_child1 explicitName genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
                     genericAccountReference genericAuditEnvelope
             let id_child1 = Account.id account_child1
             idToCleanUp_child1 <- Some id_child1
             
-            let! payload = { parentId = parentId } |> toJson<AccountFetchByParentIdInput> 
-            let args = ["Account"; "FetchByParentId"]
+            let! payload = { parentCode = parentCodeString } |> toJson<AccountFetchByParentCodeInput> 
+            let args = ["Account"; "FetchByParentCode"]
             let code, fetchedAccountRecords, e = runCli args payload
             
             do! if code <> 0
@@ -130,19 +119,19 @@ let ``REQ-AC-3.6 Account FetchByAccountType happy path`` () =
     try
         let railroad = result {
             let! account_1 = 
-                Account.constructNewAndSaveToDb code_1 genericAccountNameString explicitType
+                Account.constructNewAndSaveToDbUsingParentId code_1 genericAccountNameString explicitType
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
             idToCleanUp_1 <- account_1 |> Account.id |> Some
             
             let! account_2 = 
-                Account.constructNewAndSaveToDb code_2 genericAccountNameString explicitType
+                Account.constructNewAndSaveToDbUsingParentId code_2 genericAccountNameString explicitType
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
             idToCleanUp_2 <- account_2 |> Account.id |> Some
             
             let! account_3 = 
-                Account.constructNewAndSaveToDb code_3 genericAccountNameString explicitType
+                Account.constructNewAndSaveToDbUsingParentId code_3 genericAccountNameString explicitType
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
             idToCleanUp_3 <- account_3 |> Account.id |> Some
@@ -185,19 +174,19 @@ let ``REQ-AC-3.7 Account FetchAll happy path`` () =
     try
         let railroad = result {
             let! account_1 = 
-                Account.constructNewAndSaveToDb code_1 genericAccountNameString explicitType1
+                Account.constructNewAndSaveToDbUsingParentId code_1 genericAccountNameString explicitType1
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
             idToCleanUp_1 <- account_1 |> Account.id |> Some
             
             let! account_2 = 
-                Account.constructNewAndSaveToDb code_2 genericAccountNameString explicitType2
+                Account.constructNewAndSaveToDbUsingParentId code_2 genericAccountNameString explicitType2
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
             idToCleanUp_2 <- account_2 |> Account.id |> Some
             
             let! account_3 = 
-                Account.constructNewAndSaveToDb code_3 genericAccountNameString explicitType3
+                Account.constructNewAndSaveToDbUsingParentId code_3 genericAccountNameString explicitType3
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
             idToCleanUp_3 <- account_3 |> Account.id |> Some
@@ -244,7 +233,7 @@ let ``REQ-AC-4.1 Account Deactivate happy path`` () =
             let! account = createAccountInDb genericAccountCodeString
             let accountId = Account.id account
             idToCleanUp_1 <- Some accountId
-            let! payload = { id = accountId; activeEnd = activeEndInstant } |> toJson<AccountDeactivationInput>
+            let! payload = { code = genericAccountCodeString; activeEnd = activeEndInstant } |> toJson<AccountDeactivationInput>
             let args = ["Account"; "Deactivate"]
             let code, accountReturnString, _ = runCli args payload
             Assert.Equal(0, code)
@@ -269,7 +258,7 @@ let ``REQ-AC-4.8 Account UpdateName happy path`` () =
             let! account = createAccountInDb genericAccountCodeString
             let accountId = Account.id account
             idToCleanUp_1 <- Some accountId
-            let! payload = { id = accountId; newName = newName } |> toJson<AccountUpdateNameInput>
+            let! payload = { code = genericAccountCodeString; newName = newName } |> toJson<AccountUpdateNameInput>
             let args = ["Account"; "UpdateName"]
             let code, accountReturnString, _ = runCli args payload
             Assert.Equal(0, code)
@@ -294,7 +283,7 @@ let ``REQ-AC-4.9 Account UpdateExternalReference happy path`` () =
             let! account = createAccountInDb genericAccountCodeString
             let accountId = Account.id account
             idToCleanUp_1 <- Some accountId
-            let! payload = { id = accountId; newReference = newReference } |> toJson<AccountUpdateExternalReferenceInput>
+            let! payload = { code = genericAccountCodeString; newReference = newReference } |> toJson<AccountUpdateExternalReferenceInput>
             let args = ["Account"; "UpdateExternalReference"]
             let code, accountReturnString, _ = runCli args payload
             Assert.Equal(0, code)

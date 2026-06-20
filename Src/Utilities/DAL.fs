@@ -222,5 +222,26 @@ module DAL =
             return rows
         }
 
-
+    let executeScalar
+            (query: string)
+            (parameters: QueryParameter list)
+            : Result<Object, string> =
+        result {
+            let! ds = dataSource.Value
+            let parameters = buildParamsList parameters
+            let! rows =
+                (*
+                 * standard dotnet I/O libraries throw standard dotnet exceptions
+                 * we use a try/with block to convert their results into more
+                 * paradigmatic F# Result Ok/Error at the impure boundary
+                 *)
+                try
+                    use connection = ds.OpenConnection()
+                    use command = new NpgsqlCommand(query, connection)                    
+                    parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
+                    Ok (command.ExecuteScalar())
+                with
+                | ex -> Error $"Database error during reader scalar execution {ex.Message}"
+            return rows
+        }
     

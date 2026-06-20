@@ -8,6 +8,8 @@ Applies to command line, importing, reporting, API, etc. Any use case where an e
 - **REQ-NGUI-1.2** Some use cases may require additional inputs beyond domain, verb, and payload and the system must support extending the input.
 - **REQ-NGUI-1.3** The system will respond to all interface triggers with a code denoting failure / success and a payload. Ex: 0 {...}
 - **REQ-NGUI-1.3.1** In the event of an error, the payload will comprise the error message and, in cases of system exceptions, the full stack trace.
+- **REQ-NGUI-1.4** The user interface must never force the actor to interact with Account UUIDs. All interface capabilities must present an option for the actor to reference accounts by code and all return payloads must include account codes when identifying an account.
+- **REQ-NGUI-1.5** When a UI-facing operation references an Account entity by code and that code does not correspond to an existing Account entity, the operation must fail with an error.
 
 ## 2. UI domain types
 

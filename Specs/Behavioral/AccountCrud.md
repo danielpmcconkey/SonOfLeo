@@ -57,7 +57,9 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 
 - **REQ-AC-2.4** When creating an Account record via primitive types, the passed in string (post-trim, per REQ-SYS-1.1) for account type must match one of the enumerated account types exactly or the creation must fail.
 - **REQ-AC-2.6** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the ID maps to an existing Account in the database.
+- **REQ-AC-2.6.1** Note, since moving to code-based UI, the "caller of the function" in the above is an internal application layer function only. The requirement still applies.
 - **REQ-AC-2.7** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the parent account is active (reference as-of the AuditEnvelope's instant property). 
+- **REQ-AC-2.7.1** Note, since moving to code-based UI, the "caller of the function" in the above is an internal application layer function only. The requirement still applies.
 - **REQ-AC-2.8** When creating an Account record, the system must reject any duplicated ID
 - **REQ-AC-2.9** When creating an Account record, the system must reject any duplicated account code
 - **REQ-AC-2.10** When creating an Account record via primitive types, the passed in string (post-trim, per REQ-SYS-1.1) for account sub-type must match one of the enumerated account sub-types exactly or the creation must fail.
@@ -67,6 +69,7 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-2.17** When creating an Account record, it is the responsibility of the calling function to provide an accurate "active begin" Instant. There is not validation to confirm that the caller provided a correct begin date.
 - **REQ-AC-2.18** When creating an Account record, the system will validate that any non-null "active end" is later in time than the provided "active begin".
 - **REQ-AC-2.20** When creating an Account with a parent ID, the child's AccountType must match the parent's AccountType.
+- **REQ-AC-2.20.1** Note, since moving to code-based UI, the "caller of the function" in the above is an internal application layer function only. The requirement still applies.
 - **REQ-AC-2.21** The system must provide a means to create a new acocunt
 
 
@@ -74,12 +77,15 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 
 - **REQ-AC-3.2** When retrieving an Account record from the persistence layer, the system must return an Account type with all account properties.
 - **REQ-AC-3.3** The system must be able to retrieve an Account record by the caller providing that record's ID value.
+- **REQ-AC-3.3.1** Note: since moving to code-based UI functions, this is an internal-only capability.
 - **REQ-AC-3.4** The system must be able to retrieve an Account record by the caller providing that record's account code string.
 - **REQ-AC-3.5** The system must be able to retrieve all child records of an Account by the caller providing that parent record's ID.
+- **REQ-AC-3.5.1** Note, since moving to code-based UI, the "caller" in the above is an internal application layer function only. The requirement still applies.
 - **REQ-AC-3.6** The system must be able to retrieve all Account records of a particular type by the caller providing that AccountType.
 - **REQ-AC-3.7** The system must be able to retrieve all Account records without filter
 - **REQ-AC-3.8** stricken
 - **REQ-AC-3.9** The system must be able to retrieve all active Account records relative to system run time
+- **REQ-AC-3.10** The system must be able to retrieve all child records of an Account by the caller providing that parent record's Account Code string.
 
 ## 4. Update behaviors
 

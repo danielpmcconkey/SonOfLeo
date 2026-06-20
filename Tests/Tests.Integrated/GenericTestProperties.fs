@@ -19,6 +19,7 @@ let genericAccountSubtype = None
 let genericAccountSubtypeString = "Cash"
 let genericAccountSubtypeNonNull = AccountSubtype.fromString genericAccountSubtypeString |> Result.defaultWith failwith
 let genericAccountParentId = None
+let genericAccountParentCode = None
 let genericAccountReference= None
 
 
