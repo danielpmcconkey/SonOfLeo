@@ -16,6 +16,8 @@ Applies to command line, importing, reporting, API, etc. Any use case where an e
 - **REQ-NGUI-2.1** The payloads described above will be represented by their own domain types in this system.
 - **REQ-NGUI-2.1.1** Such payload types should be considered the interface contracts for each use case.
 - **REQ-NGUI-2.2** The UI domain types do not provide any business validation beyond which fields are required vs optional.
+- **REQ-NGUI-2.3** stricken
+- **REQ-NGUI-2.3.1** stricken
 - **REQ-NGUI-2.4** The interface layer will be responsible for marshalling / unmarshalling between UI domain types and their serialized format. No other layer in this system will be allowed to perform such conversions. (See Definitions)
 
 ## 3. Command line interface

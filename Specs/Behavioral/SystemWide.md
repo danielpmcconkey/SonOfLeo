@@ -18,6 +18,7 @@ per entity. Generic requirements state policy and scope, not vague aspiration.
 - **REQ-SYS-2.1** Every operation that constructs, persists, or reconstitutes an entity — create, update, and read-from-persistence alike — must enforce that entity's legal data-state rules (the "valid and invalid data states" section of that entity's spec). No operation may produce, persist, or return an entity in an illegal data state.
   - **REQ-SYS-2.1.1 Rejections determinable from the entity's own properties must occur before any database write. 
   - **REQ-SYS-2.1.2 Rejections requiring database state may fall through to database constraints.
+- **REQ-SYS-2.2** stricken
 
 ## 3. Audit
 
@@ -30,6 +31,8 @@ todo: add a requirement for logging audit activities to an external log
 
 No system-wide deletion policy. Whether an entity's records may be hard-deleted is a
 domain-level decision, made in each entity's spec (for Accounts, see REQ-AC-5.1).
+
+- **REQ-SYS-4.1** stricken
 
 ## 5. Persistence fidelity
 
@@ -47,8 +50,8 @@ None currently.
 
 | ID          | Original Requirement | Reason |
 |-------------|----------------------|--------|
-| REQ-SYS-4.1 | The system must not provide a user interface for hard-deleting any entity record. | Deletion policy is per-entity, not system-wide (see Decisions, 2026-06-11). Account's prohibition restored to REQ-AC-5.1. |
 | REQ-SYS-2.2 | Rejections under REQ-SYS-2.1 must occur before any database write, and must produce a meaningful error message. | replaced with 2.1.1 and 2.1.2 for better clarity |
+| REQ-SYS-4.1 | The system must not provide a user interface for hard-deleting any entity record. | Deletion policy is per-entity, not system-wide (see Decisions, 2026-06-11). Account's prohibition restored to REQ-AC-5.1. |
 
 
 ## Promotion candidates

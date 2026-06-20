@@ -28,6 +28,10 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-1.21** Account ID cannot be null
 - **REQ-AC-1.22** Account ID must be unique
 - **REQ-AC-1.23** Account type cannot be null
+- **REQ-AC-1.24** stricken
+- **REQ-AC-1.25** stricken
+- **REQ-AC-1.26** stricken
+- **REQ-AC-1.27** stricken
 - **REQ-AC-1.28** Account sub type of 'Cash', 'FixedAsset', and 'Investment' can only be applied account records of type 'Asset'
 - **REQ-AC-1.29** Account records of type 'Asset' can only have null, 'Cash', 'FixedAsset', and 'Investment' subtypes
 - **REQ-AC-1.30** Account sub type of 'CurrentLiability', and 'LongTermLiability' can only be applied account records of type 'Liability'
@@ -38,6 +42,7 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-1.35** Account sub type of 'OperatingExpense' and 'OtherExpense' can only be applied account records of type 'Expense'
 - **REQ-AC-1.36** Account records of type 'Expense' can only have null, 'OperatingExpense' and 'OtherExpense' subtypes
 - **REQ-AC-1.37** Account parent ID can be null
+- **REQ-AC-1.38** stricken
 - **REQ-AC-1.39** An account record's ID and parent ID cannot be the same (an account cannot be its own parent)
 - **REQ-AC-1.40** When not null, account parent Id must be a UUID of a preexisting database account record
 - **REQ-AC-1.41** Account external reference can be null
@@ -55,7 +60,11 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 
 ## 2. Create behaviors
 
+- **REQ-AC-2.1** stricken
+- **REQ-AC-2.2** stricken
+- **REQ-AC-2.3** stricken
 - **REQ-AC-2.4** When creating an Account record via primitive types, the passed in string (post-trim, per REQ-SYS-1.1) for account type must match one of the enumerated account types exactly or the creation must fail.
+- **REQ-AC-2.5** stricken
 - **REQ-AC-2.6** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the ID maps to an existing Account in the database.
 - **REQ-AC-2.6.1** Note, since moving to code-based UI, the "caller of the function" in the above is an internal application layer function only. The requirement still applies.
 - **REQ-AC-2.7** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the parent account is active (reference as-of the AuditEnvelope's instant property). 
@@ -63,11 +72,15 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-2.8** When creating an Account record, the system must reject any duplicated ID
 - **REQ-AC-2.9** When creating an Account record, the system must reject any duplicated account code
 - **REQ-AC-2.10** When creating an Account record via primitive types, the passed in string (post-trim, per REQ-SYS-1.1) for account sub-type must match one of the enumerated account sub-types exactly or the creation must fail.
+- **REQ-AC-2.11** stricken
+- **REQ-AC-2.12** stricken
 - **REQ-AC-2.13** When creating an Account record, the creation function must generate a unique UUID for the ID (new UUIDs may not be passed in).
 - **REQ-AC-2.14** When creating an Account record, if the calling system specifies that the record should be saved to the DB, and if all validations pass and the passed in arguments represent a valid data state, the creation function must persist the fully validated account record in the database and return an account record with the created ID and created/modified timestamps
+- **REQ-AC-2.15** stricken
 - **REQ-AC-2.16** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the parent account is not already a descendent (no circular relationships).
 - **REQ-AC-2.17** When creating an Account record, it is the responsibility of the calling function to provide an accurate "active begin" Instant. There is not validation to confirm that the caller provided a correct begin date.
 - **REQ-AC-2.18** When creating an Account record, the system will validate that any non-null "active end" is later in time than the provided "active begin".
+- **REQ-AC-2.19** stricken
 - **REQ-AC-2.20** When creating an Account with a parent ID, the child's AccountType must match the parent's AccountType.
 - **REQ-AC-2.20.1** Note, since moving to code-based UI, the "caller of the function" in the above is an internal application layer function only. The requirement still applies.
 - **REQ-AC-2.21** The system must provide a means to create a new acocunt
@@ -75,13 +88,16 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 
 ## 3. Read behaviors
 
+- **REQ-AC-3.1** stricken
 - **REQ-AC-3.2** When retrieving an Account record from the persistence layer, the system must return an Account type with all account properties.
 - **REQ-AC-3.3** The system must be able to retrieve an Account record by the caller providing that record's ID value.
 - **REQ-AC-3.3.1** Note: since moving to code-based UI functions, this is an internal-only capability.
 - **REQ-AC-3.4** The system must be able to retrieve an Account record by the caller providing that record's account code string.
 - **REQ-AC-3.5** The system must be able to retrieve all child records of an Account by the caller providing that parent record's ID.
-- **REQ-AC-3.5.1** Note, since moving to code-based UI, the "caller" in the above is an internal application layer function only. The requirement still applies.
+- **REQ-AC-3.5.1** stricken
+- **REQ-AC-3.5.2** Note, since moving to code-based UI, the "caller" in the above is an internal application layer function only. The requirement still applies.
 - **REQ-AC-3.6** The system must be able to retrieve all Account records of a particular type by the caller providing that AccountType.
+- **REQ-AC-3.6.1** stricken
 - **REQ-AC-3.7** The system must be able to retrieve all Account records without filter
 - **REQ-AC-3.8** stricken
 - **REQ-AC-3.9** The system must be able to retrieve all active Account records relative to system run time
@@ -95,9 +111,21 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-4.4** When an Account deactivation is requested, the system must reject any request where the Account has a non-zero balance at the time of the request.
 - **REQ-AC-4.5** When an Account deactivation is requested, the system must reject any request where the Account already has a non-null "active end" date.
 - **REQ-AC-4.6** When an Account deactivation is requested, the system must reject any request where the Account has any journal entry items (either the entry Instant or posted Instant) after the provided "active end" Instant.
+- **REQ-AC-4.7** stricken
 - **REQ-AC-4.8** The system must provide a means to update an Account record's "name" field.
 - **REQ-AC-4.9** The system must provide a means to update an Account record's "external reference" field.
+- **REQ-AC-4.10** stricken
+- **REQ-AC-4.11** stricken
+- **REQ-AC-4.12** stricken
+- **REQ-AC-4.13** stricken
+- **REQ-AC-4.14** stricken
+- **REQ-AC-4.15** stricken
+- **REQ-AC-4.16** stricken
+- **REQ-AC-4.17** stricken
+- **REQ-AC-4.18** stricken
 - **REQ-AC-4.19** Updates to a deactivated Account record are permitted, provided that those updates meet all other requirements herein.
+- **REQ-AC-4.20** stricken
+- **REQ-AC-4.21** stricken
 - **REQ-AC-4.22** The system must not provide a user interface for updating any of the following immutable Account fields: ID, "code", account type, subtype, "active begin", "created at", or parent ID.
 
 
@@ -113,17 +141,17 @@ active requirement is either tested or in this table.
 
 | ID          | Reason testing is waived                                                                                                                                                                                                                  | Approved |
 |-------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|
-| REQ-AC-2.17 | Validating "active begin" is not AccountCrud's responsibility — the requirement assigns that responsibility to the caller. There is no AccountCrud behavior to test.                                                                      | Dan, 2026-06-11 |
-| REQ-AC-4.22 | A negative existence claim over the entire API surface ("no function exposes an update path for these fields") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-06-11 |
-| REQ-AC-5.1  | A negative existence claim over the entire API surface ("no function exposes a hard delete") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface.                  | Dan, 2026-06-11 |
-| REQ-AC-1.47 | This is an impossible state if done through the code. The ID of the account is generated at creation time and therefore there can be no children of it. Only possible through direct DB editing                                           | Dan, 2026-06-13 |
 | REQ-AC-1.1  | Solution won't build if you try to pass a null value to AccountCode.create                                                                                                                                                                | Dan, 2026-06-14 |
 | REQ-AC-1.6  | Solution won't build if you try to pass a null value to AccountName.create                                                                                                                                                                | Dan, 2026-06-14 |
-| REQ-AC-1.39 | It is impossible to try. You can't set the account ID manually so you can't set the parent to its own ID |
-| REQ-AC-2.16 | This is an impossible state if done through the code. See rationale for REQ-AC-1.47 |
 | REQ-AC-1.9  | It is impossible to test all strings other than "Debit" and "Credit" and it's quite obviously enforced in the type definition |
 | REQ-AC-1.16 | It's quite obviously enforced in the type definition |
 | REQ-AC-1.17 | It's quite obviously enforced in the type definition |
+| REQ-AC-1.39 | It is impossible to try. You can't set the account ID manually so you can't set the parent to its own ID |
+| REQ-AC-1.47 | This is an impossible state if done through the code. The ID of the account is generated at creation time and therefore there can be no children of it. Only possible through direct DB editing                                           | Dan, 2026-06-13 |
+| REQ-AC-2.16 | This is an impossible state if done through the code. See rationale for REQ-AC-1.47 |
+| REQ-AC-2.17 | Validating "active begin" is not AccountCrud's responsibility — the requirement assigns that responsibility to the caller. There is no AccountCrud behavior to test.                                                                      | Dan, 2026-06-11 |
+| REQ-AC-4.22 | A negative existence claim over the entire API surface ("no function exposes an update path for these fields") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-06-11 |
+| REQ-AC-5.1  | A negative existence claim over the entire API surface ("no function exposes a hard delete") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface.                  | Dan, 2026-06-11 |
 
 ## Withdrawn
 
@@ -145,6 +173,7 @@ active requirement is either tested or in this table.
 | REQ-AC-3.1   | When retrieving an Account record from the persistence layer, the system must validate for all the same legal data states as it does when creating a new record. | Superseded by REQ-SYS-2.1 |
 | REQ-AC-3.5.1 | The caller should be able to specify whether they want all records or only active records | No longer needed due to how active accounts are thought of now |
 | REQ-AC-3.6.1 | The caller should be able to specify whether they want all records or only active records | No longer needed due to how active accounts are thought of now |
+| REQ-AC-3.8 | The system must be able to retrieve all active Account records relative to a passed in reference time | Changed to system run time |
 | REQ-AC-4.7   | Any successful update to an Account record must also update the "modified at" timestamp for that Account record with the current system run date/time. | Superseded by REQ-SYS-3.3 |
 | REQ-AC-4.10  | The system must not provide a user interface for updating an Account record's ID. (untestable) | Consolidated into REQ-AC-4.22 |
 | REQ-AC-4.11  | The system must not provide a user interface for updating an Account record's "code" field. (untestable) | Consolidated into REQ-AC-4.22 |
@@ -157,4 +186,3 @@ active requirement is either tested or in this table.
 | REQ-AC-4.18  | The system must reject any Account update request that would result in an illegal data state as defined in section 1. | Superseded by REQ-SYS-2.1 |
 | REQ-AC-4.20  | When updating an Account record, no updatable raw string may be updated to purely white-space. | Superseded by REQ-SYS-1.2 / REQ-SYS-1.3 (via REQ-SYS-2.1 and section 1 rules) |
 | REQ-AC-4.21  | When updating an Account record, all legal/illegal data state rules (section 1) must be enforced | Duplicate of REQ-AC-4.18; both superseded by REQ-SYS-2.1 |
-| REQ-AC-3.8 | The system must be able to retrieve all active Account records relative to a passed in reference time | Changed to system run time |

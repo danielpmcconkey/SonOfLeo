@@ -4,7 +4,19 @@ Generic database functions: connecting, executing queries, parameterization, and
 
 ## 1. Connection string handling
 
+- **REQ-DAL-1.1** stricken
+- **REQ-DAL-1.2** stricken
 - **REQ-DAL-1.3** If the external configuration file cannot be accessed by the system, all data access functions must fail with an error 
+- **REQ-DAL-1.4** stricken
+- **REQ-DAL-1.5** stricken
+- **REQ-DAL-1.6** stricken
+- **REQ-DAL-1.7** stricken
+- **REQ-DAL-1.8** stricken
+- **REQ-DAL-1.9** stricken
+- **REQ-DAL-1.10** stricken
+- **REQ-DAL-1.11** stricken
+- **REQ-DAL-1.12** stricken
+- **REQ-DAL-1.13** stricken
 - **REQ-DAL-1.14** All data access functions must fail with an error if the external configuration file is missing an entry named ConnectionStringEnvVar
 - **REQ-DAL-1.15** All data access functions must fail with an error if the ConnectionStringEnvVar value is empty
 - **REQ-DAL-1.16** All data access functions must fail with an error if the ConnectionStringEnvVar value contains an actual connection string
@@ -22,7 +34,8 @@ Generic database functions: connecting, executing queries, parameterization, and
 
 - **REQ-DAL-3.1** The DAL must be written to interface with a PostgreSQL 17.9 database
 - **REQ-DAL-3.2** The DAL modules must build abstraction layers such that callers of DAL modules need not require any reference to PostgreSQL (preserving the ability to shift RDBMS architecture without upending the entire application).
-  - **REQ-DAL-3.2.1** An exception to REQ-DAL-3.2 is that client modules can pass non-Ansi-generic SQL strings to the DAL if needed.
+- **REQ-DAL-3.2.1** An exception to REQ-DAL-3.2 is that client modules can pass non-Ansi-generic SQL strings to the DAL if needed.
+- **REQ-DAL-3.2.2** stricken
 - **REQ-DAL-3.3** There must be a distinct production database where testing and development activities are not permitted
 - **REQ-DAL-3.4** The database must default all character encoding to UTF-8.
 - **REQ-DAL-3.5** The database must default collation to "en_US.UTF-8".
