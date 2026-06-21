@@ -14,20 +14,20 @@ type AuditableAction =
     
 type AuditEnvelope =
     private { // intentionally private to prevent tampering
-        id: Guid
+        uniqueId: Guid
         action: AuditableAction
         instant: Instant
         // todo: add input params to AuditEnvelope as json
     }
 
 module AuditEnvelope =
-    let id (e:AuditEnvelope) = e.id
+    let uniqueId (e:AuditEnvelope) = e.uniqueId
     let action (e:AuditEnvelope) = e.action
     let instant (e:AuditEnvelope) = e.instant
     
     // todo: create an actual audit log that appends a log file on AuditEnvelope create
     let create (action: AuditableAction) : AuditEnvelope =  {
-            id = Guid.NewGuid()
+            uniqueId = Guid.NewGuid()
             action = action
             instant = Clock.now()
         }

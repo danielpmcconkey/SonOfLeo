@@ -44,7 +44,7 @@ let ``REQ-NGUI-3.6 System responds with the payload via stdout upon success`` ()
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
             let pushCode = pushResult |> Account.code |> AccountCode.value
-            let pushId = Account.id pushResult
+            let pushId = Account.uniqueId pushResult
             idToCleanUp <- Some pushId
             
             let args = ["Account"; "FetchByCode"]

@@ -11,7 +11,7 @@ open NodaTime
 module Account =
 
     type Account =
-      private  {    id: Guid                                           // REQ-AC-1.21, REQ-AC-1.22
+      private  {    uniqueId: Guid                                           // REQ-AC-1.21, REQ-AC-1.22
                     code: AccountCode                                  // REQ-AC-1.1–1.5
                     name: AccountName                                  // REQ-AC-1.6–1.8
                     accountType: AccountType                           // REQ-AC-1.10, REQ-AC-1.23
@@ -27,7 +27,7 @@ module Account =
 
 // Accessor functions
 
-        let id (a:Account) = a.id
+        let uniqueId (a:Account) = a.uniqueId
         let code (a:Account) = a.code
         let name (a:Account) = a.name
         let accountType (a:Account) = a.accountType
@@ -52,7 +52,7 @@ module Account =
         /// (public constructor) knows its business and makes decisions on whether or when to
         /// create things like UUIDs and timestamps
         let private constructOmni
-                (id: Guid)
+                (uniqueId: Guid)
                 (code: AccountCode)
                 (name: AccountName)
                 (accountType: AccountType)
@@ -64,7 +64,7 @@ module Account =
                 (reference: AccountExternalReference option)
                 : Result<Account, string> =
             if AccountSubtype.validTypeSubtypeCombination accountType subType then Ok {
-                id = id
+                uniqueId = uniqueId
                 code = code
                 name = name
                 accountType = accountType
@@ -93,7 +93,7 @@ module Account =
                 (reference: string option)
                 (auditEnvelope: AuditEnvelope)
                 : Result<Account, string> =            
-            let id = Guid.NewGuid() // REQ-AC-1.39, REQ-AC-2.13
+            let uniqueId = Guid.NewGuid() // REQ-AC-1.39, REQ-AC-2.13
             let now = AuditEnvelope.instant auditEnvelope
             let createdAt =  now // REQ-SYS-3.2
             let modifiedAt = now // REQ-SYS-3.2
@@ -112,7 +112,7 @@ module Account =
             let gfyAuditorsResult =
                 match parentId with
                 | None -> Ok ()
-                | Some x when x = id -> Error "Go fuck yourselves auditors"
+                | Some x when x = uniqueId -> Error "Go fuck yourselves auditors"
                 | _ -> Ok ()
 
             result {
@@ -124,14 +124,14 @@ module Account =
                 let! validSubType = subTypeResult
                 let! validRef = referenceResult
                 return!
-                    constructOmni id validCode validName validType activityPeriod
+                    constructOmni uniqueId validCode validName validType activityPeriod
                         createdAt modifiedAt validSubType parentId validRef
             }
 
         /// reconstitute is used where the underlying storage layer already represents
         /// this record (e.g. database read operations)
         let reconstitute
-                (id: Guid)
+                (uniqueId: Guid)
                 (code: string)
                 (name: string)
                 (accountTypeId: int)
@@ -164,7 +164,7 @@ module Account =
                 let! validSubType = subTypeResult // REQ-SYS-2.1
                 let! validRef = referenceResult // REQ-SYS-2.1
                 return!
-                    constructOmni id validCode validName validType activityPeriod
+                    constructOmni uniqueId validCode validName validType activityPeriod
                         createdAt modifiedAt validSubType parentId validRef // REQ-AC-3.2 
             }
 
@@ -174,7 +174,7 @@ module Account =
         /// how to map our query columns. Thus, we don't need to know anything about the
         /// underlying database architecture in this module and the DAL module doesn't
         /// need to know anything about our module here 
-        let mapAccountRowForDbRead (row: RowReader) : Result<Account, string> =
+        let mapRowForDbRead (row: RowReader) : Result<Account, string> =
             reconstitute
                 ( row |> RowReader.getUuid "id" )
                 ( row |> RowReader.getString "code" )
@@ -203,6 +203,7 @@ module Account =
                 match limit with
                 | Some x -> $"limit {x}"
                 | None -> String.Empty
+            // todo: extract query assembly into the DAL after journaling slice is complete
             let query = $"""
                 select  -- REQ-AC-3.2 
 	                id, 
@@ -221,7 +222,7 @@ module Account =
                 {limitString}
                 ;
                 """
-            executeReaderQuery query parameters mapAccountRowForDbRead expectedRows
+            executeReaderQuery query parameters mapRowForDbRead expectedRows
 
         /// insertNewToDb is a private function used as an interface to the DAL. It
         /// assumes that the calling function handled all necessary validations to
@@ -255,7 +256,7 @@ module Account =
             let subTypeString:string option = account.accountSubType |> Option.map AccountSubtype.toString
             let externalReferenceString:string option = Option.map AccountExternalReference.value account.externalReference
             let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
-                { name = "@id"; value = UniqueId account.id };
+                { name = "@id"; value = UniqueId account.uniqueId };
                 { name = "@code"; value = CharString (AccountCode.value account.code) };
                 { name = "@name"; value = CharString (AccountName.value account.name) };
                 { name = "@account_type_id"; value = Integer (AccountType.toDbId account.accountType) };
@@ -318,9 +319,9 @@ module Account =
                     return Some fetchedId
                 }
 
-        let fetchById (id: Guid) : Result<Account, string> = // REQ-AC-3.3
+        let fetchById (uniqueId: Guid) : Result<Account, string> = // REQ-AC-3.3
             let predicate = "where id = @id"
-            let parameters = [{ name = "@id"; value = UniqueId id };] // REQ-DAL-2.3
+            let parameters = [{ name = "@id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
             readRowsFromDb (Some predicate) None parameters ExactlyOne
             |> Result.map List.head
 
@@ -358,9 +359,9 @@ module Account =
             | Error e -> Error e
             | Ok allRows ->
                 if activeOnly then allRows |> List.filter(isActive activeReference) |> Ok
-                else allRows |> Ok            
+                else allRows |> Ok
 
-// Insert and update validation functions        
+// Insert and update validation functions
 
         /// confirmAccountIsValidAndActive checks that there is an account in the
         /// database matching the passed ID and that account is valid as of a
@@ -375,9 +376,9 @@ module Account =
                 let! activeAccount =
                     match ae with
                     | None when ab <= referenceTime -> Ok ()
-                    | None when ab > referenceTime -> Error $"Account {id validAccount} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
-                    | Some x when x <= referenceTime -> Error $"Account {id validAccount} failed \"is active\" check. The reference time ({referenceTime}) is now past (or equal to) the account's active end date ({ae})."
-                    | Some _ when ab > referenceTime -> Error $"Account {id validAccount} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
+                    | None when ab > referenceTime -> Error $"Account {uniqueId validAccount} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
+                    | Some x when x <= referenceTime -> Error $"Account {uniqueId validAccount} failed \"is active\" check. The reference time ({referenceTime}) is now past (or equal to) the account's active end date ({ae})."
+                    | Some _ when ab > referenceTime -> Error $"Account {uniqueId validAccount} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
                     | _ -> Ok ()
                 return activeAccount
             }
@@ -416,14 +417,14 @@ module Account =
                 : Result<unit, string> =
             let ab = activeBegin account
             if proposedDate <= ab then
-                Error $"Deactivating account {id account} failed because the active end ({proposedDate}) would be before (or equal to) the active begin ({ab})" else
+                Error $"Deactivating account {uniqueId account} failed because the active end ({proposedDate}) would be before (or equal to) the active begin ({ab})" else
                 Ok () // REQ-AC-4.2
 
         let private validateNoActiveChildrenBeforeDeactivation
             (account: Account)
             (auditEnvelope: AuditEnvelope)
             : Result<unit, string> =
-            let accountId = id account
+            let accountId = uniqueId account
             result {
                 let! children = fetchByParentId accountId
                 do!
@@ -466,7 +467,7 @@ module Account =
                         let value = r |> Option.map AccountExternalReference.value
                         Some (", external_ref = @external_ref", { name = "@external_ref"; value = NullableCharString  value })
                     
-                ] |> List.choose (fun x -> x)
+                ] |> List.choose id
             let setClauses = updates |> List.map fst |> String.concat ""
             let parameters = baseParams @ (updates |> List.map snd)
 

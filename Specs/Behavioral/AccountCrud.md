@@ -139,8 +139,8 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 Active requirements that are deliberately not verified by tests. Two-state rule: every
 active requirement is either tested or in this table.
 
-| ID          | Reason testing is waived                                                                                                                                                                                                                  | Approved |
-|-------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|
+| ID          | Reason testing is waived  | Approved |
+|---|---|---|
 | REQ-AC-1.1  | Solution won't build if you try to pass a null value to AccountCode.create                                                                                                                                                                | Dan, 2026-06-14 |
 | REQ-AC-1.6  | Solution won't build if you try to pass a null value to AccountName.create                                                                                                                                                                | Dan, 2026-06-14 |
 | REQ-AC-1.9  | It is impossible to test all strings other than "Debit" and "Credit" and it's quite obviously enforced in the type definition |

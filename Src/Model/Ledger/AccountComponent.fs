@@ -73,21 +73,21 @@ module AccountComponent =
         | Expense
         
     module AccountType =
-        let toDbId (id: AccountType) : int =
-            match id with
+        let toDbId (``type``: AccountType) : int =
+            match ``type`` with
             | Asset -> 1      // REQ-AC-1.11
             | Liability -> 2  // REQ-AC-1.12
             | Equity -> 3     // REQ-AC-1.13
             | Revenue -> 4    // REQ-AC-1.14
             | Expense -> 5    // REQ-AC-1.15
-        let fromDbId (id: int) : Result<AccountType, string> = // REQ-AC-1.10 (parse boundary)
-            match id with
+        let fromDbId (dbId: int) : Result<AccountType, string> = // REQ-AC-1.10 (parse boundary)
+            match dbId with
             | 1 -> Ok Asset
             | 2 -> Ok Liability
             | 3 -> Ok Equity
             | 4 -> Ok Revenue
             | 5 -> Ok Expense
-            | _ -> Error $"Invalid AccountTypeId: '%d{id}'"
+            | _ -> Error $"Invalid AccountTypeId: '%d{dbId}'"
         let fromString (accountType: string) : Result<AccountType, string> = // REQ-AC-1.10 (parse boundary)
             match accountType.Trim() with // REQ-SYS-1.1
             | "Asset" -> Ok Asset
@@ -97,16 +97,16 @@ module AccountComponent =
             | "Expense" -> Ok Expense
             | _ -> Error $"Invalid AccountTypeString: '%s{accountType}'"
         
-        let toString (at: AccountType) : string =
-            match at with
+        let toString (``type``: AccountType) : string =
+            match ``type`` with
             | Asset -> "Asset"
             | Liability -> "Liability"
             | Equity -> "Equity"
             | Revenue -> "Revenue"
             | Expense -> "Expense"
             
-        let normalBalance (t: AccountType) : AccountTypeNormalBalance =
-            match t with
+        let normalBalance (``type``: AccountType) : AccountTypeNormalBalance =
+            match ``type`` with
             | Asset | Expense -> Debit                  // REQ-AC-1.16
             | Liability | Equity | Revenue -> Credit  // REQ-AC-1.17
   
@@ -122,8 +122,8 @@ module AccountComponent =
         | OtherExpense
 
     module AccountSubtype =
-        let toString (st: AccountSubtype) : string =
-            match st with
+        let toString (subtype: AccountSubtype) : string =
+            match subtype with
             | Cash -> "Cash"
             | CurrentLiability -> "CurrentLiability"
             | FixedAsset -> "FixedAsset"
@@ -133,8 +133,8 @@ module AccountComponent =
             | OperatingExpense -> "OperatingExpense"
             | OtherRevenue -> "OtherRevenue"
             | OtherExpense -> "OtherExpense"
-        let fromString (s: string) : Result<AccountSubtype, string> = // REQ-AC-1.18 (parse boundary)
-            match s.Trim() with // REQ-SYS-1.1
+        let fromString (subtype: string) : Result<AccountSubtype, string> = // REQ-AC-1.18 (parse boundary)
+            match subtype.Trim() with // REQ-SYS-1.1
             | "Cash" -> Ok Cash
             | "CurrentLiability" -> Ok CurrentLiability
             | "FixedAsset" -> Ok FixedAsset
@@ -144,32 +144,32 @@ module AccountComponent =
             | "OperatingExpense" -> Ok OperatingExpense
             | "OtherRevenue" -> Ok OtherRevenue
             | "OtherExpense" -> Ok OtherExpense
-            | _ -> Error $"Invalid account_subtype: '%s{s}'"
-        let validFor (st: AccountSubtype) : AccountType = // confirms that subtype A, B, C can only be associated to type Y
-            match st with
+            | _ -> Error $"Invalid account_subtype: '%s{subtype}'"
+        let validFor (subtype: AccountSubtype) : AccountType = // confirms that subtype A, B, C can only be associated to type Y
+            match subtype with
             | Cash | FixedAsset | Investment -> Asset  // REQ-AC-1.28
             | CurrentLiability | LongTermLiability -> Liability // REQ-AC-1.30
             | OperatingRevenue | OtherRevenue -> Revenue // REQ-AC-1.33
             | OperatingExpense | OtherExpense -> Expense // REQ-AC-1.35
         
-        let validWith (t: AccountType) : AccountSubtype list = // confirms that type Y can only accept subtype A, B, C  
-            match t with
+        let validWith (``type``: AccountType) : AccountSubtype list = // confirms that type Y can only accept subtype A, B, C  
+            match ``type`` with
             | Asset -> [Cash; FixedAsset; Investment] // REQ-AC-1.29
             | Liability -> [CurrentLiability; LongTermLiability] // REQ-AC-1.31
             | Equity -> [] // REQ-AC-1.32 Account records of type 'Equity' can only have null subtypes
             | Revenue -> [OperatingRevenue; OtherRevenue] // REQ-AC-1.34
             | Expense -> [OperatingExpense; OtherExpense] // REQ-AC-1.36
             
-        let validTypeSubtypeCombination (t: AccountType) (st: AccountSubtype option) : bool =
+        let validTypeSubtypeCombination (``type``: AccountType) (st: AccountSubtype option) : bool =
             match st with
             | None -> true
-            | Some x -> validWith t |> List.contains x
+            | Some x -> validWith ``type`` |> List.contains x
         
             
     type AccountExternalReference = private AccountExternalReference of string
     
     module AccountExternalReference =
-        let value (AccountExternalReference er) = er // required due to private value 
+        let value (AccountExternalReference reference) = reference // required due to private value 
         let create (raw: string) : Result<AccountExternalReference, string> =
             let trimmed = raw.Trim() // REQ-SYS-1.1
             if trimmed = String.Empty then

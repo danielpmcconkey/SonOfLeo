@@ -176,6 +176,12 @@ module DAL =
             let ordinal = r.reader.GetOrdinal(col)
             if r.reader.IsDBNull(ordinal) then None
             else Some (r.reader.GetFieldValue<Instant>(ordinal))
+        let getDate (col: string) (r: RowReader) =
+            r.reader.GetFieldValue<LocalDate>(r.reader.GetOrdinal(col))
+        let getDateOption (col: string) (r: RowReader) : LocalDate option = 
+            let ordinal = r.reader.GetOrdinal(col)
+            if r.reader.IsDBNull(ordinal) then None
+            else Some (r.reader.GetFieldValue<LocalDate>(ordinal))
         let getUuid (col: string) (r: RowReader) = r.reader.GetGuid(r.reader.GetOrdinal(col))
         let getUuidOption (col: string) (r: RowReader) : Guid option = 
             let ordinal = r.reader.GetOrdinal(col)

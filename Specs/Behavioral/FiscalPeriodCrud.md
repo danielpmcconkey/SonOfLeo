@@ -8,7 +8,7 @@ Service-level behavioral specs for creating, reading, and updating fiscal period
 ## 1. Valid and invalid data states for the FiscalPeriod type
 
 - **REQ-FP-1.1** Fiscal period key cannot be null
-- **REQ-FP-1.2** Fiscal period key must match the format `YYYY-MM` where YYYY is a four-digit year and MM is a two-digit month (01–12). The regex pattern is `^\d{4}-\d{2}$` with MM constrained to 01–12.
+- **REQ-FP-1.2** Fiscal period key must match the format `YYYY-MM` where YYYY is a four-digit year and MM is a two-digit month (01–12). 
 - **REQ-FP-1.3** No 2 (or more) fiscal period records may share the same period key. (Period key must be unique)
 - **REQ-FP-1.4** Fiscal period start date is derived from the key as the first day of the indicated month (e.g., key "2026-07" → start date 2026-07-01). It is not a caller-provided value.
 - **REQ-FP-1.5** Fiscal period end date is derived from the key as the last day of the indicated month (e.g., key "2026-07" → end date 2026-07-31; key "2026-02" → end date 2026-02-28 or 2026-02-29 in a leap year). It is not a caller-provided value.
@@ -41,7 +41,9 @@ Service-level behavioral specs for creating, reading, and updating fiscal period
 ## 4. Update behaviors
 
 - **REQ-FP-4.1** The system must provide a means to close a fiscal period (set is_open to false).
+- **REQ-FP-4.1.1** The system must produce an error when the caller tries to close an already closed period (updating nothing)
 - **REQ-FP-4.2** The system must provide a means to reopen a fiscal period (set is_open to true).
+- **REQ-FP-4.2.1** The system must produce an error when the caller tries to reopen an already opened period (updating nothing)
 - **REQ-FP-4.3** The system must not provide a user interface for updating any of the following immutable FiscalPeriod fields: ID, period key, start date, end date.
 
 
@@ -55,8 +57,12 @@ Service-level behavioral specs for creating, reading, and updating fiscal period
 Active requirements that are deliberately not verified by tests. Two-state rule: every
 active requirement is either tested or in this table.
 
-None currently.
-
+| ID | Reason testing is waived | Approved |
+|---|---|---|
+| REQ-FP-2.5 | You cannot test for the absence of something | Dan, 2026-06-21 |
+| REQ-FP-2.6.1 | You cannot test for the absence of something | Dan, 2026-06-21 |
+| REQ-FP-4.3 | You cannot test for the absence of something | Dan, 2026-06-21 |
+| REQ-FP-5.1 | You cannot test for the absence of something | Dan, 2026-06-21 |
 
 ## Withdrawn
 

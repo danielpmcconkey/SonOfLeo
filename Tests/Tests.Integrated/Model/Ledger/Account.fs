@@ -24,7 +24,7 @@ let ``REQ-AC-1.4 REQ-AC-2.9 AccountCode must be unique`` () =
                 genericAccountReference genericAuditEnvelope
         match result1 with
         | Error e -> Assert.Fail e // need to ensure that the first made it into the DB to check the unique constraint
-        | Ok a -> idToCleanUp <- Some (Account.id a)
+        | Ok a -> idToCleanUp <- Some (Account.uniqueId a)
         
         let result2 = 
             Account.constructNewAndSaveToDbUsingParentId code2 genericAccountNameString genericAccountTypeString
@@ -49,12 +49,12 @@ let ``REQ-AC-1.5 Account code is case sensitive.`` () =
                 Account.constructNewAndSaveToDbUsingParentId code1 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            idToCleanUp <- Some (Account.id account1)
+            idToCleanUp <- Some (Account.uniqueId account1)
             let! account2 =
                 Account.constructNewAndSaveToDbUsingParentId code2 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            idToCleanUp2 <- Some (Account.id account2)
+            idToCleanUp2 <- Some (Account.uniqueId account2)
             let dbCode1 = AccountCode.value (Account.code account1)
             let dbCode2 = AccountCode.value (Account.code account2)
             Assert.Equal(code1, dbCode1)
@@ -92,10 +92,10 @@ let ``REQ-AC-2.14 REQ-SYS-5.1 create account and fetch by ID returns identical r
     try
         let railroad = result {
             let! pushResult = Account.constructNewAndSaveToDbUsingParentId code name accountType activeBegin activeEnd subtype parentId reference envelope
-            let pushId = Account.id pushResult
+            let pushId = Account.uniqueId pushResult
             idToCleanUp <- Some pushId
             let! pullResult = Account.fetchById pushId
-            Assert.Equal(pushId, (Account.id pullResult))
+            Assert.Equal(pushId, (Account.uniqueId pullResult))
             Assert.Equal(code, AccountCode.value(Account.code pullResult))
             Assert.Equal(name, AccountName.value(Account.name pullResult))
             Assert.Equal(accountType, AccountType.toString(Account.accountType pullResult))
@@ -131,10 +131,10 @@ let ``REQ-AC-3.4 fetch by code returns correct account`` () =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let pushId = Account.id pushResult
+            let pushId = Account.uniqueId pushResult
             idToCleanUp <- Some pushId
             let! pullResult = Account.fetchByCode genericAccountCodeString
-            Assert.Equal(pushId, (Account.id pullResult))
+            Assert.Equal(pushId, (Account.uniqueId pullResult))
             return ()
         }
         match railroad with
@@ -162,28 +162,28 @@ let ``REQ-AC-3.5 fetch by parent ID returns all children`` () =
                 Account.constructNewAndSaveToDbUsingParentId code_parent genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let parentId = Account.id account_parent
+            let parentId = Account.uniqueId account_parent
             idToCleanUp_parent <- Some parentId
             
             let! account_child1 = 
                 Account.constructNewAndSaveToDbUsingParentId code_child1 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
                     genericAccountReference genericAuditEnvelope
-            let id_child1 = Account.id account_child1
+            let id_child1 = Account.uniqueId account_child1
             idToCleanUp_child1 <- Some id_child1
             
             let! account_child2 = 
                 Account.constructNewAndSaveToDbUsingParentId code_child2 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
                     genericAccountReference genericAuditEnvelope
-            let id_child2 = Account.id account_child2
+            let id_child2 = Account.uniqueId account_child2
             idToCleanUp_child2 <- Some id_child2
             
             let! account_child3 = 
                 Account.constructNewAndSaveToDbUsingParentId code_child3 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
                     genericAccountReference genericAuditEnvelope
-            let id_child3 = Account.id account_child3
+            let id_child3 = Account.uniqueId account_child3
             idToCleanUp_child3 <- Some id_child3
             
             let! fetched = Account.fetchByParentId parentId
@@ -193,7 +193,7 @@ let ``REQ-AC-3.5 fetch by parent ID returns all children`` () =
             [Option.get idToCleanUp_child1;
              Option.get idToCleanUp_child2;
              Option.get idToCleanUp_child3]
-            |> List.forall(fun id -> fetched |> List.exists (fun a -> Account.id a = id))
+            |> List.forall(fun id -> fetched |> List.exists (fun a -> Account.uniqueId a = id))
             |> Assert.True
             return ()
         }
@@ -221,21 +221,21 @@ let ``REQ-AC-3.6 fetch by account type returns matching accounts`` () =
                 Account.constructNewAndSaveToDbUsingParentId code_1 genericAccountNameString explicitAccountType
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let id_1 = Account.id account_1
+            let id_1 = Account.uniqueId account_1
             idToCleanUp_1 <- Some id_1
             
             let! account_2 = 
                 Account.constructNewAndSaveToDbUsingParentId code_2 genericAccountNameString explicitAccountType
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let id_2 = Account.id account_2
+            let id_2 = Account.uniqueId account_2
             idToCleanUp_2 <- Some id_2
             
             let! account_3 = 
                 Account.constructNewAndSaveToDbUsingParentId code_3 genericAccountNameString explicitAccountType
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let id_3 = Account.id account_3
+            let id_3 = Account.uniqueId account_3
             idToCleanUp_3 <- Some id_3
             
             let! fetchType = AccountType.fromString explicitAccountType
@@ -245,7 +245,7 @@ let ``REQ-AC-3.6 fetch by account type returns matching accounts`` () =
             [Option.get idToCleanUp_1;
              Option.get idToCleanUp_2;
              Option.get idToCleanUp_3]
-            |> List.forall(fun id -> fetched |> List.exists (fun a -> Account.id a = id))
+            |> List.forall(fun id -> fetched |> List.exists (fun a -> Account.uniqueId a = id))
             |> Assert.True
             return ()
         }
@@ -279,28 +279,28 @@ let ``REQ-AC-3.7 fetch all fetches everything`` () =
                 Account.constructNewAndSaveToDbUsingParentId code_1 genericAccountNameString explicitAccountType1
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let id_1 = Account.id account_1
+            let id_1 = Account.uniqueId account_1
             idToCleanUp_1 <- Some id_1
             
             let! account_2 = 
                 Account.constructNewAndSaveToDbUsingParentId code_2 genericAccountNameString explicitAccountType2
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let id_2 = Account.id account_2
+            let id_2 = Account.uniqueId account_2
             idToCleanUp_2 <- Some id_2
             
             let! account_3 = 
                 Account.constructNewAndSaveToDbUsingParentId code_3 genericAccountNameString explicitAccountType3
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let id_3 = Account.id account_3
+            let id_3 = Account.uniqueId account_3
             idToCleanUp_3 <- Some id_3
             
             let! account_4 = 
                 Account.constructNewAndSaveToDbUsingParentId code_4 genericAccountNameString explicitAccountType4
                     genericAccountActiveBegin account4ActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let id_4 = Account.id account_4
+            let id_4 = Account.uniqueId account_4
             idToCleanUp_4 <- Some id_4
             
             let! fetched = Account.fetchAll false
@@ -310,7 +310,7 @@ let ``REQ-AC-3.7 fetch all fetches everything`` () =
              Option.get idToCleanUp_2
              Option.get idToCleanUp_3
              Option.get idToCleanUp_4]
-            |> List.forall(fun id -> fetched |> List.exists (fun a -> Account.id a = id))
+            |> List.forall(fun id -> fetched |> List.exists (fun a -> Account.uniqueId a = id))
             |> Assert.True
             return ()
         }
@@ -344,28 +344,28 @@ let ``REQ-AC-3.9 fetch all with active only fetches active accounts relative to 
                 Account.constructNewAndSaveToDbUsingParentId code_1 genericAccountNameString explicitAccountType1
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let id_1 = Account.id account_1
+            let id_1 = Account.uniqueId account_1
             idToCleanUp_1 <- Some id_1
             
             let! account_2 = 
                 Account.constructNewAndSaveToDbUsingParentId code_2 genericAccountNameString explicitAccountType2
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let id_2 = Account.id account_2
+            let id_2 = Account.uniqueId account_2
             idToCleanUp_2 <- Some id_2
             
             let! account_3 = 
                 Account.constructNewAndSaveToDbUsingParentId code_3 genericAccountNameString explicitAccountType3
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let id_3 = Account.id account_3
+            let id_3 = Account.uniqueId account_3
             idToCleanUp_3 <- Some id_3
             
             let! account_4 = 
                 Account.constructNewAndSaveToDbUsingParentId code_4 genericAccountNameString explicitAccountType4
                     genericAccountActiveBegin account4ActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let id_4 = Account.id account_4
+            let id_4 = Account.uniqueId account_4
             idToCleanUp_4 <- Some id_4
             
             let! fetched = Account.fetchAll true
@@ -374,7 +374,7 @@ let ``REQ-AC-3.9 fetch all with active only fetches active accounts relative to 
             [Option.get idToCleanUp_1
              Option.get idToCleanUp_2
              Option.get idToCleanUp_3]
-            |> List.forall(fun id -> fetched |> List.exists (fun a -> Account.id a = id))
+            |> List.forall(fun id -> fetched |> List.exists (fun a -> Account.uniqueId a = id))
             |> Assert.True
             return ()
         }
@@ -404,7 +404,7 @@ let ``REQ-AC-2.6 parent ID must reference existing account`` () =
             match result with
             | Error _ -> true
             | Ok x ->
-                idToCleanUp <- Some (Account.id x)
+                idToCleanUp <- Some (Account.uniqueId x)
                 false
         Assert.True(didFail, "Account creation was allowed to succeed with invalid parent")
     finally
@@ -426,14 +426,14 @@ let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--positiv
                 Account.constructNewAndSaveToDbUsingParentId code_parent genericAccountNameString genericAccountTypeString
                     activeBegin_parent genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let parentId = Account.id account_parent
+            let parentId = Account.uniqueId account_parent
             idToCleanUp_parent <- Some parentId
             
             let! account_child1 = 
                 Account.constructNewAndSaveToDbUsingParentId code_child1 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
                     genericAccountReference genericAuditEnvelope
-            let id_child1 = Account.id account_child1
+            let id_child1 = Account.uniqueId account_child1
             idToCleanUp_child1 <- Some id_child1
             
             return ()
@@ -461,7 +461,7 @@ let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--negativ
                 Account.constructNewAndSaveToDbUsingParentId code_parent genericAccountNameString genericAccountTypeString
                     activeBegin_parent (Some activeEnd_parent) genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let parentId = Account.id account_parent
+            let parentId = Account.uniqueId account_parent
             idToCleanUp_parent <- Some parentId
             
             let account_child1 = 
@@ -473,7 +473,7 @@ let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--negativ
                 match account_child1 with
                 | Error _ -> Ok ()
                 | Ok a ->
-                    idToCleanUp_child1 <- Some (Account.id a)
+                    idToCleanUp_child1 <- Some (Account.uniqueId a)
                     Error "Child account creation was allowed to succeed with inactive parent"
             
             return ()
@@ -501,7 +501,7 @@ let ``REQ-AC-2.20 child AccountType must match parent AccountType`` () =
                 Account.constructNewAndSaveToDbUsingParentId code_parent genericAccountNameString accountType_parent
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let parentId = Account.id account_parent
+            let parentId = Account.uniqueId account_parent
             idToCleanUp_parent <- Some parentId
             
             let account_child1 = 
@@ -513,7 +513,7 @@ let ``REQ-AC-2.20 child AccountType must match parent AccountType`` () =
                 match account_child1 with
                 | Error _ -> Ok ()
                 | Ok a ->
-                    idToCleanUp_child1 <- Some (Account.id a)
+                    idToCleanUp_child1 <- Some (Account.uniqueId a)
                     Error "Child account creation was allowed to succeed with different account type from parent"
             
             return ()
@@ -543,12 +543,12 @@ let ``REQ-AC-4.1 deactivateAccount sets active end and returns inactive account`
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference envelope1
-            let pushId = Account.id pushAccount
+            let pushId = Account.uniqueId pushAccount
             idToCleanUp <- Some pushId
             
             
             let! pullAccount = Account.deactivateAccountById pushId None envelope2
-            let pullId = Account.id pullAccount
+            let pullId = Account.uniqueId pullAccount
             
             Assert.Equal(pushId, pullId)
             Assert.True(Account.isActive (AuditEnvelope.instant envelope1) pushAccount)
@@ -578,7 +578,7 @@ let ``REQ-AC-4.2 deactivateAccount rejects end earlier than begin`` () =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     activeBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference envelope1
-            let pushId = Account.id pushAccount
+            let pushId = Account.uniqueId pushAccount
             idToCleanUp <- Some pushId
             
             let deactivationResult = Account.deactivateAccountById pushId badActiveEnd envelope2
@@ -614,7 +614,7 @@ let ``REQ-AC-4.2 deactivateAccount rejects end equal to begin`` () =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     activeBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference envelope1
-            let pushId = Account.id pushAccount
+            let pushId = Account.uniqueId pushAccount
             idToCleanUp <- Some pushId
             
             let deactivationResult = Account.deactivateAccountById pushId badActiveEnd envelope2
@@ -651,14 +651,14 @@ let ``REQ-AC-4.3 deactivateAccount rejects when active children exist`` () =
                 Account.constructNewAndSaveToDbUsingParentId code_parent genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let parentId = Account.id account_parent
+            let parentId = Account.uniqueId account_parent
             idToCleanUp_parent <- Some parentId
             
             let! account_child1 = 
                 Account.constructNewAndSaveToDbUsingParentId code_child1 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
                     genericAccountReference genericAuditEnvelope
-            let id_child1 = Account.id account_child1
+            let id_child1 = Account.uniqueId account_child1
             idToCleanUp_child1 <- Some id_child1
             
             let deactivationResult = Account.deactivateAccountById parentId goodActiveEnd envelope_deactivation
@@ -691,7 +691,7 @@ let ``REQ-AC-4.5 deactivateAccount rejects already deactivated account`` () =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let activeId = Account.id activeAccount
+            let activeId = Account.uniqueId activeAccount
             idToCleanUp <- Some activeId
             
             Assert.True(Account.isActive (Clock.now ()) activeAccount) // account starts as active
@@ -737,7 +737,7 @@ let ``REQ-AC-4.8 updateAccountName succeeds with valid name`` () =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let createdId = Account.id createdAccount
+            let createdId = Account.uniqueId createdAccount
             idToCleanUp <- Some createdId
             
             Assert.Equal(genericAccountNameString, (AccountName.value (Account.name createdAccount))) // make sure we have the start name
@@ -779,7 +779,7 @@ let ``REQ-AC-4.9 updateExternalReference succeeds with valid reference`` () =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     noneReference genericAuditEnvelope
-            let createdId = Account.id createdAccount
+            let createdId = Account.uniqueId createdAccount
             idToCleanUp <- Some createdId
             
             // verify that the None got recorded
@@ -816,7 +816,7 @@ let ``REQ-AC-4.9 updateExternalReference can be updated to None`` () =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     reference genericAuditEnvelope
-            let createdId = Account.id createdAccount
+            let createdId = Account.uniqueId createdAccount
             idToCleanUp <- Some createdId
             
             // verify that the Some got recorded
@@ -851,7 +851,7 @@ let ``REQ-SYS-3.3 account update operations set modifiedAt from AuditEnvelope`` 
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let createdId = Account.id createdAccount
+            let createdId = Account.uniqueId createdAccount
             idToCleanUp <- Some createdId
             
             // update
@@ -886,7 +886,7 @@ let ``REQ-AC-4.19 update to deactivated account is permitted`` () =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     activeBegin (Some activeEnd) genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope
-            let createdId = Account.id createdAccount
+            let createdId = Account.uniqueId createdAccount
             idToCleanUp <- Some createdId
             
             // validate that it is *indeed* inactive
