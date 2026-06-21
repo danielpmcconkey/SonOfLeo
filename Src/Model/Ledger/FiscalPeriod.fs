@@ -78,11 +78,11 @@ module FiscalPeriod =
     let private insertNewToDb (fp:FiscalPeriod): Result<unit, string> =            
         let query = """
             insert into ledger.fiscal_period( -- REQ-SYS-5.1
-                id, period_key, start_date, end_date, is_open, created_at, modified_at)
-            VALUES (@id, @period_key, @start_date, @end_date, @is_open, @created_at, @modified_at);
+                unique_id, period_key, start_date, end_date, is_open, created_at, modified_at)
+            VALUES (@unique_id, @period_key, @start_date, @end_date, @is_open, @created_at, @modified_at);
             """
         let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
-            { name = "@id"; value = UniqueId fp.uniqueId };
+            { name = "@unique_id"; value = UniqueId fp.uniqueId };
             { name = "@period_key"; value = CharString (PeriodKey.value fp.periodKey) };
             { name = "@start_date"; value = DbLocalDate fp.startDate };
             { name = "@end_date"; value = DbLocalDate fp.endDate };
@@ -112,7 +112,7 @@ module FiscalPeriod =
     /// need to know anything about our module here 
     let mapRowForDbRead (row: RowReader) : Result<FiscalPeriod, string> =
         reconstitute
-            ( row |> RowReader.getUuid "id" )
+            ( row |> RowReader.getUuid "unique_id" )
             ( row |> RowReader.getString "period_key" )
             ( row |> RowReader.getDate "start_date" )
             ( row |> RowReader.getDate "end_date" )
@@ -138,7 +138,7 @@ module FiscalPeriod =
         // todo: extract query assembly into the DAL after journaling slice is complete
         let query = $"""
             select  
-                id, period_key, start_date, end_date, is_open, created_at, modified_at
+                unique_id, period_key, start_date, end_date, is_open, created_at, modified_at
             from ledger.fiscal_period
             {predicateString}
             {limitString}
@@ -188,13 +188,20 @@ module FiscalPeriod =
         }
     
     let closeFiscalPeriod // REQ-FP-4.1
-            (pk: PeriodKey)
+            (pkString: string)
             (auditEnvelope: AuditEnvelope)
             : Result<FiscalPeriod, string> =
-        toggleOpenFlagByKey pk false auditEnvelope
+        result {
+            let! pk = PeriodKey.fromString pkString
+            return! toggleOpenFlagByKey pk false auditEnvelope
+        }
+        
     
     let reopenFiscalPeriod // REQ-FP-4.2
-            (pk: PeriodKey)
+            (pkString: string)
             (auditEnvelope: AuditEnvelope)
             : Result<FiscalPeriod, string> =
-        toggleOpenFlagByKey pk true auditEnvelope
+        result {
+            let! pk = PeriodKey.fromString pkString
+            return! toggleOpenFlagByKey pk true auditEnvelope
+        }

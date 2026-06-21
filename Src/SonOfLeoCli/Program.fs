@@ -1,9 +1,11 @@
 ﻿open System
-open Model.UI.InterfaceContractTypes
 open SonOfLeoCli.AccountRoutes
+open SonOfLeoCli.FiscalPeriodRoutes
 
 
-let commandRoutes = accountDomainCommandRoutes // in future append other domain routes
+let commandRoutes =
+    accountDomainCommandRoutes
+    @ fiscalPeriodDomainCommandRoutes
     
 
 let route (domain) (verb) (rest) (payload) : Result<string, string> =

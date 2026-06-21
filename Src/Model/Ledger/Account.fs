@@ -11,9 +11,9 @@ open NodaTime
 module Account =
 
     type Account =
-      private  {    uniqueId: Guid                                           // REQ-AC-1.21, REQ-AC-1.22
+      private  {    uniqueId: Guid                                     // REQ-AC-1.21, REQ-AC-1.22
                     code: AccountCode                                  // REQ-AC-1.1–1.5
-                    name: AccountName                                  // REQ-AC-1.6–1.8
+                    accountName: AccountName                           // REQ-AC-1.6–1.8
                     accountType: AccountType                           // REQ-AC-1.10, REQ-AC-1.23
                     activityPeriod: AccountActivityPeriod
                     createdAt: Instant                                 // REQ-SYS-3.1
@@ -29,7 +29,7 @@ module Account =
 
         let uniqueId (a:Account) = a.uniqueId
         let code (a:Account) = a.code
-        let name (a:Account) = a.name
+        let accountName (a:Account) = a.accountName
         let accountType (a:Account) = a.accountType
         let activeBegin (a:Account) = AccountActivityPeriod.activeBegin a.activityPeriod // derived property here for convenience
         let activeEnd (a:Account) = AccountActivityPeriod.activeEnd a.activityPeriod // derived property here for convenience
@@ -54,7 +54,7 @@ module Account =
         let private constructOmni
                 (uniqueId: Guid)
                 (code: AccountCode)
-                (name: AccountName)
+                (accountName: AccountName)
                 (accountType: AccountType)
                 (activityPeriod: AccountActivityPeriod)
                 (createdAt: Instant)
@@ -66,7 +66,7 @@ module Account =
             if AccountSubtype.validTypeSubtypeCombination accountType subType then Ok {
                 uniqueId = uniqueId
                 code = code
-                name = name
+                accountName = accountName
                 accountType = accountType
                 activityPeriod = activityPeriod
                 createdAt = createdAt
@@ -84,7 +84,7 @@ module Account =
         /// insertion into the database or when creating Account records purely for testing.
         let constructNew
                 (code: string)
-                (name: string)
+                (accountName: string)
                 (accountType: string)
                 (activeBegin: Instant)
                 (activeEnd: Instant option)
@@ -99,7 +99,7 @@ module Account =
             let modifiedAt = now // REQ-SYS-3.2
             let activityPeriodResult = AccountActivityPeriod.create activeBegin activeEnd // REQ-AC-2.17, REQ-AC-2.18
             let codeResult = AccountCode.create code
-            let nameResult = AccountName.create name
+            let accountNameResult = AccountName.create accountName
             let typeResult = AccountType.fromString accountType // REQ-AC-2.4
             let subTypeResult = 
                 match subType with
@@ -119,7 +119,7 @@ module Account =
                 let! _ = gfyAuditorsResult
                 let! activityPeriod = activityPeriodResult
                 let! validCode = codeResult
-                let! validName = nameResult
+                let! validName = accountNameResult
                 let! validType = typeResult
                 let! validSubType = subTypeResult
                 let! validRef = referenceResult
@@ -133,7 +133,7 @@ module Account =
         let reconstitute
                 (uniqueId: Guid)
                 (code: string)
-                (name: string)
+                (accountName: string)
                 (accountTypeId: int)
                 (activeBegin: Instant)
                 (activeEnd: Instant option)
@@ -145,7 +145,7 @@ module Account =
                 : Result<Account, string> =            
             let activityPeriodResult = AccountActivityPeriod.create activeBegin activeEnd
             let codeResult = AccountCode.create code
-            let nameResult = AccountName.create name
+            let accountNameResult = AccountName.create accountName
             let typeResult = AccountType.fromDbId accountTypeId
             let subTypeResult = 
                 match subType with
@@ -159,7 +159,7 @@ module Account =
             result {
                 let! activityPeriod = activityPeriodResult // REQ-SYS-2.1
                 let! validCode = codeResult // REQ-SYS-2.1
-                let! validName = nameResult // REQ-SYS-2.1
+                let! validName = accountNameResult // REQ-SYS-2.1
                 let! validType = typeResult // REQ-SYS-2.1
                 let! validSubType = subTypeResult // REQ-SYS-2.1
                 let! validRef = referenceResult // REQ-SYS-2.1
@@ -176,9 +176,9 @@ module Account =
         /// need to know anything about our module here 
         let mapRowForDbRead (row: RowReader) : Result<Account, string> =
             reconstitute
-                ( row |> RowReader.getUuid "id" )
+                ( row |> RowReader.getUuid "unique_id" )
                 ( row |> RowReader.getString "code" )
-                ( row |> RowReader.getString "name" )
+                ( row |> RowReader.getString "account_name" )
                 ( row |> RowReader.getInt "account_type_id" )
                 ( row |> RowReader.getInstant "active_begin" )
                 ( row |> RowReader.getInstantOption "active_end" )
@@ -206,9 +206,9 @@ module Account =
             // todo: extract query assembly into the DAL after journaling slice is complete
             let query = $"""
                 select  -- REQ-AC-3.2 
-	                id, 
+	                unique_id, 
                     code, 
-                    name, 
+                    account_name, 
                     account_type_id, 
                     active_begin,
                     active_end,
@@ -230,9 +230,9 @@ module Account =
         let private insertNewToDb (account:Account): Result<unit, string> =            
             let query = """
                 insert into ledger.account( -- REQ-SYS-5.1
-	                id, 
+	                unique_id, 
                     code, 
-                    name, 
+                    account_name, 
                     account_type_id, 
                     active_begin,
                     active_end,
@@ -242,9 +242,9 @@ module Account =
                     parent_id, 
                     external_ref)
                 values ( --  REQ-DAL-2.1, REQ-SYS-5.1
-	                @id, 
+	                @unique_id, 
                     @code, 
-                    @name, 
+                    @account_name, 
                     @account_type_id, 
                     @active_begin,
                     @active_end,
@@ -256,9 +256,9 @@ module Account =
             let subTypeString:string option = account.accountSubType |> Option.map AccountSubtype.toString
             let externalReferenceString:string option = Option.map AccountExternalReference.value account.externalReference
             let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
-                { name = "@id"; value = UniqueId account.uniqueId };
+                { name = "@unique_id"; value = UniqueId account.uniqueId };
                 { name = "@code"; value = CharString (AccountCode.value account.code) };
-                { name = "@name"; value = CharString (AccountName.value account.name) };
+                { name = "@account_name"; value = CharString (AccountName.value account.accountName) };
                 { name = "@account_type_id"; value = Integer (AccountType.toDbId account.accountType) };
                 { name = "@active_begin"; value = DbInstant (AccountActivityPeriod.activeBegin account.activityPeriod) };
                 { name = "@active_end"; value = NullableDbInstant(AccountActivityPeriod.activeEnd account.activityPeriod) };
@@ -272,14 +272,14 @@ module Account =
 
 /// public read functions
 
-        let fetchCodeById (id: Guid): Result<string, string> =
+        let fetchCodeById (unique_id: Guid): Result<string, string> =
             let query = $"""
                 select code
                 from ledger.account
-                where id = @id
+                where unique_id = @unique_id
                 ;
                 """
-            let parameters = [{ name = "@id"; value = UniqueId id };] // REQ-DAL-2.3
+            let parameters = [{ name = "@unique_id"; value = UniqueId unique_id };] // REQ-DAL-2.3
             match executeScalar query parameters with
             | Error e -> Error e
             | Ok x when isNull x -> Error "Execute scalar returned null in fetchCodeById"
@@ -296,7 +296,7 @@ module Account =
 
         let fetchIdByCode (code: string): Result<Guid, string> =
             let query = $"""
-                select id
+                select unique_id
                 from ledger.account
                 where code = @code
                 ;
@@ -320,8 +320,8 @@ module Account =
                 }
 
         let fetchById (uniqueId: Guid) : Result<Account, string> = // REQ-AC-3.3
-            let predicate = "where id = @id"
-            let parameters = [{ name = "@id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
+            let predicate = "where unique_id = @unique_id"
+            let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
             readRowsFromDb (Some predicate) None parameters ExactlyOne
             |> Result.map List.head
 
@@ -449,13 +449,13 @@ module Account =
                     
             let baseParams = [
                 { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3 
-                { name = "@id"; value = UniqueId accountId };
+                { name = "@unique_id"; value = UniqueId accountId };
             ]
             let updates =
                 [
                     match nameUpdate with
                     | NoChange -> None
-                    | SetTo n -> Some (", name = @name", { name = "@name"; value = CharString (AccountName.value n) })
+                    | SetTo n -> Some (", account_name = @account_name", { name = "@account_name"; value = CharString (AccountName.value n) })
                     
                     match activeEndUpdate with
                     | NoChange -> None
@@ -476,7 +476,7 @@ module Account =
                 set
                     modified_at = @modified -- REQ-SYS-3.3
                     {setClauses}
-                WHERE id = @id;
+                WHERE unique_id = @unique_id;
             """
             result {
                 do! if updates.IsEmpty then Error "update Account record failed because at least one updatable parameter must be set" else Ok ()
@@ -490,7 +490,7 @@ module Account =
         /// and insert it into the DB in one operation   
         let constructNewAndSaveToDbUsingParentId 
                 (code: string)
-                (name: string)
+                (accountName: string)
                 (accountTypeSt: string)
                 (activeBegin: Instant)
                 (activeEnd: Instant option)
@@ -501,7 +501,7 @@ module Account =
                 : Result<Account, string> =
 
             result {
-                let! validAccount = constructNew code name accountTypeSt activeBegin activeEnd subType parentId reference auditEnvelope
+                let! validAccount = constructNew code accountName accountTypeSt activeBegin activeEnd subType parentId reference auditEnvelope
                 let! () = // REQ-AC-2.6, REQ-AC-2.7
                     (*
                      * Note, we only validate the parent ID here because this is the part
@@ -520,7 +520,7 @@ module Account =
         /// and insert it into the DB in one operation   
         let constructNewAndSaveToDbUsingParentCode
                 (code: string)
-                (name: string)
+                (accountName: string)
                 (accountTypeSt: string)
                 (activeBegin: Instant)
                 (activeEnd: Instant option)
@@ -533,7 +533,7 @@ module Account =
                 let! parentIdOption = fetchIdOptionByCodeOption parentCode
                 return!
                     constructNewAndSaveToDbUsingParentId
-                        code name accountTypeSt activeBegin activeEnd
+                        code accountName accountTypeSt activeBegin activeEnd
                         subType parentIdOption reference auditEnvelope
             }
 

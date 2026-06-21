@@ -39,7 +39,8 @@ let ``REQ-AC-2.21 Account Create happy path`` () =
         let accountReturn:AccountReturn = fromJson<AccountReturn> a |> Result.defaultWith failwith
         let cleanUpId = accountReturn.code |> Account.fetchIdByCode |> Result.defaultWith failwith
         cleanUpAccountId (Some cleanUpId) |> Result.defaultWith failwith
-    | _ -> Assert.Fail $"Create Account happy path returned a non-zero value: {e}"
+    | _ ->
+        Assert.Fail $"Create Account happy path returned a non-zero value: {e}"
 
 [<Fact>]
 let ``REQ-NGUI-1.5 Account Create fails with invalid parent code`` () =
@@ -77,8 +78,9 @@ let ``REQ-AC-3.4 Account FetchByCode happy path`` () =
         let payload = { code = explicitCode } |> toJson<AccountFetchByCodeInput>  |> Result.defaultWith failwith
         let args = ["Account"; "FetchByCode"]
         let code, _, e = runCli args payload
+        cleanUpAccountId (Some accountId) |> Result.defaultWith failwith // clean up regardless of outcome because the account's been written
         match code with
-        | 0 -> cleanUpAccountId (Some accountId) |> Result.defaultWith failwith
+        | 0 -> ()
         | _ -> Assert.Fail $"Account FetchByCode happy path returned a non-zero value: {e}"
 
 [<Fact>]

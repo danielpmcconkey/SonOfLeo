@@ -40,8 +40,8 @@ let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` 
         Account.constructNew genericCode genericName genericAccountTypePrimitive genericActiveBegin
             genericActiveEnd genericSubtype genericParentId genericReference genericEnvelope
         |> Result.defaultWith failwith
-    Assert.Equal(expected, Account.modifiedAt account)
     Assert.Equal(expected, Account.createdAt account)
+    Assert.Equal(expected, Account.modifiedAt account)
 
 [<Fact>]
 let ``REQ-SYS-2.1 constructNew rejects invalid account code`` () =

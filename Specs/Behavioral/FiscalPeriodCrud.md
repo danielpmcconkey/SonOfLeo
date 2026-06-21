@@ -66,7 +66,6 @@ active requirement is either tested or in this table.
 
 ## Withdrawn
 
-
 | ID          | Original Requirement | Reason |
 |-------------|----------------------|--------|
 | REQ-FP-3.3  | The system must be able to retrieve the fiscal period that contains a given date (the period whose start_date <= date <= end_date). | Not needed |

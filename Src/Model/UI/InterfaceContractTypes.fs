@@ -29,8 +29,8 @@ module InterfaceContractTypes =
         subType: string option
         parentCode: string option
         reference: string option
-        modifiedAt: Instant
         createdAt: Instant
+        modifiedAt: Instant
     }
     // create
     type AccountCreateInput = { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
@@ -51,4 +51,25 @@ module InterfaceContractTypes =
     type AccountDeactivationInput = { code: string; activeEnd: Instant } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
     type AccountUpdateNameInput = { code: string; newName: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
     type AccountUpdateExternalReferenceInput = { code: string; newReference: string option } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+    
+    
+    // ****************************************
+    // FISCAL PERIOD DOMAIN
+    // ****************************************
+    
+    // return
+    type FiscalPeriodReturn = { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+        periodKey: string
+        startDate: LocalDate
+        endDate: LocalDate
+        isOpen: bool
+        createdAt: Instant
+        modifiedAt: Instant
+    }
+    
+    /// FiscalPeriodInput is a multi-purpose interface contract, used for create, fetch by key, close, and reopen
+    type FiscalPeriodInput = { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+        periodKey: string
+    }
+    type FiscalPeriodFetchAllInput = { openOnly: bool; } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
 

@@ -79,7 +79,7 @@ let ``REQ-AC-1.5 Account code is case sensitive.`` () =
 [<Fact>]
 let ``REQ-AC-2.14 REQ-SYS-5.1 create account and fetch by ID returns identical record`` () =
     let code = "AC-2.14"
-    let name = "Create account and fetch by ID returns identical record"
+    let accountName = "Create account and fetch by ID returns identical record"
     let accountType = "Asset"
     let activeBegin = Clock.now()
     let activeEnd = Some (activeBegin.Plus(Duration.FromDays(60)))
@@ -91,13 +91,13 @@ let ``REQ-AC-2.14 REQ-SYS-5.1 create account and fetch by ID returns identical r
     let mutable idToCleanUp = None
     try
         let railroad = result {
-            let! pushResult = Account.constructNewAndSaveToDbUsingParentId code name accountType activeBegin activeEnd subtype parentId reference envelope
+            let! pushResult = Account.constructNewAndSaveToDbUsingParentId code accountName accountType activeBegin activeEnd subtype parentId reference envelope
             let pushId = Account.uniqueId pushResult
             idToCleanUp <- Some pushId
             let! pullResult = Account.fetchById pushId
             Assert.Equal(pushId, (Account.uniqueId pullResult))
             Assert.Equal(code, AccountCode.value(Account.code pullResult))
-            Assert.Equal(name, AccountName.value(Account.name pullResult))
+            Assert.Equal(accountName, AccountName.value(Account.accountName pullResult))
             Assert.Equal(accountType, AccountType.toString(Account.accountType pullResult))
             Assert.Equal(activeBegin, Account.activeBegin pullResult)
             Assert.Equal(activeEnd, Account.activeEnd pullResult)
@@ -726,7 +726,7 @@ let ``REQ-AC-4.5 deactivateAccount rejects already deactivated account`` () =
 // =============================================================================
 
 [<Fact>]
-let ``REQ-AC-4.8 updateAccountName succeeds with valid name`` () =
+let ``REQ-AC-4.8 updateAccountName succeeds with valid accountName`` () =
     let envelope_rename = AuditEnvelope.create AccountUpdateName
     let goodAccountName = "fahrvergnügen"
     
@@ -740,11 +740,11 @@ let ``REQ-AC-4.8 updateAccountName succeeds with valid name`` () =
             let createdId = Account.uniqueId createdAccount
             idToCleanUp <- Some createdId
             
-            Assert.Equal(genericAccountNameString, (AccountName.value (Account.name createdAccount))) // make sure we have the start name
+            Assert.Equal(genericAccountNameString, (AccountName.value (Account.accountName createdAccount))) // make sure we have the start name
             
             let! renamedAccount = Account.updateAccountNameById createdId goodAccountName envelope_rename
             
-            Assert.Equal(goodAccountName, (AccountName.value (Account.name renamedAccount))) 
+            Assert.Equal(goodAccountName, (AccountName.value (Account.accountName renamedAccount))) 
             
             return ()
         }
@@ -896,7 +896,7 @@ let ``REQ-AC-4.19 update to deactivated account is permitted`` () =
             let! updatedAccount = Account.updateAccountNameById createdId newName envelope_update
             
             // verify that the update actually occurred
-            Assert.Equal(newName, AccountName.value (Account.name updatedAccount))
+            Assert.Equal(newName, AccountName.value (Account.accountName updatedAccount))
             
             return ()
         }

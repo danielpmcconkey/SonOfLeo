@@ -11,6 +11,9 @@ type AuditableAction =
     | AccountUpdateName
     | AccountUpdateExtReference
     | AccountDeactivation
+    | FiscalPeriodCreate
+    | FiscalPeriodClose
+    | FiscalPeriodReopen
     
 type AuditEnvelope =
     private { // intentionally private to prevent tampering

@@ -3,23 +3,21 @@ module SonOfLeoCli.AccountRoutes
 open Model.Audit
 open Model.Ledger.Account.Account
 open Model.Ledger.AccountComponent
-open NodaTime
-open Model.Ledger.Account
 open Model.UI
 open Utilities.ResultCE
 open InterfaceContractTypes
 
 let convertAccountToAccountReturn a : AccountReturn = {
             code = AccountCode.value (code a)
-            name = AccountName.value (name a)
+            name = AccountName.value (accountName a)
             accountTypeSt = AccountType.toString (accountType a)
             activeBegin = activeBegin a
             activeEnd = activeEnd a
             subType = accountSubType a |> Option.map AccountSubtype.toString
             parentCode = fetchCodeOptionByIdOption (parentId a) |> Result.defaultWith failwith
             reference = externalReference a |> Option.map AccountExternalReference.value
-            modifiedAt = modifiedAt a
             createdAt = createdAt a
+            modifiedAt = modifiedAt a
         }
     
 let accountCreate payload _ =

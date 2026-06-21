@@ -7,16 +7,16 @@ open Utilities.ResultCE
 /// used for the finally block tests that may or may not have failed before calling
 /// this function. therefore, it takes a guid option. Do the option resolution
 /// once here so you don't have to do it everywhere 
-let cleanUpAccountId (id:Guid option) : Result<unit, string> =
-    match id with
+let cleanUpAccountId (uniqueId:Guid option) : Result<unit, string> =
+    match uniqueId with
     | None -> Ok ()
     | Some x -> 
         let parameters = [
-            { name = "@id"; value = UniqueId x };
+            { name = "@unique_id"; value = UniqueId x };
         ]
         let query = $"""
                 delete from ledger.account
-                WHERE id = @id;
+                WHERE unique_id = @unique_id;
             """
         result {
             return! executeNonQuery query parameters ExactlyOne

@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <Compile Include="AccountRoutes.fs" />
+    <Compile Include="FiscalPeriodRoutes.fs" />
     <Compile Include="Program.fs" />
     <None Include="appsettings.Development.json" />
     <None Include="appsettings.Production.json" />
