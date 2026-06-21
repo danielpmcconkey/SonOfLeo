@@ -59,7 +59,11 @@ active requirement is either tested or in this table.
 
 | ID | Reason testing is waived | Approved |
 |---|---|---|
-| REQ-FP-2.5 | You cannot test for the absence of something | Dan, 2026-06-21 |
+| REQ-FP-1.1 | It's an impossible state to represent in this model | Dan, 2026-06-21 |
+| REQ-FP-1.6 | It's an impossible state to represent in this model | Dan, 2026-06-21 |
+| REQ-FP-1.7 | It's an impossible state to test, given the constructNew function always creates the UUID at runtime | Dan, 2026-06-21 |
+| REQ-FP-1.8 | It's an impossible state to represent in this model | Dan, 2026-06-21 |
+| REQ-FP-2.3.1 | You cannot test for the absence of something | Dan, 2026-06-21 |
 | REQ-FP-2.6.1 | You cannot test for the absence of something | Dan, 2026-06-21 |
 | REQ-FP-4.3 | You cannot test for the absence of something | Dan, 2026-06-21 |
 | REQ-FP-5.1 | You cannot test for the absence of something | Dan, 2026-06-21 |

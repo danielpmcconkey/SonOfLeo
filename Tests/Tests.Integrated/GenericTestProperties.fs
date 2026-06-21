@@ -22,4 +22,7 @@ let genericAccountParentId = None
 let genericAccountParentCode = None
 let genericAccountReference= None
 
+// fiscal period
+let genericFiscalPeriodKey = "2026-07"
+
 

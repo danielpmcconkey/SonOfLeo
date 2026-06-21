@@ -4,9 +4,17 @@ open System
 open Utilities.DAL
 open Utilities.ResultCE
 
-/// used for the finally block tests that may or may not have failed before calling
-/// this function. therefore, it takes a guid option. Do the option resolution
-/// once here so you don't have to do it everywhere 
+(*
+ * These functions are used in tests' "finally" blocks where the test flow that
+ * may or may not have failed before calling cleanup. Therefore, they take
+ * options as their key parameters. Do the option resolution here so you don't
+ * have to do it everywhere 
+ *)
+
+//=================================================
+// Account clean up
+//=================================================
+
 let cleanUpAccountId (uniqueId:Guid option) : Result<unit, string> =
     match uniqueId with
     | None -> Ok ()
@@ -22,9 +30,6 @@ let cleanUpAccountId (uniqueId:Guid option) : Result<unit, string> =
             return! executeNonQuery query parameters ExactlyOne
         }
 
-/// used for the finally block tests that may or may not have failed before calling
-/// this function. therefore, it takes an option list. Do the option resolution
-/// once here so you don't have to do it everywhere 
 let cleanUpAccountList (l: Guid option list) : Result<unit, string> =    
     l
     |> List.map cleanUpAccountId
@@ -36,9 +41,6 @@ let cleanUpAccountList (l: Guid option list) : Result<unit, string> =
                 let insideErrors = String.concat "||" errors
                 Error $"{baseMessage}||{insideErrors}"
 
-/// used for the finally block tests that may or may not have failed before calling
-/// this function. therefore, everything takes an option. Do the option resolution once
-/// here so you don't have to do it everywhere 
 let cleanUpParentIdAndChildren (parentId: Guid option) (children: Guid option list) : Result<unit, string> =
     result {
         let! _ =
@@ -47,3 +49,32 @@ let cleanUpParentIdAndChildren (parentId: Guid option) (children: Guid option li
         let! _ = cleanUpAccountId parentId  // note that the parent won't be cleaned up if any of the child cleanups failed
         return ()
     }
+
+//=================================================
+// Fiscal Period clean up
+//=================================================
+let cleanUpFiscalPeriodId (uniqueId:Guid option) : Result<unit, string> =
+    match uniqueId with
+    | None -> Ok ()
+    | Some x -> 
+        let parameters = [
+            { name = "@unique_id"; value = UniqueId x };
+        ]
+        let query = $"""
+                delete from ledger.fiscal_period
+                WHERE unique_id = @unique_id;
+            """
+        result {
+            return! executeNonQuery query parameters ExactlyOne
+        }
+
+let cleanUpFiscalPeriodIdsList (l: Guid option list) : Result<unit, string> =    
+    l
+    |> List.map cleanUpFiscalPeriodId
+    |> List.choose (function Error e -> Some e | Ok _ -> None)
+    |> function 
+            | [] -> Ok ()
+            | errors ->
+                let baseMessage = "One or more errors returns while deleting a list of fiscal period IDs. Individual errors follow, separated by '||'"
+                let insideErrors = String.concat "||" errors
+                Error $"{baseMessage}||{insideErrors}"

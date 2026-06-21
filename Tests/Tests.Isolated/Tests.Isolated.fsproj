@@ -21,6 +21,7 @@
   <ItemGroup>
     <Compile Include="Model\Ledger\AccountComponent.fs" />
     <Compile Include="Model\Ledger\Account.fs" />
+    <Compile Include="Model\Ledger\FiscalPeriod.fs" />
     <Compile Include="Model\Money.fs" />
   </ItemGroup>
 

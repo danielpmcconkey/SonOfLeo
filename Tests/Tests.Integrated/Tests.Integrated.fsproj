@@ -28,6 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="Model\Ledger\FiscalPeriod.fs" />
     <Compile Include="SonOfLeoCli\CliExecutor.fs" />
     <Compile Include="SonOfLeoCli\Program.fs" />
     <Compile Include="SonOfLeoCli\AccountRoutes.fs" />
