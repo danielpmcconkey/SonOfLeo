@@ -5,12 +5,8 @@ open Model.Audit
 open Model.Ledger
 open Tests.Integrated.GenericTestProperties
 open Xunit
-open Model.Ledger.Account
-open Model.Ledger.AccountComponent
-open NodaTime
 open Utilities.ResultCE
 open Tests.Integrated._Cleanup
-open Utilities.Clock
 
 [<Fact>]
 let ``REQ-FP-2.1 creating a fiscal period must generate a UUID`` () =     
@@ -322,7 +318,7 @@ let ``REQ-FP-4.2.1 reopenFiscalPeriod rejects already open period`` () =
         let railroad = result {
             let! fp_1 = FiscalPeriod.constructNewAndSaveToDb explicitKey genericAuditEnvelope
             let uniqueId_1 = FiscalPeriod.uniqueId fp_1
-            idToCleanUp_1 <- Some uniqueId_1             
+            idToCleanUp_1 <- Some uniqueId_1
             
             System.Threading.Thread.Sleep(1000) // make sure there's some time so the modified_at isn't accidentally the same
             let attemptResult = FiscalPeriod.reopenFiscalPeriod explicitKey (AuditEnvelope.create FiscalPeriodReopen) 

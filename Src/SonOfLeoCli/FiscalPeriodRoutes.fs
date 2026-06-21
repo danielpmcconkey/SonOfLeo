@@ -64,7 +64,7 @@ let fiscalPeriodDomainCommandRoutes = [
     { domain = "FiscalPeriod"; verb = "Create"; description = "Create a new fiscal period and insert it into the database."
       inputType = typeof<FiscalPeriodInput>.Name; outputType = typeof<FiscalPeriodReturn>.Name; handler =  create }
     // read
-    { domain = "FiscalPeriod"; verb = "Fetch"; description = "Retrieve a specific fiscal period from the database."
+    { domain = "FiscalPeriod"; verb = "FetchByKey"; description = "Retrieve a specific fiscal period from the database."
       inputType = typeof<FiscalPeriodInput>.Name; outputType = typeof<FiscalPeriodReturn>.Name; handler =  fetch }    
     { domain = "FiscalPeriod"; verb = "FetchAll"; description = "Retrieve all fiscal periods from the database with a flag to denote whether the caller only wants open periods."
       inputType = typeof<FiscalPeriodFetchAllInput>.Name; outputType = typeof<FiscalPeriodReturn list>.Name; handler =  fetchAll }

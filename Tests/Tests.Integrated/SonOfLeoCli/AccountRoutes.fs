@@ -239,7 +239,7 @@ let ``REQ-AC-3.7 Account FetchAll happy path`` () =
                 then Error $"FetchAll CLI returned {code}: {e}"
                 else Ok ()
             
-            let! fetchedAccounts = fromJson<AccountReturn list> fetchedAccountRecords            
+            let! fetchedAccounts = fromJson<AccountReturn list> fetchedAccountRecords
             Assert.Equal(3, fetchedAccounts |> List.length)
             
             let filtered1 = fetchedAccounts |> List.filter(fun x -> x.accountTypeSt = explicitType1)

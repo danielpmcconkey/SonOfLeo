@@ -67,6 +67,20 @@ let cleanUpFiscalPeriodId (uniqueId:Guid option) : Result<unit, string> =
         result {
             return! executeNonQuery query parameters ExactlyOne
         }
+let cleanUpFiscalPeriodKey (key:string option) : Result<unit, string> =
+    match key with
+    | None -> Ok ()
+    | Some x -> 
+        let parameters = [
+            { name = "@period_key"; value = CharString x};
+        ]
+        let query = $"""
+                delete from ledger.fiscal_period
+                WHERE period_key = @period_key;
+            """
+        result {
+            return! executeNonQuery query parameters ExactlyOne
+        }
 
 let cleanUpFiscalPeriodIdsList (l: Guid option list) : Result<unit, string> =    
     l
@@ -76,5 +90,16 @@ let cleanUpFiscalPeriodIdsList (l: Guid option list) : Result<unit, string> =
             | [] -> Ok ()
             | errors ->
                 let baseMessage = "One or more errors returns while deleting a list of fiscal period IDs. Individual errors follow, separated by '||'"
+                let insideErrors = String.concat "||" errors
+                Error $"{baseMessage}||{insideErrors}"
+
+let cleanUpFiscalPeriodKeysList (l: string option list) : Result<unit, string> =    
+    l
+    |> List.map cleanUpFiscalPeriodKey
+    |> List.choose (function Error e -> Some e | Ok _ -> None)
+    |> function 
+            | [] -> Ok ()
+            | errors ->
+                let baseMessage = "One or more errors returns while deleting a list of fiscal period keys. Individual errors follow, separated by '||'"
                 let insideErrors = String.concat "||" errors
                 Error $"{baseMessage}||{insideErrors}"
