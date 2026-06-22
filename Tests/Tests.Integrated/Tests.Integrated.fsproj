@@ -20,19 +20,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="appsettings.json" />
-    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="_Cleanup.fs" />
     <Compile Include="GenericTestProperties.fs" />
     <Compile Include="Model\Ledger\Account.fs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Compile Include="Model\Ledger\FiscalPeriod.fs" />
     <Compile Include="SonOfLeoCli\CliExecutor.fs" />
     <Compile Include="SonOfLeoCli\Program.fs" />
     <Compile Include="SonOfLeoCli\AccountRoutes.fs" />
     <Compile Include="SonOfLeoCli\FiscalPeriodRoutes.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="appsettings.json" />
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <Target Name="CopyEnvConfig" AfterTargets="Build">

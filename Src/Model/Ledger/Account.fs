@@ -1,6 +1,7 @@
 namespace Model.Ledger
 
 open System
+open Utilities
 open Utilities.Clock
 open Utilities.ResultCE
 open Utilities.DAL
@@ -16,11 +17,11 @@ module Account =
                     accountName: AccountName                           // REQ-AC-1.6–1.8
                     accountType: AccountType                           // REQ-AC-1.10, REQ-AC-1.23
                     activityPeriod: AccountActivityPeriod
-                    createdAt: Instant                                 // REQ-SYS-3.1
-                    modifiedAt: Instant                                // REQ-SYS-3.1
                     accountSubType: AccountSubtype option              // REQ-AC-1.19, REQ-AC-1.28–1.36
                     parentId: Guid option                              // REQ-AC-1.37–1.40
                     externalReference: AccountExternalReference option // REQ-AC-1.20, REQ-AC-1.41
+                    createdAt: Instant                                 // REQ-SYS-3.1
+                    modifiedAt: Instant                                // REQ-SYS-3.1
         }
 
     module Account =
@@ -40,7 +41,7 @@ module Account =
         let createdAt (a:Account) = a.createdAt
         let modifiedAt (a:Account) = a.modifiedAt
         let isActive // derived property here for convenience;
-                (referencePoint: Instant)
+                (referencePoint: LocalDate)
                 (a:Account)
                 : bool =  
             AccountActivityPeriod.isActive referencePoint (activityPeriod a)
@@ -86,8 +87,8 @@ module Account =
                 (code: string)
                 (accountName: string)
                 (accountType: string)
-                (activeBegin: Instant)
-                (activeEnd: Instant option)
+                (activeBegin: LocalDate)
+                (activeEnd: LocalDate option)
                 (subType: string option)
                 (parentId: Guid option)
                 (reference: string option)
@@ -135,13 +136,13 @@ module Account =
                 (code: string)
                 (accountName: string)
                 (accountTypeId: int)
-                (activeBegin: Instant)
-                (activeEnd: Instant option)
-                (createdAt: Instant)
-                (modifiedAt: Instant)                
+                (activeBegin: LocalDate)
+                (activeEnd: LocalDate option)
                 (subType: string option)
                 (parentId: Guid option)
                 (reference: string option)
+                (createdAt: Instant)
+                (modifiedAt: Instant)                
                 : Result<Account, string> =            
             let activityPeriodResult = AccountActivityPeriod.create activeBegin activeEnd
             let codeResult = AccountCode.create code
@@ -180,13 +181,13 @@ module Account =
                 ( row |> RowReader.getString "code" )
                 ( row |> RowReader.getString "account_name" )
                 ( row |> RowReader.getInt "account_type_id" )
-                ( row |> RowReader.getInstant "active_begin" )
-                ( row |> RowReader.getInstantOption "active_end" )
-                ( row |> RowReader.getInstant "created_at" )
-                ( row |> RowReader.getInstant "modified_at" )
+                ( row |> RowReader.getDate "active_begin" )
+                ( row |> RowReader.getDateOption "active_end" )
                 ( row |> RowReader.getStringOption "account_subtype" )
                 ( row |> RowReader.getUuidOption "parent_id" )
                 ( row |> RowReader.getStringOption "external_ref" )
+                ( row |> RowReader.getInstant "created_at" )
+                ( row |> RowReader.getInstant "modified_at" )
 
         /// readRowsFromDb is designed to produce a flexible read query that can
         /// satisfy diverse use cases 
@@ -236,11 +237,11 @@ module Account =
                     account_type_id, 
                     active_begin,
                     active_end,
-                    created_at, 
-                    modified_at, 
                     account_subtype, 
                     parent_id, 
-                    external_ref)
+                    external_ref,
+                    created_at, 
+                    modified_at)
                 values ( --  REQ-DAL-2.1, REQ-SYS-5.1
 	                @unique_id, 
                     @code, 
@@ -248,11 +249,11 @@ module Account =
                     @account_type_id, 
                     @active_begin,
                     @active_end,
-                    @created_at, 
-                    @modified_at, 
                     @account_subtype, 
                     @parent_id, 
-                    @external_ref);"""
+                    @external_ref,
+                    @created_at, 
+                    @modified_at);"""
             let subTypeString:string option = account.accountSubType |> Option.map AccountSubtype.toString
             let externalReferenceString:string option = Option.map AccountExternalReference.value account.externalReference
             let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
@@ -260,8 +261,8 @@ module Account =
                 { name = "@code"; value = CharString (AccountCode.value account.code) };
                 { name = "@account_name"; value = CharString (AccountName.value account.accountName) };
                 { name = "@account_type_id"; value = Integer (AccountType.toDbId account.accountType) };
-                { name = "@active_begin"; value = DbInstant (AccountActivityPeriod.activeBegin account.activityPeriod) };
-                { name = "@active_end"; value = NullableDbInstant(AccountActivityPeriod.activeEnd account.activityPeriod) };
+                { name = "@active_begin"; value = DbLocalDate (AccountActivityPeriod.activeBegin account.activityPeriod) };
+                { name = "@active_end"; value = NullableDbLocalDate(AccountActivityPeriod.activeEnd account.activityPeriod) };
                 { name = "@created_at"; value = DbInstant account.createdAt };
                 { name = "@modified_at"; value = DbInstant account.modifiedAt };
                 { name = "@account_subtype"; value = NullableCharString subTypeString };
@@ -353,7 +354,7 @@ module Account =
         let fetchAll (activeOnly: bool) : Result<Account list, string> = 
             let predicate = None
             let parameters = []
-            let activeReference = Clock.now()
+            let activeReference = Calendar.today()
             
             match readRowsFromDb predicate None parameters AnyQuantityIsAcceptable with
             | Error e -> Error e
@@ -368,7 +369,7 @@ module Account =
         /// provided date/time
         let private confirmAccountIsValidAndActive
                 (validAccount: Account)
-                (referenceTime: Instant)
+                (referenceTime: LocalDate)
                 : Result<unit, string> =
             result {                
                 let ae = activeEnd validAccount
@@ -377,7 +378,7 @@ module Account =
                     match ae with
                     | None when ab <= referenceTime -> Ok ()
                     | None when ab > referenceTime -> Error $"Account {uniqueId validAccount} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
-                    | Some x when x <= referenceTime -> Error $"Account {uniqueId validAccount} failed \"is active\" check. The reference time ({referenceTime}) is now past (or equal to) the account's active end date ({ae})."
+                    | Some x when x < referenceTime -> Error $"Account {uniqueId validAccount} failed \"is active\" check. The reference time ({referenceTime}) is now past the account's active end date ({ae})."
                     | Some _ when ab > referenceTime -> Error $"Account {uniqueId validAccount} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
                     | _ -> Ok ()
                 return activeAccount
@@ -394,7 +395,7 @@ module Account =
         let private validateParentChildRelationship
                 (parentId: Guid)
                 (childAccountType: AccountType)
-                (referenceTime: Instant)
+                (referenceTime: LocalDate)
                 : Result<unit, string> =
             result {
                 let! validAccount = fetchById parentId
@@ -413,11 +414,11 @@ module Account =
 
         let private validateProposedDeactivationDate
                 (account: Account)
-                (proposedDate: Instant)
+                (proposedDate: LocalDate)
                 : Result<unit, string> =
             let ab = activeBegin account
-            if proposedDate <= ab then
-                Error $"Deactivating account {uniqueId account} failed because the active end ({proposedDate}) would be before (or equal to) the active begin ({ab})" else
+            if proposedDate < ab then
+                Error $"Deactivating account {uniqueId account} failed because the active end ({proposedDate}) would be before the active begin ({ab})" else
                 Ok () // REQ-AC-4.2
 
         let private validateNoActiveChildrenBeforeDeactivation
@@ -428,7 +429,8 @@ module Account =
             result {
                 let! children = fetchByParentId accountId
                 do!
-                    if children |> List.exists (fun x -> isActive (AuditEnvelope.instant auditEnvelope) x) // REQ-AC-4.3
+                    let referenceDate = (AuditEnvelope.instant auditEnvelope) |> Calendar.dateFromInstant
+                    if children |> List.exists (isActive referenceDate) // REQ-AC-4.3
                     then Error $"Account {accountId} deactivation failed because one or more child account records is active"
                     else Ok ()
             }
@@ -442,7 +444,7 @@ module Account =
         let private updateDb
                 (accountId: Guid)
                 (nameUpdate: FieldUpdate<AccountName>)
-                (activeEndUpdate: FieldUpdate<Instant option>)
+                (activeEndUpdate: FieldUpdate<LocalDate option>)
                 (referenceUpdate: FieldUpdate<AccountExternalReference option>)
                 (auditEnvelope: AuditEnvelope)
                 : Result<Account, string> =
@@ -459,7 +461,7 @@ module Account =
                     
                     match activeEndUpdate with
                     | NoChange -> None
-                    | SetTo e -> Some (", active_end = @active_end", { name = "@active_end"; value = NullableDbInstant e })
+                    | SetTo e -> Some (", active_end = @active_end", { name = "@active_end"; value = NullableDbLocalDate e })
                     
                     match referenceUpdate with
                     | NoChange -> None
@@ -492,8 +494,8 @@ module Account =
                 (code: string)
                 (accountName: string)
                 (accountTypeSt: string)
-                (activeBegin: Instant)
-                (activeEnd: Instant option)
+                (activeBegin: LocalDate)
+                (activeEnd: LocalDate option)
                 (subType: string option)
                 (parentId: Guid option)
                 (reference: string option)
@@ -511,7 +513,9 @@ module Account =
                      *)
                     match parentId with
                     | None -> Ok ()
-                    | Some x -> validateParentChildRelationship x (accountType validAccount) (AuditEnvelope.instant auditEnvelope)               
+                    | Some x ->
+                        let referenceDate = (AuditEnvelope.instant auditEnvelope) |> Calendar.dateFromInstant
+                        validateParentChildRelationship x (accountType validAccount) referenceDate
                 let! () = insertNewToDb validAccount // REQ-AC-2.14
                 return validAccount
             }
@@ -522,8 +526,8 @@ module Account =
                 (code: string)
                 (accountName: string)
                 (accountTypeSt: string)
-                (activeBegin: Instant)
-                (activeEnd: Instant option)
+                (activeBegin: LocalDate)
+                (activeEnd: LocalDate option)
                 (subType: string option)
                 (parentCode: string option)
                 (reference: string option)
@@ -543,13 +547,13 @@ module Account =
         /// Otherwise, the active_end will be the system clock time 
         let deactivateAccountById
                 (accountId: Guid)
-                (explicitEnd: Instant option)
+                (explicitEnd: LocalDate option)
                 (auditEnvelope: AuditEnvelope)
                 : Result<Account, string> = // REQ-AC-4.1
             let deactivationDate =
                 match explicitEnd with
                 | Some m -> m
-                | None -> AuditEnvelope.instant auditEnvelope
+                | None -> Calendar.dateFromInstant (AuditEnvelope.instant auditEnvelope)
             result {
                 let! accountCurrent = fetchById accountId
                 do! // REQ-AC-4.5
@@ -566,7 +570,7 @@ module Account =
 
         let deactivateAccountByCode
                 (code: string)
-                (explicitEnd: Instant option)
+                (explicitEnd: LocalDate option)
                 (auditEnvelope: AuditEnvelope)
                 : Result<Account, string> =
             result {

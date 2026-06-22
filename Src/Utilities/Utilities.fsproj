@@ -9,6 +9,7 @@
     <Compile Include="ResultCE.fs" />
     <Compile Include="DAL.fs" />
     <Compile Include="Clock.fs" />
+    <Compile Include="Calendar.fs" />
   </ItemGroup>
 
   <ItemGroup>

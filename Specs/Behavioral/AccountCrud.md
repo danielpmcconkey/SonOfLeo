@@ -46,16 +46,16 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-1.39** An account record's ID and parent ID cannot be the same (an account cannot be its own parent)
 - **REQ-AC-1.40** When not null, account parent Id must be a UUID of a preexisting database account record
 - **REQ-AC-1.41** Account external reference can be null
-- **REQ-AC-1.42** Account records must be able to represent a valid Instant signifying when that account began as an "active" account
-- **REQ-AC-1.43** Account records must be able to represent a valid Instant signifying when that account ceased being an "active" account
+- **REQ-AC-1.42** Account records must be able to represent a valid Calendar Date (LocalDate) for the first date on which journal entries may be posted to the account ("active begin"). *Why a date, not an Instant:* the only thing that ever reads these boundaries is the posting gate, and journal entries are day-granular (entry dates are Calendar Dates); sub-day precision on account activity is precision no domain operation can observe. The instant a (de)activation action occurred is captured by `modified_at`, not here.
+- **REQ-AC-1.43** Account records must be able to represent a valid Calendar Date (LocalDate) for the last date on which journal entries may be posted to the account ("active end"). The boundary is inclusive: an entry dated on the active-end date is postable.
 - **REQ-AC-1.44** An account record's "active begin" may not be null
 - **REQ-AC-1.45** An account record's "active end" may be null
-- **REQ-AC-1.46** An account record's "active end" may not be earlier or equal than its "active begin"
+- **REQ-AC-1.46** An account record's "active end" may not be earlier than its "active begin". Equality is permitted and represents an account active for exactly one day (the inclusive single-day window).
 - **REQ-AC-1.47** An Account record's parent ID can never reference one of its descendent accounts.
-- **REQ-AC-1.48** An Account record is considered "deactivated" (or "inactive") when its "active end" Instant is non-null and is earlier than or equal to a given reference point.
-  - **REQ-AC-1.48.1** The reference point is context-dependent: it may be the current system clock or a date specific to the operation (e.g., a transaction's entry date). Each requirement that references deactivation status must specify which reference point applies.
+- **REQ-AC-1.48** An Account record is considered "deactivated" (or "inactive") relative to a reference Calendar Date when its "active end" is non-null and is earlier than that reference date (the active-end date itself is still active — the boundary is inclusive).
+  - **REQ-AC-1.48.1** The reference point is a Calendar Date and is context-dependent: it may be the current date (the Eastern calendar date of the AuditEnvelope's system instant) or a date specific to the operation (e.g., a transaction's entry date). Each requirement that references activity status must specify which reference point applies.
 - **REQ-AC-1.49** Account external reference cannot be whitespace only (pre-trimmed) or empty
-- **REQ-AC-1.50** An Account record is considered "active" when its "active begin" property is earlier than or equal to the provided reference Instant AND (its "active end" property is null OR its "active end" property is later than the reference Instant)
+- **REQ-AC-1.50** An Account record is considered "active" relative to a reference Calendar Date when its "active begin" is earlier than or equal to that reference date AND (its "active end" is null OR its "active end" is later than or equal to that reference date). Both boundaries are inclusive.
 
 
 ## 2. Create behaviors
@@ -67,7 +67,7 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-2.5** stricken
 - **REQ-AC-2.6** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the ID maps to an existing Account in the database.
 - **REQ-AC-2.6.1** Note, since moving to code-based UI, the "caller of the function" in the above is an internal application layer function only. The requirement still applies.
-- **REQ-AC-2.7** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the parent account is active (reference as-of the AuditEnvelope's instant property). 
+- **REQ-AC-2.7** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the parent account is active as of the current date (the Eastern calendar date of the AuditEnvelope's system instant). 
 - **REQ-AC-2.7.1** Note, since moving to code-based UI, the "caller of the function" in the above is an internal application layer function only. The requirement still applies.
 - **REQ-AC-2.8** When creating an Account record, the system must reject any duplicated ID
 - **REQ-AC-2.9** When creating an Account record, the system must reject any duplicated account code
@@ -78,12 +78,12 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-2.14** When creating an Account record, if the calling system specifies that the record should be saved to the DB, and if all validations pass and the passed in arguments represent a valid data state, the creation function must persist the fully validated account record in the database and return an account record with the created ID and created/modified timestamps
 - **REQ-AC-2.15** stricken
 - **REQ-AC-2.16** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the parent account is not already a descendent (no circular relationships).
-- **REQ-AC-2.17** When creating an Account record, it is the responsibility of the calling function to provide an accurate "active begin" Instant. There is not validation to confirm that the caller provided a correct begin date.
-- **REQ-AC-2.18** When creating an Account record, the system will validate that any non-null "active end" is later in time than the provided "active begin".
+- **REQ-AC-2.17** When creating an Account record, it is the responsibility of the calling function to provide an accurate "active begin" Calendar Date. There is no validation to confirm that the caller provided a correct begin date.
+- **REQ-AC-2.18** When creating an Account record, the system will validate that any non-null "active end" is not earlier than the provided "active begin" (equality permitted, per REQ-AC-1.46).
 - **REQ-AC-2.19** stricken
 - **REQ-AC-2.20** When creating an Account with a parent ID, the child's AccountType must match the parent's AccountType.
 - **REQ-AC-2.20.1** Note, since moving to code-based UI, the "caller of the function" in the above is an internal application layer function only. The requirement still applies.
-- **REQ-AC-2.21** The system must provide a means to create a new acocunt
+- **REQ-AC-2.21** The system must provide a means to create a new account
 
 
 ## 3. Read behaviors
@@ -100,17 +100,17 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-3.6.1** stricken
 - **REQ-AC-3.7** The system must be able to retrieve all Account records without filter
 - **REQ-AC-3.8** stricken
-- **REQ-AC-3.9** The system must be able to retrieve all active Account records relative to system run time
+- **REQ-AC-3.9** The system must be able to retrieve all active Account records relative to the current date (the Eastern calendar date of system run time)
 - **REQ-AC-3.10** The system must be able to retrieve all child records of an Account by the caller providing that parent record's Account Code string.
 
 ## 4. Update behaviors
 
-- **REQ-AC-4.1** The system must provide a means to deactivate an Account, using a provided "active end" Instant.
-- **REQ-AC-4.2** When an Account deactivation is requested, the system must reject any request where the "active end" date would be earlier or equal to the "active begin" Instant.
-- **REQ-AC-4.3** When an Account deactivation is requested, the system must reject any request where the Account to be deactivated has active children accounts (reference as-of the AuditEnvelope's instant property).
+- **REQ-AC-4.1** The system must provide a means to deactivate an Account, using a provided "active end" Calendar Date.
+- **REQ-AC-4.2** When an Account deactivation is requested, the system must reject any request where the "active end" date would be earlier than the "active begin" date (equality permitted, per REQ-AC-1.46).
+- **REQ-AC-4.3** When an Account deactivation is requested, the system must reject any request where the Account to be deactivated has active children accounts (reference as-of the current date — the Eastern calendar date of the AuditEnvelope's system instant).
 - **REQ-AC-4.4** When an Account deactivation is requested, the system must reject any request where the Account has a non-zero balance at the time of the request.
 - **REQ-AC-4.5** When an Account deactivation is requested, the system must reject any request where the Account already has a non-null "active end" date.
-- **REQ-AC-4.6** When an Account deactivation is requested, the system must reject any request where the Account has any journal entry items (either the entry Instant or posted Instant) after the provided "active end" Instant.
+- **REQ-AC-4.6** When an Account deactivation is requested, the system must reject any request where the Account is referenced by a journal entry line whose entry date is later than the provided "active end" date (a pure Calendar Date comparison; the inclusive boundary means an entry dated on the active-end date is permitted).
 - **REQ-AC-4.7** stricken
 - **REQ-AC-4.8** The system must provide a means to update an Account record's "name" field.
 - **REQ-AC-4.9** The system must provide a means to update an Account record's "external reference" field.

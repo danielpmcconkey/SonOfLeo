@@ -9,7 +9,7 @@ open Model.Ledger.AccountComponent
 open NodaTime
 open Utilities.ResultCE
 open Tests.Integrated._Cleanup
-open Utilities.Clock
+open Utilities
 
 [<Fact>]
 let ``REQ-AC-1.4 REQ-AC-2.9 AccountCode must be unique`` () =    
@@ -81,8 +81,8 @@ let ``REQ-AC-2.14 REQ-SYS-5.1 create account and fetch by ID returns identical r
     let code = "AC-2.14"
     let accountName = "Create account and fetch by ID returns identical record"
     let accountType = "Asset"
-    let activeBegin = Clock.now()
-    let activeEnd = Some (activeBegin.Plus(Duration.FromDays(60)))
+    let activeBegin = genericAccountActiveBegin
+    let activeEnd = Some (activeBegin.PlusDays(60))
     let subtype = Some "FixedAsset"
     let parentId = None
     let reference = Some "test ext ref"
@@ -267,7 +267,7 @@ let ``REQ-AC-3.7 fetch all fetches everything`` () =
     let explicitAccountType2 = "Equity"
     let explicitAccountType3 = "Revenue"
     let explicitAccountType4 = "Expense"
-    let account4ActiveEnd = Some (Clock.now().Plus(Duration.FromHours -1))
+    let account4ActiveEnd = Some (Calendar.today().PlusDays(-1))
     
     let mutable idToCleanUp_1 = None
     let mutable idToCleanUp_2 = None
@@ -332,7 +332,7 @@ let ``REQ-AC-3.9 fetch all with active only fetches active accounts relative to 
     let explicitAccountType2 = "Equity"
     let explicitAccountType3 = "Revenue"
     let explicitAccountType4 = "Asset"
-    let account4ActiveEnd = Some (Clock.now().Plus(Duration.FromHours -1))
+    let account4ActiveEnd = Some (Calendar.today().PlusDays(-1))
     
     let mutable idToCleanUp_1 = None
     let mutable idToCleanUp_2 = None
@@ -416,7 +416,7 @@ let ``REQ-AC-2.6 parent ID must reference existing account`` () =
 let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--positive`` () =
     let code_parent = "AC-2.7-P"
     let code_child1 = "AC-2.7-C1"
-    let activeBegin_parent = Clock.now().Plus(Duration.FromDays(-700))
+    let activeBegin_parent = Calendar.today().PlusDays(-700)
     
     let mutable idToCleanUp_parent = None
     let mutable idToCleanUp_child1 = None
@@ -449,8 +449,8 @@ let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--positiv
 [<Fact>]
 let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--negative`` () =
     let code_parent = "AC-2.7-P"
-    let activeBegin_parent = Clock.now().Plus(Duration.FromDays(-700))
-    let activeEnd_parent = Clock.now().Plus(Duration.FromDays(-1))
+    let activeBegin_parent = Calendar.today().PlusDays(-700)
+    let activeEnd_parent = Calendar.today().PlusDays(-1)
     let code_child1 = "AC-2.7-C1"
     
     let mutable idToCleanUp_parent = None
@@ -535,6 +535,9 @@ let ``REQ-AC-4.1 deactivateAccount sets active end and returns inactive account`
     
     let envelope1 = AuditEnvelope.create AccountCreate
     let envelope2 = AuditEnvelope.create AccountDeactivation
+    let dateRef1 = (AuditEnvelope.instant envelope1) |> Calendar.dateFromInstant
+    let dateRef2 = (AuditEnvelope.instant envelope2) |> Calendar.dateFromInstant
+    let explicitDeactivationDate = Some (Calendar.today().PlusDays(-1))
     
     let mutable idToCleanUp = None
     try
@@ -547,12 +550,12 @@ let ``REQ-AC-4.1 deactivateAccount sets active end and returns inactive account`
             idToCleanUp <- Some pushId
             
             
-            let! pullAccount = Account.deactivateAccountById pushId None envelope2
+            let! pullAccount = Account.deactivateAccountById pushId explicitDeactivationDate envelope2
             let pullId = Account.uniqueId pullAccount
             
             Assert.Equal(pushId, pullId)
-            Assert.True(Account.isActive (AuditEnvelope.instant envelope1) pushAccount)
-            Assert.False(Account.isActive (AuditEnvelope.instant envelope2) pullAccount)
+            Assert.True(Account.isActive dateRef1 pushAccount)
+            Assert.False(Account.isActive dateRef2 pullAccount)
             
             return ()
         }
@@ -568,8 +571,8 @@ let ``REQ-AC-4.1 deactivateAccount sets active end and returns inactive account`
 let ``REQ-AC-4.2 deactivateAccount rejects end earlier than begin`` () =
     let envelope1 = AuditEnvelope.create AccountCreate
     let envelope2 = AuditEnvelope.create AccountDeactivation
-    let activeBegin = Clock.now().Plus(Duration.FromDays -1)
-    let badActiveEnd = Some (activeBegin.Plus(Duration.FromDays -1))
+    let activeBegin = Calendar.today().PlusDays(-1)
+    let badActiveEnd = Some (activeBegin.PlusDays(-1))
     
     let mutable idToCleanUp = None
     try
@@ -601,11 +604,11 @@ let ``REQ-AC-4.2 deactivateAccount rejects end earlier than begin`` () =
         | Error e -> failwith e
     
 [<Fact>]
-let ``REQ-AC-4.2 deactivateAccount rejects end equal to begin`` () =
+let ``REQ-AC-4.2 deactivateAccount accepts end equal to begin`` () =
     let envelope1 = AuditEnvelope.create AccountCreate
     let envelope2 = AuditEnvelope.create AccountDeactivation
-    let activeBegin = Clock.now().Plus(Duration.FromDays -1)
-    let badActiveEnd = Some activeBegin
+    let activeBegin = Calendar.today().PlusDays(-1)
+    let goodActiveEnd = Some activeBegin
     
     let mutable idToCleanUp = None
     try
@@ -617,13 +620,12 @@ let ``REQ-AC-4.2 deactivateAccount rejects end equal to begin`` () =
             let pushId = Account.uniqueId pushAccount
             idToCleanUp <- Some pushId
             
-            let deactivationResult = Account.deactivateAccountById pushId badActiveEnd envelope2
+            let deactivationResult = Account.deactivateAccountById pushId goodActiveEnd envelope2
             
             let! _ =
                 match deactivationResult with
-                | Error _ -> Ok ()
-                | Ok _ ->
-                    Error "Account deactivation was allowed to succeed with an equal end and begin"
+                | Error _ -> Error "Account deactivation failed with an equal end and begin"
+                | Ok _ -> Ok ()
             
             return ()
             
@@ -641,7 +643,7 @@ let ``REQ-AC-4.3 deactivateAccount rejects when active children exist`` () =
     let code_parent = "AC-4.3-P"
     let code_child1 = "AC-4.3-C1"
     let envelope_deactivation = AuditEnvelope.create AccountDeactivation
-    let goodActiveEnd = Some (Clock.now ())
+    let goodActiveEnd = Some (Calendar.today())
     
     let mutable idToCleanUp_parent = None
     let mutable idToCleanUp_child1 = None
@@ -682,7 +684,7 @@ let ``REQ-AC-4.3 deactivateAccount rejects when active children exist`` () =
 [<Fact>]
 let ``REQ-AC-4.5 deactivateAccount rejects already deactivated account`` () =
     let envelope_deactivation1 = AuditEnvelope.create AccountDeactivation
-    let goodActiveEnd = Some (Clock.now ())
+    let goodActiveEnd = Some (Calendar.today().PlusDays(-1))
     
     let mutable idToCleanUp = None
     try
@@ -694,15 +696,15 @@ let ``REQ-AC-4.5 deactivateAccount rejects already deactivated account`` () =
             let activeId = Account.uniqueId activeAccount
             idToCleanUp <- Some activeId
             
-            Assert.True(Account.isActive (Clock.now ()) activeAccount) // account starts as active
+            Assert.True(Account.isActive (Calendar.today()) activeAccount) // account starts as active
             
             
             let! inactiveAccount = Account.deactivateAccountById activeId goodActiveEnd envelope_deactivation1
             
-            Assert.False(Account.isActive (Clock.now()) inactiveAccount) // first deactivation succeeds
+            Assert.False(Account.isActive (Calendar.today()) inactiveAccount) // first deactivation succeeds
             
             let envelope_deactivation2 = AuditEnvelope.create AccountDeactivation
-            let betterActiveEnd = Some ((Clock.now ()).Plus(Duration.FromDays 1))
+            let betterActiveEnd = Some (Calendar.today().PlusDays(1))
             let deactivationResult2 = Account.deactivateAccountById activeId betterActiveEnd envelope_deactivation2 // should fail            
             
             let! _ =
@@ -874,8 +876,8 @@ let ``REQ-SYS-3.3 account update operations set modifiedAt from AuditEnvelope`` 
 
 [<Fact>]
 let ``REQ-AC-4.19 update to deactivated account is permitted`` () =
-    let activeBegin = Clock.now().Plus(Duration.FromDays -365)
-    let activeEnd = Clock.now().Plus(Duration.FromDays -1) // already deactive
+    let activeBegin = Calendar.today().PlusDays(-365)
+    let activeEnd =  Calendar.today().PlusDays(-1) // already deactive
     let envelope_update = AuditEnvelope.create AccountUpdateName
     let newName = "Blah blah blah"
     
@@ -890,7 +892,7 @@ let ``REQ-AC-4.19 update to deactivated account is permitted`` () =
             idToCleanUp <- Some createdId
             
             // validate that it is *indeed* inactive
-            Assert.False(Account.isActive (Clock.now()) createdAccount)
+            Assert.False(Account.isActive (Calendar.today()) createdAccount)
             
             // update
             let! updatedAccount = Account.updateAccountNameById createdId newName envelope_update

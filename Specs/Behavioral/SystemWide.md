@@ -38,6 +38,11 @@ domain-level decision, made in each entity's spec (for Accounts, see REQ-AC-5.1)
 
 - **REQ-SYS-5.1** The persistence layer must persist all entity properties in such a way that the entity type can be perfectly reconstituted upon subsequent read.
 
+## 6. State transitions
+
+- **REQ-SYS-6.1** No state-transition operation may silently succeed as a no-op. When a requested operation would change nothing — because the target entity is already in the requested state, or because the record the operation would create already exists — the operation must produce an error rather than update or insert nothing. A silent no-op masks a caller that believes the system is in a different state than it is, hiding an upstream problem the system should surface. Per-entity instances cite this rule (e.g., REQ-FP-4.1.1 close-already-closed, REQ-FP-4.2.1 reopen-already-open, REQ-AC-2.9 / REQ-FP-2.2 duplicate creation, and journal-entry void-already-voided).
+- **REQ-SYS-6.1.1** Any exception to REQ-SYS-6.1 (an operation deliberately permitted to be idempotent) must be stated explicitly in the relevant entity spec; absent such a statement, the no-op rejection applies.
+
 ## Waived from testing
 
 Active requirements that are deliberately not verified by tests. Two-state rule: every

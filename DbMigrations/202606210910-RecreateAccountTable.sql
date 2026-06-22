@@ -1,7 +1,5 @@
 /*
  executed manually in all 3 envs 6/21 09:14
- 
- 
  */
 drop table ledger.account;
 CREATE TABLE IF NOT EXISTS ledger.account

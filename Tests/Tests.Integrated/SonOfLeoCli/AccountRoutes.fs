@@ -3,10 +3,9 @@ module Tests.Integrated.SonOfLeoCli.AccountRoutes
 open Model.Ledger.AccountComponent
 open Model.UI.InterfaceContractTypes
 open Model.UI.Json
-open NodaTime
 open Tests.Integrated.GenericTestProperties
 open Tests.Integrated.SonOfLeoCli.CliExecutor
-open Utilities.Clock
+open Utilities
 open Xunit
 open Model.Ledger.Account
 open Utilities.ResultCE
@@ -265,20 +264,20 @@ let ``REQ-AC-3.7 Account FetchAll happy path`` () =
 
 [<Fact>]
 let ``REQ-AC-4.1 Account Deactivate happy path`` () =
-    let now = Clock.now()
-    let activeEndInstant = now.Plus(Duration.FromDays -1)
+    let now = Calendar.today()
+    let endDate = now.PlusDays(-1)
     let mutable idToCleanUp_1 = None
     try
         let railroad = result {
             let! account = createAccountInDb genericAccountCodeString
             let accountId = Account.uniqueId account
             idToCleanUp_1 <- Some accountId
-            let! payload = { code = genericAccountCodeString; activeEnd = activeEndInstant } |> toJson<AccountDeactivationInput>
+            let! payload = { code = genericAccountCodeString; activeEnd = endDate } |> toJson<AccountDeactivationInput>
             let args = ["Account"; "Deactivate"]
-            let code, accountReturnString, _ = runCli args payload
-            Assert.Equal(0, code)
+            let code, accountReturnString, e = runCli args payload
+            do! if code = 1 then Error e else Ok ()
             let! accountReturn = accountReturnString |> fromJson<AccountReturn>            
-            Assert.Equal(Some activeEndInstant, accountReturn.activeEnd)
+            Assert.Equal(Some endDate, accountReturn.activeEnd)
             return ()
         }
         match railroad with
@@ -292,8 +291,8 @@ let ``REQ-AC-4.1 Account Deactivate happy path`` () =
 [<Fact>]
 let ``REQ-NGUI-1.5 Account Deactivate fails with invalid code`` () =
     let badAccountCode = "BatS**t"
-    let now = Clock.now()
-    let activeEndInstant = now.Plus(Duration.FromDays -1)
+    let now = Calendar.today()
+    let activeEndInstant = now.PlusDays(-1)
     let expectedReturnCode = 1
     let expectedError = "Execute scalar returned null in fetchIdByCode"
     let railroad = result {

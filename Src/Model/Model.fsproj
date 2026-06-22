@@ -12,11 +12,11 @@
     <Compile Include="Ledger\Account.fs" />
     <Compile Include="Ledger\PeriodKey.fs" />
     <Compile Include="Ledger\FiscalPeriod.fs" />
+    <Compile Include="UI\InterfaceContractTypes.fs" />
+    <Compile Include="UI\Json.fs" />
     <Folder Include="Ops\" />
     <Folder Include="Portfolio\" />
     <Folder Include="Reporting\" />
-    <Compile Include="UI\InterfaceContractTypes.fs" />
-    <Compile Include="UI\Json.fs" />
   </ItemGroup>
 
   <ItemGroup>

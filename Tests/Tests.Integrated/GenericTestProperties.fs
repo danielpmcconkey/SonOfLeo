@@ -3,7 +3,7 @@ module Tests.Integrated.GenericTestProperties
 open Model.Audit
 open Model.Ledger.AccountComponent
 open NodaTime
-open Utilities.Clock
+open Utilities
 
 // audit
 let genericAuditEnvelope = AuditEnvelope.create AccountCreate
@@ -13,7 +13,7 @@ let genericAccountCodeString = "GenCode"
 let genericAccountNameString = "Gen account name"
 let genericAccountTypeString = "Revenue"
 let genericAccountType = AccountType.fromString genericAccountTypeString |> Result.defaultWith failwith
-let genericAccountActiveBegin = Clock.now().Plus(Duration.FromDays -365)
+let genericAccountActiveBegin = Calendar.today().PlusYears(-1)
 let genericAccountActiveEnd = None
 let genericAccountSubtype = None
 let genericAccountSubtypeString = "Cash"

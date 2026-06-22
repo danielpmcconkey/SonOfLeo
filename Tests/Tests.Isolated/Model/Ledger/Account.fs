@@ -6,13 +6,13 @@ open Xunit
 open Model.Ledger.Account
 open Model.Ledger.AccountComponent
 open NodaTime
-open Utilities.Clock
+open Utilities
 
 let genericCode = "GenCode"
 let genericName = "Gen account name"
 let genericAccountTypePrimitive = "Revenue"
 let genericAccountType = AccountType.fromString genericAccountTypePrimitive |> Result.defaultWith failwith
-let genericActiveBegin = Clock.now().Plus(Duration.FromDays -365)
+let genericActiveBegin = Calendar.today().PlusYears(-1)
 let genericActiveEnd = None
 let genericSubtype = None
 let genericSubtypeText = "Cash"
@@ -59,17 +59,17 @@ let ``REQ-SYS-2.1 constructNew rejects invalid type-subtype combination`` () =
 
 [<Fact>]
 let ``REQ-AC-2.18 constructNew rejects activeEnd earlier than activeBegin`` () =
-    let badEnd = Some(genericActiveBegin.Plus(Duration.FromDays -1))
+    let badEnd = Some(genericActiveBegin.PlusDays(-1))
     Account.constructNew genericCode genericName genericAccountTypePrimitive genericActiveBegin
         badEnd genericSubtype genericParentId genericReference genericEnvelope
     |> Result.isError |> Assert.True
 
 [<Fact>]
-let ``REQ-AC-2.18 constructNew rejects activeEnd equal to activeBegin`` () =
-    let badEnd = Some genericActiveBegin
+let ``REQ-AC-2.18 constructNew accepts activeEnd equal to activeBegin`` () =
+    let goodEnd = Some genericActiveBegin
     Account.constructNew genericCode genericName genericAccountTypePrimitive genericActiveBegin
-        badEnd genericSubtype genericParentId genericReference genericEnvelope
-    |> Result.isError |> Assert.True
+        goodEnd genericSubtype genericParentId genericReference genericEnvelope
+    |> Result.isOk |> Assert.True
 
 [<Fact>]
 let ``REQ-AC-2.10 constructNew rejects invalid subtype string`` () =
@@ -95,47 +95,47 @@ let ``REQ-AC-2.10 constructNew rejects invalid subtype string`` () =
 
 [<Fact>]
 let ``REQ-AC-1.50 isActive returns true when begin <= ref and no end`` () =
-    let explicitBegin = Clock.now().Plus(Duration.FromDays -1)
+    let explicitBegin = Calendar.today().PlusDays(-1)
     let explicitEnd = None
     Account.constructNew genericCode genericName genericAccountTypePrimitive explicitBegin
         explicitEnd genericSubtype genericParentId genericReference genericEnvelope
     |> Result.defaultWith failwith
-    |> Account.isActive (AuditEnvelope.instant genericEnvelope)
+    |> Account.isActive ((AuditEnvelope.instant genericEnvelope) |> Calendar.dateFromInstant)
     |> Assert.True
 
 [<Fact>]
 let ``REQ-AC-1.50 isActive returns true when begin <= ref and end > ref`` () =
-    let explicitBegin = Clock.now().Plus(Duration.FromDays -1)
-    let explicitEnd = Some(Clock.now().Plus(Duration.FromDays 1))
+    let explicitBegin = Calendar.today().PlusDays(-1)
+    let explicitEnd = Some (Calendar.today().PlusDays(1))
     Account.constructNew genericCode genericName genericAccountTypePrimitive explicitBegin
         explicitEnd genericSubtype genericParentId genericReference genericEnvelope
     |> Result.defaultWith failwith
-    |> Account.isActive (AuditEnvelope.instant genericEnvelope)
+    |> Account.isActive ((AuditEnvelope.instant genericEnvelope) |> Calendar.dateFromInstant)
     |> Assert.True
 
 [<Fact>]
-let ``REQ-AC-1.48 isActive returns false when end <= ref (deactivated)`` () =
-    let explicitBegin = Clock.now().Plus(Duration.FromDays -2)
-    let explicitEnd = Some(Clock.now().Plus(Duration.FromDays -1))
+let ``REQ-AC-1.48 isActive returns false when end < ref (deactivated)`` () =
+    let explicitBegin = Calendar.today().PlusDays(-2)
+    let explicitEnd = Some (Calendar.today().PlusDays(-1))
     Account.constructNew genericCode genericName genericAccountTypePrimitive explicitBegin
         explicitEnd genericSubtype genericParentId genericReference genericEnvelope
     |> Result.defaultWith failwith
-    |> Account.isActive (AuditEnvelope.instant genericEnvelope)
+    |> Account.isActive ((AuditEnvelope.instant genericEnvelope) |> Calendar.dateFromInstant)
     |> Assert.False
 
 [<Fact>]
 let ``REQ-AC-1.50 isActive returns false when ref precedes begin (not yet started)`` () =
-    let explicitBegin = Clock.now().Plus(Duration.FromDays 1)
+    let explicitBegin = Calendar.today().PlusDays(1)
     let explicitEnd = None
     Account.constructNew genericCode genericName genericAccountTypePrimitive explicitBegin
         explicitEnd genericSubtype genericParentId genericReference genericEnvelope
     |> Result.defaultWith failwith
-    |> Account.isActive (AuditEnvelope.instant genericEnvelope)
+    |> Account.isActive ((AuditEnvelope.instant genericEnvelope) |> Calendar.dateFromInstant)
     |> Assert.False
 
 [<Fact>]
 let ``REQ-AC-1.50 isActive returns true when the reference point exactly equals begin`` () =
-    let explicitBegin = Clock.now()
+    let explicitBegin = Calendar.today()
     let explicitEnd = None
     Account.constructNew genericCode genericName genericAccountTypePrimitive explicitBegin
         explicitEnd genericSubtype genericParentId genericReference genericEnvelope
@@ -144,12 +144,12 @@ let ``REQ-AC-1.50 isActive returns true when the reference point exactly equals 
     |> Assert.True
 
 [<Fact>]
-let ``REQ-AC-1.48 isActive returns false when the reference point exactly equals end`` () =
-    let explicitBegin = Clock.now().Plus(Duration.FromDays -1)
-    let now = Clock.now()
+let ``REQ-AC-1.48 isActive returns true when the reference point exactly equals end`` () =
+    let explicitBegin = Calendar.today().PlusDays(-1)
+    let now = Calendar.today()
     let explicitEnd = Some now
     Account.constructNew genericCode genericName genericAccountTypePrimitive explicitBegin
         explicitEnd genericSubtype genericParentId genericReference genericEnvelope
     |> Result.defaultWith failwith
     |> Account.isActive now
-    |> Assert.False
+    |> Assert.True

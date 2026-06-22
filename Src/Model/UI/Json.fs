@@ -8,6 +8,7 @@ module Json =
         let o = JsonSerializerOptions()
         o.Converters.Add(JsonFSharpConverter())
         o.Converters.Add(NodaConverters.InstantConverter)
+        o.Converters.Add(NodaConverters.LocalDateConverter)
         o
     
     let fromJson<'T> (json: string) : Result<'T, string> = // REQ-NGUI-2.4, REQ-NGUI-3.5

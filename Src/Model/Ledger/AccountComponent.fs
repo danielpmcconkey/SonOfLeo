@@ -11,28 +11,28 @@ module AccountComponent =
      *)
 
     type AccountActivityPeriod =
-        private {   activeBegin: Instant                        // REQ-AC-1.42, REQ-AC-1.44
-                    activeEnd: Instant option                   // REQ-AC-1.43, REQ-AC-1.45
+        private {   activeBegin: LocalDate                        // REQ-AC-1.42, REQ-AC-1.44
+                    activeEnd: LocalDate option                   // REQ-AC-1.43, REQ-AC-1.45
         }
     
     module AccountActivityPeriod = // REQ-AC-2.17
         let activeBegin (a:AccountActivityPeriod) = a.activeBegin
         let activeEnd (a:AccountActivityPeriod) = a.activeEnd
-        let create (rawBegin: Instant) (rawEnd: Instant option) : Result<AccountActivityPeriod, string> =
+        let create (rawBegin: LocalDate) (rawEnd: LocalDate option) : Result<AccountActivityPeriod, string> =
             match rawEnd with
             | None -> Ok { activeBegin = rawBegin; activeEnd = None }
             | Some x -> 
-                if x <= rawBegin then Error "Active end cannot be before active begin" else // REQ-AC-1.46, REQ-AC-2.18
+                if x < rawBegin then Error "Active end cannot be before active begin" else // REQ-AC-1.46, REQ-AC-2.18
                     Ok { activeBegin = rawBegin; activeEnd = rawEnd }
         let isActive
-                (referencePoint: Instant) // REQ-AC-1.48.1
+                (referencePoint: LocalDate) // REQ-AC-1.48.1
                 (aap: AccountActivityPeriod)
                 : bool =
             let beginDate = activeBegin aap
             let endDate = activeEnd aap
             match endDate with
             | None when beginDate <= referencePoint -> true
-            | Some x when beginDate <= referencePoint && x > referencePoint -> true // REQ-AC-1.48
+            | Some x when beginDate <= referencePoint && x >= referencePoint -> true // REQ-AC-1.50
             | _ -> false
     
     type AccountCode = private AccountCode of string

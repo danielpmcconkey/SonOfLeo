@@ -3,8 +3,7 @@ module Tests.Isolated.Model.Ledger.AccountComponent
 open System
 open Xunit
 open Model.Ledger.AccountComponent
-open Utilities.Clock
-open NodaTime
+open Utilities
 
 // =============================================================================
 // AccountCode
@@ -517,24 +516,24 @@ let ``REQ-SYS-1.1 AccountExternalReference trims leading and trailing whitespace
 
 [<Fact>]
 let ``REQ-AC-1.46 AccountActivityPeriod rejects activeEnd earlier than activeBegin`` () =
-    let ab = Clock.now()
-    let ae = Some (ab.Plus(Duration.FromDays -1))
+    let ab = Calendar.today()
+    let ae = Some (ab.PlusDays(-1))
     AccountActivityPeriod.create ab ae |> Result.isError |> Assert.True
 
 [<Fact>]
-let ``REQ-AC-1.46 AccountActivityPeriod rejects activeEnd equal to activeBegin`` () =
-    let ab = Clock.now()
+let ``REQ-AC-1.46 AccountActivityPeriod accepts activeEnd equal to activeBegin`` () =
+    let ab = Calendar.today()
     let ae = Some ab
-    AccountActivityPeriod.create ab ae |> Result.isError |> Assert.True
+    AccountActivityPeriod.create ab ae |> Result.isOk |> Assert.True
 
 [<Fact>]
 let ``REQ-AC-1.45 AccountActivityPeriod accepts null activeEnd`` () =
-    let ab = Clock.now()
+    let ab = Calendar.today()
     let ae = None
     AccountActivityPeriod.create ab ae |> Result.isOk |> Assert.True
 
 [<Fact>]
 let ``REQ-AC-1.42 REQ-AC-1.43 AccountActivityPeriod accepts valid begin and end`` () =
-    let ab = Clock.now()
-    let ae = Some (ab.Plus(Duration.FromDays 1))
+    let ab = Calendar.today()
+    let ae = Some (ab.PlusDays(1))
     AccountActivityPeriod.create ab ae |> Result.isOk |> Assert.True

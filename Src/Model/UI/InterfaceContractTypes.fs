@@ -24,8 +24,8 @@ module InterfaceContractTypes =
         code: string
         name: string
         accountTypeSt: string
-        activeBegin: Instant
-        activeEnd: Instant option
+        activeBegin: LocalDate
+        activeEnd: LocalDate option
         subType: string option
         parentCode: string option
         reference: string option
@@ -37,8 +37,8 @@ module InterfaceContractTypes =
         code: string
         name: string
         accountTypeSt: string
-        activeBegin: Instant
-        activeEnd: Instant option
+        activeBegin: LocalDate
+        activeEnd: LocalDate option
         subType: string option
         parentCode: string option
         reference: string option }
@@ -48,7 +48,7 @@ module InterfaceContractTypes =
     type AccountFetchByAccountTypeInput = { accountTypeSt: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
     type AccountFetchAllInput = { activeOnly: bool; } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
     // update
-    type AccountDeactivationInput = { code: string; activeEnd: Instant } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+    type AccountDeactivationInput = { code: string; activeEnd: LocalDate } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
     type AccountUpdateNameInput = { code: string; newName: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
     type AccountUpdateExternalReferenceInput = { code: string; newReference: string option } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
     
