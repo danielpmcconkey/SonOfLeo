@@ -7,7 +7,7 @@ open Tests.Integrated.GenericTestProperties
 open Tests.Integrated.SonOfLeoCli.CliExecutor
 open Utilities
 open Xunit
-open Model.Ledger.Account
+open Model.Ledger
 open Utilities.ResultCE
 open Tests.Integrated._Cleanup
 

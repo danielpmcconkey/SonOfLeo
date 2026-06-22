@@ -4,9 +4,8 @@ open System
 open Model.Audit
 open Tests.Integrated.GenericTestProperties
 open Xunit
-open Model.Ledger.Account
+open Model.Ledger
 open Model.Ledger.AccountComponent
-open NodaTime
 open Utilities.ResultCE
 open Tests.Integrated._Cleanup
 open Utilities

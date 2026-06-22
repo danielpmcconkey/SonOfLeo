@@ -3,9 +3,8 @@ module Tests.Isolated.Model.Ledger.Account
 open System
 open Model.Audit
 open Xunit
-open Model.Ledger.Account
+open Model.Ledger
 open Model.Ledger.AccountComponent
-open NodaTime
 open Utilities
 
 let genericCode = "GenCode"

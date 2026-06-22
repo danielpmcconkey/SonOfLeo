@@ -2,623 +2,619 @@ namespace Model.Ledger
 
 open System
 open Utilities
-open Utilities.Clock
 open Utilities.ResultCE
 open Utilities.DAL
 open Model.Audit
 open AccountComponent
 open NodaTime
+type Account =
+  private  {    uniqueId: Guid                                     // REQ-AC-1.21, REQ-AC-1.22
+                code: AccountCode                                  // REQ-AC-1.1–1.5
+                accountName: AccountName                           // REQ-AC-1.6–1.8
+                accountType: AccountType                           // REQ-AC-1.10, REQ-AC-1.23
+                activityPeriod: AccountActivityPeriod
+                accountSubType: AccountSubtype option              // REQ-AC-1.19, REQ-AC-1.28–1.36
+                parentId: Guid option                              // REQ-AC-1.37–1.40
+                externalReference: AccountExternalReference option // REQ-AC-1.20, REQ-AC-1.41
+                createdAt: Instant                                 // REQ-SYS-3.1
+                modifiedAt: Instant                                // REQ-SYS-3.1
+    }
 
 module Account =
 
-    type Account =
-      private  {    uniqueId: Guid                                     // REQ-AC-1.21, REQ-AC-1.22
-                    code: AccountCode                                  // REQ-AC-1.1–1.5
-                    accountName: AccountName                           // REQ-AC-1.6–1.8
-                    accountType: AccountType                           // REQ-AC-1.10, REQ-AC-1.23
-                    activityPeriod: AccountActivityPeriod
-                    accountSubType: AccountSubtype option              // REQ-AC-1.19, REQ-AC-1.28–1.36
-                    parentId: Guid option                              // REQ-AC-1.37–1.40
-                    externalReference: AccountExternalReference option // REQ-AC-1.20, REQ-AC-1.41
-                    createdAt: Instant                                 // REQ-SYS-3.1
-                    modifiedAt: Instant                                // REQ-SYS-3.1
-        }
-
-    module Account =
-
 // Accessor functions
 
-        let uniqueId (a:Account) = a.uniqueId
-        let code (a:Account) = a.code
-        let accountName (a:Account) = a.accountName
-        let accountType (a:Account) = a.accountType
-        let activeBegin (a:Account) = AccountActivityPeriod.activeBegin a.activityPeriod // derived property here for convenience
-        let activeEnd (a:Account) = AccountActivityPeriod.activeEnd a.activityPeriod // derived property here for convenience
-        let activityPeriod (a:Account) = a.activityPeriod
-        let accountSubType (a:Account) = a.accountSubType
-        let parentId (a:Account) = a.parentId
-        let externalReference (a:Account) = a.externalReference
-        let createdAt (a:Account) = a.createdAt
-        let modifiedAt (a:Account) = a.modifiedAt
-        let isActive // derived property here for convenience;
-                (referencePoint: LocalDate)
-                (a:Account)
-                : bool =  
-            AccountActivityPeriod.isActive referencePoint (activityPeriod a)
+    let uniqueId (a:Account) = a.uniqueId
+    let code (a:Account) = a.code
+    let accountName (a:Account) = a.accountName
+    let accountType (a:Account) = a.accountType
+    let activeBegin (a:Account) = AccountActivityPeriod.activeBegin a.activityPeriod // derived property here for convenience
+    let activeEnd (a:Account) = AccountActivityPeriod.activeEnd a.activityPeriod // derived property here for convenience
+    let activityPeriod (a:Account) = a.activityPeriod
+    let accountSubType (a:Account) = a.accountSubType
+    let parentId (a:Account) = a.parentId
+    let externalReference (a:Account) = a.externalReference
+    let createdAt (a:Account) = a.createdAt
+    let modifiedAt (a:Account) = a.modifiedAt
+    let isActive // derived property here for convenience;
+            (referencePoint: LocalDate)
+            (a:Account)
+            : bool =  
+        AccountActivityPeriod.isActive referencePoint (activityPeriod a)
 
 // Private constructors
 
-        /// constructOmni is a private method used in all "construct" modes by specific public
-        /// constructors designed to be used in specific use cases. It assumes the caller
-        /// (public constructor) knows its business and makes decisions on whether or when to
-        /// create things like UUIDs and timestamps
-        let private constructOmni
-                (uniqueId: Guid)
-                (code: AccountCode)
-                (accountName: AccountName)
-                (accountType: AccountType)
-                (activityPeriod: AccountActivityPeriod)
-                (createdAt: Instant)
-                (modifiedAt: Instant)
-                (subType: AccountSubtype option)
-                (parentId: Guid option)
-                (reference: AccountExternalReference option)
-                : Result<Account, string> =
-            if AccountSubtype.validTypeSubtypeCombination accountType subType then Ok {
-                uniqueId = uniqueId
-                code = code
-                accountName = accountName
-                accountType = accountType
-                activityPeriod = activityPeriod
-                createdAt = createdAt
-                modifiedAt = modifiedAt
-                accountSubType = subType
-                parentId = parentId
-                externalReference = reference
-            } else
-                Error $"Invalid AccountType / AccountSubType combo: {accountType} / {subType}"
+    /// constructOmni is a private method used in all "construct" modes by specific public
+    /// constructors designed to be used in specific use cases. It assumes the caller
+    /// (public constructor) knows its business and makes decisions on whether or when to
+    /// create things like UUIDs and timestamps
+    let private constructOmni
+            (uniqueId: Guid)
+            (code: AccountCode)
+            (accountName: AccountName)
+            (accountType: AccountType)
+            (activityPeriod: AccountActivityPeriod)
+            (createdAt: Instant)
+            (modifiedAt: Instant)
+            (subType: AccountSubtype option)
+            (parentId: Guid option)
+            (reference: AccountExternalReference option)
+            : Result<Account, string> =
+        if AccountSubtype.validTypeSubtypeCombination accountType subType then Ok {
+            uniqueId = uniqueId
+            code = code
+            accountName = accountName
+            accountType = accountType
+            activityPeriod = activityPeriod
+            createdAt = createdAt
+            modifiedAt = modifiedAt
+            accountSubType = subType
+            parentId = parentId
+            externalReference = reference
+        } else
+            Error $"Invalid AccountType / AccountSubType combo: {accountType} / {subType}"
 
 // Public constructors
 
-        /// constructNew is used where the underlying storage layer does not already have
-        /// a representation of this record, such as when wanting to build an Account for
-        /// insertion into the database or when creating Account records purely for testing.
-        let constructNew
-                (code: string)
-                (accountName: string)
-                (accountType: string)
-                (activeBegin: LocalDate)
-                (activeEnd: LocalDate option)
-                (subType: string option)
-                (parentId: Guid option)
-                (reference: string option)
-                (auditEnvelope: AuditEnvelope)
-                : Result<Account, string> =            
-            let uniqueId = Guid.NewGuid() // REQ-AC-1.39, REQ-AC-2.13
-            let now = AuditEnvelope.instant auditEnvelope
-            let createdAt =  now // REQ-SYS-3.2
-            let modifiedAt = now // REQ-SYS-3.2
-            let activityPeriodResult = AccountActivityPeriod.create activeBegin activeEnd // REQ-AC-2.17, REQ-AC-2.18
-            let codeResult = AccountCode.create code
-            let accountNameResult = AccountName.create accountName
-            let typeResult = AccountType.fromString accountType // REQ-AC-2.4
-            let subTypeResult = 
-                match subType with
-                | Some st -> AccountSubtype.fromString(st) |> Result.map Some // REQ-AC-2.10
-                | None -> Ok None
-            let referenceResult =
-                match reference with
-                | Some r -> AccountExternalReference.create(r) |> Result.map Some
-                | None -> Ok None
-            let gfyAuditorsResult =
-                match parentId with
-                | None -> Ok ()
-                | Some x when x = uniqueId -> Error "Go fuck yourselves auditors"
-                | _ -> Ok ()
+    /// constructNew is used where the underlying storage layer does not already have
+    /// a representation of this record, such as when wanting to build an Account for
+    /// insertion into the database or when creating Account records purely for testing.
+    let constructNew
+            (code: string)
+            (accountName: string)
+            (accountType: string)
+            (activeBegin: LocalDate)
+            (activeEnd: LocalDate option)
+            (subType: string option)
+            (parentId: Guid option)
+            (reference: string option)
+            (auditEnvelope: AuditEnvelope)
+            : Result<Account, string> =            
+        let uniqueId = Guid.NewGuid() // REQ-AC-1.39, REQ-AC-2.13
+        let now = AuditEnvelope.instant auditEnvelope
+        let createdAt =  now // REQ-SYS-3.2
+        let modifiedAt = now // REQ-SYS-3.2
+        let activityPeriodResult = AccountActivityPeriod.create activeBegin activeEnd // REQ-AC-2.17, REQ-AC-2.18
+        let codeResult = AccountCode.create code
+        let accountNameResult = AccountName.create accountName
+        let typeResult = AccountType.fromString accountType // REQ-AC-2.4
+        let subTypeResult = 
+            match subType with
+            | Some st -> AccountSubtype.fromString(st) |> Result.map Some // REQ-AC-2.10
+            | None -> Ok None
+        let referenceResult =
+            match reference with
+            | Some r -> AccountExternalReference.create(r) |> Result.map Some
+            | None -> Ok None
+        let gfyAuditorsResult =
+            match parentId with
+            | None -> Ok ()
+            | Some x when x = uniqueId -> Error "Go fuck yourselves auditors"
+            | _ -> Ok ()
 
-            result {
-                let! _ = gfyAuditorsResult
-                let! activityPeriod = activityPeriodResult
-                let! validCode = codeResult
-                let! validName = accountNameResult
-                let! validType = typeResult
-                let! validSubType = subTypeResult
-                let! validRef = referenceResult
-                return!
-                    constructOmni uniqueId validCode validName validType activityPeriod
-                        createdAt modifiedAt validSubType parentId validRef
-            }
+        result {
+            let! _ = gfyAuditorsResult
+            let! activityPeriod = activityPeriodResult
+            let! validCode = codeResult
+            let! validName = accountNameResult
+            let! validType = typeResult
+            let! validSubType = subTypeResult
+            let! validRef = referenceResult
+            return!
+                constructOmni uniqueId validCode validName validType activityPeriod
+                    createdAt modifiedAt validSubType parentId validRef
+        }
 
-        /// reconstitute is used where the underlying storage layer already represents
-        /// this record (e.g. database read operations)
-        let reconstitute
-                (uniqueId: Guid)
-                (code: string)
-                (accountName: string)
-                (accountTypeId: int)
-                (activeBegin: LocalDate)
-                (activeEnd: LocalDate option)
-                (subType: string option)
-                (parentId: Guid option)
-                (reference: string option)
-                (createdAt: Instant)
-                (modifiedAt: Instant)                
-                : Result<Account, string> =            
-            let activityPeriodResult = AccountActivityPeriod.create activeBegin activeEnd
-            let codeResult = AccountCode.create code
-            let accountNameResult = AccountName.create accountName
-            let typeResult = AccountType.fromDbId accountTypeId
-            let subTypeResult = 
-                match subType with
-                | Some st -> AccountSubtype.fromString(st) |> Result.map Some // REQ-SYS-2.1
-                | None -> Ok None
-            let referenceResult =
-                match reference with
-                | Some r -> AccountExternalReference.create(r) |> Result.map Some
-                | None -> Ok None
+    /// reconstitute is used where the underlying storage layer already represents
+    /// this record (e.g. database read operations)
+    let reconstitute
+            (uniqueId: Guid)
+            (code: string)
+            (accountName: string)
+            (accountTypeId: int)
+            (activeBegin: LocalDate)
+            (activeEnd: LocalDate option)
+            (subType: string option)
+            (parentId: Guid option)
+            (reference: string option)
+            (createdAt: Instant)
+            (modifiedAt: Instant)                
+            : Result<Account, string> =            
+        let activityPeriodResult = AccountActivityPeriod.create activeBegin activeEnd
+        let codeResult = AccountCode.create code
+        let accountNameResult = AccountName.create accountName
+        let typeResult = AccountType.fromDbId accountTypeId
+        let subTypeResult = 
+            match subType with
+            | Some st -> AccountSubtype.fromString(st) |> Result.map Some // REQ-SYS-2.1
+            | None -> Ok None
+        let referenceResult =
+            match reference with
+            | Some r -> AccountExternalReference.create(r) |> Result.map Some
+            | None -> Ok None
 
-            result {
-                let! activityPeriod = activityPeriodResult // REQ-SYS-2.1
-                let! validCode = codeResult // REQ-SYS-2.1
-                let! validName = accountNameResult // REQ-SYS-2.1
-                let! validType = typeResult // REQ-SYS-2.1
-                let! validSubType = subTypeResult // REQ-SYS-2.1
-                let! validRef = referenceResult // REQ-SYS-2.1
-                return!
-                    constructOmni uniqueId validCode validName validType activityPeriod
-                        createdAt modifiedAt validSubType parentId validRef // REQ-AC-3.2 
-            }
+        result {
+            let! activityPeriod = activityPeriodResult // REQ-SYS-2.1
+            let! validCode = codeResult // REQ-SYS-2.1
+            let! validName = accountNameResult // REQ-SYS-2.1
+            let! validType = typeResult // REQ-SYS-2.1
+            let! validSubType = subTypeResult // REQ-SYS-2.1
+            let! validRef = referenceResult // REQ-SYS-2.1
+            return!
+                constructOmni uniqueId validCode validName validType activityPeriod
+                    createdAt modifiedAt validSubType parentId validRef // REQ-AC-3.2 
+        }
 
 // DAL interface functions
 
-        /// The mapRow function is used to pass into DAL read functions to let DAL know
-        /// how to map our query columns. Thus, we don't need to know anything about the
-        /// underlying database architecture in this module and the DAL module doesn't
-        /// need to know anything about our module here 
-        let mapRowForDbRead (row: RowReader) : Result<Account, string> =
-            reconstitute
-                ( row |> RowReader.getUuid "unique_id" )
-                ( row |> RowReader.getString "code" )
-                ( row |> RowReader.getString "account_name" )
-                ( row |> RowReader.getInt "account_type_id" )
-                ( row |> RowReader.getDate "active_begin" )
-                ( row |> RowReader.getDateOption "active_end" )
-                ( row |> RowReader.getStringOption "account_subtype" )
-                ( row |> RowReader.getUuidOption "parent_id" )
-                ( row |> RowReader.getStringOption "external_ref" )
-                ( row |> RowReader.getInstant "created_at" )
-                ( row |> RowReader.getInstant "modified_at" )
+    /// The mapRow function is used to pass into DAL read functions to let DAL know
+    /// how to map our query columns. Thus, we don't need to know anything about the
+    /// underlying database architecture in this module and the DAL module doesn't
+    /// need to know anything about our module here 
+    let mapRowForDbRead (row: RowReader) : Result<Account, string> =
+        reconstitute
+            ( row |> RowReader.getUuid "unique_id" )
+            ( row |> RowReader.getString "code" )
+            ( row |> RowReader.getString "account_name" )
+            ( row |> RowReader.getInt "account_type_id" )
+            ( row |> RowReader.getDate "active_begin" )
+            ( row |> RowReader.getDateOption "active_end" )
+            ( row |> RowReader.getStringOption "account_subtype" )
+            ( row |> RowReader.getUuidOption "parent_id" )
+            ( row |> RowReader.getStringOption "external_ref" )
+            ( row |> RowReader.getInstant "created_at" )
+            ( row |> RowReader.getInstant "modified_at" )
 
-        /// readRowsFromDb is designed to produce a flexible read query that can
-        /// satisfy diverse use cases 
-        let private readRowsFromDb
-                (predicate: string option)
-                (limit: int option)
-                (parameters: QueryParameter list)
-                (expectedRows: AcceptableExpectedRows): Result<Account list, string> =
-            let predicateString =
-                match predicate with
-                | Some x -> x
-                | None -> String.Empty
-            let limitString =
-                match limit with
-                | Some x -> $"limit {x}"
-                | None -> String.Empty
-            // todo: extract query assembly into the DAL after journaling slice is complete
-            let query = $"""
-                select  -- REQ-AC-3.2 
-	                unique_id, 
-                    code, 
-                    account_name, 
-                    account_type_id, 
-                    active_begin,
-                    active_end,
-                    created_at, 
-                    modified_at, 
-                    account_subtype, 
-                    parent_id, 
-                    external_ref
-                from ledger.account
-                {predicateString}
-                {limitString}
-                ;
-                """
-            executeReaderQuery query parameters mapRowForDbRead expectedRows
+    /// readRowsFromDb is designed to produce a flexible read query that can
+    /// satisfy diverse use cases 
+    let private readRowsFromDb
+            (predicate: string option)
+            (limit: int option)
+            (parameters: QueryParameter list)
+            (expectedRows: AcceptableExpectedRows): Result<Account list, string> =
+        let predicateString =
+            match predicate with
+            | Some x -> x
+            | None -> String.Empty
+        let limitString =
+            match limit with
+            | Some x -> $"limit {x}"
+            | None -> String.Empty
+        // todo: extract query assembly into the DAL after journaling slice is complete
+        let query = $"""
+            select  -- REQ-AC-3.2 
+	            unique_id, 
+                code, 
+                account_name, 
+                account_type_id, 
+                active_begin,
+                active_end,
+                created_at, 
+                modified_at, 
+                account_subtype, 
+                parent_id, 
+                external_ref
+            from ledger.account
+            {predicateString}
+            {limitString}
+            ;
+            """
+        executeReaderQuery query parameters mapRowForDbRead expectedRows
 
-        /// insertNewToDb is a private function used as an interface to the DAL. It
-        /// assumes that the calling function handled all necessary validations to
-        /// ensure only legal data states persist 
-        let private insertNewToDb (account:Account): Result<unit, string> =            
-            let query = """
-                insert into ledger.account( -- REQ-SYS-5.1
-	                unique_id, 
-                    code, 
-                    account_name, 
-                    account_type_id, 
-                    active_begin,
-                    active_end,
-                    account_subtype, 
-                    parent_id, 
-                    external_ref,
-                    created_at, 
-                    modified_at)
-                values ( --  REQ-DAL-2.1, REQ-SYS-5.1
-	                @unique_id, 
-                    @code, 
-                    @account_name, 
-                    @account_type_id, 
-                    @active_begin,
-                    @active_end,
-                    @account_subtype, 
-                    @parent_id, 
-                    @external_ref,
-                    @created_at, 
-                    @modified_at);"""
-            let subTypeString:string option = account.accountSubType |> Option.map AccountSubtype.toString
-            let externalReferenceString:string option = Option.map AccountExternalReference.value account.externalReference
-            let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
-                { name = "@unique_id"; value = UniqueId account.uniqueId };
-                { name = "@code"; value = CharString (AccountCode.value account.code) };
-                { name = "@account_name"; value = CharString (AccountName.value account.accountName) };
-                { name = "@account_type_id"; value = Integer (AccountType.toDbId account.accountType) };
-                { name = "@active_begin"; value = DbLocalDate (AccountActivityPeriod.activeBegin account.activityPeriod) };
-                { name = "@active_end"; value = NullableDbLocalDate(AccountActivityPeriod.activeEnd account.activityPeriod) };
-                { name = "@created_at"; value = DbInstant account.createdAt };
-                { name = "@modified_at"; value = DbInstant account.modifiedAt };
-                { name = "@account_subtype"; value = NullableCharString subTypeString };
-                { name = "@parent_id"; value = NullableUniqueId account.parentId };
-                { name = "@external_ref"; value = NullableCharString externalReferenceString }
-            ]
-            executeNonQuery query parameters ExactlyOne
+    /// insertNewToDb is a private function used as an interface to the DAL. It
+    /// assumes that the calling function handled all necessary validations to
+    /// ensure only legal data states persist 
+    let private insertNewToDb (account:Account): Result<unit, string> =            
+        let query = """
+            insert into ledger.account( -- REQ-SYS-5.1
+	            unique_id, 
+                code, 
+                account_name, 
+                account_type_id, 
+                active_begin,
+                active_end,
+                account_subtype, 
+                parent_id, 
+                external_ref,
+                created_at, 
+                modified_at)
+            values ( --  REQ-DAL-2.1, REQ-SYS-5.1
+	            @unique_id, 
+                @code, 
+                @account_name, 
+                @account_type_id, 
+                @active_begin,
+                @active_end,
+                @account_subtype, 
+                @parent_id, 
+                @external_ref,
+                @created_at, 
+                @modified_at);"""
+        let subTypeString:string option = account.accountSubType |> Option.map AccountSubtype.toString
+        let externalReferenceString:string option = Option.map AccountExternalReference.value account.externalReference
+        let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
+            { name = "@unique_id"; value = UniqueId account.uniqueId };
+            { name = "@code"; value = CharString (AccountCode.value account.code) };
+            { name = "@account_name"; value = CharString (AccountName.value account.accountName) };
+            { name = "@account_type_id"; value = Integer (AccountType.toDbId account.accountType) };
+            { name = "@active_begin"; value = DbLocalDate (AccountActivityPeriod.activeBegin account.activityPeriod) };
+            { name = "@active_end"; value = NullableDbLocalDate(AccountActivityPeriod.activeEnd account.activityPeriod) };
+            { name = "@created_at"; value = DbInstant account.createdAt };
+            { name = "@modified_at"; value = DbInstant account.modifiedAt };
+            { name = "@account_subtype"; value = NullableCharString subTypeString };
+            { name = "@parent_id"; value = NullableUniqueId account.parentId };
+            { name = "@external_ref"; value = NullableCharString externalReferenceString }
+        ]
+        executeNonQuery query parameters ExactlyOne
 
 /// public read functions
 
-        let fetchCodeById (unique_id: Guid): Result<string, string> =
-            let query = $"""
-                select code
-                from ledger.account
-                where unique_id = @unique_id
-                ;
-                """
-            let parameters = [{ name = "@unique_id"; value = UniqueId unique_id };] // REQ-DAL-2.3
-            match executeScalar query parameters with
-            | Error e -> Error e
-            | Ok x when isNull x -> Error "Execute scalar returned null in fetchCodeById"
-            | Ok x -> Ok (string x)
+    let fetchCodeById (unique_id: Guid): Result<string, string> =
+        let query = $"""
+            select code
+            from ledger.account
+            where unique_id = @unique_id
+            ;
+            """
+        let parameters = [{ name = "@unique_id"; value = UniqueId unique_id };] // REQ-DAL-2.3
+        match executeScalar query parameters with
+        | Error e -> Error e
+        | Ok x when isNull x -> Error "Execute scalar returned null in fetchCodeById"
+        | Ok x -> Ok (string x)
 
-        let fetchCodeOptionByIdOption (idOption: Guid option): Result<string option, string> =
-            match idOption with
-            | None -> Ok None
-            | Some x ->
-                result {
-                    let! fetchedCode = fetchCodeById x
-                    return Some fetchedCode
-                }
-
-        let fetchIdByCode (code: string): Result<Guid, string> =
-            let query = $"""
-                select unique_id
-                from ledger.account
-                where code = @code
-                ;
-                """
-            let parameters = [{ name = "@code"; value = CharString code };] // REQ-DAL-2.3
-            match executeScalar query parameters with
-            | Error e -> Error e
-            | Ok x when isNull x -> Error "Execute scalar returned null in fetchIdByCode"
-            | Ok x ->
-                match x with
-                | :? Guid as g -> Ok g
-                | _ -> Error $"Expected GUID, {x.GetType().Name}"
-
-        let fetchIdOptionByCodeOption (codeOption: string option): Result<Guid option, string> =
-            match codeOption with
-            | None -> Ok None
-            | Some x ->
-                result {
-                    let! fetchedId = fetchIdByCode x
-                    return Some fetchedId
-                }
-
-        let fetchById (uniqueId: Guid) : Result<Account, string> = // REQ-AC-3.3
-            let predicate = "where unique_id = @unique_id"
-            let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
-            readRowsFromDb (Some predicate) None parameters ExactlyOne
-            |> Result.map List.head
-
-        let fetchByCode (code: string) : Result<Account, string> = // REQ-AC-3.4
-            let predicate = "where code = @code"
-            let parameters = [{ name = "@code"; value = CharString code };] // REQ-DAL-2.3
-            readRowsFromDb (Some predicate) None parameters ExactlyOne
-            |> Result.map List.head
-
-        let fetchByParentId (parentId: Guid) : Result<Account list, string> = // REQ-AC-3.5
-            let predicate = $"where parent_id = @parent_id"
-            let parameters = [{ name = "@parent_id"; value = UniqueId parentId };] // REQ-DAL-2.3
-            readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable
-        
-        let fetchByParentCode (parentCode: string) : Result<Account list, string> = // REQ-AC-3.10
+    let fetchCodeOptionByIdOption (idOption: Guid option): Result<string option, string> =
+        match idOption with
+        | None -> Ok None
+        | Some x ->
             result {
-                let! parentId = fetchIdByCode parentCode
-                return! fetchByParentId parentId
+                let! fetchedCode = fetchCodeById x
+                return Some fetchedCode
             }
 
-        let fetchByAccountType (accountType: AccountType): Result<Account list, string> = // REQ-AC-3.6
-            let typeId = AccountType.toDbId accountType
-            let predicate = $"where account_type_id = @type_id"
-            let parameters = [{ name = "@type_id"; value = Integer typeId };] // REQ-DAL-2.3
-            readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable
+    let fetchIdByCode (code: string): Result<Guid, string> =
+        let query = $"""
+            select unique_id
+            from ledger.account
+            where code = @code
+            ;
+            """
+        let parameters = [{ name = "@code"; value = CharString code };] // REQ-DAL-2.3
+        match executeScalar query parameters with
+        | Error e -> Error e
+        | Ok x when isNull x -> Error "Execute scalar returned null in fetchIdByCode"
+        | Ok x ->
+            match x with
+            | :? Guid as g -> Ok g
+            | _ -> Error $"Expected GUID, {x.GetType().Name}"
 
-        /// fetchAll returns all accounts or, if activeOnly is true, fetches all accounts
-        /// that are active with respect to the system runtime
-        let fetchAll (activeOnly: bool) : Result<Account list, string> = 
-            let predicate = None
-            let parameters = []
-            let activeReference = Calendar.today()
-            
-            match readRowsFromDb predicate None parameters AnyQuantityIsAcceptable with
-            | Error e -> Error e
-            | Ok allRows ->
-                if activeOnly then allRows |> List.filter(isActive activeReference) |> Ok
-                else allRows |> Ok
+    let fetchIdOptionByCodeOption (codeOption: string option): Result<Guid option, string> =
+        match codeOption with
+        | None -> Ok None
+        | Some x ->
+            result {
+                let! fetchedId = fetchIdByCode x
+                return Some fetchedId
+            }
+
+    let fetchById (uniqueId: Guid) : Result<Account, string> = // REQ-AC-3.3
+        let predicate = "where unique_id = @unique_id"
+        let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
+        readRowsFromDb (Some predicate) None parameters ExactlyOne
+        |> Result.map List.head
+
+    let fetchByCode (code: string) : Result<Account, string> = // REQ-AC-3.4
+        let predicate = "where code = @code"
+        let parameters = [{ name = "@code"; value = CharString code };] // REQ-DAL-2.3
+        readRowsFromDb (Some predicate) None parameters ExactlyOne
+        |> Result.map List.head
+
+    let fetchByParentId (parentId: Guid) : Result<Account list, string> = // REQ-AC-3.5
+        let predicate = $"where parent_id = @parent_id"
+        let parameters = [{ name = "@parent_id"; value = UniqueId parentId };] // REQ-DAL-2.3
+        readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable
+    
+    let fetchByParentCode (parentCode: string) : Result<Account list, string> = // REQ-AC-3.10
+        result {
+            let! parentId = fetchIdByCode parentCode
+            return! fetchByParentId parentId
+        }
+
+    let fetchByAccountType (accountType: AccountType): Result<Account list, string> = // REQ-AC-3.6
+        let typeId = AccountType.toDbId accountType
+        let predicate = $"where account_type_id = @type_id"
+        let parameters = [{ name = "@type_id"; value = Integer typeId };] // REQ-DAL-2.3
+        readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable
+
+    /// fetchAll returns all accounts or, if activeOnly is true, fetches all accounts
+    /// that are active with respect to the system runtime
+    let fetchAll (activeOnly: bool) : Result<Account list, string> = 
+        let predicate = None
+        let parameters = []
+        let activeReference = Calendar.today()
+        
+        match readRowsFromDb predicate None parameters AnyQuantityIsAcceptable with
+        | Error e -> Error e
+        | Ok allRows ->
+            if activeOnly then allRows |> List.filter(isActive activeReference) |> Ok
+            else allRows |> Ok
 
 // Insert and update validation functions
 
-        /// confirmAccountIsValidAndActive checks that there is an account in the
-        /// database matching the passed ID and that account is valid as of a
-        /// provided date/time
-        let private confirmAccountIsValidAndActive
-                (validAccount: Account)
-                (referenceTime: LocalDate)
-                : Result<unit, string> =
-            result {                
-                let ae = activeEnd validAccount
-                let ab = activeBegin validAccount
-                let! activeAccount =
-                    match ae with
-                    | None when ab <= referenceTime -> Ok ()
-                    | None when ab > referenceTime -> Error $"Account {uniqueId validAccount} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
-                    | Some x when x < referenceTime -> Error $"Account {uniqueId validAccount} failed \"is active\" check. The reference time ({referenceTime}) is now past the account's active end date ({ae})."
-                    | Some _ when ab > referenceTime -> Error $"Account {uniqueId validAccount} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
-                    | _ -> Ok ()
-                return activeAccount
-            }
-
-        let private confirmAccountTypesMatch
-                (parentAccountType: AccountType)
-                (childAccountType: AccountType)
-                : Result<unit, string> =
-            match parentAccountType = childAccountType with
-            | true -> Ok ()
-            | false -> Error "Account types do not match" // REQ-AC-2.20
-
-        let private validateParentChildRelationship
-                (parentId: Guid)
-                (childAccountType: AccountType)
-                (referenceTime: LocalDate)
-                : Result<unit, string> =
-            result {
-                let! validAccount = fetchById parentId
-                let! () = confirmAccountIsValidAndActive validAccount referenceTime // REQ-AC-2.6, REQ-AC-2.7
-                let! () = confirmAccountTypesMatch (accountType validAccount) childAccountType
-                (*
-                 * REQ-AC-2.16
-                 * Note, this function no longer validates against circular ancestry. Since the child
-                 * ID is always created at the DB insertion, it is impossible for a newly created child
-                 * to already have descendents. And, since requirement REQ-AC-4.22 explicitly forbids
-                 * reparenting an account, there is no "legal" vector for a circular ancestry chain to
-                 * come into being.  
-                *)
-                return ()
-            }
-
-        let private validateProposedDeactivationDate
-                (account: Account)
-                (proposedDate: LocalDate)
-                : Result<unit, string> =
-            let ab = activeBegin account
-            if proposedDate < ab then
-                Error $"Deactivating account {uniqueId account} failed because the active end ({proposedDate}) would be before the active begin ({ab})" else
-                Ok () // REQ-AC-4.2
-
-        let private validateNoActiveChildrenBeforeDeactivation
-            (account: Account)
-            (auditEnvelope: AuditEnvelope)
+    /// confirmAccountIsValidAndActive checks that there is an account in the
+    /// database matching the passed ID and that account is valid as of a
+    /// provided date/time
+    let private confirmAccountIsValidAndActive
+            (validAccount: Account)
+            (referenceTime: LocalDate)
             : Result<unit, string> =
-            let accountId = uniqueId account
-            result {
-                let! children = fetchByParentId accountId
-                do!
-                    let referenceDate = (AuditEnvelope.instant auditEnvelope) |> Calendar.dateFromInstant
-                    if children |> List.exists (isActive referenceDate) // REQ-AC-4.3
-                    then Error $"Account {accountId} deactivation failed because one or more child account records is active"
-                    else Ok ()
-            }
+        result {                
+            let ae = activeEnd validAccount
+            let ab = activeBegin validAccount
+            let! activeAccount =
+                match ae with
+                | None when ab <= referenceTime -> Ok ()
+                | None when ab > referenceTime -> Error $"Account {uniqueId validAccount} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
+                | Some x when x < referenceTime -> Error $"Account {uniqueId validAccount} failed \"is active\" check. The reference time ({referenceTime}) is now past the account's active end date ({ae})."
+                | Some _ when ab > referenceTime -> Error $"Account {uniqueId validAccount} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
+                | _ -> Ok ()
+            return activeAccount
+        }
+
+    let private confirmAccountTypesMatch
+            (parentAccountType: AccountType)
+            (childAccountType: AccountType)
+            : Result<unit, string> =
+        match parentAccountType = childAccountType with
+        | true -> Ok ()
+        | false -> Error "Account types do not match" // REQ-AC-2.20
+
+    let private validateParentChildRelationship
+            (parentId: Guid)
+            (childAccountType: AccountType)
+            (referenceTime: LocalDate)
+            : Result<unit, string> =
+        result {
+            let! validAccount = fetchById parentId
+            let! () = confirmAccountIsValidAndActive validAccount referenceTime // REQ-AC-2.6, REQ-AC-2.7
+            let! () = confirmAccountTypesMatch (accountType validAccount) childAccountType
+            (*
+             * REQ-AC-2.16
+             * Note, this function no longer validates against circular ancestry. Since the child
+             * ID is always created at the DB insertion, it is impossible for a newly created child
+             * to already have descendents. And, since requirement REQ-AC-4.22 explicitly forbids
+             * reparenting an account, there is no "legal" vector for a circular ancestry chain to
+             * come into being.  
+            *)
+            return ()
+        }
+
+    let private validateProposedDeactivationDate
+            (account: Account)
+            (proposedDate: LocalDate)
+            : Result<unit, string> =
+        let ab = activeBegin account
+        if proposedDate < ab then
+            Error $"Deactivating account {uniqueId account} failed because the active end ({proposedDate}) would be before the active begin ({ab})" else
+            Ok () // REQ-AC-4.2
+
+    let private validateNoActiveChildrenBeforeDeactivation
+        (account: Account)
+        (auditEnvelope: AuditEnvelope)
+        : Result<unit, string> =
+        let accountId = uniqueId account
+        result {
+            let! children = fetchByParentId accountId
+            do!
+                let referenceDate = (AuditEnvelope.instant auditEnvelope) |> Calendar.dateFromInstant
+                if children |> List.exists (isActive referenceDate) // REQ-AC-4.3
+                then Error $"Account {accountId} deactivation failed because one or more child account records is active"
+                else Ok ()
+        }
 
 // database update functions
 
-        /// updateDb is a private function designed as a flexible Account update in support
-        /// of various public use case functions. It builds and returns an Account record to
-        /// confirm that the resultant state in the persistence layer still meets all
-        /// legal/illegal data-state rules.
-        let private updateDb
-                (accountId: Guid)
-                (nameUpdate: FieldUpdate<AccountName>)
-                (activeEndUpdate: FieldUpdate<LocalDate option>)
-                (referenceUpdate: FieldUpdate<AccountExternalReference option>)
-                (auditEnvelope: AuditEnvelope)
-                : Result<Account, string> =
-                    
-            let baseParams = [
-                { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3 
-                { name = "@unique_id"; value = UniqueId accountId };
-            ]
-            let updates =
-                [
-                    match nameUpdate with
-                    | NoChange -> None
-                    | SetTo n -> Some (", account_name = @account_name", { name = "@account_name"; value = CharString (AccountName.value n) })
-                    
-                    match activeEndUpdate with
-                    | NoChange -> None
-                    | SetTo e -> Some (", active_end = @active_end", { name = "@active_end"; value = NullableDbLocalDate e })
-                    
-                    match referenceUpdate with
-                    | NoChange -> None
-                    | SetTo r ->
-                        let value = r |> Option.map AccountExternalReference.value
-                        Some (", external_ref = @external_ref", { name = "@external_ref"; value = NullableCharString  value })
-                    
-                ] |> List.choose id
-            let setClauses = updates |> List.map fst |> String.concat ""
-            let parameters = baseParams @ (updates |> List.map snd)
+    /// updateDb is a private function designed as a flexible Account update in support
+    /// of various public use case functions. It builds and returns an Account record to
+    /// confirm that the resultant state in the persistence layer still meets all
+    /// legal/illegal data-state rules.
+    let private updateDb
+            (accountId: Guid)
+            (nameUpdate: FieldUpdate<AccountName>)
+            (activeEndUpdate: FieldUpdate<LocalDate option>)
+            (referenceUpdate: FieldUpdate<AccountExternalReference option>)
+            (auditEnvelope: AuditEnvelope)
+            : Result<Account, string> =
+                
+        let baseParams = [
+            { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3 
+            { name = "@unique_id"; value = UniqueId accountId };
+        ]
+        let updates =
+            [
+                match nameUpdate with
+                | NoChange -> None
+                | SetTo n -> Some (", account_name = @account_name", { name = "@account_name"; value = CharString (AccountName.value n) })
+                
+                match activeEndUpdate with
+                | NoChange -> None
+                | SetTo e -> Some (", active_end = @active_end", { name = "@active_end"; value = NullableDbLocalDate e })
+                
+                match referenceUpdate with
+                | NoChange -> None
+                | SetTo r ->
+                    let value = r |> Option.map AccountExternalReference.value
+                    Some (", external_ref = @external_ref", { name = "@external_ref"; value = NullableCharString  value })
+                
+            ] |> List.choose id
+        let setClauses = updates |> List.map fst |> String.concat ""
+        let parameters = baseParams @ (updates |> List.map snd)
 
-            let query = $"""
-                UPDATE ledger.account
-                set
-                    modified_at = @modified -- REQ-SYS-3.3
-                    {setClauses}
-                WHERE unique_id = @unique_id;
-            """
-            result {
-                do! if updates.IsEmpty then Error "update Account record failed because at least one updatable parameter must be set" else Ok ()
-                let! () = executeNonQuery query parameters ExactlyOne
-                return! fetchById accountId
-            }
+        let query = $"""
+            UPDATE ledger.account
+            set
+                modified_at = @modified -- REQ-SYS-3.3
+                {setClauses}
+            WHERE unique_id = @unique_id;
+        """
+        result {
+            do! if updates.IsEmpty then Error "update Account record failed because at least one updatable parameter must be set" else Ok ()
+            let! () = executeNonQuery query parameters ExactlyOne
+            return! fetchById accountId
+        }
 
 // public orchestrators
 
-        /// constructNewAndSaveToDb is used where you want to construct a net new Account
-        /// and insert it into the DB in one operation   
-        let constructNewAndSaveToDbUsingParentId 
-                (code: string)
-                (accountName: string)
-                (accountTypeSt: string)
-                (activeBegin: LocalDate)
-                (activeEnd: LocalDate option)
-                (subType: string option)
-                (parentId: Guid option)
-                (reference: string option)
-                (auditEnvelope: AuditEnvelope)
-                : Result<Account, string> =
+    /// constructNewAndSaveToDb is used where you want to construct a net new Account
+    /// and insert it into the DB in one operation   
+    let constructNewAndSaveToDbUsingParentId 
+            (code: string)
+            (accountName: string)
+            (accountTypeSt: string)
+            (activeBegin: LocalDate)
+            (activeEnd: LocalDate option)
+            (subType: string option)
+            (parentId: Guid option)
+            (reference: string option)
+            (auditEnvelope: AuditEnvelope)
+            : Result<Account, string> =
 
-            result {
-                let! validAccount = constructNew code accountName accountTypeSt activeBegin activeEnd subType parentId reference auditEnvelope
-                let! () = // REQ-AC-2.6, REQ-AC-2.7
-                    (*
-                     * Note, we only validate the parent ID here because this is the part
-                     * where the Account enters into the DB and the parent validation is
-                     * intrinsically a *database* operation. Keeping the validation in this
-                     * constructor allows us to keep the other constructors pure FP.
-                     *)
-                    match parentId with
-                    | None -> Ok ()
-                    | Some x ->
-                        let referenceDate = (AuditEnvelope.instant auditEnvelope) |> Calendar.dateFromInstant
-                        validateParentChildRelationship x (accountType validAccount) referenceDate
-                let! () = insertNewToDb validAccount // REQ-AC-2.14
-                return validAccount
-            }
+        result {
+            let! validAccount = constructNew code accountName accountTypeSt activeBegin activeEnd subType parentId reference auditEnvelope
+            let! () = // REQ-AC-2.6, REQ-AC-2.7
+                (*
+                 * Note, we only validate the parent ID here because this is the part
+                 * where the Account enters into the DB and the parent validation is
+                 * intrinsically a *database* operation. Keeping the validation in this
+                 * constructor allows us to keep the other constructors pure FP.
+                 *)
+                match parentId with
+                | None -> Ok ()
+                | Some x ->
+                    let referenceDate = (AuditEnvelope.instant auditEnvelope) |> Calendar.dateFromInstant
+                    validateParentChildRelationship x (accountType validAccount) referenceDate
+            let! () = insertNewToDb validAccount // REQ-AC-2.14
+            return validAccount
+        }
 
-        /// constructNewAndSaveToDb is used where you want to construct a net new Account
-        /// and insert it into the DB in one operation   
-        let constructNewAndSaveToDbUsingParentCode
-                (code: string)
-                (accountName: string)
-                (accountTypeSt: string)
-                (activeBegin: LocalDate)
-                (activeEnd: LocalDate option)
-                (subType: string option)
-                (parentCode: string option)
-                (reference: string option)
-                (auditEnvelope: AuditEnvelope)
-                : Result<Account, string> =
-            result {
-                let! parentIdOption = fetchIdOptionByCodeOption parentCode
-                return!
-                    constructNewAndSaveToDbUsingParentId
-                        code accountName accountTypeSt activeBegin activeEnd
-                        subType parentIdOption reference auditEnvelope
-            }
+    /// constructNewAndSaveToDb is used where you want to construct a net new Account
+    /// and insert it into the DB in one operation   
+    let constructNewAndSaveToDbUsingParentCode
+            (code: string)
+            (accountName: string)
+            (accountTypeSt: string)
+            (activeBegin: LocalDate)
+            (activeEnd: LocalDate option)
+            (subType: string option)
+            (parentCode: string option)
+            (reference: string option)
+            (auditEnvelope: AuditEnvelope)
+            : Result<Account, string> =
+        result {
+            let! parentIdOption = fetchIdOptionByCodeOption parentCode
+            return!
+                constructNewAndSaveToDbUsingParentId
+                    code accountName accountTypeSt activeBegin activeEnd
+                    subType parentIdOption reference auditEnvelope
+        }
 
-        /// deactivateAccountById updates the active_end date in the database and returns a
-        /// fully reconstituted (and inactive) account. If the caller provides the
-        /// explicitEnd, the system will update the active_end to that explicit time.
-        /// Otherwise, the active_end will be the system clock time 
-        let deactivateAccountById
-                (accountId: Guid)
-                (explicitEnd: LocalDate option)
-                (auditEnvelope: AuditEnvelope)
-                : Result<Account, string> = // REQ-AC-4.1
-            let deactivationDate =
-                match explicitEnd with
-                | Some m -> m
-                | None -> Calendar.dateFromInstant (AuditEnvelope.instant auditEnvelope)
-            result {
-                let! accountCurrent = fetchById accountId
-                do! // REQ-AC-4.5
-                    match activeEnd accountCurrent with
-                    | None -> Ok ()
-                    | Some x -> Error $"Account {accountId} deactivation failed because active end is already set to {x}"
-                let! () = validateProposedDeactivationDate accountCurrent deactivationDate // REQ-AC-4.2
-                let! () = validateNoActiveChildrenBeforeDeactivation accountCurrent auditEnvelope // REQ-AC-4.3
-                // todo: validate non-zero balance REQ-AC-4.4
-                // todo: validate no journal entries after deactivation date REQ-AC-4.6
-                let! newAccount = updateDb accountId NoChange (SetTo (Some deactivationDate)) NoChange auditEnvelope
-                return newAccount                
-            }
+    /// deactivateAccountById updates the active_end date in the database and returns a
+    /// fully reconstituted (and inactive) account. If the caller provides the
+    /// explicitEnd, the system will update the active_end to that explicit time.
+    /// Otherwise, the active_end will be the system clock time 
+    let deactivateAccountById
+            (accountId: Guid)
+            (explicitEnd: LocalDate option)
+            (auditEnvelope: AuditEnvelope)
+            : Result<Account, string> = // REQ-AC-4.1
+        let deactivationDate =
+            match explicitEnd with
+            | Some m -> m
+            | None -> Calendar.dateFromInstant (AuditEnvelope.instant auditEnvelope)
+        result {
+            let! accountCurrent = fetchById accountId
+            do! // REQ-AC-4.5
+                match activeEnd accountCurrent with
+                | None -> Ok ()
+                | Some x -> Error $"Account {accountId} deactivation failed because active end is already set to {x}"
+            let! () = validateProposedDeactivationDate accountCurrent deactivationDate // REQ-AC-4.2
+            let! () = validateNoActiveChildrenBeforeDeactivation accountCurrent auditEnvelope // REQ-AC-4.3
+            // todo: validate non-zero balance REQ-AC-4.4
+            // todo: validate no journal entries after deactivation date REQ-AC-4.6
+            let! newAccount = updateDb accountId NoChange (SetTo (Some deactivationDate)) NoChange auditEnvelope
+            return newAccount                
+        }
 
-        let deactivateAccountByCode
-                (code: string)
-                (explicitEnd: LocalDate option)
-                (auditEnvelope: AuditEnvelope)
-                : Result<Account, string> =
-            result {
-                let! fetchedId = fetchIdByCode code
-                return! deactivateAccountById fetchedId explicitEnd auditEnvelope
-            }
+    let deactivateAccountByCode
+            (code: string)
+            (explicitEnd: LocalDate option)
+            (auditEnvelope: AuditEnvelope)
+            : Result<Account, string> =
+        result {
+            let! fetchedId = fetchIdByCode code
+            return! deactivateAccountById fetchedId explicitEnd auditEnvelope
+        }
 
-        let updateAccountNameById
-                (accountId: Guid)
-                (newName: string)
-                (auditEnvelope: AuditEnvelope)
-                : Result<Account, string> = // REQ-AC-4.8
-            result {
-                let! validAccountName = AccountName.create newName // REQ-SYS-2.1
-                let! newAccount = updateDb accountId (SetTo validAccountName) NoChange NoChange auditEnvelope
-                return newAccount
-            }
+    let updateAccountNameById
+            (accountId: Guid)
+            (newName: string)
+            (auditEnvelope: AuditEnvelope)
+            : Result<Account, string> = // REQ-AC-4.8
+        result {
+            let! validAccountName = AccountName.create newName // REQ-SYS-2.1
+            let! newAccount = updateDb accountId (SetTo validAccountName) NoChange NoChange auditEnvelope
+            return newAccount
+        }
 
-        let updateAccountNameByCode
-                (code: string)
-                (newName: string)
-                (auditEnvelope: AuditEnvelope)
-                : Result<Account, string> =
-            result {
-                let! fetchedId = fetchIdByCode code
-                return! updateAccountNameById fetchedId newName auditEnvelope
-            }
+    let updateAccountNameByCode
+            (code: string)
+            (newName: string)
+            (auditEnvelope: AuditEnvelope)
+            : Result<Account, string> =
+        result {
+            let! fetchedId = fetchIdByCode code
+            return! updateAccountNameById fetchedId newName auditEnvelope
+        }
 
-        let updateExternalReferenceById 
-                (accountId: Guid)
-                (newReference: string option)
-                (auditEnvelope: AuditEnvelope)
-                : Result<Account, string> = // REQ-AC-4.9
-            result {                
-                let! validRef = // REQ-SYS-2.1
-                    match newReference with
-                    | Some x -> AccountExternalReference.create x |> Result.map Some
-                    | None -> Ok None
-                let! newAccount = updateDb accountId NoChange NoChange (SetTo validRef) auditEnvelope
-                return newAccount
-            }
+    let updateExternalReferenceById 
+            (accountId: Guid)
+            (newReference: string option)
+            (auditEnvelope: AuditEnvelope)
+            : Result<Account, string> = // REQ-AC-4.9
+        result {                
+            let! validRef = // REQ-SYS-2.1
+                match newReference with
+                | Some x -> AccountExternalReference.create x |> Result.map Some
+                | None -> Ok None
+            let! newAccount = updateDb accountId NoChange NoChange (SetTo validRef) auditEnvelope
+            return newAccount
+        }
 
-        let updateExternalReferenceByCode
-                (code: string)
-                (newReference: string option)
-                (auditEnvelope: AuditEnvelope)
-                : Result<Account, string> =
-            result {
-                let! fetchedId = fetchIdByCode code
-                return! updateExternalReferenceById fetchedId newReference auditEnvelope
-            }
+    let updateExternalReferenceByCode
+            (code: string)
+            (newReference: string option)
+            (auditEnvelope: AuditEnvelope)
+            : Result<Account, string> =
+        result {
+            let! fetchedId = fetchIdByCode code
+            return! updateExternalReferenceById fetchedId newReference auditEnvelope
+        }

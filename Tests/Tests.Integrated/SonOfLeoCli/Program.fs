@@ -6,7 +6,7 @@ open Model.UI.Json
 open Tests.Integrated.GenericTestProperties
 open Tests.Integrated.SonOfLeoCli.CliExecutor
 open Xunit
-open Model.Ledger.Account
+open Model.Ledger
 open Utilities.ResultCE
 open Tests.Integrated._Cleanup
 
