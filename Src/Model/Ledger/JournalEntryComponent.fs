@@ -48,7 +48,7 @@ module JournalEntryComponent =
             result {
                 let key = $"{entryDate.Year}-{monthF}" // REQ-JE-1.11
                 let! fp = FiscalPeriod.fetchByKey key
-                do! if fp.isOpen = false then Error $"Entry date {entryDate} is not associated to an open period" else Ok ()
+                do! if fp |> FiscalPeriod.isOpen = false then Error $"Entry date {entryDate} is not associated to an open period" else Ok ()
                 return { entryDate = entryDate; fiscalPeriod = fp }
             }
 
