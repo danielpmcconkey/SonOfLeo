@@ -195,7 +195,6 @@ module FiscalPeriod =
             let! pk = PeriodKey.fromString pkString
             return! toggleOpenFlagByKey pk false auditEnvelope
         }
-        
     
     let reopenFiscalPeriod // REQ-FP-4.2
             (pkString: string)
@@ -205,3 +204,4 @@ module FiscalPeriod =
             let! pk = PeriodKey.fromString pkString
             return! toggleOpenFlagByKey pk true auditEnvelope
         }
+        

@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS ledger.journal_entry
 (
     unique_id uuid primary key,                                                  -- REQ-JE-1.1, REQ-JE-1.2
     description character varying(1000) collate pg_catalog."default" NOT NULL,   -- REQ-JE-1.3, REQ-JE-1.5
-    je_source character varying(50) collate pg_catalog."default" ,               -- REQ-JE-1.6, REQ-JE-1.8
+    je_source character varying(50) collate pg_catalog."default",                -- REQ-JE-1.6, REQ-JE-1.8
     entry_date date NOT NULL,                                                    -- REQ-JE-1.9, REQ-JE-1.10
     fiscal_period_id uuid not null,
     voided_at timestamp with time zone,                                          -- REQ-JE-1.14

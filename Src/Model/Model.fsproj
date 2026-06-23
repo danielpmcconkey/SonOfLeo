@@ -12,6 +12,12 @@
     <Compile Include="Ledger\Account.fs" />
     <Compile Include="Ledger\PeriodKey.fs" />
     <Compile Include="Ledger\FiscalPeriod.fs" />
+    <Compile Include="Ledger\JournalEntryComponent.fs" />
+    <Compile Include="Ledger\JournalEntryLine.fs" />
+    <Compile Include="Ledger\JournalEntryExternalReference.fs" />
+    <Compile Include="Ledger\JournalEntryComment.fs" />
+    <Compile Include="Ledger\JournalEntryHeader.fs" />
+    <Compile Include="Ledger\JournalEntry.fs" />
     <Compile Include="UI\InterfaceContractTypes.fs" />
     <Compile Include="UI\Json.fs" />
     <Folder Include="Ops\" />
