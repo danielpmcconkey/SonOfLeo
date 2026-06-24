@@ -1,4 +1,4 @@
-namespace Model.Ledger
+namespace Model.Ledger.Periods
 
 open System
 open Model.Audit

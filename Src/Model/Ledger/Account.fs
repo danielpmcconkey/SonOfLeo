@@ -1,4 +1,4 @@
-namespace Model.Ledger
+namespace Model.Ledger.Accounts
 
 open System
 open Utilities
@@ -44,10 +44,10 @@ module Account =
 
 // Private constructors
 
-    /// constructOmni is your centralized constructor for assembling
+    /// validateThenConstruct is your centralized constructor for assembling
     /// and validating component types. all other constructors must
     /// pass into this one
-    let private constructOmni
+    let private validateThenConstruct
             (uniqueId: Guid)
             (code: string)
             (accountName: string)
@@ -114,29 +114,7 @@ module Account =
         let now = AuditEnvelope.instant auditEnvelope
         let createdAt =  now // REQ-SYS-3.2
         let modifiedAt = now // REQ-SYS-3.2
-        constructOmni uniqueId code accountName accountType activeBegin activeEnd subType parentId reference createdAt modifiedAt
-
-    /// reconstitute is used where the underlying storage layer already represents
-    /// this record (e.g. database read operations)
-    let reconstitute
-            (uniqueId: Guid)
-            (code: string)
-            (accountName: string)
-            (accountTypeId: int)
-            (activeBegin: LocalDate)
-            (activeEnd: LocalDate option)
-            (subType: string option)
-            (parentId: Guid option)
-            (reference: string option)
-            (createdAt: Instant)
-            (modifiedAt: Instant)
-            : Result<Account, string> =
-        result {
-            let! accountType = accountTypeId |> AccountType.fromDbId
-            let atString = AccountType.toString accountType
-            return!
-                constructOmni uniqueId code accountName atString activeBegin activeEnd
-                    subType parentId reference createdAt modifiedAt } // REQ-AC-3.2
+        validateThenConstruct uniqueId code accountName accountType activeBegin activeEnd subType parentId reference createdAt modifiedAt
 
 // DAL interface functions
 
@@ -145,11 +123,11 @@ module Account =
     /// underlying database architecture in this module and the DAL module doesn't
     /// need to know anything about our module here 
     let mapRowForDbRead (row: RowReader) : Result<Account, string> =
-        reconstitute
+        validateThenConstruct
             ( row |> RowReader.getUuid "unique_id" )
             ( row |> RowReader.getString "code" )
             ( row |> RowReader.getString "account_name" )
-            ( row |> RowReader.getInt "account_type_id" )
+            ( row |> RowReader.getString "account_type" )
             ( row |> RowReader.getDate "active_begin" )
             ( row |> RowReader.getDateOption "active_end" )
             ( row |> RowReader.getStringOption "account_subtype" )
@@ -179,7 +157,7 @@ module Account =
 	            unique_id, 
                 code, 
                 account_name, 
-                account_type_id, 
+                account_type, 
                 active_begin,
                 active_end,
                 created_at, 
@@ -203,7 +181,7 @@ module Account =
 	            unique_id, 
                 code, 
                 account_name, 
-                account_type_id, 
+                account_type, 
                 active_begin,
                 active_end,
                 account_subtype, 
@@ -215,7 +193,7 @@ module Account =
 	            @unique_id, 
                 @code, 
                 @account_name, 
-                @account_type_id, 
+                @account_type, 
                 @active_begin,
                 @active_end,
                 @account_subtype, 
@@ -229,7 +207,7 @@ module Account =
             { name = "@unique_id"; value = UniqueId account.uniqueId };
             { name = "@code"; value = CharString (AccountCode.value account.code) };
             { name = "@account_name"; value = CharString (AccountName.value account.accountName) };
-            { name = "@account_type_id"; value = Integer (AccountType.toDbId account.accountType) };
+            { name = "@account_type"; value = CharString (AccountType.toString account.accountType) };
             { name = "@active_begin"; value = DbLocalDate (AccountActivityPeriod.activeBegin account.activityPeriod) };
             { name = "@active_end"; value = NullableDbLocalDate(AccountActivityPeriod.activeEnd account.activityPeriod) };
             { name = "@created_at"; value = DbInstant account.createdAt };
@@ -313,9 +291,8 @@ module Account =
         }
 
     let fetchByAccountType (accountType: AccountType): Result<Account list, string> = // REQ-AC-3.6
-        let typeId = AccountType.toDbId accountType
-        let predicate = $"where account_type_id = @type_id"
-        let parameters = [{ name = "@type_id"; value = Integer typeId };] // REQ-DAL-2.3
+        let predicate = $"where account_type = @account_type"
+        let parameters = [{ name = "@account_type"; value = CharString (accountType |> AccountType.toString) };] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable
 
     /// fetchAll returns all accounts or, if activeOnly is true, fetches all accounts

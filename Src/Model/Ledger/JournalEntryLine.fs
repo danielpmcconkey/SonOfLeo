@@ -1,4 +1,4 @@
-namespace Model.Ledger
+namespace Model.Ledger.Journaling
 
 open System
 open Model.Audit
@@ -38,10 +38,10 @@ module JournalEntryLine =
         | Error e -> Error e
         | Ok _ -> Ok id
 
-    /// constructOmni is your centralized constructor for assembling
+    /// validateThenConstruct is your centralized constructor for assembling
     /// and validating component types. all other constructors must
     /// pass into this one
-    let private constructOmni 
+    let private validateThenConstruct 
             (uniqueId: Guid)
             (journalEntryId: Guid)
             (accountId: Guid)
@@ -82,7 +82,7 @@ module JournalEntryLine =
         let now = AuditEnvelope.instant auditEnvelope
         let createdAt =  now // REQ-SYS-3.2
         let modifiedAt = now // REQ-SYS-3.2
-        constructOmni uniqueId journalEntryId accountId amount lineType memo createdAt modifiedAt
+        validateThenConstruct uniqueId journalEntryId accountId amount lineType memo createdAt modifiedAt
     
     let private insertNewToDb (journalEntryLine:JournalEntryLine): Result<unit, string> =
         let query = """

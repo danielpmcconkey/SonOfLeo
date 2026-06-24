@@ -1,11 +1,13 @@
-namespace Model.Ledger
+namespace Model.Ledger.Journaling
 
 open System
 open Model.Audit
+open Model.Ledger.AccountComponent
 open Model.Ledger.JournalEntryComponent
 open NodaTime
 open Utilities.ResultCE
 open Utilities.DAL
+open Utilities
 
 type JournalEntryHeader =
   private  {    uniqueId: Guid                                     // REQ-JE-1.1, REQ-JE-1.2
@@ -25,10 +27,10 @@ module JournalEntryHeader =
     let createdAt je = je.createdAt
     let modifiedAt je = je.modifiedAt
 
-    /// constructOmni is your centralized constructor for assembling
+    /// validateThenConstruct is your centralized constructor for assembling
     /// and validating component types. all other constructors must
     /// pass into this one
-    let private constructOmni
+    let private validateThenConstruct
             (uniqueId: Guid)
             (description: string)
             (source: string option)
@@ -59,7 +61,7 @@ module JournalEntryHeader =
         let now = AuditEnvelope.instant auditEnvelope
         let createdAt =  now // REQ-SYS-3.2
         let modifiedAt = now // REQ-SYS-3.2
-        constructOmni uniqueId description source entryDate voidedAt createdAt modifiedAt
+        validateThenConstruct uniqueId description source entryDate voidedAt createdAt modifiedAt
     
     let private insertNewToDb (journalEntry:JournalEntryHeader): Result<unit, string> =
         let query = """

@@ -1,4 +1,4 @@
-namespace Model.Ledger
+namespace Model.Ledger.Journaling
 
 open Model.Ledger.JournalEntryComponent
 open Model.Money

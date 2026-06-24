@@ -103,31 +103,6 @@ let ``REQ-SYS-1.1 AccountType fromString trims input before matching`` () =
     let untrimmed = AccountType.fromString " Revenue   "
     Assert.Equal(trimmed, untrimmed)
 
-[<Fact>]
-let ``REQ-AC-1.11 AccountType of Asset must be represented by a 1 for database conversion`` () =
-    let at = AccountType.fromString "Asset" |> Result.defaultWith failwith
-    Assert.Equal(1, AccountType.toDbId at)
-
-[<Fact>]
-let ``REQ-AC-1.12 AccountType of Liability must be represented by a 2 for database conversion`` () =
-    let at = AccountType.fromString "Liability" |> Result.defaultWith failwith
-    Assert.Equal(2, AccountType.toDbId at)
-
-[<Fact>]
-let ``REQ-AC-1.13 AccountType of Equity must be represented by a 3 for database conversion`` () =
-    let at = AccountType.fromString "Equity" |> Result.defaultWith failwith
-    Assert.Equal(3, AccountType.toDbId at)
-
-[<Fact>]
-let ``REQ-AC-1.14 AccountType of Revenue must be represented by a 4 for database conversion`` () =
-    let at = AccountType.fromString "Revenue" |> Result.defaultWith failwith
-    Assert.Equal(4, AccountType.toDbId at)
-
-[<Fact>]
-let ``REQ-AC-1.15 AccountType of Expense must be represented by a 5 for database conversion`` () =
-    let at = AccountType.fromString "Expense" |> Result.defaultWith failwith
-    Assert.Equal(5, AccountType.toDbId at)
-
 // =============================================================================
 // AccountSubtype
 // =============================================================================

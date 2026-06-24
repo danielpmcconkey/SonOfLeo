@@ -14,11 +14,11 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-1.8** Account name length cannot exceed 100 chars
 - **REQ-AC-1.9** Account type normal balance must be one of 'Debit' or 'Credit'
 - **REQ-AC-1.10** Account type name must be constrained to ['Asset','Liability','Equity','Revenue','Expense']
-- **REQ-AC-1.11** Account type name of 'Asset' must map to the database ID of 1
-- **REQ-AC-1.12** Account type name of 'Liability' must map to the database ID of 2
-- **REQ-AC-1.13** Account type name of 'Equity' must map to the database ID of 3
-- **REQ-AC-1.14** Account type name of 'Revenue' must map to the database ID of 4
-- **REQ-AC-1.15** Account type name of 'Expense' must map to the database ID of 5
+- **REQ-AC-1.11** Stricken
+- **REQ-AC-1.12** Stricken
+- **REQ-AC-1.13** Stricken
+- **REQ-AC-1.14** Stricken
+- **REQ-AC-1.15** Stricken
 - **REQ-AC-1.16** Account types with name of 'Asset','Expense' must have a normal balance of 'Debit'
 - **REQ-AC-1.17** Account types with name of 'Liability','Equity','Revenue' must have a normal balance of 'Credit'
 - **REQ-AC-1.18** Account subtype must be constrained to ['Cash','CurrentLiability','FixedAsset','Investment','LongTermLiability','OperatingExpense','OperatingRevenue','OtherRevenue','OtherExpense']
@@ -157,6 +157,11 @@ active requirement is either tested or in this table.
 
 | ID          | Original Requirement | Reason |
 |-------------|----------------------|--------|
+| REQ-AC-1.11 | Account type name of 'Asset' must map to the database ID of 1 | Removed Account Type as a separate DB lookup |
+| REQ-AC-1.12 | Account type name of 'Liability' must map to the database ID of 2 | Removed Account Type as a separate DB lookup |
+| REQ-AC-1.13 | Account type name of 'Equity' must map to the database ID of 3 | Removed Account Type as a separate DB lookup |
+| REQ-AC-1.14 | Account type name of 'Revenue' must map to the database ID of 4 | Removed Account Type as a separate DB lookup |
+| REQ-AC-1.15 | Account type name of 'Expense' must map to the database ID of 5 | Removed Account Type as a separate DB lookup |
 | REQ-AC-1.24  | Account is active should default to true if a null value is provided | Replaced by `active_begin` and `active_end` timestamps |
 | REQ-AC-1.25  | Account created at should default to the current runtime timestamp at time of database creation of the record | Superseded by REQ-SYS-3.2 |
 | REQ-AC-1.26  | Account modified at should default to the current runtime timestamp at time of database creation of the record | Superseded by REQ-SYS-3.2 |

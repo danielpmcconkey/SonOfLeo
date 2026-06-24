@@ -1,4 +1,4 @@
-namespace Model.Ledger
+namespace Model.Ledger.Accounts
 
 open System
 open NodaTime
@@ -73,21 +73,6 @@ module AccountComponent =
         | Expense
         
     module AccountType =
-        let toDbId (``type``: AccountType) : int =
-            match ``type`` with
-            | Asset -> 1      // REQ-AC-1.11
-            | Liability -> 2  // REQ-AC-1.12
-            | Equity -> 3     // REQ-AC-1.13
-            | Revenue -> 4    // REQ-AC-1.14
-            | Expense -> 5    // REQ-AC-1.15
-        let fromDbId (dbId: int) : Result<AccountType, string> = // REQ-AC-1.10 (parse boundary)
-            match dbId with
-            | 1 -> Ok Asset
-            | 2 -> Ok Liability
-            | 3 -> Ok Equity
-            | 4 -> Ok Revenue
-            | 5 -> Ok Expense
-            | _ -> Error $"Invalid AccountTypeId: '%d{dbId}'"
         let fromString (accountType: string) : Result<AccountType, string> = // REQ-AC-1.10 (parse boundary)
             match accountType.Trim() with // REQ-SYS-1.1
             | "Asset" -> Ok Asset
@@ -107,7 +92,7 @@ module AccountComponent =
             
         let normalBalance (``type``: AccountType) : AccountTypeNormalBalance =
             match ``type`` with
-            | Asset | Expense -> Debit                  // REQ-AC-1.16
+            | Asset | Expense -> Debit                // REQ-AC-1.16
             | Liability | Equity | Revenue -> Credit  // REQ-AC-1.17
   
     type AccountSubtype =  // REQ-AC-1.18

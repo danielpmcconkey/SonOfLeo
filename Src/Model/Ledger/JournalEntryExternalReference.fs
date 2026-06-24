@@ -1,4 +1,4 @@
-namespace Model.Ledger
+namespace Model.Ledger.Journaling
 
 open NodaTime
 type JournalEntryExternalReference =

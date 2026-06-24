@@ -190,7 +190,7 @@ However, this isn't really overpromising. The "system's declared type constraint
 
 **Claim:** Nothing prevents nesting an Expense account under an Asset parent.
 
-**Reality:** Checked Account.fs `constructOmni` (line 56-80) and `validateParentChildRelationship` (lines 313-332). Neither checks whether child and parent AccountTypes match. The only parent validation is that the parent exists and is active. The code annotations confirm this -- no REQ for type matching, no code for type matching.
+**Reality:** Checked Account.fs `validateThenConstruct` (line 56-80) and `validateParentChildRelationship` (lines 313-332). Neither checks whether child and parent AccountTypes match. The only parent validation is that the parent exists and is active. The code annotations confirm this -- no REQ for type matching, no code for type matching.
 
 **Verdict:** Legitimate gap. Whether it's a *required* requirement depends on Dan's design intent, but the agent is right that the spec and code are both silent on this.
 
