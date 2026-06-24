@@ -42,6 +42,8 @@ module DAL =
         | ExactlyOne
         | OneOrMany
         | AnyQuantityIsAcceptable
+        
+    type DbTransaction = private { connection: NpgsqlConnection; transaction: NpgsqlTransaction }
     
     let private getConnectionStringConfig() : Result<string, string> =   
         try
@@ -91,7 +93,41 @@ module DAL =
                 b.UseNodaTime() |> ignore
                 b.Build())
         )
-       
+
+    let createDbTransaction () : Result<DbTransaction, string> =
+        result {
+            let! ds = dataSource.Value
+            return!
+                try
+                    let connection = ds.OpenConnection()
+                    let transaction = connection.BeginTransaction()
+                    Ok { connection = connection; transaction = transaction }
+                with
+                    | ex -> Error $"Database error during transaction creation {ex.Message}"
+        }
+
+    let commitDbTransactionAndDisposeConnection (transaction: DbTransaction) : Result<unit, string> =
+        try
+            try
+                transaction.transaction.Commit()
+                Ok ()
+            with
+                | ex -> Error $"Database error during transaction commit. {ex.Message}"
+        finally
+            transaction.transaction.Dispose()
+            transaction.connection.Dispose()
+
+    let rollbackDbTransactionAndDisposeConnection (transaction: DbTransaction) : Result<unit, string> =
+        try
+            try
+                transaction.transaction.Rollback()
+                Ok ()
+            with
+                | ex -> Error $"Database error during transaction rollback. You probably have corrupted data that you should address immediately. {ex.Message}"
+        finally
+            transaction.transaction.Dispose()
+            transaction.connection.Dispose()
+
     let private convertParamToDbParam (parameter: QueryParameter) : NpgsqlParameter = // REQ-DAL-3.2
         let dbType, value =
             match parameter.value with
@@ -112,7 +148,7 @@ module DAL =
         let p = NpgsqlParameter(parameter.name, dbType)
         p.Value <- value // necessary because NpgsqlParameter doesn't take a value in its constructor
         p
-        
+
     let private buildParamsList (parameters: QueryParameter list) : NpgsqlParameter list = // REQ-DAL-3.2
         parameters |> List.map convertParamToDbParam
         
@@ -127,7 +163,9 @@ module DAL =
     let executeNonQuery
         (query: string)
         (parameters: QueryParameter list)
-        (expectedRows: AcceptableExpectedRows) : Result<unit, string> =
+        (expectedRows: AcceptableExpectedRows)
+        (transaction: DbTransaction option)
+        : Result<unit, string> =
         result {
             let! ds = dataSource.Value
             let parameters = buildParamsList parameters
@@ -138,10 +176,17 @@ module DAL =
                  * paradigmatic F# Result Ok/Error at the impure boundary
                  *)
                 try
-                    use connection = ds.OpenConnection()
-                    use command = new NpgsqlCommand(query, connection)                    
-                    parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
-                    Ok (command.ExecuteNonQuery())
+                    match transaction with
+                    | None ->
+                        use connection = ds.OpenConnection()
+                        use command = new NpgsqlCommand(query, connection)
+                        parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
+                        Ok (command.ExecuteNonQuery())
+                    | Some t ->
+                        use command = new NpgsqlCommand(query, t.connection)
+                        command.Transaction <- t.transaction
+                        parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
+                        Ok (command.ExecuteNonQuery())
                 with
                 | ex -> Error $"Database error during non query execution {ex.Message}"
             return! validateNumRows numRows expectedRows  // REQ-DAL-2.2
@@ -210,7 +255,9 @@ module DAL =
             (query: string)
             (parameters: QueryParameter list)
             (mapRow: RowReader -> Result<'T, string>) // REQ-DAL-3.2
-            (expectedRows: AcceptableExpectedRows): Result<'T list, string> =
+            (expectedRows: AcceptableExpectedRows)
+            (transaction: DbTransaction option)
+            : Result<'T list, string> =
         result {
             let! ds = dataSource.Value
             let parameters = buildParamsList parameters
@@ -221,11 +268,19 @@ module DAL =
                  * paradigmatic F# Result Ok/Error at the impure boundary
                  *)
                 try
-                    use connection = ds.OpenConnection()
-                    use command = new NpgsqlCommand(query, connection)                    
-                    parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
-                    use nReader = command.ExecuteReader()
-                    readRows nReader mapRow []
+                    match transaction with
+                    | None -> 
+                        use connection = ds.OpenConnection()
+                        use command = new NpgsqlCommand(query, connection)                    
+                        parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
+                        use nReader = command.ExecuteReader()
+                        readRows nReader mapRow []
+                    | Some t ->
+                        use command = new NpgsqlCommand(query, t.connection)
+                        command.Transaction <- t.transaction
+                        parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
+                        use nReader = command.ExecuteReader()
+                        readRows nReader mapRow []
                 with
                 | ex -> Error $"Database error during reader query execution {ex.Message}"
             let! () = validateNumRows rows.Length expectedRows // REQ-DAL-2.2
@@ -235,6 +290,7 @@ module DAL =
     let executeScalar
             (query: string)
             (parameters: QueryParameter list)
+            (transaction: DbTransaction option)
             : Result<Object, string> =
         result {
             let! ds = dataSource.Value
@@ -246,10 +302,17 @@ module DAL =
                  * paradigmatic F# Result Ok/Error at the impure boundary
                  *)
                 try
-                    use connection = ds.OpenConnection()
-                    use command = new NpgsqlCommand(query, connection)                    
-                    parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
-                    Ok (command.ExecuteScalar())
+                    match transaction with
+                    | None -> 
+                        use connection = ds.OpenConnection()
+                        use command = new NpgsqlCommand(query, connection)                    
+                        parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
+                        Ok (command.ExecuteScalar())
+                    | Some t -> 
+                        use command = new NpgsqlCommand(query, t.connection)
+                        command.Transaction <- t.transaction
+                        parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
+                        Ok (command.ExecuteScalar())
                 with
                 | ex -> Error $"Database error during reader scalar execution {ex.Message}"
             return rows

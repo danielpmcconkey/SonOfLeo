@@ -25,7 +25,7 @@ let private createFiscalPeriodFetchAllInputPayload openOnly =
 /// createFiscalPeriodInDb is used to quickly stage records for testing RUD functions
 let private createFiscalPeriodInDb (keyToUse: string) : Result<FiscalPeriod, string> =
     let envelope = AuditEnvelope.create FiscalPeriodCreate
-    constructNewAndSaveToDb keyToUse envelope
+    constructNewAndSaveToDb keyToUse envelope None
 
 
 // =============================================================================
@@ -48,7 +48,7 @@ let ``REQ-FP-2.4 FiscalPeriod Create happy path`` () =
             keyToCleanUp <- Some returnedKey
             Assert.Equal(expected, returnedKey) // this validates that what came back was what we expected
             // now try to re-fetch it to make sure it made the full round-trip
-            let! fetched = fetchByKey expected
+            let! fetched = fetchByKey None expected
             Assert.Equal(expected, PeriodKey.value (periodKey fetched))
             ()
         }
@@ -108,19 +108,19 @@ let ``REQ-FP-3.4 FiscalPeriod FetchAll happy path`` () =
     let mutable keyToCleanUp_4 = None
     try
         let railroad = result {
-            let! fp_1 = constructNewAndSaveToDb explicitKey_1 genericAuditEnvelope
+            let! fp_1 = constructNewAndSaveToDb explicitKey_1 genericAuditEnvelope None
             let key1 = fp_1 |> periodKey |> PeriodKey.value
             keyToCleanUp_1 <- Some key1
             
-            let! fp_2 = constructNewAndSaveToDb explicitKey_2 genericAuditEnvelope
+            let! fp_2 = constructNewAndSaveToDb explicitKey_2 genericAuditEnvelope None
             let key2 = fp_2 |> periodKey |> PeriodKey.value
             keyToCleanUp_2 <- Some key2
             
-            let! fp_3 = constructNewAndSaveToDb explicitKey_3 genericAuditEnvelope
+            let! fp_3 = constructNewAndSaveToDb explicitKey_3 genericAuditEnvelope None
             let key3 = fp_3 |> periodKey |> PeriodKey.value
             keyToCleanUp_3 <- Some key3
             
-            let! fp_4 = constructNewAndSaveToDb explicitKey_4 genericAuditEnvelope
+            let! fp_4 = constructNewAndSaveToDb explicitKey_4 genericAuditEnvelope None
             let key4 = fp_4 |> periodKey |> PeriodKey.value
             keyToCleanUp_4 <- Some key4
             
@@ -187,7 +187,7 @@ let ``REQ-FP-4.2 FiscalPeriod Reopen happy path`` () =
             let keyString = periodKey created |> PeriodKey.value
             keyToCleanUp <- Some keyString
 
-            let! closed = closeFiscalPeriod expected genericAuditEnvelope
+            let! closed = closeFiscalPeriod expected genericAuditEnvelope None
             Assert.False(isOpen closed) // make sure it is, indeed, closed
 
             let returnCode, resultsPayload, e = runCli args payload

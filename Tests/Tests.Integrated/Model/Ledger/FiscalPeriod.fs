@@ -13,7 +13,7 @@ let ``REQ-FP-2.1 creating a fiscal period must generate a UUID`` () =
     let mutable idToCleanUp = None
     try
         let railroad = result {
-            let! fp = FiscalPeriod.constructNewAndSaveToDb genericFiscalPeriodKey genericAuditEnvelope
+            let! fp = FiscalPeriod.constructNewAndSaveToDb genericFiscalPeriodKey genericAuditEnvelope None
             let unique_id = FiscalPeriod.uniqueId fp
             idToCleanUp <- Some unique_id
             Assert.NotEqual(unique_id, Guid.Empty)
@@ -31,12 +31,12 @@ let ``REQ-FP-2.1 creating a fiscal period must generate a UUID`` () =
 let ``REQ-FP-1.3 REQ-FP-2.2 Period Key must be unique`` () = 
     let mutable idToCleanUp = None
     try
-        let result1 = FiscalPeriod.constructNewAndSaveToDb genericFiscalPeriodKey genericAuditEnvelope
+        let result1 = FiscalPeriod.constructNewAndSaveToDb genericFiscalPeriodKey genericAuditEnvelope None
         match result1 with
         | Error e -> Assert.Fail e // need to ensure that the first made it into the DB to check the unique constraint
         | Ok fp -> idToCleanUp <- Some (FiscalPeriod.uniqueId fp)
         
-        let result2 = FiscalPeriod.constructNewAndSaveToDb genericFiscalPeriodKey genericAuditEnvelope
+        let result2 = FiscalPeriod.constructNewAndSaveToDb genericFiscalPeriodKey genericAuditEnvelope None
         Assert.True(Result.isError result2)
     finally
         match cleanUpFiscalPeriodId idToCleanUp with
@@ -54,7 +54,7 @@ let ``REQ-FP-2.4 REQ-FP-2.5 insertNewToDb happy path`` () =
     let mutable idToCleanUp = None
     try
         let railroad = result {
-            let! fp = FiscalPeriod.constructNewAndSaveToDb expectedKey genericAuditEnvelope
+            let! fp = FiscalPeriod.constructNewAndSaveToDb expectedKey genericAuditEnvelope None
             let unique_id = FiscalPeriod.uniqueId fp
             idToCleanUp <- Some unique_id
             let startDate = FiscalPeriod.startDate fp
@@ -82,7 +82,7 @@ let ``REQ-FP-2.6 is open is automatically true`` () =
     let mutable idToCleanUp = None
     try
         let railroad = result {
-            let! fp = FiscalPeriod.constructNewAndSaveToDb genericFiscalPeriodKey genericAuditEnvelope
+            let! fp = FiscalPeriod.constructNewAndSaveToDb genericFiscalPeriodKey genericAuditEnvelope None
             let unique_id = FiscalPeriod.uniqueId fp
             idToCleanUp <- Some unique_id
             Assert.Equal(expectedIsOpen, FiscalPeriod.isOpen fp)
@@ -109,11 +109,11 @@ let ``REQ-FP-3.1 REQ-FP-3.2 fetchByKey happy path`` () =
     let mutable idToCleanUp = None
     try
         let railroad = result {
-            let! fp_create = FiscalPeriod.constructNewAndSaveToDb expectedKey genericAuditEnvelope
+            let! fp_create = FiscalPeriod.constructNewAndSaveToDb expectedKey genericAuditEnvelope None
             let uniqueId = FiscalPeriod.uniqueId fp_create
             idToCleanUp <- Some uniqueId
             let key_create = PeriodKey.value (FiscalPeriod.periodKey fp_create)
-            let! fp_read = FiscalPeriod.fetchByKey key_create
+            let! fp_read = FiscalPeriod.fetchByKey None key_create 
             
             let id_read = FiscalPeriod.uniqueId fp_read
             let key_read = PeriodKey.value (FiscalPeriod.periodKey fp_read)
@@ -153,23 +153,23 @@ let ``REQ-FP-3.4 fetchAll without filter happy path`` () =
     let mutable idToCleanUp_4 = None
     try
         let railroad = result {
-            let! fp_1 = FiscalPeriod.constructNewAndSaveToDb explicitKey_1 genericAuditEnvelope
+            let! fp_1 = FiscalPeriod.constructNewAndSaveToDb explicitKey_1 genericAuditEnvelope None
             let uniqueId_1 = FiscalPeriod.uniqueId fp_1
             idToCleanUp_1 <- Some uniqueId_1
             
-            let! fp_2 = FiscalPeriod.constructNewAndSaveToDb explicitKey_2 genericAuditEnvelope
+            let! fp_2 = FiscalPeriod.constructNewAndSaveToDb explicitKey_2 genericAuditEnvelope None
             let uniqueId_2 = FiscalPeriod.uniqueId fp_2
             idToCleanUp_2 <- Some uniqueId_2
             
-            let! fp_3 = FiscalPeriod.constructNewAndSaveToDb explicitKey_3 genericAuditEnvelope
+            let! fp_3 = FiscalPeriod.constructNewAndSaveToDb explicitKey_3 genericAuditEnvelope None
             let uniqueId_3 = FiscalPeriod.uniqueId fp_3
             idToCleanUp_3 <- Some uniqueId_3
             
-            let! fp_4 = FiscalPeriod.constructNewAndSaveToDb explicitKey_4 genericAuditEnvelope
+            let! fp_4 = FiscalPeriod.constructNewAndSaveToDb explicitKey_4 genericAuditEnvelope None
             let uniqueId_4 = FiscalPeriod.uniqueId fp_4
             idToCleanUp_4 <- Some uniqueId_4
             
-            let! fetched = FiscalPeriod.fetchAll(false)            
+            let! fetched = FiscalPeriod.fetchAll None false
             Assert.Equal(4, fetched |> List.length)
             
             ()
@@ -194,26 +194,26 @@ let ``REQ-FP-3.5 fetchAll with open only filters out closed periods`` () =
     let mutable idToCleanUp_4 = None
     try
         let railroad = result {
-            let! fp_1 = FiscalPeriod.constructNewAndSaveToDb explicitKey_1 genericAuditEnvelope
+            let! fp_1 = FiscalPeriod.constructNewAndSaveToDb explicitKey_1 genericAuditEnvelope None
             let uniqueId_1 = FiscalPeriod.uniqueId fp_1
             idToCleanUp_1 <- Some uniqueId_1
             
-            let! fp_2 = FiscalPeriod.constructNewAndSaveToDb explicitKey_2 genericAuditEnvelope
+            let! fp_2 = FiscalPeriod.constructNewAndSaveToDb explicitKey_2 genericAuditEnvelope None
             let uniqueId_2 = FiscalPeriod.uniqueId fp_2
             idToCleanUp_2 <- Some uniqueId_2
             
-            let! fp_3 = FiscalPeriod.constructNewAndSaveToDb explicitKey_3 genericAuditEnvelope
+            let! fp_3 = FiscalPeriod.constructNewAndSaveToDb explicitKey_3 genericAuditEnvelope None
             let uniqueId_3 = FiscalPeriod.uniqueId fp_3
             idToCleanUp_3 <- Some uniqueId_3
             
-            let! fp_4 = FiscalPeriod.constructNewAndSaveToDb explicitKey_4 genericAuditEnvelope
+            let! fp_4 = FiscalPeriod.constructNewAndSaveToDb explicitKey_4 genericAuditEnvelope None
             let uniqueId_4 = FiscalPeriod.uniqueId fp_4
             idToCleanUp_4 <- Some uniqueId_4
             
             let periodKey3 = fp_3 |> FiscalPeriod.periodKey |> PeriodKey.value
-            let! _ = FiscalPeriod.closeFiscalPeriod periodKey3 genericAuditEnvelope 
+            let! _ = FiscalPeriod.closeFiscalPeriod periodKey3 genericAuditEnvelope  None
             
-            let! fetched = FiscalPeriod.fetchAll(true)
+            let! fetched = FiscalPeriod.fetchAll None true
             Assert.Equal(3, fetched |> List.length)
             
             ()
@@ -232,11 +232,11 @@ let ``REQ-FP-4.1 closeFiscalPeriod happy path`` () =
     let mutable idToCleanUp_1 = None
     try
         let railroad = result {
-            let! fp_1 = FiscalPeriod.constructNewAndSaveToDb explicitKey genericAuditEnvelope
+            let! fp_1 = FiscalPeriod.constructNewAndSaveToDb explicitKey genericAuditEnvelope None
             let uniqueId_1 = FiscalPeriod.uniqueId fp_1
             idToCleanUp_1 <- Some uniqueId_1            
             
-            let! fetched = FiscalPeriod.closeFiscalPeriod explicitKey genericAuditEnvelope
+            let! fetched = FiscalPeriod.closeFiscalPeriod explicitKey genericAuditEnvelope None
             Assert.False(FiscalPeriod.isOpen fetched)
             
             ()
@@ -257,19 +257,19 @@ let ``REQ-FP-4.1.1 closeFiscalPeriod rejects already closed period`` () =
     let mutable idToCleanUp_1 = None
     try
         let railroad = result {
-            let! fp_1 = FiscalPeriod.constructNewAndSaveToDb explicitKey genericAuditEnvelope
+            let! fp_1 = FiscalPeriod.constructNewAndSaveToDb explicitKey genericAuditEnvelope None
             let uniqueId_1 = FiscalPeriod.uniqueId fp_1
             idToCleanUp_1 <- Some uniqueId_1            
             
-            let! fetched = FiscalPeriod.closeFiscalPeriod explicitKey genericAuditEnvelope
+            let! fetched = FiscalPeriod.closeFiscalPeriod explicitKey genericAuditEnvelope None
             Assert.False(FiscalPeriod.isOpen fetched) // make sure it's false
             
             System.Threading.Thread.Sleep(1000) // make sure there's some time so the modified_at isn't accidentally the same
-            let attemptResult = FiscalPeriod.closeFiscalPeriod explicitKey (AuditEnvelope.create FiscalPeriodClose) 
+            let attemptResult = FiscalPeriod.closeFiscalPeriod explicitKey (AuditEnvelope.create FiscalPeriodClose)  None
             Assert.True(attemptResult.IsError)
             
             // fetch it again to make sure it didn't update the modified date or the flag
-            let! fetched_2 = FiscalPeriod.fetchByKey explicitKey
+            let! fetched_2 = FiscalPeriod.fetchByKey None explicitKey
             Assert.False(FiscalPeriod.isOpen fetched_2)
             Assert.Equal(expectedModified, FiscalPeriod.modifiedAt fetched_2)
             
@@ -289,14 +289,14 @@ let ``REQ-FP-4.2 reopenFiscalPeriod happy path`` () =
     let mutable idToCleanUp_1 = None
     try
         let railroad = result {
-            let! fp_1 = FiscalPeriod.constructNewAndSaveToDb explicitKey genericAuditEnvelope
+            let! fp_1 = FiscalPeriod.constructNewAndSaveToDb explicitKey genericAuditEnvelope None
             let uniqueId_1 = FiscalPeriod.uniqueId fp_1
             idToCleanUp_1 <- Some uniqueId_1
             
-            let! fetched_1 = FiscalPeriod.closeFiscalPeriod explicitKey genericAuditEnvelope
+            let! fetched_1 = FiscalPeriod.closeFiscalPeriod explicitKey genericAuditEnvelope None
             Assert.False(FiscalPeriod.isOpen fetched_1) // make sure it's actually closed first
             
-            let! reponed = FiscalPeriod.reopenFiscalPeriod explicitKey genericAuditEnvelope
+            let! reponed = FiscalPeriod.reopenFiscalPeriod explicitKey genericAuditEnvelope None
             Assert.True(FiscalPeriod.isOpen reponed)
             
             ()
@@ -316,16 +316,16 @@ let ``REQ-FP-4.2.1 reopenFiscalPeriod rejects already open period`` () =
     let mutable idToCleanUp_1 = None
     try
         let railroad = result {
-            let! fp_1 = FiscalPeriod.constructNewAndSaveToDb explicitKey genericAuditEnvelope
+            let! fp_1 = FiscalPeriod.constructNewAndSaveToDb explicitKey genericAuditEnvelope None
             let uniqueId_1 = FiscalPeriod.uniqueId fp_1
             idToCleanUp_1 <- Some uniqueId_1
             
             System.Threading.Thread.Sleep(1000) // make sure there's some time so the modified_at isn't accidentally the same
-            let attemptResult = FiscalPeriod.reopenFiscalPeriod explicitKey (AuditEnvelope.create FiscalPeriodReopen) 
+            let attemptResult = FiscalPeriod.reopenFiscalPeriod explicitKey (AuditEnvelope.create FiscalPeriodReopen)  None
             Assert.True(attemptResult.IsError)
             
             // fetch it again to make sure it didn't update the modified date or the flag
-            let! fetched = FiscalPeriod.fetchByKey explicitKey
+            let! fetched = FiscalPeriod.fetchByKey None explicitKey 
             Assert.True(FiscalPeriod.isOpen fetched)
             Assert.Equal(expectedModified, FiscalPeriod.modifiedAt fetched)
             
@@ -345,7 +345,7 @@ let ``REQ-SYS-3.2 insertNewToDb sets create and modified timestamps`` () =
     let mutable idToCleanUp = None
     try
         let railroad = result {
-            let! fp = FiscalPeriod.constructNewAndSaveToDb genericFiscalPeriodKey genericAuditEnvelope
+            let! fp = FiscalPeriod.constructNewAndSaveToDb genericFiscalPeriodKey genericAuditEnvelope None
             let unique_id = FiscalPeriod.uniqueId fp
             idToCleanUp <- Some unique_id
             Assert.Equal(expected, FiscalPeriod.createdAt fp)

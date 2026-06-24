@@ -13,10 +13,6 @@ Every entity type has exactly one private function called `validateThenConstruct
 
 Types are grouped into namespaces by domain slice — the natural boundary of types that need to collaborate (e.g., `Model.Ledger.Accounts`, `Model.Ledger.Periods`, `Model.Ledger.Journaling`). The `private` keyword on record types scopes to the namespace, meaning only code within the same slice can construct the record. Types in one slice cannot bypass another slice's `validateThenConstruct`. A slice may contain multiple types when those types form a composite (e.g., JournalEntry and its header, lines, references, and comments).
 
-### Typed Errors
-
-All `Result` return types use a typed error DU, not strings. Each entity defines its own error type (e.g., `AccountError`, `JournalEntryError`). String error messages are a UI boundary concern — the domain speaks in types. This allows calling code to programmatically distinguish between failure modes.
-
 ### Validation Layers
 
 Validation is layered. Each layer builds on the one below it:

@@ -19,7 +19,7 @@ let private createAccountInput codeToUse =
 let private createAccountInDb codeToUse = 
     Account.constructNewAndSaveToDbUsingParentId codeToUse genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope
+                    genericAccountReference genericAuditEnvelope None
 
 
 // =============================================================================
@@ -36,7 +36,7 @@ let ``REQ-AC-2.21 Account Create happy path`` () =
     match code with
     | 0 ->
         let accountReturn:AccountReturn = fromJson<AccountReturn> a |> Result.defaultWith failwith
-        let cleanUpId = accountReturn.code |> Account.fetchIdByCode |> Result.defaultWith failwith
+        let cleanUpId = accountReturn.code |> Account.fetchIdByCode None |> Result.defaultWith failwith
         cleanUpAccountId (Some cleanUpId) |> Result.defaultWith failwith
     | _ ->
         Assert.Fail $"Create Account happy path returned a non-zero value: {e}"
@@ -94,7 +94,7 @@ let ``REQ-AC-3.10 Account FetchByParentCode happy path`` () =
             let! account_parent = 
                 Account.constructNewAndSaveToDbUsingParentId code_parent genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope
+                    genericAccountReference genericAuditEnvelope None
             let parentCode = Account.code account_parent
             let parentCodeString = parentCode |> AccountCode.value
             let parentId = Account.uniqueId account_parent
@@ -103,7 +103,7 @@ let ``REQ-AC-3.10 Account FetchByParentCode happy path`` () =
             let! account_child1 = 
                 Account.constructNewAndSaveToDbUsingParentId code_child1 explicitName genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
-                    genericAccountReference genericAuditEnvelope
+                    genericAccountReference genericAuditEnvelope None
             let id_child1 = Account.uniqueId account_child1
             idToCleanUp_child1 <- Some id_child1
             
@@ -160,19 +160,19 @@ let ``REQ-AC-3.6 Account FetchByAccountType happy path`` () =
             let! account_1 = 
                 Account.constructNewAndSaveToDbUsingParentId code_1 genericAccountNameString explicitType
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope
+                    genericAccountReference genericAuditEnvelope None
             idToCleanUp_1 <- account_1 |> Account.uniqueId |> Some
             
             let! account_2 = 
                 Account.constructNewAndSaveToDbUsingParentId code_2 genericAccountNameString explicitType
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope
+                    genericAccountReference genericAuditEnvelope None
             idToCleanUp_2 <- account_2 |> Account.uniqueId |> Some
             
             let! account_3 = 
                 Account.constructNewAndSaveToDbUsingParentId code_3 genericAccountNameString explicitType
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope
+                    genericAccountReference genericAuditEnvelope None
             idToCleanUp_3 <- account_3 |> Account.uniqueId |> Some
             
             let! payload = { accountTypeSt = explicitType } |> toJson<AccountFetchByAccountTypeInput> 
@@ -215,19 +215,19 @@ let ``REQ-AC-3.7 Account FetchAll happy path`` () =
             let! account_1 = 
                 Account.constructNewAndSaveToDbUsingParentId code_1 genericAccountNameString explicitType1
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope
+                    genericAccountReference genericAuditEnvelope None
             idToCleanUp_1 <- account_1 |> Account.uniqueId |> Some
             
             let! account_2 = 
                 Account.constructNewAndSaveToDbUsingParentId code_2 genericAccountNameString explicitType2
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope
+                    genericAccountReference genericAuditEnvelope None
             idToCleanUp_2 <- account_2 |> Account.uniqueId |> Some
             
             let! account_3 = 
                 Account.constructNewAndSaveToDbUsingParentId code_3 genericAccountNameString explicitType3
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope
+                    genericAccountReference genericAuditEnvelope None
             idToCleanUp_3 <- account_3 |> Account.uniqueId |> Some
             
             let! payload = { activeOnly = false } |> toJson<AccountFetchAllInput> 

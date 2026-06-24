@@ -27,7 +27,7 @@ let cleanUpAccountId (uniqueId:Guid option) : Result<unit, string> =
                 WHERE unique_id = @unique_id;
             """
         result {
-            return! executeNonQuery query parameters ExactlyOne
+            return! executeNonQuery query parameters ExactlyOne None
         }
 
 let cleanUpAccountList (l: Guid option list) : Result<unit, string> =    
@@ -65,7 +65,7 @@ let cleanUpFiscalPeriodId (uniqueId:Guid option) : Result<unit, string> =
                 WHERE unique_id = @unique_id;
             """
         result {
-            return! executeNonQuery query parameters ExactlyOne
+            return! executeNonQuery query parameters ExactlyOne None
         }
 let cleanUpFiscalPeriodKey (key:string option) : Result<unit, string> =
     match key with
@@ -79,7 +79,7 @@ let cleanUpFiscalPeriodKey (key:string option) : Result<unit, string> =
                 WHERE period_key = @period_key;
             """
         result {
-            return! executeNonQuery query parameters ExactlyOne
+            return! executeNonQuery query parameters ExactlyOne None
         }
 
 let cleanUpFiscalPeriodIdsList (l: Guid option list) : Result<unit, string> =    

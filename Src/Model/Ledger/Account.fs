@@ -142,7 +142,9 @@ module Account =
             (predicate: string option)
             (limit: int option)
             (parameters: QueryParameter list)
-            (expectedRows: AcceptableExpectedRows): Result<Account list, string> =
+            (expectedRows: AcceptableExpectedRows)
+            (transaction: DbTransaction option)
+            : Result<Account list, string> =
         let predicateString =
             match predicate with
             | Some x -> x
@@ -170,12 +172,12 @@ module Account =
             {limitString}
             ;
             """
-        executeReaderQuery query parameters mapRowForDbRead expectedRows
+        executeReaderQuery query parameters mapRowForDbRead expectedRows transaction
 
     /// insertNewToDb is a private function used as an interface to the DAL. It
     /// assumes that the calling function handled all necessary validations to
     /// ensure only legal data states persist 
-    let private insertNewToDb (account:Account): Result<unit, string> =            
+    let private insertNewToDb (account:Account) (transaction: DbTransaction option): Result<unit, string> =
         let query = """
             insert into ledger.account( -- REQ-SYS-5.1
 	            unique_id, 
@@ -216,11 +218,14 @@ module Account =
             { name = "@parent_id"; value = NullableUniqueId account.parentId };
             { name = "@external_ref"; value = NullableCharString externalReferenceString }
         ]
-        executeNonQuery query parameters ExactlyOne
+        executeNonQuery query parameters ExactlyOne transaction
 
 /// public read functions
 
-    let fetchCodeById (unique_id: Guid): Result<string, string> =
+    let fetchCodeById
+            (transaction: DbTransaction option)
+            (unique_id: Guid)
+            : Result<string, string> =
         let query = $"""
             select code
             from ledger.account
@@ -228,21 +233,27 @@ module Account =
             ;
             """
         let parameters = [{ name = "@unique_id"; value = UniqueId unique_id };] // REQ-DAL-2.3
-        match executeScalar query parameters with
+        match executeScalar query parameters transaction with
         | Error e -> Error e
         | Ok x when isNull x -> Error "Execute scalar returned null in fetchCodeById"
         | Ok x -> Ok (string x)
 
-    let fetchCodeOptionByIdOption (idOption: Guid option): Result<string option, string> =
+    let fetchCodeOptionByIdOption
+            (transaction: DbTransaction option)
+            (idOption: Guid option)
+            : Result<string option, string> =
         match idOption with
         | None -> Ok None
         | Some x ->
             result {
-                let! fetchedCode = fetchCodeById x
+                let! fetchedCode = x |> fetchCodeById transaction
                 return Some fetchedCode
             }
 
-    let fetchIdByCode (code: string): Result<Guid, string> =
+    let fetchIdByCode
+            (transaction: DbTransaction option)
+            (code: string)
+            : Result<Guid, string> =
         let query = $"""
             select unique_id
             from ledger.account
@@ -250,7 +261,7 @@ module Account =
             ;
             """
         let parameters = [{ name = "@code"; value = CharString code };] // REQ-DAL-2.3
-        match executeScalar query parameters with
+        match executeScalar query parameters transaction with
         | Error e -> Error e
         | Ok x when isNull x -> Error "Execute scalar returned null in fetchIdByCode"
         | Ok x ->
@@ -258,51 +269,69 @@ module Account =
             | :? Guid as g -> Ok g
             | _ -> Error $"Expected GUID, {x.GetType().Name}"
 
-    let fetchIdOptionByCodeOption (codeOption: string option): Result<Guid option, string> =
+    let fetchIdOptionByCodeOption
+            (transaction: DbTransaction option)
+            (codeOption: string option)
+            : Result<Guid option, string> =
         match codeOption with
         | None -> Ok None
         | Some x ->
             result {
-                let! fetchedId = fetchIdByCode x
+                let! fetchedId = x |> fetchIdByCode transaction
                 return Some fetchedId
             }
 
-    let fetchById (uniqueId: Guid) : Result<Account, string> = // REQ-AC-3.3
+    let fetchById
+            (transaction: DbTransaction option)
+            (uniqueId: Guid)
+            : Result<Account, string> = // REQ-AC-3.3
         let predicate = "where unique_id = @unique_id"
         let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
-        readRowsFromDb (Some predicate) None parameters ExactlyOne
+        readRowsFromDb (Some predicate) None parameters ExactlyOne transaction
         |> Result.map List.head
 
-    let fetchByCode (code: string) : Result<Account, string> = // REQ-AC-3.4
+    let fetchByCode
+            (transaction: DbTransaction option)
+            (code: string)
+            : Result<Account, string> = // REQ-AC-3.4
         let predicate = "where code = @code"
         let parameters = [{ name = "@code"; value = CharString code };] // REQ-DAL-2.3
-        readRowsFromDb (Some predicate) None parameters ExactlyOne
+        readRowsFromDb (Some predicate) None parameters ExactlyOne transaction
         |> Result.map List.head
 
-    let fetchByParentId (parentId: Guid) : Result<Account list, string> = // REQ-AC-3.5
+    let fetchByParentId
+            (transaction: DbTransaction option)
+            (parentId: Guid)
+            : Result<Account list, string> = // REQ-AC-3.5
         let predicate = $"where parent_id = @parent_id"
         let parameters = [{ name = "@parent_id"; value = UniqueId parentId };] // REQ-DAL-2.3
-        readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable
+        readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable transaction
     
-    let fetchByParentCode (parentCode: string) : Result<Account list, string> = // REQ-AC-3.10
+    let fetchByParentCode
+            (transaction: DbTransaction option)
+            (parentCode: string)
+            : Result<Account list, string> = // REQ-AC-3.10
         result {
-            let! parentId = fetchIdByCode parentCode
-            return! fetchByParentId parentId
+            let! parentId = parentCode |> fetchIdByCode transaction
+            return! parentId |> fetchByParentId transaction
         }
 
-    let fetchByAccountType (accountType: AccountType): Result<Account list, string> = // REQ-AC-3.6
+    let fetchByAccountType
+            (transaction: DbTransaction option)
+            (accountType: AccountType)
+            : Result<Account list, string> = // REQ-AC-3.6
         let predicate = $"where account_type = @account_type"
         let parameters = [{ name = "@account_type"; value = CharString (accountType |> AccountType.toString) };] // REQ-DAL-2.3
-        readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable
+        readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable transaction
 
     /// fetchAll returns all accounts or, if activeOnly is true, fetches all accounts
     /// that are active with respect to the system runtime
-    let fetchAll (activeOnly: bool) : Result<Account list, string> = 
+    let fetchAll (activeOnly: bool) (transaction: DbTransaction option) : Result<Account list, string> = 
         let predicate = None
         let parameters = []
         let activeReference = Calendar.today()
         
-        match readRowsFromDb predicate None parameters AnyQuantityIsAcceptable with
+        match readRowsFromDb predicate None parameters AnyQuantityIsAcceptable transaction with
         | Error e -> Error e
         | Ok allRows ->
             if activeOnly then allRows |> List.filter(isActive activeReference) |> Ok
@@ -339,12 +368,13 @@ module Account =
         | false -> Error "Account types do not match" // REQ-AC-2.20
 
     let private validateParentChildRelationship
+            (transaction: DbTransaction option)
             (parentId: Guid)
             (childAccountType: AccountType)
             (referenceTime: LocalDate)
             : Result<unit, string> =
         result {
-            let! validAccount = fetchById parentId
+            let! validAccount = parentId |> fetchById transaction
             let! () = confirmAccountIsValidAndActive validAccount referenceTime // REQ-AC-2.6, REQ-AC-2.7
             let! () = confirmAccountTypesMatch (accountType validAccount) childAccountType
             (*
@@ -368,12 +398,13 @@ module Account =
             Ok () // REQ-AC-4.2
 
     let private validateNoActiveChildrenBeforeDeactivation
+        (transaction: DbTransaction option)
         (account: Account)
         (auditEnvelope: AuditEnvelope)
         : Result<unit, string> =
         let accountId = uniqueId account
         result {
-            let! children = fetchByParentId accountId
+            let! children = accountId |> fetchByParentId transaction
             do!
                 let referenceDate = (AuditEnvelope.instant auditEnvelope) |> Calendar.dateFromInstant
                 if children |> List.exists (isActive referenceDate) // REQ-AC-4.3
@@ -393,6 +424,7 @@ module Account =
             (activeEndUpdate: FieldUpdate<LocalDate option>)
             (referenceUpdate: FieldUpdate<AccountExternalReference option>)
             (auditEnvelope: AuditEnvelope)
+            (transaction: DbTransaction option)
             : Result<Account, string> =
                 
         let baseParams = [
@@ -428,8 +460,8 @@ module Account =
         """
         result {
             do! if updates.IsEmpty then Error "update Account record failed because at least one updatable parameter must be set" else Ok ()
-            let! () = executeNonQuery query parameters ExactlyOne
-            return! fetchById accountId
+            let! () = executeNonQuery query parameters ExactlyOne transaction
+            return! accountId |> fetchById transaction
         }
 
 // public orchestrators
@@ -446,6 +478,7 @@ module Account =
             (parentId: Guid option)
             (reference: string option)
             (auditEnvelope: AuditEnvelope)
+            (transaction: DbTransaction option)
             : Result<Account, string> =
 
         result {
@@ -461,8 +494,8 @@ module Account =
                 | None -> Ok ()
                 | Some x ->
                     let referenceDate = (AuditEnvelope.instant auditEnvelope) |> Calendar.dateFromInstant
-                    validateParentChildRelationship x (accountType validAccount) referenceDate
-            let! () = insertNewToDb validAccount // REQ-AC-2.14
+                    validateParentChildRelationship transaction x (accountType validAccount) referenceDate
+            let! () = insertNewToDb validAccount transaction // REQ-AC-2.14
             return validAccount
         }
 
@@ -478,13 +511,14 @@ module Account =
             (parentCode: string option)
             (reference: string option)
             (auditEnvelope: AuditEnvelope)
+            (transaction: DbTransaction option)
             : Result<Account, string> =
         result {
-            let! parentIdOption = fetchIdOptionByCodeOption parentCode
+            let! parentIdOption = parentCode |> fetchIdOptionByCodeOption transaction
             return!
                 constructNewAndSaveToDbUsingParentId
                     code accountName accountTypeSt activeBegin activeEnd
-                    subType parentIdOption reference auditEnvelope
+                    subType parentIdOption reference auditEnvelope transaction
         }
 
     /// deactivateAccountById updates the active_end date in the database and returns a
@@ -495,22 +529,24 @@ module Account =
             (accountId: Guid)
             (explicitEnd: LocalDate option)
             (auditEnvelope: AuditEnvelope)
+            (transaction: DbTransaction option)
             : Result<Account, string> = // REQ-AC-4.1
         let deactivationDate =
             match explicitEnd with
             | Some m -> m
             | None -> Calendar.dateFromInstant (AuditEnvelope.instant auditEnvelope)
         result {
-            let! accountCurrent = fetchById accountId
+            let! accountCurrent = accountId |> fetchById transaction
             do! // REQ-AC-4.5
                 match activeEnd accountCurrent with
                 | None -> Ok ()
                 | Some x -> Error $"Account {accountId} deactivation failed because active end is already set to {x}"
             let! () = validateProposedDeactivationDate accountCurrent deactivationDate // REQ-AC-4.2
-            let! () = validateNoActiveChildrenBeforeDeactivation accountCurrent auditEnvelope // REQ-AC-4.3
+            let! () = validateNoActiveChildrenBeforeDeactivation transaction accountCurrent auditEnvelope // REQ-AC-4.3
             // todo: validate non-zero balance REQ-AC-4.4
             // todo: validate no journal entries after deactivation date REQ-AC-4.6
-            let! newAccount = updateDb accountId NoChange (SetTo (Some deactivationDate)) NoChange auditEnvelope
+            let! newAccount = updateDb accountId NoChange (SetTo (Some deactivationDate))
+                                  NoChange auditEnvelope transaction
             return newAccount                
         }
 
@@ -518,20 +554,22 @@ module Account =
             (code: string)
             (explicitEnd: LocalDate option)
             (auditEnvelope: AuditEnvelope)
+            (transaction: DbTransaction option)
             : Result<Account, string> =
         result {
-            let! fetchedId = fetchIdByCode code
-            return! deactivateAccountById fetchedId explicitEnd auditEnvelope
+            let! fetchedId = code |> fetchIdByCode transaction
+            return! deactivateAccountById fetchedId explicitEnd auditEnvelope transaction
         }
 
     let updateAccountNameById
             (accountId: Guid)
             (newName: string)
             (auditEnvelope: AuditEnvelope)
+            (transaction: DbTransaction option)
             : Result<Account, string> = // REQ-AC-4.8
         result {
             let! validAccountName = AccountName.create newName // REQ-SYS-2.1
-            let! newAccount = updateDb accountId (SetTo validAccountName) NoChange NoChange auditEnvelope
+            let! newAccount = updateDb accountId (SetTo validAccountName) NoChange NoChange auditEnvelope transaction
             return newAccount
         }
 
@@ -539,23 +577,25 @@ module Account =
             (code: string)
             (newName: string)
             (auditEnvelope: AuditEnvelope)
+            (transaction: DbTransaction option)
             : Result<Account, string> =
         result {
-            let! fetchedId = fetchIdByCode code
-            return! updateAccountNameById fetchedId newName auditEnvelope
+            let! fetchedId = code |> fetchIdByCode transaction
+            return! updateAccountNameById fetchedId newName auditEnvelope transaction
         }
 
     let updateExternalReferenceById 
             (accountId: Guid)
             (newReference: string option)
             (auditEnvelope: AuditEnvelope)
+            (transaction: DbTransaction option)
             : Result<Account, string> = // REQ-AC-4.9
         result {                
             let! validRef = // REQ-SYS-2.1
                 match newReference with
                 | Some x -> AccountExternalReference.create x |> Result.map Some
                 | None -> Ok None
-            let! newAccount = updateDb accountId NoChange NoChange (SetTo validRef) auditEnvelope
+            let! newAccount = updateDb accountId NoChange NoChange (SetTo validRef) auditEnvelope transaction
             return newAccount
         }
 
@@ -563,8 +603,9 @@ module Account =
             (code: string)
             (newReference: string option)
             (auditEnvelope: AuditEnvelope)
+            (transaction: DbTransaction option)
             : Result<Account, string> =
         result {
-            let! fetchedId = fetchIdByCode code
-            return! updateExternalReferenceById fetchedId newReference auditEnvelope
+            let! fetchedId = code |> fetchIdByCode transaction
+            return! updateExternalReferenceById fetchedId newReference auditEnvelope transaction
         }

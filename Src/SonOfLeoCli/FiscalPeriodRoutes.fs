@@ -20,7 +20,7 @@ let create payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create FiscalPeriodCreate
-        let! model = constructNewAndSaveToDb input.periodKey envelope
+        let! model = constructNewAndSaveToDb input.periodKey envelope None
         let returnVal  = convertModelToReturn model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
@@ -28,7 +28,7 @@ let create payload _ =
 let fetch payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
-        let! model = fetchByKey input.periodKey
+        let! model = input.periodKey |> fetchByKey None 
         let returnVal  = convertModelToReturn model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
@@ -36,7 +36,7 @@ let fetch payload _ =
 let fetchAll payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodFetchAllInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
-        let! models = fetchAll input.openOnly
+        let! models = fetchAll None input.openOnly
         let returnVal  = models |> List.map convertModelToReturn
         return! Json.toJson<FiscalPeriodReturn list> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
@@ -45,7 +45,7 @@ let close payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create FiscalPeriodClose
-        let! model = closeFiscalPeriod input.periodKey envelope
+        let! model = closeFiscalPeriod input.periodKey envelope None
         let returnVal  = convertModelToReturn model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
@@ -54,7 +54,7 @@ let reopen payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create FiscalPeriodReopen
-        let! model = reopenFiscalPeriod input.periodKey envelope
+        let! model = reopenFiscalPeriod input.periodKey envelope None
         let returnVal  = convertModelToReturn model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }

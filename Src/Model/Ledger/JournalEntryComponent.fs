@@ -44,11 +44,11 @@ module JournalEntryComponent =
         let entryDate (e:EntryDate) : LocalDate = e.entryDate
         let fiscalPeriod (e:EntryDate) : FiscalPeriod = e.fiscalPeriod
         let fiscalPeriodKey (e:EntryDate): string = e.fiscalPeriod |> FiscalPeriod.periodKey |> PeriodKey.value  // here as quality of life
-        let create (entryDate: LocalDate) : Result<EntryDate, string> =
+        let create (transaction: DbTransaction option) (entryDate: LocalDate) : Result<EntryDate, string> =
             let monthF = entryDate.Month.ToString("D2")
             result {
                 let key = $"{entryDate.Year}-{monthF}" // REQ-JE-1.11
-                let! fp = FiscalPeriod.fetchByKey key
+                let! fp = key |> FiscalPeriod.fetchByKey transaction
                 do! if fp |> FiscalPeriod.isOpen = false then Error $"Entry date {entryDate} is not associated to an open period" else Ok ()
                 return { entryDate = entryDate; fiscalPeriod = fp }
             }

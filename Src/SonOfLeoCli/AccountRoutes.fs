@@ -14,7 +14,7 @@ let convertAccountToAccountReturn a : AccountReturn = {
             activeBegin = activeBegin a
             activeEnd = activeEnd a
             subType = accountSubType a |> Option.map AccountSubtype.toString
-            parentCode = fetchCodeOptionByIdOption (parentId a) |> Result.defaultWith failwith
+            parentCode = fetchCodeOptionByIdOption None (parentId a) |> Result.defaultWith failwith
             reference = externalReference a |> Option.map AccountExternalReference.value
             createdAt = createdAt a
             modifiedAt = modifiedAt a
@@ -34,6 +34,7 @@ let accountCreate payload _ =
                          accountCreateInput.parentCode
                          accountCreateInput.reference
                          envelope
+                         None
         let returnAccount : AccountReturn = convertAccountToAccountReturn account
         return! Json.toJson<AccountReturn> returnAccount // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
@@ -46,6 +47,7 @@ let accountDeactivate payload _ =
                          accountDeactivation.code
                          (Some accountDeactivation.activeEnd)
                          envelope
+                         None
         let returnAccount : AccountReturn = convertAccountToAccountReturn account
         return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
@@ -59,6 +61,7 @@ let accountUpdateName payload _ =
                          accountUpdate.code
                          accountUpdate.newName
                          envelope
+                         None
         let returnAccount : AccountReturn = convertAccountToAccountReturn account
         return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
@@ -71,6 +74,7 @@ let accountUpdateExternalReference payload _ =
                          accountUpdate.code
                          accountUpdate.newReference
                          envelope
+                         None
         let returnAccount : AccountReturn = convertAccountToAccountReturn account
         return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
@@ -78,7 +82,7 @@ let accountUpdateExternalReference payload _ =
 let accountFetchByCode payload _ =
     result {
         let! accountFetch = Json.fromJson<AccountFetchByCodeInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
-        let! account = fetchByCode accountFetch.code
+        let! account = fetchByCode None accountFetch.code
         let returnAccount : AccountReturn = convertAccountToAccountReturn account
         return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
@@ -86,7 +90,7 @@ let accountFetchByCode payload _ =
 let accountFetchByParentCode payload _ =
     result {
         let! accountFetch = Json.fromJson<AccountFetchByParentCodeInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
-        let! accounts = fetchByParentCode accountFetch.parentCode
+        let! accounts = fetchByParentCode None accountFetch.parentCode
         let returnAccounts = accounts |> List.map(convertAccountToAccountReturn) 
         return! Json.toJson<AccountReturn list> returnAccounts// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
@@ -95,7 +99,7 @@ let accountFetchByAccountType payload _ =
     result {
         let! accountFetch = Json.fromJson<AccountFetchByAccountTypeInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let! validType = AccountType.fromString accountFetch.accountTypeSt
-        let! accounts = fetchByAccountType validType
+        let! accounts = fetchByAccountType None validType
         let returnAccounts = accounts |> List.map(convertAccountToAccountReturn) 
         return! Json.toJson<AccountReturn list> returnAccounts// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
@@ -103,7 +107,7 @@ let accountFetchByAccountType payload _ =
 let accountFetchAll payload _ =
     result {
         let! accountFetch = Json.fromJson<AccountFetchAllInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
-        let! accounts = fetchAll accountFetch.activeOnly
+        let! accounts = fetchAll accountFetch.activeOnly None
         let returnAccounts = accounts |> List.map(convertAccountToAccountReturn)
         return! Json.toJson<AccountReturn list> returnAccounts// REQ-NGUI-2.4, REQ-NGUI-3.5
     }

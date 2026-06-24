@@ -7,9 +7,6 @@ open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
 open Utilities.ResultCE
 open Utilities.DAL
-open Model.Ledger.Accounts
-open Model.Ledger.Accounts.AccountComponent
-open Utilities
 
 type JournalEntryHeader =
   private  {    uniqueId: Guid                                     // REQ-JE-1.1, REQ-JE-1.2
@@ -40,6 +37,7 @@ module JournalEntryHeader =
             (voidedAt: Instant option)
             (createdAt: Instant)
             (modifiedAt: Instant)
+            (transaction: DbTransaction option)
             : Result<JournalEntryHeader, string> =
         result {
             
@@ -48,7 +46,7 @@ module JournalEntryHeader =
                 match source with
                 | Some x -> Source.create x |> Result.map Some
                 | None -> Ok None
-            let! validEntryDate = EntryDate.create entryDate
+            let! validEntryDate = entryDate |> EntryDate.create transaction
             return { uniqueId = uniqueId; description = validDescription; source = validSource
                      entryDate = validEntryDate; voidedAt = voidedAt; createdAt = createdAt
                      modifiedAt = modifiedAt } }
@@ -59,14 +57,15 @@ module JournalEntryHeader =
             (entryDate: LocalDate)
             (voidedAt: Instant option)
             (auditEnvelope: AuditEnvelope)
+            (transaction: DbTransaction option)
             : Result<JournalEntryHeader, string> =
         let uniqueId = Guid.NewGuid()
         let now = AuditEnvelope.instant auditEnvelope
         let createdAt =  now // REQ-SYS-3.2
         let modifiedAt = now // REQ-SYS-3.2
-        constructOmni uniqueId description source entryDate voidedAt createdAt modifiedAt
+        constructOmni uniqueId description source entryDate voidedAt createdAt modifiedAt transaction
     
-    let private insertNewToDb (journalEntry:JournalEntryHeader): Result<unit, string> =
+    let private insertNewToDb (journalEntry:JournalEntryHeader) (transaction: DbTransaction option): Result<unit, string> =
         let query = """
             INSERT INTO ledger.journal_entry(
                 unique_id, description, je_source, entry_date, fiscal_period_id, voided_at, created_at, modified_at)
@@ -82,7 +81,7 @@ module JournalEntryHeader =
             { name = "@created_at"; value = DbInstant journalEntry.createdAt };
             { name = "@modified_at"; value = DbInstant journalEntry.modifiedAt };
         ]
-        executeNonQuery query parameters ExactlyOne
+        executeNonQuery query parameters ExactlyOne transaction
 
     let constructNewAndSaveToDb
             (description: string)
@@ -90,8 +89,9 @@ module JournalEntryHeader =
             (entryDate: LocalDate)
             (voidedAt: Instant option)
             (auditEnvelope: AuditEnvelope)
+            (transaction: DbTransaction option)
             : Result<JournalEntryHeader, string> =
         result {
-            let! validJournalEntry = constructNew description source entryDate voidedAt auditEnvelope
-            let! () = insertNewToDb validJournalEntry // REQ-
+            let! validJournalEntry = constructNew description source entryDate voidedAt auditEnvelope transaction
+            let! () = insertNewToDb validJournalEntry transaction // REQ-
             return validJournalEntry }

@@ -34,8 +34,8 @@ module JournalEntryLine =
         then Error $"JEL amount fields cannot be less than or equal to 0.00"
         else Ok m
     
-    let validateAccountId (id: Guid) : Result<Guid, string> =
-        match id |> Account.fetchById with
+    let validateAccountId (transaction: DbTransaction option) (id: Guid) : Result<Guid, string> =
+        match id |> Account.fetchById transaction with
         | Error e -> Error e
         | Ok _ -> Ok id
 
@@ -51,9 +51,10 @@ module JournalEntryLine =
             (memo: string option)
             (createdAt: Instant)
             (modifiedAt: Instant)
+            (transaction: DbTransaction option)
             : Result<JournalEntryLine, string> =
         result {
-            let! validAccountId = accountId |> validateAccountId //REQ-JE-1.22
+            let! validAccountId = accountId |> validateAccountId transaction //REQ-JE-1.22
             let! moneyAmount = amount |> Money.fromDecimal
             let! validAmount = moneyAmount |> validateAmount
             let! validType = lineType |> JournalEntryLineType.fromString
@@ -78,14 +79,18 @@ module JournalEntryLine =
             (lineType: string)
             (memo: string option)
             (auditEnvelope: AuditEnvelope)
+            (transaction: DbTransaction option)
             : Result<JournalEntryLine, string> =        
         let uniqueId = Guid.NewGuid()
         let now = AuditEnvelope.instant auditEnvelope
         let createdAt =  now // REQ-SYS-3.2
         let modifiedAt = now // REQ-SYS-3.2
-        validateThenConstruct uniqueId journalEntryId accountId amount lineType memo createdAt modifiedAt
+        validateThenConstruct uniqueId journalEntryId accountId amount lineType memo createdAt modifiedAt transaction
     
-    let private insertNewToDb (journalEntryLine:JournalEntryLine): Result<unit, string> =
+    let private insertNewToDb
+            (journalEntryLine:JournalEntryLine)
+            (transaction: DbTransaction option)
+            : Result<unit, string> =
         let query = """
             INSERT INTO ledger.journal_entry_line(
                 unique_id, journal_entry_id, account_id, amount, line_type, 
@@ -103,7 +108,7 @@ module JournalEntryLine =
             { name = "@created_at"; value = DbInstant journalEntryLine.createdAt };
             { name = "@modified_at"; value = DbInstant journalEntryLine.modifiedAt };
         ]
-        executeNonQuery query parameters ExactlyOne
+        executeNonQuery query parameters ExactlyOne transaction
 
     let constructNewAndSaveToDb
             (journalEntryId: Guid)
@@ -112,8 +117,10 @@ module JournalEntryLine =
             (lineType: string)
             (memo: string option)
             (auditEnvelope: AuditEnvelope)
+            (transaction: DbTransaction option)
             : Result<JournalEntryLine, string> =
         result {
-            let! validJournalEntryLine = constructNew journalEntryId accountId amount lineType memo auditEnvelope
-            let! () = insertNewToDb validJournalEntryLine // REQ-
+            let! validJournalEntryLine =
+                constructNew journalEntryId accountId amount lineType memo auditEnvelope transaction
+            let! () = insertNewToDb validJournalEntryLine transaction // REQ-
             return validJournalEntryLine }

@@ -42,7 +42,7 @@ let ``REQ-NGUI-3.6 System responds with the payload via stdout upon success`` ()
             let! pushResult = 
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString explicitName genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope
+                    genericAccountReference genericAuditEnvelope None
             let pushCode = pushResult |> Account.code |> AccountCode.value
             let pushId = Account.uniqueId pushResult
             idToCleanUp <- Some pushId
