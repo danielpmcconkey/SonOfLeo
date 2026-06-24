@@ -7,53 +7,49 @@ open Xunit
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
 open Utilities.ResultCE
-open Tests.Integrated._Cleanup
 open Utilities
 
 [<Fact>]
-let ``REQ-AC-1.4 REQ-AC-2.9 AccountCode must be unique`` () =    
+let ``REQ-AC-1.4 REQ-AC-2.9 AccountCode must be unique`` () =
     let code1 = "REQ-AC-1.4"
     let code2 = code1
-    
-    let mutable idToCleanUp = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let result1 =
             Account.constructNewAndSaveToDbUsingParentId code1 genericAccountNameString genericAccountTypeString
                 genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                genericAccountReference genericAuditEnvelope None
+                genericAccountReference genericAuditEnvelope (Some transaction)
         match result1 with
         | Error e -> Assert.Fail e // need to ensure that the first made it into the DB to check the unique constraint
-        | Ok a -> idToCleanUp <- Some (Account.uniqueId a)
-        
-        let result2 = 
+        | Ok _ -> ()
+
+        let result2 =
             Account.constructNewAndSaveToDbUsingParentId code2 genericAccountNameString genericAccountTypeString
                 genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                genericAccountReference genericAuditEnvelope None
+                genericAccountReference genericAuditEnvelope (Some transaction)
         Assert.True(Result.isError result2)
     finally
-        match cleanUpAccountId idToCleanUp with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
-let ``REQ-AC-1.5 Account code is case sensitive.`` () =    
+let ``REQ-AC-1.5 Account code is case sensitive.`` () =
     let code1 = "REQ-AC-1.5"
     let code2 = "req-ac-1.5"
-    
-    let mutable idToCleanUp = None
-    let mutable idToCleanUp2 = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! account1 = 
+            let! account1 =
                 Account.constructNewAndSaveToDbUsingParentId code1 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
-            idToCleanUp <- Some (Account.uniqueId account1)
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let! account2 =
                 Account.constructNewAndSaveToDbUsingParentId code2 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
-            idToCleanUp2 <- Some (Account.uniqueId account2)
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let dbCode1 = AccountCode.value (Account.code account1)
             let dbCode2 = AccountCode.value (Account.code account2)
             Assert.Equal(code1, dbCode1)
@@ -65,11 +61,7 @@ let ``REQ-AC-1.5 Account code is case sensitive.`` () =
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        [idToCleanUp; idToCleanUp2]
-        |> cleanUpAccountList
-        |> function
-            | Ok _ -> ()
-            | Error e -> failwith e 
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 // =============================================================================
 // Create + Read round-trips
@@ -86,16 +78,16 @@ let ``REQ-AC-2.14 REQ-SYS-5.1 create account and fetch by ID returns identical r
     let parentId = None
     let reference = Some "test ext ref"
     let envelope = AuditEnvelope.create AccountCreate
-    
-    let mutable idToCleanUp = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
             let! pushResult =
                 Account.constructNewAndSaveToDbUsingParentId code accountName accountType
-                    activeBegin activeEnd subtype parentId reference envelope None
+                    activeBegin activeEnd subtype parentId reference envelope (Some transaction)
             let pushId = Account.uniqueId pushResult
-            idToCleanUp <- Some pushId
-            let! pullResult = Account.fetchById None pushId
+            let! pullResult = Account.fetchById (Some transaction) pushId
             Assert.Equal(pushId, (Account.uniqueId pullResult))
             Assert.Equal(code, AccountCode.value(Account.code pullResult))
             Assert.Equal(accountName, AccountName.value(Account.accountName pullResult))
@@ -119,22 +111,20 @@ let ``REQ-AC-2.14 REQ-SYS-5.1 create account and fetch by ID returns identical r
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpAccountId idToCleanUp with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
-let ``REQ-AC-3.4 fetch by code returns correct account`` () =    
-    let mutable idToCleanUp = None
+let ``REQ-AC-3.4 fetch by code returns correct account`` () =
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! pushResult = 
+            let! pushResult =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let pushId = Account.uniqueId pushResult
-            idToCleanUp <- Some pushId
-            let! pullResult = Account.fetchByCode None genericAccountCodeString
+            let! pullResult = Account.fetchByCode (Some transaction) genericAccountCodeString
             Assert.Equal(pushId, (Account.uniqueId pullResult))
             return ()
         }
@@ -142,9 +132,7 @@ let ``REQ-AC-3.4 fetch by code returns correct account`` () =
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpAccountId idToCleanUp with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
 let ``REQ-AC-3.5 fetch by parent ID returns all children`` () =
@@ -152,48 +140,40 @@ let ``REQ-AC-3.5 fetch by parent ID returns all children`` () =
     let code_child1 = "AC-3.5-C1"
     let code_child2 = "AC-3.5-C2"
     let code_child3 = "AC-3.5-C3"
-    
-    let mutable idToCleanUp_parent = None
-    let mutable idToCleanUp_child1 = None
-    let mutable idToCleanUp_child2 = None
-    let mutable idToCleanUp_child3 = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! account_parent = 
+            let! account_parent =
                 Account.constructNewAndSaveToDbUsingParentId code_parent genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let parentId = Account.uniqueId account_parent
-            idToCleanUp_parent <- Some parentId
-            
-            let! account_child1 = 
+
+            let! account_child1 =
                 Account.constructNewAndSaveToDbUsingParentId code_child1 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let id_child1 = Account.uniqueId account_child1
-            idToCleanUp_child1 <- Some id_child1
-            
-            let! account_child2 = 
+
+            let! account_child2 =
                 Account.constructNewAndSaveToDbUsingParentId code_child2 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let id_child2 = Account.uniqueId account_child2
-            idToCleanUp_child2 <- Some id_child2
-            
-            let! account_child3 = 
+
+            let! account_child3 =
                 Account.constructNewAndSaveToDbUsingParentId code_child3 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let id_child3 = Account.uniqueId account_child3
-            idToCleanUp_child3 <- Some id_child3
-            
-            let! fetched = Account.fetchByParentId None parentId
-            
+
+            let! fetched = Account.fetchByParentId (Some transaction) parentId
+
             Assert.Equal(3, List.length fetched)
-            
-            [Option.get idToCleanUp_child1;
-             Option.get idToCleanUp_child2;
-             Option.get idToCleanUp_child3]
+
+            [id_child1; id_child2; id_child3]
             |> List.forall(fun id -> fetched |> List.exists (fun a -> Account.uniqueId a = id))
             |> Assert.True
             return ()
@@ -202,9 +182,7 @@ let ``REQ-AC-3.5 fetch by parent ID returns all children`` () =
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpParentIdAndChildren idToCleanUp_parent [idToCleanUp_child1; idToCleanUp_child2; idToCleanUp_child3] with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
 let ``REQ-AC-3.6 fetch by account type returns matching accounts`` () =
@@ -212,40 +190,34 @@ let ``REQ-AC-3.6 fetch by account type returns matching accounts`` () =
     let code_2 = "AC-3.6-2"
     let code_3 = "AC-3.6-3"
     let explicitAccountType = "Equity"
-    
-    let mutable idToCleanUp_1 = None
-    let mutable idToCleanUp_2 = None
-    let mutable idToCleanUp_3 = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! account_1 = 
+            let! account_1 =
                 Account.constructNewAndSaveToDbUsingParentId code_1 genericAccountNameString explicitAccountType
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let id_1 = Account.uniqueId account_1
-            idToCleanUp_1 <- Some id_1
-            
-            let! account_2 = 
+
+            let! account_2 =
                 Account.constructNewAndSaveToDbUsingParentId code_2 genericAccountNameString explicitAccountType
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let id_2 = Account.uniqueId account_2
-            idToCleanUp_2 <- Some id_2
-            
-            let! account_3 = 
+
+            let! account_3 =
                 Account.constructNewAndSaveToDbUsingParentId code_3 genericAccountNameString explicitAccountType
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let id_3 = Account.uniqueId account_3
-            idToCleanUp_3 <- Some id_3
-            
+
             let! fetchType = AccountType.fromString explicitAccountType
-            let! fetched = Account.fetchByAccountType None fetchType
+            let! fetched = Account.fetchByAccountType (Some transaction) fetchType
             Assert.Equal(3, List.length fetched)
-            
-            [Option.get idToCleanUp_1;
-             Option.get idToCleanUp_2;
-             Option.get idToCleanUp_3]
+
+            [id_1; id_2; id_3]
             |> List.forall(fun id -> fetched |> List.exists (fun a -> Account.uniqueId a = id))
             |> Assert.True
             return ()
@@ -254,9 +226,7 @@ let ``REQ-AC-3.6 fetch by account type returns matching accounts`` () =
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpAccountList [idToCleanUp_1; idToCleanUp_2; idToCleanUp_3] with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
 let ``REQ-AC-3.7 fetch all fetches everything`` () =
@@ -269,48 +239,39 @@ let ``REQ-AC-3.7 fetch all fetches everything`` () =
     let explicitAccountType3 = "Revenue"
     let explicitAccountType4 = "Expense"
     let account4ActiveEnd = Some (Calendar.today().PlusDays(-1))
-    
-    let mutable idToCleanUp_1 = None
-    let mutable idToCleanUp_2 = None
-    let mutable idToCleanUp_3 = None
-    let mutable idToCleanUp_4 = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! account_1 = 
+            let! account_1 =
                 Account.constructNewAndSaveToDbUsingParentId code_1 genericAccountNameString explicitAccountType1
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let id_1 = Account.uniqueId account_1
-            idToCleanUp_1 <- Some id_1
-            
-            let! account_2 = 
+
+            let! account_2 =
                 Account.constructNewAndSaveToDbUsingParentId code_2 genericAccountNameString explicitAccountType2
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let id_2 = Account.uniqueId account_2
-            idToCleanUp_2 <- Some id_2
-            
-            let! account_3 = 
+
+            let! account_3 =
                 Account.constructNewAndSaveToDbUsingParentId code_3 genericAccountNameString explicitAccountType3
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let id_3 = Account.uniqueId account_3
-            idToCleanUp_3 <- Some id_3
-            
-            let! account_4 = 
+
+            let! account_4 =
                 Account.constructNewAndSaveToDbUsingParentId code_4 genericAccountNameString explicitAccountType4
                     genericAccountActiveBegin account4ActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let id_4 = Account.uniqueId account_4
-            idToCleanUp_4 <- Some id_4
-            
-            let! fetched = Account.fetchAll false None
+
+            let! fetched = Account.fetchAll false (Some transaction)
             Assert.Equal(4, List.length fetched)
-            
-            [Option.get idToCleanUp_1
-             Option.get idToCleanUp_2
-             Option.get idToCleanUp_3
-             Option.get idToCleanUp_4]
+
+            [id_1; id_2; id_3; id_4]
             |> List.forall(fun id -> fetched |> List.exists (fun a -> Account.uniqueId a = id))
             |> Assert.True
             return ()
@@ -319,9 +280,7 @@ let ``REQ-AC-3.7 fetch all fetches everything`` () =
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpAccountList [idToCleanUp_1; idToCleanUp_2; idToCleanUp_3; idToCleanUp_4] with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
 let ``REQ-AC-3.9 fetch all with active only fetches active accounts relative to system run time`` () =
@@ -334,47 +293,38 @@ let ``REQ-AC-3.9 fetch all with active only fetches active accounts relative to 
     let explicitAccountType3 = "Revenue"
     let explicitAccountType4 = "Asset"
     let account4ActiveEnd = Some (Calendar.today().PlusDays(-1))
-    
-    let mutable idToCleanUp_1 = None
-    let mutable idToCleanUp_2 = None
-    let mutable idToCleanUp_3 = None
-    let mutable idToCleanUp_4 = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! account_1 = 
+            let! account_1 =
                 Account.constructNewAndSaveToDbUsingParentId code_1 genericAccountNameString explicitAccountType1
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let id_1 = Account.uniqueId account_1
-            idToCleanUp_1 <- Some id_1
-            
-            let! account_2 = 
+
+            let! account_2 =
                 Account.constructNewAndSaveToDbUsingParentId code_2 genericAccountNameString explicitAccountType2
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let id_2 = Account.uniqueId account_2
-            idToCleanUp_2 <- Some id_2
-            
-            let! account_3 = 
+
+            let! account_3 =
                 Account.constructNewAndSaveToDbUsingParentId code_3 genericAccountNameString explicitAccountType3
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let id_3 = Account.uniqueId account_3
-            idToCleanUp_3 <- Some id_3
-            
-            let! account_4 = 
+
+            let! _ =
                 Account.constructNewAndSaveToDbUsingParentId code_4 genericAccountNameString explicitAccountType4
                     genericAccountActiveBegin account4ActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
-            let id_4 = Account.uniqueId account_4
-            idToCleanUp_4 <- Some id_4
-            
-            let! fetched = Account.fetchAll true None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
+
+            let! fetched = Account.fetchAll true (Some transaction)
             Assert.Equal(3, List.length fetched)
-            
-            [Option.get idToCleanUp_1
-             Option.get idToCleanUp_2
-             Option.get idToCleanUp_3]
+
+            [id_1; id_2; id_3]
             |> List.forall(fun id -> fetched |> List.exists (fun a -> Account.uniqueId a = id))
             |> Assert.True
             return ()
@@ -383,69 +333,59 @@ let ``REQ-AC-3.9 fetch all with active only fetches active accounts relative to 
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpAccountList [idToCleanUp_1; idToCleanUp_2; idToCleanUp_3; idToCleanUp_4] with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 // =============================================================================
 // Create validations (DB-dependent)
 // =============================================================================
 
 [<Fact>]
-let ``REQ-AC-2.6 parent ID must reference existing account`` () =    
+let ``REQ-AC-2.6 parent ID must reference existing account`` () =
     let parentId = Some (Guid.NewGuid())
-    
-    let mutable idToCleanUp = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
-        let result = 
+        let result =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype parentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
         let didFail =
             match result with
             | Error _ -> true
-            | Ok x ->
-                idToCleanUp <- Some (Account.uniqueId x)
-                false
+            | Ok _ -> false
         Assert.True(didFail, "Account creation was allowed to succeed with invalid parent")
     finally
-        match cleanUpAccountId idToCleanUp with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
 let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--positive`` () =
     let code_parent = "AC-2.7-P"
     let code_child1 = "AC-2.7-C1"
     let activeBegin_parent = Calendar.today().PlusDays(-700)
-    
-    let mutable idToCleanUp_parent = None
-    let mutable idToCleanUp_child1 = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! account_parent = 
+            let! account_parent =
                 Account.constructNewAndSaveToDbUsingParentId code_parent genericAccountNameString genericAccountTypeString
                     activeBegin_parent genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let parentId = Account.uniqueId account_parent
-            idToCleanUp_parent <- Some parentId
-            
-            let! account_child1 = 
+
+            let! _ =
                 Account.constructNewAndSaveToDbUsingParentId code_child1 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
-                    genericAccountReference genericAuditEnvelope None
-            let id_child1 = Account.uniqueId account_child1
-            idToCleanUp_child1 <- Some id_child1
-            
+                    genericAccountReference genericAuditEnvelope (Some transaction)
+
             return ()
         }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpParentIdAndChildren idToCleanUp_parent [idToCleanUp_child1;] with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
 let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--negative`` () =
@@ -453,39 +393,35 @@ let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--negativ
     let activeBegin_parent = Calendar.today().PlusDays(-700)
     let activeEnd_parent = Calendar.today().PlusDays(-1)
     let code_child1 = "AC-2.7-C1"
-    
-    let mutable idToCleanUp_parent = None
-    let mutable idToCleanUp_child1 = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! account_parent = 
+            let! account_parent =
                 Account.constructNewAndSaveToDbUsingParentId code_parent genericAccountNameString genericAccountTypeString
                     activeBegin_parent (Some activeEnd_parent) genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let parentId = Account.uniqueId account_parent
-            idToCleanUp_parent <- Some parentId
-            
-            let account_child1 = 
+
+            let account_child1 =
                 Account.constructNewAndSaveToDbUsingParentId code_child1 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
-                    genericAccountReference genericAuditEnvelope None
-            
+                    genericAccountReference genericAuditEnvelope (Some transaction)
+
             let! _ =
                 match account_child1 with
                 | Error _ -> Ok ()
-                | Ok a ->
-                    idToCleanUp_child1 <- Some (Account.uniqueId a)
+                | Ok _ ->
                     Error "Child account creation was allowed to succeed with inactive parent"
-            
+
             return ()
         }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpParentIdAndChildren idToCleanUp_parent [idToCleanUp_child1;] with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
 let ``REQ-AC-2.20 child AccountType must match parent AccountType`` () =
@@ -493,39 +429,35 @@ let ``REQ-AC-2.20 child AccountType must match parent AccountType`` () =
     let accountType_parent = "Expense"
     let code_child1 = "AC-2.20-C1"
     let accountType_child1 = "Liability"
-    
-    let mutable idToCleanUp_parent = None
-    let mutable idToCleanUp_child1 = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! account_parent = 
+            let! account_parent =
                 Account.constructNewAndSaveToDbUsingParentId code_parent genericAccountNameString accountType_parent
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let parentId = Account.uniqueId account_parent
-            idToCleanUp_parent <- Some parentId
-            
-            let account_child1 = 
+
+            let account_child1 =
                 Account.constructNewAndSaveToDbUsingParentId code_child1 genericAccountNameString accountType_child1
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
-                    genericAccountReference genericAuditEnvelope None
-            
+                    genericAccountReference genericAuditEnvelope (Some transaction)
+
             let! _ =
                 match account_child1 with
                 | Error _ -> Ok ()
-                | Ok a ->
-                    idToCleanUp_child1 <- Some (Account.uniqueId a)
+                | Ok _ ->
                     Error "Child account creation was allowed to succeed with different account type from parent"
-            
+
             return ()
         }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpParentIdAndChildren idToCleanUp_parent [idToCleanUp_child1;] with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 // =============================================================================
 // Deactivation
@@ -533,40 +465,37 @@ let ``REQ-AC-2.20 child AccountType must match parent AccountType`` () =
 
 [<Fact>]
 let ``REQ-AC-4.1 deactivateAccount sets active end and returns inactive account`` () =
-    
+
     let envelope1 = AuditEnvelope.create AccountCreate
     let envelope2 = AuditEnvelope.create AccountDeactivation
     let dateRef1 = (AuditEnvelope.instant envelope1) |> Calendar.dateFromInstant
     let dateRef2 = (AuditEnvelope.instant envelope2) |> Calendar.dateFromInstant
     let explicitDeactivationDate = Some (Calendar.today().PlusDays(-1))
-    
-    let mutable idToCleanUp = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! pushAccount = 
+            let! pushAccount =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference envelope1 None
+                    genericAccountReference envelope1 (Some transaction)
             let pushId = Account.uniqueId pushAccount
-            idToCleanUp <- Some pushId
-            
-            
-            let! pullAccount = Account.deactivateAccountById pushId explicitDeactivationDate envelope2 None
+
+            let! pullAccount = Account.deactivateAccountById pushId explicitDeactivationDate envelope2 (Some transaction)
             let pullId = Account.uniqueId pullAccount
-            
+
             Assert.Equal(pushId, pullId)
             Assert.True(Account.isActive dateRef1 pushAccount)
             Assert.False(Account.isActive dateRef2 pullAccount)
-            
+
             return ()
         }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpAccountId idToCleanUp with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
 let ``REQ-AC-4.2 deactivateAccount rejects end earlier than begin`` () =
@@ -574,70 +503,66 @@ let ``REQ-AC-4.2 deactivateAccount rejects end earlier than begin`` () =
     let envelope2 = AuditEnvelope.create AccountDeactivation
     let activeBegin = Calendar.today().PlusDays(-1)
     let badActiveEnd = Some (activeBegin.PlusDays(-1))
-    
-    let mutable idToCleanUp = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! pushAccount = 
+            let! pushAccount =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     activeBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference envelope1 None
+                    genericAccountReference envelope1 (Some transaction)
             let pushId = Account.uniqueId pushAccount
-            idToCleanUp <- Some pushId
-            
-            let deactivationResult = Account.deactivateAccountById pushId badActiveEnd envelope2 None
-            
+
+            let deactivationResult = Account.deactivateAccountById pushId badActiveEnd envelope2 (Some transaction)
+
             let! _ =
                 match deactivationResult with
                 | Error _ -> Ok ()
                 | Ok _ ->
                     Error "Account deactivation was allowed to succeed with an earlier end than begin"
-            
+
             return ()
-            
+
         }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpAccountId idToCleanUp with
-        | Ok () -> ()
-        | Error e -> failwith e
-    
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
+
 [<Fact>]
 let ``REQ-AC-4.2 deactivateAccount accepts end equal to begin`` () =
     let envelope1 = AuditEnvelope.create AccountCreate
     let envelope2 = AuditEnvelope.create AccountDeactivation
     let activeBegin = Calendar.today().PlusDays(-1)
     let goodActiveEnd = Some activeBegin
-    
-    let mutable idToCleanUp = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! pushAccount = 
+            let! pushAccount =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     activeBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference envelope1 None
+                    genericAccountReference envelope1 (Some transaction)
             let pushId = Account.uniqueId pushAccount
-            idToCleanUp <- Some pushId
-            
-            let deactivationResult = Account.deactivateAccountById pushId goodActiveEnd envelope2 None
-            
+
+            let deactivationResult = Account.deactivateAccountById pushId goodActiveEnd envelope2 (Some transaction)
+
             let! _ =
                 match deactivationResult with
                 | Error _ -> Error "Account deactivation failed with an equal end and begin"
                 | Ok _ -> Ok ()
-            
+
             return ()
-            
+
         }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpAccountId idToCleanUp with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
 let ``REQ-AC-4.3 deactivateAccount rejects when active children exist`` () =
@@ -645,85 +570,77 @@ let ``REQ-AC-4.3 deactivateAccount rejects when active children exist`` () =
     let code_child1 = "AC-4.3-C1"
     let envelope_deactivation = AuditEnvelope.create AccountDeactivation
     let goodActiveEnd = Some (Calendar.today())
-    
-    let mutable idToCleanUp_parent = None
-    let mutable idToCleanUp_child1 = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! account_parent = 
+            let! account_parent =
                 Account.constructNewAndSaveToDbUsingParentId code_parent genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let parentId = Account.uniqueId account_parent
-            idToCleanUp_parent <- Some parentId
-            
-            let! account_child1 = 
+
+            let! _ =
                 Account.constructNewAndSaveToDbUsingParentId code_child1 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
-                    genericAccountReference genericAuditEnvelope None
-            let id_child1 = Account.uniqueId account_child1
-            idToCleanUp_child1 <- Some id_child1
-            
-            let deactivationResult = Account.deactivateAccountById parentId goodActiveEnd envelope_deactivation None
-            
+                    genericAccountReference genericAuditEnvelope (Some transaction)
+
+            let deactivationResult = Account.deactivateAccountById parentId goodActiveEnd envelope_deactivation (Some transaction)
+
             let! _ =
                 match deactivationResult with
                 | Error _ -> Ok ()
                 | Ok _ ->
                     Error "Account deactivation was allowed to succeed with an active child"
-            
+
             return ()
         }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpParentIdAndChildren idToCleanUp_parent [idToCleanUp_child1;] with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
 let ``REQ-AC-4.5 deactivateAccount rejects already deactivated account`` () =
     let envelope_deactivation1 = AuditEnvelope.create AccountDeactivation
     let goodActiveEnd = Some (Calendar.today().PlusDays(-1))
-    
-    let mutable idToCleanUp = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! activeAccount = 
+            let! activeAccount =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let activeId = Account.uniqueId activeAccount
-            idToCleanUp <- Some activeId
-            
+
             Assert.True(Account.isActive (Calendar.today()) activeAccount) // account starts as active
-            
-            
-            let! inactiveAccount = Account.deactivateAccountById activeId goodActiveEnd envelope_deactivation1 None
-            
+
+            let! inactiveAccount = Account.deactivateAccountById activeId goodActiveEnd envelope_deactivation1 (Some transaction)
+
             Assert.False(Account.isActive (Calendar.today()) inactiveAccount) // first deactivation succeeds
-            
+
             let envelope_deactivation2 = AuditEnvelope.create AccountDeactivation
             let betterActiveEnd = Some (Calendar.today().PlusDays(1))
             let deactivationResult2 =
-                Account.deactivateAccountById activeId betterActiveEnd envelope_deactivation2 None // should fail
-            
+                Account.deactivateAccountById activeId betterActiveEnd envelope_deactivation2 (Some transaction) // should fail
+
             let! _ =
                 match deactivationResult2 with
                 | Error _ -> Ok ()
                 | Ok _ ->
                     Error "Account deactivation was allowed to succeed with an already inactive account"
-            
+
             return ()
         }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpAccountId idToCleanUp with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 // =============================================================================
 // Updates
@@ -733,32 +650,30 @@ let ``REQ-AC-4.5 deactivateAccount rejects already deactivated account`` () =
 let ``REQ-AC-4.8 updateAccountName succeeds with valid accountName`` () =
     let envelope_rename = AuditEnvelope.create AccountUpdateName
     let goodAccountName = "fahrvergnügen"
-    
-    let mutable idToCleanUp = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
             let! createdAccount =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let createdId = Account.uniqueId createdAccount
-            idToCleanUp <- Some createdId
-            
+
             Assert.Equal(genericAccountNameString, (AccountName.value (Account.accountName createdAccount))) // make sure we have the start name
-            
-            let! renamedAccount = Account.updateAccountNameById createdId goodAccountName envelope_rename None
-            
-            Assert.Equal(goodAccountName, (AccountName.value (Account.accountName renamedAccount))) 
-            
+
+            let! renamedAccount = Account.updateAccountNameById createdId goodAccountName envelope_rename (Some transaction)
+
+            Assert.Equal(goodAccountName, (AccountName.value (Account.accountName renamedAccount)))
+
             return ()
         }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpAccountId idToCleanUp with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
 let ``REQ-AC-4.8 REQ-SYS-2.1 updateAccountName rejects invalid name`` () =
@@ -775,106 +690,100 @@ let ``REQ-AC-4.9 updateExternalReference succeeds with valid reference`` () =
     let noneReference = None
     let envelope_update = AuditEnvelope.create AccountUpdateExtReference
     let goodReference = Some "Fliegende Ratte"
-    
-    let mutable idToCleanUp = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! createdAccount = 
+            let! createdAccount =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    noneReference genericAuditEnvelope None
+                    noneReference genericAuditEnvelope (Some transaction)
             let createdId = Account.uniqueId createdAccount
-            idToCleanUp <- Some createdId
-            
+
             // verify that the None got recorded
             let startingReference = Account.externalReference createdAccount |> Option.map AccountExternalReference.value
             Assert.Equal(None, startingReference)
-            
+
             // update
-            let! updatedAccount = Account.updateExternalReferenceById createdId goodReference envelope_update None
-            
+            let! updatedAccount = Account.updateExternalReferenceById createdId goodReference envelope_update (Some transaction)
+
             // verify that the new value got recorded
             let newReference = Account.externalReference updatedAccount |> Option.map AccountExternalReference.value
             Assert.Equal(goodReference, newReference)
-            
+
             return ()
         }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpAccountId idToCleanUp with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
 let ``REQ-AC-4.9 updateExternalReference can be updated to None`` () =
     let reference= Some "un poquito aburrido"
     let envelope_update = AuditEnvelope.create AccountUpdateExtReference
     let emptyReference = None
-    
-    let mutable idToCleanUp = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! createdAccount = 
+            let! createdAccount =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    reference genericAuditEnvelope None
+                    reference genericAuditEnvelope (Some transaction)
             let createdId = Account.uniqueId createdAccount
-            idToCleanUp <- Some createdId
-            
+
             // verify that the Some got recorded
             let startingReference = Account.externalReference createdAccount |> Option.map AccountExternalReference.value
             Assert.Equal(reference, startingReference)
-            
+
             // update
-            let! updatedAccount = Account.updateExternalReferenceById createdId emptyReference envelope_update None
-            
+            let! updatedAccount = Account.updateExternalReferenceById createdId emptyReference envelope_update (Some transaction)
+
             // verify that the None got recorded
             let newReference = Account.externalReference updatedAccount |> Option.map AccountExternalReference.value
             Assert.Equal(emptyReference, newReference)
-            
+
             return ()
         }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpAccountId idToCleanUp with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
 let ``REQ-SYS-3.3 account update operations set modifiedAt from AuditEnvelope`` () =
     let newName = "Blah blah blah"
-    
-    let mutable idToCleanUp = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! createdAccount = 
+            let! createdAccount =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let createdId = Account.uniqueId createdAccount
-            idToCleanUp <- Some createdId
-            
+
             // update
             System.Threading.Thread.Sleep(100) // ensure that the 2 clock calls don't fall on the same cycle
             let envelope_update = AuditEnvelope.create AccountUpdateName
-            let! updatedAccount = Account.updateAccountNameById createdId newName envelope_update None
-            
+            let! updatedAccount = Account.updateAccountNameById createdId newName envelope_update (Some transaction)
+
             // verify that the modified date got set properly
             Assert.Equal(AuditEnvelope.instant envelope_update, Account.modifiedAt updatedAccount)
-            
+
             return ()
         }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpAccountId idToCleanUp with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
 let ``REQ-AC-4.19 update to deactivated account is permitted`` () =
@@ -882,32 +791,30 @@ let ``REQ-AC-4.19 update to deactivated account is permitted`` () =
     let activeEnd =  Calendar.today().PlusDays(-1) // already deactive
     let envelope_update = AuditEnvelope.create AccountUpdateName
     let newName = "Blah blah blah"
-    
-    let mutable idToCleanUp = None
+
+    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
     try
         let railroad = result {
-            let! createdAccount = 
+            let! createdAccount =
                 Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
                     activeBegin (Some activeEnd) genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope None
+                    genericAccountReference genericAuditEnvelope (Some transaction)
             let createdId = Account.uniqueId createdAccount
-            idToCleanUp <- Some createdId
-            
+
             // validate that it is *indeed* inactive
             Assert.False(Account.isActive (Calendar.today()) createdAccount)
-            
+
             // update
-            let! updatedAccount = Account.updateAccountNameById createdId newName envelope_update None
-            
+            let! updatedAccount = Account.updateAccountNameById createdId newName envelope_update (Some transaction)
+
             // verify that the update actually occurred
             Assert.Equal(newName, AccountName.value (Account.accountName updatedAccount))
-            
+
             return ()
         }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail e
     finally
-        match cleanUpAccountId idToCleanUp with
-        | Ok () -> ()
-        | Error e -> failwith e
+        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore

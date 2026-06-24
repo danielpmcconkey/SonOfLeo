@@ -7,7 +7,7 @@ How we build this system. Not requirements (what the system must do) but enginee
 
 ### The Constructor Rule
 
-Every entity type has exactly one private function called `validateThenConstruct`. It takes primitives, validates every single-field and cross-field constraint, and returns `Result<T, TError>` where `TError` is a typed error DU specific to that entity. No record literals may appear anywhere outside `validateThenConstruct`. Every other function that needs an instance of that type — new creation, reconstitution from persistence, assembly for any purpose — must call `validateThenConstruct`.
+Every entity type has exactly one private function called `validateThenConstruct`. It takes primitives, validates every single-field and cross-field constraint, and returns `Result<T, string>`. No record literals may appear anywhere outside `validateThenConstruct`. Every other function that needs an instance of that type — new creation, reconstitution from persistence, assembly for any purpose — must call `validateThenConstruct`.
 
 ### Namespace Encapsulation
 
@@ -39,3 +39,7 @@ F#'s `private` keyword on record types scopes to the enclosing namespace within 
 Function names describe what they do, precisely and without abbreviation. We do not pay by the character. `constructNewAndSaveToDbUsingParentCode` is preferred over `create`. Clarity at the call site matters more than brevity in the definition.
 
 The one reserved name is `validateThenConstruct` — it always means "the single private constructor that validates and assembles a record from primitives."
+
+### Variable Naming
+
+We do not pay by the keystroke. Variables must be obviously named — a reader should never have to trace a binding to understand what a variable holds. Single-letter names and cryptic abbreviations are prohibited except inside simple, short lambda expressions where the entire flow is graspable at a glance (e.g., `fun x -> x + 1`, `List.map (fun a -> Account.uniqueId a)`). Anywhere a variable persists across multiple lines or is referenced more than once, it gets a real name.
