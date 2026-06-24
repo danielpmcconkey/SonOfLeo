@@ -2,7 +2,7 @@ module Tests.Isolated.Model.Ledger.AccountComponent
 
 open System
 open Xunit
-open Model.Ledger.AccountComponent
+open Model.Ledger.Accounts.AccountComponent
 open Utilities
 
 // =============================================================================

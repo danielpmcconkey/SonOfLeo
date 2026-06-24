@@ -1,6 +1,6 @@
 namespace Model.Ledger.Journaling
 
-open Model.Ledger.JournalEntryComponent
+open Model.Ledger.Journaling.JournalEntryComponent
 open Model.Money
 open Utilities.ResultCE
 

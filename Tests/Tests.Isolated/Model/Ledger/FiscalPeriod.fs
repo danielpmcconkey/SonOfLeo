@@ -1,12 +1,8 @@
 module Tests.Isolated.Model.Ledger.FiscalPeriod
 
-open System
 open Model.Audit
-open Model.Ledger
-open Utilities.ResultCE
+open Model.Ledger.FiscalPeriods
 open Xunit
-open NodaTime
-open Utilities.Clock
 
 let genericKey = "2026-06"
 let genericEnvelope = AuditEnvelope.create FiscalPeriodCreate

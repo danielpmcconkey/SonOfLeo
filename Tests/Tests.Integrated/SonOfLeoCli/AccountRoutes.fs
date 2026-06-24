@@ -1,13 +1,13 @@
 module Tests.Integrated.SonOfLeoCli.AccountRoutes
 
-open Model.Ledger.AccountComponent
+open Model.Ledger.Accounts
+open Model.Ledger.Accounts.AccountComponent
 open Model.UI.InterfaceContractTypes
 open Model.UI.Json
 open Tests.Integrated.GenericTestProperties
 open Tests.Integrated.SonOfLeoCli.CliExecutor
 open Utilities
 open Xunit
-open Model.Ledger
 open Utilities.ResultCE
 open Tests.Integrated._Cleanup
 

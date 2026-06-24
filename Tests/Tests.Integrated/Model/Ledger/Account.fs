@@ -4,8 +4,8 @@ open System
 open Model.Audit
 open Tests.Integrated.GenericTestProperties
 open Xunit
-open Model.Ledger
-open Model.Ledger.AccountComponent
+open Model.Ledger.Accounts
+open Model.Ledger.Accounts.AccountComponent
 open Utilities.ResultCE
 open Tests.Integrated._Cleanup
 open Utilities

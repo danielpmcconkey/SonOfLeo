@@ -1,8 +1,8 @@
 module SonOfLeoCli.AccountRoutes
 
 open Model.Audit
-open Model.Ledger.Account
-open Model.Ledger.AccountComponent
+open Model.Ledger.Accounts.Account
+open Model.Ledger.Accounts.AccountComponent
 open Model.UI
 open Utilities.ResultCE
 open InterfaceContractTypes

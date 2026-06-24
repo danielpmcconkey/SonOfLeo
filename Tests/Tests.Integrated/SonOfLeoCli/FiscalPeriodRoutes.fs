@@ -3,8 +3,8 @@ module Tests.Integrated.SonOfLeoCli.FiscalPeriodRoutes
 open Model.Audit
 open Xunit
 open Utilities.ResultCE
-open Model.Ledger
-open Model.Ledger.FiscalPeriod
+open Model.Ledger.FiscalPeriods
+open Model.Ledger.FiscalPeriods.FiscalPeriod
 open Model.UI.InterfaceContractTypes
 open Model.UI.Json
 open Tests.Integrated.GenericTestProperties

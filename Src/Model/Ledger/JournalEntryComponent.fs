@@ -1,6 +1,7 @@
 namespace Model.Ledger.Journaling
 
 open System
+open Model.Ledger.FiscalPeriods
 open Utilities.DAL
 open Model.Audit
 open Model.Money
@@ -42,7 +43,7 @@ module JournalEntryComponent =
     module EntryDate =
         let entryDate (e:EntryDate) : LocalDate = e.entryDate
         let fiscalPeriod (e:EntryDate) : FiscalPeriod = e.fiscalPeriod
-        let fiscalPeriodKey (e:EntryDate): string = e.fiscalPeriod.periodKey |> PeriodKey.value  // here as quality of life
+        let fiscalPeriodKey (e:EntryDate): string = e.fiscalPeriod |> FiscalPeriod.periodKey |> PeriodKey.value  // here as quality of life
         let create (entryDate: LocalDate) : Result<EntryDate, string> =
             let monthF = entryDate.Month.ToString("D2")
             result {

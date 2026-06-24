@@ -2,7 +2,8 @@ namespace Model.Ledger.Journaling
 
 open System
 open Model.Audit
-open Model.Ledger.JournalEntryComponent
+open Model.Ledger.Accounts
+open Model.Ledger.Journaling.JournalEntryComponent
 open Model.Money
 open NodaTime
 open Utilities.ResultCE

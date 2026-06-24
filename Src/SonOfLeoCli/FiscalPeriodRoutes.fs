@@ -1,8 +1,8 @@
 module SonOfLeoCli.FiscalPeriodRoutes
 
 open Model.Audit
-open Model.Ledger
-open Model.Ledger.FiscalPeriod
+open Model.Ledger.FiscalPeriods
+open Model.Ledger.FiscalPeriods.FiscalPeriod
 open Model.UI
 open Utilities.ResultCE
 open InterfaceContractTypes

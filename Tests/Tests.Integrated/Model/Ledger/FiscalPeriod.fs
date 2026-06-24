@@ -2,7 +2,7 @@ module Tests.Integrated.Model.Ledger.FiscalPeriod
 
 open System
 open Model.Audit
-open Model.Ledger
+open Model.Ledger.FiscalPeriods
 open Tests.Integrated.GenericTestProperties
 open Xunit
 open Utilities.ResultCE

@@ -1,8 +1,7 @@
 module Tests.Integrated.GenericTestProperties
 
 open Model.Audit
-open Model.Ledger.AccountComponent
-open NodaTime
+open Model.Ledger.Accounts.AccountComponent
 open Utilities
 
 // audit

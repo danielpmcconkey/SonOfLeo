@@ -2,11 +2,13 @@ namespace Model.Ledger.Journaling
 
 open System
 open Model.Audit
-open Model.Ledger.AccountComponent
-open Model.Ledger.JournalEntryComponent
+open Model.Ledger.FiscalPeriods
+open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
 open Utilities.ResultCE
 open Utilities.DAL
+open Model.Ledger.Accounts
+open Model.Ledger.Accounts.AccountComponent
 open Utilities
 
 type JournalEntryHeader =
@@ -27,10 +29,10 @@ module JournalEntryHeader =
     let createdAt je = je.createdAt
     let modifiedAt je = je.modifiedAt
 
-    /// validateThenConstruct is your centralized constructor for assembling
+    /// constructOmni is your centralized constructor for assembling
     /// and validating component types. all other constructors must
     /// pass into this one
-    let private validateThenConstruct
+    let private constructOmni
             (uniqueId: Guid)
             (description: string)
             (source: string option)
@@ -40,6 +42,7 @@ module JournalEntryHeader =
             (modifiedAt: Instant)
             : Result<JournalEntryHeader, string> =
         result {
+            
             let! validDescription = Description.create description
             let! validSource =
                 match source with
@@ -61,7 +64,7 @@ module JournalEntryHeader =
         let now = AuditEnvelope.instant auditEnvelope
         let createdAt =  now // REQ-SYS-3.2
         let modifiedAt = now // REQ-SYS-3.2
-        validateThenConstruct uniqueId description source entryDate voidedAt createdAt modifiedAt
+        constructOmni uniqueId description source entryDate voidedAt createdAt modifiedAt
     
     let private insertNewToDb (journalEntry:JournalEntryHeader): Result<unit, string> =
         let query = """
