@@ -26,10 +26,10 @@ module JournalEntryHeader =
     let createdAt je = je.createdAt
     let modifiedAt je = je.modifiedAt
 
-    /// constructOmni is your centralized constructor for assembling
+    /// validateThenConstruct is your centralized constructor for assembling
     /// and validating component types. all other constructors must
     /// pass into this one
-    let private constructOmni
+    let private validateThenConstruct
             (uniqueId: Guid)
             (description: string)
             (source: string option)
@@ -63,7 +63,7 @@ module JournalEntryHeader =
         let now = AuditEnvelope.instant auditEnvelope
         let createdAt =  now // REQ-SYS-3.2
         let modifiedAt = now // REQ-SYS-3.2
-        constructOmni uniqueId description source entryDate voidedAt createdAt modifiedAt transaction
+        validateThenConstruct uniqueId description source entryDate voidedAt createdAt modifiedAt transaction
     
     let private insertNewToDb (journalEntry:JournalEntryHeader) (transaction: DbTransaction option): Result<unit, string> =
         let query = """
@@ -95,3 +95,106 @@ module JournalEntryHeader =
             let! validJournalEntry = constructNew description source entryDate voidedAt auditEnvelope transaction
             let! () = insertNewToDb validJournalEntry transaction // REQ-
             return validJournalEntry }
+
+    /// The mapRow function is used to pass into DAL read functions to let DAL know
+    /// how to map our query columns. Thus, we don't need to know anything about the
+    /// underlying database architecture in this module and the DAL module doesn't
+    /// need to know anything about our module here 
+    let mapRowForDbRead
+            (transaction: DbTransaction option)
+            (row: RowReader)
+            : Result<JournalEntryHeader, string> =
+        validateThenConstruct
+            ( row |> RowReader.getUuid "unique_id" )
+            ( row |> RowReader.getString "description" )
+            ( row |> RowReader.getStringOption "je_source" )
+            ( row |> RowReader.getDate "entry_date" )
+            ( row |> RowReader.getInstantOption "voided_at" )
+            ( row |> RowReader.getInstant "created_at" )
+            ( row |> RowReader.getInstant "modified_at" )
+            transaction
+
+    /// readRowsFromDb is designed to produce a flexible read query that can
+    /// satisfy diverse use cases 
+    let private readRowsFromDb
+            (predicate: string option)
+            (limit: int option)
+            (parameters: QueryParameter list)
+            (expectedRows: AcceptableExpectedRows)
+            (transaction: DbTransaction option)
+            : Result<JournalEntryHeader list, string> = 
+        let predicateString =
+            match predicate with
+            | Some x -> x
+            | None -> String.Empty
+        let limitString =
+            match limit with
+            | Some x -> $"limit {x}"
+            | None -> String.Empty
+        // todo: extract query assembly into the DAL after journaling slice is complete
+        let query = $"""
+            select  
+                unique_id, description, je_source, entry_date, voided_at, created_at, modified_at
+            from ledger.journal_entry
+            {predicateString}
+            {limitString}
+            ;
+            """
+        executeReaderQuery query parameters (mapRowForDbRead transaction) expectedRows transaction
+
+    let fetchById // REQ-JE-3.2
+            (transaction: DbTransaction option)
+            (uniqueId: Guid)
+            : Result<JournalEntryHeader, string> = 
+        let predicate = "where unique_id = @unique_id"
+        let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
+        readRowsFromDb (Some predicate) None parameters ExactlyOne transaction
+        |> Result.map List.head
+
+    let fetchByPeriodKey // REQ-JE-3.3
+            (transaction: DbTransaction option)
+            (key: string)
+            : Result<JournalEntryHeader list, string> = 
+        let predicate = "where fiscal_period_id = @fiscal_period_id"        
+        result {
+            let! fiscalPeriod = key |> FiscalPeriod.fetchByKey transaction
+            let parameters = [{ name = "@fiscal_period_id"; value = UniqueId (fiscalPeriod |> FiscalPeriod.uniqueId) };] // REQ-DAL-2.3
+            return! readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable transaction
+        }
+    
+    let validateFiscalPeriodIsOpen
+            (uniqueId: Guid)
+            (transaction: DbTransaction option)
+            : Result<JournalEntryHeader, string> =
+        result {
+            let! journalEntryHeader = uniqueId |> fetchById transaction
+            let fp = EntryDate.fiscalPeriod (entryDate journalEntryHeader)
+            return!
+                match FiscalPeriod.isOpen fp with
+                | false -> Error $"Fiscal period {FiscalPeriod.periodKey fp} is not open."
+                | true -> Ok journalEntryHeader
+        }
+    let voidById // REQ-JE-4.3
+            (auditEnvelope: AuditEnvelope)
+            (uniqueId: Guid)
+            (transaction: DbTransaction option)
+            : Result<JournalEntryHeader, string> = 
+        let parameters = [
+                { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3 
+                { name = "@newValue"; value = DbInstant (AuditEnvelope.instant auditEnvelope) }
+                { name = "@unique_id"; value = UniqueId uniqueId };
+            ]
+        let query = $"""
+            UPDATE ledger.journal_entry
+            set
+                modified_at = @modified -- REQ-SYS-3.3
+                , voided_at = @newValue
+            WHERE unique_id = @unique_id
+            and voided_at is null -- REQ-JE-4.6
+            ;
+        """
+        result {
+            let! _ =  validateFiscalPeriodIsOpen uniqueId transaction // REQ-JE-4.5
+            let! _ = executeNonQuery query parameters ExactlyOne transaction // REQ-JE-4.6
+            return! uniqueId |> fetchById transaction
+        }

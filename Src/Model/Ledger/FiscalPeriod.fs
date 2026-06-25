@@ -25,7 +25,7 @@ module FiscalPeriod =
     let createdAt fp = fp.createdAt
     let modifiedAt fp = fp.modifiedAt
     
-    let constructOmni 
+    let validateThenConstruct 
                 (uniqueId: Guid) // REQ-FP-1.6
                 (periodKey: string) // REQ-FP-1.1
                 (isOpen: bool) // REQ-FP-1.8
@@ -60,7 +60,7 @@ module FiscalPeriod =
         let modifiedAt = now // REQ-SYS-3.2
         let uuid = Guid.NewGuid()
         result {
-            return! constructOmni uuid periodKey true createdAt modifiedAt
+            return! validateThenConstruct uuid periodKey true createdAt modifiedAt
             
         }
 
@@ -104,7 +104,7 @@ module FiscalPeriod =
     /// underlying database architecture in this module and the DAL module doesn't
     /// need to know anything about our module here 
     let mapRowForDbRead (row: RowReader) : Result<FiscalPeriod, string> =
-        constructOmni
+        validateThenConstruct
             ( row |> RowReader.getUuid "unique_id" )
             ( row |> RowReader.getString "period_key" )
             ( row |> RowReader.getBool "is_open" )
