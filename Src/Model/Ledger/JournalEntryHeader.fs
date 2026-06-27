@@ -161,27 +161,3 @@ module JournalEntryHeader =
                 | false -> Error $"Fiscal period {FiscalPeriod.periodKey fp} is not open."
                 | true -> Ok journalEntryHeader
         }
-    let voidById // REQ-JE-4.3
-            (auditEnvelope: AuditEnvelope)
-            (uniqueId: Guid)
-            (transaction: DbTransaction option)
-            : Result<JournalEntryHeader, string> = 
-        let parameters = [
-                { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3 
-                { name = "@newValue"; value = DbInstant (AuditEnvelope.instant auditEnvelope) }
-                { name = "@unique_id"; value = UniqueId uniqueId };
-            ]
-        let query = $"""
-            UPDATE ledger.journal_entry
-            set
-                modified_at = @modified -- REQ-SYS-3.3
-                , voided_at = @newValue
-            WHERE unique_id = @unique_id
-            and voided_at is null -- REQ-JE-4.6
-            ;
-        """
-        result {
-            let! _ =  validateFiscalPeriodIsOpen uniqueId transaction // REQ-JE-4.5
-            let! _ = executeNonQuery query parameters ExactlyOne transaction // REQ-JE-4.6
-            return! uniqueId |> fetchById transaction
-        }

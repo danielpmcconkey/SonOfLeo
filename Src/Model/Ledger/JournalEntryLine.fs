@@ -34,10 +34,10 @@ module JournalEntryLine =
         then Error $"JEL amount fields cannot be less than or equal to 0.00"
         else Ok m
     
-    let validateAccountId (transaction: DbTransaction option) (id: Guid) : Result<Guid, string> =
-        match id |> Account.fetchById transaction with
+    let validateAccount (transaction: DbTransaction option)  (accountId: Guid) : Result<unit, string> =
+        match accountId |> Account.fetchById transaction with
         | Error e -> Error e
-        | Ok _ -> Ok id
+        | Ok _ -> Ok ()
 
     /// validateThenConstruct is your centralized constructor for assembling
     /// and validating component types. all other constructors must
@@ -54,7 +54,7 @@ module JournalEntryLine =
             (transaction: DbTransaction option)
             : Result<JournalEntryLine, string> =
         result {
-            let! validAccountId = accountId |> validateAccountId transaction //REQ-JE-1.22
+            do! accountId |> validateAccount transaction //REQ-JE-1.22
             let! moneyAmount = amount |> Money.fromDecimal
             let! validAmount = moneyAmount |> validateAmount
             let! validType = lineType |> JournalEntryLineType.fromString
@@ -65,7 +65,7 @@ module JournalEntryLine =
                 
             return {    uniqueId = uniqueId
                         journalEntryId = journalEntryId
-                        accountId = validAccountId
+                        accountId = accountId
                         amount = validAmount
                         lineType = validType
                         memo = validMemo

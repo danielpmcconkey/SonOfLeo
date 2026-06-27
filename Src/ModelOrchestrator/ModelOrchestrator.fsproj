@@ -11,8 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="JournalEntries.fs" />
+    <Compile Include="JournalEntryCreation.fs" />
     <Compile Include="AccountDeactivation.fs" />
+    <Compile Include="JournalEntryFetching.fs" />
+    <Compile Include="JournalEntryVoiding.fs" />
   </ItemGroup>
 
 </Project>

@@ -158,10 +158,10 @@ module JournalEntryComment =
         readRowsFromDb (Some predicate) None None parameters ExactlyOne transaction
         |> Result.map List.head
 
-    /// fetchByIdJournalEntryId returns all comments associated to a Journal
+    /// fetchByJournalEntryId returns all comments associated to a Journal
     /// Entry, whether as the primary or secondary, ordered by comment create
     /// instant
-    let fetchByIdJournalEntryId
+    let fetchByJournalEntryId
             (transaction: DbTransaction option)
             (uniqueId: Guid)
             : Result<JournalEntryComment list, string> = 

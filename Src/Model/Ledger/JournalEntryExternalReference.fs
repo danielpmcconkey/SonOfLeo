@@ -158,7 +158,7 @@ module JournalEntryExternalReference =
         readRowsFromDb (Some predicate) None None parameters ExactlyOne transaction
         |> Result.map List.head
 
-    let fetchByIdJournalEntryId
+    let fetchByJournalEntryId
             (transaction: DbTransaction option)
             (uniqueId: Guid)
             : Result<JournalEntryExternalReference list, string> = 

@@ -5,7 +5,8 @@ open Model.Audit
 open Model.Ledger.JournalEntryPrimitives
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
-open Model.Money
+open Model.Ledger.Accounts
+open NodaTime
 open Utilities.DAL
 open Utilities.ListHelper
 open Utilities.ResultCE
@@ -16,7 +17,7 @@ type JournalEntry =
                 externalReferences: JournalEntryExternalReference list
                 comments: JournalEntryComment list }
 
-module JournalEntry =
+module JournalEntryCreationAndConstruction =
     let header je = je.header
     let lines je = je.lines
     let externalReferences je = je.externalReferences
@@ -36,7 +37,7 @@ module JournalEntry =
         then Error "Insufficient number of lines for a journal entry" // REQ-JE-1.12
         else Ok ()
         
-    let private validateLineList (lines: JournalEntryLine list) : Result<unit, string> =
+    let validateLineList (lines: JournalEntryLine list) : Result<unit, string> =
         result {
             let! _ = validateLineCount lines // REQ-JE-1.12
             let! _ = validateAmountEquality lines // REQ-JE-1.13
@@ -56,22 +57,37 @@ module JournalEntry =
             auditEnvelope
             transaction
     
+    let private validateAccountByLine
+            (transaction: DbTransaction option)
+            (entryDate: LocalDate)
+            (line: JournalEntryLinePrimitives)
+            : Result<unit, string> =
+        result {
+            let! account = line.accountId |> Account.fetchById transaction
+            return!
+                match account |> Account.isActive entryDate with
+                | true -> Ok ()
+                | false -> Error $"Account {line.accountId} is not active relative to the Journal Entry's entry date"
+        }
+    
     let private createValidLines
             (jeId : Guid)
+            (entryDate: LocalDate)
             (linePrimitives : JournalEntryLinePrimitives list)
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
             : Result<JournalEntryLine list, string> =
         linePrimitives
-        |> List.map(fun line -> 
-                        JournalEntryLine.constructNewAndSaveToDb
-                            jeId
-                            line.accountId
-                            line.amount
-                            line.lineType
-                            line.memo
-                            auditEnvelope
-                            transaction) 
+        |> List.map(fun line ->
+                result {    do! line |> validateAccountByLine transaction entryDate
+                            return! JournalEntryLine.constructNewAndSaveToDb
+                                jeId
+                                line.accountId
+                                line.amount
+                                line.lineType
+                                line.memo
+                                auditEnvelope
+                                transaction })
         |> listOfResultsToResultsList
     
     let private createValidExternalReferences
@@ -114,7 +130,8 @@ module JournalEntry =
         let railRoad = result {
             let! validHeader = createValidHeader journalEntryPrimitives.header auditEnvelope (Some transaction)
             let jeId = validHeader |> JournalEntryHeader.uniqueId
-            let! validLines = createValidLines jeId journalEntryPrimitives.lines auditEnvelope (Some transaction)
+            let entryDate = JournalEntryHeader.entryDate validHeader |> EntryDate.entryDate  
+            let! validLines = createValidLines jeId entryDate journalEntryPrimitives.lines auditEnvelope (Some transaction)
             let! validReferences = createValidExternalReferences jeId journalEntryPrimitives.externalReferences auditEnvelope (Some transaction)
             let! validComments = createValidComments jeId journalEntryPrimitives.comments auditEnvelope (Some transaction)
             do! validateLineList validLines
@@ -131,31 +148,18 @@ module JournalEntry =
             transaction |> commitDbTransactionAndDisposeConnection |> Result.defaultWith failwith
             Ok je
     
-    let fetchById
-            (uniqueId: Guid)
+    /// used by "sister" modules who need to construct a full journal entry
+    /// from already validated components. this function ensures that the unit as a whole is still fully validated
+    let constructFromPreValidatedComponents
+            (header: JournalEntryHeader)
+            (lines: JournalEntryLine list)
+            (externalReferences: JournalEntryExternalReference list)
+            (comments: JournalEntryComment list)
             : Result<JournalEntry, string> =
-        result {
-            let! validHeader = uniqueId |> JournalEntryHeader.fetchById None
-            let! validLines = uniqueId |> JournalEntryLine.fetchByJournalEntryId None
-            let! validReferences = uniqueId |> JournalEntryExternalReference.fetchByIdJournalEntryId None
-            let! validComments = uniqueId |> JournalEntryComment.fetchByIdJournalEntryId None
-            do! validateLineList validLines
-            return {    header = validHeader
-                        lines = validLines
-                        externalReferences = validReferences
-                        comments = validComments }
-        }
-    
-    let fetchByPeriodKey
-            (key: string)
-            : Result<JournalEntry list, string> =
-        result {
-            let! headers = key |> JournalEntryHeader.fetchByPeriodKey None
-            let headerResultsList = headers |> List.map(fun h ->
-                let id = JournalEntryHeader.uniqueId h
-                let entryResult = fetchById id 
-                entryResult)
-            return! headerResultsList |> listOfResultsToResultsList
-        }
+        result {    do! validateLineList lines
+                    return {    header = header
+                                lines = lines
+                                externalReferences = externalReferences
+                                comments = comments } }
 
 
