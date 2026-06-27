@@ -1,6 +1,7 @@
 namespace Model.Ledger.Accounts
 
 open System
+open Model
 open Utilities
 open Utilities.ResultCE
 open Utilities.DAL
@@ -201,64 +202,37 @@ module Account =
 
 /// public read functions
 
-    let fetchCodeById
-            (transaction: DbTransaction option)
-            (unique_id: Guid)
-            : Result<string, string> =
-        let query = $"""
-            select code
-            from ledger.account
-            where unique_id = @unique_id
-            ;
-            """
-        let parameters = [{ name = "@unique_id"; value = UniqueId unique_id };] // REQ-DAL-2.3
-        match executeScalar query parameters transaction with
-        | Error e -> Error e
-        | Ok x when isNull x -> Error "Execute scalar returned null in fetchCodeById"
-        | Ok x -> Ok (string x)
-
-    let fetchCodeOptionByIdOption
-            (transaction: DbTransaction option)
-            (idOption: Guid option)
-            : Result<string option, string> =
-        match idOption with
-        | None -> Ok None
-        | Some x ->
-            result {
-                let! fetchedCode = x |> fetchCodeById transaction
-                return Some fetchedCode
-            }
-
-    let fetchIdByCode
-            (transaction: DbTransaction option)
-            (code: string)
-            : Result<Guid, string> =
-        let query = $"""
-            select unique_id
-            from ledger.account
-            where code = @code
-            ;
-            """
-        let parameters = [{ name = "@code"; value = CharString code };] // REQ-DAL-2.3
-        match executeScalar query parameters transaction with
-        | Error e -> Error e
-        | Ok x when isNull x -> Error "Execute scalar returned null in fetchIdByCode"
-        | Ok x ->
-            match x with
-            | :? Guid as g -> Ok g
-            | _ -> Error $"Expected GUID, {x.GetType().Name}"
-
-    let fetchIdOptionByCodeOption
-            (transaction: DbTransaction option)
-            (codeOption: string option)
-            : Result<Guid option, string> =
-        match codeOption with
-        | None -> Ok None
-        | Some x ->
-            result {
-                let! fetchedId = x |> fetchIdByCode transaction
-                return Some fetchedId
-            }
+    // let fetchCodeById
+    //         (unique_id: Guid)
+    //         : Result<string, string> =
+    //     LookupCache.accountIdToCode.fetch unique_id
+    //
+    // let fetchCodeOptionByIdOption
+    //         (idOption: Guid option)
+    //         : Result<string option, string> =
+    //     match idOption with
+    //     | None -> Ok None
+    //     | Some x ->
+    //         result {
+    //             let! fetchedCode = x |> fetchCodeById
+    //             return Some fetchedCode
+    //         }
+    //
+    // let fetchIdByCode
+    //         (code: string)
+    //         : Result<Guid, string> =
+    //     LookupCache.accountCodeToId.fetch code
+    //
+    // let fetchIdOptionByCodeOption
+    //         (codeOption: string option)
+    //         : Result<Guid option, string> =
+    //     match codeOption with
+    //     | None -> Ok None
+    //     | Some x ->
+    //         result {
+    //             let! fetchedId = x |> fetchIdByCode
+    //             return Some fetchedId
+    //         }
 
     let fetchById
             (transaction: DbTransaction option)
@@ -286,14 +260,14 @@ module Account =
         let parameters = [{ name = "@parent_id"; value = UniqueId parentId };] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable transaction
     
-    let fetchByParentCode
-            (transaction: DbTransaction option)
-            (parentCode: string)
-            : Result<Account list, string> = // REQ-AC-3.10
-        result {
-            let! parentId = parentCode |> fetchIdByCode transaction
-            return! parentId |> fetchByParentId transaction
-        }
+    // let fetchByParentCode
+    //         (transaction: DbTransaction option)
+    //         (parentCode: string)
+    //         : Result<Account list, string> = // REQ-AC-3.10
+    //     result {
+    //         let! parentId = parentCode |> fetchIdByCode
+    //         return! parentId |> fetchByParentId transaction
+    //     }
 
     let fetchByAccountType
             (transaction: DbTransaction option)
@@ -414,7 +388,7 @@ module Account =
 
     /// constructNewAndSaveToDb is used where you want to construct a net new Account
     /// and insert it into the DB in one operation   
-    let constructNewAndSaveToDbUsingParentId 
+    let constructNewAndSaveToDb 
             (code: string)
             (accountName: string)
             (accountTypeSt: string)
@@ -447,25 +421,25 @@ module Account =
 
     /// constructNewAndSaveToDb is used where you want to construct a net new Account
     /// and insert it into the DB in one operation   
-    let constructNewAndSaveToDbUsingParentCode
-            (code: string)
-            (accountName: string)
-            (accountTypeSt: string)
-            (activeBegin: LocalDate)
-            (activeEnd: LocalDate option)
-            (subType: string option)
-            (parentCode: string option)
-            (reference: string option)
-            (auditEnvelope: AuditEnvelope)
-            (transaction: DbTransaction option)
-            : Result<Account, string> =
-        result {
-            let! parentIdOption = parentCode |> fetchIdOptionByCodeOption transaction
-            return!
-                constructNewAndSaveToDbUsingParentId
-                    code accountName accountTypeSt activeBegin activeEnd
-                    subType parentIdOption reference auditEnvelope transaction
-        }
+    // let constructNewAndSaveToDbUsingParentCode
+    //         (code: string)
+    //         (accountName: string)
+    //         (accountTypeSt: string)
+    //         (activeBegin: LocalDate)
+    //         (activeEnd: LocalDate option)
+    //         (subType: string option)
+    //         (parentCode: string option)
+    //         (reference: string option)
+    //         (auditEnvelope: AuditEnvelope)
+    //         (transaction: DbTransaction option)
+    //         : Result<Account, string> =
+    //     result {
+    //         let! parentIdOption = parentCode |> fetchIdOptionByCodeOption
+    //         return!
+    //             constructNewAndSaveToDbUsingParentId
+    //                 code accountName accountTypeSt activeBegin activeEnd
+    //                 subType parentIdOption reference auditEnvelope transaction
+    //     }
 
     let updateAccountNameById
             (accountId: Guid)
@@ -479,16 +453,16 @@ module Account =
             return newAccount
         }
 
-    let updateAccountNameByCode
-            (code: string)
-            (newName: string)
-            (auditEnvelope: AuditEnvelope)
-            (transaction: DbTransaction option)
-            : Result<Account, string> =
-        result {
-            let! fetchedId = code |> fetchIdByCode transaction
-            return! updateAccountNameById fetchedId newName auditEnvelope transaction
-        }
+    // let updateAccountNameByCode
+    //         (code: string)
+    //         (newName: string)
+    //         (auditEnvelope: AuditEnvelope)
+    //         (transaction: DbTransaction option)
+    //         : Result<Account, string> =
+    //     result {
+    //         let! fetchedId = code |> fetchIdByCode
+    //         return! updateAccountNameById fetchedId newName auditEnvelope transaction
+    //     }
 
     let updateExternalReferenceById 
             (accountId: Guid)
@@ -505,13 +479,13 @@ module Account =
             return newAccount
         }
 
-    let updateExternalReferenceByCode
-            (code: string)
-            (newReference: string option)
-            (auditEnvelope: AuditEnvelope)
-            (transaction: DbTransaction option)
-            : Result<Account, string> =
-        result {
-            let! fetchedId = code |> fetchIdByCode transaction
-            return! updateExternalReferenceById fetchedId newReference auditEnvelope transaction
-        }
+    // let updateExternalReferenceByCode
+    //         (code: string)
+    //         (newReference: string option)
+    //         (auditEnvelope: AuditEnvelope)
+    //         (transaction: DbTransaction option)
+    //         : Result<Account, string> =
+    //     result {
+    //         let! fetchedId = code |> fetchIdByCode 
+    //         return! updateExternalReferenceById fetchedId newReference auditEnvelope transaction
+    //     }

@@ -51,16 +51,16 @@ module FiscalPeriod =
             }
         }
 
-    let constructNewFromKeyString // REQ-FP-2.3.1
+    let constructNew // REQ-FP-2.3.1
                 (periodKey: string)
                 (auditEnvelope: AuditEnvelope)
                 : Result<FiscalPeriod, string> =
         let now = AuditEnvelope.instant auditEnvelope
         let createdAt =  now // REQ-SYS-3.2
         let modifiedAt = now // REQ-SYS-3.2
-        let uuid = Guid.NewGuid()
+        let uniqueId = Guid.NewGuid()
         result {
-            return! validateThenConstruct uuid periodKey true createdAt modifiedAt
+            return! validateThenConstruct uniqueId periodKey true createdAt modifiedAt
             
         }
 
@@ -92,9 +92,9 @@ module FiscalPeriod =
                 (auditEnvelope: AuditEnvelope)
                 (transaction: DbTransaction option)
                 : Result<FiscalPeriod, string> =
-
+    
         result {
-            let! validFiscalPeriod = constructNewFromKeyString periodKey auditEnvelope
+            let! validFiscalPeriod = constructNew periodKey auditEnvelope
             let! () = insertNewToDb validFiscalPeriod transaction// REQ-FP-2.4
             return validFiscalPeriod // REQ-FP-2.4
         }

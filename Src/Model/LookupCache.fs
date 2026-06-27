@@ -1,0 +1,84 @@
+module Model.LookupCache
+
+open System
+open Utilities.DAL
+open Utilities.ResultCE
+
+type Cache<'K, 'V when 'K : comparison> (
+    loadAll : unit -> Result<Map<'K, 'V>, string>,
+    loadOne: 'K -> Result<'V, string>
+    ) =
+    let mutable cache =
+        loadAll() |> Result.defaultWith failwith
+    member _.fetch (key: 'K) : Result<'V, string> =
+        match cache |> Map.tryFind key with
+        | Some v -> Ok v
+        | None ->
+            match loadOne key with
+            | Ok v ->
+                cache <- cache |> Map.add key v
+                Ok v
+            | Error e -> Error e
+
+type idAndString = { id: Guid; key: string }
+
+let mapRowForDbRead
+        (fieldNameId: string)
+        (fieldNameKey: string)
+        (row: RowReader)
+        : Result<idAndString,string> =
+    let id = row |> RowReader.getUuid fieldNameId
+    let key = row |> RowReader.getString fieldNameKey
+    Ok { id = id; key = key }
+
+let accountCodeToId = Cache<string, Guid>(
+    (fun () ->
+        let query = "select unique_id, code from ledger.account"
+        result {
+            let! rows = executeReaderQuery query [] (mapRowForDbRead "unique_id" "code") AnyQuantityIsAcceptable None
+            return rows |> List.map (fun x -> x.key, x.id) |> Map.ofList } ),
+    (fun code -> 
+        let query = "select unique_id, code from ledger.account where code = @code"
+        let parameters = [{ name = "@code"; value = CharString code  };] // REQ-DAL-2.3
+        result {
+            let! rows = executeReaderQuery query parameters (mapRowForDbRead "unique_id" "code") ExactlyOne None
+            return (rows |> List.head).id } ) )
+
+let accountIdToCode = Cache<Guid, string>(
+    (fun () ->
+        let query = "select unique_id, code from ledger.account"
+        result {
+            let! rows = executeReaderQuery query [] (mapRowForDbRead "unique_id" "code") AnyQuantityIsAcceptable None
+            return rows |> List.map (fun x -> x.id, x.key) |> Map.ofList } ),
+    (fun id -> 
+        let query = "select unique_id, code from ledger.account where unique_id = @unique_id"
+        let parameters = [{ name = "@unique_id"; value = UniqueId id  };] // REQ-DAL-2.3
+        result {
+            let! rows = executeReaderQuery query parameters (mapRowForDbRead "unique_id" "code") ExactlyOne None
+            return (rows |> List.head).key } ) )
+
+let fiscalPeriodKeyToId = Cache<string, Guid>(
+    (fun () ->
+        let query = "select unique_id, period_key from ledger.fiscal_period"
+        result {
+            let! rows = executeReaderQuery query [] (mapRowForDbRead "unique_id" "period_key") AnyQuantityIsAcceptable None
+            return rows |> List.map (fun x -> x.key, x.id) |> Map.ofList } ),
+    (fun periodKey -> 
+        let query = "select unique_id, period_key from ledger.fiscal_period where period_key = @period_key"
+        let parameters = [{ name = "@period_key"; value = CharString periodKey  };] // REQ-DAL-2.3
+        result {
+            let! rows = executeReaderQuery query parameters (mapRowForDbRead "unique_id" "period_key") ExactlyOne None
+            return (rows |> List.head).id } ) )
+
+let fiscalPeriodIdToKey = Cache<Guid, string>(
+    (fun () ->
+        let query = "select unique_id, period_key from ledger.fiscal_period"
+        result {
+            let! rows = executeReaderQuery query [] (mapRowForDbRead "unique_id" "period_key") AnyQuantityIsAcceptable None
+            return rows |> List.map (fun x -> x.id, x.key) |> Map.ofList } ),
+    (fun id -> 
+        let query = "select unique_id, period_key from ledger.account where unique_id = @unique_id"
+        let parameters = [{ name = "@unique_id"; value = UniqueId id  };] // REQ-DAL-2.3
+        result {
+            let! rows = executeReaderQuery query parameters (mapRowForDbRead "unique_id" "period_key") ExactlyOne None
+            return (rows |> List.head).key } ) )

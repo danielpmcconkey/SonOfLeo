@@ -7,7 +7,7 @@ open Model.UI
 open Utilities.ResultCE
 open InterfaceContractTypes
 
-let convertModelToReturn fp : FiscalPeriodReturn = {
+let private convertModelToReturn fp : FiscalPeriodReturn = {
             periodKey = PeriodKey.value (periodKey fp)
             startDate = startDate fp
             endDate = endDate fp
@@ -16,7 +16,7 @@ let convertModelToReturn fp : FiscalPeriodReturn = {
             modifiedAt = modifiedAt fp
         }
 
-let create payload _ =
+let private create payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create FiscalPeriodCreate
@@ -25,7 +25,7 @@ let create payload _ =
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
-let fetch payload _ =
+let private fetch payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let! model = input.periodKey |> fetchByKey None 
@@ -33,7 +33,7 @@ let fetch payload _ =
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
-let fetchAll payload _ =
+let private fetchAll payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodFetchAllInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let! models = fetchAll None input.openOnly
@@ -41,7 +41,7 @@ let fetchAll payload _ =
         return! Json.toJson<FiscalPeriodReturn list> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
-let close payload _ =
+let private close payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create FiscalPeriodClose
@@ -50,7 +50,7 @@ let close payload _ =
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
-let reopen payload _ =
+let private reopen payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create FiscalPeriodReopen

@@ -18,7 +18,7 @@ let ``REQ-AC-1.4 REQ-AC-2.9 AccountCode must be unique`` () =
 
     try
         let result1 =
-            Account.constructNewAndSaveToDbUsingParentId code1 genericAccountNameString genericAccountTypeString
+            Account.constructNewAndSaveToDb code1 genericAccountNameString genericAccountTypeString
                 genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                 genericAccountReference genericAuditEnvelope (Some transaction)
         match result1 with
@@ -26,7 +26,7 @@ let ``REQ-AC-1.4 REQ-AC-2.9 AccountCode must be unique`` () =
         | Ok _ -> ()
 
         let result2 =
-            Account.constructNewAndSaveToDbUsingParentId code2 genericAccountNameString genericAccountTypeString
+            Account.constructNewAndSaveToDb code2 genericAccountNameString genericAccountTypeString
                 genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                 genericAccountReference genericAuditEnvelope (Some transaction)
         Assert.True(Result.isError result2)
@@ -43,11 +43,11 @@ let ``REQ-AC-1.5 Account code is case sensitive.`` () =
     try
         let railroad = result {
             let! account1 =
-                Account.constructNewAndSaveToDbUsingParentId code1 genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb code1 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let! account2 =
-                Account.constructNewAndSaveToDbUsingParentId code2 genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb code2 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let dbCode1 = AccountCode.value (Account.code account1)
@@ -84,7 +84,7 @@ let ``REQ-AC-2.14 REQ-SYS-5.1 create account and fetch by ID returns identical r
     try
         let railroad = result {
             let! pushResult =
-                Account.constructNewAndSaveToDbUsingParentId code accountName accountType
+                Account.constructNewAndSaveToDb code accountName accountType
                     activeBegin activeEnd subtype parentId reference envelope (Some transaction)
             let pushId = Account.uniqueId pushResult
             let! pullResult = Account.fetchById (Some transaction) pushId
@@ -120,7 +120,7 @@ let ``REQ-AC-3.4 fetch by code returns correct account`` () =
     try
         let railroad = result {
             let! pushResult =
-                Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let pushId = Account.uniqueId pushResult
@@ -146,25 +146,25 @@ let ``REQ-AC-3.5 fetch by parent ID returns all children`` () =
     try
         let railroad = result {
             let! account_parent =
-                Account.constructNewAndSaveToDbUsingParentId code_parent genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb code_parent genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let parentId = Account.uniqueId account_parent
 
             let! account_child1 =
-                Account.constructNewAndSaveToDbUsingParentId code_child1 genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb code_child1 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let id_child1 = Account.uniqueId account_child1
 
             let! account_child2 =
-                Account.constructNewAndSaveToDbUsingParentId code_child2 genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb code_child2 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let id_child2 = Account.uniqueId account_child2
 
             let! account_child3 =
-                Account.constructNewAndSaveToDbUsingParentId code_child3 genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb code_child3 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let id_child3 = Account.uniqueId account_child3
@@ -196,19 +196,19 @@ let ``REQ-AC-3.6 fetch by account type returns matching accounts`` () =
     try
         let railroad = result {
             let! account_1 =
-                Account.constructNewAndSaveToDbUsingParentId code_1 genericAccountNameString explicitAccountType
+                Account.constructNewAndSaveToDb code_1 genericAccountNameString explicitAccountType
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let id_1 = Account.uniqueId account_1
 
             let! account_2 =
-                Account.constructNewAndSaveToDbUsingParentId code_2 genericAccountNameString explicitAccountType
+                Account.constructNewAndSaveToDb code_2 genericAccountNameString explicitAccountType
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let id_2 = Account.uniqueId account_2
 
             let! account_3 =
-                Account.constructNewAndSaveToDbUsingParentId code_3 genericAccountNameString explicitAccountType
+                Account.constructNewAndSaveToDb code_3 genericAccountNameString explicitAccountType
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let id_3 = Account.uniqueId account_3
@@ -245,25 +245,25 @@ let ``REQ-AC-3.7 fetch all fetches everything`` () =
     try
         let railroad = result {
             let! account_1 =
-                Account.constructNewAndSaveToDbUsingParentId code_1 genericAccountNameString explicitAccountType1
+                Account.constructNewAndSaveToDb code_1 genericAccountNameString explicitAccountType1
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let id_1 = Account.uniqueId account_1
 
             let! account_2 =
-                Account.constructNewAndSaveToDbUsingParentId code_2 genericAccountNameString explicitAccountType2
+                Account.constructNewAndSaveToDb code_2 genericAccountNameString explicitAccountType2
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let id_2 = Account.uniqueId account_2
 
             let! account_3 =
-                Account.constructNewAndSaveToDbUsingParentId code_3 genericAccountNameString explicitAccountType3
+                Account.constructNewAndSaveToDb code_3 genericAccountNameString explicitAccountType3
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let id_3 = Account.uniqueId account_3
 
             let! account_4 =
-                Account.constructNewAndSaveToDbUsingParentId code_4 genericAccountNameString explicitAccountType4
+                Account.constructNewAndSaveToDb code_4 genericAccountNameString explicitAccountType4
                     genericAccountActiveBegin account4ActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let id_4 = Account.uniqueId account_4
@@ -299,25 +299,25 @@ let ``REQ-AC-3.9 fetch all with active only fetches active accounts relative to 
     try
         let railroad = result {
             let! account_1 =
-                Account.constructNewAndSaveToDbUsingParentId code_1 genericAccountNameString explicitAccountType1
+                Account.constructNewAndSaveToDb code_1 genericAccountNameString explicitAccountType1
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let id_1 = Account.uniqueId account_1
 
             let! account_2 =
-                Account.constructNewAndSaveToDbUsingParentId code_2 genericAccountNameString explicitAccountType2
+                Account.constructNewAndSaveToDb code_2 genericAccountNameString explicitAccountType2
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let id_2 = Account.uniqueId account_2
 
             let! account_3 =
-                Account.constructNewAndSaveToDbUsingParentId code_3 genericAccountNameString explicitAccountType3
+                Account.constructNewAndSaveToDb code_3 genericAccountNameString explicitAccountType3
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let id_3 = Account.uniqueId account_3
 
             let! _ =
-                Account.constructNewAndSaveToDbUsingParentId code_4 genericAccountNameString explicitAccountType4
+                Account.constructNewAndSaveToDb code_4 genericAccountNameString explicitAccountType4
                     genericAccountActiveBegin account4ActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
 
@@ -347,7 +347,7 @@ let ``REQ-AC-2.6 parent ID must reference existing account`` () =
 
     try
         let result =
-                Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype parentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
         let didFail =
@@ -369,13 +369,13 @@ let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--positiv
     try
         let railroad = result {
             let! account_parent =
-                Account.constructNewAndSaveToDbUsingParentId code_parent genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb code_parent genericAccountNameString genericAccountTypeString
                     activeBegin_parent genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let parentId = Account.uniqueId account_parent
 
             let! _ =
-                Account.constructNewAndSaveToDbUsingParentId code_child1 genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb code_child1 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
                     genericAccountReference genericAuditEnvelope (Some transaction)
 
@@ -399,13 +399,13 @@ let ``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--negativ
     try
         let railroad = result {
             let! account_parent =
-                Account.constructNewAndSaveToDbUsingParentId code_parent genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb code_parent genericAccountNameString genericAccountTypeString
                     activeBegin_parent (Some activeEnd_parent) genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let parentId = Account.uniqueId account_parent
 
             let account_child1 =
-                Account.constructNewAndSaveToDbUsingParentId code_child1 genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb code_child1 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
                     genericAccountReference genericAuditEnvelope (Some transaction)
 
@@ -435,13 +435,13 @@ let ``REQ-AC-2.20 child AccountType must match parent AccountType`` () =
     try
         let railroad = result {
             let! account_parent =
-                Account.constructNewAndSaveToDbUsingParentId code_parent genericAccountNameString accountType_parent
+                Account.constructNewAndSaveToDb code_parent genericAccountNameString accountType_parent
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let parentId = Account.uniqueId account_parent
 
             let account_child1 =
-                Account.constructNewAndSaveToDbUsingParentId code_child1 genericAccountNameString accountType_child1
+                Account.constructNewAndSaveToDb code_child1 genericAccountNameString accountType_child1
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
                     genericAccountReference genericAuditEnvelope (Some transaction)
 
@@ -473,7 +473,7 @@ let ``REQ-AC-4.8 updateAccountName succeeds with valid accountName`` () =
     try
         let railroad = result {
             let! createdAccount =
-                Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let createdId = Account.uniqueId createdAccount
@@ -513,7 +513,7 @@ let ``REQ-AC-4.9 updateExternalReference succeeds with valid reference`` () =
     try
         let railroad = result {
             let! createdAccount =
-                Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     noneReference genericAuditEnvelope (Some transaction)
             let createdId = Account.uniqueId createdAccount
@@ -548,7 +548,7 @@ let ``REQ-AC-4.9 updateExternalReference can be updated to None`` () =
     try
         let railroad = result {
             let! createdAccount =
-                Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     reference genericAuditEnvelope (Some transaction)
             let createdId = Account.uniqueId createdAccount
@@ -581,7 +581,7 @@ let ``REQ-SYS-3.3 account update operations set modifiedAt from AuditEnvelope`` 
     try
         let railroad = result {
             let! createdAccount =
-                Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let createdId = Account.uniqueId createdAccount
@@ -614,7 +614,7 @@ let ``REQ-AC-4.19 update to deactivated account is permitted`` () =
     try
         let railroad = result {
             let! createdAccount =
-                Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
                     activeBegin (Some activeEnd) genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let createdId = Account.uniqueId createdAccount

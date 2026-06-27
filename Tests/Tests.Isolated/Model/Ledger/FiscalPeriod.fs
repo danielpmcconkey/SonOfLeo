@@ -41,7 +41,7 @@ let ``REQ-FP-1.2 PeriodKey.fromString fails when given a month greater than 12``
 let ``REQ-FP-1.4 REQ-FP-2.3 Fiscal period start date is derived from the key`` () =    
     let expectedMonth = 6
     let expectedDay = 1
-    let fp = FiscalPeriod.constructNewFromKeyString genericKey genericEnvelope |> Result.defaultWith failwith
+    let fp = FiscalPeriod.constructNew genericKey genericEnvelope |> Result.defaultWith failwith
     let startDate = FiscalPeriod.startDate fp
     Assert.Equal(expectedMonth, startDate.Month)
     Assert.Equal(expectedDay, startDate.Day)
@@ -50,7 +50,7 @@ let ``REQ-FP-1.4 REQ-FP-2.3 Fiscal period start date is derived from the key`` (
 let ``REQ-FP-1.5 REQ-FP-2.3 Fiscal period end date is derived from the key`` () =    
     let expectedMonth = 6
     let expectedDay = 30
-    let fp = FiscalPeriod.constructNewFromKeyString genericKey genericEnvelope |> Result.defaultWith failwith
+    let fp = FiscalPeriod.constructNew genericKey genericEnvelope |> Result.defaultWith failwith
     let endDate = FiscalPeriod.endDate fp
     Assert.Equal(expectedMonth, endDate.Month)
     Assert.Equal(expectedDay, endDate.Day)

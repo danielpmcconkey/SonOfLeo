@@ -135,14 +135,4 @@ let deactivateAccountById
         let! newAccount = updateDb accountId deactivationDate auditEnvelope transaction
         return newAccount                
     }
-
-let deactivateAccountByCode
-        (explicitEnd: LocalDate option)
-        (auditEnvelope: AuditEnvelope)
-        (transaction: DbTransaction option)
-        (code: string)
-        : Result<Account, string> =
-    result {
-        let! fetchedId = code |> fetchIdByCode transaction
-        return! fetchedId |> deactivateAccountById explicitEnd auditEnvelope transaction
-    }
+    

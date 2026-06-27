@@ -40,7 +40,7 @@ let ``REQ-NGUI-3.6 System responds with the payload via stdout upon success`` ()
     try
         let railroad = result {
             let! pushResult = 
-                Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString explicitName genericAccountTypeString
+                Account.constructNewAndSaveToDb genericAccountCodeString explicitName genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope None
             let pushCode = pushResult |> Account.code |> AccountCode.value

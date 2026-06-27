@@ -12,7 +12,7 @@ open Tests.Integrated.SonOfLeoCli.CliExecutor
 open Tests.Integrated._Cleanup
 
 let private createFiscalPeriodInputPayload keyToUse =
-    { periodKey = keyToUse }
+    { FiscalPeriodInput.periodKey = keyToUse }
     |> toJson<FiscalPeriodInput> |> Result.defaultWith failwith
 
 let private createFiscalPeriodFetchAllInputPayload openOnly =

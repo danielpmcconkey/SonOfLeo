@@ -105,6 +105,7 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-4.7** Voided journal entries must be excluded from every balance, trial-balance, and account-sum computation. The exclusion must be applied such that a voided entry's lines contribute nothing (see the leobloom_prod skill's note on the `LEFT JOIN ... AND voided_at IS NULL` overstatement trap — the void check belongs in the `WHERE`, not the join).
 - **REQ-JE-4.8** Corrections to an entry in a closed period are made by posting an ordinary offsetting journal entry into the current open period and linking it to the original with a comment (secondary journal entry = the original). There is no separate reversal operation.
 - **REQ-JE-4.9** The system must provide a means for an actor to update a journal entry reference's FI and value
+- **REQ-JE-4.10** The system must provide a means to attach a new external reference to an existing journal entry, by the caller providing a journal entry ID, a source FI, and a reference value. The system must generate a unique UUID for the new reference and persist it (per REQ-JE-2.9 semantics). A reference may be appended regardless of whether the entry is voided or its fiscal period is closed (mirrors REQ-JE-5.5 for comments).
 
 ## 5. Comment behaviors
 

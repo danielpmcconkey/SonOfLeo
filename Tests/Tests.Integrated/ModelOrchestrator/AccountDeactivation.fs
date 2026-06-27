@@ -25,7 +25,7 @@ let ``REQ-AC-4.1 deactivateAccount sets active end and returns inactive account`
     try
         let railroad = result {
             let! pushAccount =
-                Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference envelope1 (Some transaction)
             let pushId = Account.uniqueId pushAccount
@@ -57,7 +57,7 @@ let ``REQ-AC-4.2 deactivateAccount rejects end earlier than begin`` () =
     try
         let railroad = result {
             let! pushAccount =
-                Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
                     activeBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference envelope1 (Some transaction)
             let pushId = Account.uniqueId pushAccount
@@ -91,7 +91,7 @@ let ``REQ-AC-4.2 deactivateAccount accepts end equal to begin`` () =
     try
         let railroad = result {
             let! pushAccount =
-                Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
                     activeBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference envelope1 (Some transaction)
             let pushId = Account.uniqueId pushAccount
@@ -124,13 +124,13 @@ let ``REQ-AC-4.3 deactivateAccount rejects when active children exist`` () =
     try
         let railroad = result {
             let! account_parent =
-                Account.constructNewAndSaveToDbUsingParentId code_parent genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb code_parent genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let parentId = Account.uniqueId account_parent
 
             let! _ =
-                Account.constructNewAndSaveToDbUsingParentId code_child1 genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb code_child1 genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
                     genericAccountReference genericAuditEnvelope (Some transaction)
 
@@ -160,7 +160,7 @@ let ``REQ-AC-4.5 deactivateAccount rejects already deactivated account`` () =
     try
         let railroad = result {
             let! activeAccount =
-                Account.constructNewAndSaveToDbUsingParentId genericAccountCodeString genericAccountNameString genericAccountTypeString
+                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
                     genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                     genericAccountReference genericAuditEnvelope (Some transaction)
             let activeId = Account.uniqueId activeAccount

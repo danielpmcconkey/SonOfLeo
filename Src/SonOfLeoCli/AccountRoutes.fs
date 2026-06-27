@@ -1,5 +1,6 @@
 module SonOfLeoCli.AccountRoutes
 
+open Model
 open Model.Audit
 open Model.Ledger.Accounts.Account
 open Model.Ledger.Accounts.AccountComponent
@@ -7,31 +8,38 @@ open Model.UI
 open Utilities.ResultCE
 open InterfaceContractTypes
 
-let convertAccountToAccountReturn a : AccountReturn = {
+let private convertAccountToAccountReturn a : AccountReturn = {
             code = AccountCode.value (code a)
             name = AccountName.value (accountName a)
             accountTypeSt = AccountType.toString (accountType a)
             activeBegin = activeBegin a
             activeEnd = activeEnd a
             subType = accountSubType a |> Option.map AccountSubtype.toString
-            parentCode = fetchCodeOptionByIdOption None (parentId a) |> Result.defaultWith failwith
+            parentCode =
+                match parentId a with
+                | None -> None
+                | Some x -> x |> LookupCache.accountIdToCode.fetch |> Result.defaultWith failwith |> Some
             reference = externalReference a |> Option.map AccountExternalReference.value
             createdAt = createdAt a
             modifiedAt = modifiedAt a
         }
     
-let accountCreate payload _ =
+let private accountCreate payload _ =
     result {
         let! accountCreateInput = Json.fromJson<AccountCreateInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create AccountCreate
-        let! account = constructNewAndSaveToDbUsingParentCode
+        let! parentId =
+                match accountCreateInput.parentCode with
+                | Some x -> x |> LookupCache.accountCodeToId.fetch |> Result.map Some
+                | None -> Ok None
+        let! account = constructNewAndSaveToDb
                          accountCreateInput.code
                          accountCreateInput.name
                          accountCreateInput.accountTypeSt
                          accountCreateInput.activeBegin
                          accountCreateInput.activeEnd
                          accountCreateInput.subType
-                         accountCreateInput.parentCode
+                         parentId
                          accountCreateInput.reference
                          envelope
                          None
@@ -39,13 +47,12 @@ let accountCreate payload _ =
         return! Json.toJson<AccountReturn> returnAccount // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
-let accountDeactivate payload _ =
+let private accountDeactivate payload _ =
     result {
         let! accountDeactivation = Json.fromJson<AccountDeactivationInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create AccountDeactivation
-        let! account =
-            accountDeactivation.code
-            |> ModelOrchestrator.AccountDeactivation.deactivateAccountByCode
+        let! id = accountDeactivation.code |> LookupCache.accountCodeToId.fetch
+        let! account = id |> ModelOrchestrator.AccountDeactivation.deactivateAccountById
                          (Some accountDeactivation.activeEnd)
                          envelope
                          None
@@ -55,12 +62,13 @@ let accountDeactivate payload _ =
     }
     
 
-let accountUpdateName payload _ =
+let private accountUpdateName payload _ =
     result {
         let! accountUpdate = Json.fromJson<AccountUpdateNameInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create AccountUpdateName
-        let! account = updateAccountNameByCode
-                         accountUpdate.code
+        let! id = accountUpdate.code |> LookupCache.accountCodeToId.fetch
+        let! account = updateAccountNameById
+                         id
                          accountUpdate.newName
                          envelope
                          None
@@ -68,12 +76,13 @@ let accountUpdateName payload _ =
         return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
-let accountUpdateExternalReference payload _ =
+let private accountUpdateExternalReference payload _ =
     result {
         let! accountUpdate = Json.fromJson<AccountUpdateExternalReferenceInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create AccountUpdateExtReference
-        let! account = updateExternalReferenceByCode
-                         accountUpdate.code
+        let! id = accountUpdate.code |> LookupCache.accountCodeToId.fetch
+        let! account = updateExternalReferenceById
+                         id
                          accountUpdate.newReference
                          envelope
                          None
@@ -81,7 +90,7 @@ let accountUpdateExternalReference payload _ =
         return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
-let accountFetchByCode payload _ =
+let private accountFetchByCode payload _ =
     result {
         let! accountFetch = Json.fromJson<AccountFetchByCodeInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let! account = fetchByCode None accountFetch.code
@@ -89,15 +98,16 @@ let accountFetchByCode payload _ =
         return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
-let accountFetchByParentCode payload _ =
+let private accountFetchByParentCode payload _ =
     result {
         let! accountFetch = Json.fromJson<AccountFetchByParentCodeInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
-        let! accounts = fetchByParentCode None accountFetch.parentCode
+        let! parentId = accountFetch.parentCode |> LookupCache.accountCodeToId.fetch
+        let! accounts = parentId |> fetchByParentId None
         let returnAccounts = accounts |> List.map(convertAccountToAccountReturn) 
         return! Json.toJson<AccountReturn list> returnAccounts// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
-let accountFetchByAccountType payload _ =
+let private accountFetchByAccountType payload _ =
     result {
         let! accountFetch = Json.fromJson<AccountFetchByAccountTypeInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let! validType = AccountType.fromString accountFetch.accountTypeSt
@@ -106,7 +116,7 @@ let accountFetchByAccountType payload _ =
         return! Json.toJson<AccountReturn list> returnAccounts// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
-let accountFetchAll payload _ =
+let private accountFetchAll payload _ =
     result {
         let! accountFetch = Json.fromJson<AccountFetchAllInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let! accounts = fetchAll accountFetch.activeOnly None
