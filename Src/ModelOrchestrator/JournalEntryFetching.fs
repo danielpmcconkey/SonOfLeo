@@ -27,7 +27,7 @@ let private fetchHeaderIdsByReference
     ] // REQ-DAL-2.3
     executeReaderQuery query parameters mapRowForDbRead AnyQuantityIsAcceptable None
 
-let fetchById
+let fetchById // REQ-JE-3.1, REQ-JE-3.2
         (uniqueId: Guid)
         : Result<JournalEntry, string> =
     result {
@@ -38,7 +38,7 @@ let fetchById
         return! constructFromPreValidatedComponents validHeader validLines validReferences validComments
     }
 
-let fetchByPeriodKey
+let fetchByPeriodKey // REQ-JE-3.1, REQ-JE-3.3
         (key: string)
         : Result<JournalEntry list, string> =
     result {
@@ -50,7 +50,7 @@ let fetchByPeriodKey
         return! headerResultsList |> listOfResultsToResultsList
     }
     
-let fetchByReference
+let fetchByReference // REQ-JE-3.1, REQ-JE-3.5
         (fi: string)
         (reference: string)
         : Result<JournalEntry list, string> =

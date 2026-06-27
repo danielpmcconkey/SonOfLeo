@@ -66,7 +66,7 @@ let private validateZeroBalance
         (accountId: Guid)
         : Result<unit, string> =
     result {
-        let! nonVoidedLines = accountId |> JournalEntryLine.fetchByAccountId transaction true
+        let! nonVoidedLines = accountId |> JournalEntryLine.fetchByAccountId transaction true // REQ-JE-4.7
         let! debits = nonVoidedLines |> JournalEntryLine.sumLinesByType Debit 
         let! credits = nonVoidedLines |> JournalEntryLine.sumLinesByType Credit
         let! diff = Money.subtract debits credits

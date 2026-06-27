@@ -20,8 +20,8 @@ module CommentText =
 
 type JournalEntryComment =
   private  {    uniqueId: Guid // REQ-JE-1.50
-                primaryJournalEntryId: Guid
-                secondaryJournalEntryId: Guid option
+                primaryJournalEntryId: Guid // REQ-JE-1.51
+                secondaryJournalEntryId: Guid option // REQ-JE-1.52
                 commentText: CommentText
                 createdAt: Instant
                 modifiedAt: Instant }

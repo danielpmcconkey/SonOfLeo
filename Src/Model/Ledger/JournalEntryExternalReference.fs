@@ -24,15 +24,15 @@ module JournalExternalReferenceText =
     let create (raw: string) : Result<JournalExternalReferenceText, string> =
         let trimmed = raw.Trim() // REQ-SYS-1.1
         if String.IsNullOrWhiteSpace trimmed then
-            Error "JournalExternalReferenceText cannot be empty"  // REQ-JE-1.42, REQ-SYS-1.2
+            Error "JournalExternalReferenceText cannot be empty"  // REQ-JE-1.44, REQ-SYS-1.2
         elif trimmed.Length > 100 then
-            Error "JournalExternalReferenceText cannot exceed 100 characters" // REQ-JE-1.49
+            Error "JournalExternalReferenceText cannot exceed 100 characters" // REQ-JE-1.45
         else
             Ok (JournalExternalReferenceText trimmed)
 
 type JournalEntryExternalReference =
-  private  {    uniqueId: Guid
-                journalEntryId: Guid
+  private  {    uniqueId: Guid // REQ-JE-1.40
+                journalEntryId: Guid // REQ-JE-1.41
                 financialInstitution: JournalRefFinancialInstitution // REQ-JE-1.42
                 referenceText: JournalExternalReferenceText
                 createdAt: Instant
@@ -60,8 +60,8 @@ module JournalEntryExternalReference =
             (journalEntryId: Guid) // 
             (financialInstitution: string)
             (referenceText: string)
-            (createdAt: Instant) // REQ-JE-5.2
-            (modifiedAt: Instant) // REQ-JE-5.2
+            (createdAt: Instant) // REQ-SYS-3.2
+            (modifiedAt: Instant) // REQ-SYS-3.2
             (transaction: DbTransaction option)
             : Result<JournalEntryExternalReference, string> =
         result {
@@ -79,7 +79,7 @@ module JournalEntryExternalReference =
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
             : Result<JournalEntryExternalReference, string> =
-        let uniqueId = Guid.NewGuid() // REQ-JE-5.2
+        let uniqueId = Guid.NewGuid() // REQ-JE-2.9
         let now = AuditEnvelope.instant auditEnvelope
         let createdAt =  now // REQ-SYS-3.2
         let modifiedAt = now // REQ-SYS-3.2
@@ -166,7 +166,7 @@ module JournalEntryExternalReference =
         let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None None parameters AnyQuantityIsAcceptable transaction
         
-    let updateFiAndReferenceText // REQ-JE-5.3
+    let updateFiAndReferenceText // REQ-JE-4.9
             (auditEnvelope: AuditEnvelope)
             (uniqueId: Guid)
             (newFi: string)

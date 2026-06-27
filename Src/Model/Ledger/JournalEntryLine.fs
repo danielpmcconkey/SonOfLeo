@@ -10,7 +10,7 @@ open Utilities.ResultCE
 open Utilities.DAL
 
 type JournalEntryLine =
-  private  {    uniqueId: Guid                                     // REQ-JE-1.20
+  private  {    uniqueId: Guid                                     // REQ-JE-1.20, REQ-JE-1.21
                 journalEntryId: Guid
                 accountId: Guid
                 amount: Money
@@ -81,7 +81,7 @@ module JournalEntryLine =
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
             : Result<JournalEntryLine, string> =        
-        let uniqueId = Guid.NewGuid()
+        let uniqueId = Guid.NewGuid() // REQ-JE-2.2
         let now = AuditEnvelope.instant auditEnvelope
         let createdAt =  now // REQ-SYS-3.2
         let modifiedAt = now // REQ-SYS-3.2
@@ -176,7 +176,7 @@ module JournalEntryLine =
         let orderBy = "jel.created_at"
         readRowsFromDb None (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable transaction
 
-    let fetchByAccountId
+    let fetchByAccountId // REQ-JE-3.4
             (transaction: DbTransaction option)
             (nonVoidedOnly: bool)
             (accountId: Guid)

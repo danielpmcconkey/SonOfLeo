@@ -59,7 +59,7 @@ module JournalEntryHeader =
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
             : Result<JournalEntryHeader, string> =
-        let uniqueId = Guid.NewGuid()
+        let uniqueId = Guid.NewGuid() // REQ-JE-2.1
         let now = AuditEnvelope.instant auditEnvelope
         let createdAt =  now // REQ-SYS-3.2
         let modifiedAt = now // REQ-SYS-3.2

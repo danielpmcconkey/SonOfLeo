@@ -35,7 +35,7 @@ let private voidById // REQ-JE-4.3
         return! journalEntryId |> fetchById transaction
     }
 
-let private insertReason 
+let private insertReason  // REQ-JE-4.4
         (transaction: DbTransaction option)
         (auditEnvelope: AuditEnvelope)
         (reason: JournalEntryCommentPrimitives)
@@ -53,7 +53,7 @@ let private insertReason
 
 let voidJournalEntryOrchestration // REQ-JE-4.3
         (auditEnvelope: AuditEnvelope)
-        (reason: JournalEntryCommentPrimitives)
+        (reason: JournalEntryCommentPrimitives) // REQ-JE-4.4
         (journalEntryId: Guid)
         : Result<JournalEntry, string> =
 

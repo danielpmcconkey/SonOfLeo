@@ -14,8 +14,8 @@ open Utilities.ResultCE
 type JournalEntry =
   private  {    header: JournalEntryHeader
                 lines: JournalEntryLine list
-                externalReferences: JournalEntryExternalReference list
-                comments: JournalEntryComment list }
+                externalReferences: JournalEntryExternalReference list // REQ-JE-1.46
+                comments: JournalEntryComment list } // REQ-JE-1.55
 
 module JournalEntryCreationAndConstruction =
     let header je = je.header
@@ -67,7 +67,7 @@ module JournalEntryCreationAndConstruction =
             return!
                 match account |> Account.isActive entryDate with
                 | true -> Ok ()
-                | false -> Error $"Account {line.accountId} is not active relative to the Journal Entry's entry date"
+                | false -> Error $"Account {line.accountId} is not active relative to the Journal Entry's entry date" // REQ-JE-2.8
         }
     
     let private createValidLines
@@ -122,7 +122,7 @@ module JournalEntryCreationAndConstruction =
                             transaction) 
         |> listOfResultsToResultsList
     
-    let orchestrateCreation
+    let orchestrateCreation // REQ-JE-2.13
             (auditEnvelope: AuditEnvelope)
             (journalEntryPrimitives: JournalEntryPrimitives)
             : Result<JournalEntry, string> =
@@ -140,9 +140,9 @@ module JournalEntryCreationAndConstruction =
                         externalReferences = validReferences
                         comments = validComments }
         }
-        match railRoad with
+        match railRoad with // REQ-JE-2.11
         | Error e ->
-            transaction |> rollbackDbTransactionAndDisposeConnection |> Result.defaultWith failwith
+            transaction |> rollbackDbTransactionAndDisposeConnection |> Result.defaultWith failwith // REQ-JE-2.12
             Error e
         | Ok je ->
             transaction |> commitDbTransactionAndDisposeConnection |> Result.defaultWith failwith
