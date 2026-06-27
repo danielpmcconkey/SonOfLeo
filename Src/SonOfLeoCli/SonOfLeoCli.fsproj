@@ -19,6 +19,7 @@
   </Target>
 
   <ItemGroup>
+    <ProjectReference Include="..\ModelOrchestrator\ModelOrchestrator.fsproj" />
     <ProjectReference Include="..\Model\Model.fsproj" />
   </ItemGroup>
 

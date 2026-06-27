@@ -124,3 +124,79 @@ module JournalEntryLine =
                 constructNew journalEntryId accountId amount lineType memo auditEnvelope transaction
             let! () = insertNewToDb validJournalEntryLine transaction // REQ-
             return validJournalEntryLine }
+
+    /// The mapRow function is used to pass into DAL read functions to let DAL know
+    /// how to map our query columns. Thus, we don't need to know anything about the
+    /// underlying database architecture in this module and the DAL module doesn't
+    /// need to know anything about our module here 
+    let mapRowForDbRead
+            (transaction: DbTransaction option)
+            (row: RowReader)
+            : Result<JournalEntryLine, string> =
+        validateThenConstruct
+            ( row |> RowReader.getUuid "unique_id" )
+            ( row |> RowReader.getUuid "journal_entry_id" )
+            ( row |> RowReader.getUuid "account_id" )
+            ( row |> RowReader.getNumeric "amount" )
+            ( row |> RowReader.getString "line_type" )
+            ( row |> RowReader.getStringOption "memo" )
+            ( row |> RowReader.getInstant "created_at" )
+            ( row |> RowReader.getInstant "modified_at" )
+            transaction
+
+    let private readRowsFromDb
+            (join: string option)
+            (predicate: string option)
+            (limit: int option)
+            (orderBy: string option)
+            (parameters: QueryParameter list)
+            (expectedRows: AcceptableExpectedRows)
+            (transaction: DbTransaction option)
+            : Result<JournalEntryLine list, string> = 
+        let select = "jel.unique_id, jel.journal_entry_id, jel.account_id, jel.amount, jel.line_type, jel.memo, jel.created_at, jel.modified_at"
+        let from = "ledger.journal_entry_line jel"
+        let query = buildReadQuery select from join predicate limit None orderBy
+        executeReaderQuery query parameters (mapRowForDbRead transaction) expectedRows transaction
+
+    let fetchById
+            (transaction: DbTransaction option)
+            (uniqueId: Guid)
+            : Result<JournalEntryLine, string> = 
+        let predicate = "jel.unique_id = @unique_id"
+        let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
+        readRowsFromDb None (Some predicate) None None parameters ExactlyOne transaction
+        |> Result.map List.head
+
+    let fetchByJournalEntryId
+            (transaction: DbTransaction option)
+            (jeId: Guid)
+            : Result<JournalEntryLine list, string> = 
+        let predicate = "jel.journal_entry_id = @journal_entry_id"
+        let parameters = [{ name = "@journal_entry_id"; value = UniqueId jeId };] // REQ-DAL-2.3
+        let orderBy = "jel.created_at"
+        readRowsFromDb None (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable transaction
+
+    let fetchByAccountId
+            (transaction: DbTransaction option)
+            (nonVoidedOnly: bool)
+            (accountId: Guid)
+            : Result<JournalEntryLine list, string> = 
+        let join = Some "left join ledger.journal_entry je on jel.journal_entry_id = je.unique_id"
+        let voidCheck =
+            match nonVoidedOnly with
+            | true -> $"{Environment.NewLine}and je.voided_at is null"
+            | false -> String.Empty
+        let predicate = Some $"jel.account_id = @account_id {voidCheck}"
+        let parameters = [{ name = "@account_id"; value = UniqueId accountId };] // REQ-DAL-2.3
+        let orderBy = Some "jel.created_at"
+        readRowsFromDb join predicate None orderBy parameters AnyQuantityIsAcceptable transaction
+
+    let sumLinesByType
+            (debitOrCredit: JournalEntryLineType)
+            (lines: JournalEntryLine list)
+            : Result<Money,string> =
+        lines
+        |> List.filter(fun x -> lineType x = debitOrCredit)
+        |> List.map(amount) 
+        |> Money.sumList
+        

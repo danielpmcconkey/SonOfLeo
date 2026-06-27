@@ -10,6 +10,7 @@
     <Compile Include="DAL.fs" />
     <Compile Include="Clock.fs" />
     <Compile Include="Calendar.fs" />
+    <Compile Include="ListHelper.fs" />
   </ItemGroup>
 
   <ItemGroup>

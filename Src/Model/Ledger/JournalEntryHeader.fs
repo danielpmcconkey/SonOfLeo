@@ -114,52 +114,39 @@ module JournalEntryHeader =
             ( row |> RowReader.getInstant "modified_at" )
             transaction
 
-    /// readRowsFromDb is designed to produce a flexible read query that can
-    /// satisfy diverse use cases 
     let private readRowsFromDb
+            (join: string option)
             (predicate: string option)
             (limit: int option)
+            (orderBy: string option)
             (parameters: QueryParameter list)
             (expectedRows: AcceptableExpectedRows)
             (transaction: DbTransaction option)
             : Result<JournalEntryHeader list, string> = 
-        let predicateString =
-            match predicate with
-            | Some x -> x
-            | None -> String.Empty
-        let limitString =
-            match limit with
-            | Some x -> $"limit {x}"
-            | None -> String.Empty
-        // todo: extract query assembly into the DAL after journaling slice is complete
-        let query = $"""
-            select  
-                unique_id, description, je_source, entry_date, voided_at, created_at, modified_at
-            from ledger.journal_entry
-            {predicateString}
-            {limitString}
-            ;
-            """
+        let selectColumns = "je.unique_id, je.description, je.je_source, je.entry_date, je.voided_at, je.created_at, je.modified_at"
+        let from = "ledger.journal_entry je"
+        let query = buildReadQuery selectColumns from join predicate limit None orderBy
         executeReaderQuery query parameters (mapRowForDbRead transaction) expectedRows transaction
 
     let fetchById // REQ-JE-3.2
             (transaction: DbTransaction option)
             (uniqueId: Guid)
             : Result<JournalEntryHeader, string> = 
-        let predicate = "where unique_id = @unique_id"
+        let predicate = Some "je.unique_id = @unique_id"
         let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
-        readRowsFromDb (Some predicate) None parameters ExactlyOne transaction
+        readRowsFromDb None predicate None None parameters ExactlyOne transaction
         |> Result.map List.head
 
     let fetchByPeriodKey // REQ-JE-3.3
             (transaction: DbTransaction option)
             (key: string)
-            : Result<JournalEntryHeader list, string> = 
-        let predicate = "where fiscal_period_id = @fiscal_period_id"        
+            : Result<JournalEntryHeader list, string> =
+        let join = Some "left join ledger.fiscal_period fp on je.fiscal_period_id = fp.unique_id"
+        let predicate = Some "fp.period_key = @period_key"
+        let orderBy = Some "je.entry_date asc"
         result {
-            let! fiscalPeriod = key |> FiscalPeriod.fetchByKey transaction
-            let parameters = [{ name = "@fiscal_period_id"; value = UniqueId (fiscalPeriod |> FiscalPeriod.uniqueId) };] // REQ-DAL-2.3
-            return! readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable transaction
+            let parameters = [{ name = "@period_key"; value = CharString key };]
+            return! readRowsFromDb join predicate None orderBy parameters AnyQuantityIsAcceptable transaction
         }
     
     let validateFiscalPeriodIsOpen

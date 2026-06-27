@@ -140,36 +140,20 @@ module JournalEntryExternalReference =
             (parameters: QueryParameter list)
             (expectedRows: AcceptableExpectedRows)
             (transaction: DbTransaction option)
-            : Result<JournalEntryExternalReference list, string> = 
-        let predicateString =
-            match predicate with
-            | Some x -> x
-            | None -> String.Empty
-        let limitString =
-            match limit with
-            | Some x -> $"limit {x}"
-            | None -> String.Empty
-        let orderByString =
-            match orderBy with
-            | Some x -> $"order by {x}"
-            | None -> String.Empty
-        // todo: extract query assembly into the DAL after journaling slice is complete
-        let query = $"""
-            select  
-                unique_id, journal_entry_id, financial_institution, reference, created_at, modified_at
-            from ledger.journal_entry_ext_reference
-            {predicateString}
-            {limitString}
-            {orderByString}
-            ;
-            """
+            : Result<JournalEntryExternalReference list, string> =
+        let select = """
+            jer.unique_id, jer.journal_entry_id, jer.financial_institution, jer.reference,
+            jer.created_at, jer.modified_at
+            """ 
+        let from = "ledger.journal_entry_ext_reference jer"
+        let query = buildReadQuery select from None predicate limit None orderBy
         executeReaderQuery query parameters (mapRowForDbRead transaction) expectedRows transaction
 
     let fetchById
             (transaction: DbTransaction option)
             (uniqueId: Guid)
             : Result<JournalEntryExternalReference, string> = 
-        let predicate = "where unique_id = @unique_id"
+        let predicate = "jer.unique_id = @unique_id"
         let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None None parameters ExactlyOne transaction
         |> Result.map List.head
@@ -178,7 +162,7 @@ module JournalEntryExternalReference =
             (transaction: DbTransaction option)
             (uniqueId: Guid)
             : Result<JournalEntryExternalReference list, string> = 
-        let predicate = "where journal_entry_id = @unique_id"
+        let predicate = "jer.journal_entry_id = @unique_id"
         let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None None parameters AnyQuantityIsAcceptable transaction
         

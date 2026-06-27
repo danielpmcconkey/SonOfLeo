@@ -43,3 +43,26 @@ The one reserved name is `validateThenConstruct` — it always means "the single
 ### Variable Naming
 
 We do not pay by the keystroke. Variables must be obviously named — a reader should never have to trace a binding to understand what a variable holds. Single-letter names and cryptic abbreviations are prohibited except inside simple, short lambda expressions where the entire flow is graspable at a glance (e.g., `fun x -> x + 1`, `List.map (fun a -> Account.uniqueId a)`). Anywhere a variable persists across multiple lines or is referenced more than once, it gets a real name.
+
+
+## 3. Validation Location Doctrine
+
+### The Default: Validate in F#
+
+Validation logic belongs in F# code, not in SQL. When domain types are load-bearing — Money arithmetic, LineType classification, validated wrappers, state discrimination — the validation must go through the domain layer so the type system enforces consistency. A SQL `SUM(CASE WHEN...)` duplicates precision rules outside the type system where they can silently drift. The efficiency cost of pulling data into memory and processing it through domain types is accepted as the price of keeping business logic in one place.
+
+### The Exception: Pure Data Questions
+
+A validation may bypass the domain layer and go directly to SQL only when all of the following hold:
+
+1. **It is a pure data question.** The comparison involves no validated types — just dates, counts, or existence. The F# alternative would reconstruct domain objects only to discard them. No domain logic touches the intermediate values.
+2. **At least one of these costs is present:**
+   - Implementation through F# would add exceptional complexity (new fetch functions, bespoke infrastructure) that would not otherwise be reused, OR
+   - Implementation through F# would add significant performance degradation.
+
+If the pure data question can be answered through existing F# infrastructure without meaningful complexity or performance cost, it stays in F#. SQL is not the default escape hatch for inconvenience — it requires both a domain justification (no domain types are load-bearing) and a practical justification (complexity or performance).
+
+### Examples
+
+- **Zero balance check** (F#): Fetches JournalEntryLines, sums debits and credits through `Money.sumLinesByType` and `Money.subtract`. Domain types are load-bearing — Money's precision rules and debit/credit semantics are doing real work. Stays in F#.
+- **No journal entries after deactivation date** (SQL): Existence check across Account → JournalEntryLine → JournalEntry. The answer is yes/no. The comparison is `LocalDate > LocalDate` — identical in F# and PostgreSQL. No domain type adds value to the intermediate values. Goes to SQL.

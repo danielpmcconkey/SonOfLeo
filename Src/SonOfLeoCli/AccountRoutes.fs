@@ -43,11 +43,13 @@ let accountDeactivate payload _ =
     result {
         let! accountDeactivation = Json.fromJson<AccountDeactivationInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create AccountDeactivation
-        let! account = deactivateAccountByCode
-                         accountDeactivation.code
+        let! account =
+            accountDeactivation.code
+            |> ModelOrchestrator.AccountDeactivation.deactivateAccountByCode
                          (Some accountDeactivation.activeEnd)
                          envelope
                          None
+                         
         let returnAccount : AccountReturn = convertAccountToAccountReturn account
         return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
     }

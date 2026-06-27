@@ -120,27 +120,13 @@ module FiscalPeriod =
             (expectedRows: AcceptableExpectedRows)
             (transaction: DbTransaction option)
             : Result<FiscalPeriod list, string> = // REQ-FP-3.1
-        let predicateString =
-            match predicate with
-            | Some x -> x
-            | None -> String.Empty
-        let limitString =
-            match limit with
-            | Some x -> $"limit {x}"
-            | None -> String.Empty
-        // todo: extract query assembly into the DAL after journaling slice is complete
-        let query = $"""
-            select  
-                unique_id, period_key, start_date, end_date, is_open, created_at, modified_at
-            from ledger.fiscal_period
-            {predicateString}
-            {limitString}
-            ;
-            """
+        let select = "fp.unique_id, fp.period_key, fp.start_date, fp.end_date, fp.is_open, fp.created_at, fp.modified_at"
+        let from = "ledger.fiscal_period fp"
+        let query = buildReadQuery select from None predicate limit None None
         executeReaderQuery query parameters mapRowForDbRead expectedRows transaction
 
     let fetchByKey (transaction: DbTransaction option) (pk: string) : Result<FiscalPeriod, string> = // REQ-FP-3.2
-        let predicate = "where period_key = @period_key"
+        let predicate = "fp.period_key = @period_key"
         let parameters = [{ name = "@period_key"; value = CharString pk };] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None parameters ExactlyOne transaction
         |> Result.map List.head
@@ -148,7 +134,7 @@ module FiscalPeriod =
     let fetchAll (transaction: DbTransaction option) (openOnly: bool) : Result<FiscalPeriod list, string> = // REQ-FP-3.4
         let predicate =
             match openOnly with
-            | true -> Some "where is_open = true" // REQ-FP-3.5
+            | true -> Some "fp.is_open = true" // REQ-FP-3.5
             | _ -> None
         let parameters = []
         readRowsFromDb predicate None parameters AnyQuantityIsAcceptable transaction

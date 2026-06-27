@@ -3,8 +3,6 @@ namespace Model.Ledger.Journaling
 open System
 open Model.Ledger.FiscalPeriods
 open Utilities.DAL
-open Model.Audit
-open Model.Money
 open NodaTime
 open Utilities.ResultCE
 module JournalEntryComponent =

@@ -251,6 +251,48 @@ module DAL =
         else // no more rows to spool off the reader
             Ok (List.rev acc) // reverse the list (because it was pre-pended the entire time), return the final state of the list back through the recursion stack
 
+    /// buildReadQuery is designed to produce a flexible read query that can
+    /// satisfy diverse use cases 
+    let buildReadQuery
+            (selectColumns: string)
+            (from: string)
+            (join: string option)
+            (predicate: string option)
+            (limit: int option)
+            (groupBy: string option)
+            (orderBy: string option)
+            : string =
+        let joinString =
+            match join with
+            | Some x -> x
+            | None -> String.Empty
+        let predicateString =
+            match predicate with
+            | Some x -> $"where {x}"
+            | None -> String.Empty
+        let limitString =
+            match limit with
+            | Some x -> $"limit {x}"
+            | None -> String.Empty
+        let groupByString =
+            match groupBy with
+            | Some x -> $"group by {x}"
+            | None -> String.Empty
+        let orderByString =
+            match orderBy with
+            | Some x -> $"order by {x}"
+            | None -> String.Empty
+        $"""
+            select {selectColumns}
+            from {from}
+            {joinString}
+            {predicateString}
+            {limitString}
+            {groupByString}
+            {orderByString}
+            ;
+            """
+
     let executeReaderQuery
             (query: string)
             (parameters: QueryParameter list)

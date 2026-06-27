@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="Audit.fs" />
     <Compile Include="Money.fs" />
+    <Compile Include="Ledger\JournalEntryPrimitives.fs" />
     <Compile Include="Ledger\AccountComponent.fs" />
     <Compile Include="Ledger\Account.fs" />
     <Compile Include="Ledger\PeriodKey.fs" />
@@ -17,7 +18,6 @@
     <Compile Include="Ledger\JournalEntryLine.fs" />
     <Compile Include="Ledger\JournalEntryExternalReference.fs" />
     <Compile Include="Ledger\JournalEntryComment.fs" />
-    <Compile Include="Ledger\JournalEntry.fs" />
     <Compile Include="UI\InterfaceContractTypes.fs" />
     <Compile Include="UI\Json.fs" />
     <Folder Include="Ops\" />

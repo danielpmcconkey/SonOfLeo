@@ -6,11 +6,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Library.fs" />
+    <ProjectReference Include="..\Model\Model.fsproj" />
+    <ProjectReference Include="..\Utilities\Utilities.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NodaTime" Version="3.3.2" />
+    <Compile Include="JournalEntries.fs" />
+    <Compile Include="AccountDeactivation.fs" />
   </ItemGroup>
 
 </Project>

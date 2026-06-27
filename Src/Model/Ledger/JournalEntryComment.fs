@@ -133,8 +133,6 @@ module JournalEntryComment =
             ( row |> RowReader.getInstant "modified_at" )
             transaction
 
-    /// readRowsFromDb is designed to produce a flexible read query that can
-    /// satisfy diverse use cases 
     let private readRowsFromDb
             (predicate: string option)
             (limit: int option)
@@ -143,35 +141,19 @@ module JournalEntryComment =
             (expectedRows: AcceptableExpectedRows)
             (transaction: DbTransaction option)
             : Result<JournalEntryComment list, string> = 
-        let predicateString =
-            match predicate with
-            | Some x -> x
-            | None -> String.Empty
-        let limitString =
-            match limit with
-            | Some x -> $"limit {x}"
-            | None -> String.Empty
-        let orderByString =
-            match orderBy with
-            | Some x -> $"order by {x}"
-            | None -> String.Empty
-        // todo: extract query assembly into the DAL after journaling slice is complete
-        let query = $"""
-            select  
-                unique_id, journal_primary_entry_id, journal_secondary_entry_id, comment_text, created_at, modified_at
-            from ledger.journal_entry_comment
-            {predicateString}
-            {limitString}
-            {orderByString}
-            ;
+        let select = """
+                jec.unique_id, jec.journal_primary_entry_id, jec.journal_secondary_entry_id,
+                jec.comment_text, jec.created_at, jec.modified_at
             """
+        let from = "ledger.journal_entry_comment jec"
+        let query = buildReadQuery select from None predicate limit None orderBy
         executeReaderQuery query parameters (mapRowForDbRead transaction) expectedRows transaction
 
     let fetchById
             (transaction: DbTransaction option)
             (uniqueId: Guid)
             : Result<JournalEntryComment, string> = 
-        let predicate = "where unique_id = @unique_id"
+        let predicate = "jec.unique_id = @unique_id"
         let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None None parameters ExactlyOne transaction
         |> Result.map List.head
@@ -183,7 +165,7 @@ module JournalEntryComment =
             (transaction: DbTransaction option)
             (uniqueId: Guid)
             : Result<JournalEntryComment list, string> = 
-        let predicate = "where journal_primary_entry_id = @unique_id or journal_secondary_entry_id = @unique_id"
+        let predicate = "jec.journal_primary_entry_id = @unique_id or jec.journal_secondary_entry_id = @unique_id"
         let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
         let orderBy = "created_at"
         readRowsFromDb (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable transaction
