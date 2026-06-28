@@ -46,7 +46,7 @@ let ``REQ-AC-2.21 Account Create happy path`` () =
 let ``REQ-NGUI-1.5 Account Create fails with invalid parent code`` () =
     let badAccountCode = Some "BullS**t"
     let expectedReturnCode = 1
-    let expectedError = "Execute scalar returned null in fetchIdByCode"
+    let expectedError = "Parent code provided didn't match any recorded Accounts in the database."
     let railroad = result {
         let accountInput =
             { code = genericAccountCodeString; name = genericAccountNameString; accountTypeSt = genericAccountTypeString
@@ -134,7 +134,7 @@ let ``REQ-AC-3.10 Account FetchByParentCode happy path`` () =
 let ``REQ-NGUI-1.5 Account FetchByParentCode fails with invalid code`` () =
     let badAccountCode = "HorseS**t"
     let expectedReturnCode = 1
-    let expectedError = "Execute scalar returned null in fetchIdByCode"
+    let expectedError = "Parent code provided didn't match any recorded Accounts in the database."
     let railroad = result {
         let! payload = { parentCode = badAccountCode } |> toJson<AccountFetchByParentCodeInput> 
         let args = ["Account"; "FetchByParentCode"]
@@ -295,7 +295,7 @@ let ``REQ-NGUI-1.5 Account Deactivate fails with invalid code`` () =
     let now = Calendar.today()
     let activeEndInstant = now.PlusDays(-1)
     let expectedReturnCode = 1
-    let expectedError = "Execute scalar returned null in fetchIdByCode"
+    let expectedError = "Account code provided didn't match any recorded Accounts in the database."
     let railroad = result {
         let! payload = { code = badAccountCode; activeEnd = activeEndInstant } |> toJson<AccountDeactivationInput>
         let args = ["Account"; "Deactivate"]
@@ -338,7 +338,7 @@ let ``REQ-NGUI-1.5 Account UpdateName fails with invalid code`` () =
     let badAccountCode = "ApeS**t"
     let newName = "I picked the wrong day to quit sniffing glue"
     let expectedReturnCode = 1
-    let expectedError = "Execute scalar returned null in fetchIdByCode"
+    let expectedError = "Account code provided didn't match any recorded Accounts in the database."
     let railroad = result {
         let! payload = { code = badAccountCode; newName = newName } |> toJson<AccountUpdateNameInput>
         let args = ["Account"; "UpdateName"]
@@ -381,7 +381,7 @@ let ``REQ-NGUI-1.5 Account UpdateExternalReference fails with invalid code`` () 
     let badAccountCode = "DogS**t"
     let newReference = Some "I'm not bad; I'm just drawn that way"
     let expectedReturnCode = 1
-    let expectedError = "Execute scalar returned null in fetchIdByCode"
+    let expectedError = "Account code provided didn't match any recorded Accounts in the database"
     let railroad = result {
         let! payload = { code = badAccountCode; newReference = newReference } |> toJson<AccountUpdateExternalReferenceInput>
         let args = ["Account"; "UpdateExternalReference"]
@@ -393,3 +393,4 @@ let ``REQ-NGUI-1.5 Account UpdateExternalReference fails with invalid code`` () 
     match railroad with
     | Ok _ -> ()
     | Error e -> Assert.Fail e
+    

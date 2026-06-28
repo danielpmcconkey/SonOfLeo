@@ -27,11 +27,11 @@ let ``REQ-NGUI-1.3, REQ-NGUI-3.6 System responds with a success code when succee
     
 [<Fact>]
 let ``REQ-NGUI-1.3.1, REQ-NGUI-3.7 The stderr will comprise the error message`` () = 
-    let expectedError = "Resultant rows didn't match expectation"
+    let expectedError = "Account code provided didn't match any recorded Accounts in the database."
     let args = ["Account"; "FetchByCode"]
     let payload = { code = "burp" } |> toJson<AccountFetchByCodeInput> |> Result.defaultWith failwith
     let _, _, e = runCli args payload
-    Assert.Equal(expectedError, e.Trim())
+    Assert.Contains(expectedError, e)
 
 [<Fact>]
 let ``REQ-NGUI-3.6 System responds with the payload via stdout upon success`` () =  

@@ -114,27 +114,6 @@ let ``REQ-AC-2.14 REQ-SYS-5.1 create account and fetch by ID returns identical r
         DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
-let ``REQ-AC-3.4 fetch by code returns correct account`` () =
-    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
-
-    try
-        let railroad = result {
-            let! pushResult =
-                Account.constructNewAndSaveToDb genericAccountCodeString genericAccountNameString genericAccountTypeString
-                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope (Some transaction)
-            let pushId = Account.uniqueId pushResult
-            let! pullResult = Account.fetchByCode (Some transaction) genericAccountCodeString
-            Assert.Equal(pushId, (Account.uniqueId pullResult))
-            return ()
-        }
-        match railroad with
-        | Ok _ -> ()
-        | Error e -> Assert.Fail e
-    finally
-        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
-[<Fact>]
 let ``REQ-AC-3.5 fetch by parent ID returns all children`` () =
     let code_parent = "AC-3.5-P"
     let code_child1 = "AC-3.5-C1"

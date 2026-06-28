@@ -202,53 +202,12 @@ module Account =
 
 /// public read functions
 
-    // let fetchCodeById
-    //         (unique_id: Guid)
-    //         : Result<string, string> =
-    //     LookupCache.accountIdToCode.fetch unique_id
-    //
-    // let fetchCodeOptionByIdOption
-    //         (idOption: Guid option)
-    //         : Result<string option, string> =
-    //     match idOption with
-    //     | None -> Ok None
-    //     | Some x ->
-    //         result {
-    //             let! fetchedCode = x |> fetchCodeById
-    //             return Some fetchedCode
-    //         }
-    //
-    // let fetchIdByCode
-    //         (code: string)
-    //         : Result<Guid, string> =
-    //     LookupCache.accountCodeToId.fetch code
-    //
-    // let fetchIdOptionByCodeOption
-    //         (codeOption: string option)
-    //         : Result<Guid option, string> =
-    //     match codeOption with
-    //     | None -> Ok None
-    //     | Some x ->
-    //         result {
-    //             let! fetchedId = x |> fetchIdByCode
-    //             return Some fetchedId
-    //         }
-
     let fetchById
             (transaction: DbTransaction option)
             (uniqueId: Guid)
             : Result<Account, string> = // REQ-AC-3.3
         let predicate = "a.unique_id = @unique_id"
         let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
-        readRowsFromDb (Some predicate) None parameters ExactlyOne transaction
-        |> Result.map List.head
-
-    let fetchByCode
-            (transaction: DbTransaction option)
-            (code: string)
-            : Result<Account, string> = // REQ-AC-3.4
-        let predicate = "a.code = @code"
-        let parameters = [{ name = "@code"; value = CharString code };] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None parameters ExactlyOne transaction
         |> Result.map List.head
 
@@ -259,15 +218,6 @@ module Account =
         let predicate = "a.parent_id = @parent_id"
         let parameters = [{ name = "@parent_id"; value = UniqueId parentId };] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable transaction
-    
-    // let fetchByParentCode
-    //         (transaction: DbTransaction option)
-    //         (parentCode: string)
-    //         : Result<Account list, string> = // REQ-AC-3.10
-    //     result {
-    //         let! parentId = parentCode |> fetchIdByCode
-    //         return! parentId |> fetchByParentId transaction
-    //     }
 
     let fetchByAccountType
             (transaction: DbTransaction option)
