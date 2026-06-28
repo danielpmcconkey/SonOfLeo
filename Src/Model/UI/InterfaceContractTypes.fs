@@ -83,8 +83,7 @@ module InterfaceContractTypes =
     type JournalEntryHeaderInput= {
         description: string
         source: string option
-        entryDate: LocalDate
-        voidedAt: Instant option }
+        entryDate: LocalDate }
 
     type JournalEntryExternalReferenceInput = {
         financialInstitution: string 

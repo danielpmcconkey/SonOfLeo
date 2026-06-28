@@ -74,7 +74,7 @@ module JournalEntryHeader =
         let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
             { name = "@unique_id"; value = UniqueId journalEntry.uniqueId }
             { name = "@description"; value = CharString (journalEntry.description |> Description.value) };
-            { name = "@source"; value = NullableCharString (journalEntry.source |> Option.map  Source.value) };
+            { name = "@je_source"; value = NullableCharString (journalEntry.source |> Option.map  Source.value) };
             { name = "@entry_date"; value = DbLocalDate (journalEntry.entryDate |> EntryDate.entryDate) };
             { name = "@fiscal_period_id"; value = UniqueId (journalEntry.entryDate |> EntryDate.fiscalPeriod |> FiscalPeriod.uniqueId) };
             { name = "@voided_at"; value = NullableDbInstant journalEntry.voidedAt };

@@ -90,8 +90,12 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-3.1** When retrieving a journal entry from the persistence layer, the system must return a JournalEntry type with all header properties, all associated lines, all external references, and all comments.
 - **REQ-JE-3.2** The system must be able to retrieve a journal entry by the caller providing that entry's ID.
 - **REQ-JE-3.3** The system must be able to retrieve all journal entries for a given fiscal period by the caller providing a PeriodKey.
-- **REQ-JE-3.4** The system must be able to retrieve all journal entry lines for a given account. At the boundary the account is identified by code; the internal capability is by UUID (mirrors REQ-AC-3.4 / 3.3.1).
+- **REQ-JE-3.4** stricken
 - **REQ-JE-3.5** The system must be able to retrieve the journal entries carrying a given external reference, by the caller providing a source FI and reference value. The result is a set (external references are not unique across entries, per REQ-JE-1.48).
+- **REQ-JE-3.6** The system must be able to compute and return the total debit amount, total credit amount, and net balance (credits minus debits) for a given account's non-voided journal entry lines (per REQ-JE-4.7). At the boundary the account is identified by code.
+- **REQ-JE-3.7** The system must be able to retrieve all journal entries whose entry date falls within a caller-provided date range (start date and end date, both inclusive Calendar Dates). The result is a set of complete journal entries (per REQ-JE-3.1).
+- **REQ-JE-3.8** The system must be able to retrieve all journal entries carrying at least one external reference whose source FI matches a caller-provided value. Unlike REQ-JE-3.5, this requires only the FI — no reference value. The result is a set of complete journal entries (per REQ-JE-3.1).
+- **REQ-JE-3.9** The system must be able to retrieve all journal entry lines for a given account, enriched with their parent entry's `entry_date`, `description`, `source`, and `voided_at`. At the boundary the account is identified by code; the internal capability is by UUID. The caller may filter to non-voided entries only (per REQ-JE-4.7). The result is ordered by entry date. The enriched fields are a boundary-only return type — the domain model is unchanged.
 
 
 ## 4. Update and void behaviors
@@ -143,4 +147,5 @@ active requirement is either tested or in this table.
 | REQ-JE-1.43 | External reference source FI must be one of the recognized source financial institutions (a controlled vocabulary, not free text). An unrecognized value is rejected. | I don't want to constrain this field for a personal application |
 | REQ-JE-1.47 | External references are write-once: they carry a `created_at` Instant, are set when the entry is posted (or appended thereafter), and are never edited | Bullshit. We'll fat finger this someday. And then what? |
 | REQ-JE-2.10 | When posting a journal entry, the source FI of each external reference must be a recognized value (REQ-JE-1.43); an unrecognized value rejects the post. | same reason as 1.43 |
+| REQ-JE-3.4 | The system must be able to retrieve all journal entry lines for a given account. At the boundary the account is identified by code; the internal capability is by UUID (mirrors REQ-AC-3.4 / 3.3.1). | Replaced by REQ-JE-3.9 — bare lines without parent entry context (entry date, description) are not useful for account activity review |
 | REQ-JE-5.4 | A comment's primary and secondary journal entry links are fixed once created; only the comment text may be amended. The relationship a comment records is a historical fact and must not be re-pointed. | Too restrictive and no value add |

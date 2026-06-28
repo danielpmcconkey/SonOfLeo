@@ -37,6 +37,12 @@
 
   <ItemGroup>
     <Compile Include="ModelOrchestrator\AccountDeactivation.fs" />
+    <Compile Include="ModelOrchestrator\JournalEntryCreation.fs" />
+    <Compile Include="ModelOrchestrator\JournalEntryVoiding.fs" />
+    <Compile Include="ModelOrchestrator\JournalEntryFetching.fs" />
+    <Compile Include="Model\Ledger\JournalEntryExternalReference.fs" />
+    <Compile Include="Model\Ledger\JournalEntryComment.fs" />
+    <Compile Include="SonOfLeoCli\JournalEntryRoutes.fs" />
   </ItemGroup>
 
   <Target Name="CopyEnvConfig" AfterTargets="Build">

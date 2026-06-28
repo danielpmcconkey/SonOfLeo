@@ -24,7 +24,7 @@ let private convertJournalEntryHeaderInputToPrimitives
             description = input.description
             source = input.source
             entryDate = input.entryDate
-            voidedAt = input.voidedAt }
+            voidedAt = None } // creating a new JE that's been pre-voided is against the rules
 
 let private convertJournalEntryLineInputToPrimitives
         (input: JournalEntryLineInput)

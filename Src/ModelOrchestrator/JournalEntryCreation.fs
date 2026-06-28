@@ -122,6 +122,11 @@ module JournalEntryCreationAndConstruction =
                             transaction) 
         |> listOfResultsToResultsList
     
+    let private validateNoNewVoidedEntries (newHeader: JournalEntryHeader) : Result<unit, string> =
+        match newHeader |> JournalEntryHeader.voidedAt with
+        | Some _ -> Error "Creating a new, alreadyd voided Journal Entry is not permitted"
+        | None -> Ok ()
+    
     /// orchestrateCreation validates all input and saves the new posted entry into the database
     let orchestrateCreation // REQ-JE-2.13
             (auditEnvelope: AuditEnvelope)
@@ -130,6 +135,7 @@ module JournalEntryCreationAndConstruction =
         let transaction = createDbTransaction() |> Result.defaultWith failwith // if this fails, nothing can proceed
         let railRoad = result {
             let! validHeader = createValidHeader journalEntryPrimitives.header auditEnvelope (Some transaction)
+            do! validHeader |> validateNoNewVoidedEntries
             let jeId = validHeader |> JournalEntryHeader.uniqueId
             let entryDate = JournalEntryHeader.entryDate validHeader |> EntryDate.entryDate  
             let! validLines = createValidLines jeId entryDate journalEntryPrimitives.lines auditEnvelope (Some transaction)

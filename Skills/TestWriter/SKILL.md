@@ -57,6 +57,30 @@ After Dan approves the stubs, implement them. Follow the patterns in
 read production code in the relevant module before writing tests to absorb naming, pipeline
 style, and structure.
 
+## Test layering doctrine
+
+Three rules govern where tests live and what they cover:
+
+1. **Don't test what the type system enforces.** If a field is a `Guid` (value type, can't
+   be null), a DU (can only be one of N cases), or a specific numeric type, the compiler
+   already prevents the invalid state. No test needed — propose a waiver instead.
+
+2. **Test happy paths at each layer.** Every layer (component, model, orchestrator, CLI)
+   gets its own happy-path test proving it works end to end at that layer. Happy paths
+   compose upward — the orchestration happy-path test implicitly exercises the components,
+   but the component happy-path test proves the component in isolation.
+
+3. **Test unhappy paths once, at the lowest layer where the failure can occur.** If
+   `Description.create` rejects whitespace, test that in the isolated component tests.
+   Do NOT re-test it at the orchestration level. The orchestration tests assume component
+   validation works because the isolated tests already proved it. Orchestration-level
+   unhappy-path tests cover only failures that emerge at orchestration — line count,
+   debit/credit balance, fiscal period validation, cross-entity checks.
+
+During Phase 1 (stubbing), read the actual function signatures to determine the correct
+layer for each test. A REQ about optionality may be enforced at the orchestration boundary,
+not at the component level — or may be enforced by the type system and need no test at all.
+
 ## Deciding isolated vs integrated
 
 - **Isolated** (`Tests.Isolated`): Pure functions with no database interaction. Validation,
