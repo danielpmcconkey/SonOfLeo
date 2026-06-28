@@ -170,27 +170,39 @@ module JournalEntryComment =
         let orderBy = "created_at"
         readRowsFromDb (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable transaction
         
-    let updateCommentText // REQ-JE-5.3
+    let updateComment // REQ-JE-5.3
             (auditEnvelope: AuditEnvelope)
             (uniqueId: Guid)
             (newText: string)
+            (secondaryJournalEntryId: Guid option)
             (transaction: DbTransaction option)
-            : Result<JournalEntryComment, string> = 
-        let query = $"""
-            UPDATE ledger.journal_entry_comment
-            set
-                modified_at = @modified -- REQ-SYS-3.3
-                , comment_text = @new_text
-            WHERE unique_id = @unique_id
-            ;
-        """
+            : Result<JournalEntryComment, string> =                
+        let baseParams = [
+            { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3 
+            { name = "@unique_id"; value = UniqueId uniqueId };
+        ]
         result {
             let! validCommentText = CommentText.create newText
-            let parameters = [
-                    { name = "@unique_id"; value = UniqueId uniqueId };
-                    { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3 
-                    { name = "@new_text"; value = CharString (validCommentText |> CommentText.value)}
-                ]
+            let validatedCommentTextString = validCommentText |> CommentText.value
+            let updates =
+                [
+                    Some (", comment_text = @comment_text", { name = "@comment_text"; value = CharString validatedCommentTextString })
+                    match secondaryJournalEntryId with
+                    | None -> None
+                    | Some x ->
+                        Some (", journal_secondary_entry_id = @journal_secondary_entry_id",
+                              { name = "@journal_secondary_entry_id"; value = NullableUniqueId (Some x) })
+                ] |> List.choose id
+            let setClauses = updates |> List.map fst |> String.concat ""
+            let parameters = baseParams @ (updates |> List.map snd)
+            let query = $"""
+                UPDATE ledger.journal_entry_comment
+                set
+                    modified_at = @modified -- REQ-SYS-3.3
+                    {setClauses}
+                WHERE unique_id = @unique_id
+                ;
+            """
             let! _ = executeNonQuery query parameters ExactlyOne transaction
             return! uniqueId |> fetchById transaction
         }

@@ -112,8 +112,9 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-5.1** The system must provide a means to attach a comment to a journal entry, optionally naming a secondary journal entry to record a directional relationship.
 - **REQ-JE-5.2** When a comment is created, the system must generate a unique UUID and set its created/modified timestamps (per REQ-SYS-3.2).
 - **REQ-JE-5.3** The system must provide a means to amend a comment's text. Amending updates the modified-at timestamp (per REQ-SYS-3.3).
-- **REQ-JE-5.4** A comment's primary and secondary journal entry links are fixed once created; only the comment text may be amended. The relationship a comment records is a historical fact and must not be re-pointed.
+- **REQ-JE-5.4** stricken
 - **REQ-JE-5.5** A comment may be appended to an existing journal entry, even if the JE is voided or if the JE's fiscal period is closed.
+- **REQ-JE-5.6** A comment's primary journal entry link is fixed once created. The primary relationship a comment records is a historical fact and must not be re-pointed.
 
 ## 6. Deletion behaviors
 
@@ -142,3 +143,4 @@ active requirement is either tested or in this table.
 | REQ-JE-1.43 | External reference source FI must be one of the recognized source financial institutions (a controlled vocabulary, not free text). An unrecognized value is rejected. | I don't want to constrain this field for a personal application |
 | REQ-JE-1.47 | External references are write-once: they carry a `created_at` Instant, are set when the entry is posted (or appended thereafter), and are never edited | Bullshit. We'll fat finger this someday. And then what? |
 | REQ-JE-2.10 | When posting a journal entry, the source FI of each external reference must be a recognized value (REQ-JE-1.43); an unrecognized value rejects the post. | same reason as 1.43 |
+| REQ-JE-5.4 | A comment's primary and secondary journal entry links are fixed once created; only the comment text may be amended. The relationship a comment records is a historical fact and must not be re-pointed. | Too restrictive and no value add |

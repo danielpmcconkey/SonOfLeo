@@ -1,12 +1,13 @@
 ﻿open System
 open SonOfLeoCli.AccountRoutes
 open SonOfLeoCli.FiscalPeriodRoutes
+open SonOfLeoCli.JournalEntryRoutes
 
 
 let commandRoutes =
     accountDomainCommandRoutes
     @ fiscalPeriodDomainCommandRoutes
-    
+    @ journalEntryDomainCommandRoutes
 
 let route (domain) (verb) (rest) (payload) : Result<string, string> =
   match commandRoutes |> List.tryFind (fun r -> r.domain = domain && r.verb = verb) with // REQ-NGUI-1.1, REQ-NGUI-3.8

@@ -14,6 +14,13 @@ type AuditableAction =
     | FiscalPeriodCreate
     | FiscalPeriodClose
     | FiscalPeriodReopen
+    | JournalEntryPostNew
+    | JournalEntryVoid
+    | JournalEntryUpdateExternalReference
+    | JournalEntryAddExternalReference
+    | JournalEntryAddComment
+    | JournalEntryUpdateComment
+
     
 type AuditEnvelope =
     private { // intentionally private to prevent tampering

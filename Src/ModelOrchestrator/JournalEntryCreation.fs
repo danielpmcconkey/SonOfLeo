@@ -122,6 +122,7 @@ module JournalEntryCreationAndConstruction =
                             transaction) 
         |> listOfResultsToResultsList
     
+    /// orchestrateCreation validates all input and saves the new posted entry into the database
     let orchestrateCreation // REQ-JE-2.13
             (auditEnvelope: AuditEnvelope)
             (journalEntryPrimitives: JournalEntryPrimitives)

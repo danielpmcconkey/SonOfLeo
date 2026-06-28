@@ -6,7 +6,7 @@ open Model.Ledger.Accounts
 open Model.Ledger.Accounts.Account
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
-open Model.Money
+open Model
 open NodaTime
 open Utilities
 open Utilities.DAL
@@ -69,9 +69,9 @@ let private validateZeroBalance
         let! nonVoidedLines = accountId |> JournalEntryLine.fetchByAccountId transaction true // REQ-JE-4.7
         let! debits = nonVoidedLines |> JournalEntryLine.sumLinesByType Debit 
         let! credits = nonVoidedLines |> JournalEntryLine.sumLinesByType Credit
-        let! diff = Money.subtract debits credits
+        let! diff = MoneyModule.subtract debits credits
         return!
-            if diff |> Money.amount <> 0M
+            if diff |> MoneyModule.amount <> 0M
             then Error "The Account has a non-zero balance."
             else Ok()
     }

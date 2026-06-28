@@ -105,6 +105,10 @@ module JournalEntryHeader =
             (row: RowReader)
             : Result<JournalEntryHeader, string> =
         validateThenConstruct
+            (*
+             * Note, we intentionally don't pull the fiscal period ID because
+             * the FP is embedded into the EntryDate type
+             *)
             ( row |> RowReader.getUuid "unique_id" )
             ( row |> RowReader.getString "description" )
             ( row |> RowReader.getStringOption "je_source" )
@@ -123,6 +127,10 @@ module JournalEntryHeader =
             (expectedRows: AcceptableExpectedRows)
             (transaction: DbTransaction option)
             : Result<JournalEntryHeader list, string> = 
+        (*
+         * Note, we intentionally don't pull the fiscal period ID because
+         * the FP is embedded into the EntryDate type
+         *)
         let selectColumns = "je.unique_id, je.description, je.je_source, je.entry_date, je.voided_at, je.created_at, je.modified_at"
         let from = "ledger.journal_entry je"
         let query = buildReadQuery selectColumns from join predicate limit None orderBy
@@ -137,16 +145,15 @@ module JournalEntryHeader =
         readRowsFromDb None predicate None None parameters ExactlyOne transaction
         |> Result.map List.head
 
-    let fetchByPeriodKey // REQ-JE-3.3
+    let fetchByPeriod // REQ-JE-3.3
             (transaction: DbTransaction option)
-            (key: string)
+            (periodId: Guid)
             : Result<JournalEntryHeader list, string> =
-        let join = Some "left join ledger.fiscal_period fp on je.fiscal_period_id = fp.unique_id"
-        let predicate = Some "fp.period_key = @period_key"
+        let predicate = Some "je.fiscal_period_id = @fiscal_period_id"
         let orderBy = Some "je.entry_date asc"
         result {
-            let parameters = [{ name = "@period_key"; value = CharString key };]
-            return! readRowsFromDb join predicate None orderBy parameters AnyQuantityIsAcceptable transaction
+            let parameters = [{ name = "@fiscal_period_id"; value = UniqueId periodId };]
+            return! readRowsFromDb None predicate None orderBy parameters AnyQuantityIsAcceptable transaction
         }
     
     let validateFiscalPeriodIsOpen

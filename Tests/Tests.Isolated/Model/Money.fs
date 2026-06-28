@@ -1,8 +1,7 @@
 module Tests.Isolated.Model.Money
 
-
 open System
-open Model.Money.Money
+open Model.MoneyModule
 open Utilities.ResultCE
 open Xunit
 

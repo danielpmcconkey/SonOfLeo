@@ -140,13 +140,13 @@ module InterfaceContractTypes =
 
     type JournalEntryFetchByIdInput = { id: Guid }
     type JournalEntryFetchByPeriodInput = { periodKey: string }
-    type JournalEntryFetchByAccountInput = { accountCode: string }
+    type JournalEntryFetchLinesByAccountInput = { accountCode: string; nonVoidedOnly: bool }
     type JournalEntryFetchByExternalReferenceInput = { fi: string; reference: string }
     type JournalEntryVoidInput = { id: Guid; reason: JournalEntryCommentInput }
     type JournalEntryUpdateExternalReferenceInput = { id: Guid; fi: string; reference: string }
     type JournalEntryAddExternalReferenceInput = { journalEntryId: Guid; reference: JournalEntryExternalReferenceInput }
-    type JournalEntryAddCommentInput = { journalEntryId: Guid; reference: JournalEntryCommentInput }
-    type JournalEntryAmendCommentInput = { id: Guid; secondaryJournalEntryId: Guid option; commentText: string }
+    type JournalEntryAddCommentInput = { journalEntryId: Guid; comment: JournalEntryCommentInput }
+    type JournalEntryUpdateCommentInput = { id: Guid; secondaryJournalEntryId: Guid option; commentText: string }
     
     
 

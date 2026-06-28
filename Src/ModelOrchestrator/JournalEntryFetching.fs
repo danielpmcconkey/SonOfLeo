@@ -38,11 +38,11 @@ let fetchById // REQ-JE-3.1, REQ-JE-3.2
         return! constructFromPreValidatedComponents validHeader validLines validReferences validComments
     }
 
-let fetchByPeriodKey // REQ-JE-3.1, REQ-JE-3.3
-        (key: string)
+let fetchByPeriod // REQ-JE-3.1
+        (uniqueId: Guid)
         : Result<JournalEntry list, string> =
     result {
-        let! headers = key |> JournalEntryHeader.fetchByPeriodKey None
+        let! headers = uniqueId |> JournalEntryHeader.fetchByPeriod None
         let headerResultsList = headers |> List.map(fun h ->
             let id = JournalEntryHeader.uniqueId h
             let entryResult = fetchById id 
