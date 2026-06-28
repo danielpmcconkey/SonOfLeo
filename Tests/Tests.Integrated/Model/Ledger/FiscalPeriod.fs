@@ -90,7 +90,7 @@ let ``REQ-FP-2.6 is open is automatically true`` () =
         DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
-let ``REQ-FP-3.1 REQ-FP-3.2 fetchByKey happy path`` () =
+let ``REQ-FP-3.1 fetchById happy path`` () =
     let expectedKey = "2026-10"
     let expectedStartMonth = 10
     let expectedStartDay = 1
@@ -106,8 +106,7 @@ let ``REQ-FP-3.1 REQ-FP-3.2 fetchByKey happy path`` () =
         let railroad = result {
             let! fp_create = FiscalPeriod.constructNewAndSaveToDb expectedKey genericAuditEnvelope (Some transaction)
             let uniqueId = FiscalPeriod.uniqueId fp_create
-            let key_create = PeriodKey.value (FiscalPeriod.periodKey fp_create)
-            let! fp_read = FiscalPeriod.fetchByKey (Some transaction) key_create
+            let! fp_read = FiscalPeriod.fetchById (Some transaction) uniqueId
 
             let id_read = FiscalPeriod.uniqueId fp_read
             let key_read = PeriodKey.value (FiscalPeriod.periodKey fp_read)
@@ -176,8 +175,8 @@ let ``REQ-FP-3.5 fetchAll with open only filters out closed periods`` () =
             let! fp_3 = FiscalPeriod.constructNewAndSaveToDb explicitKey_3 genericAuditEnvelope (Some transaction)
             let! _ = FiscalPeriod.constructNewAndSaveToDb explicitKey_4 genericAuditEnvelope (Some transaction)
 
-            let periodKey3 = fp_3 |> FiscalPeriod.periodKey |> PeriodKey.value
-            let! _ = FiscalPeriod.closeFiscalPeriod periodKey3 genericAuditEnvelope (Some transaction)
+            let id3 = fp_3 |> FiscalPeriod.uniqueId 
+            let! _ = FiscalPeriod.closeFiscalPeriod id3 genericAuditEnvelope (Some transaction)
 
             let! fetched = FiscalPeriod.fetchAll (Some transaction) true
             Assert.Equal(3, fetched |> List.length)
@@ -198,9 +197,9 @@ let ``REQ-FP-4.1 closeFiscalPeriod happy path`` () =
 
     try
         let railroad = result {
-            let! _ = FiscalPeriod.constructNewAndSaveToDb explicitKey genericAuditEnvelope (Some transaction)
-
-            let! fetched = FiscalPeriod.closeFiscalPeriod explicitKey genericAuditEnvelope (Some transaction)
+            let! fp = FiscalPeriod.constructNewAndSaveToDb explicitKey genericAuditEnvelope (Some transaction)
+            let id = fp |> FiscalPeriod.uniqueId 
+            let! fetched = FiscalPeriod.closeFiscalPeriod id genericAuditEnvelope (Some transaction)
             Assert.False(FiscalPeriod.isOpen fetched)
 
             ()
@@ -220,17 +219,17 @@ let ``REQ-FP-4.1.1 closeFiscalPeriod rejects already closed period`` () =
 
     try
         let railroad = result {
-            let! _ = FiscalPeriod.constructNewAndSaveToDb explicitKey genericAuditEnvelope (Some transaction)
-
-            let! fetched = FiscalPeriod.closeFiscalPeriod explicitKey genericAuditEnvelope (Some transaction)
+            let! fp = FiscalPeriod.constructNewAndSaveToDb explicitKey genericAuditEnvelope (Some transaction)
+            let id = fp |> FiscalPeriod.uniqueId 
+            let! fetched = FiscalPeriod.closeFiscalPeriod id genericAuditEnvelope (Some transaction)
             Assert.False(FiscalPeriod.isOpen fetched) // make sure it's false
 
             System.Threading.Thread.Sleep(1000) // make sure there's some time so the modified_at isn't accidentally the same
-            let attemptResult = FiscalPeriod.closeFiscalPeriod explicitKey (AuditEnvelope.create FiscalPeriodClose) (Some transaction)
+            let attemptResult = FiscalPeriod.closeFiscalPeriod id (AuditEnvelope.create FiscalPeriodClose) (Some transaction)
             Assert.True(attemptResult.IsError)
 
             // fetch it again to make sure it didn't update the modified date or the flag
-            let! fetched_2 = FiscalPeriod.fetchByKey (Some transaction) explicitKey
+            let! fetched_2 = FiscalPeriod.fetchById (Some transaction) id
             Assert.False(FiscalPeriod.isOpen fetched_2)
             Assert.Equal(expectedModified, FiscalPeriod.modifiedAt fetched_2)
 
@@ -250,12 +249,12 @@ let ``REQ-FP-4.2 reopenFiscalPeriod happy path`` () =
 
     try
         let railroad = result {
-            let! _ = FiscalPeriod.constructNewAndSaveToDb explicitKey genericAuditEnvelope (Some transaction)
-
-            let! fetched_1 = FiscalPeriod.closeFiscalPeriod explicitKey genericAuditEnvelope (Some transaction)
+            let! fp = FiscalPeriod.constructNewAndSaveToDb explicitKey genericAuditEnvelope (Some transaction)
+            let id = fp |> FiscalPeriod.uniqueId 
+            let! fetched_1 = FiscalPeriod.closeFiscalPeriod id genericAuditEnvelope (Some transaction)
             Assert.False(FiscalPeriod.isOpen fetched_1) // make sure it's actually closed first
 
-            let! reponed = FiscalPeriod.reopenFiscalPeriod explicitKey genericAuditEnvelope (Some transaction)
+            let! reponed = FiscalPeriod.reopenFiscalPeriod id genericAuditEnvelope (Some transaction)
             Assert.True(FiscalPeriod.isOpen reponed)
 
             ()
@@ -275,14 +274,14 @@ let ``REQ-FP-4.2.1 reopenFiscalPeriod rejects already open period`` () =
 
     try
         let railroad = result {
-            let! _ = FiscalPeriod.constructNewAndSaveToDb explicitKey genericAuditEnvelope (Some transaction)
-
+            let! fp = FiscalPeriod.constructNewAndSaveToDb explicitKey genericAuditEnvelope (Some transaction)
+            let id = fp |> FiscalPeriod.uniqueId 
             System.Threading.Thread.Sleep(1000) // make sure there's some time so the modified_at isn't accidentally the same
-            let attemptResult = FiscalPeriod.reopenFiscalPeriod explicitKey (AuditEnvelope.create FiscalPeriodReopen) (Some transaction)
+            let attemptResult = FiscalPeriod.reopenFiscalPeriod id (AuditEnvelope.create FiscalPeriodReopen) (Some transaction)
             Assert.True(attemptResult.IsError)
 
             // fetch it again to make sure it didn't update the modified date or the flag
-            let! fetched = FiscalPeriod.fetchByKey (Some transaction) explicitKey
+            let! fetched = FiscalPeriod.fetchById (Some transaction) id
             Assert.True(FiscalPeriod.isOpen fetched)
             Assert.Equal(expectedModified, FiscalPeriod.modifiedAt fetched)
 

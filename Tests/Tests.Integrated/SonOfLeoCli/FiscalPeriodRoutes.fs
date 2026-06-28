@@ -1,5 +1,6 @@
 module Tests.Integrated.SonOfLeoCli.FiscalPeriodRoutes
 
+open Model
 open Model.Audit
 open Xunit
 open Utilities.ResultCE
@@ -45,10 +46,14 @@ let ``REQ-FP-2.4 FiscalPeriod Create happy path`` () =
             do! if returnCode <> 0 then Error $"FiscalPeriod Create happy path returned a non-zero value: {e}" else Ok ()
             let! fp = fromJson<FiscalPeriodReturn> resultsPayload
             let returnedKey = fp.periodKey
+            let! id =
+                returnedKey
+                |> LookupCache.fiscalPeriodKeyToId.fetch
+                |> Result.mapError(fun e -> $"The returned Fiscal Period Key didn't match any records in the database. Further details: {e}")
             keyToCleanUp <- Some returnedKey
             Assert.Equal(expected, returnedKey) // this validates that what came back was what we expected
             // now try to re-fetch it to make sure it made the full round-trip
-            let! fetched = fetchByKey None expected
+            let! fetched = id |> fetchById None
             Assert.Equal(expected, PeriodKey.value (periodKey fetched))
             ()
         }
@@ -184,10 +189,11 @@ let ``REQ-FP-4.2 FiscalPeriod Reopen happy path`` () =
     try
         let railroad = result {
             let! created = createFiscalPeriodInDb expected
+            let id = created |> FiscalPeriod.uniqueId 
             let keyString = periodKey created |> PeriodKey.value
             keyToCleanUp <- Some keyString
 
-            let! closed = closeFiscalPeriod expected genericAuditEnvelope None
+            let! closed = closeFiscalPeriod id genericAuditEnvelope None
             Assert.False(isOpen closed) // make sure it is, indeed, closed
 
             let returnCode, resultsPayload, e = runCli args payload
