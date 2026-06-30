@@ -1,7 +1,10 @@
 namespace Tests.Isolated.Model.Ledger
 
+open System
 open Xunit
 open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.Journaling.JournalEntryLine
+open Model
 
 module JournalEntryComponent =
 
@@ -11,27 +14,36 @@ module JournalEntryComponent =
 
     [<Fact>]
     let ``REQ-JE-1.4 REQ-SYS-1.2 Description.create rejects empty string`` () =
-        Assert.Fail "not implemented"
+        let result = Description.create String.Empty
+        Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.4 REQ-SYS-1.2 Description.create rejects whitespace-only string`` () =
-        Assert.Fail "not implemented"
+        let result = Description.create "     "
+        Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.5 Description.create rejects string exceeding 1000 characters`` () =
-        Assert.Fail "not implemented"
+        let result = Description.create (String('A', 1001))
+        Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.5 Description.create accepts string at exactly 1000 characters`` () =
-        Assert.Fail "not implemented"
+        let result = Description.create (String('A', 1000))
+        Assert.True(Result.isOk result)
 
     [<Fact>]
     let ``REQ-SYS-1.1 Description.create trims leading and trailing whitespace`` () =
-        Assert.Fail "not implemented"
+        let trimmed = "Grocery run"
+        let result = Description.create $"  {trimmed}   "
+        match result with
+        | Error e -> Assert.Fail e
+        | Ok d -> Assert.Equal(trimmed, Description.value d)
 
     [<Fact>]
     let ``REQ-JE-1.3 Description.create accepts valid non-empty string`` () =
-        Assert.Fail "not implemented"
+        let result = Description.create "Monthly rent payment"
+        Assert.True(Result.isOk result)
 
     // =============================================================================
     // Source
@@ -39,23 +51,31 @@ module JournalEntryComponent =
 
     [<Fact>]
     let ``REQ-JE-1.7 REQ-SYS-1.2 Source.create rejects empty string`` () =
-        Assert.Fail "not implemented"
+        let result = Source.create String.Empty
+        Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.7 REQ-SYS-1.2 Source.create rejects whitespace-only string`` () =
-        Assert.Fail "not implemented"
+        let result = Source.create "     "
+        Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.8 Source.create rejects string exceeding 50 characters`` () =
-        Assert.Fail "not implemented"
+        let result = Source.create (String('A', 51))
+        Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.8 Source.create accepts string at exactly 50 characters`` () =
-        Assert.Fail "not implemented"
+        let result = Source.create (String('A', 50))
+        Assert.True(Result.isOk result)
 
     [<Fact>]
     let ``REQ-SYS-1.1 Source.create trims leading and trailing whitespace`` () =
-        Assert.Fail "not implemented"
+        let trimmed = "BankImport"
+        let result = Source.create $"  {trimmed}   "
+        match result with
+        | Error e -> Assert.Fail e
+        | Ok s -> Assert.Equal(trimmed, Source.value s)
 
     // =============================================================================
     // JournalEntryLineType
@@ -63,23 +83,31 @@ module JournalEntryComponent =
 
     [<Fact>]
     let ``REQ-JE-1.25 JournalEntryLineType.fromString accepts Debit`` () =
-        Assert.Fail "not implemented"
+        Assert.True(Result.isOk (JournalEntryLineType.fromString "Debit"))
 
     [<Fact>]
     let ``REQ-JE-1.25 JournalEntryLineType.fromString accepts Credit`` () =
-        Assert.Fail "not implemented"
+        Assert.True(Result.isOk (JournalEntryLineType.fromString "Credit"))
 
     [<Fact>]
     let ``REQ-JE-1.25 JournalEntryLineType.fromString rejects invalid string`` () =
-        Assert.Fail "not implemented"
+        let result = JournalEntryLineType.fromString "Refund"
+        Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.25 JournalEntryLineType.fromString is case sensitive`` () =
-        Assert.Fail "not implemented"
+        let result = JournalEntryLineType.fromString "debit"
+        Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.25 JournalEntryLineType.toString round-trips with fromString`` () =
-        Assert.Fail "not implemented"
+        let original = Debit
+        let roundTripped =
+            original
+            |> JournalEntryLineType.toString
+            |> JournalEntryLineType.fromString
+            |> Result.defaultWith failwith
+        Assert.Equal(original, roundTripped)
 
     // =============================================================================
     // LineMemo
@@ -87,23 +115,31 @@ module JournalEntryComponent =
 
     [<Fact>]
     let ``REQ-JE-1.27 REQ-SYS-1.2 LineMemo.create rejects empty string`` () =
-        Assert.Fail "not implemented"
+        let result = LineMemo.create String.Empty
+        Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.27 REQ-SYS-1.2 LineMemo.create rejects whitespace-only string`` () =
-        Assert.Fail "not implemented"
+        let result = LineMemo.create "     "
+        Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.28 LineMemo.create rejects string exceeding 1000 characters`` () =
-        Assert.Fail "not implemented"
+        let result = LineMemo.create (String('A', 1001))
+        Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.28 LineMemo.create accepts string at exactly 1000 characters`` () =
-        Assert.Fail "not implemented"
+        let result = LineMemo.create (String('A', 1000))
+        Assert.True(Result.isOk result)
 
     [<Fact>]
     let ``REQ-SYS-1.1 LineMemo.create trims leading and trailing whitespace`` () =
-        Assert.Fail "not implemented"
+        let trimmed = "Office supplies"
+        let result = LineMemo.create $"  {trimmed}   "
+        match result with
+        | Error e -> Assert.Fail e
+        | Ok m -> Assert.Equal(trimmed, LineMemo.value m)
 
     // =============================================================================
     // Line amount validation (JournalEntryLine.validateAmount)
@@ -111,13 +147,18 @@ module JournalEntryComponent =
 
     [<Fact>]
     let ``REQ-JE-1.24 validateAmount rejects zero amount`` () =
-        Assert.Fail "not implemented"
+        let zero = MoneyModule.fromDecimal 0.00M |> Result.defaultWith failwith
+        let result = validateAmount zero
+        Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.24 validateAmount rejects negative amount`` () =
-        Assert.Fail "not implemented"
+        let negative = MoneyModule.fromDecimal -5.00M |> Result.defaultWith failwith
+        let result = validateAmount negative
+        Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.24 validateAmount accepts positive amount`` () =
-        Assert.Fail "not implemented"
-
+        let positive = MoneyModule.fromDecimal 10.00M |> Result.defaultWith failwith
+        let result = validateAmount positive
+        Assert.True(Result.isOk result)

@@ -2,6 +2,7 @@ module Tests.Integrated.Model.Ledger.Account
 
 open System
 open Model.Audit
+open Tests.Integrated
 open Tests.Integrated.GenericTestProperties
 open Xunit
 open Model.Ledger.Accounts
@@ -113,55 +114,28 @@ let ``REQ-AC-2.14 REQ-SYS-5.1 create account and fetch by ID returns identical r
     finally
         DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
-[<Fact>]
-let ``REQ-AC-3.5 fetch by parent ID returns all children`` () =
-    let code_parent = "AC-3.5-P"
-    let code_child1 = "AC-3.5-C1"
-    let code_child2 = "AC-3.5-C2"
-    let code_child3 = "AC-3.5-C3"
+[<Collection("SharedTestData")>]
+type AccountFixtureTests(fixture: TestDataFixture) =
 
-    let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+    [<Fact>]
+    member _.``REQ-AC-3.5 fetch by parent ID returns all children`` () =
+        let parentId = fixture.Data.assets1000Id
+        let expectedChildren =
+            [ fixture.Data.rothIra1250Id
+              fixture.Data.moneyMarket1270Id
+              fixture.Data.closedBank1290Id ]
 
-    try
         let railroad = result {
-            let! account_parent =
-                Account.constructNewAndSaveToDb code_parent genericAccountNameString genericAccountTypeString
-                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
-                    genericAccountReference genericAuditEnvelope (Some transaction)
-            let parentId = Account.uniqueId account_parent
-
-            let! account_child1 =
-                Account.constructNewAndSaveToDb code_child1 genericAccountNameString genericAccountTypeString
-                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
-                    genericAccountReference genericAuditEnvelope (Some transaction)
-            let id_child1 = Account.uniqueId account_child1
-
-            let! account_child2 =
-                Account.constructNewAndSaveToDb code_child2 genericAccountNameString genericAccountTypeString
-                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
-                    genericAccountReference genericAuditEnvelope (Some transaction)
-            let id_child2 = Account.uniqueId account_child2
-
-            let! account_child3 =
-                Account.constructNewAndSaveToDb code_child3 genericAccountNameString genericAccountTypeString
-                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some parentId)
-                    genericAccountReference genericAuditEnvelope (Some transaction)
-            let id_child3 = Account.uniqueId account_child3
-
-            let! fetched = Account.fetchByParentId (Some transaction) parentId
-
+            let! fetched = Account.fetchByParentId None parentId
             Assert.Equal(3, List.length fetched)
-
-            [id_child1; id_child2; id_child3]
-            |> List.forall(fun id -> fetched |> List.exists (fun a -> Account.uniqueId a = id))
+            expectedChildren
+            |> List.forall (fun id -> fetched |> List.exists (fun a -> Account.uniqueId a = id))
             |> Assert.True
             return ()
         }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail e
-    finally
-        DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
 [<Fact>]
 let ``REQ-AC-3.6 fetch by account type returns matching accounts`` () =

@@ -22,6 +22,7 @@
   <ItemGroup>
     <Compile Include="_Cleanup.fs" />
     <Compile Include="GenericTestProperties.fs" />
+    <Compile Include="_TestDataStage.fs" />
     <Compile Include="Model\Ledger\Account.fs" />
     <Compile Include="Model\Ledger\FiscalPeriod.fs" />
     <Compile Include="SonOfLeoCli\CliExecutor.fs" />
