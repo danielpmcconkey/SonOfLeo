@@ -1,7 +1,6 @@
 namespace Model.Ledger.Accounts
 
 open System
-open Model
 open Utilities
 open Utilities.ResultCE
 open Utilities.DAL
@@ -123,19 +122,24 @@ module Account =
     /// how to map our query columns. Thus, we don't need to know anything about the
     /// underlying database architecture in this module and the DAL module doesn't
     /// need to know anything about our module here 
-    let mapRowForDbRead (row: RowReader) : Result<Account, string> =
-        validateThenConstruct
-            ( row |> RowReader.getUuid "unique_id" )
-            ( row |> RowReader.getString "code" )
-            ( row |> RowReader.getString "account_name" )
-            ( row |> RowReader.getString "account_type" )
-            ( row |> RowReader.getDate "active_begin" )
-            ( row |> RowReader.getDateOption "active_end" )
-            ( row |> RowReader.getStringOption "account_subtype" )
-            ( row |> RowReader.getUuidOption "parent_id" )
-            ( row |> RowReader.getStringOption "external_ref" )
-            ( row |> RowReader.getInstant "created_at" )
+    let mapRawForDbRead (row: RowReader)=
+            ( row |> RowReader.getUuid "unique_id" ),
+            ( row |> RowReader.getString "code" ),
+            ( row |> RowReader.getString "account_name" ),
+            ( row |> RowReader.getString "account_type" ),
+            ( row |> RowReader.getDate "active_begin" ),
+            ( row |> RowReader.getDateOption "active_end" ),
+            ( row |> RowReader.getStringOption "account_subtype" ),
+            ( row |> RowReader.getUuidOption "parent_id" ),
+            ( row |> RowReader.getStringOption "external_ref" ),
+            ( row |> RowReader.getInstant "created_at" ),
             ( row |> RowReader.getInstant "modified_at" )
+            
+    let constructFromRawForDbRead _transaction raw =
+        let (id, code, name, accounttType, activeBegin, activeEnd,
+             subtype, parentId, extRef, createdAt, modifiedAt) = raw
+        validateThenConstruct id code name accounttType activeBegin activeEnd
+            subtype parentId extRef createdAt modifiedAt
 
     /// readRowsFromDb is designed to produce a flexible read query that can
     /// satisfy diverse use cases 
@@ -152,7 +156,7 @@ module Account =
             """
         let from = "ledger.account a"
         let query = buildReadQuery select from None predicate limit None None // REQ-AC-3.2 
-        executeReaderQuery query parameters mapRowForDbRead expectedRows transaction
+        executeReaderQuery query parameters mapRawForDbRead constructFromRawForDbRead expectedRows transaction
 
     /// insertNewToDb is a private function used as an interface to the DAL. It
     /// assumes that the calling function handled all necessary validations to

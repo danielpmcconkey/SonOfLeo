@@ -7,10 +7,10 @@
 
   <ItemGroup>
     <Compile Include="ResultCE.fs" />
+    <Compile Include="ListHelper.fs" />
     <Compile Include="DAL.fs" />
     <Compile Include="Clock.fs" />
     <Compile Include="Calendar.fs" />
-    <Compile Include="ListHelper.fs" />
   </ItemGroup>
 
   <ItemGroup>

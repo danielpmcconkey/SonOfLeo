@@ -1,64 +1,79 @@
 # Test Patterns
 
-Reference for the two test execution patterns in SonOfLeo. Read existing tests in the
-relevant area before writing new ones — match the actual code, not this document, when
-they diverge.
+Reference for test patterns in SonOfLeo. Read existing tests in the relevant area before
+writing new ones — match the actual code, not this document, when they diverge.
 
 ## Isolated tests (pure functions, no DB)
 
-Structure:
+Isolated tests use module-level functions. No fixture, no database, no setup/teardown.
+
 ```fsharp
 namespace Tests.Isolated.Model.Ledger
 
 open Xunit
 open Model.Ledger.SomeModule
-open Utilities
 
 module SomeModule =
 
-    // Section headers for logical grouping
     // =============================================================================
     // Section name
     // =============================================================================
 
     [<Fact>]
     let ``REQ-XX-1.1 description of verification`` () =
-        let input = constructInput ()
         let result = functionUnderTest input
-        match result with
-        | Ok value -> Assert.Equal(expected, value)
-        | Error e -> Assert.Fail e
+        Assert.True(Result.isOk result)
 ```
 
-No setup, no teardown. All data constructed inline. Use `result { }` computation
-expressions when chaining multiple Result-returning calls.
+All data constructed inline. Use `result { }` computation expressions when chaining
+multiple Result-returning calls.
 
-## Integrated tests (database, transactions)
+## Integrated tests (class-based, fixture-aware)
 
-Structure:
+All integrated tests are class members receiving `TestDataFixture` via constructor
+injection, grouped under `[<Collection("SharedTestData")>]`.
+
+### Reading fixture data (no transaction needed)
+
+When a test only reads committed fixture data, no transaction is required:
+
 ```fsharp
 namespace Tests.Integrated.Model.Ledger
 
 open Xunit
-open Model.Ledger.SomeModule
-open Model.Audit
-open Utilities
 open Tests.Integrated
+open Utilities.ResultCE
 
-module SomeModule =
+[<Collection("SharedTestData")>]
+type SomeTests(fixture: TestDataFixture) =
 
     [<Fact>]
-    let ``REQ-XX-2.1 description of verification`` () =
+    member _.``REQ-XX-3.5 fetch by parent ID returns children`` () =
+        let railroad = result {
+            let! fetched = SomeModule.fetchByParentId None fixture.Data.parentId
+            Assert.Equal(3, List.length fetched)
+            return ()
+        }
+        match railroad with
+        | Ok _ -> ()
+        | Error e -> Assert.Fail e
+```
+
+### Mutating fixture data (transaction + rollback)
+
+When a test modifies fixture data (updates, deactivation), wrap in a transaction:
+
+```fsharp
+    [<Fact>]
+    member _.``REQ-XX-4.8 update name succeeds`` () =
+        let envelope = AuditEnvelope.create SomeAction
         let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
 
         try
             let railroad = result {
-                let envelope = AuditEnvelope.create SomeAction
-                let! entity =
-                    constructAndSave ... (Some transaction)
-
-                // assertions here
-                Assert.Equal(expected, actual)
+                let! updated =
+                    SomeModule.updateNameById fixture.Data.someEntityId "new name" envelope (Some transaction)
+                Assert.Equal("new name", SomeModule.name updated)
                 return ()
             }
             match railroad with
@@ -68,60 +83,86 @@ module SomeModule =
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 ```
 
-Key points:
-- `defaultWith failwith` is acceptable for `createDbTransaction` — failure here means
-  infrastructure is broken.
-- Every database call passes `(Some transaction)`.
-- The `finally` block always rolls back. No exceptions.
-- Assertions go inside the `result { }` block after the operations they verify.
-- The outer `match` catches any Error that propagated through the railway.
+### Creating test-specific data (transaction + rollback)
 
-## CLI subprocess tests
+When a test needs entities the fixture doesn't provide (e.g., invalid states, edge cases):
 
-Structure:
 ```fsharp
-namespace Tests.Integrated.SonOfLeoCli
-
-open Xunit
-open Tests.Integrated
-open Tests.Integrated.SonOfLeoCli.CliExecutor
-open Model.UI.Json
-
-module SomeRoutes =
-
     [<Fact>]
-    let ``REQ-XX-3.1 description of verification`` () =
-        // Setup: create required entities via model layer (committed, not transactional)
-        let setupResult = result {
-            let envelope = AuditEnvelope.create SomeAction
-            let! entity = SomeModule.constructNewAndSaveToDb ... None
-            return entity
-        }
-        let entity = setupResult |> Result.defaultWith failwith
+    member _.``REQ-XX-2.7 rejects inactive parent`` () =
+        let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
 
         try
-            // Act: invoke CLI
-            let args = ["route"; "subcommand"]
-            let payload = toJson someInput
-            let exitCode, stdout, stderr = runCli args payload
-
-            // Assert
-            Assert.Equal(0, exitCode)
-            let! returned = fromJson<SomeReturnType> stdout
-            Assert.Equal(expected, returned.someField)
+            let childResult =
+                SomeModule.constructNewAndSaveToDb "test" ... (Some fixture.Data.closedEntityId)
+                    ... (Some transaction)
+            Assert.True(Result.isError childResult, "Should have rejected inactive parent")
         finally
-            // CLI commits data, so manual cleanup is required
-            cleanUpEntityId (Some entity.id) |> ignore
+            DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 ```
 
-CLI tests cannot use transaction rollback because the subprocess commits its own
-transactions. Manual cleanup in the `finally` block is the necessary pattern here.
+### CLI subprocess tests
+
+CLI tests commit data via the subprocess and cannot use transaction rollback. Tests that
+read can use fixture data directly. Tests that create or mutate need manual cleanup.
+
+```fsharp
+    [<Fact>]
+    member _.``REQ-XX-3.4 FetchByCode happy path`` () =
+        let args = ["Domain"; "FetchByCode"]
+        let payload = { code = "F-1270" } |> toJson<FetchInput> |> Result.defaultWith failwith
+        let code, _, e = runCli args payload
+        match code with
+        | 0 -> ()
+        | _ -> Assert.Fail $"FetchByCode returned non-zero: {e}"
+```
+
+CLI tests that create committed data still need cleanup in `finally`:
+
+```fsharp
+    [<Fact>]
+    member _.``REQ-XX-2.21 Create happy path`` () =
+        let mutable idToCleanUp = None
+        try
+            let railroad = result {
+                let! account = createInDb "TestCode"
+                idToCleanUp <- Some (getId account)
+                // ... invoke CLI, assert ...
+                return ()
+            }
+            match railroad with
+            | Ok _ -> ()
+            | Error e -> Assert.Fail e
+        finally
+            match cleanUpId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e
+```
+
+## Fixture reuse principle
+
+Before creating setup data, check whether the fixture already provides what the test
+needs. Common reuse patterns:
+
+- **Need an active account?** Use `fixture.Data.moneyMarket1270Id` (or any non-closed
+  fixture account).
+- **Need an inactive account?** Use `fixture.Data.closedBank1290Id`.
+- **Need a parent with children?** Use `fixture.Data.assets1000Id` (has 3 children).
+- **Need to test uniqueness?** Try creating a duplicate of a fixture entity code (e.g.,
+  `"F-1250"`).
+- **Need to test type mismatch?** Create a child of wrong type under a fixture parent.
+- **Need an account to update?** Update a fixture account inside a rolled-back transaction.
+
+Do not assert exact counts on queries that return sets (`fetchAll`, `fetchByType`). The
+fixture populates the database, so counts are unpredictable. Assert containment of
+expected IDs instead.
 
 ## Assertion style
 
 Use xUnit assertions throughout:
 - `Assert.Equal(expected, actual)` — note: expected first
-- `Assert.True(condition)` / `Assert.False(condition)`
+- `Assert.True(condition)` / `Assert.True(condition, "failure message")`
+- `Assert.False(condition)`
 - `Assert.Null(value)`
 - `Assert.Single(collection)`
 - `Assert.Contains(substring, string)`

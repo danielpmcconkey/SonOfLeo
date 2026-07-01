@@ -1,86 +1,108 @@
 # Test Fixture Design
 
-Shared reference data for integrated tests, created once per test suite run via xUnit's
-`ICollectionFixture<T>` mechanism.
-
-## Rationale
-
-Many integrated tests need accounts, fiscal periods, and journal entries to already exist
-before the test-specific operation can run. Creating this graph from scratch in every test
-is wasteful and obscures the actual behavior under test. A shared fixture provides rich,
-realistic reference data that tests can operate on within rolled-back transactions.
+Shared reference data for integrated tests, implemented via xUnit's
+`ICollectionFixture<TestDataFixture>` in `Tests/Tests.Integrated/_TestDataStage.fs`.
 
 ## Architecture
 
 ```
 TestDataFixture : IDisposable
-├── Creates reference data in the test DB (committed, not transactional)
-├── Anchors temporal data relative to Calendar.today()
-├── Exposes IDs and codes as public properties
-└── Dispose() tears down all created data
-
-[CollectionDefinition("SharedTestData")]
-public class SharedTestDataCollection : ICollectionFixture<TestDataFixture> { }
-
-[Collection("SharedTestData")]
-module SomeTests =
-    // Tests in this collection receive the fixture via constructor injection
+├── Constructor: creates reference data (committed, no transaction)
+├── Data: FixtureData record exposing all entity IDs
+├── Dispose(): TRUNCATE CASCADE on all ledger tables
+│
+├── FixtureData record fields:
+│   ├── Account IDs (assets1000Id, moneyMarket1270Id, closedBank1290Id, etc.)
+│   └── fiscalPeriodIds: Guid list
+│
+[<CollectionDefinition("SharedTestData")>]
+SharedTestDataCollection : ICollectionFixture<TestDataFixture>
+│
+[<Collection("SharedTestData")>]
+type SomeTests(fixture: TestDataFixture) =
+    [<Fact>]
+    member _.``test name`` () =
+        fixture.Data.someEntityId |> ...
 ```
 
 ## What the fixture provides
 
-### Accounts (relative to today)
-- Multiple account types: Revenue, Expense, Asset, Liability
-- At least one parent-child relationship
-- At least one deactivated account (active_end in the past)
-- All with known, stable codes for easy reference in tests
+### Accounts (14 total, all with `F-` prefix codes)
 
-### Fiscal periods (relative to today)
-- Current month: open
-- Prior month: closed
-- At least one future period: open
-- Keys derived from `Calendar.today()` so they never go stale
+Top-level (5):
+- `F-1000` Assets (Asset)
+- `F-2000` Liabilities (Liability)
+- `F-3000` Equity (Equity)
+- `F-4000` Revenue (Revenue)
+- `F-5000` Expenses (Expense)
 
-### Journal entries
-- A handful of posted JEs in the current and prior periods
-- Lines spanning multiple accounts
-- At least one JE with external references
-- At least one JE with comments
-- At least one voided JE
+Children (9):
+- `F-1250` Roth IRA (Asset/Investment, child of F-1000)
+- `F-1270` Money Market (Asset/Cash, child of F-1000)
+- `F-1290` Closed Bank (Asset/Cash, child of F-1000, **deactivated** 2 months ago)
+- `F-2210` Mortgage Payable (Liability/LongTermLiability, child of F-2000)
+- `F-2220` Credit Card (Liability/CurrentLiability, child of F-2000)
+- `F-3030` Retirement Contributions (Equity, child of F-3000)
+- `F-4290` Personal Revenue (Revenue/OperatingRevenue, child of F-4000)
+- `F-5350` Food (Expense/OperatingExpense, child of F-5000)
+- `F-5650` Entertainment (Expense/OperatingExpense, child of F-5000)
+
+All accounts have `activeBegin` set to one year ago. Only `F-1290` has an `activeEnd`
+(two months ago).
+
+### Fiscal periods (9 total)
+
+Created for months -4 through +4 relative to `Calendar.today()`. All are open.
+Keys are derived dynamically (e.g., if today is June 2026: `"2026-02"` through
+`"2026-10"`).
+
+Tests that create their own fiscal periods must use keys outside this range — distant
+years like `"2050-01"` are safe. The `genericFiscalPeriodKey` in `GenericTestProperties`
+is set to `"2050-01"` for this reason.
 
 ## Rules
 
-1. **Fixture data is read-only by convention.** Tests never commit mutations to fixture
-   entities. A test may modify fixture data inside a transaction — the rollback restores
-   the original state.
+1. **Reuse aggressively.** Do not create setup entities when the fixture already has what
+   the test needs. The fixture provides active accounts, an inactive account, parent-child
+   relationships, and fiscal periods.
 
-2. **Tests own their mutations.** Any entity a test creates, updates, or voids must be
-   either inside a rolled-back transaction (model/orchestrator tests) or manually cleaned
-   up (CLI tests).
+2. **Read-only by convention.** Tests may read fixture data directly (no transaction). Tests
+   may mutate fixture data within a transaction that rolls back. Tests must never commit
+   mutations to fixture data.
 
-3. **Fixture data is realistic.** Use plausible account names, descriptions, and amounts.
-   The fixture should resemble a small but real chart of accounts with real-looking
-   activity, not a collection of "test1", "test2" placeholders.
+3. **Tests own their mutations.** Any entity a test creates, updates, or voids is either
+   inside a rolled-back transaction (model/orchestrator tests) or manually cleaned up (CLI
+   tests).
 
 4. **Temporal anchoring.** All dates are computed relative to `Calendar.today()` at fixture
-   creation time. A fixture created today and a fixture created next month produce
-   equivalent test conditions.
+   creation time. A fixture created today and one created next month produce equivalent
+   test conditions.
 
-5. **Known identifiers.** The fixture exposes both UUIDs and codes/keys for all reference
-   entities, so tests can use whichever the function under test requires.
+5. **No exact count assertions.** Queries like `fetchAll` and `fetchByAccountType` return
+   fixture data plus any test-created data. Assert containment of expected IDs, not exact
+   row counts.
 
-## Implementation notes
+6. **Known identifiers.** The fixture exposes UUIDs via `fixture.Data.<fieldName>`. Account
+   codes are the `F-` prefixed strings used during creation and can be used directly in
+   CLI tests.
 
-- The fixture class lives in `Tests.Integrated` alongside `GenericTestProperties.fs`.
-- F# xUnit collection fixtures require a class (not a module) for the fixture itself and
-  for the collection definition. Test modules use `[<Collection("SharedTestData")>]`.
-- Disposal order: JE comments, JE external references, JE lines, JE headers, accounts,
-  fiscal periods (reverse dependency order).
-- If a fixture entity fails to create, the fixture should fail loudly — `failwith` with a
-  clear message. Broken fixture = broken test suite, not silent skips.
+## Cleanup
 
-## Status
+`Dispose()` runs `TRUNCATE ... CASCADE` on all six ledger tables:
+- `ledger.journal_entry_comment`
+- `ledger.journal_entry_ext_reference`
+- `ledger.journal_entry_line`
+- `ledger.journal_entry`
+- `ledger.account`
+- `ledger.fiscal_period`
 
-This fixture does not exist yet. It will be implemented when the first test-writing session
-using this skill needs it. This document captures the design so that implementation is
-straightforward.
+No per-entity tracking or dependency ordering needed. If the fixture creation partially
+fails, the constructor throws and xUnit skips the test collection. The truncate on the
+next successful run cleans up any orphaned data.
+
+## Adding new fixture entities
+
+To add a new fixture entity:
+1. Add the creation call in `TestDataFixture`'s constructor `result { }` block
+2. Add a field to the `FixtureData` record type
+3. Set the field in the `return { ... }` block

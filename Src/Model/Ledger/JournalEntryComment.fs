@@ -120,18 +120,21 @@ module JournalEntryComment =
     /// how to map our query columns. Thus, we don't need to know anything about the
     /// underlying database architecture in this module and the DAL module doesn't
     /// need to know anything about our module here 
-    let mapRowForDbRead
-            (transaction: DbTransaction option)
-            (row: RowReader)
-            : Result<JournalEntryComment, string> =
-        validateThenConstruct
-            ( row |> RowReader.getUuid "unique_id" )
-            ( row |> RowReader.getUuid "journal_primary_entry_id" )
-            ( row |> RowReader.getUuidOption "journal_secondary_entry_id" )
-            ( row |> RowReader.getString "comment_text" )
-            ( row |> RowReader.getInstant "created_at" )
+    let mapRawForDbRead
+            (row: RowReader) =
+            ( row |> RowReader.getUuid "unique_id" ),
+            ( row |> RowReader.getUuid "journal_primary_entry_id" ),
+            ( row |> RowReader.getUuidOption "journal_secondary_entry_id" ),
+            ( row |> RowReader.getString "comment_text" ),
+            ( row |> RowReader.getInstant "created_at" ),
             ( row |> RowReader.getInstant "modified_at" )
-            transaction
+            
+    let constructFromRawForDbRead
+            (transaction: DbTransaction option)
+            raw
+            : Result<JournalEntryComment, string> =
+        let id, primaryJeId, secondaryJeId, commentText, createdAt, modifiedAt = raw
+        validateThenConstruct id primaryJeId secondaryJeId commentText createdAt modifiedAt transaction
 
     let private readRowsFromDb
             (predicate: string option)
@@ -147,7 +150,7 @@ module JournalEntryComment =
             """
         let from = "ledger.journal_entry_comment jec"
         let query = buildReadQuery select from None predicate limit None orderBy
-        executeReaderQuery query parameters (mapRowForDbRead transaction) expectedRows transaction
+        executeReaderQuery query parameters mapRawForDbRead constructFromRawForDbRead expectedRows transaction
 
     let fetchById
             (transaction: DbTransaction option)

@@ -238,18 +238,18 @@ module DAL =
             if r.reader.IsDBNull(ordinal) then None
             else Some (r.reader.GetBoolean(ordinal))
     
-    let rec private readRows // REQ-DAL-3.2
+    let rec private readRawRows // REQ-DAL-3.2
             (reader: Common.DbDataReader)
-            (mapRow: RowReader -> Result<'T,string>)
+            (mapRawFunc: RowReader -> 'T)
             (acc: 'T list) // the list that gets pre-pended with every recursion, the "accumulator"
-            : Result<'T list, string> =
+            : 'T list =
         if reader.Read() then // increment the reader and continue the pattern as long as there are rows to be read
-            let row = RowReader.create reader
-            match mapRow row with
-            | Ok mapped -> readRows reader mapRow (mapped :: acc) // map the row to an appropriately mapped object and call the next recursion layer (but only if that map didn't fail)
-            | Error e -> Error e // fail and bail cause one row not mapping is a catastrophe
+            let rawRow = RowReader.create reader
+            let mappedRow = mapRawFunc rawRow
+            let appendedAcc = mappedRow::acc
+            readRawRows reader mapRawFunc appendedAcc 
         else // no more rows to spool off the reader
-            Ok (List.rev acc) // reverse the list (because it was pre-pended the entire time), return the final state of the list back through the recursion stack
+            List.rev acc // reverse the list (because it was pre-pended the entire time), return the final state of the list back through the recursion stack
 
     /// buildReadQuery is designed to produce a flexible read query that can
     /// satisfy diverse use cases 
@@ -296,7 +296,8 @@ module DAL =
     let executeReaderQuery
             (query: string)
             (parameters: QueryParameter list)
-            (mapRow: RowReader -> Result<'T, string>) // REQ-DAL-3.2
+            (mapRaw: RowReader -> 'Tuple) // REQ-DAL-3.2
+            (constructFromRaw: DbTransaction option -> 'Tuple -> Result<'T, string>)
             (expectedRows: AcceptableExpectedRows)
             (transaction: DbTransaction option)
             : Result<'T list, string> =
@@ -312,17 +313,21 @@ module DAL =
                 try
                     match transaction with
                     | None -> 
-                        use connection = ds.OpenConnection()
-                        use command = new NpgsqlCommand(query, connection)                    
-                        parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
-                        use nReader = command.ExecuteReader()
-                        readRows nReader mapRow []
+                        let rawRows = 
+                            use connection = ds.OpenConnection()
+                            use command = new NpgsqlCommand(query, connection)                    
+                            parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
+                            use nReader = command.ExecuteReader()
+                            readRawRows nReader mapRaw []
+                        rawRows |> List.map (constructFromRaw transaction) |> ListHelper.listOfResultsToResultsList
                     | Some t ->
-                        use command = new NpgsqlCommand(query, t.connection)
-                        command.Transaction <- t.transaction
-                        parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
-                        use nReader = command.ExecuteReader()
-                        readRows nReader mapRow []
+                        let rawRows =
+                            use command = new NpgsqlCommand(query, t.connection)
+                            command.Transaction <- t.transaction
+                            parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
+                            use nReader = command.ExecuteReader()
+                            readRawRows nReader mapRaw []
+                        rawRows |> List.map (constructFromRaw transaction) |> ListHelper.listOfResultsToResultsList
                 with
                 | ex -> Error $"Database error during reader query execution {ex.Message}"
             let! () = validateNumRows rows.Length expectedRows // REQ-DAL-2.2

@@ -12,8 +12,11 @@ let private fetchHeaderIdsByReference
         (fi: string)
         (reference: string)
         : Result<Guid list, string> =
-    let mapRowForDbRead (row: RowReader) : Result<Guid, string> =
-        Ok ( row |> RowReader.getUuid "unique_id" )            
+    let mapRaw (row: RowReader) =
+        (row |> RowReader.getUuid "unique_id") , ()
+    let constructRaw _transaction raw :Result<Guid,string> =
+        let id, _ = raw
+        Ok id
     let query = """
         SELECT je.unique_id
         FROM ledger.journal_entry je
@@ -25,7 +28,7 @@ let private fetchHeaderIdsByReference
         { name = "@financial_institution"; value = CharString fi };
         { name = "@reference"; value = CharString reference };
     ] // REQ-DAL-2.3
-    executeReaderQuery query parameters mapRowForDbRead AnyQuantityIsAcceptable None
+    executeReaderQuery query parameters mapRaw constructRaw AnyQuantityIsAcceptable None
 
 let fetchById // REQ-JE-3.1, REQ-JE-3.2
         (uniqueId: Guid)

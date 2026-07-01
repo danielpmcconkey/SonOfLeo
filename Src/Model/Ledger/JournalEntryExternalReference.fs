@@ -118,18 +118,20 @@ module JournalEntryExternalReference =
     /// how to map our query columns. Thus, we don't need to know anything about the
     /// underlying database architecture in this module and the DAL module doesn't
     /// need to know anything about our module here 
-    let mapRowForDbRead
-            (transaction: DbTransaction option)
-            (row: RowReader)
-            : Result<JournalEntryExternalReference, string> =
-        validateThenConstruct
-            ( row |> RowReader.getUuid "unique_id" )
-            ( row |> RowReader.getUuid "journal_entry_id" )
-            ( row |> RowReader.getString "financial_institution" )
-            ( row |> RowReader.getString "reference" )
-            ( row |> RowReader.getInstant "created_at" )
+    let mapRawForDbRead (row: RowReader) =
+            ( row |> RowReader.getUuid "unique_id" ),
+            ( row |> RowReader.getUuid "journal_entry_id" ),
+            ( row |> RowReader.getString "financial_institution" ),
+            ( row |> RowReader.getString "reference" ),
+            ( row |> RowReader.getInstant "created_at" ),
             ( row |> RowReader.getInstant "modified_at" )
-            transaction
+            
+    let constructFromRawForDbRead
+            (transaction: DbTransaction option)
+            raw
+            : Result<JournalEntryExternalReference, string> =
+        let id, jeId, fi, reference, createdAt, modifiedAt = raw
+        validateThenConstruct id jeId fi reference createdAt modifiedAt transaction
 
     /// readRowsFromDb is designed to produce a flexible read query that can
     /// satisfy diverse use cases 
@@ -147,7 +149,7 @@ module JournalEntryExternalReference =
             """ 
         let from = "ledger.journal_entry_ext_reference jer"
         let query = buildReadQuery select from None predicate limit None orderBy
-        executeReaderQuery query parameters (mapRowForDbRead transaction) expectedRows transaction
+        executeReaderQuery query parameters mapRawForDbRead constructFromRawForDbRead expectedRows transaction
 
     let fetchById
             (transaction: DbTransaction option)

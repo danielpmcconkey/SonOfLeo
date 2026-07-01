@@ -9,7 +9,9 @@ open Utilities
 open Utilities.DAL
 open Utilities.ResultCE
 open Model.Ledger.Accounts.AccountComponent
-open Tests.Integrated._Cleanup
+open Model.Ledger.JournalEntryPrimitives
+open Model.Ledger.Journaling
+open ModelOrchestrator.JournalEntries.JournalEntryCreationAndConstruction
 
 type FixtureData = {
     assets1000Id: Guid
@@ -27,6 +29,13 @@ type FixtureData = {
     entertainment5650Id: Guid
     closedBank1290Id: Guid
     fiscalPeriodIds: Guid list
+    closedFiscalPeriodId: Guid
+    basicJeId: Guid
+    jeWithRefId: Guid
+    jeWithRefExtRefId: Guid
+    voidedJeId: Guid
+    jeInClosedPeriodId: Guid
+    fixtureCommentId: Guid
 }
 
 type TestDataFixture() =
@@ -105,22 +114,145 @@ type TestDataFixture() =
                     FiscalPeriod.constructNewAndSaveToDb key envelope None)
                 |> ListHelper.listOfResultsToResultsList
 
+            // =============================================================================
+            // Create fiscal period that will be closed (after JE creation)
+            // =============================================================================
+
+            let! closedFiscalPeriod =
+                let date = today.PlusMonths(-5)
+                let monthF = date.Month.ToString("D2")
+                let key = $"{date.Year}-{monthF}"
+                FiscalPeriod.constructNewAndSaveToDb key envelope None
+
+            let closedFiscalPeriodId = closedFiscalPeriod |> FiscalPeriod.uniqueId
+
+            let moneyMarket1270Id = moneyMarket1270 |> Account.uniqueId
+            let food5350Id = food5350 |> Account.uniqueId
+            let rothIra1250Id = rothIra1250 |> Account.uniqueId
+            let personalRevenue4290Id = personalRevenue4290 |> Account.uniqueId
+            let entertainment5650Id = entertainment5650 |> Account.uniqueId
+            let creditCard2220Id = creditCard2220 |> Account.uniqueId
+
+            // =============================================================================
+            // Create journal entries (component-level, bypassing orchestrateCreation's
+            // internal transaction which can't see auto-committed FPs in Npgsql 10.x)
+            // =============================================================================
+
+            let jeEnvelope = AuditEnvelope.create JournalEntryPostNew
+
+            let mortgage2210Id = mortgage2210 |> Account.uniqueId
+
+            let! basicJeHeader =
+                JournalEntryHeader.constructNewAndSaveToDb
+                    "Fixture basic JE" (Some "Test") today None jeEnvelope None
+            let basicJeId = basicJeHeader |> JournalEntryHeader.uniqueId
+            let! _ =
+                JournalEntryLine.constructNewAndSaveToDb
+                    basicJeId mortgage2210Id 100.00M "Debit" None jeEnvelope None
+            let! _ =
+                JournalEntryLine.constructNewAndSaveToDb
+                    basicJeId food5350Id 100.00M "Credit" (Some "Grocery run") jeEnvelope None
+
+            let! jeWithRefHeader =
+                JournalEntryHeader.constructNewAndSaveToDb
+                    "Fixture JE with reference" (Some "TestImport") today None jeEnvelope None
+            let jeWithRefId = jeWithRefHeader |> JournalEntryHeader.uniqueId
+            let! _ =
+                JournalEntryLine.constructNewAndSaveToDb
+                    jeWithRefId rothIra1250Id 50.00M "Debit" None jeEnvelope None
+            let! _ =
+                JournalEntryLine.constructNewAndSaveToDb
+                    jeWithRefId personalRevenue4290Id 50.00M "Credit" None jeEnvelope None
+            let! jeWithRefExtRef =
+                JournalEntryExternalReference.constructNewAndSaveToDb
+                    jeWithRefId "TestBank" "TXN-001" jeEnvelope None
+            let jeWithRefExtRefId =
+                jeWithRefExtRef |> JournalEntryExternalReference.uniqueId
+
+            let! jeToVoidHeader =
+                JournalEntryHeader.constructNewAndSaveToDb
+                    "Fixture voided JE" None today None jeEnvelope None
+            let jeToVoidId = jeToVoidHeader |> JournalEntryHeader.uniqueId
+            let! _ =
+                JournalEntryLine.constructNewAndSaveToDb
+                    jeToVoidId entertainment5650Id 75.00M "Debit" None jeEnvelope None
+            let! _ =
+                JournalEntryLine.constructNewAndSaveToDb
+                    jeToVoidId creditCard2220Id 75.00M "Credit" None jeEnvelope None
+
+            let closedPeriodEntryDate = today.PlusMonths(-5).PlusDays(14)
+            let! jeInClosedPeriodHeader =
+                JournalEntryHeader.constructNewAndSaveToDb
+                    "Fixture JE in closed period" None closedPeriodEntryDate None jeEnvelope None
+            let jeInClosedPeriodId =
+                jeInClosedPeriodHeader |> JournalEntryHeader.uniqueId
+            let! _ =
+                JournalEntryLine.constructNewAndSaveToDb
+                    jeInClosedPeriodId mortgage2210Id 25.00M "Debit" None jeEnvelope None
+            let! _ =
+                JournalEntryLine.constructNewAndSaveToDb
+                    jeInClosedPeriodId food5350Id 25.00M "Credit" None jeEnvelope None
+
+            // =============================================================================
+            // Close the fiscal period (after JE creation)
+            // =============================================================================
+
+            let! _ = FiscalPeriod.closeFiscalPeriod closedFiscalPeriodId envelope None
+
+            // =============================================================================
+            // Void a journal entry (direct UPDATE, bypassing voidJournalEntryOrchestration)
+            // =============================================================================
+
+            let voidEnvelope = AuditEnvelope.create JournalEntryVoid
+            let! _ =
+                JournalEntryComment.constructNewAndSaveToDb
+                    jeToVoidId None "Fixture voiding reason" voidEnvelope None
+            let voidQuery = """
+                UPDATE ledger.journal_entry
+                SET voided_at = @voided_at, modified_at = @modified_at
+                WHERE unique_id = @unique_id;"""
+            let voidParams = [
+                { name = "@voided_at"; value = DbInstant (AuditEnvelope.instant voidEnvelope) }
+                { name = "@modified_at"; value = DbInstant (AuditEnvelope.instant voidEnvelope) }
+                { name = "@unique_id"; value = UniqueId jeToVoidId } ]
+            let! _ = executeNonQuery voidQuery voidParams ExactlyOne None
+
+            // =============================================================================
+            // Create fixture comment
+            // =============================================================================
+
+            let commentEnvelope = AuditEnvelope.create JournalEntryAddComment
+            let! fixtureComment =
+                JournalEntryComment.constructNewAndSaveToDb
+                    basicJeId None "Fixture comment for testing"
+                    commentEnvelope None
+
+            let fixtureCommentId =
+                fixtureComment |> JournalEntryComment.uniqueId
+
             return {
                 assets1000Id = assets1000Id
                 liabilities2000Id = liabilities2000Id
                 equity3000Id = equity3000Id
                 revenue4000Id = revenue4000Id
                 expenses5000Id = expenses5000Id
-                rothIra1250Id = rothIra1250 |> Account.uniqueId
-                moneyMarket1270Id = moneyMarket1270 |> Account.uniqueId
-                mortgage2210Id = mortgage2210 |> Account.uniqueId
-                creditCard2220Id = creditCard2220 |> Account.uniqueId
+                rothIra1250Id = rothIra1250Id
+                moneyMarket1270Id = moneyMarket1270Id
+                mortgage2210Id = mortgage2210Id
+                creditCard2220Id = creditCard2220Id
                 retirement3030Id = retirement3030 |> Account.uniqueId
-                personalRevenue4290Id = personalRevenue4290 |> Account.uniqueId
-                food5350Id = food5350 |> Account.uniqueId
-                entertainment5650Id = entertainment5650 |> Account.uniqueId
+                personalRevenue4290Id = personalRevenue4290Id
+                food5350Id = food5350Id
+                entertainment5650Id = entertainment5650Id
                 closedBank1290Id = closedBank1290 |> Account.uniqueId
                 fiscalPeriodIds = fiscalPeriods |> List.map FiscalPeriod.uniqueId
+                closedFiscalPeriodId = closedFiscalPeriodId
+                basicJeId = basicJeId
+                jeWithRefId = jeWithRefId
+                jeWithRefExtRefId = jeWithRefExtRefId
+                voidedJeId = jeToVoidId
+                jeInClosedPeriodId = jeInClosedPeriodId
+                fixtureCommentId = fixtureCommentId
             }
         }
         stageResult |> Result.defaultWith failwith
@@ -129,20 +261,16 @@ type TestDataFixture() =
 
     interface IDisposable with
         member _.Dispose() =
-            // children first, then parents, then fiscal periods
-            let childIds =
-                [ data.rothIra1250Id; data.moneyMarket1270Id; data.closedBank1290Id
-                  data.mortgage2210Id; data.creditCard2220Id
-                  data.retirement3030Id
-                  data.personalRevenue4290Id
-                  data.food5350Id; data.entertainment5650Id ]
-            let parentIds =
-                [ data.assets1000Id; data.liabilities2000Id; data.equity3000Id
-                  data.revenue4000Id; data.expenses5000Id ]
-
-            childIds |> List.map (Some >> cleanUpAccountId) |> ignore
-            parentIds |> List.map (Some >> cleanUpAccountId) |> ignore
-            data.fiscalPeriodIds |> List.map (Some >> cleanUpFiscalPeriodId) |> ignore
+            let query = """
+                TRUNCATE
+                    ledger.journal_entry_comment,
+                    ledger.journal_entry_ext_reference,
+                    ledger.journal_entry_line,
+                    ledger.journal_entry,
+                    ledger.account,
+                    ledger.fiscal_period
+                CASCADE;"""
+            executeNonQuery query [] AnyQuantityIsAcceptable None |> ignore
 
 [<CollectionDefinition("SharedTestData")>]
 type SharedTestDataCollection() =

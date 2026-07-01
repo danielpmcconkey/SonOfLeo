@@ -101,13 +101,16 @@ module FiscalPeriod =
     /// how to map our query columns. Thus, we don't need to know anything about the
     /// underlying database architecture in this module and the DAL module doesn't
     /// need to know anything about our module here 
-    let mapRowForDbRead (row: RowReader) : Result<FiscalPeriod, string> =
-        validateThenConstruct
-            ( row |> RowReader.getUuid "unique_id" )
-            ( row |> RowReader.getString "period_key" )
-            ( row |> RowReader.getBool "is_open" )
-            ( row |> RowReader.getInstant "created_at" )
+    let mapRawForDbRead (row: RowReader)  =
+            ( row |> RowReader.getUuid "unique_id" ),
+            ( row |> RowReader.getString "period_key" ),
+            ( row |> RowReader.getBool "is_open" ),
+            ( row |> RowReader.getInstant "created_at" ),
             ( row |> RowReader.getInstant "modified_at" )
+    
+    let private constructFromRawForDbRead _transaction raw =
+        let id, key, isOpen, createdAt, modifiedAt = raw
+        validateThenConstruct id key isOpen createdAt modifiedAt
 
     /// readRowsFromDb is designed to produce a flexible read query that can
     /// satisfy diverse use cases 
@@ -121,8 +124,8 @@ module FiscalPeriod =
         let select = "fp.unique_id, fp.period_key, fp.start_date, fp.end_date, fp.is_open, fp.created_at, fp.modified_at"
         let from = "ledger.fiscal_period fp"
         let query = buildReadQuery select from None predicate limit None None
-        executeReaderQuery query parameters mapRowForDbRead expectedRows transaction
-
+        executeReaderQuery query parameters mapRawForDbRead constructFromRawForDbRead expectedRows transaction
+        
     let fetchById (transaction: DbTransaction option) (id: Guid) : Result<FiscalPeriod, string> =
         let predicate = "fp.unique_id = @unique_id"
         let parameters = [{ name = "@unique_id"; value = UniqueId id };] // REQ-DAL-2.3
@@ -133,15 +136,18 @@ module FiscalPeriod =
     /// the doctrine that the model deals in UUIDs while the boundary
     /// does the translation between keys and IDs 
     let fetchIdByKey (transaction: DbTransaction option) (key: string) : Result<Guid, string> =
-        let mapRowForDbRead (row: RowReader) : Result<Guid,string> =
-            let id = row |> RowReader.getUuid "unique_id"
+        let mapRaw (row: RowReader) =
+            (row |> RowReader.getUuid "unique_id"),()
+        let constructFromRaw _transaction raw =
+            let id, _ = raw
             Ok id
-        
         let query = "select unique_id from ledger.fiscal_period where period_key = @period_key"
         let parameters = [{ name = "@period_key"; value = CharString key  };] // REQ-DAL-2.3
-        result {
-            let! rows = executeReaderQuery query parameters mapRowForDbRead ExactlyOne transaction
-            return (rows |> List.head) } 
+        
+        match executeReaderQuery query parameters mapRaw constructFromRaw ExactlyOne transaction with
+        | Ok x -> Ok (x |> List.head)
+        | Error e when e = "Resultant rows didn't match expectation" -> Error $"No Fiscal Period matching {key} could be found in the database."
+        | Error e -> Error e
             
     let fetchAll (transaction: DbTransaction option) (openOnly: bool) : Result<FiscalPeriod list, string> = // REQ-FP-3.4
         let predicate =

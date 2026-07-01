@@ -129,20 +129,22 @@ module JournalEntryLine =
     /// how to map our query columns. Thus, we don't need to know anything about the
     /// underlying database architecture in this module and the DAL module doesn't
     /// need to know anything about our module here 
-    let mapRowForDbRead
-            (transaction: DbTransaction option)
-            (row: RowReader)
-            : Result<JournalEntryLine, string> =
-        validateThenConstruct
-            ( row |> RowReader.getUuid "unique_id" )
-            ( row |> RowReader.getUuid "journal_entry_id" )
-            ( row |> RowReader.getUuid "account_id" )
-            ( row |> RowReader.getNumeric "amount" )
-            ( row |> RowReader.getString "line_type" )
-            ( row |> RowReader.getStringOption "memo" )
-            ( row |> RowReader.getInstant "created_at" )
+    let mapRawForDbRead (row: RowReader) =
+            ( row |> RowReader.getUuid "unique_id" ),
+            ( row |> RowReader.getUuid "journal_entry_id" ),
+            ( row |> RowReader.getUuid "account_id" ),
+            ( row |> RowReader.getNumeric "amount" ),
+            ( row |> RowReader.getString "line_type" ),
+            ( row |> RowReader.getStringOption "memo" ),
+            ( row |> RowReader.getInstant "created_at" ),
             ( row |> RowReader.getInstant "modified_at" )
-            transaction
+
+    let constructFromRawForDbRead
+            (transaction: DbTransaction option)
+            raw
+            : Result<JournalEntryLine, string> =
+        let id, jeId, accountId, amount, lineType, memo, createdAt, modifiedAt = raw
+        validateThenConstruct id jeId accountId amount lineType memo createdAt modifiedAt transaction
 
     let private readRowsFromDb
             (join: string option)
@@ -156,7 +158,7 @@ module JournalEntryLine =
         let select = "jel.unique_id, jel.journal_entry_id, jel.account_id, jel.amount, jel.line_type, jel.memo, jel.created_at, jel.modified_at"
         let from = "ledger.journal_entry_line jel"
         let query = buildReadQuery select from join predicate limit None orderBy
-        executeReaderQuery query parameters (mapRowForDbRead transaction) expectedRows transaction
+        executeReaderQuery query parameters mapRawForDbRead constructFromRawForDbRead expectedRows transaction
 
     let fetchById
             (transaction: DbTransaction option)

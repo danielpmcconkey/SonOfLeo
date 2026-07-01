@@ -100,23 +100,25 @@ module JournalEntryHeader =
     /// how to map our query columns. Thus, we don't need to know anything about the
     /// underlying database architecture in this module and the DAL module doesn't
     /// need to know anything about our module here 
-    let mapRowForDbRead
+    let mapRawForDbRead (row: RowReader) =
+        (*
+         * Note, we intentionally don't pull the fiscal period ID because
+         * the FP is embedded into the EntryDate type
+         *)
+        ( row |> RowReader.getUuid "unique_id" ),
+        ( row |> RowReader.getString "description" ),
+        ( row |> RowReader.getStringOption "je_source" ),
+        ( row |> RowReader.getDate "entry_date" ),
+        ( row |> RowReader.getInstantOption "voided_at" ),
+        ( row |> RowReader.getInstant "created_at" ),
+        ( row |> RowReader.getInstant "modified_at" )
+
+    let constructFromRawForDbRead
             (transaction: DbTransaction option)
-            (row: RowReader)
+            raw
             : Result<JournalEntryHeader, string> =
-        validateThenConstruct
-            (*
-             * Note, we intentionally don't pull the fiscal period ID because
-             * the FP is embedded into the EntryDate type
-             *)
-            ( row |> RowReader.getUuid "unique_id" )
-            ( row |> RowReader.getString "description" )
-            ( row |> RowReader.getStringOption "je_source" )
-            ( row |> RowReader.getDate "entry_date" )
-            ( row |> RowReader.getInstantOption "voided_at" )
-            ( row |> RowReader.getInstant "created_at" )
-            ( row |> RowReader.getInstant "modified_at" )
-            transaction
+        let id, description, jeSource, entryDate, voidedAt, createdAt, modifiedAt = raw
+        validateThenConstruct id description jeSource entryDate voidedAt createdAt modifiedAt transaction
 
     let private readRowsFromDb
             (join: string option)
@@ -134,7 +136,7 @@ module JournalEntryHeader =
         let selectColumns = "je.unique_id, je.description, je.je_source, je.entry_date, je.voided_at, je.created_at, je.modified_at"
         let from = "ledger.journal_entry je"
         let query = buildReadQuery selectColumns from join predicate limit None orderBy
-        executeReaderQuery query parameters (mapRowForDbRead transaction) expectedRows transaction
+        executeReaderQuery query parameters mapRawForDbRead constructFromRawForDbRead expectedRows transaction
 
     let fetchById // REQ-JE-3.2
             (transaction: DbTransaction option)

@@ -36,7 +36,14 @@ All test creation follows a two-phase process. Never skip phase 1.
    approval — never add to the waived table without explicit sign-off.
 8. Present the stubs to Dan for review before proceeding.
 
-Stub naming format:
+Stub naming format (integrated tests use class members):
+```fsharp
+[<Fact>]
+member _.``REQ-XX-N.N short description of what is being verified`` () =
+    Assert.Fail "not implemented"
+```
+
+Isolated tests use module-level functions:
 ```fsharp
 [<Fact>]
 let ``REQ-XX-N.N short description of what is being verified`` () =
@@ -45,9 +52,9 @@ let ``REQ-XX-N.N short description of what is being verified`` () =
 
 When a single REQ needs multiple tests, use consistent naming:
 ```fsharp
-let ``REQ-XX-N.N description — happy path`` () =
-let ``REQ-XX-N.N description — empty input`` () =
-let ``REQ-XX-N.N description — exceeds max length`` () =
+member _.``REQ-XX-N.N description — happy path`` () =
+member _.``REQ-XX-N.N description — empty input`` () =
+member _.``REQ-XX-N.N description — exceeds max length`` () =
 ```
 
 ### Phase 2 — Implement
@@ -105,14 +112,34 @@ Always include rationale. Never add to the waived table without Dan's explicit a
 
 ## Test fixture — shared reference data
 
-Read `references/test-fixture-design.md` for the fixture architecture.
+Read `references/test-fixture-design.md` for the fixture architecture. The fixture is
+implemented in `Tests/Tests.Integrated/_TestDataStage.fs`.
 
 Key rules:
-- The fixture provides read-only reference data (accounts, fiscal periods, journal entries).
-- Tests may read fixture data and may operate on it within a transaction that rolls back.
+- The fixture provides reference data (accounts with `F-` prefix codes, fiscal periods
+  spanning -4 to +4 months from today). It is an `ICollectionFixture<TestDataFixture>`.
+- All integrated tests live in classes with `[<Collection("SharedTestData")>]` and receive
+  the fixture via constructor injection.
+- **Tests do not create their own setup entities.** If a test needs an entity to exist
+  before it can exercise the behavior under test, that entity belongs in the fixture —
+  either it's already there or it should be added. Creating an entity inside a test solely
+  to set up conditions for a subsequent action is always wrong. The only entities a test
+  should create are the ones whose creation *is* the behavior being tested.
+- **Fixture entities are multi-purpose by design.** Don't add a fixture entity to serve
+  one test. Before adding anything, ask what archetype is missing — a closed account, a
+  child with a specific subtype, a period in a specific state. Design each fixture entity
+  to satisfy multiple tests. Three well-chosen archetypes beat fourteen single-purpose
+  snowflakes.
+- Tests may read fixture data directly (no transaction needed for pure reads).
+- Tests may mutate fixture data within a transaction that rolls back.
 - Tests must never commit mutations to fixture data.
 - Tests that need entities beyond what the fixture provides create them inside their own
   transaction.
+- Hardcoded period keys in tests must avoid the fixture's range. Use distant years (e.g.,
+  `"2050-01"`) to prevent collisions.
+- Cleanup is `TRUNCATE ... CASCADE` on all ledger tables — no per-entity tracking needed.
+- Do not assert exact counts on queries like `fetchAll` or `fetchByType` — fixture data
+  means the DB is not empty. Assert containment of expected IDs instead.
 
 ## Timing and AuditEnvelope
 
