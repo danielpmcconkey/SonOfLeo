@@ -72,7 +72,7 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 
 - **REQ-JE-2.1** When posting a journal entry, the system must generate a unique UUID for the header ID (new UUIDs may not be passed in).
 - **REQ-JE-2.2** When posting a journal entry, the system must generate a unique UUID for each line ID (new UUIDs may not be passed in).
-- **REQ-JE-2.3** At the interface boundary, journal entry lines reference accounts by **code**. The boundary resolves each code to the account's UUID before the entry is constructed; the application and persistence layers deal in UUIDs only. Code resolution is case-sensitive (account codes are case-sensitive per REQ-AC-1.5).
+- **REQ-JE-2.3** At the interface boundary, journal entry lines reference accounts by **code**. 
 - **REQ-JE-2.4** When posting a journal entry, the system must reject any line whose account code does not resolve to an existing account (before any database write, per REQ-SYS-2.1.1).
 - **REQ-JE-2.5** When posting a journal entry, the system must derive the fiscal period from the entry date: parse year and month, construct the PeriodKey, and look up the corresponding fiscal period record.
 - **REQ-JE-2.6** When posting a journal entry, the system must reject any entry whose derived fiscal period does not exist in the database.

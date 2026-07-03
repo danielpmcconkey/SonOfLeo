@@ -18,7 +18,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     // =============================================================================
 
     [<Fact>]
-    member _.``REQ-JE-2.13 PostNew route creates a journal entry and returns it as JSON`` () =
+    member _.``REQ-JE-2.13 REQ-JE-2.3 PostNew route creates a journal entry and returns it as JSON`` () =
         let today = Calendar.today()
         let input : JournalEntryInput =
             { header = { description = "CLI PostNew test"; source = Some "CliTest"; entryDate = today }
