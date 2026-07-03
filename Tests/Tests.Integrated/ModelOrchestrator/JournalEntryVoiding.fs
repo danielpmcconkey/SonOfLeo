@@ -73,18 +73,12 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-4.4 voidJournalEntryOrchestration rejects void with empty reason`` () =
-        // orchestrator error path commits nothing — the fixture JE is untouched
+        // wiring test only — component-level rejection coverage lives in
+        // Tests.Isolated (REQ-JE-1.54). Orchestrator error path commits nothing —
+        // the fixture JE is untouched.
         let envelope = AuditEnvelope.create JournalEntryVoid
         let emptyReason = { secondaryJournalEntryId = None; commentText = "" }
         let result = voidJournalEntryOrchestration envelope emptyReason fixture.Data.basicJeId
-        Assert.True(Result.isError result)
-
-    [<Fact>]
-    member _.``REQ-JE-4.4 voidJournalEntryOrchestration rejects void with whitespace-only reason`` () =
-        // orchestrator error path commits nothing — the fixture JE is untouched
-        let envelope = AuditEnvelope.create JournalEntryVoid
-        let wsReason = { secondaryJournalEntryId = None; commentText = "   " }
-        let result = voidJournalEntryOrchestration envelope wsReason fixture.Data.basicJeId
         Assert.True(Result.isError result)
 
     // =============================================================================

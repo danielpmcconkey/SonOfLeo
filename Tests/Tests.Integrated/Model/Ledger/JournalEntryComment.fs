@@ -164,16 +164,11 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-5.3 updateComment rejects empty text`` () =
+        // wiring test only — component-level rejection coverage lives in
+        // Tests.Isolated (REQ-JE-1.54)
         let envelope = AuditEnvelope.create JournalEntryUpdateComment
         let result = JournalEntryComment.updateComment envelope
                          fixture.Data.fixtureCommentId "" None None
-        Assert.True(Result.isError result)
-
-    [<Fact>]
-    member _.``REQ-JE-5.3 updateComment rejects whitespace-only text`` () =
-        let envelope = AuditEnvelope.create JournalEntryUpdateComment
-        let result = JournalEntryComment.updateComment envelope
-                         fixture.Data.fixtureCommentId "   " None None
         Assert.True(Result.isError result)
 
     // =============================================================================

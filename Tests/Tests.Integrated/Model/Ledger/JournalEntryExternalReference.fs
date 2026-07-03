@@ -47,16 +47,11 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-4.9 updateFiAndReferenceText rejects invalid FI — empty string`` () =
+        // wiring test only — component-level rejection coverage lives in
+        // Tests.Isolated (REQ-JE-1.42, REQ-JE-1.44)
         let envelope = AuditEnvelope.create JournalEntryUpdateExternalReference
         let result = JournalEntryExternalReference.updateFiAndReferenceText envelope
                          fixture.Data.jeWithRefExtRefId "" "VALID-001" None
-        Assert.True(Result.isError result)
-
-    [<Fact>]
-    member _.``REQ-JE-4.9 updateFiAndReferenceText rejects invalid reference — empty string`` () =
-        let envelope = AuditEnvelope.create JournalEntryUpdateExternalReference
-        let result = JournalEntryExternalReference.updateFiAndReferenceText envelope
-                         fixture.Data.jeWithRefExtRefId "ValidBank" "" None
         Assert.True(Result.isError result)
 
     // =============================================================================
