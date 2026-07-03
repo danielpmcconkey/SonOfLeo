@@ -2,8 +2,10 @@ module ModelOrchestrator.JournalEntryVoiding
 
 open System
 open Model.Audit
+open Model.Ledger.FiscalPeriods
 open Model.Ledger.JournalEntryPrimitives
 open Model.Ledger.Journaling
+open Model.Ledger.Journaling.JournalEntryComponent
 open Model.Ledger.Journaling.JournalEntryHeader
 open ModelOrchestrator.JournalEntries
 open ModelOrchestrator.JournalEntries.JournalEntryCreationAndConstruction
@@ -30,7 +32,9 @@ let private voidById // REQ-JE-4.3
         ;
     """
     result {
-        let! _ =  validateFiscalPeriodIsOpen journalEntryId transaction // REQ-JE-4.5
+        let! je = journalEntryId |> fetchById transaction
+        let fp = je |> entryDate |> EntryDate.fiscalPeriod
+        do! if fp |> FiscalPeriod.isOpen = false then Error "Cannot void a Journal Entry in a closed period" else Ok() // REQ-JE-4.5
         let! _ = executeNonQuery query parameters ExactlyOne transaction // REQ-JE-4.6
         return! journalEntryId |> fetchById transaction
     }

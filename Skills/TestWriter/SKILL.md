@@ -133,10 +133,24 @@ Key rules:
 - Tests may read fixture data directly (no transaction needed for pure reads).
 - Tests may mutate fixture data within a transaction that rolls back.
 - Tests must never commit mutations to fixture data.
+- **Sanctioned exception — orchestrator-committing tests.** The creation and voiding
+  orchestrators seal their own internal transactions, so tests exercising them commit
+  for real. Such tests must clean up after themselves in `finally` using the
+  `_Cleanup.fs` helpers (CLI-test pattern: `mutable idToCleanUp`, set after the create
+  succeeds). The dispose-time TRUNCATE is a backstop, not a license — one test must not
+  pollute the others.
+- **Consumable victims.** For irreversible committed operations (voiding, CLI-layer
+  updates that cannot roll back across a subprocess), the fixture provides dedicated
+  victim entities — one per test, never shared. Their consumed end-state after a run is
+  by design and needs no cleanup. See the void victims and the CLI update victim in
+  `_TestDataStage.fs`.
 - Tests that need entities beyond what the fixture provides create them inside their own
   transaction.
 - Hardcoded period keys in tests must avoid the fixture's range. Use distant years (e.g.,
   `"2050-01"`) to prevent collisions.
+- **The +4-month fiscal period is reserved-empty.** No test may post an entry dated in
+  the fixture's furthest-future period — the `fetchByPeriod` empty-list test depends on
+  it staying empty.
 - Cleanup is `TRUNCATE ... CASCADE` on all ledger tables — no per-entity tracking needed.
 - Do not assert exact counts on queries like `fetchAll` or `fetchByType` — fixture data
   means the DB is not empty. Assert containment of expected IDs instead.

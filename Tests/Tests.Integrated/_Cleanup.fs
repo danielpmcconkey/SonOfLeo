@@ -93,13 +93,60 @@ let cleanUpFiscalPeriodIdsList (l: Guid option list) : Result<unit, string> =
                 let insideErrors = String.concat "||" errors
                 Error $"{baseMessage}||{insideErrors}"
 
-let cleanUpFiscalPeriodKeysList (l: string option list) : Result<unit, string> =    
+let cleanUpFiscalPeriodKeysList (l: string option list) : Result<unit, string> =
     l
     |> List.map cleanUpFiscalPeriodKey
     |> List.choose (function Error e -> Some e | Ok _ -> None)
-    |> function 
+    |> function
             | [] -> Ok ()
             | errors ->
                 let baseMessage = "One or more errors returns while deleting a list of fiscal period keys. Individual errors follow, separated by '||'"
+                let insideErrors = String.concat "||" errors
+                Error $"{baseMessage}||{insideErrors}"
+
+//=================================================
+// Journal Entry clean up
+//=================================================
+
+let cleanUpJournalEntryId (uniqueId:Guid option) : Result<unit, string> =
+    match uniqueId with
+    | None -> Ok ()
+    | Some x ->
+        let parameters = [
+            { name = "@unique_id"; value = UniqueId x };
+        ]
+        // delete children before the header, in FK order
+        let commentQuery = $"""
+                delete from ledger.journal_entry_comment
+                WHERE journal_primary_entry_id = @unique_id
+                   OR journal_secondary_entry_id = @unique_id;
+            """
+        let extReferenceQuery = $"""
+                delete from ledger.journal_entry_ext_reference
+                WHERE journal_entry_id = @unique_id;
+            """
+        let lineQuery = $"""
+                delete from ledger.journal_entry_line
+                WHERE journal_entry_id = @unique_id;
+            """
+        let headerQuery = $"""
+                delete from ledger.journal_entry
+                WHERE unique_id = @unique_id;
+            """
+        result {
+            let! _ = executeNonQuery commentQuery parameters AnyQuantityIsAcceptable None
+            let! _ = executeNonQuery extReferenceQuery parameters AnyQuantityIsAcceptable None
+            let! _ = executeNonQuery lineQuery parameters AnyQuantityIsAcceptable None
+            return! executeNonQuery headerQuery parameters ExactlyOne None
+        }
+
+let cleanUpJournalEntryList (l: Guid option list) : Result<unit, string> =
+    l
+    |> List.map cleanUpJournalEntryId
+    |> List.choose (function Error e -> Some e | Ok _ -> None)
+    |> function
+            | [] -> Ok ()
+            | errors ->
+                let baseMessage = "One or more errors returns while deleting a list of journal entry IDs. Individual errors follow, separated by '||'"
                 let insideErrors = String.concat "||" errors
                 Error $"{baseMessage}||{insideErrors}"

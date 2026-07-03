@@ -51,7 +51,6 @@ module JournalEntryComponent =
                     |> FiscalPeriod.fetchIdByKey transaction // REQ-JE-2.6
                     |> Result.mapError(fun _ -> $"Entry date {entryDate} is not associated to any recorded Fiscal Periods in the database.")
                 let! fp = id |> FiscalPeriod.fetchById transaction
-                do! if fp |> FiscalPeriod.isOpen = false then Error $"Entry date {entryDate} is not associated to an open period" else Ok () // REQ-JE-2.7
                 return { entryDate = entryDate; fiscalPeriod = fp }
             }
 

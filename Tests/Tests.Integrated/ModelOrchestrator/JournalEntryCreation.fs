@@ -3,6 +3,7 @@ namespace Tests.Integrated.ModelOrchestrator
 open System
 open Xunit
 open Tests.Integrated
+open Tests.Integrated._Cleanup
 open Model.Audit
 open Model.Ledger.JournalEntryPrimitives
 open Model.Ledger.Journaling
@@ -42,35 +43,56 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
     member _.``REQ-JE-2.13 REQ-JE-2.11 orchestrateCreation posts a valid journal entry and returns it`` () =
         let envelope = AuditEnvelope.create JournalEntryPostNew
         let prims = validPrimitives "Happy path basic creation"
-        let createResult = prims |> orchestrateCreation envelope
-        match createResult with
-        | Ok je ->
-            let h = je |> header
-            Assert.Equal("Happy path basic creation", h |> JournalEntryHeader.description |> Description.value)
-            Assert.Equal(2, je |> lines |> List.length)
-        | Error e -> Assert.Fail e
+        let mutable idToCleanUp = None
+        try
+            let createResult = prims |> orchestrateCreation envelope
+            match createResult with
+            | Ok je ->
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                let h = je |> header
+                Assert.Equal("Happy path basic creation", h |> JournalEntryHeader.description |> Description.value)
+                Assert.Equal(2, je |> lines |> List.length)
+            | Error e -> Assert.Fail e
+        finally
+            match cleanUpJournalEntryId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e
 
     [<Fact>]
     member _.``REQ-JE-2.1 orchestrateCreation generates a unique UUID for the header`` () =
         let envelope = AuditEnvelope.create JournalEntryPostNew
         let prims = validPrimitives "UUID for header"
-        let createResult = prims |> orchestrateCreation envelope
-        match createResult with
-        | Ok je ->
-            Assert.NotEqual(Guid.Empty, je |> header |> JournalEntryHeader.uniqueId)
-        | Error e -> Assert.Fail e
+        let mutable idToCleanUp = None
+        try
+            let createResult = prims |> orchestrateCreation envelope
+            match createResult with
+            | Ok je ->
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                Assert.NotEqual(Guid.Empty, je |> header |> JournalEntryHeader.uniqueId)
+            | Error e -> Assert.Fail e
+        finally
+            match cleanUpJournalEntryId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e
 
     [<Fact>]
     member _.``REQ-JE-2.2 orchestrateCreation generates unique UUIDs for each line`` () =
         let envelope = AuditEnvelope.create JournalEntryPostNew
         let prims = validPrimitives "UUID for lines"
-        let createResult = prims |> orchestrateCreation envelope
-        match createResult with
-        | Ok je ->
-            let ids = je |> lines |> List.map JournalEntryLine.uniqueId
-            Assert.Equal(2, ids |> List.distinct |> List.length)
-            ids |> List.iter (fun id -> Assert.NotEqual(Guid.Empty, id))
-        | Error e -> Assert.Fail e
+        let mutable idToCleanUp = None
+        try
+            let createResult = prims |> orchestrateCreation envelope
+            match createResult with
+            | Ok je ->
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                let ids = je |> lines |> List.map JournalEntryLine.uniqueId
+                Assert.Equal(2, ids |> List.distinct |> List.length)
+                ids |> List.iter (fun id -> Assert.NotEqual(Guid.Empty, id))
+            | Error e -> Assert.Fail e
+        finally
+            match cleanUpJournalEntryId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e
 
     [<Fact>]
     member _.``REQ-JE-2.9 orchestrateCreation generates unique UUIDs for each external reference`` () =
@@ -80,38 +102,60 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                 externalReferences =
                     [ { financialInstitution = "BankAlpha"; referenceText = "REF-A01" }
                       { financialInstitution = "BankBeta"; referenceText = "REF-B01" } ] }
-        let createResult = prims |> orchestrateCreation envelope
-        match createResult with
-        | Ok je ->
-            let ids = je |> externalReferences |> List.map JournalEntryExternalReference.uniqueId
-            Assert.Equal(2, ids |> List.distinct |> List.length)
-            ids |> List.iter (fun id -> Assert.NotEqual(Guid.Empty, id))
-        | Error e -> Assert.Fail e
+        let mutable idToCleanUp = None
+        try
+            let createResult = prims |> orchestrateCreation envelope
+            match createResult with
+            | Ok je ->
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                let ids = je |> externalReferences |> List.map JournalEntryExternalReference.uniqueId
+                Assert.Equal(2, ids |> List.distinct |> List.length)
+                ids |> List.iter (fun id -> Assert.NotEqual(Guid.Empty, id))
+            | Error e -> Assert.Fail e
+        finally
+            match cleanUpJournalEntryId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e
 
     [<Fact>]
     member _.``REQ-SYS-3.2 orchestrateCreation sets created_at and modified_at from AuditEnvelope`` () =
         let envelope = AuditEnvelope.create JournalEntryPostNew
         let expectedInstant = AuditEnvelope.instant envelope
         let prims = validPrimitives "Audit timestamps"
-        let createResult = prims |> orchestrateCreation envelope
-        match createResult with
-        | Ok je ->
-            let h = je |> header
-            Assert.Equal(expectedInstant, h |> JournalEntryHeader.createdAt)
-            Assert.Equal(expectedInstant, h |> JournalEntryHeader.modifiedAt)
-            je |> lines |> List.iter (fun line ->
-                Assert.Equal(expectedInstant, line |> JournalEntryLine.createdAt)
-                Assert.Equal(expectedInstant, line |> JournalEntryLine.modifiedAt))
-        | Error e -> Assert.Fail e
+        let mutable idToCleanUp = None
+        try
+            let createResult = prims |> orchestrateCreation envelope
+            match createResult with
+            | Ok je ->
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                let h = je |> header
+                Assert.Equal(expectedInstant, h |> JournalEntryHeader.createdAt)
+                Assert.Equal(expectedInstant, h |> JournalEntryHeader.modifiedAt)
+                je |> lines |> List.iter (fun line ->
+                    Assert.Equal(expectedInstant, line |> JournalEntryLine.createdAt)
+                    Assert.Equal(expectedInstant, line |> JournalEntryLine.modifiedAt))
+            | Error e -> Assert.Fail e
+        finally
+            match cleanUpJournalEntryId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e
 
     [<Fact>]
     member _.``REQ-JE-1.46 orchestrateCreation accepts an entry with zero external references`` () =
         let envelope = AuditEnvelope.create JournalEntryPostNew
         let prims = validPrimitives "Zero ext refs"
-        let createResult = prims |> orchestrateCreation envelope
-        match createResult with
-        | Ok je -> Assert.Equal(0, je |> externalReferences |> List.length)
-        | Error e -> Assert.Fail e
+        let mutable idToCleanUp = None
+        try
+            let createResult = prims |> orchestrateCreation envelope
+            match createResult with
+            | Ok je ->
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                Assert.Equal(0, je |> externalReferences |> List.length)
+            | Error e -> Assert.Fail e
+        finally
+            match cleanUpJournalEntryId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e
 
     [<Fact>]
     member _.``REQ-JE-1.46 orchestrateCreation accepts an entry with multiple external references`` () =
@@ -122,19 +166,35 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     [ { financialInstitution = "BankX"; referenceText = "TXN-100" }
                       { financialInstitution = "BankY"; referenceText = "TXN-200" }
                       { financialInstitution = "BankZ"; referenceText = "TXN-300" } ] }
-        let createResult = prims |> orchestrateCreation envelope
-        match createResult with
-        | Ok je -> Assert.Equal(3, je |> externalReferences |> List.length)
-        | Error e -> Assert.Fail e
+        let mutable idToCleanUp = None
+        try
+            let createResult = prims |> orchestrateCreation envelope
+            match createResult with
+            | Ok je ->
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                Assert.Equal(3, je |> externalReferences |> List.length)
+            | Error e -> Assert.Fail e
+        finally
+            match cleanUpJournalEntryId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e
 
     [<Fact>]
     member _.``REQ-JE-1.55 orchestrateCreation accepts an entry with zero comments`` () =
         let envelope = AuditEnvelope.create JournalEntryPostNew
         let prims = validPrimitives "Zero comments"
-        let createResult = prims |> orchestrateCreation envelope
-        match createResult with
-        | Ok je -> Assert.Equal(0, je |> comments |> List.length)
-        | Error e -> Assert.Fail e
+        let mutable idToCleanUp = None
+        try
+            let createResult = prims |> orchestrateCreation envelope
+            match createResult with
+            | Ok je ->
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                Assert.Equal(0, je |> comments |> List.length)
+            | Error e -> Assert.Fail e
+        finally
+            match cleanUpJournalEntryId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e
 
     [<Fact>]
     member _.``REQ-JE-1.55 orchestrateCreation accepts an entry with multiple comments`` () =
@@ -144,21 +204,36 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                 comments =
                     [ { secondaryJournalEntryId = None; commentText = "First comment" }
                       { secondaryJournalEntryId = None; commentText = "Second comment" } ] }
-        let createResult = prims |> orchestrateCreation envelope
-        match createResult with
-        | Ok je -> Assert.Equal(2, je |> comments |> List.length)
-        | Error e -> Assert.Fail e
+        let mutable idToCleanUp = None
+        try
+            let createResult = prims |> orchestrateCreation envelope
+            match createResult with
+            | Ok je ->
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                Assert.Equal(2, je |> comments |> List.length)
+            | Error e -> Assert.Fail e
+        finally
+            match cleanUpJournalEntryId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e
 
     [<Fact>]
     member _.``REQ-JE-1.6 orchestrateCreation accepts an entry with null source`` () =
         let envelope = AuditEnvelope.create JournalEntryPostNew
         let base' = validPrimitives "Null source"
         let prims = { base' with header = { base'.header with source = None } }
-        let createResult = prims |> orchestrateCreation envelope
-        match createResult with
-        | Ok je ->
-            Assert.True(je |> header |> JournalEntryHeader.source |> Option.isNone)
-        | Error e -> Assert.Fail e
+        let mutable idToCleanUp = None
+        try
+            let createResult = prims |> orchestrateCreation envelope
+            match createResult with
+            | Ok je ->
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                Assert.True(je |> header |> JournalEntryHeader.source |> Option.isNone)
+            | Error e -> Assert.Fail e
+        finally
+            match cleanUpJournalEntryId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e
 
     [<Fact>]
     member _.``REQ-JE-1.26 orchestrateCreation accepts lines with null memos`` () =
@@ -168,31 +243,49 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                 lines =
                     [ { accountId = fixture.Data.mortgage2210Id; amount = 50.00M; lineType = "Debit"; memo = None }
                       { accountId = fixture.Data.food5350Id; amount = 50.00M; lineType = "Credit"; memo = None } ] }
-        let createResult = prims |> orchestrateCreation envelope
-        match createResult with
-        | Ok je ->
-            je |> lines |> List.iter (fun line ->
-                Assert.True(line |> JournalEntryLine.memo |> Option.isNone))
-        | Error e -> Assert.Fail e
+        let mutable idToCleanUp = None
+        try
+            let createResult = prims |> orchestrateCreation envelope
+            match createResult with
+            | Ok je ->
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                je |> lines |> List.iter (fun line ->
+                    Assert.True(line |> JournalEntryLine.memo |> Option.isNone))
+            | Error e -> Assert.Fail e
+        finally
+            match cleanUpJournalEntryId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e
 
     [<Fact>]
     member _.``REQ-JE-1.48 orchestrateCreation accepts duplicate source_fi/reference pairs across entries`` () =
-        let envelope1 = AuditEnvelope.create JournalEntryPostNew
-        let prims1 =
-            { validPrimitives "Dup ref entry 1" with
-                externalReferences = [ { financialInstitution = "DupBank"; referenceText = "DUP-REF-001" } ] }
-        let create1 = prims1 |> orchestrateCreation envelope1
+        let mutable idToCleanUp_1 = None
+        let mutable idToCleanUp_2 = None
+        try
+            let envelope1 = AuditEnvelope.create JournalEntryPostNew
+            let prims1 =
+                { validPrimitives "Dup ref entry 1" with
+                    externalReferences = [ { financialInstitution = "DupBank"; referenceText = "DUP-REF-001" } ] }
+            let create1 = prims1 |> orchestrateCreation envelope1
+            create1 |> Result.iter (fun je ->
+                idToCleanUp_1 <- Some (je |> header |> JournalEntryHeader.uniqueId))
 
-        let envelope2 = AuditEnvelope.create JournalEntryPostNew
-        let prims2 =
-            { validPrimitives "Dup ref entry 2" with
-                externalReferences = [ { financialInstitution = "DupBank"; referenceText = "DUP-REF-001" } ] }
-        let create2 = prims2 |> orchestrateCreation envelope2
+            let envelope2 = AuditEnvelope.create JournalEntryPostNew
+            let prims2 =
+                { validPrimitives "Dup ref entry 2" with
+                    externalReferences = [ { financialInstitution = "DupBank"; referenceText = "DUP-REF-001" } ] }
+            let create2 = prims2 |> orchestrateCreation envelope2
+            create2 |> Result.iter (fun je ->
+                idToCleanUp_2 <- Some (je |> header |> JournalEntryHeader.uniqueId))
 
-        match create1, create2 with
-        | Ok _, Ok _ -> ()
-        | Error e, _ -> Assert.Fail $"First creation failed: {e}"
-        | _, Error e -> Assert.Fail $"Second creation failed: {e}"
+            match create1, create2 with
+            | Ok _, Ok _ -> ()
+            | Error e, _ -> Assert.Fail $"First creation failed: {e}"
+            | _, Error e -> Assert.Fail $"Second creation failed: {e}"
+        finally
+            match cleanUpJournalEntryList [idToCleanUp_1; idToCleanUp_2] with
+            | Ok () -> ()
+            | Error e -> failwith e
 
     // =============================================================================
     // Orchestrated creation — validation rejections
@@ -325,85 +418,92 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                   { accountId = fixture.Data.personalRevenue4290Id; amount = 200.00M; lineType = "Credit"; memo = Some "credit memo" } ]
               externalReferences = [ { financialInstitution = "FidelityBank"; referenceText = "FID-001" } ]
               comments = [ { secondaryJournalEntryId = None; commentText = "Round-trip comment" } ] }
-        let createResult = prims |> orchestrateCreation envelope
-        match createResult with
-        | Error e -> Assert.Fail e
-        | Ok created ->
-            let jeId = created |> header |> JournalEntryHeader.uniqueId
-            let fetchResult = jeId |> fetchById
-            match fetchResult with
-            | Error e -> Assert.Fail $"Fetch after creation failed: {e}"
-            | Ok fetched ->
-                let ch = created |> header
-                let fh = fetched |> header
-                Assert.Equal(ch |> JournalEntryHeader.uniqueId, fh |> JournalEntryHeader.uniqueId)
-                Assert.Equal(
-                    ch |> JournalEntryHeader.description |> Description.value,
-                    fh |> JournalEntryHeader.description |> Description.value)
-                Assert.Equal(
-                    ch |> JournalEntryHeader.source |> Option.map Source.value,
-                    fh |> JournalEntryHeader.source |> Option.map Source.value)
-                Assert.Equal(
-                    ch |> JournalEntryHeader.entryDate |> EntryDate.entryDate,
-                    fh |> JournalEntryHeader.entryDate |> EntryDate.entryDate)
-                Assert.Equal(ch |> JournalEntryHeader.voidedAt, fh |> JournalEntryHeader.voidedAt)
-                Assert.Equal(ch |> JournalEntryHeader.createdAt, fh |> JournalEntryHeader.createdAt)
-                Assert.Equal(ch |> JournalEntryHeader.modifiedAt, fh |> JournalEntryHeader.modifiedAt)
+        let mutable idToCleanUp = None
+        try
+            let createResult = prims |> orchestrateCreation envelope
+            match createResult with
+            | Error e -> Assert.Fail e
+            | Ok created ->
+                let jeId = created |> header |> JournalEntryHeader.uniqueId
+                idToCleanUp <- Some jeId
+                let fetchResult = jeId |> fetchById
+                match fetchResult with
+                | Error e -> Assert.Fail $"Fetch after creation failed: {e}"
+                | Ok fetched ->
+                    let ch = created |> header
+                    let fh = fetched |> header
+                    Assert.Equal(ch |> JournalEntryHeader.uniqueId, fh |> JournalEntryHeader.uniqueId)
+                    Assert.Equal(
+                        ch |> JournalEntryHeader.description |> Description.value,
+                        fh |> JournalEntryHeader.description |> Description.value)
+                    Assert.Equal(
+                        ch |> JournalEntryHeader.source |> Option.map Source.value,
+                        fh |> JournalEntryHeader.source |> Option.map Source.value)
+                    Assert.Equal(
+                        ch |> JournalEntryHeader.entryDate |> EntryDate.entryDate,
+                        fh |> JournalEntryHeader.entryDate |> EntryDate.entryDate)
+                    Assert.Equal(ch |> JournalEntryHeader.voidedAt, fh |> JournalEntryHeader.voidedAt)
+                    Assert.Equal(ch |> JournalEntryHeader.createdAt, fh |> JournalEntryHeader.createdAt)
+                    Assert.Equal(ch |> JournalEntryHeader.modifiedAt, fh |> JournalEntryHeader.modifiedAt)
 
-                let createdLines = created |> lines
-                let fetchedLines = fetched |> lines
-                Assert.Equal(createdLines |> List.length, fetchedLines |> List.length)
-                createdLines |> List.iter (fun cl ->
-                    let fl =
-                        fetchedLines |> List.find (fun fl ->
-                            JournalEntryLine.uniqueId fl = JournalEntryLine.uniqueId cl)
-                    Assert.Equal(cl |> JournalEntryLine.journalEntryId, fl |> JournalEntryLine.journalEntryId)
-                    Assert.Equal(cl |> JournalEntryLine.accountId, fl |> JournalEntryLine.accountId)
-                    Assert.Equal(cl |> JournalEntryLine.amount, fl |> JournalEntryLine.amount)
-                    Assert.Equal(cl |> JournalEntryLine.lineType, fl |> JournalEntryLine.lineType)
-                    Assert.Equal(
-                        cl |> JournalEntryLine.memo |> Option.map LineMemo.value,
-                        fl |> JournalEntryLine.memo |> Option.map LineMemo.value)
-                    Assert.Equal(cl |> JournalEntryLine.createdAt, fl |> JournalEntryLine.createdAt)
-                    Assert.Equal(cl |> JournalEntryLine.modifiedAt, fl |> JournalEntryLine.modifiedAt))
+                    let createdLines = created |> lines
+                    let fetchedLines = fetched |> lines
+                    Assert.Equal(createdLines |> List.length, fetchedLines |> List.length)
+                    createdLines |> List.iter (fun cl ->
+                        let fl =
+                            fetchedLines |> List.find (fun fl ->
+                                JournalEntryLine.uniqueId fl = JournalEntryLine.uniqueId cl)
+                        Assert.Equal(cl |> JournalEntryLine.journalEntryId, fl |> JournalEntryLine.journalEntryId)
+                        Assert.Equal(cl |> JournalEntryLine.accountId, fl |> JournalEntryLine.accountId)
+                        Assert.Equal(cl |> JournalEntryLine.amount, fl |> JournalEntryLine.amount)
+                        Assert.Equal(cl |> JournalEntryLine.lineType, fl |> JournalEntryLine.lineType)
+                        Assert.Equal(
+                            cl |> JournalEntryLine.memo |> Option.map LineMemo.value,
+                            fl |> JournalEntryLine.memo |> Option.map LineMemo.value)
+                        Assert.Equal(cl |> JournalEntryLine.createdAt, fl |> JournalEntryLine.createdAt)
+                        Assert.Equal(cl |> JournalEntryLine.modifiedAt, fl |> JournalEntryLine.modifiedAt))
 
-                let createdRefs = created |> externalReferences
-                let fetchedRefs = fetched |> externalReferences
-                Assert.Equal(createdRefs |> List.length, fetchedRefs |> List.length)
-                createdRefs |> List.iter (fun cr ->
-                    let fr =
-                        fetchedRefs |> List.find (fun fr ->
-                            JournalEntryExternalReference.uniqueId fr = JournalEntryExternalReference.uniqueId cr)
-                    Assert.Equal(
-                        cr |> JournalEntryExternalReference.journalEntryId,
-                        fr |> JournalEntryExternalReference.journalEntryId)
-                    Assert.Equal(
-                        cr |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value,
-                        fr |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value)
-                    Assert.Equal(
-                        cr |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value,
-                        fr |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value)
-                    Assert.Equal(cr |> JournalEntryExternalReference.createdAt, fr |> JournalEntryExternalReference.createdAt)
-                    Assert.Equal(cr |> JournalEntryExternalReference.modifiedAt, fr |> JournalEntryExternalReference.modifiedAt))
+                    let createdRefs = created |> externalReferences
+                    let fetchedRefs = fetched |> externalReferences
+                    Assert.Equal(createdRefs |> List.length, fetchedRefs |> List.length)
+                    createdRefs |> List.iter (fun cr ->
+                        let fr =
+                            fetchedRefs |> List.find (fun fr ->
+                                JournalEntryExternalReference.uniqueId fr = JournalEntryExternalReference.uniqueId cr)
+                        Assert.Equal(
+                            cr |> JournalEntryExternalReference.journalEntryId,
+                            fr |> JournalEntryExternalReference.journalEntryId)
+                        Assert.Equal(
+                            cr |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value,
+                            fr |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value)
+                        Assert.Equal(
+                            cr |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value,
+                            fr |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value)
+                        Assert.Equal(cr |> JournalEntryExternalReference.createdAt, fr |> JournalEntryExternalReference.createdAt)
+                        Assert.Equal(cr |> JournalEntryExternalReference.modifiedAt, fr |> JournalEntryExternalReference.modifiedAt))
 
-                let createdComments = created |> comments
-                let fetchedComments = fetched |> comments
-                Assert.Equal(createdComments |> List.length, fetchedComments |> List.length)
-                createdComments |> List.iter (fun cc ->
-                    let fc =
-                        fetchedComments |> List.find (fun fc ->
-                            JournalEntryComment.uniqueId fc = JournalEntryComment.uniqueId cc)
-                    Assert.Equal(
-                        cc |> JournalEntryComment.primaryJournalEntryId,
-                        fc |> JournalEntryComment.primaryJournalEntryId)
-                    Assert.Equal(
-                        cc |> JournalEntryComment.secondaryJournalEntryId,
-                        fc |> JournalEntryComment.secondaryJournalEntryId)
-                    Assert.Equal(
-                        cc |> JournalEntryComment.commentText |> CommentText.value,
-                        fc |> JournalEntryComment.commentText |> CommentText.value)
-                    Assert.Equal(cc |> JournalEntryComment.createdAt, fc |> JournalEntryComment.createdAt)
-                    Assert.Equal(cc |> JournalEntryComment.modifiedAt, fc |> JournalEntryComment.modifiedAt))
+                    let createdComments = created |> comments
+                    let fetchedComments = fetched |> comments
+                    Assert.Equal(createdComments |> List.length, fetchedComments |> List.length)
+                    createdComments |> List.iter (fun cc ->
+                        let fc =
+                            fetchedComments |> List.find (fun fc ->
+                                JournalEntryComment.uniqueId fc = JournalEntryComment.uniqueId cc)
+                        Assert.Equal(
+                            cc |> JournalEntryComment.primaryJournalEntryId,
+                            fc |> JournalEntryComment.primaryJournalEntryId)
+                        Assert.Equal(
+                            cc |> JournalEntryComment.secondaryJournalEntryId,
+                            fc |> JournalEntryComment.secondaryJournalEntryId)
+                        Assert.Equal(
+                            cc |> JournalEntryComment.commentText |> CommentText.value,
+                            fc |> JournalEntryComment.commentText |> CommentText.value)
+                        Assert.Equal(cc |> JournalEntryComment.createdAt, fc |> JournalEntryComment.createdAt)
+                        Assert.Equal(cc |> JournalEntryComment.modifiedAt, fc |> JournalEntryComment.modifiedAt))
+        finally
+            match cleanUpJournalEntryId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e
 
     [<Fact>]
     member _.``REQ-JE-3.1 fetched entry includes header, lines, external references, and comments`` () =
@@ -419,18 +519,25 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                   { accountId = fixture.Data.creditCard2220Id; amount = 30.00M; lineType = "Credit"; memo = None } ]
               externalReferences = [ { financialInstitution = "FetchBank"; referenceText = "FETCH-001" } ]
               comments = [ { secondaryJournalEntryId = None; commentText = "Fetch comment" } ] }
-        let createResult = prims |> orchestrateCreation envelope
-        match createResult with
-        | Error e -> Assert.Fail e
-        | Ok created ->
-            let jeId = created |> header |> JournalEntryHeader.uniqueId
-            let fetchResult = jeId |> fetchById
-            match fetchResult with
-            | Error e -> Assert.Fail $"Fetch failed: {e}"
-            | Ok fetched ->
-                Assert.Equal(
-                    "Full fetch test",
-                    fetched |> header |> JournalEntryHeader.description |> Description.value)
-                Assert.Equal(2, fetched |> lines |> List.length)
-                Assert.Equal(1, fetched |> externalReferences |> List.length)
-                Assert.Equal(1, fetched |> comments |> List.length)
+        let mutable idToCleanUp = None
+        try
+            let createResult = prims |> orchestrateCreation envelope
+            match createResult with
+            | Error e -> Assert.Fail e
+            | Ok created ->
+                let jeId = created |> header |> JournalEntryHeader.uniqueId
+                idToCleanUp <- Some jeId
+                let fetchResult = jeId |> fetchById
+                match fetchResult with
+                | Error e -> Assert.Fail $"Fetch failed: {e}"
+                | Ok fetched ->
+                    Assert.Equal(
+                        "Full fetch test",
+                        fetched |> header |> JournalEntryHeader.description |> Description.value)
+                    Assert.Equal(2, fetched |> lines |> List.length)
+                    Assert.Equal(1, fetched |> externalReferences |> List.length)
+                    Assert.Equal(1, fetched |> comments |> List.length)
+        finally
+            match cleanUpJournalEntryId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e

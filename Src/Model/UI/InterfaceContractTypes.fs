@@ -30,6 +30,7 @@ module InterfaceContractTypes =
         reference: string option
         createdAt: Instant
         modifiedAt: Instant }
+    
     // create
     type AccountCreateInput = { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
         code: string

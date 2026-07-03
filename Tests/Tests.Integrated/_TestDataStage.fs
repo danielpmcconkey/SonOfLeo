@@ -36,6 +36,12 @@ type FixtureData = {
     voidedJeId: Guid
     jeInClosedPeriodId: Guid
     fixtureCommentId: Guid
+    sharedRefJe1Id: Guid
+    sharedRefJe2Id: Guid
+    voidVictim1Id: Guid
+    voidVictim2Id: Guid
+    voidVictim3Id: Guid
+    cliUpdateVictimExtRefId: Guid
 }
 
 type TestDataFixture() =
@@ -218,6 +224,73 @@ type TestDataFixture() =
             let! _ = executeNonQuery voidQuery voidParams ExactlyOne None
 
             // =============================================================================
+            // Create shared-reference JE pair (two entries, one shared ext ref)
+            // =============================================================================
+
+            let! sharedRefJe1Header =
+                JournalEntryHeader.constructNewAndSaveToDb
+                    "Fixture shared-ref JE 1" (Some "Test") today None jeEnvelope None
+            let sharedRefJe1Id = sharedRefJe1Header |> JournalEntryHeader.uniqueId
+            let! _ =
+                JournalEntryLine.constructNewAndSaveToDb
+                    sharedRefJe1Id mortgage2210Id 10.00M "Debit" None jeEnvelope None
+            let! _ =
+                JournalEntryLine.constructNewAndSaveToDb
+                    sharedRefJe1Id food5350Id 10.00M "Credit" None jeEnvelope None
+            let! _ =
+                JournalEntryExternalReference.constructNewAndSaveToDb
+                    sharedRefJe1Id "SharedBank" "F-SHARED-001" jeEnvelope None
+
+            let! sharedRefJe2Header =
+                JournalEntryHeader.constructNewAndSaveToDb
+                    "Fixture shared-ref JE 2" (Some "Test") today None jeEnvelope None
+            let sharedRefJe2Id = sharedRefJe2Header |> JournalEntryHeader.uniqueId
+            let! _ =
+                JournalEntryLine.constructNewAndSaveToDb
+                    sharedRefJe2Id mortgage2210Id 20.00M "Debit" None jeEnvelope None
+            let! _ =
+                JournalEntryLine.constructNewAndSaveToDb
+                    sharedRefJe2Id food5350Id 20.00M "Credit" None jeEnvelope None
+            let! _ =
+                JournalEntryExternalReference.constructNewAndSaveToDb
+                    sharedRefJe2Id "SharedBank" "F-SHARED-001" jeEnvelope None
+
+            // =============================================================================
+            // Create consumable update victim — the CLI UpdateExternalReference test
+            // commits its mutation (no transaction across a subprocess), so it gets a
+            // dedicated ext ref whose end-state doesn't matter.
+            // =============================================================================
+
+            let! cliUpdateVictimExtRef =
+                JournalEntryExternalReference.constructNewAndSaveToDb
+                    basicJeId "CliUpdateVictimBank" "CLI-UPDVIC-001" jeEnvelope None
+            let cliUpdateVictimExtRefId =
+                cliUpdateVictimExtRef |> JournalEntryExternalReference.uniqueId
+
+            // =============================================================================
+            // Create consumable void victims — one per voiding happy-path test.
+            // Their voided end-state after a test run is by design.
+            // =============================================================================
+
+            let! voidVictims =
+                [1..3]
+                |> List.map (fun x ->
+                    result {
+                        let! victimHeader =
+                            JournalEntryHeader.constructNewAndSaveToDb
+                                $"Fixture void victim {x}" None today None jeEnvelope None
+                        let victimId = victimHeader |> JournalEntryHeader.uniqueId
+                        let! _ =
+                            JournalEntryLine.constructNewAndSaveToDb
+                                victimId entertainment5650Id 33.00M "Debit" None jeEnvelope None
+                        let! _ =
+                            JournalEntryLine.constructNewAndSaveToDb
+                                victimId creditCard2220Id 33.00M "Credit" None jeEnvelope None
+                        return victimId
+                    })
+                |> ListHelper.listOfResultsToResultsList
+
+            // =============================================================================
             // Create fixture comment
             // =============================================================================
 
@@ -253,6 +326,12 @@ type TestDataFixture() =
                 voidedJeId = jeToVoidId
                 jeInClosedPeriodId = jeInClosedPeriodId
                 fixtureCommentId = fixtureCommentId
+                sharedRefJe1Id = sharedRefJe1Id
+                sharedRefJe2Id = sharedRefJe2Id
+                voidVictim1Id = voidVictims[0]
+                voidVictim2Id = voidVictims[1]
+                voidVictim3Id = voidVictims[2]
+                cliUpdateVictimExtRefId = cliUpdateVictimExtRefId
             }
         }
         stageResult |> Result.defaultWith failwith

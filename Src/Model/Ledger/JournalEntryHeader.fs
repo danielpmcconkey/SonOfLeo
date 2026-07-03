@@ -83,19 +83,6 @@ module JournalEntryHeader =
         ]
         executeNonQuery query parameters ExactlyOne transaction
 
-    let constructNewAndSaveToDb
-            (description: string)
-            (source: string option)
-            (entryDate: LocalDate)
-            (voidedAt: Instant option)
-            (auditEnvelope: AuditEnvelope)
-            (transaction: DbTransaction option)
-            : Result<JournalEntryHeader, string> =
-        result {
-            let! validJournalEntry = constructNew description source entryDate voidedAt auditEnvelope transaction
-            let! () = insertNewToDb validJournalEntry transaction // REQ-
-            return validJournalEntry }
-
     /// The mapRow function is used to pass into DAL read functions to let DAL know
     /// how to map our query columns. Thus, we don't need to know anything about the
     /// underlying database architecture in this module and the DAL module doesn't
@@ -158,15 +145,27 @@ module JournalEntryHeader =
             return! readRowsFromDb None predicate None orderBy parameters AnyQuantityIsAcceptable transaction
         }
     
-    let validateFiscalPeriodIsOpen
-            (uniqueId: Guid)
+    let validateEntryDateIsInOpenFiscalPeriod
+            (transaction: DbTransaction option)
+            (entryDate: LocalDate)
+            : Result<unit, string> =
+        result {
+            let! validEntryDate = entryDate |> EntryDate.create transaction
+            return!
+                match validEntryDate |> EntryDate.fiscalPeriod |> FiscalPeriod.isOpen with
+                | true -> Ok ()
+                | false -> Error $"Entry date of {entryDate} is not associated to an open Fiscal Period." }
+
+    let constructNewAndSaveToDb
+            (description: string)
+            (source: string option)
+            (entryDate: LocalDate)
+            (voidedAt: Instant option)
+            (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
             : Result<JournalEntryHeader, string> =
         result {
-            let! journalEntryHeader = uniqueId |> fetchById transaction
-            let fp = EntryDate.fiscalPeriod (entryDate journalEntryHeader)
-            return!
-                match FiscalPeriod.isOpen fp with
-                | false -> Error $"Fiscal period {FiscalPeriod.periodKey fp} is not open."
-                | true -> Ok journalEntryHeader
-        }
+            do! entryDate |> validateEntryDateIsInOpenFiscalPeriod transaction // REQ-JE-2.7
+            let! validJournalEntry = constructNew description source entryDate voidedAt auditEnvelope transaction
+            let! () = insertNewToDb validJournalEntry transaction
+            return validJournalEntry }

@@ -185,8 +185,10 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-4.9 UpdateExternalReference route updates FI and value`` () =
         let railroad = result {
+            // consumable fixture victim — this update commits, and the fixture's
+            // TestBank/TXN-001 ref must survive for the fetchByReference tests
             let updateInput : JournalEntryUpdateExternalReferenceInput =
-                { id = fixture.Data.jeWithRefExtRefId; fi = "CliUpdatedBank"; reference = "CLI-UPD-001" }
+                { id = fixture.Data.cliUpdateVictimExtRefId; fi = "CliUpdatedBank"; reference = "CLI-UPD-001" }
             let! payload = updateInput |> toJson<JournalEntryUpdateExternalReferenceInput>
             let code, stdout, e = runCli ["JournalEntry"; "UpdateExternalReference"] payload
             do! if code <> 0 then Error $"UpdateExternalReference returned non-zero: {e}" else Ok ()

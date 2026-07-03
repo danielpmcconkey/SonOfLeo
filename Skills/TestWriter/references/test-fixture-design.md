@@ -50,15 +50,41 @@ Children (9):
 All accounts have `activeBegin` set to one year ago. Only `F-1290` has an `activeEnd`
 (two months ago).
 
-### Fiscal periods (9 total)
+### Fiscal periods (10 total)
 
-Created for months -4 through +4 relative to `Calendar.today()`. All are open.
-Keys are derived dynamically (e.g., if today is June 2026: `"2026-02"` through
-`"2026-10"`).
+Created for months -4 through +4 relative to `Calendar.today()`, all open, plus one
+closed period at -5 months (closed after its fixture JE was created). Keys are derived
+dynamically (e.g., if today is June 2026: `"2026-02"` through `"2026-10"`).
+
+**The +4-month period is reserved-empty.** No test may post an entry dated in it — the
+`fetchByPeriod` empty-list test depends on it staying empty.
 
 Tests that create their own fiscal periods must use keys outside this range — distant
 years like `"2050-01"` are safe. The `genericFiscalPeriodKey` in `GenericTestProperties`
 is set to `"2050-01"` for this reason.
+
+### Journal entries
+
+Archetypes (all dated today unless noted):
+- `basicJeId` — 2 lines (Mortgage debit / Food credit), one committed fixture comment
+  (`fixtureCommentId`), and the consumable CLI update-victim ext ref
+  (`cliUpdateVictimExtRefId`, "CliUpdateVictimBank"/"CLI-UPDVIC-001")
+- `jeWithRefId` — 2 lines, ext ref `jeWithRefExtRefId` ("TestBank"/"TXN-001").
+  **This ref must survive every run** — the fetchByReference tests read it. Mutate it
+  only inside a rolled-back transaction.
+- `sharedRefJe1Id` / `sharedRefJe2Id` — two entries sharing one ext ref
+  ("SharedBank"/"F-SHARED-001") for shared-reference fetch tests
+- `voidedJeId` — pre-voided (direct UPDATE) with a voiding-reason comment
+- `jeInClosedPeriodId` — dated in the closed -5 month period
+- `voidVictim1Id`/`voidVictim2Id`/`voidVictim3Id` — consumable victims, one per voiding
+  happy-path test; their voided end-state after a run is by design
+
+### Consumable victims
+
+Irreversible committed operations (voiding, CLI-layer updates that cannot roll back
+across a subprocess) each get a dedicated victim entity — one per test, never shared.
+End-state after consumption doesn't matter; the next fixture build starts fresh. When a
+new irreversible-op test appears, add a new victim rather than reusing one.
 
 ## Rules
 
@@ -68,11 +94,12 @@ is set to `"2050-01"` for this reason.
 
 2. **Read-only by convention.** Tests may read fixture data directly (no transaction). Tests
    may mutate fixture data within a transaction that rolls back. Tests must never commit
-   mutations to fixture data.
+   mutations to fixture data — except consumable victims, which exist to be consumed.
 
 3. **Tests own their mutations.** Any entity a test creates, updates, or voids is either
-   inside a rolled-back transaction (model/orchestrator tests) or manually cleaned up (CLI
-   tests).
+   inside a rolled-back transaction (model/component tests), manually cleaned up in
+   `finally` via `_Cleanup.fs` (orchestrator-committing and CLI tests), or a consumable
+   fixture victim (irreversible ops).
 
 4. **Temporal anchoring.** All dates are computed relative to `Calendar.today()` at fixture
    creation time. A fixture created today and one created next month produce equivalent

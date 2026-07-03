@@ -101,6 +101,54 @@ When a test needs entities the fixture doesn't provide (e.g., invalid states, ed
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 ```
 
+### Orchestrator-committing tests (cleanup in finally)
+
+The creation and voiding orchestrators seal their own internal transactions — tests
+exercising them commit for real and must clean up in `finally` via `_Cleanup.fs`.
+Capture the created id as soon as the create succeeds, before any asserts, so a failed
+assert still cleans up:
+
+```fsharp
+    [<Fact>]
+    member _.``REQ-JE-2.13 orchestrateCreation posts a valid journal entry`` () =
+        let envelope = AuditEnvelope.create JournalEntryPostNew
+        let prims = validPrimitives "Happy path"
+        let mutable idToCleanUp = None
+        try
+            let createResult = prims |> orchestrateCreation envelope
+            match createResult with
+            | Ok je ->
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                // ... asserts ...
+            | Error e -> Assert.Fail e
+        finally
+            match cleanUpJournalEntryId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e
+```
+
+Rejection tests need no cleanup — the orchestrator's error path rolls back its internal
+transaction and commits nothing.
+
+### Consumable victims (irreversible operations)
+
+Voiding cannot be undone and CLI-layer updates cannot roll back across a subprocess.
+Tests for these consume a dedicated fixture victim — one per test, never shared — and
+leave it in its consumed end-state. No cleanup, no transaction:
+
+```fsharp
+    [<Fact>]
+    member _.``REQ-JE-4.3 voidJournalEntryOrchestration sets voided_at`` () =
+        let envelope = AuditEnvelope.create JournalEntryVoid
+        let result = voidJournalEntryOrchestration envelope voidReason fixture.Data.voidVictim1Id
+        match result with
+        | Ok voided -> Assert.True(voided |> header |> JournalEntryHeader.voidedAt |> Option.isSome)
+        | Error e -> Assert.Fail e
+```
+
+Adding a victim means adding it to `_TestDataStage.fs` and claiming it for exactly one
+test. If a new irreversible-op test appears, add a new victim — do not reuse.
+
 ### CLI subprocess tests
 
 CLI tests commit data via the subprocess and cannot use transaction rollback. Tests that
