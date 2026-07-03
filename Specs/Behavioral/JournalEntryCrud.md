@@ -133,6 +133,16 @@ active requirement is either tested or in this table.
 
 | ID | Reason testing is waived | Approved |
 |---|---|---|
+| REQ-JE-1.1 | Guid is a value type — the solution won't build if you try to pass a null ID. | Dan, 2026-07-03 |
+| REQ-JE-1.2 | The ID is system-generated (generation tested under REQ-JE-2.1) and the primary key constraint enforces uniqueness; a collision cannot be meaningfully provoked in a test. | Dan, 2026-07-03 |
+| REQ-JE-1.9 | LocalDate is a value type — can't be null. | Dan, 2026-07-03 |
+| REQ-JE-1.10 | Quite obviously enforced in the type definition — LocalDate carries no time component. | Dan, 2026-07-03 |
+| REQ-JE-1.20 | Same as REQ-JE-1.1 — Guid value type. | Dan, 2026-07-03 |
+| REQ-JE-1.23 | Enforced in the type definition — the line amount is a MoneyRecord constructed via MoneyModule.fromDecimal; Money validation has its own isolated tests. | Dan, 2026-07-03 |
+| REQ-JE-1.29 | journalEntryId is a non-nullable Guid on the line type and a not-null FK in the schema; a line cannot be constructed without exactly one parent entry. | Dan, 2026-07-03 |
+| REQ-JE-1.41 | Same shape as REQ-JE-1.29 — non-nullable Guid plus not-null FK. | Dan, 2026-07-03 |
+| REQ-JE-1.50 | Same as REQ-JE-1.2 — system-generated UUID plus primary key constraint. | Dan, 2026-07-03 |
+| REQ-JE-1.51 | Non-nullable Guid plus not-null FK; existence of the primary entry is validated at construction (validateJournalEntryHeader, exercised by every comment test). | Dan, 2026-07-03 |
 | REQ-JE-4.1 | A negative existence claim over the entire API surface ("no function exposes an update path for these fields") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-06-22 |
 | REQ-JE-4.2 | The prohibition "no spec, requirement, or tooling may characterize journal entries as immutable" is a negative existence claim over documentation and the API surface; the positive behaviors it depends on (void, comments) are tested under REQ-JE-4.3/4.7/5.x. Enforced by review. | Dan, 2026-06-22 |
 | REQ-JE-4.8 | We can test against voiding in a closed period, but we can't actually test that someone would, instead, create an offset | Dan, 2026-06-22 | 

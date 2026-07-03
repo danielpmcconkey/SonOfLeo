@@ -140,6 +140,36 @@ let cleanUpJournalEntryId (uniqueId:Guid option) : Result<unit, string> =
             return! executeNonQuery headerQuery parameters ExactlyOne None
         }
 
+let cleanUpJournalEntryExtReferenceId (uniqueId:Guid option) : Result<unit, string> =
+    match uniqueId with
+    | None -> Ok ()
+    | Some x ->
+        let parameters = [
+            { name = "@unique_id"; value = UniqueId x };
+        ]
+        let query = $"""
+                delete from ledger.journal_entry_ext_reference
+                WHERE unique_id = @unique_id;
+            """
+        result {
+            return! executeNonQuery query parameters ExactlyOne None
+        }
+
+let cleanUpJournalEntryCommentId (uniqueId:Guid option) : Result<unit, string> =
+    match uniqueId with
+    | None -> Ok ()
+    | Some x ->
+        let parameters = [
+            { name = "@unique_id"; value = UniqueId x };
+        ]
+        let query = $"""
+                delete from ledger.journal_entry_comment
+                WHERE unique_id = @unique_id;
+            """
+        result {
+            return! executeNonQuery query parameters ExactlyOne None
+        }
+
 let cleanUpJournalEntryList (l: Guid option list) : Result<unit, string> =
     l
     |> List.map cleanUpJournalEntryId

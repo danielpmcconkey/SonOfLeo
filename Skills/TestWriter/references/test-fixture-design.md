@@ -67,8 +67,9 @@ is set to `"2050-01"` for this reason.
 
 Archetypes (all dated today unless noted):
 - `basicJeId` — 2 lines (Mortgage debit / Food credit), one committed fixture comment
-  (`fixtureCommentId`), and the consumable CLI update-victim ext ref
-  (`cliUpdateVictimExtRefId`, "CliUpdateVictimBank"/"CLI-UPDVIC-001")
+  (`fixtureCommentId`), and consumable CLI update victims: ext ref
+  (`cliUpdateVictimExtRefId`, "CliUpdateVictimBank"/"CLI-UPDVIC-001") and comment
+  (`cliUpdateVictimCommentId`)
 - `jeWithRefId` — 2 lines, ext ref `jeWithRefExtRefId` ("TestBank"/"TXN-001").
   **This ref must survive every run** — the fetchByReference tests read it. Mutate it
   only inside a rolled-back transaction.
@@ -76,8 +77,9 @@ Archetypes (all dated today unless noted):
   ("SharedBank"/"F-SHARED-001") for shared-reference fetch tests
 - `voidedJeId` — pre-voided (direct UPDATE) with a voiding-reason comment
 - `jeInClosedPeriodId` — dated in the closed -5 month period
-- `voidVictim1Id`/`voidVictim2Id`/`voidVictim3Id` — consumable victims, one per voiding
-  happy-path test; their voided end-state after a run is by design
+- `voidVictim1Id`/`voidVictim2Id`/`voidVictim3Id`/`cliVoidVictimId` — consumable
+  victims, one per voiding happy-path test (three orchestrator, one CLI route); their
+  voided end-state after a run is by design
 
 ### Consumable victims
 

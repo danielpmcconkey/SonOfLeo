@@ -72,6 +72,14 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
         Assert.True(Result.isError result)
 
     [<Fact>]
+    member _.``REQ-JE-4.3 voidJournalEntryOrchestration returns error for nonexistent entry id`` () =
+        // guards the railway itself: the fetch failure must propagate as an
+        // Error, not escape the orchestrator as an exception
+        let envelope = AuditEnvelope.create JournalEntryVoid
+        let result = voidJournalEntryOrchestration envelope voidReason (Guid.NewGuid())
+        Assert.True(Result.isError result)
+
+    [<Fact>]
     member _.``REQ-JE-4.4 voidJournalEntryOrchestration rejects void with empty reason`` () =
         // wiring test only — component-level rejection coverage lives in
         // Tests.Isolated (REQ-JE-1.54). Orchestrator error path commits nothing —

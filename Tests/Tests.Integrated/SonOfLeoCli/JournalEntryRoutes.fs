@@ -3,6 +3,7 @@ namespace Tests.Integrated.SonOfLeoCli
 open System
 open Xunit
 open Tests.Integrated
+open Tests.Integrated._Cleanup
 open Tests.Integrated.SonOfLeoCli.CliExecutor
 open Model.UI.InterfaceContractTypes
 open Model.UI.Json
@@ -26,18 +27,25 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                   { accountCode = "F-5350"; amount = 50.00M; lineType = "Credit"; memo = None } ]
               externalReferences = []
               comments = [] }
-        let railroad = result {
-            let! payload = input |> toJson<JournalEntryInput>
-            let code, stdout, e = runCli ["JournalEntry"; "PostNew"] payload
-            do! if code <> 0 then Error $"PostNew returned non-zero: {e}" else Ok ()
-            let! returned = fromJson<JournalEntryReturn> stdout
-            Assert.Equal("CLI PostNew test", returned.header.description)
-            Assert.Equal(2, returned.lines |> List.length)
-            return ()
-        }
-        match railroad with
-        | Ok _ -> ()
-        | Error e -> Assert.Fail e
+        let mutable idToCleanUp = None
+        try
+            let railroad = result {
+                let! payload = input |> toJson<JournalEntryInput>
+                let code, stdout, e = runCli ["JournalEntry"; "PostNew"] payload
+                do! if code <> 0 then Error $"PostNew returned non-zero: {e}" else Ok ()
+                let! returned = fromJson<JournalEntryReturn> stdout
+                idToCleanUp <- Some returned.header.id
+                Assert.Equal("CLI PostNew test", returned.header.description)
+                Assert.Equal(2, returned.lines |> List.length)
+                return ()
+            }
+            match railroad with
+            | Ok _ -> ()
+            | Error e -> Assert.Fail e
+        finally
+            match cleanUpJournalEntryId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e
 
     [<Fact>]
     member _.``REQ-JE-2.12 PostNew route returns exit code 1 and error on invalid input`` () =
@@ -135,23 +143,12 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-4.3 Void route voids an entry and returns it with void marker`` () =
-        let today = Calendar.today()
-        let input : JournalEntryInput =
-            { header = { description = "CLI void target"; source = None; entryDate = today }
-              lines =
-                [ { accountCode = "F-2210"; amount = 30.00M; lineType = "Debit"; memo = None }
-                  { accountCode = "F-5350"; amount = 30.00M; lineType = "Credit"; memo = None } ]
-              externalReferences = []
-              comments = [] }
+        // consumable fixture victim — the CLI commits, and its voided end-state
+        // is by design
         let railroad = result {
-            let! createPayload = input |> toJson<JournalEntryInput>
-            let createCode, createStdout, createErr = runCli ["JournalEntry"; "PostNew"] createPayload
-            do! if createCode <> 0 then Error $"Setup PostNew failed: {createErr}" else Ok ()
-            let! created = fromJson<JournalEntryReturn> createStdout
-            let jeId = created.header.id
-
             let voidInput : JournalEntryVoidInput =
-                { id = jeId; reason = { secondaryJournalEntryId = None; commentText = "CLI void reason" } }
+                { id = fixture.Data.cliVoidVictimId
+                  reason = { secondaryJournalEntryId = None; commentText = "CLI void reason" } }
             let! voidPayload = voidInput |> toJson<JournalEntryVoidInput>
             let voidCode, voidStdout, voidErr = runCli ["JournalEntry"; "Void"] voidPayload
             do! if voidCode <> 0 then Error $"Void returned non-zero: {voidErr}" else Ok ()
@@ -207,21 +204,28 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-4.10 AddExternalReference route appends a reference to an existing entry`` () =
-        let railroad = result {
-            let addInput : JournalEntryAddExternalReferenceInput =
-                { journalEntryId = fixture.Data.basicJeId
-                  reference = { financialInstitution = "CliAddBank"; referenceText = "CLI-ADD-001" } }
-            let! payload = addInput |> toJson<JournalEntryAddExternalReferenceInput>
-            let code, stdout, e = runCli ["JournalEntry"; "AddExternalReference"] payload
-            do! if code <> 0 then Error $"AddExternalReference returned non-zero: {e}" else Ok ()
-            let! returned = fromJson<JournalEntryExternalReferenceReturn> stdout
-            Assert.Equal("CliAddBank", returned.financialInstitution)
-            Assert.Equal("CLI-ADD-001", returned.referenceText)
-            return ()
-        }
-        match railroad with
-        | Ok _ -> ()
-        | Error e -> Assert.Fail e
+        let mutable idToCleanUp = None
+        try
+            let railroad = result {
+                let addInput : JournalEntryAddExternalReferenceInput =
+                    { journalEntryId = fixture.Data.basicJeId
+                      reference = { financialInstitution = "CliAddBank"; referenceText = "CLI-ADD-001" } }
+                let! payload = addInput |> toJson<JournalEntryAddExternalReferenceInput>
+                let code, stdout, e = runCli ["JournalEntry"; "AddExternalReference"] payload
+                do! if code <> 0 then Error $"AddExternalReference returned non-zero: {e}" else Ok ()
+                let! returned = fromJson<JournalEntryExternalReferenceReturn> stdout
+                idToCleanUp <- Some returned.id
+                Assert.Equal("CliAddBank", returned.financialInstitution)
+                Assert.Equal("CLI-ADD-001", returned.referenceText)
+                return ()
+            }
+            match railroad with
+            | Ok _ -> ()
+            | Error e -> Assert.Fail e
+        finally
+            match cleanUpJournalEntryExtReferenceId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e
 
     // =============================================================================
     // AddComment route
@@ -229,20 +233,27 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-5.1 AddComment route attaches a comment to an entry`` () =
-        let railroad = result {
-            let addInput : JournalEntryAddCommentInput =
-                { journalEntryId = fixture.Data.basicJeId
-                  comment = { secondaryJournalEntryId = None; commentText = "CLI added comment" } }
-            let! payload = addInput |> toJson<JournalEntryAddCommentInput>
-            let code, stdout, e = runCli ["JournalEntry"; "AddComment"] payload
-            do! if code <> 0 then Error $"AddComment returned non-zero: {e}" else Ok ()
-            let! returned = fromJson<JournalEntryCommentReturn> stdout
-            Assert.Equal("CLI added comment", returned.commentText)
-            return ()
-        }
-        match railroad with
-        | Ok _ -> ()
-        | Error e -> Assert.Fail e
+        let mutable idToCleanUp = None
+        try
+            let railroad = result {
+                let addInput : JournalEntryAddCommentInput =
+                    { journalEntryId = fixture.Data.basicJeId
+                      comment = { secondaryJournalEntryId = None; commentText = "CLI added comment" } }
+                let! payload = addInput |> toJson<JournalEntryAddCommentInput>
+                let code, stdout, e = runCli ["JournalEntry"; "AddComment"] payload
+                do! if code <> 0 then Error $"AddComment returned non-zero: {e}" else Ok ()
+                let! returned = fromJson<JournalEntryCommentReturn> stdout
+                idToCleanUp <- Some returned.id
+                Assert.Equal("CLI added comment", returned.commentText)
+                return ()
+            }
+            match railroad with
+            | Ok _ -> ()
+            | Error e -> Assert.Fail e
+        finally
+            match cleanUpJournalEntryCommentId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e
 
     // =============================================================================
     // UpdateComment route
@@ -250,9 +261,11 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-5.3 UpdateComment route amends comment text`` () =
+        // consumable fixture victim — this update commits; fixtureCommentId must
+        // stay pristine for the model-level update tests
         let railroad = result {
             let updateInput : JournalEntryUpdateCommentInput =
-                { id = fixture.Data.fixtureCommentId
+                { id = fixture.Data.cliUpdateVictimCommentId
                   secondaryJournalEntryId = None
                   commentText = "CLI updated comment text" }
             let! payload = updateInput |> toJson<JournalEntryUpdateCommentInput>

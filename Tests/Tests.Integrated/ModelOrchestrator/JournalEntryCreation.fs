@@ -76,7 +76,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             | Error e -> failwith e
 
     [<Fact>]
-    member _.``REQ-JE-2.2 orchestrateCreation generates unique UUIDs for each line`` () =
+    member _.``REQ-JE-2.2 REQ-JE-1.21 orchestrateCreation generates unique UUIDs for each line`` () =
         let envelope = AuditEnvelope.create JournalEntryPostNew
         let prims = validPrimitives "UUID for lines"
         let mutable idToCleanUp = None
@@ -95,7 +95,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             | Error e -> failwith e
 
     [<Fact>]
-    member _.``REQ-JE-2.9 orchestrateCreation generates unique UUIDs for each external reference`` () =
+    member _.``REQ-JE-2.9 REQ-JE-1.40 orchestrateCreation generates unique UUIDs for each external reference`` () =
         let envelope = AuditEnvelope.create JournalEntryPostNew
         let prims =
             { validPrimitives "UUID for ext refs" with
@@ -345,7 +345,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         Assert.True(Result.isError createResult)
 
     [<Fact>]
-    member _.``REQ-JE-2.4 orchestrateCreation rejects line with nonexistent account code`` () =
+    member _.``REQ-JE-2.4 REQ-JE-1.22 orchestrateCreation rejects line with nonexistent account code`` () =
         let envelope = AuditEnvelope.create JournalEntryPostNew
         let bogusId = Guid.NewGuid()
         let prims =

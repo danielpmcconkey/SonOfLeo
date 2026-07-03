@@ -41,7 +41,9 @@ type FixtureData = {
     voidVictim1Id: Guid
     voidVictim2Id: Guid
     voidVictim3Id: Guid
+    cliVoidVictimId: Guid
     cliUpdateVictimExtRefId: Guid
+    cliUpdateVictimCommentId: Guid
 }
 
 type TestDataFixture() =
@@ -268,12 +270,13 @@ type TestDataFixture() =
                 cliUpdateVictimExtRef |> JournalEntryExternalReference.uniqueId
 
             // =============================================================================
-            // Create consumable void victims — one per voiding happy-path test.
+            // Create consumable void victims — one per voiding happy-path test
+            // (three orchestrator tests plus the CLI Void route test).
             // Their voided end-state after a test run is by design.
             // =============================================================================
 
             let! voidVictims =
-                [1..3]
+                [1..4]
                 |> List.map (fun x ->
                     result {
                         let! victimHeader =
@@ -303,6 +306,16 @@ type TestDataFixture() =
             let fixtureCommentId =
                 fixtureComment |> JournalEntryComment.uniqueId
 
+            // consumable victim — the CLI UpdateComment test commits its mutation
+            // (no transaction across a subprocess); end-state doesn't matter
+            let! cliUpdateVictimComment =
+                JournalEntryComment.constructNewAndSaveToDb
+                    basicJeId None "CLI update victim comment"
+                    commentEnvelope None
+
+            let cliUpdateVictimCommentId =
+                cliUpdateVictimComment |> JournalEntryComment.uniqueId
+
             return {
                 assets1000Id = assets1000Id
                 liabilities2000Id = liabilities2000Id
@@ -331,7 +344,9 @@ type TestDataFixture() =
                 voidVictim1Id = voidVictims[0]
                 voidVictim2Id = voidVictims[1]
                 voidVictim3Id = voidVictims[2]
+                cliVoidVictimId = voidVictims[3]
                 cliUpdateVictimExtRefId = cliUpdateVictimExtRefId
+                cliUpdateVictimCommentId = cliUpdateVictimCommentId
             }
         }
         stageResult |> Result.defaultWith failwith
