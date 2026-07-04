@@ -15,6 +15,7 @@
     <Compile Include="AccountDeactivation.fs" />
     <Compile Include="JournalEntryFetching.fs" />
     <Compile Include="JournalEntryVoiding.fs" />
+    <Compile Include="AccountActivity.fs" />
   </ItemGroup>
 
 </Project>
