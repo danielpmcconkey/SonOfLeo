@@ -6,6 +6,9 @@ open Utilities.DAL
 open Utilities.ResultCE
 open Model.Ledger.FiscalPeriods
 
+type AccountActivitySort =
+    | AccountCode
+    | EntryDate
 type AccountActivityFilterDateRange = {
     beginDate: LocalDate
     endInclusive: LocalDate
@@ -100,6 +103,7 @@ let private constructFromRawForDbRead _transaction raw =
 let fetchFiltered
         (transaction: DbTransaction option)
         (filter: AccountActivityFilter)
+        (sort: AccountActivitySort option)
         : Result<AccountActivity list, string> =
     result {
         let! dateRange = 
@@ -112,6 +116,11 @@ let fetchFiltered
                 |> Result.map (fun fp -> Some (fp |> FiscalPeriod.startDate, fp |> FiscalPeriod.endDate))        
 
         let voidClause = if filter.unVoidedOnly then "and je.voided_at is null" else ""
+        let sortClause =
+            match sort with
+            | None -> ""
+            | Some AccountCode -> "order by a.code"
+            | Some EntryDate -> "order by je.entry_date"
         let whereClausesAndParams =
             [
                 filter.accountId |> Option.map(
@@ -130,7 +139,6 @@ let fetchFiltered
                     fun x -> ("and je.je_source = @je_source", { name = "@je_source"; value = CharString x }))
                 filter.journalEntryId |> Option.map(
                     fun x -> ("and je.unique_id = @je_id", { name = "@je_id"; value = UniqueId x }))
-                
             ] |> List.choose id
         let whereClauses = whereClausesAndParams |> List.map fst |> String.concat Environment.NewLine
         let parameters = whereClausesAndParams |> List.map snd
@@ -160,6 +168,8 @@ let fetchFiltered
             where 1 = 1
             {whereClauses}
             {voidClause}
+            {sortClause}
             """
         return! executeReaderQuery query parameters mapRawForDbRead constructFromRawForDbRead AnyQuantityIsAcceptable transaction
     }
+    
