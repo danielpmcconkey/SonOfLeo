@@ -126,9 +126,23 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.5 FetchByExternalReference route returns matching entries`` () =
         let railroad = result {
-            let! payload = { fi = "TestBank"; reference = "TXN-001" } |> toJson<JournalEntryFetchByExternalReferenceInput>
+            let! payload = { fi = Some "TestBank"; reference = Some "TXN-001" } |> toJson<JournalEntryFetchByExternalReferenceInput>
             let code, stdout, e = runCli ["JournalEntry"; "FetchByExternalReference"] payload
             do! if code <> 0 then Error $"FetchByExternalReference returned non-zero: {e}" else Ok ()
+            let! returned = fromJson<JournalEntryReturn list> stdout
+            Assert.True(returned |> List.length >= 1)
+            return ()
+        }
+        match railroad with
+        | Ok _ -> ()
+        | Error e -> Assert.Fail e
+
+    [<Fact>]
+    member _.``REQ-JE-3.8 FetchByExternalReference route with FI only returns matching entries`` () =
+        let railroad = result {
+            let! payload = { fi = Some "TestBank"; reference = None } |> toJson<JournalEntryFetchByExternalReferenceInput>
+            let code, stdout, e = runCli ["JournalEntry"; "FetchByExternalReference"] payload
+            do! if code <> 0 then Error $"FetchByExternalReference (FI only) returned non-zero: {e}" else Ok ()
             let! returned = fromJson<JournalEntryReturn list> stdout
             Assert.True(returned |> List.length >= 1)
             return ()
