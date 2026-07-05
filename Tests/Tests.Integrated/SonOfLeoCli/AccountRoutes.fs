@@ -292,3 +292,51 @@ type AccountRouteTests(fixture: TestDataFixture) =
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail e
+
+    // =============================================================================
+    // FetchActivity route
+    // =============================================================================
+
+    [<Fact>]
+    member _.``REQ-JE-3.9 FetchActivity route returns enriched activity for an account`` () =
+        let railroad = result {
+            let input : AccountActivityFetchInput = {
+                filter = {
+                    accountCode = Some "F-2210"
+                    temporalFilter = None
+                    source = None
+                    accountType = None
+                    accountSubtype = None
+                    accountParentCode = None
+                    journalEntryId = None
+                    unVoidedOnly = false }
+                sort = None }
+            let! payload = input |> toJson<AccountActivityFetchInput>
+            let code, stdout, e = runCli ["Account"; "FetchActivity"] payload
+            do! if code <> 0 then Error $"FetchActivity returned non-zero: {e}" else Ok ()
+            let! returned = fromJson<AccountActivityReturn list> stdout
+            Assert.True(returned |> List.length >= 1)
+            return ()
+        }
+        match railroad with
+        | Ok _ -> ()
+        | Error e -> Assert.Fail e
+
+    // =============================================================================
+    // FetchBalances route
+    // =============================================================================
+
+    [<Fact>]
+    member _.``REQ-JE-3.6 FetchBalances route returns balances for given account codes`` () =
+        let railroad = result {
+            let input : AccountBalanceFetchByAccountListInput = { codes = ["F-2210"; "F-5350"] }
+            let! payload = input |> toJson<AccountBalanceFetchByAccountListInput>
+            let code, stdout, e = runCli ["Account"; "FetchBalances"] payload
+            do! if code <> 0 then Error $"FetchBalances returned non-zero: {e}" else Ok ()
+            let! returned = fromJson<AccountBalanceReturn list> stdout
+            Assert.Equal(2, returned |> List.length)
+            return ()
+        }
+        match railroad with
+        | Ok _ -> ()
+        | Error e -> Assert.Fail e

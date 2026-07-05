@@ -152,6 +152,25 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail e
 
     // =============================================================================
+    // FetchByDateRange route
+    // =============================================================================
+
+    [<Fact>]
+    member _.``REQ-JE-3.7 FetchByDateRange route returns entries within date range`` () =
+        let today = Utilities.Calendar.today()
+        let railroad = result {
+            let! payload = { beginDate = today; endDateInclusive = today } |> toJson<JournalEntryFetchByDateRangeInput>
+            let code, stdout, e = runCli ["JournalEntry"; "FetchByDateRange"] payload
+            do! if code <> 0 then Error $"FetchByDateRange returned non-zero: {e}" else Ok ()
+            let! returned = fromJson<JournalEntryReturn list> stdout
+            Assert.True(returned |> List.length >= 1)
+            return ()
+        }
+        match railroad with
+        | Ok _ -> ()
+        | Error e -> Assert.Fail e
+
+    // =============================================================================
     // Void route
     // =============================================================================
 

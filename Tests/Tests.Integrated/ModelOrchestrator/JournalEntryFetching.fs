@@ -130,3 +130,23 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
     member _.``REQ-JE-3.5 REQ-JE-3.8 fetchByReference with both parameters None returns Error`` () =
         let result = fetchByReference None None
         Assert.True(Result.isError result)
+
+    // =============================================================================
+    // Fetch by date range
+    // =============================================================================
+
+    [<Fact>]
+    member _.``REQ-JE-3.7 fetchByDateRange returns entries within inclusive date range`` () =
+        let today = Calendar.today()
+        let result = fetchByDateRange today today
+        match result with
+        | Ok entries -> Assert.True(entries |> List.length >= 1)
+        | Error e -> Assert.Fail e
+
+    [<Fact>]
+    member _.``REQ-JE-3.7 fetchByDateRange returns empty list when no entries in range`` () =
+        let farDate = NodaTime.LocalDate(2050, 1, 1)
+        let result = fetchByDateRange farDate farDate
+        match result with
+        | Ok entries -> Assert.Equal(0, entries |> List.length)
+        | Error e -> Assert.Fail e
