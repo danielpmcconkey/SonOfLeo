@@ -178,6 +178,13 @@ let private fetchByExternalReference payload _ =
         let! returnVal = model |> List.map(fun x -> x |> convertJournalEntryToReturn) |> ListHelper.listOfResultsToResultsList
         return! Json.toJson<JournalEntryReturn list> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
+let private fetchByDateRange payload _ =
+    result {
+        let! input = Json.fromJson<JournalEntryFetchByDateRangeInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! model = JournalEntryFetching.fetchByDateRange input.beginDate input.endDateInclusive
+        let! returnVal = model |> List.map(fun x -> x |> convertJournalEntryToReturn) |> ListHelper.listOfResultsToResultsList
+        return! Json.toJson<JournalEntryReturn list> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 let private voidJe payload _ =
     result {
         let! input = Json.fromJson<JournalEntryVoidInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
@@ -239,8 +246,10 @@ let journalEntryDomainCommandRoutes = [
       inputType = typeof<JournalEntryFetchByPeriodInput>.Name; outputType = typeof<JournalEntryReturn list>.Name; handler =  fetchByPeriod } 
     { domain = "JournalEntry"; verb = "FetchLinesByAccount"; description = "Retrieve all Journal Entry Lines for a given Account."
       inputType = typeof<JournalEntryFetchLinesByAccountInput>.Name; outputType = typeof<JournalEntryLineReturn list>.Name; handler =  fetchLinesByAccount } 
-    { domain = "JournalEntry"; verb = "FetchByExternalReference"; description = "Retrieve all Journal Entries (and related objects) matching a specific External Account Reference (FI and reference)"
-      inputType = typeof<JournalEntryFetchByExternalReferenceInput>.Name; outputType = typeof<JournalEntryReturn list>.Name; handler =  fetchByExternalReference } 
+    { domain = "JournalEntry"; verb = "FetchByExternalReference"; description = "Retrieve all Journal Entries (and related objects) matching a specific External Account Reference (FI and / or reference). You must specify at least one."
+      inputType = typeof<JournalEntryFetchByExternalReferenceInput>.Name; outputType = typeof<JournalEntryReturn list>.Name; handler =  fetchByExternalReference }
+    { domain = "JournalEntry"; verb = "FetchByDateRange"; description = "Retrieve all Journal Entries (and related objects) whose entry date falls between begin and end (inclusive) dates."
+      inputType = typeof<JournalEntryFetchByDateRangeInput>.Name; outputType = typeof<JournalEntryReturn list>.Name; handler =  fetchByDateRange } 
     { domain = "JournalEntry"; verb = "Void"; description = "Void a Journal Entry by setting its “voided at” Instant to the system run time (requires a reason comment)"
       inputType = typeof<JournalEntryVoidInput>.Name; outputType = typeof<JournalEntryReturn>.Name; handler =  voidJe } 
     { domain = "JournalEntry"; verb = "UpdateExternalReference"; description = "Update an existing Journal Entry External Reference"

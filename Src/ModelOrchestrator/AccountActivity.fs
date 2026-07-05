@@ -9,7 +9,7 @@ open Model.Ledger.FiscalPeriods
 type AccountActivitySort =
     | AccountCode
     | EntryDate
-    
+
 type AccountActivityFilterDateRange = {
     beginDate: LocalDate
     endInclusive: LocalDate
@@ -114,7 +114,7 @@ let fetchFiltered // REQ-JE-3.9
             | Some (FiscalPeriodId fpId) ->
                 fpId
                 |> FiscalPeriod.fetchById transaction
-                |> Result.map (fun fp -> Some (fp |> FiscalPeriod.startDate, fp |> FiscalPeriod.endDate))        
+                |> Result.map (fun fp -> Some (fp |> FiscalPeriod.startDate, fp |> FiscalPeriod.endDate))
 
         let voidClause = if filter.unVoidedOnly then "and je.voided_at is null" else ""
         let sortClause =
@@ -124,21 +124,21 @@ let fetchFiltered // REQ-JE-3.9
             | Some EntryDate -> "order by je.entry_date"
         let whereClausesAndParams =
             [
-                filter.accountId |> Option.map(
+                filter.accountId |> Option.map (
                     fun x -> ("and a.unique_id = @account_id", { name = "@account_id"; value = UniqueId x }))
-                filter.accountType |> Option.map(
+                filter.accountType |> Option.map (
                     fun x -> ("and a.account_type = @account_type", { name = "@account_type"; value = CharString x }))
-                filter.accountSubtype |> Option.map(
+                filter.accountSubtype |> Option.map (
                     fun x -> ("and a.account_subtype = @account_subtype", { name = "@account_subtype"; value = CharString x }))
-                filter.accountParentId |> Option.map(
+                filter.accountParentId |> Option.map (
                     fun x -> ("and a.parent_id = @parent_id", { name = "@parent_id"; value = UniqueId x }))
-                dateRange |> Option.map(
+                dateRange |> Option.map (
                     fun (x, _) -> ("and je.entry_date >= @begin_date", { name = "@begin_date"; value = DbLocalDate x }))
-                dateRange |> Option.map(
+                dateRange |> Option.map (
                     fun (_, x) -> ("and je.entry_date <= @end_date", { name = "@end_date"; value = DbLocalDate x }))
-                filter.source |> Option.map(
+                filter.source |> Option.map (
                     fun x -> ("and je.je_source = @je_source", { name = "@je_source"; value = CharString x }))
-                filter.journalEntryId |> Option.map(
+                filter.journalEntryId |> Option.map (
                     fun x -> ("and je.unique_id = @je_id", { name = "@je_id"; value = UniqueId x }))
             ] |> List.choose id
         let whereClauses = whereClausesAndParams |> List.map fst |> String.concat Environment.NewLine

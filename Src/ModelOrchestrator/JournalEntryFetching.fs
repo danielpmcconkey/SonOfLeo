@@ -2,15 +2,49 @@ module ModelOrchestrator.JournalEntryFetching
 
 open System
 open Model.Ledger.Journaling
+open NodaTime
 open Utilities.DAL
 open Utilities.ListHelper
 open Utilities.ResultCE
 open ModelOrchestrator.JournalEntries
 open ModelOrchestrator.JournalEntries.JournalEntryCreationAndConstruction
 
-let private fetchHeaderIdsByReference
-        (fi: string)
-        (reference: string)
+let private fetchHeaderIdsByReference // REQ-JE-3.5, REQ-JE-3.8
+        (transaction: DbTransaction option)
+        (fi: string option)
+        (reference: string option)
+        : Result<Guid list, string> =
+    let mapRaw (row: RowReader) =
+        (row |> RowReader.getUuid "unique_id") , ()
+    let constructRaw _transaction raw :Result<Guid,string> =
+        let id, _ = raw
+        Ok id
+    if fi = None && reference = None
+    then Error "Both FI and reference cannot both be null"
+    else 
+        let whereClausesAndParams =
+            [
+                fi |> Option.map ( fun x -> (
+                    "and jer.financial_institution = @financial_institution", { name = "@financial_institution"; value = CharString x }))
+                reference |> Option.map ( fun x -> (
+                    "and jer.reference = @reference", { name = "@reference"; value = CharString x }))
+            ] |> List.choose id
+        let whereClauses = whereClausesAndParams |> List.map fst |> String.concat Environment.NewLine
+        let parameters = whereClausesAndParams |> List.map snd
+        let query = $"""
+            SELECT je.unique_id
+            FROM ledger.journal_entry je
+            left join ledger.journal_entry_ext_reference jer on je.unique_id = jer.journal_entry_id
+            where 1 = 1
+            {whereClauses}
+            order by je.entry_date asc
+            ;"""
+        executeReaderQuery query parameters mapRaw constructRaw AnyQuantityIsAcceptable transaction
+
+let private fetchHeaderIdsByDateRange // REQ-JE-3.7
+        (transaction: DbTransaction option)
+        (beginDate: LocalDate)
+        (endDateInclusive: LocalDate)
         : Result<Guid list, string> =
     let mapRaw (row: RowReader) =
         (row |> RowReader.getUuid "unique_id") , ()
@@ -20,15 +54,12 @@ let private fetchHeaderIdsByReference
     let query = """
         SELECT je.unique_id
         FROM ledger.journal_entry je
-        left join ledger.journal_entry_ext_reference jer on je.unique_id = jer.journal_entry_id
-        where jer.financial_institution = @financial_institution
-        and jer.reference = @reference
+        where je.entry_date >= @begin_date and je.entry_date <= @end_date
+        order by je.entry_date asc
         ;"""
-    let parameters = [
-        { name = "@financial_institution"; value = CharString fi };
-        { name = "@reference"; value = CharString reference };
-    ] // REQ-DAL-2.3
-    executeReaderQuery query parameters mapRaw constructRaw AnyQuantityIsAcceptable None
+    let parameters = [  { name = "@begin_date"; value = DbLocalDate beginDate };
+                        { name = "@end_date"; value = DbLocalDate endDateInclusive }; ] // REQ-DAL-2.3
+    executeReaderQuery query parameters mapRaw constructRaw AnyQuantityIsAcceptable transaction
 
 let fetchById // REQ-JE-3.1, REQ-JE-3.2
         (uniqueId: Guid)
@@ -53,12 +84,22 @@ let fetchByPeriod // REQ-JE-3.1
         return! headerResultsList |> listOfResultsToResultsList
     }
     
-let fetchByReference // REQ-JE-3.1, REQ-JE-3.5
-        (fi: string)
-        (reference: string)
+let fetchByReference // REQ-JE-3.1, REQ-JE-3.5, REQ-JE-3.8
+        (fi: string option)
+        (reference: string option)
         : Result<JournalEntry list, string> =
     result {
-        let! headers = fetchHeaderIdsByReference fi reference
+        let! headers = fetchHeaderIdsByReference None fi reference
+        let headerResultsList = headers |> List.map(fun h -> h |> fetchById)
+        return! headerResultsList |> listOfResultsToResultsList
+    }
+
+let fetchByDateRange // REQ-JE-3.7
+        (beginDate: LocalDate)
+        (endDateInclusive: LocalDate)
+        : Result<JournalEntry list, string> =
+    result {
+        let! headers = fetchHeaderIdsByDateRange None beginDate endDateInclusive
         let headerResultsList = headers |> List.map(fun h -> h |> fetchById)
         return! headerResultsList |> listOfResultsToResultsList
     }

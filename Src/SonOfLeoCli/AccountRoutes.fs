@@ -205,7 +205,7 @@ let private accountActivityFetch payload _ =
         return! returnList |> Json.toJson<AccountActivityReturn list>
     }
 
-let private accountBalancesFetch payload _ =
+let private accountBalancesFetch payload _ = // REQ-JE-3.6
     result {
         let! input = Json.fromJson<AccountBalanceFetchByAccountListInput> payload
         let! accountList =
