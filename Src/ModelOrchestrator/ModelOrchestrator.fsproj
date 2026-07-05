@@ -16,6 +16,7 @@
     <Compile Include="JournalEntryFetching.fs" />
     <Compile Include="JournalEntryVoiding.fs" />
     <Compile Include="AccountActivity.fs" />
+    <Compile Include="AccountBalance.fs" />
   </ItemGroup>
 
 </Project>

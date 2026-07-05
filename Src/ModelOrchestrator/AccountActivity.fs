@@ -100,7 +100,7 @@ let private constructFromRawForDbRead _transaction raw =
                                         journalEntrySource = journalEntrySource
                                         journalEntryVoidedAt = journalEntryVoidedAt }}
 
-let fetchFiltered
+let fetchFiltered // REQ-JE-3.9
         (transaction: DbTransaction option)
         (filter: AccountActivityFilter)
         (sort: AccountActivitySort option)
