@@ -118,7 +118,7 @@ module JournalEntryExternalReference =
     /// how to map our query columns. Thus, we don't need to know anything about the
     /// underlying database architecture in this module and the DAL module doesn't
     /// need to know anything about our module here 
-    let mapRawForDbRead (row: RowReader) =
+    let private mapRawForDbRead (row: RowReader) =
             ( row |> RowReader.getUuid "unique_id" ),
             ( row |> RowReader.getUuid "journal_entry_id" ),
             ( row |> RowReader.getString "financial_institution" ),
@@ -126,7 +126,7 @@ module JournalEntryExternalReference =
             ( row |> RowReader.getInstant "created_at" ),
             ( row |> RowReader.getInstant "modified_at" )
             
-    let constructFromRawForDbRead
+    let private constructFromRawForDbRead
             (transaction: DbTransaction option)
             raw
             : Result<JournalEntryExternalReference, string> =

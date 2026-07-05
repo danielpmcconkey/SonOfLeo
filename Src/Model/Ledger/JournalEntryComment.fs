@@ -120,7 +120,7 @@ module JournalEntryComment =
     /// how to map our query columns. Thus, we don't need to know anything about the
     /// underlying database architecture in this module and the DAL module doesn't
     /// need to know anything about our module here 
-    let mapRawForDbRead
+    let private mapRawForDbRead
             (row: RowReader) =
             ( row |> RowReader.getUuid "unique_id" ),
             ( row |> RowReader.getUuid "journal_primary_entry_id" ),
@@ -129,7 +129,7 @@ module JournalEntryComment =
             ( row |> RowReader.getInstant "created_at" ),
             ( row |> RowReader.getInstant "modified_at" )
             
-    let constructFromRawForDbRead
+    let private constructFromRawForDbRead
             (transaction: DbTransaction option)
             raw
             : Result<JournalEntryComment, string> =

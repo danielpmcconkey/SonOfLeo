@@ -9,6 +9,7 @@ open Model.Ledger.FiscalPeriods
 type AccountActivitySort =
     | AccountCode
     | EntryDate
+    
 type AccountActivityFilterDateRange = {
     beginDate: LocalDate
     endInclusive: LocalDate
@@ -52,7 +53,7 @@ type AccountActivity = {  accountId: Guid
                           accountExternalRef: string option
                           activityDetail: AccountActivityDetail option }
 
-let mapRawForDbRead (row: RowReader)  =
+let private mapRawForDbRead (row: RowReader)  =
         ( row |> RowReader.getUuid "account_id" ),
         ( row |> RowReader.getString "account_code" ),
         ( row |> RowReader.getString "account_name" ),
@@ -110,8 +111,8 @@ let fetchFiltered // REQ-JE-3.9
             match filter.temporalFilter with
             | None -> Ok None
             | Some (DateRange dr) -> Ok (Some (dr.beginDate, dr.endInclusive))
-            | Some (FiscalPeriodId fpid) ->
-                fpid
+            | Some (FiscalPeriodId fpId) ->
+                fpId
                 |> FiscalPeriod.fetchById transaction
                 |> Result.map (fun fp -> Some (fp |> FiscalPeriod.startDate, fp |> FiscalPeriod.endDate))        
 

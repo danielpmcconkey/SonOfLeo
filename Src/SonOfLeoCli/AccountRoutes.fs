@@ -5,6 +5,7 @@ open Model.Audit
 open Model.Ledger.Accounts.Account
 open Model.Ledger.Accounts.AccountComponent
 open Model.UI
+open ModelOrchestrator
 open Utilities
 open Utilities.ResultCE
 open InterfaceContractTypes
@@ -151,25 +152,103 @@ let private accountFetchAll payload _ =
         let! returnAccounts = accounts |> List.map(convertAccountToAccountReturn) |> ListHelper.listOfResultsToResultsList
         return! Json.toJson<AccountReturn list> returnAccounts// REQ-NGUI-2.4, REQ-NGUI-3.5
     }
-    
+
+let private accountActivityFetch payload _ =
+    result {
+        let! input = Json.fromJson<AccountActivityFetchInput> payload 
+        let! accountId =
+            input.filter.accountCode
+            |> Option.map (fun x -> x |> LookupCache.accountCodeToId.fetch)
+            |> Option.map (Result.map Some)
+            |> Option.defaultValue (Ok None)
+        let! accountParentId =
+            input.filter.accountParentCode
+            |> Option.map (fun x -> x |> LookupCache.accountCodeToId.fetch)
+            |> Option.map (Result.map Some)
+            |> Option.defaultValue (Ok None)
+        let temporalFilter = input.filter.temporalFilter |> Option.map (fun x ->
+            match x with
+            | FiscalPeriodId y -> AccountActivity.AccountActivityTemporalFilter.FiscalPeriodId y
+            | DateRange z -> AccountActivity.AccountActivityTemporalFilter.DateRange { beginDate = z.beginDate; endInclusive = z.endInclusive } )
+        let sort = input.sort |> Option.map (fun x -> 
+            match x with
+            | AccountCode -> AccountActivity.AccountActivitySort.AccountCode
+            | EntryDate -> AccountActivity.AccountActivitySort.EntryDate )
+        let filter:AccountActivity.AccountActivityFilter = {
+                                               accountId = accountId
+                                               temporalFilter = temporalFilter
+                                               source = input.filter.source
+                                               accountType = input.filter.accountType
+                                               accountSubtype = input.filter.accountSubtype
+                                               accountParentId = accountParentId
+                                               journalEntryId = input.filter.journalEntryId
+                                               unVoidedOnly = input.filter.unVoidedOnly }
+        let! fetched = AccountActivity.fetchFiltered None filter sort
+        let! returnList = 
+            fetched
+            |> List.map (fun x ->
+                result {
+                    let! parentCodeOption =
+                            match x.accountParentId with
+                            | None -> Ok None
+                            | Some pid -> pid |> LookupCache.accountIdToCode.fetch |> Result.map Some
+                    let detail = x.activityDetail |> Option.map(fun d -> {
+                        lineId = d.lineId; amount = d.amount; lineType = d.lineType; lineMemo = d.lineMemo
+                        lineCreatedAt = d.lineCreatedAt; lineModifiedAt = d.lineModifiedAt; journalEntryId = d.journalEntryId
+                        entryDate = d.entryDate; journalEntryDescription = d.journalEntryDescription
+                        journalEntrySource = d.journalEntrySource; journalEntryVoidedAt = d.journalEntryVoidedAt; })
+                    return {  accountCode = x.accountCode; accountName = x.accountName; accountType = x.accountType
+                              accountSubtype = x.accountSubtype; accountParentCode = parentCodeOption
+                              accountExternalRef = x.accountExternalRef; activityDetail = detail }
+                } )
+            |> ListHelper.listOfResultsToResultsList
+        return! returnList |> Json.toJson<AccountActivityReturn list>
+    }
+
+let private accountBalancesFetch payload _ =
+    result {
+        let! input = Json.fromJson<AccountBalanceFetchByAccountListInput> payload
+        let! accountList =
+            input.codes
+            |> List.map (fun x -> x |> LookupCache.accountCodeToId.fetch )
+            |> ListHelper.listOfResultsToResultsList
+        let! accountBalances = accountList |> AccountBalance.fetchByAccountIdList None
+        let! returnList =
+            accountBalances
+            |> List.map (fun accountBalance ->
+                let codeResult = accountBalance.accountId |> LookupCache.accountIdToCode.fetch
+                match codeResult with
+                | Error _ -> Error $"The returned account ID {accountBalance.accountId} does not match any database rows."
+                | Ok c -> Ok {  accountCode = c
+                                totalCredits =  accountBalance.totalCredits |> MoneyModule.amount
+                                totalDebits = accountBalance.totalDebits |> MoneyModule.amount
+                                netBalance = accountBalance.netBalance |> MoneyModule.amount } )
+            |> ListHelper.listOfResultsToResultsList
+        return! returnList |> Json.toJson<AccountBalanceReturn list>
+    }
+
 let accountDomainCommandRoutes = [
     // create
     { domain = "Account"; verb = "Create"; description = "Create a new account and insert it into the database"
-      inputType = typeof<AccountCreateInput>.Name; outputType = typeof<AccountReturn>.Name; handler =  accountCreate }
+      inputType = typeof<AccountCreateInput>.Name; outputType = typeof<AccountReturn>.Name; handler = accountCreate }
     // read
     { domain = "Account"; verb = "FetchByCode"; description = "Returns the Account record matching the passed in account code string"
-      inputType = typeof<AccountFetchByCodeInput>.Name; outputType = typeof<AccountReturn>.Name; handler =  accountFetchByCode }
+      inputType = typeof<AccountFetchByCodeInput>.Name; outputType = typeof<AccountReturn>.Name; handler = accountFetchByCode }
     { domain = "Account"; verb = "FetchByParentCode"; description = "Returns all Account records whose parent account matches the passed in account code"
-      inputType = typeof<AccountFetchByParentCodeInput>.Name; outputType = typeof<AccountReturn list>.Name; handler =  accountFetchByParentCode }
+      inputType = typeof<AccountFetchByParentCodeInput>.Name; outputType = typeof<AccountReturn list>.Name; handler = accountFetchByParentCode }
     { domain = "Account"; verb = "FetchByAccountType"; description = "Returns all Account records whose account type parameter matches the passed in account type string"
-      inputType = typeof<AccountFetchByAccountTypeInput>.Name; outputType = typeof<AccountReturn list>.Name; handler =  accountFetchByAccountType }
+      inputType = typeof<AccountFetchByAccountTypeInput>.Name; outputType = typeof<AccountReturn list>.Name; handler = accountFetchByAccountType }
     { domain = "Account"; verb = "FetchAll"; description = "Returns all Account records. If activeOnly is true, it filters on account records currently active (referencing system run time)"
-      inputType = typeof<AccountFetchAllInput>.Name; outputType = typeof<AccountReturn list>.Name; handler =  accountFetchAll }    
+      inputType = typeof<AccountFetchAllInput>.Name; outputType = typeof<AccountReturn list>.Name; handler = accountFetchAll }
+    { domain = "Account"; verb = "FetchActivity"; description = "Returns Account records and associated JE activity for a given filter"
+      inputType = typeof<AccountActivityFetchInput>.Name; outputType = typeof<AccountActivityReturn list>.Name; handler = accountActivityFetch }
+    { domain = "Account"; verb = "FetchBalances"; description = "Returns Account records and their aggregate balances"
+      inputType = typeof<AccountBalanceFetchByAccountListInput>.Name; outputType = typeof<AccountBalanceReturn list>.Name; handler = accountBalancesFetch }
     // update
     { domain = "Account"; verb = "Deactivate"; description = "Updates an account's active end parameter to a specific instant"
-      inputType = typeof<AccountDeactivationInput>.Name; outputType = typeof<AccountReturn>.Name; handler =  accountDeactivate }
+      inputType = typeof<AccountDeactivationInput>.Name; outputType = typeof<AccountReturn>.Name; handler = accountDeactivate }
     { domain = "Account"; verb = "UpdateName"; description = "Updates an account's name"
       inputType = typeof<AccountUpdateNameInput>.Name; outputType = typeof<AccountReturn>.Name; handler =  accountUpdateName }
     { domain = "Account"; verb = "UpdateExternalReference"; description = "Updates an account's external reference (or sets it to null)"
-      inputType = typeof<AccountUpdateExternalReferenceInput>.Name; outputType = typeof<AccountReturn>.Name; handler =  accountUpdateExternalReference }
+      inputType = typeof<AccountUpdateExternalReferenceInput>.Name; outputType = typeof<AccountReturn>.Name; handler = accountUpdateExternalReference }
 ]

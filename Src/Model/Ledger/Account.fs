@@ -122,7 +122,7 @@ module Account =
     /// how to map our query columns. Thus, we don't need to know anything about the
     /// underlying database architecture in this module and the DAL module doesn't
     /// need to know anything about our module here 
-    let mapRawForDbRead (row: RowReader)=
+    let private mapRawForDbRead (row: RowReader)=
             ( row |> RowReader.getUuid "unique_id" ),
             ( row |> RowReader.getString "code" ),
             ( row |> RowReader.getString "account_name" ),
@@ -135,7 +135,7 @@ module Account =
             ( row |> RowReader.getInstant "created_at" ),
             ( row |> RowReader.getInstant "modified_at" )
             
-    let constructFromRawForDbRead _transaction raw =
+    let private constructFromRawForDbRead _transaction raw =
         let (id, code, name, accounttType, activeBegin, activeEnd,
              subtype, parentId, extRef, createdAt, modifiedAt) = raw
         validateThenConstruct id code name accounttType activeBegin activeEnd

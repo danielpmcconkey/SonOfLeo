@@ -31,6 +31,30 @@ module InterfaceContractTypes =
         createdAt: Instant
         modifiedAt: Instant }
     
+    type AccountActivityDetailReturn = {  lineId: Guid
+                                          amount: decimal
+                                          lineType: string
+                                          lineMemo: string option
+                                          lineCreatedAt: Instant
+                                          lineModifiedAt: Instant 
+                                          journalEntryId: Guid
+                                          entryDate: LocalDate
+                                          journalEntryDescription: string
+                                          journalEntrySource: string option
+                                          journalEntryVoidedAt: Instant option }
+    
+    type AccountActivityReturn = {    accountCode: string
+                                      accountName: string
+                                      accountType: string
+                                      accountSubtype: string option
+                                      accountParentCode: string option
+                                      accountExternalRef: string option
+                                      activityDetail: AccountActivityDetailReturn option }
+    type AccountBalanceReturn = {   accountCode: string
+                                    totalCredits: decimal
+                                    totalDebits: decimal
+                                    netBalance: decimal }
+    
     // create
     type AccountCreateInput = { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
         code: string
@@ -46,6 +70,33 @@ module InterfaceContractTypes =
     type AccountFetchByParentCodeInput = { parentCode: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
     type AccountFetchByAccountTypeInput = { accountTypeSt: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
     type AccountFetchAllInput = { activeOnly: bool; } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+    type AccountActivitySortInput =
+        | AccountCode
+        | EntryDate
+    type AccountActivityFilterDateRangeInput = {
+        beginDate: LocalDate
+        endInclusive: LocalDate
+    }
+
+    type AccountActivityTemporalFilterInput =
+        | FiscalPeriodId of Guid
+        | DateRange of AccountActivityFilterDateRangeInput
+
+    type AccountActivityFilterInput = {
+        accountCode: string option
+        temporalFilter: AccountActivityTemporalFilterInput option
+        source: string option
+        accountType: string option
+        accountSubtype: string option
+        accountParentCode: string option
+        journalEntryId: Guid option
+        unVoidedOnly: bool
+    }
+    
+    type AccountActivityFetchInput = { filter: AccountActivityFilterInput; sort: AccountActivitySortInput option }
+    
+    type AccountBalanceFetchByAccountListInput = { codes: string list }
+    
     // update
     type AccountDeactivationInput = { code: string; activeEnd: LocalDate } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
     type AccountUpdateNameInput = { code: string; newName: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2

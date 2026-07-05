@@ -100,7 +100,7 @@ module JournalEntryHeader =
         ( row |> RowReader.getInstant "created_at" ),
         ( row |> RowReader.getInstant "modified_at" )
 
-    let constructFromRawForDbRead
+    let private constructFromRawForDbRead
             (transaction: DbTransaction option)
             raw
             : Result<JournalEntryHeader, string> =
