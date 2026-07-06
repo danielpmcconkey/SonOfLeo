@@ -18,7 +18,7 @@ Applies to command line, importing, reporting, API, etc. Any use case where an e
 - **REQ-NGUI-2.2** The UI domain types do not provide any business validation beyond which fields are required vs optional.
 - **REQ-NGUI-2.3** stricken
 - **REQ-NGUI-2.3.1** stricken
-- **REQ-NGUI-2.4** The interface layer will be responsible for marshalling / unmarshalling between UI domain types and their serialized format. No other layer in this system will be allowed to perform such conversions. (See Definitions)
+- **REQ-NGUI-2.4** The interface layer (see Definitions) will be responsible for marshalling / unmarshalling between UI domain types and their serialized format. No other layer in this system will be allowed to perform such conversions.
 
 ## 3. Command line interface
 
@@ -42,6 +42,7 @@ active requirement is either tested or in this table.
 |----------------|---|------------------|
 | REQ-NGUI-1.1 | It's too broadly scoped | Dan, 2026-06-18  |
 | REQ-NGUI-1.2 | There are no use cases that meet this yet | Dan, 2026-06-18 |
+| REQ-NGUI-1.4 | You can't test a negative and it's also quite clear by the interface contracts that codes are present | Dan, 2026-07-06 | 
 | REQ-NGUI-2.1   | It's too broadly scoped | Dan, 2026-06-18  |
 | REQ-NGUI-2.1.1 | It's too broadly scoped | Dan, 2026-06-18  |
 | REQ-NGUI-2.2   | It's too broadly scoped | Dan, 2026-06-18  |

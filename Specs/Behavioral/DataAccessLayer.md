@@ -23,6 +23,7 @@ Generic database functions: connecting, executing queries, parameterization, and
 - **REQ-DAL-1.17** All data access functions must fail with an error if the value of ConnectionStringEnvVar is not the name of a an actual environment variable, resolvable at runtime
 - **REQ-DAL-1.18** All data access functions must fail with an error if the resolved value of the ConnectionStringEnvVar environment variable is white-space only
 - **REQ-DAL-1.19** The system must trim the final connection string before attempting connection
+- **REQ-DAL-1.20** Each build configuration must define a unique ConnectionStringEnvVar value. The env var name used in Debug/Development must differ from the one used in Release/Production.
 
 ## 2. Query execution
 
@@ -39,22 +40,35 @@ Generic database functions: connecting, executing queries, parameterization, and
 - **REQ-DAL-3.3** There must be a distinct production database where testing and development activities are not permitted
 - **REQ-DAL-3.4** The database must default all character encoding to UTF-8.
 - **REQ-DAL-3.5** The database must default collation to "en_US.UTF-8".
-- **REQ-DAL-3.6** The system will generally not enforce business logic in the database layer outside of foreign key and unique key constraints. The application layer is responsible for all enforcement of legal data states. Therefore, it should be noted for all database administrators that granting write access to any table within this database should be kept to a minimum. Caveat emptor.  
+- **REQ-DAL-3.6** The system will generally not enforce business logic in the database layer outside of foreign key and unique key constraints. The application layer is responsible for all enforcement of legal data states. Therefore, it should be noted for all database administrators that granting write access to any table within this database should be kept to a minimum. Caveat emptor.
+- **REQ-DAL-3.7** The database may never be the originator of temporal values (no use of now() in any defaults, triggers, stored procedures, etc.).
+
+
+## Waived from testing
+
+Active requirements that are deliberately not verified by tests. Two-state rule: every
+active requirement is either tested or in this table.
+
+| ID | Reason testing is waived | Approved |
+|---|---|---|
+| REQ-DAL-1.20 | It's a build-configuration fact, not something we can dynamically test. I've manually verified it works | Dan, 2026-07-06 |
+| REQ-DAL-3.7 | It's impossible to test that a behavior isn't present | Dan, 2026-07-06 |
+
 
 ## Withdrawn
 
-| ID          | Original Requirement | Reason                                                                                                |
-|-------------|----------------------|-------------------------------------------------------------------------------------------------------|
+| ID | Original Requirement | Reason |
+| --- | --- | --- |
 | REQ-DAL-1.1 | The environment variable LEOBLOOM_ENV must be in place or all data access functions must fail with an error | LEOBLOOM_ENV eliminated; environment selection moved to build configuration (Debug→Dev, Release→Prod) |
-| REQ-DAL-1.2 | The environment variable LEOBLOOM_ENV will be used to determine which external configuration file to use (Production vs Development vs...) | Same as REQ-DAL-1.1                                                                                   |
-| REQ-DAL-1.4 | The external configuration file must define a connection string named "SonOfLeo" that the system must use to connect to the database | Config file now holds an env var name (ConnectionStringEnvVar), not a connection string               |
-| REQ-DAL-1.5 | If the system cannot access the "SonOfLeo" connection string configuration, all data access functions must fail with an error | rearchitected the connection string process                                                           |
-| REQ-DAL-1.6 | If the "SonOfLeo" connection string configuration is empty or all white space, all data access functions must fail with an error | rearchitected the connection string process                                                           |
-| REQ-DAL-1.7 | The environment variable LEOBLOOM_DB_PASSWORD must be in place or all data access functions must fail with an error | rearchitected the connection string process                                                           |
-| REQ-DAL-1.8 | Any connection string in this system must use a parameter to represent the database password that will only be resolved at runtime when the system will read the password from a configured secret vault or environment variable | rearchitected the connection string process                                                           |
-| REQ-DAL-1.9 | The system will "inject" the environment variable LEOBLOOM_DB_PASSWORD contents into the final connection string at run-time | rearchitected the connection string process                                                           |
-| REQ-DAL-1.10 | The system will trim leading and trailing white space from the LEOBLOOM_DB_PASSWORD environment variable | rearchitected the connection string process                                                           |
-| REQ-DAL-1.11 | If the trimmed LEOBLOOM_DB_PASSWORD environment variable is empty, all data access functions must fail with an error | rearchitected the connection string process                                                           |
-| REQ-DAL-1.12 | The system will trim leading and trailing white space from the LEOBLOOM_ENV environment variable | rearchitected the connection string process                                                           |
-| REQ-DAL-1.13 | If the trimmed LEOBLOOM_ENV environment variable is empty, all data access functions must fail with an error | rearchitected the connection string process                                                           |
+| REQ-DAL-1.2 | The environment variable LEOBLOOM_ENV will be used to determine which external configuration file to use (Production vs Development vs...) | Same as REQ-DAL-1.1 |
+| REQ-DAL-1.4 | The external configuration file must define a connection string named "SonOfLeo" that the system must use to connect to the database | Config file now holds an env var name (ConnectionStringEnvVar), not a connection string |
+| REQ-DAL-1.5 | If the system cannot access the "SonOfLeo" connection string configuration, all data access functions must fail with an error | rearchitected the connection string process |
+| REQ-DAL-1.6 | If the "SonOfLeo" connection string configuration is empty or all white space, all data access functions must fail with an error | rearchitected the connection string process |
+| REQ-DAL-1.7 | The environment variable LEOBLOOM_DB_PASSWORD must be in place or all data access functions must fail with an error | rearchitected the connection string process |
+| REQ-DAL-1.8 | Any connection string in this system must use a parameter to represent the database password that will only be resolved at runtime when the system will read the password from a configured secret vault or environment variable | rearchitected the connection string process |
+| REQ-DAL-1.9 | The system will "inject" the environment variable LEOBLOOM_DB_PASSWORD contents into the final connection string at run-time | rearchitected the connection string process |
+| REQ-DAL-1.10 | The system will trim leading and trailing white space from the LEOBLOOM_DB_PASSWORD environment variable | rearchitected the connection string process |
+| REQ-DAL-1.11 | If the trimmed LEOBLOOM_DB_PASSWORD environment variable is empty, all data access functions must fail with an error | rearchitected the connection string process |
+| REQ-DAL-1.12 | The system will trim leading and trailing white space from the LEOBLOOM_ENV environment variable | rearchitected the connection string process |
+| REQ-DAL-1.13 | If the trimmed LEOBLOOM_ENV environment variable is empty, all data access functions must fail with an error | rearchitected the connection string process |
 | REQ-DAL-3.2.2 | An exception to REQ-DAL-3.2 is that customer-facing applications (e.g.: SonOfLeoCli) will need to create RDBMS-specific connection strings in their external configurations | Connection strings moved to environment variables; config files no longer hold them |

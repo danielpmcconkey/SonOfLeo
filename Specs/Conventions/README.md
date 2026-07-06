@@ -17,3 +17,5 @@ should need every convention in context for every prompt.
   half-up rounding, exact allocation, and arithmetic boundaries
 - [Build & environment](BuildAndEnvironment.md) — environment separation, debug/release
   access rules, and building in the BD container without breaking Rider on the host
+- [Doctrines](Doctrines.md) — coding doctrines for BD handoff: validateThenConstruct,
+  validation layers, persistence gate. Teaching document, not a spec-level convention.

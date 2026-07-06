@@ -103,6 +103,22 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
 
     [<Fact>]
+    member _.``REQ-AC-4.4 deactivateAccount rejects when balance is non-zero`` () =
+        let envelope = AuditEnvelope.create AccountDeactivation
+        let goodActiveEnd = Some (Calendar.today())
+
+        let transaction = DAL.createDbTransaction() |> Result.defaultWith failwith
+
+        try
+            let deactivationResult =
+                fixture.Data.mortgage2210Id
+                |> deactivateAccountById goodActiveEnd envelope (Some transaction)
+            Assert.True(Result.isError deactivationResult,
+                "Account deactivation was allowed to succeed with a non-zero balance")
+        finally
+            DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
+
+    [<Fact>]
     member _.``REQ-AC-4.5 deactivateAccount rejects already deactivated account`` () =
         let envelope = AuditEnvelope.create AccountDeactivation
         let activeEnd = Some (Calendar.today().PlusDays(1))

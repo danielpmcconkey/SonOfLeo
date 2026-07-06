@@ -14,10 +14,10 @@ How the system handles Money values (see Definitions)
 - **REQ-MON-2.1** Functions that are intended to operate on or with values that meet the Definitions.md definition for "Money (as a variety of number)" must only take explicit Money type arguments and must only return explicit Money type values.
 - **REQ-MON-2.1.1** Exceptions are explicitly designed boundary functions that interface with primitives from other systems, layers, etc.
 - **REQ-MON-2.2** The system must allow the conversion of a .NET decimal type into a Money type.
-- **REQ-MON-2.2.1** The system must validate that all requirements from section 1 are met when doing so.
+- **REQ-MON-2.2.1** The system must validate that all requirements from section 1 are met when doing so. (Except 1.1, which is unenforceable)
 - **REQ-MON-2.3** The system must allow the conversion of a collection of .NET decimals type into a collection of Money types.
 - **REQ-MON-2.3.1** The system must validate that all requirements from section 1 are met when doing so.
-- **REQ-MON-2.3.2** The system will preserve the sort order when doing so.
+- **REQ-MON-2.3.2** The system will preserve the sort / positional order when doing so.
 - **REQ-MON-2.4** The system will provide a means for other system functions to split a Money value N ways
 - **REQ-MON-2.4.1** The system must validate that the sum of the split shares is exactly equal to the original pre-split amount 
 - **REQ-MON-2.4.2** The system will reject any attempt to split zero ways

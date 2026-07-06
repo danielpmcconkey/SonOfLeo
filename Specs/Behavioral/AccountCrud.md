@@ -82,7 +82,6 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-2.18** When creating an Account record, the system will validate that any non-null "active end" is not earlier than the provided "active begin" (equality permitted, per REQ-AC-1.46).
 - **REQ-AC-2.19** stricken
 - **REQ-AC-2.20** When creating an Account with a parent ID, the child's AccountType must match the parent's AccountType.
-- **REQ-AC-2.20.1** Note, since moving to code-based UI, the "caller of the function" in the above is an internal application layer function only. The requirement still applies.
 - **REQ-AC-2.21** The system must provide a means to create a new account
 
 
@@ -100,7 +99,7 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-3.6.1** stricken
 - **REQ-AC-3.7** The system must be able to retrieve all Account records without filter
 - **REQ-AC-3.8** stricken
-- **REQ-AC-3.9** The system must be able to retrieve all active Account records relative to the current date (the Eastern calendar date of system run time)
+- **REQ-AC-3.9** The system must be able to retrieve all active Account records relative to the current date (anchored to a US Eastern Time interpretation of the calendar date associated to the system run time)
 - **REQ-AC-3.10** The system must be able to retrieve all child records of an Account by the caller providing that parent record's Account Code string.
 
 ## 4. Update behaviors
@@ -152,6 +151,12 @@ active requirement is either tested or in this table.
 | REQ-AC-2.17 | Validating "active begin" is not AccountCrud's responsibility — the requirement assigns that responsibility to the caller. There is no AccountCrud behavior to test.                                                                      | Dan, 2026-06-11 |
 | REQ-AC-4.22 | A negative existence claim over the entire API surface ("no function exposes an update path for these fields") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-06-11 |
 | REQ-AC-5.1  | A negative existence claim over the entire API surface ("no function exposes a hard delete") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface.                  | Dan, 2026-06-11 |
+| REQ-AC-1.21 | Account ID is a Guid (value type) — cannot be null | Dan, 2026-07-06 |
+| REQ-AC-1.22 | Account ID is a system-generated UUID — uniqueness is structurally guaranteed | Dan, 2026-07-06 |
+| REQ-AC-1.23 | Account type is a discriminated union — cannot be null | Dan, 2026-07-06 |
+| REQ-AC-1.37 | Parent ID is an Option type — nullability is inherent in the type | Dan, 2026-07-06 |
+| REQ-AC-1.41 | External reference is an Option type — nullability is inherent in the type | Dan, 2026-07-06 |
+| REQ-AC-1.44 | Active begin is a NodaTime LocalDate (value type) — cannot be null | Dan, 2026-07-06 |
 
 ## Withdrawn
 

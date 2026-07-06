@@ -48,8 +48,9 @@ domain-level decision, made in each entity's spec (for Accounts, see REQ-AC-5.1)
 Active requirements that are deliberately not verified by tests. Two-state rule: every
 active requirement is either tested or in this table.
 
-None currently.
-
+| ID | Reason testing is waived | Approved |
+|---|---|---|
+| REQ-SYS-6.1 | This is a general requirement. Testing should be enforced by every individual write operation with a no-op possibility | Dan, 2026-07-06 |
 
 ## Withdrawn
 

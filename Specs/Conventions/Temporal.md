@@ -36,6 +36,10 @@ Temporal arithmetic with instances involving days is discouraged. Feature design
 
 Calendar arithmetic with dates may only ever involve years, months, or days.
 
+If the system ever needs to convert an instant to a calendar date, it should anchor to US Eastern Time (NYC). Ex: 2026-07-06 02:00 UTC would convert to 2026-07-05 because, at that instant it was still July 5, 10PM in NYC.
+
+> Note: converting from an instant to a calendar date should be rare in the sense that we should have very few and very deliberate points in our code that do this. Ex: checking that an account is active as of "today" is a frequent enough activity, but it's a single use case that relies on the centralized Calendar module's today() function (which should be reused for other such use cases). Bottom line, always question whether you're doing the right thing when you think you need to convert an instant to a date. 
+
 
 
 ## Calendar periods

@@ -11,7 +11,7 @@ The domain portion of a requirements ID is an all-caps unique identifier for the
 
 ### Number
 The number portion of a requirements ID must be unique to the domain (only 1 AC-1.5 but you can have AC-1.5 and LOG-1.5). The numbers increment like software versions (the next number after 2.9 is 2.10, not 3.0) and any "sub dot" number is assumed to be applicable only to its parent. Example:
-- REQ-AC-1.48 An Account record is considered "deactivated" (or "inactive") when its "active end" date is non-null and is earlier than or equal to a given reference point in time.
+- REQ-AC-1.48 An Account record is considered "deactivated" (or "inactive") when its "active end" date is non-null and is earlier than a given reference date (the active-end date itself is still active — the boundary is inclusive).
 - REQ-AC-1.48.1 The reference point is context-dependent: it may be the current system clock or a date specific to the operation (e.g., a transaction's entry date). Each requirement that references deactivation status must specify which reference point applies.
 
 In the above example, 1.48.1 is only applicable when in the context of determining whether an Account is active
