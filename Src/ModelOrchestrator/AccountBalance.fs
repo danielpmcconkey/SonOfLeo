@@ -66,7 +66,7 @@ let fetchByAccountIdList // REQ-JE-3.6
             left join ledger.journal_entry_line jel on ant.account_id = jel.account_id
                 and ant.line_type = jel.line_type
             left join ledger.journal_entry je on jel.journal_entry_id = je.unique_id
-                and je.voided_at is null
+            where je.voided_at is null
             group by 
                 ant.account_id,
                 ant.line_type

@@ -29,7 +29,8 @@ type AccountBalanceTests(fixture: TestDataFixture) =
             // entertainment5650 has 75 debit from the voided JE (excluded) plus
             // 33 x 4 from void victims (included until those tests run).
             // The voided JE's 75 must NOT be in the total.
-            Assert.True(debitAmount < 75M + 33M * 4M + 75M)
+            let expected = 33M * 4M
+            Assert.Equal(expected, debitAmount)
         | Error e -> Assert.Fail e
 
     [<Fact>]

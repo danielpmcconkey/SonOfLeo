@@ -11,6 +11,7 @@ open Model.Ledger.JournalEntryPrimitives
 open Model.UI
 open ModelOrchestrator.JournalEntryVoiding
 open Utilities
+open Utilities.DAL
 open Utilities.ResultCE
 open InterfaceContractTypes
     
@@ -232,7 +233,13 @@ let private updateComment payload _ =
     result {
         let! input = Json.fromJson<JournalEntryUpdateCommentInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create JournalEntryUpdateComment
-        let! model = JournalEntryComment.updateComment envelope input.id input.commentText input.secondaryJournalEntryId None
+        let! (validComment:FieldUpdate<CommentText>) =
+            match input.commentText with
+            | NoChange -> Ok NoChange
+            | SetTo x ->    x
+                            |> CommentText.create
+                            |> Result.map SetTo
+        let! model = JournalEntryComment.updateComment envelope input.id validComment input.secondaryJournalEntryId None
         let returnVal = convertJournalEntryCommentToReturn model
         return! Json.toJson<JournalEntryCommentReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }

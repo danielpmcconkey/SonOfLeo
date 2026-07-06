@@ -1,6 +1,7 @@
 namespace Tests.Integrated.SonOfLeoCli
 
 open System
+open Utilities.DAL
 open Xunit
 open Tests.Integrated
 open Tests.Integrated._Cleanup
@@ -299,8 +300,8 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         let railroad = result {
             let updateInput : JournalEntryUpdateCommentInput =
                 { id = fixture.Data.cliUpdateVictimCommentId
-                  secondaryJournalEntryId = None
-                  commentText = "CLI updated comment text" }
+                  secondaryJournalEntryId = NoChange
+                  commentText = SetTo "CLI updated comment text" }
             let! payload = updateInput |> toJson<JournalEntryUpdateCommentInput>
             let code, stdout, e = runCli ["JournalEntry"; "UpdateComment"] payload
             do! if code <> 0 then Error $"UpdateComment returned non-zero: {e}" else Ok ()
@@ -311,3 +312,33 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail e
+
+
+
+    [<Fact>]
+    member _.``REQ-JE-5.3 updateComment rejects empty text`` () =
+        // wiring test only — component-level rejection coverage lives in
+        // Tests.Isolated (REQ-JE-1.54)
+        
+        let mutable idToCleanUp = None
+        let expected = "CommentText cannot be empty"
+        try
+            let railroad = result {
+                let updateInput : JournalEntryUpdateCommentInput =
+                    { id = fixture.Data.cliUpdateVictimCommentId
+                      secondaryJournalEntryId = NoChange
+                      commentText = SetTo "" }
+                let! payload = updateInput |> toJson<JournalEntryUpdateCommentInput>
+                let code, _, e = runCli ["JournalEntry"; "UpdateComment"] payload
+                do! if code = 0 then Error "UpdateComment returned a success code when it shouldn't have" else Ok ()
+                
+                Assert.Equal(expected, e.Trim())
+                return ()
+            }
+            match railroad with
+            | Ok _ -> ()
+            | Error e -> Assert.Fail e
+        finally
+            match cleanUpJournalEntryCommentId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith e

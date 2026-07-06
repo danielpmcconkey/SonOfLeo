@@ -373,28 +373,6 @@ module Account =
             return validAccount
         }
 
-    /// constructNewAndSaveToDb is used where you want to construct a net new Account
-    /// and insert it into the DB in one operation   
-    // let constructNewAndSaveToDbUsingParentCode
-    //         (code: string)
-    //         (accountName: string)
-    //         (accountTypeSt: string)
-    //         (activeBegin: LocalDate)
-    //         (activeEnd: LocalDate option)
-    //         (subType: string option)
-    //         (parentCode: string option)
-    //         (reference: string option)
-    //         (auditEnvelope: AuditEnvelope)
-    //         (transaction: DbTransaction option)
-    //         : Result<Account, string> =
-    //     result {
-    //         let! parentIdOption = parentCode |> fetchIdOptionByCodeOption
-    //         return!
-    //             constructNewAndSaveToDbUsingParentId
-    //                 code accountName accountTypeSt activeBegin activeEnd
-    //                 subType parentIdOption reference auditEnvelope transaction
-    //     }
-
     let updateAccountNameById
             (accountId: Guid)
             (newName: string)
@@ -406,17 +384,6 @@ module Account =
             let! newAccount = updateDb accountId (SetTo validAccountName) NoChange auditEnvelope transaction
             return newAccount
         }
-
-    // let updateAccountNameByCode
-    //         (code: string)
-    //         (newName: string)
-    //         (auditEnvelope: AuditEnvelope)
-    //         (transaction: DbTransaction option)
-    //         : Result<Account, string> =
-    //     result {
-    //         let! fetchedId = code |> fetchIdByCode
-    //         return! updateAccountNameById fetchedId newName auditEnvelope transaction
-    //     }
 
     let updateExternalReferenceById 
             (accountId: Guid)
@@ -432,14 +399,3 @@ module Account =
             let! newAccount = updateDb accountId NoChange (SetTo validRef) auditEnvelope transaction
             return newAccount
         }
-
-    // let updateExternalReferenceByCode
-    //         (code: string)
-    //         (newReference: string option)
-    //         (auditEnvelope: AuditEnvelope)
-    //         (transaction: DbTransaction option)
-    //         : Result<Account, string> =
-    //     result {
-    //         let! fetchedId = code |> fetchIdByCode 
-    //         return! updateExternalReferenceById fetchedId newReference auditEnvelope transaction
-    //     }

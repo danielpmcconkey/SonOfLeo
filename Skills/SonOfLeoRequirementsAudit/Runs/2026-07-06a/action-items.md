@@ -80,3 +80,54 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | 46 | CQ-6 | Doctrines validateThenConstruct vs value-object create naming gap | Doctrines says "entity" which Definitions.md defines. Doctrines needs reframing eventually but not today | DEFERRED |
 | 47 | CQ-7 | Doctrines says "create" is anti-pattern, Naming says use "create" | Same as CQ-6 — Doctrines reframing | DEFERRED |
 | 48 | CQ-8 | Money.md split residual looser than REQ-MON-2.4.5 | Requirements are allowed to be stricter than conventions | OVERRULED |
+
+## Phase 3 — Code Truthfulness
+
+### High
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 49 | ORCH-1 | Voided entries included in balance sums — LEFT JOIN trap | Dan fixed query (WHERE instead of JOIN condition) | RESOLVED |
+| 50 | TT-01 | Balance test assertion too loose to catch ORCH-1 | Dan fixed — exact expected value assertion | RESOLVED |
+
+### Medium
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 51 | ML-1 | FiscalPeriod.validateThenConstruct is public (should be private) | Dan fixed | RESOLVED |
+| 52 | ML-2 | updateComment can't clear secondary link to null (REQ-JE-1.56 unreachable) | Dan fixed — FieldUpdate<Guid option> wired in | RESOLVED |
+| 53 | ML-3 | updateComment secondary re-pointing bypasses REQ-JE-1.53 self-link check | Dan fixed — validatePrimaryAndSecondaryRelationship runs before write | RESOLVED |
+| 54 | TT-05 | REQ-JE-1.56 (repoint/clear secondary link) untested and unwaived | Write tests: repoint to different JE, clear to None | CONFIRMED |
+| 55 | ORCH-2 | REQ-JE-3.9 ordering is optional, not enforced | Dan updated REQ-JE-3.9 wording | RESOLVED |
+| 56 | ORCH-3 | Line-count/balance checks run after DB writes (REQ-SYS-2.1.1) | Auditor misread REQ-SYS-2.1.1 — "entity's own properties" does not apply to cross-line composite checks | OVERRULED |
+| 56a | — | Audit skill: agents cite requirements without reading them | Update prompts: when citing a requirement as justification for a finding, quote the relevant text and verify the finding matches what the requirement actually says | CONFIRMED |
+| 57 | TMC-1 | JE UI contract types missing NGUI-2.1/2.1.1/2.2 annotations | | |
+| 58 | TT-02 | Shared fixture makes entertainment5650's balance order-dependent | | |
+| 59 | TT-03 | Fixture staging commits row-by-row; mid-stage failure wedges DB | Move TRUNCATE CASCADE to constructor top (pre-stage) instead of Dispose — self-healing on dirty DB | CONFIRMED |
+| 60 | TT-04 | REQ-JE-3.4 reinstated but untested/unwaived | | |
+| 61 | TT-06 | ~17 active DAL requirements neither tested nor waived | | |
+| 62 | GAP-CLI-1 | REQ-NGUI-1.5 enforced but unannotated at Account code-lookup sites | | |
+| 63 | GAP-CLI-2 | Activity/balance handlers missing NGUI-2.4/3.5 marshalling annotations | | |
+| 64 | INC-CLI-1 | Means-to REQ annotations applied inconsistently across CLI handlers | | |
+| 65 | — | Talk to BD about "consumable fixture victim" test pattern | Horseshit pattern — discuss alternatives | CONFIRMED |
+
+### Low
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 66 | UTIL-1 | Clock.now uses DateTimeOffset instead of NodaTime SystemClock | | |
+| 67 | UTIL-2 | DAL parameterization missing REQ-DAL-2.1/2.3 annotations | | |
+| 68 | TMC-2 | fromDecimalList missing REQ-MON-2.3.1/2.3.2 annotations | | |
+| 69 | TMC-3 | REQ-DAL-2.3 incorrectly annotated on UUID lookups (not user input) | | |
+| 70 | ML-4 | Dangling // REQ- annotation with no ID in JournalEntryLine.fs | | |
+| 71 | ML-5 | fetchAll missing REQ-AC-3.7/3.9 annotations | | |
+| 72 | ML-6 | Composite reqs (JE-2.8, 1.12, 1.13) — verify orchestrator enforces them | | |
+| 73 | ORCH-4 | fetchByPeriod missing REQ-JE-3.3 annotation | | |
+| 74 | ORCH-5 | validateNoNewVoidedEntries missing annotation | | |
+| 75 | ORCH-6 | fetchHeaderIdsByReference missing REQ-DAL-2.3 annotation | | |
+| 76 | TRU-CLI-1 | REQ-NGUI-1.3.1 annotation overclaims (no stack trace at that site) | Related to action item #25 (ex.Message swallows stack trace) | |
+| 77 | TT-07 | REQ-AC-4.6 untested | Duplicate of SD-02 (#2) | RESOLVED |
+| 78 | TT-08 | REQ-AC-1.40 and 3.3 untested | Duplicate of SD-05 (#6) | RESOLVED |
+| 79 | TT-09 | REQ-JE-1.11 test can't exercise its named condition | | |
+| 80 | TT-10 | REQ-JE-2.4 test uses UUID not code — weaker than requirement | | |
+| 81 | TT-11 | SystemWide sub-clauses bookkeeping gaps | | |

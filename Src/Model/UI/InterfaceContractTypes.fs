@@ -2,6 +2,7 @@ namespace Model.UI
 
 open System
 open NodaTime
+open Utilities.DAL
 
 module InterfaceContractTypes =
 
@@ -197,7 +198,7 @@ module InterfaceContractTypes =
     type JournalEntryUpdateExternalReferenceInput = { id: Guid; fi: string; reference: string }
     type JournalEntryAddExternalReferenceInput = { journalEntryId: Guid; reference: JournalEntryExternalReferenceInput }
     type JournalEntryAddCommentInput = { journalEntryId: Guid; comment: JournalEntryCommentInput }
-    type JournalEntryUpdateCommentInput = { id: Guid; secondaryJournalEntryId: Guid option; commentText: string }
+    type JournalEntryUpdateCommentInput = { id: Guid; secondaryJournalEntryId: FieldUpdate<Guid option>; commentText: FieldUpdate<string> }
     type JournalEntryFetchByDateRangeInput = { beginDate: LocalDate; endDateInclusive: LocalDate }
     
 

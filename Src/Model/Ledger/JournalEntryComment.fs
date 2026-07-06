@@ -176,25 +176,35 @@ module JournalEntryComment =
     let updateComment // REQ-JE-5.3
             (auditEnvelope: AuditEnvelope)
             (uniqueId: Guid)
-            (newText: string)
-            (secondaryJournalEntryId: Guid option)
+            (commentUpdate: FieldUpdate<CommentText>)
+            (secondaryIdUpdate: FieldUpdate<Guid option>)
             (transaction: DbTransaction option)
-            : Result<JournalEntryComment, string> =                
+            : Result<JournalEntryComment, string> =        
         let baseParams = [
             { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3 
             { name = "@unique_id"; value = UniqueId uniqueId };
         ]
         result {
-            let! validCommentText = CommentText.create newText
-            let validatedCommentTextString = validCommentText |> CommentText.value
+            let! validSecondaryId =
+                match secondaryIdUpdate with
+                    | NoChange -> Ok NoChange
+                    | SetTo x ->
+                         x
+                         |> validatePrimaryAndSecondaryRelationship uniqueId
+                         |> Result.map (fun _ -> SetTo x)
             let updates =
                 [
-                    Some (", comment_text = @comment_text", { name = "@comment_text"; value = CharString validatedCommentTextString })
-                    match secondaryJournalEntryId with
-                    | None -> None
-                    | Some x ->
+                    match commentUpdate with
+                    | NoChange -> None
+                    | SetTo x ->
+                        Some (", comment_text = @comment_text",
+                              { name = "@comment_text"; value = CharString (x |> CommentText.value) })
+                    
+                    match validSecondaryId with
+                    | NoChange -> None
+                    | SetTo x ->
                         Some (", journal_secondary_entry_id = @journal_secondary_entry_id",
-                              { name = "@journal_secondary_entry_id"; value = NullableUniqueId (Some x) })
+                              { name = "@journal_secondary_entry_id"; value = NullableUniqueId x })
                 ] |> List.choose id
             let setClauses = updates |> List.map fst |> String.concat ""
             let parameters = baseParams @ (updates |> List.map snd)

@@ -96,7 +96,9 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-3.6** The system must be able to compute and return the total debit amount, total credit amount, and net balance (credits minus debits) for a given account's non-voided journal entry lines (per REQ-JE-4.7).
 - **REQ-JE-3.7** The system must be able to retrieve all journal entries whose entry date falls within a caller-provided date range (start date and end date, both inclusive Calendar Dates). The result is a set of complete journal entries (per REQ-JE-3.1).
 - **REQ-JE-3.8** The system must be able to retrieve all journal entries carrying at least one external reference whose source FI matches a caller-provided value. Unlike REQ-JE-3.5, this requires only the FI — no reference value. The result is a set of complete journal entries (per REQ-JE-3.1).
-- **REQ-JE-3.9** The system must be able to retrieve all journal entry lines for a given account, enriched with their parent entry's `entry_date`, `description`, `source`, and `voided_at`. At the boundary the account is identified by code; the internal capability is by UUID. The caller may filter to non-voided entries only (per REQ-JE-4.7). The result is ordered by entry date. The enriched fields are a boundary-only return type — the domain model is unchanged.
+- **REQ-JE-3.9** The system must be able to retrieve all journal entry lines for a given account, enriched with their parent entry's `entry_date`, `description`, `source`, and `voided_at`. 
+- **REQ-JE-3.9.1** The caller may filter to non-voided entries only (per REQ-JE-4.7). The result is ordered by entry date. The enriched fields are a boundary-only return type — the domain model is unchanged.
+- **REQ-JE-3.9.3** The result can be ordered by entry date or account code at the caller's choosing.
 
 
 ## 4. Update and void behaviors

@@ -25,7 +25,7 @@ module FiscalPeriod =
     let createdAt fp = fp.createdAt
     let modifiedAt fp = fp.modifiedAt
     
-    let validateThenConstruct 
+    let private validateThenConstruct 
                 (uniqueId: Guid) // REQ-FP-1.6
                 (periodKey: string) // REQ-FP-1.1
                 (isOpen: bool) // REQ-FP-1.8
