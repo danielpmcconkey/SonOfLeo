@@ -27,8 +27,8 @@ module MoneyModule =
     
     let fromDecimalList (l: decimal list) : Result<MoneyRecord list, string> = // REQ-MON-2.3
         l
-        |> List.map fromDecimal
-        |> listOfResultsToResultsList
+        |> List.map fromDecimal // REQ-MON-2.3.1
+        |> listOfResultsToResultsList// REQ-MON-2.3.2 (fold back enables the order preservation)
     
     /// splitByN allows the caller to split a Money amount into N mostly-equal parts
     /// and returns a list of valid Money records. It is important to note that, in

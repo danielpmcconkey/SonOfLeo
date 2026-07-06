@@ -101,33 +101,35 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | 55 | ORCH-2 | REQ-JE-3.9 ordering is optional, not enforced | Dan updated REQ-JE-3.9 wording | RESOLVED |
 | 56 | ORCH-3 | Line-count/balance checks run after DB writes (REQ-SYS-2.1.1) | Auditor misread REQ-SYS-2.1.1 — "entity's own properties" does not apply to cross-line composite checks | OVERRULED |
 | 56a | — | Audit skill: agents cite requirements without reading them | Update prompts: when citing a requirement as justification for a finding, quote the relevant text and verify the finding matches what the requirement actually says | CONFIRMED |
-| 57 | TMC-1 | JE UI contract types missing NGUI-2.1/2.1.1/2.2 annotations | | |
-| 58 | TT-02 | Shared fixture makes entertainment5650's balance order-dependent | | |
+| 57 | TMC-1 | JE UI contract types missing NGUI-2.1/2.1.1/2.2 annotations | Dan fixed | RESOLVED |
+| 58 | TT-02 | Shared fixture makes entertainment5650's balance order-dependent | Covered by #65 — no tests should mutate fixtures without rollback or self-cleanup; each should create its own data | CONFIRMED |
 | 59 | TT-03 | Fixture staging commits row-by-row; mid-stage failure wedges DB | Move TRUNCATE CASCADE to constructor top (pre-stage) instead of Dispose — self-healing on dirty DB | CONFIRMED |
-| 60 | TT-04 | REQ-JE-3.4 reinstated but untested/unwaived | | |
-| 61 | TT-06 | ~17 active DAL requirements neither tested nor waived | | |
-| 62 | GAP-CLI-1 | REQ-NGUI-1.5 enforced but unannotated at Account code-lookup sites | | |
-| 63 | GAP-CLI-2 | Activity/balance handlers missing NGUI-2.4/3.5 marshalling annotations | | |
-| 64 | INC-CLI-1 | Means-to REQ annotations applied inconsistently across CLI handlers | | |
-| 65 | — | Talk to BD about "consumable fixture victim" test pattern | Horseshit pattern — discuss alternatives | CONFIRMED |
+| 60 | TT-04 | REQ-JE-3.4 reinstated but untested/unwaived | Check git history — Dan believes tests existed. Verify | CONFIRMED |
+| 61 | TT-06 | ~17 active DAL requirements neither tested nor waived | Dan wants to see the list — may be misattribution since DAL capabilities are exercised by every integration test | CONFIRMED |
+| 62 | GAP-CLI-1 | REQ-NGUI-1.5 enforced but unannotated at Account code-lookup sites | Dan added ~112 annotations | RESOLVED |
+| 63 | GAP-CLI-2 | Activity/balance handlers missing NGUI-2.4/3.5 marshalling annotations | Dan fixed | RESOLVED |
+| 64 | INC-CLI-1 | Means-to REQ annotations applied inconsistently across CLI handlers | Hobson recommends placement, Dan adds them | CONFIRMED |
+| 65 | — | Talk to BD about "consumable fixture victim" test pattern | No tests should update fixtures without rolling back. Each test needing mutable state should create its own account/JE/etc. Void victims are the known family — check for others | CONFIRMED |
 
 ### Low
 
 | # | ID | Finding | Action | Status |
 |---|-----|---------|--------|--------|
-| 66 | UTIL-1 | Clock.now uses DateTimeOffset instead of NodaTime SystemClock | | |
-| 67 | UTIL-2 | DAL parameterization missing REQ-DAL-2.1/2.3 annotations | | |
-| 68 | TMC-2 | fromDecimalList missing REQ-MON-2.3.1/2.3.2 annotations | | |
-| 69 | TMC-3 | REQ-DAL-2.3 incorrectly annotated on UUID lookups (not user input) | | |
-| 70 | ML-4 | Dangling // REQ- annotation with no ID in JournalEntryLine.fs | | |
-| 71 | ML-5 | fetchAll missing REQ-AC-3.7/3.9 annotations | | |
-| 72 | ML-6 | Composite reqs (JE-2.8, 1.12, 1.13) — verify orchestrator enforces them | | |
-| 73 | ORCH-4 | fetchByPeriod missing REQ-JE-3.3 annotation | | |
-| 74 | ORCH-5 | validateNoNewVoidedEntries missing annotation | | |
-| 75 | ORCH-6 | fetchHeaderIdsByReference missing REQ-DAL-2.3 annotation | | |
-| 76 | TRU-CLI-1 | REQ-NGUI-1.3.1 annotation overclaims (no stack trace at that site) | Related to action item #25 (ex.Message swallows stack trace) | |
+| 66 | UTIL-1 | Clock.now uses DateTimeOffset instead of NodaTime SystemClock | Discuss merits — Dan prefers NodaTime but we're at the F# boundary regardless | CONFIRMED |
+| 67 | UTIL-2 | DAL parameterization missing REQ-DAL-2.1/2.3 annotations | No enforcement happens in that code block — annotation would be false | OVERRULED |
+| 68 | TMC-2 | fromDecimalList missing REQ-MON-2.3.1/2.3.2 annotations | Dan fixed | RESOLVED |
+| 69 | TMC-3 | REQ-DAL-2.3 incorrectly annotated on UUID lookups (not user input) | Dan removed annotation. Rethink parameterization requirements — parameterizing UUIDs is good practice but has no REQ. Need a requirement for defensive parameterization regardless of input origin | CONFIRMED |
+| 70 | ML-4 | Dangling // REQ- annotation with no ID in JournalEntryLine.fs | Intentional placeholder — Dan wants the next audit to tell him which REQ belongs there | DEFERRED |
+| 71 | ML-5 | fetchAll missing REQ-AC-3.7/3.9 annotations | Dan fixed | RESOLVED |
+| 72 | ML-6 | Composite reqs (JE-2.8, 1.12, 1.13) — verify orchestrator enforces them | All enforced. 1.12/1.13 were already annotated. Dan added JE-2.8 to validateAccountByLine and all 3 to orchestrateCreation rollback. Only one annotation was missing — agents need to read more carefully before flagging | RESOLVED |
+| 72a | — | Audit skill: truthfulness agents must verify enforcement exists NOWHERE before claiming it's missing | Update prompts: grep the full repo for the REQ ID before reporting a missing-annotation finding | CONFIRMED |
+| 73 | ORCH-4 | fetchByPeriod missing REQ-JE-3.3 annotation | Wrong — fetchByPeriod takes a UUID, not a key. REQ-JE-3.3 is correctly annotated in the CLI routing file. Agent didn't read the requirement | OVERRULED |
+| 73a | — | Audit skill: agent cited wrong enforcement site for ORCH-4 | Same as #56a — agents must read the requirement text before citing it | OVERRULED |
+| 74 | ORCH-5 | validateNoNewVoidedEntries missing annotation | No requirement exists for this check. Dan to add one | CONFIRMED |
+| 75 | ORCH-6 | fetchHeaderIdsByReference missing REQ-DAL-2.3 annotation | Dan fixed. Explore using git to map annotations instead of manual code inspection — getting unwieldy | CONFIRMED |
+| 76 | TRU-CLI-1 | REQ-NGUI-1.3.1 annotation overclaims (no stack trace at that site) | Program.fs satisfies the "payload will comprise" portion. Dan added REQ-NGUI-1.3.1 annotations to DAL catch sites. Search for other try/catch boundary functions that may need it | CONFIRMED |
 | 77 | TT-07 | REQ-AC-4.6 untested | Duplicate of SD-02 (#2) | RESOLVED |
 | 78 | TT-08 | REQ-AC-1.40 and 3.3 untested | Duplicate of SD-05 (#6) | RESOLVED |
-| 79 | TT-09 | REQ-JE-1.11 test can't exercise its named condition | | |
-| 80 | TT-10 | REQ-JE-2.4 test uses UUID not code — weaker than requirement | | |
-| 81 | TT-11 | SystemWide sub-clauses bookkeeping gaps | | |
+| 79 | TT-09 | REQ-JE-1.11 test can't exercise its named condition | By definition you can't — period is derived from the date, so the date is always within its period. The test correctly exercises the missing-period rejection path. Not mislabeled | OVERRULED |
+| 80 | TT-10 | REQ-JE-2.4 test uses UUID not code — weaker than requirement | Valid for REQ-JE-1.22 (UUID reference) but not 2.4 (code resolution). Dan added a CLI-level REQ-JE-2.4 test with invalid account code | RESOLVED |
+| 81 | TT-11 | SystemWide sub-clauses bookkeeping gaps | Dan added waived table entries | RESOLVED |

@@ -233,7 +233,7 @@ module Account =
 
     /// fetchAll returns all accounts or, if activeOnly is true, fetches all accounts
     /// that are active with respect to the system runtime
-    let fetchAll (activeOnly: bool) (transaction: DbTransaction option) : Result<Account list, string> = 
+    let fetchAll (activeOnly: bool) (transaction: DbTransaction option) : Result<Account list, string> = // REQ-AC-3.7
         let predicate = None
         let parameters = []
         let activeReference = Calendar.today()
@@ -241,7 +241,7 @@ module Account =
         match readRowsFromDb predicate None parameters AnyQuantityIsAcceptable transaction with
         | Error e -> Error e
         | Ok allRows ->
-            if activeOnly then allRows |> List.filter(isActive activeReference) |> Ok
+            if activeOnly then allRows |> List.filter(isActive activeReference) |> Ok // REQ-AC-3.9
             else allRows |> Ok
 
 // Insert and update validation functions

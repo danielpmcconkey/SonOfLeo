@@ -34,7 +34,7 @@ let private convertJournalEntryLineInputToPrimitives
         let! accountId =
             input.accountCode
             |> LookupCache.accountCodeToId.fetch // REQ-JE-2.3, REQ-JE-2.4
-            |> Result.mapError(fun e -> $"Provided Account Code of {input.accountCode} didn't match any recorded Accounts in the database. Further details: {e}")
+            |> Result.mapError(fun e -> $"Provided Account Code of {input.accountCode} didn't match any recorded Accounts in the database. Further details: {e}") // REQ-NGUI-1.5
         return {
                 accountId = accountId
                 amount = input.amount
@@ -75,7 +75,7 @@ let private convertJournalEntryLineToReturn
                     let accountId = model |> JournalEntryLine.accountId
                     accountId
                     |> LookupCache.accountIdToCode.fetch
-                    |> Result.mapError(fun e -> $"Returned Account ID of {accountId} didn't match any recorded Accounts in the database. Further details: {e}")
+                    |> Result.mapError(fun e -> $"Returned Account ID of {accountId} didn't match any recorded Accounts in the database. Further details: {e}") // REQ-NGUI-1.5
             return {
                 id = model |> JournalEntryLine.uniqueId
                 accountCode = accountCode
@@ -156,7 +156,7 @@ let private fetchByPeriod payload _ = // REQ-JE-3.3
         let! id =
             input.periodKey
             |> LookupCache.fiscalPeriodKeyToId.fetch
-            |> Result.mapError(fun e -> $"Period key provided didn't match any recorded Fiscal Periods in the database. Further details: {e}")
+            |> Result.mapError(fun e -> $"Period key provided didn't match any recorded Fiscal Periods in the database. Further details: {e}") // REQ-NGUI-1.5
         let! model = id |> JournalEntryFetching.fetchByPeriod
         let! returnVal = model |> List.map(fun x -> x |> convertJournalEntryToReturn) |> ListHelper.listOfResultsToResultsList
         return! Json.toJson<JournalEntryReturn list> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
@@ -167,7 +167,7 @@ let private fetchLinesByAccount payload _ = // REQ-JE-3.4
         let! id =
             input.accountCode
             |> LookupCache.accountCodeToId.fetch
-            |> Result.mapError(fun e -> $"Account Code provided didn't match any recorded Accounts in the database. Further details: {e}")
+            |> Result.mapError(fun e -> $"Account Code provided didn't match any recorded Accounts in the database. Further details: {e}") // REQ-NGUI-1.5
         let! model = id |> JournalEntryLine.fetchByAccountId None input.nonVoidedOnly
         let! returnVal = model |> List.map(fun x -> x |> convertJournalEntryLineToReturn) |> ListHelper.listOfResultsToResultsList
         return! Json.toJson<JournalEntryLineReturn list> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5

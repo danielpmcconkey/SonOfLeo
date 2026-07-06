@@ -18,7 +18,7 @@ type Cache<'K, 'V when 'K : comparison> (
             | Ok v ->
                 cache <- cache |> Map.add key v
                 Ok v
-            | Error e -> Error e
+            | Error e -> Error e // REQ-NGUI-1.5
 
 type idAndString = { id: Guid; key: string }
 
@@ -55,7 +55,7 @@ let accountIdToCode = Cache<Guid, string>(
             return rows |> List.map (fun x -> x.id, x.key) |> Map.ofList } ),
     (fun id -> 
         let query = "select unique_id, code from ledger.account where unique_id = @unique_id"
-        let parameters = [{ name = "@unique_id"; value = UniqueId id  };] // REQ-DAL-2.3
+        let parameters = [{ name = "@unique_id"; value = UniqueId id  };] 
         result {
             let! rows = executeReaderQuery query parameters (mapRawForDbRead "unique_id" "code") constructFromRawForDbRead ExactlyOne None
             return (rows |> List.head).key } ) )
@@ -81,7 +81,7 @@ let fiscalPeriodIdToKey = Cache<Guid, string>(
             return rows |> List.map (fun x -> x.id, x.key) |> Map.ofList } ),
     (fun id -> 
         let query = "select unique_id, period_key from ledger.fiscal_period where unique_id = @unique_id"
-        let parameters = [{ name = "@unique_id"; value = UniqueId id  };] // REQ-DAL-2.3
+        let parameters = [{ name = "@unique_id"; value = UniqueId id  };] 
         result {
             let! rows = executeReaderQuery query parameters (mapRawForDbRead "unique_id" "period_key") constructFromRawForDbRead ExactlyOne None
             return (rows |> List.head).key } ) )

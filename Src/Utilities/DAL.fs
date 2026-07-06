@@ -58,7 +58,7 @@ module DAL =
                 Error $"ConnectionStringEnvVar not found in appsettings.json" else // REQ-DAL-1.14, REQ-DAL-1.15
                 Ok(configVal)
         with
-        | ex -> Error $"Error retrieving appsettings.json. Error message: {ex.Message}" // REQ-DAL-1.3
+        | ex -> Error $"Error retrieving appsettings.json. Error message: {ex.StackTrace}" // REQ-DAL-1.3, REQ-NGUI-1.3.1
 
     let private confirmConfigDoesntContainConnectionString (configVal: string) : Result<unit, string> =
         let doesContain = configVal.Contains(";") || configVal.Contains("Host=")
@@ -103,7 +103,7 @@ module DAL =
                     let transaction = connection.BeginTransaction()
                     Ok { connection = connection; transaction = transaction }
                 with
-                    | ex -> Error $"Database error during transaction creation {ex.Message}"
+                    | ex -> Error $"Database error during transaction creation {ex.StackTrace}" // REQ-NGUI-1.3.1
         }
 
     let commitDbTransactionAndDisposeConnection (transaction: DbTransaction) : Result<unit, string> =
@@ -112,7 +112,7 @@ module DAL =
                 transaction.transaction.Commit()
                 Ok ()
             with
-                | ex -> Error $"Database error during transaction commit. {ex.Message}"
+                | ex -> Error $"Database error during transaction commit. {ex.StackTrace}" // REQ-NGUI-1.3.1
         finally
             transaction.transaction.Dispose()
             transaction.connection.Dispose()
@@ -123,7 +123,7 @@ module DAL =
                 transaction.transaction.Rollback()
                 Ok ()
             with
-                | ex -> Error $"Database error during transaction rollback. You probably have corrupted data that you should address immediately. {ex.Message}"
+                | ex -> Error $"Database error during transaction rollback. You probably have corrupted data that you should address immediately. {ex.StackTrace}" // REQ-NGUI-1.3.1
         finally
             transaction.transaction.Dispose()
             transaction.connection.Dispose()
@@ -188,7 +188,7 @@ module DAL =
                         parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
                         Ok (command.ExecuteNonQuery())
                 with
-                | ex -> Error $"Database error during non query execution {ex.Message}"
+                | ex -> Error $"Database error during non query execution {ex.StackTrace}" // REQ-NGUI-1.3.1
             return! validateNumRows numRows expectedRows  // REQ-DAL-2.2
         }
     
@@ -329,7 +329,7 @@ module DAL =
                             readRawRows nReader mapRaw []
                         rawRows |> List.map (constructFromRaw transaction) |> ListHelper.listOfResultsToResultsList
                 with
-                | ex -> Error $"Database error during reader query execution {ex.Message}"
+                | ex -> Error $"Database error during reader query execution {ex.StackTrace}" // REQ-NGUI-1.3.1
             let! () = validateNumRows rows.Length expectedRows // REQ-DAL-2.2
             return rows
         }
@@ -361,7 +361,7 @@ module DAL =
                         parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
                         Ok (command.ExecuteScalar())
                 with
-                | ex -> Error $"Database error during reader scalar execution {ex.Message}"
+                | ex -> Error $"Database error during reader scalar execution {ex.StackTrace}" // REQ-NGUI-1.3.1
             return rows
         }
     

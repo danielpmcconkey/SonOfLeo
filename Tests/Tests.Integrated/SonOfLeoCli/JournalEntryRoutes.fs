@@ -68,6 +68,28 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         | Ok _ -> ()
         | Error e -> Assert.Fail e
 
+    [<Fact>]
+    member _.``REQ-JE-2.4 PostNew fails with invalid account code`` () =
+        let today = Calendar.today()
+        let expected = "Provided Account Code of Rumpelstiltskin didn't match any recorded Accounts in the database."
+        let input : JournalEntryInput =
+            { header = { description = "CLI PostNew test"; source = Some "CliTest"; entryDate = today }
+              lines =
+                [ { accountCode = "Rumpelstiltskin"; amount = 50.00M; lineType = "Debit"; memo = None }
+                  { accountCode = "F-5350"; amount = 50.00M; lineType = "Credit"; memo = None } ]
+              externalReferences = []
+              comments = [] }
+        let railroad = result {
+            let! payload = input |> toJson<JournalEntryInput>
+            let code, _, e = runCli ["JournalEntry"; "PostNew"] payload
+            Assert.Equal(1, code)
+            Assert.Contains(expected, e)
+            return ()
+        }
+        match railroad with
+        | Ok _ -> ()
+        | Error e -> Assert.Fail e
+
     // =============================================================================
     // FetchById route
     // =============================================================================

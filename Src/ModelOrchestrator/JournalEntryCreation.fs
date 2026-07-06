@@ -79,7 +79,7 @@ module JournalEntryCreationAndConstruction =
             : Result<JournalEntryLine list, string> =
         linePrimitives
         |> List.map(fun line ->
-                result {    do! line |> validateAccountByLine transaction entryDate
+                result {    do! line |> validateAccountByLine transaction entryDate // REQ-JE-2.8
                             return! JournalEntryLine.constructNewAndSaveToDb
                                 jeId
                                 line.accountId
@@ -124,7 +124,7 @@ module JournalEntryCreationAndConstruction =
     
     let private validateNoNewVoidedEntries (newHeader: JournalEntryHeader) : Result<unit, string> =
         match newHeader |> JournalEntryHeader.voidedAt with
-        | Some _ -> Error "Creating a new, alreadyd voided Journal Entry is not permitted"
+        | Some _ -> Error "Creating a new, already voided Journal Entry is not permitted"
         | None -> Ok ()
     
     /// orchestrateCreation validates all input and saves the new posted entry into the database
@@ -149,7 +149,7 @@ module JournalEntryCreationAndConstruction =
         }
         match railRoad with // REQ-JE-2.11
         | Error e ->
-            transaction |> rollbackDbTransactionAndDisposeConnection |> Result.defaultWith failwith // REQ-JE-2.12
+            transaction |> rollbackDbTransactionAndDisposeConnection |> Result.defaultWith failwith // REQ-JE-2.12, REQ-JE-2.8, REQ-JE-1.12, REQ-JE-1.13
             Error e
         | Ok je ->
             transaction |> commitDbTransactionAndDisposeConnection |> Result.defaultWith failwith

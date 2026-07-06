@@ -50,7 +50,11 @@ active requirement is either tested or in this table.
 
 | ID | Reason testing is waived | Approved |
 |---|---|---|
+| REQ-SYS-3.1 | it's too general for a test and you can't test that there isn't a violation | Dan, 2026-07-06 |
+| REQ-SYS-2.1.1 | it's too general for a test and you can't test that there isn't a violation | Dan, 2026-07-06 |
+| REQ-SYS-2.1.2 | it's too general for a test and you can't test that there isn't a violation | Dan, 2026-07-06 |
 | REQ-SYS-6.1 | This is a general requirement. Testing should be enforced by every individual write operation with a no-op possibility | Dan, 2026-07-06 |
+| REQ-SYS-6.1.1 | simply untestable | Dan, 2026-07-06 |
 
 ## Withdrawn
 

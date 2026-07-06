@@ -30,7 +30,7 @@ let private fetchHeaderIdsByReference // REQ-JE-3.5, REQ-JE-3.8
                     "and jer.reference = @reference", { name = "@reference"; value = CharString x }))
             ] |> List.choose id
         let whereClauses = whereClausesAndParams |> List.map fst |> String.concat Environment.NewLine
-        let parameters = whereClausesAndParams |> List.map snd
+        let parameters = whereClausesAndParams |> List.map snd // REQ-DAL-2.3
         let query = $"""
             SELECT je.unique_id
             FROM ledger.journal_entry je

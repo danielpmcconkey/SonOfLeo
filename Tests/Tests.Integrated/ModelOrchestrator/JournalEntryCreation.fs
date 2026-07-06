@@ -345,7 +345,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         Assert.True(Result.isError createResult)
 
     [<Fact>]
-    member _.``REQ-JE-2.4 REQ-JE-1.22 orchestrateCreation rejects line with nonexistent account code`` () =
+    member _.``REQ-JE-1.22 orchestrateCreation rejects line with nonexistent account code`` () =
         let envelope = AuditEnvelope.create JournalEntryPostNew
         let bogusId = Guid.NewGuid()
         let prims =

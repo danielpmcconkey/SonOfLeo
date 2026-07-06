@@ -21,6 +21,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList excludes voided entry amounts`` () =
+    // todo: ``REQ-JE-3.6 fetchByAccountIdList excludes voided entry amounts`` fails when you run every test at once
         let result = fetchByAccountIdList None [fixture.Data.entertainment5650Id]
         match result with
         | Ok balances ->

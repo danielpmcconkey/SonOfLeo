@@ -18,7 +18,7 @@ let private convertAccountToAccountReturn a : Result<AccountReturn, string> =
             | Some x ->
                 x
                 |> LookupCache.accountIdToCode.fetch
-                |> Result.mapError (fun e -> $"Parent ID returned {x} didn't match any recorded Accounts in the database. Further details: {e}")
+                |> Result.mapError (fun e -> $"Parent ID returned {x} didn't match any recorded Accounts in the database. Further details: {e}") // REQ-NGUI-1.5
                 |> Result.map Some
         return {
             code = AccountCode.value (code a)
@@ -42,7 +42,7 @@ let private accountCreate payload _ =
                 | Some x ->
                     x
                     |> LookupCache.accountCodeToId.fetch
-                    |> Result.mapError(fun e -> $"Parent code provided didn't match any recorded Accounts in the database. Further details: {e}")
+                    |> Result.mapError(fun e -> $"Parent code provided didn't match any recorded Accounts in the database. Further details: {e}") // REQ-NGUI-1.5
                     |> Result.map Some
                 | None -> Ok None
         let! account = constructNewAndSaveToDb
@@ -67,7 +67,7 @@ let private accountDeactivate payload _ =
         let! id =
             accountDeactivation.code
             |> LookupCache.accountCodeToId.fetch
-            |> Result.mapError(fun e -> $"Account code provided didn't match any recorded Accounts in the database. Further details: {e}")
+            |> Result.mapError(fun e -> $"Account code provided didn't match any recorded Accounts in the database. Further details: {e}") // REQ-NGUI-1.5
         let! account = id |> ModelOrchestrator.AccountDeactivation.deactivateAccountById
                          (Some accountDeactivation.activeEnd)
                          envelope
@@ -85,7 +85,7 @@ let private accountUpdateName payload _ =
         let! id =
             accountUpdate.code
             |> LookupCache.accountCodeToId.fetch
-            |> Result.mapError(fun e -> $"Account code provided didn't match any recorded Accounts in the database. Further details: {e}")
+            |> Result.mapError(fun e -> $"Account code provided didn't match any recorded Accounts in the database. Further details: {e}") // REQ-NGUI-1.5
         let! account = updateAccountNameById
                          id
                          accountUpdate.newName
@@ -102,7 +102,7 @@ let private accountUpdateExternalReference payload _ =
         let! id =
             accountUpdate.code
             |> LookupCache.accountCodeToId.fetch
-            |> Result.mapError(fun e -> $"Account code provided didn't match any recorded Accounts in the database. Further details: {e}")
+            |> Result.mapError(fun e -> $"Account code provided didn't match any recorded Accounts in the database. Further details: {e}") // REQ-NGUI-1.5
         let! account = updateExternalReferenceById
                          id
                          accountUpdate.newReference
@@ -118,7 +118,7 @@ let private accountFetchByCode payload _ =
         let! id =
             accountFetch.code
             |> LookupCache.accountCodeToId.fetch
-            |> Result.mapError(fun e -> $"Account code provided didn't match any recorded Accounts in the database. Further details: {e}")
+            |> Result.mapError(fun e -> $"Account code provided didn't match any recorded Accounts in the database. Further details: {e}") // REQ-NGUI-1.5
         let! account = fetchById None id
         let! returnAccount = convertAccountToAccountReturn account
         return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
@@ -130,7 +130,7 @@ let private accountFetchByParentCode payload _ =
         let! parentId =
             accountFetch.parentCode
             |> LookupCache.accountCodeToId.fetch
-            |> Result.mapError(fun e -> $"Parent code provided didn't match any recorded Accounts in the database. Further details: {e}")
+            |> Result.mapError(fun e -> $"Parent code provided didn't match any recorded Accounts in the database. Further details: {e}") // REQ-NGUI-1.5
         let! accounts = parentId |> fetchByParentId None
         let! returnAccounts = accounts |> List.map(convertAccountToAccountReturn) |> ListHelper.listOfResultsToResultsList
         return! Json.toJson<AccountReturn list> returnAccounts// REQ-NGUI-2.4, REQ-NGUI-3.5
@@ -147,7 +147,7 @@ let private accountFetchByAccountType payload _ =
 
 let private accountFetchAll payload _ =
     result {
-        let! accountFetch = Json.fromJson<AccountFetchAllInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! accountFetch = Json.fromJson<AccountFetchAllInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
         let! accounts = fetchAll accountFetch.activeOnly None
         let! returnAccounts = accounts |> List.map(convertAccountToAccountReturn) |> ListHelper.listOfResultsToResultsList
         return! Json.toJson<AccountReturn list> returnAccounts// REQ-NGUI-2.4, REQ-NGUI-3.5
@@ -155,13 +155,13 @@ let private accountFetchAll payload _ =
 
 let private accountActivityFetch payload _ =
     result {
-        let! input = Json.fromJson<AccountActivityFetchInput> payload 
-        let! accountId =
+        let! input = Json.fromJson<AccountActivityFetchInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! accountId = // REQ-NGUI-1.5
             input.filter.accountCode
             |> Option.map (fun x -> x |> LookupCache.accountCodeToId.fetch)
             |> Option.map (Result.map Some)
             |> Option.defaultValue (Ok None)
-        let! accountParentId =
+        let! accountParentId = // REQ-NGUI-1.5
             input.filter.accountParentCode
             |> Option.map (fun x -> x |> LookupCache.accountCodeToId.fetch)
             |> Option.map (Result.map Some)
@@ -188,7 +188,7 @@ let private accountActivityFetch payload _ =
             fetched
             |> List.map (fun x ->
                 result {
-                    let! parentCodeOption =
+                    let! parentCodeOption = // REQ-NGUI-1.5
                             match x.accountParentId with
                             | None -> Ok None
                             | Some pid -> pid |> LookupCache.accountIdToCode.fetch |> Result.map Some
@@ -202,13 +202,13 @@ let private accountActivityFetch payload _ =
                               accountExternalRef = x.accountExternalRef; activityDetail = detail }
                 } )
             |> ListHelper.listOfResultsToResultsList
-        return! returnList |> Json.toJson<AccountActivityReturn list>
+        return! returnList |> Json.toJson<AccountActivityReturn list> // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
 let private accountBalancesFetch payload _ = // REQ-JE-3.6
     result {
-        let! input = Json.fromJson<AccountBalanceFetchByAccountListInput> payload
-        let! accountList =
+        let! input = Json.fromJson<AccountBalanceFetchByAccountListInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! accountList = // REQ-NGUI-1.5
             input.codes
             |> List.map (fun x -> x |> LookupCache.accountCodeToId.fetch )
             |> ListHelper.listOfResultsToResultsList
@@ -218,13 +218,13 @@ let private accountBalancesFetch payload _ = // REQ-JE-3.6
             |> List.map (fun accountBalance ->
                 let codeResult = accountBalance.accountId |> LookupCache.accountIdToCode.fetch
                 match codeResult with
-                | Error _ -> Error $"The returned account ID {accountBalance.accountId} does not match any database rows."
+                | Error _ -> Error $"The returned account ID {accountBalance.accountId} does not match any database rows." // REQ-NGUI-1.5
                 | Ok c -> Ok {  accountCode = c
                                 totalCredits =  accountBalance.totalCredits |> MoneyModule.amount
                                 totalDebits = accountBalance.totalDebits |> MoneyModule.amount
                                 netBalance = accountBalance.netBalance |> MoneyModule.amount } )
             |> ListHelper.listOfResultsToResultsList
-        return! returnList |> Json.toJson<AccountBalanceReturn list>
+        return! returnList |> Json.toJson<AccountBalanceReturn list> // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
 let accountDomainCommandRoutes = [

@@ -32,7 +32,7 @@ let private fetch payload _ = // REQ-FP-3.2
         let! id =
             input.periodKey
             |> LookupCache.fiscalPeriodKeyToId.fetch
-            |> Result.mapError(fun e -> $"Period key provided didn't match any recorded Fiscal Periods in the database. Further details: {e}")
+            |> Result.mapError(fun e -> $"Period key provided didn't match any recorded Fiscal Periods in the database. Further details: {e}") // REQ-NGUI-1.5
         let! model = id |> fetchById None 
         let returnVal  = convertModelToReturn model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
@@ -53,7 +53,7 @@ let private close payload _ =
         let! id =
             input.periodKey
             |> LookupCache.fiscalPeriodKeyToId.fetch
-            |> Result.mapError(fun e -> $"Period key provided didn't match any recorded Fiscal Periods in the database. Further details: {e}")
+            |> Result.mapError(fun e -> $"Period key provided didn't match any recorded Fiscal Periods in the database. Further details: {e}") // REQ-NGUI-1.5
         let! model = closeFiscalPeriod id envelope None
         let returnVal  = convertModelToReturn model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
@@ -66,7 +66,7 @@ let private reopen payload _ =
         let! id =
             input.periodKey
             |> LookupCache.fiscalPeriodKeyToId.fetch
-            |> Result.mapError(fun e -> $"Period key provided didn't match any recorded Fiscal Periods in the database. Further details: {e}")
+            |> Result.mapError(fun e -> $"Period key provided didn't match any recorded Fiscal Periods in the database. Further details: {e}") // REQ-NGUI-1.5
         let! model = reopenFiscalPeriod id envelope None
         let returnVal  = convertModelToReturn model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
