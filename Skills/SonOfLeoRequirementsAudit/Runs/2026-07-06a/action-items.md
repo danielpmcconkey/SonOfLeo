@@ -172,3 +172,33 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | 90 | FSDDD-03 | Design: more robust error system — DU, error code dict, or custom Error type to replace mid-railway string matching | CONFIRMED |
 | 91 | FSDDD-04 | Design discussion: LookupCache architecture — discuss after greater architecture discussion (#88/#89) | CONFIRMED |
 | 92 | FSDDD-04 | Review: how transactions work with orchestrated write ops — exception safety, bracket combinator | CONFIRMED |
+| 93a | ARCH-1 | Learn about DB transactions; design the batch transaction seam for atomic multi-JE posting (staging import) | CONFIRMED |
+| 94 | ARCH-7 | Fix AccountActivityTemporalFilterInput: change FiscalPeriodId of Guid to FiscalPeriodKey of string — UUID leak at CLI boundary | CONFIRMED |
+| 95a | ARCH-3 | Split InterfaceContractTypes.fs into per-domain files (Account, JournalEntry, FiscalPeriod) while it's still small | CONFIRMED |
+
+## Phase 4 — Architecture Panel
+
+### High
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 95 | ARCH-1 | Orchestrators own transactions internally — no external-transaction path for batch posting | Action item #93a — learn transactions, design batch seam | CONFIRMED |
+| 96 | ARCH-2 | Read path does cascading per-row DB lookups; historical rows break if validation tightens | Covered by #89 (validate-on-read discussion) | CONFIRMED |
+
+### Medium
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 97 | ARCH-3 | Boundary-type triplication per query surface; InterfaceContractTypes.fs growing | Keep contracts separate (explicit, not coupled). Split InterfaceContractTypes.fs per domain while small — dan-decides | CONFIRMED |
+| 98 | ARCH-4 | LookupCache contradicts 06-19 no-memoization decision | Pragmatic compromise for CLI process. Note the override in Decisions.md. Covered by #91 | OVERRULED |
+| 99 | ARCH-5 | Drop-and-recreate migration style with no tracking table | No real data yet; Dan will adopt additive-only when data exists | OVERRULED |
+| 100 | ARCH-6 | Normal-balance semantics only in F# after account_type lookup dropped | No direct-DB consumers exist; app is CLI-only. Fold into #89 validate-on-read discussion | OVERRULED |
+| 101 | ARCH-7 | CLI activity filter accepts fiscal period UUID no output provides | Action item #94 — change to period key | CONFIRMED |
+
+### Low
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 102 | ARCH-8 | No line ordinal on journal_entry_line | Line order is not semantically meaningful in double-entry accounting | OVERRULED |
+| 103 | ARCH-9 | Period dates write-only, calendar-month granularity hardcoded | Calendar months are deterministic — no need to code against impossible drift | OVERRULED |
+| 104 | ARCH-10 | AuditableAction DU is a flat cross-domain registry | 13 cases is fine; logging design undecided; one DU entry per new feature is negligible | OVERRULED |
