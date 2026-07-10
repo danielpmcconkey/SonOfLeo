@@ -175,6 +175,30 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | 93a | ARCH-1 | Learn about DB transactions; design the batch transaction seam for atomic multi-JE posting (staging import) | CONFIRMED |
 | 94 | ARCH-7 | Fix AccountActivityTemporalFilterInput: change FiscalPeriodId of Guid to FiscalPeriodKey of string — UUID leak at CLI boundary | CONFIRMED |
 | 95a | ARCH-3 | Split InterfaceContractTypes.fs into per-domain files (Account, JournalEntry, FiscalPeriod) while it's still small | CONFIRMED |
+| 96a | GAAP-1 | Design discussion: what is "period close"? Posting lock (done) vs GAAP closing entries (annual grain, retained earnings). Settle before building the slice. Includes GAAP-2 atomicity question | CONFIRMED |
+| 97a | GAAP-3 | Update REQ-JE-3.6 spec text to match normal-balance-oriented netBalance convention (REQ-JE-3.6.1 added) | RESOLVED |
+| 98a | GAAP-5 | fetchByReference duplicate entries — fixed with List.distinct | RESOLVED |
+
+## Phase 4 — GAAP Panel
+
+### High
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 105 | GAAP-1 | "Period close" overloaded — posting lock vs GAAP closing entries; monthly grain has no annual anchor | Action item #96a — design discussion before closing slice | CONFIRMED |
+
+### Medium
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 106 | GAAP-2 | closeFiscalPeriod can't post closing entries atomically | Deferred to #96a design discussion. Non-atomic is recoverable if JEs post first, period closes second. Single-user CLI risk is low | DEFERRED |
+| 107 | GAAP-3 | netBalance uses fixed sign convention instead of normal-balance orientation | Dan fixed code + added REQ-JE-3.6.1 | RESOLVED |
+
+### Low
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 108 | GAAP-5 | fetchByReference returns duplicate entries (missing DISTINCT) | Dan fixed with List.distinct in F# | RESOLVED |
 
 ## Phase 4 — Architecture Panel
 

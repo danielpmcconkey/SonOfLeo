@@ -16,7 +16,7 @@ Scope: Specs/Behavioral/{JournalEntryCrud,AccountCrud,FiscalPeriodCrud,SystemWid
 - **Why:** The taxonomy already carries what net-income computation needs (AccountType.normalBalance, AccountComponent.fs:93-96; Revenue/Expense types), so the arithmetic isn't the risk — the *shape of the operation and its period grain* is, and getting it wrong reshapes the fiscal-period model rather than extending it.
 - **Resolution owner:** dan-decides
 - **Prior ruling:** Touches IE-4 (deferred, "revisit when period closure is designed"). NOT re-raising IE-4's equity-subtype mechanism — trigger is imminent (next slice) but not yet met, and Dan ruled against speculating on the RE-identification mechanism ahead of closure design. Flagging the surrounding scope question, which IE-4 does not cover.
-
+[Dan]I get the question and we've discussed before. Your past counsel was to keep periods as months-only, with no quarterly or annual roll-up. But this finding is asserting that there are 2 concepts being mapped to one. I think there needs to be a revisit here at the beginning of the closing slice. But we'll forget. So I guess add an action item to hash this out now.[/Dan]
 ---
 
 ## GAAP-2 — closeFiscalPeriod is a model-layer flag toggle with no atomic seam to post closing entries
@@ -29,6 +29,7 @@ Scope: Specs/Behavioral/{JournalEntryCrud,AccountCrud,FiscalPeriodCrud,SystemWid
 - **Why:** A non-atomic close can leave the ledger unbalanced across a period boundary — the one thing the tolerance-free decision exists to prevent.
 - **Resolution owner:** dan-decides (design), then fix-code
 - **Prior ruling:** none directly; compounds ARCH-1.
+  [Dan]I may or may not agree to this. It's a design decision for future me. But I don't think it has to be one atomic action. Why can't you post the closing JEs and then close the period?[/Dan]
 
 ---
 
@@ -42,6 +43,7 @@ Scope: Specs/Behavioral/{JournalEntryCrud,AccountCrud,FiscalPeriodCrud,SystemWid
 - **Why:** Statements and any consumer of a signed balance depend on the number reading positive in the account's natural direction; a type-agnostic sign silently inverts half the chart of accounts.
 - **Resolution owner:** dan-decides (convention), then fix-code + fix-spec
 - **Prior ruling:** Overlaps CUST-3 (spec-vs-code sign mismatch). Re-raising with the added dimension CUST-3 doesn't state: *neither* direction is right because the balance must be normal-balance-relative, and AccountType is the missing input.
+  [Dan]Fixed in code. Also removed the hard-wired "debits minus credits" from REQ-JE-3.6 and replaced it with REQ-JE-3.6.1[/Dan]
 
 ---
 
@@ -55,6 +57,7 @@ Scope: Specs/Behavioral/{JournalEntryCrud,AccountCrud,FiscalPeriodCrud,SystemWid
 - **Why:** Audit-traceability lookups that double-count an entry can double-count its lines in any ad-hoc reconciliation built on top of them.
 - **Resolution owner:** fix-code
 - **Prior ruling:** none.
+  [Dan]Fixed[/Dan]
 
 ---
 
