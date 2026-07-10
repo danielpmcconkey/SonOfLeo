@@ -79,7 +79,7 @@ let private convertJournalEntryLineToReturn
             return {
                 id = model |> JournalEntryLine.uniqueId
                 accountCode = accountCode
-                amount = model |> JournalEntryLine.amount |> MoneyModule.amount
+                amount = model |> JournalEntryLine.amount |> Money.amount
                 lineType = model |> JournalEntryLine.lineType |> JournalEntryLineType.toString
                 memo = model |> JournalEntryLine.memo |> Option.map(fun x -> x |> LineMemo.value)
                 createdAt = model |> JournalEntryLine.createdAt

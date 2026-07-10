@@ -185,12 +185,13 @@ module JournalEntryComment =
             { name = "@unique_id"; value = UniqueId uniqueId };
         ]
         result {
+            let! existing = uniqueId |> fetchById transaction
             let! validSecondaryId =
                 match secondaryIdUpdate with
                     | NoChange -> Ok NoChange
                     | SetTo x ->
                          x
-                         |> validatePrimaryAndSecondaryRelationship uniqueId
+                         |> validatePrimaryAndSecondaryRelationship (existing |> primaryJournalEntryId)
                          |> Result.map (fun _ -> SetTo x)
             let updates =
                 [

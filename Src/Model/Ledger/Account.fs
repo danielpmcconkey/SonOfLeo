@@ -245,26 +245,14 @@ module Account =
             else allRows |> Ok
 
 // Insert and update validation functions
-
-    /// confirmAccountIsValidAndActive checks that there is an account in the
-    /// database matching the passed ID and that account is valid as of a
-    /// provided date/time
-    let private confirmAccountIsValidAndActive
+    
+    let private confirmAccountIsActive
             (validAccount: Account)
             (referenceTime: LocalDate)
             : Result<unit, string> =
-        result {                
-            let ae = activeEnd validAccount
-            let ab = activeBegin validAccount
-            let! activeAccount =
-                match ae with
-                | None when ab <= referenceTime -> Ok ()
-                | None when ab > referenceTime -> Error $"Account {uniqueId validAccount} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
-                | Some x when x < referenceTime -> Error $"Account {uniqueId validAccount} failed \"is active\" check. The reference time ({referenceTime}) is now past the account's active end date ({ae})."
-                | Some _ when ab > referenceTime -> Error $"Account {uniqueId validAccount} failed \"is active\" check. The active begin date/time ({ab}) is in the future with respect to the provided reference ({referenceTime})."
-                | _ -> Ok ()
-            return activeAccount
-        }
+        match validAccount |> isActive referenceTime with
+        | true -> Ok ()
+        | false -> Error $"Account {uniqueId validAccount} failed \"is active\" check."
 
     let private confirmAccountTypesMatch
             (parentAccountType: AccountType)
@@ -282,7 +270,7 @@ module Account =
             : Result<unit, string> =
         result {
             let! validAccount = parentId |> fetchById transaction
-            let! () = confirmAccountIsValidAndActive validAccount referenceTime // REQ-AC-2.6, REQ-AC-2.7
+            let! () = confirmAccountIsActive validAccount referenceTime // REQ-AC-2.6, REQ-AC-2.7
             let! () = confirmAccountTypesMatch (accountType validAccount) childAccountType
             (*
              * REQ-AC-2.16

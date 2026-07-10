@@ -220,9 +220,9 @@ let private accountBalancesFetch payload _ = // REQ-JE-3.6
                 match codeResult with
                 | Error _ -> Error $"The returned account ID {accountBalance.accountId} does not match any database rows." // REQ-NGUI-1.5
                 | Ok c -> Ok {  accountCode = c
-                                totalCredits =  accountBalance.totalCredits |> MoneyModule.amount
-                                totalDebits = accountBalance.totalDebits |> MoneyModule.amount
-                                netBalance = accountBalance.netBalance |> MoneyModule.amount } )
+                                totalCredits =  accountBalance.totalCredits |> Money.amount
+                                totalDebits = accountBalance.totalDebits |> Money.amount
+                                netBalance = accountBalance.netBalance |> Money.amount } )
             |> ListHelper.listOfResultsToResultsList
         return! returnList |> Json.toJson<AccountBalanceReturn list> // REQ-NGUI-2.4, REQ-NGUI-3.5
     }

@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="DataStage.fs" />
+    <Compile Include="Program.fs" />
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ModelOrchestrator\ModelOrchestrator.fsproj" />
+    <ProjectReference Include="..\Model\Model.fsproj" />
+    <ProjectReference Include="..\Utilities\Utilities.fsproj" />
+  </ItemGroup>
+
+</Project>

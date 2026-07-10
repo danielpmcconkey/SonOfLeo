@@ -4,20 +4,20 @@ open System
 open Utilities.ListHelper
 open Utilities.ResultCE
 
-type MoneyRecord = private { amount: decimal }
+type Money = private { amount: decimal }
 
-module MoneyModule =
+module Money =
     
     let maxMoney:decimal = 9999999999.99M // REQ-MON-1.2
     let minMoney:decimal = -9999999999.99M // REQ-MON-1.3
 
     
-    let amount (m:MoneyRecord) = m.amount // REQ-MON-2.8
+    let amount (m:Money) = m.amount // REQ-MON-2.8
     
-    let private create (validD: decimal) : MoneyRecord =
+    let private create (validD: decimal) : Money =
         {amount = validD}
         
-    let fromDecimal (raw: decimal) : Result<MoneyRecord, string> = // REQ-MON-2.2
+    let fromDecimal (raw: decimal) : Result<Money, string> = // REQ-MON-2.2
         let rounded = Math.Round(raw, 2, MidpointRounding.AwayFromZero) // REQ-MON-1.4, REQ-MON-2.2.1
         match rounded with
         | x when x <> raw -> Error $"Failed to convert {raw} to Money record due to improper decimal precision" // REQ-MON-1.4, REQ-MON-2.2.1
@@ -25,7 +25,7 @@ module MoneyModule =
         | x when x < minMoney -> Error $"Failed to convert {raw} to Money record as value falls below the minimum allowable value of {minMoney}" // REQ-MON-1.3, REQ-MON-2.2.1
         | _ -> Ok (create raw)
     
-    let fromDecimalList (l: decimal list) : Result<MoneyRecord list, string> = // REQ-MON-2.3
+    let fromDecimalList (l: decimal list) : Result<Money list, string> = // REQ-MON-2.3
         l
         |> List.map fromDecimal // REQ-MON-2.3.1
         |> listOfResultsToResultsList// REQ-MON-2.3.2 (fold back enables the order preservation)
@@ -35,7 +35,7 @@ module MoneyModule =
     /// instances where the input Money record's amount cannot divide evenly (to the
     /// penny) by N, one record will have the difference added. The higher N is, the
     /// greater the possibility for the residual to grow.
-    let splitByN (m: MoneyRecord) (n: int) : Result<MoneyRecord list, string> =  // REQ-MON-2.4
+    let splitByN (m: Money) (n: int) : Result<Money list, string> =  // REQ-MON-2.4
         match n with
         | a when a < 0 -> Error "Cannot split money negative ways" // REQ-MON-2.4.6
         | 0 -> Error "Cannot split money when 0 ways" // REQ-MON-2.4.2
@@ -52,13 +52,13 @@ module MoneyModule =
                 return! fromDecimalList dList
             }
     
-    let add (m: MoneyRecord) (n: MoneyRecord): Result<MoneyRecord, string> = // REQ-MON-2.5
+    let add (m: Money) (n: Money): Result<Money, string> = // REQ-MON-2.5
         fromDecimal (m.amount + n.amount) // REQ-MON-2.5.1
 
     /// subtracts n from m
-    let subtract (m: MoneyRecord) (n: MoneyRecord): Result<MoneyRecord, string> = // REQ-MON-2.6
+    let subtract (m: Money) (n: Money): Result<Money, string> = // REQ-MON-2.6
         fromDecimal (m.amount - n.amount) // REQ-MON-2.6.1
     
-    let sumList (l: MoneyRecord list): Result<MoneyRecord, string> = // REQ-MON-2.9
+    let sumList (l: Money list): Result<Money, string> = // REQ-MON-2.9
         let sum_d = l |> List.sumBy amount
         fromDecimal sum_d // REQ-MON-2.9.1

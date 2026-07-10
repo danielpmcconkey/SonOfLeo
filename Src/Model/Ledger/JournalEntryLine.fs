@@ -13,7 +13,7 @@ type JournalEntryLine =
   private  {    uniqueId: Guid                                     // REQ-JE-1.20, REQ-JE-1.21
                 journalEntryId: Guid
                 accountId: Guid
-                amount: MoneyRecord
+                amount: Money
                 lineType: JournalEntryLineType
                 memo: LineMemo option                              // REQ-JE-1.26
                 createdAt: Instant
@@ -29,8 +29,8 @@ module JournalEntryLine =
     let createdAt jel = jel.createdAt
     let modifiedAt jel = jel.modifiedAt
     
-    let validateAmount (m:MoneyRecord) : Result<MoneyRecord, string> =
-        if MoneyModule.amount m <= 0M // REQ-JE-1.24
+    let validateAmount (m:Money) : Result<Money, string> =
+        if Money.amount m <= 0M // REQ-JE-1.24
         then Error $"JEL amount fields cannot be less than or equal to 0.00"
         else Ok m
     
@@ -55,7 +55,7 @@ module JournalEntryLine =
             : Result<JournalEntryLine, string> =
         result {
             do! accountId |> validateAccount transaction //REQ-JE-1.22
-            let! moneyAmount = amount |> MoneyModule.fromDecimal
+            let! moneyAmount = amount |> Money.fromDecimal
             let! validAmount = moneyAmount |> validateAmount
             let! validType = lineType |> JournalEntryLineType.fromString
             let! validMemo =
@@ -102,7 +102,7 @@ module JournalEntryLine =
             { name = "@unique_id"; value = UniqueId journalEntryLine.uniqueId }
             { name = "@journal_entry_id"; value = UniqueId journalEntryLine.journalEntryId }
             { name = "@account_id"; value = UniqueId journalEntryLine.accountId }
-            { name = "@amount"; value = Numeric (journalEntryLine.amount |> MoneyModule.amount) };
+            { name = "@amount"; value = Numeric (journalEntryLine.amount |> Money.amount) };
             { name = "@line_type"; value = CharString (journalEntryLine.lineType |> JournalEntryLineType.toString) };
             { name = "@memo"; value = NullableCharString (journalEntryLine.memo |> Option.map  LineMemo.value) };
             { name = "@created_at"; value = DbInstant journalEntryLine.createdAt };
@@ -196,9 +196,9 @@ module JournalEntryLine =
     let sumLinesByType
             (debitOrCredit: JournalEntryLineType)
             (lines: JournalEntryLine list)
-            : Result<MoneyRecord,string> =
+            : Result<Money,string> =
         lines
         |> List.filter(fun x -> lineType x = debitOrCredit)
         |> List.map(amount) 
-        |> MoneyModule.sumList
+        |> Money.sumList
         

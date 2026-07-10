@@ -58,7 +58,7 @@ module DAL =
                 Error $"ConnectionStringEnvVar not found in appsettings.json" else // REQ-DAL-1.14, REQ-DAL-1.15
                 Ok(configVal)
         with
-        | ex -> Error $"Error retrieving appsettings.json. Error message: {ex.StackTrace}" // REQ-DAL-1.3, REQ-NGUI-1.3.1
+        | ex -> Error $"Error retrieving appsettings.json. Error message: {ex.Message}{Environment.NewLine} {ex.StackTrace}" // REQ-DAL-1.3, REQ-NGUI-1.3.1
 
     let private confirmConfigDoesntContainConnectionString (configVal: string) : Result<unit, string> =
         let doesContain = configVal.Contains(";") || configVal.Contains("Host=")
@@ -103,7 +103,7 @@ module DAL =
                     let transaction = connection.BeginTransaction()
                     Ok { connection = connection; transaction = transaction }
                 with
-                    | ex -> Error $"Database error during transaction creation {ex.StackTrace}" // REQ-NGUI-1.3.1
+                    | ex -> Error $"Database error during transaction creation: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
         }
 
     let commitDbTransactionAndDisposeConnection (transaction: DbTransaction) : Result<unit, string> =
@@ -112,7 +112,7 @@ module DAL =
                 transaction.transaction.Commit()
                 Ok ()
             with
-                | ex -> Error $"Database error during transaction commit. {ex.StackTrace}" // REQ-NGUI-1.3.1
+                | ex -> Error $"Database error during transaction commit. {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
         finally
             transaction.transaction.Dispose()
             transaction.connection.Dispose()
@@ -123,7 +123,7 @@ module DAL =
                 transaction.transaction.Rollback()
                 Ok ()
             with
-                | ex -> Error $"Database error during transaction rollback. You probably have corrupted data that you should address immediately. {ex.StackTrace}" // REQ-NGUI-1.3.1
+                | ex -> Error $"Database error during transaction rollback. You probably have corrupted data that you should address immediately. {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
         finally
             transaction.transaction.Dispose()
             transaction.connection.Dispose()
@@ -188,7 +188,7 @@ module DAL =
                         parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
                         Ok (command.ExecuteNonQuery())
                 with
-                | ex -> Error $"Database error during non query execution {ex.StackTrace}" // REQ-NGUI-1.3.1
+                | ex -> Error $"Database error during non query execution: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
             return! validateNumRows numRows expectedRows  // REQ-DAL-2.2
         }
     
@@ -329,16 +329,143 @@ module DAL =
                             readRawRows nReader mapRaw []
                         rawRows |> List.map (constructFromRaw transaction) |> ListHelper.listOfResultsToResultsList
                 with
-                | ex -> Error $"Database error during reader query execution {ex.StackTrace}" // REQ-NGUI-1.3.1
+                | ex -> Error $"Database error during reader query execution: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
             let! () = validateNumRows rows.Length expectedRows // REQ-DAL-2.2
             return rows
         }
 
+    let stringUnboxing (objRaw: obj) : Result<string, string> =
+        try
+            if objRaw = null || objRaw = DBNull.Value  then Error "String unboxing returned DB null"
+            else 
+                Ok (objRaw :?> string)
+        with
+        | ex -> Error $"Database error during string unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+        
+    let stringOptionUnboxing (objRaw: obj) : Result<string option, string> =
+        try
+            if objRaw = null || objRaw = DBNull.Value  then Ok None
+            else 
+                Ok (Some (objRaw :?> string))
+        with
+        | ex -> Error $"Database error during string option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+        
+    let intUnboxing (objRaw: obj) : Result<int, string> =
+        try
+            if objRaw = null || objRaw = DBNull.Value  then Error "Int unboxing returned DB null"
+            else 
+                let unboxed : int = objRaw |> unbox
+                Ok unboxed
+        with
+        | ex -> Error $"Database error during int unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+        
+    let intOptionUnboxing (objRaw: obj) : Result<int option, string> =
+        try
+            if objRaw = null || objRaw = DBNull.Value  then Ok None
+            else 
+                
+                let unboxed : int = objRaw |> unbox
+                Ok (Some unboxed)
+        with
+        | ex -> Error $"Database error during int option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+        
+    let longUnboxing (objRaw: obj) : Result<int64, string> =
+        try
+            if objRaw = null || objRaw = DBNull.Value  then Error "Long unboxing returned DB null"
+            else 
+                let unboxed : int64 = objRaw |> unbox
+                Ok unboxed
+        with
+        | ex -> Error $"Database error during long unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+        
+    let longOptionUnboxing (objRaw: obj) : Result<int64 option, string> =
+        try
+            if objRaw = null || objRaw = DBNull.Value  then Ok None
+            else 
+                let unboxed : int64 = objRaw |> unbox
+                Ok (Some unboxed)
+        with
+        | ex -> Error $"Database error during long option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+        
+    let decimalUnboxing (objRaw: obj) : Result<decimal, string> =
+        try
+            if objRaw = null || objRaw = DBNull.Value  then Error "Decimal unboxing returned DB null"
+            else 
+                let unboxed : decimal = objRaw |> unbox
+                Ok unboxed
+        with
+        | ex -> Error $"Database error during decimal unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+        
+    let decimalOptionUnboxing (objRaw: obj) : Result<decimal option, string> =
+        try
+            if objRaw = null || objRaw = DBNull.Value  then Ok None
+            else 
+                let unboxed : decimal = objRaw |> unbox
+                Ok (Some unboxed)
+        with
+        | ex -> Error $"Database error during decimal option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+        
+    let localDateUnboxing (objRaw: obj) : Result<LocalDate, string> =
+        try
+            if objRaw = null || objRaw = DBNull.Value  then Error "LocalDate unboxing returned DB null"
+            else 
+                let unboxed : LocalDate = objRaw |> unbox
+                Ok unboxed
+        with
+        | ex -> Error $"Database error during LocalDate unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+        
+    let localDateOptionUnboxing (objRaw: obj) : Result<LocalDate option, string> =
+        try
+            if objRaw = null || objRaw = DBNull.Value  then Ok None
+            else 
+                let unboxed : LocalDate = objRaw |> unbox
+                Ok (Some unboxed)
+        with
+        | ex -> Error $"Database error during LocalDate option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+        
+    let instantUnboxing (objRaw: obj) : Result<Instant, string> =
+        try
+            if objRaw = null || objRaw = DBNull.Value  then Error "Instant unboxing returned DB null"
+            else 
+                let unboxed : Instant = objRaw |> unbox
+                Ok unboxed
+        with
+        | ex -> Error $"Database error during Instant unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+        
+    let instantOptionUnboxing (objRaw: obj) : Result<Instant option, string> =
+        try
+            if objRaw = null || objRaw = DBNull.Value  then Ok None
+            else 
+                let unboxed : Instant = objRaw |> unbox
+                Ok (Some unboxed)
+        with
+        | ex -> Error $"Database error during Instant option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+        
+    let uuidUnboxing (objRaw: obj) : Result<Guid, string> =
+        try
+            if objRaw = null || objRaw = DBNull.Value  then Error "UUID unboxing returned DB null"
+            else 
+                let unboxed : Guid = objRaw |> unbox
+                Ok unboxed
+        with
+        | ex -> Error $"Database error during UUID unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+        
+    let uuidOptionUnboxing (objRaw: obj) : Result<Guid option, string> =
+        try
+            if objRaw = null || objRaw = DBNull.Value  then Ok None
+            else 
+                let unboxed : Guid = objRaw |> unbox
+                Ok (Some unboxed)
+        with
+        | ex -> Error $"Database error during UUID option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+        
+
     let executeScalar
             (query: string)
             (parameters: QueryParameter list)
+            (unboxingFunc: obj -> Result<'T, string>)
             (transaction: DbTransaction option)
-            : Result<Object, string> =
+            : Result<'T, string> =
         result {
             let! ds = dataSource.Value
             let parameters = buildParamsList parameters
@@ -349,19 +476,21 @@ module DAL =
                  * paradigmatic F# Result Ok/Error at the impure boundary
                  *)
                 try
-                    match transaction with
-                    | None -> 
-                        use connection = ds.OpenConnection()
-                        use command = new NpgsqlCommand(query, connection)                    
-                        parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
-                        Ok (command.ExecuteScalar())
-                    | Some t -> 
-                        use command = new NpgsqlCommand(query, t.connection)
-                        command.Transaction <- t.transaction
-                        parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
-                        Ok (command.ExecuteScalar())
+                    let objResult =
+                        match transaction with
+                        | None -> 
+                            use connection = ds.OpenConnection()
+                            use command = new NpgsqlCommand(query, connection)                    
+                            parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
+                            command.ExecuteScalar()
+                        | Some t -> 
+                            use command = new NpgsqlCommand(query, t.connection)
+                            command.Transaction <- t.transaction
+                            parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
+                            command.ExecuteScalar()
+                    objResult |> unboxingFunc
                 with
-                | ex -> Error $"Database error during reader scalar execution {ex.StackTrace}" // REQ-NGUI-1.3.1
+                | ex -> Error $"Database error during reader scalar execution: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
             return rows
         }
     

@@ -1,5 +1,6 @@
 namespace Tests.Integrated.ModelOrchestrator
 
+open Model
 open Xunit
 open Tests.Integrated
 open ModelOrchestrator.AccountBalance
@@ -15,8 +16,8 @@ type AccountBalanceTests(fixture: TestDataFixture) =
             Assert.Equal(1, balances |> List.length)
             let bal = balances |> List.head
             Assert.Equal(fixture.Data.mortgage2210Id, bal.accountId)
-            Assert.True(bal.totalDebits |> Model.MoneyModule.amount > 0M)
-            Assert.Equal(0M, bal.totalCredits |> Model.MoneyModule.amount)
+            Assert.True(bal.totalDebits |> Money.amount > 0M)
+            Assert.Equal(0M, bal.totalCredits |> Money.amount)
         | Error e -> Assert.Fail e
 
     [<Fact>]
@@ -26,7 +27,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         match result with
         | Ok balances ->
             let bal = balances |> List.head
-            let debitAmount = bal.totalDebits |> Model.MoneyModule.amount
+            let debitAmount = bal.totalDebits |> Money.amount
             // entertainment5650 has 75 debit from the voided JE (excluded) plus
             // 33 x 4 from void victims (included until those tests run).
             // The voided JE's 75 must NOT be in the total.
@@ -41,9 +42,9 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         | Ok balances ->
             Assert.Equal(1, balances |> List.length)
             let bal = balances |> List.head
-            Assert.Equal(0M, bal.totalDebits |> Model.MoneyModule.amount)
-            Assert.Equal(0M, bal.totalCredits |> Model.MoneyModule.amount)
-            Assert.Equal(0M, bal.netBalance |> Model.MoneyModule.amount)
+            Assert.Equal(0M, bal.totalDebits |> Money.amount)
+            Assert.Equal(0M, bal.totalCredits |> Money.amount)
+            Assert.Equal(0M, bal.netBalance |> Money.amount)
         | Error e -> Assert.Fail e
 
     [<Fact>]

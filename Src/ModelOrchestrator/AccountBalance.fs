@@ -9,14 +9,14 @@ open Utilities.ResultCE
 
 type AccountBalance = {
     accountId: Guid
-    totalCredits: MoneyRecord
-    totalDebits: MoneyRecord
-    netBalance: MoneyRecord
+    totalCredits: Money
+    totalDebits: Money
+    netBalance: Money
 }
 type AccountBalanceComponent = private {
     accountId: Guid
     lineType: JournalEntryLineType
-    sumAtType: MoneyRecord
+    sumAtType: Money
 }
 
 let private mapRawForDbRead (row: RowReader)=
@@ -28,7 +28,7 @@ let private constructFromRawForDbRead _transaction raw =
     let accountId, lineType, sumAtType = raw
     result {
         let! jeLineType = lineType |> JournalEntryLineType.fromString
-        let! sumAtTypeM = sumAtType |> MoneyModule.fromDecimal
+        let! sumAtTypeM = sumAtType |> Money.fromDecimal
         return { accountId = accountId; lineType = jeLineType; sumAtType = sumAtTypeM }
     }
 
@@ -49,30 +49,34 @@ let fetchByAccountIdList // REQ-JE-3.6
         let parameters = accountFilters |> List.map snd
         let query = $"""
             with line_types as (
-                select distinct line_type from ledger.journal_entry_line
+                select '{Credit |> JournalEntryLineType.toString}' as line_type
+                union all
+                select '{Debit |> JournalEntryLineType.toString}' as line_type
             ), account_and_types as (
                 select
                     a.unique_id as account_id,
                     lt.line_type
+                    ,a.account_name
                 from ledger.account a
                 cross join line_types lt
-                where a.unique_id in ({accountIdsInString})
-            )
+                where a.unique_id in ({accountIdsInString}) )
             select
                 ant.account_id,
                 ant.line_type,
-                sum(case when jel.amount is null then 0 else jel.amount end) as sum_at_type
+                sum ( case 
+                        when je.voided_at is not null then 0
+                        when jel.amount is null then 0 
+                        else jel.amount end) as sum_at_type
             from account_and_types ant
             left join ledger.journal_entry_line jel on ant.account_id = jel.account_id
                 and ant.line_type = jel.line_type
             left join ledger.journal_entry je on jel.journal_entry_id = je.unique_id
-            where je.voided_at is null
             group by 
                 ant.account_id,
                 ant.line_type
             """
         result {
-            let! moneyZero = MoneyModule.fromDecimal 0M
+            let! moneyZero = Money.fromDecimal 0M
             let! components = executeReaderQuery query parameters
                                   mapRawForDbRead constructFromRawForDbRead
                                   AnyQuantityIsAcceptable transaction
@@ -90,7 +94,7 @@ let fetchByAccountIdList // REQ-JE-3.6
                         |> List.tryFind(fun r -> r.lineType = Debit)
                         |> Option.map (fun r -> r.sumAtType)
                         |> Option.defaultValue moneyZero
-                    MoneyModule.subtract debits credits
+                    Money.subtract debits credits
                     |> Result.map (fun bal -> 
                         { accountId = accountId; totalCredits = credits; totalDebits = debits; netBalance = bal }))
                 |> ListHelper.listOfResultsToResultsList

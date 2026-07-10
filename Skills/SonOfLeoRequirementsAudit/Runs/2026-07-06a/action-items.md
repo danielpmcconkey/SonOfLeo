@@ -133,3 +133,42 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | 79 | TT-09 | REQ-JE-1.11 test can't exercise its named condition | By definition you can't — period is derived from the date, so the date is always within its period. The test correctly exercises the missing-period rejection path. Not mislabeled | OVERRULED |
 | 80 | TT-10 | REQ-JE-2.4 test uses UUID not code — weaker than requirement | Valid for REQ-JE-1.22 (UUID reference) but not 2.4 (code resolution). Dan added a CLI-level REQ-JE-2.4 test with invalid account code | RESOLVED |
 | 81 | TT-11 | SystemWide sub-clauses bookkeeping gaps | Dan added waived table entries | RESOLVED |
+
+## Phase 4 — F#/DDD Panel
+
+### High
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 82 | FSDDD-01 | updateComment passes comment PK where primary JE ID belongs | Dan fixed in JournalEntryComment.fs | RESOLVED |
+
+### Medium
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 83 | FSDDD-02 | JE slice validateThenConstruct functions hit the DB (impure constructors) | Two action items: (a) #88 standardize entity-level module functions, (b) #89 domain-type validation on read | CONFIRMED |
+| 84 | FSDDD-03 | Errors are prose not data — mid-railway string matching on error messages | Dan to design a more robust error system (#90) | CONFIRMED |
+| 85 | FSDDD-04 | Result.defaultWith failwith inside Result-returning functions; hand-rolled transaction bracket | Three sub-issues: (1) LookupCache init — discuss after architecture (#91); (2) exception safety in railroad — review transaction mechanics (#92); (3) defaultWith failwith on transaction create — Dan wants loud failure, keeps as-is | CONFIRMED |
+| 86 | FSDDD-06 | Option.get calls in AccountActivity | Schema guarantees non-null for those columns; Option.get is appropriate | OVERRULED |
+| 87 | FSDDD-07 | Two JE construction sites, no cross-component ID check | Partly agreed — orchestrateCreation does enforce ID agreement by construction. Naming and structure depend on outcomes of #88 and #89 | CONFIRMED |
+
+### Low
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 88a | FSDDD-05 | All-voided accounts vanish from balance; line_types CTE derives from data | Dan rewrote query with CASE-based null handling and DU-sourced line types | RESOLVED |
+| 89a | FSDDD-08 | LookupCache hardcodes SQL outside owning domain modules | LookupCache exists for a specific purpose; moving the query doesn't reduce brittleness | OVERRULED |
+| 90a | FSDDD-09 | confirmAccountIsValidAndActive reimplements isActive | Dan deduplicated — confirmAccountIsActive now delegates to isActive | RESOLVED |
+| 91a | FSDDD-10 | executeScalar returns boxed Object forcing unsafe casts | Dan moved all unboxing into the DAL | RESOLVED |
+| 92a | FSDDD-11 | DAL exception handlers use ex.StackTrace without ex.Message | Dan fixed — one straggler at DAL.fs:115 (commit missing ex.Message) | CONFIRMED |
+| 93 | FSDDD-12 | MoneyRecord/MoneyModule naming | Dan renamed to type Money / module Money | RESOLVED |
+
+## Action Items from Phase 4
+
+| # | Source | Action | Status |
+|---|--------|--------|--------|
+| 88 | FSDDD-02, FSDDD-07 | Design discussion: standardize entity-level module function names (validateThenConstruct, constructFromPreValidatedComponents, etc.) | CONFIRMED |
+| 89 | FSDDD-02, FSDDD-07 | Design discussion: domain-type validation on read — should reconstitution re-prove facts the DB guarantees? | CONFIRMED |
+| 90 | FSDDD-03 | Design: more robust error system — DU, error code dict, or custom Error type to replace mid-railway string matching | CONFIRMED |
+| 91 | FSDDD-04 | Design discussion: LookupCache architecture — discuss after greater architecture discussion (#88/#89) | CONFIRMED |
+| 92 | FSDDD-04 | Review: how transactions work with orchestrated write ops — exception safety, bracket combinator | CONFIRMED |

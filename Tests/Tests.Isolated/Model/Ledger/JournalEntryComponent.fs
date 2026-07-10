@@ -147,18 +147,18 @@ module JournalEntryComponent =
 
     [<Fact>]
     let ``REQ-JE-1.24 validateAmount rejects zero amount`` () =
-        let zero = MoneyModule.fromDecimal 0.00M |> Result.defaultWith failwith
+        let zero = Money.fromDecimal 0.00M |> Result.defaultWith failwith
         let result = validateAmount zero
         Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.24 validateAmount rejects negative amount`` () =
-        let negative = MoneyModule.fromDecimal -5.00M |> Result.defaultWith failwith
+        let negative = Money.fromDecimal -5.00M |> Result.defaultWith failwith
         let result = validateAmount negative
         Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.24 validateAmount accepts positive amount`` () =
-        let positive = MoneyModule.fromDecimal 10.00M |> Result.defaultWith failwith
+        let positive = Money.fromDecimal 10.00M |> Result.defaultWith failwith
         let result = validateAmount positive
         Assert.True(Result.isOk result)

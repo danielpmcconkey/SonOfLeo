@@ -24,15 +24,18 @@ module AccountComponent =
             | Some x -> 
                 if x < rawBegin then Error "Active end cannot be before active begin" else // REQ-AC-1.46, REQ-AC-2.18
                     Ok { activeBegin = rawBegin; activeEnd = rawEnd }
-        let isActive
+        let isActive // REQ-AC-1.50
                 (referencePoint: LocalDate) // REQ-AC-1.48.1
                 (aap: AccountActivityPeriod)
                 : bool =
             let beginDate = activeBegin aap
             let endDate = activeEnd aap
-            match endDate with
-            | None when beginDate <= referencePoint -> true
-            | Some x when beginDate <= referencePoint && x >= referencePoint -> true // REQ-AC-1.50
+            match endDate with 
+            | None when beginDate <= referencePoint -> true // no end and begin is in the past
+            | Some x when beginDate <= referencePoint && x >= referencePoint -> true // begin is in the past; end is in the future
+            | None when beginDate > referencePoint -> false // no end, but hasn't started yet
+            | Some x when x < referencePoint -> false // end is in the past
+            | Some _ when beginDate > referencePoint -> false // there's an end date, but start is in the future
             | _ -> false
     
     type AccountCode = private AccountCode of string

@@ -69,9 +69,9 @@ let private validateZeroBalance
         let! nonVoidedLines = accountId |> JournalEntryLine.fetchByAccountId transaction true // REQ-JE-4.7
         let! debits = nonVoidedLines |> JournalEntryLine.sumLinesByType Debit 
         let! credits = nonVoidedLines |> JournalEntryLine.sumLinesByType Credit
-        let! diff = MoneyModule.subtract debits credits
+        let! diff = Money.subtract debits credits
         return!
-            if diff |> MoneyModule.amount <> 0M
+            if diff |> Money.amount <> 0M
             then Error "The Account has a non-zero balance."
             else Ok()
     }
@@ -92,10 +92,10 @@ let private validateNoJournalEntriesAfterDeactivationDate
         { name = "@account_id"; value = UniqueId accountId };
         { name = "@deactivation_date"; value = DbLocalDate deactivationDate };
     ]
-    match executeScalar query parameters transaction with
+    match executeScalar query parameters longUnboxing transaction with
         | Error e -> Error e
-        | Ok x when (x :?> int64) = 0L -> Ok()
-        | Ok x when (x :?> int64) > 0L -> Error "Account is associated to Journal Entries dated after the deactivation date"
+        | Ok x when x = 0L -> Ok()
+        | Ok x when x > 0L -> Error "Account is associated to Journal Entries dated after the deactivation date"
         | _ -> Error "Failed to validate the Account's Journal Entries prior to deactivation"
 
 let private validateJournalEntries
