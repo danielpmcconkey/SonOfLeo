@@ -14,20 +14,20 @@ open Model.Ledger.Journaling
 open ModelOrchestrator.JournalEntries.JournalEntryCreationAndConstruction
 
 type FixtureData = {
-    assets1000Id: Guid
-    liabilities2000Id: Guid
-    equity3000Id: Guid
-    revenue4000Id: Guid
-    expenses5000Id: Guid
-    rothIra1250Id: Guid
-    moneyMarket1270Id: Guid
-    mortgage2210Id: Guid
-    creditCard2220Id: Guid
-    retirement3030Id: Guid
-    personalRevenue4290Id: Guid
-    food5350Id: Guid
-    entertainment5650Id: Guid
-    closedBank1290Id: Guid
+    assets1000Id: AccountId
+    liabilities2000Id: AccountId
+    equity3000Id: AccountId
+    revenue4000Id: AccountId
+    expenses5000Id: AccountId
+    rothIra1250Id: AccountId
+    moneyMarket1270Id: AccountId
+    mortgage2210Id: AccountId
+    creditCard2220Id: AccountId
+    retirement3030Id: AccountId
+    personalRevenue4290Id: AccountId
+    food5350Id: AccountId
+    entertainment5650Id: AccountId
+    closedBank1290Id: AccountId
     fiscalPeriodIds: Guid list
     closedFiscalPeriodId: Guid
     basicJeId: Guid
@@ -75,39 +75,39 @@ type TestDataFixture() =
                 Account.constructNewAndSaveToDb "F-5000" "Expenses" "Expense"
                     lastYear None None None None envelope None
 
-            let assets1000Id = assets1000 |> Account.uniqueId
-            let liabilities2000Id = liabilities2000 |> Account.uniqueId
-            let equity3000Id = equity3000 |> Account.uniqueId
-            let revenue4000Id = revenue4000 |> Account.uniqueId
-            let expenses5000Id = expenses5000 |> Account.uniqueId
+            let assets1000Id = assets1000 |> Account.accountId
+            let liabilities2000Id = liabilities2000 |> Account.accountId
+            let equity3000Id = equity3000 |> Account.accountId
+            let revenue4000Id = revenue4000 |> Account.accountId
+            let expenses5000Id = expenses5000 |> Account.accountId
 
             let! rothIra1250 =
                 Account.constructNewAndSaveToDb "F-1250" "Roth IRA" "Asset"
-                    lastYear None (Some "Investment") (Some assets1000Id) None envelope None
+                    lastYear None (Some "Investment") (Some (assets1000Id |> AccountId.value)) None envelope None
             let! moneyMarket1270 =
                 Account.constructNewAndSaveToDb "F-1270" "Money Market" "Asset"
-                    lastYear None (Some "Cash") (Some assets1000Id) None envelope None
+                    lastYear None (Some "Cash") (Some (assets1000Id |> AccountId.value)) None envelope None
             let! mortgage2210 =
                 Account.constructNewAndSaveToDb "F-2210" "Mortgage Payable" "Liability"
-                    lastYear None (Some "LongTermLiability") (Some liabilities2000Id) None envelope None
+                    lastYear None (Some "LongTermLiability") (Some (liabilities2000Id |> AccountId.value)) None envelope None
             let! creditCard2220 =
                 Account.constructNewAndSaveToDb "F-2220" "Credit Card" "Liability"
-                    lastYear None (Some "CurrentLiability") (Some liabilities2000Id) None envelope None
+                    lastYear None (Some "CurrentLiability") (Some (liabilities2000Id |> AccountId.value)) None envelope None
             let! retirement3030 =
                 Account.constructNewAndSaveToDb "F-3030" "Retirement Contributions" "Equity"
-                    lastYear None None (Some equity3000Id) None envelope None
+                    lastYear None None (Some (equity3000Id |> AccountId.value)) None envelope None
             let! personalRevenue4290 =
                 Account.constructNewAndSaveToDb "F-4290" "Personal Revenue" "Revenue"
-                    lastYear None (Some "OperatingRevenue") (Some revenue4000Id) None envelope None
+                    lastYear None (Some "OperatingRevenue") (Some (revenue4000Id |> AccountId.value)) None envelope None
             let! food5350 =
                 Account.constructNewAndSaveToDb "F-5350" "Food" "Expense"
-                    lastYear None (Some "OperatingExpense") (Some expenses5000Id) None envelope None
+                    lastYear None (Some "OperatingExpense") (Some (expenses5000Id |> AccountId.value)) None envelope None
             let! entertainment5650 =
                 Account.constructNewAndSaveToDb "F-5650" "Entertainment" "Expense"
-                    lastYear None (Some "OperatingExpense") (Some expenses5000Id) None envelope None
+                    lastYear None (Some "OperatingExpense") (Some (expenses5000Id |> AccountId.value)) None envelope None
             let! closedBank1290 =
                 Account.constructNewAndSaveToDb "F-1290" "Closed Bank" "Asset"
-                    lastYear (Some twoMonthsAgo) (Some "Cash") (Some assets1000Id) None envelope None
+                    lastYear (Some twoMonthsAgo) (Some "Cash") (Some (assets1000Id |> AccountId.value)) None envelope None
 
             // =============================================================================
             // Create fiscal periods
@@ -134,12 +134,12 @@ type TestDataFixture() =
 
             let closedFiscalPeriodId = closedFiscalPeriod |> FiscalPeriod.uniqueId
 
-            let moneyMarket1270Id = moneyMarket1270 |> Account.uniqueId
-            let food5350Id = food5350 |> Account.uniqueId
-            let rothIra1250Id = rothIra1250 |> Account.uniqueId
-            let personalRevenue4290Id = personalRevenue4290 |> Account.uniqueId
-            let entertainment5650Id = entertainment5650 |> Account.uniqueId
-            let creditCard2220Id = creditCard2220 |> Account.uniqueId
+            let moneyMarket1270Id = moneyMarket1270 |> Account.accountId
+            let food5350Id = food5350 |> Account.accountId
+            let rothIra1250Id = rothIra1250 |> Account.accountId
+            let personalRevenue4290Id = personalRevenue4290 |> Account.accountId
+            let entertainment5650Id = entertainment5650 |> Account.accountId
+            let creditCard2220Id = creditCard2220 |> Account.accountId
 
             // =============================================================================
             // Create journal entries (component-level, bypassing orchestrateCreation's
@@ -148,7 +148,7 @@ type TestDataFixture() =
 
             let jeEnvelope = AuditEnvelope.create JournalEntryPostNew
 
-            let mortgage2210Id = mortgage2210 |> Account.uniqueId
+            let mortgage2210Id = mortgage2210 |> Account.accountId
 
             let! basicJeHeader =
                 JournalEntryHeader.constructNewAndSaveToDb
@@ -156,10 +156,10 @@ type TestDataFixture() =
             let basicJeId = basicJeHeader |> JournalEntryHeader.uniqueId
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
-                    basicJeId mortgage2210Id 100.00M "Debit" None jeEnvelope None
+                    basicJeId (mortgage2210Id |> AccountId.value) 100.00M "Debit" None jeEnvelope None
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
-                    basicJeId food5350Id 100.00M "Credit" (Some "Grocery run") jeEnvelope None
+                    basicJeId (food5350Id |> AccountId.value) 100.00M "Credit" (Some "Grocery run") jeEnvelope None
 
             let! jeWithRefHeader =
                 JournalEntryHeader.constructNewAndSaveToDb
@@ -167,10 +167,10 @@ type TestDataFixture() =
             let jeWithRefId = jeWithRefHeader |> JournalEntryHeader.uniqueId
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
-                    jeWithRefId rothIra1250Id 50.00M "Debit" None jeEnvelope None
+                    jeWithRefId (rothIra1250Id |> AccountId.value) 50.00M "Debit" None jeEnvelope None
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
-                    jeWithRefId personalRevenue4290Id 50.00M "Credit" None jeEnvelope None
+                    jeWithRefId (personalRevenue4290Id |> AccountId.value) 50.00M "Credit" None jeEnvelope None
             let! jeWithRefExtRef =
                 JournalEntryExternalReference.constructNewAndSaveToDb
                     jeWithRefId "TestBank" "TXN-001" jeEnvelope None
@@ -183,10 +183,10 @@ type TestDataFixture() =
             let jeToVoidId = jeToVoidHeader |> JournalEntryHeader.uniqueId
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
-                    jeToVoidId entertainment5650Id 75.00M "Debit" None jeEnvelope None
+                    jeToVoidId (entertainment5650Id |> AccountId.value) 75.00M "Debit" None jeEnvelope None
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
-                    jeToVoidId creditCard2220Id 75.00M "Credit" None jeEnvelope None
+                    jeToVoidId (creditCard2220Id |> AccountId.value) 75.00M "Credit" None jeEnvelope None
 
             let closedPeriodEntryDate = today.PlusMonths(-5).PlusDays(14)
             let! jeInClosedPeriodHeader =
@@ -196,10 +196,10 @@ type TestDataFixture() =
                 jeInClosedPeriodHeader |> JournalEntryHeader.uniqueId
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
-                    jeInClosedPeriodId mortgage2210Id 25.00M "Debit" None jeEnvelope None
+                    jeInClosedPeriodId (mortgage2210Id |> AccountId.value) 25.00M "Debit" None jeEnvelope None
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
-                    jeInClosedPeriodId food5350Id 25.00M "Credit" None jeEnvelope None
+                    jeInClosedPeriodId (food5350Id |> AccountId.value) 25.00M "Credit" None jeEnvelope None
 
             // =============================================================================
             // Close the fiscal period (after JE creation)
@@ -235,10 +235,10 @@ type TestDataFixture() =
             let sharedRefJe1Id = sharedRefJe1Header |> JournalEntryHeader.uniqueId
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
-                    sharedRefJe1Id mortgage2210Id 10.00M "Debit" None jeEnvelope None
+                    sharedRefJe1Id (mortgage2210Id |> AccountId.value) 10.00M "Debit" None jeEnvelope None
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
-                    sharedRefJe1Id food5350Id 10.00M "Credit" None jeEnvelope None
+                    sharedRefJe1Id (food5350Id |> AccountId.value) 10.00M "Credit" None jeEnvelope None
             let! _ =
                 JournalEntryExternalReference.constructNewAndSaveToDb
                     sharedRefJe1Id "SharedBank" "F-SHARED-001" jeEnvelope None
@@ -249,10 +249,10 @@ type TestDataFixture() =
             let sharedRefJe2Id = sharedRefJe2Header |> JournalEntryHeader.uniqueId
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
-                    sharedRefJe2Id mortgage2210Id 20.00M "Debit" None jeEnvelope None
+                    sharedRefJe2Id (mortgage2210Id |> AccountId.value) 20.00M "Debit" None jeEnvelope None
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
-                    sharedRefJe2Id food5350Id 20.00M "Credit" None jeEnvelope None
+                    sharedRefJe2Id (food5350Id |> AccountId.value) 20.00M "Credit" None jeEnvelope None
             let! _ =
                 JournalEntryExternalReference.constructNewAndSaveToDb
                     sharedRefJe2Id "SharedBank" "F-SHARED-001" jeEnvelope None
@@ -285,10 +285,10 @@ type TestDataFixture() =
                         let victimId = victimHeader |> JournalEntryHeader.uniqueId
                         let! _ =
                             JournalEntryLine.constructNewAndSaveToDb
-                                victimId entertainment5650Id 33.00M "Debit" None jeEnvelope None
+                                victimId (entertainment5650Id |> AccountId.value) 33.00M "Debit" None jeEnvelope None
                         let! _ =
                             JournalEntryLine.constructNewAndSaveToDb
-                                victimId creditCard2220Id 33.00M "Credit" None jeEnvelope None
+                                victimId (creditCard2220Id |> AccountId.value) 33.00M "Credit" None jeEnvelope None
                         return victimId
                     })
                 |> ListHelper.listOfResultsToResultsList
@@ -326,11 +326,11 @@ type TestDataFixture() =
                 moneyMarket1270Id = moneyMarket1270Id
                 mortgage2210Id = mortgage2210Id
                 creditCard2220Id = creditCard2220Id
-                retirement3030Id = retirement3030 |> Account.uniqueId
+                retirement3030Id = retirement3030 |> Account.accountId
                 personalRevenue4290Id = personalRevenue4290Id
                 food5350Id = food5350Id
                 entertainment5650Id = entertainment5650Id
-                closedBank1290Id = closedBank1290 |> Account.uniqueId
+                closedBank1290Id = closedBank1290 |> Account.accountId
                 fiscalPeriodIds = fiscalPeriods |> List.map FiscalPeriod.uniqueId
                 closedFiscalPeriodId = closedFiscalPeriodId
                 basicJeId = basicJeId

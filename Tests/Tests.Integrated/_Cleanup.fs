@@ -1,6 +1,7 @@
 module Tests.Integrated._Cleanup
 
 open System
+open Model.Ledger.Accounts.AccountComponent
 open Utilities.DAL
 open Utilities.ResultCE
 
@@ -15,12 +16,13 @@ open Utilities.ResultCE
 // Account clean up
 //=================================================
 
-let cleanUpAccountId (uniqueId:Guid option) : Result<unit, string> =
-    match uniqueId with
+let cleanUpAccountId (accountId:AccountId option) : Result<unit, string> =
+    match accountId with
     | None -> Ok ()
-    | Some x -> 
+    | Some x ->
+        let uniqueId = x |> AccountId.value
         let parameters = [
-            { name = "@unique_id"; value = UniqueId x };
+            { name = "@unique_id"; value = UniqueId uniqueId };
         ]
         let query = $"""
                 delete from ledger.account
@@ -30,7 +32,7 @@ let cleanUpAccountId (uniqueId:Guid option) : Result<unit, string> =
             return! executeNonQuery query parameters ExactlyOne None
         }
 
-let cleanUpAccountList (l: Guid option list) : Result<unit, string> =    
+let cleanUpAccountList (l: AccountId option list) : Result<unit, string> =    
     l
     |> List.map cleanUpAccountId
     |> List.choose (function Error e -> Some e | Ok _ -> None)
@@ -41,7 +43,7 @@ let cleanUpAccountList (l: Guid option list) : Result<unit, string> =
                 let insideErrors = String.concat "||" errors
                 Error $"{baseMessage}||{insideErrors}"
 
-let cleanUpParentIdAndChildren (parentId: Guid option) (children: Guid option list) : Result<unit, string> =
+let cleanUpParentIdAndChildren (parentId: AccountId option) (children: AccountId option list) : Result<unit, string> =
     result {
         let! _ =
             children // clean the children before parent

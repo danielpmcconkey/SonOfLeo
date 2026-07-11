@@ -8,13 +8,13 @@ open Model.Audit
 open AccountComponent
 open NodaTime
 type Account =
-  private  {    uniqueId: Guid                                     // REQ-AC-1.21, REQ-AC-1.22
+  private  {    accountId: AccountId                               // REQ-AC-1.21, REQ-AC-1.22
                 code: AccountCode                                  // REQ-AC-1.1–1.5
                 accountName: AccountName                           // REQ-AC-1.6–1.8
                 accountType: AccountType                           // REQ-AC-1.10, REQ-AC-1.23
                 activityPeriod: AccountActivityPeriod
                 accountSubType: AccountSubtype option              // REQ-AC-1.19, REQ-AC-1.28–1.36
-                parentId: Guid option                              // REQ-AC-1.37–1.40
+                parentId: AccountId option                         // REQ-AC-1.37–1.40
                 externalReference: AccountExternalReference option // REQ-AC-1.20, REQ-AC-1.41
                 createdAt: Instant                                 // REQ-SYS-3.1
                 modifiedAt: Instant                                // REQ-SYS-3.1
@@ -24,7 +24,7 @@ module Account =
 
 // Accessor functions
 
-    let uniqueId (a:Account) = a.uniqueId
+    let accountId (a:Account) = a.accountId
     let code (a:Account) = a.code
     let accountName (a:Account) = a.accountName
     let accountType (a:Account) = a.accountType
@@ -48,14 +48,14 @@ module Account =
     /// and validating component types. all other constructors must
     /// pass into this one
     let private validateThenConstruct
-            (uniqueId: Guid)
+            (accountId: AccountId)
             (code: string)
             (accountName: string)
             (accountType: string)
             (activeBegin: LocalDate)
             (activeEnd: LocalDate option)
             (subType: string option)
-            (parentId: Guid option)
+            (parentId: AccountId option)
             (reference: string option)
             (createdAt: Instant)
             (modifiedAt: Instant)
@@ -80,9 +80,9 @@ module Account =
             do!
                 match parentId with
                 | None -> Ok ()
-                | Some x when x = uniqueId -> Error "For some stupid reason, I have to put this check in or AI auditors don't stop flagging it as gap."
+                | Some x when x = accountId -> Error "For some stupid reason, I have to put this check in or AI auditors don't stop flagging it as gap."
                 | _ -> Ok ()
-            return {    uniqueId = uniqueId
+            return {    accountId = accountId
                         code = validCode
                         accountName = validName
                         accountType = validType
@@ -106,15 +106,17 @@ module Account =
             (activeBegin: LocalDate)
             (activeEnd: LocalDate option)
             (subType: string option)
-            (parentId: Guid option)
+            (parentId: AccountId option)
             (reference: string option)
             (auditEnvelope: AuditEnvelope)
-            : Result<Account, string> =            
-        let uniqueId = Guid.NewGuid() // REQ-AC-1.39, REQ-AC-2.13
+            : Result<Account, string> =
+        let accountId = AccountId.create () // REQ-AC-1.39, REQ-AC-2.13
         let now = AuditEnvelope.instant auditEnvelope
         let createdAt =  now // REQ-SYS-3.2
         let modifiedAt = now // REQ-SYS-3.2
-        validateThenConstruct uniqueId code accountName accountType activeBegin activeEnd subType parentId reference createdAt modifiedAt
+        validateThenConstruct
+            accountId code accountName accountType activeBegin activeEnd
+            subType parentId reference createdAt modifiedAt
 
 // DAL interface functions
 
@@ -136,10 +138,12 @@ module Account =
             ( row |> RowReader.getInstant "modified_at" )
             
     let private constructFromRawForDbRead _transaction raw =
-        let (id, code, name, accounttType, activeBegin, activeEnd,
+        let (id, code, name, accountType, activeBegin, activeEnd,
              subtype, parentId, extRef, createdAt, modifiedAt) = raw
-        validateThenConstruct id code name accounttType activeBegin activeEnd
-            subtype parentId extRef createdAt modifiedAt
+        let accountId = id |> AccountId.fromGuid
+        let parentAccountId = parentId |> Option.map AccountId.fromGuid
+        validateThenConstruct accountId code name accountType activeBegin activeEnd
+            subtype parentAccountId extRef createdAt modifiedAt
 
     /// readRowsFromDb is designed to produce a flexible read query that can
     /// satisfy diverse use cases 
@@ -189,8 +193,9 @@ module Account =
                 @modified_at);"""
         let subTypeString:string option = account.accountSubType |> Option.map AccountSubtype.toString
         let externalReferenceString:string option = Option.map AccountExternalReference.value account.externalReference
+        let parentId = account.parentId |> Option.map AccountId.value
         let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
-            { name = "@unique_id"; value = UniqueId account.uniqueId };
+            { name = "@unique_id"; value = UniqueId (account.accountId |> AccountId.value) };
             { name = "@code"; value = CharString (AccountCode.value account.code) };
             { name = "@account_name"; value = CharString (AccountName.value account.accountName) };
             { name = "@account_type"; value = CharString (AccountType.toString account.accountType) };
@@ -199,7 +204,7 @@ module Account =
             { name = "@created_at"; value = DbInstant account.createdAt };
             { name = "@modified_at"; value = DbInstant account.modifiedAt };
             { name = "@account_subtype"; value = NullableCharString subTypeString };
-            { name = "@parent_id"; value = NullableUniqueId account.parentId };
+            { name = "@parent_id"; value = NullableUniqueId parentId };
             { name = "@external_ref"; value = NullableCharString externalReferenceString }
         ]
         executeNonQuery query parameters ExactlyOne transaction
@@ -208,19 +213,21 @@ module Account =
 
     let fetchById
             (transaction: DbTransaction option)
-            (uniqueId: Guid)
+            (accountId: AccountId)
             : Result<Account, string> = // REQ-AC-3.3
         let predicate = "a.unique_id = @unique_id"
-        let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
+        let accountIdGuid = accountId |> AccountId.value
+        let parameters = [{ name = "@unique_id"; value = UniqueId accountIdGuid };] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None parameters ExactlyOne transaction
         |> Result.map List.head
 
     let fetchByParentId
             (transaction: DbTransaction option)
-            (parentId: Guid)
+            (parentId: AccountId)
             : Result<Account list, string> = // REQ-AC-3.5
         let predicate = "a.parent_id = @parent_id"
-        let parameters = [{ name = "@parent_id"; value = UniqueId parentId };] // REQ-DAL-2.3
+        let parentIdGuid = parentId |> AccountId.value
+        let parameters = [{ name = "@parent_id"; value = UniqueId parentIdGuid };] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable transaction
 
     let fetchByAccountType
@@ -252,7 +259,7 @@ module Account =
             : Result<unit, string> =
         match validAccount |> isActive referenceTime with
         | true -> Ok ()
-        | false -> Error $"Account {uniqueId validAccount} failed \"is active\" check."
+        | false -> Error $"Account {accountId validAccount} failed \"is active\" check."
 
     let private confirmAccountTypesMatch
             (parentAccountType: AccountType)
@@ -264,7 +271,7 @@ module Account =
 
     let private validateParentChildRelationship
             (transaction: DbTransaction option)
-            (parentId: Guid)
+            (parentId: AccountId)
             (childAccountType: AccountType)
             (referenceTime: LocalDate)
             : Result<unit, string> =
@@ -286,16 +293,16 @@ module Account =
 // database update functions
 
     let private updateDb
-            (accountId: Guid)
+            (accountId: AccountId)
             (nameUpdate: FieldUpdate<AccountName>)
             (referenceUpdate: FieldUpdate<AccountExternalReference option>)
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
             : Result<Account, string> =
-                
+        let accountIdGuid = accountId |> AccountId.value
         let baseParams = [
             { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3 
-            { name = "@unique_id"; value = UniqueId accountId };
+            { name = "@unique_id"; value = UniqueId accountIdGuid };
         ]
         let updates =
             [
@@ -344,7 +351,8 @@ module Account =
             : Result<Account, string> =
 
         result {
-            let! validAccount = constructNew code accountName accountTypeSt activeBegin activeEnd subType parentId reference auditEnvelope
+            let parentAccountId = parentId |> Option.map AccountId.fromGuid
+            let! validAccount = constructNew code accountName accountTypeSt activeBegin activeEnd subType parentAccountId reference auditEnvelope
             let! () = // REQ-AC-2.6, REQ-AC-2.7
                 (*
                  * Note, we only validate the parent ID here because this is the part
@@ -352,7 +360,7 @@ module Account =
                  * intrinsically a *database* operation. Keeping the validation in this
                  * constructor allows us to keep the other constructors pure FP.
                  *)
-                match parentId with
+                match parentAccountId with
                 | None -> Ok ()
                 | Some x ->
                     let referenceDate = (AuditEnvelope.instant auditEnvelope) |> Calendar.dateFromInstant
@@ -362,7 +370,7 @@ module Account =
         }
 
     let updateAccountNameById
-            (accountId: Guid)
+            (accountId: AccountId)
             (newName: string)
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
@@ -374,7 +382,7 @@ module Account =
         }
 
     let updateExternalReferenceById 
-            (accountId: Guid)
+            (accountId: AccountId )
             (newReference: string option)
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)

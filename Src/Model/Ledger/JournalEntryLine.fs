@@ -3,6 +3,7 @@ namespace Model.Ledger.Journaling
 open System
 open Model.Audit
 open Model.Ledger.Accounts
+open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
 open Model
 open NodaTime
@@ -12,7 +13,7 @@ open Utilities.DAL
 type JournalEntryLine =
   private  {    uniqueId: Guid                                     // REQ-JE-1.20, REQ-JE-1.21
                 journalEntryId: Guid
-                accountId: Guid
+                accountId: AccountId
                 amount: Money
                 lineType: JournalEntryLineType
                 memo: LineMemo option                              // REQ-JE-1.26
@@ -34,7 +35,7 @@ module JournalEntryLine =
         then Error $"JEL amount fields cannot be less than or equal to 0.00"
         else Ok m
     
-    let validateAccount (transaction: DbTransaction option)  (accountId: Guid) : Result<unit, string> =
+    let validateAccount (transaction: DbTransaction option)  (accountId: AccountId) : Result<unit, string> =
         match accountId |> Account.fetchById transaction with
         | Error e -> Error e
         | Ok _ -> Ok ()
@@ -45,7 +46,7 @@ module JournalEntryLine =
     let private validateThenConstruct 
             (uniqueId: Guid)
             (journalEntryId: Guid)
-            (accountId: Guid)
+            (accountIdGuid: Guid)
             (amount: decimal)
             (lineType: string)
             (memo: string option)
@@ -54,6 +55,7 @@ module JournalEntryLine =
             (transaction: DbTransaction option)
             : Result<JournalEntryLine, string> =
         result {
+            let accountId = accountIdGuid |> AccountId.fromGuid
             do! accountId |> validateAccount transaction //REQ-JE-1.22
             let! moneyAmount = amount |> Money.fromDecimal
             let! validAmount = moneyAmount |> validateAmount
@@ -98,10 +100,11 @@ module JournalEntryLine =
             VALUES (
                 @unique_id, @journal_entry_id, @account_id, @amount, @line_type, 
                     @memo, @created_at, @modified_at );"""
+        let accountIdGuid = journalEntryLine.accountId |> AccountId.value
         let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
             { name = "@unique_id"; value = UniqueId journalEntryLine.uniqueId }
             { name = "@journal_entry_id"; value = UniqueId journalEntryLine.journalEntryId }
-            { name = "@account_id"; value = UniqueId journalEntryLine.accountId }
+            { name = "@account_id"; value = UniqueId accountIdGuid }
             { name = "@amount"; value = Numeric (journalEntryLine.amount |> Money.amount) };
             { name = "@line_type"; value = CharString (journalEntryLine.lineType |> JournalEntryLineType.toString) };
             { name = "@memo"; value = NullableCharString (journalEntryLine.memo |> Option.map  LineMemo.value) };
@@ -181,15 +184,16 @@ module JournalEntryLine =
     let fetchByAccountId // REQ-JE-3.4
             (transaction: DbTransaction option)
             (nonVoidedOnly: bool)
-            (accountId: Guid)
+            (accountId: AccountId)
             : Result<JournalEntryLine list, string> = 
         let join = Some "left join ledger.journal_entry je on jel.journal_entry_id = je.unique_id"
         let voidCheck =
             match nonVoidedOnly with
             | true -> $"{Environment.NewLine}and je.voided_at is null"
             | false -> String.Empty
+        let accountIdGuid = accountId |> AccountId.value
         let predicate = Some $"jel.account_id = @account_id {voidCheck}"
-        let parameters = [{ name = "@account_id"; value = UniqueId accountId };] // REQ-DAL-2.3
+        let parameters = [{ name = "@account_id"; value = UniqueId accountIdGuid };] // REQ-DAL-2.3
         let orderBy = Some "jel.created_at"
         readRowsFromDb join predicate None orderBy parameters AnyQuantityIsAcceptable transaction
 

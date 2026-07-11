@@ -10,27 +10,30 @@ open Utilities.DAL
 open Utilities.ResultCE
 
 type AccountBalance = {
-    accountId: Guid
+    accountId: AccountId
     totalCredits: Money
     totalDebits: Money
     netBalance: Money
 }
 type AccountBalanceComponent = private {
-    accountId: Guid
+    accountId: AccountId
     lineType: JournalEntryLineType
     accountType: AccountType
     sumAtType: Money
 }
 
-let private mapRawForDbRead (row: RowReader)=
+let private mapRawForDbRead (row: RowReader) : Guid * string * string * decimal =
     ( row |> RowReader.getUuid "account_id" ),
     ( row |> RowReader.getString "line_type" ),
     ( row |> RowReader.getString "account_type" ),
     ( row |> RowReader.getNumeric "sum_at_type" )
             
-let private constructFromRawForDbRead _transaction raw =
-    let accountId, lineType, accountType, sumAtType = raw
+let private constructFromRawForDbRead _transaction
+        (raw:Guid * string * string * decimal)
+        : Result<AccountBalanceComponent, string> =
+    let accountIdGuid, lineType, accountType, sumAtType = raw
     result {
+        let accountId = accountIdGuid |> AccountId.fromGuid
         let! jeLineType = lineType |> JournalEntryLineType.fromString
         let! accountType = accountType |> AccountType.fromString
         let! sumAtTypeM = sumAtType |> Money.fromDecimal
@@ -39,7 +42,7 @@ let private constructFromRawForDbRead _transaction raw =
 
 let fetchByAccountIdList // REQ-JE-3.6
             (transaction: DbTransaction option)
-            (accountIds: Guid list)
+            (accountIds: AccountId list)
             (asOf: LocalDate option) // REQ-JE-3.6.2
             : Result<AccountBalance list, string> =
     match accountIds with
@@ -52,8 +55,9 @@ let fetchByAccountIdList // REQ-JE-3.6
         let accountFilters =
             [1..(accountIds |> List.length)]
             |> List.zip accountIds
-            |> List.map (fun (account_id, iterator) ->
-                ($"@account_id_{iterator}", { name = $"@account_id_{iterator}"; value = UniqueId account_id })
+            |> List.map (fun (accountId, iterator) ->
+                let accountIdGuid = accountId |> AccountId.value 
+                ($"@account_id_{iterator}", { name = $"@account_id_{iterator}"; value = UniqueId accountIdGuid })
                 )
         let accountIdsInString = accountFilters |> List.map fst |> String.concat ", "
         let parameters = asOfParam @ (accountFilters |> List.map snd) 

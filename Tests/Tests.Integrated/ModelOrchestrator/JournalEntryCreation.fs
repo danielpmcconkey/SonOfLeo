@@ -1,6 +1,7 @@
 namespace Tests.Integrated.ModelOrchestrator
 
 open System
+open Model.Ledger.Accounts.AccountComponent
 open Xunit
 open Tests.Integrated
 open Tests.Integrated._Cleanup
@@ -24,11 +25,11 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
               entryDate = Calendar.today()
               voidedAt = None }
           lines =
-            [ { accountId = fixture.Data.mortgage2210Id
+            [ { accountId = fixture.Data.mortgage2210Id |> AccountId.value
                 amount = 100.00M
                 lineType = "Debit"
                 memo = Some "test debit" }
-              { accountId = fixture.Data.food5350Id
+              { accountId = fixture.Data.food5350Id |> AccountId.value
                 amount = 100.00M
                 lineType = "Credit"
                 memo = Some "test credit" } ]
@@ -241,8 +242,8 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let prims =
             { validPrimitives "Null memos" with
                 lines =
-                    [ { accountId = fixture.Data.mortgage2210Id; amount = 50.00M; lineType = "Debit"; memo = None }
-                      { accountId = fixture.Data.food5350Id; amount = 50.00M; lineType = "Credit"; memo = None } ] }
+                    [ { accountId = fixture.Data.mortgage2210Id |> AccountId.value; amount = 50.00M; lineType = "Debit"; memo = None }
+                      { accountId = fixture.Data.food5350Id |> AccountId.value; amount = 50.00M; lineType = "Credit"; memo = None } ] }
         let mutable idToCleanUp = None
         try
             let createResult = prims |> orchestrateCreation envelope
@@ -307,8 +308,8 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                       entryDate = entryDate
                       voidedAt = None }
                   lines =
-                    [ { accountId = fixture.Data.mortgage2210Id; amount = 100.00M; lineType = "Debit"; memo = None }
-                      { accountId = fixture.Data.food5350Id; amount = 75.00M; lineType = "Credit"; memo = None } ]
+                    [ { accountId = fixture.Data.mortgage2210Id |> AccountId.value; amount = 100.00M; lineType = "Debit"; memo = None }
+                      { accountId = fixture.Data.food5350Id |> AccountId.value; amount = 75.00M; lineType = "Credit"; memo = None } ]
                   externalReferences = []
                   comments = [] }
             let createResult = prims |> orchestrateCreation envelope
@@ -329,7 +330,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let prims =
             { validPrimitives "Single line" with
                 lines =
-                    [ { accountId = fixture.Data.mortgage2210Id; amount = 100.00M; lineType = "Debit"; memo = None } ] }
+                    [ { accountId = fixture.Data.mortgage2210Id |> AccountId.value; amount = 100.00M; lineType = "Debit"; memo = None } ] }
         let createResult = prims |> orchestrateCreation envelope
         Assert.True(Result.isError createResult)
 
@@ -339,8 +340,8 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let prims =
             { validPrimitives "Unbalanced" with
                 lines =
-                    [ { accountId = fixture.Data.mortgage2210Id; amount = 100.00M; lineType = "Debit"; memo = None }
-                      { accountId = fixture.Data.food5350Id; amount = 75.00M; lineType = "Credit"; memo = None } ] }
+                    [ { accountId = fixture.Data.mortgage2210Id |> AccountId.value; amount = 100.00M; lineType = "Debit"; memo = None }
+                      { accountId = fixture.Data.food5350Id |> AccountId.value; amount = 75.00M; lineType = "Credit"; memo = None } ] }
         let createResult = prims |> orchestrateCreation envelope
         Assert.True(Result.isError createResult)
 
@@ -352,7 +353,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             { validPrimitives "Bogus account" with
                 lines =
                     [ { accountId = bogusId; amount = 100.00M; lineType = "Debit"; memo = None }
-                      { accountId = fixture.Data.food5350Id; amount = 100.00M; lineType = "Credit"; memo = None } ] }
+                      { accountId = fixture.Data.food5350Id |> AccountId.value; amount = 100.00M; lineType = "Credit"; memo = None } ] }
         let createResult = prims |> orchestrateCreation envelope
         Assert.True(Result.isError createResult)
 
@@ -379,8 +380,8 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let prims =
             { validPrimitives "Inactive account" with
                 lines =
-                    [ { accountId = fixture.Data.closedBank1290Id; amount = 100.00M; lineType = "Debit"; memo = None }
-                      { accountId = fixture.Data.food5350Id; amount = 100.00M; lineType = "Credit"; memo = None } ] }
+                    [ { accountId = fixture.Data.closedBank1290Id |> AccountId.value; amount = 100.00M; lineType = "Debit"; memo = None }
+                      { accountId = fixture.Data.food5350Id |> AccountId.value; amount = 100.00M; lineType = "Credit"; memo = None } ] }
         let createResult = prims |> orchestrateCreation envelope
         Assert.True(Result.isError createResult)
 
@@ -414,8 +415,8 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                   entryDate = Calendar.today()
                   voidedAt = None }
               lines =
-                [ { accountId = fixture.Data.rothIra1250Id; amount = 200.00M; lineType = "Debit"; memo = Some "debit memo" }
-                  { accountId = fixture.Data.personalRevenue4290Id; amount = 200.00M; lineType = "Credit"; memo = Some "credit memo" } ]
+                [ { accountId = fixture.Data.rothIra1250Id |> AccountId.value; amount = 200.00M; lineType = "Debit"; memo = Some "debit memo" }
+                  { accountId = fixture.Data.personalRevenue4290Id |> AccountId.value; amount = 200.00M; lineType = "Credit"; memo = Some "credit memo" } ]
               externalReferences = [ { financialInstitution = "FidelityBank"; referenceText = "FID-001" } ]
               comments = [ { secondaryJournalEntryId = None; commentText = "Round-trip comment" } ] }
         let mutable idToCleanUp = None
@@ -515,8 +516,8 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                   entryDate = Calendar.today()
                   voidedAt = None }
               lines =
-                [ { accountId = fixture.Data.entertainment5650Id; amount = 30.00M; lineType = "Debit"; memo = None }
-                  { accountId = fixture.Data.creditCard2220Id; amount = 30.00M; lineType = "Credit"; memo = None } ]
+                [ { accountId = fixture.Data.entertainment5650Id |> AccountId.value; amount = 30.00M; lineType = "Debit"; memo = None }
+                  { accountId = fixture.Data.creditCard2220Id |> AccountId.value; amount = 30.00M; lineType = "Credit"; memo = None } ]
               externalReferences = [ { financialInstitution = "FetchBank"; referenceText = "FETCH-001" } ]
               comments = [ { secondaryJournalEntryId = None; commentText = "Fetch comment" } ] }
         let mutable idToCleanUp = None

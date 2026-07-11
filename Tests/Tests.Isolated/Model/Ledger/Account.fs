@@ -29,7 +29,8 @@ let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew generates UUID`` () =
     Account.constructNew genericCode genericName genericAccountTypePrimitive genericActiveBegin
         genericActiveEnd genericSubtype genericParentId genericReference genericEnvelope
     |> Result.defaultWith failwith
-    |> Account.uniqueId
+    |> Account.accountId
+    |> AccountId.value
     |> fun id -> Assert.NotEqual(Guid.Empty, id)
 
 [<Fact>]

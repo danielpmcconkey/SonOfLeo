@@ -2,6 +2,7 @@ module SonOfLeoCli.JournalEntryRoutes
 
 open Model
 open Model.Audit
+open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.JournalEntries
@@ -74,6 +75,7 @@ let private convertJournalEntryLineToReturn
             let! accountCode =
                     let accountId = model |> JournalEntryLine.accountId
                     accountId
+                    |> AccountId.value
                     |> LookupCache.accountIdToCode.fetch
                     |> Result.mapError(fun e -> $"Returned Account ID of {accountId} didn't match any recorded Accounts in the database. Further details: {e}") // REQ-NGUI-1.5
             return {
@@ -168,7 +170,7 @@ let private fetchLinesByAccount payload _ = // REQ-JE-3.4
             input.accountCode
             |> LookupCache.accountCodeToId.fetch
             |> Result.mapError(fun e -> $"Account Code provided didn't match any recorded Accounts in the database. Further details: {e}") // REQ-NGUI-1.5
-        let! model = id |> JournalEntryLine.fetchByAccountId None input.nonVoidedOnly
+        let! model = id |> AccountId.fromGuid |> JournalEntryLine.fetchByAccountId None input.nonVoidedOnly
         let! returnVal = model |> List.map(fun x -> x |> convertJournalEntryLineToReturn) |> ListHelper.listOfResultsToResultsList
         return! Json.toJson<JournalEntryLineReturn list> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }

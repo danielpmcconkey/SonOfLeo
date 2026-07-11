@@ -36,7 +36,7 @@ type AccountTests(fixture: TestDataFixture) =
                     Account.constructNewAndSaveToDb "f-1000" genericAccountNameString genericAccountTypeString
                         genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
                         genericAccountReference genericAuditEnvelope (Some transaction)
-                Assert.NotEqual(fixture.Data.assets1000Id, Account.uniqueId lowercaseAccount)
+                Assert.NotEqual(fixture.Data.assets1000Id, Account.accountId lowercaseAccount)
                 return ()
             }
             match railroad with
@@ -68,9 +68,9 @@ type AccountTests(fixture: TestDataFixture) =
                 let! pushResult =
                     Account.constructNewAndSaveToDb code accountName accountType
                         activeBegin activeEnd subtype parentId reference envelope (Some transaction)
-                let pushId = Account.uniqueId pushResult
+                let pushId = Account.accountId pushResult
                 let! pullResult = Account.fetchById (Some transaction) pushId
-                Assert.Equal(pushId, (Account.uniqueId pullResult))
+                Assert.Equal(pushId, (Account.accountId pullResult))
                 Assert.Equal(code, AccountCode.value(Account.code pullResult))
                 Assert.Equal(accountName, AccountName.value(Account.accountName pullResult))
                 Assert.Equal(accountType, AccountType.toString(Account.accountType pullResult))
@@ -107,7 +107,7 @@ type AccountTests(fixture: TestDataFixture) =
             let! fetched = Account.fetchByParentId None parentId
             Assert.Equal(3, List.length fetched)
             expectedChildren
-            |> List.forall (fun id -> fetched |> List.exists (fun a -> Account.uniqueId a = id))
+            |> List.forall (fun id -> fetched |> List.exists (fun a -> Account.accountId a = id))
             |> Assert.True
             return ()
         }
@@ -123,7 +123,7 @@ type AccountTests(fixture: TestDataFixture) =
 
             let expectedIds = [ fixture.Data.equity3000Id; fixture.Data.retirement3030Id ]
             expectedIds
-            |> List.forall (fun id -> fetched |> List.exists (fun a -> Account.uniqueId a = id))
+            |> List.forall (fun id -> fetched |> List.exists (fun a -> Account.accountId a = id))
             |> Assert.True
 
             fetched
@@ -145,7 +145,7 @@ type AccountTests(fixture: TestDataFixture) =
                   fixture.Data.equity3000Id; fixture.Data.revenue4000Id
                   fixture.Data.expenses5000Id; fixture.Data.closedBank1290Id ]
             expectedIds
-            |> List.forall (fun id -> fetched |> List.exists (fun a -> Account.uniqueId a = id))
+            |> List.forall (fun id -> fetched |> List.exists (fun a -> Account.accountId a = id))
             |> Assert.True
             return ()
         }
@@ -159,14 +159,14 @@ type AccountTests(fixture: TestDataFixture) =
             let! fetched = Account.fetchAll true None
 
             fixture.Data.closedBank1290Id
-            |> fun closedId -> fetched |> List.exists (fun a -> Account.uniqueId a = closedId)
+            |> fun closedId -> fetched |> List.exists (fun a -> Account.accountId a = closedId)
             |> Assert.False
 
             let activeIds =
                 [ fixture.Data.assets1000Id; fixture.Data.moneyMarket1270Id
                   fixture.Data.food5350Id ]
             activeIds
-            |> List.forall (fun id -> fetched |> List.exists (fun a -> Account.uniqueId a = id))
+            |> List.forall (fun id -> fetched |> List.exists (fun a -> Account.accountId a = id))
             |> Assert.True
             return ()
         }
@@ -205,7 +205,7 @@ type AccountTests(fixture: TestDataFixture) =
             let railroad = result {
                 let! _ =
                     Account.constructNewAndSaveToDb "AC-2.7-C" genericAccountNameString "Asset"
-                        genericAccountActiveBegin genericAccountActiveEnd (Some "Cash") (Some fixture.Data.assets1000Id)
+                        genericAccountActiveBegin genericAccountActiveEnd (Some "Cash") (Some (fixture.Data.assets1000Id |> AccountId.value))
                         genericAccountReference genericAuditEnvelope (Some transaction)
                 return ()
             }
@@ -222,7 +222,7 @@ type AccountTests(fixture: TestDataFixture) =
         try
             let childResult =
                 Account.constructNewAndSaveToDb "AC-2.7-C" genericAccountNameString "Asset"
-                    genericAccountActiveBegin genericAccountActiveEnd (Some "Cash") (Some fixture.Data.closedBank1290Id)
+                    genericAccountActiveBegin genericAccountActiveEnd (Some "Cash") (Some (fixture.Data.closedBank1290Id |> AccountId.value))
                     genericAccountReference genericAuditEnvelope (Some transaction)
             Assert.True(Result.isError childResult, "Child account creation was allowed to succeed with inactive parent")
         finally
@@ -235,7 +235,7 @@ type AccountTests(fixture: TestDataFixture) =
         try
             let childResult =
                 Account.constructNewAndSaveToDb "AC-2.20-C" genericAccountNameString "Liability"
-                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some fixture.Data.assets1000Id)
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype (Some (fixture.Data.assets1000Id |> AccountId.value))
                     genericAccountReference genericAuditEnvelope (Some transaction)
             Assert.True(Result.isError childResult, "Child account creation was allowed to succeed with different account type from parent")
         finally

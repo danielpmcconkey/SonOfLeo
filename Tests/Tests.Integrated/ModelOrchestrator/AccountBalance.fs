@@ -1,6 +1,7 @@
 namespace Tests.Integrated.ModelOrchestrator
 
 open Model
+open Model.Ledger.Accounts.AccountComponent
 open Xunit
 open Tests.Integrated
 open ModelOrchestrator.AccountBalance
@@ -10,12 +11,14 @@ type AccountBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList returns correct debit and credit totals`` () =
+        let expected = fixture.Data.mortgage2210Id
         let result = fetchByAccountIdList None [fixture.Data.mortgage2210Id] None
         match result with
         | Ok balances ->
             Assert.Equal(1, balances |> List.length)
             let bal = balances |> List.head
-            Assert.Equal(fixture.Data.mortgage2210Id, bal.accountId)
+            let actual = bal.accountId
+            Assert.Equal(expected, actual)
             Assert.True(bal.totalDebits |> Money.amount > 0M)
             Assert.Equal(0M, bal.totalCredits |> Money.amount)
         | Error e -> Assert.Fail e

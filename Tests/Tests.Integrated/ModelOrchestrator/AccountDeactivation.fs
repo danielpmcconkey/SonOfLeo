@@ -29,7 +29,7 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
                     fixture.Data.moneyMarket1270Id
                     |> deactivateAccountById explicitDeactivationDate envelope (Some transaction)
 
-                Assert.Equal(fixture.Data.moneyMarket1270Id, Account.uniqueId deactivated)
+                Assert.Equal(fixture.Data.moneyMarket1270Id, Account.accountId deactivated)
                 Assert.False(Account.isActive (Calendar.today()) deactivated)
                 return ()
             }

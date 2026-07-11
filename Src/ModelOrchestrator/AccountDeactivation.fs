@@ -4,6 +4,7 @@ open System
 open Model.Audit
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.Account
+open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open Model
@@ -13,15 +14,15 @@ open Utilities.DAL
 open Utilities.ResultCE
 
 let private updateDb
-        (accountId: Guid)
+        (accountId: AccountId)
         (activeEndUpdate: LocalDate)
         (auditEnvelope: AuditEnvelope)
         (transaction: DbTransaction option)
         : Result<Account, string> =
-            
+    let accountIdGuid = accountId |> AccountId.value
     let parameters = [
         { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3 
-        { name = "@unique_id"; value = UniqueId accountId };
+        { name = "@unique_id"; value = UniqueId accountIdGuid };
         { name = "@active_end"; value = NullableDbLocalDate (Some activeEndUpdate) };
     ]
 
@@ -43,7 +44,7 @@ let private validateProposedDeactivationDate
         : Result<unit, string> =
     let ab = activeBegin account
     if proposedDate < ab then
-        Error $"Deactivating account {uniqueId account} failed because the active end ({proposedDate}) would be before the active begin ({ab})" else
+        Error $"Deactivating account {accountId account} failed because the active end ({proposedDate}) would be before the active begin ({ab})" else
         Ok () // REQ-AC-4.2
 
 let private validateNoActiveChildrenBeforeDeactivation
@@ -51,7 +52,7 @@ let private validateNoActiveChildrenBeforeDeactivation
     (account: Account)
     (auditEnvelope: AuditEnvelope)
     : Result<unit, string> =
-    let accountId = uniqueId account
+    let accountId = accountId account
     result {
         let! children = accountId |> fetchByParentId transaction
         do!
@@ -63,7 +64,7 @@ let private validateNoActiveChildrenBeforeDeactivation
 
 let private validateZeroBalance
         (transaction: DbTransaction option)
-        (accountId: Guid)
+        (accountId: AccountId)
         : Result<unit, string> =
     result {
         let! nonVoidedLines = accountId |> JournalEntryLine.fetchByAccountId transaction true // REQ-JE-4.7
@@ -79,7 +80,7 @@ let private validateZeroBalance
 let private validateNoJournalEntriesAfterDeactivationDate
         (deactivationDate: LocalDate)
         (transaction: DbTransaction option)
-        (accountId: Guid)
+        (accountId: AccountId)
         : Result<unit, string> =
     let query = """
         SELECT count(je.entry_date)
@@ -88,8 +89,9 @@ let private validateNoJournalEntriesAfterDeactivationDate
         where jel.account_id = @account_id
         and je.entry_date > @deactivation_date
         ;"""
+    let accountIdGuid = accountId |> AccountId.value
     let parameters = [
-        { name = "@account_id"; value = UniqueId accountId };
+        { name = "@account_id"; value = UniqueId accountIdGuid };
         { name = "@deactivation_date"; value = DbLocalDate deactivationDate };
     ]
     match executeScalar query parameters longUnboxing transaction with
@@ -99,7 +101,7 @@ let private validateNoJournalEntriesAfterDeactivationDate
         | _ -> Error "Failed to validate the Account's Journal Entries prior to deactivation"
 
 let private validateJournalEntries
-        (accountId: Guid)
+        (accountId: AccountId)
         (deactivationDate: LocalDate)
         (transaction: DbTransaction option)
         : Result<unit, string> =
@@ -117,7 +119,7 @@ let deactivateAccountById
         (explicitEnd: LocalDate option)
         (auditEnvelope: AuditEnvelope)
         (transaction: DbTransaction option)
-        (accountId: Guid)
+        (accountId: AccountId)
         : Result<Account, string> = // REQ-AC-4.1
     let deactivationDate =
         match explicitEnd with
@@ -128,7 +130,7 @@ let deactivateAccountById
         do! // REQ-AC-4.5
             match activeEnd accountCurrent with
             | None -> Ok ()
-            | Some x -> Error $"Account {accountId} deactivation failed because active end is already set to {x}"
+            | Some x -> Error $"Account {accountId |> AccountId.value} deactivation failed because active end is already set to {x}"
         let! () = validateProposedDeactivationDate accountCurrent deactivationDate // REQ-AC-4.2
         let! () = validateNoActiveChildrenBeforeDeactivation transaction accountCurrent auditEnvelope // REQ-AC-4.3
         let! () = validateJournalEntries accountId deactivationDate transaction

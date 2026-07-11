@@ -39,7 +39,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         match code with
         | 0 ->
             let accountReturn:AccountReturn = fromJson<AccountReturn> a |> Result.defaultWith failwith
-            let cleanUpId = accountReturn.code |> LookupCache.accountCodeToId.fetch |> Result.defaultWith failwith
+            let cleanUpId = accountReturn.code |> LookupCache.accountCodeToId.fetch |> Result.defaultWith failwith |> AccountId.fromGuid
             cleanUpAccountId (Some cleanUpId) |> Result.defaultWith failwith
         | _ ->
             Assert.Fail $"Create Account happy path returned a non-zero value: {e}"
@@ -170,7 +170,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         try
             let railroad = result {
                 let! account = createAccountInDb genericAccountCodeString
-                let accountId = Account.uniqueId account
+                let accountId = Account.accountId account
                 idToCleanUp_1 <- Some accountId
                 let! payload = { code = genericAccountCodeString; activeEnd = endDate } |> toJson<AccountDeactivationInput>
                 let args = ["Account"; "Deactivate"]
@@ -214,7 +214,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         try
             let railroad = result {
                 let! account = createAccountInDb genericAccountCodeString
-                let accountId = Account.uniqueId account
+                let accountId = Account.accountId account
                 idToCleanUp_1 <- Some accountId
                 let! payload = { code = genericAccountCodeString; newName = newName } |> toJson<AccountUpdateNameInput>
                 let args = ["Account"; "UpdateName"]
@@ -257,7 +257,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         try
             let railroad = result {
                 let! account = createAccountInDb genericAccountCodeString
-                let accountId = Account.uniqueId account
+                let accountId = Account.accountId account
                 idToCleanUp_1 <- Some accountId
                 let! payload = { code = genericAccountCodeString; newReference = newReference } |> toJson<AccountUpdateExternalReferenceInput>
                 let args = ["Account"; "UpdateExternalReference"]

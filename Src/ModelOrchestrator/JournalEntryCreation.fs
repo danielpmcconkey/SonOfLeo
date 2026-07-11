@@ -2,6 +2,7 @@ namespace ModelOrchestrator.JournalEntries
 
 open System
 open Model.Audit
+open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.JournalEntryPrimitives
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
@@ -63,7 +64,7 @@ module JournalEntryCreationAndConstruction =
             (line: JournalEntryLinePrimitives)
             : Result<unit, string> =
         result {
-            let! account = line.accountId |> Account.fetchById transaction
+            let! account = line.accountId |> AccountId.fromGuid |>  Account.fetchById transaction
             return!
                 match account |> Account.isActive entryDate with
                 | true -> Ok ()

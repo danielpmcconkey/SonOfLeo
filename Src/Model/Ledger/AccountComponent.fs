@@ -10,6 +10,12 @@ module AccountComponent =
      * only exists as a separate module because Account was getting huge
      *)
 
+    type AccountId = private AccountId of Guid
+    module AccountId =
+        let create () : AccountId = (AccountId (Guid.NewGuid()))
+        let fromGuid g = AccountId g
+        let value (AccountId g) : Guid = g
+    
     type AccountActivityPeriod =
         private {   activeBegin: LocalDate                        // REQ-AC-1.42, REQ-AC-1.44
                     activeEnd: LocalDate option                   // REQ-AC-1.43, REQ-AC-1.45

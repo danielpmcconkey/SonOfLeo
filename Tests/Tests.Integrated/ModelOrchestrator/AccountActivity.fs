@@ -1,5 +1,6 @@
 namespace Tests.Integrated.ModelOrchestrator
 
+open Model.Ledger.Accounts.AccountComponent
 open Xunit
 open Tests.Integrated
 open ModelOrchestrator.AccountActivity
@@ -10,7 +11,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.9 fetchFiltered by account returns enriched activity with entry-level fields`` () =
         let filter = {
-            accountId = Some fixture.Data.mortgage2210Id
+            accountId = Some (fixture.Data.mortgage2210Id |> AccountId.value)
             temporalFilter = None
             source = None
             accountType = None
@@ -34,7 +35,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.9 fetchFiltered with unVoidedOnly excludes voided entries`` () =
         let filterAll = {
-            accountId = Some fixture.Data.entertainment5650Id
+            accountId = Some (fixture.Data.entertainment5650Id |> AccountId.value)
             temporalFilter = None
             source = None
             accountType = None
@@ -58,7 +59,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.9 fetchFiltered returns no-activity row for account with no lines`` () =
         let filter = {
-            accountId = Some fixture.Data.assets1000Id
+            accountId = Some (fixture.Data.assets1000Id |> AccountId.value)
             temporalFilter = None
             source = None
             accountType = None
