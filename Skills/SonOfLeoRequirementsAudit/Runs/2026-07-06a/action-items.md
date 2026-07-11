@@ -123,6 +123,8 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | 71 | ML-5 | fetchAll missing REQ-AC-3.7/3.9 annotations | Dan fixed | RESOLVED |
 | 72 | ML-6 | Composite reqs (JE-2.8, 1.12, 1.13) — verify orchestrator enforces them | All enforced. 1.12/1.13 were already annotated. Dan added JE-2.8 to validateAccountByLine and all 3 to orchestrateCreation rollback. Only one annotation was missing — agents need to read more carefully before flagging | RESOLVED |
 | 72a | — | Audit skill: truthfulness agents must verify enforcement exists NOWHERE before claiming it's missing | Update prompts: grep the full repo for the REQ ID before reporting a missing-annotation finding | CONFIRMED |
+| 105a | — | Audit skill: customer panel "three horizons" framing produces findings against future plans | Update prompts: narrow customer panel to judge against Dan's statement of position and the current CLI surface. Mid/far horizon observations are advisory context, not findings. Do not flag capability gaps in domains that don't exist yet | CONFIRMED |
+| 106a | — | Audit skill: agents flag idiomatic code as unsafe without checking the underlying guarantees | Update prompts: before flagging Option.get or similar partial operations, verify whether the value is guaranteed by schema constraints (NOT NULL, FK) or query structure. Schema-guaranteed values are not "smuggled partiality" | CONFIRMED |
 | 73 | ORCH-4 | fetchByPeriod missing REQ-JE-3.3 annotation | Wrong — fetchByPeriod takes a UUID, not a key. REQ-JE-3.3 is correctly annotated in the CLI routing file. Agent didn't read the requirement | OVERRULED |
 | 73a | — | Audit skill: agent cited wrong enforcement site for ORCH-4 | Same as #56a — agents must read the requirement text before citing it | OVERRULED |
 | 74 | ORCH-5 | validateNoNewVoidedEntries missing annotation | No requirement exists for this check. Dan to add one | CONFIRMED |
@@ -226,3 +228,93 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | 102 | ARCH-8 | No line ordinal on journal_entry_line | Line order is not semantically meaningful in double-entry accounting | OVERRULED |
 | 103 | ARCH-9 | Period dates write-only, calendar-month granularity hardcoded | Calendar months are deterministic — no need to code against impossible drift | OVERRULED |
 | 104 | ARCH-10 | AuditableAction DU is a flat cross-domain registry | 13 cases is fine; logging design undecided; one DU entry per new feature is negligible | OVERRULED |
+
+## Phase 4 — GAAP Panel
+
+### High
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 105 | GAAP-1 | "Period close" overloaded — posting lock vs GAAP closing entries; monthly grain has no annual anchor | Action item #96a — design discussion before closing slice | CONFIRMED |
+
+### Medium
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 106 | GAAP-2 | closeFiscalPeriod can't post closing entries atomically | Deferred to #96a design discussion. Non-atomic is recoverable if JEs post first, period closes second. Single-user CLI risk is low | DEFERRED |
+| 107 | GAAP-3 | netBalance uses fixed sign convention instead of normal-balance orientation | Dan fixed code + added REQ-JE-3.6.1 | RESOLVED |
+
+### Low
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 108 | GAAP-5 | fetchByReference returns duplicate entries (missing DISTINCT) | Dan fixed with List.distinct in F# | RESOLVED |
+
+## Phase 4 — Customer Panel
+
+### High
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 109 | CUST-1 | Balance query has no as-of date | Dan fixed in code + added REQ-JE-3.6.2. Action item #99a for tests | RESOLVED |
+| 110 | CUST-2 | No amount or description-pattern filter on activity search | Dan fixed in code. Action item #100a for tests | RESOLVED |
+
+### Medium
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 111 | CUST-3 | netBalance sign convention — spec says credits−debits, code does debits−credits | Resolved by GAAP-3 fix. Action item #101a for signed-balance test | RESOLVED |
+| 112 | CUST-4 | Account activity return omits counter-account | Revisit with fresh LeoBloom context — assertion may be flawed. Action item #102a | CONFIRMED |
+| 113 | CUST-5 | No atomic reclass (void+repost) verb | Action item #103a to spec the reclass verb | CONFIRMED |
+| 114 | CUST-6 | Obligations and portfolio not on any roadmap list | Not a finding. Dan decides his own roadmap | OVERRULED |
+
+### Low
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 115 | CUST-7 | Monthly period must be pre-created before first post | Already on Dan's to-do — running check for next-month auto-create | CONFIRMED |
+| 116 | CUST-8 | No batch posting — importers would spawn one process per JE | Future plans not in scope for this audit. Staging domain will address | OVERRULED |
+| 117 | CUST-9 | No structured counterparty/merchant for ML | Auditor speculating without knowledge of Dan's actual ML/Monte Carlo system. Action item #104a for Hobson to review PersonalFinance before next audit | OVERRULED |
+
+| # | Source | Action | Status |
+|---|--------|--------|--------|
+| 99a | CUST-1 | Add tests for as-of date balance fetch (REQ-JE-3.6.2) | CONFIRMED |
+| 100a | CUST-2 | Add tests for amount and description-pattern activity filters | CONFIRMED |
+| 101a | CUST-3, GAAP-3 | Add test asserting non-zero signed balance in normal-balance orientation | CONFIRMED |
+| 102a | CUST-4 | Revisit counter-account question with Hobson in fresh LeoBloom context — is there an actual workflow gap or does JE fetch-by-date-range already cover it? | CONFIRMED |
+| 103a | CUST-5 | Spec the reclass verb — scope the actual problem before implementing | CONFIRMED |
+| 104a | CUST-9 | Hobson to review PersonalFinance (Monte Carlo sim) so future audit panels have grounded context about Dan's ML needs instead of speculating | CONFIRMED |
+
+## Phase 4 — AI-Maintainability Panel
+
+### High
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 118 | AIM-1 | Test fixture TRUNCATEs whatever DB the env var points at | Defended in depth (test appsettings → dev only, no prod password in Docker, IP-restricted DB, release-config-only prod access). Action item #107a to vet thoroughly | CONFIRMED |
+| 119 | AIM-2 | Negative-existence guardrails invisible to code-first navigation | Problem is real, suggested fix (docs-of-docs) is not. Action item #108a to devise a better mechanism | CONFIRMED |
+| 120 | AIM-3 | Traceability script counts stricken/withdrawn REQs as active | Only matters inside the audit script — fix the script, not the specs. Stricken convention exists to prevent ID reuse | OVERRULED |
+
+### Medium
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 121 | AIM-4 | 109 bare-Guid parameters — argument-order transposition compiles clean | Implement single-case DU wrappers for entity IDs in the model layer. Action item #109a | CONFIRMED |
+| 122 | AIM-5 | No repo-level entry point for agents | Dan still owns the code; full CLAUDE.md would drift. Add a minimal placeholder | CONFIRMED |
+| 123 | AIM-6 | Test doctrine in TestWriter skill, not co-located with Tests/ | BD's harness loads the skill via frontmatter before editing test files — doctrine is already in-context | OVERRULED |
+| 124 | AIM-7 | DAL error paths use ex.StackTrace without ex.Message | Already fixed | RESOLVED |
+
+### Low
+
+| # | ID | Finding | Action | Status |
+|---|-----|---------|--------|--------|
+| 125 | AIM-8 | Precedent ledger has no REQ-ID linkage | Action item #110a — compounded learnings skill to replace ad-hoc precedent/convention accumulation | CONFIRMED |
+
+| # | Source | Action | Status |
+|---|--------|--------|--------|
+| 107a | AIM-1 | Vet the env-guard defense in depth: confirm all 4 backstops (test appsettings, no prod password in Docker, IP restriction, release-config gate) and document them | CONFIRMED |
+| 108a | AIM-2 | Devise a mechanism for making negative-existence guardrails discoverable to agents without documentation-of-documentation | CONFIRMED |
+| 109a | AIM-4 | Introduce single-case DU wrappers for entity UUIDs (AccountId, JournalEntryId, CommentId, etc.) — start with JE composite where same-typed IDs sit adjacent | CONFIRMED |
+| 110a | AIM-8 | Design a compounded learnings skill for SonOfLeo — structured precedent/convention accumulation to replace free-text ledger and scattered action items | CONFIRMED |
+| 111a | AIM-8 (unrelated) | Discussion: could git-based traceability (commit links, blame) replace REQ annotations? Explore the "no code comments" philosophy vs. spec-to-code traceability links | CONFIRMED |
+| 112a | AIM-5 | Add a minimal CLAUDE.md placeholder to repo root — point to Specs/README.md, note migration review gate | CONFIRMED |

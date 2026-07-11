@@ -16,6 +16,14 @@
 - **Why (AI-specific):** The single most catastrophic, irreversible action in the system sits inside BD's first territory, gated only by ambient config an agent can't see is load-bearing. Textbook "passes build+tests, destroys everything."
 - **Resolution owner:** dan-decides → fix-code
 - **Prior ruling:** none (`environment-isolation-plan-2026-06-14.md` is a plan, not an enforced control).
+[Dan]Add an actiion to vet this thoroughly, but I'm under the impression that there are 3 backstops here.
+1. The test project has the truncation scripts and that project's appsettings.json only has an entry for getting the test connection string. (Though I did just add the same truncation to my DevDataStage project, but that project only has the dev connection string.
+2. The production DB password has never been in the Docker container
+3. The database will refuse a connection to prod that originates from the Docker container (due to the IP address mapping you set up for BD to access the DB server)
+4. The production DB can only be accessed when running a binary that was build using a release build config
+
+So the only danger there is if I or Hobson copy the truncation into the CLI project, then run it through a release config. I think that's enough paranoia for the day.
+[/Dan]
 
 ---
 
@@ -29,6 +37,7 @@
 - **Why (AI-specific):** These guardrails' violation silently corrupts/destroys audit data; an agent gets zero mechanical resistance and the documented navigation method actively misleads it.
 - **Resolution owner:** fix-spec (+ optional fix-annotation)
 - **Prior ruling:** touches the 4.22/5.1/6.x waivers but does not re-raise them — raises *discoverability* of the guardrails, which no ruling addresses.
+- [Dan]there's merit here, but we're now adding documentation of documentation and that'll start to smell fast. Add an action item to devise a better mousetrap. This isn't it, but the problem is real.[/Dan]
 
 ---
 
@@ -42,6 +51,7 @@
 - **Why (AI-specific):** This script is BD's coverage oracle. ~55 false positives train an agent to ignore it wholesale, at which point genuine untested requirements ship unnoticed. A mechanical check is only maintainable if trustworthy without human interpretation.
 - **Resolution owner:** fix-code (script) + fix-spec (hygiene)
 - **Prior ruling:** none — action-items #61/#71 note specific DAL gaps but never diagnose the stricken-counting behavior.
+- [Dan]this seems awfully dumb to me. The "stricken" convention came about because I had accidentally reused a previously stricken REQ ID. But this also is only ever somethnig that the AI would need to deal with in an audit. No where else do you need to care. So I'm overruling this unless you think I'm missing the point.[/Dan]
 
 ---
 
@@ -55,6 +65,7 @@
 - **Why (AI-specific):** Argument-order transposition is among the most common LLM edit errors, here invisible to compiler and often tests. Wrappers convert BD's likeliest silent-corruption mistake into a loud build failure — highest-leverage type change for agent safety.
 - **Resolution owner:** dan-decides (appetite) → fix-code
 - **Prior ruling:** overlaps FSDDD-01; raised here as a *class* finding, not the single call site.
+- [Dan]This has merit, but it might get really messy at the boundaries. Something is gonna have to marshal and unmarshal between the primitives and the type-wrapped primitives. And even then, we have the same problem one level up. When you're running my Saturday routine, what's stopping you from accidentally swapping 2 dates, 2 amounts, 2 codes, etc.? I do think I'll implement this for the UUIDs, but I don't want to turn every primitive into a named type. Add an action item for me to do this.[/Dan]
 
 ---
 
@@ -68,6 +79,7 @@
 - **Why (AI-specific):** Spec authority is inferable; the migration lifecycle and prod-review gate are not — precisely the operations where an uninformed agent does irreversible damage.
 - **Resolution owner:** fix-spec
 - **Prior ruling:** none.
+  - [Dan]for now, I still own the code and I think that I won't be handing it off for some time. It doesn't make the most sense for me to draft this now only for it to sit and drift from reality. Maybe an empty placeholder file to remind us of the eventual idea?[/Dan]
 
 ---
 
@@ -81,6 +93,7 @@
 - **Why (AI-specific):** BD's first territory is tests. Doctrine loaded only when the harness happens to trigger the skill isn't reliably in-context for an agent editing a `.fs` test file; co-locate a pointer with the work.
 - **Resolution owner:** fix-spec (docs)
 - **Prior ruling:** none (distinct from fixture-fix action items #58-59/#65).
+- [Dan]why would an agent read it here but not check their own pre-loaded skills' front-matter? Hobson, am I thinking about this wrong?[/Dan]
 
 ---
 
@@ -94,6 +107,7 @@
 - **Why (AI-specific):** An agent debugging works from the error string; StackTrace-only (often null-message) errors make BD's observe-and-fix loop slower and guess-driven.
 - **Resolution owner:** fix-code
 - **Prior ruling:** related to action-items #25 (AMB-1), CONFIRMED, not in `resolved-findings.md` (no suppression). Re-raised because DAL still ships `ex.StackTrace`, not the ruled `ex.ToString()`.
+- [Dan]thas was already fixed[/Dan]
 
 ---
 
@@ -107,7 +121,7 @@
 - **Why (AI-specific):** Precedent stays cheap only if retrievable by the REQ being audited, not by re-reading the whole ledger; free-text slugs make matching a judgment call that will drift.
 - **Resolution owner:** fix-annotation (ledger format)
 - **Prior ruling:** none.
-
+[Dan]new action item. at work, I created a "compounded learnings" skill because I was tired of how awful Compound Engineering's compounding worked. It's something I want to implement here.[/Dan]
 ---
 
 ### Credit where due
@@ -117,3 +131,5 @@
 - Precedent-ledger + statement-delta is a strong anti-relitigation pattern.
 
 **Through-line (AIM-1/2/3):** this codebase documents its rules better than most at this stage, but leans on *review and convention* to enforce the rules whose violation is most expensive — and BD's first lane (tests) sits atop the most destructive of those. Converting three from review-enforced to mechanically-enforced — env guard (AIM-1), forbidden-op discoverability (AIM-2), ID wrapper types (AIM-4) — de-risks the handover more than any added documentation.
+- [Dan]I agree that our various conventions and doctrines and decisions et al are getting unmanageable. This will become part of our new compounded learnings skill.[/Dan]
+  [Dan]Unrelated action item. One of the teams I manage at work has a strict "no code comments" rule. Instead they rely on git for all of that. In their IDEs they see commit links and they can always click those and go to github and see what the person was working on when they made the change. It seems utterly foreign to me. I want to pick your brain about the efficacy of such an idea and whether it could / should replace all of our REQ annotations.[/Dan]

@@ -9,6 +9,7 @@
 **Suggested Action:** Add optional asOf LocalDate to the balance fetch contract (predicate: je.entry_date <= @as_of).
 **Why:** Reconciliation is the weekly control gate; both checks are keyed to a period-end date. A balance query that can only answer 'now' cannot support either.
 **Owner:** fix-spec
+[Dan]Made the change in code. Added REQ 3.6.2. Create an action item for adding new tests for this.[/Dan]
 
 ## CUST-2 — HIGH (customer-gap)
 **Location:** Src/Model/UI/InterfaceContractTypes.fs:86-97, Src/ModelOrchestrator/AccountActivity.fs:125-143
@@ -17,6 +18,7 @@
 **Suggested Action:** Add optional amount (exact, 2dp) and descriptionPattern (ILIKE) filters.
 **Why:** Every unexplained recon delta begins with a lookup by amount or merchant string. The CLI can write entries it cannot find.
 **Owner:** fix-spec
+[Dan]done. add an action item to add tests for this[/Dan]
 
 ## CUST-3 — MEDIUM (customer-gap)
 **Location:** Src/ModelOrchestrator/AccountBalance.fs:93 vs REQ-JE-3.6
@@ -25,6 +27,7 @@
 **Suggested Action:** Pick a convention, correct spec or code, add a test asserting non-zero signed balance.
 **Why:** A signed field consumed weekly by reconciliation whose sign is documented one way and implemented the other is a latent breaking change.
 **Owner:** dan-decides
+[Dan]this has been updated from a previous finding. Add an action to add tests for it[/Dan]
 
 ## CUST-4 — MEDIUM (customer-gap)
 **Location:** Src/Model/UI/InterfaceContractTypes.fs:35-45
@@ -33,6 +36,7 @@
 **Suggested Action:** Add sibling-line summaries to AccountActivityDetailReturn, or explicitly rule that categorization review uses JE-FetchByDateRange.
 **Why:** Categorization review is the point of the weekly walk; a return type that shows the transaction but hides its categorization sends the consumer back to per-row fetches.
 **Owner:** dan-decides
+[Dan]Add an action item for me to ask you when you've got a fresh LeoBloom context loaded. I think this assertion is flawed. You've already got ways to search JEs. Adding another account's activity to a specific account's activity fetch sounds very, very wrong to me. I want to overrule it, but I want to know if there's an actual problem that needs solving.[/Dan]
 
 ## CUST-5 — MEDIUM (customer-gap)
 **Location:** Src/SonOfLeoCli/JournalEntryRoutes.fs (no reclass verb), Specs/Behavioral/JournalEntryCrud.md section 4
@@ -41,6 +45,7 @@
 **Suggested Action:** Spec and build a JournalEntry Reclass verb.
 **Why:** Weekly operation, historically the largest source of manual error.
 **Owner:** fix-spec
+[Dan]Add an action item for us to spec this out. It sounds like a can of worms to me, but I'd like to understand what problem actually needs solving here.[/Dan]
 
 ## CUST-6 — MEDIUM (customer-gap)
 **Location:** Project scope statement
@@ -49,6 +54,7 @@
 **Suggested Action:** Confirm they're roadmapped and record where they sit relative to imports/reconciliation.
 **Why:** SonOfLeo cannot replace LeoBloom's Saturday without Phase 3.
 **Owner:** dan-decides
+[Dan]No. I have to put up with jack assed project managers at work. I'm not gonna pay for you to pretend to be one here.[/Dan]
 
 ## CUST-7 — LOW (customer-gap)
 **Location:** Specs/Behavioral/JournalEntryCrud.md REQ-JE-2.6, Src/SonOfLeoCli/FiscalPeriodRoutes.fs:75-89
@@ -57,6 +63,7 @@
 **Suggested Action:** Add a bulk period-creation verb or auto-create for missing future periods.
 **Why:** Monthly, predictable, self-inflicted friction in the most-exercised command path.
 **Owner:** dan-decides
+[Dan]We already addressed this somewhere. It's on my to-do list to add a running check to see if next month hasn't been added and add it.[/Dan]
 
 ## CUST-8 — LOW (customer-gap)
 **Location:** Src/SonOfLeoCli/Program.fs:18-27
@@ -65,6 +72,7 @@
 **Suggested Action:** Defer the batch verb; record the decision. Staging domain's promote step must post transactionally per file.
 **Why:** The underlying need is real but better served by staging.
 **Owner:** dan-decides
+[Dan]why are we poking holes in future plans that don't exist? I'm not advertising this as a completed project. Update the skill to knock this shit off. There's a reason I tell you where I think I am at the head of each audit and it's because I don't want to waste time with bullshit like this.[/Dan]
 
 ## CUST-9 — LOW (customer-gap)
 **Location:** Specs/Behavioral/JournalEntryCrud.md design notes, Src/Model/UI/InterfaceContractTypes.fs:141-147
@@ -73,3 +81,4 @@
 **Suggested Action:** When staging is specced, write permanent retention of raw source rows as a requirement.
 **Why:** Merchant-level signal is the one unrecoverable input if staging is ever designed as ephemeral.
 **Owner:** fix-spec
+[Dan]These guys need to stop asking about future shit. I'm not asking for that perspective. I know *exactly* how to integrate this with my ML monte carlo sim. Maybe we should add an action item for you to review that already existing project so you can pre-seed the proper ideas about it into this process. These guys are way off when they speculate on my ML and Monte Carlo needs[/Dan]
