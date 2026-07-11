@@ -55,9 +55,8 @@ module Money =
     let add (m: Money) (n: Money): Result<Money, string> = // REQ-MON-2.5
         fromDecimal (m.amount + n.amount) // REQ-MON-2.5.1
 
-    /// subtracts n from m
-    let subtract (m: Money) (n: Money): Result<Money, string> = // REQ-MON-2.6
-        fromDecimal (m.amount - n.amount) // REQ-MON-2.6.1
+    let subtractVal1FromVal2 (val1: Money) (val2: Money): Result<Money, string> = // REQ-MON-2.6
+        fromDecimal (val2.amount - val1.amount) // REQ-MON-2.6.1
     
     let sumList (l: Money list): Result<Money, string> = // REQ-MON-2.9
         let sum_d = l |> List.sumBy amount

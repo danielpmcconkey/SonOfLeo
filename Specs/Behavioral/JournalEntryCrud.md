@@ -93,7 +93,10 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-3.3** The system must be able to retrieve all journal entries for a given fiscal period by the caller providing a PeriodKey.
 - **REQ-JE-3.4** The system must be able to retrieve all journal entry lines for a given account. Note: this requirement is no longer needed, thanks to JE-3.9. However, it is retained because we have functioning tests and model code that I don't want to strip out in case a future need arises.
 - **REQ-JE-3.5** The system must be able to retrieve the journal entries carrying a given external reference, by the caller providing a source FI and reference value. The result is a set (external references are not unique across entries, per REQ-JE-1.48).
-- **REQ-JE-3.6** The system must be able to compute and return the total debit amount, total credit amount, and net balance (credits minus debits) for a given account's non-voided journal entry lines (per REQ-JE-4.7).
+- **REQ-JE-3.6** The system must be able to compute and return the total debit amount, total credit amount, and net balance for a given account's non-voided journal entry lines (per REQ-JE-4.7).
+- **REQ-JE-3.6.1** Net balance is expressed in the account's **normal balance** orientation such that a positive net balance always means "more of what
+  this account holds. Ex: asset/expense → debits - credits; liability/equity/revenue → credits - debits.
+- **REQ-JE-3.6.2** The caller should be able to pass an optional "as-of" date such that the result represents the balance as it would've been at the end of the as-of date 
 - **REQ-JE-3.7** The system must be able to retrieve all journal entries whose entry date falls within a caller-provided date range (start date and end date, both inclusive Calendar Dates). The result is a set of complete journal entries (per REQ-JE-3.1).
 - **REQ-JE-3.8** The system must be able to retrieve all journal entries carrying at least one external reference whose source FI matches a caller-provided value. Unlike REQ-JE-3.5, this requires only the FI — no reference value. The result is a set of complete journal entries (per REQ-JE-3.1).
 - **REQ-JE-3.9** The system must be able to retrieve all journal entry lines for a given account, enriched with their parent entry's `entry_date`, `description`, `source`, and `voided_at`. 

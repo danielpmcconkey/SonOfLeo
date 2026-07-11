@@ -39,7 +39,9 @@ let private fetchHeaderIdsByReference // REQ-JE-3.5, REQ-JE-3.8
             {whereClauses}
             order by je.entry_date asc
             ;"""
-        executeReaderQuery query parameters mapRaw constructRaw AnyQuantityIsAcceptable transaction
+        result {
+            let! fullList = executeReaderQuery query parameters mapRaw constructRaw AnyQuantityIsAcceptable transaction
+            return fullList |> List.distinct } // the distinct is here because one JE might have multiple refs with the same reference
 
 let private fetchHeaderIdsByDateRange // REQ-JE-3.7
         (transaction: DbTransaction option)

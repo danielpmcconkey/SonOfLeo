@@ -318,3 +318,19 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | 110a | AIM-8 | Design a compounded learnings skill for SonOfLeo — structured precedent/convention accumulation to replace free-text ledger and scattered action items | CONFIRMED |
 | 111a | AIM-8 (unrelated) | Discussion: could git-based traceability (commit links, blame) replace REQ annotations? Explore the "no code comments" philosophy vs. spec-to-code traceability links | CONFIRMED |
 | 112a | AIM-5 | Add a minimal CLAUDE.md placeholder to repo root — point to Specs/README.md, note migration review gate | CONFIRMED |
+| 113a | Phase 1 gap | Cross-reference traceability Invariant 2 (98 untested/unwaived REQ IDs) and Invariant 3 (99 unannotated REQ IDs) against all Phase 2-4 findings and action items. Flag any REQ ID that was never picked up by a downstream agent. Lists are in 01-B-Traceability.md | CONFIRMED |
+| 114a | AMB-FP-2 | Dropped finding: fiscal period start/end dates — ambiguous whether persisted or recomputed on read | Dates are persisted AND re-derived. No ambiguity — the system does both | OVERRULED |
+
+## Dan's Final Thoughts (post-audit process review)
+
+| # | Action | Status |
+|---|--------|--------|
+| FT-1 | Restructure audit skill: run one agent at a time, discuss its findings before firing the next. No parallel fan-out, no aggregate summary. Phase 1 items went undiscussed because of the aggregate approach | CONFIRMED |
+| FT-2 | Audit skill: write each phase's output doc to the current run's folder (e.g. `Runs/2026-07-06a/`) as findings come in, not after the fact. Also clean up file locations from this specific audit (panel-*.md files live outside the run folder) | CONFIRMED |
+| FT-3 | Remove severity rankings from audit skill output. Severity is Dan's call, not the agent's. Low-severity labels cause Dan to skip things he shouldn't | CONFIRMED |
+| FT-4 | Meta-review the Phase 1-4 discussions for common frustration patterns and update the skill prompts accordingly. Subsumes the 11 individual prompt-fix items (#9a, 17c, 19a, 20a, 27a, 33a, 48a, 56a, 72a, 105a, 106a) into one deliberate pass | CONFIRMED |
+| FT-5 | Compounded learnings skill is FIRST PRIORITY after this review — ahead of all other action items. Design and build it. Existing item #110a, elevated | CONFIRMED |
+| FT-6 | Sequencing constraint: when working action items, do minor code changes (annotations, waivers, small fixes) before major surgery (architecture discussions, design sessions). Line numbers shift | CONFIRMED |
+| FT-7 | Audit the discussions to ensure all action items captured | Done this session (2026-07-11). Found AMB-FP-2 dropped, traceability cross-ref never performed. Both logged (#113a, #114a) | RESOLVED |
+| FT-8 | Devise a new finding-disposition system. Current action-items.md mixes dispositions with action items and uses the wrong structure. Each audit run needs its own finding IDs and disposition record. Future audits need a mechanism to reference prior rulings without re-raising the same issues. Relates to #110a (compounded learnings) | CONFIRMED |
+| FT-9 | Re-run the audit after all action items from this run are complete | CONFIRMED |

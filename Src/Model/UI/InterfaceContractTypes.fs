@@ -91,12 +91,14 @@ module InterfaceContractTypes =
         accountSubtype: string option
         accountParentCode: string option
         journalEntryId: Guid option
+        amount: decimal option
+        description: string option
         unVoidedOnly: bool
     }
     
     type AccountActivityFetchInput = { filter: AccountActivityFilterInput; sort: AccountActivitySortInput option } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
     
-    type AccountBalanceFetchByAccountListInput = { codes: string list } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+    type AccountBalanceFetchByAccountListInput = { codes: string list; asOf: LocalDate option } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
     
     // update
     type AccountDeactivationInput = { code: string; activeEnd: LocalDate } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2

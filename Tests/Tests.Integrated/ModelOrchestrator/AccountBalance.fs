@@ -10,7 +10,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList returns correct debit and credit totals`` () =
-        let result = fetchByAccountIdList None [fixture.Data.mortgage2210Id]
+        let result = fetchByAccountIdList None [fixture.Data.mortgage2210Id] None
         match result with
         | Ok balances ->
             Assert.Equal(1, balances |> List.length)
@@ -23,7 +23,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList excludes voided entry amounts`` () =
     // todo: ``REQ-JE-3.6 fetchByAccountIdList excludes voided entry amounts`` fails when you run every test at once
-        let result = fetchByAccountIdList None [fixture.Data.entertainment5650Id]
+        let result = fetchByAccountIdList None [fixture.Data.entertainment5650Id] None
         match result with
         | Ok balances ->
             let bal = balances |> List.head
@@ -37,7 +37,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList returns zero balances for account with no activity`` () =
-        let result = fetchByAccountIdList None [fixture.Data.assets1000Id]
+        let result = fetchByAccountIdList None [fixture.Data.assets1000Id] None
         match result with
         | Ok balances ->
             Assert.Equal(1, balances |> List.length)
@@ -49,5 +49,5 @@ type AccountBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList with empty list returns Error`` () =
-        let result = fetchByAccountIdList None []
+        let result = fetchByAccountIdList None [] None
         Assert.True(Result.isError result)

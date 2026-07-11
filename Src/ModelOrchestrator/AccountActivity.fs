@@ -27,6 +27,8 @@ type AccountActivityFilter = {
     accountSubtype: string option
     accountParentId: Guid option
     journalEntryId: Guid option
+    amount: decimal option
+    description: string option
     unVoidedOnly: bool
 }
 
@@ -140,6 +142,10 @@ let fetchFiltered // REQ-JE-3.9
                     fun x -> ("and je.je_source = @je_source", { name = "@je_source"; value = CharString x }))
                 filter.journalEntryId |> Option.map (
                     fun x -> ("and je.unique_id = @je_id", { name = "@je_id"; value = UniqueId x }))
+                filter.amount |> Option.map (
+                    fun x -> ("and jel.amount = @amount", { name = "@amount"; value = Numeric x }))
+                filter.description |> Option.map (
+                    fun x -> ("and je.description like @description", { name = "@description"; value = CharString $"%%{x}%%" }))
             ] |> List.choose id
         let whereClauses = whereClausesAndParams |> List.map fst |> String.concat Environment.NewLine
         let parameters = whereClausesAndParams |> List.map snd

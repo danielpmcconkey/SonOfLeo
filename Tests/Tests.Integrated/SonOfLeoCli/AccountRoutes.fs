@@ -309,6 +309,8 @@ type AccountRouteTests(fixture: TestDataFixture) =
                     accountSubtype = None
                     accountParentCode = None
                     journalEntryId = None
+                    amount = None
+                    description = None
                     unVoidedOnly = false }
                 sort = None }
             let! payload = input |> toJson<AccountActivityFetchInput>
@@ -329,7 +331,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.6 FetchBalances route returns balances for given account codes`` () =
         let railroad = result {
-            let input : AccountBalanceFetchByAccountListInput = { codes = ["F-2210"; "F-5350"] }
+            let input : AccountBalanceFetchByAccountListInput = { codes = ["F-2210"; "F-5350"]; asOf = None }
             let! payload = input |> toJson<AccountBalanceFetchByAccountListInput>
             let code, stdout, e = runCli ["Account"; "FetchBalances"] payload
             do! if code <> 0 then Error $"FetchBalances returned non-zero: {e}" else Ok ()

@@ -182,6 +182,8 @@ let private accountActivityFetch payload _ =
                                                accountSubtype = input.filter.accountSubtype
                                                accountParentId = accountParentId
                                                journalEntryId = input.filter.journalEntryId
+                                               amount = input.filter.amount
+                                               description = input.filter.description
                                                unVoidedOnly = input.filter.unVoidedOnly }
         let! fetched = AccountActivity.fetchFiltered None filter sort
         let! returnList = 
@@ -212,7 +214,7 @@ let private accountBalancesFetch payload _ = // REQ-JE-3.6
             input.codes
             |> List.map (fun x -> x |> LookupCache.accountCodeToId.fetch )
             |> ListHelper.listOfResultsToResultsList
-        let! accountBalances = accountList |> AccountBalance.fetchByAccountIdList None
+        let! accountBalances = AccountBalance.fetchByAccountIdList None accountList input.asOf
         let! returnList =
             accountBalances
             |> List.map (fun accountBalance ->
@@ -242,7 +244,7 @@ let accountDomainCommandRoutes = [
       inputType = typeof<AccountFetchAllInput>.Name; outputType = typeof<AccountReturn list>.Name; handler = accountFetchAll }
     { domain = "Account"; verb = "FetchActivity"; description = "Returns Account records and associated JE activity for a given filter"
       inputType = typeof<AccountActivityFetchInput>.Name; outputType = typeof<AccountActivityReturn list>.Name; handler = accountActivityFetch }
-    { domain = "Account"; verb = "FetchBalances"; description = "Returns Account records and their aggregate balances"
+    { domain = "Account"; verb = "FetchBalances"; description = "Returns Account records and their aggregate balances. Optional as-of date produces a balance as it would've been at the end of the as-of date"
       inputType = typeof<AccountBalanceFetchByAccountListInput>.Name; outputType = typeof<AccountBalanceReturn list>.Name; handler = accountBalancesFetch }
     // update
     { domain = "Account"; verb = "Deactivate"; description = "Updates an account's active end parameter to a specific instant"

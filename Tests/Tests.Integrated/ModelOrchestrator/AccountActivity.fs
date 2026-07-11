@@ -17,6 +17,8 @@ type AccountActivityTests(fixture: TestDataFixture) =
             accountSubtype = None
             accountParentId = None
             journalEntryId = None
+            amount = None
+            description = None
             unVoidedOnly = false }
         let result = fetchFiltered None filter None
         match result with
@@ -39,6 +41,8 @@ type AccountActivityTests(fixture: TestDataFixture) =
             accountSubtype = None
             accountParentId = None
             journalEntryId = None
+            amount = None
+            description = None
             unVoidedOnly = false }
         let filterUnvoided = { filterAll with unVoidedOnly = true }
         let allResult = fetchFiltered None filterAll None
@@ -61,6 +65,8 @@ type AccountActivityTests(fixture: TestDataFixture) =
             accountSubtype = None
             accountParentId = None
             journalEntryId = None
+            amount = None
+            description = None
             unVoidedOnly = false }
         let result = fetchFiltered None filter None
         match result with

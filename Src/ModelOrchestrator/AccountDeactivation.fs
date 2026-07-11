@@ -69,7 +69,7 @@ let private validateZeroBalance
         let! nonVoidedLines = accountId |> JournalEntryLine.fetchByAccountId transaction true // REQ-JE-4.7
         let! debits = nonVoidedLines |> JournalEntryLine.sumLinesByType Debit 
         let! credits = nonVoidedLines |> JournalEntryLine.sumLinesByType Credit
-        let! diff = Money.subtract debits credits
+        let! diff = Money.subtractVal1FromVal2 debits credits
         return!
             if diff |> Money.amount <> 0M
             then Error "The Account has a non-zero balance."
