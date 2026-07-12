@@ -1,41 +1,30 @@
 module SonOfLeoCli.FiscalPeriodRoutes
 
-open Model
+open InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
+open InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
+open InterfaceBridge.Json
 open Model.Audit
-open Model.Ledger.FiscalPeriods
 open Model.Ledger.FiscalPeriods.FiscalPeriod
-open Model.UI
 open Utilities.ResultCE
-open InterfaceContractTypes
+open InterfaceBridge.CommandRoute
 
-let private convertModelToReturn fp : FiscalPeriodReturn = {
-            periodKey = FiscalPeriodKey.value (periodKey fp)
-            startDate = startDate fp
-            endDate = endDate fp
-            isOpen = isOpen fp
-            createdAt = createdAt fp
-            modifiedAt = modifiedAt fp
-        }
+
 
 let private create payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create FiscalPeriodCreate
         let! model = constructNewAndSaveToDb input.periodKey envelope None
-        let returnVal  = convertModelToReturn model
+        let returnVal  = convertFiscalPeriodToFiscalPeriodReturn model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
 let private fetch payload _ = // REQ-FP-3.2
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
-        let! uuid =
-            input.periodKey
-            |> LookupCache.fiscalPeriodKeyToId.fetch
-            |> Result.mapError(fun e -> $"Period key provided didn't match any recorded Fiscal Periods in the database. Further details: {e}") // REQ-NGUI-1.5
-        let id = uuid |> FiscalPeriodId.fromGuid
+        let! id = input.periodKey |> convertFiscalPeriodKeyStringToFiscalPeriodId
         let! model = id |> fetchById None 
-        let returnVal  = convertModelToReturn model
+        let returnVal  = convertFiscalPeriodToFiscalPeriodReturn model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
@@ -43,7 +32,7 @@ let private fetchAll payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodFetchAllInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let! models = fetchAll None input.openOnly
-        let returnVal  = models |> List.map convertModelToReturn
+        let returnVal  = models |> List.map convertFiscalPeriodToFiscalPeriodReturn
         return! Json.toJson<FiscalPeriodReturn list> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
@@ -51,13 +40,9 @@ let private close payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create FiscalPeriodClose
-        let! uuid =
-            input.periodKey
-            |> LookupCache.fiscalPeriodKeyToId.fetch
-            |> Result.mapError(fun e -> $"Period key provided didn't match any recorded Fiscal Periods in the database. Further details: {e}") // REQ-NGUI-1.5
-        let id = uuid |> FiscalPeriodId.fromGuid
+        let! id = input.periodKey |> convertFiscalPeriodKeyStringToFiscalPeriodId
         let! model = closeFiscalPeriod id envelope None
-        let returnVal  = convertModelToReturn model
+        let returnVal  = convertFiscalPeriodToFiscalPeriodReturn model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
@@ -65,13 +50,9 @@ let private reopen payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create FiscalPeriodReopen
-        let! uuid =
-            input.periodKey
-            |> LookupCache.fiscalPeriodKeyToId.fetch
-            |> Result.mapError(fun e -> $"Period key provided didn't match any recorded Fiscal Periods in the database. Further details: {e}") // REQ-NGUI-1.5
-        let id = uuid |> FiscalPeriodId.fromGuid
+        let! id = input.periodKey |> convertFiscalPeriodKeyStringToFiscalPeriodId
         let! model = reopenFiscalPeriod id envelope None
-        let returnVal  = convertModelToReturn model
+        let returnVal  = convertFiscalPeriodToFiscalPeriodReturn model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
     
