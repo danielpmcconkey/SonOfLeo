@@ -1,7 +1,7 @@
-module Model.UI.BoundaryConverters.MoneyFieldConverters
+module InterfaceBridge.BoundaryConverters.MoneyFieldConverters
 
 open Model
-open Model.UI.BoundaryConverters.GenericFieldHelpers
+open InterfaceBridge.BoundaryConverters.GenericFieldHelpers
 
 let convertDecimalOptionToMoneyOption
     (decimalOption: decimal option)

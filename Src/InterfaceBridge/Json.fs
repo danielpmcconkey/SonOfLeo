@@ -1,4 +1,5 @@
-namespace Model.UI
+module InterfaceBridge.Json
+
 open System.Text.Json
 open System.Text.Json.Serialization
 open NodaTime.Serialization.SystemTextJson

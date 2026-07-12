@@ -1,4 +1,4 @@
-module Model.UI.BoundaryConverters.GenericFieldHelpers
+module InterfaceBridge.BoundaryConverters.GenericFieldHelpers
 
 /// convertOptionToDesiredTypeWithFallibleConverter is a converter for dealing with
 /// arguments:

@@ -6,7 +6,30 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="InterfaceContracts\" />
+    <Compile Include="Json.fs" />
+    <Compile Include="CommandRoute.fs" />
+    <Compile Include="InterfaceContracts\AccountContracts.fs" />
+    <Compile Include="InterfaceContracts\FiscalPeriodContracts.fs" />
+    <Compile Include="InterfaceContracts\JournalContracts.fs" />
+    <Compile Include="BoundaryConverters\GenericFieldHelpers.fs" />
+    <Compile Include="BoundaryConverters\AccountFieldConverters.fs" />
+    <Compile Include="BoundaryConverters\JournalEntryFieldConverters.fs" />
+    <Compile Include="BoundaryConverters\MoneyFieldConverters.fs" />
+    <Compile Include="BoundaryConverters\OrchestrationConverters.fs" />
+    <Compile Include="BoundaryConverters\FiscalPeriodFieldConverters.fs" />
+    <Compile Include="Routes\AccountRoutes.fs" />
+    <Compile Include="Routes\FiscalPeriodRoutes.fs" />
+    <Compile Include="Routes\JournalEntryRoutes.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ModelOrchestrator\ModelOrchestrator.fsproj" />
+    <ProjectReference Include="..\Model\Model.fsproj" />
+    <ProjectReference Include="..\Utilities\Utilities.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NodaTime" Version="3.3.3" />
   </ItemGroup>
 
 </Project>

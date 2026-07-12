@@ -1,7 +1,7 @@
-module Model.UI.BoundaryConverters.JournalEntryFieldConverters
+module InterfaceBridge.BoundaryConverters.JournalEntryFieldConverters
 
 open Model.Ledger.Journaling.JournalEntryComponent
-open Model.UI.BoundaryConverters.GenericFieldHelpers
+open InterfaceBridge.BoundaryConverters.GenericFieldHelpers
 
 let convertJeDescriptionStringOptionToJeDescriptionOption
     (stringOption: string option)
