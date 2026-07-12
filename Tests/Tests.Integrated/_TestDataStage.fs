@@ -9,9 +9,7 @@ open Utilities
 open Utilities.DAL
 open Utilities.ResultCE
 open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.JournalEntryPrimitives
 open Model.Ledger.Journaling
-open ModelOrchestrator.JournalEntries.JournalEntryCreationAndConstruction
 
 type FixtureData = {
     assets1000Id: AccountId
@@ -28,8 +26,8 @@ type FixtureData = {
     food5350Id: AccountId
     entertainment5650Id: AccountId
     closedBank1290Id: AccountId
-    fiscalPeriodIds: Guid list
-    closedFiscalPeriodId: Guid
+    fiscalPeriodIds: FiscalPeriodId list
+    closedFiscalPeriodId: FiscalPeriodId
     basicJeId: Guid
     jeWithRefId: Guid
     jeWithRefExtRefId: Guid
@@ -132,7 +130,7 @@ type TestDataFixture() =
                 let key = $"{date.Year}-{monthF}"
                 FiscalPeriod.constructNewAndSaveToDb key envelope None
 
-            let closedFiscalPeriodId = closedFiscalPeriod |> FiscalPeriod.uniqueId
+            let closedFiscalPeriodId = closedFiscalPeriod |> FiscalPeriod.fiscalPeriodId
 
             let moneyMarket1270Id = moneyMarket1270 |> Account.accountId
             let food5350Id = food5350 |> Account.accountId
@@ -331,7 +329,7 @@ type TestDataFixture() =
                 food5350Id = food5350Id
                 entertainment5650Id = entertainment5650Id
                 closedBank1290Id = closedBank1290 |> Account.accountId
-                fiscalPeriodIds = fiscalPeriods |> List.map FiscalPeriod.uniqueId
+                fiscalPeriodIds = fiscalPeriods |> List.map FiscalPeriod.fiscalPeriodId
                 closedFiscalPeriodId = closedFiscalPeriodId
                 basicJeId = basicJeId
                 jeWithRefId = jeWithRefId

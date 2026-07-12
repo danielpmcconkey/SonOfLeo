@@ -14,35 +14,35 @@ module JournalEntryComponent =
 
     [<Fact>]
     let ``REQ-JE-1.4 REQ-SYS-1.2 Description.create rejects empty string`` () =
-        let result = Description.create String.Empty
+        let result = JournalEntryDescription.create String.Empty
         Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.4 REQ-SYS-1.2 Description.create rejects whitespace-only string`` () =
-        let result = Description.create "     "
+        let result = JournalEntryDescription.create "     "
         Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.5 Description.create rejects string exceeding 1000 characters`` () =
-        let result = Description.create (String('A', 1001))
+        let result = JournalEntryDescription.create (String('A', 1001))
         Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.5 Description.create accepts string at exactly 1000 characters`` () =
-        let result = Description.create (String('A', 1000))
+        let result = JournalEntryDescription.create (String('A', 1000))
         Assert.True(Result.isOk result)
 
     [<Fact>]
     let ``REQ-SYS-1.1 Description.create trims leading and trailing whitespace`` () =
         let trimmed = "Grocery run"
-        let result = Description.create $"  {trimmed}   "
+        let result = JournalEntryDescription.create $"  {trimmed}   "
         match result with
         | Error e -> Assert.Fail e
-        | Ok d -> Assert.Equal(trimmed, Description.value d)
+        | Ok d -> Assert.Equal(trimmed, JournalEntryDescription.value d)
 
     [<Fact>]
     let ``REQ-JE-1.3 Description.create accepts valid non-empty string`` () =
-        let result = Description.create "Monthly rent payment"
+        let result = JournalEntryDescription.create "Monthly rent payment"
         Assert.True(Result.isOk result)
 
     // =============================================================================
@@ -51,31 +51,31 @@ module JournalEntryComponent =
 
     [<Fact>]
     let ``REQ-JE-1.7 REQ-SYS-1.2 Source.create rejects empty string`` () =
-        let result = Source.create String.Empty
+        let result = JournalEntrySource.create String.Empty
         Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.7 REQ-SYS-1.2 Source.create rejects whitespace-only string`` () =
-        let result = Source.create "     "
+        let result = JournalEntrySource.create "     "
         Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.8 Source.create rejects string exceeding 50 characters`` () =
-        let result = Source.create (String('A', 51))
+        let result = JournalEntrySource.create (String('A', 51))
         Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.8 Source.create accepts string at exactly 50 characters`` () =
-        let result = Source.create (String('A', 50))
+        let result = JournalEntrySource.create (String('A', 50))
         Assert.True(Result.isOk result)
 
     [<Fact>]
     let ``REQ-SYS-1.1 Source.create trims leading and trailing whitespace`` () =
         let trimmed = "BankImport"
-        let result = Source.create $"  {trimmed}   "
+        let result = JournalEntrySource.create $"  {trimmed}   "
         match result with
         | Error e -> Assert.Fail e
-        | Ok s -> Assert.Equal(trimmed, Source.value s)
+        | Ok s -> Assert.Equal(trimmed, JournalEntrySource.value s)
 
     // =============================================================================
     // JournalEntryLineType

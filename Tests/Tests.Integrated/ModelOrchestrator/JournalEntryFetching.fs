@@ -25,7 +25,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         match result with
         | Ok je ->
             Assert.Equal(fixture.Data.basicJeId, je |> header |> JournalEntryHeader.uniqueId)
-            Assert.Equal("Fixture basic JE", je |> header |> JournalEntryHeader.description |> Description.value)
+            Assert.Equal("Fixture basic JE", je |> header |> JournalEntryHeader.description |> JournalEntryDescription.value)
         | Error e -> Assert.Fail e
 
     [<Fact>]
@@ -57,7 +57,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         match result with
         | Error e -> Assert.Fail $"Could not find period for today: {e}"
         | Ok periodId ->
-            let fetchResult = periodId |> fetchByPeriod
+            let fetchResult = periodId |> FiscalPeriodId.fromGuid |> fetchByPeriod
             match fetchResult with
             | Ok entries -> Assert.True(entries |> List.length >= 1)
             | Error e -> Assert.Fail e
@@ -72,7 +72,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         match result with
         | Error e -> Assert.Fail $"Could not find far period: {e}"
         | Ok periodId ->
-            let fetchResult = periodId |> fetchByPeriod
+            let fetchResult = periodId |> FiscalPeriodId.fromGuid |> fetchByPeriod
             match fetchResult with
             | Ok entries -> Assert.Equal(0, entries |> List.length)
             | Error e -> Assert.Fail e

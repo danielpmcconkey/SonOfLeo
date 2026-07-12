@@ -1,6 +1,7 @@
 module ModelOrchestrator.JournalEntryFetching
 
 open System
+open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling
 open NodaTime
 open Utilities.DAL
@@ -75,10 +76,10 @@ let fetchById // REQ-JE-3.1, REQ-JE-3.2
     }
 
 let fetchByPeriod // REQ-JE-3.1
-        (uniqueId: Guid)
+        (fiscalPeriodId: FiscalPeriodId)
         : Result<JournalEntry list, string> =
     result {
-        let! headers = uniqueId |> JournalEntryHeader.fetchByPeriod None
+        let! headers = fiscalPeriodId |> JournalEntryHeader.fetchByPeriod None
         let headerResultsList = headers |> List.map(fun h ->
             let id = JournalEntryHeader.uniqueId h
             let entryResult = fetchById id 

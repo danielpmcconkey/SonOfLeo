@@ -3,6 +3,7 @@ module SonOfLeoCli.JournalEntryRoutes
 open Model
 open Model.Audit
 open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.JournalEntries
@@ -91,8 +92,8 @@ let private convertJournalEntryHeaderToReturn
     (model: JournalEntryHeader)
     : JournalEntryHeaderReturn = {
         id = model |> JournalEntryHeader.uniqueId
-        description = model |> JournalEntryHeader.description |> Description.value
-        source = model |> JournalEntryHeader.source |> Option.map(fun x -> x |> Source.value)
+        description = model |> JournalEntryHeader.description |> JournalEntryDescription.value
+        source = model |> JournalEntryHeader.source |> Option.map(fun x -> x |> JournalEntrySource.value)
         entryDate = model |> JournalEntryHeader.entryDate |> EntryDate.entryDate
         voidedAt = model |> JournalEntryHeader.voidedAt
         createdAt = model |> JournalEntryHeader.createdAt
@@ -155,10 +156,11 @@ let private fetchById payload _ =
 let private fetchByPeriod payload _ = // REQ-JE-3.3
     result {
         let! input = Json.fromJson<JournalEntryFetchByPeriodInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
-        let! id =
+        let! uuid =
             input.periodKey
             |> LookupCache.fiscalPeriodKeyToId.fetch
             |> Result.mapError(fun e -> $"Period key provided didn't match any recorded Fiscal Periods in the database. Further details: {e}") // REQ-NGUI-1.5
+        let id = uuid |> FiscalPeriodId.fromGuid
         let! model = id |> JournalEntryFetching.fetchByPeriod
         let! returnVal = model |> List.map(fun x -> x |> convertJournalEntryToReturn) |> ListHelper.listOfResultsToResultsList
         return! Json.toJson<JournalEntryReturn list> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5

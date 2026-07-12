@@ -45,14 +45,15 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
                 do! if returnCode <> 0 then Error $"FiscalPeriod Create happy path returned a non-zero value: {e}" else Ok ()
                 let! fp = fromJson<FiscalPeriodReturn> resultsPayload
                 let returnedKey = fp.periodKey
-                let! id =
+                let! uuid =
                     returnedKey
                     |> LookupCache.fiscalPeriodKeyToId.fetch
                     |> Result.mapError(fun e -> $"The returned Fiscal Period Key didn't match any records in the database. Further details: {e}")
+                let id = uuid |> FiscalPeriodId.fromGuid
                 keyToCleanUp <- Some returnedKey
                 Assert.Equal(expected, returnedKey)
                 let! fetched = id |> fetchById None
-                Assert.Equal(expected, PeriodKey.value (periodKey fetched))
+                Assert.Equal(expected, FiscalPeriodKey.value (periodKey fetched))
                 ()
             }
 
@@ -72,7 +73,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
     member _.``REQ-FP-3.2 FiscalPeriod FetchByKey happy path`` () =
         let railroad = result {
             let! existingPeriod = fetchById None (fixture.Data.fiscalPeriodIds |> List.head)
-            let existingKey = existingPeriod |> periodKey |> PeriodKey.value
+            let existingKey = existingPeriod |> periodKey |> FiscalPeriodKey.value
             let payload = createFiscalPeriodInputPayload existingKey
             let args = ["FiscalPeriod"; "FetchByKey"]
 
@@ -116,7 +117,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         try
             let railroad = result {
                 let! created = createFiscalPeriodInDb expected
-                let keyString = periodKey created |> PeriodKey.value
+                let keyString = periodKey created |> FiscalPeriodKey.value
                 keyToCleanUp <- Some keyString
 
                 let returnCode, resultsPayload, e = runCli args payload
@@ -146,8 +147,8 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         try
             let railroad = result {
                 let! created = createFiscalPeriodInDb expected
-                let id = created |> FiscalPeriod.uniqueId
-                let keyString = periodKey created |> PeriodKey.value
+                let id = created |> FiscalPeriod.fiscalPeriodId
+                let keyString = periodKey created |> FiscalPeriodKey.value
                 keyToCleanUp <- Some keyString
 
                 let! closed = closeFiscalPeriod id genericAuditEnvelope None

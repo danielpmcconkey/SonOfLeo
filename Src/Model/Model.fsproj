@@ -12,7 +12,7 @@
     <Compile Include="Ledger\JournalEntryPrimitives.fs" />
     <Compile Include="Ledger\AccountComponent.fs" />
     <Compile Include="Ledger\Account.fs" />
-    <Compile Include="Ledger\PeriodKey.fs" />
+    <Compile Include="Ledger\FiscalPeriodComponent.fs" />
     <Compile Include="Ledger\FiscalPeriod.fs" />
     <Compile Include="Ledger\JournalEntryComponent.fs" />
     <Compile Include="Ledger\JournalEntryHeader.fs" />
@@ -21,6 +21,11 @@
     <Compile Include="Ledger\JournalEntryComment.fs" />
     <Compile Include="UI\InterfaceContractTypes.fs" />
     <Compile Include="UI\Json.fs" />
+    <Compile Include="UI\BoundaryConverters\GenericFieldHelpers.fs" />
+    <Compile Include="UI\BoundaryConverters\AccountFieldConverters.fs" />
+    <Compile Include="UI\BoundaryConverters\MoneyFieldConverters.fs" />
+    <Compile Include="UI\BoundaryConverters\JournalEntryFieldConverters.fs" />
+    <Compile Include="UI\BoundaryConverters\OrchestrationConverters.fs" />
     <Folder Include="Ops\" />
     <Folder Include="Portfolio\" />
     <Folder Include="Reporting\" />
@@ -34,6 +39,12 @@
     <PackageReference Include="FSharp.SystemTextJson" Version="1.4.36" />
     <PackageReference Include="NodaTime" Version="3.3.2" />
     <PackageReference Include="NodaTime.Serialization.SystemTextJson" Version="1.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="ModelOrchestrator">
+      <HintPath>..\SonOfLeoCli\bin\Debug\net10.0\ModelOrchestrator.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>

@@ -19,7 +19,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
         try
             let railroad = result {
                 let! fp = FiscalPeriod.constructNewAndSaveToDb genericFiscalPeriodKey genericAuditEnvelope (Some transaction)
-                let unique_id = FiscalPeriod.uniqueId fp
+                let unique_id = FiscalPeriod.fiscalPeriodId fp |> FiscalPeriodId.value
                 Assert.NotEqual(unique_id, Guid.Empty)
                 ()
             }
@@ -36,7 +36,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
         try
             let railroad = result {
                 let! existingPeriod = FiscalPeriod.fetchById (Some transaction) (fixture.Data.fiscalPeriodIds |> List.head)
-                let existingKey = FiscalPeriod.periodKey existingPeriod |> PeriodKey.value
+                let existingKey = FiscalPeriod.periodKey existingPeriod |> FiscalPeriodKey.value
                 let duplicateResult = FiscalPeriod.constructNewAndSaveToDb existingKey genericAuditEnvelope (Some transaction)
                 Assert.True(Result.isError duplicateResult)
                 ()
@@ -63,8 +63,9 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
                 let! fp = FiscalPeriod.constructNewAndSaveToDb expectedKey genericAuditEnvelope (Some transaction)
                 let startDate = FiscalPeriod.startDate fp
                 let endDate = FiscalPeriod.endDate fp
-                Assert.NotEqual(FiscalPeriod.uniqueId fp, Guid.Empty)
-                Assert.Equal(expectedKey, PeriodKey.value (FiscalPeriod.periodKey fp))
+                let uuid = FiscalPeriod.fiscalPeriodId fp |> FiscalPeriodId.value
+                Assert.NotEqual(uuid, Guid.Empty)
+                Assert.Equal(expectedKey, FiscalPeriodKey.value (FiscalPeriod.periodKey fp))
                 Assert.Equal(expectedStartMonth, startDate.Month)
                 Assert.Equal(expectedStartDay, startDate.Day)
                 Assert.Equal(expectedEndMonth, endDate.Month)
@@ -102,7 +103,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
 
         let railroad = result {
             let! fetched = FiscalPeriod.fetchById None expectedId
-            Assert.Equal(expectedId, FiscalPeriod.uniqueId fetched)
+            Assert.Equal(expectedId, FiscalPeriod.fiscalPeriodId fetched)
             Assert.True(FiscalPeriod.isOpen fetched)
             ()
         }
@@ -115,7 +116,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
         let railroad = result {
             let! fetched = FiscalPeriod.fetchAll None false
             fixture.Data.fiscalPeriodIds
-            |> List.forall (fun id -> fetched |> List.exists (fun fp -> FiscalPeriod.uniqueId fp = id))
+            |> List.forall (fun id -> fetched |> List.exists (fun fp -> FiscalPeriod.fiscalPeriodId fp = id))
             |> Assert.True
             ()
         }
@@ -129,11 +130,11 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
             let! fetched = FiscalPeriod.fetchAll None true
 
             fetched
-            |> List.exists (fun fp -> FiscalPeriod.uniqueId fp = fixture.Data.closedFiscalPeriodId)
+            |> List.exists (fun fp -> FiscalPeriod.fiscalPeriodId fp = fixture.Data.closedFiscalPeriodId)
             |> Assert.False
 
             fixture.Data.fiscalPeriodIds
-            |> List.forall (fun id -> fetched |> List.exists (fun fp -> FiscalPeriod.uniqueId fp = id))
+            |> List.forall (fun id -> fetched |> List.exists (fun fp -> FiscalPeriod.fiscalPeriodId fp = id))
             |> Assert.True
             ()
         }

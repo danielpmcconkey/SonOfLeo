@@ -4,8 +4,14 @@ open Model
 open Model.Audit
 open Model.Ledger.Accounts.Account
 open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.FiscalPeriods
+open Model.Ledger.Journaling.JournalEntryComponent
 open Model.UI
+open Model.UI.BoundaryConverters.AccountFieldConverters
+open Model.UI.BoundaryConverters.JournalEntryFieldConverters
+open Model.UI.BoundaryConverters.MoneyFieldConverters
 open ModelOrchestrator
+open ModelOrchestrator.AccountActivity
 open Utilities
 open Utilities.ResultCE
 open InterfaceContractTypes
@@ -107,8 +113,7 @@ let private accountUpdateExternalReference payload _ =
                          envelope
                          None
         let! returnAccount = convertAccountToAccountReturn account
-        return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
-    }
+        return! Json.toJson<AccountReturn> returnAccount } // REQ-NGUI-2.4, REQ-NGUI-3.5
 
 let private accountFetchByCode payload _ =
     result {
@@ -120,8 +125,7 @@ let private accountFetchByCode payload _ =
         let id = idGuid |> AccountId.fromGuid
         let! account = fetchById None id
         let! returnAccount = convertAccountToAccountReturn account
-        return! Json.toJson<AccountReturn> returnAccount// REQ-NGUI-2.4, REQ-NGUI-3.5
-    }
+        return! Json.toJson<AccountReturn> returnAccount } // REQ-NGUI-2.4, REQ-NGUI-3.5
 
 let private accountFetchByParentCode payload _ =
     result {
@@ -133,8 +137,7 @@ let private accountFetchByParentCode payload _ =
         let parentId = parentIdGuid |> AccountId.fromGuid
         let! accounts = parentId |> fetchByParentId None
         let! returnAccounts = accounts |> List.map(convertAccountToAccountReturn) |> ListHelper.listOfResultsToResultsList
-        return! Json.toJson<AccountReturn list> returnAccounts// REQ-NGUI-2.4, REQ-NGUI-3.5
-    }
+        return! Json.toJson<AccountReturn list> returnAccounts } // REQ-NGUI-2.4, REQ-NGUI-3.5
 
 let private accountFetchByAccountType payload _ =
     result {
@@ -142,60 +145,26 @@ let private accountFetchByAccountType payload _ =
         let! validType = AccountType.fromString accountFetch.accountTypeSt
         let! accounts = fetchByAccountType None validType
         let! returnAccounts = accounts |> List.map(convertAccountToAccountReturn) |> ListHelper.listOfResultsToResultsList
-        return! Json.toJson<AccountReturn list> returnAccounts// REQ-NGUI-2.4, REQ-NGUI-3.5
-    }
+        return! Json.toJson<AccountReturn list> returnAccounts } // REQ-NGUI-2.4, REQ-NGUI-3.5
 
 let private accountFetchAll payload _ =
     result {
         let! accountFetch = Json.fromJson<AccountFetchAllInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
         let! accounts = fetchAll accountFetch.activeOnly None
         let! returnAccounts = accounts |> List.map(convertAccountToAccountReturn) |> ListHelper.listOfResultsToResultsList
-        return! Json.toJson<AccountReturn list> returnAccounts// REQ-NGUI-2.4, REQ-NGUI-3.5
-    }
+        return! Json.toJson<AccountReturn list> returnAccounts } // REQ-NGUI-2.4, REQ-NGUI-3.5
 
 let private accountActivityFetch payload _ =
     result {
         let! input = Json.fromJson<AccountActivityFetchInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
-        let! accountId = // REQ-NGUI-1.5
-            input.filter.accountCode
-            |> Option.map (fun x -> x |> LookupCache.accountCodeToId.fetch)
-            |> Option.map (Result.map Some)
-            |> Option.defaultValue (Ok None)
-        let! accountParentId = // REQ-NGUI-1.5
-            input.filter.accountParentCode
-            |> Option.map (fun x -> x |> LookupCache.accountCodeToId.fetch)
-            |> Option.map (Result.map Some)
-            |> Option.defaultValue (Ok None)
-        let temporalFilter = input.filter.temporalFilter |> Option.map (fun x ->
-            match x with
-            | FiscalPeriodId y -> AccountActivity.AccountActivityTemporalFilter.FiscalPeriodId y
-            | DateRange z -> AccountActivity.AccountActivityTemporalFilter.DateRange { beginDate = z.beginDate; endInclusive = z.endInclusive } )
-        let sort = input.sort |> Option.map (fun x -> 
-            match x with
-            | AccountCode -> AccountActivity.AccountActivitySort.AccountCode
-            | EntryDate -> AccountActivity.AccountActivitySort.EntryDate )
-        let filter:AccountActivity.AccountActivityFilter = {
-                                               accountId = accountId
-                                               temporalFilter = temporalFilter
-                                               source = input.filter.source
-                                               accountType = input.filter.accountType
-                                               accountSubtype = input.filter.accountSubtype
-                                               accountParentId = accountParentId
-                                               journalEntryId = input.filter.journalEntryId
-                                               amount = input.filter.amount
-                                               description = input.filter.description
-                                               unVoidedOnly = input.filter.unVoidedOnly }
-        let! fetched = AccountActivity.fetchFiltered None filter sort
+        let! fetched = fetchFiltered None filter sort
         let! returnList = 
             fetched
             |> List.map (fun x ->
                 result {
-                    let! parentCodeOption = // REQ-NGUI-1.5
-                            match x.accountParentId with
-                            | None -> Ok None
-                            | Some pid -> pid |> LookupCache.accountIdToCode.fetch |> Result.map Some
+                    let! parentCodeOption = x.accountParentId |> convertAccountIdOptionToAccountCodeOption // REQ-NGUI-1.5
                     let detail = x.activityDetail |> Option.map(fun d -> {
-                        lineId = d.lineId; amount = d.amount; lineType = d.lineType; lineMemo = d.lineMemo
+                        lineId = d.lineId; amount = d.amount |> Money.amount; lineType = d.lineType; lineMemo = d.lineMemo
                         lineCreatedAt = d.lineCreatedAt; lineModifiedAt = d.lineModifiedAt; journalEntryId = d.journalEntryId
                         entryDate = d.entryDate; journalEntryDescription = d.journalEntryDescription
                         journalEntrySource = d.journalEntrySource; journalEntryVoidedAt = d.journalEntryVoidedAt; })

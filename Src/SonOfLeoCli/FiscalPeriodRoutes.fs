@@ -9,7 +9,7 @@ open Utilities.ResultCE
 open InterfaceContractTypes
 
 let private convertModelToReturn fp : FiscalPeriodReturn = {
-            periodKey = PeriodKey.value (periodKey fp)
+            periodKey = FiscalPeriodKey.value (periodKey fp)
             startDate = startDate fp
             endDate = endDate fp
             isOpen = isOpen fp
@@ -29,10 +29,11 @@ let private create payload _ =
 let private fetch payload _ = // REQ-FP-3.2
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
-        let! id =
+        let! uuid =
             input.periodKey
             |> LookupCache.fiscalPeriodKeyToId.fetch
             |> Result.mapError(fun e -> $"Period key provided didn't match any recorded Fiscal Periods in the database. Further details: {e}") // REQ-NGUI-1.5
+        let id = uuid |> FiscalPeriodId.fromGuid
         let! model = id |> fetchById None 
         let returnVal  = convertModelToReturn model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
@@ -50,10 +51,11 @@ let private close payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create FiscalPeriodClose
-        let! id =
+        let! uuid =
             input.periodKey
             |> LookupCache.fiscalPeriodKeyToId.fetch
             |> Result.mapError(fun e -> $"Period key provided didn't match any recorded Fiscal Periods in the database. Further details: {e}") // REQ-NGUI-1.5
+        let id = uuid |> FiscalPeriodId.fromGuid
         let! model = closeFiscalPeriod id envelope None
         let returnVal  = convertModelToReturn model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
@@ -63,10 +65,11 @@ let private reopen payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create FiscalPeriodReopen
-        let! id =
+        let! uuid =
             input.periodKey
             |> LookupCache.fiscalPeriodKeyToId.fetch
             |> Result.mapError(fun e -> $"Period key provided didn't match any recorded Fiscal Periods in the database. Further details: {e}") // REQ-NGUI-1.5
+        let id = uuid |> FiscalPeriodId.fromGuid
         let! model = reopenFiscalPeriod id envelope None
         let returnVal  = convertModelToReturn model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5

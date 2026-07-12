@@ -8,31 +8,31 @@ open NodaTime
 open Utilities.ResultCE
 module JournalEntryComponent =
     
-    type Description = private Description of string
+    type JournalEntryDescription = private JournalEntryDescription of string
 
-    module Description =
-        let value (Description d) = d 
-        let create (raw: string) : Result<Description, string> =
+    module JournalEntryDescription =
+        let value (JournalEntryDescription d) = d 
+        let create (raw: string) : Result<JournalEntryDescription, string> =
             let trimmed = raw.Trim() // REQ-SYS-1.1
             if String.IsNullOrWhiteSpace trimmed then
                 Error "Description cannot be empty"  // REQ-JE-1.4, REQ-SYS-1.2
             elif trimmed.Length > 1000 then
                 Error "Description cannot exceed 1000 characters" // REQ-JE-1.5
             else
-                Ok (Description trimmed)
+                Ok (JournalEntryDescription trimmed)
 
-    type Source = private Source of string
+    type JournalEntrySource = private JournalEntrySource of string
     
-    module Source =
-        let value (Source d) = d 
-        let create (raw: string) : Result<Source, string> =
+    module JournalEntrySource =
+        let value (JournalEntrySource d) = d 
+        let create (raw: string) : Result<JournalEntrySource, string> =
             let trimmed = raw.Trim() // REQ-SYS-1.1
             if String.IsNullOrWhiteSpace trimmed then
                 Error "Source cannot be empty"  // REQ-JE-1.7, REQ-SYS-1.2
             elif trimmed.Length > 50 then
                 Error "Source cannot exceed 50 characters" // REQ-JE-1.8
             else
-                Ok (Source trimmed)
+                Ok (JournalEntrySource trimmed)
 
     type EntryDate =
       private  {    entryDate: LocalDate // REQ-JE-1.10

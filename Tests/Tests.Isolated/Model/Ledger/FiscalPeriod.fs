@@ -9,7 +9,7 @@ let genericEnvelope = AuditEnvelope.create FiscalPeriodCreate
 
 [<Fact>]
 let ``REQ-FP-1.2 PeriodKey.fromString happy path`` () =
-    match PeriodKey.fromString genericKey with
+    match FiscalPeriodKey.fromString genericKey with
     | Error e -> Assert.Fail e
     | _ -> ()
 
@@ -17,7 +17,7 @@ let ``REQ-FP-1.2 PeriodKey.fromString happy path`` () =
 let ``REQ-FP-1.2 PeriodKey.fromString fails when given an incorrect format`` () =
     let badString = "202006"
     let expected = $"Passed string \"{badString}\" is invalid as a Period Key."
-    match PeriodKey.fromString badString with
+    match FiscalPeriodKey.fromString badString with
     | Error e -> Assert.Equal(expected, e)
     | _ -> Assert.Fail "Expected failure and got success"
 
@@ -25,7 +25,7 @@ let ``REQ-FP-1.2 PeriodKey.fromString fails when given an incorrect format`` () 
 let ``REQ-FP-1.2 PeriodKey.fromString fails when given a month of 00`` () =
     let badString = "2026-00"
     let expected = $"Passed string \"{badString}\" is invalid as a Period Key."
-    match PeriodKey.fromString badString with
+    match FiscalPeriodKey.fromString badString with
     | Error e -> Assert.Equal(expected, e)
     | _ -> Assert.Fail "Expected failure and got success"
 
@@ -33,7 +33,7 @@ let ``REQ-FP-1.2 PeriodKey.fromString fails when given a month of 00`` () =
 let ``REQ-FP-1.2 PeriodKey.fromString fails when given a month greater than 12`` () =
     let badString = "2026-13"
     let expected = $"Passed string \"{badString}\" is invalid as a Period Key."
-    match PeriodKey.fromString badString with
+    match FiscalPeriodKey.fromString badString with
     | Error e -> Assert.Equal(expected, e)
     | _ -> Assert.Fail "Expected failure and got success"
 

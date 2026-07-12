@@ -51,7 +51,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             | Ok je ->
                 idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
                 let h = je |> header
-                Assert.Equal("Happy path basic creation", h |> JournalEntryHeader.description |> Description.value)
+                Assert.Equal("Happy path basic creation", h |> JournalEntryHeader.description |> JournalEntryDescription.value)
                 Assert.Equal(2, je |> lines |> List.length)
             | Error e -> Assert.Fail e
         finally
@@ -435,11 +435,11 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     let fh = fetched |> header
                     Assert.Equal(ch |> JournalEntryHeader.uniqueId, fh |> JournalEntryHeader.uniqueId)
                     Assert.Equal(
-                        ch |> JournalEntryHeader.description |> Description.value,
-                        fh |> JournalEntryHeader.description |> Description.value)
+                        ch |> JournalEntryHeader.description |> JournalEntryDescription.value,
+                        fh |> JournalEntryHeader.description |> JournalEntryDescription.value)
                     Assert.Equal(
-                        ch |> JournalEntryHeader.source |> Option.map Source.value,
-                        fh |> JournalEntryHeader.source |> Option.map Source.value)
+                        ch |> JournalEntryHeader.source |> Option.map JournalEntrySource.value,
+                        fh |> JournalEntryHeader.source |> Option.map JournalEntrySource.value)
                     Assert.Equal(
                         ch |> JournalEntryHeader.entryDate |> EntryDate.entryDate,
                         fh |> JournalEntryHeader.entryDate |> EntryDate.entryDate)
@@ -534,7 +534,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                 | Ok fetched ->
                     Assert.Equal(
                         "Full fetch test",
-                        fetched |> header |> JournalEntryHeader.description |> Description.value)
+                        fetched |> header |> JournalEntryHeader.description |> JournalEntryDescription.value)
                     Assert.Equal(2, fetched |> lines |> List.length)
                     Assert.Equal(1, fetched |> externalReferences |> List.length)
                     Assert.Equal(1, fetched |> comments |> List.length)

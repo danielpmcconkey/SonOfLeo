@@ -10,8 +10,8 @@ open Utilities.DAL
 
 type JournalEntryHeader =
   private  {    uniqueId: Guid                                     // REQ-JE-1.1, REQ-JE-1.2
-                description: Description                           // REQ-JE-1.3
-                source: Source option                              // REQ-JE-1.6
+                description: JournalEntryDescription                           // REQ-JE-1.3
+                source: JournalEntrySource option                              // REQ-JE-1.6
                 entryDate: EntryDate                               // REQ-JE-1.9
                 voidedAt: Instant option                           // REQ-JE-1.14
                 createdAt: Instant
@@ -41,10 +41,10 @@ module JournalEntryHeader =
             : Result<JournalEntryHeader, string> =
         result {
             
-            let! validDescription = Description.create description
+            let! validDescription = JournalEntryDescription.create description
             let! validSource =
                 match source with
-                | Some x -> Source.create x |> Result.map Some
+                | Some x -> JournalEntrySource.create x |> Result.map Some
                 | None -> Ok None
             let! validEntryDate = entryDate |> EntryDate.create transaction
             return { uniqueId = uniqueId; description = validDescription; source = validSource
@@ -71,12 +71,13 @@ module JournalEntryHeader =
                 unique_id, description, je_source, entry_date, fiscal_period_id, voided_at, created_at, modified_at)
             VALUES (
                 @unique_id, @description, @je_source, @entry_date, @fiscal_period_id, @voided_at, @created_at, @modified_at);"""
+        let fpUuid = journalEntry.entryDate |> EntryDate.fiscalPeriod |> FiscalPeriod.fiscalPeriodId |> FiscalPeriodId.value
         let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
             { name = "@unique_id"; value = UniqueId journalEntry.uniqueId }
-            { name = "@description"; value = CharString (journalEntry.description |> Description.value) };
-            { name = "@je_source"; value = NullableCharString (journalEntry.source |> Option.map  Source.value) };
+            { name = "@description"; value = CharString (journalEntry.description |> JournalEntryDescription.value) };
+            { name = "@je_source"; value = NullableCharString (journalEntry.source |> Option.map  JournalEntrySource.value) };
             { name = "@entry_date"; value = DbLocalDate (journalEntry.entryDate |> EntryDate.entryDate) };
-            { name = "@fiscal_period_id"; value = UniqueId (journalEntry.entryDate |> EntryDate.fiscalPeriod |> FiscalPeriod.uniqueId) };
+            { name = "@fiscal_period_id"; value = UniqueId fpUuid };
             { name = "@voided_at"; value = NullableDbInstant journalEntry.voidedAt };
             { name = "@created_at"; value = DbInstant journalEntry.createdAt };
             { name = "@modified_at"; value = DbInstant journalEntry.modifiedAt };
@@ -136,12 +137,13 @@ module JournalEntryHeader =
 
     let fetchByPeriod // REQ-JE-3.3
             (transaction: DbTransaction option)
-            (periodId: Guid)
+            (periodId: FiscalPeriodId)
             : Result<JournalEntryHeader list, string> =
+        let uuid = periodId |> FiscalPeriodId.value
         let predicate = Some "je.fiscal_period_id = @fiscal_period_id"
         let orderBy = Some "je.entry_date asc"
         result {
-            let parameters = [{ name = "@fiscal_period_id"; value = UniqueId periodId };]
+            let parameters = [{ name = "@fiscal_period_id"; value = UniqueId uuid };]
             return! readRowsFromDb None predicate None orderBy parameters AnyQuantityIsAcceptable transaction
         }
     

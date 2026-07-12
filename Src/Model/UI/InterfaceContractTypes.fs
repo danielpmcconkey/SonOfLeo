@@ -1,6 +1,7 @@
 namespace Model.UI
 
 open System
+open Model.Ledger.FiscalPeriods
 open NodaTime
 open Utilities.DAL
 
@@ -80,7 +81,7 @@ module InterfaceContractTypes =
     }
 
     type AccountActivityTemporalFilterInput = // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
-        | FiscalPeriodId of Guid
+        | PeriodKey of FiscalPeriodKey
         | DateRange of AccountActivityFilterDateRangeInput
 
     type AccountActivityFilterInput = { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
