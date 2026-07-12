@@ -1,10 +1,11 @@
 ﻿open System
-open SonOfLeoCli.AccountRoutes
-open SonOfLeoCli.FiscalPeriodRoutes
-open SonOfLeoCli.JournalEntryRoutes
+open InterfaceBridge.Routes.AccountRoutes
+open InterfaceBridge.Routes.FiscalPeriodRoutes
+open InterfaceBridge.Routes.JournalEntryRoutes
+open InterfaceBridge.CommandRoute
 
 
-let commandRoutes =
+let commandRoutes = 
     accountDomainCommandRoutes
     @ fiscalPeriodDomainCommandRoutes
     @ journalEntryDomainCommandRoutes

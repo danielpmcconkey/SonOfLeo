@@ -1,4 +1,4 @@
-module SonOfLeoCli.FiscalPeriodRoutes
+module InterfaceBridge.Routes.FiscalPeriodRoutes
 
 open InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
 open InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
@@ -8,23 +8,21 @@ open Model.Ledger.FiscalPeriods.FiscalPeriod
 open Utilities.ResultCE
 open InterfaceBridge.CommandRoute
 
-
-
 let private create payload _ =
     result {
-        let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! input = Json.fromJson<FiscalPeriodInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create FiscalPeriodCreate
         let! model = constructNewAndSaveToDb input.periodKey envelope None
-        let returnVal  = convertFiscalPeriodToFiscalPeriodReturn model
+        let returnVal  = ``convert FiscalPeriod to FiscalPeriodReturn`` model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
 let private fetch payload _ = // REQ-FP-3.2
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
-        let! id = input.periodKey |> convertFiscalPeriodKeyStringToFiscalPeriodId
+        let! id = input.periodKey |> ``convert FiscalPeriodKeyString to FiscalPeriodId``
         let! model = id |> fetchById None 
-        let returnVal  = convertFiscalPeriodToFiscalPeriodReturn model
+        let returnVal  = ``convert FiscalPeriod to FiscalPeriodReturn`` model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
@@ -32,7 +30,7 @@ let private fetchAll payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodFetchAllInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let! models = fetchAll None input.openOnly
-        let returnVal  = models |> List.map convertFiscalPeriodToFiscalPeriodReturn
+        let returnVal  = models |> List.map ``convert FiscalPeriod to FiscalPeriodReturn``
         return! Json.toJson<FiscalPeriodReturn list> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
@@ -40,9 +38,9 @@ let private close payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create FiscalPeriodClose
-        let! id = input.periodKey |> convertFiscalPeriodKeyStringToFiscalPeriodId
+        let! id = input.periodKey |> ``convert FiscalPeriodKeyString to FiscalPeriodId``
         let! model = closeFiscalPeriod id envelope None
-        let returnVal  = convertFiscalPeriodToFiscalPeriodReturn model
+        let returnVal  = ``convert FiscalPeriod to FiscalPeriodReturn`` model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
 
@@ -50,9 +48,9 @@ let private reopen payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create FiscalPeriodReopen
-        let! id = input.periodKey |> convertFiscalPeriodKeyStringToFiscalPeriodId
+        let! id = input.periodKey |> ``convert FiscalPeriodKeyString to FiscalPeriodId``
         let! model = reopenFiscalPeriod id envelope None
-        let returnVal  = convertFiscalPeriodToFiscalPeriodReturn model
+        let returnVal  = ``convert FiscalPeriod to FiscalPeriodReturn`` model
         return! Json.toJson<FiscalPeriodReturn> returnVal // REQ-NGUI-2.4, REQ-NGUI-3.5
     }
     

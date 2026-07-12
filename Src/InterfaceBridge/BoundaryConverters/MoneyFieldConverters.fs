@@ -3,10 +3,10 @@ module InterfaceBridge.BoundaryConverters.MoneyFieldConverters
 open Model
 open InterfaceBridge.BoundaryConverters.GenericFieldHelpers
 
-let convertDecimalOptionToMoneyOption
+let ``convert Decimal Option to Money Option``
     (decimalOption: decimal option)
     : Result<Money option, string> =
     let fallibleConverter = (fun string -> string |> Money.fromDecimal)
     decimalOption
-    |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
+    |> ``convert Option to Desired Type with Fallible Converter`` fallibleConverter
 
