@@ -10,4 +10,4 @@ AMB-JE-3a questioned how an external reference's target is identified, implying 
 
 ## The line
 
-Internal data SHOULD use domain types — flagging "this should be a Money instead of a decimal" is a valid finding. External data that crosses the system boundary in someone else's format should not be forced into a domain type it doesn't fit.
+Internal data SHOULD use domain types (see `Specs/Definitions.md` for Money, Price, Quantity, Rate) — flagging "this should be a Money instead of a decimal" is a valid finding. External data that crosses the system boundary in someone else's format should not be forced into a domain type it doesn't fit.

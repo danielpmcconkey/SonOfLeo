@@ -1,6 +1,5 @@
 module Utilities.Clock
 
-open System
 open NodaTime
 
     
@@ -8,8 +7,8 @@ open NodaTime
 /// precision but the persistence layer can only store at 1 * 10 ^ -6 precision.
 /// We truncate here so we can more definitively test that "now" instances are
 /// accurately persisted and reconstituted.
-let now () : Instant =
-    let raw = Instant.FromDateTimeOffset(DateTimeOffset.UtcNow)
+let now () : Instant = 
+    let raw = SystemClock.Instance.GetCurrentInstant()
     let ticks = raw.ToUnixTimeTicks()
     Instant.FromUnixTimeTicks(ticks - (ticks % 10L))
 

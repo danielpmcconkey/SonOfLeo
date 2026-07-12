@@ -334,3 +334,10 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | FT-7 | Audit the discussions to ensure all action items captured | Done this session (2026-07-11). Found AMB-FP-2 dropped, traceability cross-ref never performed. Both logged (#113a, #114a) | RESOLVED |
 | FT-8 | Devise a new finding-disposition system. Current action-items.md mixes dispositions with action items and uses the wrong structure. Each audit run needs its own finding IDs and disposition record. Future audits need a mechanism to reference prior rulings without re-raising the same issues. Relates to #110a (compounded learnings) | CONFIRMED |
 | FT-9 | Re-run the audit after all action items from this run are complete | CONFIRMED |
+
+## Infrastructure
+
+| # | Action | Status |
+|---|--------|--------|
+| 115a | Build a Claude Code hook (for both Hobson and BD harnesses) that prevents agents from modifying application config files, environment variables, or DAL functions in the connection string chain. Enforces the debug/release access boundary mechanically. | CONFIRMED |
+| 116a | Move DevDataStage out of `Src/` — it's a dev-only hack, not production code. It doesn't deserve a higher pride of place than Tests. | CONFIRMED |

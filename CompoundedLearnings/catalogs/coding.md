@@ -4,10 +4,8 @@ F# idioms, naming, temporal handling, constructor discipline, and conventions fo
 
 | Concept | Article | Read when... |
 |---|---|---|
-| validateThenConstruct | `articles/coding/validate-then-construct.md` | Writing or reviewing any type constructor, record creation, or persistence mapping |
-| Namespace encapsulation | `articles/coding/namespace-encapsulation.md` | Deciding which namespace a new type belongs in, or questioning why a type is private |
+| validateThenConstruct | `articles/coding/validate-then-construct.md` | Writing or reviewing any type constructor, record creation, persistence mapping, or persistence read/write path |
 | Validation layers | `articles/coding/validation-layers.md` | Adding validation logic and deciding where it belongs (type def, VTC, composite, or operation) |
-| Persistence gate | `articles/coding/persistence-gate.md` | Writing or reviewing any persistence read/write path |
 | Validation location | `articles/coding/validation-location.md` | Considering whether a validation check should be SQL or F# |
 | Descriptive naming | `articles/coding/descriptive-naming.md` | Naming a function, variable, or smart constructor — especially choosing between `create` and `fromString` |
 | NodaTime discipline | `articles/coding/nodatime-discipline.md` | Working with any temporal value in the application layer |

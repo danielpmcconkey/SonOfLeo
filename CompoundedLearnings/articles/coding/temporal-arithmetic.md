@@ -2,7 +2,7 @@
 
 **Source:** Temporal.md, Instants / Dates / Calendar Periods
 
-Instants and dates are separate algebras with separate arithmetic rules. Do not mix them.
+Instants and dates (see `Specs/Definitions.md`, Instant and Date) are separate algebras with separate arithmetic rules. Do not mix them.
 
 ## Instants
 
@@ -20,10 +20,5 @@ Instants and dates are separate algebras with separate arithmetic rules. Do not 
 ## Instant-to-date conversion
 
 - Anchor to US Eastern Time (NYC). Example: 2026-07-06 02:00 UTC -> 2026-07-05 because it was still July 5, 10PM in NYC
-- Conversion should be **rare** — very few, very deliberate points in the code. Always question whether you need it
+- Conversion should be **rare** — very few, very deliberate points in the code. If you're unsure whether you need it, stop and ask
 - Centralize through the Calendar module's `today()` function (or equivalent). Don't scatter conversion logic
-
-## What doesn't
-- Adding months to an instant
-- Subtracting days from an instant when hours would work
-- Ad-hoc instant-to-date conversion outside a centralized module

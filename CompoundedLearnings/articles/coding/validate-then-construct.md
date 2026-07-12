@@ -1,6 +1,6 @@
 # Validate Then Construct
 
-**Source:** Doctrines.md, Type Validation Doctrine — The Constructor Rule
+**Source:** Doctrines.md, Type Validation Doctrine — The Constructor Rule and The Persistence Gate
 
 Every entity type has exactly one private function called `validateThenConstruct`. It takes primitives, validates every single-field and cross-field constraint, and returns `Result<T, string>`. No record literals may appear anywhere outside `validateThenConstruct`.
 
@@ -13,6 +13,10 @@ Every entity type has exactly one private function called `validateThenConstruct
 - Record literals outside VTC — even "just for tests" or "just for mapping"
 - Multiple construction paths that bypass validation
 - Naming the function anything other than `validateThenConstruct`
+
+## Persistence gate
+
+No entity may cross the persistence boundary without passing through VTC. Write paths construct via VTC before persisting. Read paths reconstitute through VTC, catching any data that has drifted out of compliance.
 
 ## Example
 `AccountName.create` calls `AccountName.validateThenConstruct` internally. So does the persistence read path when reconstituting an account from the database. Both go through the same validation.

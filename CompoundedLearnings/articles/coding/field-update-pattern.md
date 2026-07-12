@@ -4,15 +4,18 @@
 
 `FieldUpdate<'a>` is a discriminated union with two cases: `NoChange` and `SetTo of 'a`. There is no `Clear` case.
 
-## Why no Clear
+## Rationale
 
-Nullability lives in the type parameter. `SetTo None` clears a nullable field; `SetTo someValue` sets it. Attempting to clear a NOT NULL field is unrepresentable at the type level (`SetTo` of a non-option type has no `None` to pass), rather than merely invalid at runtime.
+In traditional multi-field update functions, `None` is ambiguous — it could mean "I don't want to change this field" or "I want to clear a nullable field." `FieldUpdate` forces the caller to state their intent explicitly: `NoChange` means don't touch it, `SetTo value` means set it.
 
-## What works
+Every entity update function should accept `FieldUpdate` parameters — even when the entity has no nullable fields. The pattern is about explicit caller intent, not just nullable disambiguation.
+
+## Usage
+
 - `NoChange` — the update does not touch this field
 - `SetTo value` — the field is set to this value
 - `SetTo None` — clears a nullable field (where `'a` is `'b option`)
 
-## What doesn't
-- A `Clear` case — it makes "clear a required field" representable, shifting the error from compile time to runtime
-- Representing "no change" by passing the current value — that conflates "didn't touch" with "set to same," which matters for audit trails and change detection
+## Why no Clear
+
+Nullability lives in the type parameter. `SetTo None` clears a nullable field; `SetTo someValue` sets it. A separate `Clear` case would make "clear a NOT NULL field" representable at the type level, shifting the error from compile time to runtime.

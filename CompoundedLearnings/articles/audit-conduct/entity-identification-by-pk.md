@@ -2,7 +2,7 @@
 
 **Source:** Audit 2026-07-06a — skill improvement item #17c
 
-When a requirement says "update X" or "retrieve X," the entity is identified by its primary key. This does not need to be stated in the spec. Do not flag entity identification as under-elaborated when the entity has a UUID primary key.
+When a requirement says "update X" or "retrieve X," the entity (see `Specs/Definitions.md`, Entity) is identified by its primary key. This does not need to be stated in the spec. Do not flag entity identification as under-elaborated when the entity has a UUID primary key.
 
 ## The rule
 

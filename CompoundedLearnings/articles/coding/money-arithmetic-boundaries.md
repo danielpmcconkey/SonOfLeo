@@ -2,7 +2,7 @@
 
 **Source:** Money.md, Direct Arithmetic / Arithmetic with Money Amounts / Leftovers
 
-Money records have strict arithmetic boundaries. Some operations are prohibited directly; others require unpacking first.
+Money records (see `Specs/Definitions.md`, Money) have strict arithmetic boundaries. Some operations are prohibited directly; others require unpacking first.
 
 ## Direct operations on Money records
 
@@ -30,4 +30,4 @@ When multiplication or division is needed (splitting a transaction, applying an 
 
 ## No intra-system tolerance
 
-Numbers this system computed must agree exactly. An epsilon between them is a bug amnesty, not a materiality judgment. Reconciliation tolerances against external statements are domain data (specced thresholds, per account class), never code epsilons.
+Numbers this system computed must agree exactly — a difference is a bug. Tolerances only exist for reconciliation against external statements, where they are domain data (specced thresholds per account class), not code epsilons.
