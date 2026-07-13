@@ -2,6 +2,7 @@ namespace Model.Ledger.Journaling
 
 open System
 open Model.Audit
+open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
 open Utilities.DAL
 open Utilities.ResultCE
@@ -32,7 +33,7 @@ module JournalExternalReferenceText =
 
 type JournalEntryExternalReference =
   private  {    uniqueId: Guid // REQ-JE-1.40
-                journalEntryId: Guid // REQ-JE-1.41
+                journalEntryId: JournalEntryId // REQ-JE-1.41
                 financialInstitution: JournalRefFinancialInstitution // REQ-JE-1.42
                 referenceText: JournalExternalReferenceText
                 createdAt: Instant
@@ -48,16 +49,16 @@ module JournalEntryExternalReference =
     
     let validateJournalEntryHeader
             (transaction: DbTransaction option)
-            (uniqueId: Guid) 
+            (journalEntryId: JournalEntryId) 
             : Result<unit, string> =
-        uniqueId |> JournalEntryHeader.fetchById transaction |> Result.map ignore
+        journalEntryId |> JournalEntryHeader.fetchById transaction |> Result.map ignore
 
     /// validateThenConstruct is your centralized constructor for assembling
     /// and validating component types. all other constructors must
     /// pass into this one
     let private validateThenConstruct
             (uniqueId: Guid) // 
-            (journalEntryId: Guid) // 
+            (journalEntryUuid: Guid) // 
             (financialInstitution: string)
             (referenceText: string)
             (createdAt: Instant) // REQ-SYS-3.2
@@ -67,6 +68,7 @@ module JournalEntryExternalReference =
         result {
             let! validFi = financialInstitution |> JournalRefFinancialInstitution.create
             let! validRefText = referenceText |> JournalExternalReferenceText.create
+            let journalEntryId = journalEntryUuid |> JournalEntryId.fromGuid
             do! journalEntryId |> validateJournalEntryHeader transaction |> Result.map ignore
             return { uniqueId = uniqueId; journalEntryId = journalEntryId
                      financialInstitution = validFi; referenceText = validRefText
@@ -91,9 +93,10 @@ module JournalEntryExternalReference =
                unique_id, journal_entry_id, financial_institution, reference, created_at, modified_at)
             VALUES (
                 @unique_id, @journal_entry_id, @financial_institution, @reference, @created_at, @modified_at);"""
+        let journalEntryUuid = externalReference.journalEntryId |> JournalEntryId.value
         let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
             { name = "@unique_id"; value = UniqueId externalReference.uniqueId }
-            { name = "@journal_entry_id"; value = UniqueId externalReference.journalEntryId }
+            { name = "@journal_entry_id"; value = UniqueId journalEntryUuid }
             { name = "@financial_institution"; value = CharString (externalReference.financialInstitution |> JournalRefFinancialInstitution.value) };
             { name = "@reference"; value = CharString (externalReference.referenceText |> JournalExternalReferenceText.value) };
             { name = "@created_at"; value = DbInstant externalReference.createdAt };
@@ -162,10 +165,11 @@ module JournalEntryExternalReference =
 
     let fetchByJournalEntryId
             (transaction: DbTransaction option)
-            (uniqueId: Guid)
+            (journalEntryId: JournalEntryId)
             : Result<JournalEntryExternalReference list, string> = 
+        let uuid = journalEntryId |> JournalEntryId.value
         let predicate = "jer.journal_entry_id = @unique_id"
-        let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
+        let parameters = [{ name = "@unique_id"; value = UniqueId uuid };] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None None parameters AnyQuantityIsAcceptable transaction
         
     let updateFiAndReferenceText // REQ-JE-4.9

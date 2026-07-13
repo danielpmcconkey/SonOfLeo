@@ -81,7 +81,7 @@ let fetchByPeriod // REQ-JE-3.1
     result {
         let! headers = fiscalPeriodId |> JournalEntryHeader.fetchByPeriod None
         let headerResultsList = headers |> List.map(fun h ->
-            let id = JournalEntryHeader.uniqueId h
+            let id = JournalEntryHeader.journalEntryId h
             let entryResult = fetchById id 
             entryResult)
         return! headerResultsList |> listOfResultsToResultsList

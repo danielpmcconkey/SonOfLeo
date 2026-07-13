@@ -12,7 +12,7 @@ open Utilities.DAL
 
 type JournalEntryLine =
   private  {    uniqueId: Guid                                     // REQ-JE-1.20, REQ-JE-1.21
-                journalEntryId: Guid
+                journalEntryId: JournalEntryId
                 accountId: AccountId
                 amount: Money
                 lineType: JournalEntryLineType
@@ -45,7 +45,7 @@ module JournalEntryLine =
     /// pass into this one
     let private validateThenConstruct 
             (uniqueId: Guid)
-            (journalEntryId: Guid)
+            (journalEntryId: JournalEntryId)
             (accountIdGuid: Guid)
             (amount: decimal)
             (lineType: string)
@@ -64,7 +64,7 @@ module JournalEntryLine =
                 match memo with
                 | Some x -> LineMemo.create x |> Result.map Some
                 | None -> Ok None
-                
+            let journalEntryId = journalEntryId |> JournalEntryId.fromGuid
             return {    uniqueId = uniqueId
                         journalEntryId = journalEntryId
                         accountId = accountId
@@ -75,7 +75,7 @@ module JournalEntryLine =
                         modifiedAt = modifiedAt } }
 
     let constructNew
-            (journalEntryId: Guid)
+            (journalEntryId: JournalEntryId)
             (accountId: Guid)
             (amount: decimal)
             (lineType: string)
@@ -100,10 +100,11 @@ module JournalEntryLine =
             VALUES (
                 @unique_id, @journal_entry_id, @account_id, @amount, @line_type, 
                     @memo, @created_at, @modified_at );"""
+        let journalEntryUuid = journalEntryLine.journalEntryId |> JournalEntryId.value
         let accountIdGuid = journalEntryLine.accountId |> AccountId.value
         let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
             { name = "@unique_id"; value = UniqueId journalEntryLine.uniqueId }
-            { name = "@journal_entry_id"; value = UniqueId journalEntryLine.journalEntryId }
+            { name = "@journal_entry_id"; value = UniqueId journalEntryUuid }
             { name = "@account_id"; value = UniqueId accountIdGuid }
             { name = "@amount"; value = Numeric (journalEntryLine.amount |> Money.amount) };
             { name = "@line_type"; value = CharString (journalEntryLine.lineType |> JournalEntryLineType.toString) };
@@ -114,7 +115,7 @@ module JournalEntryLine =
         executeNonQuery query parameters ExactlyOne transaction
 
     let constructNewAndSaveToDb
-            (journalEntryId: Guid)
+            (journalEntryId: JournalEntryId)
             (accountId: Guid)
             (amount: decimal)
             (lineType: string)
@@ -165,19 +166,21 @@ module JournalEntryLine =
 
     let fetchById
             (transaction: DbTransaction option)
-            (uniqueId: Guid)
+            (journalEntryLineId: JournalEntryLineId)
             : Result<JournalEntryLine, string> = 
+        let uuid = journalEntryLineId |> JournalEntryLineId.value
         let predicate = "jel.unique_id = @unique_id"
-        let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
+        let parameters = [{ name = "@unique_id"; value = UniqueId uuid };] // REQ-DAL-2.3
         readRowsFromDb None (Some predicate) None None parameters ExactlyOne transaction
         |> Result.map List.head
 
     let fetchByJournalEntryId
             (transaction: DbTransaction option)
-            (jeId: Guid)
+            (jeId: JournalEntryId)
             : Result<JournalEntryLine list, string> = 
+        let uuid = jeId |> JournalEntryId.value
         let predicate = "jel.journal_entry_id = @journal_entry_id"
-        let parameters = [{ name = "@journal_entry_id"; value = UniqueId jeId };] // REQ-DAL-2.3
+        let parameters = [{ name = "@journal_entry_id"; value = UniqueId uuid };] // REQ-DAL-2.3
         let orderBy = "jel.created_at"
         readRowsFromDb None (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable transaction
 

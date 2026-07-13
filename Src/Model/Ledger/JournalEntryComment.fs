@@ -2,6 +2,7 @@ namespace Model.Ledger.Journaling
 
 open System
 open Model.Audit
+open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
 open Utilities.DAL
 open Utilities.ResultCE
@@ -20,8 +21,8 @@ module CommentText =
 
 type JournalEntryComment =
   private  {    uniqueId: Guid // REQ-JE-1.50
-                primaryJournalEntryId: Guid // REQ-JE-1.51
-                secondaryJournalEntryId: Guid option // REQ-JE-1.52
+                primaryJournalEntryId: JournalEntryId // REQ-JE-1.51
+                secondaryJournalEntryId: JournalEntryId option // REQ-JE-1.52
                 commentText: CommentText
                 createdAt: Instant
                 modifiedAt: Instant }
@@ -36,13 +37,13 @@ module JournalEntryComment =
     
     let validateJournalEntryHeader
             (transaction: DbTransaction option)
-            (uniqueId: Guid) 
+            (journalEntryId: JournalEntryId) 
             : Result<unit, string> =
-        uniqueId |> JournalEntryHeader.fetchById transaction |> Result.map ignore
+        journalEntryId |> JournalEntryHeader.fetchById transaction |> Result.map ignore
     
     let validatePrimaryAndSecondaryRelationship // REQ-JE-1.53
-            (primaryJournalEntryId: Guid)
-            (secondaryJournalEntryId: Guid option)
+            (primaryJournalEntryId: JournalEntryId)
+            (secondaryJournalEntryId: JournalEntryId option)
             : Result<unit, string> =
         match secondaryJournalEntryId with
         | None -> Ok ()
@@ -56,14 +57,16 @@ module JournalEntryComment =
     /// pass into this one
     let private validateThenConstruct
             (uniqueId: Guid) // REQ-JE-5.2
-            (primaryJournalEntryId: Guid) // REQ-JE-5.1
-            (secondaryJournalEntryId: Guid option) // REQ-JE-5.1
+            (primaryJournalEntryUuid: Guid) // REQ-JE-5.1
+            (secondaryJournalEntryUuid: Guid option) // REQ-JE-5.1
             (commentText: string)
             (createdAt: Instant) // REQ-JE-5.2
             (modifiedAt: Instant) // REQ-JE-5.2
             (transaction: DbTransaction option)
             : Result<JournalEntryComment, string> =
         result {
+            let primaryJournalEntryId = primaryJournalEntryUuid |> JournalEntryId.fromGuid
+            let secondaryJournalEntryId = secondaryJournalEntryUuid |> Option.map JournalEntryId.fromGuid
             let! validCommentText = commentText |> CommentText.create
             do! primaryJournalEntryId |> validateJournalEntryHeader transaction
             do! match secondaryJournalEntryId with
@@ -93,10 +96,12 @@ module JournalEntryComment =
                 unique_id, journal_primary_entry_id, journal_secondary_entry_id, comment_text, created_at, modified_at)
             VALUES (
                 @unique_id, @journal_primary_entry_id, @journal_secondary_entry_id, @comment_text, @created_at, @modified_at);"""
+        let primaryUuid = comment.primaryJournalEntryId |> JournalEntryId.value
+        let secondaryUuid = comment.secondaryJournalEntryId |> Option.map JournalEntryId.value
         let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
             { name = "@unique_id"; value = UniqueId comment.uniqueId }
-            { name = "@journal_primary_entry_id"; value = UniqueId comment.primaryJournalEntryId }
-            { name = "@journal_secondary_entry_id"; value = NullableUniqueId comment.secondaryJournalEntryId }
+            { name = "@journal_primary_entry_id"; value = UniqueId primaryUuid }
+            { name = "@journal_secondary_entry_id"; value = NullableUniqueId secondaryUuid }
             { name = "@comment_text"; value = CharString (comment.commentText |> CommentText.value) };
             { name = "@created_at"; value = DbInstant comment.createdAt };
             { name = "@modified_at"; value = DbInstant comment.modifiedAt };
@@ -166,10 +171,11 @@ module JournalEntryComment =
     /// instant
     let fetchByJournalEntryId
             (transaction: DbTransaction option)
-            (uniqueId: Guid)
+            (journalEntryId: JournalEntryId)
             : Result<JournalEntryComment list, string> = 
+        let uuid = journalEntryId |> JournalEntryId.value
         let predicate = "jec.journal_primary_entry_id = @unique_id or jec.journal_secondary_entry_id = @unique_id"
-        let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
+        let parameters = [{ name = "@unique_id"; value = UniqueId uuid };] // REQ-DAL-2.3
         let orderBy = "created_at"
         readRowsFromDb (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable transaction
         
@@ -177,7 +183,7 @@ module JournalEntryComment =
             (auditEnvelope: AuditEnvelope)
             (uniqueId: Guid)
             (commentUpdate: FieldUpdate<CommentText>)
-            (secondaryIdUpdate: FieldUpdate<Guid option>)
+            (secondaryIdUpdate: FieldUpdate<JournalEntryId option>)
             (transaction: DbTransaction option)
             : Result<JournalEntryComment, string> =        
         let baseParams = [
@@ -204,19 +210,17 @@ module JournalEntryComment =
                     match validSecondaryId with
                     | NoChange -> None
                     | SetTo x ->
+                        let validUuidOption = x |> Option.map JournalEntryId.value
                         Some (", journal_secondary_entry_id = @journal_secondary_entry_id",
-                              { name = "@journal_secondary_entry_id"; value = NullableUniqueId x })
+                              { name = "@journal_secondary_entry_id"; value = NullableUniqueId validUuidOption })
                 ] |> List.choose id
             let setClauses = updates |> List.map fst |> String.concat ""
             let parameters = baseParams @ (updates |> List.map snd)
-            let query = $"""
-                UPDATE ledger.journal_entry_comment
-                set
-                    modified_at = @modified -- REQ-SYS-3.3
-                    {setClauses}
-                WHERE unique_id = @unique_id
-                ;
-            """
+            let query = $"""    UPDATE ledger.journal_entry_comment
+                                set
+                                    modified_at = @modified -- REQ-SYS-3.3
+                                    {setClauses}
+                                WHERE unique_id = @unique_id; """
             let! _ = executeNonQuery query parameters ExactlyOne transaction
             return! uniqueId |> fetchById transaction
         }

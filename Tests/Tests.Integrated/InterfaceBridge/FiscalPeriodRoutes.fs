@@ -1,17 +1,17 @@
-namespace Tests.Integrated.SonOfLeoCli
+module Tests.Integrated.InterfaceBridge.FiscalPeriodRoutes
 
+open InterfaceBridge.Json.Json
 open Model
 open Model.Audit
 open Xunit
 open Utilities.ResultCE
 open Model.Ledger.FiscalPeriods
 open Model.Ledger.FiscalPeriods.FiscalPeriod
-open Model.UI.InterfaceContractTypes
-open Model.UI.Json
 open Tests.Integrated
 open Tests.Integrated.GenericTestProperties
 open Tests.Integrated.SonOfLeoCli.CliExecutor
 open Tests.Integrated._Cleanup
+open InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
 
 [<Collection("SharedTestData")>]
 type FiscalPeriodRouteTests(fixture: TestDataFixture) =
@@ -147,7 +147,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         try
             let railroad = result {
                 let! created = createFiscalPeriodInDb expected
-                let id = created |> FiscalPeriod.fiscalPeriodId
+                let id = created |> fiscalPeriodId
                 let keyString = periodKey created |> FiscalPeriodKey.value
                 keyToCleanUp <- Some keyString
 
@@ -170,3 +170,5 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
             match cleanUpFiscalPeriodKey keyToCleanUp with
             | Ok () -> ()
             | Error e -> failwith e
+
+

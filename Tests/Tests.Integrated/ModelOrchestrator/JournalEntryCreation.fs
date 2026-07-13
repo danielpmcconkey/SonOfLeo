@@ -49,7 +49,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             let createResult = prims |> orchestrateCreation envelope
             match createResult with
             | Ok je ->
-                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.journalEntryId)
                 let h = je |> header
                 Assert.Equal("Happy path basic creation", h |> JournalEntryHeader.description |> JournalEntryDescription.value)
                 Assert.Equal(2, je |> lines |> List.length)
@@ -68,8 +68,8 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             let createResult = prims |> orchestrateCreation envelope
             match createResult with
             | Ok je ->
-                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
-                Assert.NotEqual(Guid.Empty, je |> header |> JournalEntryHeader.uniqueId)
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.journalEntryId)
+                Assert.NotEqual(Guid.Empty, je |> header |> JournalEntryHeader.journalEntryId)
             | Error e -> Assert.Fail e
         finally
             match cleanUpJournalEntryId idToCleanUp with
@@ -85,7 +85,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             let createResult = prims |> orchestrateCreation envelope
             match createResult with
             | Ok je ->
-                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.journalEntryId)
                 let ids = je |> lines |> List.map JournalEntryLine.uniqueId
                 Assert.Equal(2, ids |> List.distinct |> List.length)
                 ids |> List.iter (fun id -> Assert.NotEqual(Guid.Empty, id))
@@ -108,7 +108,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             let createResult = prims |> orchestrateCreation envelope
             match createResult with
             | Ok je ->
-                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.journalEntryId)
                 let ids = je |> externalReferences |> List.map JournalEntryExternalReference.uniqueId
                 Assert.Equal(2, ids |> List.distinct |> List.length)
                 ids |> List.iter (fun id -> Assert.NotEqual(Guid.Empty, id))
@@ -128,7 +128,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             let createResult = prims |> orchestrateCreation envelope
             match createResult with
             | Ok je ->
-                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.journalEntryId)
                 let h = je |> header
                 Assert.Equal(expectedInstant, h |> JournalEntryHeader.createdAt)
                 Assert.Equal(expectedInstant, h |> JournalEntryHeader.modifiedAt)
@@ -150,7 +150,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             let createResult = prims |> orchestrateCreation envelope
             match createResult with
             | Ok je ->
-                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.journalEntryId)
                 Assert.Equal(0, je |> externalReferences |> List.length)
             | Error e -> Assert.Fail e
         finally
@@ -172,7 +172,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             let createResult = prims |> orchestrateCreation envelope
             match createResult with
             | Ok je ->
-                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.journalEntryId)
                 Assert.Equal(3, je |> externalReferences |> List.length)
             | Error e -> Assert.Fail e
         finally
@@ -189,7 +189,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             let createResult = prims |> orchestrateCreation envelope
             match createResult with
             | Ok je ->
-                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.journalEntryId)
                 Assert.Equal(0, je |> comments |> List.length)
             | Error e -> Assert.Fail e
         finally
@@ -210,7 +210,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             let createResult = prims |> orchestrateCreation envelope
             match createResult with
             | Ok je ->
-                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.journalEntryId)
                 Assert.Equal(2, je |> comments |> List.length)
             | Error e -> Assert.Fail e
         finally
@@ -228,7 +228,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             let createResult = prims |> orchestrateCreation envelope
             match createResult with
             | Ok je ->
-                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.journalEntryId)
                 Assert.True(je |> header |> JournalEntryHeader.source |> Option.isNone)
             | Error e -> Assert.Fail e
         finally
@@ -249,7 +249,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             let createResult = prims |> orchestrateCreation envelope
             match createResult with
             | Ok je ->
-                idToCleanUp <- Some (je |> header |> JournalEntryHeader.uniqueId)
+                idToCleanUp <- Some (je |> header |> JournalEntryHeader.journalEntryId)
                 je |> lines |> List.iter (fun line ->
                     Assert.True(line |> JournalEntryLine.memo |> Option.isNone))
             | Error e -> Assert.Fail e
@@ -269,7 +269,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     externalReferences = [ { financialInstitution = "DupBank"; referenceText = "DUP-REF-001" } ] }
             let create1 = prims1 |> orchestrateCreation envelope1
             create1 |> Result.iter (fun je ->
-                idToCleanUp_1 <- Some (je |> header |> JournalEntryHeader.uniqueId))
+                idToCleanUp_1 <- Some (je |> header |> JournalEntryHeader.journalEntryId))
 
             let envelope2 = AuditEnvelope.create JournalEntryPostNew
             let prims2 =
@@ -277,7 +277,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     externalReferences = [ { financialInstitution = "DupBank"; referenceText = "DUP-REF-001" } ] }
             let create2 = prims2 |> orchestrateCreation envelope2
             create2 |> Result.iter (fun je ->
-                idToCleanUp_2 <- Some (je |> header |> JournalEntryHeader.uniqueId))
+                idToCleanUp_2 <- Some (je |> header |> JournalEntryHeader.journalEntryId))
 
             match create1, create2 with
             | Ok _, Ok _ -> ()
@@ -425,7 +425,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             match createResult with
             | Error e -> Assert.Fail e
             | Ok created ->
-                let jeId = created |> header |> JournalEntryHeader.uniqueId
+                let jeId = created |> header |> JournalEntryHeader.journalEntryId
                 idToCleanUp <- Some jeId
                 let fetchResult = jeId |> fetchById
                 match fetchResult with
@@ -433,7 +433,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                 | Ok fetched ->
                     let ch = created |> header
                     let fh = fetched |> header
-                    Assert.Equal(ch |> JournalEntryHeader.uniqueId, fh |> JournalEntryHeader.uniqueId)
+                    Assert.Equal(ch |> JournalEntryHeader.journalEntryId, fh |> JournalEntryHeader.journalEntryId)
                     Assert.Equal(
                         ch |> JournalEntryHeader.description |> JournalEntryDescription.value,
                         fh |> JournalEntryHeader.description |> JournalEntryDescription.value)
@@ -526,7 +526,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             match createResult with
             | Error e -> Assert.Fail e
             | Ok created ->
-                let jeId = created |> header |> JournalEntryHeader.uniqueId
+                let jeId = created |> header |> JournalEntryHeader.journalEntryId
                 idToCleanUp <- Some jeId
                 let fetchResult = jeId |> fetchById
                 match fetchResult with

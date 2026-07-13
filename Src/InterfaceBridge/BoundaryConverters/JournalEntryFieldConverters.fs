@@ -3,7 +3,6 @@ module InterfaceBridge.BoundaryConverters.JournalEntryFieldConverters
 open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.InterfaceContracts.JournalContracts
 open Model
-open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.JournalEntryPrimitives
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
@@ -108,7 +107,7 @@ let ``convert JournalEntryInput to JournalEntryPrimitives``
 let ``convert JournalEntryHeader to JournalEntryHeaderReturn``
         (model: JournalEntryHeader)
         : JournalEntryHeaderReturn = {
-    id = model |> JournalEntryHeader.uniqueId
+    id = model |> JournalEntryHeader.journalEntryId
     description = model |> JournalEntryHeader.description |> JournalEntryDescription.value
     source = model |> JournalEntryHeader.source |> Option.map(fun x -> x |> JournalEntrySource.value)
     entryDate = model |> JournalEntryHeader.entryDate |> EntryDate.entryDate

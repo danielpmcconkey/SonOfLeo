@@ -1,13 +1,16 @@
 namespace Tests.Integrated.ModelOrchestrator
 
 open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.Journaling.JournalEntryComponent
 open Xunit
 open Tests.Integrated
 open ModelOrchestrator.AccountActivity
+open System
 
 [<Collection("SharedTestData")>]
 type AccountActivityTests(fixture: TestDataFixture) =
 
+    // todo: this is a bullshit test
     [<Fact>]
     member _.``REQ-JE-3.9 fetchFiltered by account returns enriched activity with entry-level fields`` () =
         let filter = {
@@ -27,9 +30,11 @@ type AccountActivityTests(fixture: TestDataFixture) =
             Assert.True(activities |> List.length >= 1)
             let withDetail = activities |> List.filter (fun a -> a.activityDetail |> Option.isSome)
             Assert.True(withDetail |> List.length >= 1)
-            let detail = (withDetail |> List.head).activityDetail |> Option.get
-            Assert.True(detail.journalEntryDescription.Length > 0)
-            Assert.NotEqual(System.Guid.Empty, detail.journalEntryId)
+            let detail = (withDetail |> List.head).activityDetail
+                         |> Option.get
+            let descriptionText =  detail.journalEntryDescription |> JournalEntryDescription.value
+            Assert.False(String.IsNullOrWhiteSpace descriptionText )
+            Assert.NotEqual(Guid.Empty, detail.journalEntryId)
         | Error e -> Assert.Fail e
 
     [<Fact>]

@@ -1,13 +1,13 @@
-namespace Tests.Integrated.SonOfLeoCli
+module Tests.Integrated.InterfaceBridge.JournalEntryRoutes
 
 open System
+open InterfaceBridge.InterfaceContracts.JournalContracts
+open InterfaceBridge.Json.Json
 open Utilities.DAL
 open Xunit
 open Tests.Integrated
 open Tests.Integrated._Cleanup
 open Tests.Integrated.SonOfLeoCli.CliExecutor
-open Model.UI.InterfaceContractTypes
-open Model.UI.Json
 open Utilities
 open Utilities.ResultCE
 
@@ -180,7 +180,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.7 FetchByDateRange route returns entries within date range`` () =
-        let today = Utilities.Calendar.today()
+        let today = Calendar.today()
         let railroad = result {
             let! payload = { beginDate = today; endDateInclusive = today } |> toJson<JournalEntryFetchByDateRangeInput>
             let code, stdout, e = runCli ["JournalEntry"; "FetchByDateRange"] payload
@@ -364,3 +364,4 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
             match cleanUpJournalEntryCommentId idToCleanUp with
             | Ok () -> ()
             | Error e -> failwith e
+

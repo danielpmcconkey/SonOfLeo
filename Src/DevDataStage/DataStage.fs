@@ -115,7 +115,7 @@ let stageData =
                 comments = []
             }
             |> orchestrateCreation jeEnvelope
-        let je1Id = je1 |> header |> JournalEntryHeader.uniqueId
+        let je1Id = je1 |> header |> JournalEntryHeader.journalEntryId
         let! je2 =
             {
                 header = { description = "Vons #3126"; source = (Some "Checking Acct Statement"); entryDate = twoMonthsAgo; voidedAt = None }
@@ -127,7 +127,7 @@ let stageData =
                 comments = []
             }
             |> orchestrateCreation jeEnvelope 
-        let je2Id = je2 |> header |> JournalEntryHeader.uniqueId
+        let je2Id = je2 |> header |> JournalEntryHeader.journalEntryId
         
         let voidComment = { secondaryJournalEntryId = None; commentText = "Dan hosed it, eh?" }
         let voidEnvelope = AuditEnvelope.create JournalEntryVoid
@@ -144,7 +144,7 @@ let stageData =
                 comments = []
             }
             |> orchestrateCreation jeEnvelope 
-        let je3Id = je3 |> header |> JournalEntryHeader.uniqueId
+        let je3Id = je3 |> header |> JournalEntryHeader.journalEntryId
         
         let voidComment = { secondaryJournalEntryId = None; commentText = "He hosed this one too?" }
         let voidEnvelope = AuditEnvelope.create JournalEntryVoid

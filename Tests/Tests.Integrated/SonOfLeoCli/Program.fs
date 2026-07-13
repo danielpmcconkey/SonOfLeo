@@ -1,9 +1,8 @@
 namespace Tests.Integrated.SonOfLeoCli
 
+open InterfaceBridge.InterfaceContracts.AccountContracts
+open InterfaceBridge.Json.Json
 open Model.Ledger.Accounts
-open Model.Ledger.Accounts.AccountComponent
-open Model.UI.InterfaceContractTypes
-open Model.UI.Json
 open Tests.Integrated
 open Tests.Integrated.GenericTestProperties
 open Tests.Integrated.SonOfLeoCli.CliExecutor

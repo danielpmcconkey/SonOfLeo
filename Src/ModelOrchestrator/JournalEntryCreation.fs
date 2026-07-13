@@ -72,7 +72,7 @@ module JournalEntryCreationAndConstruction =
         }
     
     let private createValidLines
-            (jeId : Guid)
+            (journalEntryId : JournalEntryId)
             (entryDate: LocalDate)
             (linePrimitives : JournalEntryLinePrimitives list)
             (auditEnvelope: AuditEnvelope)
@@ -82,7 +82,7 @@ module JournalEntryCreationAndConstruction =
         |> List.map(fun line ->
                 result {    do! line |> validateAccountByLine transaction entryDate // REQ-JE-2.8
                             return! JournalEntryLine.constructNewAndSaveToDb
-                                jeId
+                                journalEntryId
                                 line.accountId
                                 line.amount
                                 line.lineType
@@ -137,7 +137,7 @@ module JournalEntryCreationAndConstruction =
         let railRoad = result {
             let! validHeader = createValidHeader journalEntryPrimitives.header auditEnvelope (Some transaction)
             do! validHeader |> validateNoNewVoidedEntries
-            let jeId = validHeader |> JournalEntryHeader.uniqueId
+            let jeId = validHeader |> JournalEntryHeader.journalEntryId
             let entryDate = JournalEntryHeader.entryDate validHeader |> EntryDate.entryDate  
             let! validLines = createValidLines jeId entryDate journalEntryPrimitives.lines auditEnvelope (Some transaction)
             let! validReferences = createValidExternalReferences jeId journalEntryPrimitives.externalReferences auditEnvelope (Some transaction)

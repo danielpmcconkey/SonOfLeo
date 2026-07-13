@@ -1,12 +1,18 @@
 namespace Model.Ledger.Journaling
 
 open System
-open Model
 open Model.Ledger.FiscalPeriods
 open Utilities.DAL
 open NodaTime
 open Utilities.ResultCE
+
 module JournalEntryComponent =
+
+    type JournalEntryId = private JournalEntryId of Guid
+    module JournalEntryId =
+        let create () : JournalEntryId = (JournalEntryId (Guid.NewGuid()))
+        let fromGuid g = JournalEntryId g
+        let value (JournalEntryId g) : Guid = g
     
     type JournalEntryDescription = private JournalEntryDescription of string
 

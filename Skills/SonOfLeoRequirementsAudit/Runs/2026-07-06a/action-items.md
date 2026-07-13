@@ -341,3 +341,4 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 |---|--------|--------|
 | 115a | Build a Claude Code hook (for both Hobson and BD harnesses) that prevents agents from modifying application config files, environment variables, or DAL functions in the connection string chain. Enforces the debug/release access boundary mechanically. | CONFIRMED |
 | 116a | Move DevDataStage out of `Src/` — it's a dev-only hack, not production code. It doesn't deserve a higher pride of place than Tests. | CONFIRMED |
+| 117a | Replace `Result<_, string>` with a typed `AppError` DU across the codebase. Error cases carry contextual data; formatting happens at the boundary. Eliminates brittle string assertions in tests. | CONFIRMED |

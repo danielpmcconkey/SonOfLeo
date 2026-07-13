@@ -20,6 +20,6 @@ type JournalEntryHeaderTests(fixture: TestDataFixture) =
         let result = fixture.Data.jeInClosedPeriodId |> JournalEntryHeader.fetchById None
         match result with
         | Ok h ->
-            Assert.Equal(fixture.Data.jeInClosedPeriodId, h |> JournalEntryHeader.uniqueId)
+            Assert.Equal(fixture.Data.jeInClosedPeriodId, h |> JournalEntryHeader.journalEntryId)
             Assert.Equal("Fixture JE in closed period", h |> JournalEntryHeader.description |> JournalEntryDescription.value)
         | Error e -> Assert.Fail $"Fetching a JE header in a closed period must succeed: {e}"
