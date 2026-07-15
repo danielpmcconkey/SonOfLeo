@@ -2,6 +2,7 @@ namespace Model.Ledger.Accounts
 
 open System
 open NodaTime
+open Utilities.AppError
 
 module AccountComponent =
     
@@ -24,11 +25,11 @@ module AccountComponent =
     module AccountActivityPeriod = // REQ-AC-2.17
         let activeBegin (a:AccountActivityPeriod) = a.activeBegin
         let activeEnd (a:AccountActivityPeriod) = a.activeEnd
-        let create (rawBegin: LocalDate) (rawEnd: LocalDate option) : Result<AccountActivityPeriod, string> =
+        let create (rawBegin: LocalDate) (rawEnd: LocalDate option) : Result<AccountActivityPeriod, AppError> =
             match rawEnd with
             | None -> Ok { activeBegin = rawBegin; activeEnd = None }
             | Some x -> 
-                if x < rawBegin then Error "Active end cannot be before active begin" else // REQ-AC-1.46, REQ-AC-2.18
+                if x < rawBegin then Error (AccountActiveEndBeforeBegin (rawBegin, rawEnd)) else // REQ-AC-1.46, REQ-AC-2.18
                     Ok { activeBegin = rawBegin; activeEnd = rawEnd }
         let isActive // REQ-AC-1.50
                 (referencePoint: LocalDate) // REQ-AC-1.48.1
@@ -47,26 +48,28 @@ module AccountComponent =
     type AccountCode = private AccountCode of string
     
     module AccountCode =
+        let maxLength = 10
         let value (AccountCode ac) = ac // required because AccountCode is a private string
-        let create (raw: string) : Result<AccountCode, string> =
+        let create (raw: string) : Result<AccountCode, AppError> =
             let trimmed = raw.Trim() // REQ-SYS-1.1
             if String.IsNullOrWhiteSpace trimmed then
-                Error "Account code cannot be empty"  // REQ-AC-1.1, REQ-AC-1.2, REQ-SYS-1.2
-            elif trimmed.Length > 10 then
-                Error "Account code cannot exceed 10 characters" // REQ-AC-1.3
+                Error (AccountCodeIsEmpty raw)  // REQ-AC-1.1, REQ-AC-1.2, REQ-SYS-1.2
+            elif trimmed.Length > maxLength then
+                Error (AccountCodeTooLong (raw, maxLength)) // REQ-AC-1.3
             else
                 Ok (AccountCode trimmed)
 
     type AccountName = private AccountName of string
     
     module AccountName =
+        let maxLength = 100
         let value (AccountName an) = an // required because AccountName is a private string
-        let create (raw: string) : Result<AccountName, string> =
+        let create (raw: string) : Result<AccountName, AppError> =
             let trimmed = raw.Trim() // REQ-SYS-1.1
             if String.IsNullOrWhiteSpace trimmed then
-                Error "Account name cannot be empty"  // REQ-AC-1.6, REQ-AC-1.7, REQ-SYS-1.2
-            elif trimmed.Length > 100 then
-                Error "Account name cannot exceed 100 characters"  // REQ-AC-1.8
+                Error (AccountNameIsEmpty raw)  // REQ-AC-1.6, REQ-AC-1.7, REQ-SYS-1.2
+            elif trimmed.Length > maxLength then
+                Error (AccountNameTooLong (raw, maxLength))  // REQ-AC-1.8
             else
                 Ok (AccountName trimmed)
     
@@ -82,14 +85,14 @@ module AccountComponent =
         | Expense
         
     module AccountType =
-        let fromString (accountType: string) : Result<AccountType, string> = // REQ-AC-1.10 (parse boundary)
+        let fromString (accountType: string) : Result<AccountType, AppError> = // REQ-AC-1.10 (parse boundary)
             match accountType.Trim() with // REQ-SYS-1.1
             | "Asset" -> Ok Asset
             | "Liability" -> Ok Liability
             | "Equity" -> Ok Equity
             | "Revenue" -> Ok Revenue
             | "Expense" -> Ok Expense
-            | _ -> Error $"Invalid AccountTypeString: '%s{accountType}'"
+            | _ -> Error (AccountTypeInvalid accountType)
         
         let toString (``type``: AccountType) : string =
             match ``type`` with
@@ -127,7 +130,7 @@ module AccountComponent =
             | OperatingExpense -> "OperatingExpense"
             | OtherRevenue -> "OtherRevenue"
             | OtherExpense -> "OtherExpense"
-        let fromString (subtype: string) : Result<AccountSubtype, string> = // REQ-AC-1.18 (parse boundary)
+        let fromString (subtype: string) : Result<AccountSubtype, AppError> = // REQ-AC-1.18 (parse boundary)
             match subtype.Trim() with // REQ-SYS-1.1
             | "Cash" -> Ok Cash
             | "CurrentLiability" -> Ok CurrentLiability
@@ -138,7 +141,7 @@ module AccountComponent =
             | "OperatingExpense" -> Ok OperatingExpense
             | "OtherRevenue" -> Ok OtherRevenue
             | "OtherExpense" -> Ok OtherExpense
-            | _ -> Error $"Invalid account_subtype: '%s{subtype}'"
+            | _ -> Error (AccountSubtypeInvalid subtype)
         let validFor (subtype: AccountSubtype) : AccountType = // confirms that subtype A, B, C can only be associated to type Y
             match subtype with
             | Cash | FixedAsset | Investment -> Asset  // REQ-AC-1.28
@@ -163,12 +166,13 @@ module AccountComponent =
     type AccountExternalReference = private AccountExternalReference of string
     
     module AccountExternalReference =
+        let maxLength = 50
         let value (AccountExternalReference reference) = reference // required due to private value 
-        let create (raw: string) : Result<AccountExternalReference, string> =
+        let create (raw: string) : Result<AccountExternalReference, AppError> =
             let trimmed = raw.Trim() // REQ-SYS-1.1
             if trimmed = String.Empty then
-                Error $"Account external reference of \"{raw}\" is empty" // REQ-AC-1.49, REQ-SYS-1.3
-            elif trimmed.Length > 50 then
-                Error $"Account external reference of \"{trimmed}\" exceeds 50 characters"  // REQ-AC-1.20
+                Error (AccountExternalReferenceIsEmpty raw) // REQ-AC-1.49, REQ-SYS-1.3
+            elif trimmed.Length > maxLength then
+                Error (AccountExternalReferenceTooLong (raw, maxLength))  // REQ-AC-1.20
             else
                 Ok (AccountExternalReference trimmed)

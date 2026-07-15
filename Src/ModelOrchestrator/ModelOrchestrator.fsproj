@@ -17,6 +17,8 @@
     <Compile Include="JournalEntryVoiding.fs" />
     <Compile Include="AccountActivity.fs" />
     <Compile Include="AccountBalance.fs" />
+    <Compile Include="AccountCreation.fs" />
+    <Compile Include="FiscalPeriodCreation.fs" />
   </ItemGroup>
 
 </Project>

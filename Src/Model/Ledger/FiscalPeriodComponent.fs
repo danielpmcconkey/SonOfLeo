@@ -2,6 +2,7 @@ namespace Model.Ledger.FiscalPeriods
 
 open System
 open System.Text.RegularExpressions
+open Utilities.AppError
 
 type FiscalPeriodId = private FiscalPeriodId of Guid
 
@@ -10,16 +11,18 @@ module FiscalPeriodId =
     let fromGuid g = FiscalPeriodId g
     let value (FiscalPeriodId g) : Guid = g
 
-type FiscalPeriodKey = private PeriodKey of string
+type FiscalPeriodKey = private FiscalPeriodKey of string
 
 module FiscalPeriodKey =
     let validationRegex = @"^\d{4}-(0[1-9]|1[0-2])$" // REQ-FP-1.2
     let isValidString (s: string) : bool = Regex.IsMatch(s, validationRegex)
-    let fromString (raw: string) : Result<FiscalPeriodKey, string> =
+    let fromString (raw: string) : Result<FiscalPeriodKey, AppError> =
         let trimmed = raw.Trim() // REQ-SYS-1.1
         match trimmed |> isValidString with
-        | false -> Error $"Passed string \"{raw}\" is invalid as a Period Key."
-        | true -> Ok (PeriodKey trimmed)
+        | false -> Error (FiscalPeriodInvalidKeyString raw)
+        | true -> Ok (FiscalPeriodKey trimmed)
+    
+    let internal reconstitute (raw: string) = raw |> FiscalPeriodKey
 
-    let value (PeriodKey pk) = pk
+    let value (FiscalPeriodKey pk) = pk
 

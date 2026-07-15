@@ -1,8 +1,10 @@
 module Utilities.ListHelper
 
+open Utilities.AppError
+
 let listOfResultsToResultsList<'T>
-        (listOfResults: Result<'T,string> list)
-        : Result<'T list, string> =
+        (listOfResults: Result<'T,AppError> list)
+        : Result<'T list, AppError> =
     listOfResults
     |> List.foldBack (fun createResult acc ->
             match createResult, acc with

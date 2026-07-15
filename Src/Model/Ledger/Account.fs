@@ -2,6 +2,7 @@ namespace Model.Ledger.Accounts
 
 open System
 open Utilities
+open Utilities.AppError
 open Utilities.ResultCE
 open Utilities.DAL
 open Model.Audit
@@ -28,95 +29,55 @@ module Account =
     let code (a:Account) = a.code
     let accountName (a:Account) = a.accountName
     let accountType (a:Account) = a.accountType
-    let activeBegin (a:Account) = AccountActivityPeriod.activeBegin a.activityPeriod // derived property here for convenience
-    let activeEnd (a:Account) = AccountActivityPeriod.activeEnd a.activityPeriod // derived property here for convenience
     let activityPeriod (a:Account) = a.activityPeriod
     let accountSubType (a:Account) = a.accountSubType
     let parentId (a:Account) = a.parentId
     let externalReference (a:Account) = a.externalReference
     let createdAt (a:Account) = a.createdAt
     let modifiedAt (a:Account) = a.modifiedAt
-    let isActive // derived property here for convenience;
-            (referencePoint: LocalDate)
-            (a:Account)
-            : bool =  
-        AccountActivityPeriod.isActive referencePoint (activityPeriod a)
 
-// Private constructors
-
-    /// validateThenConstruct is your centralized constructor for assembling
-    /// and validating component types. all other constructors must
-    /// pass into this one
-    let private validateThenConstruct
-            (accountId: AccountId)
-            (code: string)
-            (accountName: string)
-            (accountType: string)
-            (activeBegin: LocalDate)
-            (activeEnd: LocalDate option)
-            (subType: string option)
-            (parentId: AccountId option)
-            (reference: string option)
-            (createdAt: Instant)
-            (modifiedAt: Instant)
-            : Result<Account, string> =
-        result {
-            let! validActivityPeriod = AccountActivityPeriod.create activeBegin activeEnd // REQ-SYS-2.1
-            let! validCode = AccountCode.create code // REQ-SYS-2.1
-            let! validName = AccountName.create accountName // REQ-SYS-2.1
-            let! validType = AccountType.fromString accountType // REQ-SYS-2.1
-            let! validSubType = 
-                match subType with
-                | Some st -> AccountSubtype.fromString(st) |> Result.map Some // REQ-SYS-2.1
-                | None -> Ok None // REQ-SYS-2.1
-            let! validRef = 
-                match reference with
-                | Some r -> AccountExternalReference.create(r) |> Result.map Some
-                | None -> Ok None // REQ-SYS-2.1
-            do!
-                if AccountSubtype.validTypeSubtypeCombination validType validSubType
-                then Ok ()
-                else Error $"Invalid AccountType / AccountSubType combo: {accountType} / {subType}"            
-            do!
-                match parentId with
-                | None -> Ok ()
-                | Some x when x = accountId -> Error "For some stupid reason, I have to put this check in or AI auditors don't stop flagging it as gap."
-                | _ -> Ok ()
-            return {    accountId = accountId
-                        code = validCode
-                        accountName = validName
-                        accountType = validType
-                        activityPeriod = validActivityPeriod
-                        accountSubType = validSubType
+    let create
+        (accountId: AccountId)
+        (code: AccountCode)
+        (accountName: AccountName)
+        (accountType: AccountType)
+        (accountActivityPeriod: AccountActivityPeriod)
+        (subType: AccountSubtype option)
+        (parentId: AccountId option)
+        (reference: AccountExternalReference option)
+        (createdAt: Instant)
+        (modifiedAt: Instant)
+        : Account = {   accountId = accountId
+                        code = code
+                        accountName = accountName
+                        accountType = accountType
+                        activityPeriod = accountActivityPeriod
+                        accountSubType = subType
                         parentId = parentId
-                        externalReference = validRef
+                        externalReference = reference
                         createdAt = createdAt
-                        modifiedAt = modifiedAt } }
+                        modifiedAt = modifiedAt }
             
 
-// Public constructors
-
-    /// constructNew is used where the underlying storage layer does not already have
-    /// a representation of this record, such as when wanting to build an Account for
-    /// insertion into the database or when creating Account records purely for testing.
-    let constructNew
-            (code: string)
-            (accountName: string)
-            (accountType: string)
-            (activeBegin: LocalDate)
-            (activeEnd: LocalDate option)
-            (subType: string option)
-            (parentId: AccountId option)
-            (reference: string option)
-            (auditEnvelope: AuditEnvelope)
-            : Result<Account, string> =
-        let accountId = AccountId.create () // REQ-AC-1.39, REQ-AC-2.13
-        let now = AuditEnvelope.instant auditEnvelope
-        let createdAt =  now // REQ-SYS-3.2
-        let modifiedAt = now // REQ-SYS-3.2
-        validateThenConstruct
-            accountId code accountName accountType activeBegin activeEnd
-            subType parentId reference createdAt modifiedAt
+    /// reconstitute constructs from primitives, performing zero validation at
+    /// the collective level. All fields are assumed to have come from a
+    /// trusted source (e.g. the database) where such validation occurred at
+    /// the time of writing the entity. Important: no additional DB lookups can
+    /// be triggered inside this function since it is called within a database
+    /// reader.
+    let private reconstitute _transaction raw = result {
+        let (uuid, codeString, nameString, accountTypeString, activeBegin, activeEnd,
+             subtypeString, parentUuid, extRefString, createdAt, modifiedAt) = raw
+        let accountId = uuid |> AccountId.fromGuid
+        let! accountCode = codeString |> AccountCode.create
+        let! accountName = nameString |> AccountName.create
+        let! accountType = accountTypeString |> AccountType.fromString
+        let! activityPeriod = AccountActivityPeriod.create activeBegin activeEnd
+        let! subtype = subtypeString |> Option.map (fun x -> x |> AccountSubtype.fromString |> Result.map Some) |> Option.defaultValue (Ok None)
+        let parentAccountId = parentUuid |> Option.map AccountId.fromGuid
+        let! externalReference = extRefString |> Option.map (fun x -> x |> AccountExternalReference.create |> Result.map Some) |> Option.defaultValue (Ok None)
+        return create accountId accountCode accountName accountType activityPeriod 
+                    subtype parentAccountId externalReference createdAt modifiedAt }
 
 // DAL interface functions
 
@@ -136,14 +97,6 @@ module Account =
             ( row |> RowReader.getStringOption "external_ref" ),
             ( row |> RowReader.getInstant "created_at" ),
             ( row |> RowReader.getInstant "modified_at" )
-            
-    let private constructFromRawForDbRead _transaction raw =
-        let (id, code, name, accountType, activeBegin, activeEnd,
-             subtype, parentId, extRef, createdAt, modifiedAt) = raw
-        let accountId = id |> AccountId.fromGuid
-        let parentAccountId = parentId |> Option.map AccountId.fromGuid
-        validateThenConstruct accountId code name accountType activeBegin activeEnd
-            subtype parentAccountId extRef createdAt modifiedAt
 
     /// readRowsFromDb is designed to produce a flexible read query that can
     /// satisfy diverse use cases 
@@ -153,19 +106,19 @@ module Account =
             (parameters: QueryParameter list)
             (expectedRows: AcceptableExpectedRows)
             (transaction: DbTransaction option)
-            : Result<Account list, string> =
+            : Result<Account list, AppError> =
         let select = """
             a.unique_id, a.code, a.account_name, a.account_type, a.active_begin, a.active_end, 
             a.account_subtype, a.parent_id, a.external_ref, a.created_at, a.modified_at
             """
         let from = "ledger.account a"
         let query = buildReadQuery select from None predicate limit None None // REQ-AC-3.2 
-        executeReaderQuery query parameters mapRawForDbRead constructFromRawForDbRead expectedRows transaction
+        executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
 
-    /// insertNewToDb is a private function used as an interface to the DAL. It
+    /// insertNewToDb is a function used as an interface to the DAL. It
     /// assumes that the calling function handled all necessary validations to
     /// ensure only legal data states persist 
-    let private insertNewToDb (account:Account) (transaction: DbTransaction option): Result<unit, string> =
+    let insertNewToDb (account:Account) (transaction: DbTransaction option): Result<unit, AppError> =
         let query = """
             insert into ledger.account( -- REQ-SYS-5.1
 	            unique_id, 
@@ -214,7 +167,7 @@ module Account =
     let fetchById
             (transaction: DbTransaction option)
             (accountId: AccountId)
-            : Result<Account, string> = // REQ-AC-3.3
+            : Result<Account, AppError> = // REQ-AC-3.3
         let predicate = "a.unique_id = @unique_id"
         let accountIdGuid = accountId |> AccountId.value
         let parameters = [{ name = "@unique_id"; value = UniqueId accountIdGuid };] // REQ-DAL-2.3
@@ -224,7 +177,7 @@ module Account =
     let fetchByParentId
             (transaction: DbTransaction option)
             (parentId: AccountId)
-            : Result<Account list, string> = // REQ-AC-3.5
+            : Result<Account list, AppError> = // REQ-AC-3.5
         let predicate = "a.parent_id = @parent_id"
         let parentIdGuid = parentId |> AccountId.value
         let parameters = [{ name = "@parent_id"; value = UniqueId parentIdGuid };] // REQ-DAL-2.3
@@ -233,14 +186,14 @@ module Account =
     let fetchByAccountType
             (transaction: DbTransaction option)
             (accountType: AccountType)
-            : Result<Account list, string> = // REQ-AC-3.6
+            : Result<Account list, AppError> = // REQ-AC-3.6
         let predicate = "a.account_type = @account_type"
         let parameters = [{ name = "@account_type"; value = CharString (accountType |> AccountType.toString) };] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable transaction
 
     /// fetchAll returns all accounts or, if activeOnly is true, fetches all accounts
     /// that are active with respect to the system runtime
-    let fetchAll (activeOnly: bool) (transaction: DbTransaction option) : Result<Account list, string> = // REQ-AC-3.7
+    let fetchAll (activeOnly: bool) (transaction: DbTransaction option) : Result<Account list, AppError> = // REQ-AC-3.7
         let predicate = None
         let parameters = []
         let activeReference = Calendar.today()
@@ -248,49 +201,9 @@ module Account =
         match readRowsFromDb predicate None parameters AnyQuantityIsAcceptable transaction with
         | Error e -> Error e
         | Ok allRows ->
-            if activeOnly then allRows |> List.filter(isActive activeReference) |> Ok // REQ-AC-3.9
-            else allRows |> Ok
-
-// Insert and update validation functions
-    
-    let private confirmAccountIsActive
-            (validAccount: Account)
-            (referenceTime: LocalDate)
-            : Result<unit, string> =
-        match validAccount |> isActive referenceTime with
-        | true -> Ok ()
-        | false -> Error $"Account {accountId validAccount} failed \"is active\" check."
-
-    let private confirmAccountTypesMatch
-            (parentAccountType: AccountType)
-            (childAccountType: AccountType)
-            : Result<unit, string> =
-        match parentAccountType = childAccountType with
-        | true -> Ok ()
-        | false -> Error "Account types do not match" // REQ-AC-2.20
-
-    let private validateParentChildRelationship
-            (transaction: DbTransaction option)
-            (parentId: AccountId)
-            (childAccountType: AccountType)
-            (referenceTime: LocalDate)
-            : Result<unit, string> =
-        result {
-            let! validAccount = parentId |> fetchById transaction
-            let! () = confirmAccountIsActive validAccount referenceTime // REQ-AC-2.6, REQ-AC-2.7
-            let! () = confirmAccountTypesMatch (accountType validAccount) childAccountType
-            (*
-             * REQ-AC-2.16
-             * Note, this function no longer validates against circular ancestry. Since the child
-             * ID is always created at the DB insertion, it is impossible for a newly created child
-             * to already have descendents. And, since requirement REQ-AC-4.22 explicitly forbids
-             * reparenting an account, there is no "legal" vector for a circular ancestry chain to
-             * come into being.  
-            *)
-            return ()
-        }
-
-// database update functions
+            if activeOnly then allRows |> List.filter(
+                fun x -> x.activityPeriod |>  AccountActivityPeriod.isActive activeReference) |> Ok // REQ-AC-3.9
+            else Ok allRows
 
     let private updateDb
             (accountId: AccountId)
@@ -298,7 +211,7 @@ module Account =
             (referenceUpdate: FieldUpdate<AccountExternalReference option>)
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
-            : Result<Account, string> =
+            : Result<Account, AppError> =
         let accountIdGuid = accountId |> AccountId.value
         let baseParams = [
             { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3 
@@ -328,7 +241,7 @@ module Account =
             WHERE unique_id = @unique_id;
         """
         result {
-            do! if updates.IsEmpty then Error "update Account record failed because at least one updatable parameter must be set" else Ok ()
+            do! if updates.IsEmpty then Error (AccountUpdateNoOp ()) else Ok ()
             let! () = executeNonQuery query parameters ExactlyOne transaction
             return! accountId |> fetchById transaction
         }
@@ -337,44 +250,13 @@ module Account =
 
     /// constructNewAndSaveToDb is used where you want to construct a net new Account
     /// and insert it into the DB in one operation   
-    let constructNewAndSaveToDb 
-            (code: string)
-            (accountName: string)
-            (accountTypeSt: string)
-            (activeBegin: LocalDate)
-            (activeEnd: LocalDate option)
-            (subType: string option)
-            (parentId: Guid option)
-            (reference: string option)
-            (auditEnvelope: AuditEnvelope)
-            (transaction: DbTransaction option)
-            : Result<Account, string> =
-
-        result {
-            let parentAccountId = parentId |> Option.map AccountId.fromGuid
-            let! validAccount = constructNew code accountName accountTypeSt activeBegin activeEnd subType parentAccountId reference auditEnvelope
-            let! () = // REQ-AC-2.6, REQ-AC-2.7
-                (*
-                 * Note, we only validate the parent ID here because this is the part
-                 * where the Account enters into the DB and the parent validation is
-                 * intrinsically a *database* operation. Keeping the validation in this
-                 * constructor allows us to keep the other constructors pure FP.
-                 *)
-                match parentAccountId with
-                | None -> Ok ()
-                | Some x ->
-                    let referenceDate = (AuditEnvelope.instant auditEnvelope) |> Calendar.dateFromInstant
-                    validateParentChildRelationship transaction x (accountType validAccount) referenceDate
-            let! () = insertNewToDb validAccount transaction // REQ-AC-2.14
-            return validAccount
-        }
 
     let updateAccountNameById
             (accountId: AccountId)
             (newName: string)
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
-            : Result<Account, string> = // REQ-AC-4.8
+            : Result<Account, AppError> = // REQ-AC-4.8
         result {
             let! validAccountName = AccountName.create newName // REQ-SYS-2.1
             let! newAccount = updateDb accountId (SetTo validAccountName) NoChange auditEnvelope transaction
@@ -386,7 +268,7 @@ module Account =
             (newReference: string option)
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
-            : Result<Account, string> = // REQ-AC-4.9
+            : Result<Account, AppError> = // REQ-AC-4.9
         result {                
             let! validRef = // REQ-SYS-2.1
                 match newReference with
