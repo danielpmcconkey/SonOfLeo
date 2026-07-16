@@ -84,7 +84,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
             let result = JournalEntryExternalReference.constructNewAndSaveToDb
                              fixture.Data.basicJeId "UuidBank" "UUID-001" envelope (Some transaction)
             match result with
-            | Ok r -> Assert.NotEqual(Guid.Empty, r |> JournalEntryExternalReference.uniqueId)
+            | Ok r -> Assert.NotEqual(Guid.Empty, r |> JournalEntryExternalReference.journalEntryExternalReferenceId)
             | Error e -> Assert.Fail e
         finally
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
@@ -119,11 +119,11 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
             | Error e -> Assert.Fail e
             | Ok created ->
                 // fetch inside the same transaction — the create is never committed
-                let fetchResult = created |> JournalEntryExternalReference.uniqueId |> JournalEntryExternalReference.fetchById (Some transaction)
+                let fetchResult = created |> JournalEntryExternalReference.journalEntryExternalReferenceId |> JournalEntryExternalReference.fetchById (Some transaction)
                 match fetchResult with
                 | Error e -> Assert.Fail $"Fetch after creation failed: {e}"
                 | Ok fetched ->
-                    Assert.Equal(created |> JournalEntryExternalReference.uniqueId, fetched |> JournalEntryExternalReference.uniqueId)
+                    Assert.Equal(created |> JournalEntryExternalReference.journalEntryExternalReferenceId, fetched |> JournalEntryExternalReference.journalEntryExternalReferenceId)
                     Assert.Equal(created |> JournalEntryExternalReference.journalEntryId, fetched |> JournalEntryExternalReference.journalEntryId)
                     Assert.Equal(
                         created |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value,

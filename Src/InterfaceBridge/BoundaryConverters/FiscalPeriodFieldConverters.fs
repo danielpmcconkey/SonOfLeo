@@ -10,7 +10,7 @@ open Utilities.ResultCE
 
 let ``convert FiscalPeriodKeyString to FiscalPeriodId``
         (key:string)
-        : Result<FiscalPeriodId, string> =
+        : Result<FiscalPeriodId, AppError> =
     key
     |> LookupCache.fiscalPeriodKeyToId.fetch
     |> Result.mapError (fun e -> $"Period key provided ({key}) didn't match any recorded Fiscal Periods in the database. Further details: {e}") // REQ-NGUI-1.5

@@ -9,7 +9,6 @@
     <Compile Include="LookupCache.fs" />
     <Compile Include="Audit.fs" />
     <Compile Include="Money.fs" />
-    <Compile Include="Ledger\JournalEntryPrimitives.fs" />
     <Compile Include="Ledger\AccountComponent.fs" />
     <Compile Include="Ledger\Account.fs" />
     <Compile Include="Ledger\FiscalPeriodComponent.fs" />

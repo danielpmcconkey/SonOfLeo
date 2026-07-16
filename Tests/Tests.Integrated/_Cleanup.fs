@@ -2,6 +2,7 @@ module Tests.Integrated._Cleanup
 
 open System
 open Model.Ledger.Accounts.AccountComponent
+open Utilities.AppError
 open Utilities.DAL
 open Utilities.ResultCE
 
@@ -16,7 +17,7 @@ open Utilities.ResultCE
 // Account clean up
 //=================================================
 
-let cleanUpAccountId (accountId:AccountId option) : Result<unit, string> =
+let cleanUpAccountId (accountId:AccountId option) : Result<unit, AppError> =
     match accountId with
     | None -> Ok ()
     | Some x ->
@@ -32,7 +33,7 @@ let cleanUpAccountId (accountId:AccountId option) : Result<unit, string> =
             return! executeNonQuery query parameters ExactlyOne None
         }
 
-let cleanUpAccountList (l: AccountId option list) : Result<unit, string> =    
+let cleanUpAccountList (l: AccountId option list) : Result<unit, AppError> =    
     l
     |> List.map cleanUpAccountId
     |> List.choose (function Error e -> Some e | Ok _ -> None)
@@ -43,7 +44,7 @@ let cleanUpAccountList (l: AccountId option list) : Result<unit, string> =
                 let insideErrors = String.concat "||" errors
                 Error $"{baseMessage}||{insideErrors}"
 
-let cleanUpParentIdAndChildren (parentId: AccountId option) (children: AccountId option list) : Result<unit, string> =
+let cleanUpParentIdAndChildren (parentId: AccountId option) (children: AccountId option list) : Result<unit, AppError> =
     result {
         let! _ =
             children // clean the children before parent
@@ -55,7 +56,7 @@ let cleanUpParentIdAndChildren (parentId: AccountId option) (children: AccountId
 //=================================================
 // Fiscal Period clean up
 //=================================================
-let cleanUpFiscalPeriodId (uniqueId:Guid option) : Result<unit, string> =
+let cleanUpFiscalPeriodId (uniqueId:Guid option) : Result<unit, AppError> =
     match uniqueId with
     | None -> Ok ()
     | Some x -> 
@@ -69,7 +70,7 @@ let cleanUpFiscalPeriodId (uniqueId:Guid option) : Result<unit, string> =
         result {
             return! executeNonQuery query parameters ExactlyOne None
         }
-let cleanUpFiscalPeriodKey (key:string option) : Result<unit, string> =
+let cleanUpFiscalPeriodKey (key:string option) : Result<unit, AppError> =
     match key with
     | None -> Ok ()
     | Some x -> 
@@ -84,7 +85,7 @@ let cleanUpFiscalPeriodKey (key:string option) : Result<unit, string> =
             return! executeNonQuery query parameters ExactlyOne None
         }
 
-let cleanUpFiscalPeriodIdsList (l: Guid option list) : Result<unit, string> =    
+let cleanUpFiscalPeriodIdsList (l: Guid option list) : Result<unit, AppError> =    
     l
     |> List.map cleanUpFiscalPeriodId
     |> List.choose (function Error e -> Some e | Ok _ -> None)
@@ -95,7 +96,7 @@ let cleanUpFiscalPeriodIdsList (l: Guid option list) : Result<unit, string> =
                 let insideErrors = String.concat "||" errors
                 Error $"{baseMessage}||{insideErrors}"
 
-let cleanUpFiscalPeriodKeysList (l: string option list) : Result<unit, string> =
+let cleanUpFiscalPeriodKeysList (l: string option list) : Result<unit, AppError> =
     l
     |> List.map cleanUpFiscalPeriodKey
     |> List.choose (function Error e -> Some e | Ok _ -> None)
@@ -110,7 +111,7 @@ let cleanUpFiscalPeriodKeysList (l: string option list) : Result<unit, string> =
 // Journal Entry clean up
 //=================================================
 
-let cleanUpJournalEntryId (uniqueId:Guid option) : Result<unit, string> =
+let cleanUpJournalEntryId (uniqueId:Guid option) : Result<unit, AppError> =
     match uniqueId with
     | None -> Ok ()
     | Some x ->
@@ -142,7 +143,7 @@ let cleanUpJournalEntryId (uniqueId:Guid option) : Result<unit, string> =
             return! executeNonQuery headerQuery parameters ExactlyOne None
         }
 
-let cleanUpJournalEntryExtReferenceId (uniqueId:Guid option) : Result<unit, string> =
+let cleanUpJournalEntryExtReferenceId (uniqueId:Guid option) : Result<unit, AppError> =
     match uniqueId with
     | None -> Ok ()
     | Some x ->
@@ -157,7 +158,7 @@ let cleanUpJournalEntryExtReferenceId (uniqueId:Guid option) : Result<unit, stri
             return! executeNonQuery query parameters ExactlyOne None
         }
 
-let cleanUpJournalEntryCommentId (uniqueId:Guid option) : Result<unit, string> =
+let cleanUpJournalEntryCommentId (uniqueId:Guid option) : Result<unit, AppError> =
     match uniqueId with
     | None -> Ok ()
     | Some x ->
@@ -172,7 +173,7 @@ let cleanUpJournalEntryCommentId (uniqueId:Guid option) : Result<unit, string> =
             return! executeNonQuery query parameters ExactlyOne None
         }
 
-let cleanUpJournalEntryList (l: Guid option list) : Result<unit, string> =
+let cleanUpJournalEntryList (l: Guid option list) : Result<unit, AppError> =
     l
     |> List.map cleanUpJournalEntryId
     |> List.choose (function Error e -> Some e | Ok _ -> None)

@@ -173,7 +173,7 @@ type TestDataFixture() =
                 JournalEntryExternalReference.constructNewAndSaveToDb
                     jeWithRefId "TestBank" "TXN-001" jeEnvelope None
             let jeWithRefExtRefId =
-                jeWithRefExtRef |> JournalEntryExternalReference.uniqueId
+                jeWithRefExtRef |> JournalEntryExternalReference.journalEntryExternalReferenceId
 
             let! jeToVoidHeader =
                 JournalEntryHeader.constructNewAndSaveToDb
@@ -265,7 +265,7 @@ type TestDataFixture() =
                 JournalEntryExternalReference.constructNewAndSaveToDb
                     basicJeId "CliUpdateVictimBank" "CLI-UPDVIC-001" jeEnvelope None
             let cliUpdateVictimExtRefId =
-                cliUpdateVictimExtRef |> JournalEntryExternalReference.uniqueId
+                cliUpdateVictimExtRef |> JournalEntryExternalReference.journalEntryExternalReferenceId
 
             // =============================================================================
             // Create consumable void victims — one per voiding happy-path test

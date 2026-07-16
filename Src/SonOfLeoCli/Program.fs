@@ -10,7 +10,7 @@ let commandRoutes =
     @ fiscalPeriodDomainCommandRoutes
     @ journalEntryDomainCommandRoutes
 
-let route domain verb rest payload : Result<string, string> =
+let route domain verb rest payload : Result<string, AppError> =
   match commandRoutes |> List.tryFind (fun r -> r.domain = domain && r.verb = verb) with // REQ-NGUI-1.1, REQ-NGUI-3.8
   | Some command -> command.handler payload rest
   | None -> Error $"Unknown command: {domain} {verb}" // REQ-NGUI-3.9

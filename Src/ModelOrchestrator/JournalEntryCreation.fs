@@ -8,6 +8,7 @@ open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open Model.Ledger.Accounts
 open NodaTime
+open Utilities.AppError
 open Utilities.DAL
 open Utilities.ListHelper
 open Utilities.ResultCE
@@ -18,13 +19,13 @@ type JournalEntry =
                 externalReferences: JournalEntryExternalReference list // REQ-JE-1.46
                 comments: JournalEntryComment list } // REQ-JE-1.55
 
-module JournalEntryCreationAndConstruction =
+module JournalEntry =
     let header je = je.header
     let lines je = je.lines
     let externalReferences je = je.externalReferences
     let comments je = je.comments
         
-    let private validateAmountEquality (lines: JournalEntryLine list) : Result<unit, string> =
+    let private validateAmountEquality (lines: JournalEntryLine list) : Result<unit, AppError> =
         result {
             let! totalDebits = lines |> JournalEntryLine.sumLinesByType Debit
             let! totalCredits = lines |> JournalEntryLine.sumLinesByType Credit
@@ -33,12 +34,12 @@ module JournalEntryCreationAndConstruction =
                 else Error "The sum of all debit line amounts must exactly equal the sum of all credit line amounts"
             }
     
-    let private validateLineCount (lines: JournalEntryLine list) : Result<unit, string> =
+    let private validateLineCount (lines: JournalEntryLine list) : Result<unit, AppError> =
         if lines |> List.length < 2
         then Error "Insufficient number of lines for a journal entry" // REQ-JE-1.12
         else Ok ()
         
-    let validateLineList (lines: JournalEntryLine list) : Result<unit, string> =
+    let validateLineList (lines: JournalEntryLine list) : Result<unit, AppError> =
         result {
             let! _ = validateLineCount lines // REQ-JE-1.12
             let! _ = validateAmountEquality lines // REQ-JE-1.13
@@ -49,7 +50,7 @@ module JournalEntryCreationAndConstruction =
             (headerPrimitives : JournalEntryHeaderPrimitives)
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
-            : Result<JournalEntryHeader, string> =
+            : Result<JournalEntryHeader, AppError> =
         JournalEntryHeader.constructNewAndSaveToDb
             headerPrimitives.description
             headerPrimitives.source
@@ -62,7 +63,7 @@ module JournalEntryCreationAndConstruction =
             (transaction: DbTransaction option)
             (entryDate: LocalDate)
             (line: JournalEntryLinePrimitives)
-            : Result<unit, string> =
+            : Result<unit, AppError> =
         result {
             let! account = line.accountId |> AccountId.fromGuid |>  Account.fetchById transaction
             return!
@@ -77,7 +78,7 @@ module JournalEntryCreationAndConstruction =
             (linePrimitives : JournalEntryLinePrimitives list)
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
-            : Result<JournalEntryLine list, string> =
+            : Result<JournalEntryLine list, AppError> =
         linePrimitives
         |> List.map(fun line ->
                 result {    do! line |> validateAccountByLine transaction entryDate // REQ-JE-2.8
@@ -96,7 +97,7 @@ module JournalEntryCreationAndConstruction =
             (referencePrimitives : JournalEntryExternalReferencePrimitives list)
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
-            : Result<JournalEntryExternalReference list, string> =
+            : Result<JournalEntryExternalReference list, AppError> =
         referencePrimitives
         |> List.map(fun extRef -> 
                         JournalEntryExternalReference.constructNewAndSaveToDb
@@ -112,7 +113,7 @@ module JournalEntryCreationAndConstruction =
             (commentsPrimitives : JournalEntryCommentPrimitives list)
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
-            : Result<JournalEntryComment list, string> =
+            : Result<JournalEntryComment list, AppError> =
         commentsPrimitives
         |> List.map(fun comment -> 
                         JournalEntryComment.constructNewAndSaveToDb
@@ -123,16 +124,26 @@ module JournalEntryCreationAndConstruction =
                             transaction) 
         |> listOfResultsToResultsList
     
-    let private validateNoNewVoidedEntries (newHeader: JournalEntryHeader) : Result<unit, string> =
+    let private validateNoNewVoidedEntries (newHeader: JournalEntryHeader) : Result<unit, AppError> =
         match newHeader |> JournalEntryHeader.voidedAt with
         | Some _ -> Error "Creating a new, already voided Journal Entry is not permitted"
         | None -> Ok ()
-    
-    /// orchestrateCreation validates all input and saves the new posted entry into the database
-    let orchestrateCreation // REQ-JE-2.13
+
+    /// constructNewAndSaveToDb validates that the components work together to
+    /// form a valid whole before adding it to the persistence layer. All new
+    /// account creation should route through here before being sent to the
+    /// persistence layer. Internal model functions may construct through other
+    /// means if they're operating on known good data. 
+    let constructNewAndSaveToDb // REQ-JE-2.13
+            (description: JournalEntryDescription)
+            (source: JournalEntrySource option)
+            (entryDate: LocalDate)
+            (lines: (AccountId * Money * LineType * JournalEntryLineMemo option) list)
+            (references: (FinancialInstitution * ReferenceText) list)
+            (comments: (JournalEntryId option * CommentText) list)
             (auditEnvelope: AuditEnvelope)
-            (journalEntryPrimitives: JournalEntryPrimitives)
-            : Result<JournalEntry, string> =
+            (transaction: DbTransaction option)
+            : Result<JournalEntry, AppError> =
         let transaction = createDbTransaction() |> Result.defaultWith failwith // if this fails, nothing can proceed
         let railRoad = result {
             let! validHeader = createValidHeader journalEntryPrimitives.header auditEnvelope (Some transaction)
@@ -163,7 +174,7 @@ module JournalEntryCreationAndConstruction =
             (lines: JournalEntryLine list)
             (externalReferences: JournalEntryExternalReference list)
             (comments: JournalEntryComment list)
-            : Result<JournalEntry, string> =
+            : Result<JournalEntry, AppError> =
         result {    do! validateLineList lines
                     return {    header = header
                                 lines = lines

@@ -4,7 +4,6 @@ open System
 open NodaTime
 
 type AppError =
-    
 
     | DalConnectionStringEnvVarNotFound of unit
     | DalErrorRetrievingAppSettings of exn
@@ -58,9 +57,27 @@ type AppError =
     | FiscalPeriodInvalidKeyString of string
     | FiscalPeriodNoPeriodMatchingKey of string
     
+    | JournalEntryCommentTooLong of string * int
+    | JournalEntryCommentIsEmpty of string
+    | JournalEntryCommentPrimaryAndSecondaryIdsAreSame of Guid * Guid
+    | JournalEntryExternalReferenceTooLong of string * int
+    | JournalEntryExternalReferenceIsEmpty of string
+    | JournalEntryReferenceTextTooLong of string * int
+    | JournalEntryReferenceTextIsEmpty of string
+    | JournalEntryDescriptionTooLong of string * int
+    | JournalEntryDescriptionIsEmpty of string
+    | JournalEntrySourceTooLong of string * int
+    | JournalEntrySourceIsEmpty of string
+    | JournalEntryDateNotInFiscalPeriod of LocalDate
+    | JournalEntryLineTypeInvalid of string
+    | JournalEntryLineMemoTooLong of string * int
+    | JournalEntryLineMemoIsEmpty of string
+    | JournalEntryReferenceUpdateNoOp of unit
+    
 
 module AppError =
     let toMessage = function
+    
     | DalConnectionStringEnvVarNotFound _ -> "ConnectionStringEnvVar not found in appsettings.json."
     | DalErrorRetrievingAppSettings ex -> $"Error retrieving appsettings.json. Error message: {ex.Message}{Environment.NewLine} {ex.StackTrace}" // REQ-DAL-1.3, REQ-NGUI-1.3.1
     | DalConnectionStringEnvVarContainsConnectionString _ -> "ConnectionStringEnvVar contains a connection string, not an env var name."
@@ -112,3 +129,21 @@ module AppError =
     
     | FiscalPeriodInvalidKeyString key -> $"Passed string \"{key}\" is invalid as a Period Key."
     | FiscalPeriodNoPeriodMatchingKey key -> $"No Fiscal Period matching {key} could be found in the database."
+    
+    | JournalEntryCommentTooLong (comment, max) -> $"Journal Entry Comment cannot exceed {max} characters. Provided string is {comment}."
+    | JournalEntryCommentIsEmpty comment -> $"Journal Entry Comment cannot be empty. Provided string is {comment}."
+    | JournalEntryCommentPrimaryAndSecondaryIdsAreSame (primary, secondary) -> $"Primary ({primary}) and secondary ({secondary}) journal entries cannot be the same."
+    | JournalEntryExternalReferenceTooLong (externalReference, max) -> $"Journal Entry ExternalReference cannot exceed {max} characters. Provided string is {externalReference}."
+    | JournalEntryExternalReferenceIsEmpty externalReference -> $"Journal Entry ExternalReference cannot be empty. Provided string is {externalReference}."
+    | JournalEntryReferenceTextTooLong (referenceText, max) -> $"Journal Entry ReferenceText cannot exceed {max} characters. Provided string is {referenceText}."
+    | JournalEntryReferenceTextIsEmpty referenceText -> $"Journal Entry ReferenceText cannot be empty. Provided string is {referenceText}."
+    | JournalEntryDescriptionTooLong (description, max) -> $"Journal Entry Description cannot exceed {max} characters. Provided string is {description}."
+    | JournalEntryDescriptionIsEmpty description -> $"Journal Entry Description cannot be empty. Provided string is {description}."
+    | JournalEntrySourceTooLong (source, max) -> $"Journal Entry Source cannot exceed {max} characters. Provided string is {source}."
+    | JournalEntrySourceIsEmpty source -> $"Journal Entry Source cannot be empty. Provided string is {source}."
+    | JournalEntryDateNotInFiscalPeriod entryDate -> $"Entry date {entryDate} is not associated to any recorded Fiscal Periods in the database."
+    | JournalEntryLineTypeInvalid s -> $"Invalid JournalEntryLineType of {s}"
+    | JournalEntryLineMemoTooLong (lineMemo, max) -> $"Journal Entry LineMemo cannot exceed {max} characters. Provided string is {lineMemo}."
+    | JournalEntryLineMemoIsEmpty lineMemo -> $"Journal Entry LineMemo cannot be empty. Provided string is {lineMemo}."
+    | JournalEntryReferenceUpdateNoOp _ -> "Updating the Journal Entry Reference record failed because at least one updatable parameter must be set."
+    

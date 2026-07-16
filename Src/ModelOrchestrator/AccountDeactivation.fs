@@ -18,7 +18,7 @@ let private updateDb
         (activeEndUpdate: LocalDate)
         (auditEnvelope: AuditEnvelope)
         (transaction: DbTransaction option)
-        : Result<Account, string> =
+        : Result<Account, AppError> =
     let accountIdGuid = accountId |> AccountId.value
     let parameters = [
         { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3 
@@ -41,7 +41,7 @@ let private updateDb
 let private validateProposedDeactivationDate
         (account: Account)
         (proposedDate: LocalDate)
-        : Result<unit, string> =
+        : Result<unit, AppError> =
     let ab = activeBegin account
     if proposedDate < ab then
         Error $"Deactivating account {accountId account} failed because the active end ({proposedDate}) would be before the active begin ({ab})" else
@@ -51,7 +51,7 @@ let private validateNoActiveChildrenBeforeDeactivation
     (transaction: DbTransaction option)
     (account: Account)
     (auditEnvelope: AuditEnvelope)
-    : Result<unit, string> =
+    : Result<unit, AppError> =
     let accountId = accountId account
     result {
         let! children = accountId |> fetchByParentId transaction
@@ -65,7 +65,7 @@ let private validateNoActiveChildrenBeforeDeactivation
 let private validateZeroBalance
         (transaction: DbTransaction option)
         (accountId: AccountId)
-        : Result<unit, string> =
+        : Result<unit, AppError> =
     result {
         let! nonVoidedLines = accountId |> JournalEntryLine.fetchByAccountId transaction true // REQ-JE-4.7
         let! debits = nonVoidedLines |> JournalEntryLine.sumLinesByType Debit 
@@ -81,7 +81,7 @@ let private validateNoJournalEntriesAfterDeactivationDate
         (deactivationDate: LocalDate)
         (transaction: DbTransaction option)
         (accountId: AccountId)
-        : Result<unit, string> =
+        : Result<unit, AppError> =
     let query = """
         SELECT count(je.entry_date)
         FROM ledger.journal_entry_line jel
@@ -104,7 +104,7 @@ let private validateJournalEntries
         (accountId: AccountId)
         (deactivationDate: LocalDate)
         (transaction: DbTransaction option)
-        : Result<unit, string> =
+        : Result<unit, AppError> =
     result {
         do! accountId |> validateZeroBalance transaction // REQ-AC-4.4
         do! accountId |> validateNoJournalEntriesAfterDeactivationDate deactivationDate transaction // REQ-AC-4.6
@@ -120,7 +120,7 @@ let deactivateAccountById
         (auditEnvelope: AuditEnvelope)
         (transaction: DbTransaction option)
         (accountId: AccountId)
-        : Result<Account, string> = // REQ-AC-4.1
+        : Result<Account, AppError> = // REQ-AC-4.1
     let deactivationDate =
         match explicitEnd with
         | Some m -> m

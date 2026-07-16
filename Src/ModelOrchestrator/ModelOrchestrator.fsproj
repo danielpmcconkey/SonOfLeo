@@ -19,6 +19,8 @@
     <Compile Include="AccountBalance.fs" />
     <Compile Include="AccountCreation.fs" />
     <Compile Include="FiscalPeriodCreation.fs" />
+    <Compile Include="JournalEntryCommentOrchestration.fs" />
+    <Compile Include="JournalEntryExternalReferenceOrchestration.fs" />
   </ItemGroup>
 
 </Project>

@@ -78,7 +78,7 @@ let ``convert AccountActivityDetail to AccountActivityDetailReturn``
             lineId = input.lineId
             amount = input.amount |> Money.amount
             lineType = input.lineType |> JournalEntryLineType.toString 
-            lineMemo = input.lineMemo |> Option.map(LineMemo.value)
+            lineMemo = input.lineMemo |> Option.map(JournalEntryLineMemo.value)
             lineCreatedAt = input.lineCreatedAt
             lineModifiedAt = input.lineModifiedAt
             journalEntryId = input.journalEntryId
@@ -89,7 +89,7 @@ let ``convert AccountActivityDetail to AccountActivityDetailReturn``
 
 let ``convert AccountActivity to AccountActivityReturn``
         (input:AccountActivity)
-        : Result<AccountActivityReturn,string> =
+        : Result<AccountActivityReturn, AppError> =
     result {
         let! parentCodeOptionId = input.accountParentId |> ``convert AccountId Option to AccountCode Option`` // REQ-NGUI-1.5
         let parentCodeOptionString = parentCodeOptionId |> Option.map(AccountCode.value)
@@ -105,7 +105,7 @@ let ``convert AccountActivity to AccountActivityReturn``
 
 let ``convert AccountActivity List to AccountActivityReturn List``
         (input:AccountActivity list)
-        : Result<AccountActivityReturn list,string> =
+        : Result<AccountActivityReturn list, AppError> =
     input
     |> List.map (fun x -> x |> ``convert AccountActivity to AccountActivityReturn``)
     |> ListHelper.listOfResultsToResultsList

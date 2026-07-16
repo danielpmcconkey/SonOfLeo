@@ -24,7 +24,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         { openOnly = openOnly }
         |> toJson<FiscalPeriodFetchAllInput> |> Result.defaultWith failwith
 
-    static let createFiscalPeriodInDb (keyToUse: string) : Result<FiscalPeriod, string> =
+    static let createFiscalPeriodInDb (keyToUse: string) : Result<FiscalPeriod, AppError> =
         let envelope = AuditEnvelope.create FiscalPeriodCreate
         constructNewAndSaveToDb keyToUse envelope None
 

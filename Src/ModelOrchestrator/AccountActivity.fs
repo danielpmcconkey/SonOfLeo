@@ -38,7 +38,7 @@ type AccountActivityFilter = {
 type AccountActivityDetail = {    lineId: Guid
                                   amount: Money
                                   lineType: JournalEntryLineType
-                                  lineMemo: LineMemo option
+                                  lineMemo: JournalEntryLineMemo option
                                   lineCreatedAt: Instant
                                   lineModifiedAt: Instant 
                                   journalEntryId: Guid
@@ -91,7 +91,7 @@ let private constructFromRawForDbRead _transaction raw =
         let! accountExternalRef = match accountExternalRefString with None -> Ok None | Some x -> x |> AccountExternalReference.create |> Result.map Some
         let! amount = match amountDecimal with None -> Ok None | Some x -> x |> Money.fromDecimal |> Result.map Some
         let! lineType = match lineTypeString with None -> Ok None | Some x -> x |> JournalEntryLineType.fromString |> Result.map Some
-        let! lineMemo = match lineMemoString with None -> Ok None | Some x -> x |> LineMemo.create |> Result.map Some
+        let! lineMemo = match lineMemoString with None -> Ok None | Some x -> x |> JournalEntryLineMemo.create |> Result.map Some
         let! journalEntryDescription = match journalEntryDescriptionString with None -> Ok None | Some x -> x |> JournalEntryDescription.create |> Result.map Some
         let! journalEntrySource = match journalEntrySourceString with None -> Ok None | Some x -> x |> JournalEntrySource.create |> Result.map Some
         return {  accountId = accountId
@@ -120,7 +120,7 @@ let fetchFiltered // REQ-JE-3.9
         (transaction: DbTransaction option)
         (filter: AccountActivityFilter)
         (sort: AccountActivitySort option)
-        : Result<AccountActivity list, string> =
+        : Result<AccountActivity list, AppError> =
     result {
         let! dateRange = 
             match filter.temporalFilter with

@@ -38,7 +38,7 @@ module JournalEntryHeader =
             (createdAt: Instant)
             (modifiedAt: Instant)
             (transaction: DbTransaction option)
-            : Result<JournalEntryHeader, string> =
+            : Result<JournalEntryHeader, AppError> =
         result {
             let journalEntryId = uniqueId |> JournalEntryId.fromGuid
             let! validDescription = JournalEntryDescription.create description
@@ -58,14 +58,14 @@ module JournalEntryHeader =
             (voidedAt: Instant option)
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
-            : Result<JournalEntryHeader, string> =
+            : Result<JournalEntryHeader, AppError> =
         let uniqueId = Guid.NewGuid() // REQ-JE-2.1
         let now = AuditEnvelope.instant auditEnvelope
         let createdAt =  now // REQ-SYS-3.2
         let modifiedAt = now // REQ-SYS-3.2
         validateThenConstruct uniqueId description source entryDate voidedAt createdAt modifiedAt transaction
     
-    let private insertNewToDb (journalEntry:JournalEntryHeader) (transaction: DbTransaction option): Result<unit, string> =
+    let private insertNewToDb (journalEntry:JournalEntryHeader) (transaction: DbTransaction option): Result<unit, AppError> =
         let query = """
             INSERT INTO ledger.journal_entry(
                 unique_id, description, je_source, entry_date, fiscal_period_id, voided_at, created_at, modified_at)
@@ -105,7 +105,7 @@ module JournalEntryHeader =
     let private constructFromRawForDbRead
             (transaction: DbTransaction option)
             raw
-            : Result<JournalEntryHeader, string> =
+            : Result<JournalEntryHeader, AppError> =
         let id, description, jeSource, entryDate, voidedAt, createdAt, modifiedAt = raw
         validateThenConstruct id description jeSource entryDate voidedAt createdAt modifiedAt transaction
 
@@ -117,7 +117,7 @@ module JournalEntryHeader =
             (parameters: QueryParameter list)
             (expectedRows: AcceptableExpectedRows)
             (transaction: DbTransaction option)
-            : Result<JournalEntryHeader list, string> = 
+            : Result<JournalEntryHeader list, AppError> = 
         (*
          * Note, we intentionally don't pull the fiscal period ID because
          * the FP is embedded into the EntryDate type
@@ -130,7 +130,7 @@ module JournalEntryHeader =
     let fetchById // REQ-JE-3.2
             (transaction: DbTransaction option)
             (journalEntryId: JournalEntryId)
-            : Result<JournalEntryHeader, string> = 
+            : Result<JournalEntryHeader, AppError> = 
         let uuid = journalEntryId |> JournalEntryId.value
         let predicate = Some "je.unique_id = @unique_id"
         let parameters = [{ name = "@unique_id"; value = UniqueId uuid };] // REQ-DAL-2.3
@@ -140,7 +140,7 @@ module JournalEntryHeader =
     let fetchByPeriod // REQ-JE-3.3
             (transaction: DbTransaction option)
             (periodId: FiscalPeriodId)
-            : Result<JournalEntryHeader list, string> =
+            : Result<JournalEntryHeader list, AppError> =
         let uuid = periodId |> FiscalPeriodId.value
         let predicate = Some "je.fiscal_period_id = @fiscal_period_id"
         let orderBy = Some "je.entry_date asc"
@@ -152,7 +152,7 @@ module JournalEntryHeader =
     let validateEntryDateIsInOpenFiscalPeriod
             (transaction: DbTransaction option)
             (entryDate: LocalDate)
-            : Result<unit, string> =
+            : Result<unit, AppError> =
         result {
             let! validEntryDate = entryDate |> EntryDate.create transaction
             return!
@@ -167,7 +167,7 @@ module JournalEntryHeader =
             (voidedAt: Instant option)
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
-            : Result<JournalEntryHeader, string> =
+            : Result<JournalEntryHeader, AppError> =
         result {
             do! entryDate |> validateEntryDateIsInOpenFiscalPeriod transaction // REQ-JE-2.7
             let! validJournalEntry = constructNew description source entryDate voidedAt auditEnvelope transaction

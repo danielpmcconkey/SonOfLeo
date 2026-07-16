@@ -15,17 +15,17 @@ open System
 
 let ``convert AccountId to AccountCodeString``
         (id: AccountId)
-        : Result<string, string> =
+        : Result<string, AppError> =
     id |> AccountId.value |> LookupCache.accountIdToCode.fetch 
 
 let ``convert AccountId to AccountCode``
         (id: AccountId)
-        : Result<AccountCode, string> =
+        : Result<AccountCode, AppError> =
     id |> ``convert AccountId to AccountCodeString`` |> Result.bind AccountCode.create
 
 let ``convert AccountId Option to AccountCode Option``
         (idOption: AccountId option)
-        : Result<AccountCode option, string> =
+        : Result<AccountCode option, AppError> =
     let fallibleConverter =  (fun id ->
           id |> AccountId.value |> LookupCache.accountIdToCode.fetch |> Result.bind AccountCode.create)
     idOption
@@ -33,7 +33,7 @@ let ``convert AccountId Option to AccountCode Option``
 
 let ``convert AccountId Option to AccountCodeString Option``
         (idOption: AccountId option)
-        : Result<string option, string> =
+        : Result<string option, AppError> =
     let code = idOption |> ``convert AccountId Option to AccountCode Option``
     match code with
     | Error e -> Error $"The returned parent ID of {idOption} didn't match any recorded Accounts in the database. Further details: {e}" // REQ-NGUI-1.5
@@ -41,7 +41,7 @@ let ``convert AccountId Option to AccountCodeString Option``
 
 let ``convert AccountCodeString Option to AccountUuidOption``
         (code: string option)
-        : Result<Guid option, string> =
+        : Result<Guid option, AppError> =
     match code with
     | Some x ->
         x
@@ -50,7 +50,7 @@ let ``convert AccountCodeString Option to AccountUuidOption``
         |> Result.map Some
     | None -> Ok None
 
-let ``convert Account to AccountReturn`` (a:Account) : Result<AccountReturn, string> =
+let ``convert Account to AccountReturn`` (a:Account) : Result<AccountReturn, AppError> =
     result {
         let! parentCode = a |> parentId |> ``convert AccountId Option to AccountCodeString Option``
         return {
@@ -65,13 +65,13 @@ let ``convert Account to AccountReturn`` (a:Account) : Result<AccountReturn, str
             createdAt = createdAt a
             modifiedAt = modifiedAt a } }
 
-let ``convert AccountCodeString to Id`` (code:string) : Result<AccountId, string> =
+let ``convert AccountCodeString to Id`` (code:string) : Result<AccountId, AppError> =
     code
     |> LookupCache.accountCodeToId.fetch
     |> Result.mapError (fun e -> $"Account code provided ({code}) didn't match any recorded Accounts in the database. Further details: {e}") // REQ-NGUI-1.5
     |> Result.map(AccountId.fromGuid)
 
-let ``convert AccountCodeString to AccountUuid`` (code:string) : Result<Guid, string> =
+let ``convert AccountCodeString to AccountUuid`` (code:string) : Result<Guid, AppError> =
     code
     |> LookupCache.accountCodeToId.fetch
     |> Result.mapError (fun e -> $"Account code provided ({code}) didn't match any recorded Accounts in the database. Further details: {e}") // REQ-NGUI-1.5
@@ -79,13 +79,13 @@ let ``convert AccountCodeString to AccountUuid`` (code:string) : Result<Guid, st
 let ``convert AccountCodeString to Account``
             (transaction: DbTransaction option)
             (code:string)
-            : Result<Account, string> =
+            : Result<Account, AppError> =
     result {    let! id = code |> ``convert AccountCodeString to Id``
                 return! id |> fetchById transaction }
 
 let ``convert AccountCodeString Option to AccountId Option``
         (codeStringOption: string option)
-        : Result<AccountId option, string> =
+        : Result<AccountId option, AppError> =
     let fallibleConverter = (fun code -> 
           result {
               let! uuid = code |> LookupCache.accountCodeToId.fetch
@@ -95,14 +95,14 @@ let ``convert AccountCodeString Option to AccountId Option``
 
 let ``convert AccountCodeString List to AccountId List``
         (codes: string list)
-        : Result<AccountId list, string> =
+        : Result<AccountId list, AppError> =
     codes
     |> List.map (fun x -> x |> ``convert AccountCodeString to Id`` )
     |> ListHelper.listOfResultsToResultsList
     
 let ``convert AccountUuId Option to AccountCode Option``
         (uuidOption: Guid option)
-        : Result<AccountCode option, string> =
+        : Result<AccountCode option, AppError> =
     let fallibleConverter =  (fun id ->
           id |> LookupCache.accountIdToCode.fetch |> Result.bind AccountCode.create)
     uuidOption
@@ -110,21 +110,21 @@ let ``convert AccountUuId Option to AccountCode Option``
 
 let ``convert AccountTypeString Option to AccountType Option``
     (stringOption: string option)
-    : Result<AccountType option, string> =
+    : Result<AccountType option, AppError> =
     let fallibleConverter = (fun string -> string |> AccountType.fromString)
     stringOption
     |> ``convert Option to Desired Type with Fallible Converter`` fallibleConverter
 
 let ``convert AccountSubtypeString Option to AccountSubtype Option``
     (stringOption: string option)
-    : Result<AccountSubtype option, string> =
+    : Result<AccountSubtype option, AppError> =
     let fallibleConverter = (fun string -> string |> AccountSubtype.fromString)
     stringOption
     |> ``convert Option to Desired Type with Fallible Converter`` fallibleConverter
 
 let ``convert AccountBalance to AccountBalanceReturn``
         (balance : AccountBalance)
-        : Result<AccountBalanceReturn, string> =
+        : Result<AccountBalanceReturn, AppError> =
     result {
         let! codeString = balance.accountId |> ``convert AccountId to AccountCodeString``
         return {    accountCode = codeString

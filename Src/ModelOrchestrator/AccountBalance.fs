@@ -30,7 +30,7 @@ let private mapRawForDbRead (row: RowReader) : Guid * string * string * decimal 
             
 let private constructFromRawForDbRead _transaction
         (raw:Guid * string * string * decimal)
-        : Result<AccountBalanceComponent, string> =
+        : Result<AccountBalanceComponent, AppError> =
     let accountIdGuid, lineType, accountType, sumAtType = raw
     result {
         let accountId = accountIdGuid |> AccountId.fromGuid
@@ -44,7 +44,7 @@ let fetchByAccountIdList // REQ-JE-3.6
             (transaction: DbTransaction option)
             (accountIds: AccountId list)
             (asOf: LocalDate option) // REQ-JE-3.6.2
-            : Result<AccountBalance list, string> =
+            : Result<AccountBalance list, AppError> =
     match accountIds with
     | [] -> Error "fetchByAccountIdList requires at least one account ID"
     | _ ->

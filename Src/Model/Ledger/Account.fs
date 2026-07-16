@@ -23,8 +23,6 @@ type Account =
 
 module Account =
 
-// Accessor functions
-
     let accountId (a:Account) = a.accountId
     let code (a:Account) = a.code
     let accountName (a:Account) = a.accountName
@@ -57,7 +55,6 @@ module Account =
                         externalReference = reference
                         createdAt = createdAt
                         modifiedAt = modifiedAt }
-            
 
     /// reconstitute constructs from primitives, performing zero validation at
     /// the collective level. All fields are assumed to have come from a
@@ -78,8 +75,6 @@ module Account =
         let! externalReference = extRefString |> Option.map (fun x -> x |> AccountExternalReference.create |> Result.map Some) |> Option.defaultValue (Ok None)
         return create accountId accountCode accountName accountType activityPeriod 
                     subtype parentAccountId externalReference createdAt modifiedAt }
-
-// DAL interface functions
 
     /// The mapRow function is used to pass into DAL read functions to let DAL know
     /// how to map our query columns. Thus, we don't need to know anything about the
@@ -162,8 +157,6 @@ module Account =
         ]
         executeNonQuery query parameters ExactlyOne transaction
 
-/// public read functions
-
     let fetchById
             (transaction: DbTransaction option)
             (accountId: AccountId)
@@ -245,11 +238,6 @@ module Account =
             let! () = executeNonQuery query parameters ExactlyOne transaction
             return! accountId |> fetchById transaction
         }
-
-// public orchestrators
-
-    /// constructNewAndSaveToDb is used where you want to construct a net new Account
-    /// and insert it into the DB in one operation   
 
     let updateAccountNameById
             (accountId: AccountId)

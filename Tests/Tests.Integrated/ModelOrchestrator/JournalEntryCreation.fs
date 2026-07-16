@@ -109,7 +109,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             match createResult with
             | Ok je ->
                 idToCleanUp <- Some (je |> header |> JournalEntryHeader.journalEntryId)
-                let ids = je |> externalReferences |> List.map JournalEntryExternalReference.uniqueId
+                let ids = je |> externalReferences |> List.map JournalEntryExternalReference.journalEntryExternalReferenceId
                 Assert.Equal(2, ids |> List.distinct |> List.length)
                 ids |> List.iter (fun id -> Assert.NotEqual(Guid.Empty, id))
             | Error e -> Assert.Fail e
@@ -459,8 +459,8 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                         Assert.Equal(cl |> JournalEntryLine.amount, fl |> JournalEntryLine.amount)
                         Assert.Equal(cl |> JournalEntryLine.lineType, fl |> JournalEntryLine.lineType)
                         Assert.Equal(
-                            cl |> JournalEntryLine.memo |> Option.map LineMemo.value,
-                            fl |> JournalEntryLine.memo |> Option.map LineMemo.value)
+                            cl |> JournalEntryLine.memo |> Option.map JournalEntryLineMemo.value,
+                            fl |> JournalEntryLine.memo |> Option.map JournalEntryLineMemo.value)
                         Assert.Equal(cl |> JournalEntryLine.createdAt, fl |> JournalEntryLine.createdAt)
                         Assert.Equal(cl |> JournalEntryLine.modifiedAt, fl |> JournalEntryLine.modifiedAt))
 
@@ -470,7 +470,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     createdRefs |> List.iter (fun cr ->
                         let fr =
                             fetchedRefs |> List.find (fun fr ->
-                                JournalEntryExternalReference.uniqueId fr = JournalEntryExternalReference.uniqueId cr)
+                                JournalEntryExternalReference.journalEntryExternalReferenceId fr = JournalEntryExternalReference.journalEntryExternalReferenceId cr)
                         Assert.Equal(
                             cr |> JournalEntryExternalReference.journalEntryId,
                             fr |> JournalEntryExternalReference.journalEntryId)

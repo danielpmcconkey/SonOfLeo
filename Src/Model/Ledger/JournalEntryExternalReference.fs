@@ -4,35 +4,12 @@ open System
 open Model.Audit
 open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
+open Utilities.AppError
 open Utilities.DAL
 open Utilities.ResultCE
 
-type JournalRefFinancialInstitution = private JournalRefFinancialInstitution of string
-module JournalRefFinancialInstitution =
-    let value (JournalRefFinancialInstitution d) = d 
-    let create (raw: string) : Result<JournalRefFinancialInstitution, string> =
-        let trimmed = raw.Trim() // REQ-SYS-1.1
-        if String.IsNullOrWhiteSpace trimmed then
-            Error "JournalRefFinancialInstitution cannot be empty"  // REQ-JE-1.42, REQ-SYS-1.2
-        elif trimmed.Length > 100 then
-            Error "JournalRefFinancialInstitution cannot exceed 100 characters" // REQ-JE-1.49
-        else
-            Ok (JournalRefFinancialInstitution trimmed)
-
-type JournalExternalReferenceText = private JournalExternalReferenceText of string
-module JournalExternalReferenceText =
-    let value (JournalExternalReferenceText d) = d 
-    let create (raw: string) : Result<JournalExternalReferenceText, string> =
-        let trimmed = raw.Trim() // REQ-SYS-1.1
-        if String.IsNullOrWhiteSpace trimmed then
-            Error "JournalExternalReferenceText cannot be empty"  // REQ-JE-1.44, REQ-SYS-1.2
-        elif trimmed.Length > 100 then
-            Error "JournalExternalReferenceText cannot exceed 100 characters" // REQ-JE-1.45
-        else
-            Ok (JournalExternalReferenceText trimmed)
-
 type JournalEntryExternalReference =
-  private  {    uniqueId: Guid // REQ-JE-1.40
+  private  {    journalEntryExternalReferenceId: JournalEntryExternalReferenceId // REQ-JE-1.40
                 journalEntryId: JournalEntryId // REQ-JE-1.41
                 financialInstitution: JournalRefFinancialInstitution // REQ-JE-1.42
                 referenceText: JournalExternalReferenceText
@@ -40,62 +17,38 @@ type JournalEntryExternalReference =
                 modifiedAt: Instant }
 
 module JournalEntryExternalReference =
-    let uniqueId jer = jer.uniqueId
+    let journalEntryExternalReferenceId jer = jer.journalEntryExternalReferenceId
     let journalEntryId jer = jer.journalEntryId
     let financialInstitution jer = jer.financialInstitution
     let referenceText jer = jer.referenceText
     let createdAt jer = jer.createdAt
     let modifiedAt jer = jer.modifiedAt
     
-    let validateJournalEntryHeader
-            (transaction: DbTransaction option)
-            (journalEntryId: JournalEntryId) 
-            : Result<unit, string> =
-        journalEntryId |> JournalEntryHeader.fetchById transaction |> Result.map ignore
-
-    /// validateThenConstruct is your centralized constructor for assembling
-    /// and validating component types. all other constructors must
-    /// pass into this one
-    let private validateThenConstruct
-            (uniqueId: Guid) // 
-            (journalEntryUuid: Guid) // 
-            (financialInstitution: string)
-            (referenceText: string)
-            (createdAt: Instant) // REQ-SYS-3.2
-            (modifiedAt: Instant) // REQ-SYS-3.2
-            (transaction: DbTransaction option)
-            : Result<JournalEntryExternalReference, string> =
-        result {
-            let! validFi = financialInstitution |> JournalRefFinancialInstitution.create
-            let! validRefText = referenceText |> JournalExternalReferenceText.create
-            let journalEntryId = journalEntryUuid |> JournalEntryId.fromGuid
-            do! journalEntryId |> validateJournalEntryHeader transaction |> Result.map ignore
-            return { uniqueId = uniqueId; journalEntryId = journalEntryId
-                     financialInstitution = validFi; referenceText = validRefText
-                     createdAt = createdAt; modifiedAt = modifiedAt } }
-
-    let constructNew
-            (journalEntryId: Guid) // 
-            (financialInstitution: string)
-            (referenceText: string)
-            (auditEnvelope: AuditEnvelope)
-            (transaction: DbTransaction option)
-            : Result<JournalEntryExternalReference, string> =
-        let uniqueId = Guid.NewGuid() // REQ-JE-2.9
-        let now = AuditEnvelope.instant auditEnvelope
-        let createdAt =  now // REQ-SYS-3.2
-        let modifiedAt = now // REQ-SYS-3.2
-        validateThenConstruct uniqueId journalEntryId financialInstitution referenceText createdAt modifiedAt transaction
+    let create
+        (journalEntryExternalReferenceId: JournalEntryExternalReferenceId)
+        (journalEntryId: JournalEntryId)
+        (financialInstitution: JournalRefFinancialInstitution)
+        (referenceText: JournalExternalReferenceText)
+        (createdAt: Instant) // REQ-SYS-3.2
+        (modifiedAt: Instant) // REQ-SYS-3.2
+        : JournalEntryExternalReference = {
+            journalEntryExternalReferenceId = journalEntryExternalReferenceId
+            journalEntryId= journalEntryId 
+            financialInstitution= financialInstitution 
+            referenceText= referenceText
+            createdAt= createdAt
+            modifiedAt= modifiedAt }
     
-    let private insertNewToDb (externalReference:JournalEntryExternalReference) (transaction: DbTransaction option): Result<unit, string> =
+    let insertNewToDb (externalReference:JournalEntryExternalReference) (transaction: DbTransaction option): Result<unit, AppError> =
         let query = """
             INSERT INTO ledger.journal_entry_ext_reference(
                unique_id, journal_entry_id, financial_institution, reference, created_at, modified_at)
             VALUES (
                 @unique_id, @journal_entry_id, @financial_institution, @reference, @created_at, @modified_at);"""
+        let journalEntryExternalReferenceUuid = externalReference.journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
         let journalEntryUuid = externalReference.journalEntryId |> JournalEntryId.value
         let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
-            { name = "@unique_id"; value = UniqueId externalReference.uniqueId }
+            { name = "@unique_id"; value = UniqueId journalEntryExternalReferenceUuid }
             { name = "@journal_entry_id"; value = UniqueId journalEntryUuid }
             { name = "@financial_institution"; value = CharString (externalReference.financialInstitution |> JournalRefFinancialInstitution.value) };
             { name = "@reference"; value = CharString (externalReference.referenceText |> JournalExternalReferenceText.value) };
@@ -104,18 +57,6 @@ module JournalEntryExternalReference =
         ]
         executeNonQuery query parameters ExactlyOne transaction
 
-    let constructNewAndSaveToDb // 
-            (journalEntryId: Guid) // 
-            (financialInstitution: string)
-            (referenceText: string)
-            (auditEnvelope: AuditEnvelope)
-            (transaction: DbTransaction option)
-            : Result<JournalEntryExternalReference, string> =
-        result {
-            let! validJournalExternalReference =
-                constructNew journalEntryId financialInstitution referenceText auditEnvelope transaction
-            let! () = insertNewToDb validJournalExternalReference transaction
-            return validJournalExternalReference }
 
     /// The mapRow function is used to pass into DAL read functions to let DAL know
     /// how to map our query columns. Thus, we don't need to know anything about the
@@ -128,13 +69,26 @@ module JournalEntryExternalReference =
             ( row |> RowReader.getString "reference" ),
             ( row |> RowReader.getInstant "created_at" ),
             ( row |> RowReader.getInstant "modified_at" )
-            
-    let private constructFromRawForDbRead
-            (transaction: DbTransaction option)
+
+    /// reconstitute constructs from primitives, performing zero validation at
+    /// the collective level. All fields are assumed to have come from a
+    /// trusted source (e.g. the database) where such validation occurred at
+    /// the time of writing the entity. Important: no additional DB lookups can
+    /// be triggered inside this function since it is called within a database
+    /// reader.
+    let private reconstitute
+            (_transaction: DbTransaction option)
             raw
-            : Result<JournalEntryExternalReference, string> =
-        let id, jeId, fi, reference, createdAt, modifiedAt = raw
-        validateThenConstruct id jeId fi reference createdAt modifiedAt transaction
+            : Result<JournalEntryExternalReference, AppError> =
+        let uuid, journalEntryUuid, financialInstitutionStr, referenceTextStr, createdAt, modifiedAt = raw
+        let journalEntryExternalReferenceId = uuid |> JournalEntryExternalReferenceId.fromGuid
+        let journalEntryId = journalEntryUuid |> JournalEntryId.fromGuid
+        result {
+            let! financialInstitution = financialInstitutionStr |> JournalRefFinancialInstitution.create
+            let! referenceText = referenceTextStr |> JournalExternalReferenceText.create
+            return create journalEntryExternalReferenceId journalEntryId financialInstitution
+                    referenceText createdAt modifiedAt }
+            
 
     /// readRowsFromDb is designed to produce a flexible read query that can
     /// satisfy diverse use cases 
@@ -145,61 +99,33 @@ module JournalEntryExternalReference =
             (parameters: QueryParameter list)
             (expectedRows: AcceptableExpectedRows)
             (transaction: DbTransaction option)
-            : Result<JournalEntryExternalReference list, string> =
+            : Result<JournalEntryExternalReference list, AppError> =
         let select = """
             jer.unique_id, jer.journal_entry_id, jer.financial_institution, jer.reference,
             jer.created_at, jer.modified_at
             """ 
         let from = "ledger.journal_entry_ext_reference jer"
         let query = buildReadQuery select from None predicate limit None orderBy
-        executeReaderQuery query parameters mapRawForDbRead constructFromRawForDbRead expectedRows transaction
+        executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
 
     let fetchById
             (transaction: DbTransaction option)
-            (uniqueId: Guid)
-            : Result<JournalEntryExternalReference, string> = 
+            (journalEntryExternalReferenceId: JournalEntryExternalReferenceId)
+            : Result<JournalEntryExternalReference, AppError> = 
+        let uuid = journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
         let predicate = "jer.unique_id = @unique_id"
-        let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
+        let parameters = [{ name = "@unique_id"; value = UniqueId uuid };] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None None parameters ExactlyOne transaction
         |> Result.map List.head
 
     let fetchByJournalEntryId
             (transaction: DbTransaction option)
             (journalEntryId: JournalEntryId)
-            : Result<JournalEntryExternalReference list, string> = 
+            : Result<JournalEntryExternalReference list, AppError> = 
         let uuid = journalEntryId |> JournalEntryId.value
         let predicate = "jer.journal_entry_id = @unique_id"
         let parameters = [{ name = "@unique_id"; value = UniqueId uuid };] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None None parameters AnyQuantityIsAcceptable transaction
-        
-    let updateFiAndReferenceText // REQ-JE-4.9
-            (auditEnvelope: AuditEnvelope)
-            (uniqueId: Guid)
-            (newFi: string)
-            (newReference: string)
-            (transaction: DbTransaction option)
-            : Result<JournalEntryExternalReference, string> = 
-        let query = $"""
-            UPDATE ledger.journal_entry_ext_reference
-            set
-                modified_at = @modified -- REQ-SYS-3.3
-                , financial_institution = @financial_institution
-                , reference = @reference
-            WHERE unique_id = @unique_id
-            ;
-        """
-        result {
-            let! validFi = JournalRefFinancialInstitution.create newFi
-            let! validRef = JournalExternalReferenceText.create newReference
-            let parameters = [
-                    { name = "@unique_id"; value = UniqueId uniqueId };
-                    { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3 
-                    { name = "@financial_institution"; value = CharString (validFi |> JournalRefFinancialInstitution.value)}
-                    { name = "@reference"; value = CharString (validRef |> JournalExternalReferenceText.value)}
-                ]
-            let! _ = executeNonQuery query parameters ExactlyOne transaction
-            return! uniqueId |> fetchById transaction
-        }
         
         
     

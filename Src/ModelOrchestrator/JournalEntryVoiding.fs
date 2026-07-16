@@ -16,7 +16,7 @@ let private voidById // REQ-JE-4.3
         (transaction: DbTransaction option)
         (auditEnvelope: AuditEnvelope)
         (journalEntryId: Guid)
-        : Result<JournalEntryHeader, string> = 
+        : Result<JournalEntryHeader, AppError> = 
     let parameters = [
             { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3 
             { name = "@newValue"; value = DbInstant (AuditEnvelope.instant auditEnvelope) }
@@ -44,7 +44,7 @@ let private insertReason  // REQ-JE-4.4
         (auditEnvelope: AuditEnvelope)
         (reason: JournalEntryCommentPrimitives)
         (journalEntryId: Guid)
-        : Result<unit, string> =
+        : Result<unit, AppError> =
     let result = JournalEntryComment.constructNewAndSaveToDb
                             journalEntryId
                             reason.secondaryJournalEntryId
@@ -59,7 +59,7 @@ let voidJournalEntryOrchestration // REQ-JE-4.3
         (auditEnvelope: AuditEnvelope)
         (reason: JournalEntryCommentPrimitives) // REQ-JE-4.4
         (journalEntryId: Guid)
-        : Result<JournalEntry, string> =
+        : Result<JournalEntry, AppError> =
 
     let transaction = createDbTransaction() |> Result.defaultWith failwith // if this fails, nothing can proceed
     let railRoad = result {

@@ -115,31 +115,31 @@ module JournalEntryComponent =
 
     [<Fact>]
     let ``REQ-JE-1.27 REQ-SYS-1.2 LineMemo.create rejects empty string`` () =
-        let result = LineMemo.create String.Empty
+        let result = JournalEntryLineMemo.create String.Empty
         Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.27 REQ-SYS-1.2 LineMemo.create rejects whitespace-only string`` () =
-        let result = LineMemo.create "     "
+        let result = JournalEntryLineMemo.create "     "
         Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.28 LineMemo.create rejects string exceeding 1000 characters`` () =
-        let result = LineMemo.create (String('A', 1001))
+        let result = JournalEntryLineMemo.create (String('A', 1001))
         Assert.True(Result.isError result)
 
     [<Fact>]
     let ``REQ-JE-1.28 LineMemo.create accepts string at exactly 1000 characters`` () =
-        let result = LineMemo.create (String('A', 1000))
+        let result = JournalEntryLineMemo.create (String('A', 1000))
         Assert.True(Result.isOk result)
 
     [<Fact>]
     let ``REQ-SYS-1.1 LineMemo.create trims leading and trailing whitespace`` () =
         let trimmed = "Office supplies"
-        let result = LineMemo.create $"  {trimmed}   "
+        let result = JournalEntryLineMemo.create $"  {trimmed}   "
         match result with
         | Error e -> Assert.Fail e
-        | Ok m -> Assert.Equal(trimmed, LineMemo.value m)
+        | Ok m -> Assert.Equal(trimmed, JournalEntryLineMemo.value m)
 
     // =============================================================================
     // Line amount validation (JournalEntryLine.validateAmount)

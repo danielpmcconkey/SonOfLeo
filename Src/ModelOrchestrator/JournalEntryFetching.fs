@@ -14,10 +14,10 @@ let private fetchHeaderIdsByReference // REQ-JE-3.5, REQ-JE-3.8
         (transaction: DbTransaction option)
         (fi: string option)
         (reference: string option)
-        : Result<Guid list, string> =
+        : Result<Guid list, AppError> =
     let mapRaw (row: RowReader) =
         (row |> RowReader.getUuid "unique_id") , ()
-    let constructRaw _transaction raw :Result<Guid,string> =
+    let constructRaw _transaction raw :Result<Guid, AppError> =
         let id, _ = raw
         Ok id
     if fi = None && reference = None
@@ -48,10 +48,10 @@ let private fetchHeaderIdsByDateRange // REQ-JE-3.7
         (transaction: DbTransaction option)
         (beginDate: LocalDate)
         (endDateInclusive: LocalDate)
-        : Result<Guid list, string> =
+        : Result<Guid list, AppError> =
     let mapRaw (row: RowReader) =
         (row |> RowReader.getUuid "unique_id") , ()
-    let constructRaw _transaction raw :Result<Guid,string> =
+    let constructRaw _transaction raw :Result<Guid, AppError> =
         let id, _ = raw
         Ok id
     let query = """
@@ -66,7 +66,7 @@ let private fetchHeaderIdsByDateRange // REQ-JE-3.7
 
 let fetchById // REQ-JE-3.1, REQ-JE-3.2
         (uniqueId: Guid)
-        : Result<JournalEntry, string> =
+        : Result<JournalEntry, AppError> =
     result {
         let! validHeader = uniqueId |> JournalEntryHeader.fetchById None
         let! validLines = uniqueId |> JournalEntryLine.fetchByJournalEntryId None
@@ -77,7 +77,7 @@ let fetchById // REQ-JE-3.1, REQ-JE-3.2
 
 let fetchByPeriod // REQ-JE-3.1
         (fiscalPeriodId: FiscalPeriodId)
-        : Result<JournalEntry list, string> =
+        : Result<JournalEntry list, AppError> =
     result {
         let! headers = fiscalPeriodId |> JournalEntryHeader.fetchByPeriod None
         let headerResultsList = headers |> List.map(fun h ->
@@ -90,7 +90,7 @@ let fetchByPeriod // REQ-JE-3.1
 let fetchByReference // REQ-JE-3.1, REQ-JE-3.5, REQ-JE-3.8
         (fi: string option)
         (reference: string option)
-        : Result<JournalEntry list, string> =
+        : Result<JournalEntry list, AppError> =
     result {
         let! headers = fetchHeaderIdsByReference None fi reference
         let headerResultsList = headers |> List.map(fun h -> h |> fetchById)
@@ -100,7 +100,7 @@ let fetchByReference // REQ-JE-3.1, REQ-JE-3.5, REQ-JE-3.8
 let fetchByDateRange // REQ-JE-3.7
         (beginDate: LocalDate)
         (endDateInclusive: LocalDate)
-        : Result<JournalEntry list, string> =
+        : Result<JournalEntry list, AppError> =
     result {
         let! headers = fetchHeaderIdsByDateRange None beginDate endDateInclusive
         let headerResultsList = headers |> List.map(fun h -> h |> fetchById)

@@ -16,7 +16,7 @@ type JournalEntryLine =
                 accountId: AccountId
                 amount: Money
                 lineType: JournalEntryLineType
-                memo: LineMemo option                              // REQ-JE-1.26
+                memo: JournalEntryLineMemo option                              // REQ-JE-1.26
                 createdAt: Instant
                 modifiedAt: Instant }
 
@@ -30,12 +30,12 @@ module JournalEntryLine =
     let createdAt jel = jel.createdAt
     let modifiedAt jel = jel.modifiedAt
     
-    let validateAmount (m:Money) : Result<Money, string> =
+    let validateAmount (m:Money) : Result<Money, AppError> =
         if Money.amount m <= 0M // REQ-JE-1.24
         then Error $"JEL amount fields cannot be less than or equal to 0.00"
         else Ok m
     
-    let validateAccount (transaction: DbTransaction option)  (accountId: AccountId) : Result<unit, string> =
+    let validateAccount (transaction: DbTransaction option)  (accountId: AccountId) : Result<unit, AppError> =
         match accountId |> Account.fetchById transaction with
         | Error e -> Error e
         | Ok _ -> Ok ()
@@ -53,7 +53,7 @@ module JournalEntryLine =
             (createdAt: Instant)
             (modifiedAt: Instant)
             (transaction: DbTransaction option)
-            : Result<JournalEntryLine, string> =
+            : Result<JournalEntryLine, AppError> =
         result {
             let accountId = accountIdGuid |> AccountId.fromGuid
             do! accountId |> validateAccount transaction //REQ-JE-1.22
@@ -62,7 +62,7 @@ module JournalEntryLine =
             let! validType = lineType |> JournalEntryLineType.fromString
             let! validMemo =
                 match memo with
-                | Some x -> LineMemo.create x |> Result.map Some
+                | Some x -> JournalEntryLineMemo.create x |> Result.map Some
                 | None -> Ok None
             let journalEntryId = journalEntryId |> JournalEntryId.fromGuid
             return {    uniqueId = uniqueId
@@ -82,7 +82,7 @@ module JournalEntryLine =
             (memo: string option)
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
-            : Result<JournalEntryLine, string> =        
+            : Result<JournalEntryLine, AppError> =        
         let uniqueId = Guid.NewGuid() // REQ-JE-2.2
         let now = AuditEnvelope.instant auditEnvelope
         let createdAt =  now // REQ-SYS-3.2
@@ -92,7 +92,7 @@ module JournalEntryLine =
     let private insertNewToDb
             (journalEntryLine:JournalEntryLine)
             (transaction: DbTransaction option)
-            : Result<unit, string> =
+            : Result<unit, AppError> =
         let query = """
             INSERT INTO ledger.journal_entry_line(
                 unique_id, journal_entry_id, account_id, amount, line_type, 
@@ -108,7 +108,7 @@ module JournalEntryLine =
             { name = "@account_id"; value = UniqueId accountIdGuid }
             { name = "@amount"; value = Numeric (journalEntryLine.amount |> Money.amount) };
             { name = "@line_type"; value = CharString (journalEntryLine.lineType |> JournalEntryLineType.toString) };
-            { name = "@memo"; value = NullableCharString (journalEntryLine.memo |> Option.map  LineMemo.value) };
+            { name = "@memo"; value = NullableCharString (journalEntryLine.memo |> Option.map  JournalEntryLineMemo.value) };
             { name = "@created_at"; value = DbInstant journalEntryLine.createdAt };
             { name = "@modified_at"; value = DbInstant journalEntryLine.modifiedAt };
         ]
@@ -122,7 +122,7 @@ module JournalEntryLine =
             (memo: string option)
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
-            : Result<JournalEntryLine, string> =
+            : Result<JournalEntryLine, AppError> =
         result {
             let! validJournalEntryLine =
                 constructNew journalEntryId accountId amount lineType memo auditEnvelope transaction
@@ -146,7 +146,7 @@ module JournalEntryLine =
     let private constructFromRawForDbRead
             (transaction: DbTransaction option)
             raw
-            : Result<JournalEntryLine, string> =
+            : Result<JournalEntryLine, AppError> =
         let id, jeId, accountId, amount, lineType, memo, createdAt, modifiedAt = raw
         validateThenConstruct id jeId accountId amount lineType memo createdAt modifiedAt transaction
 
@@ -158,7 +158,7 @@ module JournalEntryLine =
             (parameters: QueryParameter list)
             (expectedRows: AcceptableExpectedRows)
             (transaction: DbTransaction option)
-            : Result<JournalEntryLine list, string> = 
+            : Result<JournalEntryLine list, AppError> = 
         let select = "jel.unique_id, jel.journal_entry_id, jel.account_id, jel.amount, jel.line_type, jel.memo, jel.created_at, jel.modified_at"
         let from = "ledger.journal_entry_line jel"
         let query = buildReadQuery select from join predicate limit None orderBy
@@ -167,7 +167,7 @@ module JournalEntryLine =
     let fetchById
             (transaction: DbTransaction option)
             (journalEntryLineId: JournalEntryLineId)
-            : Result<JournalEntryLine, string> = 
+            : Result<JournalEntryLine, AppError> = 
         let uuid = journalEntryLineId |> JournalEntryLineId.value
         let predicate = "jel.unique_id = @unique_id"
         let parameters = [{ name = "@unique_id"; value = UniqueId uuid };] // REQ-DAL-2.3
@@ -177,7 +177,7 @@ module JournalEntryLine =
     let fetchByJournalEntryId
             (transaction: DbTransaction option)
             (jeId: JournalEntryId)
-            : Result<JournalEntryLine list, string> = 
+            : Result<JournalEntryLine list, AppError> = 
         let uuid = jeId |> JournalEntryId.value
         let predicate = "jel.journal_entry_id = @journal_entry_id"
         let parameters = [{ name = "@journal_entry_id"; value = UniqueId uuid };] // REQ-DAL-2.3
@@ -188,7 +188,7 @@ module JournalEntryLine =
             (transaction: DbTransaction option)
             (nonVoidedOnly: bool)
             (accountId: AccountId)
-            : Result<JournalEntryLine list, string> = 
+            : Result<JournalEntryLine list, AppError> = 
         let join = Some "left join ledger.journal_entry je on jel.journal_entry_id = je.unique_id"
         let voidCheck =
             match nonVoidedOnly with
@@ -203,7 +203,7 @@ module JournalEntryLine =
     let sumLinesByType
             (debitOrCredit: JournalEntryLineType)
             (lines: JournalEntryLine list)
-            : Result<Money,string> =
+            : Result<Money, AppError> =
         lines
         |> List.filter(fun x -> lineType x = debitOrCredit)
         |> List.map(amount) 

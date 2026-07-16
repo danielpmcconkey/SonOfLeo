@@ -1,26 +1,12 @@
 namespace Model.Ledger.Journaling
 
-open System
-open Model.Audit
 open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
+open Utilities.AppError
 open Utilities.DAL
-open Utilities.ResultCE
-
-type CommentText = private CommentText of string
-module CommentText =
-    let value (CommentText d) = d 
-    let create (raw: string) : Result<CommentText, string> =
-        let trimmed = raw.Trim() // REQ-SYS-1.1
-        if String.IsNullOrWhiteSpace trimmed then
-            Error "CommentText cannot be empty"  // REQ-JE-1.54, REQ-SYS-1.2
-        elif trimmed.Length > 2000 then
-            Error "CommentText cannot exceed 2000 characters" // REQ-JE-1.54
-        else
-            Ok (CommentText trimmed)
 
 type JournalEntryComment =
-  private  {    uniqueId: Guid // REQ-JE-1.50
+  private  {    journalEntryCommentId: JournalEntryCommentId // REQ-JE-1.50
                 primaryJournalEntryId: JournalEntryId // REQ-JE-1.51
                 secondaryJournalEntryId: JournalEntryId option // REQ-JE-1.52
                 commentText: CommentText
@@ -28,78 +14,39 @@ type JournalEntryComment =
                 modifiedAt: Instant }
 
 module JournalEntryComment =
-    let uniqueId jec = jec.uniqueId
+    let uniqueId jec = jec.journalEntryCommentId
     let primaryJournalEntryId jec = jec.primaryJournalEntryId
     let secondaryJournalEntryId jec = jec.secondaryJournalEntryId
     let commentText jec = jec.commentText
     let createdAt jec = jec.createdAt
     let modifiedAt jec= jec.modifiedAt
-    
-    let validateJournalEntryHeader
-            (transaction: DbTransaction option)
-            (journalEntryId: JournalEntryId) 
-            : Result<unit, string> =
-        journalEntryId |> JournalEntryHeader.fetchById transaction |> Result.map ignore
-    
-    let validatePrimaryAndSecondaryRelationship // REQ-JE-1.53
-            (primaryJournalEntryId: JournalEntryId)
-            (secondaryJournalEntryId: JournalEntryId option)
-            : Result<unit, string> =
-        match secondaryJournalEntryId with
-        | None -> Ok ()
-        | Some x ->
-            if x = primaryJournalEntryId
-            then Error "Primary and secondary journal entries cannot be the same."
-            else Ok ()
 
-    /// validateThenConstruct is your centralized constructor for assembling
-    /// and validating component types. all other constructors must
-    /// pass into this one
-    let private validateThenConstruct
-            (uniqueId: Guid) // REQ-JE-5.2
-            (primaryJournalEntryUuid: Guid) // REQ-JE-5.1
-            (secondaryJournalEntryUuid: Guid option) // REQ-JE-5.1
-            (commentText: string)
-            (createdAt: Instant) // REQ-JE-5.2
-            (modifiedAt: Instant) // REQ-JE-5.2
-            (transaction: DbTransaction option)
-            : Result<JournalEntryComment, string> =
-        result {
-            let primaryJournalEntryId = primaryJournalEntryUuid |> JournalEntryId.fromGuid
-            let secondaryJournalEntryId = secondaryJournalEntryUuid |> Option.map JournalEntryId.fromGuid
-            let! validCommentText = commentText |> CommentText.create
-            do! primaryJournalEntryId |> validateJournalEntryHeader transaction
-            do! match secondaryJournalEntryId with
-                | None -> Ok ()
-                | Some id -> id |> validateJournalEntryHeader transaction
-            do! validatePrimaryAndSecondaryRelationship primaryJournalEntryId secondaryJournalEntryId
-            return { uniqueId = uniqueId; primaryJournalEntryId = primaryJournalEntryId
-                     secondaryJournalEntryId = secondaryJournalEntryId; commentText = validCommentText
-                     createdAt = createdAt; modifiedAt = modifiedAt } }
+    let create
+        (journalEntryCommentId: JournalEntryCommentId) // REQ-JE-5.2
+        (primaryJournalEntryId: JournalEntryId) // REQ-JE-5.1
+        (secondaryJournalEntryId: JournalEntryId option) // REQ-JE-5.1
+        (commentText: CommentText)
+        (createdAt: Instant) // REQ-JE-5.2
+        (modifiedAt: Instant) // REQ-JE-5.2
+        : JournalEntryComment = {
+                 journalEntryCommentId = journalEntryCommentId
+                 primaryJournalEntryId = primaryJournalEntryId
+                 secondaryJournalEntryId = secondaryJournalEntryId
+                 commentText = commentText
+                 createdAt = createdAt
+                 modifiedAt = modifiedAt } 
 
-    let constructNew
-            (primaryJournalEntryId: Guid) // REQ-JE-5.1
-            (secondaryJournalEntryId: Guid option) // REQ-JE-5.1
-            (commentText: string)
-            (auditEnvelope: AuditEnvelope)
-            (transaction: DbTransaction option)
-            : Result<JournalEntryComment, string> =
-        let uniqueId = Guid.NewGuid() // REQ-JE-5.2
-        let now = AuditEnvelope.instant auditEnvelope
-        let createdAt =  now // REQ-SYS-3.2
-        let modifiedAt = now // REQ-SYS-3.2
-        validateThenConstruct uniqueId primaryJournalEntryId secondaryJournalEntryId commentText createdAt modifiedAt transaction
-    
-    let private insertNewToDb (comment:JournalEntryComment) (transaction: DbTransaction option): Result<unit, string> =
+    let insertNewToDb (comment:JournalEntryComment) (transaction: DbTransaction option): Result<unit, AppError> =
         let query = """
             INSERT INTO ledger.journal_entry_comment(
                 unique_id, journal_primary_entry_id, journal_secondary_entry_id, comment_text, created_at, modified_at)
             VALUES (
                 @unique_id, @journal_primary_entry_id, @journal_secondary_entry_id, @comment_text, @created_at, @modified_at);"""
+        let commentUuid = comment.journalEntryCommentId |> JournalEntryCommentId.value
         let primaryUuid = comment.primaryJournalEntryId |> JournalEntryId.value
         let secondaryUuid = comment.secondaryJournalEntryId |> Option.map JournalEntryId.value
         let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
-            { name = "@unique_id"; value = UniqueId comment.uniqueId }
+            { name = "@unique_id"; value = UniqueId commentUuid }
             { name = "@journal_primary_entry_id"; value = UniqueId primaryUuid }
             { name = "@journal_secondary_entry_id"; value = NullableUniqueId secondaryUuid }
             { name = "@comment_text"; value = CharString (comment.commentText |> CommentText.value) };
@@ -107,19 +54,6 @@ module JournalEntryComment =
             { name = "@modified_at"; value = DbInstant comment.modifiedAt };
         ]
         executeNonQuery query parameters ExactlyOne transaction
-
-    let constructNewAndSaveToDb // REQ-JE-5.1
-            (primaryJournalEntryId: Guid)
-            (secondaryJournalEntryId: Guid option)
-            (commentText: string)
-            (auditEnvelope: AuditEnvelope)
-            (transaction: DbTransaction option)
-            : Result<JournalEntryComment, string> =
-        result {
-            let! validJournalEntryComment =
-                constructNew primaryJournalEntryId secondaryJournalEntryId commentText auditEnvelope transaction
-            let! () = insertNewToDb validJournalEntryComment transaction
-            return validJournalEntryComment }
 
     /// The mapRow function is used to pass into DAL read functions to let DAL know
     /// how to map our query columns. Thus, we don't need to know anything about the
@@ -133,13 +67,31 @@ module JournalEntryComment =
             ( row |> RowReader.getString "comment_text" ),
             ( row |> RowReader.getInstant "created_at" ),
             ( row |> RowReader.getInstant "modified_at" )
-            
-    let private constructFromRawForDbRead
-            (transaction: DbTransaction option)
+
+    /// reconstitute constructs from primitives, performing zero validation at
+    /// the collective level. All fields are assumed to have come from a
+    /// trusted source (e.g. the database) where such validation occurred at
+    /// the time of writing the entity. Important: no additional DB lookups can
+    /// be triggered inside this function since it is called within a database
+    /// reader.
+    let private reconstitute
+            (_transaction: DbTransaction option)
             raw
-            : Result<JournalEntryComment, string> =
-        let id, primaryJeId, secondaryJeId, commentText, createdAt, modifiedAt = raw
-        validateThenConstruct id primaryJeId secondaryJeId commentText createdAt modifiedAt transaction
+            : Result<JournalEntryComment, AppError> =
+        let id, primaryJeId, secondaryJeId, commentTextStr, createdAt, modifiedAt = raw
+        let journalEntryCommentId = id |> JournalEntryCommentId.fromGuid
+        let primaryJournalEntryId = primaryJeId |> JournalEntryId.fromGuid
+        let secondaryJournalEntryId = secondaryJeId |> Option.map JournalEntryId.fromGuid
+        let commentTextResult = commentTextStr |> CommentText.create
+        match commentTextResult with
+        | Error e -> Error e
+        | Ok commentText -> Ok {
+             journalEntryCommentId = journalEntryCommentId
+             primaryJournalEntryId = primaryJournalEntryId
+             secondaryJournalEntryId = secondaryJournalEntryId
+             commentText = commentText
+             createdAt = createdAt
+             modifiedAt = modifiedAt }
 
     let private readRowsFromDb
             (predicate: string option)
@@ -148,21 +100,22 @@ module JournalEntryComment =
             (parameters: QueryParameter list)
             (expectedRows: AcceptableExpectedRows)
             (transaction: DbTransaction option)
-            : Result<JournalEntryComment list, string> = 
+            : Result<JournalEntryComment list, AppError> = 
         let select = """
                 jec.unique_id, jec.journal_primary_entry_id, jec.journal_secondary_entry_id,
                 jec.comment_text, jec.created_at, jec.modified_at
             """
         let from = "ledger.journal_entry_comment jec"
         let query = buildReadQuery select from None predicate limit None orderBy
-        executeReaderQuery query parameters mapRawForDbRead constructFromRawForDbRead expectedRows transaction
+        executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
 
     let fetchById
             (transaction: DbTransaction option)
-            (uniqueId: Guid)
-            : Result<JournalEntryComment, string> = 
+            (journalEntryCommentId: JournalEntryCommentId)
+            : Result<JournalEntryComment, AppError> = 
+        let uuid = journalEntryCommentId |> JournalEntryCommentId.value
         let predicate = "jec.unique_id = @unique_id"
-        let parameters = [{ name = "@unique_id"; value = UniqueId uniqueId };] // REQ-DAL-2.3
+        let parameters = [{ name = "@unique_id"; value = UniqueId uuid };] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None None parameters ExactlyOne transaction
         |> Result.map List.head
 
@@ -172,55 +125,9 @@ module JournalEntryComment =
     let fetchByJournalEntryId
             (transaction: DbTransaction option)
             (journalEntryId: JournalEntryId)
-            : Result<JournalEntryComment list, string> = 
+            : Result<JournalEntryComment list, AppError> = 
         let uuid = journalEntryId |> JournalEntryId.value
         let predicate = "jec.journal_primary_entry_id = @unique_id or jec.journal_secondary_entry_id = @unique_id"
         let parameters = [{ name = "@unique_id"; value = UniqueId uuid };] // REQ-DAL-2.3
         let orderBy = "created_at"
         readRowsFromDb (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable transaction
-        
-    let updateComment // REQ-JE-5.3
-            (auditEnvelope: AuditEnvelope)
-            (uniqueId: Guid)
-            (commentUpdate: FieldUpdate<CommentText>)
-            (secondaryIdUpdate: FieldUpdate<JournalEntryId option>)
-            (transaction: DbTransaction option)
-            : Result<JournalEntryComment, string> =        
-        let baseParams = [
-            { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3 
-            { name = "@unique_id"; value = UniqueId uniqueId };
-        ]
-        result {
-            let! existing = uniqueId |> fetchById transaction
-            let! validSecondaryId =
-                match secondaryIdUpdate with
-                    | NoChange -> Ok NoChange
-                    | SetTo x ->
-                         x
-                         |> validatePrimaryAndSecondaryRelationship (existing |> primaryJournalEntryId)
-                         |> Result.map (fun _ -> SetTo x)
-            let updates =
-                [
-                    match commentUpdate with
-                    | NoChange -> None
-                    | SetTo x ->
-                        Some (", comment_text = @comment_text",
-                              { name = "@comment_text"; value = CharString (x |> CommentText.value) })
-                    
-                    match validSecondaryId with
-                    | NoChange -> None
-                    | SetTo x ->
-                        let validUuidOption = x |> Option.map JournalEntryId.value
-                        Some (", journal_secondary_entry_id = @journal_secondary_entry_id",
-                              { name = "@journal_secondary_entry_id"; value = NullableUniqueId validUuidOption })
-                ] |> List.choose id
-            let setClauses = updates |> List.map fst |> String.concat ""
-            let parameters = baseParams @ (updates |> List.map snd)
-            let query = $"""    UPDATE ledger.journal_entry_comment
-                                set
-                                    modified_at = @modified -- REQ-SYS-3.3
-                                    {setClauses}
-                                WHERE unique_id = @unique_id; """
-            let! _ = executeNonQuery query parameters ExactlyOne transaction
-            return! uniqueId |> fetchById transaction
-        }
