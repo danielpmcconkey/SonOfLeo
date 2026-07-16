@@ -13,6 +13,12 @@ module JournalEntryId =
     let fromGuid g = JournalEntryId g
     let value (JournalEntryId g) : Guid = g
 
+type JournalEntryLineId = private JournalEntryLineId of Guid
+module JournalEntryLineId =
+    let create () : JournalEntryLineId = (JournalEntryLineId (Guid.NewGuid()))
+    let fromGuid g = JournalEntryLineId g
+    let value (JournalEntryLineId g) : Guid = g
+
 type JournalEntryCommentId = private JournalEntryCommentId of Guid
 module JournalEntryCommentId =
     let create () : JournalEntryCommentId = (JournalEntryCommentId (Guid.NewGuid()))
@@ -98,6 +104,15 @@ module EntryDate =
             let! fp = id |> FiscalPeriod.fetchById transaction
             return { entryDate = entryDate; fiscalPeriod = fp }
         }
+    /// createWithFiscalPeriodId is used by functions in the model who are
+    /// already have what they believe is a valid FP ID. We use this so we can
+    /// avoid a DB lookup in the middle of a spooling DB read.
+    /// 
+    /// WARNING: this very much assumes that you know what you're doing and
+    /// that you are certain that your date matches the period ID (ie, you
+    /// reconstituted it directly from the DB without modification).
+    let internal createWithFiscalPeriodId (entryDate: LocalDate) (fiscalPeriodId: FiscalPeriodId) : Result<EntryDate, AppError> =
+        { entryDate = entryDate; fiscalPeriod = fiscalPeriodId }
 
 type JournalEntryLineType = // REQ-JE-1.25
     | Debit

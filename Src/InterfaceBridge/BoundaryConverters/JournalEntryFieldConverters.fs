@@ -47,7 +47,7 @@ let ``convert JournalEntryLine to JournalEntryLineReturn``
         (model: JournalEntryLine)
         : Result<JournalEntryLineReturn, AppError> = result {
      let! accountCode = model |> JournalEntryLine.accountId |> ``convert AccountId to AccountCodeString``
-     return {   id = model |> JournalEntryLine.uniqueId
+     return {   id = model |> JournalEntryLine.journalEntryLineId
                 accountCode = accountCode
                 amount = model |> JournalEntryLine.amount |> Money.amount
                 lineType = model |> JournalEntryLine.lineType |> JournalEntryLineType.toString

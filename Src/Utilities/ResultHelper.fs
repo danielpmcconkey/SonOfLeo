@@ -1,4 +1,8 @@
-module InterfaceBridge.BoundaryConverters.GenericFieldHelpers
+module Utilities.ResultHelper
+
+open Utilities.AppError
+
+
 
 /// ``convert Option to Desired Type with Fallible Converter`` is a converter for dealing with
 /// arguments:

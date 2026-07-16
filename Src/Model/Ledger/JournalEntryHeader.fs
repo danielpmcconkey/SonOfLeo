@@ -1,12 +1,12 @@
 namespace Model.Ledger.Journaling
 
-open System
-open Model.Audit
 open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
+open Utilities.AppError
 open Utilities.ResultCE
 open Utilities.DAL
+open Utilities.ResultHelper
 
 type JournalEntryHeader =
   private  {    journalEntryId: JournalEntryId                     // REQ-JE-1.1, REQ-JE-1.2
@@ -25,47 +25,24 @@ module JournalEntryHeader =
     let voidedAt je = je.voidedAt
     let createdAt je = je.createdAt
     let modifiedAt je = je.modifiedAt
-
-    /// validateThenConstruct is your centralized constructor for assembling
-    /// and validating component types. all other constructors must
-    /// pass into this one
-    let private validateThenConstruct
-            (uniqueId: Guid)
-            (description: string)
-            (source: string option)
-            (entryDate: LocalDate)
-            (voidedAt: Instant option)
-            (createdAt: Instant)
-            (modifiedAt: Instant)
-            (transaction: DbTransaction option)
-            : Result<JournalEntryHeader, AppError> =
-        result {
-            let journalEntryId = uniqueId |> JournalEntryId.fromGuid
-            let! validDescription = JournalEntryDescription.create description
-            let! validSource =
-                match source with
-                | Some x -> JournalEntrySource.create x |> Result.map Some
-                | None -> Ok None
-            let! validEntryDate = entryDate |> EntryDate.create transaction
-            return { journalEntryId = journalEntryId; description = validDescription; source = validSource
-                     entryDate = validEntryDate; voidedAt = voidedAt; createdAt = createdAt
-                     modifiedAt = modifiedAt } }
-
-    let constructNew
-            (description: string)
-            (source: string option)
-            (entryDate: LocalDate)
-            (voidedAt: Instant option)
-            (auditEnvelope: AuditEnvelope)
-            (transaction: DbTransaction option)
-            : Result<JournalEntryHeader, AppError> =
-        let uniqueId = Guid.NewGuid() // REQ-JE-2.1
-        let now = AuditEnvelope.instant auditEnvelope
-        let createdAt =  now // REQ-SYS-3.2
-        let modifiedAt = now // REQ-SYS-3.2
-        validateThenConstruct uniqueId description source entryDate voidedAt createdAt modifiedAt transaction
     
-    let private insertNewToDb (journalEntry:JournalEntryHeader) (transaction: DbTransaction option): Result<unit, AppError> =
+    let create
+        (journalEntryId: JournalEntryId)
+        (description: JournalEntryDescription)
+        (source: JournalEntrySource option)
+        (entryDate: EntryDate)
+        (voidedAt: Instant option)
+        (createdAt: Instant)
+        (modifiedAt: Instant)
+        : JournalEntryHeader = {    journalEntryId = journalEntryId
+                                    description = description
+                                    source = source
+                                    entryDate = entryDate
+                                    voidedAt = voidedAt
+                                    createdAt = createdAt
+                                    modifiedAt = modifiedAt }
+    
+    let insertNewToDb (journalEntry:JournalEntryHeader) (transaction: DbTransaction option): Result<unit, AppError> =
         let query = """
             INSERT INTO ledger.journal_entry(
                 unique_id, description, je_source, entry_date, fiscal_period_id, voided_at, created_at, modified_at)
@@ -98,16 +75,32 @@ module JournalEntryHeader =
         ( row |> RowReader.getString "description" ),
         ( row |> RowReader.getStringOption "je_source" ),
         ( row |> RowReader.getDate "entry_date" ),
+        (row |> RowReader.getUuid "fiscal_period_id" ),
         ( row |> RowReader.getInstantOption "voided_at" ),
         ( row |> RowReader.getInstant "created_at" ),
         ( row |> RowReader.getInstant "modified_at" )
 
-    let private constructFromRawForDbRead
+    let private reconstitute
             (transaction: DbTransaction option)
             raw
             : Result<JournalEntryHeader, AppError> =
-        let id, description, jeSource, entryDate, voidedAt, createdAt, modifiedAt = raw
-        validateThenConstruct id description jeSource entryDate voidedAt createdAt modifiedAt transaction
+        let id, descriptionStr, jeSourceStr, entryDateLd, fiscalPeriodUuid, voidedAt, createdAt, modifiedAt = raw
+        let journalEntryId = id |> JournalEntryId.fromGuid
+        
+        
+        
+        // you are here. this shit sucks because you cannot reconstitute a fiscal period
+        // without reading the DB. So you're probably gonna join on the FP table, except
+        // that fucks up your whole join mechanism
+        
+        
+        
+        
+        result {
+            let! description = descriptionStr |> JournalEntryDescription.create
+            let! source = jeSourceStr |> ``convert Option to Desired Type with Fallible Converter`` JournalEntrySource.create
+            let! entryDate = entryDateLd |> EntryDate.create
+            return create journalEntryId description source entryDate voidedAt createdAt modifiedAt }
 
     let private readRowsFromDb
             (join: string option)
@@ -118,11 +111,7 @@ module JournalEntryHeader =
             (expectedRows: AcceptableExpectedRows)
             (transaction: DbTransaction option)
             : Result<JournalEntryHeader list, AppError> = 
-        (*
-         * Note, we intentionally don't pull the fiscal period ID because
-         * the FP is embedded into the EntryDate type
-         *)
-        let selectColumns = "je.unique_id, je.description, je.je_source, je.entry_date, je.voided_at, je.created_at, je.modified_at"
+        let selectColumns = "je.unique_id, je.description, je.je_source, je.entry_date, je.fiscal_period_id, je.voided_at, je.created_at, je.modified_at"
         let from = "ledger.journal_entry je"
         let query = buildReadQuery selectColumns from join predicate limit None orderBy
         executeReaderQuery query parameters mapRawForDbRead constructFromRawForDbRead expectedRows transaction
@@ -148,28 +137,3 @@ module JournalEntryHeader =
             let parameters = [{ name = "@fiscal_period_id"; value = UniqueId uuid };]
             return! readRowsFromDb None predicate None orderBy parameters AnyQuantityIsAcceptable transaction
         }
-    
-    let validateEntryDateIsInOpenFiscalPeriod
-            (transaction: DbTransaction option)
-            (entryDate: LocalDate)
-            : Result<unit, AppError> =
-        result {
-            let! validEntryDate = entryDate |> EntryDate.create transaction
-            return!
-                match validEntryDate |> EntryDate.fiscalPeriod |> FiscalPeriod.isOpen with
-                | true -> Ok ()
-                | false -> Error $"Entry date of {entryDate} is not associated to an open Fiscal Period." }
-
-    let constructNewAndSaveToDb
-            (description: string)
-            (source: string option)
-            (entryDate: LocalDate)
-            (voidedAt: Instant option)
-            (auditEnvelope: AuditEnvelope)
-            (transaction: DbTransaction option)
-            : Result<JournalEntryHeader, AppError> =
-        result {
-            do! entryDate |> validateEntryDateIsInOpenFiscalPeriod transaction // REQ-JE-2.7
-            let! validJournalEntry = constructNew description source entryDate voidedAt auditEnvelope transaction
-            let! () = insertNewToDb validJournalEntry transaction
-            return validJournalEntry }

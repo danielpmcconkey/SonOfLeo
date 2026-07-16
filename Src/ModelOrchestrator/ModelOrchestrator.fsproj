@@ -21,6 +21,8 @@
     <Compile Include="FiscalPeriodCreation.fs" />
     <Compile Include="JournalEntryCommentOrchestration.fs" />
     <Compile Include="JournalEntryExternalReferenceOrchestration.fs" />
+    <Compile Include="JournalEntryLineOrchestrator.fs" />
+    <Compile Include="JournalEntryHeaderOrchestration.fs" />
   </ItemGroup>
 
 </Project>

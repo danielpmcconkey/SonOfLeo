@@ -73,6 +73,9 @@ type AppError =
     | JournalEntryLineMemoTooLong of string * int
     | JournalEntryLineMemoIsEmpty of string
     | JournalEntryReferenceUpdateNoOp of unit
+    | JournalEntryLineNonPositiveAmount of decimal
+    | JournalEntryLineAccountDoesntExist of Guid
+    | JournalEntryHeaderEntryDateInvalid of LocalDate
     
 
 module AppError =
@@ -144,6 +147,9 @@ module AppError =
     | JournalEntryDateNotInFiscalPeriod entryDate -> $"Entry date {entryDate} is not associated to any recorded Fiscal Periods in the database."
     | JournalEntryLineTypeInvalid s -> $"Invalid JournalEntryLineType of {s}"
     | JournalEntryLineMemoTooLong (lineMemo, max) -> $"Journal Entry LineMemo cannot exceed {max} characters. Provided string is {lineMemo}."
-    | JournalEntryLineMemoIsEmpty lineMemo -> $"Journal Entry LineMemo cannot be empty. Provided string is {lineMemo}."
+    | JournalEntryLineMemoIsEmpty lineMemo -> $"Journal Entry Line Memo cannot be empty. Provided string is {lineMemo}."
     | JournalEntryReferenceUpdateNoOp _ -> "Updating the Journal Entry Reference record failed because at least one updatable parameter must be set."
+    | JournalEntryLineNonPositiveAmount amount -> $"Journal Entry Line Amount field ({amount}) cannot be less than or equal to 0.00."
+    | JournalEntryLineAccountDoesntExist uuid -> $"Account fetch on {uuid} returned zero rows while creating Journal Entry Line."
+    | JournalEntryHeaderEntryDateInvalid entryDate -> $"Entry date of {entryDate} is not associated to an open Fiscal Period."
     

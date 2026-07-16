@@ -86,7 +86,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             match createResult with
             | Ok je ->
                 idToCleanUp <- Some (je |> header |> JournalEntryHeader.journalEntryId)
-                let ids = je |> lines |> List.map JournalEntryLine.uniqueId
+                let ids = je |> lines |> List.map JournalEntryLine.journalEntryLineId
                 Assert.Equal(2, ids |> List.distinct |> List.length)
                 ids |> List.iter (fun id -> Assert.NotEqual(Guid.Empty, id))
             | Error e -> Assert.Fail e
@@ -453,7 +453,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     createdLines |> List.iter (fun cl ->
                         let fl =
                             fetchedLines |> List.find (fun fl ->
-                                JournalEntryLine.uniqueId fl = JournalEntryLine.uniqueId cl)
+                                JournalEntryLine.journalEntryLineId fl = JournalEntryLine.journalEntryLineId cl)
                         Assert.Equal(cl |> JournalEntryLine.journalEntryId, fl |> JournalEntryLine.journalEntryId)
                         Assert.Equal(cl |> JournalEntryLine.accountId, fl |> JournalEntryLine.accountId)
                         Assert.Equal(cl |> JournalEntryLine.amount, fl |> JournalEntryLine.amount)

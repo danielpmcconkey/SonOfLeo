@@ -1,27 +1,27 @@
 namespace Model.Ledger.Journaling
 
 open System
-open Model.Audit
-open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
 open Model
 open NodaTime
+open Utilities.AppError
 open Utilities.ResultCE
 open Utilities.DAL
+open Utilities.ResultHelper
 
 type JournalEntryLine =
-  private  {    uniqueId: Guid                                     // REQ-JE-1.20, REQ-JE-1.21
+  private  {    journalEntryLineId: JournalEntryLineId // REQ-JE-1.20, REQ-JE-1.21
                 journalEntryId: JournalEntryId
                 accountId: AccountId
                 amount: Money
                 lineType: JournalEntryLineType
-                memo: JournalEntryLineMemo option                              // REQ-JE-1.26
+                memo: JournalEntryLineMemo option // REQ-JE-1.26
                 createdAt: Instant
                 modifiedAt: Instant }
 
 module JournalEntryLine =
-    let uniqueId jel = jel.uniqueId
+    let journalEntryLineId jel = jel.journalEntryLineId
     let journalEntryId jel = jel.journalEntryId // REQ-JE-1.29
     let accountId jel = jel.accountId
     let amount jel = jel.amount // REQ-JE-1.23
@@ -30,68 +30,29 @@ module JournalEntryLine =
     let createdAt jel = jel.createdAt
     let modifiedAt jel = jel.modifiedAt
     
-    let validateAmount (m:Money) : Result<Money, AppError> =
-        if Money.amount m <= 0M // REQ-JE-1.24
-        then Error $"JEL amount fields cannot be less than or equal to 0.00"
-        else Ok m
+    let create
+        (journalEntryLineId: JournalEntryLineId)
+        (journalEntryId: JournalEntryId)
+        (accountId: AccountId)
+        (amount: Money)
+        (lineType: JournalEntryLineType)
+        (memo: JournalEntryLineMemo option)
+        (createdAt: Instant)
+        (modifiedAt: Instant)
+        : JournalEntryLine = {
+            journalEntryLineId = journalEntryLineId
+            journalEntryId = journalEntryId
+            accountId = accountId
+            amount = amount
+            lineType = lineType
+            memo = memo
+            createdAt = createdAt
+            modifiedAt = modifiedAt
+        }
     
-    let validateAccount (transaction: DbTransaction option)  (accountId: AccountId) : Result<unit, AppError> =
-        match accountId |> Account.fetchById transaction with
-        | Error e -> Error e
-        | Ok _ -> Ok ()
-
-    /// validateThenConstruct is your centralized constructor for assembling
-    /// and validating component types. all other constructors must
-    /// pass into this one
-    let private validateThenConstruct 
-            (uniqueId: Guid)
-            (journalEntryId: JournalEntryId)
-            (accountIdGuid: Guid)
-            (amount: decimal)
-            (lineType: string)
-            (memo: string option)
-            (createdAt: Instant)
-            (modifiedAt: Instant)
+    let insertNewToDb
             (transaction: DbTransaction option)
-            : Result<JournalEntryLine, AppError> =
-        result {
-            let accountId = accountIdGuid |> AccountId.fromGuid
-            do! accountId |> validateAccount transaction //REQ-JE-1.22
-            let! moneyAmount = amount |> Money.fromDecimal
-            let! validAmount = moneyAmount |> validateAmount
-            let! validType = lineType |> JournalEntryLineType.fromString
-            let! validMemo =
-                match memo with
-                | Some x -> JournalEntryLineMemo.create x |> Result.map Some
-                | None -> Ok None
-            let journalEntryId = journalEntryId |> JournalEntryId.fromGuid
-            return {    uniqueId = uniqueId
-                        journalEntryId = journalEntryId
-                        accountId = accountId
-                        amount = validAmount
-                        lineType = validType
-                        memo = validMemo
-                        createdAt = createdAt
-                        modifiedAt = modifiedAt } }
-
-    let constructNew
-            (journalEntryId: JournalEntryId)
-            (accountId: Guid)
-            (amount: decimal)
-            (lineType: string)
-            (memo: string option)
-            (auditEnvelope: AuditEnvelope)
-            (transaction: DbTransaction option)
-            : Result<JournalEntryLine, AppError> =        
-        let uniqueId = Guid.NewGuid() // REQ-JE-2.2
-        let now = AuditEnvelope.instant auditEnvelope
-        let createdAt =  now // REQ-SYS-3.2
-        let modifiedAt = now // REQ-SYS-3.2
-        validateThenConstruct uniqueId journalEntryId accountId amount lineType memo createdAt modifiedAt transaction
-    
-    let private insertNewToDb
             (journalEntryLine:JournalEntryLine)
-            (transaction: DbTransaction option)
             : Result<unit, AppError> =
         let query = """
             INSERT INTO ledger.journal_entry_line(
@@ -100,12 +61,13 @@ module JournalEntryLine =
             VALUES (
                 @unique_id, @journal_entry_id, @account_id, @amount, @line_type, 
                     @memo, @created_at, @modified_at );"""
+        let journalEntryLineUuid = journalEntryLine.journalEntryLineId |> JournalEntryLineId.value
         let journalEntryUuid = journalEntryLine.journalEntryId |> JournalEntryId.value
-        let accountIdGuid = journalEntryLine.accountId |> AccountId.value
+        let accountIdUuid = journalEntryLine.accountId |> AccountId.value
         let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
-            { name = "@unique_id"; value = UniqueId journalEntryLine.uniqueId }
+            { name = "@unique_id"; value = UniqueId journalEntryLineUuid }
             { name = "@journal_entry_id"; value = UniqueId journalEntryUuid }
-            { name = "@account_id"; value = UniqueId accountIdGuid }
+            { name = "@account_id"; value = UniqueId accountIdUuid }
             { name = "@amount"; value = Numeric (journalEntryLine.amount |> Money.amount) };
             { name = "@line_type"; value = CharString (journalEntryLine.lineType |> JournalEntryLineType.toString) };
             { name = "@memo"; value = NullableCharString (journalEntryLine.memo |> Option.map  JournalEntryLineMemo.value) };
@@ -113,21 +75,6 @@ module JournalEntryLine =
             { name = "@modified_at"; value = DbInstant journalEntryLine.modifiedAt };
         ]
         executeNonQuery query parameters ExactlyOne transaction
-
-    let constructNewAndSaveToDb
-            (journalEntryId: JournalEntryId)
-            (accountId: Guid)
-            (amount: decimal)
-            (lineType: string)
-            (memo: string option)
-            (auditEnvelope: AuditEnvelope)
-            (transaction: DbTransaction option)
-            : Result<JournalEntryLine, AppError> =
-        result {
-            let! validJournalEntryLine =
-                constructNew journalEntryId accountId amount lineType memo auditEnvelope transaction
-            let! () = insertNewToDb validJournalEntryLine transaction // REQ-
-            return validJournalEntryLine }
 
     /// The mapRow function is used to pass into DAL read functions to let DAL know
     /// how to map our query columns. Thus, we don't need to know anything about the
@@ -143,12 +90,28 @@ module JournalEntryLine =
             ( row |> RowReader.getInstant "created_at" ),
             ( row |> RowReader.getInstant "modified_at" )
 
-    let private constructFromRawForDbRead
-            (transaction: DbTransaction option)
+
+    /// reconstitute constructs from primitives, performing zero validation at
+    /// the collective level. All fields are assumed to have come from a
+    /// trusted source (e.g. the database) where such validation occurred at
+    /// the time of writing the entity. Important: no additional DB lookups can
+    /// be triggered inside this function since it is called within a database
+    /// reader.
+    let private reconstitute
+            (_transaction: DbTransaction option)
             raw
             : Result<JournalEntryLine, AppError> =
-        let id, jeId, accountId, amount, lineType, memo, createdAt, modifiedAt = raw
-        validateThenConstruct id jeId accountId amount lineType memo createdAt modifiedAt transaction
+        let id, jeId, accountId, amountDec, lineTypeStr, memoStrOpt, createdAt, modifiedAt = raw
+        let journalEntryLineId = id |> JournalEntryLineId.fromGuid
+        let journalEntryId = jeId |> JournalEntryId.fromGuid
+        let accountId = accountId |> AccountId.fromGuid
+        result {
+            let! amount = amountDec |> Money.fromDecimal
+            let! lineType = lineTypeStr |> JournalEntryLineType.fromString
+            let! memo =
+                memoStrOpt
+                |> ``convert Option to Desired Type with Fallible Converter`` JournalEntryLineMemo.create
+            return create journalEntryLineId journalEntryId accountId amount lineType memo createdAt modifiedAt }
 
     let private readRowsFromDb
             (join: string option)
@@ -162,7 +125,7 @@ module JournalEntryLine =
         let select = "jel.unique_id, jel.journal_entry_id, jel.account_id, jel.amount, jel.line_type, jel.memo, jel.created_at, jel.modified_at"
         let from = "ledger.journal_entry_line jel"
         let query = buildReadQuery select from join predicate limit None orderBy
-        executeReaderQuery query parameters mapRawForDbRead constructFromRawForDbRead expectedRows transaction
+        executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
 
     let fetchById
             (transaction: DbTransaction option)
@@ -176,9 +139,9 @@ module JournalEntryLine =
 
     let fetchByJournalEntryId
             (transaction: DbTransaction option)
-            (jeId: JournalEntryId)
+            (journalEntryId: JournalEntryId)
             : Result<JournalEntryLine list, AppError> = 
-        let uuid = jeId |> JournalEntryId.value
+        let uuid = journalEntryId |> JournalEntryId.value
         let predicate = "jel.journal_entry_id = @journal_entry_id"
         let parameters = [{ name = "@journal_entry_id"; value = UniqueId uuid };] // REQ-DAL-2.3
         let orderBy = "jel.created_at"
