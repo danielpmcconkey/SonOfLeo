@@ -298,7 +298,7 @@ module DAL =
             (query: string)
             (parameters: QueryParameter list)
             (mapRaw: RowReader -> 'Tuple) // REQ-DAL-3.2
-            (constructFromRaw: DbTransaction option -> 'Tuple -> Result<'T, AppError>)
+            (constructFromRaw: 'Tuple -> Result<'T, AppError>)
             (expectedRows: AcceptableExpectedRows)
             (transaction: DbTransaction option)
             : Result<'T list, AppError> =
@@ -320,7 +320,7 @@ module DAL =
                             parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
                             use nReader = command.ExecuteReader()
                             readRawRows nReader mapRaw []
-                        rawRows |> List.map (constructFromRaw transaction) |> ListHelper.listOfResultsToResultsList
+                        rawRows |> List.map constructFromRaw |> ListHelper.listOfResultsToResultsList
                     | Some t ->
                         let rawRows =
                             use command = new NpgsqlCommand(query, t.connection)
@@ -328,7 +328,7 @@ module DAL =
                             parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
                             use nReader = command.ExecuteReader()
                             readRawRows nReader mapRaw []
-                        rawRows |> List.map (constructFromRaw transaction) |> ListHelper.listOfResultsToResultsList
+                        rawRows |> List.map constructFromRaw |> ListHelper.listOfResultsToResultsList
                 with
                 | ex -> Error (DalErrorDuringReaderQueryExecution ex)
             let! () = validateNumRows rows.Length expectedRows // REQ-DAL-2.2

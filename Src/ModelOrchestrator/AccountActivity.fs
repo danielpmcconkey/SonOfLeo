@@ -4,36 +4,12 @@ open System
 open Model
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
+open ModelOrchestrator.FetchFilters
 open NodaTime
+open Utilities.AppError
 open Utilities.DAL
 open Utilities.ResultCE
 open Model.Ledger.FiscalPeriods
-
-type AccountActivitySort =
-    | AccountCode
-    | EntryDate
-
-type AccountActivityFilterDateRange = {
-    beginDate: LocalDate
-    endInclusive: LocalDate
-}
-
-type AccountActivityTemporalFilter =
-    | FiscalPeriodIdentifier of FiscalPeriodId
-    | DateRange of AccountActivityFilterDateRange
-
-type AccountActivityFilter = {
-    accountId: AccountId option
-    temporalFilter: AccountActivityTemporalFilter option
-    source: JournalEntrySource option
-    accountType: AccountType option
-    accountSubtype: AccountSubtype option
-    accountParentId: AccountId option
-    journalEntryId: Guid option
-    amount: Money option
-    description: JournalEntryDescription option
-    unVoidedOnly: bool
-}
 
 type AccountActivityDetail = {    lineId: Guid
                                   amount: Money
@@ -119,7 +95,7 @@ let private constructFromRawForDbRead _transaction raw =
 let fetchFiltered // REQ-JE-3.9
         (transaction: DbTransaction option)
         (filter: AccountActivityFilter)
-        (sort: AccountActivitySort option)
+        (sort: FetchSort option)
         : Result<AccountActivity list, AppError> =
     result {
         let! dateRange = 
@@ -135,8 +111,12 @@ let fetchFiltered // REQ-JE-3.9
         let sortClause =
             match sort with
             | None -> ""
-            | Some AccountCode -> "order by a.code"
-            | Some EntryDate -> "order by je.entry_date"
+            | Some AccountCodeAsc -> "order by a.code asc"
+            | Some AccountCodeDesc -> "order by a.code desc"
+            | Some EntryDateAsc -> "order by je.entry_date asc"
+            | Some EntryDateDesc -> "order by je.entry_date desc"
+            | Some AmountAsc -> "order by jel.amount asc"
+            | Some AmountDesc -> "order by jel.amount desc"
         let whereClausesAndParams =
             [
                 filter.accountId |> Option.map (

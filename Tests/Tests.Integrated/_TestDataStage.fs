@@ -151,7 +151,7 @@ type TestDataFixture() =
             let! basicJeHeader =
                 JournalEntryHeader.constructNewAndSaveToDb
                     "Fixture basic JE" (Some "Test") today None jeEnvelope None
-            let basicJeId = basicJeHeader |> JournalEntryHeader.journalEntryId
+            let basicJeId = basicJeHeader |> JournalEntryHeader.journalEntryHeaderId
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
                     basicJeId (mortgage2210Id |> AccountId.value) 100.00M "Debit" None jeEnvelope None
@@ -162,7 +162,7 @@ type TestDataFixture() =
             let! jeWithRefHeader =
                 JournalEntryHeader.constructNewAndSaveToDb
                     "Fixture JE with reference" (Some "TestImport") today None jeEnvelope None
-            let jeWithRefId = jeWithRefHeader |> JournalEntryHeader.journalEntryId
+            let jeWithRefId = jeWithRefHeader |> JournalEntryHeader.journalEntryHeaderId
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
                     jeWithRefId (rothIra1250Id |> AccountId.value) 50.00M "Debit" None jeEnvelope None
@@ -178,7 +178,7 @@ type TestDataFixture() =
             let! jeToVoidHeader =
                 JournalEntryHeader.constructNewAndSaveToDb
                     "Fixture voided JE" None today None jeEnvelope None
-            let jeToVoidId = jeToVoidHeader |> JournalEntryHeader.journalEntryId
+            let jeToVoidId = jeToVoidHeader |> JournalEntryHeader.journalEntryHeaderId
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
                     jeToVoidId (entertainment5650Id |> AccountId.value) 75.00M "Debit" None jeEnvelope None
@@ -191,7 +191,7 @@ type TestDataFixture() =
                 JournalEntryHeader.constructNewAndSaveToDb
                     "Fixture JE in closed period" None closedPeriodEntryDate None jeEnvelope None
             let jeInClosedPeriodId =
-                jeInClosedPeriodHeader |> JournalEntryHeader.journalEntryId
+                jeInClosedPeriodHeader |> JournalEntryHeader.journalEntryHeaderId
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
                     jeInClosedPeriodId (mortgage2210Id |> AccountId.value) 25.00M "Debit" None jeEnvelope None
@@ -230,7 +230,7 @@ type TestDataFixture() =
             let! sharedRefJe1Header =
                 JournalEntryHeader.constructNewAndSaveToDb
                     "Fixture shared-ref JE 1" (Some "Test") today None jeEnvelope None
-            let sharedRefJe1Id = sharedRefJe1Header |> JournalEntryHeader.journalEntryId
+            let sharedRefJe1Id = sharedRefJe1Header |> JournalEntryHeader.journalEntryHeaderId
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
                     sharedRefJe1Id (mortgage2210Id |> AccountId.value) 10.00M "Debit" None jeEnvelope None
@@ -244,7 +244,7 @@ type TestDataFixture() =
             let! sharedRefJe2Header =
                 JournalEntryHeader.constructNewAndSaveToDb
                     "Fixture shared-ref JE 2" (Some "Test") today None jeEnvelope None
-            let sharedRefJe2Id = sharedRefJe2Header |> JournalEntryHeader.journalEntryId
+            let sharedRefJe2Id = sharedRefJe2Header |> JournalEntryHeader.journalEntryHeaderId
             let! _ =
                 JournalEntryLine.constructNewAndSaveToDb
                     sharedRefJe2Id (mortgage2210Id |> AccountId.value) 20.00M "Debit" None jeEnvelope None
@@ -280,7 +280,7 @@ type TestDataFixture() =
                         let! victimHeader =
                             JournalEntryHeader.constructNewAndSaveToDb
                                 $"Fixture void victim {x}" None today None jeEnvelope None
-                        let victimId = victimHeader |> JournalEntryHeader.journalEntryId
+                        let victimId = victimHeader |> JournalEntryHeader.journalEntryHeaderId
                         let! _ =
                             JournalEntryLine.constructNewAndSaveToDb
                                 victimId (entertainment5650Id |> AccountId.value) 33.00M "Debit" None jeEnvelope None

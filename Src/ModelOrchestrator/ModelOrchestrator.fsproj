@@ -11,7 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="JournalEntryCreation.fs" />
+    <Compile Include="FetchFilterAndSort.fs" />
     <Compile Include="AccountDeactivation.fs" />
     <Compile Include="JournalEntryFetching.fs" />
     <Compile Include="JournalEntryVoiding.fs" />
@@ -21,8 +21,9 @@
     <Compile Include="FiscalPeriodCreation.fs" />
     <Compile Include="JournalEntryCommentOrchestration.fs" />
     <Compile Include="JournalEntryExternalReferenceOrchestration.fs" />
-    <Compile Include="JournalEntryLineOrchestrator.fs" />
+    <Compile Include="JournalEntryLineOrchestration.fs" />
     <Compile Include="JournalEntryHeaderOrchestration.fs" />
+    <Compile Include="JournalEntryOrchestration.fs" />
   </ItemGroup>
 
 </Project>

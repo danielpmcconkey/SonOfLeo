@@ -62,7 +62,7 @@ module Account =
     /// the time of writing the entity. Important: no additional DB lookups can
     /// be triggered inside this function since it is called within a database
     /// reader.
-    let private reconstitute _transaction raw = result {
+    let private reconstitute raw = result {
         let (uuid, codeString, nameString, accountTypeString, activeBegin, activeEnd,
              subtypeString, parentUuid, extRefString, createdAt, modifiedAt) = raw
         let accountId = uuid |> AccountId.fromGuid

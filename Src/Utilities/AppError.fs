@@ -76,6 +76,10 @@ type AppError =
     | JournalEntryLineNonPositiveAmount of decimal
     | JournalEntryLineAccountDoesntExist of Guid
     | JournalEntryHeaderEntryDateInvalid of LocalDate
+    | JournalEntryDebitCreditMismatch of decimal * decimal
+    | JournalEntryInsufficientLines of int
+    | JournalEntryLineAccountInactive of Guid * LocalDate * LocalDate * LocalDate Option
+    | JournalEntryFetchByReference of unit
     
 
 module AppError =
@@ -152,4 +156,10 @@ module AppError =
     | JournalEntryLineNonPositiveAmount amount -> $"Journal Entry Line Amount field ({amount}) cannot be less than or equal to 0.00."
     | JournalEntryLineAccountDoesntExist uuid -> $"Account fetch on {uuid} returned zero rows while creating Journal Entry Line."
     | JournalEntryHeaderEntryDateInvalid entryDate -> $"Entry date of {entryDate} is not associated to an open Fiscal Period."
+    | JournalEntryDebitCreditMismatch (debits, credits) -> $"The sum of all debit line amounts ({debits}) must exactly equal the sum of all credit line amounts ({credits})."
+    | JournalEntryInsufficientLines lineCount -> $"Insufficient number of lines ({lineCount}) for a journal entry. At least two are required."
+    | JournalEntryLineAccountInactive (uuid, entryDate, beginDate, endDate) ->
+        let endDateStr = match endDate with | Some x -> x.ToString() | None -> "None"
+        $"Account ({uuid}) is not active (begin {beginDate}; end {endDateStr}) relative to the Journal Entry's entry date ({entryDate})."
+    | JournalEntryFetchByReference _ -> "Both FI and reference cannot both be null when fetching by reference"
     

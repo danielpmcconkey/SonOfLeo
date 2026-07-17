@@ -33,7 +33,7 @@ let private voidById // REQ-JE-4.3
     """
     result {
         let! je = journalEntryId |> fetchById transaction
-        let fp = je |> entryDate |> EntryDate.fiscalPeriod
+        let fp = je |> entryDate |> EntryDate.fiscalPeriodId
         do! if fp |> FiscalPeriod.isOpen = false then Error "Cannot void a Journal Entry in a closed period" else Ok() // REQ-JE-4.5
         let! _ = executeNonQuery query parameters ExactlyOne transaction // REQ-JE-4.6
         return! journalEntryId |> fetchById transaction

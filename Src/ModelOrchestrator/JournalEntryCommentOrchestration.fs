@@ -9,27 +9,27 @@ open Utilities.ResultCE
     
 let validateJournalEntryHeader
         (transaction: DbTransaction option)
-        (journalEntryId: JournalEntryId) 
+        (journalEntryId: JournalEntryHeaderId) 
         : Result<unit, AppError> =
     journalEntryId |> JournalEntryHeader.fetchById transaction |> Result.map ignore
 
 let validatePrimaryAndSecondaryRelationship // REQ-JE-1.53
-        (primaryJournalEntryId: JournalEntryId)
-        (secondaryJournalEntryId: JournalEntryId option)
+        (primaryJournalEntryId: JournalEntryHeaderId)
+        (secondaryJournalEntryId: JournalEntryHeaderId option)
         : Result<unit, AppError> =
     match secondaryJournalEntryId with
     | None -> Ok ()
     | Some x ->
         if x = primaryJournalEntryId
         then
-            let primaryUuid = primaryJournalEntryId |> JournalEntryId.value
-            let secondaryUuid = x |> JournalEntryId.value
+            let primaryUuid = primaryJournalEntryId |> JournalEntryHeaderId.value
+            let secondaryUuid = x |> JournalEntryHeaderId.value
             Error (JournalEntryCommentPrimaryAndSecondaryIdsAreSame (primaryUuid, secondaryUuid))
         else Ok ()
 
 let constructNewAndSaveToDb // REQ-JE-5.1
-        (primaryJournalEntryId: JournalEntryId)
-        (secondaryJournalEntryId: JournalEntryId option)
+        (primaryJournalEntryId: JournalEntryHeaderId)
+        (secondaryJournalEntryId: JournalEntryHeaderId option)
         (commentText: CommentText)
         (auditEnvelope: AuditEnvelope)
         (transaction: DbTransaction option)
@@ -54,7 +54,7 @@ let updateComment // REQ-JE-5.3
         (auditEnvelope: AuditEnvelope)
         (journalEntryCommentId: JournalEntryCommentId)
         (commentUpdate: FieldUpdate<CommentText>)
-        (secondaryIdUpdate: FieldUpdate<JournalEntryId option>)
+        (secondaryIdUpdate: FieldUpdate<JournalEntryHeaderId option>)
         (transaction: DbTransaction option)
         : Result<JournalEntryComment, AppError> =        
     let commentUuid = journalEntryCommentId |> JournalEntryCommentId.value
@@ -83,7 +83,7 @@ let updateComment // REQ-JE-5.3
                 match validSecondaryId with
                 | NoChange -> None
                 | SetTo x ->
-                    let validUuidOption = x |> Option.map JournalEntryId.value
+                    let validUuidOption = x |> Option.map JournalEntryHeaderId.value
                     Some (", journal_secondary_entry_id = @journal_secondary_entry_id",
                           { name = "@journal_secondary_entry_id"; value = NullableUniqueId validUuidOption })
             ] |> List.choose id

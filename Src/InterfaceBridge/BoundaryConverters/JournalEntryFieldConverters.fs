@@ -107,7 +107,7 @@ let ``convert JournalEntryInput to JournalEntryPrimitives``
 let ``convert JournalEntryHeader to JournalEntryHeaderReturn``
         (model: JournalEntryHeader)
         : JournalEntryHeaderReturn = {
-    id = model |> JournalEntryHeader.journalEntryId
+    id = model |> JournalEntryHeader.journalEntryHeaderId
     description = model |> JournalEntryHeader.description |> JournalEntryDescription.value
     source = model |> JournalEntryHeader.source |> Option.map(fun x -> x |> JournalEntrySource.value)
     entryDate = model |> JournalEntryHeader.entryDate |> EntryDate.entryDate

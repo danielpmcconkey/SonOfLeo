@@ -12,7 +12,7 @@ open Utilities.ResultHelper
 
 type JournalEntryLine =
   private  {    journalEntryLineId: JournalEntryLineId // REQ-JE-1.20, REQ-JE-1.21
-                journalEntryId: JournalEntryId
+                journalEntryId: JournalEntryHeaderId
                 accountId: AccountId
                 amount: Money
                 lineType: JournalEntryLineType
@@ -32,7 +32,7 @@ module JournalEntryLine =
     
     let create
         (journalEntryLineId: JournalEntryLineId)
-        (journalEntryId: JournalEntryId)
+        (journalEntryId: JournalEntryHeaderId)
         (accountId: AccountId)
         (amount: Money)
         (lineType: JournalEntryLineType)
@@ -62,7 +62,7 @@ module JournalEntryLine =
                 @unique_id, @journal_entry_id, @account_id, @amount, @line_type, 
                     @memo, @created_at, @modified_at );"""
         let journalEntryLineUuid = journalEntryLine.journalEntryLineId |> JournalEntryLineId.value
-        let journalEntryUuid = journalEntryLine.journalEntryId |> JournalEntryId.value
+        let journalEntryUuid = journalEntryLine.journalEntryId |> JournalEntryHeaderId.value
         let accountIdUuid = journalEntryLine.accountId |> AccountId.value
         let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
             { name = "@unique_id"; value = UniqueId journalEntryLineUuid }
@@ -98,12 +98,11 @@ module JournalEntryLine =
     /// be triggered inside this function since it is called within a database
     /// reader.
     let private reconstitute
-            (_transaction: DbTransaction option)
             raw
             : Result<JournalEntryLine, AppError> =
         let id, jeId, accountId, amountDec, lineTypeStr, memoStrOpt, createdAt, modifiedAt = raw
         let journalEntryLineId = id |> JournalEntryLineId.fromGuid
-        let journalEntryId = jeId |> JournalEntryId.fromGuid
+        let journalEntryId = jeId |> JournalEntryHeaderId.fromGuid
         let accountId = accountId |> AccountId.fromGuid
         result {
             let! amount = amountDec |> Money.fromDecimal
@@ -139,9 +138,9 @@ module JournalEntryLine =
 
     let fetchByJournalEntryId
             (transaction: DbTransaction option)
-            (journalEntryId: JournalEntryId)
+            (journalEntryId: JournalEntryHeaderId)
             : Result<JournalEntryLine list, AppError> = 
-        let uuid = journalEntryId |> JournalEntryId.value
+        let uuid = journalEntryId |> JournalEntryHeaderId.value
         let predicate = "jel.journal_entry_id = @journal_entry_id"
         let parameters = [{ name = "@journal_entry_id"; value = UniqueId uuid };] // REQ-DAL-2.3
         let orderBy = "jel.created_at"

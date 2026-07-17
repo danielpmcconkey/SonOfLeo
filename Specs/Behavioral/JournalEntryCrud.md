@@ -84,6 +84,7 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-2.11** When posting a journal entry, if all validations pass, the system must persist the header, all lines, and all external references atomically in a single database transaction, and return the fully constructed journal entry with all generated IDs and timestamps.
 - **REQ-JE-2.12** When posting a journal entry, if any validation fails, no rows may be persisted (atomicity).
 - **REQ-JE-2.13** The system must provide a means to post a new journal entry.
+- **REQ-JE-2.14** The system must not allow the creation of a new journal entry that is already voided.
 
 
 ## 3. Read behaviors

@@ -7,8 +7,8 @@ open Utilities.DAL
 
 type JournalEntryComment =
   private  {    journalEntryCommentId: JournalEntryCommentId // REQ-JE-1.50
-                primaryJournalEntryId: JournalEntryId // REQ-JE-1.51
-                secondaryJournalEntryId: JournalEntryId option // REQ-JE-1.52
+                primaryJournalEntryId: JournalEntryHeaderId // REQ-JE-1.51
+                secondaryJournalEntryId: JournalEntryHeaderId option // REQ-JE-1.52
                 commentText: CommentText
                 createdAt: Instant
                 modifiedAt: Instant }
@@ -23,8 +23,8 @@ module JournalEntryComment =
 
     let create
         (journalEntryCommentId: JournalEntryCommentId) // REQ-JE-5.2
-        (primaryJournalEntryId: JournalEntryId) // REQ-JE-5.1
-        (secondaryJournalEntryId: JournalEntryId option) // REQ-JE-5.1
+        (primaryJournalEntryId: JournalEntryHeaderId) // REQ-JE-5.1
+        (secondaryJournalEntryId: JournalEntryHeaderId option) // REQ-JE-5.1
         (commentText: CommentText)
         (createdAt: Instant) // REQ-JE-5.2
         (modifiedAt: Instant) // REQ-JE-5.2
@@ -43,8 +43,8 @@ module JournalEntryComment =
             VALUES (
                 @unique_id, @journal_primary_entry_id, @journal_secondary_entry_id, @comment_text, @created_at, @modified_at);"""
         let commentUuid = comment.journalEntryCommentId |> JournalEntryCommentId.value
-        let primaryUuid = comment.primaryJournalEntryId |> JournalEntryId.value
-        let secondaryUuid = comment.secondaryJournalEntryId |> Option.map JournalEntryId.value
+        let primaryUuid = comment.primaryJournalEntryId |> JournalEntryHeaderId.value
+        let secondaryUuid = comment.secondaryJournalEntryId |> Option.map JournalEntryHeaderId.value
         let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
             { name = "@unique_id"; value = UniqueId commentUuid }
             { name = "@journal_primary_entry_id"; value = UniqueId primaryUuid }
@@ -75,13 +75,12 @@ module JournalEntryComment =
     /// be triggered inside this function since it is called within a database
     /// reader.
     let private reconstitute
-            (_transaction: DbTransaction option)
             raw
             : Result<JournalEntryComment, AppError> =
         let id, primaryJeId, secondaryJeId, commentTextStr, createdAt, modifiedAt = raw
         let journalEntryCommentId = id |> JournalEntryCommentId.fromGuid
-        let primaryJournalEntryId = primaryJeId |> JournalEntryId.fromGuid
-        let secondaryJournalEntryId = secondaryJeId |> Option.map JournalEntryId.fromGuid
+        let primaryJournalEntryId = primaryJeId |> JournalEntryHeaderId.fromGuid
+        let secondaryJournalEntryId = secondaryJeId |> Option.map JournalEntryHeaderId.fromGuid
         let commentTextResult = commentTextStr |> CommentText.create
         match commentTextResult with
         | Error e -> Error e
@@ -124,9 +123,9 @@ module JournalEntryComment =
     /// instant
     let fetchByJournalEntryId
             (transaction: DbTransaction option)
-            (journalEntryId: JournalEntryId)
+            (journalEntryId: JournalEntryHeaderId)
             : Result<JournalEntryComment list, AppError> = 
-        let uuid = journalEntryId |> JournalEntryId.value
+        let uuid = journalEntryId |> JournalEntryHeaderId.value
         let predicate = "jec.journal_primary_entry_id = @unique_id or jec.journal_secondary_entry_id = @unique_id"
         let parameters = [{ name = "@unique_id"; value = UniqueId uuid };] // REQ-DAL-2.3
         let orderBy = "created_at"

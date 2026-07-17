@@ -76,7 +76,7 @@ module FiscalPeriod =
             ( row |> RowReader.getInstant "created_at" ),
             ( row |> RowReader.getInstant "modified_at" )
     
-    let private reconstitute _transaction raw =
+    let private reconstitute raw =
         let id, key, startDate, endDate, isOpen, createdAt, modifiedAt = raw
         Ok {    fiscalPeriodId = id |> FiscalPeriodId.fromGuid
                 periodKey = key |> FiscalPeriodKey.reconstitute
@@ -113,7 +113,7 @@ module FiscalPeriod =
     let fetchIdByKey (transaction: DbTransaction option) (key: string) : Result<FiscalPeriodId, AppError> =
         let mapRaw (row: RowReader) =
             (row |> RowReader.getUuid "unique_id"),()
-        let constructFromRaw _transaction raw =
+        let constructFromRaw raw =
             let id, _ = raw
             Ok id
         let query = "select unique_id from ledger.fiscal_period where period_key = @period_key"

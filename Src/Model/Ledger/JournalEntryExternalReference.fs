@@ -10,7 +10,7 @@ open Utilities.ResultCE
 
 type JournalEntryExternalReference =
   private  {    journalEntryExternalReferenceId: JournalEntryExternalReferenceId // REQ-JE-1.40
-                journalEntryId: JournalEntryId // REQ-JE-1.41
+                journalEntryId: JournalEntryHeaderId // REQ-JE-1.41
                 financialInstitution: JournalRefFinancialInstitution // REQ-JE-1.42
                 referenceText: JournalExternalReferenceText
                 createdAt: Instant
@@ -26,7 +26,7 @@ module JournalEntryExternalReference =
     
     let create
         (journalEntryExternalReferenceId: JournalEntryExternalReferenceId)
-        (journalEntryId: JournalEntryId)
+        (journalEntryId: JournalEntryHeaderId)
         (financialInstitution: JournalRefFinancialInstitution)
         (referenceText: JournalExternalReferenceText)
         (createdAt: Instant) // REQ-SYS-3.2
@@ -46,7 +46,7 @@ module JournalEntryExternalReference =
             VALUES (
                 @unique_id, @journal_entry_id, @financial_institution, @reference, @created_at, @modified_at);"""
         let journalEntryExternalReferenceUuid = externalReference.journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
-        let journalEntryUuid = externalReference.journalEntryId |> JournalEntryId.value
+        let journalEntryUuid = externalReference.journalEntryId |> JournalEntryHeaderId.value
         let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
             { name = "@unique_id"; value = UniqueId journalEntryExternalReferenceUuid }
             { name = "@journal_entry_id"; value = UniqueId journalEntryUuid }
@@ -77,12 +77,11 @@ module JournalEntryExternalReference =
     /// be triggered inside this function since it is called within a database
     /// reader.
     let private reconstitute
-            (_transaction: DbTransaction option)
             raw
             : Result<JournalEntryExternalReference, AppError> =
         let uuid, journalEntryUuid, financialInstitutionStr, referenceTextStr, createdAt, modifiedAt = raw
         let journalEntryExternalReferenceId = uuid |> JournalEntryExternalReferenceId.fromGuid
-        let journalEntryId = journalEntryUuid |> JournalEntryId.fromGuid
+        let journalEntryId = journalEntryUuid |> JournalEntryHeaderId.fromGuid
         result {
             let! financialInstitution = financialInstitutionStr |> JournalRefFinancialInstitution.create
             let! referenceText = referenceTextStr |> JournalExternalReferenceText.create
@@ -120,9 +119,9 @@ module JournalEntryExternalReference =
 
     let fetchByJournalEntryId
             (transaction: DbTransaction option)
-            (journalEntryId: JournalEntryId)
+            (journalEntryId: JournalEntryHeaderId)
             : Result<JournalEntryExternalReference list, AppError> = 
-        let uuid = journalEntryId |> JournalEntryId.value
+        let uuid = journalEntryId |> JournalEntryHeaderId.value
         let predicate = "jer.journal_entry_id = @unique_id"
         let parameters = [{ name = "@unique_id"; value = UniqueId uuid };] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None None parameters AnyQuantityIsAcceptable transaction

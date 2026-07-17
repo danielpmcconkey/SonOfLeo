@@ -1,4 +1,4 @@
-module ModelOrchestrator.JournalEntryLineOrchestrator
+module ModelOrchestrator.JournalEntryLineOrchestration
 
     open Model
     open Model.Audit
@@ -22,7 +22,7 @@ module ModelOrchestrator.JournalEntryLineOrchestrator
         | Ok _ -> Ok ()
 
     let constructNewAndSaveToDb
-            (journalEntryId: JournalEntryId)
+            (journalEntryId: JournalEntryHeaderId)
             (accountId: AccountId)
             (amount: Money)
             (lineType: JournalEntryLineType)

@@ -1,6 +1,5 @@
 module ModelOrchestrator.JournalEntryExternalReferenceOrchestration
 
-open System
 open Model.Audit
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
@@ -12,28 +11,25 @@ open Utilities.ResultCE
     
 let validateJournalEntryHeader
         (transaction: DbTransaction option)
-        (journalEntryId: JournalEntryId) 
+        (journalEntryId: JournalEntryHeaderId) 
         : Result<unit, AppError> =
     journalEntryId |> JournalEntryHeader.fetchById transaction |> Result.map ignore
     
 let constructNewAndSaveToDb
-        (journalEntryUuid: Guid)
-        (financialInstitutionStr: string)
-        (referenceTextStr: string)
+        (journalEntryHeaderId: JournalEntryHeaderId)
+        (financialInstitution: JournalRefFinancialInstitution)
+        (referenceText: JournalExternalReferenceText)
         (auditEnvelope: AuditEnvelope)
         (transaction: DbTransaction option)
         : Result<JournalEntryExternalReference, AppError> =
     let journalEntryExternalReferenceId = JournalEntryExternalReferenceId.create ()
-    let journalEntryId = journalEntryUuid |> JournalEntryId.fromGuid
     let now = AuditEnvelope.instant auditEnvelope
     let createdAt =  now // REQ-SYS-3.2
     let modifiedAt = now // REQ-SYS-3.2
     result {
-        let! financialInstitution = financialInstitutionStr |> JournalRefFinancialInstitution.create
-        let! referenceText = referenceTextStr |> JournalExternalReferenceText.create
-        do! journalEntryId |> validateJournalEntryHeader transaction |> Result.map ignore
+        do! journalEntryHeaderId |> validateJournalEntryHeader transaction |> Result.map ignore
         let journalExternalReference =
-            JournalEntryExternalReference.create journalEntryExternalReferenceId journalEntryId financialInstitution
+            JournalEntryExternalReference.create journalEntryExternalReferenceId journalEntryHeaderId financialInstitution
                 referenceText createdAt modifiedAt
         do! JournalEntryExternalReference.insertNewToDb journalExternalReference transaction
         return journalExternalReference }

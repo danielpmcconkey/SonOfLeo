@@ -24,7 +24,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let result = fixture.Data.basicJeId |> fetchById
         match result with
         | Ok je ->
-            Assert.Equal(fixture.Data.basicJeId, je |> header |> JournalEntryHeader.journalEntryId)
+            Assert.Equal(fixture.Data.basicJeId, je |> header |> JournalEntryHeader.journalEntryHeaderId)
             Assert.Equal("Fixture basic JE", je |> header |> JournalEntryHeader.description |> JournalEntryDescription.value)
         | Error e -> Assert.Fail e
 
@@ -86,7 +86,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let result = fetchByReference (Some "TestBank") (Some "TXN-001")
         match result with
         | Ok entries ->
-            let entryIds = entries |> List.map (fun je -> je |> header |> JournalEntryHeader.journalEntryId)
+            let entryIds = entries |> List.map (fun je -> je |> header |> JournalEntryHeader.journalEntryHeaderId)
             Assert.Contains(fixture.Data.jeWithRefId, entryIds)
         | Error e -> Assert.Fail e
 
@@ -95,7 +95,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let result = fetchByReference (Some "SharedBank") (Some "F-SHARED-001")
         match result with
         | Ok entries ->
-            let entryIds = entries |> List.map (fun je -> je |> header |> JournalEntryHeader.journalEntryId)
+            let entryIds = entries |> List.map (fun je -> je |> header |> JournalEntryHeader.journalEntryHeaderId)
             Assert.Contains(fixture.Data.sharedRefJe1Id, entryIds)
             Assert.Contains(fixture.Data.sharedRefJe2Id, entryIds)
         | Error e -> Assert.Fail e
@@ -112,7 +112,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let result = fetchByReference (Some "TestBank") None
         match result with
         | Ok entries ->
-            let entryIds = entries |> List.map (fun je -> je |> header |> JournalEntryHeader.journalEntryId)
+            let entryIds = entries |> List.map (fun je -> je |> header |> JournalEntryHeader.journalEntryHeaderId)
             Assert.Contains(fixture.Data.jeWithRefId, entryIds)
         | Error e -> Assert.Fail e
 
@@ -121,7 +121,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let result = fetchByReference (Some "SharedBank") None
         match result with
         | Ok entries ->
-            let entryIds = entries |> List.map (fun je -> je |> header |> JournalEntryHeader.journalEntryId)
+            let entryIds = entries |> List.map (fun je -> je |> header |> JournalEntryHeader.journalEntryHeaderId)
             Assert.Contains(fixture.Data.sharedRefJe1Id, entryIds)
             Assert.Contains(fixture.Data.sharedRefJe2Id, entryIds)
         | Error e -> Assert.Fail e

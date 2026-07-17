@@ -7,11 +7,11 @@ open Utilities.DAL
 open NodaTime
 open Utilities.ResultCE
 
-type JournalEntryId = private JournalEntryId of Guid
-module JournalEntryId =
-    let create () : JournalEntryId = (JournalEntryId (Guid.NewGuid()))
-    let fromGuid g = JournalEntryId g
-    let value (JournalEntryId g) : Guid = g
+type JournalEntryHeaderId = private JournalEntryHeaderId of Guid
+module JournalEntryHeaderId =
+    let create () : JournalEntryHeaderId = (JournalEntryHeaderId (Guid.NewGuid()))
+    let fromGuid g = JournalEntryHeaderId g
+    let value (JournalEntryHeaderId g) : Guid = g
 
 type JournalEntryLineId = private JournalEntryLineId of Guid
 module JournalEntryLineId =
@@ -87,12 +87,12 @@ module JournalEntrySource =
 
 type EntryDate =
   private  {    entryDate: LocalDate // REQ-JE-1.10
-                fiscalPeriod: FiscalPeriod
+                fiscalPeriodId: FiscalPeriodId
   }
 
 module EntryDate =
     let entryDate (e:EntryDate) : LocalDate = e.entryDate
-    let fiscalPeriod (e:EntryDate) : FiscalPeriod = e.fiscalPeriod
+    let fiscalPeriodId (e:EntryDate) : FiscalPeriodId = e.fiscalPeriodId
     let create (transaction: DbTransaction option) (entryDate: LocalDate) : Result<EntryDate, AppError> = // REQ-JE-2.5
         let monthF = entryDate.Month.ToString("D2")
         result {
@@ -101,9 +101,8 @@ module EntryDate =
                 key
                 |> FiscalPeriod.fetchIdByKey transaction // REQ-JE-2.6
                 |> Result.mapError(fun _ -> (JournalEntryDateNotInFiscalPeriod entryDate) )
-            let! fp = id |> FiscalPeriod.fetchById transaction
-            return { entryDate = entryDate; fiscalPeriod = fp }
-        }
+            return { entryDate = entryDate; fiscalPeriodId = id } }
+        
     /// createWithFiscalPeriodId is used by functions in the model who are
     /// already have what they believe is a valid FP ID. We use this so we can
     /// avoid a DB lookup in the middle of a spooling DB read.
@@ -111,8 +110,11 @@ module EntryDate =
     /// WARNING: this very much assumes that you know what you're doing and
     /// that you are certain that your date matches the period ID (ie, you
     /// reconstituted it directly from the DB without modification).
-    let internal createWithFiscalPeriodId (entryDate: LocalDate) (fiscalPeriodId: FiscalPeriodId) : Result<EntryDate, AppError> =
-        { entryDate = entryDate; fiscalPeriod = fiscalPeriodId }
+    let internal createWithFiscalPeriodId
+            (entryDate: LocalDate)
+            (fiscalPeriodId: FiscalPeriodId)
+            : EntryDate =
+        { entryDate = entryDate; fiscalPeriodId = fiscalPeriodId }
 
 type JournalEntryLineType = // REQ-JE-1.25
     | Debit
