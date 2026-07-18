@@ -1,16 +1,17 @@
 module Model.LookupCache
 
 open System
+open Utilities.AppError
 open Utilities.DAL
 open Utilities.ResultCE
 
 type Cache<'K, 'V when 'K : comparison> (
-    loadAll : unit -> Result<Map<'K, 'V>, string>,
-    loadOne: 'K -> Result<'V, string>
+    loadAll : unit -> Result<Map<'K, 'V>, AppError>,
+    loadOne: 'K -> Result<'V, AppError>
     ) =
     let mutable cache =
-        loadAll() |> Result.defaultWith failwith
-    member _.fetch (key: 'K) : Result<'V, string> =
+        loadAll() |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+    member _.fetch (key: 'K) : Result<'V, AppError> =
         match cache |> Map.tryFind key with
         | Some v -> Ok v
         | None ->
@@ -30,9 +31,10 @@ let mapRawForDbRead
     let key = row |> RowReader.getString fieldNameKey
     id, key
 
-let constructFromRawForDbRead _transaction raw =
+let constructFromRawForDbRead (raw: Guid * string) : Result<idAndString, AppError> =
     let id, key = raw
     Ok { id = id; key = key }
+
 
 let accountCodeToId = Cache<string, Guid>(
     (fun () ->
@@ -63,7 +65,7 @@ let accountIdToCode = Cache<Guid, string>(
 let fiscalPeriodKeyToId = Cache<string, Guid>(
     (fun () ->
         let query = "select unique_id, period_key from ledger.fiscal_period"
-        result {
+        result { //     executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
             let! rows = executeReaderQuery query [] (mapRawForDbRead "unique_id" "period_key") constructFromRawForDbRead AnyQuantityIsAcceptable None
             return rows |> List.map (fun x -> x.key, x.id) |> Map.ofList } ),
     (fun periodKey -> 

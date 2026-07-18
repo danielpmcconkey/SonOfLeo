@@ -22,9 +22,9 @@ module Money =
     let fromDecimal (raw: decimal) : Result<Money, AppError> = // REQ-MON-2.2
         let rounded = Math.Round(raw, 2, MidpointRounding.AwayFromZero) // REQ-MON-1.4, REQ-MON-2.2.1
         match rounded with
-        | x when x <> raw -> Error $"Failed to convert {raw} to Money record due to improper decimal precision" // REQ-MON-1.4, REQ-MON-2.2.1
-        | x when x > maxMoney -> Error $"Failed to convert {raw} to Money record as value exceeds the maximum allowable value of {maxMoney}" // REQ-MON-1.2, REQ-MON-2.2.1
-        | x when x < minMoney -> Error $"Failed to convert {raw} to Money record as value falls below the minimum allowable value of {minMoney}" // REQ-MON-1.3, REQ-MON-2.2.1
+        | x when x <> raw -> Error (MoneyFailedToConvertImproperPrecision raw) // REQ-MON-1.4, REQ-MON-2.2.1
+        | x when x > maxMoney -> Error (MoneyFailedToConvertExceededMax (raw, maxMoney)) // REQ-MON-1.2, REQ-MON-2.2.1
+        | x when x < minMoney -> Error (MoneyFailedToConvertBelowMin (raw, minMoney)) // REQ-MON-1.3, REQ-MON-2.2.1
         | _ -> Ok (create raw)
     
     let fromDecimalList (l: decimal list) : Result<Money list, AppError> = // REQ-MON-2.3
@@ -39,9 +39,7 @@ module Money =
     /// greater the possibility for the residual to grow.
     let splitByN (m: Money) (n: int) : Result<Money list, AppError> =  // REQ-MON-2.4
         match n with
-        | a when a < 0 -> Error "Cannot split money negative ways" // REQ-MON-2.4.6
-        | 0 -> Error "Cannot split money when 0 ways" // REQ-MON-2.4.2
-        | 1 -> Error "Cannot split money 1 way" // REQ-MON-2.4.3
+        | a when a <= 1 -> Error (MoneyImproperSplit a) // REQ-MON-2.4.6, REQ-MON-2.4.2, REQ-MON-2.4.3
         | _ ->
             let fractions = Math.Round(m.amount / decimal n, 2, MidpointRounding.AwayFromZero) // REQ-MON-2.4.4
             let diff = (fractions * decimal n) - m.amount
@@ -50,9 +48,8 @@ module Money =
             result {
                 let dList = firstShare :: List.replicate (n - 1) remainingShares // REQ-MON-2.4.5
                 let sumTotal = dList |> List.sum 
-                do! if sumTotal = amount m then Ok () else Error $"sum of all shares {sumTotal} does not match original amount {amount m}" // REQ-MON-2.4.1
-                return! fromDecimalList dList
-            }
+                do! if sumTotal = amount m then Ok () else Error (MoneySplitFailedReconciliation (sumTotal, amount m)) // REQ-MON-2.4.1
+                return! fromDecimalList dList }
     
     let add (m: Money) (n: Money): Result<Money, AppError> = // REQ-MON-2.5
         fromDecimal (m.amount + n.amount) // REQ-MON-2.5.1

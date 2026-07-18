@@ -6,6 +6,7 @@ open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
 open Utilities
+open Utilities.AppError
 open Utilities.DAL
 open Utilities.ResultCE
 
@@ -28,7 +29,7 @@ let private mapRawForDbRead (row: RowReader) : Guid * string * string * decimal 
     ( row |> RowReader.getString "account_type" ),
     ( row |> RowReader.getNumeric "sum_at_type" )
             
-let private constructFromRawForDbRead _transaction
+let private reconstitute 
         (raw:Guid * string * string * decimal)
         : Result<AccountBalanceComponent, AppError> =
     let accountIdGuid, lineType, accountType, sumAtType = raw
@@ -46,7 +47,7 @@ let fetchByAccountIdList // REQ-JE-3.6
             (asOf: LocalDate option) // REQ-JE-3.6.2
             : Result<AccountBalance list, AppError> =
     match accountIds with
-    | [] -> Error "fetchByAccountIdList requires at least one account ID"
+    | [] -> Error (AccountBalanceFetchInvalidArguments ())
     | _ ->
         let asOfParam, asOfJoin =
             match asOf with
@@ -95,7 +96,7 @@ let fetchByAccountIdList // REQ-JE-3.6
         result {
             let! moneyZero = Money.fromDecimal 0M
             let! components = executeReaderQuery query parameters
-                                  mapRawForDbRead constructFromRawForDbRead
+                                  mapRawForDbRead reconstitute
                                   AnyQuantityIsAcceptable transaction
             let balances =
                 components

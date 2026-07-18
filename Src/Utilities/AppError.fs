@@ -53,6 +53,13 @@ type AppError =
     | AccountParentIsInactive of Guid
     | AccountParentAndChildTypesDontMatch of string * string
     | AccountUpdateNoOp of unit
+    | AccountBalanceFetchInvalidArguments of unit
+    | AccountDeactivationProposedDateIsInvalid of Guid * LocalDate * LocalDate
+    | AccountActiveChildrenBeforeDeactivation of Guid
+    | AccountNonZeroBalanceBeforeDeactivation of Guid * decimal * decimal
+    | AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate of Guid
+    | AccountDeactivationFailedJournalEntryValidation of unit
+    | AccountAlreadyInactive of Guid * LocalDate
     
     | FiscalPeriodInvalidKeyString of string
     | FiscalPeriodNoPeriodMatchingKey of string
@@ -82,7 +89,13 @@ type AppError =
     | JournalEntryFetchByReference of unit
     | JournalEntryVoidingCannotFetchFiscalPeriod of LocalDate * Guid
     | JournalEntryVoidingFiscalPeriodIsClosed of LocalDate * Guid
-    | JournalEntryVoidingNoOp of Guid 
+    | JournalEntryVoidingNoOp of Guid
+    
+    | MoneyFailedToConvertImproperPrecision of decimal
+    | MoneyFailedToConvertExceededMax of decimal * decimal
+    | MoneyFailedToConvertBelowMin of decimal * decimal
+    | MoneyImproperSplit of int
+    | MoneySplitFailedReconciliation of decimal * decimal
     
 
 module AppError =
@@ -136,7 +149,14 @@ module AppError =
     | AccountParentIsInactive uuid -> $"Parent account {uuid} failed \"is active\" check."
     | AccountParentAndChildTypesDontMatch (parent, child) -> $"Parent ({parent}) and child ({child}) account types do not match."
     | AccountUpdateNoOp _ -> "Updating the account record failed because at least one updatable parameter must be set."
-    
+    | AccountBalanceFetchInvalidArguments _ -> "fetchByAccountIdList requires at least one account ID"
+    | AccountDeactivationProposedDateIsInvalid (uuid, proposedDate, beginDate) -> $"Deactivating account {uuid} failed because the active end ({proposedDate}) would be before the active begin ({beginDate})"
+    | AccountActiveChildrenBeforeDeactivation uuid -> $"Account {uuid} deactivation failed because one or more child account records is active."
+    | AccountNonZeroBalanceBeforeDeactivation (uuid, debits, credits) -> $"The Account {uuid} cannot be deactivated as it has a non-zero balance. Total debits: {debits}. Total credits: {credits}."
+    | AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate uuid -> $"Account {uuid} cannot be deactivated as it has one or more Journal Entries dated after the deactivation date."
+    | AccountDeactivationFailedJournalEntryValidation _ -> "Failed to validate the Account's Journal Entries prior to deactivation"
+    | AccountAlreadyInactive (uuid, endDate) -> $"Account {uuid} deactivation failed because active end is already set to {endDate}."
+
     | FiscalPeriodInvalidKeyString key -> $"Passed string \"{key}\" is invalid as a Period Key."
     | FiscalPeriodNoPeriodMatchingKey key -> $"No Fiscal Period matching {key} could be found in the database."
     
@@ -168,4 +188,10 @@ module AppError =
     | JournalEntryVoidingCannotFetchFiscalPeriod (entryDate, fiscalPeriodId) -> $"Could not fetch a FiscalPeriod row from the database for the fiscal period ID of {fiscalPeriodId}, which was fetched using the entry date of {entryDate}."
     | JournalEntryVoidingFiscalPeriodIsClosed (entryDate, fiscalPeriodId) -> $"Can not void a Journal Entry whose FiscalPeriod is already closed. FiscalPeriodId of {fiscalPeriodId}, which was fetched using the entry date of {entryDate}."
     | JournalEntryVoidingNoOp uuid -> $"Attempting to void Journal Entry ({uuid}) resulted in zero rows updated. Either the UUID is wrong or the entry is already voided."
+    
+    | MoneyFailedToConvertImproperPrecision raw -> $"Failed to convert {raw} to Money record due to improper decimal precision."
+    | MoneyFailedToConvertExceededMax (raw, max)-> $"Failed to convert {raw} to Money record as value exceeds the maximum allowable value of {max}."
+    | MoneyFailedToConvertBelowMin (raw, min) -> $"Failed to convert {raw} to Money record as value falls below the minimum allowable value of {min}."
+    | MoneyImproperSplit n -> $"Improper Money split of {n}. Money can only be split by a positive integer, greater than 1."
+    | MoneySplitFailedReconciliation (originalAmount, sumTotal) -> $"Sum of all shares {sumTotal} does not match original amount {originalAmount}."
     

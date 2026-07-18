@@ -10,14 +10,15 @@ open Utilities.AppError
 open Utilities.DAL
 open Utilities.ResultCE
 open Model.Ledger.FiscalPeriods
+open Utilities.ResultHelper
 
-type AccountActivityDetail = {    lineId: Guid
+type AccountActivityDetail = {    lineId: JournalEntryLineId
                                   amount: Money
                                   lineType: JournalEntryLineType
                                   lineMemo: JournalEntryLineMemo option
                                   lineCreatedAt: Instant
                                   lineModifiedAt: Instant 
-                                  journalEntryId: Guid
+                                  journalEntryHeaderId: JournalEntryHeaderId
                                   entryDate: LocalDate
                                   journalEntryDescription: JournalEntryDescription
                                   journalEntrySource: JournalEntrySource option
@@ -52,24 +53,26 @@ let private mapRawForDbRead (row: RowReader)  =
         ( row |> RowReader.getStringOption "je_source" ),
         ( row |> RowReader.getInstantOption "je_voided_at" )
 
-let private constructFromRawForDbRead _transaction raw =
+let private reconstitute raw =
 
     let accountUuid, accountCodeString, accountNameString, accountTypeString, accountSubtypeString, accountParentUuid,
-        accountExternalRefString, lineId, amountDecimal, lineTypeString, lineMemoString, lineCreatedAt, lineModifiedAt,
-        journalEntryId, entryDate, journalEntryDescriptionString, journalEntrySourceString, journalEntryVoidedAt = raw
+        accountExternalRefString, lineUuid, amountDecimal, lineTypeString, lineMemoString, lineCreatedAt, lineModifiedAt,
+        journalEntryUuid, entryDate, journalEntryDescriptionString, journalEntrySourceString, journalEntryVoidedAt = raw
+    let accountId = accountUuid |> AccountId.fromGuid
+    let accountParentId = accountParentUuid |> Option.map(AccountId.fromGuid)
+    let lineId = lineUuid |> Option.map JournalEntryLineId.fromGuid
+    let journalEntryHeaderId = journalEntryUuid |> Option.map JournalEntryHeaderId.fromGuid
     result {
-        let accountId = accountUuid |> AccountId.fromGuid
-        let accountParentId = accountParentUuid |> Option.map(AccountId.fromGuid)
         let! accountCode = accountCodeString |> AccountCode.create 
         let! accountName = accountNameString |> AccountName.create 
         let! accountType = accountTypeString |> AccountType.fromString 
-        let! accountSubtype = match accountSubtypeString with None -> Ok None | Some x -> x |> AccountSubtype.fromString |> Result.map Some
-        let! accountExternalRef = match accountExternalRefString with None -> Ok None | Some x -> x |> AccountExternalReference.create |> Result.map Some
-        let! amount = match amountDecimal with None -> Ok None | Some x -> x |> Money.fromDecimal |> Result.map Some
-        let! lineType = match lineTypeString with None -> Ok None | Some x -> x |> JournalEntryLineType.fromString |> Result.map Some
-        let! lineMemo = match lineMemoString with None -> Ok None | Some x -> x |> JournalEntryLineMemo.create |> Result.map Some
-        let! journalEntryDescription = match journalEntryDescriptionString with None -> Ok None | Some x -> x |> JournalEntryDescription.create |> Result.map Some
-        let! journalEntrySource = match journalEntrySourceString with None -> Ok None | Some x -> x |> JournalEntrySource.create |> Result.map Some
+        let! accountSubtype = accountSubtypeString |> ``convert Option to Desired Type with Fallible Converter`` AccountSubtype.fromString
+        let! accountExternalRef = accountExternalRefString |> ``convert Option to Desired Type with Fallible Converter`` AccountExternalReference.create
+        let! amount = amountDecimal |> ``convert Option to Desired Type with Fallible Converter`` Money.fromDecimal
+        let! lineType = lineTypeString |> ``convert Option to Desired Type with Fallible Converter`` JournalEntryLineType.fromString
+        let! lineMemo = lineMemoString |> ``convert Option to Desired Type with Fallible Converter`` JournalEntryLineMemo.create
+        let! journalEntryDescription = journalEntryDescriptionString |> ``convert Option to Desired Type with Fallible Converter`` JournalEntryDescription.create
+        let! journalEntrySource = journalEntrySourceString |> ``convert Option to Desired Type with Fallible Converter`` JournalEntrySource.create
         return {  accountId = accountId
                   accountCode = accountCode
                   accountName = accountName
@@ -86,7 +89,7 @@ let private constructFromRawForDbRead _transaction raw =
                                               lineMemo = lineMemo
                                               lineCreatedAt = lineCreatedAt |> Option.get 
                                               lineModifiedAt = lineModifiedAt |> Option.get 
-                                              journalEntryId = journalEntryId |> Option.get 
+                                              journalEntryHeaderId = journalEntryHeaderId |> Option.get
                                               entryDate = entryDate |> Option.get 
                                               journalEntryDescription = journalEntryDescription |> Option.get 
                                               journalEntrySource = journalEntrySource
@@ -176,6 +179,6 @@ let fetchFiltered // REQ-JE-3.9
             {voidClause}
             {sortClause}
             """
-        return! executeReaderQuery query parameters mapRawForDbRead constructFromRawForDbRead AnyQuantityIsAcceptable transaction
+        return! executeReaderQuery query parameters mapRawForDbRead reconstitute AnyQuantityIsAcceptable transaction
     }
     
