@@ -8,41 +8,41 @@ open Model.Ledger.Accounts.Account
 open Model.Ledger.Accounts.AccountComponent
 open ModelOrchestrator
 open ModelOrchestrator.AccountActivity
-open Utilities
-open Utilities.ResultCE
 open InterfaceBridge.Json
 open InterfaceBridge.CommandRoute
+open Utilities.ResultHelper
     
 let private accountCreate payload _ =
     result {
         let! accountCreateInput = Json.fromJson<AccountCreateInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
         let envelope = AuditEnvelope.create AccountCreate
-        let! parentId = accountCreateInput.parentCode |> ``convert AccountCodeString Option to AccountUuidOption``
-        let! account = constructNewAndSaveToDb
-                         accountCreateInput.code
-                         accountCreateInput.name
-                         accountCreateInput.accountTypeSt
-                         accountCreateInput.activeBegin
-                         accountCreateInput.activeEnd
-                         accountCreateInput.subType
+        let! code = accountCreateInput.code |> AccountCode.create
+        let! name = accountCreateInput.name |> AccountName.create
+        let! accountType = accountCreateInput.accountTypeSt |> AccountType.fromString
+        let! accountActivityPeriod = AccountActivityPeriod.create accountCreateInput.activeBegin accountCreateInput.activeEnd
+        let! subtype = accountCreateInput.subType |> ``convert AccountSubtypeString Option to AccountSubtype Option``
+        let! parentId = accountCreateInput.parentCode |> ``convert AccountCodeString Option to AccountId Option``
+        let! reference = accountCreateInput.reference |> ``convert [Account Reference String Option] to [AccountExternalReference Option]``
+        let! account = AccountCreation.constructNewAndSaveToDb
+                         code
+                         name
+                         accountType
+                         accountActivityPeriod
+                         subtype
                          parentId
-                         accountCreateInput.reference
+                         reference
                          envelope
                          None
-        let! returnAccount = ``convert Account to AccountReturn`` account
+        let! returnAccount = account |> ``convert Account to AccountReturn``
         return! Json.toJson<AccountReturn> returnAccount } // REQ-NGUI-2.4, REQ-NGUI-3.5
 
 let private accountDeactivate payload _ =
+    let envelope = AuditEnvelope.create AccountDeactivation
     result {
-        let! accountDeactivation = Json.fromJson<AccountDeactivationInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
-        let envelope = AuditEnvelope.create AccountDeactivation
-        let! id = accountDeactivation.code |> ``convert AccountCodeString to Id``
-        let! deactivatedAccount =
-            id
-            |> ModelOrchestrator.AccountDeactivation.deactivateAccountById
-                 (Some accountDeactivation.activeEnd)
-                 envelope
-                 None
+        let! accountDeactivationInput = Json.fromJson<AccountDeactivationInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
+        
+        let! account = accountDeactivationInput.code |> ``convert AccountCodeString to Account`` None
+        let! deactivatedAccount = account |> AccountDeactivation.deactivateAccount None envelope accountDeactivationInput.activeEnd
         let! returnAccount = ``convert Account to AccountReturn`` deactivatedAccount
         return! Json.toJson<AccountReturn> returnAccount } // REQ-NGUI-2.4, REQ-NGUI-3.5
 
@@ -81,7 +81,7 @@ let private accountFetchByParentCode payload _ =
         let! accountFetch = Json.fromJson<AccountFetchByParentCodeInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let! parentId = accountFetch.parentCode |> ``convert AccountCodeString to Id``
         let! accounts = parentId |> fetchByParentId None
-        let! returnAccounts = accounts |> List.map(``convert Account to AccountReturn``) |> ListHelper.listOfResultsToResultsList
+        let! returnAccounts = accounts |> List.map(``convert Account to AccountReturn``) |> convertListOfResultsToResultsList
         return! Json.toJson<AccountReturn list> returnAccounts } // REQ-NGUI-2.4, REQ-NGUI-3.5
 
 let private accountFetchByAccountType payload _ =
@@ -89,25 +89,21 @@ let private accountFetchByAccountType payload _ =
         let! accountFetch = Json.fromJson<AccountFetchByAccountTypeInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         let! validType = AccountType.fromString accountFetch.accountTypeSt
         let! accounts = fetchByAccountType None validType
-        let! returnAccounts = accounts |> List.map(``convert Account to AccountReturn``) |> ListHelper.listOfResultsToResultsList
+        let! returnAccounts = accounts |> List.map(``convert Account to AccountReturn``) |> convertListOfResultsToResultsList
         return! Json.toJson<AccountReturn list> returnAccounts } // REQ-NGUI-2.4, REQ-NGUI-3.5
 
 let private accountFetchAll payload _ =
     result {
         let! accountFetch = Json.fromJson<AccountFetchAllInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
         let! accounts = fetchAll accountFetch.activeOnly None
-        let! returnAccounts = accounts |> List.map(``convert Account to AccountReturn``) |> ListHelper.listOfResultsToResultsList
+        let! returnAccounts = accounts |> List.map(``convert Account to AccountReturn``) |> convertListOfResultsToResultsList
         return! Json.toJson<AccountReturn list> returnAccounts } // REQ-NGUI-2.4, REQ-NGUI-3.5
 
 let private accountActivityFetch payload _ =
     result {
         let! input = Json.fromJson<AccountActivityFetchInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
         let! filter = input.filter |> ``convert AccountActivityFilterInput to AccountActivityFilter``
-        let sort = input.sort |> Option.map (fun x -> 
-            match x with
-            | AccountActivitySortInput.AccountCode -> AccountActivitySort.AccountCode
-            | AccountActivitySortInput.EntryDate -> AccountActivitySort.EntryDate )
-        let! fetched = fetchFiltered None filter sort
+        let! fetched = fetchFiltered None filter input.sort
         let! returnList = fetched |> ``convert AccountActivity List to AccountActivityReturn List``
         return! returnList |> Json.toJson<AccountActivityReturn list> } // REQ-NGUI-2.4, REQ-NGUI-3.5
 
@@ -119,7 +115,7 @@ let private accountBalancesFetch payload _ = // REQ-JE-3.6
         let! returnList =
             accountBalances
             |> List.map (fun accountBalance -> accountBalance |> ``convert AccountBalance to AccountBalanceReturn`` )
-            |> ListHelper.listOfResultsToResultsList
+            |> convertListOfResultsToResultsList
         return! returnList |> Json.toJson<AccountBalanceReturn list> } // REQ-NGUI-2.4, REQ-NGUI-3.5
 
 let accountDomainCommandRoutes : CommandRoute list = [

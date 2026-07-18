@@ -2,11 +2,7 @@ module InterfaceBridge.InterfaceContracts.JournalContracts
 
 open System
 open NodaTime
-open Utilities.DAL
-    
-// ****************************************
-// JOURNAL ENTRY DOMAIN
-// ****************************************
+open Utilities.FieldUpdate
 
 type JournalEntryLineInput = { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
     accountCode: string
@@ -60,6 +56,7 @@ type JournalEntryExternalReferenceReturn = { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, RE
 
 type JournalEntryCommentReturn = { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
     id: Guid
+    primaryJournalEntryId: Guid
     secondaryJournalEntryId: Guid option
     commentText: string
     createdAt: Instant
@@ -76,7 +73,7 @@ type JournalEntryFetchByPeriodInput = { periodKey: string } // REQ-NGUI-2.1, REQ
 type JournalEntryFetchLinesByAccountInput = { accountCode: string; nonVoidedOnly: bool } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
 type JournalEntryFetchByExternalReferenceInput = { fi: string option; reference: string option } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
 type JournalEntryVoidInput = { id: Guid; reason: JournalEntryCommentInput } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
-type JournalEntryUpdateExternalReferenceInput = { id: Guid; fi: string; reference: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+type JournalEntryUpdateExternalReferenceInput = { id: Guid; fi: string option; reference: string option } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
 type JournalEntryAddExternalReferenceInput = { journalEntryId: Guid; reference: JournalEntryExternalReferenceInput } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
 type JournalEntryAddCommentInput = { journalEntryId: Guid; comment: JournalEntryCommentInput } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
 type JournalEntryUpdateCommentInput = { id: Guid; secondaryJournalEntryId: FieldUpdate<Guid option>; commentText: FieldUpdate<string> } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2

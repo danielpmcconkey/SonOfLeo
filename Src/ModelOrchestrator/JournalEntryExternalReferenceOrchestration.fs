@@ -5,6 +5,7 @@ open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
 open Utilities.DAL
+open Utilities.FieldUpdate
 open Utilities.ResultHelper
     
 let validateJournalEntryHeader
@@ -33,11 +34,11 @@ let constructNewAndSaveToDb
         return journalExternalReference }
         
 let updateFiAndReferenceText // REQ-JE-4.9
+        (transaction: DbTransaction option)
         (auditEnvelope: AuditEnvelope)
-        (journalEntryExternalReferenceId: JournalEntryExternalReferenceId)
         (fiUpdate: FieldUpdate<JournalRefFinancialInstitution>)
         (referenceUpdate: FieldUpdate<JournalExternalReferenceText>)
-        (transaction: DbTransaction option)
+        (journalEntryExternalReferenceId: JournalEntryExternalReferenceId)
         : Result<JournalEntryExternalReference, AppError> = 
     let uuid = journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
     let baseParams = [

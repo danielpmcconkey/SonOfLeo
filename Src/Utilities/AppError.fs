@@ -97,6 +97,11 @@ type AppError =
     | MoneyImproperSplit of int
     | MoneySplitFailedReconciliation of decimal * decimal
     
+    | InterfaceBridgeFailedJsonDeserialization of string * string * string
+    | InterfaceBridgeFailedJsonSerialization of string * string * string
+    | InterfaceBridgeConversionFailure of string * string * string * string
+    
+    | CliUnknownCommand of string * string
 
 module AppError =
     let toMessage = function
@@ -195,3 +200,8 @@ module AppError =
     | MoneyImproperSplit n -> $"Improper Money split of {n}. Money can only be split by a positive integer, greater than 1."
     | MoneySplitFailedReconciliation (originalAmount, sumTotal) -> $"Sum of all shares {sumTotal} does not match original amount {originalAmount}."
     
+    | InterfaceBridgeFailedJsonDeserialization (typeName, error, stackTrace) -> $"Failed to deserialize JSON string into type {typeName}. {error}{Environment.NewLine}{stackTrace}"
+    | InterfaceBridgeFailedJsonSerialization (typeName, error, stackTrace) -> $"Failed to serialize JSON string into type {typeName}. {error}{Environment.NewLine}{stackTrace}"
+    | InterfaceBridgeConversionFailure (originalType, originalValue, desiredType, childError) -> $"Failed conversion in InterfaceBridge. Original type: {originalType}. Desired type: {desiredType}. Original value: {originalValue}. Additional details: {childError}"
+    
+    | CliUnknownCommand (domain, verb) -> $"Unknown command: {domain} {verb}"

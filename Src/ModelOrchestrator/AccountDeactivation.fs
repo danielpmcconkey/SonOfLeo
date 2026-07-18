@@ -119,9 +119,9 @@ let private confirmJournalEntriesAreInProperState
 /// explicitEnd, the system will update the active_end to that explicit time.
 /// Otherwise, the active_end will be the system clock time 
 let deactivateAccount
-        (explicitEnd: LocalDate option)
-        (auditEnvelope: AuditEnvelope)
         (transaction: DbTransaction option)
+        (auditEnvelope: AuditEnvelope)
+        (explicitEnd: LocalDate option)
         (account: Account)
         : Result<Account, AppError> = // REQ-AC-4.1
     let accountId = account |> Account.accountId

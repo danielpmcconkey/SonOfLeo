@@ -59,7 +59,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
                              fixture.Data.basicJeId None "Timestamp test" envelope (Some transaction)
             match result with
             | Ok c ->
-                Assert.NotEqual(Guid.Empty, c |> JournalEntryComment.uniqueId)
+                Assert.NotEqual(Guid.Empty, c |> JournalEntryComment.journalEntryCommentId)
                 Assert.Equal(expectedInstant, c |> JournalEntryComment.createdAt)
                 Assert.Equal(expectedInstant, c |> JournalEntryComment.modifiedAt)
             | Error e -> Assert.Fail e
@@ -198,11 +198,11 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             | Error e -> Assert.Fail e
             | Ok created ->
                 // fetch inside the same transaction — the create is never committed
-                let fetchResult = created |> JournalEntryComment.uniqueId |> JournalEntryComment.fetchById (Some transaction)
+                let fetchResult = created |> JournalEntryComment.journalEntryCommentId |> JournalEntryComment.fetchById (Some transaction)
                 match fetchResult with
                 | Error e -> Assert.Fail $"Fetch after creation failed: {e}"
                 | Ok fetched ->
-                    Assert.Equal(created |> JournalEntryComment.uniqueId, fetched |> JournalEntryComment.uniqueId)
+                    Assert.Equal(created |> JournalEntryComment.journalEntryCommentId, fetched |> JournalEntryComment.journalEntryCommentId)
                     Assert.Equal(created |> JournalEntryComment.primaryJournalEntryId, fetched |> JournalEntryComment.primaryJournalEntryId)
                     Assert.Equal(created |> JournalEntryComment.secondaryJournalEntryId, fetched |> JournalEntryComment.secondaryJournalEntryId)
                     Assert.Equal(

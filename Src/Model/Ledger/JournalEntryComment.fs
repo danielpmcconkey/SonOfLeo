@@ -14,7 +14,7 @@ type JournalEntryComment =
                 modifiedAt: Instant }
 
 module JournalEntryComment =
-    let uniqueId jec = jec.journalEntryCommentId
+    let journalEntryCommentId jec = jec.journalEntryCommentId
     let primaryJournalEntryId jec = jec.primaryJournalEntryId
     let secondaryJournalEntryId jec = jec.secondaryJournalEntryId
     let commentText jec = jec.commentText

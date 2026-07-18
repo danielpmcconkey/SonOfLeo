@@ -489,7 +489,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     createdComments |> List.iter (fun cc ->
                         let fc =
                             fetchedComments |> List.find (fun fc ->
-                                JournalEntryComment.uniqueId fc = JournalEntryComment.uniqueId cc)
+                                JournalEntryComment.journalEntryCommentId fc = JournalEntryComment.journalEntryCommentId cc)
                         Assert.Equal(
                             cc |> JournalEntryComment.primaryJournalEntryId,
                             fc |> JournalEntryComment.primaryJournalEntryId)

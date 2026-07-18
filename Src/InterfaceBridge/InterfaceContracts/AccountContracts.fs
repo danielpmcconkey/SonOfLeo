@@ -1,6 +1,7 @@
 module InterfaceBridge.InterfaceContracts.AccountContracts
 
-open Model.Ledger.FiscalPeriods
+open InterfaceBridge.InterfaceContracts.SharedContracts
+open ModelOrchestrator.FetchFilters
 open NodaTime
 open System
 
@@ -66,21 +67,10 @@ type AccountFetchByCodeInput = { code: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1,
 type AccountFetchByParentCodeInput = { parentCode: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
 type AccountFetchByAccountTypeInput = { accountTypeSt: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
 type AccountFetchAllInput = { activeOnly: bool; } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
-type AccountActivitySortInput =
-    | AccountCode
-    | EntryDate
-type AccountActivityFilterDateRangeInput = { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
-    beginDate: LocalDate
-    endInclusive: LocalDate
-}
-
-type AccountActivityTemporalFilterInput = // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
-    | PeriodKey of string
-    | DateRange of AccountActivityFilterDateRangeInput
 
 type AccountActivityFilterInput = { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
     accountCode: string option
-    temporalFilter: AccountActivityTemporalFilterInput option
+    temporalFilter: TemporalFilterInput option
     source: string option
     accountType: string option
     accountSubtype: string option
@@ -91,7 +81,7 @@ type AccountActivityFilterInput = { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.
     unVoidedOnly: bool
 }
 
-type AccountActivityFetchInput = { filter: AccountActivityFilterInput; sort: AccountActivitySortInput option } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+type AccountActivityFetchInput = { filter: AccountActivityFilterInput; sort: FetchSort option } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
 
 type AccountBalanceFetchByAccountListInput = { codes: string list; asOf: LocalDate option } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
 
@@ -99,7 +89,7 @@ type AccountBalanceFetchByAccountListInput = { codes: string list; asOf: LocalDa
 // UPDATE
 // ****************************************
 
-type AccountDeactivationInput = { code: string; activeEnd: LocalDate } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+type AccountDeactivationInput = { code: string; activeEnd: LocalDate option } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
 type AccountUpdateNameInput = { code: string; newName: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
 type AccountUpdateExternalReferenceInput = { code: string; newReference: string option } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
     

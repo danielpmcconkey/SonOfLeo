@@ -3,51 +3,49 @@ module InterfaceBridge.BoundaryConverters.JournalEntryFieldConverters
 open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.InterfaceContracts.JournalContracts
 open Model
-open Model.Ledger.JournalEntryPrimitives
+open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
-open InterfaceBridge.BoundaryConverters.GenericFieldHelpers
 open ModelOrchestrator.JournalEntries
-open Utilities
-open Utilities.ResultCE
+open Utilities.AppError
+open Utilities.ResultHelper
 
 let ``convert JeDescriptionString Option to JeDescription Option``
         (stringOption: string option)
         : Result<JournalEntryDescription option, AppError> =
     let fallibleConverter = (fun string -> string |> JournalEntryDescription.create)
     stringOption
-    |> ``convert Option to Desired Type with Fallible Converter`` fallibleConverter
+    |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
 let ``convert JeSourceString Option to JeSource Option``
         (stringOption: string option)
         : Result<JournalEntrySource option, AppError> =
     let fallibleConverter = (fun string -> string |> JournalEntrySource.create)
     stringOption
-    |> ``convert Option to Desired Type with Fallible Converter`` fallibleConverter
+    |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
 let ``convert JournalEntryLineInput to JournalEntryLinePrimitives``
         (input: JournalEntryLineInput)
-        : Result<JournalEntryLinePrimitives, AppError> =
+        : Result<AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option, AppError> =
     result {
-        let! accountId = input.accountCode |> ``convert AccountCodeString to AccountUuid``
-        return {
-                accountId = accountId
-                amount = input.amount
-                lineType = input.lineType
-                memo = input.memo } }
+        let! accountId = input.accountCode |> ``convert AccountCodeString to Id``
+        let! amount = input.amount |> Money.fromDecimal
+        let! lineType = input.lineType |> JournalEntryLineType.fromString
+        let! memo = input.memo |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
+        return (accountId, amount, lineType, memo) }
 
-let ``convert JournalEntryLineInput list to JournalEntryLinePrimitives list``
+let ``convert [JournalEntryLineInput list] to [JournalEntryLinePrimitives list]``
         (input: JournalEntryLineInput list)
-        : Result<JournalEntryLinePrimitives list, AppError> =
+        : Result<(AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option) list, AppError> =
     input
     |> List.map(fun x -> x |> ``convert JournalEntryLineInput to JournalEntryLinePrimitives``)
-    |> ListHelper.listOfResultsToResultsList
+    |> convertListOfResultsToResultsList
 
 let ``convert JournalEntryLine to JournalEntryLineReturn``
         (model: JournalEntryLine)
         : Result<JournalEntryLineReturn, AppError> = result {
      let! accountCode = model |> JournalEntryLine.accountId |> ``convert AccountId to AccountCodeString``
-     return {   id = model |> JournalEntryLine.journalEntryLineId
+     return {   id = model |> JournalEntryLine.journalEntryLineId |> JournalEntryLineId.value 
                 accountCode = accountCode
                 amount = model |> JournalEntryLine.amount |> Money.amount
                 lineType = model |> JournalEntryLine.lineType |> JournalEntryLineType.toString
@@ -60,54 +58,62 @@ let ``convert JournalEntryLine list to JournalEntryLineReturn list``
         : Result<JournalEntryLineReturn list, AppError> =
     input
     |> List.map(fun x -> x |> ``convert JournalEntryLine to JournalEntryLineReturn``)
-    |> ListHelper.listOfResultsToResultsList
+    |> convertListOfResultsToResultsList
 
-let ``convert JournalEntryExternalReferenceInput to JournalEntryExternalReferencePrimitives``
+let ``convert [JournalEntryExternalReferenceInput] to [JournalEntryExternalReferencePrimitives]``
         (input: JournalEntryExternalReferenceInput)
-        : JournalEntryExternalReferencePrimitives = {
-    financialInstitution = input.financialInstitution 
-    referenceText = input.referenceText }
+        : Result<JournalRefFinancialInstitution * JournalExternalReferenceText, AppError> =
+    result {
+        let! fi = input.financialInstitution |> JournalRefFinancialInstitution.create
+        let! reference = input.referenceText |> JournalExternalReferenceText.create
+        return (fi, reference) }
 
-let ``convert JournalEntryExternalReferenceInput list to JournalEntryExternalReferencePrimitives list``
+let ``convert [JournalEntryExternalReferenceInput list] to [JournalEntryExternalReferencePrimitives list]``
         (input: JournalEntryExternalReferenceInput list)
-        : JournalEntryExternalReferencePrimitives list =
-    input |> List.map(fun x -> x |> ``convert JournalEntryExternalReferenceInput to JournalEntryExternalReferencePrimitives``)
+        : Result<(JournalRefFinancialInstitution * JournalExternalReferenceText) list, AppError> =
+    input
+    |> List.map(fun x -> x |> ``convert [JournalEntryExternalReferenceInput] to [JournalEntryExternalReferencePrimitives]``)
+    |> convertListOfResultsToResultsList
 
-let ``convert JournalEntryCommentInput to JournalEntryCommentPrimitives``
+let ``convert [JournalEntryCommentInput] to [JournalEntryCommentPrimitives]``
         (input: JournalEntryCommentInput)
-        : JournalEntryCommentPrimitives = {
-    secondaryJournalEntryId = input.secondaryJournalEntryId
-    commentText = input.commentText }
+        : Result<JournalEntryHeaderId option * CommentText, AppError> =
+    result {
+        let secondaryJournalEntryId = input.secondaryJournalEntryId |> Option.map JournalEntryHeaderId.fromGuid
+        let! commentText = input.commentText |> CommentText.create 
+        return secondaryJournalEntryId, commentText }
 
-let ``convert JournalEntryCommentInput list to JournalEntryCommentPrimitives list``
+let ``convert [JournalEntryCommentInput list] to [JournalEntryCommentPrimitives list]``
         (input: JournalEntryCommentInput list)
-        : JournalEntryCommentPrimitives list = 
-    input |> List.map(fun x -> x |> ``convert JournalEntryCommentInput to JournalEntryCommentPrimitives``)
+        : Result<(JournalEntryHeaderId option * CommentText) list, AppError> = 
+    input
+    |> List.map(fun x -> x |> ``convert [JournalEntryCommentInput] to [JournalEntryCommentPrimitives]``)
+    |> convertListOfResultsToResultsList
 
-let ``convert JournalEntryHeaderInput to JournalEntryHeaderPrimitives`` 
-        (input: JournalEntryHeaderInput)
-        : JournalEntryHeaderPrimitives = {
-    description = input.description
-    source = input.source
-    entryDate = input.entryDate
-    voidedAt = None } // creating a new JE that's been pre-voided is against the rules
+// let ``convert JournalEntryHeaderInput to JournalEntryHeaderPrimitives`` 
+//         (input: JournalEntryHeaderInput)
+//         : JournalEntryHeaderPrimitives = {
+//     description = input.description
+//     source = input.source
+//     entryDate = input.entryDate
+//     voidedAt = None } // creating a new JE that's been pre-voided is against the rules
 
-let ``convert JournalEntryInput to JournalEntryPrimitives``
-        (input: JournalEntryInput)
-        : Result<JournalEntryPrimitives, AppError> = result {
-    let! lines = input.lines |> ``convert JournalEntryLineInput list to JournalEntryLinePrimitives list``
-    return { header = input.header |> ``convert JournalEntryHeaderInput to JournalEntryHeaderPrimitives``
-             lines = lines
-             externalReferences =
-                 input.externalReferences
-                 |> ``convert JournalEntryExternalReferenceInput list to JournalEntryExternalReferencePrimitives list``
-             comments =
-                 input.comments |> ``convert JournalEntryCommentInput list to JournalEntryCommentPrimitives list`` } }
+// let ``delete me? convert JournalEntryInput to JournalEntryPrimitives``
+//         (input: JournalEntryInput)
+//         : Result<JournalEntryPrimitives, AppError> = result {
+//     let! lines = input.lines |> ``convert JournalEntryLineInput list to JournalEntryLinePrimitives list``
+//     return { header = input.header |> ``convert JournalEntryHeaderInput to JournalEntryHeaderPrimitives``
+//              lines = lines
+//              externalReferences =
+//                  input.externalReferences
+//                  |> ``convert [JournalEntryExternalReferenceInput list] to [JournalEntryExternalReferencePrimitives list]``
+//              comments =
+//                  input.comments |> ``convert JournalEntryCommentInput list to JournalEntryCommentPrimitives list`` } }
 
 let ``convert JournalEntryHeader to JournalEntryHeaderReturn``
         (model: JournalEntryHeader)
         : JournalEntryHeaderReturn = {
-    id = model |> JournalEntryHeader.journalEntryHeaderId
+    id = model |> JournalEntryHeader.journalEntryHeaderId |> JournalEntryHeaderId.value
     description = model |> JournalEntryHeader.description |> JournalEntryDescription.value
     source = model |> JournalEntryHeader.source |> Option.map(fun x -> x |> JournalEntrySource.value)
     entryDate = model |> JournalEntryHeader.entryDate |> EntryDate.entryDate
@@ -118,7 +124,7 @@ let ``convert JournalEntryHeader to JournalEntryHeaderReturn``
 let ``convert JournalEntryExternalReference to JournalEntryExternalReferenceReturn``
         (model: JournalEntryExternalReference)
         : JournalEntryExternalReferenceReturn = {
-    id = model |> JournalEntryExternalReference.journalEntryExternalReferenceId
+    id = model |> JournalEntryExternalReference.journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
     financialInstitution = model |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value
     referenceText = model |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value
     createdAt = model |> JournalEntryExternalReference.createdAt
@@ -132,8 +138,9 @@ let ``convert JournalEntryExternalReference list to JournalEntryExternalReferenc
 let ``convert JournalEntryComment to JournalEntryCommentReturn``
         (model: JournalEntryComment)
         : JournalEntryCommentReturn = {
-    id = model |> JournalEntryComment.uniqueId
-    secondaryJournalEntryId = model |> JournalEntryComment.secondaryJournalEntryId
+    id = model |> JournalEntryComment.journalEntryCommentId |> JournalEntryCommentId.value
+    primaryJournalEntryId = model |> JournalEntryComment.primaryJournalEntryId |> JournalEntryHeaderId.value
+    secondaryJournalEntryId = model |> JournalEntryComment.secondaryJournalEntryId |> Option.map JournalEntryHeaderId.value
     commentText = model |> JournalEntryComment.commentText |> CommentText.value
     createdAt = model |> JournalEntryComment.createdAt
     modifiedAt = model |> JournalEntryComment.modifiedAt }
@@ -147,17 +154,17 @@ let ``convert JournalEntry to JournalEntryReturn``
     (journalEntry: JournalEntry)
     : Result<JournalEntryReturn, AppError> =
     result {
-        let! lines = journalEntry |> JournalEntryCreationAndConstruction.lines |> ``convert JournalEntryLine list to JournalEntryLineReturn list``
+        let! lines = journalEntry |> JournalEntry.lines |> ``convert JournalEntryLine list to JournalEntryLineReturn list``
         return {
-        header = journalEntry |> JournalEntryCreationAndConstruction.header |> ``convert JournalEntryHeader to JournalEntryHeaderReturn``
+        header = journalEntry |> JournalEntry.header |> ``convert JournalEntryHeader to JournalEntryHeaderReturn``
         lines = lines
         externalReferences =
             journalEntry
-            |> JournalEntryCreationAndConstruction.externalReferences
+            |> JournalEntry.externalReferences
             |> ``convert JournalEntryExternalReference list to JournalEntryExternalReferenceReturn list``
         comments =
             journalEntry
-            |> JournalEntryCreationAndConstruction.comments
+            |> JournalEntry.comments
             |> ``convert JournalEntryComment list to JournalEntryCommentReturn list`` } }
     
 let ``convert JournalEntry list to JournalEntryReturn list``
@@ -165,6 +172,6 @@ let ``convert JournalEntry list to JournalEntryReturn list``
     : Result<JournalEntryReturn list, AppError> =
     journalEntries
     |> List.map(fun x -> x |> ``convert JournalEntry to JournalEntryReturn``)
-    |> ListHelper.listOfResultsToResultsList
+    |> convertListOfResultsToResultsList
 
 

@@ -298,13 +298,13 @@ module JournalEntry =
 
     let fetchByPeriod // REQ-JE-3.1
             (transaction: DbTransaction option)
-            (fiscalPeriodId: FiscalPeriodId)
+            (fiscalPeriod: FiscalPeriod)
             : Result<JournalEntry list, AppError> =
         let filter = { journalEntryHeaderId = None
                        source = None
                        financialInstitution = None
                        referenceText = None
-                       temporalFilter = Some (fiscalPeriodId |> TemporalFilter.FiscalPeriodIdentifier)
+                       temporalFilter = Some (fiscalPeriod |> FiscalPeriod.fiscalPeriodId |> TemporalFilter.FiscalPeriodIdentifier)
                        unVoidedOnly = false }
         let expectedRows = AnyQuantityIsAcceptable
         fetchFiltered transaction filter expectedRows

@@ -1,25 +1,22 @@
 module InterfaceBridge.BoundaryConverters.OrchestrationConverters
 
 open InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open InterfaceBridge.BoundaryConverters.GenericFieldHelpers
 open InterfaceBridge.BoundaryConverters.JournalEntryFieldConverters
 open InterfaceBridge.BoundaryConverters.MoneyFieldConverters
 open InterfaceBridge.InterfaceContracts.AccountContracts
-open InterfaceBridge.InterfaceContracts.JournalContracts
+open InterfaceBridge.InterfaceContracts.SharedContracts
 open Model
 open Model.Ledger.FiscalPeriods
-open Model.Ledger.JournalEntryPrimitives
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.AccountActivity
 open ModelOrchestrator.FetchFilters
-open Utilities
-open Utilities.ResultCE
+open Utilities.AppError
 open Model.Ledger.Accounts.AccountComponent
-
+open Utilities.ResultHelper
 
 let ``convert TemporalFilterInput to TemporalFilter``
         (input:TemporalFilterInput)
-        : Result<TemporalFilter, string>  =
+        : Result<TemporalFilter, AppError>  =
         
     match input with
     | TemporalFilterInput.DateRange dateRange ->
@@ -35,14 +32,14 @@ let ``convert TemporalFilterInput to TemporalFilter``
                 |> TemporalFilter.FiscalPeriodIdentifier }
 let ``convert TemporalFilterInput Option To TemporalFilter Option``
         (input:TemporalFilterInput option)
-        : Result<TemporalFilter option, string>  =
+        : Result<TemporalFilter option, AppError>  =
     let fallibleConverter = (fun x -> x |> ``convert TemporalFilterInput to TemporalFilter``)
     input
-    |> ``convert Option to Desired Type with Fallible Converter`` fallibleConverter
+    |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
     
 let ``convert AccountActivityFilterInput to AccountActivityFilter``
         (input:AccountActivityFilterInput)
-        : Result<AccountActivityFilter, string>  =
+        : Result<AccountActivityFilter, AppError>  =
     result {
         let! accountId = // REQ-NGUI-1.5
             input.accountCode |> ``convert AccountCodeString Option to AccountId Option``
@@ -76,13 +73,13 @@ let ``convert AccountActivityFilterInput to AccountActivityFilter``
 let ``convert AccountActivityDetail to AccountActivityDetailReturn``
         (input:AccountActivityDetail)
         : AccountActivityDetailReturn = {
-            lineId = input.lineId
+            lineId = input.lineId |> JournalEntryLineId.value
             amount = input.amount |> Money.amount
             lineType = input.lineType |> JournalEntryLineType.toString 
             lineMemo = input.lineMemo |> Option.map(JournalEntryLineMemo.value)
             lineCreatedAt = input.lineCreatedAt
             lineModifiedAt = input.lineModifiedAt
-            journalEntryId = input.journalEntryId
+            journalEntryId = input.journalEntryHeaderId |> JournalEntryHeaderId.value
             entryDate = input.entryDate
             journalEntryDescription = input.journalEntryDescription |> JournalEntryDescription.value
             journalEntrySource = input.journalEntrySource |> Option.map(JournalEntrySource.value)
@@ -101,12 +98,11 @@ let ``convert AccountActivity to AccountActivityReturn``
                   accountSubtype = input.accountSubtype |> Option.map(AccountSubtype.toString)
                   accountParentCode = parentCodeOptionString
                   accountExternalRef = input.accountExternalRef |> Option.map(AccountExternalReference.value)
-                  activityDetail = detail }
-    } 
+                  activityDetail = detail } } 
 
 let ``convert AccountActivity List to AccountActivityReturn List``
         (input:AccountActivity list)
         : Result<AccountActivityReturn list, AppError> =
     input
     |> List.map (fun x -> x |> ``convert AccountActivity to AccountActivityReturn``)
-    |> ListHelper.listOfResultsToResultsList
+    |> convertListOfResultsToResultsList
