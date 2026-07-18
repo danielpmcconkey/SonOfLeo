@@ -14,9 +14,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ModelOrchestrator\ModelOrchestrator.fsproj" />
-    <ProjectReference Include="..\Model\Model.fsproj" />
-    <ProjectReference Include="..\Utilities\Utilities.fsproj" />
+    <ProjectReference Include="..\Src\ModelOrchestrator\ModelOrchestrator.fsproj" />
+    <ProjectReference Include="..\Src\Model\Model.fsproj" />
+    <ProjectReference Include="..\Src\Utilities\Utilities.fsproj" />
   </ItemGroup>
 
 </Project>

@@ -3,7 +3,7 @@ module Model.LookupCache
 open System
 open Utilities.AppError
 open Utilities.DAL
-open Utilities.ResultCE
+open Utilities.ResultHelper
 
 type Cache<'K, 'V when 'K : comparison> (
     loadAll : unit -> Result<Map<'K, 'V>, AppError>,

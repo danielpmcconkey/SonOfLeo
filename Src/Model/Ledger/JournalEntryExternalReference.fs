@@ -1,12 +1,10 @@
 namespace Model.Ledger.Journaling
 
-open System
-open Model.Audit
 open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
 open Utilities.AppError
 open Utilities.DAL
-open Utilities.ResultCE
+open Utilities.ResultHelper
 
 type JournalEntryExternalReference =
   private  {    journalEntryExternalReferenceId: JournalEntryExternalReferenceId // REQ-JE-1.40

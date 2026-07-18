@@ -3,7 +3,7 @@ namespace Model.Ledger.FiscalPeriods
 open Model.Audit
 open NodaTime
 open Utilities.AppError
-open Utilities.ResultCE
+open Utilities.ResultHelper
 open Utilities.DAL
 
 

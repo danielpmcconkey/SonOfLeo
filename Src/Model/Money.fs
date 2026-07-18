@@ -1,10 +1,8 @@
 namespace Model
 
 open System
-open Utilities
 open Utilities.AppError
-open Utilities.ListHelper
-open Utilities.ResultCE
+open Utilities.ResultHelper
 
 type Money = private { amount: decimal }
 
@@ -30,7 +28,7 @@ module Money =
     let fromDecimalList (l: decimal list) : Result<Money list, AppError> = // REQ-MON-2.3
         l
         |> List.map fromDecimal // REQ-MON-2.3.1
-        |> listOfResultsToResultsList// REQ-MON-2.3.2 (fold back enables the order preservation)
+        |> convertListOfResultsToResultsList// REQ-MON-2.3.2 (fold back enables the order preservation)
     
     /// splitByN allows the caller to split a Money amount into N mostly-equal parts
     /// and returns a list of valid Money records. It is important to note that, in

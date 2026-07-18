@@ -8,9 +8,8 @@ open ModelOrchestrator.FetchFilters
 open NodaTime
 open Utilities.AppError
 open Utilities.DAL
-open Utilities.ResultCE
-open Model.Ledger.FiscalPeriods
 open Utilities.ResultHelper
+open Model.Ledger.FiscalPeriods
 
 type AccountActivityDetail = {    lineId: JournalEntryLineId
                                   amount: Money
@@ -66,13 +65,13 @@ let private reconstitute raw =
         let! accountCode = accountCodeString |> AccountCode.create 
         let! accountName = accountNameString |> AccountName.create 
         let! accountType = accountTypeString |> AccountType.fromString 
-        let! accountSubtype = accountSubtypeString |> ``convert Option to Desired Type with Fallible Converter`` AccountSubtype.fromString
-        let! accountExternalRef = accountExternalRefString |> ``convert Option to Desired Type with Fallible Converter`` AccountExternalReference.create
-        let! amount = amountDecimal |> ``convert Option to Desired Type with Fallible Converter`` Money.fromDecimal
-        let! lineType = lineTypeString |> ``convert Option to Desired Type with Fallible Converter`` JournalEntryLineType.fromString
-        let! lineMemo = lineMemoString |> ``convert Option to Desired Type with Fallible Converter`` JournalEntryLineMemo.create
-        let! journalEntryDescription = journalEntryDescriptionString |> ``convert Option to Desired Type with Fallible Converter`` JournalEntryDescription.create
-        let! journalEntrySource = journalEntrySourceString |> ``convert Option to Desired Type with Fallible Converter`` JournalEntrySource.create
+        let! accountSubtype = accountSubtypeString |> convertOptionToDesiredTypeWithFallibleConverter AccountSubtype.fromString
+        let! accountExternalRef = accountExternalRefString |> convertOptionToDesiredTypeWithFallibleConverter AccountExternalReference.create
+        let! amount = amountDecimal |> convertOptionToDesiredTypeWithFallibleConverter Money.fromDecimal
+        let! lineType = lineTypeString |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineType.fromString
+        let! lineMemo = lineMemoString |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
+        let! journalEntryDescription = journalEntryDescriptionString |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryDescription.create
+        let! journalEntrySource = journalEntrySourceString |> convertOptionToDesiredTypeWithFallibleConverter JournalEntrySource.create
         return {  accountId = accountId
                   accountCode = accountCode
                   accountName = accountName

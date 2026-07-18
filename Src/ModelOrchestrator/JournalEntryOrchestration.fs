@@ -13,8 +13,7 @@ open ModelOrchestrator.FetchFilters
 open NodaTime
 open Utilities.AppError
 open Utilities.DAL
-open Utilities.ListHelper
-open Utilities.ResultCE
+open Utilities.ResultHelper
 
 type JournalEntry =
   private  {    header: JournalEntryHeader
@@ -110,7 +109,7 @@ module JournalEntry =
                             memo
                             auditEnvelope
                             transaction })
-        |> listOfResultsToResultsList
+        |> convertListOfResultsToResultsList
     
     let private createValidExternalReferences
             (journalEntryHeaderId: JournalEntryHeaderId)
@@ -127,7 +126,7 @@ module JournalEntry =
                 referenceText
                 auditEnvelope
                 transaction) 
-        |> listOfResultsToResultsList
+        |> convertListOfResultsToResultsList
     
     let private createValidComments
             (primaryJournalEntryId: JournalEntryHeaderId)
@@ -144,7 +143,7 @@ module JournalEntry =
                 commentText
                 auditEnvelope
                 transaction) 
-        |> listOfResultsToResultsList
+        |> convertListOfResultsToResultsList
 
     /// constructNewAndSaveToDb validates that the components work together to
     /// form a valid whole before adding it to the persistence layer. All new

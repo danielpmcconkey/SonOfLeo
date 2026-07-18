@@ -5,7 +5,7 @@ open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
 open Utilities.DAL
-open Utilities.ResultCE
+open Utilities.ResultHelper
     
 let validateJournalEntryHeader
         (transaction: DbTransaction option)

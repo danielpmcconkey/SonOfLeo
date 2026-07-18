@@ -8,7 +8,7 @@ module ModelOrchestrator.JournalEntryLineOrchestration
     open Model.Ledger.Journaling.JournalEntryComponent
     open Utilities.AppError
     open Utilities.DAL
-    open Utilities.ResultCE
+    open Utilities.ResultHelper
 
     let confirmAmountIsPositive (m:Money) : Result<unit, AppError> =
         if m |> Money.amount <= 0M // REQ-JE-1.24

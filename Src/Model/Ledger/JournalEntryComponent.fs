@@ -5,7 +5,7 @@ open Model.Ledger.FiscalPeriods
 open Utilities.AppError
 open Utilities.DAL
 open NodaTime
-open Utilities.ResultCE
+open Utilities.ResultHelper
 
 type JournalEntryHeaderId = private JournalEntryHeaderId of Guid
 module JournalEntryHeaderId =

@@ -5,10 +5,9 @@ open Model
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
-open Utilities
 open Utilities.AppError
 open Utilities.DAL
-open Utilities.ResultCE
+open Utilities.ResultHelper
 
 type AccountBalance = {
     accountId: AccountId
@@ -117,6 +116,6 @@ let fetchByAccountIdList // REQ-JE-3.6
                         else Money.subtractVal1FromVal2 debits credits
                     |> Result.map (fun bal -> 
                         { accountId = accountId; totalCredits = credits; totalDebits = debits; netBalance = bal }))
-                |> ListHelper.listOfResultsToResultsList
+                |> convertListOfResultsToResultsList
             return! balances
         }

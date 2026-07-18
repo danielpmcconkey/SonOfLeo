@@ -6,7 +6,7 @@ open NodaTime
 open Npgsql // REQ-DAL-3.1
 open Microsoft.Extensions.Configuration
 open NpgsqlTypes // REQ-DAL-3.1
-open Utilities.ResultCE
+open Utilities.ResultHelper
 open Utilities.AppError
 
 module DAL =
@@ -320,7 +320,7 @@ module DAL =
                             parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
                             use nReader = command.ExecuteReader()
                             readRawRows nReader mapRaw []
-                        rawRows |> List.map constructFromRaw |> ListHelper.listOfResultsToResultsList
+                        rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList
                     | Some t ->
                         let rawRows =
                             use command = new NpgsqlCommand(query, t.connection)
@@ -328,7 +328,7 @@ module DAL =
                             parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
                             use nReader = command.ExecuteReader()
                             readRawRows nReader mapRaw []
-                        rawRows |> List.map constructFromRaw |> ListHelper.listOfResultsToResultsList
+                        rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList
                 with
                 | ex -> Error (DalErrorDuringReaderQueryExecution ex)
             let! () = validateNumRows rows.Length expectedRows // REQ-DAL-2.2

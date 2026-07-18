@@ -4,7 +4,7 @@ open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
 open Utilities.AppError
-open Utilities.ResultCE
+open Utilities.ResultHelper
 open Utilities.DAL
 open Utilities.ResultHelper
 
@@ -89,7 +89,7 @@ module JournalEntryHeader =
         let entryDate = EntryDate.createWithFiscalPeriodId entryDateLd fiscalPeriodId
         result {
             let! description = descriptionStr |> JournalEntryDescription.create
-            let! source = jeSourceStr |> ``convert Option to Desired Type with Fallible Converter`` JournalEntrySource.create
+            let! source = jeSourceStr |> convertOptionToDesiredTypeWithFallibleConverter JournalEntrySource.create
             return create journalEntryId description source entryDate voidedAt createdAt modifiedAt }
 
     let readRowsFromDb

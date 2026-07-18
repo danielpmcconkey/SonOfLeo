@@ -1,9 +1,8 @@
 namespace Model.Ledger.Accounts
 
-open System
 open Utilities
 open Utilities.AppError
-open Utilities.ResultCE
+open Utilities.ResultHelper
 open Utilities.DAL
 open Model.Audit
 open AccountComponent
@@ -18,8 +17,7 @@ type Account =
                 parentId: AccountId option                         // REQ-AC-1.37–1.40
                 externalReference: AccountExternalReference option // REQ-AC-1.20, REQ-AC-1.41
                 createdAt: Instant                                 // REQ-SYS-3.1
-                modifiedAt: Instant                                // REQ-SYS-3.1
-    }
+                modifiedAt: Instant }                              // REQ-SYS-3.1
 
 module Account =
 

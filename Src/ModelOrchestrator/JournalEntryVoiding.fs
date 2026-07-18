@@ -6,7 +6,7 @@ open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.JournalEntries
 open Utilities.AppError
-open Utilities.ResultCE
+open Utilities.ResultHelper
 open Utilities.DAL
 
 let private confirmFiscalPeriodIsStillOpenBeforeVoiding

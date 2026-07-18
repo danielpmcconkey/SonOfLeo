@@ -6,13 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="ResultCE.fs" />
     <Compile Include="AppError.fs" />
-    <Compile Include="ListHelper.fs" />
+    <Compile Include="ResultHelper.fs" />
     <Compile Include="DAL.fs" />
     <Compile Include="Clock.fs" />
     <Compile Include="Calendar.fs" />
-    <Compile Include="ResultHelper.fs" />
   </ItemGroup>
 
   <ItemGroup>

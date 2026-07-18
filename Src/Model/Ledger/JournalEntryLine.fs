@@ -6,9 +6,8 @@ open Model.Ledger.Journaling.JournalEntryComponent
 open Model
 open NodaTime
 open Utilities.AppError
-open Utilities.ResultCE
-open Utilities.DAL
 open Utilities.ResultHelper
+open Utilities.DAL
 
 type JournalEntryLine =
   private  {    journalEntryLineId: JournalEntryLineId // REQ-JE-1.20, REQ-JE-1.21
@@ -109,7 +108,7 @@ module JournalEntryLine =
             let! lineType = lineTypeStr |> JournalEntryLineType.fromString
             let! memo =
                 memoStrOpt
-                |> ``convert Option to Desired Type with Fallible Converter`` JournalEntryLineMemo.create
+                |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
             return create journalEntryLineId journalEntryId accountId amount lineType memo createdAt modifiedAt }
 
     let private readRowsFromDb

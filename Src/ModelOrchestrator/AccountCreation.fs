@@ -8,7 +8,7 @@ open NodaTime
 open Utilities
 open Utilities.AppError
 open Utilities.DAL
-open Utilities.ResultCE
+open Utilities.ResultHelper
     
 let private confirmParentAccountIsActive
         (parentAccount: Account)
