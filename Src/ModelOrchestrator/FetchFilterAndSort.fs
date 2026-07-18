@@ -39,8 +39,8 @@ type AccountActivityFilter = {
   
 type JournalEntryFetchFilter = {
     journalEntryHeaderId: JournalEntryHeaderId option
-    financialInstitution: JournalRefFinancialInstitution option
     source: JournalEntrySource option
+    financialInstitution: JournalRefFinancialInstitution option
     referenceText: JournalExternalReferenceText option
     temporalFilter: TemporalFilter option
     unVoidedOnly: bool

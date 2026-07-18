@@ -80,6 +80,9 @@ type AppError =
     | JournalEntryInsufficientLines of int
     | JournalEntryLineAccountInactive of Guid * LocalDate * LocalDate * LocalDate Option
     | JournalEntryFetchByReference of unit
+    | JournalEntryVoidingCannotFetchFiscalPeriod of LocalDate * Guid
+    | JournalEntryVoidingFiscalPeriodIsClosed of LocalDate * Guid
+    | JournalEntryVoidingNoOp of Guid 
     
 
 module AppError =
@@ -162,4 +165,7 @@ module AppError =
         let endDateStr = match endDate with | Some x -> x.ToString() | None -> "None"
         $"Account ({uuid}) is not active (begin {beginDate}; end {endDateStr}) relative to the Journal Entry's entry date ({entryDate})."
     | JournalEntryFetchByReference _ -> "Both FI and reference cannot both be null when fetching by reference"
+    | JournalEntryVoidingCannotFetchFiscalPeriod (entryDate, fiscalPeriodId) -> $"Could not fetch a FiscalPeriod row from the database for the fiscal period ID of {fiscalPeriodId}, which was fetched using the entry date of {entryDate}."
+    | JournalEntryVoidingFiscalPeriodIsClosed (entryDate, fiscalPeriodId) -> $"Can not void a Journal Entry whose FiscalPeriod is already closed. FiscalPeriodId of {fiscalPeriodId}, which was fetched using the entry date of {entryDate}."
+    | JournalEntryVoidingNoOp uuid -> $"Attempting to void Journal Entry ({uuid}) resulted in zero rows updated. Either the UUID is wrong or the entry is already voided."
     

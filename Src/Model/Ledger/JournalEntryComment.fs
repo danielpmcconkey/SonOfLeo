@@ -130,3 +130,19 @@ module JournalEntryComment =
         let parameters = [{ name = "@unique_id"; value = UniqueId uuid };] // REQ-DAL-2.3
         let orderBy = "created_at"
         readRowsFromDb (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable transaction
+
+    let fetchByJournalEntryHeaderIdList
+            (transaction: DbTransaction option)
+            (journalEntryHeaderIds: JournalEntryHeaderId list)
+            : Result<JournalEntryComment list, AppError> = 
+        let ordinals = [1..journalEntryHeaderIds.Length]
+        let zipped = List.zip ordinals journalEntryHeaderIds
+        let namesAndParameters = zipped |> List.map(fun (ordinal, id) ->
+                let uuid = id |> JournalEntryHeaderId.value
+                let name = $"@journal_entry_id{ordinal}"
+                let parameter = { name = name; value = UniqueId uuid }
+                name, parameter )
+        let names = namesAndParameters |> List.map fst |> String.concat ", "
+        let parameters = namesAndParameters |> List.map snd
+        let predicate = $"jec.journal_entry_id in = ({names})"
+        readRowsFromDb (Some predicate) None None parameters AnyQuantityIsAcceptable transaction

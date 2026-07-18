@@ -68,7 +68,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
                              fixture.Data.basicJeId "NewBank" "NEW-001" envelope (Some transaction)
             match result with
             | Ok r ->
-                Assert.Equal(fixture.Data.basicJeId, r |> JournalEntryExternalReference.journalEntryId)
+                Assert.Equal(fixture.Data.basicJeId, r |> JournalEntryExternalReference.journalEntryHeaderId)
                 Assert.Equal("NewBank", r |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value)
                 Assert.Equal("NEW-001", r |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value)
             | Error e -> Assert.Fail e
@@ -98,7 +98,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
             let result = JournalEntryExternalReference.constructNewAndSaveToDb
                              fixture.Data.voidedJeId "VoidedBank" "VOID-001" envelope (Some transaction)
             match result with
-            | Ok r -> Assert.Equal(fixture.Data.voidedJeId, r |> JournalEntryExternalReference.journalEntryId)
+            | Ok r -> Assert.Equal(fixture.Data.voidedJeId, r |> JournalEntryExternalReference.journalEntryHeaderId)
             | Error e -> Assert.Fail e
         finally
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
@@ -124,7 +124,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
                 | Error e -> Assert.Fail $"Fetch after creation failed: {e}"
                 | Ok fetched ->
                     Assert.Equal(created |> JournalEntryExternalReference.journalEntryExternalReferenceId, fetched |> JournalEntryExternalReference.journalEntryExternalReferenceId)
-                    Assert.Equal(created |> JournalEntryExternalReference.journalEntryId, fetched |> JournalEntryExternalReference.journalEntryId)
+                    Assert.Equal(created |> JournalEntryExternalReference.journalEntryHeaderId, fetched |> JournalEntryExternalReference.journalEntryHeaderId)
                     Assert.Equal(
                         created |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value,
                         fetched |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value)

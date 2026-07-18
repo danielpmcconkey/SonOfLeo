@@ -12,7 +12,7 @@ open Utilities.ResultHelper
 
 type JournalEntryLine =
   private  {    journalEntryLineId: JournalEntryLineId // REQ-JE-1.20, REQ-JE-1.21
-                journalEntryId: JournalEntryHeaderId
+                journalEntryHeaderId: JournalEntryHeaderId
                 accountId: AccountId
                 amount: Money
                 lineType: JournalEntryLineType
@@ -22,7 +22,7 @@ type JournalEntryLine =
 
 module JournalEntryLine =
     let journalEntryLineId jel = jel.journalEntryLineId
-    let journalEntryId jel = jel.journalEntryId // REQ-JE-1.29
+    let journalEntryHeaderId jel = jel.journalEntryHeaderId // REQ-JE-1.29
     let accountId jel = jel.accountId
     let amount jel = jel.amount // REQ-JE-1.23
     let lineType jel = jel.lineType
@@ -32,7 +32,7 @@ module JournalEntryLine =
     
     let create
         (journalEntryLineId: JournalEntryLineId)
-        (journalEntryId: JournalEntryHeaderId)
+        (journalEntryHeaderId: JournalEntryHeaderId)
         (accountId: AccountId)
         (amount: Money)
         (lineType: JournalEntryLineType)
@@ -41,7 +41,7 @@ module JournalEntryLine =
         (modifiedAt: Instant)
         : JournalEntryLine = {
             journalEntryLineId = journalEntryLineId
-            journalEntryId = journalEntryId
+            journalEntryHeaderId = journalEntryHeaderId
             accountId = accountId
             amount = amount
             lineType = lineType
@@ -62,7 +62,7 @@ module JournalEntryLine =
                 @unique_id, @journal_entry_id, @account_id, @amount, @line_type, 
                     @memo, @created_at, @modified_at );"""
         let journalEntryLineUuid = journalEntryLine.journalEntryLineId |> JournalEntryLineId.value
-        let journalEntryUuid = journalEntryLine.journalEntryId |> JournalEntryHeaderId.value
+        let journalEntryUuid = journalEntryLine.journalEntryHeaderId |> JournalEntryHeaderId.value
         let accountIdUuid = journalEntryLine.accountId |> AccountId.value
         let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
             { name = "@unique_id"; value = UniqueId journalEntryLineUuid }
@@ -136,15 +136,31 @@ module JournalEntryLine =
         readRowsFromDb None (Some predicate) None None parameters ExactlyOne transaction
         |> Result.map List.head
 
-    let fetchByJournalEntryId
+    let fetchByJournalEntryHeaderId
             (transaction: DbTransaction option)
-            (journalEntryId: JournalEntryHeaderId)
+            (journalEntryHeaderId: JournalEntryHeaderId)
             : Result<JournalEntryLine list, AppError> = 
-        let uuid = journalEntryId |> JournalEntryHeaderId.value
+        let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
         let predicate = "jel.journal_entry_id = @journal_entry_id"
         let parameters = [{ name = "@journal_entry_id"; value = UniqueId uuid };] // REQ-DAL-2.3
         let orderBy = "jel.created_at"
         readRowsFromDb None (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable transaction
+
+    let fetchByJournalEntryHeaderIdList
+            (transaction: DbTransaction option)
+            (journalEntryHeaderIds: JournalEntryHeaderId list)
+            : Result<JournalEntryLine list, AppError> = 
+        let ordinals = [1..journalEntryHeaderIds.Length]
+        let zipped = List.zip ordinals journalEntryHeaderIds
+        let namesAndParameters = zipped |> List.map(fun (ordinal, id) ->
+                let uuid = id |> JournalEntryHeaderId.value
+                let name = $"@journal_entry_id{ordinal}"
+                let parameter = { name = name; value = UniqueId uuid }
+                name, parameter )
+        let names = namesAndParameters |> List.map fst |> String.concat ", "
+        let parameters = namesAndParameters |> List.map snd
+        let predicate = $"jel.journal_entry_id in = ({names})"
+        readRowsFromDb None (Some predicate) None None parameters AnyQuantityIsAcceptable transaction
 
     let fetchByAccountId // REQ-JE-3.4
             (transaction: DbTransaction option)

@@ -10,6 +10,7 @@ open Model.Ledger.Journaling.JournalEntryComponent
 open Model.Ledger.Accounts
 open ModelOrchestrator
 open ModelOrchestrator.FetchFilters
+open NodaTime
 open Utilities.AppError
 open Utilities.DAL
 open Utilities.ListHelper
@@ -186,47 +187,28 @@ module JournalEntry =
     // =============================================================================
     // Read
     // =============================================================================
-
-    let private mapRawForDbRead (row: RowReader) =
-        ( row |> RowReader.getUuid "je_id"), 
-        ( row |> RowReader.getString "description"), 
-        ( row |> RowReader.getStringOption "je_source"), 
-        ( row |> RowReader.getDate "entry_date"), 
-        ( row |> RowReader.getUuid "fiscal_period_id"), 
-        ( row |> RowReader.getBoolOption "voided_at"), 
-        ( row |> RowReader.getInstant "je_created_at"), 
-        ( row |> RowReader.getInstant "je_modified_at"),
-        ( row |> RowReader.getUuidOption "jel_id"), 
-        ( row |> RowReader.getUuidOption "account_id"), 
-        ( row |> RowReader.getNumericOption "amount"), 
-        ( row |> RowReader.getStringOption "line_type"), 
-        ( row |> RowReader.getStringOption "memo"), 
-        ( row |> RowReader.getInstantOption "jel_created_at"), 
-        ( row |> RowReader.getInstantOption "jel_modified_at"),
-        ( row |> RowReader.getUuidOption "jer_id"), 
-        ( row |> RowReader.getStringOption "financial_institution"), 
-        ( row |> RowReader.getStringOption "reference"), 
-        ( row |> RowReader.getInstantOption "jer_created_at"), 
-        ( row |> RowReader.getInstantOption "jer_modified_at"),
-        ( row |> RowReader.getUuidOption "jec_id"), 
-        ( row |> RowReader.getUuidOption "journal_secondary_entry_id"), 
-        ( row |> RowReader.getStringOption "comment_text"), 
-        ( row |> RowReader.getInstantOption "jec_created_at"), 
-        ( row |> RowReader.getInstantOption "jec_modified_at")
     
-    /// restateRaw is here because the DAL reader function doesn't allow us to
-    /// reconstitute at aggregate. But it does require a reconstitution
-    /// function. So this is just a simple passthrough.
-    let private restateRaw raw = Ok raw
-    
-    let private buildJournalEntriesFromFetchFiltered rawRows : JournalEntry list =
-        
-        
-    let fetchFiltered
+    let private composeFromFetchedLists
+            (headers: JournalEntryHeader list)
+            (lines: JournalEntryLine list)
+            (references: JournalEntryExternalReference list)
+            (comments: JournalEntryComment list)
+            : JournalEntry list =
+        headers
+        |> List.map(fun header ->
+            let headerId = header |> JournalEntryHeader.journalEntryHeaderId
+            let linesForHeader = lines |> List.filter(fun x -> x |> JournalEntryLine.journalEntryHeaderId = headerId)
+            let referencesForHeader = references |> List.filter(fun x -> x |> JournalEntryExternalReference.journalEntryHeaderId = headerId)
+            let commentsForHeader = comments |> List.filter(fun x -> x |> JournalEntryComment.primaryJournalEntryId = headerId)
+            { header = header
+              lines = linesForHeader
+              externalReferences = referencesForHeader
+              comments = commentsForHeader } )
+    let private fetchHeadersFromFilter
             (transaction: DbTransaction option)
             (filter: JournalEntryFetchFilter)
-            (sort: FetchSort option)
-            : Result<JournalEntryHeaderId list, AppError> =
+            (expectedRows: AcceptableExpectedRows)
+            : Result<JournalEntryHeader list, AppError> =
         result {
             let! dateRange = 
                 match filter.temporalFilter with
@@ -237,24 +219,17 @@ module JournalEntry =
                     |> FiscalPeriod.fetchById transaction
                     |> Result.map (fun fp -> Some (fp |> FiscalPeriod.startDate, fp |> FiscalPeriod.endDate))
             let voidClause = if filter.unVoidedOnly then "and je.voided_at is null" else ""
-            let sortClause =
-                match sort with
-                | None -> ""
-                | Some AccountCodeAsc -> "order by a.code asc"
-                | Some AccountCodeDesc -> "order by a.code desc"
-                | Some EntryDateAsc -> "order by je.entry_date asc"
-                | Some EntryDateDesc -> "order by je.entry_date desc"
-                | Some AmountAsc -> "order by jel.amount asc"
-                | Some AmountDesc -> "order by jel.amount desc"
             let whereClausesAndParams =
                 [
                     filter.journalEntryHeaderId |> Option.map (
                     fun x -> ("and je.unique_id = @header_id",
                               { name = "@header_id"; value = UniqueId (x |> JournalEntryHeaderId.value) }))
                     dateRange |> Option.map (
-                        fun (x, _) -> ("and je.entry_date >= @begin_date", { name = "@begin_date"; value = DbLocalDate x }))
+                        fun (x, _) -> ("and je.entry_date >= @begin_date",
+                                       { name = "@begin_date"; value = DbLocalDate x }))
                     dateRange |> Option.map (
-                        fun (_, x) -> ("and je.entry_date <= @end_date", { name = "@end_date"; value = DbLocalDate x }))
+                        fun (_, x) -> ("and je.entry_date <= @end_date",
+                                       { name = "@end_date"; value = DbLocalDate x }))
                     filter.source |> Option.map (
                         fun x -> ("and je.je_source = @je_source",
                                   { name = "@je_source"; value = CharString (x |> JournalEntrySource.value) }))
@@ -268,126 +243,101 @@ module JournalEntry =
                 ] |> List.choose id
             let whereClauses = whereClausesAndParams |> List.map fst |> String.concat Environment.NewLine
             let parameters = whereClausesAndParams |> List.map snd
-            let query = $"""
-                SELECT 
-                    je.unique_id as je_id, je.description, je.je_source, je.entry_date, je.fiscal_period_id, je.voided_at, je.created_at as je_created_at, je.modified_at as je_modified_at,
-                    jel.unique_id as jel_id, jel.account_id, jel.amount, jel.line_type, jel.memo, jel.created_at as jel_created_at, jel.modified_at as jel_modified_at,
-                    jer.unique_id as jer_id, jer.financial_institution, jer.reference, jer.created_at as jer_created_at, jer.modified_at as jer_modified_at,
-                    jec.unique_id as jec_id, jec.journal_secondary_entry_id, jec.comment_text, jec.created_at as jec_created_at, jec.modified_at as jec_modified_at
-                FROM ledger.journal_entry je
-                left join ledger.journal_entry_line jel on je.unique_id = jel.journal_entry_id
-                left join ledger.journal_entry_ext_reference jer on je.unique_id = jer.journal_entry_id
-                left join ledger.journal_entry_comment jec on je.unique_id = jec.journal_primary_entry_id
-                left join ledger.account a on jel.account_id = a.unique_id            
+            let predicate = Some $"""
                 where 1 = 1
                 {whereClauses}
                 {voidClause}
-                {sortClause}
                 """
-            let! reconstitutedRows = executeReaderQuery query parameters mapRawForDbRead restateRaw AnyQuantityIsAcceptable transaction
-            return! reconstitutedRows |> buildJournalEntriesFromFetchFiltered }
-        
-        
-    let private fetchHeaderIdsByReference // REQ-JE-3.5, REQ-JE-3.8
-            (transaction: DbTransaction option)
-            (financialInstitution: JournalRefFinancialInstitution option)
-            (referenceText: JournalExternalReferenceText option)
-            : Result<JournalEntryHeaderId list, AppError> =
-        let mapRaw (row: RowReader) =
-            (row |> RowReader.getUuid "unique_id") , ()
-        let constructRaw
-            raw
-            : Result<JournalEntryHeaderId,AppError> =
-            let uuid, _ = raw
-            Ok (uuid |> JournalEntryHeaderId.fromGuid)
-        if financialInstitution = None && referenceText = None then Error (JournalEntryFetchByReference ()) // there is no req for reads where an error silently succeeds
-        else 
-            let whereClausesAndParams =
+            let joins =
                 [
-                    financialInstitution |> Option.map ( fun x -> (
-                        let fiString = x |> JournalRefFinancialInstitution.value
-                        "and jer.financial_institution = @financial_institution",
-                        { name = "@financial_institution"; value = CharString fiString }))
-                    referenceText |> Option.map ( fun x -> (
-                        let refString = x |> JournalExternalReferenceText.value
-                        "and jer.reference = @reference", { name = "@reference"; value = CharString refString }))
-                ] |> List.choose id
-            let whereClauses = whereClausesAndParams |> List.map fst |> String.concat Environment.NewLine
-            let parameters = whereClausesAndParams |> List.map snd // REQ-DAL-2.3
-            let query = $"""
-                SELECT je.unique_id
-                FROM ledger.journal_entry je
-                left join ledger.journal_entry_ext_reference jer on je.unique_id = jer.journal_entry_id
-                where 1 = 1
-                {whereClauses}
-                order by je.entry_date asc
-                ;"""
-            result {
-                let! fullList = executeReaderQuery query parameters mapRaw constructRaw AnyQuantityIsAcceptable transaction
-                return fullList |> List.distinct } // the distinct is here because one JE might have multiple refs with the same reference
-
-    let private fetchHeaderIdsByDateRange // REQ-JE-3.7
+                    // as of right now, there's no filter that compels us to
+                    // join on lines or comments, so this options list is a bit
+                    // overkill. However, I'm leaving the structure in so that
+                    // it'd be easier to expand our filter in future. 
+                    if filter.referenceText = None && filter.financialInstitution = None
+                    then None
+                    else Some "left join ledger.journal_entry_ext_reference jer on je.unique_id = jer.journal_entry_id"
+                ] |> List.choose id |> String.concat Environment.NewLine
+            let joinClause = if joins = "" then None else Some joins
+            let sort = Some "order by je.entry_date asc"
+            let! headersDuplicates =
+                    JournalEntryHeader.readRowsFromDb
+                       joinClause predicate None sort parameters
+                       expectedRows transaction
+            return headersDuplicates |> List.distinctBy(fun h -> h |> JournalEntryHeader.journalEntryHeaderId) }
+        
+    let fetchFiltered
             (transaction: DbTransaction option)
-            (beginDate: LocalDate)
-            (endDateInclusive: LocalDate)
-            : Result<Guid list, AppError> =
-        let mapRaw (row: RowReader) =
-            (row |> RowReader.getUuid "unique_id") , ()
-        let constructRaw _transaction raw :Result<Guid, AppError> =
-            let id, _ = raw
-            Ok id
-        let query = """
-            SELECT je.unique_id
-            FROM ledger.journal_entry je
-            where je.entry_date >= @begin_date and je.entry_date <= @end_date
-            order by je.entry_date asc
-            ;"""
-        let parameters = [  { name = "@begin_date"; value = DbLocalDate beginDate };
-                            { name = "@end_date"; value = DbLocalDate endDateInclusive }; ] // REQ-DAL-2.3
-        executeReaderQuery query parameters mapRaw constructRaw AnyQuantityIsAcceptable transaction
-
-
+            (filter: JournalEntryFetchFilter)
+            (expectedRows: AcceptableExpectedRows)
+            : Result<JournalEntry list, AppError> =
+        result {
+            let! headers = fetchHeadersFromFilter transaction filter expectedRows
+            let headerIds = headers |> List.map(fun x -> x|> JournalEntryHeader.journalEntryHeaderId)
+            let! lines = headerIds |> JournalEntryLine.fetchByJournalEntryHeaderIdList transaction
+            let! references = headerIds |> JournalEntryExternalReference.fetchByJournalEntryHeaderIdList transaction
+            let! comments = headerIds |> JournalEntryComment.fetchByJournalEntryHeaderIdList transaction
+            return composeFromFetchedLists headers lines references comments }
 
     let fetchById // REQ-JE-3.1, REQ-JE-3.2
+            (transaction: DbTransaction option)
             (journalEntryHeaderId: JournalEntryHeaderId)
-            : Result<JournalEntry, AppError> =  result {
-        let! validHeader = journalEntryHeaderId |> JournalEntryHeader.fetchById None
-        let! validLines = journalEntryHeaderId |> JournalEntryLine.fetchByJournalEntryId None
-        let! validReferences = journalEntryHeaderId |> JournalEntryExternalReference.fetchByJournalEntryId None
-        let! validComments = journalEntryHeaderId |> JournalEntryComment.fetchByJournalEntryId None
-        return {    header = validHeader
-                    lines = validLines
-                    externalReferences = validReferences
-                    comments = validComments } }
+            : Result<JournalEntry, AppError> =
+        let filter = { journalEntryHeaderId = Some journalEntryHeaderId
+                       source = None
+                       financialInstitution = None
+                       referenceText = None
+                       temporalFilter = None
+                       unVoidedOnly = false }
+        // Note: expected rows of exactly one works here only because we don't
+        // have any other filter conditions that would join other tables. In
+        // future, if we ever expand this filter or use this function as a
+        // template for a new fetch function, know that the deduplication of
+        // records happens *after* DAL checks the exactly one condition.
+        let expectedRows = ExactlyOne
+        fetchFiltered transaction filter expectedRows |> Result.map List.head
 
     let fetchByPeriod // REQ-JE-3.1
+            (transaction: DbTransaction option)
             (fiscalPeriodId: FiscalPeriodId)
             : Result<JournalEntry list, AppError> =
-        result {
-            let! headers = fiscalPeriodId |> JournalEntryHeader.fetchByPeriod None
-            let headerResultsList = headers |> List.map(fun h ->
-                let id = JournalEntryHeader.journalEntryHeaderId h
-                let entryResult = fetchById id 
-                entryResult)
-            return! headerResultsList |> listOfResultsToResultsList
-        }
-        
-    let fetchByReference // REQ-JE-3.1, REQ-JE-3.5, REQ-JE-3.8
-            (fi: JournalRefFinancialInstitution option)
-            (reference: JournalExternalReferenceText option)
-            : Result<JournalEntry list, AppError> =
-        result {
-            let! headers = fetchHeaderIdsByReference None fi reference
-            let headerResultsList = headers |> List.map(fun h -> h |> fetchById)
-            return! headerResultsList |> listOfResultsToResultsList
-        }
+        let filter = { journalEntryHeaderId = None
+                       source = None
+                       financialInstitution = None
+                       referenceText = None
+                       temporalFilter = Some (fiscalPeriodId |> TemporalFilter.FiscalPeriodIdentifier)
+                       unVoidedOnly = false }
+        let expectedRows = AnyQuantityIsAcceptable
+        fetchFiltered transaction filter expectedRows
 
     let fetchByDateRange // REQ-JE-3.7
+            (transaction: DbTransaction option)
             (beginDate: LocalDate)
             (endDateInclusive: LocalDate)
             : Result<JournalEntry list, AppError> =
-        result {
-            let! headers = fetchHeaderIdsByDateRange None beginDate endDateInclusive
-            let headerResultsList = headers |> List.map(fun h -> h |> fetchById)
-            return! headerResultsList |> listOfResultsToResultsList
-        }
+        let filter = { journalEntryHeaderId = None
+                       source = None
+                       financialInstitution = None
+                       referenceText = None
+                       temporalFilter = Some (TemporalFilter.DateRange {
+                           beginDate = beginDate
+                           endInclusive = endDateInclusive
+                       })
+                       unVoidedOnly = false }
+        let expectedRows = AnyQuantityIsAcceptable
+        fetchFiltered transaction filter expectedRows 
+        
+    let fetchByReference // REQ-JE-3.1, REQ-JE-3.5, REQ-JE-3.8
+            (transaction: DbTransaction option)
+            (financialInstitution: JournalRefFinancialInstitution option)
+            (reference: JournalExternalReferenceText option)
+            : Result<JournalEntry list, AppError> =
+        let filter = { journalEntryHeaderId = None
+                       source = None
+                       financialInstitution = financialInstitution
+                       referenceText = reference
+                       temporalFilter = None
+                       unVoidedOnly = false }
+        let expectedRows = AnyQuantityIsAcceptable
+        fetchFiltered transaction filter expectedRows
+        

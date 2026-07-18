@@ -11,31 +11,32 @@ open Model.Ledger.FiscalPeriods
 open Model.Ledger.JournalEntryPrimitives
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.AccountActivity
+open ModelOrchestrator.FetchFilters
 open Utilities
 open Utilities.ResultCE
 open Model.Ledger.Accounts.AccountComponent
 
 
-let ``convert AccountActivityTemporalFilterInput to AccountActivityTemporalFilter``
-        (input:AccountActivityTemporalFilterInput)
-        : Result<AccountActivityTemporalFilter, string>  =
+let ``convert TemporalFilterInput to TemporalFilter``
+        (input:TemporalFilterInput)
+        : Result<TemporalFilter, string>  =
         
     match input with
-    | AccountActivityTemporalFilterInput.DateRange dateRange ->
-        Ok ( AccountActivityTemporalFilter.DateRange {
+    | TemporalFilterInput.DateRange dateRange ->
+        Ok ( TemporalFilter.DateRange {
             beginDate = dateRange.beginDate
             endInclusive = dateRange.endInclusive })
-    |  AccountActivityTemporalFilterInput.PeriodKey periodKey ->
+    |  TemporalFilterInput.PeriodKey periodKey ->
         result {
             let! uuid = periodKey |> LookupCache.fiscalPeriodKeyToId.fetch
             return
                 uuid
                 |> FiscalPeriodId.fromGuid
-                |> AccountActivityTemporalFilter.FiscalPeriodIdentifier }
-let ``convert AccountActivityTemporalFilterInput Option To AccountActivityTemporalFilter Option``
-        (input:AccountActivityTemporalFilterInput option)
-        : Result<AccountActivityTemporalFilter option, string>  =
-    let fallibleConverter = (fun x -> x |> ``convert AccountActivityTemporalFilterInput to AccountActivityTemporalFilter``)
+                |> TemporalFilter.FiscalPeriodIdentifier }
+let ``convert TemporalFilterInput Option To TemporalFilter Option``
+        (input:TemporalFilterInput option)
+        : Result<TemporalFilter option, string>  =
+    let fallibleConverter = (fun x -> x |> ``convert TemporalFilterInput to TemporalFilter``)
     input
     |> ``convert Option to Desired Type with Fallible Converter`` fallibleConverter
     
@@ -59,7 +60,7 @@ let ``convert AccountActivityFilterInput to AccountActivityFilter``
             input.source |> ``convert JeSourceString Option to JeSource Option``
         let! temporalFilter =
             input.temporalFilter
-            |> ``convert AccountActivityTemporalFilterInput Option To AccountActivityTemporalFilter Option``
+            |> ``convert TemporalFilterInput Option To TemporalFilter Option``
         return {
                    accountId = accountId
                    temporalFilter = temporalFilter

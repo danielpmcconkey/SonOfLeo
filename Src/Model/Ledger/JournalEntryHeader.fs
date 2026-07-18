@@ -92,7 +92,7 @@ module JournalEntryHeader =
             let! source = jeSourceStr |> ``convert Option to Desired Type with Fallible Converter`` JournalEntrySource.create
             return create journalEntryId description source entryDate voidedAt createdAt modifiedAt }
 
-    let private readRowsFromDb
+    let readRowsFromDb
             (join: string option)
             (predicate: string option)
             (limit: int option)
@@ -108,9 +108,9 @@ module JournalEntryHeader =
 
     let fetchById // REQ-JE-3.2
             (transaction: DbTransaction option)
-            (journalEntryId: JournalEntryHeaderId)
+            (journalEntryHeaderId: JournalEntryHeaderId)
             : Result<JournalEntryHeader, AppError> = 
-        let uuid = journalEntryId |> JournalEntryHeaderId.value
+        let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
         let predicate = Some "je.unique_id = @unique_id"
         let parameters = [{ name = "@unique_id"; value = UniqueId uuid };] // REQ-DAL-2.3
         readRowsFromDb None predicate None None parameters ExactlyOne transaction

@@ -13,8 +13,6 @@
   <ItemGroup>
     <Compile Include="FetchFilterAndSort.fs" />
     <Compile Include="AccountDeactivation.fs" />
-    <Compile Include="JournalEntryFetching.fs" />
-    <Compile Include="JournalEntryVoiding.fs" />
     <Compile Include="AccountActivity.fs" />
     <Compile Include="AccountBalance.fs" />
     <Compile Include="AccountCreation.fs" />
@@ -24,6 +22,7 @@
     <Compile Include="JournalEntryLineOrchestration.fs" />
     <Compile Include="JournalEntryHeaderOrchestration.fs" />
     <Compile Include="JournalEntryOrchestration.fs" />
+    <Compile Include="JournalEntryVoiding.fs" />
   </ItemGroup>
 
 </Project>

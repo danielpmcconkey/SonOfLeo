@@ -10,7 +10,7 @@ open Utilities.ResultCE
 
 type JournalEntryExternalReference =
   private  {    journalEntryExternalReferenceId: JournalEntryExternalReferenceId // REQ-JE-1.40
-                journalEntryId: JournalEntryHeaderId // REQ-JE-1.41
+                journalEntryHeaderId: JournalEntryHeaderId // REQ-JE-1.41
                 financialInstitution: JournalRefFinancialInstitution // REQ-JE-1.42
                 referenceText: JournalExternalReferenceText
                 createdAt: Instant
@@ -18,7 +18,7 @@ type JournalEntryExternalReference =
 
 module JournalEntryExternalReference =
     let journalEntryExternalReferenceId jer = jer.journalEntryExternalReferenceId
-    let journalEntryId jer = jer.journalEntryId
+    let journalEntryHeaderId jer = jer.journalEntryHeaderId
     let financialInstitution jer = jer.financialInstitution
     let referenceText jer = jer.referenceText
     let createdAt jer = jer.createdAt
@@ -26,14 +26,14 @@ module JournalEntryExternalReference =
     
     let create
         (journalEntryExternalReferenceId: JournalEntryExternalReferenceId)
-        (journalEntryId: JournalEntryHeaderId)
+        (journalEntryHeaderId: JournalEntryHeaderId)
         (financialInstitution: JournalRefFinancialInstitution)
         (referenceText: JournalExternalReferenceText)
         (createdAt: Instant) // REQ-SYS-3.2
         (modifiedAt: Instant) // REQ-SYS-3.2
         : JournalEntryExternalReference = {
             journalEntryExternalReferenceId = journalEntryExternalReferenceId
-            journalEntryId= journalEntryId 
+            journalEntryHeaderId= journalEntryHeaderId 
             financialInstitution= financialInstitution 
             referenceText= referenceText
             createdAt= createdAt
@@ -46,7 +46,7 @@ module JournalEntryExternalReference =
             VALUES (
                 @unique_id, @journal_entry_id, @financial_institution, @reference, @created_at, @modified_at);"""
         let journalEntryExternalReferenceUuid = externalReference.journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
-        let journalEntryUuid = externalReference.journalEntryId |> JournalEntryHeaderId.value
+        let journalEntryUuid = externalReference.journalEntryHeaderId |> JournalEntryHeaderId.value
         let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
             { name = "@unique_id"; value = UniqueId journalEntryExternalReferenceUuid }
             { name = "@journal_entry_id"; value = UniqueId journalEntryUuid }
@@ -124,6 +124,22 @@ module JournalEntryExternalReference =
         let uuid = journalEntryId |> JournalEntryHeaderId.value
         let predicate = "jer.journal_entry_id = @unique_id"
         let parameters = [{ name = "@unique_id"; value = UniqueId uuid };] // REQ-DAL-2.3
+        readRowsFromDb (Some predicate) None None parameters AnyQuantityIsAcceptable transaction
+
+    let fetchByJournalEntryHeaderIdList
+            (transaction: DbTransaction option)
+            (journalEntryHeaderIds: JournalEntryHeaderId list)
+            : Result<JournalEntryExternalReference list, AppError> = 
+        let ordinals = [1..journalEntryHeaderIds.Length]
+        let zipped = List.zip ordinals journalEntryHeaderIds
+        let namesAndParameters = zipped |> List.map(fun (ordinal, id) ->
+                let uuid = id |> JournalEntryHeaderId.value
+                let name = $"@journal_entry_id{ordinal}"
+                let parameter = { name = name; value = UniqueId uuid }
+                name, parameter )
+        let names = namesAndParameters |> List.map fst |> String.concat ", "
+        let parameters = namesAndParameters |> List.map snd
+        let predicate = $"jer.journal_entry_id in = ({names})"
         readRowsFromDb (Some predicate) None None parameters AnyQuantityIsAcceptable transaction
         
         

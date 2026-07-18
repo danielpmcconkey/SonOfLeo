@@ -454,7 +454,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                         let fl =
                             fetchedLines |> List.find (fun fl ->
                                 JournalEntryLine.journalEntryLineId fl = JournalEntryLine.journalEntryLineId cl)
-                        Assert.Equal(cl |> JournalEntryLine.journalEntryId, fl |> JournalEntryLine.journalEntryId)
+                        Assert.Equal(cl |> JournalEntryLine.journalEntryHeaderId, fl |> JournalEntryLine.journalEntryHeaderId)
                         Assert.Equal(cl |> JournalEntryLine.accountId, fl |> JournalEntryLine.accountId)
                         Assert.Equal(cl |> JournalEntryLine.amount, fl |> JournalEntryLine.amount)
                         Assert.Equal(cl |> JournalEntryLine.lineType, fl |> JournalEntryLine.lineType)
@@ -472,8 +472,8 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                             fetchedRefs |> List.find (fun fr ->
                                 JournalEntryExternalReference.journalEntryExternalReferenceId fr = JournalEntryExternalReference.journalEntryExternalReferenceId cr)
                         Assert.Equal(
-                            cr |> JournalEntryExternalReference.journalEntryId,
-                            fr |> JournalEntryExternalReference.journalEntryId)
+                            cr |> JournalEntryExternalReference.journalEntryHeaderId,
+                            fr |> JournalEntryExternalReference.journalEntryHeaderId)
                         Assert.Equal(
                             cr |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value,
                             fr |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value)

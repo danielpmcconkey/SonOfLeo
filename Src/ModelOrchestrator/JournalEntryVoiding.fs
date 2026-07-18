@@ -1,26 +1,44 @@
 module ModelOrchestrator.JournalEntryVoiding
 
-open System
 open Model.Audit
 open Model.Ledger.FiscalPeriods
-open Model.Ledger.JournalEntryPrimitives
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
-open Model.Ledger.Journaling.JournalEntryHeader
 open ModelOrchestrator.JournalEntries
-open ModelOrchestrator.JournalEntries.JournalEntryCreationAndConstruction
+open Utilities.AppError
 open Utilities.ResultCE
 open Utilities.DAL
+
+let private confirmFiscalPeriodIsStillOpenBeforeVoiding
+        (transaction: DbTransaction option)
+        (journalEntryHeader: JournalEntryHeader)
+        : Result<unit, AppError> =
+    let entryDate = journalEntryHeader |> JournalEntryHeader.entryDate
+    let fiscalPeriodId = entryDate |> EntryDate.fiscalPeriodId
+    result {
+        let! fiscalPeriod =
+            match fiscalPeriodId |> FiscalPeriod.fetchById transaction with
+            | Ok x -> Ok x
+            | Error (DalResultantRowsDidntMatchExpectation _) ->
+                Error (JournalEntryVoidingCannotFetchFiscalPeriod (
+                    entryDate |> EntryDate.entryDate, fiscalPeriodId |> FiscalPeriodId.value))
+            | Error e -> Error e
+        return!
+            match fiscalPeriod |> FiscalPeriod.isOpen with
+            | true -> Ok ()
+            | false -> Error (JournalEntryVoidingFiscalPeriodIsClosed (
+                        entryDate |> EntryDate.entryDate, fiscalPeriodId |> FiscalPeriodId.value)) }
 
 let private voidById // REQ-JE-4.3
         (transaction: DbTransaction option)
         (auditEnvelope: AuditEnvelope)
-        (journalEntryId: Guid)
-        : Result<JournalEntryHeader, AppError> = 
+        (journalEntryHeaderId: JournalEntryHeaderId)
+        : Result<unit, AppError> = 
+    let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
     let parameters = [
             { name = "@modified"; value = DbInstant (AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3 
             { name = "@newValue"; value = DbInstant (AuditEnvelope.instant auditEnvelope) }
-            { name = "@unique_id"; value = UniqueId journalEntryId };
+            { name = "@unique_id"; value = UniqueId uuid };
         ]
     let query = $"""
         UPDATE ledger.journal_entry
@@ -32,48 +50,49 @@ let private voidById // REQ-JE-4.3
         ;
     """
     result {
-        let! je = journalEntryId |> fetchById transaction
-        let fp = je |> entryDate |> EntryDate.fiscalPeriodId
-        do! if fp |> FiscalPeriod.isOpen = false then Error "Cannot void a Journal Entry in a closed period" else Ok() // REQ-JE-4.5
-        let! _ = executeNonQuery query parameters ExactlyOne transaction // REQ-JE-4.6
-        return! journalEntryId |> fetchById transaction
+        let! je = journalEntryHeaderId |> JournalEntryHeader.fetchById transaction
+        do! je |> confirmFiscalPeriodIsStillOpenBeforeVoiding transaction  // REQ-JE-4.5
+        do! executeNonQuery query parameters ExactlyOne transaction // REQ-JE-4.6
     }
 
 let private insertReason  // REQ-JE-4.4
-        (transaction: DbTransaction option)
+        (primaryJournalEntryId: JournalEntryHeaderId)
+        (secondaryJournalEntryId: JournalEntryHeaderId option)
+        (commentText: CommentText)
         (auditEnvelope: AuditEnvelope)
-        (reason: JournalEntryCommentPrimitives)
-        (journalEntryId: Guid)
+        (transaction: DbTransaction option)
         : Result<unit, AppError> =
-    let result = JournalEntryComment.constructNewAndSaveToDb
-                            journalEntryId
-                            reason.secondaryJournalEntryId
-                            reason.commentText
+    JournalEntryCommentOrchestration.constructNewAndSaveToDb
+                            primaryJournalEntryId
+                            secondaryJournalEntryId
+                            commentText
                             auditEnvelope
                             transaction
-    match result with
-    | Error e -> Error e
-    | _ -> Ok ()
+    |> Result.map ignore
 
-let voidJournalEntryOrchestration // REQ-JE-4.3
+let voidJournalEntry // REQ-JE-4.3
         (auditEnvelope: AuditEnvelope)
-        (reason: JournalEntryCommentPrimitives) // REQ-JE-4.4
-        (journalEntryId: Guid)
+        (secondaryJournalEntryIdForComment: JournalEntryHeaderId option)
+        (commentText: CommentText)
+        (journalEntryHeaderId: JournalEntryHeaderId)
         : Result<JournalEntry, AppError> =
-
-    let transaction = createDbTransaction() |> Result.defaultWith failwith // if this fails, nothing can proceed
+    let transaction = createDbTransaction() |> Result.defaultWith (fun e -> failwith (AppError.toMessage e)) // if this fails, nothing can proceed
     let railRoad = result {
-        do! insertReason (Some transaction) auditEnvelope reason journalEntryId
-        let! newHeader = journalEntryId |> voidById (Some transaction) auditEnvelope
-        let! validLines = journalEntryId |> JournalEntryLine.fetchByJournalEntryId (Some transaction)
-        let! validReferences = journalEntryId |> JournalEntryExternalReference.fetchByJournalEntryId (Some transaction)
-        let! validComments = journalEntryId |> JournalEntryComment.fetchByJournalEntryId (Some transaction)
-        return! constructFromPreValidatedComponents newHeader validLines validReferences validComments
-    }
+        do! insertReason journalEntryHeaderId secondaryJournalEntryIdForComment commentText auditEnvelope (Some transaction) // REQ-JE-4.4
+        do! journalEntryHeaderId
+            |> voidById (Some transaction) auditEnvelope
+            |> function
+            | Ok y -> Ok y
+            | Error (DalResultantRowsDidntMatchExpectation (_, 0)) ->
+                Error (JournalEntryVoidingNoOp (journalEntryHeaderId |> JournalEntryHeaderId.value))
+            | Error (DalResultantRowsDidntMatchExpectation (expected, actual)) ->
+                Error (DalResultantRowsDidntMatchExpectation (expected, actual))
+            | Error e -> Error e 
+        return! journalEntryHeaderId |> JournalEntry.fetchById (Some transaction) }
     match railRoad with
     | Error e ->
-        transaction |> rollbackDbTransactionAndDisposeConnection |> Result.defaultWith failwith
+        transaction |> rollbackDbTransactionAndDisposeConnection |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
         Error e
     | Ok je ->
-        transaction |> commitDbTransactionAndDisposeConnection |> Result.defaultWith failwith
+        transaction |> commitDbTransactionAndDisposeConnection |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
         Ok je
