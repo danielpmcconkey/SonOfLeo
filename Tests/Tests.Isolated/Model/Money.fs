@@ -2,7 +2,8 @@ module Tests.Isolated.Model.Money
 
 open System
 open Model.Money
-open Utilities.ResultCE
+open Utilities.AppError
+open Utilities.ResultHelper
 open Xunit
 
 // =============================================================================
@@ -12,19 +13,19 @@ open Xunit
 [<Fact>]
 let ``REQ-MON-2.2 fromDecimal accepts valid 2dp amount`` () =
     let amount_d = 3.99M
-    let m = fromDecimal amount_d |> Result.defaultWith failwith
+    let m = fromDecimal amount_d |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
     Assert.Equal(amount_d, amount m)
-
+    
 [<Fact>]
 let ``REQ-MON-2.2 fromDecimal accepts negative amounts`` () =
     let amount_d = -3.99M
-    let m = fromDecimal amount_d |> Result.defaultWith failwith
+    let m = fromDecimal amount_d |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
     Assert.Equal(amount_d, amount m)
 
 [<Fact>]
 let ``REQ-MON-2.2 fromDecimal accepts zero`` () =
     let amount_d = 0M
-    let m = fromDecimal amount_d |> Result.defaultWith failwith
+    let m = fromDecimal amount_d |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
     Assert.Equal(amount_d, amount m)
 
 [<Fact>]
@@ -74,7 +75,7 @@ let ``REQ-MON-2.3.2 fromDecimal list preserves sort order`` () =
     let list_d = [-3.99M; 12.24M; 27194338M]
     let result = fromDecimalList list_d
     match result with
-    | Error e -> Assert.Fail e
+    | Error e -> Assert.Fail (AppError.toMessage e)
     | Ok list_m ->
         List.zip list_d list_m
         |> List.iter (fun (d, m) -> Assert.Equal(d, amount m))
@@ -94,7 +95,7 @@ let ``REQ-MON-2.4 splitByN happy path`` () =
     }
     match railroad with
     | Ok _ -> ()
-    | Error e -> Assert.Fail e
+    | Error e -> Assert.Fail (AppError.toMessage e)
 
 [<Fact>]
 let ``REQ-MON-2.4.1 splitByN produces parts that sum exactly to original`` () =
@@ -108,7 +109,7 @@ let ``REQ-MON-2.4.1 splitByN produces parts that sum exactly to original`` () =
     }
     match railroad with
     | Ok _ -> ()
-    | Error e -> Assert.Fail e
+    | Error e -> Assert.Fail (AppError.toMessage e)
 
 [<Fact>]
 let ``REQ-MON-2.4.2 splitByN rejects zero-ways split requests`` () =
@@ -121,7 +122,7 @@ let ``REQ-MON-2.4.2 splitByN rejects zero-ways split requests`` () =
     }
     match railroad with
     | Ok _ -> ()
-    | Error e -> Assert.Fail e
+    | Error e -> Assert.Fail (AppError.toMessage e)
 
 [<Fact>]
 let ``REQ-MON-2.4.3 splitByN rejects one-ways split requests`` () =
@@ -134,7 +135,7 @@ let ``REQ-MON-2.4.3 splitByN rejects one-ways split requests`` () =
     }
     match railroad with
     | Ok _ -> ()
-    | Error e -> Assert.Fail e
+    | Error e -> Assert.Fail (AppError.toMessage e)
 
 [<Fact>]
 let ``REQ-MON-2.4.6 splitByN rejects negative-ways split requests`` () =
@@ -147,7 +148,7 @@ let ``REQ-MON-2.4.6 splitByN rejects negative-ways split requests`` () =
     }
     match railroad with
     | Ok _ -> ()
-    | Error e -> Assert.Fail e
+    | Error e -> Assert.Fail (AppError.toMessage e)
 
 [<Fact>]
 let ``REQ-MON-2.4.4 splitByN rounds using midway rounding up`` () =
@@ -163,7 +164,7 @@ let ``REQ-MON-2.4.4 splitByN rounds using midway rounding up`` () =
     }
     match railroad with
     | Ok _ -> ()
-    | Error e -> Assert.Fail e
+    | Error e -> Assert.Fail (AppError.toMessage e)
 
 [<Fact>]
 let ``REQ-MON-2.4.5 splitByN applies uneven remainder entirely to the first share`` () =
@@ -185,7 +186,7 @@ let ``REQ-MON-2.4.5 splitByN applies uneven remainder entirely to the first shar
     }
     match railroad with
     | Ok _ -> ()
-    | Error e -> Assert.Fail e
+    | Error e -> Assert.Fail (AppError.toMessage e)
 
 // =============================================================================
 // add / subtract
@@ -196,19 +197,19 @@ let ``REQ-MON-2.5 add function happy path`` () =
     let d1 = 145877.43M
     let d2 = -874.12M
     let expected = d1 + d2
-    let m1 = fromDecimal d1 |> Result.defaultWith failwith
-    let m2 = fromDecimal d2 |> Result.defaultWith failwith
+    let m1 = fromDecimal d1 |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+    let m2 = fromDecimal d2 |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
     let result = add m1 m2
     match result with
-    | Error e -> Assert.Fail e
+    | Error e -> Assert.Fail (AppError.toMessage e)
     | Ok sumTotal -> Assert.Equal(expected, amount sumTotal)
 
 [<Fact>]
 let ``REQ-MON-2.5.1 add returns Error when sum exceeds max`` () =
     let d1 = maxMoney
     let d2 = 0.01M
-    let m1 = fromDecimal d1 |> Result.defaultWith failwith
-    let m2 = fromDecimal d2 |> Result.defaultWith failwith
+    let m1 = fromDecimal d1 |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+    let m2 = fromDecimal d2 |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
     let result = add m1 m2
     Assert.True(result.IsError)
 
@@ -217,19 +218,19 @@ let ``REQ-MON-2.6 subtract happy path`` () =
     let decimal1 = -874.12M
     let decimal2 = 145877.43M
     let expected = decimal2 - decimal1
-    let val1 = fromDecimal decimal1 |> Result.defaultWith failwith
-    let val2 = fromDecimal decimal2 |> Result.defaultWith failwith
+    let val1 = fromDecimal decimal1 |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+    let val2 = fromDecimal decimal2 |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
     let result = subtractVal1FromVal2 val1 val2
     match result with
-    | Error e -> Assert.Fail e
+    | Error e -> Assert.Fail (AppError.toMessage e)
     | Ok sumTotal -> Assert.Equal(expected, amount sumTotal)
 
 [<Fact>]
 let ``REQ-MON-2.6.1 subtract returns Error when difference falls below min`` () =
     let decimal2 = minMoney
     let decimal1 = 0.01M
-    let val2 = fromDecimal decimal2 |> Result.defaultWith failwith
-    let val1 = fromDecimal decimal1 |> Result.defaultWith failwith
+    let val2 = fromDecimal decimal2 |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+    let val1 = fromDecimal decimal1 |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
     let result = subtractVal1FromVal2 val1 val2
     Assert.True(result.IsError)
 
@@ -244,7 +245,7 @@ let ``REQ-MON-2.8 provide a function for converting a Money type to a .NET decim
     }
     match railroad with
     | Ok _ -> ()
-    | Error e -> Assert.Fail e
+    | Error e -> Assert.Fail (AppError.toMessage e)
 
 [<Fact>]
 let ``REQ-MON-2.9 sum list happy path`` () =
@@ -262,14 +263,14 @@ let ``REQ-MON-2.9 sum list happy path`` () =
     }
     match railroad with
     | Ok _ -> ()
-    | Error e -> Assert.Fail e
+    | Error e -> Assert.Fail (AppError.toMessage e)
 
 [<Fact>]
 let ``REQ-MON-2.9.1 sum list rejects results greater than maxMoney`` () =
     let d1 = maxMoney
     let d2 = 0.01M
-    let m1 = fromDecimal d1 |> Result.defaultWith failwith
-    let m2 = fromDecimal d2 |> Result.defaultWith failwith
+    let m1 = fromDecimal d1 |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+    let m2 = fromDecimal d2 |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
     let result = sumList [m1; m2]
     Assert.True(result.IsError)
 
@@ -277,7 +278,7 @@ let ``REQ-MON-2.9.1 sum list rejects results greater than maxMoney`` () =
 let ``REQ-MON-2.9.1 sum list rejects results lesser than minMoney`` () =
     let d1 = minMoney
     let d2 = -0.01M
-    let m1 = fromDecimal d1 |> Result.defaultWith failwith
-    let m2 = fromDecimal d2 |> Result.defaultWith failwith
+    let m1 = fromDecimal d1 |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+    let m2 = fromDecimal d2 |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
     let result = sumList [m1; m2]
     Assert.True(result.IsError)

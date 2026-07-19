@@ -1,4 +1,4 @@
-module Tests.Integrated.GenericTestProperties
+module Tests.Isolated.Model.GenericTestProperties
 
 open Model.Audit
 open Model.Ledger.Accounts.AccountComponent
@@ -25,3 +25,4 @@ let genericAccountParentCode = None
 let genericAccountReference= None
 // fiscal period
 let genericFiscalPeriodKey = "2050-01"
+

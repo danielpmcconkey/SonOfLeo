@@ -41,6 +41,8 @@
     <Compile Include="ModelOrchestrator\JournalEntryFetching.fs" />
     <Compile Include="ModelOrchestrator\AccountBalance.fs" />
     <Compile Include="ModelOrchestrator\AccountActivity.fs" />
+    <Compile Include="ModelOrchestrator\AccountCreation.fs" />
+    <Compile Include="ModelOrchestrator\FiscalPeriodCreation.fs" />
     <Compile Include="Model\Ledger\JournalEntryHeader.fs" />
     <Compile Include="Model\Ledger\JournalEntryExternalReference.fs" />
     <Compile Include="Model\Ledger\JournalEntryComment.fs" />
