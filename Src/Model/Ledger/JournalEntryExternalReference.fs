@@ -137,7 +137,7 @@ module JournalEntryExternalReference =
                 name, parameter )
         let names = namesAndParameters |> List.map fst |> String.concat ", "
         let parameters = namesAndParameters |> List.map snd
-        let predicate = $"jer.journal_entry_id in = ({names})"
+        let predicate = $"jer.journal_entry_id in ({names})"
         readRowsFromDb (Some predicate) None None parameters AnyQuantityIsAcceptable transaction
         
         

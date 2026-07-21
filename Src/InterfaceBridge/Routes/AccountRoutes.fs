@@ -10,6 +10,7 @@ open ModelOrchestrator
 open ModelOrchestrator.AccountActivity
 open InterfaceBridge.Json
 open InterfaceBridge.CommandRoute
+open Utilities.AppError
 open Utilities.ResultHelper
     
 let private accountCreate payload _ =
@@ -21,7 +22,13 @@ let private accountCreate payload _ =
         let! accountType = accountCreateInput.accountTypeSt |> AccountType.fromString
         let! accountActivityPeriod = AccountActivityPeriod.create accountCreateInput.activeBegin accountCreateInput.activeEnd
         let! subtype = accountCreateInput.subType |> ``convert AccountSubtypeString Option to AccountSubtype Option``
-        let! parentId = accountCreateInput.parentCode |> ``convert AccountCodeString Option to AccountId Option``
+        let! parentId =
+            accountCreateInput.parentCode
+            |> ``convert AccountCodeString Option to AccountId Option``
+            |> function
+                | Ok x -> Ok x
+                | Error (DalResultantRowsDidntMatchExpectation _) -> Error (AccountParentCodeInvalid (accountCreateInput.parentCode |> Option.defaultValue "None"))
+                | Error e -> Error e
         let! reference = accountCreateInput.reference |> ``convert [Account Reference String Option] to [AccountExternalReference Option]``
         let! account = AccountCreation.constructNewAndSaveToDb
                          code

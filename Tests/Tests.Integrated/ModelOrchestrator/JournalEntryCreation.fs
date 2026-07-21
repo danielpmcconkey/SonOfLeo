@@ -501,7 +501,7 @@ open Utilities
 //             match cleanUpJournalEntryId idToCleanUp with
 //             | Ok () -> ()
 //             | Error e -> failwith e
-//
+//  
 //     [<Fact>]
 //     member _.``REQ-JE-3.1 fetched entry includes header, lines, external references, and comments`` () =
 //         let envelope = AuditEnvelope.create JournalEntryPostNew

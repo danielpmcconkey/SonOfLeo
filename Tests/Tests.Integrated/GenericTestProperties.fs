@@ -1,9 +1,19 @@
 module Tests.Integrated.GenericTestProperties
 
+open InterfaceBridge.InterfaceContracts.AccountContracts
+open Model
 open Model.Audit
+open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.FiscalPeriods
+open Model.Ledger.Journaling
+open Model.Ledger.Journaling.JournalEntryComponent
+open ModelOrchestrator
+open ModelOrchestrator.JournalEntries
+open NodaTime
 open Utilities
 open Utilities.AppError
+open Utilities.ResultHelper
 
 // audit
 let genericAuditEnvelope = AuditEnvelope.create AccountCreate
@@ -24,4 +34,87 @@ let genericAccountParentId = None
 let genericAccountParentCode = None
 let genericAccountReference= None
 // fiscal period
-let genericFiscalPeriodKey = "2050-01"
+let genericFiscalPeriodKeyString = "2050-01"
+let genericFiscalPeriodKey = genericFiscalPeriodKeyString |> FiscalPeriodKey.fromString |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+
+let createTestFiscalPeriodFromPrimitives transaction keyStr : Result<FiscalPeriod,AppError> =
+    result {
+        let! key = keyStr |> FiscalPeriodKey.fromString
+        let envelope = AuditEnvelope.create FiscalPeriodCreate
+        return! FiscalPeriodCreation.constructNewAndSaveToDb key envelope transaction }
+
+let createTestAccountFromPrimitives code name actType activeBegin activeEnd subtype parentId reference envelope  transaction =
+    result {
+        let! account =
+            AccountCreation.constructNewAndSaveToDb
+                (code |> AccountCode.create |> Result.defaultWith (fun e -> failwith (AppError.toMessage e)))
+                (name |> AccountName.create |> Result.defaultWith (fun e -> failwith (AppError.toMessage e)))
+                (actType |> AccountType.fromString |> Result.defaultWith (fun e -> failwith (AppError.toMessage e)))
+                (AccountActivityPeriod.create activeBegin activeEnd |> Result.defaultWith (fun e -> failwith (AppError.toMessage e)))
+                (subtype |> convertOptionToDesiredTypeWithFallibleConverter AccountSubtype.fromString |> Result.defaultWith (fun e -> failwith (AppError.toMessage e)))
+                parentId
+                (reference |> convertOptionToDesiredTypeWithFallibleConverter AccountExternalReference.create |> Result.defaultWith (fun e -> failwith (AppError.toMessage e)))
+                envelope
+                transaction
+        return account |> Account.accountId }
+
+let createTestAccountFromCodeString codeToUse =
+        createTestAccountFromPrimitives codeToUse genericAccountNameString genericAccountTypeString
+                    genericAccountActiveBegin genericAccountActiveEnd genericAccountSubtype genericAccountParentId
+                    genericAccountReference genericAuditEnvelope None
+let createAccountInput codeToUse : AccountCreateInput = {
+         code = codeToUse; name = genericAccountNameString; accountTypeSt = genericAccountTypeString
+         activeBegin =  genericAccountActiveBegin; activeEnd = genericAccountActiveEnd; subType = genericAccountSubtype
+         parentCode = genericAccountParentCode; reference = genericAccountReference }
+let createTestJournalEntryFromPrimitives
+            (description: string)
+            (source: string option)
+            (entryDate: LocalDate)
+            (lines: (AccountId * decimal * string * string option) list)
+            (references: (string * string) list)
+            (comments: (JournalEntryHeaderId option * string) list)
+            (auditEnvelope: AuditEnvelope)
+            : Result<JournalEntry * JournalEntryHeaderId, AppError> =
+    let convertLines (linesIn : (AccountId * decimal * string * string option) list) : Result<(AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option) list, AppError> =
+        linesIn
+        |> List.map(fun l ->
+            let id, amountDec, lineTypeSt, memoSt = l 
+            result {
+                let! amount = amountDec |> Money.fromDecimal
+                let! lineType = lineTypeSt |> JournalEntryLineType.fromString
+                let! memo = memoSt |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
+                return id, amount, lineType, memo
+            })
+        |> convertListOfResultsToResultsList
+    let convertRefs (refsIn : (string * string) list) : Result<(JournalRefFinancialInstitution * JournalExternalReferenceText) list, AppError> =
+        refsIn
+        |> List.map(fun r ->
+            let fiSt, refSt = r 
+            result {
+                let! fi = fiSt |> JournalRefFinancialInstitution.create
+                let! ref = refSt |> JournalExternalReferenceText.create
+                return fi, ref
+            })
+        |> convertListOfResultsToResultsList
+    let convertComments (commentsIn : (JournalEntryHeaderId option * string) list) : Result<(JournalEntryHeaderId option * CommentText) list, AppError> =
+        commentsIn
+        |> List.map(fun c ->
+            let id, textSt = c
+            result {
+                let! text = textSt |> CommentText.create
+                return id, text
+            })
+        |> convertListOfResultsToResultsList
+    result {
+        let! description = description |> JournalEntryDescription.create
+        let! source = source |> convertOptionToDesiredTypeWithFallibleConverter JournalEntrySource.create
+        let! entryDate = entryDate |> EntryDate.create None
+        let! linesConverted = lines |> convertLines
+        let! refsConverted = references |> convertRefs
+        let! commentsConverted = comments |> convertComments
+        let! journalEntry =
+            JournalEntry.constructNewAndSaveToDb
+                description source entryDate linesConverted refsConverted commentsConverted auditEnvelope
+        let headerId = journalEntry |> JournalEntry.header |> JournalEntryHeader.journalEntryHeaderId
+        return (journalEntry, headerId) }
+    

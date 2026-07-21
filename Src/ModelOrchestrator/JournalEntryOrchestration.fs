@@ -243,7 +243,7 @@ module JournalEntry =
             let whereClauses = whereClausesAndParams |> List.map fst |> String.concat Environment.NewLine
             let parameters = whereClausesAndParams |> List.map snd
             let predicate = Some $"""
-                where 1 = 1
+                1 = 1
                 {whereClauses}
                 {voidClause}
                 """
@@ -258,7 +258,7 @@ module JournalEntry =
                     else Some "left join ledger.journal_entry_ext_reference jer on je.unique_id = jer.journal_entry_id"
                 ] |> List.choose id |> String.concat Environment.NewLine
             let joinClause = if joins = "" then None else Some joins
-            let sort = Some "order by je.entry_date asc"
+            let sort = Some "je.entry_date asc"
             let! headersDuplicates =
                     JournalEntryHeader.readRowsFromDb
                        joinClause predicate None sort parameters

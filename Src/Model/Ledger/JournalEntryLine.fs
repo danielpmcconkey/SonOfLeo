@@ -158,7 +158,7 @@ module JournalEntryLine =
                 name, parameter )
         let names = namesAndParameters |> List.map fst |> String.concat ", "
         let parameters = namesAndParameters |> List.map snd
-        let predicate = $"jel.journal_entry_id in = ({names})"
+        let predicate = $"jel.journal_entry_id in ({names})"
         readRowsFromDb None (Some predicate) None None parameters AnyQuantityIsAcceptable transaction
 
     let fetchByAccountId // REQ-JE-3.4

@@ -20,21 +20,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="_Cleanup.fs" />
-    <Compile Include="GenericTestProperties.fs" />
-    <Compile Include="_TestDataStage.fs" />
-    <Compile Include="Model\Ledger\Account.fs" />
-    <Compile Include="Model\Ledger\FiscalPeriod.fs" />
-    <Compile Include="SonOfLeoCli\CliExecutor.fs" />
-    <Compile Include="SonOfLeoCli\Program.fs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Content Include="appsettings.json" />
     <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="_Cleanup.fs" />
+    <Compile Include="GenericTestProperties.fs" />
+    <Compile Include="_TestDataStage.fs" />
+    <Compile Include="InterfaceBridge\_routeResolver.fs" />
+    <Compile Include="Model\Ledger\Account.fs" />
+    <Compile Include="Model\Ledger\FiscalPeriod.fs" />
+    <Compile Include="SonOfLeoCli\CliExecutor.fs" />
+    <Compile Include="SonOfLeoCli\Program.fs" />
     <Compile Include="ModelOrchestrator\AccountDeactivation.fs" />
     <Compile Include="ModelOrchestrator\JournalEntryCreation.fs" />
     <Compile Include="ModelOrchestrator\JournalEntryVoiding.fs" />
@@ -46,9 +44,6 @@
     <Compile Include="Model\Ledger\JournalEntryHeader.fs" />
     <Compile Include="Model\Ledger\JournalEntryExternalReference.fs" />
     <Compile Include="Model\Ledger\JournalEntryComment.fs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Compile Include="InterfaceBridge\AccountRoutes.fs" />
     <Compile Include="InterfaceBridge\FiscalPeriodRoutes.fs" />
     <Compile Include="InterfaceBridge\JournalEntryRoutes.fs" />

@@ -4,7 +4,9 @@ open System
 open NodaTime
 
 type AppError =
-
+    
+    | TestingError of string // this is NEVER to be used in the Src directory. It is only here to facilitate automated testing. Such as when I need to assert that somewthing was supposed to fail but it doesn't.
+    
     | DalConnectionStringEnvVarNotFound of unit
     | DalErrorRetrievingAppSettings of exn
     | DalConnectionStringEnvVarContainsConnectionString of unit
@@ -60,6 +62,7 @@ type AppError =
     | AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate of Guid
     | AccountDeactivationFailedJournalEntryValidation of unit
     | AccountAlreadyInactive of Guid * LocalDate
+    | AccountParentCodeInvalid of string
     
     | FiscalPeriodInvalidKeyString of string
     | FiscalPeriodNoPeriodMatchingKey of string
@@ -105,6 +108,8 @@ type AppError =
 
 module AppError =
     let toMessage = function
+    
+    | TestingError message -> message
     
     | DalConnectionStringEnvVarNotFound _ -> "ConnectionStringEnvVar not found in appsettings.json."
     | DalErrorRetrievingAppSettings ex -> $"Error retrieving appsettings.json. Error message: {ex.Message}{Environment.NewLine} {ex.StackTrace}" // REQ-DAL-1.3, REQ-NGUI-1.3.1
@@ -161,6 +166,7 @@ module AppError =
     | AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate uuid -> $"Account {uuid} cannot be deactivated as it has one or more Journal Entries dated after the deactivation date."
     | AccountDeactivationFailedJournalEntryValidation _ -> "Failed to validate the Account's Journal Entries prior to deactivation"
     | AccountAlreadyInactive (uuid, endDate) -> $"Account {uuid} deactivation failed because active end is already set to {endDate}."
+    | AccountParentCodeInvalid code -> $"Provided parent code ({code}) doesn't match an ID in the database."
 
     | FiscalPeriodInvalidKeyString key -> $"Passed string \"{key}\" is invalid as a Period Key."
     | FiscalPeriodNoPeriodMatchingKey key -> $"No Fiscal Period matching {key} could be found in the database."

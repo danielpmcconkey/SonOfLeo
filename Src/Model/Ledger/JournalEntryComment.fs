@@ -144,5 +144,5 @@ module JournalEntryComment =
                 name, parameter )
         let names = namesAndParameters |> List.map fst |> String.concat ", "
         let parameters = namesAndParameters |> List.map snd
-        let predicate = $"jec.journal_entry_id in = ({names})"
+        let predicate = $"jec.journal_primary_entry_id in ({names})"
         readRowsFromDb (Some predicate) None None parameters AnyQuantityIsAcceptable transaction

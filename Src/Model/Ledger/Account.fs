@@ -252,7 +252,7 @@ module Account =
 
     let updateExternalReferenceById 
             (accountId: AccountId )
-            (newReference: string option)
+            (newReference: string option) // todo make this as FieldUpdate
             (auditEnvelope: AuditEnvelope)
             (transaction: DbTransaction option)
             : Result<Account, AppError> = // REQ-AC-4.9
