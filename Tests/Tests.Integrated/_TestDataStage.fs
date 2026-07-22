@@ -36,8 +36,10 @@ type FixtureData = {
     food5350Id: AccountId
     entertainment5650Id: AccountId
     closedBank1290Id: AccountId
+    closedAccount: Account
     openFiscalPeriodIds: FiscalPeriodId list
     closedFiscalPeriodId: FiscalPeriodId
+    closedFiscalPeriod: FiscalPeriod
     basicJeId: JournalEntryHeaderId
     jeWithRefId: JournalEntryHeaderId
     jeWithRefExtRefId: JournalEntryExternalReferenceId
@@ -205,6 +207,15 @@ type TestDataFixture() =
                     []
                     jeEnvelope
             // note: don't add jeToVoid to the list because we later update it by voiding
+            
+            let! jeToNotVoid, jeToNotVoidId = // this is here to ensure we have an account with both voided and not-voided JEs
+                createTestJournalEntryFromPrimitives "Fixture voided JE" None yesterday 
+                    [ (entertainment5650Id, 86.04M, "Debit", None)
+                      (creditCard2220Id, 86.04M, "Credit", None) ]
+                    [  ]
+                    []
+                    jeEnvelope
+            journalEntries <- jeToNotVoid :: journalEntries
  
             let closedPeriodEntryDate = (closedFiscalPeriod |> FiscalPeriod.startDate).PlusDays(14)
  
@@ -321,8 +332,10 @@ type TestDataFixture() =
                 food5350Id = food5350Id
                 entertainment5650Id = entertainment5650Id
                 closedBank1290Id = closedBank1290Id
+                closedAccount = updatedClosedBank
                 openFiscalPeriodIds = openFiscalPeriods |> List.map FiscalPeriod.fiscalPeriodId
                 closedFiscalPeriodId = closedFiscalPeriodId
+                closedFiscalPeriod = updatedFiscalPeriod
                 basicJeId = basicJeId
                 jeWithRefId = jeWithRefId
                 jeWithRefExtRefId = jeWithRefExtRefId

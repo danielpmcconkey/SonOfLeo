@@ -44,7 +44,7 @@ let private accountCreate payload _ =
         return! Json.toJson<AccountReturn> returnAccount } // REQ-NGUI-2.4, REQ-NGUI-3.5
 
 let private accountDeactivate payload _ =
-    let envelope = AuditEnvelope.create AccountDeactivation
+    let envelope = AuditEnvelope.create AccountDeactivate
     result {
         let! accountDeactivationInput = Json.fromJson<AccountDeactivationInput> payload// REQ-NGUI-2.4, REQ-NGUI-3.5
         

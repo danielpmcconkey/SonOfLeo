@@ -44,7 +44,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.9 fetchFiltered with unVoidedOnly excludes voided entries`` () =
         // todo: we do this better in the AccountRoutes tests. move that test here and delete this one
-        let expectedCount = 14
+        let expectedCount = 16
         let filterUnvoided = {
             accountId = None
             temporalFilter = None

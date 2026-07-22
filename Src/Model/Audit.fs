@@ -10,7 +10,7 @@ type AuditableAction =
     | AccountCreate
     | AccountUpdateName
     | AccountUpdateExtReference
-    | AccountDeactivation
+    | AccountDeactivate
     | FiscalPeriodCreate
     | FiscalPeriodClose
     | FiscalPeriodReopen

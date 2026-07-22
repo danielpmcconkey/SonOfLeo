@@ -126,4 +126,19 @@ let createFiUpdateFromString fiString =
     fiString |> createJournalRefFinancialInstitutionFromString |> SetTo
 let createReferenceTextUpdateFromString textString =
     textString |> createJournalExternalReferenceTextFromString |> SetTo
-    
+let sumJournalEntryLinesByAccountIdAndType unvoidedOnly accountId lineType lines =
+    // this is expensive if unvoidedOnly is true
+    let allLinesAtAccountAndType =
+                   lines
+                   |> List.filter (fun x ->
+                             x |> JournalEntryLine.accountId = accountId &&
+                             x |> JournalEntryLine.lineType = lineType)
+    let filteredFurther =
+        if unvoidedOnly
+        then allLinesAtAccountAndType
+             |> List.filter (fun x -> x
+                                     |> JournalEntryLine.journalEntryHeaderId
+                                     |> JournalEntryHeader.fetchById None |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+                                     |> JournalEntryHeader.voidedAt |> Option.isNone )
+        else allLinesAtAccountAndType
+    filteredFurther |> List.sumBy (fun x -> x |> JournalEntryLine.amount |> Money.amount)
