@@ -2,7 +2,9 @@ namespace Tests.Integrated.InterfaceBridge.AccountRoutes
 
 open InterfaceBridge.Json.Json
 open Model
+open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.Journaling
 open Tests.Integrated
 open Tests.Integrated.GenericTestProperties
 open Tests.Integrated.InterfaceBridge._routeResolver
@@ -78,11 +80,18 @@ type AccountRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-3.10 Account FetchByParentCode happy path`` () =
+        let parentId = fixture.Data.assets1000Id
+        let parentAccount = fixture.Data.accounts |> List.filter(fun a -> a |> Account.accountId = parentId) |> List.head
+        let parentCode = parentAccount |> Account.code |> AccountCode.value
+        let expected =
+            fixture.Data.accounts
+            |> List.filter(fun a -> a |> Account.parentId = (Some parentId))
+            |> List.length
         let railroad = result {
-            let! payload = { parentCode = "F-1000" } |> toJson<AccountFetchByParentCodeInput>
+            let! payload = { parentCode = parentCode } |> toJson<AccountFetchByParentCodeInput>
             let! returnPayload = routeUiCommandForTesting "Account" "FetchByParentCode" [] payload
             let! fetchedChildren = fromJson<AccountReturn list> returnPayload
-            Assert.Equal(3, fetchedChildren |> List.length)
+            Assert.Equal(expected, fetchedChildren |> List.length)
             return ()
         }
         match railroad with
@@ -107,6 +116,11 @@ type AccountRouteTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-AC-3.6 Account FetchByAccountType happy path`` () =
         let explicitType = "Revenue"
+        let expected =
+            fixture.Data.accounts
+            |> List.filter(fun a -> a |> Account.accountType |> AccountType.toString = explicitType)
+            |> List.length
+            
         let railroad = result {
             let! payload = { accountTypeSt = explicitType } |> toJson<AccountFetchByAccountTypeInput>
             let! returnPayload = routeUiCommandForTesting "Account" "FetchByAccountType" [] payload 
@@ -114,7 +128,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
             fetchedAccounts
             |> List.forall (fun x -> x.accountTypeSt = explicitType)
             |> Assert.True
-            Assert.True(fetchedAccounts |> List.length >= 2)
+            Assert.Equal(expected, fetchedAccounts |> List.length)
             return () }
         match railroad with
         | Ok _ -> ()
@@ -122,11 +136,12 @@ type AccountRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-3.7 Account FetchAll happy path`` () =
+        let expected = fixture.Data.totalAccounts
         let railroad = result {
            let! payload = { activeOnly = false } |> toJson<AccountFetchAllInput>
            let! returnPayload = routeUiCommandForTesting "Account" "FetchAll" [] payload
            let! fetchedAccounts = fromJson<AccountReturn list> returnPayload
-           Assert.True(fetchedAccounts |> List.length >= 14)
+           Assert.Equal(expected, fetchedAccounts |> List.length)
            return ()
         }
         match railroad with
@@ -144,7 +159,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let mutable idToCleanUp_1 = None
         try
            let railroad = result {
-              let! accountId = createTestAccountFromCodeString genericAccountCodeString
+              let! account, accountId = createTestAccountFromCodeString genericAccountCodeString
               idToCleanUp_1 <- Some accountId
               let! payload = { code = genericAccountCodeString; activeEnd = Some endDate } |> toJson<AccountDeactivationInput>
               let! returnPayload = routeUiCommandForTesting "Account" "Deactivate" [] payload
@@ -184,7 +199,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let mutable idToCleanUp_1 = None
         try
            let railroad = result {
-              let! accountId = createTestAccountFromCodeString code
+              let! account, accountId = createTestAccountFromCodeString code
               idToCleanUp_1 <- Some accountId
               let! payload = { code = code; newName = newName } |> toJson<AccountUpdateNameInput>
               let! returnPayload = routeUiCommandForTesting "Account" "UpdateName" [] payload
@@ -223,7 +238,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let mutable idToCleanUp_1 = None
         try
            let railroad = result {
-              let! accountId = createTestAccountFromCodeString code
+              let! account, accountId = createTestAccountFromCodeString code
               idToCleanUp_1 <- Some accountId
               let! payload = { code = code; newReference = newReference } |> toJson<AccountUpdateExternalReferenceInput>
               let! returnPayload = routeUiCommandForTesting "Account" "UpdateExternalReference" [] payload
@@ -261,11 +276,20 @@ type AccountRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.9 FetchActivity route returns enriched activity for an account`` () =
-        let expected = 4
+        let code = "F-2210"
+        let account =
+            fixture.Data.accounts
+            |> List.filter(fun a -> a |> Account.code |> AccountCode.value = code)
+            |> List.head
+        let accountId = account |> Account.accountId
+        let expected =
+            fixture.Data.journalEntryLines
+            |> List.filter(fun l -> l |> JournalEntryLine.accountId = accountId)
+            |> List.length
         let railroad = result {
            let input : AccountActivityFetchInput = {
               filter = {
-                 accountCode = Some "F-2210"
+                 accountCode = Some code
                  temporalFilter = None
                  source = None
                  accountType = None
@@ -293,6 +317,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.6 FetchBalances route returns balances for given account codes`` () =
+        // todo: this is a bullshit test. It should be verifying the actual balances, not the counts, unless we have that test in the model orchestration tests already, and then this should just be a happy path test.
         let railroad = result {
            let input : AccountBalanceFetchByAccountListInput = { codes = ["F-2210"; "F-5350"]; asOf = None }
            let! payload = input |> toJson<AccountBalanceFetchByAccountListInput>

@@ -14,6 +14,7 @@ open NodaTime
 open Utilities
 open Utilities.AppError
 open Utilities.ResultHelper
+open Utilities.FieldUpdate
 
 // audit
 let genericAuditEnvelope = AuditEnvelope.create AccountCreate
@@ -43,7 +44,7 @@ let createTestFiscalPeriodFromPrimitives transaction keyStr : Result<FiscalPerio
         let envelope = AuditEnvelope.create FiscalPeriodCreate
         return! FiscalPeriodCreation.constructNewAndSaveToDb key envelope transaction }
 
-let createTestAccountFromPrimitives code name actType activeBegin activeEnd subtype parentId reference envelope  transaction =
+let createTestAccountFromPrimitives code name actType activeBegin activeEnd subtype parentId reference envelope  transaction : Result<(Account * AccountId), AppError> =
     result {
         let! account =
             AccountCreation.constructNewAndSaveToDb
@@ -56,7 +57,7 @@ let createTestAccountFromPrimitives code name actType activeBegin activeEnd subt
                 (reference |> convertOptionToDesiredTypeWithFallibleConverter AccountExternalReference.create |> Result.defaultWith (fun e -> failwith (AppError.toMessage e)))
                 envelope
                 transaction
-        return account |> Account.accountId }
+        return (account, account |> Account.accountId) }
 
 let createTestAccountFromCodeString codeToUse =
         createTestAccountFromPrimitives codeToUse genericAccountNameString genericAccountTypeString
@@ -117,4 +118,12 @@ let createTestJournalEntryFromPrimitives
                 description source entryDate linesConverted refsConverted commentsConverted auditEnvelope
         let headerId = journalEntry |> JournalEntry.header |> JournalEntryHeader.journalEntryHeaderId
         return (journalEntry, headerId) }
+let createJournalRefFinancialInstitutionFromString fiString =
+    fiString |> JournalRefFinancialInstitution.create |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+let createJournalExternalReferenceTextFromString textString =
+    textString |> JournalExternalReferenceText.create |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+let createFiUpdateFromString fiString =
+    fiString |> createJournalRefFinancialInstitutionFromString |> SetTo
+let createReferenceTextUpdateFromString textString =
+    textString |> createJournalExternalReferenceTextFromString |> SetTo
     

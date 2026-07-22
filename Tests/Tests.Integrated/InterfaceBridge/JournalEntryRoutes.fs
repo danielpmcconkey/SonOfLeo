@@ -4,6 +4,7 @@ open System
 open InterfaceBridge.InterfaceContracts.JournalContracts
 open InterfaceBridge.Json.Json
 open Model.Audit
+open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.JournalEntries
@@ -124,10 +125,22 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.3 FetchByPeriod route returns entries for a given period key`` () =
-        let expected = 5
         let today = Calendar.today()
         let monthF = today.Month.ToString("D2")
         let periodKey = $"{today.Year}-{monthF}"
+        let period =
+            fixture.Data.fiscalPeriods
+            |> List.filter(fun x -> x |> FiscalPeriod.periodKey |> FiscalPeriodKey.value = periodKey)
+            |> List.head
+        let periodId = period |> FiscalPeriod.fiscalPeriodId
+        let expected =
+            fixture.Data.journalEntries
+            |> List.filter(fun x ->
+                x
+                |> JournalEntry.header
+                |>JournalEntryHeader.entryDate
+                |> EntryDate.fiscalPeriodId = periodId)
+            |> List.length
         let railroad = result {
             let! payload = { JournalEntryFetchByPeriodInput.periodKey = periodKey } |> toJson<JournalEntryFetchByPeriodInput>
             let! returnPayload = routeUiCommandForTesting "JournalEntry" "FetchByPeriod" [] payload
@@ -141,9 +154,20 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.5 FetchByExternalReference route returns matching entries`` () =
-        let expected = 1
+        let fiStr = "TestBank"
+        let refStr = "F-SHARED-001"
+        let fiOptionStr = Some fiStr
+        let refOptionStr = Some refStr
+        let fi = JournalRefFinancialInstitution.create fiStr |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+        let exRef = JournalExternalReferenceText.create refStr |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+        let expected =
+            fixture.Data.journalEntryExternalReferences
+            |> List.filter(fun jer ->
+                jer |> JournalEntryExternalReference.financialInstitution = fi &&
+                jer |> JournalEntryExternalReference.referenceText = exRef)
+            |> List.length
         let railroad = result {
-            let! payload = { fi = Some "TestBank"; reference = Some "TXN-001" } |> toJson<JournalEntryFetchByExternalReferenceInput>
+            let! payload = { fi = fiOptionStr; reference = refOptionStr } |> toJson<JournalEntryFetchByExternalReferenceInput>
             let! returnPayload = routeUiCommandForTesting "JournalEntry" "FetchByExternalReference" [] payload
             let! returned = fromJson<JournalEntryReturn list> returnPayload
             Assert.Equal(expected, returned |> List.length)
@@ -155,9 +179,15 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.8 FetchByExternalReference route with FI only returns matching entries`` () =
-        let expected = 1
+        let fiStr = "TestBank"
+        let fiOptionStr = Some fiStr
+        let fi = JournalRefFinancialInstitution.create fiStr |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+        let expected =
+            fixture.Data.journalEntryExternalReferences
+            |> List.filter(fun jer -> jer |> JournalEntryExternalReference.financialInstitution = fi)
+            |> List.length
         let railroad = result {
-            let! payload = { fi = Some "TestBank"; reference = None } |> toJson<JournalEntryFetchByExternalReferenceInput>
+            let! payload = { fi = fiOptionStr; reference = None } |> toJson<JournalEntryFetchByExternalReferenceInput>
             let! returnPayload = routeUiCommandForTesting "JournalEntry" "FetchByExternalReference" [] payload
             let! returned = fromJson<JournalEntryReturn list> returnPayload
             Assert.Equal(expected, returned |> List.length)
@@ -169,8 +199,13 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.7 FetchByDateRange route returns entries within date range`` () =
-        let expected = 3
         let today = Calendar.today()
+        let expected =
+            fixture.Data.journalEntries
+            |> List.filter(fun je ->
+                let entryDate = je |> JournalEntry.header |> JournalEntryHeader.entryDate |> EntryDate.entryDate
+                entryDate >= today && entryDate <= today )
+            |> List.length
         let railroad = result {
             let! payload = { beginDate = today; endDateInclusive = today } |> toJson<JournalEntryFetchByDateRangeInput>
             let! returnPayload = routeUiCommandForTesting "JournalEntry" "FetchByDateRange" [] payload

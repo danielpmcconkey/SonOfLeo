@@ -1,6 +1,7 @@
 namespace Tests.Integrated
 
 open System
+open Model.Ledger.Accounts
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator
 open ModelOrchestrator.JournalEntries
@@ -45,6 +46,22 @@ type FixtureData = {
     fixtureCommentId: JournalEntryCommentId
     sharedRefJe1Id: JournalEntryHeaderId
     sharedRefJe2Id: JournalEntryHeaderId
+    totalAccounts: int
+    totalClosedAccounts: int
+    totalFiscalPeriods: int
+    totalClosedFiscalPeriods: int
+    totalJournalEntryHeaders: int
+    totalVoidedJournalEntryHeaders: int
+    totalJournalEntryLines: int
+    totalVoidedJournalEntryLines: int
+    totalAccountsWithLines: int
+    totalAccountsWithNoLines: int
+    accounts: Account list
+    fiscalPeriods: FiscalPeriod list
+    journalEntries: JournalEntry list
+    journalEntryLines: JournalEntryLine list
+    journalEntryExternalReferences: JournalEntryExternalReference list
+    journalEntryComments: JournalEntryComment list
 }
 
 type TestDataFixture() =
@@ -58,24 +75,63 @@ type TestDataFixture() =
         let stageResult = result {
  
             // =============================================================================
+            // Set up counters to use for our fetch tests
+            // =============================================================================
+            
+            // note: these are mutable for practical reasons and this is just a test harness
+            let mutable accounts:Account list = []
+            let mutable fiscalPeriods:FiscalPeriod list = []
+            let mutable journalEntries:JournalEntry list = []
+            
+            // =============================================================================
             // Create accounts
             // =============================================================================
  
-            let! assets1000Id = createTestAccountFromPrimitives "F-1000" "Assets" "Asset" lastYear None None None None envelope None
-            let! liabilities2000Id = createTestAccountFromPrimitives "F-2000" "Liabilities" "Liability" lastYear None None None None envelope None
-            let! equity3000Id = createTestAccountFromPrimitives "F-3000" "Equity" "Equity" lastYear None None None None envelope None
-            let! revenue4000Id = createTestAccountFromPrimitives "F-4000" "Revenue" "Revenue" lastYear None None None None envelope None
-            let! expenses5000Id = createTestAccountFromPrimitives "F-5000" "Expenses" "Expense" lastYear None None None None envelope None
+            let! assets1000, assets1000Id = createTestAccountFromPrimitives "F-1000" "Assets" "Asset" lastYear None None None None envelope None
+            accounts <- assets1000::accounts
+            
+            let! liabilities2000, liabilities2000Id = createTestAccountFromPrimitives "F-2000" "Liabilities" "Liability" lastYear None None None None envelope None
+            accounts <- liabilities2000::accounts
+            
+            let! equity3000, equity3000Id = createTestAccountFromPrimitives "F-3000" "Equity" "Equity" lastYear None None None None envelope None
+            accounts <- equity3000::accounts
+            
+            let! revenue4000, revenue4000Id = createTestAccountFromPrimitives "F-4000" "Revenue" "Revenue" lastYear None None None None envelope None
+            accounts <- revenue4000::accounts
+            
+            let! expenses5000, expenses5000Id = createTestAccountFromPrimitives "F-5000" "Expenses" "Expense" lastYear None None None None envelope None
+            accounts <- expenses5000::accounts
+            
  
-            let! rothIra1250Id = createTestAccountFromPrimitives "F-1250" "Roth IRA" "Asset" lastYear None (Some "Investment") (Some assets1000Id) None envelope None
-            let! moneyMarket1270Id = createTestAccountFromPrimitives "F-1270" "Money Market" "Asset" lastYear None (Some "Cash") (Some assets1000Id) None envelope None
-            let! mortgage2210Id = createTestAccountFromPrimitives "F-2210" "Mortgage Payable" "Liability" lastYear None (Some "LongTermLiability") (Some liabilities2000Id) None envelope None
-            let! creditCard2220Id = createTestAccountFromPrimitives "F-2220" "Credit Card" "Liability" lastYear None (Some "CurrentLiability") (Some liabilities2000Id) None envelope None
-            let! retirement3030Id = createTestAccountFromPrimitives "F-3030" "Retirement Contributions" "Equity" lastYear None None (Some equity3000Id) None envelope None
-            let! personalRevenue4290Id = createTestAccountFromPrimitives "F-4290" "Personal Revenue" "Revenue" lastYear None (Some "OperatingRevenue") (Some revenue4000Id) None envelope None
-            let! food5350Id = createTestAccountFromPrimitives "F-5350" "Food" "Expense" lastYear None (Some "OperatingExpense") (Some expenses5000Id) None envelope None
-            let! entertainment5650Id = createTestAccountFromPrimitives "F-5650" "Entertainment" "Expense" lastYear None (Some "OperatingExpense") (Some expenses5000Id ) None envelope None
-            let! closedBank1290Id = createTestAccountFromPrimitives "F-1290" "Closed Bank" "Asset" lastYear (Some twoMonthsAgo) (Some "Cash") (Some assets1000Id ) None envelope None
+            let! rothIra1250, rothIra1250Id = createTestAccountFromPrimitives "F-1250" "Roth IRA" "Asset" lastYear None (Some "Investment") (Some assets1000Id) None envelope None
+            accounts <- rothIra1250::accounts
+            
+            let! moneyMarket1270, moneyMarket1270Id = createTestAccountFromPrimitives "F-1270" "Money Market" "Asset" lastYear None (Some "Cash") (Some assets1000Id) None envelope None
+            accounts <- moneyMarket1270::accounts
+            
+            let! mortgage2210, mortgage2210Id = createTestAccountFromPrimitives "F-2210" "Mortgage Payable" "Liability" lastYear None (Some "LongTermLiability") (Some liabilities2000Id) None envelope None
+            accounts <- mortgage2210::accounts
+            
+            let! creditCard2220, creditCard2220Id = createTestAccountFromPrimitives "F-2220" "Credit Card" "Liability" lastYear None (Some "CurrentLiability") (Some liabilities2000Id) None envelope None
+            accounts <- creditCard2220::accounts
+            
+            let! retirement3030, retirement3030Id = createTestAccountFromPrimitives "F-3030" "Retirement Contributions" "Equity" lastYear None None (Some equity3000Id) None envelope None
+            accounts <- retirement3030::accounts
+            
+            let! personalRevenue4290, personalRevenue4290Id = createTestAccountFromPrimitives "F-4290" "Personal Revenue" "Revenue" lastYear None (Some "OperatingRevenue") (Some revenue4000Id) None envelope None
+            accounts <- personalRevenue4290::accounts
+            
+            let! food5350, food5350Id = createTestAccountFromPrimitives "F-5350" "Food" "Expense" lastYear None (Some "OperatingExpense") (Some expenses5000Id) None envelope None
+            accounts <- food5350::accounts
+            
+            let! entertainment5650, entertainment5650Id = createTestAccountFromPrimitives "F-5650" "Entertainment" "Expense" lastYear None (Some "OperatingExpense") (Some expenses5000Id ) None envelope None
+            accounts <- entertainment5650::accounts
+            
+            
+            // create an account that will be closed after we add an entry to it
+            let! closedBank1290, closedBank1290Id = createTestAccountFromPrimitives "F-1290" "Closed Bank" "Asset" lastYear None (Some "Cash") (Some assets1000Id ) None envelope None
+            // note: don't add it yet. only after it's been closed
+            
  
             // =============================================================================
             // Create fiscal periods
@@ -89,6 +145,7 @@ type TestDataFixture() =
                     let key = $"{date.Year}-{monthF}" |> FiscalPeriodKey.fromString |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
                     FiscalPeriodCreation.constructNewAndSaveToDb key envelope None)
                 |> convertListOfResultsToResultsList
+            fiscalPeriods <- openFiscalPeriods @ fiscalPeriods
  
             // =============================================================================
             // Create fiscal period that will be closed (after JE creation)
@@ -99,6 +156,7 @@ type TestDataFixture() =
                let monthF = date.Month.ToString("D2")
                let key = $"{date.Year}-{monthF}" |> FiscalPeriodKey.fromString |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
                FiscalPeriodCreation.constructNewAndSaveToDb key envelope None
+            // note: don't add it to the FP list until after you've closed it
  
             let closedFiscalPeriodId = closedFiscalPeriod |> FiscalPeriod.fiscalPeriodId
  
@@ -116,6 +174,7 @@ type TestDataFixture() =
                     [  ]
                     [ (None, "Fixture comment for testing") ]
                     jeEnvelope
+            journalEntries <- basicJe :: journalEntries
  
             let fixtureCommentId = // todo: figure out why we need this
                basicJe
@@ -130,6 +189,7 @@ type TestDataFixture() =
                     [ ("TestBank", "TXN-001") ]
                     []
                     jeEnvelope
+            journalEntries <- jeWithRef :: journalEntries
  
             let jeWithRefExtRefId = // todo: figure out why we need this
                jeWithRef
@@ -144,8 +204,9 @@ type TestDataFixture() =
                     [  ]
                     []
                     jeEnvelope
+            // note: don't add jeToVoid to the list because we later update it by voiding
  
-            let closedPeriodEntryDate = today.PlusMonths(-5).PlusDays(14)
+            let closedPeriodEntryDate = (closedFiscalPeriod |> FiscalPeriod.startDate).PlusDays(14)
  
             let! jeInClosedPeriod, jeInClosedPeriodId =
                 createTestJournalEntryFromPrimitives "Fixture JE in closed period" None closedPeriodEntryDate 
@@ -154,12 +215,37 @@ type TestDataFixture() =
                     [  ]
                     []
                     jeEnvelope
+            journalEntries <- jeInClosedPeriod :: journalEntries
+ 
+            let! jeInClosedAccount, jeInClosedAccountId =
+                createTestJournalEntryFromPrimitives "Journal entry in closed account" None closedPeriodEntryDate
+                    [ (closedBank1290Id, 71.38M, "Debit", None)
+                      (food5350Id, 71.38M, "Credit", (Some "Grocery run")) ]
+                    []
+                    []
+                    jeEnvelope
+            journalEntries <- jeInClosedAccount :: journalEntries
+ 
+            // need to offset the transaction so it has a zero balance
+            let! jeInClosedAccount2, jeInClosedAccountId2 =
+                createTestJournalEntryFromPrimitives "Journal entry in closed account" None (closedPeriodEntryDate.PlusWeeks(1))
+                    [ (closedBank1290Id, 71.38M, "Credit", None)
+                      (food5350Id, 71.38M, "Debit", (Some "Grocery refund")) ]
+                    []
+                    []
+                    jeEnvelope
+            journalEntries <- jeInClosedAccount2 :: journalEntries
  
             // =============================================================================
-            // Close the fiscal period (after JE creation)
+            // Close the fiscal period and account (after JE creation)
             // =============================================================================
  
-            let! _ = FiscalPeriod.closeFiscalPeriod closedFiscalPeriodId envelope None
+            let! updatedFiscalPeriod = FiscalPeriod.closeFiscalPeriod closedFiscalPeriodId envelope None
+            fiscalPeriods <- updatedFiscalPeriod :: fiscalPeriods
+            
+            let! closedBank1290 = closedBank1290Id |> Account.fetchById None
+            let! updatedClosedBank = closedBank1290 |> AccountDeactivation.deactivateAccount None envelope (Some twoMonthsAgo)
+            accounts <- updatedClosedBank::accounts
  
             // =============================================================================
             // Void a journal entry (after JE creation)
@@ -169,6 +255,7 @@ type TestDataFixture() =
             let! commentText = "Fixture voiding reason" |> CommentText.create
             let! voidedJe = jeToVoidId |> JournalEntryVoiding.voidJournalEntry voidEnvelope None commentText
             let voidedJeId = voidedJe |> JournalEntry.header |> JournalEntryHeader.journalEntryHeaderId
+            journalEntries <- voidedJe :: journalEntries
  
             // =============================================================================
             // Create shared-reference JE pair (two entries, one shared ext ref)
@@ -178,45 +265,88 @@ type TestDataFixture() =
                 createTestJournalEntryFromPrimitives "Fixture shared-ref JE 1" (Some "Test") today 
                     [ (mortgage2210Id, 10.00M, "Debit", None)
                       (food5350Id, 10.00M, "Credit", None) ]
-                    [ ("SharedBank", "F-SHARED-001") ]
+                    [ ("TestBank", "F-SHARED-001") ]
                     []
                     jeEnvelope
+            journalEntries <- sharedRefJe1 :: journalEntries
  
             let! sharedRefJe2, sharedRefJe2Id =
                 createTestJournalEntryFromPrimitives "Fixture shared-ref JE 2" (Some "Test") today 
                     [ (mortgage2210Id, 20.00M, "Debit", None)
                       (food5350Id, 20.00M, "Credit", None) ]
-                    [ ("SharedBank", "F-SHARED-001") ]
+                    [ ("TestBank", "F-SHARED-001") ]
                     []
                     jeEnvelope
+            journalEntries <- sharedRefJe2 :: journalEntries
  
+            // =============================================================================
+            // Calculate aggregate totals for fetch tests 
+            // =============================================================================
             
+            let totalAccounts = accounts |> List.length
+            let totalFiscalPeriods = fiscalPeriods |> List.length
+            let totalClosedAccounts = accounts |> List.filter (fun l -> l |> Account.activityPeriod |> AccountActivityPeriod.isActive today |> not) |> List.length
+            let totalClosedFiscalPeriods = fiscalPeriods |> List.filter (fun fp -> fp |> FiscalPeriod.isOpen = false) |> List.length
+            let totalJournalEntryHeaders = journalEntries |> List.length
+            let voidedEntries = journalEntries |> List.filter(fun x -> x |> JournalEntry.header |> JournalEntryHeader.voidedAt |> Option.isSome)
+            let totalVoidedJournalEntryHeaders = voidedEntries |> List.length
+            let totalJournalEntryLines = journalEntries |> List.sumBy(fun x -> x |> JournalEntry.lines |> List.length)
+            let totalVoidedJournalEntryLines = voidedEntries |> List.sumBy(fun x -> x |> JournalEntry.lines |> List.length)
+            let journalEntryLines = journalEntries |> List.collect JournalEntry.lines
+            let totalAccountsWithLines = 
+                journalEntryLines
+                |> List.map JournalEntryLine.accountId
+                |> List.distinct
+                |> List.length
+            let totalAccountsWithNoLines = totalAccounts - totalAccountsWithLines
+            let journalEntryExternalReferences = journalEntries |> List.collect JournalEntry.externalReferences
+            let journalEntryComments = journalEntries |> List.collect JournalEntry.comments
+ 
+            // =============================================================================
+            // Return all the data
+            // =============================================================================
  
             return {
-               assets1000Id = assets1000Id
-               liabilities2000Id = liabilities2000Id
-               equity3000Id = equity3000Id
-               revenue4000Id = revenue4000Id
-               expenses5000Id = expenses5000Id
-               rothIra1250Id = rothIra1250Id
-               moneyMarket1270Id = moneyMarket1270Id
-               mortgage2210Id = mortgage2210Id
-               creditCard2220Id = creditCard2220Id
-               retirement3030Id = retirement3030Id
-               personalRevenue4290Id = personalRevenue4290Id
-               food5350Id = food5350Id
-               entertainment5650Id = entertainment5650Id
-               closedBank1290Id = closedBank1290Id
-               openFiscalPeriodIds = openFiscalPeriods |> List.map FiscalPeriod.fiscalPeriodId
-               closedFiscalPeriodId = closedFiscalPeriodId
-               basicJeId = basicJeId
-               jeWithRefId = jeWithRefId
-               jeWithRefExtRefId = jeWithRefExtRefId
-               voidedJeId = voidedJeId
-               jeInClosedPeriodId = jeInClosedPeriodId
-               fixtureCommentId = fixtureCommentId
-               sharedRefJe1Id = sharedRefJe1Id
-               sharedRefJe2Id = sharedRefJe2Id
+                assets1000Id = assets1000Id
+                liabilities2000Id = liabilities2000Id
+                equity3000Id = equity3000Id
+                revenue4000Id = revenue4000Id
+                expenses5000Id = expenses5000Id
+                rothIra1250Id = rothIra1250Id
+                moneyMarket1270Id = moneyMarket1270Id
+                mortgage2210Id = mortgage2210Id
+                creditCard2220Id = creditCard2220Id
+                retirement3030Id = retirement3030Id
+                personalRevenue4290Id = personalRevenue4290Id
+                food5350Id = food5350Id
+                entertainment5650Id = entertainment5650Id
+                closedBank1290Id = closedBank1290Id
+                openFiscalPeriodIds = openFiscalPeriods |> List.map FiscalPeriod.fiscalPeriodId
+                closedFiscalPeriodId = closedFiscalPeriodId
+                basicJeId = basicJeId
+                jeWithRefId = jeWithRefId
+                jeWithRefExtRefId = jeWithRefExtRefId
+                voidedJeId = voidedJeId
+                jeInClosedPeriodId = jeInClosedPeriodId
+                fixtureCommentId = fixtureCommentId
+                sharedRefJe1Id = sharedRefJe1Id
+                sharedRefJe2Id = sharedRefJe2Id
+                totalAccounts = totalAccounts
+                totalClosedAccounts = totalClosedAccounts
+                totalFiscalPeriods = totalFiscalPeriods
+                totalClosedFiscalPeriods = totalClosedFiscalPeriods
+                totalJournalEntryHeaders = totalJournalEntryHeaders
+                totalVoidedJournalEntryHeaders = totalVoidedJournalEntryHeaders
+                totalJournalEntryLines = totalJournalEntryLines
+                totalVoidedJournalEntryLines = totalVoidedJournalEntryLines
+                totalAccountsWithLines = totalAccountsWithLines
+                totalAccountsWithNoLines = totalAccountsWithNoLines
+                accounts = accounts
+                fiscalPeriods = fiscalPeriods
+                journalEntries = journalEntries
+                journalEntryLines = journalEntryLines
+                journalEntryExternalReferences = journalEntryExternalReferences
+                journalEntryComments = journalEntryComments
             }
         }
         stageResult |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))

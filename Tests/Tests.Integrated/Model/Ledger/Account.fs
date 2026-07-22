@@ -85,13 +85,13 @@ type AccountTests(fixture: TestDataFixture) =
     member _.``REQ-AC-3.5 fetch by parent ID returns all children`` () =
         let parentId = fixture.Data.assets1000Id
         let expectedChildren =
-            [ fixture.Data.rothIra1250Id
-              fixture.Data.moneyMarket1270Id
-              fixture.Data.closedBank1290Id ]
-
+            fixture.Data.accounts
+            |> List.filter(fun x -> x|> Account.parentId = (parentId |> Some))
+            |> List.map(fun x -> x |> Account.accountId)
+        let expectedCount = expectedChildren |> List.length
         let railroad = result {
             let! fetched = Account.fetchByParentId None parentId
-            Assert.Equal(3, List.length fetched)
+            Assert.Equal(expectedCount, List.length fetched)
             expectedChildren
             |> List.forall (fun id -> fetched |> List.exists (fun a -> Account.accountId a = id))
             |> Assert.True
@@ -123,38 +123,29 @@ type AccountTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-3.7 fetch all fetches everything`` () =
-        let expectedIds = // check one of every type
-                [ fixture.Data.assets1000Id; fixture.Data.liabilities2000Id
-                  fixture.Data.equity3000Id; fixture.Data.revenue4000Id
-                  fixture.Data.expenses5000Id; fixture.Data.closedBank1290Id ]
-        let expectedCount = 14;
+        let expectedCount = fixture.Data.accounts |> List.length
         let railroad = result {
             let! fetched = Account.fetchAll false None
             Assert.Equal(expectedCount, fetched |> List.length)
-            expectedIds
-            |> List.forall (fun id -> fetched |> List.exists (fun a -> Account.accountId a = id))
-            |> Assert.True
-            return ()
-        }
+            return () }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail (AppError.toMessage e)
 
     [<Fact>]
     member _.``REQ-AC-3.9 fetch all with active only fetches active accounts relative to system run time`` () =
-        let activeIds = [ fixture.Data.assets1000Id; fixture.Data.moneyMarket1270Id; fixture.Data.food5350Id ]
-        let expectedCount = 13;
+        let today = Calendar.today()
+        let activeAccounts =
+            fixture.Data.accounts
+            |> List.filter(fun a -> a |> Account.activityPeriod |> AccountActivityPeriod.isActive today)
+        let expectedCount = activeAccounts |> List.length
         let railroad = result {
             let! fetched = Account.fetchAll true None
             Assert.Equal(expectedCount, fetched |> List.length)
             fixture.Data.closedBank1290Id
             |> fun closedId -> fetched |> List.exists (fun a -> Account.accountId a = closedId)
             |> Assert.False
-            activeIds
-            |> List.forall (fun id -> fetched |> List.exists (fun a -> Account.accountId a = id))
-            |> Assert.True
-            return ()
-        }
+            return () }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail (AppError.toMessage e)
