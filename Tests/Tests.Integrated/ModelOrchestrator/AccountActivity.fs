@@ -48,15 +48,15 @@ type AccountActivityTests(fixture: TestDataFixture) =
         let unVoidedJournalEntries = fixture.Data.journalEntries |> List.filter(fun je -> je |> JournalEntry.header |> JournalEntryHeader.voidedAt |> Option.isNone)
         let unVoidedLines = unVoidedJournalEntries |> List.collect(fun je -> je |> JournalEntry.lines)
         let accounts = fixture.Data.accounts
-        let accountsAndLines = // todo: ask Claude if there's a more idiomatic way of doing this
-            query {
-                for account in accounts do
-                leftOuterJoin line in unVoidedLines on ((account |> Account.accountId) = (line |> JournalEntryLine.accountId)) into group
-                for line in group do
-                select (
-                    account |> Account.accountId,
-                    if isNull(box line) then None else line |> Some) }
-        let expectedCountTotal = accountsAndLines |> Seq.length
+        let expectedCountTotal =
+            accounts
+            |> List.sumBy(fun account ->
+                let lineCount =
+                    unVoidedLines
+                    |> List.filter (fun line ->
+                        line |> JournalEntryLine.accountId = (account |> Account.accountId))
+                    |> List.length
+                max 1 lineCount ) // this picks up the "naked" account with no lines
         let filter = {
             accountId = None
             temporalFilter = None

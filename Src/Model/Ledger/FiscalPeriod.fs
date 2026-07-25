@@ -67,7 +67,7 @@ module FiscalPeriod =
     /// how to map our query columns. Thus, we don't need to know anything about the
     /// underlying database architecture in this module and the DAL module doesn't
     /// need to know anything about our module here 
-    let mapRawForDbRead (row: RowReader)  =
+    let private mapRawForDbRead (row: RowReader)  =
             ( row |> RowReader.getUuid "unique_id" ),
             ( row |> RowReader.getString "period_key" ),
             ( row |> RowReader.getDate "start_date" ),

@@ -211,16 +211,12 @@ module Account =
         ]
         let updates =
             [
-                match nameUpdate with
-                | NoChange -> None
-                | SetTo n -> Some (", account_name = @account_name", { name = "@account_name"; value = CharString (AccountName.value n) })
+                nameUpdate |> FieldUpdate.mapNoChangeToOptionWithConversion (fun n ->
+                    (", account_name = @account_name", { name = "@account_name"; value = CharString (AccountName.value n) }))
                 
-                match referenceUpdate with
-                | NoChange -> None
-                | SetTo r ->
+                referenceUpdate |> FieldUpdate.mapNoChangeToOptionWithConversion (fun r ->
                     let value = r |> Option.map AccountExternalReference.value
-                    Some (", external_ref = @external_ref", { name = "@external_ref"; value = NullableCharString  value })
-                
+                    (", external_ref = @external_ref", { name = "@external_ref"; value = NullableCharString  value }))
             ] |> List.choose id
         let setClauses = updates |> List.map fst |> String.concat ""
         let parameters = baseParams @ (updates |> List.map snd)

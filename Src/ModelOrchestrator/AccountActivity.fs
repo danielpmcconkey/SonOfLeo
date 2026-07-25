@@ -53,6 +53,10 @@ let private mapRawForDbRead (row: RowReader)  =
         ( row |> RowReader.getInstantOption "je_voided_at" )
 
 let private reconstitute raw =
+    // note: we use Option.get here because the entire details section is joined
+    // in SQL together. If line ID is present, we can assume the entire JE line
+    // is a valid JE line type, where certain fields are non-optional. This is
+    // here as an exception. Option.get shouldn't be considered part of your everyday carry
 
     let accountUuid, accountCodeString, accountNameString, accountTypeString, accountSubtypeString, accountParentUuid,
         accountExternalRefString, lineUuid, amountDecimal, lineTypeString, lineMemoString, lineCreatedAt, lineModifiedAt,
@@ -82,17 +86,18 @@ let private reconstitute raw =
                   activityDetail =
                       match lineId with
                       | None -> None
-                      | Some lid -> Some {    lineId = lid 
-                                              amount = amount |> Option.get
-                                              lineType = lineType |> Option.get
-                                              lineMemo = lineMemo
-                                              lineCreatedAt = lineCreatedAt |> Option.get 
-                                              lineModifiedAt = lineModifiedAt |> Option.get 
-                                              journalEntryHeaderId = journalEntryHeaderId |> Option.get
-                                              entryDate = entryDate |> Option.get 
-                                              journalEntryDescription = journalEntryDescription |> Option.get 
-                                              journalEntrySource = journalEntrySource
-                                              journalEntryVoidedAt = journalEntryVoidedAt }} }
+                      | Some lineId -> Some {
+                          lineId = lineId 
+                          amount = amount |> Option.get
+                          lineType = lineType |> Option.get
+                          lineMemo = lineMemo
+                          lineCreatedAt = lineCreatedAt |> Option.get 
+                          lineModifiedAt = lineModifiedAt |> Option.get 
+                          journalEntryHeaderId = journalEntryHeaderId |> Option.get
+                          entryDate = entryDate |> Option.get 
+                          journalEntryDescription = journalEntryDescription |> Option.get 
+                          journalEntrySource = journalEntrySource
+                          journalEntryVoidedAt = journalEntryVoidedAt }} }
 
 let fetchFiltered // REQ-JE-3.9
         (transaction: DbTransaction option)
@@ -124,26 +129,35 @@ let fetchFiltered // REQ-JE-3.9
                 filter.accountId |> Option.map (
                     fun x -> ("and a.unique_id = @account_id",
                               { name = "@account_id"; value = UniqueId (x |> AccountId.value) }))
+                
                 filter.accountType |> Option.map (
                     fun x -> ("and a.account_type = @account_type",
                               { name = "@account_type"; value = CharString (x |> AccountType.toString) }))
+                
                 filter.accountSubtype |> Option.map (
                     fun x -> ("and a.account_subtype = @account_subtype",
                               { name = "@account_subtype"; value = CharString (x |> AccountSubtype.toString) }))
+                
                 filter.accountParentId |> Option.map (
                     fun x -> ("and a.parent_id = @parent_id",
                               { name = "@parent_id"; value = UniqueId (x |> AccountId.value) }))
+                
                 dateRange |> Option.map (
                     fun (x, _) -> ("and je.entry_date >= @begin_date", { name = "@begin_date"; value = DbLocalDate x }))
+                
                 dateRange |> Option.map (
                     fun (_, x) -> ("and je.entry_date <= @end_date", { name = "@end_date"; value = DbLocalDate x }))
+                
                 filter.source |> Option.map (
                     fun x -> ("and je.je_source = @je_source",
                               { name = "@je_source"; value = CharString (x |> JournalEntrySource.value) }))
+                
                 filter.journalEntryId |> Option.map (
                     fun x -> ("and je.unique_id = @je_id", { name = "@je_id"; value = UniqueId x }))
+                
                 filter.amount |> Option.map (
                     fun x -> ("and jel.amount = @amount", { name = "@amount"; value = Numeric (x |> Money.amount) }))
+                
                 filter.description |> Option.map (
                     fun x -> ("and je.description like @description",
                               { name = "@description"; value = CharString $"%%{x}%%" }))

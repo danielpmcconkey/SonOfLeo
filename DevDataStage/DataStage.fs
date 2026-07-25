@@ -174,7 +174,7 @@ let stageData =
                 [ (None, "Fixture comment for testing") ]
                 jeEnvelope
 
-        let fixtureCommentId = // todo: figure out why we need this
+        let fixtureCommentId = 
            basicJe
            |> JournalEntry.comments
            |> List.head
@@ -188,7 +188,7 @@ let stageData =
                 []
                 jeEnvelope
 
-        let jeWithRefExtRefId = // todo: figure out why we need this
+        let jeWithRefExtRefId = 
            jeWithRef
            |> JournalEntry.externalReferences
            |> List.head

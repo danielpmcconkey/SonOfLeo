@@ -222,19 +222,24 @@ module JournalEntry =
                     filter.journalEntryHeaderId |> Option.map (
                     fun x -> ("and je.unique_id = @header_id",
                               { name = "@header_id"; value = UniqueId (x |> JournalEntryHeaderId.value) }))
+                    
                     dateRange |> Option.map (
                         fun (x, _) -> ("and je.entry_date >= @begin_date",
                                        { name = "@begin_date"; value = DbLocalDate x }))
+                    
                     dateRange |> Option.map (
                         fun (_, x) -> ("and je.entry_date <= @end_date",
                                        { name = "@end_date"; value = DbLocalDate x }))
+                    
                     filter.source |> Option.map (
                         fun x -> ("and je.je_source = @je_source",
                                   { name = "@je_source"; value = CharString (x |> JournalEntrySource.value) }))
+                    
                     filter.financialInstitution |> Option.map ( fun x -> (
                         let fiString = x |> JournalRefFinancialInstitution.value
                         "and jer.financial_institution = @financial_institution",
                         { name = "@financial_institution"; value = CharString fiString }))
+                    
                     filter.referenceText |> Option.map ( fun x -> (
                         let refString = x |> JournalExternalReferenceText.value
                         "and jer.reference = @reference", { name = "@reference"; value = CharString refString }))

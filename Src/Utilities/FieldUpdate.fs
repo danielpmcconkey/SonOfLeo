@@ -12,16 +12,23 @@ type FieldUpdate<'a> =
     | SetTo of 'a
 
 module FieldUpdate =
+    
     /// Convert from a field update of type-A to a field update of type-B,
     /// using the standard A -> B converter. It unpacks the FieldUpdate before
     /// putting it back together. 
-    let convertFieldUpdateToNewType
+    let map
             (typeConverter: 'A -> 'B )
             (original: FieldUpdate<'A>)
             : FieldUpdate<'B> =
         original |> function
           | NoChange -> NoChange
           | SetTo x -> SetTo (x |> typeConverter)
+    
+    let mapNoChangeToOptionWithConversion conversion original =
+        match original with
+        | NoChange -> None
+        | SetTo n -> n |> conversion |> Some
+        
     
     /// Convert from a field update of type-A to a field update of type-B,
     /// using the standard FALLIBLE A -> B converter. It unpacks the

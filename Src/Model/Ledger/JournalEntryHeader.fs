@@ -6,7 +6,6 @@ open NodaTime
 open Utilities.AppError
 open Utilities.ResultHelper
 open Utilities.DAL
-open Utilities.ResultHelper
 
 type JournalEntryHeader =
   private  {    journalEntryHeaderId: JournalEntryHeaderId                     // REQ-JE-1.1, REQ-JE-1.2
@@ -66,7 +65,7 @@ module JournalEntryHeader =
     /// how to map our query columns. Thus, we don't need to know anything about the
     /// underlying database architecture in this module and the DAL module doesn't
     /// need to know anything about our module here 
-    let mapRawForDbRead (row: RowReader) =
+    let private mapRawForDbRead (row: RowReader) =
         (*
          * Note, we intentionally don't pull the fiscal period ID because
          * the FP is embedded into the EntryDate type

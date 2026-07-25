@@ -49,7 +49,7 @@ module DAL =
                     .Build()
             let configVal = config["ConnectionStringEnvVar"] 
             if String.IsNullOrWhiteSpace(configVal) then 
-                Error (DalConnectionStringEnvVarNotFound ()) else // REQ-DAL-1.14, REQ-DAL-1.15
+                Error DalConnectionStringEnvVarNotFound else // REQ-DAL-1.14, REQ-DAL-1.15
                 Ok(configVal)
         with
         | ex -> Error (DalErrorRetrievingAppSettings ex)

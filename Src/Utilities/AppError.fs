@@ -7,7 +7,7 @@ type AppError =
     
     | TestingError of string // this is NEVER to be used in the Src directory. It is only here to facilitate automated testing. Such as when I need to assert that somewthing was supposed to fail but it doesn't.
     
-    | DalConnectionStringEnvVarNotFound of unit
+    | DalConnectionStringEnvVarNotFound
     | DalErrorRetrievingAppSettings of exn
     | DalConnectionStringEnvVarContainsConnectionString of unit
     | DalEnvVarNotSet of string
@@ -112,7 +112,7 @@ module AppError =
     
     | TestingError message -> message
     
-    | DalConnectionStringEnvVarNotFound _ -> "ConnectionStringEnvVar not found in appsettings.json."
+    | DalConnectionStringEnvVarNotFound -> "ConnectionStringEnvVar not found in appsettings.json."
     | DalErrorRetrievingAppSettings ex -> $"Error retrieving appsettings.json. Error message: {ex.Message}{Environment.NewLine} {ex.StackTrace}" // REQ-DAL-1.3, REQ-NGUI-1.3.1
     | DalConnectionStringEnvVarContainsConnectionString _ -> "ConnectionStringEnvVar contains a connection string, not an env var name."
     | DalEnvVarNotSet envVarName -> $"Environment variable {envVarName} not set or empty."
@@ -138,7 +138,7 @@ module AppError =
     | DalErrorDuringLongUnboxing ex -> $"Database error during long unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
     | DalErrorDuringLongOptionUnboxing ex -> $"Database error during long option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
     | DalErrorDuringDecimalUnboxing ex -> $"Database error during decimal unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
-    | DalErrorDuringDecimalOptionUnboxing ex -> $"Database error decimal string option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+    | DalErrorDuringDecimalOptionUnboxing ex -> $"Database error decimal option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
     | DalErrorDuringLocalDateUnboxing ex -> $"Database error during LocalDate unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
     | DalErrorDuringLocalDateOptionUnboxing ex -> $"Database error during LocalDate option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
     | DalErrorDuringInstantUnboxing ex -> $"Database error during instant unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1

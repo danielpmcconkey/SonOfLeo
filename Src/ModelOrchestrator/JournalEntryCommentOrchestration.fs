@@ -73,21 +73,19 @@ let updateComment // REQ-JE-5.3
                     do! validatePrimaryAndSecondaryRelationship primaryJournalEntryId x
                     return (SetTo x)
                     }
+            
         let updates =
             [
-                match commentUpdate with
-                | NoChange -> None
-                | SetTo x ->
-                    Some (", comment_text = @comment_text",
-                          { name = "@comment_text"; value = CharString (x |> CommentText.value) })
-                
-                match validSecondaryId with
-                | NoChange -> None
-                | SetTo x ->
+                commentUpdate |> FieldUpdate.mapNoChangeToOptionWithConversion (fun x ->
+                    (", comment_text = @comment_text",
+                      { name = "@comment_text"; value = CharString (x |> CommentText.value) }))
+            
+                validSecondaryId |> FieldUpdate.mapNoChangeToOptionWithConversion (fun x ->
                     let validUuidOption = x |> Option.map JournalEntryHeaderId.value
-                    Some (", journal_secondary_entry_id = @journal_secondary_entry_id",
-                          { name = "@journal_secondary_entry_id"; value = NullableUniqueId validUuidOption })
+                    (", journal_secondary_entry_id = @journal_secondary_entry_id",
+                      { name = "@journal_secondary_entry_id"; value = NullableUniqueId validUuidOption }))
             ] |> List.choose id
+            
         let setClauses = updates |> List.map fst |> String.concat ""
         let parameters = baseParams @ (updates |> List.map snd)
         let query = $"""    UPDATE ledger.journal_entry_comment

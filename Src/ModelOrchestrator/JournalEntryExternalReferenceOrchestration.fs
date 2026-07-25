@@ -47,17 +47,13 @@ let updateFiAndReferenceText // REQ-JE-4.9
     ]
     let updates =
         [
-            match fiUpdate with
-            | NoChange -> None
-            | SetTo fi -> Some (
-                ", financial_institution = @financial_institution",
-                { name = "@financial_institution"; value = CharString (JournalRefFinancialInstitution.value fi) })
+            fiUpdate |> FieldUpdate.mapNoChangeToOptionWithConversion (fun fi ->
+                    ", financial_institution = @financial_institution",
+                    { name = "@financial_institution"; value = CharString (JournalRefFinancialInstitution.value fi) })
             
-            match referenceUpdate with
-            | NoChange -> None
-            | SetTo referenceText -> Some (
-                ", reference = @reference",
-                { name = "@reference"; value = CharString (JournalExternalReferenceText.value referenceText) })
+            referenceUpdate |> FieldUpdate.mapNoChangeToOptionWithConversion (fun referenceText ->
+                    ", reference = @reference",
+                    { name = "@reference"; value = CharString (JournalExternalReferenceText.value referenceText) })
         ] |> List.choose id
     let setClauses = updates |> List.map fst |> String.concat ""
     let parameters = baseParams @ (updates |> List.map snd)

@@ -19,6 +19,9 @@ module Money =
         
     let fromDecimal (raw: decimal) : Result<Money, AppError> = // REQ-MON-2.2
         let rounded = Math.Round(raw, 2, MidpointRounding.AwayFromZero) // REQ-MON-1.4, REQ-MON-2.2.1
+        // note, rounded is only used here as a known good to confirm that raw
+        // is correct. Therefore, passing raw to the create function is
+        // appropriate and preferred.
         match rounded with
         | x when x <> raw -> Error (MoneyFailedToConvertImproperPrecision raw) // REQ-MON-1.4, REQ-MON-2.2.1
         | x when x > maxMoney -> Error (MoneyFailedToConvertExceededMax (raw, maxMoney)) // REQ-MON-1.2, REQ-MON-2.2.1
@@ -46,7 +49,7 @@ module Money =
             result {
                 let dList = firstShare :: List.replicate (n - 1) remainingShares // REQ-MON-2.4.5
                 let sumTotal = dList |> List.sum 
-                do! if sumTotal = amount m then Ok () else Error (MoneySplitFailedReconciliation (sumTotal, amount m)) // REQ-MON-2.4.1
+                do! if sumTotal = amount m then Ok () else Error (MoneySplitFailedReconciliation (amount m, sumTotal)) // REQ-MON-2.4.1
                 return! fromDecimalList dList }
     
     let add (m: Money) (n: Money): Result<Money, AppError> = // REQ-MON-2.5

@@ -144,5 +144,5 @@ module JournalEntryComment =
                 name, parameter )
         let names = namesAndParameters |> List.map fst |> String.concat ", "
         let parameters = namesAndParameters |> List.map snd
-        let predicate = $"jec.journal_primary_entry_id in ({names})"
+        let predicate = $"jec.journal_primary_entry_id in ({names})" // todo: decide whether this should check the secondary entry ID as well. Also figure out what's using this and whether it should be replaced by the fetchHeadersFromFilter function in JE orchestration
         readRowsFromDb (Some predicate) None None parameters AnyQuantityIsAcceptable transaction
