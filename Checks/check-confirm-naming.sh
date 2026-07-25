@@ -5,7 +5,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-allow='DAL.fs:validateNumRows
+allow='ExecuteReader.fs:validateNumRows
 AccountCreation.fs:validateParentChildRelationship
 JournalEntryOrchestration.fs:validateAmountEquality
 JournalEntryOrchestration.fs:validateLineCount

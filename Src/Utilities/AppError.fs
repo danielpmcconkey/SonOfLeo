@@ -9,23 +9,25 @@ type AppError =
 
     | DalConnectionStringEnvVarNotFound
     | DalErrorRetrievingAppSettings of exn
-    | DalConnectionStringEnvVarContainsConnectionString of unit
+    | DalConnectionStringEnvVarContainsConnectionString
     | DalEnvVarNotSet of string
-    | DalConnectionStringIsEmpty of unit
+    | DalConnectionStringIsEmpty
     | DalErrorDuringTransactionCreation of exn
+    | DalCantCompleteTransactionOfNone
+    | DalCantFetchTransactionOfNone
     | DalErrorDuringTransactionCommit of exn
     | DalErrorDuringTransactionRollback of exn
     | DalResultantRowsDidntMatchExpectation of string * int
     | DalErrorDuringNonQueryExecution of exn
     | DalErrorDuringReaderQueryExecution of exn
     | DalErrorDuringScalarExecution of exn
-    | DalStringUnboxingReturnedNull of unit
-    | DalIntUnboxingReturnedNull of unit
-    | DalLongUnboxingReturnedNull of unit
-    | DalDecimalUnboxingReturnedNull of unit
-    | DalLocalDateUnboxingReturnedNull of unit
-    | DalInstantUnboxingReturnedNull of unit
-    | DalUuidUnboxingReturnedNull of unit
+    | DalStringUnboxingReturnedNull
+    | DalIntUnboxingReturnedNull
+    | DalLongUnboxingReturnedNull
+    | DalDecimalUnboxingReturnedNull
+    | DalLocalDateUnboxingReturnedNull
+    | DalInstantUnboxingReturnedNull
+    | DalUuidUnboxingReturnedNull
     | DalErrorDuringStringUnboxing of exn
     | DalErrorDuringStringOptionUnboxing of exn
     | DalErrorDuringIntUnboxing of exn
@@ -55,13 +57,13 @@ type AppError =
     | AccountExternalReferenceTooLong of string * int
     | AccountParentIsInactive of Guid
     | AccountParentAndChildTypesDontMatch of string * string
-    | AccountUpdateNoOp of unit
-    | AccountBalanceFetchInvalidArguments of unit
+    | AccountUpdateNoOp
+    | AccountBalanceFetchInvalidArguments
     | AccountDeactivationProposedDateIsInvalid of Guid * LocalDate * LocalDate
     | AccountActiveChildrenBeforeDeactivation of Guid
     | AccountNonZeroBalanceBeforeDeactivation of Guid * decimal * decimal
     | AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate of Guid
-    | AccountDeactivationFailedJournalEntryValidation of unit
+    | AccountDeactivationFailedJournalEntryValidation
     | AccountAlreadyInactive of Guid * LocalDate
     | AccountParentCodeInvalid of string
 
@@ -83,14 +85,14 @@ type AppError =
     | JournalEntryLineTypeInvalid of string
     | JournalEntryLineMemoTooLong of string * int
     | JournalEntryLineMemoIsEmpty of string
-    | JournalEntryReferenceUpdateNoOp of unit
+    | JournalEntryReferenceUpdateNoOp
     | JournalEntryLineNonPositiveAmount of decimal
     | JournalEntryLineAccountDoesntExist of Guid
     | JournalEntryHeaderEntryDateInvalid of LocalDate
     | JournalEntryDebitCreditMismatch of decimal * decimal
     | JournalEntryInsufficientLines of int
     | JournalEntryLineAccountInactive of Guid * LocalDate * LocalDate * LocalDate Option
-    | JournalEntryFetchByReferenceBothArgumentsNull of unit
+    | JournalEntryFetchByReferenceBothArgumentsNull
     | JournalEntryVoidingCannotFetchFiscalPeriod of LocalDate * Guid
     | JournalEntryVoidingFiscalPeriodIsClosed of LocalDate * Guid
     | JournalEntryVoidingNoOp of Guid
@@ -116,12 +118,14 @@ module AppError =
         | DalConnectionStringEnvVarNotFound -> "ConnectionStringEnvVar not found in appsettings.json."
         | DalErrorRetrievingAppSettings ex ->
             $"Error retrieving appsettings.json. Error message: {ex.Message}{Environment.NewLine} {ex.StackTrace}" // REQ-DAL-1.3, REQ-NGUI-1.3.1
-        | DalConnectionStringEnvVarContainsConnectionString _ ->
+        | DalConnectionStringEnvVarContainsConnectionString ->
             "ConnectionStringEnvVar contains a connection string, not an env var name."
         | DalEnvVarNotSet envVarName -> $"Environment variable {envVarName} not set or empty."
-        | DalConnectionStringIsEmpty _ -> "Connection string is empty."
+        | DalConnectionStringIsEmpty -> "Connection string is empty."
         | DalErrorDuringTransactionCreation ex ->
             $"Database error during transaction creation: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+        | DalCantCompleteTransactionOfNone -> "Error. You cannot commit or rollback with a raw transaction of None."
+        | DalCantFetchTransactionOfNone -> "Error. You cannot fetch a connection with a raw transaction of None."
         | DalErrorDuringTransactionCommit ex ->
             $"Database error during transaction commit. {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
         | DalErrorDuringTransactionRollback ex ->
@@ -134,13 +138,13 @@ module AppError =
             $"Database error during reader query execution: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
         | DalErrorDuringScalarExecution ex ->
             $"Database error during scalar execution: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
-        | DalStringUnboxingReturnedNull _ -> "String unboxing returned DB null"
-        | DalIntUnboxingReturnedNull _ -> "Int unboxing returned DB null"
-        | DalLongUnboxingReturnedNull _ -> "Long unboxing returned DB null"
-        | DalDecimalUnboxingReturnedNull _ -> "Decimal unboxing returned DB null"
-        | DalLocalDateUnboxingReturnedNull _ -> "LocalDate unboxing returned DB null"
-        | DalInstantUnboxingReturnedNull _ -> "Instant unboxing returned DB null"
-        | DalUuidUnboxingReturnedNull _ -> "UUID unboxing returned DB null"
+        | DalStringUnboxingReturnedNull -> "String unboxing returned DB null"
+        | DalIntUnboxingReturnedNull -> "Int unboxing returned DB null"
+        | DalLongUnboxingReturnedNull -> "Long unboxing returned DB null"
+        | DalDecimalUnboxingReturnedNull -> "Decimal unboxing returned DB null"
+        | DalLocalDateUnboxingReturnedNull -> "LocalDate unboxing returned DB null"
+        | DalInstantUnboxingReturnedNull -> "Instant unboxing returned DB null"
+        | DalUuidUnboxingReturnedNull -> "UUID unboxing returned DB null"
         | DalErrorDuringStringUnboxing ex ->
             $"Database error during string unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
         | DalErrorDuringStringOptionUnboxing ex ->
@@ -190,9 +194,9 @@ module AppError =
         | AccountParentIsInactive uuid -> $"Parent account {uuid} failed \"is active\" check."
         | AccountParentAndChildTypesDontMatch(parent, child) ->
             $"Parent ({parent}) and child ({child}) account types do not match."
-        | AccountUpdateNoOp _ ->
+        | AccountUpdateNoOp ->
             "Updating the account record failed because at least one updatable parameter must be set."
-        | AccountBalanceFetchInvalidArguments _ -> "fetchByAccountIdList requires at least one account ID"
+        | AccountBalanceFetchInvalidArguments -> "fetchByAccountIdList requires at least one account ID"
         | AccountDeactivationProposedDateIsInvalid(uuid, proposedDate, beginDate) ->
             $"Deactivating account {uuid} failed because the active end ({proposedDate}) would be before the active begin ({beginDate})"
         | AccountActiveChildrenBeforeDeactivation uuid ->
@@ -201,7 +205,7 @@ module AppError =
             $"The Account {uuid} cannot be deactivated as it has a non-zero balance. Total debits: {debits}. Total credits: {credits}."
         | AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate uuid ->
             $"Account {uuid} cannot be deactivated as it has one or more Journal Entries dated after the deactivation date."
-        | AccountDeactivationFailedJournalEntryValidation _ ->
+        | AccountDeactivationFailedJournalEntryValidation ->
             "Failed to validate the Account's Journal Entries prior to deactivation"
         | AccountAlreadyInactive(uuid, endDate) ->
             $"Account {uuid} deactivation failed because active end is already set to {endDate}."
@@ -237,7 +241,7 @@ module AppError =
             $"Journal Entry LineMemo cannot exceed {max} characters. Provided string is {lineMemo}."
         | JournalEntryLineMemoIsEmpty lineMemo ->
             $"Journal Entry Line Memo cannot be empty. Provided string is {lineMemo}."
-        | JournalEntryReferenceUpdateNoOp _ ->
+        | JournalEntryReferenceUpdateNoOp ->
             "Updating the Journal Entry Reference record failed because at least one updatable parameter must be set."
         | JournalEntryLineNonPositiveAmount amount ->
             $"Journal Entry Line Amount field ({amount}) cannot be less than or equal to 0.00."
@@ -255,7 +259,7 @@ module AppError =
                 | Some x -> x.ToString()
                 | None -> "None"
             $"Account ({uuid}) is not active (begin {beginDate}; end {endDateStr}) relative to the Journal Entry's entry date ({entryDate})."
-        | JournalEntryFetchByReferenceBothArgumentsNull _ ->
+        | JournalEntryFetchByReferenceBothArgumentsNull ->
             "FI and reference cannot both be null when fetching by reference"
         | JournalEntryVoidingCannotFetchFiscalPeriod(entryDate, fiscalPeriodId) ->
             $"Could not fetch a FiscalPeriod row from the database for the fiscal period ID of {fiscalPeriodId}, which was fetched using the entry date of {entryDate}."

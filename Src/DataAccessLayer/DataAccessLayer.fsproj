@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="DbConnections.fs" />
+    <Compile Include="DbTransaction.fs" />
+    <Compile Include="QueryParameters.fs" />
+    <Compile Include="ExecuteReader.fs" />
+    <Compile Include="ExecuteNonQuery.fs" />
+    <Compile Include="ExecuteScalar.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="Npgsql.NodaTime" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Utilities\Utilities.fsproj" />
+  </ItemGroup>
+
+</Project>
