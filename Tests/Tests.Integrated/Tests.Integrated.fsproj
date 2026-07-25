@@ -33,6 +33,7 @@
     <Compile Include="Model\Ledger\FiscalPeriod.fs" />
     <Compile Include="SonOfLeoCli\CliExecutor.fs" />
     <Compile Include="SonOfLeoCli\Program.fs" />
+    <Content Include="SonOfLeoCli\README.md" />
     <Compile Include="ModelOrchestrator\AccountDeactivation.fs" />
     <Compile Include="ModelOrchestrator\JournalEntryCreation.fs" />
     <Compile Include="ModelOrchestrator\JournalEntryVoiding.fs" />
@@ -41,6 +42,12 @@
     <Compile Include="ModelOrchestrator\AccountActivity.fs" />
     <Compile Include="ModelOrchestrator\AccountCreation.fs" />
     <Compile Include="ModelOrchestrator\FiscalPeriodCreation.fs" />
+    <Content Include="ModelOrchestrator\README.md" />
+    <Compile Include="ModelOrchestrator\JournalEntryExternalReferenceOrchestration.fs" />
+    <Compile Include="ModelOrchestrator\JournalEntryLineOrchestration.fs" />
+    <Compile Include="ModelOrchestrator\JournalEntryCommentOrchestration.fs" />
+    <Compile Include="ModelOrchestrator\JournalEntryHeaderOrchestration.fs" />
+    <Compile Include="ModelOrchestrator\JournalEntryOrchestration.fs" />
     <Compile Include="Model\Ledger\JournalEntryHeader.fs" />
     <Compile Include="Model\Ledger\JournalEntryExternalReference.fs" />
     <Compile Include="Model\Ledger\JournalEntryComment.fs" />

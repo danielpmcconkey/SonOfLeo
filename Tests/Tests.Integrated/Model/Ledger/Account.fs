@@ -14,7 +14,7 @@ open Utilities.AppError
 
 [<Collection("SharedTestData")>]
 type AccountTests(fixture: TestDataFixture) =
-
+    
     [<Fact>]
     member _.``REQ-AC-1.4 REQ-AC-2.9 AccountCode must be unique`` () =
         let transaction = DAL.createDbTransaction() |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
@@ -44,18 +44,13 @@ type AccountTests(fixture: TestDataFixture) =
                         genericAccountName genericAccountType genericAccountActivityPeriod genericAccountSubtype
                         genericAccountParentId genericAccountReference genericAuditEnvelope (Some transaction)
                 Assert.NotEqual(fixture.Data.assets1000Id, returned |> Account.accountId)
-                return ()
-            }
+                return () }
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
-     // =============================================================================
-     // Create + Read round-trips
-     // =============================================================================
-
+            
     [<Fact>]
     member _.``REQ-AC-2.14 REQ-SYS-5.1 create account and fetch by ID returns identical record`` () =
         let transaction = DAL.createDbTransaction() |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
@@ -73,14 +68,13 @@ type AccountTests(fixture: TestDataFixture) =
                 let returnedName = returned |> Account.accountName
                 Assert.Equal(accountCode, returnedCode)
                 Assert.Equal(accountName, returnedName)
-                return ()
-            }
+                return () }
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+    
     [<Fact>]
     member _.``REQ-AC-3.5 fetch by parent ID returns all children`` () =
         let parentId = fixture.Data.assets1000Id
@@ -95,32 +89,28 @@ type AccountTests(fixture: TestDataFixture) =
             expectedChildren
             |> List.forall (fun id -> fetched |> List.exists (fun a -> Account.accountId a = id))
             |> Assert.True
-            return ()
-        }
+            return () }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail (AppError.toMessage e)
-
+    
     [<Fact>]
     member _.``REQ-AC-3.6 fetch by account type returns matching accounts`` () =
         let railroad = result {
             let! fetchType = AccountType.fromString "Equity"
             let! fetched = Account.fetchByAccountType None fetchType
-
             let expectedIds = [ fixture.Data.equity3000Id; fixture.Data.retirement3030Id ]
             expectedIds
             |> List.forall (fun id -> fetched |> List.exists (fun a -> Account.accountId a = id))
             |> Assert.True
-
             fetched
             |> List.forall (fun a -> Account.accountType a = fetchType)
             |> Assert.True
-            return ()
-        }
+            return () }
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail (AppError.toMessage e)
-
+    
     [<Fact>]
     member _.``REQ-AC-3.7 fetch all fetches everything`` () =
         let expectedCount = fixture.Data.accounts |> List.length
@@ -131,7 +121,7 @@ type AccountTests(fixture: TestDataFixture) =
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail (AppError.toMessage e)
-
+    
     [<Fact>]
     member _.``REQ-AC-3.9 fetch all with active only fetches active accounts relative to system run time`` () =
         let today = Calendar.today()
@@ -149,11 +139,7 @@ type AccountTests(fixture: TestDataFixture) =
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail (AppError.toMessage e)
-
-     // =============================================================================
-     // Create validations (DB-dependent)
-     // =============================================================================
-
+    
     [<Fact>]
     member _.``REQ-AC-2.6 parent ID must reference existing account`` () =
         let parentId = Guid.NewGuid()
@@ -172,7 +158,7 @@ type AccountTests(fixture: TestDataFixture) =
             | Ok _ -> Assert.Fail($"Expected failure; succeeded")
         finally
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+    
     [<Fact>]
     member _.``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--positive`` () =
         let transaction = DAL.createDbTransaction() |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
@@ -189,7 +175,7 @@ type AccountTests(fixture: TestDataFixture) =
             | Ok _ -> ()
         finally
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+    
     [<Fact>]
     member _.``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--negative`` () =
         let transaction = DAL.createDbTransaction() |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
@@ -207,7 +193,7 @@ type AccountTests(fixture: TestDataFixture) =
             | Ok _ -> Assert.Fail($"Expected failure; succeeded")
         finally
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+    
     [<Fact>]
     member _.``REQ-AC-2.20 child AccountType must match parent AccountType`` () =
         let transaction = DAL.createDbTransaction() |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
@@ -226,11 +212,7 @@ type AccountTests(fixture: TestDataFixture) =
             | Ok _ -> Assert.Fail($"Expected failure; succeeded")
         finally
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
-     // =============================================================================
-     // Updates
-     // =============================================================================
-
+    
     [<Fact>]
     member _.``REQ-AC-4.8 updateAccountName succeeds with valid accountName`` () =
         let envelope_rename = AuditEnvelope.create AccountUpdateName
@@ -241,14 +223,13 @@ type AccountTests(fixture: TestDataFixture) =
                 let! renamedAccount =
                     Account.updateAccountNameById fixture.Data.moneyMarket1270Id goodAccountName envelope_rename (Some transaction)
                 Assert.Equal(goodAccountName, (AccountName.value (Account.accountName renamedAccount)))
-                return ()
-            }
+                return () }
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+    
     [<Fact>]
     member _.``REQ-AC-4.9 updateExternalReference succeeds with valid reference`` () =
         let envelope_update = AuditEnvelope.create AccountUpdateExtReference
@@ -260,14 +241,13 @@ type AccountTests(fixture: TestDataFixture) =
                     Account.updateExternalReferenceById fixture.Data.moneyMarket1270Id goodReference envelope_update (Some transaction)
                 let newReference = Account.externalReference updatedAccount |> Option.map AccountExternalReference.value
                 Assert.Equal(goodReference, newReference)
-                return ()
-            }
+                return () }
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+    
     [<Fact>]
     member _.``REQ-AC-4.9 updateExternalReference can be updated to None`` () =
         let envelope_update = AuditEnvelope.create AccountUpdateExtReference
@@ -285,7 +265,7 @@ type AccountTests(fixture: TestDataFixture) =
             | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+    
     [<Fact>]
     member _.``REQ-SYS-3.3 account update operations set modifiedAt from AuditEnvelope`` () =
         let transaction = DAL.createDbTransaction() |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
@@ -303,7 +283,7 @@ type AccountTests(fixture: TestDataFixture) =
             | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+    
     [<Fact>]
     member _.``REQ-AC-4.19 update to deactivated account is permitted`` () =
         let envelope_update = AuditEnvelope.create AccountUpdateName
@@ -314,12 +294,10 @@ type AccountTests(fixture: TestDataFixture) =
                 let! original = Account.fetchById (Some transaction) fixture.Data.closedBank1290Id
                 let isActive = original |> Account.activityPeriod |> AccountActivityPeriod.isActive (Calendar.today())
                 Assert.False(isActive) // just confirming that you indeed start with an inactive account
-
                 let! updatedAccount =
                     Account.updateAccountNameById fixture.Data.closedBank1290Id newName envelope_update (Some transaction)
                 Assert.Equal(newName, AccountName.value (Account.accountName updatedAccount))
-                return ()
-            }
+                return () }
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail (AppError.toMessage e)

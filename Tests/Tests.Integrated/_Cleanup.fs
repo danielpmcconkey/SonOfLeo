@@ -2,6 +2,7 @@ module Tests.Integrated._Cleanup
 
 open System
 open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
 open Utilities.DAL
@@ -57,12 +58,13 @@ let cleanUpParentIdAndChildren (parentId: AccountId option) (children: AccountId
 //=================================================
 // Fiscal Period clean up
 //=================================================
-let cleanUpFiscalPeriodId (uniqueId:Guid option) : Result<unit, AppError> =
-    match uniqueId with
+let cleanUpFiscalPeriodId (fpId: FiscalPeriodId option) : Result<unit, AppError> =
+    match fpId with
     | None -> Ok ()
     | Some x -> 
+        let uuid = x |> FiscalPeriodId.value
         let parameters = [
-            { name = "@unique_id"; value = UniqueId x };
+            { name = "@unique_id"; value = UniqueId uuid };
         ]
         let query = $"""
                 delete from ledger.fiscal_period
@@ -86,7 +88,7 @@ let cleanUpFiscalPeriodKey (key:string option) : Result<unit, AppError> =
             return! executeNonQuery query parameters ExactlyOne None
         }
 
-let cleanUpFiscalPeriodIdsList (l: Guid option list) : Result<unit, AppError> =    
+let cleanUpFiscalPeriodIdsList (l: FiscalPeriodId option list) : Result<unit, AppError> =    
     l
     |> List.map cleanUpFiscalPeriodId
     |> List.choose (function Error e -> Some e | Ok _ -> None)

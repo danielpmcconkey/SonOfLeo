@@ -43,6 +43,8 @@ type FixtureData = {
     basicJeId: JournalEntryHeaderId
     jeWithRefId: JournalEntryHeaderId
     jeWithRefExtRefId: JournalEntryExternalReferenceId
+    jeWithLinesRefsAndCommentsId: JournalEntryHeaderId
+    jeWithLinesRefsAndComments: JournalEntry
     voidedJeId: JournalEntryHeaderId
     jeInClosedPeriodId: JournalEntryHeaderId
     fixtureCommentId: JournalEntryCommentId
@@ -131,7 +133,7 @@ type TestDataFixture() =
             
             
             // create an account that will be closed after we add an entry to it
-            let! closedBank1290, closedBank1290Id = createTestAccountFromPrimitives "F-1290" "Closed Bank" "Asset" lastYear None (Some "Cash") (Some assets1000Id ) None envelope None
+            let! _, closedBank1290Id = createTestAccountFromPrimitives "F-1290" "Closed Bank" "Asset" lastYear None (Some "Cash") (Some assets1000Id ) None envelope None
             // note: don't add it yet. only after it's been closed
             
  
@@ -199,7 +201,7 @@ type TestDataFixture() =
                |> List.head
                |> JournalEntryExternalReference.journalEntryExternalReferenceId
  
-            let! jeToVoid, jeToVoidId =
+            let! _, jeToVoidId =
                 createTestJournalEntryFromPrimitives "Fixture voided JE" None yesterday 
                     [ (entertainment5650Id, 75.00M, "Debit", None)
                       (creditCard2220Id, 75.00M, "Credit", None) ]
@@ -208,7 +210,7 @@ type TestDataFixture() =
                     jeEnvelope
             // note: don't add jeToVoid to the list because we later update it by voiding
             
-            let! jeToNotVoid, jeToNotVoidId = // this is here to ensure we have an account with both voided and not-voided JEs
+            let! jeToNotVoid, _ = // this is here to ensure we have an account with both voided and not-voided JEs
                 createTestJournalEntryFromPrimitives "Fixture voided JE" None yesterday 
                     [ (entertainment5650Id, 86.04M, "Debit", None)
                       (creditCard2220Id, 86.04M, "Credit", None) ]
@@ -228,7 +230,7 @@ type TestDataFixture() =
                     jeEnvelope
             journalEntries <- jeInClosedPeriod :: journalEntries
  
-            let! jeInClosedAccount, jeInClosedAccountId =
+            let! jeInClosedAccount, _ =
                 createTestJournalEntryFromPrimitives "Journal entry in closed account" None closedPeriodEntryDate
                     [ (closedBank1290Id, 71.38M, "Debit", None)
                       (food5350Id, 71.38M, "Credit", (Some "Grocery run")) ]
@@ -238,7 +240,7 @@ type TestDataFixture() =
             journalEntries <- jeInClosedAccount :: journalEntries
  
             // need to offset the transaction so it has a zero balance
-            let! jeInClosedAccount2, jeInClosedAccountId2 =
+            let! jeInClosedAccount2, _ =
                 createTestJournalEntryFromPrimitives "Journal entry in closed account" None (closedPeriodEntryDate.PlusWeeks(1))
                     [ (closedBank1290Id, 71.38M, "Credit", None)
                       (food5350Id, 71.38M, "Debit", (Some "Grocery refund")) ]
@@ -246,6 +248,15 @@ type TestDataFixture() =
                     []
                     jeEnvelope
             journalEntries <- jeInClosedAccount2 :: journalEntries
+ 
+            let! jeWithLinesRefsAndComments, jeWithLinesRefsAndCommentsId =
+                createTestJournalEntryFromPrimitives "Basic journal entry" None today 
+                    [ (mortgage2210Id, 100.00M, "Debit", None)
+                      (food5350Id, 100.00M, "Credit", (Some "Grocery run")) ]
+                    [ ("TestBank", "TXN-001") ]
+                    [ (None, "Fixture comment for testing") ]
+                    jeEnvelope
+            journalEntries <- jeWithLinesRefsAndComments :: journalEntries
  
             // =============================================================================
             // Close the fiscal period and account (after JE creation)
@@ -339,6 +350,8 @@ type TestDataFixture() =
                 basicJeId = basicJeId
                 jeWithRefId = jeWithRefId
                 jeWithRefExtRefId = jeWithRefExtRefId
+                jeWithLinesRefsAndComments = jeWithLinesRefsAndComments
+                jeWithLinesRefsAndCommentsId = jeWithLinesRefsAndCommentsId
                 voidedJeId = voidedJeId
                 jeInClosedPeriodId = jeInClosedPeriodId
                 fixtureCommentId = fixtureCommentId
@@ -368,7 +381,7 @@ type TestDataFixture() =
  
     interface IDisposable with
        member _.Dispose() =
-          let query = """
+          let query = """ 
              TRUNCATE
                 ledger.journal_entry_comment,
                 ledger.journal_entry_ext_reference,
@@ -376,7 +389,8 @@ type TestDataFixture() =
                 ledger.journal_entry,
                 ledger.account,
                 ledger.fiscal_period
-             CASCADE;"""
+             CASCADE;
+          """
           executeNonQuery query [] AnyQuantityIsAcceptable None |> ignore
  
 [<CollectionDefinition("SharedTestData")>]

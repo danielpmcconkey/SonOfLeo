@@ -25,7 +25,9 @@ let ``convert TemporalFilterInput to TemporalFilter``
             endInclusive = dateRange.endInclusive })
     |  TemporalFilterInput.PeriodKey periodKey ->
         result {
-            let! uuid = periodKey |> LookupCache.fiscalPeriodKeyToId.fetch
+            // make sure it's a valid string for even being a period key
+            let! _ = periodKey |> FiscalPeriodKey.fromString
+            let! uuid = periodKey |> LookupCache.fiscalPeriodKeyToId.fetch |> Result.mapError (fun _ -> FiscalPeriodNoPeriodMatchingKey periodKey)
             return
                 uuid
                 |> FiscalPeriodId.fromGuid
@@ -44,7 +46,10 @@ let ``convert AccountActivityFilterInput to AccountActivityFilter``
         let! accountId = // REQ-NGUI-1.5
             input.accountCode |> ``convert AccountCodeString Option to AccountId Option``
         let! accountParentId = // REQ-NGUI-1.5
-            input.accountParentCode |> ``convert AccountCodeString Option to AccountId Option``
+            match input.accountParentCode |> ``convert AccountCodeString Option to AccountId Option`` with
+            | Ok x -> Ok x
+            | Error (AccountCodeDoesntMatchAccountId codeString) -> Error (AccountParentCodeInvalid codeString)
+            | Error e -> Error e
         let! accountType =
             input.accountType |> ``convert AccountTypeString Option to AccountType Option``
         let! accountSubtype =

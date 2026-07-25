@@ -15,10 +15,6 @@ open Model.Ledger.Journaling
 [<Collection("SharedTestData")>]
 type JournalEntryCommentTests(fixture: TestDataFixture) =
 
-    // =============================================================================
-    // Add comment
-    // =============================================================================
-
     // todo: need to move all of the tests that require orchestration to the orchestration files and see if we have duplicate tests. This goes for all domains
     [<Fact>]
     member _.``REQ-JE-5.1 constructNewAndSaveToDb attaches a comment to a journal entry`` () =
@@ -35,7 +31,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
            | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+    
     [<Fact>]
     member _.``REQ-JE-5.1 constructNewAndSaveToDb attaches a comment with a secondary JE link`` () =
         let envelope = AuditEnvelope.create JournalEntryAddComment
@@ -52,7 +48,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
            | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+    
     [<Fact>]
     member _.``REQ-JE-5.2 constructNewAndSaveToDb generates UUID and sets timestamps`` () =
         let envelope = AuditEnvelope.create JournalEntryAddComment
@@ -70,7 +66,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+    
     [<Fact>]
     member _.``REQ-JE-1.52 constructNewAndSaveToDb accepts null secondary JE ID`` () =
         let envelope = AuditEnvelope.create JournalEntryAddComment
@@ -84,7 +80,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+    
     [<Fact>]
     member _.``REQ-JE-1.53 constructNewAndSaveToDb rejects secondary JE ID equal to primary`` () =
         let commentText = "Same primary and secondary" |> CommentText.create |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
@@ -96,7 +92,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
                 | Error (JournalEntryCommentPrimaryAndSecondaryIdsAreSame _) -> ()
                 | Ok _ -> Assert.Fail("Expected failure; returned success.")
                 | Error e -> Assert.Fail($"Wrong error type: {AppError.toMessage e}")
-
+    
     [<Fact>]
     member _.``REQ-JE-5.5 constructNewAndSaveToDb allows comment on a voided entry`` () =
         let envelope = AuditEnvelope.create JournalEntryAddComment
@@ -110,7 +106,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+    
     [<Fact>]
     member _.``REQ-JE-5.5 constructNewAndSaveToDb allows comment when fiscal period is closed`` () =
         let envelope = AuditEnvelope.create JournalEntryAddComment
@@ -124,11 +120,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
-    // =============================================================================
-    // Update comment
-    // =============================================================================
-
+    
     [<Fact>]
     member _.``REQ-JE-5.3 updateComment amends the comment text`` () =
         let envelope = AuditEnvelope.create JournalEntryUpdateComment
@@ -148,13 +140,12 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+    
     [<Fact>]
     member _.``REQ-JE-5.3 REQ-SYS-3.3 updateComment updates modified_at timestamp`` () =
         let envelope = AuditEnvelope.create JournalEntryUpdateComment
         let expectedInstant = AuditEnvelope.instant envelope
         let transaction = createDbTransaction() |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
-
         try
             let railroad = result {
                let! textUpdate = "Modified timestamp test" |> CommentText.create |> Result.map SetTo
@@ -169,7 +160,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+    
     [<Fact>]
     member _.``REQ-JE-5.6 updateComment does not change the primary JE link`` () =
         let envelope = AuditEnvelope.create JournalEntryUpdateComment
@@ -188,11 +179,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
            | Error e -> Assert.Fail (AppError.toMessage e)
         finally
            rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
-     // =============================================================================
-     // Persistence fidelity
-     // =============================================================================
-
+           
     [<Fact>]
     member _.``REQ-SYS-5.1 comment round-trips through persistence with all fields intact`` () =
         let envelope = AuditEnvelope.create JournalEntryAddComment

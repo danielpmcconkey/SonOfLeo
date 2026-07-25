@@ -13,11 +13,7 @@ open Utilities.AppError
 
 [<Collection("SharedTestData")>]
 type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
-
-    // =============================================================================
-    // Update external reference
-    // =============================================================================
-
+    
     [<Fact>]
     member _.``REQ-JE-4.9 updateFiAndReferenceText updates FI and value on existing reference`` () =
         let envelope = AuditEnvelope.create JournalEntryUpdateExternalReference
@@ -34,7 +30,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
             | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+            
     [<Fact>]
     member _.``REQ-JE-4.9 REQ-SYS-3.3 updateFiAndReferenceText updates modified_at timestamp`` () =
         let envelope = AuditEnvelope.create JournalEntryUpdateExternalReference
@@ -50,11 +46,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
             | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
-    // =============================================================================
-    // Add external reference to existing entry
-    // =============================================================================
-
+            
     [<Fact>]
     member _.``REQ-JE-4.10 constructNewAndSaveToDb appends a reference to an existing entry`` () =
         let envelope = AuditEnvelope.create JournalEntryAddExternalReference
@@ -74,7 +66,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
             | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+            
     [<Fact>]
     member _.``REQ-JE-4.10 constructNewAndSaveToDb generates a unique UUID for the new reference`` () =
         let envelope = AuditEnvelope.create JournalEntryAddExternalReference
@@ -89,7 +81,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
             | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
+            
     [<Fact>]
     member _.``REQ-JE-4.10 appending a reference is permitted on a voided entry`` () =
         let envelope = AuditEnvelope.create JournalEntryAddExternalReference
@@ -104,11 +96,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
             | Error e -> Assert.Fail (AppError.toMessage e)
         finally
             DAL.rollbackDbTransactionAndDisposeConnection transaction |> ignore
-
-    // =============================================================================
-    // Persistence fidelity
-    // =============================================================================
-
+            
     [<Fact>]
     member _.``REQ-SYS-5.1 external reference round-trips through persistence with all fields intact`` () =
         let envelope = AuditEnvelope.create JournalEntryAddExternalReference

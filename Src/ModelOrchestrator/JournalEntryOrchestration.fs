@@ -37,21 +37,19 @@ module JournalEntry =
             let! totalCredits = lines |> JournalEntryLine.sumLinesByType Credit
             return!
                 if totalCredits = totalDebits then Ok ()
-                else Error (JournalEntryDebitCreditMismatch(totalDebits |> Money.amount, totalCredits |> Money.amount))
-            }
+                else Error (JournalEntryDebitCreditMismatch(totalDebits |> Money.amount, totalCredits |> Money.amount)) }
     
     let private validateLineCount (lines: JournalEntryLine list) : Result<unit, AppError> =
         if lines |> List.length < 2
         then Error (JournalEntryInsufficientLines (lines |> List.length)) // REQ-JE-1.12
         else Ok ()
-        
+    
     let validateLineList (lines: JournalEntryLine list) : Result<unit, AppError> =
         result {
             let! _ = validateLineCount lines // REQ-JE-1.12
             let! _ = validateAmountEquality lines // REQ-JE-1.13
-            return ()
-        }
-
+            return () }
+    
     // =============================================================================
     // Create
     // =============================================================================
@@ -203,6 +201,7 @@ module JournalEntry =
               lines = linesForHeader
               externalReferences = referencesForHeader
               comments = commentsForHeader } )
+        
     let private fetchHeadersFromFilter
             (transaction: DbTransaction option)
             (filter: JournalEntryFetchFilter)
@@ -272,11 +271,16 @@ module JournalEntry =
             : Result<JournalEntry list, AppError> =
         result {
             let! headers = fetchHeadersFromFilter transaction filter expectedRows
-            let headerIds = headers |> List.map(fun x -> x|> JournalEntryHeader.journalEntryHeaderId)
-            let! lines = headerIds |> JournalEntryLine.fetchByJournalEntryHeaderIdList transaction
-            let! references = headerIds |> JournalEntryExternalReference.fetchByJournalEntryHeaderIdList transaction
-            let! comments = headerIds |> JournalEntryComment.fetchByJournalEntryHeaderIdList transaction
-            return composeFromFetchedLists headers lines references comments }
+            let! innerRailroad =
+                if headers |> List.length = 0
+                then Ok []
+                else result {
+                    let headerIds = headers |> List.map(fun x -> x|> JournalEntryHeader.journalEntryHeaderId)
+                    let! lines = headerIds |> JournalEntryLine.fetchByJournalEntryHeaderIdList transaction
+                    let! references = headerIds |> JournalEntryExternalReference.fetchByJournalEntryHeaderIdList transaction
+                    let! comments = headerIds |> JournalEntryComment.fetchByJournalEntryHeaderIdList transaction
+                    return composeFromFetchedLists headers lines references comments }
+            return innerRailroad }
 
     let fetchById // REQ-JE-3.1, REQ-JE-3.2
             (transaction: DbTransaction option)
@@ -329,14 +333,18 @@ module JournalEntry =
     let fetchByReference // REQ-JE-3.1, REQ-JE-3.5, REQ-JE-3.8
             (transaction: DbTransaction option)
             (financialInstitution: JournalRefFinancialInstitution option)
-            (reference: JournalExternalReferenceText option)
+            (referenceText: JournalExternalReferenceText option)
             : Result<JournalEntry list, AppError> =
-        let filter = { journalEntryHeaderId = None
-                       source = None
-                       financialInstitution = financialInstitution
-                       referenceText = reference
-                       temporalFilter = None
-                       unVoidedOnly = false }
-        let expectedRows = AnyQuantityIsAcceptable
-        fetchFiltered transaction filter expectedRows
+        result {
+            do! if financialInstitution |> Option.isNone && referenceText |> Option.isNone
+                then Error (JournalEntryFetchByReferenceBothArgumentsNull ())
+                else Ok ()
+            let filter = { journalEntryHeaderId = None
+                           source = None
+                           financialInstitution = financialInstitution
+                           referenceText = referenceText
+                           temporalFilter = None
+                           unVoidedOnly = false }
+            let expectedRows = AnyQuantityIsAcceptable
+            return! fetchFiltered transaction filter expectedRows }
         

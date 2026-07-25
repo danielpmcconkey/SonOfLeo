@@ -1,9 +1,7 @@
 namespace Tests.Integrated.ModelOrchestrator
 
 open Model
-open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
-open ModelOrchestrator
 open Tests.Integrated.GenericTestProperties
 open Utilities.AppError
 open Xunit
@@ -12,6 +10,7 @@ open ModelOrchestrator.AccountBalance
 
 [<Collection("SharedTestData")>]
 type AccountBalanceTests(fixture: TestDataFixture) =
+    
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList returns correct debit and credit totals`` () =
         let id1 = fixture.Data.mortgage2210Id
@@ -40,7 +39,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail (AppError.toMessage e)
         
     [<Fact>]
-    member _.``REQ-JE-3.6 fetchByAccountIdList excludes voided entry amounts`` () =
+    member _.``REQ-JE-3.6 REQ-JE-4.7 fetchByAccountIdList excludes voided entry amounts`` () =
         let id1 = fixture.Data.creditCard2220Id
         let id2 = fixture.Data.entertainment5650Id
         let accountsList = [id1; id2]
@@ -81,3 +80,5 @@ type AccountBalanceTests(fixture: TestDataFixture) =
     member _.``REQ-JE-3.6 fetchByAccountIdList with empty list returns Error`` () =
         let result = fetchByAccountIdList None [] None
         Assert.True(Result.isError result)
+    
+    // todo: create a test on fetchByAccountIdList that checks that as-of works

@@ -11,6 +11,21 @@ open Utilities.DAL
 open Utilities.ResultHelper
 open System
 
+let fallibleConverterAccountCodeStringToAccountUuid = (fun codeString -> 
+          result {
+              // see if the string represents a valid code first
+              let! _ = codeString |> AccountCode.create
+              // now see if it matches an account ID
+              return! match codeString |> LookupCache.accountCodeToId.fetch with
+                      | Ok x -> Ok x
+                      | Error (DalResultantRowsDidntMatchExpectation _) -> Error (AccountCodeDoesntMatchAccountId codeString)
+                      | Error e -> Error e })
+
+let fallibleConverterAccountCodeToAccountId = (fun code -> 
+          result {
+              let! uuid = code |> fallibleConverterAccountCodeStringToAccountUuid
+              return uuid |> AccountId.fromGuid })
+
 let ``convert AccountId to AccountCodeString``
         (id: AccountId)
         : Result<string, AppError> =
@@ -76,43 +91,24 @@ let ``convert Account to AccountReturn`` (a:Account) : Result<AccountReturn, App
             createdAt = createdAt a
             modifiedAt = modifiedAt a } }
 
-let ``convert AccountCodeString to Id`` (code:string) : Result<AccountId, AppError> =
-    code
-    |> LookupCache.accountCodeToId.fetch
-    |> Result.mapError (fun e -> 
-            let originalType = code.GetType().Name
-            let originalValue = code
-            let desiredType = "AccountId"
-            let childError = e |> AppError.toMessage
-            InterfaceBridgeConversionFailure (originalType, originalValue, desiredType, childError)) // REQ-NGUI-1.5
-    |> Result.map(AccountId.fromGuid)
-
-let ``convert AccountCodeString to AccountUuid`` (code:string) : Result<Guid, AppError> =
-    code
-    |> LookupCache.accountCodeToId.fetch
-    |> Result.mapError (fun e -> 
-            let originalType = code.GetType().Name
-            let originalValue = code
-            let desiredType = "Guid"
-            let childError = e |> AppError.toMessage
-            InterfaceBridgeConversionFailure (originalType, originalValue, desiredType, childError)) // REQ-NGUI-1.5
+let ``convert AccountCodeString to Id`` (codeString:string) : Result<AccountId, AppError> =
+    codeString |> fallibleConverterAccountCodeToAccountId
 
 let ``convert AccountCodeString to Account``
             (transaction: DbTransaction option)
-            (code:string)
+            (codeString:string)
             : Result<Account, AppError> =
-    result {    let! id = code |> ``convert AccountCodeString to Id``
-                return! id |> fetchById transaction }
+    result {    let! accountId = codeString |> fallibleConverterAccountCodeToAccountId
+                return! accountId |> fetchById transaction }
 
 let ``convert AccountCodeString Option to AccountId Option``
         (codeStringOption: string option)
-        : Result<AccountId option, AppError> =
-    let fallibleConverter = (fun code -> 
-          result {
-              let! uuid = code |> LookupCache.accountCodeToId.fetch
-              return uuid |> AccountId.fromGuid })
-    codeStringOption
-    |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
+        : Result<AccountId option, AppError> = 
+    match codeStringOption with
+    | None -> Ok None
+    | Some codeString -> result {
+                let! accountId = codeString |> fallibleConverterAccountCodeToAccountId
+                return (Some accountId) }
 
 let ``convert AccountCodeString List to AccountId List``
         (codes: string list)

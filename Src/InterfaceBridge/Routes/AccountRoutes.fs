@@ -27,7 +27,7 @@ let private accountCreate payload _ =
             |> ``convert AccountCodeString Option to AccountId Option``
             |> function
                 | Ok x -> Ok x
-                | Error (DalResultantRowsDidntMatchExpectation _) -> Error (AccountParentCodeInvalid (accountCreateInput.parentCode |> Option.defaultValue "None"))
+                | Error (AccountCodeDoesntMatchAccountId _) -> Error (AccountParentCodeInvalid (accountCreateInput.parentCode |> Option.defaultValue "None"))
                 | Error e -> Error e
         let! reference = accountCreateInput.reference |> ``convert [Account Reference String Option] to [AccountExternalReference Option]``
         let! account = AccountCreation.constructNewAndSaveToDb

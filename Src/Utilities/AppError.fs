@@ -46,6 +46,7 @@ type AppError =
     | AccountParentAndChildAreSame of Guid option * Guid
     | AccountCodeIsEmpty of string
     | AccountCodeTooLong of string * int
+    | AccountCodeDoesntMatchAccountId of string
     | AccountNameIsEmpty of string
     | AccountNameTooLong of string * int
     | AccountTypeInvalid of string
@@ -89,7 +90,7 @@ type AppError =
     | JournalEntryDebitCreditMismatch of decimal * decimal
     | JournalEntryInsufficientLines of int
     | JournalEntryLineAccountInactive of Guid * LocalDate * LocalDate * LocalDate Option
-    | JournalEntryFetchByReference of unit
+    | JournalEntryFetchByReferenceBothArgumentsNull of unit
     | JournalEntryVoidingCannotFetchFiscalPeriod of LocalDate * Guid
     | JournalEntryVoidingFiscalPeriodIsClosed of LocalDate * Guid
     | JournalEntryVoidingNoOp of Guid
@@ -150,6 +151,7 @@ module AppError =
     | AccountParentAndChildAreSame (parent, child) -> $"A child account ({child}) cannot be its own parent ({parent})."
     | AccountCodeIsEmpty code -> $"Account code cannot be empty. Provided code is {code}."
     | AccountCodeTooLong (code, max) -> $"Account code cannot exceed {max} characters. Provided code is {code}."
+    | AccountCodeDoesntMatchAccountId code -> $"Account code of {code} doesn't match an Account ID in the database."
     | AccountNameIsEmpty name -> $"Account name cannot be empty. Provided name is {name}."
     | AccountNameTooLong (name, max) -> $"Account name cannot exceed {max} characters. Provided name is {name}."
     | AccountTypeInvalid typeString -> $"Provided string of '{typeString}' is not a valid account type."
@@ -195,7 +197,7 @@ module AppError =
     | JournalEntryLineAccountInactive (uuid, entryDate, beginDate, endDate) ->
         let endDateStr = match endDate with | Some x -> x.ToString() | None -> "None"
         $"Account ({uuid}) is not active (begin {beginDate}; end {endDateStr}) relative to the Journal Entry's entry date ({entryDate})."
-    | JournalEntryFetchByReference _ -> "Both FI and reference cannot both be null when fetching by reference"
+    | JournalEntryFetchByReferenceBothArgumentsNull _ -> "FI and reference cannot both be null when fetching by reference"
     | JournalEntryVoidingCannotFetchFiscalPeriod (entryDate, fiscalPeriodId) -> $"Could not fetch a FiscalPeriod row from the database for the fiscal period ID of {fiscalPeriodId}, which was fetched using the entry date of {entryDate}."
     | JournalEntryVoidingFiscalPeriodIsClosed (entryDate, fiscalPeriodId) -> $"Can not void a Journal Entry whose FiscalPeriod is already closed. FiscalPeriodId of {fiscalPeriodId}, which was fetched using the entry date of {entryDate}."
     | JournalEntryVoidingNoOp uuid -> $"Attempting to void Journal Entry ({uuid}) resulted in zero rows updated. Either the UUID is wrong or the entry is already voided."
