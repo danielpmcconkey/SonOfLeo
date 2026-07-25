@@ -15,6 +15,9 @@ open Utilities
 open Utilities.AppError
 open Utilities.ResultHelper
 open Utilities.FieldUpdate
+open DataAccessLayer.DbTransaction
+
+// todo: rename this module or move the helper functions out of it
 
 // audit
 let genericAuditEnvelope = AuditEnvelope.create AccountCreate
@@ -92,7 +95,7 @@ let createTestAccountFromPrimitives
         return (account, account |> Account.accountId)
     }
 
-let createTestAccountFromCodeString codeToUse =
+let createTestAccountFromCodeString codeToUse tran =
     createTestAccountFromPrimitives
         codeToUse
         genericAccountNameString
@@ -103,7 +106,7 @@ let createTestAccountFromCodeString codeToUse =
         genericAccountParentId
         genericAccountReference
         genericAuditEnvelope
-        None
+        tran
 let createAccountInput codeToUse : AccountCreateInput =
     { code = codeToUse
       name = genericAccountNameString
@@ -121,6 +124,7 @@ let createTestJournalEntryFromPrimitives
     (references: (string * string) list)
     (comments: (JournalEntryHeaderId option * string) list)
     (auditEnvelope: AuditEnvelope)
+    (tran: DbTransaction)
     : Result<JournalEntry * JournalEntryHeaderId, AppError> =
     let convertLines
         (linesIn: (AccountId * decimal * string * string option) list)
@@ -161,12 +165,13 @@ let createTestJournalEntryFromPrimitives
     result {
         let! description = description |> JournalEntryDescription.create
         let! source = source |> convertOptionToDesiredTypeWithFallibleConverter JournalEntrySource.create
-        let! entryDate = entryDate |> EntryDate.create None
+        let! entryDate = entryDate |> EntryDate.create tran
         let! linesConverted = lines |> convertLines
         let! refsConverted = references |> convertRefs
         let! commentsConverted = comments |> convertComments
         let! journalEntry =
             JournalEntry.constructNewAndSaveToDb
+                tran
                 description
                 source
                 entryDate
@@ -189,7 +194,7 @@ let createFiUpdateFromString fiString =
     fiString |> createJournalRefFinancialInstitutionFromString |> SetTo
 let createReferenceTextUpdateFromString textString =
     textString |> createJournalExternalReferenceTextFromString |> SetTo
-let sumJournalEntryLinesByAccountIdAndType unvoidedOnly accountId lineType lines =
+let sumJournalEntryLinesByAccountIdAndType tran unvoidedOnly accountId lineType lines =
     // this is expensive if unvoidedOnly is true
     let allLinesAtAccountAndType =
         lines
@@ -201,7 +206,7 @@ let sumJournalEntryLinesByAccountIdAndType unvoidedOnly accountId lineType lines
             |> List.filter(fun x ->
                 x
                 |> JournalEntryLine.journalEntryHeaderId
-                |> JournalEntryHeader.fetchById None
+                |> JournalEntryHeader.fetchById tran
                 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
                 |> JournalEntryHeader.voidedAt
                 |> Option.isNone)

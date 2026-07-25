@@ -4,10 +4,14 @@ open Utilities
 open Utilities.AppError
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
-open Utilities.DAL
 open Model.Audit
 open AccountComponent
 open NodaTime
+open DataAccessLayer.DbTransaction
+open DataAccessLayer.QueryParameters
+open DataAccessLayer.ExecuteReader
+open DataAccessLayer.ExecuteNonQuery
+
 type Account =
     private
         { accountId: AccountId // REQ-AC-1.21, REQ-AC-1.22
@@ -129,7 +133,7 @@ module Account =
         (limit: int option)
         (parameters: QueryParameter list)
         (expectedRows: AcceptableExpectedRows)
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         : Result<Account list, AppError> =
         let select =
             """
@@ -143,7 +147,7 @@ module Account =
     /// insertNewToDb is a function used as an interface to the DAL. It
     /// assumes that the calling function handled all necessary validations to
     /// ensure only legal data states persist
-    let insertNewToDb (account: Account) (transaction: DbTransaction option) : Result<unit, AppError> =
+    let insertNewToDb (account: Account) (transaction: DbTransaction) : Result<unit, AppError> =
         let query =
             """
             insert into ledger.account( -- REQ-SYS-5.1
@@ -190,29 +194,26 @@ module Account =
               { name = "@external_ref"; value = NullableCharString externalReferenceString } ]
         executeNonQuery query parameters ExactlyOne transaction
 
-    let fetchById (transaction: DbTransaction option) (accountId: AccountId) : Result<Account, AppError> = // REQ-AC-3.3
+    let fetchById (transaction: DbTransaction) (accountId: AccountId) : Result<Account, AppError> = // REQ-AC-3.3
         let predicate = "a.unique_id = @unique_id"
         let accountIdGuid = accountId |> AccountId.value
         let parameters = [ { name = "@unique_id"; value = UniqueId accountIdGuid } ] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None parameters ExactlyOne transaction |> Result.map List.head
 
-    let fetchByParentId (transaction: DbTransaction option) (parentId: AccountId) : Result<Account list, AppError> = // REQ-AC-3.5
+    let fetchByParentId (transaction: DbTransaction) (parentId: AccountId) : Result<Account list, AppError> = // REQ-AC-3.5
         let predicate = "a.parent_id = @parent_id"
         let parentIdGuid = parentId |> AccountId.value
         let parameters = [ { name = "@parent_id"; value = UniqueId parentIdGuid } ] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable transaction
 
-    let fetchByAccountType
-        (transaction: DbTransaction option)
-        (accountType: AccountType)
-        : Result<Account list, AppError> = // REQ-AC-3.6
+    let fetchByAccountType (transaction: DbTransaction) (accountType: AccountType) : Result<Account list, AppError> = // REQ-AC-3.6
         let predicate = "a.account_type = @account_type"
         let parameters = [ { name = "@account_type"; value = CharString(accountType |> AccountType.toString) } ] // REQ-DAL-2.3
         readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable transaction
 
     /// fetchAll returns all accounts or, if activeOnly is true, fetches all accounts
     /// that are active with respect to the system runtime
-    let fetchAll (activeOnly: bool) (transaction: DbTransaction option) : Result<Account list, AppError> = // REQ-AC-3.7
+    let fetchAll (activeOnly: bool) (transaction: DbTransaction) : Result<Account list, AppError> = // REQ-AC-3.7
         let predicate = None
         let parameters = []
         let activeReference = Calendar.today()
@@ -232,7 +233,7 @@ module Account =
         (nameUpdate: FieldUpdate<AccountName>)
         (referenceUpdate: FieldUpdate<AccountExternalReference option>)
         (auditEnvelope: AuditEnvelope)
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         : Result<Account, AppError> =
         let accountIdGuid = accountId |> AccountId.value
         let baseParams =
@@ -261,7 +262,7 @@ module Account =
             WHERE unique_id = @unique_id;
         """
         result {
-            do! if updates.IsEmpty then Error(AccountUpdateNoOp()) else Ok()
+            do! if updates.IsEmpty then Error(AccountUpdateNoOp) else Ok()
             let! () = executeNonQuery query parameters ExactlyOne transaction
             return! accountId |> fetchById transaction
         }
@@ -270,7 +271,7 @@ module Account =
         (accountId: AccountId)
         (newName: string)
         (auditEnvelope: AuditEnvelope)
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         : Result<Account, AppError> = // REQ-AC-4.8
         result {
             let! validAccountName = AccountName.create newName // REQ-SYS-2.1
@@ -282,7 +283,7 @@ module Account =
         (accountId: AccountId)
         (newReference: string option) // todo make this as FieldUpdate
         (auditEnvelope: AuditEnvelope)
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         : Result<Account, AppError> = // REQ-AC-4.9
         result {
             let! validRef = // REQ-SYS-2.1

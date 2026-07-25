@@ -7,7 +7,7 @@ open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
-open Utilities.DAL
+open DataAccessLayer.DbTransaction
 open Utilities.ResultHelper
 
 let confirmAmountIsPositive (m: Money) : Result<unit, AppError> =
@@ -18,7 +18,7 @@ let confirmAmountIsPositive (m: Money) : Result<unit, AppError> =
     else
         Ok()
 
-let confirmAccountExists (transaction: DbTransaction option) (accountId: AccountId) : Result<unit, AppError> =
+let confirmAccountExists (transaction: DbTransaction) (accountId: AccountId) : Result<unit, AppError> =
     match accountId |> Account.fetchById transaction with
     | Error(DalResultantRowsDidntMatchExpectation _) ->
         Error(JournalEntryLineAccountDoesntExist(accountId |> AccountId.value))
@@ -32,7 +32,7 @@ let constructNewAndSaveToDb
     (lineType: JournalEntryLineType)
     (memo: JournalEntryLineMemo option)
     (auditEnvelope: AuditEnvelope)
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     : Result<JournalEntryLine, AppError> =
     let journalEntryLineId = JournalEntryLineId.create()
     let now = AuditEnvelope.instant auditEnvelope

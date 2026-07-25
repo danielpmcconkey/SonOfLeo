@@ -3,8 +3,11 @@ namespace Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
 open Utilities.AppError
-open Utilities.DAL
 open Utilities.ResultHelper
+open DataAccessLayer.QueryParameters
+open DataAccessLayer.DbTransaction
+open DataAccessLayer.ExecuteReader
+open DataAccessLayer.ExecuteNonQuery
 
 type JournalEntryExternalReference =
     private
@@ -40,7 +43,7 @@ module JournalEntryExternalReference =
 
     let insertNewToDb
         (externalReference: JournalEntryExternalReference)
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         : Result<unit, AppError> =
         let query =
             """
@@ -108,7 +111,7 @@ module JournalEntryExternalReference =
         (orderBy: string option)
         (parameters: QueryParameter list)
         (expectedRows: AcceptableExpectedRows)
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         : Result<JournalEntryExternalReference list, AppError> =
         let select =
             """
@@ -120,7 +123,7 @@ module JournalEntryExternalReference =
         executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
 
     let fetchById
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (journalEntryExternalReferenceId: JournalEntryExternalReferenceId)
         : Result<JournalEntryExternalReference, AppError> =
         let uuid = journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
@@ -129,7 +132,7 @@ module JournalEntryExternalReference =
         readRowsFromDb (Some predicate) None None parameters ExactlyOne transaction |> Result.map List.head
 
     let fetchByJournalEntryId
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (journalEntryId: JournalEntryHeaderId)
         : Result<JournalEntryExternalReference list, AppError> =
         let uuid = journalEntryId |> JournalEntryHeaderId.value
@@ -138,7 +141,7 @@ module JournalEntryExternalReference =
         readRowsFromDb (Some predicate) None None parameters AnyQuantityIsAcceptable transaction
 
     let fetchByJournalEntryHeaderIdList
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (journalEntryHeaderIds: JournalEntryHeaderId list)
         : Result<JournalEntryExternalReference list, AppError> =
         let ordinals = [ 1 .. journalEntryHeaderIds.Length ]

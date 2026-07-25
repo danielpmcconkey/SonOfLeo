@@ -1,18 +1,20 @@
 module Model.LookupCache
 
 open System
+open DataAccessLayer.ExecuteReader
 open Utilities.AppError
-open Utilities.DAL
 open Utilities.ResultHelper
+open DataAccessLayer.DbTransaction
+open DataAccessLayer.QueryParameters
 
 type Cache<'K, 'V when 'K: comparison>
-    (loadAll: unit -> Result<Map<'K, 'V>, AppError>, loadOne: 'K -> Result<'V, AppError>) =
+    (loadAll: unit -> Result<Map<'K, 'V>, AppError>, loadOne: DbTransaction -> 'K -> Result<'V, AppError>) =
     let mutable cache = loadAll() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    member _.fetch(key: 'K) : Result<'V, AppError> =
+    member _.fetch tran (key: 'K) : Result<'V, AppError> =
         match cache |> Map.tryFind key with
         | Some v -> Ok v
         | None ->
-            match loadOne key with
+            match key |> loadOne tran with
             | Ok v ->
                 cache <- cache |> Map.add key v
                 Ok v
@@ -32,20 +34,21 @@ let constructFromRawForDbRead (raw: Guid * string) : Result<idAndString, AppErro
 
 let accountCodeToId =
     Cache<string, Guid>(
-        (fun () ->
-            let query = "select unique_id, code from ledger.account"
-            result {
-                let! rows =
-                    executeReaderQuery
-                        query
-                        []
-                        (mapRawForDbRead "unique_id" "code")
-                        constructFromRawForDbRead
-                        AnyQuantityIsAcceptable
-                        None
-                return rows |> List.map(fun x -> x.key, x.id) |> Map.ofList
-            }),
-        (fun code ->
+        (fun _ ->
+            withoutTransaction(fun tran ->
+                let query = "select unique_id, code from ledger.account"
+                result {
+                    let! rows =
+                        executeReaderQuery
+                            query
+                            []
+                            (mapRawForDbRead "unique_id" "code")
+                            constructFromRawForDbRead
+                            AnyQuantityIsAcceptable
+                            tran
+                    return rows |> List.map(fun x -> x.key, x.id) |> Map.ofList
+                })),
+        (fun tran code ->
             let query = "select unique_id, code from ledger.account where code = @code"
             let parameters = [ { name = "@code"; value = CharString code } ] // REQ-DAL-2.3
             result {
@@ -56,27 +59,28 @@ let accountCodeToId =
                         (mapRawForDbRead "unique_id" "code")
                         constructFromRawForDbRead
                         ExactlyOne
-                        None
+                        tran
                 return (rows |> List.head).id
             })
     )
 
 let accountIdToCode =
     Cache<Guid, string>(
-        (fun () ->
-            let query = "select unique_id, code from ledger.account"
-            result {
-                let! rows =
-                    executeReaderQuery
-                        query
-                        []
-                        (mapRawForDbRead "unique_id" "code")
-                        constructFromRawForDbRead
-                        AnyQuantityIsAcceptable
-                        None
-                return rows |> List.map(fun x -> x.id, x.key) |> Map.ofList
-            }),
-        (fun id ->
+        (fun _ ->
+            withoutTransaction(fun tran ->
+                let query = "select unique_id, code from ledger.account"
+                result {
+                    let! rows =
+                        executeReaderQuery
+                            query
+                            []
+                            (mapRawForDbRead "unique_id" "code")
+                            constructFromRawForDbRead
+                            AnyQuantityIsAcceptable
+                            tran
+                    return rows |> List.map(fun x -> x.id, x.key) |> Map.ofList
+                })),
+        (fun tran id ->
             let query = "select unique_id, code from ledger.account where unique_id = @unique_id"
             let parameters = [ { name = "@unique_id"; value = UniqueId id } ]
             result {
@@ -87,27 +91,28 @@ let accountIdToCode =
                         (mapRawForDbRead "unique_id" "code")
                         constructFromRawForDbRead
                         ExactlyOne
-                        None
+                        tran
                 return (rows |> List.head).key
             })
     )
 
 let fiscalPeriodKeyToId =
     Cache<string, Guid>(
-        (fun () ->
-            let query = "select unique_id, period_key from ledger.fiscal_period"
-            result { //     executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
-                let! rows =
-                    executeReaderQuery
-                        query
-                        []
-                        (mapRawForDbRead "unique_id" "period_key")
-                        constructFromRawForDbRead
-                        AnyQuantityIsAcceptable
-                        None
-                return rows |> List.map(fun x -> x.key, x.id) |> Map.ofList
-            }),
-        (fun periodKey ->
+        (fun _ ->
+            withoutTransaction(fun tran ->
+                let query = "select unique_id, period_key from ledger.fiscal_period"
+                result { //     executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
+                    let! rows =
+                        executeReaderQuery
+                            query
+                            []
+                            (mapRawForDbRead "unique_id" "period_key")
+                            constructFromRawForDbRead
+                            AnyQuantityIsAcceptable
+                            tran
+                    return rows |> List.map(fun x -> x.key, x.id) |> Map.ofList
+                })),
+        (fun tran periodKey ->
             let query = "select unique_id, period_key from ledger.fiscal_period where period_key = @period_key"
             let parameters = [ { name = "@period_key"; value = CharString periodKey } ] // REQ-DAL-2.3
             result {
@@ -118,27 +123,28 @@ let fiscalPeriodKeyToId =
                         (mapRawForDbRead "unique_id" "period_key")
                         constructFromRawForDbRead
                         ExactlyOne
-                        None
+                        tran
                 return (rows |> List.head).id
             })
     )
 
 let fiscalPeriodIdToKey =
     Cache<Guid, string>(
-        (fun () ->
-            let query = "select unique_id, period_key from ledger.fiscal_period"
-            result {
-                let! rows =
-                    executeReaderQuery
-                        query
-                        []
-                        (mapRawForDbRead "unique_id" "period_key")
-                        constructFromRawForDbRead
-                        AnyQuantityIsAcceptable
-                        None
-                return rows |> List.map(fun x -> x.id, x.key) |> Map.ofList
-            }),
-        (fun id ->
+        (fun _ ->
+            withoutTransaction(fun tran ->
+                let query = "select unique_id, period_key from ledger.fiscal_period"
+                result {
+                    let! rows =
+                        executeReaderQuery
+                            query
+                            []
+                            (mapRawForDbRead "unique_id" "period_key")
+                            constructFromRawForDbRead
+                            AnyQuantityIsAcceptable
+                            tran
+                    return rows |> List.map(fun x -> x.id, x.key) |> Map.ofList
+                })),
+        (fun tran id ->
             let query = "select unique_id, period_key from ledger.fiscal_period where unique_id = @unique_id"
             let parameters = [ { name = "@unique_id"; value = UniqueId id } ]
             result {
@@ -149,7 +155,7 @@ let fiscalPeriodIdToKey =
                         (mapRawForDbRead "unique_id" "period_key")
                         constructFromRawForDbRead
                         ExactlyOne
-                        None
+                        tran
                 return (rows |> List.head).key
             })
     )

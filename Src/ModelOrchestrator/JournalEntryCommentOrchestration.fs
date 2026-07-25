@@ -4,12 +4,15 @@ open Model.Audit
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
-open Utilities.DAL
+open DataAccessLayer.QueryParameters
+open DataAccessLayer.DbTransaction
+open DataAccessLayer.ExecuteReader
+open DataAccessLayer.ExecuteNonQuery
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
 
 let validateJournalEntryHeader
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     (journalEntryId: JournalEntryHeaderId)
     : Result<unit, AppError> =
     journalEntryId |> JournalEntryHeader.fetchById transaction |> Result.map ignore
@@ -33,7 +36,7 @@ let constructNewAndSaveToDb // REQ-JE-5.1
     (secondaryJournalEntryId: JournalEntryHeaderId option)
     (commentText: CommentText)
     (auditEnvelope: AuditEnvelope)
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     : Result<JournalEntryComment, AppError> =
     let journalEntryCommentId = JournalEntryCommentId.create() // REQ-JE-5.2
     let now = AuditEnvelope.instant auditEnvelope
@@ -63,7 +66,7 @@ let updateComment // REQ-JE-5.3
     (journalEntryCommentId: JournalEntryCommentId)
     (commentUpdate: FieldUpdate<CommentText>)
     (secondaryIdUpdate: FieldUpdate<JournalEntryHeaderId option>)
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     : Result<JournalEntryComment, AppError> =
     let commentUuid = journalEntryCommentId |> JournalEntryCommentId.value
     let baseParams =

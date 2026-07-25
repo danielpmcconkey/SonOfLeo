@@ -7,7 +7,7 @@ open Model.Ledger.Accounts.AccountComponent
 open NodaTime
 open Utilities
 open Utilities.AppError
-open Utilities.DAL
+open DataAccessLayer.DbTransaction
 open Utilities.ResultHelper
 
 let private confirmParentAccountIsActive (parentAccount: Account) (referenceDate: LocalDate) : Result<unit, AppError> =
@@ -40,7 +40,7 @@ let private confirmParentAndChildAreDistinct
     | _ -> Ok()
 
 let private validateParentChildRelationship
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     (parentId: AccountId option)
     (childId: AccountId)
     (childType: AccountType)
@@ -91,7 +91,7 @@ let constructNewAndSaveToDb
     (parentId: AccountId option)
     (reference: AccountExternalReference option)
     (auditEnvelope: AuditEnvelope)
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     : Result<Account, AppError> =
     result {
         let accountId = AccountId.create() // REQ-AC-1.39, REQ-AC-2.13

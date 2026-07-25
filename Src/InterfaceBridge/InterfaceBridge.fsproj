@@ -23,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\DataAccessLayer\DataAccessLayer.fsproj" />
     <ProjectReference Include="..\ModelOrchestrator\ModelOrchestrator.fsproj" />
     <ProjectReference Include="..\Model\Model.fsproj" />
     <ProjectReference Include="..\Utilities\Utilities.fsproj" />

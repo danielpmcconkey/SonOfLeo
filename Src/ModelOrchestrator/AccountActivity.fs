@@ -7,9 +7,11 @@ open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.FetchFilters
 open NodaTime
 open Utilities.AppError
-open Utilities.DAL
 open Utilities.ResultHelper
 open Model.Ledger.FiscalPeriods
+open DataAccessLayer.QueryParameters
+open DataAccessLayer.DbTransaction
+open DataAccessLayer.ExecuteReader
 
 type AccountActivityDetail =
     { lineId: JournalEntryLineId
@@ -129,7 +131,7 @@ let private reconstitute raw =
     }
 
 let fetchFiltered // REQ-JE-3.9
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     (filter: AccountActivityFilter)
     (sort: FetchSort option)
     : Result<AccountActivity list, AppError> =

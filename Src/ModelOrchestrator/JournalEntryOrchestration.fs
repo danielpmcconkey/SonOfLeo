@@ -1,6 +1,7 @@
 namespace ModelOrchestrator.JournalEntries
 
 open System
+open DataAccessLayer.ExecuteReader
 open Model
 open Model.Audit
 open Model.Ledger.Accounts.AccountComponent
@@ -12,8 +13,9 @@ open ModelOrchestrator
 open ModelOrchestrator.FetchFilters
 open NodaTime
 open Utilities.AppError
-open Utilities.DAL
 open Utilities.ResultHelper
+open DataAccessLayer.DbTransaction
+open DataAccessLayer.QueryParameters
 
 type JournalEntry =
     private
@@ -65,12 +67,12 @@ module JournalEntry =
         (source: JournalEntrySource option)
         (entryDate: EntryDate)
         (auditEnvelope: AuditEnvelope)
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         : Result<JournalEntryHeader, AppError> =
         JournalEntryHeaderOrchestration.constructNewAndSaveToDb description source entryDate auditEnvelope transaction
 
     let private confirmAccountIsActiveAtEntryDate
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (entryDate: EntryDate)
         (accountId: AccountId)
         : Result<unit, AppError> =
@@ -99,7 +101,7 @@ module JournalEntry =
         (entryDate: EntryDate)
         (lines: (AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option) list)
         (auditEnvelope: AuditEnvelope)
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         : Result<JournalEntryLine list, AppError> =
         lines
         |> List.map(fun line ->
@@ -122,7 +124,7 @@ module JournalEntry =
         (journalEntryHeaderId: JournalEntryHeaderId)
         (references: (JournalRefFinancialInstitution * JournalExternalReferenceText) list)
         (auditEnvelope: AuditEnvelope)
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         : Result<JournalEntryExternalReference list, AppError> =
         references
         |> List.map(fun reference ->
@@ -139,7 +141,7 @@ module JournalEntry =
         (primaryJournalEntryId: JournalEntryHeaderId)
         (comments: (JournalEntryHeaderId option * CommentText) list)
         (auditEnvelope: AuditEnvelope)
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         : Result<JournalEntryComment list, AppError> =
         comments
         |> List.map(fun comment ->
@@ -158,6 +160,7 @@ module JournalEntry =
     /// persistence layer. Internal model functions may construct through other
     /// means if they're operating on known good data.
     let constructNewAndSaveToDb // REQ-JE-2.13
+        (dbTransaction: DbTransaction)
         (description: JournalEntryDescription)
         (source: JournalEntrySource option)
         (entryDate: EntryDate)
@@ -166,33 +169,20 @@ module JournalEntry =
         (comments: (JournalEntryHeaderId option * CommentText) list)
         (auditEnvelope: AuditEnvelope)
         : Result<JournalEntry, AppError> =
-        let transaction = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)) // if this fails, nothing can proceed
-        let railRoad =
-            result {
-                let! validHeader = createValidHeader description source entryDate auditEnvelope (Some transaction)
-                let journalEntryHeaderId = validHeader |> JournalEntryHeader.journalEntryHeaderId
-                let! validLines = createValidLines journalEntryHeaderId entryDate lines auditEnvelope (Some transaction)
-                let! validReferences =
-                    createValidExternalReferences journalEntryHeaderId references auditEnvelope (Some transaction)
-                let! validComments = createValidComments journalEntryHeaderId comments auditEnvelope (Some transaction)
-                do! validateLineList validLines
-                return
-                    { header = validHeader
-                      lines = validLines
-                      externalReferences = validReferences
-                      comments = validComments }
-            }
-        match railRoad with // REQ-JE-2.11
-        | Error e ->
-            transaction
-            |> rollbackDbTransactionAndDisposeConnection
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)) // REQ-JE-2.12, REQ-JE-2.8, REQ-JE-1.12, REQ-JE-1.13
-            Error e
-        | Ok je ->
-            transaction
-            |> commitDbTransactionAndDisposeConnection
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-            Ok je
+        result {
+            let! validHeader = createValidHeader description source entryDate auditEnvelope dbTransaction
+            let journalEntryHeaderId = validHeader |> JournalEntryHeader.journalEntryHeaderId
+            let! validLines = createValidLines journalEntryHeaderId entryDate lines auditEnvelope dbTransaction
+            let! validReferences =
+                createValidExternalReferences journalEntryHeaderId references auditEnvelope dbTransaction
+            let! validComments = createValidComments journalEntryHeaderId comments auditEnvelope dbTransaction
+            do! validateLineList validLines
+            return
+                { header = validHeader
+                  lines = validLines
+                  externalReferences = validReferences
+                  comments = validComments }
+        }
 
     // =============================================================================
     // Read
@@ -220,7 +210,7 @@ module JournalEntry =
               comments = commentsForHeader })
 
     let private fetchHeadersFromFilter
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (filter: JournalEntryFetchFilter)
         (expectedRows: AcceptableExpectedRows)
         : Result<JournalEntryHeader list, AppError> =
@@ -297,7 +287,7 @@ module JournalEntry =
         }
 
     let fetchFiltered
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (filter: JournalEntryFetchFilter)
         (expectedRows: AcceptableExpectedRows)
         : Result<JournalEntry list, AppError> =
@@ -319,7 +309,7 @@ module JournalEntry =
         }
 
     let fetchById // REQ-JE-3.1, REQ-JE-3.2
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (journalEntryHeaderId: JournalEntryHeaderId)
         : Result<JournalEntry, AppError> =
         let filter =
@@ -338,7 +328,7 @@ module JournalEntry =
         fetchFiltered transaction filter expectedRows |> Result.map List.head
 
     let fetchByPeriod // REQ-JE-3.1
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (fiscalPeriod: FiscalPeriod)
         : Result<JournalEntry list, AppError> =
         let filter =
@@ -353,7 +343,7 @@ module JournalEntry =
         fetchFiltered transaction filter expectedRows
 
     let fetchByDateRange // REQ-JE-3.7
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (beginDate: LocalDate)
         (endDateInclusive: LocalDate)
         : Result<JournalEntry list, AppError> =
@@ -368,14 +358,14 @@ module JournalEntry =
         fetchFiltered transaction filter expectedRows
 
     let fetchByReference // REQ-JE-3.1, REQ-JE-3.5, REQ-JE-3.8
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (financialInstitution: JournalRefFinancialInstitution option)
         (referenceText: JournalExternalReferenceText option)
         : Result<JournalEntry list, AppError> =
         result {
             do!
                 if financialInstitution |> Option.isNone && referenceText |> Option.isNone then
-                    Error(JournalEntryFetchByReferenceBothArgumentsNull())
+                    Error(JournalEntryFetchByReferenceBothArgumentsNull)
                 else
                     Ok()
             let filter =

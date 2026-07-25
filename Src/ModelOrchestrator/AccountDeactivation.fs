@@ -9,14 +9,18 @@ open Model
 open NodaTime
 open Utilities
 open Utilities.AppError
-open Utilities.DAL
+open DataAccessLayer.QueryParameters
+open DataAccessLayer.DbTransaction
+open DataAccessLayer.ExecuteReader
+open DataAccessLayer.ExecuteNonQuery
+open DataAccessLayer.ExecuteScalar
 open Utilities.ResultHelper
 
 let private updateDb
     (account: Account)
     (activeEndUpdate: LocalDate)
     (auditEnvelope: AuditEnvelope)
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     : Result<Account, AppError> =
     let accountId = account |> Account.accountId
     let uuid = accountId |> AccountId.value
@@ -51,7 +55,7 @@ let private confirmProposedDeactivationDateIsValid
         Ok() // REQ-AC-4.2
 
 let private confirmNoActiveChildrenBeforeDeactivation
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     (account: Account)
     (auditEnvelope: AuditEnvelope)
     : Result<unit, AppError> =
@@ -70,7 +74,7 @@ let private confirmNoActiveChildrenBeforeDeactivation
     }
 
 let private confirmZeroBalanceBeforeDeactivation
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     (account: Account)
     : Result<unit, AppError> =
     let accountId = account |> Account.accountId
@@ -94,7 +98,7 @@ let private confirmZeroBalanceBeforeDeactivation
 
 let private confirmNoJournalEntriesAfterDeactivationDate
     (deactivationDate: LocalDate)
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     (account: Account)
     : Result<unit, AppError> =
     let accountId = account |> Account.accountId
@@ -115,12 +119,12 @@ let private confirmNoJournalEntriesAfterDeactivationDate
     | Error e -> Error e
     | Ok x when x = 0L -> Ok()
     | Ok x when x > 0L -> Error(AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate uuid)
-    | _ -> Error(AccountDeactivationFailedJournalEntryValidation())
+    | _ -> Error(AccountDeactivationFailedJournalEntryValidation)
 
 let private confirmJournalEntriesAreInProperState
     (account: Account)
     (deactivationDate: LocalDate)
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     : Result<unit, AppError> =
     result {
         do! account |> confirmZeroBalanceBeforeDeactivation transaction // REQ-AC-4.4
@@ -133,7 +137,7 @@ let private confirmJournalEntriesAreInProperState
 /// explicitEnd, the system will update the active_end to that explicit time.
 /// Otherwise, the active_end will be the system clock time
 let deactivateAccount
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     (auditEnvelope: AuditEnvelope)
     (explicitEnd: LocalDate option)
     (account: Account)

@@ -25,6 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="Rollback.fs" />
     <Compile Include="_Cleanup.fs" />
     <Compile Include="GenericTestProperties.fs" />
     <Compile Include="_TestDataStage.fs" />

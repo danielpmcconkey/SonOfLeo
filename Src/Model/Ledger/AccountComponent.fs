@@ -13,7 +13,7 @@ module AccountComponent =
 
     type AccountId = private AccountId of Guid
     module AccountId =
-        let create () : AccountId = (AccountId(Guid.NewGuid()))
+        let create () : AccountId = AccountId(Guid.NewGuid())
         let fromGuid g = AccountId g
         let value (AccountId g) : Guid = g
 

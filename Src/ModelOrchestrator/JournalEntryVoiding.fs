@@ -7,10 +7,13 @@ open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.JournalEntries
 open Utilities.AppError
 open Utilities.ResultHelper
-open Utilities.DAL
+open DataAccessLayer.QueryParameters
+open DataAccessLayer.DbTransaction
+open DataAccessLayer.ExecuteReader
+open DataAccessLayer.ExecuteNonQuery
 
 let private confirmFiscalPeriodIsStillOpenBeforeVoiding
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     (journalEntryHeader: JournalEntryHeader)
     : Result<unit, AppError> =
     let entryDate = journalEntryHeader |> JournalEntryHeader.entryDate
@@ -40,7 +43,7 @@ let private confirmFiscalPeriodIsStillOpenBeforeVoiding
     }
 
 let private voidById // REQ-JE-4.3
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     (auditEnvelope: AuditEnvelope)
     (journalEntryHeaderId: JournalEntryHeaderId)
     : Result<unit, AppError> =
@@ -70,7 +73,7 @@ let private insertReason // REQ-JE-4.4
     (secondaryJournalEntryId: JournalEntryHeaderId option)
     (commentText: CommentText)
     (auditEnvelope: AuditEnvelope)
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     : Result<unit, AppError> =
     JournalEntryCommentOrchestration.constructNewAndSaveToDb
         primaryJournalEntryId
@@ -81,41 +84,23 @@ let private insertReason // REQ-JE-4.4
     |> Result.map ignore
 
 let voidJournalEntry // REQ-JE-4.3
+    (dbTransaction: DbTransaction)
     (auditEnvelope: AuditEnvelope)
     (secondaryJournalEntryIdForComment: JournalEntryHeaderId option)
     (commentText: CommentText)
     (journalEntryHeaderId: JournalEntryHeaderId)
     : Result<JournalEntry, AppError> =
-    let transaction = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)) // if this fails, nothing can proceed
-    let railRoad =
-        result {
-            do!
-                insertReason
-                    journalEntryHeaderId
-                    secondaryJournalEntryIdForComment
-                    commentText
-                    auditEnvelope
-                    (Some transaction) // REQ-JE-4.4
-            do!
-                journalEntryHeaderId
-                |> voidById (Some transaction) auditEnvelope
-                |> function
-                    | Ok y -> Ok y
-                    | Error(DalResultantRowsDidntMatchExpectation(_, 0)) ->
-                        Error(JournalEntryVoidingNoOp(journalEntryHeaderId |> JournalEntryHeaderId.value))
-                    | Error(DalResultantRowsDidntMatchExpectation(expected, actual)) ->
-                        Error(DalResultantRowsDidntMatchExpectation(expected, actual))
-                    | Error e -> Error e
-            return! journalEntryHeaderId |> JournalEntry.fetchById(Some transaction)
-        }
-    match railRoad with
-    | Error e ->
-        transaction
-        |> rollbackDbTransactionAndDisposeConnection
-        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        Error e
-    | Ok je ->
-        transaction
-        |> commitDbTransactionAndDisposeConnection
-        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        Ok je
+    result {
+        do! insertReason journalEntryHeaderId secondaryJournalEntryIdForComment commentText auditEnvelope dbTransaction // REQ-JE-4.4
+        do!
+            journalEntryHeaderId
+            |> voidById dbTransaction auditEnvelope
+            |> function
+                | Ok y -> Ok y
+                | Error(DalResultantRowsDidntMatchExpectation(_, 0)) ->
+                    Error(JournalEntryVoidingNoOp(journalEntryHeaderId |> JournalEntryHeaderId.value))
+                | Error(DalResultantRowsDidntMatchExpectation(expected, actual)) ->
+                    Error(DalResultantRowsDidntMatchExpectation(expected, actual))
+                | Error e -> Error e
+        return! journalEntryHeaderId |> JournalEntry.fetchById dbTransaction
+    }

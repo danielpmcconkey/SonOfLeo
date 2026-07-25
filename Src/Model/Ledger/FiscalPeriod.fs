@@ -1,10 +1,13 @@
 namespace Model.Ledger.FiscalPeriods
 
+open DataAccessLayer.ExecuteNonQuery
+open DataAccessLayer.ExecuteReader
+open DataAccessLayer.QueryParameters
+open DataAccessLayer.DbTransaction
 open Model.Audit
 open NodaTime
 open Utilities.AppError
 open Utilities.ResultHelper
-open Utilities.DAL
 
 
 type FiscalPeriod =
@@ -46,7 +49,7 @@ module FiscalPeriod =
     /// insertNewToDb is a private function used as an interface to the DAL. It
     /// assumes that the calling function handled all necessary validations to
     /// ensure only legal data states persist
-    let insertNewToDb (fp: FiscalPeriod) (transaction: DbTransaction option) : Result<unit, AppError> =
+    let insertNewToDb (fp: FiscalPeriod) (transaction: DbTransaction) : Result<unit, AppError> =
         let query =
             """
             insert into ledger.fiscal_period( -- REQ-SYS-5.1
@@ -96,7 +99,7 @@ module FiscalPeriod =
         (limit: int option)
         (parameters: QueryParameter list)
         (expectedRows: AcceptableExpectedRows)
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         : Result<FiscalPeriod list, AppError> = // REQ-FP-3.1
         let select =
             "fp.unique_id, fp.period_key, fp.start_date, fp.end_date, fp.is_open, fp.created_at, fp.modified_at"
@@ -104,7 +107,7 @@ module FiscalPeriod =
         let query = buildReadQuery select from None predicate limit None None
         executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
 
-    let fetchById (transaction: DbTransaction option) (id: FiscalPeriodId) : Result<FiscalPeriod, AppError> =
+    let fetchById (transaction: DbTransaction) (id: FiscalPeriodId) : Result<FiscalPeriod, AppError> =
         let predicate = "fp.unique_id = @unique_id"
         let uuid = id |> FiscalPeriodId.value
         let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
@@ -113,7 +116,7 @@ module FiscalPeriod =
     /// fetchIdByKey should only be used sparingly, as it goes against
     /// the doctrine that the model deals in UUIDs while the boundary
     /// does the translation between keys and IDs
-    let fetchIdByKey (transaction: DbTransaction option) (key: string) : Result<FiscalPeriodId, AppError> =
+    let fetchIdByKey (transaction: DbTransaction) (key: string) : Result<FiscalPeriodId, AppError> =
         let mapRaw (row: RowReader) =
             (row |> RowReader.getUuid "unique_id"), ()
         let constructFromRaw raw =
@@ -127,7 +130,7 @@ module FiscalPeriod =
         | Error(DalResultantRowsDidntMatchExpectation _) -> Error(FiscalPeriodNoPeriodMatchingKey key)
         | Error e -> Error e
 
-    let fetchAll (transaction: DbTransaction option) (openOnly: bool) : Result<FiscalPeriod list, AppError> = // REQ-FP-3.4
+    let fetchAll (transaction: DbTransaction) (openOnly: bool) : Result<FiscalPeriod list, AppError> = // REQ-FP-3.4
         let predicate =
             match openOnly with
             | true -> Some "fp.is_open = true" // REQ-FP-3.5
@@ -139,7 +142,7 @@ module FiscalPeriod =
         (fpId: FiscalPeriodId)
         (newValue: bool)
         (auditEnvelope: AuditEnvelope)
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         : Result<FiscalPeriod, AppError> =
         let enforcedCurrentValue = not newValue
         let uuid = fpId |> FiscalPeriodId.value
@@ -166,13 +169,13 @@ module FiscalPeriod =
     let closeFiscalPeriod // REQ-FP-4.1
         (fpId: FiscalPeriodId)
         (auditEnvelope: AuditEnvelope)
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         : Result<FiscalPeriod, AppError> =
         toggleOpenFlagById fpId false auditEnvelope transaction
 
     let reopenFiscalPeriod // REQ-FP-4.2
         (fpId: FiscalPeriodId)
         (auditEnvelope: AuditEnvelope)
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         : Result<FiscalPeriod, AppError> =
         toggleOpenFlagById fpId true auditEnvelope transaction

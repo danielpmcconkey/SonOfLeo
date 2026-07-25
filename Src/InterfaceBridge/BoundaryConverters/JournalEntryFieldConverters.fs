@@ -9,6 +9,7 @@ open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.JournalEntries
 open Utilities.AppError
 open Utilities.ResultHelper
+open DataAccessLayer.DbTransaction
 
 let ``convert JeDescriptionString Option to JeDescription Option``
     (stringOption: string option)
@@ -23,10 +24,11 @@ let ``convert JeSourceString Option to JeSource Option``
     stringOption |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
 let ``convert JournalEntryLineInput to JournalEntryLinePrimitives``
+    (tran: DbTransaction)
     (input: JournalEntryLineInput)
     : Result<AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option, AppError> =
     result {
-        let! accountId = input.accountCode |> ``convert AccountCodeString to Id``
+        let! accountId = input.accountCode |> ``convert AccountCodeString to Id`` tran
         let! amount = input.amount |> Money.fromDecimal
         let! lineType = input.lineType |> JournalEntryLineType.fromString
         let! memo = input.memo |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
@@ -34,17 +36,19 @@ let ``convert JournalEntryLineInput to JournalEntryLinePrimitives``
     }
 
 let ``convert [JournalEntryLineInput list] to [JournalEntryLinePrimitives list]``
+    (tran: DbTransaction)
     (input: JournalEntryLineInput list)
     : Result<(AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option) list, AppError> =
     input
-    |> List.map(fun x -> x |> ``convert JournalEntryLineInput to JournalEntryLinePrimitives``)
+    |> List.map(fun x -> x |> ``convert JournalEntryLineInput to JournalEntryLinePrimitives`` tran)
     |> convertListOfResultsToResultsList
 
 let ``convert JournalEntryLine to JournalEntryLineReturn``
+    (tran: DbTransaction)
     (model: JournalEntryLine)
     : Result<JournalEntryLineReturn, AppError> =
     result {
-        let! accountCode = model |> JournalEntryLine.accountId |> ``convert AccountId to AccountCodeString``
+        let! accountCode = model |> JournalEntryLine.accountId |> ``convert AccountId to AccountCodeString`` tran
         return
             { id = model |> JournalEntryLine.journalEntryLineId |> JournalEntryLineId.value
               accountCode = accountCode
@@ -56,10 +60,11 @@ let ``convert JournalEntryLine to JournalEntryLineReturn``
     }
 
 let ``convert JournalEntryLine list to JournalEntryLineReturn list``
+    (tran: DbTransaction)
     (input: JournalEntryLine list)
     : Result<JournalEntryLineReturn list, AppError> =
     input
-    |> List.map(fun x -> x |> ``convert JournalEntryLine to JournalEntryLineReturn``)
+    |> List.map(fun x -> x |> ``convert JournalEntryLine to JournalEntryLineReturn`` tran)
     |> convertListOfResultsToResultsList
 
 let ``convert [JournalEntryExternalReferenceInput] to [JournalEntryExternalReferencePrimitives]``
@@ -94,26 +99,6 @@ let ``convert [JournalEntryCommentInput list] to [JournalEntryCommentPrimitives 
     input
     |> List.map(fun x -> x |> ``convert [JournalEntryCommentInput] to [JournalEntryCommentPrimitives]``)
     |> convertListOfResultsToResultsList
-
-// let ``convert JournalEntryHeaderInput to JournalEntryHeaderPrimitives``
-//         (input: JournalEntryHeaderInput)
-//         : JournalEntryHeaderPrimitives = {
-//     description = input.description
-//     source = input.source
-//     entryDate = input.entryDate
-//     voidedAt = None } // creating a new JE that's been pre-voided is against the rules
-
-// let ``delete me? convert JournalEntryInput to JournalEntryPrimitives``
-//         (input: JournalEntryInput)
-//         : Result<JournalEntryPrimitives, AppError> = result {
-//     let! lines = input.lines |> ``convert JournalEntryLineInput list to JournalEntryLinePrimitives list``
-//     return { header = input.header |> ``convert JournalEntryHeaderInput to JournalEntryHeaderPrimitives``
-//              lines = lines
-//              externalReferences =
-//                  input.externalReferences
-//                  |> ``convert [JournalEntryExternalReferenceInput list] to [JournalEntryExternalReferencePrimitives list]``
-//              comments =
-//                  input.comments |> ``convert JournalEntryCommentInput list to JournalEntryCommentPrimitives list`` } }
 
 let ``convert JournalEntryHeader to JournalEntryHeaderReturn`` (model: JournalEntryHeader) : JournalEntryHeaderReturn =
     { id = model |> JournalEntryHeader.journalEntryHeaderId |> JournalEntryHeaderId.value
@@ -159,12 +144,15 @@ let ``convert JournalEntryComment list to JournalEntryCommentReturn list``
     : JournalEntryCommentReturn list =
     model |> List.map(fun x -> x |> ``convert JournalEntryComment to JournalEntryCommentReturn``)
 
-let ``convert JournalEntry to JournalEntryReturn`` (journalEntry: JournalEntry) : Result<JournalEntryReturn, AppError> =
+let ``convert JournalEntry to JournalEntryReturn``
+    (tran: DbTransaction)
+    (journalEntry: JournalEntry)
+    : Result<JournalEntryReturn, AppError> =
     result {
         let! lines =
             journalEntry
             |> JournalEntry.lines
-            |> ``convert JournalEntryLine list to JournalEntryLineReturn list``
+            |> ``convert JournalEntryLine list to JournalEntryLineReturn list`` tran
         return
             { header = journalEntry |> JournalEntry.header |> ``convert JournalEntryHeader to JournalEntryHeaderReturn``
               lines = lines
@@ -179,8 +167,9 @@ let ``convert JournalEntry to JournalEntryReturn`` (journalEntry: JournalEntry) 
     }
 
 let ``convert JournalEntry list to JournalEntryReturn list``
+    (tran: DbTransaction)
     (journalEntries: JournalEntry list)
     : Result<JournalEntryReturn list, AppError> =
     journalEntries
-    |> List.map(fun x -> x |> ``convert JournalEntry to JournalEntryReturn``)
+    |> List.map(fun x -> x |> ``convert JournalEntry to JournalEntryReturn`` tran)
     |> convertListOfResultsToResultsList

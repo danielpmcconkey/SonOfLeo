@@ -6,7 +6,9 @@ open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
 open Utilities.AppError
-open Utilities.DAL
+open DataAccessLayer.QueryParameters
+open DataAccessLayer.DbTransaction
+open DataAccessLayer.ExecuteReader
 open Utilities.ResultHelper
 
 type AccountBalance = { accountId: AccountId; totalCredits: Money; totalDebits: Money; netBalance: Money }
@@ -30,12 +32,12 @@ let private reconstitute (raw: Guid * string * string * decimal) : Result<Accoun
     }
 
 let fetchByAccountIdList // REQ-JE-3.6
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     (accountIds: AccountId list)
     (asOf: LocalDate option) // REQ-JE-3.6.2
     : Result<AccountBalance list, AppError> =
     match accountIds with
-    | [] -> Error(AccountBalanceFetchInvalidArguments())
+    | [] -> Error(AccountBalanceFetchInvalidArguments)
     | _ ->
         let asOfParam, asOfJoin =
             match asOf with

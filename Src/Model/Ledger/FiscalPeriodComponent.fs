@@ -7,7 +7,7 @@ open Utilities.AppError
 type FiscalPeriodId = private FiscalPeriodId of Guid
 
 module FiscalPeriodId =
-    let create () : FiscalPeriodId = (FiscalPeriodId(Guid.NewGuid()))
+    let create () : FiscalPeriodId = FiscalPeriodId(Guid.NewGuid())
     let fromGuid g = FiscalPeriodId g
     let value (FiscalPeriodId g) : Guid = g
 

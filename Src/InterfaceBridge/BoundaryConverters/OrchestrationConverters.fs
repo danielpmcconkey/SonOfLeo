@@ -13,8 +13,12 @@ open ModelOrchestrator.FetchFilters
 open Utilities.AppError
 open Model.Ledger.Accounts.AccountComponent
 open Utilities.ResultHelper
+open DataAccessLayer.DbTransaction
 
-let ``convert TemporalFilterInput to TemporalFilter`` (input: TemporalFilterInput) : Result<TemporalFilter, AppError> =
+let ``convert TemporalFilterInput to TemporalFilter``
+    (tran: DbTransaction)
+    (input: TemporalFilterInput)
+    : Result<TemporalFilter, AppError> =
 
     match input with
     | TemporalFilterInput.DateRange dateRange ->
@@ -25,24 +29,26 @@ let ``convert TemporalFilterInput to TemporalFilter`` (input: TemporalFilterInpu
             let! _ = periodKey |> FiscalPeriodKey.fromString
             let! uuid =
                 periodKey
-                |> LookupCache.fiscalPeriodKeyToId.fetch
+                |> LookupCache.fiscalPeriodKeyToId.fetch tran
                 |> Result.mapError(fun _ -> FiscalPeriodNoPeriodMatchingKey periodKey)
             return uuid |> FiscalPeriodId.fromGuid |> TemporalFilter.FiscalPeriodIdentifier
         }
 let ``convert TemporalFilterInput Option To TemporalFilter Option``
+    (tran: DbTransaction)
     (input: TemporalFilterInput option)
     : Result<TemporalFilter option, AppError> =
-    let fallibleConverter = (fun x -> x |> ``convert TemporalFilterInput to TemporalFilter``)
+    let fallibleConverter = (fun x -> x |> ``convert TemporalFilterInput to TemporalFilter`` tran)
     input |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
 let ``convert AccountActivityFilterInput to AccountActivityFilter``
+    (tran: DbTransaction)
     (input: AccountActivityFilterInput)
     : Result<AccountActivityFilter, AppError> =
     result {
         let! accountId = // REQ-NGUI-1.5
-            input.accountCode |> ``convert AccountCodeString Option to AccountId Option``
+            input.accountCode |> ``convert AccountCodeString Option to AccountId Option`` tran
         let! accountParentId = // REQ-NGUI-1.5
-            match input.accountParentCode |> ``convert AccountCodeString Option to AccountId Option`` with
+            match input.accountParentCode |> ``convert AccountCodeString Option to AccountId Option`` tran with
             | Ok x -> Ok x
             | Error(AccountCodeDoesntMatchAccountId codeString) -> Error(AccountParentCodeInvalid codeString)
             | Error e -> Error e
@@ -51,7 +57,8 @@ let ``convert AccountActivityFilterInput to AccountActivityFilter``
         let! amount = input.amount |> ``convert Decimal Option to Money Option``
         let! description = input.description |> ``convert JeDescriptionString Option to JeDescription Option``
         let! source = input.source |> ``convert JeSourceString Option to JeSource Option``
-        let! temporalFilter = input.temporalFilter |> ``convert TemporalFilterInput Option To TemporalFilter Option``
+        let! temporalFilter =
+            input.temporalFilter |> ``convert TemporalFilterInput Option To TemporalFilter Option`` tran
         return
             { accountId = accountId
               temporalFilter = temporalFilter
@@ -81,10 +88,11 @@ let ``convert AccountActivityDetail to AccountActivityDetailReturn``
       journalEntryVoidedAt = input.journalEntryVoidedAt }
 
 let ``convert AccountActivity to AccountActivityReturn``
+    (tran: DbTransaction)
     (input: AccountActivity)
     : Result<AccountActivityReturn, AppError> =
     result {
-        let! parentCodeOptionId = input.accountParentId |> ``convert AccountId Option to AccountCode Option`` // REQ-NGUI-1.5
+        let! parentCodeOptionId = input.accountParentId |> ``convert AccountId Option to AccountCode Option`` tran // REQ-NGUI-1.5
         let parentCodeOptionString = parentCodeOptionId |> Option.map(AccountCode.value)
         let detail =
             input.activityDetail |> Option.map(``convert AccountActivityDetail to AccountActivityDetailReturn``)
@@ -99,8 +107,9 @@ let ``convert AccountActivity to AccountActivityReturn``
     }
 
 let ``convert AccountActivity List to AccountActivityReturn List``
+    (tran: DbTransaction)
     (input: AccountActivity list)
     : Result<AccountActivityReturn list, AppError> =
     input
-    |> List.map(fun x -> x |> ``convert AccountActivity to AccountActivityReturn``)
+    |> List.map(fun x -> x |> ``convert AccountActivity to AccountActivityReturn`` tran)
     |> convertListOfResultsToResultsList

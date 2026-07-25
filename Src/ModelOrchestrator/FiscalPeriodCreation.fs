@@ -6,7 +6,7 @@ open Model.Ledger.FiscalPeriods
 open Model.Ledger.FiscalPeriods.FiscalPeriod
 open NodaTime
 open Utilities.AppError
-open Utilities.DAL
+open DataAccessLayer.DbTransaction
 open Utilities.ResultHelper
 
 
@@ -19,7 +19,7 @@ open Utilities.ResultHelper
 let constructNewAndSaveToDb
     (periodKey: FiscalPeriodKey)
     (auditEnvelope: AuditEnvelope)
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     : Result<FiscalPeriod, AppError> =
     let fiscalPeriodId = FiscalPeriodId.create()
     let keyString = periodKey |> FiscalPeriodKey.value

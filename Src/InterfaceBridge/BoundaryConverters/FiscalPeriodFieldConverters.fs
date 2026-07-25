@@ -5,12 +5,15 @@ open Model
 open Model.Ledger.FiscalPeriods
 open Model.Ledger.FiscalPeriods.FiscalPeriod
 open Utilities.AppError
-open Utilities.DAL
+open DataAccessLayer.DbTransaction
 open Utilities.ResultHelper
 
-let ``convert FiscalPeriodKeyString to FiscalPeriodId`` (key: string) : Result<FiscalPeriodId, AppError> =
+let ``convert FiscalPeriodKeyString to FiscalPeriodId``
+    (tran: DbTransaction)
+    (key: string)
+    : Result<FiscalPeriodId, AppError> =
     key
-    |> LookupCache.fiscalPeriodKeyToId.fetch
+    |> LookupCache.fiscalPeriodKeyToId.fetch tran
     |> Result.mapError(fun e ->
         let originalType = key.GetType().Name
         let originalValue = key
@@ -20,12 +23,12 @@ let ``convert FiscalPeriodKeyString to FiscalPeriodId`` (key: string) : Result<F
     |> Result.map(FiscalPeriodId.fromGuid)
 
 let ``convert [FiscalPeriodKeyString] to FiscalPeriod``
-    (transaction: DbTransaction option)
+    (tran: DbTransaction)
     (key: string)
     : Result<FiscalPeriod, AppError> =
     result {
-        let! fiscalPeriodId = key |> ``convert FiscalPeriodKeyString to FiscalPeriodId``
-        return! fiscalPeriodId |> fetchById transaction
+        let! fiscalPeriodId = key |> ``convert FiscalPeriodKeyString to FiscalPeriodId`` tran
+        return! fiscalPeriodId |> fetchById tran
     }
 
 let ``convert FiscalPeriod to FiscalPeriodReturn`` fp : FiscalPeriodReturn =

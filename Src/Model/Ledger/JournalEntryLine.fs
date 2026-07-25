@@ -7,7 +7,10 @@ open Model
 open NodaTime
 open Utilities.AppError
 open Utilities.ResultHelper
-open Utilities.DAL
+open DataAccessLayer.QueryParameters
+open DataAccessLayer.DbTransaction
+open DataAccessLayer.ExecuteReader
+open DataAccessLayer.ExecuteNonQuery
 
 type JournalEntryLine =
     private
@@ -49,10 +52,7 @@ module JournalEntryLine =
           createdAt = createdAt
           modifiedAt = modifiedAt }
 
-    let insertNewToDb
-        (transaction: DbTransaction option)
-        (journalEntryLine: JournalEntryLine)
-        : Result<unit, AppError> =
+    let insertNewToDb (transaction: DbTransaction) (journalEntryLine: JournalEntryLine) : Result<unit, AppError> =
         let query =
             """
             INSERT INTO ledger.journal_entry_line(
@@ -117,7 +117,7 @@ module JournalEntryLine =
         (orderBy: string option)
         (parameters: QueryParameter list)
         (expectedRows: AcceptableExpectedRows)
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         : Result<JournalEntryLine list, AppError> =
         let select =
             "jel.unique_id, jel.journal_entry_id, jel.account_id, jel.amount, jel.line_type, jel.memo, jel.created_at, jel.modified_at"
@@ -126,7 +126,7 @@ module JournalEntryLine =
         executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
 
     let fetchById
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (journalEntryLineId: JournalEntryLineId)
         : Result<JournalEntryLine, AppError> =
         let uuid = journalEntryLineId |> JournalEntryLineId.value
@@ -136,7 +136,7 @@ module JournalEntryLine =
         |> Result.map List.head
 
     let fetchByJournalEntryHeaderId
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (journalEntryHeaderId: JournalEntryHeaderId)
         : Result<JournalEntryLine list, AppError> =
         let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
@@ -146,7 +146,7 @@ module JournalEntryLine =
         readRowsFromDb None (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable transaction
 
     let fetchByJournalEntryHeaderIdList
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (journalEntryHeaderIds: JournalEntryHeaderId list)
         : Result<JournalEntryLine list, AppError> =
         let ordinals = [ 1 .. journalEntryHeaderIds.Length ]
@@ -164,7 +164,7 @@ module JournalEntryLine =
         readRowsFromDb None (Some predicate) None None parameters AnyQuantityIsAcceptable transaction
 
     let fetchByAccountId // REQ-JE-3.4
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (nonVoidedOnly: bool)
         (accountId: AccountId)
         : Result<JournalEntryLine list, AppError> =

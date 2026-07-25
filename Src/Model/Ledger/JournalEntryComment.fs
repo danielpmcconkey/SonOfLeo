@@ -1,9 +1,12 @@
 namespace Model.Ledger.Journaling
 
+open DataAccessLayer.ExecuteNonQuery
 open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
 open Utilities.AppError
-open Utilities.DAL
+open DataAccessLayer.DbTransaction
+open DataAccessLayer.QueryParameters
+open DataAccessLayer.ExecuteReader
 
 type JournalEntryComment =
     private
@@ -37,7 +40,7 @@ module JournalEntryComment =
           createdAt = createdAt
           modifiedAt = modifiedAt }
 
-    let insertNewToDb (comment: JournalEntryComment) (transaction: DbTransaction option) : Result<unit, AppError> =
+    let insertNewToDb (comment: JournalEntryComment) (transaction: DbTransaction) : Result<unit, AppError> =
         let query =
             """
             INSERT INTO ledger.journal_entry_comment(
@@ -98,7 +101,7 @@ module JournalEntryComment =
         (orderBy: string option)
         (parameters: QueryParameter list)
         (expectedRows: AcceptableExpectedRows)
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         : Result<JournalEntryComment list, AppError> =
         let select =
             """
@@ -110,7 +113,7 @@ module JournalEntryComment =
         executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
 
     let fetchById
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (journalEntryCommentId: JournalEntryCommentId)
         : Result<JournalEntryComment, AppError> =
         let uuid = journalEntryCommentId |> JournalEntryCommentId.value
@@ -122,7 +125,7 @@ module JournalEntryComment =
     /// Entry, whether as the primary or secondary, ordered by comment create
     /// instant
     let fetchByJournalEntryId
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (journalEntryId: JournalEntryHeaderId)
         : Result<JournalEntryComment list, AppError> =
         let uuid = journalEntryId |> JournalEntryHeaderId.value
@@ -133,7 +136,7 @@ module JournalEntryComment =
         readRowsFromDb (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable transaction
 
     let fetchByJournalEntryHeaderIdList
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (journalEntryHeaderIds: JournalEntryHeaderId list)
         : Result<JournalEntryComment list, AppError> =
         let ordinals = [ 1 .. journalEntryHeaderIds.Length ]

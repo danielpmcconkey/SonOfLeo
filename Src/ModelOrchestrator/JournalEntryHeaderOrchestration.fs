@@ -5,13 +5,10 @@ open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
-open Utilities.DAL
+open DataAccessLayer.DbTransaction
 open Utilities.ResultHelper
 
-let confirmEntryDateIsInOpenFiscalPeriod
-    (transaction: DbTransaction option)
-    (entryDate: EntryDate)
-    : Result<unit, AppError> =
+let confirmEntryDateIsInOpenFiscalPeriod (transaction: DbTransaction) (entryDate: EntryDate) : Result<unit, AppError> =
     result {
         let! fiscalPeriod = entryDate |> EntryDate.fiscalPeriodId |> FiscalPeriod.fetchById transaction
         match fiscalPeriod |> FiscalPeriod.isOpen with
@@ -24,7 +21,7 @@ let constructNewAndSaveToDb
     (source: JournalEntrySource option)
     (entryDate: EntryDate)
     (auditEnvelope: AuditEnvelope)
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     : Result<JournalEntryHeader, AppError> =
     let journalEntryId = JournalEntryHeaderId.create() // REQ-JE-2.1
     let now = AuditEnvelope.instant auditEnvelope

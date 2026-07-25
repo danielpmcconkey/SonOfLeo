@@ -4,12 +4,15 @@ open Model.Audit
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
-open Utilities.DAL
+open DataAccessLayer.QueryParameters
+open DataAccessLayer.DbTransaction
+open DataAccessLayer.ExecuteReader
+open DataAccessLayer.ExecuteNonQuery
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
 
 let validateJournalEntryHeader
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     (journalEntryId: JournalEntryHeaderId)
     : Result<unit, AppError> =
     journalEntryId |> JournalEntryHeader.fetchById transaction |> Result.map ignore
@@ -19,7 +22,7 @@ let constructNewAndSaveToDb
     (financialInstitution: JournalRefFinancialInstitution)
     (referenceText: JournalExternalReferenceText)
     (auditEnvelope: AuditEnvelope)
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     : Result<JournalEntryExternalReference, AppError> =
     let journalEntryExternalReferenceId = JournalEntryExternalReferenceId.create()
     let now = AuditEnvelope.instant auditEnvelope
@@ -40,7 +43,7 @@ let constructNewAndSaveToDb
     }
 
 let updateFiAndReferenceText // REQ-JE-4.9
-    (transaction: DbTransaction option)
+    (transaction: DbTransaction)
     (auditEnvelope: AuditEnvelope)
     (fiUpdate: FieldUpdate<JournalRefFinancialInstitution>)
     (referenceUpdate: FieldUpdate<JournalExternalReferenceText>)
@@ -75,7 +78,7 @@ let updateFiAndReferenceText // REQ-JE-4.9
     result {
         do!
             if updates.IsEmpty then
-                Error(JournalEntryReferenceUpdateNoOp())
+                Error(JournalEntryReferenceUpdateNoOp)
             else
                 Ok()
         let! _ = executeNonQuery query parameters ExactlyOne transaction

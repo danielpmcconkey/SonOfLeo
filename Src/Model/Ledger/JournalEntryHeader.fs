@@ -5,7 +5,10 @@ open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
 open Utilities.AppError
 open Utilities.ResultHelper
-open Utilities.DAL
+open DataAccessLayer.QueryParameters
+open DataAccessLayer.DbTransaction
+open DataAccessLayer.ExecuteReader
+open DataAccessLayer.ExecuteNonQuery
 
 type JournalEntryHeader =
     private
@@ -43,7 +46,7 @@ module JournalEntryHeader =
           createdAt = createdAt
           modifiedAt = modifiedAt }
 
-    let insertNewToDb (journalEntry: JournalEntryHeader) (transaction: DbTransaction option) : Result<unit, AppError> =
+    let insertNewToDb (journalEntry: JournalEntryHeader) (transaction: DbTransaction) : Result<unit, AppError> =
         let query =
             """
             INSERT INTO ledger.journal_entry(
@@ -102,7 +105,7 @@ module JournalEntryHeader =
         (orderBy: string option)
         (parameters: QueryParameter list)
         (expectedRows: AcceptableExpectedRows)
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         : Result<JournalEntryHeader list, AppError> =
         let selectColumns =
             "je.unique_id, je.description, je.je_source, je.entry_date, je.fiscal_period_id, je.voided_at, je.created_at, je.modified_at"
@@ -111,7 +114,7 @@ module JournalEntryHeader =
         executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
 
     let fetchById // REQ-JE-3.2
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (journalEntryHeaderId: JournalEntryHeaderId)
         : Result<JournalEntryHeader, AppError> =
         let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
@@ -120,7 +123,7 @@ module JournalEntryHeader =
         readRowsFromDb None predicate None None parameters ExactlyOne transaction |> Result.map List.head
 
     let fetchByPeriod // REQ-JE-3.3
-        (transaction: DbTransaction option)
+        (transaction: DbTransaction)
         (periodId: FiscalPeriodId)
         : Result<JournalEntryHeader list, AppError> =
         let uuid = periodId |> FiscalPeriodId.value

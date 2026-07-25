@@ -3,32 +3,32 @@ module Model.Ledger.Journaling.JournalEntryComponent
 open System
 open Model.Ledger.FiscalPeriods
 open Utilities.AppError
-open Utilities.DAL
 open NodaTime
 open Utilities.ResultHelper
+open DataAccessLayer.DbTransaction
 
 type JournalEntryHeaderId = private JournalEntryHeaderId of Guid
 module JournalEntryHeaderId =
-    let create () : JournalEntryHeaderId = (JournalEntryHeaderId(Guid.NewGuid()))
+    let create () : JournalEntryHeaderId = JournalEntryHeaderId(Guid.NewGuid())
     let fromGuid g = JournalEntryHeaderId g
     let value (JournalEntryHeaderId g) : Guid = g
 
 type JournalEntryLineId = private JournalEntryLineId of Guid
 module JournalEntryLineId =
-    let create () : JournalEntryLineId = (JournalEntryLineId(Guid.NewGuid()))
+    let create () : JournalEntryLineId = JournalEntryLineId(Guid.NewGuid())
     let fromGuid g = JournalEntryLineId g
     let value (JournalEntryLineId g) : Guid = g
 
 type JournalEntryCommentId = private JournalEntryCommentId of Guid
 module JournalEntryCommentId =
-    let create () : JournalEntryCommentId = (JournalEntryCommentId(Guid.NewGuid()))
+    let create () : JournalEntryCommentId = JournalEntryCommentId(Guid.NewGuid())
     let fromGuid g = JournalEntryCommentId g
     let value (JournalEntryCommentId g) : Guid = g
 
 type JournalEntryExternalReferenceId = private JournalEntryExternalReferenceId of Guid
 module JournalEntryExternalReferenceId =
     let create () : JournalEntryExternalReferenceId =
-        (JournalEntryExternalReferenceId(Guid.NewGuid()))
+        JournalEntryExternalReferenceId(Guid.NewGuid())
     let fromGuid g = JournalEntryExternalReferenceId g
     let value (JournalEntryExternalReferenceId g) : Guid = g
 
@@ -94,7 +94,7 @@ type EntryDate =
 module EntryDate =
     let entryDate (e: EntryDate) : LocalDate = e.entryDate
     let fiscalPeriodId (e: EntryDate) : FiscalPeriodId = e.fiscalPeriodId
-    let create (transaction: DbTransaction option) (entryDate: LocalDate) : Result<EntryDate, AppError> = // REQ-JE-2.5
+    let create (transaction: DbTransaction) (entryDate: LocalDate) : Result<EntryDate, AppError> = // REQ-JE-2.5
         let monthF = entryDate.Month.ToString("D2")
         result {
             let key = $"{entryDate.Year}-{monthF}" // REQ-JE-1.11
