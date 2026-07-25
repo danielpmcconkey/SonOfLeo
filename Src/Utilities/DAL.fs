@@ -26,20 +26,21 @@ module DAL =
         | NullableDbLocalDate of LocalDate option
         | NullableUniqueId of Guid option
         | NullableBoolean of bool option
-    
-    type QueryParameter = { // REQ-DAL-3.2
-        name: string
-        value: QueryParameterValue }
-    
+
+    type QueryParameter =
+        { // REQ-DAL-3.2
+          name: string
+          value: QueryParameterValue }
+
     type AcceptableExpectedRows = // REQ-DAL-2.2
         | Zero
         | ExactlyOne
         | OneOrMany
         | AnyQuantityIsAcceptable
-        
+
     type DbTransaction = private { connection: NpgsqlConnection; transaction: NpgsqlTransaction }
-    
-    let private getConnectionStringConfig() : Result<string, AppError> =   
+
+    let private getConnectionStringConfig () : Result<string, AppError> =
         try
             let config =
                 ConfigurationBuilder()
@@ -47,46 +48,47 @@ module DAL =
                     .AddJsonFile($"appsettings.json", optional = false)
                     .AddEnvironmentVariables()
                     .Build()
-            let configVal = config["ConnectionStringEnvVar"] 
-            if String.IsNullOrWhiteSpace(configVal) then 
-                Error DalConnectionStringEnvVarNotFound else // REQ-DAL-1.14, REQ-DAL-1.15
+            let configVal = config["ConnectionStringEnvVar"]
+            if String.IsNullOrWhiteSpace(configVal) then
+                Error DalConnectionStringEnvVarNotFound
+            else // REQ-DAL-1.14, REQ-DAL-1.15
                 Ok(configVal)
-        with
-        | ex -> Error (DalErrorRetrievingAppSettings ex)
+        with ex ->
+            Error(DalErrorRetrievingAppSettings ex)
 
     let private confirmConfigDoesntContainConnectionString (configVal: string) : Result<unit, AppError> =
         let doesContain = configVal.Contains(";") || configVal.Contains("Host=")
         match doesContain with
-        | true -> Error (DalConnectionStringEnvVarContainsConnectionString ()) // REQ-DAL-1.16
-        | false -> Ok ()
-    
-    let private getRawConnectionString (envVarName:string) : Result<string, AppError> =
+        | true -> Error(DalConnectionStringEnvVarContainsConnectionString()) // REQ-DAL-1.16
+        | false -> Ok()
+
+    let private getRawConnectionString (envVarName: string) : Result<string, AppError> =
         match Environment.GetEnvironmentVariable envVarName |> Option.ofObj with
         | Some x -> Ok x
-        | None -> Error (DalEnvVarNotSet envVarName)  // REQ-DAL-1.17
-        
+        | None -> Error(DalEnvVarNotSet envVarName) // REQ-DAL-1.17
+
     let private getValidConnectionString (raw: string) : Result<string, AppError> =
         let trimmed = raw.Trim()
-        if String.IsNullOrWhiteSpace(trimmed)
-        then Error (DalConnectionStringIsEmpty ()) // REQ-DAL-1.18
-        else Ok trimmed // REQ-DAL-1.19
-        
-    let private getConnectionString(): Result<string, AppError> =
+        if String.IsNullOrWhiteSpace(trimmed) then
+            Error(DalConnectionStringIsEmpty()) // REQ-DAL-1.18
+        else
+            Ok trimmed // REQ-DAL-1.19
+
+    let private getConnectionString () : Result<string, AppError> =
         result {
-            let! config = getConnectionStringConfig ()
+            let! config = getConnectionStringConfig()
             let! _ = confirmConfigDoesntContainConnectionString config
             let! rawConnectionString = getRawConnectionString config
             return! getValidConnectionString rawConnectionString
         }
-        
-    let private dataSource : Lazy<Result<NpgsqlDataSource, AppError>> =
-        lazy (
-            getConnectionString()
-            |> Result.map (fun cs ->
-                let b = NpgsqlDataSourceBuilder(cs)
-                b.UseNodaTime() |> ignore
-                b.Build())
-        )
+
+    let private dataSource: Lazy<Result<NpgsqlDataSource, AppError>> =
+        lazy
+            (getConnectionString()
+             |> Result.map(fun cs ->
+                 let b = NpgsqlDataSourceBuilder(cs)
+                 b.UseNodaTime() |> ignore
+                 b.Build()))
 
     let createDbTransaction () : Result<DbTransaction, AppError> =
         result {
@@ -96,17 +98,17 @@ module DAL =
                     let connection = ds.OpenConnection()
                     let transaction = connection.BeginTransaction()
                     Ok { connection = connection; transaction = transaction }
-                with
-                    | ex -> Error (DalErrorDuringTransactionCreation ex)
+                with ex ->
+                    Error(DalErrorDuringTransactionCreation ex)
         }
 
     let commitDbTransactionAndDisposeConnection (transaction: DbTransaction) : Result<unit, AppError> =
         try
             try
                 transaction.transaction.Commit()
-                Ok ()
-            with
-                | ex -> Error (DalErrorDuringTransactionCommit ex)
+                Ok()
+            with ex ->
+                Error(DalErrorDuringTransactionCommit ex)
         finally
             transaction.transaction.Dispose()
             transaction.connection.Dispose()
@@ -115,9 +117,9 @@ module DAL =
         try
             try
                 transaction.transaction.Rollback()
-                Ok ()
-            with
-                | ex -> Error (DalErrorDuringTransactionRollback ex)
+                Ok()
+            with ex ->
+                Error(DalErrorDuringTransactionRollback ex)
         finally
             transaction.transaction.Dispose()
             transaction.connection.Dispose()
@@ -132,28 +134,56 @@ module DAL =
             | DbLocalDate x -> NpgsqlDbType.Date, box x
             | UniqueId x -> NpgsqlDbType.Uuid, box x
             | Boolean x -> NpgsqlDbType.Boolean, box x
-            | NullableInteger x -> NpgsqlDbType.Integer, match x with Some b -> box b | None -> box DBNull.Value
-            | NullableNumeric x -> NpgsqlDbType.Numeric, match x with Some b -> box b | None -> box DBNull.Value
-            | NullableCharString x -> NpgsqlDbType.Varchar, match x with Some b -> box b | None -> box DBNull.Value
-            | NullableDbInstant x -> NpgsqlDbType.TimestampTz, match x with Some b -> box b | None -> box DBNull.Value
-            | NullableDbLocalDate x -> NpgsqlDbType.Date, match x with Some b -> box b | None -> box DBNull.Value
-            | NullableUniqueId x -> NpgsqlDbType.Uuid, match x with Some b -> box b | None -> box DBNull.Value
-            | NullableBoolean x -> NpgsqlDbType.Boolean, match x with Some b -> box b | None -> box DBNull.Value
+            | NullableInteger x ->
+                NpgsqlDbType.Integer,
+                match x with
+                | Some b -> box b
+                | None -> box DBNull.Value
+            | NullableNumeric x ->
+                NpgsqlDbType.Numeric,
+                match x with
+                | Some b -> box b
+                | None -> box DBNull.Value
+            | NullableCharString x ->
+                NpgsqlDbType.Varchar,
+                match x with
+                | Some b -> box b
+                | None -> box DBNull.Value
+            | NullableDbInstant x ->
+                NpgsqlDbType.TimestampTz,
+                match x with
+                | Some b -> box b
+                | None -> box DBNull.Value
+            | NullableDbLocalDate x ->
+                NpgsqlDbType.Date,
+                match x with
+                | Some b -> box b
+                | None -> box DBNull.Value
+            | NullableUniqueId x ->
+                NpgsqlDbType.Uuid,
+                match x with
+                | Some b -> box b
+                | None -> box DBNull.Value
+            | NullableBoolean x ->
+                NpgsqlDbType.Boolean,
+                match x with
+                | Some b -> box b
+                | None -> box DBNull.Value
         let p = NpgsqlParameter(parameter.name, dbType)
         p.Value <- value // necessary because NpgsqlParameter doesn't take a value in its constructor
         p
 
     let private buildParamsList (parameters: QueryParameter list) : NpgsqlParameter list = // REQ-DAL-3.2
         parameters |> List.map convertParamToDbParam
-        
-    let private validateNumRows (numRows: int) (expectation: AcceptableExpectedRows): Result<unit, AppError> = // REQ-DAL-2.2
+
+    let private validateNumRows (numRows: int) (expectation: AcceptableExpectedRows) : Result<unit, AppError> = // REQ-DAL-2.2
         match expectation with
         | Zero when numRows = 0 -> Ok()
         | ExactlyOne when numRows = 1 -> Ok()
         | OneOrMany when numRows >= 1 -> Ok()
         | AnyQuantityIsAcceptable -> Ok()
-        | _ -> Error (DalResultantRowsDidntMatchExpectation (expectation.ToString(), numRows))
-        
+        | _ -> Error(DalResultantRowsDidntMatchExpectation(expectation.ToString(), numRows))
+
     let executeNonQuery
         (query: string)
         (parameters: QueryParameter list)
@@ -174,88 +204,103 @@ module DAL =
                     | None ->
                         use connection = ds.OpenConnection()
                         use command = new NpgsqlCommand(query, connection)
-                        parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
-                        Ok (command.ExecuteNonQuery())
+                        parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
+                        Ok(command.ExecuteNonQuery())
                     | Some t ->
                         use command = new NpgsqlCommand(query, t.connection)
                         command.Transaction <- t.transaction
-                        parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
-                        Ok (command.ExecuteNonQuery())
-                with
-                | ex -> Error (DalErrorDuringNonQueryExecution ex)
-            return! validateNumRows numRows expectedRows  // REQ-DAL-2.2
+                        parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
+                        Ok(command.ExecuteNonQuery())
+                with ex ->
+                    Error(DalErrorDuringNonQueryExecution ex)
+            return! validateNumRows numRows expectedRows // REQ-DAL-2.2
         }
-    
-    type RowReader =
-        private {
-            reader: Common.DbDataReader
-        }
-    
+
+    type RowReader = private { reader: Common.DbDataReader }
+
     module RowReader = // REQ-DAL-3.2
-        let create (reader: Common.DbDataReader) :RowReader =
-            { reader = reader }
-        let getInt (col: string) (r: RowReader) = r.reader.GetInt32(r.reader.GetOrdinal(col))
-        let getIntOption (col: string) (r: RowReader) : int option = 
+        let create (reader: Common.DbDataReader) : RowReader = { reader = reader }
+        let getInt (col: string) (r: RowReader) =
+            r.reader.GetInt32(r.reader.GetOrdinal(col))
+        let getIntOption (col: string) (r: RowReader) : int option =
             let ordinal = r.reader.GetOrdinal(col)
-            if r.reader.IsDBNull(ordinal) then None
-            else Some (r.reader.GetInt32(ordinal))
-        let getNumeric (col: string) (r: RowReader) = r.reader.GetDecimal(r.reader.GetOrdinal(col))
-        let getNumericOption (col: string) (r: RowReader) : decimal option = 
+            if r.reader.IsDBNull(ordinal) then
+                None
+            else
+                Some(r.reader.GetInt32(ordinal))
+        let getNumeric (col: string) (r: RowReader) =
+            r.reader.GetDecimal(r.reader.GetOrdinal(col))
+        let getNumericOption (col: string) (r: RowReader) : decimal option =
             let ordinal = r.reader.GetOrdinal(col)
-            if r.reader.IsDBNull(ordinal) then None
-            else Some (r.reader.GetDecimal(ordinal))
-        let getString (col: string) (r: RowReader) = r.reader.GetString(r.reader.GetOrdinal(col))
-        let getStringOption (col: string) (r: RowReader) : string option = 
+            if r.reader.IsDBNull(ordinal) then
+                None
+            else
+                Some(r.reader.GetDecimal(ordinal))
+        let getString (col: string) (r: RowReader) =
+            r.reader.GetString(r.reader.GetOrdinal(col))
+        let getStringOption (col: string) (r: RowReader) : string option =
             let ordinal = r.reader.GetOrdinal(col)
-            if r.reader.IsDBNull(ordinal) then None
-            else Some (r.reader.GetString(ordinal))
+            if r.reader.IsDBNull(ordinal) then
+                None
+            else
+                Some(r.reader.GetString(ordinal))
         let getInstant (col: string) (r: RowReader) =
             r.reader.GetFieldValue<Instant>(r.reader.GetOrdinal(col))
-        let getInstantOption (col: string) (r: RowReader) : Instant option = 
+        let getInstantOption (col: string) (r: RowReader) : Instant option =
             let ordinal = r.reader.GetOrdinal(col)
-            if r.reader.IsDBNull(ordinal) then None
-            else Some (r.reader.GetFieldValue<Instant>(ordinal))
+            if r.reader.IsDBNull(ordinal) then
+                None
+            else
+                Some(r.reader.GetFieldValue<Instant>(ordinal))
         let getDate (col: string) (r: RowReader) =
             r.reader.GetFieldValue<LocalDate>(r.reader.GetOrdinal(col))
-        let getDateOption (col: string) (r: RowReader) : LocalDate option = 
+        let getDateOption (col: string) (r: RowReader) : LocalDate option =
             let ordinal = r.reader.GetOrdinal(col)
-            if r.reader.IsDBNull(ordinal) then None
-            else Some (r.reader.GetFieldValue<LocalDate>(ordinal))
-        let getUuid (col: string) (r: RowReader) = r.reader.GetGuid(r.reader.GetOrdinal(col))
-        let getUuidOption (col: string) (r: RowReader) : Guid option = 
+            if r.reader.IsDBNull(ordinal) then
+                None
+            else
+                Some(r.reader.GetFieldValue<LocalDate>(ordinal))
+        let getUuid (col: string) (r: RowReader) =
+            r.reader.GetGuid(r.reader.GetOrdinal(col))
+        let getUuidOption (col: string) (r: RowReader) : Guid option =
             let ordinal = r.reader.GetOrdinal(col)
-            if r.reader.IsDBNull(ordinal) then None
-            else Some (r.reader.GetGuid(ordinal))
-        let getBool (col: string) (r: RowReader) = r.reader.GetBoolean(r.reader.GetOrdinal(col))
-        let getBoolOption (col: string) (r: RowReader) : bool option = 
+            if r.reader.IsDBNull(ordinal) then
+                None
+            else
+                Some(r.reader.GetGuid(ordinal))
+        let getBool (col: string) (r: RowReader) =
+            r.reader.GetBoolean(r.reader.GetOrdinal(col))
+        let getBoolOption (col: string) (r: RowReader) : bool option =
             let ordinal = r.reader.GetOrdinal(col)
-            if r.reader.IsDBNull(ordinal) then None
-            else Some (r.reader.GetBoolean(ordinal))
-    
+            if r.reader.IsDBNull(ordinal) then
+                None
+            else
+                Some(r.reader.GetBoolean(ordinal))
+
     let rec private readRawRows // REQ-DAL-3.2
-            (reader: Common.DbDataReader)
-            (mapRawFunc: RowReader -> 'T)
-            (acc: 'T list) // the list that gets pre-pended with every recursion, the "accumulator"
-            : 'T list =
+        (reader: Common.DbDataReader)
+        (mapRawFunc: RowReader -> 'T)
+        (acc: 'T list) // the list that gets pre-pended with every recursion, the "accumulator"
+        : 'T list =
         if reader.Read() then // increment the reader and continue the pattern as long as there are rows to be read
             let rawRow = RowReader.create reader
             let mappedRow = mapRawFunc rawRow
-            let appendedAcc = mappedRow::acc
-            readRawRows reader mapRawFunc appendedAcc 
+            let appendedAcc = mappedRow :: acc
+            readRawRows reader mapRawFunc appendedAcc
         else // no more rows to spool off the reader
             List.rev acc // reverse the list (because it was pre-pended the entire time), return the final state of the list back through the recursion stack
 
     /// buildReadQuery is designed to produce a flexible read query that can
-    /// satisfy diverse use cases 
+    /// satisfy diverse use cases
     let buildReadQuery
-            (selectColumns: string)
-            (from: string)
-            (join: string option)
-            (predicate: string option)
-            (limit: int option)
-            (groupBy: string option)
-            (orderBy: string option)
-            : string =
+        (selectColumns: string)
+        (from: string)
+        (join: string option)
+        (predicate: string option)
+        (limit: int option)
+        (groupBy: string option)
+        (orderBy: string option)
+        : string =
         let joinString =
             match join with
             | Some x -> x
@@ -288,13 +333,13 @@ module DAL =
             """
 
     let executeReaderQuery
-            (query: string)
-            (parameters: QueryParameter list)
-            (mapRaw: RowReader -> 'Tuple) // REQ-DAL-3.2
-            (constructFromRaw: 'Tuple -> Result<'T, AppError>)
-            (expectedRows: AcceptableExpectedRows)
-            (transaction: DbTransaction option)
-            : Result<'T list, AppError> =
+        (query: string)
+        (parameters: QueryParameter list)
+        (mapRaw: RowReader -> 'Tuple) // REQ-DAL-3.2
+        (constructFromRaw: 'Tuple -> Result<'T, AppError>)
+        (expectedRows: AcceptableExpectedRows)
+        (transaction: DbTransaction option)
+        : Result<'T list, AppError> =
         result {
             let! ds = dataSource.Value
             let parameters = buildParamsList parameters
@@ -306,11 +351,11 @@ module DAL =
                  *)
                 try
                     match transaction with
-                    | None -> 
-                        let rawRows = 
+                    | None ->
+                        let rawRows =
                             use connection = ds.OpenConnection()
-                            use command = new NpgsqlCommand(query, connection)                    
-                            parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
+                            use command = new NpgsqlCommand(query, connection)
+                            parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
                             use nReader = command.ExecuteReader()
                             readRawRows nReader mapRaw []
                         rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList
@@ -318,148 +363,162 @@ module DAL =
                         let rawRows =
                             use command = new NpgsqlCommand(query, t.connection)
                             command.Transaction <- t.transaction
-                            parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
+                            parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
                             use nReader = command.ExecuteReader()
                             readRawRows nReader mapRaw []
                         rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList
-                with
-                | ex -> Error (DalErrorDuringReaderQueryExecution ex)
+                with ex ->
+                    Error(DalErrorDuringReaderQueryExecution ex)
             let! () = validateNumRows rows.Length expectedRows // REQ-DAL-2.2
             return rows
         }
 
     let stringUnboxing (objRaw: obj) : Result<string, AppError> =
         try
-            if objRaw = null || objRaw = DBNull.Value  then Error (DalStringUnboxingReturnedNull ())
-            else 
-                Ok (objRaw :?> string)
-        with
-        | ex -> Error (DalErrorDuringStringUnboxing ex)
-        
+            if objRaw = null || objRaw = DBNull.Value then
+                Error(DalStringUnboxingReturnedNull())
+            else
+                Ok(objRaw :?> string)
+        with ex ->
+            Error(DalErrorDuringStringUnboxing ex)
+
     let stringOptionUnboxing (objRaw: obj) : Result<string option, AppError> =
         try
-            if objRaw = null || objRaw = DBNull.Value  then Ok None
-            else 
-                Ok (Some (objRaw :?> string))
-        with
-        | ex -> Error (DalErrorDuringStringUnboxing ex)
-        
+            if objRaw = null || objRaw = DBNull.Value then
+                Ok None
+            else
+                Ok(Some(objRaw :?> string))
+        with ex ->
+            Error(DalErrorDuringStringUnboxing ex)
+
     let intUnboxing (objRaw: obj) : Result<int, AppError> =
         try
-            if objRaw = null || objRaw = DBNull.Value  then Error (DalIntUnboxingReturnedNull ())
-            else 
-                let unboxed : int = objRaw |> unbox
+            if objRaw = null || objRaw = DBNull.Value then
+                Error(DalIntUnboxingReturnedNull())
+            else
+                let unboxed: int = objRaw |> unbox
                 Ok unboxed
-        with
-        | ex -> Error (DalErrorDuringIntUnboxing ex)
-        
+        with ex ->
+            Error(DalErrorDuringIntUnboxing ex)
+
     let intOptionUnboxing (objRaw: obj) : Result<int option, AppError> =
         try
-            if objRaw = null || objRaw = DBNull.Value  then Ok None
-            else 
-                
-                let unboxed : int = objRaw |> unbox
-                Ok (Some unboxed)
-        with
-        | ex -> Error (DalErrorDuringIntOptionUnboxing ex)
-        
+            if objRaw = null || objRaw = DBNull.Value then
+                Ok None
+            else
+
+                let unboxed: int = objRaw |> unbox
+                Ok(Some unboxed)
+        with ex ->
+            Error(DalErrorDuringIntOptionUnboxing ex)
+
     let longUnboxing (objRaw: obj) : Result<int64, AppError> =
         try
-            if objRaw = null || objRaw = DBNull.Value  then Error (DalLongUnboxingReturnedNull ())
-            else 
-                let unboxed : int64 = objRaw |> unbox
+            if objRaw = null || objRaw = DBNull.Value then
+                Error(DalLongUnboxingReturnedNull())
+            else
+                let unboxed: int64 = objRaw |> unbox
                 Ok unboxed
-        with
-        | ex -> Error (DalErrorDuringLongUnboxing ex)
-        
+        with ex ->
+            Error(DalErrorDuringLongUnboxing ex)
+
     let longOptionUnboxing (objRaw: obj) : Result<int64 option, AppError> =
         try
-            if objRaw = null || objRaw = DBNull.Value  then Ok None
-            else 
-                let unboxed : int64 = objRaw |> unbox
-                Ok (Some unboxed)
-        with
-        | ex -> Error (DalErrorDuringLongOptionUnboxing ex)
-        
+            if objRaw = null || objRaw = DBNull.Value then
+                Ok None
+            else
+                let unboxed: int64 = objRaw |> unbox
+                Ok(Some unboxed)
+        with ex ->
+            Error(DalErrorDuringLongOptionUnboxing ex)
+
     let decimalUnboxing (objRaw: obj) : Result<decimal, AppError> =
         try
-            if objRaw = null || objRaw = DBNull.Value  then Error (DalDecimalUnboxingReturnedNull ())
-            else 
-                let unboxed : decimal = objRaw |> unbox
+            if objRaw = null || objRaw = DBNull.Value then
+                Error(DalDecimalUnboxingReturnedNull())
+            else
+                let unboxed: decimal = objRaw |> unbox
                 Ok unboxed
-        with
-        | ex -> Error (DalErrorDuringDecimalUnboxing ex)
-        
+        with ex ->
+            Error(DalErrorDuringDecimalUnboxing ex)
+
     let decimalOptionUnboxing (objRaw: obj) : Result<decimal option, AppError> =
         try
-            if objRaw = null || objRaw = DBNull.Value  then Ok None
-            else 
-                let unboxed : decimal = objRaw |> unbox
-                Ok (Some unboxed)
-        with
-        | ex -> Error (DalErrorDuringDecimalOptionUnboxing ex)
-        
+            if objRaw = null || objRaw = DBNull.Value then
+                Ok None
+            else
+                let unboxed: decimal = objRaw |> unbox
+                Ok(Some unboxed)
+        with ex ->
+            Error(DalErrorDuringDecimalOptionUnboxing ex)
+
     let localDateUnboxing (objRaw: obj) : Result<LocalDate, AppError> =
         try
-            if objRaw = null || objRaw = DBNull.Value  then Error (DalLocalDateUnboxingReturnedNull ())
-            else 
-                let unboxed : LocalDate = objRaw |> unbox
+            if objRaw = null || objRaw = DBNull.Value then
+                Error(DalLocalDateUnboxingReturnedNull())
+            else
+                let unboxed: LocalDate = objRaw |> unbox
                 Ok unboxed
-        with
-        | ex -> Error (DalErrorDuringLocalDateUnboxing ex)
-        
+        with ex ->
+            Error(DalErrorDuringLocalDateUnboxing ex)
+
     let localDateOptionUnboxing (objRaw: obj) : Result<LocalDate option, AppError> =
         try
-            if objRaw = null || objRaw = DBNull.Value  then Ok None
-            else 
-                let unboxed : LocalDate = objRaw |> unbox
-                Ok (Some unboxed)
-        with
-        | ex -> Error (DalErrorDuringLocalDateOptionUnboxing ex)
-        
+            if objRaw = null || objRaw = DBNull.Value then
+                Ok None
+            else
+                let unboxed: LocalDate = objRaw |> unbox
+                Ok(Some unboxed)
+        with ex ->
+            Error(DalErrorDuringLocalDateOptionUnboxing ex)
+
     let instantUnboxing (objRaw: obj) : Result<Instant, AppError> =
         try
-            if objRaw = null || objRaw = DBNull.Value  then Error (DalInstantUnboxingReturnedNull ())
-            else 
-                let unboxed : Instant = objRaw |> unbox
+            if objRaw = null || objRaw = DBNull.Value then
+                Error(DalInstantUnboxingReturnedNull())
+            else
+                let unboxed: Instant = objRaw |> unbox
                 Ok unboxed
-        with
-        | ex -> Error (DalErrorDuringInstantUnboxing ex)
-        
+        with ex ->
+            Error(DalErrorDuringInstantUnboxing ex)
+
     let instantOptionUnboxing (objRaw: obj) : Result<Instant option, AppError> =
         try
-            if objRaw = null || objRaw = DBNull.Value  then Ok None
-            else 
-                let unboxed : Instant = objRaw |> unbox
-                Ok (Some unboxed)
-        with
-        | ex -> Error (DalErrorDuringInstantOptionUnboxing ex)
-        
+            if objRaw = null || objRaw = DBNull.Value then
+                Ok None
+            else
+                let unboxed: Instant = objRaw |> unbox
+                Ok(Some unboxed)
+        with ex ->
+            Error(DalErrorDuringInstantOptionUnboxing ex)
+
     let uuidUnboxing (objRaw: obj) : Result<Guid, AppError> =
         try
-            if objRaw = null || objRaw = DBNull.Value  then Error (DalUuidUnboxingReturnedNull ())
-            else 
-                let unboxed : Guid = objRaw |> unbox
+            if objRaw = null || objRaw = DBNull.Value then
+                Error(DalUuidUnboxingReturnedNull())
+            else
+                let unboxed: Guid = objRaw |> unbox
                 Ok unboxed
-        with
-        | ex -> Error (DalErrorDuringUuidUnboxing ex)
-        
+        with ex ->
+            Error(DalErrorDuringUuidUnboxing ex)
+
     let uuidOptionUnboxing (objRaw: obj) : Result<Guid option, AppError> =
         try
-            if objRaw = null || objRaw = DBNull.Value  then Ok None
-            else 
-                let unboxed : Guid = objRaw |> unbox
-                Ok (Some unboxed)
-        with
-        | ex -> Error (DalErrorDuringUuidOptionUnboxing ex)
-        
+            if objRaw = null || objRaw = DBNull.Value then
+                Ok None
+            else
+                let unboxed: Guid = objRaw |> unbox
+                Ok(Some unboxed)
+        with ex ->
+            Error(DalErrorDuringUuidOptionUnboxing ex)
+
 
     let executeScalar
-            (query: string)
-            (parameters: QueryParameter list)
-            (unboxingFunc: obj -> Result<'T, AppError>)
-            (transaction: DbTransaction option)
-            : Result<'T, AppError> =
+        (query: string)
+        (parameters: QueryParameter list)
+        (unboxingFunc: obj -> Result<'T, AppError>)
+        (transaction: DbTransaction option)
+        : Result<'T, AppError> =
         result {
             let! ds = dataSource.Value
             let parameters = buildParamsList parameters
@@ -472,19 +531,18 @@ module DAL =
                 try
                     let objResult =
                         match transaction with
-                        | None -> 
+                        | None ->
                             use connection = ds.OpenConnection()
-                            use command = new NpgsqlCommand(query, connection)                    
-                            parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
+                            use command = new NpgsqlCommand(query, connection)
+                            parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
                             command.ExecuteScalar()
-                        | Some t -> 
+                        | Some t ->
                             use command = new NpgsqlCommand(query, t.connection)
                             command.Transaction <- t.transaction
-                            parameters |> List.iter (fun p -> command.Parameters.Add(p) |> ignore)
+                            parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
                             command.ExecuteScalar()
                     objResult |> unboxingFunc
-                with
-                | ex -> Error (DalErrorDuringScalarExecution ex)
+                with ex ->
+                    Error(DalErrorDuringScalarExecution ex)
             return rows
         }
-    

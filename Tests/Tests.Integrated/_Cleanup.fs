@@ -19,39 +19,39 @@ open Utilities.ResultHelper
 // Account clean up
 //=================================================
 
-let cleanUpAccountId (accountId:AccountId option) : Result<unit, AppError> =
+let cleanUpAccountId (accountId: AccountId option) : Result<unit, AppError> =
     match accountId with
-    | None -> Ok ()
+    | None -> Ok()
     | Some x ->
         let uniqueId = x |> AccountId.value
-        let parameters = [
-            { name = "@unique_id"; value = UniqueId uniqueId };
-        ]
-        let query = $"""
+        let parameters = [ { name = "@unique_id"; value = UniqueId uniqueId } ]
+        let query =
+            $"""
                 delete from ledger.account
                 WHERE unique_id = @unique_id;
             """
-        result {
-            return! executeNonQuery query parameters ExactlyOne None
-        }
+        result { return! executeNonQuery query parameters ExactlyOne None }
 
-let cleanUpAccountList (l: AccountId option list) : Result<unit, AppError> = 
+let cleanUpAccountList (l: AccountId option list) : Result<unit, AppError> =
     l
     |> List.map cleanUpAccountId
-    |> List.choose (function Error e -> Some e | Ok _ -> None)
-    |> function 
-            | [] -> Ok ()
-            | errors ->
-                let baseMessage = "One or more errors returns while deleting a list of account IDs. Individual errors follow, separated by '||'"
-                let insideErrors = errors |> List.map(AppError.toMessage) |> String.concat "||"
-                Error (TestingError $"{baseMessage}||{insideErrors}")
+    |> List.choose (function
+        | Error e -> Some e
+        | Ok _ -> None)
+    |> function
+        | [] -> Ok()
+        | errors ->
+            let baseMessage =
+                "One or more errors returns while deleting a list of account IDs. Individual errors follow, separated by '||'"
+            let insideErrors = errors |> List.map(AppError.toMessage) |> String.concat "||"
+            Error(TestingError $"{baseMessage}||{insideErrors}")
 
 let cleanUpParentIdAndChildren (parentId: AccountId option) (children: AccountId option list) : Result<unit, AppError> =
     result {
         let! _ =
             children // clean the children before parent
             |> cleanUpAccountList
-        let! _ = cleanUpAccountId parentId  // note that the parent won't be cleaned up if any of the child cleanups failed
+        let! _ = cleanUpAccountId parentId // note that the parent won't be cleaned up if any of the child cleanups failed
         return ()
     }
 
@@ -60,83 +60,85 @@ let cleanUpParentIdAndChildren (parentId: AccountId option) (children: AccountId
 //=================================================
 let cleanUpFiscalPeriodId (fpId: FiscalPeriodId option) : Result<unit, AppError> =
     match fpId with
-    | None -> Ok ()
-    | Some x -> 
+    | None -> Ok()
+    | Some x ->
         let uuid = x |> FiscalPeriodId.value
-        let parameters = [
-            { name = "@unique_id"; value = UniqueId uuid };
-        ]
-        let query = $"""
+        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
+        let query =
+            $"""
                 delete from ledger.fiscal_period
                 WHERE unique_id = @unique_id;
             """
-        result {
-            return! executeNonQuery query parameters ExactlyOne None
-        }
-let cleanUpFiscalPeriodKey (key:string option) : Result<unit, AppError> =
+        result { return! executeNonQuery query parameters ExactlyOne None }
+let cleanUpFiscalPeriodKey (key: string option) : Result<unit, AppError> =
     match key with
-    | None -> Ok ()
-    | Some x -> 
-        let parameters = [
-            { name = "@period_key"; value = CharString x};
-        ]
-        let query = $"""
+    | None -> Ok()
+    | Some x ->
+        let parameters = [ { name = "@period_key"; value = CharString x } ]
+        let query =
+            $"""
                 delete from ledger.fiscal_period
                 WHERE period_key = @period_key;
             """
-        result {
-            return! executeNonQuery query parameters ExactlyOne None
-        }
+        result { return! executeNonQuery query parameters ExactlyOne None }
 
-let cleanUpFiscalPeriodIdsList (l: FiscalPeriodId option list) : Result<unit, AppError> =    
+let cleanUpFiscalPeriodIdsList (l: FiscalPeriodId option list) : Result<unit, AppError> =
     l
     |> List.map cleanUpFiscalPeriodId
-    |> List.choose (function Error e -> Some e | Ok _ -> None)
-    |> function 
-            | [] -> Ok ()
-            | errors ->
-                let baseMessage = "One or more errors returns while deleting a list of fiscal period IDs. Individual errors follow, separated by '||'"
-                let insideErrors = errors |> List.map(AppError.toMessage) |> String.concat "||"
-                Error (TestingError $"{baseMessage}||{insideErrors}")
+    |> List.choose (function
+        | Error e -> Some e
+        | Ok _ -> None)
+    |> function
+        | [] -> Ok()
+        | errors ->
+            let baseMessage =
+                "One or more errors returns while deleting a list of fiscal period IDs. Individual errors follow, separated by '||'"
+            let insideErrors = errors |> List.map(AppError.toMessage) |> String.concat "||"
+            Error(TestingError $"{baseMessage}||{insideErrors}")
 
 let cleanUpFiscalPeriodKeysList (l: string option list) : Result<unit, AppError> =
     l
     |> List.map cleanUpFiscalPeriodKey
-    |> List.choose (function Error e -> Some e | Ok _ -> None)
+    |> List.choose (function
+        | Error e -> Some e
+        | Ok _ -> None)
     |> function
-            | [] -> Ok ()
-            | errors ->
-                let baseMessage = "One or more errors returns while deleting a list of fiscal period keys. Individual errors follow, separated by '||'"
-                let insideErrors = errors |> List.map(AppError.toMessage) |> String.concat "||"
-                Error (TestingError $"{baseMessage}||{insideErrors}")
+        | [] -> Ok()
+        | errors ->
+            let baseMessage =
+                "One or more errors returns while deleting a list of fiscal period keys. Individual errors follow, separated by '||'"
+            let insideErrors = errors |> List.map(AppError.toMessage) |> String.concat "||"
+            Error(TestingError $"{baseMessage}||{insideErrors}")
 
 //=================================================
 // Journal Entry clean up
 //=================================================
 
-let cleanUpJournalEntryId (journalEntryHeaderId:JournalEntryHeaderId option) : Result<unit, AppError> =
+let cleanUpJournalEntryId (journalEntryHeaderId: JournalEntryHeaderId option) : Result<unit, AppError> =
     match journalEntryHeaderId with
-    | None -> Ok ()
+    | None -> Ok()
     | Some x ->
         let uuid = x |> JournalEntryHeaderId.value
-        let parameters = [
-            { name = "@unique_id"; value = UniqueId uuid };
-        ]
+        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
         // delete children before the header, in FK order
-        let commentQuery = $"""
+        let commentQuery =
+            $"""
                 delete from ledger.journal_entry_comment
                 WHERE journal_primary_entry_id = @unique_id
                    OR journal_secondary_entry_id = @unique_id;
             """
-        let extReferenceQuery = $"""
+        let extReferenceQuery =
+            $"""
                 delete from ledger.journal_entry_ext_reference
                 WHERE journal_entry_id = @unique_id;
             """
-        let lineQuery = $"""
+        let lineQuery =
+            $"""
                 delete from ledger.journal_entry_line
                 WHERE journal_entry_id = @unique_id;
             """
-        let headerQuery = $"""
+        let headerQuery =
+            $"""
                 delete from ledger.journal_entry
                 WHERE unique_id = @unique_id;
             """
@@ -147,29 +149,25 @@ let cleanUpJournalEntryId (journalEntryHeaderId:JournalEntryHeaderId option) : R
             return! executeNonQuery headerQuery parameters ExactlyOne None
         }
 
-let cleanUpJournalEntryExtReferenceId (uniqueId:Guid option) : Result<unit, AppError> =
+let cleanUpJournalEntryExtReferenceId (uniqueId: Guid option) : Result<unit, AppError> =
     match uniqueId with
-    | None -> Ok ()
+    | None -> Ok()
     | Some x ->
-        let parameters = [
-            { name = "@unique_id"; value = UniqueId x };
-        ]
-        let query = $"""
+        let parameters = [ { name = "@unique_id"; value = UniqueId x } ]
+        let query =
+            $"""
                 delete from ledger.journal_entry_ext_reference
                 WHERE unique_id = @unique_id;
             """
-        result {
-            return! executeNonQuery query parameters ExactlyOne None
-        }
+        result { return! executeNonQuery query parameters ExactlyOne None }
 
-let cleanUpJournalEntryCommentId (uniqueId:Guid option) : Result<unit, AppError> =
+let cleanUpJournalEntryCommentId (uniqueId: Guid option) : Result<unit, AppError> =
     match uniqueId with
-    | None -> Ok ()
+    | None -> Ok()
     | Some x ->
-        let parameters = [
-            { name = "@unique_id"; value = UniqueId x };
-        ]
-        let query = $"""
+        let parameters = [ { name = "@unique_id"; value = UniqueId x } ]
+        let query =
+            $"""
                 delete from ledger.journal_entry_comment
                 WHERE unique_id = @unique_id;
             """
@@ -178,10 +176,13 @@ let cleanUpJournalEntryCommentId (uniqueId:Guid option) : Result<unit, AppError>
 let cleanUpJournalEntryList (l: JournalEntryHeaderId option list) : Result<unit, AppError> =
     l
     |> List.map cleanUpJournalEntryId
-    |> List.choose (function Error e -> Some e | Ok _ -> None)
+    |> List.choose (function
+        | Error e -> Some e
+        | Ok _ -> None)
     |> function
-            | [] -> Ok ()
-            | errors ->
-                let baseMessage = "One or more errors returns while deleting a list of journal entry IDs. Individual errors follow, separated by '||'"
-                let insideErrors = errors |> List.map(AppError.toMessage) |> String.concat "||"
-                Error (TestingError $"{baseMessage}||{insideErrors}")
+        | [] -> Ok()
+        | errors ->
+            let baseMessage =
+                "One or more errors returns while deleting a list of journal entry IDs. Individual errors follow, separated by '||'"
+            let insideErrors = errors |> List.map(AppError.toMessage) |> String.concat "||"
+            Error(TestingError $"{baseMessage}||{insideErrors}")

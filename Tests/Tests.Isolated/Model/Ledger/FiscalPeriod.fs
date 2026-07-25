@@ -11,9 +11,9 @@ let genericEnvelope = AuditEnvelope.create FiscalPeriodCreate
 [<Fact>]
 let ``REQ-FP-1.2 PeriodKey.fromString happy path`` () =
     match FiscalPeriodKey.fromString genericKey with
-    | Error e -> Assert.Fail (AppError.toMessage e)
+    | Error e -> Assert.Fail(AppError.toMessage e)
     | _ -> ()
-    
+
 [<Theory>]
 [<InlineData("202006")>] // missing hyphen
 [<InlineData("2026-00")>] // month less than 1
@@ -21,7 +21,6 @@ let ``REQ-FP-1.2 PeriodKey.fromString happy path`` () =
 [<InlineData("Sep-2025")>] // total horseshit
 let ``REQ-FP-1.2 PeriodKey.fromString fails when given an incorrect format`` badString =
     match FiscalPeriodKey.fromString badString with
-    | Error (FiscalPeriodInvalidKeyString e) -> Assert.True(true)
+    | Error(FiscalPeriodInvalidKeyString e) -> Assert.True(true)
     | Error _ -> Assert.Fail "Incorrect error type"
     | _ -> Assert.Fail "Expected failure and got success"
-    

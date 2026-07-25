@@ -7,7 +7,7 @@ open Utilities.AppError
 type FiscalPeriodId = private FiscalPeriodId of Guid
 
 module FiscalPeriodId =
-    let create () : FiscalPeriodId = (FiscalPeriodId (Guid.NewGuid()))
+    let create () : FiscalPeriodId = (FiscalPeriodId(Guid.NewGuid()))
     let fromGuid g = FiscalPeriodId g
     let value (FiscalPeriodId g) : Guid = g
 
@@ -19,10 +19,9 @@ module FiscalPeriodKey =
     let fromString (raw: string) : Result<FiscalPeriodKey, AppError> =
         let trimmed = raw.Trim() // REQ-SYS-1.1
         match trimmed |> isValidString with
-        | false -> Error (FiscalPeriodInvalidKeyString raw)
-        | true -> Ok (FiscalPeriodKey trimmed)
-    
+        | false -> Error(FiscalPeriodInvalidKeyString raw)
+        | true -> Ok(FiscalPeriodKey trimmed)
+
     let internal reconstitute (raw: string) = raw |> FiscalPeriodKey
 
     let value (FiscalPeriodKey pk) = pk
-

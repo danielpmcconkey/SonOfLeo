@@ -10,14 +10,15 @@ open Utilities.ResultHelper
 open Utilities.DAL
 
 type JournalEntryLine =
-  private  {    journalEntryLineId: JournalEntryLineId // REQ-JE-1.20, REQ-JE-1.21
-                journalEntryHeaderId: JournalEntryHeaderId
-                accountId: AccountId
-                amount: Money
-                lineType: JournalEntryLineType
-                memo: JournalEntryLineMemo option // REQ-JE-1.26
-                createdAt: Instant
-                modifiedAt: Instant }
+    private
+        { journalEntryLineId: JournalEntryLineId // REQ-JE-1.20, REQ-JE-1.21
+          journalEntryHeaderId: JournalEntryHeaderId
+          accountId: AccountId
+          amount: Money
+          lineType: JournalEntryLineType
+          memo: JournalEntryLineMemo option // REQ-JE-1.26
+          createdAt: Instant
+          modifiedAt: Instant }
 
 module JournalEntryLine =
     let journalEntryLineId jel = jel.journalEntryLineId
@@ -28,7 +29,7 @@ module JournalEntryLine =
     let memo jel = jel.memo
     let createdAt jel = jel.createdAt
     let modifiedAt jel = jel.modifiedAt
-    
+
     let create
         (journalEntryLineId: JournalEntryLineId)
         (journalEntryHeaderId: JournalEntryHeaderId)
@@ -38,22 +39,22 @@ module JournalEntryLine =
         (memo: JournalEntryLineMemo option)
         (createdAt: Instant)
         (modifiedAt: Instant)
-        : JournalEntryLine = {
-            journalEntryLineId = journalEntryLineId
-            journalEntryHeaderId = journalEntryHeaderId
-            accountId = accountId
-            amount = amount
-            lineType = lineType
-            memo = memo
-            createdAt = createdAt
-            modifiedAt = modifiedAt
-        }
-    
+        : JournalEntryLine =
+        { journalEntryLineId = journalEntryLineId
+          journalEntryHeaderId = journalEntryHeaderId
+          accountId = accountId
+          amount = amount
+          lineType = lineType
+          memo = memo
+          createdAt = createdAt
+          modifiedAt = modifiedAt }
+
     let insertNewToDb
-            (transaction: DbTransaction option)
-            (journalEntryLine:JournalEntryLine)
-            : Result<unit, AppError> =
-        let query = """
+        (transaction: DbTransaction option)
+        (journalEntryLine: JournalEntryLine)
+        : Result<unit, AppError> =
+        let query =
+            """
             INSERT INTO ledger.journal_entry_line(
                 unique_id, journal_entry_id, account_id, amount, line_type, 
                     memo, created_at, modified_at )
@@ -63,31 +64,32 @@ module JournalEntryLine =
         let journalEntryLineUuid = journalEntryLine.journalEntryLineId |> JournalEntryLineId.value
         let journalEntryUuid = journalEntryLine.journalEntryHeaderId |> JournalEntryHeaderId.value
         let accountIdUuid = journalEntryLine.accountId |> AccountId.value
-        let parameters = [ //  REQ-DAL-2.1, REQ-DAL-2.3 
-            { name = "@unique_id"; value = UniqueId journalEntryLineUuid }
-            { name = "@journal_entry_id"; value = UniqueId journalEntryUuid }
-            { name = "@account_id"; value = UniqueId accountIdUuid }
-            { name = "@amount"; value = Numeric (journalEntryLine.amount |> Money.amount) };
-            { name = "@line_type"; value = CharString (journalEntryLine.lineType |> JournalEntryLineType.toString) };
-            { name = "@memo"; value = NullableCharString (journalEntryLine.memo |> Option.map  JournalEntryLineMemo.value) };
-            { name = "@created_at"; value = DbInstant journalEntryLine.createdAt };
-            { name = "@modified_at"; value = DbInstant journalEntryLine.modifiedAt };
-        ]
+        let parameters =
+            [ //  REQ-DAL-2.1, REQ-DAL-2.3
+              { name = "@unique_id"; value = UniqueId journalEntryLineUuid }
+              { name = "@journal_entry_id"; value = UniqueId journalEntryUuid }
+              { name = "@account_id"; value = UniqueId accountIdUuid }
+              { name = "@amount"; value = Numeric(journalEntryLine.amount |> Money.amount) }
+              { name = "@line_type"; value = CharString(journalEntryLine.lineType |> JournalEntryLineType.toString) }
+              { name = "@memo"
+                value = NullableCharString(journalEntryLine.memo |> Option.map JournalEntryLineMemo.value) }
+              { name = "@created_at"; value = DbInstant journalEntryLine.createdAt }
+              { name = "@modified_at"; value = DbInstant journalEntryLine.modifiedAt } ]
         executeNonQuery query parameters ExactlyOne transaction
 
     /// The mapRow function is used to pass into DAL read functions to let DAL know
     /// how to map our query columns. Thus, we don't need to know anything about the
     /// underlying database architecture in this module and the DAL module doesn't
-    /// need to know anything about our module here 
+    /// need to know anything about our module here
     let private mapRawForDbRead (row: RowReader) =
-            ( row |> RowReader.getUuid "unique_id" ),
-            ( row |> RowReader.getUuid "journal_entry_id" ),
-            ( row |> RowReader.getUuid "account_id" ),
-            ( row |> RowReader.getNumeric "amount" ),
-            ( row |> RowReader.getString "line_type" ),
-            ( row |> RowReader.getStringOption "memo" ),
-            ( row |> RowReader.getInstant "created_at" ),
-            ( row |> RowReader.getInstant "modified_at" )
+        (row |> RowReader.getUuid "unique_id"),
+        (row |> RowReader.getUuid "journal_entry_id"),
+        (row |> RowReader.getUuid "account_id"),
+        (row |> RowReader.getNumeric "amount"),
+        (row |> RowReader.getString "line_type"),
+        (row |> RowReader.getStringOption "memo"),
+        (row |> RowReader.getInstant "created_at"),
+        (row |> RowReader.getInstant "modified_at")
 
 
     /// reconstitute constructs from primitives, performing zero validation at
@@ -96,9 +98,7 @@ module JournalEntryLine =
     /// the time of writing the entity. Important: no additional DB lookups can
     /// be triggered inside this function since it is called within a database
     /// reader.
-    let private reconstitute
-            raw
-            : Result<JournalEntryLine, AppError> =
+    let private reconstitute raw : Result<JournalEntryLine, AppError> =
         let id, jeId, accountId, amountDec, lineTypeStr, memoStrOpt, createdAt, modifiedAt = raw
         let journalEntryLineId = id |> JournalEntryLineId.fromGuid
         let journalEntryId = jeId |> JournalEntryHeaderId.fromGuid
@@ -106,66 +106,68 @@ module JournalEntryLine =
         result {
             let! amount = amountDec |> Money.fromDecimal
             let! lineType = lineTypeStr |> JournalEntryLineType.fromString
-            let! memo =
-                memoStrOpt
-                |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
-            return create journalEntryLineId journalEntryId accountId amount lineType memo createdAt modifiedAt }
+            let! memo = memoStrOpt |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
+            return create journalEntryLineId journalEntryId accountId amount lineType memo createdAt modifiedAt
+        }
 
     let private readRowsFromDb
-            (join: string option)
-            (predicate: string option)
-            (limit: int option)
-            (orderBy: string option)
-            (parameters: QueryParameter list)
-            (expectedRows: AcceptableExpectedRows)
-            (transaction: DbTransaction option)
-            : Result<JournalEntryLine list, AppError> = 
-        let select = "jel.unique_id, jel.journal_entry_id, jel.account_id, jel.amount, jel.line_type, jel.memo, jel.created_at, jel.modified_at"
+        (join: string option)
+        (predicate: string option)
+        (limit: int option)
+        (orderBy: string option)
+        (parameters: QueryParameter list)
+        (expectedRows: AcceptableExpectedRows)
+        (transaction: DbTransaction option)
+        : Result<JournalEntryLine list, AppError> =
+        let select =
+            "jel.unique_id, jel.journal_entry_id, jel.account_id, jel.amount, jel.line_type, jel.memo, jel.created_at, jel.modified_at"
         let from = "ledger.journal_entry_line jel"
         let query = buildReadQuery select from join predicate limit None orderBy
         executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
 
     let fetchById
-            (transaction: DbTransaction option)
-            (journalEntryLineId: JournalEntryLineId)
-            : Result<JournalEntryLine, AppError> = 
+        (transaction: DbTransaction option)
+        (journalEntryLineId: JournalEntryLineId)
+        : Result<JournalEntryLine, AppError> =
         let uuid = journalEntryLineId |> JournalEntryLineId.value
         let predicate = "jel.unique_id = @unique_id"
-        let parameters = [{ name = "@unique_id"; value = UniqueId uuid };] // REQ-DAL-2.3
+        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
         readRowsFromDb None (Some predicate) None None parameters ExactlyOne transaction
         |> Result.map List.head
 
     let fetchByJournalEntryHeaderId
-            (transaction: DbTransaction option)
-            (journalEntryHeaderId: JournalEntryHeaderId)
-            : Result<JournalEntryLine list, AppError> = 
+        (transaction: DbTransaction option)
+        (journalEntryHeaderId: JournalEntryHeaderId)
+        : Result<JournalEntryLine list, AppError> =
         let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
         let predicate = "jel.journal_entry_id = @journal_entry_id"
-        let parameters = [{ name = "@journal_entry_id"; value = UniqueId uuid };] // REQ-DAL-2.3
+        let parameters = [ { name = "@journal_entry_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
         let orderBy = "jel.created_at"
         readRowsFromDb None (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable transaction
 
     let fetchByJournalEntryHeaderIdList
-            (transaction: DbTransaction option)
-            (journalEntryHeaderIds: JournalEntryHeaderId list)
-            : Result<JournalEntryLine list, AppError> = 
-        let ordinals = [1..journalEntryHeaderIds.Length]
+        (transaction: DbTransaction option)
+        (journalEntryHeaderIds: JournalEntryHeaderId list)
+        : Result<JournalEntryLine list, AppError> =
+        let ordinals = [ 1 .. journalEntryHeaderIds.Length ]
         let zipped = List.zip ordinals journalEntryHeaderIds
-        let namesAndParameters = zipped |> List.map(fun (ordinal, id) ->
+        let namesAndParameters =
+            zipped
+            |> List.map(fun (ordinal, id) ->
                 let uuid = id |> JournalEntryHeaderId.value
                 let name = $"@journal_entry_id{ordinal}"
                 let parameter = { name = name; value = UniqueId uuid }
-                name, parameter )
+                name, parameter)
         let names = namesAndParameters |> List.map fst |> String.concat ", "
         let parameters = namesAndParameters |> List.map snd
         let predicate = $"jel.journal_entry_id in ({names})"
         readRowsFromDb None (Some predicate) None None parameters AnyQuantityIsAcceptable transaction
 
     let fetchByAccountId // REQ-JE-3.4
-            (transaction: DbTransaction option)
-            (nonVoidedOnly: bool)
-            (accountId: AccountId)
-            : Result<JournalEntryLine list, AppError> = 
+        (transaction: DbTransaction option)
+        (nonVoidedOnly: bool)
+        (accountId: AccountId)
+        : Result<JournalEntryLine list, AppError> =
         let join = Some "left join ledger.journal_entry je on jel.journal_entry_id = je.unique_id"
         let voidCheck =
             match nonVoidedOnly with
@@ -173,16 +175,9 @@ module JournalEntryLine =
             | false -> String.Empty
         let accountIdGuid = accountId |> AccountId.value
         let predicate = Some $"jel.account_id = @account_id {voidCheck}"
-        let parameters = [{ name = "@account_id"; value = UniqueId accountIdGuid };] // REQ-DAL-2.3
+        let parameters = [ { name = "@account_id"; value = UniqueId accountIdGuid } ] // REQ-DAL-2.3
         let orderBy = Some "jel.created_at"
         readRowsFromDb join predicate None orderBy parameters AnyQuantityIsAcceptable transaction
 
-    let sumLinesByType
-            (debitOrCredit: JournalEntryLineType)
-            (lines: JournalEntryLine list)
-            : Result<Money, AppError> =
-        lines
-        |> List.filter(fun x -> lineType x = debitOrCredit)
-        |> List.map(amount) 
-        |> Money.sumList
-        
+    let sumLinesByType (debitOrCredit: JournalEntryLineType) (lines: JournalEntryLine list) : Result<Money, AppError> =
+        lines |> List.filter(fun x -> lineType x = debitOrCredit) |> List.map(amount) |> Money.sumList

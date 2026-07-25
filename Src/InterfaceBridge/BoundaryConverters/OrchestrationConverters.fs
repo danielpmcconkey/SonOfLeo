@@ -14,100 +14,93 @@ open Utilities.AppError
 open Model.Ledger.Accounts.AccountComponent
 open Utilities.ResultHelper
 
-let ``convert TemporalFilterInput to TemporalFilter``
-        (input:TemporalFilterInput)
-        : Result<TemporalFilter, AppError>  =
-        
+let ``convert TemporalFilterInput to TemporalFilter`` (input: TemporalFilterInput) : Result<TemporalFilter, AppError> =
+
     match input with
     | TemporalFilterInput.DateRange dateRange ->
-        Ok ( TemporalFilter.DateRange {
-            beginDate = dateRange.beginDate
-            endInclusive = dateRange.endInclusive })
-    |  TemporalFilterInput.PeriodKey periodKey ->
+        Ok(TemporalFilter.DateRange { beginDate = dateRange.beginDate; endInclusive = dateRange.endInclusive })
+    | TemporalFilterInput.PeriodKey periodKey ->
         result {
             // make sure it's a valid string for even being a period key
             let! _ = periodKey |> FiscalPeriodKey.fromString
-            let! uuid = periodKey |> LookupCache.fiscalPeriodKeyToId.fetch |> Result.mapError (fun _ -> FiscalPeriodNoPeriodMatchingKey periodKey)
-            return
-                uuid
-                |> FiscalPeriodId.fromGuid
-                |> TemporalFilter.FiscalPeriodIdentifier }
+            let! uuid =
+                periodKey
+                |> LookupCache.fiscalPeriodKeyToId.fetch
+                |> Result.mapError(fun _ -> FiscalPeriodNoPeriodMatchingKey periodKey)
+            return uuid |> FiscalPeriodId.fromGuid |> TemporalFilter.FiscalPeriodIdentifier
+        }
 let ``convert TemporalFilterInput Option To TemporalFilter Option``
-        (input:TemporalFilterInput option)
-        : Result<TemporalFilter option, AppError>  =
+    (input: TemporalFilterInput option)
+    : Result<TemporalFilter option, AppError> =
     let fallibleConverter = (fun x -> x |> ``convert TemporalFilterInput to TemporalFilter``)
-    input
-    |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
-    
+    input |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
+
 let ``convert AccountActivityFilterInput to AccountActivityFilter``
-        (input:AccountActivityFilterInput)
-        : Result<AccountActivityFilter, AppError>  =
+    (input: AccountActivityFilterInput)
+    : Result<AccountActivityFilter, AppError> =
     result {
         let! accountId = // REQ-NGUI-1.5
             input.accountCode |> ``convert AccountCodeString Option to AccountId Option``
         let! accountParentId = // REQ-NGUI-1.5
             match input.accountParentCode |> ``convert AccountCodeString Option to AccountId Option`` with
             | Ok x -> Ok x
-            | Error (AccountCodeDoesntMatchAccountId codeString) -> Error (AccountParentCodeInvalid codeString)
+            | Error(AccountCodeDoesntMatchAccountId codeString) -> Error(AccountParentCodeInvalid codeString)
             | Error e -> Error e
-        let! accountType =
-            input.accountType |> ``convert AccountTypeString Option to AccountType Option``
-        let! accountSubtype =
-            input.accountSubtype |> ``convert AccountSubtypeString Option to AccountSubtype Option``
-        let! amount =
-            input.amount |> ``convert Decimal Option to Money Option``
-        let! description =
-            input.description |> ``convert JeDescriptionString Option to JeDescription Option``
-        let! source =
-            input.source |> ``convert JeSourceString Option to JeSource Option``
-        let! temporalFilter =
-            input.temporalFilter
-            |> ``convert TemporalFilterInput Option To TemporalFilter Option``
-        return {
-                   accountId = accountId
-                   temporalFilter = temporalFilter
-                   source = source
-                   accountType = accountType
-                   accountSubtype = accountSubtype
-                   accountParentId = accountParentId
-                   journalEntryId = input.journalEntryId
-                   amount = amount
-                   description = description
-                   unVoidedOnly = input.unVoidedOnly } }
+        let! accountType = input.accountType |> ``convert AccountTypeString Option to AccountType Option``
+        let! accountSubtype = input.accountSubtype |> ``convert AccountSubtypeString Option to AccountSubtype Option``
+        let! amount = input.amount |> ``convert Decimal Option to Money Option``
+        let! description = input.description |> ``convert JeDescriptionString Option to JeDescription Option``
+        let! source = input.source |> ``convert JeSourceString Option to JeSource Option``
+        let! temporalFilter = input.temporalFilter |> ``convert TemporalFilterInput Option To TemporalFilter Option``
+        return
+            { accountId = accountId
+              temporalFilter = temporalFilter
+              source = source
+              accountType = accountType
+              accountSubtype = accountSubtype
+              accountParentId = accountParentId
+              journalEntryId = input.journalEntryId
+              amount = amount
+              description = description
+              unVoidedOnly = input.unVoidedOnly }
+    }
 
 let ``convert AccountActivityDetail to AccountActivityDetailReturn``
-        (input:AccountActivityDetail)
-        : AccountActivityDetailReturn = {
-            lineId = input.lineId |> JournalEntryLineId.value
-            amount = input.amount |> Money.amount
-            lineType = input.lineType |> JournalEntryLineType.toString 
-            lineMemo = input.lineMemo |> Option.map(JournalEntryLineMemo.value)
-            lineCreatedAt = input.lineCreatedAt
-            lineModifiedAt = input.lineModifiedAt
-            journalEntryId = input.journalEntryHeaderId |> JournalEntryHeaderId.value
-            entryDate = input.entryDate
-            journalEntryDescription = input.journalEntryDescription |> JournalEntryDescription.value
-            journalEntrySource = input.journalEntrySource |> Option.map(JournalEntrySource.value)
-            journalEntryVoidedAt = input.journalEntryVoidedAt }
+    (input: AccountActivityDetail)
+    : AccountActivityDetailReturn =
+    { lineId = input.lineId |> JournalEntryLineId.value
+      amount = input.amount |> Money.amount
+      lineType = input.lineType |> JournalEntryLineType.toString
+      lineMemo = input.lineMemo |> Option.map(JournalEntryLineMemo.value)
+      lineCreatedAt = input.lineCreatedAt
+      lineModifiedAt = input.lineModifiedAt
+      journalEntryId = input.journalEntryHeaderId |> JournalEntryHeaderId.value
+      entryDate = input.entryDate
+      journalEntryDescription = input.journalEntryDescription |> JournalEntryDescription.value
+      journalEntrySource = input.journalEntrySource |> Option.map(JournalEntrySource.value)
+      journalEntryVoidedAt = input.journalEntryVoidedAt }
 
 let ``convert AccountActivity to AccountActivityReturn``
-        (input:AccountActivity)
-        : Result<AccountActivityReturn, AppError> =
+    (input: AccountActivity)
+    : Result<AccountActivityReturn, AppError> =
     result {
         let! parentCodeOptionId = input.accountParentId |> ``convert AccountId Option to AccountCode Option`` // REQ-NGUI-1.5
         let parentCodeOptionString = parentCodeOptionId |> Option.map(AccountCode.value)
-        let detail = input.activityDetail |> Option.map(``convert AccountActivityDetail to AccountActivityDetailReturn``)
-        return {  accountCode = input.accountCode |> AccountCode.value
-                  accountName = input.accountName |> AccountName.value
-                  accountType = input.accountType |> AccountType.toString
-                  accountSubtype = input.accountSubtype |> Option.map(AccountSubtype.toString)
-                  accountParentCode = parentCodeOptionString
-                  accountExternalRef = input.accountExternalRef |> Option.map(AccountExternalReference.value)
-                  activityDetail = detail } } 
+        let detail =
+            input.activityDetail |> Option.map(``convert AccountActivityDetail to AccountActivityDetailReturn``)
+        return
+            { accountCode = input.accountCode |> AccountCode.value
+              accountName = input.accountName |> AccountName.value
+              accountType = input.accountType |> AccountType.toString
+              accountSubtype = input.accountSubtype |> Option.map(AccountSubtype.toString)
+              accountParentCode = parentCodeOptionString
+              accountExternalRef = input.accountExternalRef |> Option.map(AccountExternalReference.value)
+              activityDetail = detail }
+    }
 
 let ``convert AccountActivity List to AccountActivityReturn List``
-        (input:AccountActivity list)
-        : Result<AccountActivityReturn list, AppError> =
+    (input: AccountActivity list)
+    : Result<AccountActivityReturn list, AppError> =
     input
-    |> List.map (fun x -> x |> ``convert AccountActivity to AccountActivityReturn``)
+    |> List.map(fun x -> x |> ``convert AccountActivity to AccountActivityReturn``)
     |> convertListOfResultsToResultsList
