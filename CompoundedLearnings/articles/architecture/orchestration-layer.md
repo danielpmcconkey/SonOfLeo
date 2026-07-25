@@ -17,4 +17,6 @@ F# compile order makes cross-domain composition structural rather than optional.
 
 ## Example
 
-`deactivateAccount` started in the Account module. When it needed JournalEntry data for its checks (REQ-AC-4.4, REQ-AC-4.6), it moved to `ModelOrchestrator/AccountDeactivation.fs`. The planned migration of "create new and save to DB" functions follows the same principle — they orchestrate construction + persistence.
+`deactivateAccount` started in the Account module. When it needed JournalEntry data for its checks (REQ-AC-4.4, REQ-AC-4.6), it moved to `ModelOrchestrator/AccountDeactivation.fs`. The `constructNewAndSaveToDb` functions follow the same principle — they orchestrate construction + persistence (PATTERNS.md P4.4).
+
+*Post-refactor note (2026-07-25): consistent with PATTERNS.md P1.1 — ModelOrchestrator also owns cross-entity business validation and read-model types; `InterfaceBridge` now sits above it as the boundary layer.*

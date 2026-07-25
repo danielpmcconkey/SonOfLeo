@@ -342,3 +342,27 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | 115a | Build a Claude Code hook (for both Hobson and BD harnesses) that prevents agents from modifying application config files, environment variables, or DAL functions in the connection string chain. Enforces the debug/release access boundary mechanically. | CONFIRMED |
 | 116a | Move DevDataStage out of `Src/` — it's a dev-only hack, not production code. It doesn't deserve a higher pride of place than Tests. | CONFIRMED |
 | 117a | Replace `Result<_, string>` with a typed `AppError` DU across the codebase. Error cases carry contextual data; formatting happens at the boundary. Eliminates brittle string assertions in tests. | CONFIRMED |
+
+## From Pattern Review — Phase 2 (2026-07-25)
+
+Source: `HobsonsNotes/patterns-draft.md` discussion (Hobson pattern extraction, Dan dispositions).
+
+| # | Source | Action | Status |
+|---|--------|--------|--------|
+| 118a | P4.6 (extends #92, #93a / ARCH-1) | Move transaction ownership from ModelOrchestrator up to InterfaceBridge route handlers — transactions are decided at the use-case level. Add a `withTransaction` bracket helper in Utilities.DAL (create → run railroad → commit on Ok / rollback on Error → dispose either way). Converts `JournalEntry.constructNewAndSaveToDb` and `voidJournalEntry` into ordinary `DbTransaction option` participants, unblocking atomic batch imports. Sequencing: do before BD starts writing code — it changes the signatures he'd learn from. | CONFIRMED |
+| 119a | P4.2 | `JournalEntry.fetchHeadersFromFilter`: pass `AnyQuantityIsAcceptable` to the DAL, dedup, then enforce the caller's `expectedRows` against the deduped count. Removes the ordering compromise and the warning comment in `fetchById`. | CONFIRMED |
+| 120a | D12 | Add a shared `unwrap` helper to each test project's GenericTestProperties, replacing the ~60 verbatim `Result.defaultWith (fun e -> failwith (AppError.toMessage e))` sites (non-CE flavor only; `let!`-in-CE and railroad-ending match forms stay as-is). | CONFIRMED |
+| 121a | D14 | Clean up mismatched isolated test files: `Tests.Isolated/Model/Ledger/FiscalPeriod.fs` tests only `FiscalPeriodKey.fromString` (name implies broader coverage); `Tests.Isolated/Model/Ledger/JournalEntryComponent.fs:185-200` tests the orchestrator's `confirmAmountIsPositive` under a Model file, and the banner at :181 names a nonexistent `JournalEntryLine.validateAmount`. Deeper test-file-structure discussion (1 code file : N test files) deliberately deferred. | CONFIRMED |
+| 122a | O3 | `JournalEntryComment.fetchByJournalEntryHeaderIdList`: include secondary-reference matches; `composeFromFetchedLists` matches primary-or-secondary to stay consistent. (todo already added in code.) | CONFIRMED |
+| 123a | P5.1 | Rename sweep: unit-returning check functions standardize on `confirmX`. Candidates: validateAmountEquality, validateLineCount, validateLineList, validateJournalEntryHeader (×2), validatePrimaryAndSecondaryRelationship, validateParentChildRelationship; DAL's validateNumRows at Dan's discretion. | CONFIRMED |
+| 124a | D5 | Document LookupCache's process-lifetime assumption in the module: one CLI invocation = one cache lifetime; no invalidation by design. A future long-lived host revisits — default posture is drop-the-cache-and-query, not build invalidation. | CONFIRMED |
+| 125a | P5.3 | Future test suite: every AppError case exercised by at least one test asserting that specific case. Duplicate fail-vector coverage is explicitly acceptable here. Mechanically checkable (grep DU cases vs. test assertions) — candidate for a CI guardrail in Phase 3. | CONFIRMED |
+
+## From Fantomas Adoption — Phase 3 (2026-07-25)
+
+Source: Fantomas pilot on `Src/Model/Ledger/Account.fs` + census of the list-builder pattern across `AccountActivity.fs`, `JournalEntryOrchestration.fs`, `JournalEntryCommentOrchestration.fs`, `JournalEntryExternalReferenceOrchestration.fs`. Pilot artifacts and target-shape example: `HobsonsNotes/fantomas-pilot/`. Fantomas adoption itself is approved; the config staging, `check-format.sh` activation, and PATTERNS.md amendments are Hobson's side. These items are Dan's code changes.
+
+| # | Source | Action | Status |
+|---|--------|--------|--------|
+| 126a | Census of match-in-list sites | Hoist `match` expressions out of list literals at the three FieldUpdate SET-clause builders — `Account.updateDb`, `JournalEntryCommentOrchestration.updateComment`, `JournalEntryExternalReferenceOrchestration.updateFiAndReferenceText`. Resolved better than specced: Dan added `FieldUpdate.mapNoChangeToOptionWithConversion`, making items inline pipeline expressions (same idiom as P4.7 filters), blank-line separated. P2.5 amended accordingly. | DONE 2026-07-25 |
+| 127a | 126a | One-time formatting migration, after #126a lands: Hobson drops `.editorconfig` at repo root, then Dan runs `fantomas Src Tests` and commits as a single mechanical formatting-only commit (no logic changes mixed in). Sequencing matters: once the root `.editorconfig` exists, `check-format.sh` activates and the pre-commit hook will refuse unformatted commits — so config placement and the format commit happen together. | CONFIRMED |

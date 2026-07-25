@@ -12,6 +12,12 @@ description: >
 Plan, create, and maintain xUnit tests for SonOfLeo with full REQ traceability against the
 behavioral specs.
 
+**Authority:** `PATTERNS.md` §7 (repo root) is the canonical test doctrine. This skill
+operationalizes it; on any conflict, PATTERNS.md wins and this skill needs updating.
+Before writing tests, read §7 and the negative exemplars in
+`references/bullshit-test-specimens.md` — real purged tests showing what a worthless
+test looks like and its rewrite.
+
 ## Core contract
 
 Every active REQ in `Specs/Behavioral/*.md` must be in exactly one of two states: **tested**
@@ -154,6 +160,22 @@ Key rules:
 - Cleanup is `TRUNCATE ... CASCADE` on all ledger tables — no per-entity tracking needed.
 - Do not assert exact counts on queries like `fetchAll` or `fetchByType` — fixture data
   means the DB is not empty. Assert containment of expected IDs instead.
+
+## Assertion shape (P7.6 — mandatory)
+
+- **Happy path:** railroad inside `result { … Assert … }`, ending
+  `match railroad with | Ok _ -> () | Error e -> Assert.Fail (AppError.toMessage e)` —
+  a leaked error fails with its message, never passes silently.
+- **Sad path:** match the **typed DU case**, with both escape arms — wrong error →
+  `Assert.Fail $"Wrong error. {…}"`; `| Ok _ -> Assert.Fail "Expected failure; got success"`
+  (capturing any created ID for cleanup). Never `Result.isError`, never string-matching
+  on error text.
+- **Assert domain values** (names, amounts, dates round-tripped) and membership; counts
+  only in addition to values, never instead of them (P7.4). Expected values derive from
+  fixture data, never hard-coded constants.
+
+If a test you've written resembles anything in `references/bullshit-test-specimens.md`,
+rewrite it before presenting.
 
 ## Timing and AuditEnvelope
 

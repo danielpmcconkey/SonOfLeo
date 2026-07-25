@@ -33,4 +33,4 @@ If your skill discovers something worth compounding, invoke the CreateLearning s
 
 ## Authority
 
-CompoundedLearnings is operational guidance. It does not override Specs/Behavioral/ (the requirements). When a learning and a requirement appear to conflict, the requirement wins and the learning needs updating.
+CompoundedLearnings is operational guidance. The chain is **Specs/Behavioral/ > PATTERNS.md > learnings**: requirements override the house-style doc, and both override learnings. When a learning conflicts with either, the learning is wrong and needs updating.

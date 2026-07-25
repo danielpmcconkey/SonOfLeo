@@ -78,4 +78,19 @@ The "when to read" column is the most important field. It should describe the mo
 - The article file exists at the path the catalog points to
 - The catalog entry's "when to read" trigger is specific enough to fire at the right moment
 - The article doesn't duplicate an existing one
-- The article doesn't contradict a behavioral spec (if it appears to, the article is wrong)
+- The article doesn't contradict a behavioral spec or `PATTERNS.md` (if it appears to, the article is wrong)
+
+## Step 7 — Guardrail triage
+
+A learning that corrects a *violation* (not just records knowledge) should also strengthen
+the enforcement layer. Route it:
+
+1. **Mechanically detectable?** → propose a new `Checks/check-*.sh` script (grep-grade,
+   ≤30 lines, header citing the pattern ID). The article stays as the why; the script
+   becomes the gate.
+2. **Judgment call that recurs?** → the article you just wrote, plus one checklist line in
+   `Skills/CodeReviewer/SKILL.md` or `Skills/TestWriter/SKILL.md` citing it.
+3. **House-style question?** → it's a `PATTERNS.md` amendment — raise it with Dan for
+   disposition first; then apply 1 or 2 as appropriate.
+
+If none apply (pure domain knowledge, audit conduct), stop at Step 6.
