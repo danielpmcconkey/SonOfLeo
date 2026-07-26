@@ -30,7 +30,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
               amount = None
               description = None
               unVoidedOnly = false }
-        let result = withoutTransaction (fun tran -> fetchFiltered tran filter None)
+        let result = withoutTransaction(fun tran -> fetchFiltered tran filter None)
         match result with
         | Ok activities ->
             Assert.Equal(expectedCountTotal, activities |> List.length)
@@ -68,7 +68,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
               amount = None
               description = None
               unVoidedOnly = true }
-        let result = withoutTransaction (fun tran -> fetchFiltered tran filter None)
+        let result = withoutTransaction(fun tran -> fetchFiltered tran filter None)
         match result with
         | Ok activities -> Assert.Equal(expectedCountTotal, activities |> List.length)
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -91,7 +91,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
               amount = None
               description = None
               unVoidedOnly = false }
-        let result = withoutTransaction (fun tran -> fetchFiltered tran filter None)
+        let result = withoutTransaction(fun tran -> fetchFiltered tran filter None)
         match result with
         | Ok activities ->
             Assert.Equal(1, activities |> List.length)

@@ -58,8 +58,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         let today = Calendar.today()
         let input: JournalEntryInput =
             { header = { description = "CLI PostNew test"; source = Some "CliTest"; entryDate = today }
-              lines =
-                [ { accountCode = "F-2210"; amount = 50.00M; lineType = "Debit"; memo = None } ] // only 1 line should fail and roll back
+              lines = [ { accountCode = "F-2210"; amount = 50.00M; lineType = "Debit"; memo = None } ] // only 1 line should fail and roll back
               externalReferences = []
               comments = [] }
         let mutable idToCleanUp = None
@@ -68,16 +67,17 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                 result {
                     let! payload = input |> toJson<JournalEntryInput>
                     match routeUiCommandForTesting "JournalEntry" "PostNew" [] payload with
-                    | Error(JournalEntryInsufficientLines _) -> 
-                        let railroad = withoutTransaction(fun tran -> 
-                            result {
-                                let absurdBegin = today.PlusYears(-7)
-                                let absurdEnd = today.PlusYears(7)
-                                let! newState = fetchByDateRange tran absurdBegin absurdEnd
-                                let newCount = newState |> List.length
-                                Assert.Equal(expected, newCount)
-                                return ()
-                            })
+                    | Error(JournalEntryInsufficientLines _) ->
+                        let railroad =
+                            withoutTransaction(fun tran ->
+                                result {
+                                    let absurdBegin = today.PlusYears(-7)
+                                    let absurdEnd = today.PlusYears(7)
+                                    let! newState = fetchByDateRange tran absurdBegin absurdEnd
+                                    let newCount = newState |> List.length
+                                    Assert.Equal(expected, newCount)
+                                    return ()
+                                })
                         match railroad with
                         | Ok _ -> ()
                         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -252,8 +252,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         let periodId = period |> FiscalPeriod.fiscalPeriodId
         let expected =
             fixture.Data.journalEntries
-            |> List.filter(fun x ->
-                x |> header |> JournalEntryHeader.entryDate |> EntryDate.fiscalPeriodId = periodId)
+            |> List.filter(fun x -> x |> header |> JournalEntryHeader.entryDate |> EntryDate.fiscalPeriodId = periodId)
             |> List.length
         let railroad =
             result {
@@ -325,29 +324,30 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     member _.``REQ-JE-4.3 Void route happy path``() =
         let mutable idToCleanUp_1 = None
         try
-            let railroad = withoutTransaction (fun tran -> 
-                result {
-                    let! _, jeToVoidId =
-                        createTestJournalEntryFromPrimitives
-                            "REQ-JE-4.3 JE to void"
-                            None
-                            (Calendar.today())
-                            [ (fixture.Data.entertainment5650Id, 75.00M, "Debit", None)
-                              (fixture.Data.creditCard2220Id, 75.00M, "Credit", None) ]
-                            []
-                            []
-                            (AuditEnvelope.create JournalEntryPostNew)
-                            tran
-                    idToCleanUp_1 <- Some jeToVoidId
-                    let voidInput: JournalEntryVoidInput =
-                        { id = jeToVoidId |> JournalEntryHeaderId.value
-                          reason = { secondaryJournalEntryId = None; commentText = "CLI void reason" } }
-                    let! payload = voidInput |> toJson<JournalEntryVoidInput>
-                    let! returnPayload = routeUiCommandForTesting "JournalEntry" "Void" [] payload
-                    let! voided = fromJson<JournalEntryReturn> returnPayload
-                    Assert.True(voided.header.voidedAt |> Option.isSome)
-                    return ()
-                })
+            let railroad =
+                withoutTransaction(fun tran ->
+                    result {
+                        let! _, jeToVoidId =
+                            createTestJournalEntryFromPrimitives
+                                "REQ-JE-4.3 JE to void"
+                                None
+                                (Calendar.today())
+                                [ (fixture.Data.entertainment5650Id, 75.00M, "Debit", None)
+                                  (fixture.Data.creditCard2220Id, 75.00M, "Credit", None) ]
+                                []
+                                []
+                                (AuditEnvelope.create JournalEntryPostNew)
+                                tran
+                        idToCleanUp_1 <- Some jeToVoidId
+                        let voidInput: JournalEntryVoidInput =
+                            { id = jeToVoidId |> JournalEntryHeaderId.value
+                              reason = { secondaryJournalEntryId = None; commentText = "CLI void reason" } }
+                        let! payload = voidInput |> toJson<JournalEntryVoidInput>
+                        let! returnPayload = routeUiCommandForTesting "JournalEntry" "Void" [] payload
+                        let! voided = fromJson<JournalEntryReturn> returnPayload
+                        Assert.True(voided.header.voidedAt |> Option.isSome)
+                        return ()
+                    })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -360,35 +360,37 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     member _.``REQ-JE-4.9 UpdateExternalReference happy path``() =
         let mutable idToCleanUp_1 = None
         try
-            let railroad = withoutTransaction (fun tran -> 
-                result {
-                    let! jeToUpdate, jeToUpdateId =
-                        createTestJournalEntryFromPrimitives
-                            "REQ-JE-4.9 JE to update ref"
-                            None
-                            (Calendar.today())
-                            [ (fixture.Data.entertainment5650Id, 75.00M, "Debit", None)
-                              (fixture.Data.creditCard2220Id, 75.00M, "Credit", None) ]
-                            [ ("TestBank", "TXN-001") ]
-                            []
-                            (AuditEnvelope.create JournalEntryPostNew)
-                            tran
-                    idToCleanUp_1 <- Some jeToUpdateId
-                    let refUuid =
-                        jeToUpdate
-                        |> externalReferences
-                        |> List.head
-                        |> JournalEntryExternalReference.journalEntryExternalReferenceId
-                        |> JournalEntryExternalReferenceId.value
-                    let updateInput: JournalEntryUpdateExternalReferenceInput =
-                        { id = refUuid; fi = Some "CliUpdatedBank"; reference = Some "CLI-UPD-001" }
-                    let! payload = updateInput |> toJson<JournalEntryUpdateExternalReferenceInput>
-                    let! returnPayload = routeUiCommandForTesting "JournalEntry" "UpdateExternalReference" [] payload
-                    let! returned = fromJson<JournalEntryExternalReferenceReturn> returnPayload
-                    Assert.Equal("CliUpdatedBank", returned.financialInstitution)
-                    Assert.Equal("CLI-UPD-001", returned.referenceText)
-                    return ()
-                })
+            let railroad =
+                withoutTransaction(fun tran ->
+                    result {
+                        let! jeToUpdate, jeToUpdateId =
+                            createTestJournalEntryFromPrimitives
+                                "REQ-JE-4.9 JE to update ref"
+                                None
+                                (Calendar.today())
+                                [ (fixture.Data.entertainment5650Id, 75.00M, "Debit", None)
+                                  (fixture.Data.creditCard2220Id, 75.00M, "Credit", None) ]
+                                [ ("TestBank", "TXN-001") ]
+                                []
+                                (AuditEnvelope.create JournalEntryPostNew)
+                                tran
+                        idToCleanUp_1 <- Some jeToUpdateId
+                        let refUuid =
+                            jeToUpdate
+                            |> externalReferences
+                            |> List.head
+                            |> JournalEntryExternalReference.journalEntryExternalReferenceId
+                            |> JournalEntryExternalReferenceId.value
+                        let updateInput: JournalEntryUpdateExternalReferenceInput =
+                            { id = refUuid; fi = Some "CliUpdatedBank"; reference = Some "CLI-UPD-001" }
+                        let! payload = updateInput |> toJson<JournalEntryUpdateExternalReferenceInput>
+                        let! returnPayload =
+                            routeUiCommandForTesting "JournalEntry" "UpdateExternalReference" [] payload
+                        let! returned = fromJson<JournalEntryExternalReferenceReturn> returnPayload
+                        Assert.Equal("CliUpdatedBank", returned.financialInstitution)
+                        Assert.Equal("CLI-UPD-001", returned.referenceText)
+                        return ()
+                    })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -401,30 +403,31 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     member _.``REQ-JE-4.10 AddExternalReference route happy path``() =
         let mutable idToCleanUp_1 = None
         try
-            let railroad = withoutTransaction (fun tran -> 
-                result {
-                    let! _, jeToUpdateId =
-                        createTestJournalEntryFromPrimitives
-                            "REQ-JE-4.10 JE to add reference"
-                            None
-                            (Calendar.today())
-                            [ (fixture.Data.entertainment5650Id, 75.00M, "Debit", None)
-                              (fixture.Data.creditCard2220Id, 75.00M, "Credit", None) ]
-                            []
-                            []
-                            (AuditEnvelope.create JournalEntryPostNew)
-                            tran
-                    idToCleanUp_1 <- Some jeToUpdateId
-                    let addInput: JournalEntryAddExternalReferenceInput =
-                        { journalEntryId = jeToUpdateId |> JournalEntryHeaderId.value
-                          reference = { financialInstitution = "CliAddBank"; referenceText = "CLI-ADD-001" } }
-                    let! payload = addInput |> toJson<JournalEntryAddExternalReferenceInput>
-                    let! returnPayload = routeUiCommandForTesting "JournalEntry" "AddExternalReference" [] payload
-                    let! returned = fromJson<JournalEntryExternalReferenceReturn> returnPayload
-                    Assert.Equal("CliAddBank", returned.financialInstitution)
-                    Assert.Equal("CLI-ADD-001", returned.referenceText)
-                    return ()
-                })
+            let railroad =
+                withoutTransaction(fun tran ->
+                    result {
+                        let! _, jeToUpdateId =
+                            createTestJournalEntryFromPrimitives
+                                "REQ-JE-4.10 JE to add reference"
+                                None
+                                (Calendar.today())
+                                [ (fixture.Data.entertainment5650Id, 75.00M, "Debit", None)
+                                  (fixture.Data.creditCard2220Id, 75.00M, "Credit", None) ]
+                                []
+                                []
+                                (AuditEnvelope.create JournalEntryPostNew)
+                                tran
+                        idToCleanUp_1 <- Some jeToUpdateId
+                        let addInput: JournalEntryAddExternalReferenceInput =
+                            { journalEntryId = jeToUpdateId |> JournalEntryHeaderId.value
+                              reference = { financialInstitution = "CliAddBank"; referenceText = "CLI-ADD-001" } }
+                        let! payload = addInput |> toJson<JournalEntryAddExternalReferenceInput>
+                        let! returnPayload = routeUiCommandForTesting "JournalEntry" "AddExternalReference" [] payload
+                        let! returned = fromJson<JournalEntryExternalReferenceReturn> returnPayload
+                        Assert.Equal("CliAddBank", returned.financialInstitution)
+                        Assert.Equal("CLI-ADD-001", returned.referenceText)
+                        return ()
+                    })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -437,29 +440,30 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     member _.``REQ-JE-5.1 AddComment route happy path``() =
         let mutable idToCleanUp_1 = None
         try
-            let railroad = withoutTransaction (fun tran -> 
-                result {
-                    let! _, jeToUpdateId =
-                        createTestJournalEntryFromPrimitives
-                            "REQ-JE-5.1 JE to add comment"
-                            None
-                            (Calendar.today())
-                            [ (fixture.Data.entertainment5650Id, 75.00M, "Debit", None)
-                              (fixture.Data.creditCard2220Id, 75.00M, "Credit", None) ]
-                            []
-                            []
-                            (AuditEnvelope.create JournalEntryPostNew)
-                            tran
-                    idToCleanUp_1 <- Some jeToUpdateId
-                    let addInput: JournalEntryAddCommentInput =
-                        { journalEntryId = jeToUpdateId |> JournalEntryHeaderId.value
-                          comment = { secondaryJournalEntryId = None; commentText = "CLI added comment" } }
-                    let! payload = addInput |> toJson<JournalEntryAddCommentInput>
-                    let! returnPayload = routeUiCommandForTesting "JournalEntry" "AddComment" [] payload
-                    let! returned = fromJson<JournalEntryCommentReturn> returnPayload
-                    Assert.Equal("CLI added comment", returned.commentText)
-                    return ()
-                })
+            let railroad =
+                withoutTransaction(fun tran ->
+                    result {
+                        let! _, jeToUpdateId =
+                            createTestJournalEntryFromPrimitives
+                                "REQ-JE-5.1 JE to add comment"
+                                None
+                                (Calendar.today())
+                                [ (fixture.Data.entertainment5650Id, 75.00M, "Debit", None)
+                                  (fixture.Data.creditCard2220Id, 75.00M, "Credit", None) ]
+                                []
+                                []
+                                (AuditEnvelope.create JournalEntryPostNew)
+                                tran
+                        idToCleanUp_1 <- Some jeToUpdateId
+                        let addInput: JournalEntryAddCommentInput =
+                            { journalEntryId = jeToUpdateId |> JournalEntryHeaderId.value
+                              comment = { secondaryJournalEntryId = None; commentText = "CLI added comment" } }
+                        let! payload = addInput |> toJson<JournalEntryAddCommentInput>
+                        let! returnPayload = routeUiCommandForTesting "JournalEntry" "AddComment" [] payload
+                        let! returned = fromJson<JournalEntryCommentReturn> returnPayload
+                        Assert.Equal("CLI added comment", returned.commentText)
+                        return ()
+                    })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -473,34 +477,35 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         let expected = "CLI updated comment text"
         let mutable idToCleanUp_1 = None
         try
-            let railroad = withoutTransaction (fun tran -> 
-                result {
-                    let! jeToUpdate, jeToUpdateId =
-                        createTestJournalEntryFromPrimitives
-                            "REQ-JE-5.3 JE to update comment"
-                            None
-                            (Calendar.today())
-                            [ (fixture.Data.entertainment5650Id, 75.00M, "Debit", None)
-                              (fixture.Data.creditCard2220Id, 75.00M, "Credit", None) ]
-                            []
-                            [ (None, "Fixture comment for testing") ]
-                            (AuditEnvelope.create JournalEntryPostNew)
-                            tran
-                    idToCleanUp_1 <- Some jeToUpdateId
-                    let commentUuid =
-                        jeToUpdate
-                        |> comments
-                        |> List.head
-                        |> JournalEntryComment.journalEntryCommentId
-                        |> JournalEntryCommentId.value
-                    let updateInput: JournalEntryUpdateCommentInput =
-                        { id = commentUuid; secondaryJournalEntryId = NoChange; commentText = SetTo expected }
-                    let! payload = updateInput |> toJson<JournalEntryUpdateCommentInput>
-                    let! returnPayload = routeUiCommandForTesting "JournalEntry" "UpdateComment" [] payload
-                    let! returned = fromJson<JournalEntryCommentReturn> returnPayload
-                    Assert.Equal(expected, returned.commentText)
-                    return ()
-                })
+            let railroad =
+                withoutTransaction(fun tran ->
+                    result {
+                        let! jeToUpdate, jeToUpdateId =
+                            createTestJournalEntryFromPrimitives
+                                "REQ-JE-5.3 JE to update comment"
+                                None
+                                (Calendar.today())
+                                [ (fixture.Data.entertainment5650Id, 75.00M, "Debit", None)
+                                  (fixture.Data.creditCard2220Id, 75.00M, "Credit", None) ]
+                                []
+                                [ (None, "Fixture comment for testing") ]
+                                (AuditEnvelope.create JournalEntryPostNew)
+                                tran
+                        idToCleanUp_1 <- Some jeToUpdateId
+                        let commentUuid =
+                            jeToUpdate
+                            |> comments
+                            |> List.head
+                            |> JournalEntryComment.journalEntryCommentId
+                            |> JournalEntryCommentId.value
+                        let updateInput: JournalEntryUpdateCommentInput =
+                            { id = commentUuid; secondaryJournalEntryId = NoChange; commentText = SetTo expected }
+                        let! payload = updateInput |> toJson<JournalEntryUpdateCommentInput>
+                        let! returnPayload = routeUiCommandForTesting "JournalEntry" "UpdateComment" [] payload
+                        let! returned = fromJson<JournalEntryCommentReturn> returnPayload
+                        Assert.Equal(expected, returned.commentText)
+                        return ()
+                    })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -513,36 +518,37 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     member _.``REQ-JE-5.3 updateComment rejects empty text``() = // todo: refactor with multi-fail theory
         let mutable idToCleanUp_1 = None
         try
-            let railroad = withoutTransaction (fun tran -> 
-                result {
-                    let! jeToUpdate, jeToUpdateId =
-                        createTestJournalEntryFromPrimitives
-                            "REQ-JE-5.3 JE to update comment"
-                            None
-                            (Calendar.today())
-                            [ (fixture.Data.entertainment5650Id, 75.00M, "Debit", None)
-                              (fixture.Data.creditCard2220Id, 75.00M, "Credit", None) ]
-                            []
-                            [ (None, "Fixture comment for testing") ]
-                            (AuditEnvelope.create JournalEntryPostNew)
-                            tran
-                    idToCleanUp_1 <- Some jeToUpdateId
-                    let commentUuid =
-                        jeToUpdate
-                        |> comments
-                        |> List.head
-                        |> JournalEntryComment.journalEntryCommentId
-                        |> JournalEntryCommentId.value
-                    let updateInput: JournalEntryUpdateCommentInput =
-                        { id = commentUuid; secondaryJournalEntryId = NoChange; commentText = SetTo "" }
-                    let! payload = updateInput |> toJson<JournalEntryUpdateCommentInput>
-                    do!
-                        match routeUiCommandForTesting "JournalEntry" "UpdateComment" [] payload with
-                        | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                        | Error(JournalEntryCommentIsEmpty _) -> Ok()
-                        | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
-                    return ()
-                })
+            let railroad =
+                withoutTransaction(fun tran ->
+                    result {
+                        let! jeToUpdate, jeToUpdateId =
+                            createTestJournalEntryFromPrimitives
+                                "REQ-JE-5.3 JE to update comment"
+                                None
+                                (Calendar.today())
+                                [ (fixture.Data.entertainment5650Id, 75.00M, "Debit", None)
+                                  (fixture.Data.creditCard2220Id, 75.00M, "Credit", None) ]
+                                []
+                                [ (None, "Fixture comment for testing") ]
+                                (AuditEnvelope.create JournalEntryPostNew)
+                                tran
+                        idToCleanUp_1 <- Some jeToUpdateId
+                        let commentUuid =
+                            jeToUpdate
+                            |> comments
+                            |> List.head
+                            |> JournalEntryComment.journalEntryCommentId
+                            |> JournalEntryCommentId.value
+                        let updateInput: JournalEntryUpdateCommentInput =
+                            { id = commentUuid; secondaryJournalEntryId = NoChange; commentText = SetTo "" }
+                        let! payload = updateInput |> toJson<JournalEntryUpdateCommentInput>
+                        do!
+                            match routeUiCommandForTesting "JournalEntry" "UpdateComment" [] payload with
+                            | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                            | Error(JournalEntryCommentIsEmpty _) -> Ok()
+                            | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                        return ()
+                    })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)

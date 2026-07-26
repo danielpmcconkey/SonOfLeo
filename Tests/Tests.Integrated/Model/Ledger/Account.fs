@@ -20,7 +20,7 @@ type AccountTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-AC-1.4 REQ-AC-2.9 AccountCode must be unique``() =
         withRollback(fun tran ->
-            let duplicateCode = "F-1250"        
+            let duplicateCode = "F-1250"
             let duplicateResult =
                 AccountCreation.constructNewAndSaveToDb
                     (duplicateCode |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
@@ -35,8 +35,7 @@ type AccountTests(fixture: TestDataFixture) =
             match duplicateResult with
             | Error(DalErrorDuringNonQueryExecution _) -> ()
             | Ok _ -> Assert.Fail("Expected failure; returned success.")
-            | Error e -> Assert.Fail($"Wrong error type: {AppError.toMessage e}")
-        )
+            | Error e -> Assert.Fail($"Wrong error type: {AppError.toMessage e}"))
 
     [<Fact>]
     member _.``REQ-AC-1.5 Account code is case sensitive.``() =
@@ -94,13 +93,14 @@ type AccountTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-3.5 fetch by parent ID returns all children``() =
-            let parentId = fixture.Data.assets1000Id
-            let expectedChildren =
-                fixture.Data.accounts
-                |> List.filter(fun x -> x |> Account.parentId = (parentId |> Some))
-                |> List.map(fun x -> x |> Account.accountId)
-            let expectedCount = expectedChildren |> List.length
-            let railroad = withoutTransaction(fun tran ->
+        let parentId = fixture.Data.assets1000Id
+        let expectedChildren =
+            fixture.Data.accounts
+            |> List.filter(fun x -> x |> Account.parentId = (parentId |> Some))
+            |> List.map(fun x -> x |> Account.accountId)
+        let expectedCount = expectedChildren |> List.length
+        let railroad =
+            withoutTransaction(fun tran ->
                 result {
                     let! fetched = Account.fetchByParentId tran parentId
                     Assert.Equal(expectedCount, List.length fetched)
@@ -109,23 +109,24 @@ type AccountTests(fixture: TestDataFixture) =
                     |> Assert.True
                     return ()
                 })
-            match railroad with
-            | Ok _ -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
+        match railroad with
+        | Ok _ -> ()
+        | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]
     member _.``REQ-AC-3.6 fetch by account type returns matching accounts``() =
-        let railroad = withoutTransaction(fun tran ->
-            result {
-                let! fetchType = AccountType.fromString "Equity"
-                let! fetched = Account.fetchByAccountType tran fetchType
-                let expectedIds = [ fixture.Data.equity3000Id; fixture.Data.retirement3030Id ]
-                expectedIds
-                |> List.forall(fun id -> fetched |> List.exists(fun a -> Account.accountId a = id))
-                |> Assert.True
-                fetched |> List.forall(fun a -> Account.accountType a = fetchType) |> Assert.True
-                return ()
-            })
+        let railroad =
+            withoutTransaction(fun tran ->
+                result {
+                    let! fetchType = AccountType.fromString "Equity"
+                    let! fetched = Account.fetchByAccountType tran fetchType
+                    let expectedIds = [ fixture.Data.equity3000Id; fixture.Data.retirement3030Id ]
+                    expectedIds
+                    |> List.forall(fun id -> fetched |> List.exists(fun a -> Account.accountId a = id))
+                    |> Assert.True
+                    fetched |> List.forall(fun a -> Account.accountType a = fetchType) |> Assert.True
+                    return ()
+                })
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -133,12 +134,13 @@ type AccountTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-AC-3.7 fetch all fetches everything``() =
         let expectedCount = fixture.Data.accounts |> List.length
-        let railroad = withoutTransaction(fun tran ->
-            result {
-                let! fetched = Account.fetchAll false tran
-                Assert.Equal(expectedCount, fetched |> List.length)
-                return ()
-            })
+        let railroad =
+            withoutTransaction(fun tran ->
+                result {
+                    let! fetched = Account.fetchAll false tran
+                    Assert.Equal(expectedCount, fetched |> List.length)
+                    return ()
+                })
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -150,15 +152,16 @@ type AccountTests(fixture: TestDataFixture) =
             fixture.Data.accounts
             |> List.filter(fun a -> a |> Account.activityPeriod |> AccountActivityPeriod.isActive today)
         let expectedCount = activeAccounts |> List.length
-        let railroad = withoutTransaction(fun tran ->
-            result {
-                let! fetched = Account.fetchAll true tran
-                Assert.Equal(expectedCount, fetched |> List.length)
-                fixture.Data.closedBank1290Id
-                |> fun closedId -> fetched |> List.exists(fun a -> Account.accountId a = closedId)
-                |> Assert.False
-                return ()
-            })
+        let railroad =
+            withoutTransaction(fun tran ->
+                result {
+                    let! fetched = Account.fetchAll true tran
+                    Assert.Equal(expectedCount, fetched |> List.length)
+                    fixture.Data.closedBank1290Id
+                    |> fun closedId -> fetched |> List.exists(fun a -> Account.accountId a = closedId)
+                    |> Assert.False
+                    return ()
+                })
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -233,7 +236,9 @@ type AccountTests(fixture: TestDataFixture) =
             let result =
                 let parentAccountId = fixture.Data.assets1000Id |> Some
                 let accountType =
-                    "Liability" |> AccountType.fromString |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+                    "Liability"
+                    |> AccountType.fromString
+                    |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
                 AccountCreation.constructNewAndSaveToDb
                     (code |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
                     genericAccountName
@@ -298,11 +303,7 @@ type AccountTests(fixture: TestDataFixture) =
             let railroad =
                 result {
                     let! updatedAccount =
-                        Account.updateExternalReferenceById
-                            fixture.Data.moneyMarket1270Id
-                            None
-                            envelope_update
-                            tran
+                        Account.updateExternalReferenceById fixture.Data.moneyMarket1270Id None envelope_update tran
                     let newReference =
                         Account.externalReference updatedAccount |> Option.map AccountExternalReference.value
                     Assert.Equal(None, newReference)
@@ -344,11 +345,7 @@ type AccountTests(fixture: TestDataFixture) =
                         original |> Account.activityPeriod |> AccountActivityPeriod.isActive(Calendar.today())
                     Assert.False(isActive) // just confirming that you indeed start with an inactive account
                     let! updatedAccount =
-                        Account.updateAccountNameById
-                            fixture.Data.closedBank1290Id
-                            newName
-                            envelope_update
-                            tran
+                        Account.updateAccountNameById fixture.Data.closedBank1290Id newName envelope_update tran
                     Assert.Equal(newName, AccountName.value(Account.accountName updatedAccount))
                     return ()
                 }

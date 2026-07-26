@@ -33,7 +33,7 @@ let cleanUpAccountId (accountId: AccountId option) : Result<unit, AppError> =
                 delete from ledger.account
                 WHERE unique_id = @unique_id;
             """
-        withoutTransaction(executeNonQuery query parameters ExactlyOne) 
+        withoutTransaction(executeNonQuery query parameters ExactlyOne)
 
 let cleanUpAccountList (l: AccountId option list) : Result<unit, AppError> =
     l
@@ -73,7 +73,7 @@ let cleanUpFiscalPeriodId (fpId: FiscalPeriodId option) : Result<unit, AppError>
                 WHERE unique_id = @unique_id;
             """
         withoutTransaction(executeNonQuery query parameters ExactlyOne)
-        
+
 let cleanUpFiscalPeriodKey (key: string option) : Result<unit, AppError> =
     match key with
     | None -> Ok()

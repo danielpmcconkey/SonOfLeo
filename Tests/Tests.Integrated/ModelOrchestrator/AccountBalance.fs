@@ -14,7 +14,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList returns correct debit and credit totals``() =
-        withoutTransaction (fun tran ->
+        withoutTransaction(fun tran ->
             let id1 = fixture.Data.mortgage2210Id
             let id2 = fixture.Data.food5350Id
             let accountsList = [ id1; id2 ]
@@ -47,7 +47,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.6 REQ-JE-4.7 fetchByAccountIdList excludes voided entry amounts``() =
-        withoutTransaction (fun tran ->
+        withoutTransaction(fun tran ->
             let id1 = fixture.Data.creditCard2220Id
             let id2 = fixture.Data.entertainment5650Id
             let accountsList = [ id1; id2 ]
@@ -80,7 +80,8 @@ type AccountBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList returns zero balances for account with no activity``() =
-        let result = withoutTransaction (fun tran ->fetchByAccountIdList tran [ fixture.Data.assets1000Id ] None)
+        let result =
+            withoutTransaction(fun tran -> fetchByAccountIdList tran [ fixture.Data.assets1000Id ] None)
         match result with
         | Ok balances ->
             Assert.Equal(1, balances |> List.length)
@@ -91,7 +92,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(AppError.toMessage e)
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList with empty list returns Error``() =
-        let result = withoutTransaction (fun tran ->fetchByAccountIdList tran [] None)
+        let result = withoutTransaction(fun tran -> fetchByAccountIdList tran [] None)
         Assert.True(Result.isError result)
 
 // todo: create a test on fetchByAccountIdList that checks that as-of works

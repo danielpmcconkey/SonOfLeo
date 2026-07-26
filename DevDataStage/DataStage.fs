@@ -21,34 +21,53 @@ open Utilities.AppError
 /// here purely for convenience and should not be reviewed as part of the
 /// main code base
 
-let createTestAccountFromPrimitives code name actType activeBegin activeEnd subtype parentId reference envelope  transaction : Result<(Account * AccountId), AppError> =
+let createTestAccountFromPrimitives
+    code
+    name
+    actType
+    activeBegin
+    activeEnd
+    subtype
+    parentId
+    reference
+    envelope
+    transaction
+    : Result<(Account * AccountId), AppError> =
     result {
         let! account =
             AccountCreation.constructNewAndSaveToDb
-                (code |> AccountCode.create |> Result.defaultWith (fun e -> failwith (AppError.toMessage e)))
-                (name |> AccountName.create |> Result.defaultWith (fun e -> failwith (AppError.toMessage e)))
-                (actType |> AccountType.fromString |> Result.defaultWith (fun e -> failwith (AppError.toMessage e)))
-                (AccountActivityPeriod.create activeBegin activeEnd |> Result.defaultWith (fun e -> failwith (AppError.toMessage e)))
-                (subtype |> convertOptionToDesiredTypeWithFallibleConverter AccountSubtype.fromString |> Result.defaultWith (fun e -> failwith (AppError.toMessage e)))
+                (code |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
+                (name |> AccountName.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
+                (actType |> AccountType.fromString |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
+                (AccountActivityPeriod.create activeBegin activeEnd
+                 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
+                (subtype
+                 |> convertOptionToDesiredTypeWithFallibleConverter AccountSubtype.fromString
+                 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
                 parentId
-                (reference |> convertOptionToDesiredTypeWithFallibleConverter AccountExternalReference.create |> Result.defaultWith (fun e -> failwith (AppError.toMessage e)))
+                (reference
+                 |> convertOptionToDesiredTypeWithFallibleConverter AccountExternalReference.create
+                 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
                 envelope
                 transaction
-        return (account, account |> Account.accountId) }
+        return (account, account |> Account.accountId)
+    }
 let createTestJournalEntryFromPrimitives
-            (description: string)
-            (source: string option)
-            (entryDate: LocalDate)
-            (lines: (AccountId * decimal * string * string option) list)
-            (references: (string * string) list)
-            (comments: (JournalEntryHeaderId option * string) list)
-            (auditEnvelope: AuditEnvelope)
-            (tran: DbTransaction)
-            : Result<JournalEntry * JournalEntryHeaderId, AppError> =
-    let convertLines (linesIn : (AccountId * decimal * string * string option) list) : Result<(AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option) list, AppError> =
+    (description: string)
+    (source: string option)
+    (entryDate: LocalDate)
+    (lines: (AccountId * decimal * string * string option) list)
+    (references: (string * string) list)
+    (comments: (JournalEntryHeaderId option * string) list)
+    (auditEnvelope: AuditEnvelope)
+    (tran: DbTransaction)
+    : Result<JournalEntry * JournalEntryHeaderId, AppError> =
+    let convertLines
+        (linesIn: (AccountId * decimal * string * string option) list)
+        : Result<(AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option) list, AppError> =
         linesIn
         |> List.map(fun l ->
-            let id, amountDec, lineTypeSt, memoSt = l 
+            let id, amountDec, lineTypeSt, memoSt = l
             result {
                 let! amount = amountDec |> Money.fromDecimal
                 let! lineType = lineTypeSt |> JournalEntryLineType.fromString
@@ -56,17 +75,21 @@ let createTestJournalEntryFromPrimitives
                 return id, amount, lineType, memo
             })
         |> convertListOfResultsToResultsList
-    let convertRefs (refsIn : (string * string) list) : Result<(JournalRefFinancialInstitution * JournalExternalReferenceText) list, AppError> =
+    let convertRefs
+        (refsIn: (string * string) list)
+        : Result<(JournalRefFinancialInstitution * JournalExternalReferenceText) list, AppError> =
         refsIn
         |> List.map(fun r ->
-            let fiSt, refSt = r 
+            let fiSt, refSt = r
             result {
                 let! fi = fiSt |> JournalRefFinancialInstitution.create
                 let! ref = refSt |> JournalExternalReferenceText.create
                 return fi, ref
             })
         |> convertListOfResultsToResultsList
-    let convertComments (commentsIn : (JournalEntryHeaderId option * string) list) : Result<(JournalEntryHeaderId option * CommentText) list, AppError> =
+    let convertComments
+        (commentsIn: (JournalEntryHeaderId option * string) list)
+        : Result<(JournalEntryHeaderId option * CommentText) list, AppError> =
         commentsIn
         |> List.map(fun c ->
             let id, textSt = c
@@ -83,10 +106,18 @@ let createTestJournalEntryFromPrimitives
         let! refsConverted = references |> convertRefs
         let! commentsConverted = comments |> convertComments
         let! journalEntry =
-            JournalEntry.constructNewAndSaveToDb tran
-                description source entryDate linesConverted refsConverted commentsConverted auditEnvelope
+            JournalEntry.constructNewAndSaveToDb
+                tran
+                description
+                source
+                entryDate
+                linesConverted
+                refsConverted
+                commentsConverted
+                auditEnvelope
         let headerId = journalEntry |> JournalEntry.header |> JournalEntryHeader.journalEntryHeaderId
-        return (journalEntry, headerId) }
+        return (journalEntry, headerId)
+    }
 
 let stageData =
     let today = Calendar.today()
@@ -94,15 +125,16 @@ let stageData =
     let lastYear = today.PlusYears(-1)
     let envelope = AuditEnvelope.create AccountCreate
     let twoMonthsAgo = today.PlusMonths(-2)
-    
+
     withoutTransaction(fun tran ->
         result {
-            
+
             // =============================================================================
             // Delete prior data
             // =============================================================================
-            
-            let deleteQuery = """
+
+            let deleteQuery =
+                """
                     TRUNCATE
                         ledger.journal_entry_comment,
                         ledger.journal_entry_ext_reference,
@@ -113,39 +145,166 @@ let stageData =
                     CASCADE;
             """
             let! _ = executeNonQuery deleteQuery [] AnyQuantityIsAcceptable tran
-                
+
             // =============================================================================
             // Create accounts
             // =============================================================================
 
-            let! assets1000, assets1000Id = createTestAccountFromPrimitives "F-1000" "Assets" "Asset" lastYear None None None None envelope tran
-            let! liabilities2000, liabilities2000Id = createTestAccountFromPrimitives "F-2000" "Liabilities" "Liability" lastYear None None None None envelope tran
-            let! equity3000, equity3000Id = createTestAccountFromPrimitives "F-3000" "Equity" "Equity" lastYear None None None None envelope tran
-            let! revenue4000, revenue4000Id = createTestAccountFromPrimitives "F-4000" "Revenue" "Revenue" lastYear None None None None envelope tran
-            let! expenses5000, expenses5000Id = createTestAccountFromPrimitives "F-5000" "Expenses" "Expense" lastYear None None None None envelope tran
-            let! rothIra1250, rothIra1250Id = createTestAccountFromPrimitives "F-1250" "Roth IRA" "Asset" lastYear None (Some "Investment") (Some assets1000Id) None envelope tran
-            let! moneyMarket1270, moneyMarket1270Id = createTestAccountFromPrimitives "F-1270" "Money Market" "Asset" lastYear None (Some "Cash") (Some assets1000Id) None envelope tran
-            let! mortgage2210, mortgage2210Id = createTestAccountFromPrimitives "F-2210" "Mortgage Payable" "Liability" lastYear None (Some "LongTermLiability") (Some liabilities2000Id) None envelope tran
-            let! creditCard2220, creditCard2220Id = createTestAccountFromPrimitives "F-2220" "Credit Card" "Liability" lastYear None (Some "CurrentLiability") (Some liabilities2000Id) None envelope tran
-            let! retirement3030, retirement3030Id = createTestAccountFromPrimitives "F-3030" "Retirement Contributions" "Equity" lastYear None None (Some equity3000Id) None envelope tran
-            let! personalRevenue4290, personalRevenue4290Id = createTestAccountFromPrimitives "F-4290" "Personal Revenue" "Revenue" lastYear None (Some "OperatingRevenue") (Some revenue4000Id) None envelope tran
-            let! food5350, food5350Id = createTestAccountFromPrimitives "F-5350" "Food" "Expense" lastYear None (Some "OperatingExpense") (Some expenses5000Id) None envelope tran
-            let! entertainment5650, entertainment5650Id = createTestAccountFromPrimitives "F-5650" "Entertainment" "Expense" lastYear None (Some "OperatingExpense") (Some expenses5000Id ) None envelope tran
-            
+            let! assets1000, assets1000Id =
+                createTestAccountFromPrimitives "F-1000" "Assets" "Asset" lastYear None None None None envelope tran
+            let! liabilities2000, liabilities2000Id =
+                createTestAccountFromPrimitives
+                    "F-2000"
+                    "Liabilities"
+                    "Liability"
+                    lastYear
+                    None
+                    None
+                    None
+                    None
+                    envelope
+                    tran
+            let! equity3000, equity3000Id =
+                createTestAccountFromPrimitives "F-3000" "Equity" "Equity" lastYear None None None None envelope tran
+            let! revenue4000, revenue4000Id =
+                createTestAccountFromPrimitives "F-4000" "Revenue" "Revenue" lastYear None None None None envelope tran
+            let! expenses5000, expenses5000Id =
+                createTestAccountFromPrimitives
+                    "F-5000"
+                    "Expenses"
+                    "Expense"
+                    lastYear
+                    None
+                    None
+                    None
+                    None
+                    envelope
+                    tran
+            let! rothIra1250, rothIra1250Id =
+                createTestAccountFromPrimitives
+                    "F-1250"
+                    "Roth IRA"
+                    "Asset"
+                    lastYear
+                    None
+                    (Some "Investment")
+                    (Some assets1000Id)
+                    None
+                    envelope
+                    tran
+            let! moneyMarket1270, moneyMarket1270Id =
+                createTestAccountFromPrimitives
+                    "F-1270"
+                    "Money Market"
+                    "Asset"
+                    lastYear
+                    None
+                    (Some "Cash")
+                    (Some assets1000Id)
+                    None
+                    envelope
+                    tran
+            let! mortgage2210, mortgage2210Id =
+                createTestAccountFromPrimitives
+                    "F-2210"
+                    "Mortgage Payable"
+                    "Liability"
+                    lastYear
+                    None
+                    (Some "LongTermLiability")
+                    (Some liabilities2000Id)
+                    None
+                    envelope
+                    tran
+            let! creditCard2220, creditCard2220Id =
+                createTestAccountFromPrimitives
+                    "F-2220"
+                    "Credit Card"
+                    "Liability"
+                    lastYear
+                    None
+                    (Some "CurrentLiability")
+                    (Some liabilities2000Id)
+                    None
+                    envelope
+                    tran
+            let! retirement3030, retirement3030Id =
+                createTestAccountFromPrimitives
+                    "F-3030"
+                    "Retirement Contributions"
+                    "Equity"
+                    lastYear
+                    None
+                    None
+                    (Some equity3000Id)
+                    None
+                    envelope
+                    tran
+            let! personalRevenue4290, personalRevenue4290Id =
+                createTestAccountFromPrimitives
+                    "F-4290"
+                    "Personal Revenue"
+                    "Revenue"
+                    lastYear
+                    None
+                    (Some "OperatingRevenue")
+                    (Some revenue4000Id)
+                    None
+                    envelope
+                    tran
+            let! food5350, food5350Id =
+                createTestAccountFromPrimitives
+                    "F-5350"
+                    "Food"
+                    "Expense"
+                    lastYear
+                    None
+                    (Some "OperatingExpense")
+                    (Some expenses5000Id)
+                    None
+                    envelope
+                    tran
+            let! entertainment5650, entertainment5650Id =
+                createTestAccountFromPrimitives
+                    "F-5650"
+                    "Entertainment"
+                    "Expense"
+                    lastYear
+                    None
+                    (Some "OperatingExpense")
+                    (Some expenses5000Id)
+                    None
+                    envelope
+                    tran
+
             // create an account that will be closed after we add an entry to it
-            let! _, closedBank1290Id = createTestAccountFromPrimitives "F-1290" "Closed Bank" "Asset" lastYear None (Some "Cash") (Some assets1000Id ) None envelope tran
+            let! _, closedBank1290Id =
+                createTestAccountFromPrimitives
+                    "F-1290"
+                    "Closed Bank"
+                    "Asset"
+                    lastYear
+                    None
+                    (Some "Cash")
+                    (Some assets1000Id)
+                    None
+                    envelope
+                    tran
             // note: don't add it yet. only after it's been closed
-            
+
             // =============================================================================
             // Create fiscal periods
             // =============================================================================
 
             let! openFiscalPeriods =
-                [-4..4]
-                |> List.map (fun x ->
+                [ -4 .. 4 ]
+                |> List.map(fun x ->
                     let date = x |> today.PlusMonths
                     let monthF = date.Month.ToString("D2")
-                    let key = $"{date.Year}-{monthF}" |> FiscalPeriodKey.fromString |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+                    let key =
+                        $"{date.Year}-{monthF}"
+                        |> FiscalPeriodKey.fromString
+                        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
                     FiscalPeriodCreation.constructNewAndSaveToDb key envelope tran)
                 |> convertListOfResultsToResultsList
 
@@ -154,10 +313,13 @@ let stageData =
             // =============================================================================
 
             let! closedFiscalPeriod =
-               let date = today.PlusMonths(-5)
-               let monthF = date.Month.ToString("D2")
-               let key = $"{date.Year}-{monthF}" |> FiscalPeriodKey.fromString |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
-               FiscalPeriodCreation.constructNewAndSaveToDb key envelope tran
+                let date = today.PlusMonths(-5)
+                let monthF = date.Month.ToString("D2")
+                let key =
+                    $"{date.Year}-{monthF}"
+                    |> FiscalPeriodKey.fromString
+                    |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+                FiscalPeriodCreation.constructNewAndSaveToDb key envelope tran
             // note: don't add it to the FP list until after you've closed it
 
             let closedFiscalPeriodId = closedFiscalPeriod |> FiscalPeriod.fiscalPeriodId
@@ -170,22 +332,25 @@ let stageData =
             let jeEnvelope = AuditEnvelope.create JournalEntryPostNew
 
             let! basicJe, basicJeId =
-                createTestJournalEntryFromPrimitives "Basic journal entry" None today 
+                createTestJournalEntryFromPrimitives
+                    "Basic journal entry"
+                    None
+                    today
                     [ (mortgage2210Id, 100.00M, "Debit", None)
                       (food5350Id, 100.00M, "Credit", (Some "Grocery run")) ]
-                    [  ]
+                    []
                     [ (None, "Fixture comment for testing") ]
                     jeEnvelope
                     tran
 
-            let fixtureCommentId = 
-               basicJe
-               |> JournalEntry.comments
-               |> List.head
-               |> JournalEntryComment.journalEntryCommentId
+            let fixtureCommentId =
+                basicJe |> JournalEntry.comments |> List.head |> JournalEntryComment.journalEntryCommentId
 
             let! jeWithRef, jeWithRefId =
-                createTestJournalEntryFromPrimitives "Fixture JE with reference" (Some "TestImport") yesterday 
+                createTestJournalEntryFromPrimitives
+                    "Fixture JE with reference"
+                    (Some "TestImport")
+                    yesterday
                     [ (rothIra1250Id, 50.00M, "Debit", None)
                       (personalRevenue4290Id, 50.00M, "Credit", None) ]
                     [ ("TestBank", "TXN-001") ]
@@ -193,27 +358,33 @@ let stageData =
                     jeEnvelope
                     tran
 
-            let jeWithRefExtRefId = 
-               jeWithRef
-               |> JournalEntry.externalReferences
-               |> List.head
-               |> JournalEntryExternalReference.journalEntryExternalReferenceId
+            let jeWithRefExtRefId =
+                jeWithRef
+                |> JournalEntry.externalReferences
+                |> List.head
+                |> JournalEntryExternalReference.journalEntryExternalReferenceId
 
             let! _, jeToVoidId =
-                createTestJournalEntryFromPrimitives "Fixture voided JE" None yesterday 
+                createTestJournalEntryFromPrimitives
+                    "Fixture voided JE"
+                    None
+                    yesterday
                     [ (entertainment5650Id, 75.00M, "Debit", None)
                       (creditCard2220Id, 75.00M, "Credit", None) ]
-                    [  ]
+                    []
                     []
                     jeEnvelope
                     tran
             // note: don't add jeToVoid to the list because we later update it by voiding
-            
+
             let! jeToNotVoid, _ = // this is here to ensure we have an account with both voided and not-voided JEs
-                createTestJournalEntryFromPrimitives "Fixture voided JE" None yesterday 
+                createTestJournalEntryFromPrimitives
+                    "Fixture voided JE"
+                    None
+                    yesterday
                     [ (entertainment5650Id, 86.04M, "Debit", None)
                       (creditCard2220Id, 86.04M, "Credit", None) ]
-                    [  ]
+                    []
                     []
                     jeEnvelope
                     tran
@@ -221,16 +392,22 @@ let stageData =
             let closedPeriodEntryDate = (closedFiscalPeriod |> FiscalPeriod.startDate).PlusDays(14)
 
             let! jeInClosedPeriod, jeInClosedPeriodId =
-                createTestJournalEntryFromPrimitives "Fixture JE in closed period" None closedPeriodEntryDate 
+                createTestJournalEntryFromPrimitives
+                    "Fixture JE in closed period"
+                    None
+                    closedPeriodEntryDate
                     [ (mortgage2210Id, 25.00M, "Debit", None)
                       (food5350Id, 25.00M, "Credit", None) ]
-                    [  ]
+                    []
                     []
                     jeEnvelope
                     tran
 
             let! jeInClosedAccount, _ =
-                createTestJournalEntryFromPrimitives "Journal entry in closed account" None closedPeriodEntryDate
+                createTestJournalEntryFromPrimitives
+                    "Journal entry in closed account"
+                    None
+                    closedPeriodEntryDate
                     [ (closedBank1290Id, 71.38M, "Debit", None)
                       (food5350Id, 71.38M, "Credit", (Some "Grocery run")) ]
                     []
@@ -240,7 +417,10 @@ let stageData =
 
             // need to offset the transaction so it has a zero balance
             let! jeInClosedAccount2, _ =
-                createTestJournalEntryFromPrimitives "Journal entry in closed account" None (closedPeriodEntryDate.PlusWeeks(1))
+                createTestJournalEntryFromPrimitives
+                    "Journal entry in closed account"
+                    None
+                    (closedPeriodEntryDate.PlusWeeks(1))
                     [ (closedBank1290Id, 71.38M, "Credit", None)
                       (food5350Id, 71.38M, "Debit", (Some "Grocery refund")) ]
                     []
@@ -249,7 +429,10 @@ let stageData =
                     tran
 
             let! jeWithLinesRefsAndComments, jeWithLinesRefsAndCommentsId =
-                createTestJournalEntryFromPrimitives "Basic journal entry" None today 
+                createTestJournalEntryFromPrimitives
+                    "Basic journal entry"
+                    None
+                    today
                     [ (mortgage2210Id, 100.00M, "Debit", None)
                       (food5350Id, 100.00M, "Credit", (Some "Grocery run")) ]
                     [ ("TestBank", "TXN-001") ]
@@ -262,9 +445,10 @@ let stageData =
             // =============================================================================
 
             let! updatedFiscalPeriod = FiscalPeriod.closeFiscalPeriod closedFiscalPeriodId envelope tran
-            
+
             let! closedBank1290 = closedBank1290Id |> Account.fetchById tran
-            let! updatedClosedBank = closedBank1290 |> AccountDeactivation.deactivateAccount tran envelope (Some twoMonthsAgo)
+            let! updatedClosedBank =
+                closedBank1290 |> AccountDeactivation.deactivateAccount tran envelope (Some twoMonthsAgo)
 
             // =============================================================================
             // Void a journal entry (after JE creation)
@@ -280,7 +464,10 @@ let stageData =
             // =============================================================================
 
             let! sharedRefJe1, sharedRefJe1Id =
-                createTestJournalEntryFromPrimitives "Fixture shared-ref JE 1" (Some "Test") today 
+                createTestJournalEntryFromPrimitives
+                    "Fixture shared-ref JE 1"
+                    (Some "Test")
+                    today
                     [ (mortgage2210Id, 10.00M, "Debit", None)
                       (food5350Id, 10.00M, "Credit", None) ]
                     [ ("TestBank", "F-SHARED-001") ]
@@ -289,12 +476,16 @@ let stageData =
                     tran
 
             let! sharedRefJe2, sharedRefJe2Id =
-                createTestJournalEntryFromPrimitives "Fixture shared-ref JE 2" (Some "Test") today 
+                createTestJournalEntryFromPrimitives
+                    "Fixture shared-ref JE 2"
+                    (Some "Test")
+                    today
                     [ (mortgage2210Id, 20.00M, "Debit", None)
                       (food5350Id, 20.00M, "Credit", None) ]
                     [ ("TestBank", "F-SHARED-001") ]
                     []
                     jeEnvelope
                     tran
-            
-            return () })
+
+            return ()
+        })
