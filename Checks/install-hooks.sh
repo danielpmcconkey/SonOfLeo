@@ -1,14 +1,38 @@
 #!/usr/bin/env bash
-# Installs the pre-commit hook: runs `Checks/run-all.sh --quick`; a failing check
-# refuses the commit. Run once per clone. Host and BD's container share this clone
-# through the mounted workspace, so one install covers both sides — the hook uses
-# only repo-relative paths and self-skips any check whose tooling is absent.
+# Installs the pre-commit hook: refuses when the working tree isn't what is about
+# to be committed, then runs `Checks/run-all.sh --quick`; a failing check refuses
+# the commit. Run once per clone. Host and BD's container share this clone through
+# the mounted workspace, so one install covers both sides — the hook uses only
+# repo-relative paths and self-skips any check whose tooling is absent.
 set -eu
 cd "$(dirname "$0")/.."
 
 cat > .git/hooks/pre-commit <<'EOF'
 #!/usr/bin/env bash
-exec bash "$(git rev-parse --show-toplevel)/Checks/run-all.sh" --quick
+set -eu
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+
+# Every check reads files from the working tree, but a commit records the index.
+# Stage a file, edit it again, and the checks would validate content that is not
+# being committed — a false pass. Refuse instead of guessing which one you meant.
+overlap="$(comm -12 \
+    <(git diff --cached --name-only --diff-filter=ACM | sort -u) \
+    <(git diff --name-only | sort -u))"
+
+if [ -n "$overlap" ]; then
+    echo 'REFUSED  working tree does not match what you are committing'
+    echo
+    echo 'These staged files have further unstaged edits, so the checks below would'
+    echo 'validate content that is not in your commit:'
+    echo
+    echo "$overlap" | sed 's/^/    /'
+    echo
+    echo "Stage them ('git add -A') or stash them, then commit again."
+    exit 1
+fi
+
+exec bash "$root/Checks/run-all.sh" --quick
 EOF
 chmod +x .git/hooks/pre-commit
 echo 'pre-commit hook installed at .git/hooks/pre-commit'
