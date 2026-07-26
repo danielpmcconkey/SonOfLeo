@@ -249,9 +249,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             | Ok created ->
                 // fetch inside the same transaction — the create is never committed
                 let fetchResult =
-                    created
-                    |> JournalEntryComment.journalEntryCommentId
-                    |> JournalEntryComment.fetchById tran
+                    created |> JournalEntryComment.journalEntryCommentId |> JournalEntryComment.fetchById tran
                 match fetchResult with
                 | Error e -> Assert.Fail $"Fetch after creation failed: {e}"
                 | Ok fetched ->

@@ -130,7 +130,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-4.6 REQ-SYS-6.1 voidJournalEntryOrchestration rejects void on already-voided entry``() =
-        withRollback(fun tran -> 
+        withRollback(fun tran ->
             let envelope = AuditEnvelope.create JournalEntryVoid
             let voidedResult = fixture.Data.voidedJeId |> voidJournalEntry tran envelope None commentText
             match voidedResult with
@@ -142,7 +142,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
     member _.``REQ-JE-4.3 voidJournalEntryOrchestration returns error for nonexistent entry id``() =
         // guards the railway itself: the fetch failure must propagate as an
         // Error, not escape the orchestrator as an exception
-        withRollback(fun tran -> 
+        withRollback(fun tran ->
             let envelope = AuditEnvelope.create JournalEntryVoid
             let badId = Guid.NewGuid() |> JournalEntryHeaderId.fromGuid
             let voidedResult = badId |> voidJournalEntry tran envelope None commentText

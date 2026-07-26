@@ -29,7 +29,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
             |> header
             |> JournalEntryHeader.description
             |> JournalEntryDescription.value
-        let result = withoutTransaction(fun tran ->  idToCheck |> fetchById tran)
+        let result = withoutTransaction(fun tran -> idToCheck |> fetchById tran)
         match result with
         | Ok je ->
             Assert.Equal(idToCheck, je |> header |> JournalEntryHeader.journalEntryHeaderId)
@@ -47,7 +47,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let expectedLinesCount = fixture.Data.jeWithLinesRefsAndComments |> lines |> List.length
         let expectedRefsCount = fixture.Data.jeWithLinesRefsAndComments |> externalReferences |> List.length
         let expectedCommentsCount = fixture.Data.jeWithLinesRefsAndComments |> comments |> List.length
-        let result = withoutTransaction(fun tran ->  fixture.Data.jeWithLinesRefsAndCommentsId |> fetchById tran)
+        let result = withoutTransaction(fun tran -> fixture.Data.jeWithLinesRefsAndCommentsId |> fetchById tran)
         match result with
         | Ok je ->
             Assert.NotNull(je |> header)
@@ -61,21 +61,22 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let today = Calendar.today()
         let monthF = today.Month.ToString("D2")
         let periodKey = $"{today.Year}-{monthF}"
-        let railroad = withoutTransaction(fun tran -> 
-            result {
-                let! fpUuid = periodKey |> fiscalPeriodKeyToId.fetch tran
-                let fpId = fpUuid |> FiscalPeriodId.fromGuid
-                let expected =
-                    fixture.Data.journalEntries
-                    |> List.filter(fun x ->
-                        x |> header |> JournalEntryHeader.entryDate |> EntryDate.fiscalPeriodId = fpId)
-                    |> List.length
-                let! fp = fpId |> FiscalPeriod.fetchById tran
-                let! fetchList = fp |> fetchByPeriod tran
-                let actual = fetchList |> List.length
-                Assert.Equal(expected, actual)
-                return ()
-            })
+        let railroad =
+            withoutTransaction(fun tran ->
+                result {
+                    let! fpUuid = periodKey |> fiscalPeriodKeyToId.fetch tran
+                    let fpId = fpUuid |> FiscalPeriodId.fromGuid
+                    let expected =
+                        fixture.Data.journalEntries
+                        |> List.filter(fun x ->
+                            x |> header |> JournalEntryHeader.entryDate |> EntryDate.fiscalPeriodId = fpId)
+                        |> List.length
+                    let! fp = fpId |> FiscalPeriod.fetchById tran
+                    let! fetchList = fp |> fetchByPeriod tran
+                    let actual = fetchList |> List.length
+                    Assert.Equal(expected, actual)
+                    return ()
+                })
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -86,14 +87,15 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let farDate = today.PlusMonths(4)
         let monthF = farDate.Month.ToString("D2")
         let periodKey = $"{farDate.Year}-{monthF}"
-        let railroad = withoutTransaction(fun tran -> 
-            result {
-                let! uuid = periodKey |> fiscalPeriodKeyToId.fetch tran
-                let! fp = uuid |> FiscalPeriodId.fromGuid |> FiscalPeriod.fetchById tran
-                let! entries = fp |> fetchByPeriod tran
-                Assert.Equal(0, entries |> List.length)
-                return ()
-            })
+        let railroad =
+            withoutTransaction(fun tran ->
+                result {
+                    let! uuid = periodKey |> fiscalPeriodKeyToId.fetch tran
+                    let! fp = uuid |> FiscalPeriodId.fromGuid |> FiscalPeriod.fetchById tran
+                    let! entries = fp |> fetchByPeriod tran
+                    Assert.Equal(0, entries |> List.length)
+                    return ()
+                })
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -102,29 +104,30 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
     member _.``REQ-JE-3.5 fetchByReference returns entries matching source FI and reference value``() =
         let fiStr = "TestBank"
         let refStr = "TXN-001"
-        let railroad = withoutTransaction(fun tran -> 
-            result {
-                let! fi = fiStr |> JournalRefFinancialInstitution.create
-                let! refText = refStr |> JournalExternalReferenceText.create
-                let expected =
-                    fixture.Data.journalEntryExternalReferences
-                    |> List.filter(fun jer ->
-                        jer |> JournalEntryExternalReference.financialInstitution = fi
-                        && jer |> JournalEntryExternalReference.referenceText = refText)
-                    |> List.length
-                let! fetched = fetchByReference tran (Some fi) (Some refText)
-                Assert.Equal(expected, fetched |> List.length)
-                let firstEntry = fetched |> List.head
-                let fetchedReferences = firstEntry |> externalReferences
-                let matchedCount =
-                    fetchedReferences
-                    |> List.filter(fun jer ->
-                        jer |> JournalEntryExternalReference.financialInstitution = fi
-                        && jer |> JournalEntryExternalReference.referenceText = refText)
-                    |> List.length
-                Assert.True(matchedCount > 0)
-                return ()
-            })
+        let railroad =
+            withoutTransaction(fun tran ->
+                result {
+                    let! fi = fiStr |> JournalRefFinancialInstitution.create
+                    let! refText = refStr |> JournalExternalReferenceText.create
+                    let expected =
+                        fixture.Data.journalEntryExternalReferences
+                        |> List.filter(fun jer ->
+                            jer |> JournalEntryExternalReference.financialInstitution = fi
+                            && jer |> JournalEntryExternalReference.referenceText = refText)
+                        |> List.length
+                    let! fetched = fetchByReference tran (Some fi) (Some refText)
+                    Assert.Equal(expected, fetched |> List.length)
+                    let firstEntry = fetched |> List.head
+                    let fetchedReferences = firstEntry |> externalReferences
+                    let matchedCount =
+                        fetchedReferences
+                        |> List.filter(fun jer ->
+                            jer |> JournalEntryExternalReference.financialInstitution = fi
+                            && jer |> JournalEntryExternalReference.referenceText = refText)
+                        |> List.length
+                    Assert.True(matchedCount > 0)
+                    return ()
+                })
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -133,20 +136,21 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
     member _.``REQ-JE-3.5 REQ-JE-1.48 fetchByReference returns multiple entries when reference is shared``() =
         let fiStr = "TestBank"
         let refStr = "F-SHARED-001"
-        let railroad = withoutTransaction(fun tran -> 
-            result {
-                let! fi = fiStr |> JournalRefFinancialInstitution.create
-                let! refText = refStr |> JournalExternalReferenceText.create
-                let expected =
-                    fixture.Data.journalEntryExternalReferences
-                    |> List.filter(fun jer ->
-                        jer |> JournalEntryExternalReference.financialInstitution = fi
-                        && jer |> JournalEntryExternalReference.referenceText = refText)
-                    |> List.length
-                let! fetched = fetchByReference tran (Some fi) (Some refText)
-                Assert.Equal(expected, fetched |> List.length)
-                return ()
-            })
+        let railroad =
+            withoutTransaction(fun tran ->
+                result {
+                    let! fi = fiStr |> JournalRefFinancialInstitution.create
+                    let! refText = refStr |> JournalExternalReferenceText.create
+                    let expected =
+                        fixture.Data.journalEntryExternalReferences
+                        |> List.filter(fun jer ->
+                            jer |> JournalEntryExternalReference.financialInstitution = fi
+                            && jer |> JournalEntryExternalReference.referenceText = refText)
+                        |> List.length
+                    let! fetched = fetchByReference tran (Some fi) (Some refText)
+                    Assert.Equal(expected, fetched |> List.length)
+                    return ()
+                })
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -156,14 +160,15 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let fiStr = "Bogus"
         let refStr = "Nada"
         let expected = 0
-        let railroad = withoutTransaction(fun tran -> 
-            result {
-                let! fi = fiStr |> JournalRefFinancialInstitution.create
-                let! refText = refStr |> JournalExternalReferenceText.create
-                let! fetched = fetchByReference tran (Some fi) (Some refText)
-                Assert.Equal(expected, fetched |> List.length)
-                return ()
-            })
+        let railroad =
+            withoutTransaction(fun tran ->
+                result {
+                    let! fi = fiStr |> JournalRefFinancialInstitution.create
+                    let! refText = refStr |> JournalExternalReferenceText.create
+                    let! fetched = fetchByReference tran (Some fi) (Some refText)
+                    Assert.Equal(expected, fetched |> List.length)
+                    return ()
+                })
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -171,17 +176,18 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.8 fetchByReference with FI only returns all entries for that FI``() =
         let fiStr = "TestBank"
-        let railroad = withoutTransaction(fun tran -> 
-            result {
-                let! fi = fiStr |> JournalRefFinancialInstitution.create
-                let expected =
-                    fixture.Data.journalEntryExternalReferences
-                    |> List.filter(fun jer -> jer |> JournalEntryExternalReference.financialInstitution = fi)
-                    |> List.length
-                let! fetched = fetchByReference tran (Some fi) None
-                Assert.Equal(expected, fetched |> List.length)
-                return ()
-            })
+        let railroad =
+            withoutTransaction(fun tran ->
+                result {
+                    let! fi = fiStr |> JournalRefFinancialInstitution.create
+                    let expected =
+                        fixture.Data.journalEntryExternalReferences
+                        |> List.filter(fun jer -> jer |> JournalEntryExternalReference.financialInstitution = fi)
+                        |> List.length
+                    let! fetched = fetchByReference tran (Some fi) None
+                    Assert.Equal(expected, fetched |> List.length)
+                    return ()
+                })
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -191,17 +197,18 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         ()
         =
         let refStr = "TXN-001"
-        let railroad = withoutTransaction(fun tran -> 
-            result {
-                let! refText = refStr |> JournalExternalReferenceText.create
-                let expected =
-                    fixture.Data.journalEntryExternalReferences
-                    |> List.filter(fun jer -> jer |> JournalEntryExternalReference.referenceText = refText)
-                    |> List.length
-                let! fetched = fetchByReference tran None (Some refText)
-                Assert.Equal(expected, fetched |> List.length)
-                return ()
-            })
+        let railroad =
+            withoutTransaction(fun tran ->
+                result {
+                    let! refText = refStr |> JournalExternalReferenceText.create
+                    let expected =
+                        fixture.Data.journalEntryExternalReferences
+                        |> List.filter(fun jer -> jer |> JournalEntryExternalReference.referenceText = refText)
+                        |> List.length
+                    let! fetched = fetchByReference tran None (Some refText)
+                    Assert.Equal(expected, fetched |> List.length)
+                    return ()
+                })
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -222,7 +229,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
                 let entryDate = je |> header |> JournalEntryHeader.entryDate |> EntryDate.entryDate
                 entryDate >= today && entryDate <= today)
             |> List.length
-        let result = withoutTransaction(fun tran ->  fetchByDateRange tran today today)
+        let result = withoutTransaction(fun tran -> fetchByDateRange tran today today)
         match result with
         | Ok entries -> Assert.Equal(expected, entries |> List.length)
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -230,7 +237,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.7 fetchByDateRange returns empty list when no entries in range``() =
         let farDate = NodaTime.LocalDate(2050, 1, 1)
-        let result = withoutTransaction(fun tran ->  fetchByDateRange tran farDate farDate)
+        let result = withoutTransaction(fun tran -> fetchByDateRange tran farDate farDate)
         match result with
         | Ok entries -> Assert.Equal(0, entries |> List.length)
         | Error e -> Assert.Fail(AppError.toMessage e)

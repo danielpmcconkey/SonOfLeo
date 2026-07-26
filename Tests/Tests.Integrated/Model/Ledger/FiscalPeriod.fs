@@ -21,10 +21,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
             let railroad =
                 result {
                     let! fp =
-                        FiscalPeriodCreation.constructNewAndSaveToDb
-                            genericFiscalPeriodKey
-                            genericAuditEnvelope
-                            tran
+                        FiscalPeriodCreation.constructNewAndSaveToDb genericFiscalPeriodKey genericAuditEnvelope tran
                     let unique_id = FiscalPeriod.fiscalPeriodId fp |> FiscalPeriodId.value
                     Assert.NotEqual(unique_id, Guid.Empty)
                     ()
@@ -38,8 +35,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
         withRollback(fun tran ->
             let railroad =
                 result {
-                    let! existingPeriod =
-                        FiscalPeriod.fetchById tran (fixture.Data.openFiscalPeriodIds |> List.head)
+                    let! existingPeriod = FiscalPeriod.fetchById tran (fixture.Data.openFiscalPeriodIds |> List.head)
                     let existingKey = FiscalPeriod.periodKey existingPeriod
                     let duplicateResult =
                         FiscalPeriodCreation.constructNewAndSaveToDb existingKey genericAuditEnvelope tran
@@ -69,8 +65,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
         withRollback(fun tran ->
             let railroad =
                 result {
-                    let! fp =
-                        FiscalPeriodCreation.constructNewAndSaveToDb expectedKey genericAuditEnvelope tran
+                    let! fp = FiscalPeriodCreation.constructNewAndSaveToDb expectedKey genericAuditEnvelope tran
                     let startDate = FiscalPeriod.startDate fp
                     let endDate = FiscalPeriod.endDate fp
                     let uuid = FiscalPeriod.fiscalPeriodId fp |> FiscalPeriodId.value
@@ -94,10 +89,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
             let railroad =
                 result {
                     let! fp =
-                        FiscalPeriodCreation.constructNewAndSaveToDb
-                            genericFiscalPeriodKey
-                            genericAuditEnvelope
-                            tran
+                        FiscalPeriodCreation.constructNewAndSaveToDb genericFiscalPeriodKey genericAuditEnvelope tran
                     Assert.Equal(expectedIsOpen, FiscalPeriod.isOpen fp)
                     ()
                 }
@@ -108,47 +100,50 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-FP-3.1 fetchById happy path``() =
         let expectedId = fixture.Data.openFiscalPeriodIds |> List.head
-        let railroad = withoutTransaction(fun tran ->
-            result {
-                let! fetched = FiscalPeriod.fetchById tran expectedId
-                Assert.Equal(expectedId, FiscalPeriod.fiscalPeriodId fetched)
-                Assert.True(FiscalPeriod.isOpen fetched)
-                ()
-            })
+        let railroad =
+            withoutTransaction(fun tran ->
+                result {
+                    let! fetched = FiscalPeriod.fetchById tran expectedId
+                    Assert.Equal(expectedId, FiscalPeriod.fiscalPeriodId fetched)
+                    Assert.True(FiscalPeriod.isOpen fetched)
+                    ()
+                })
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]
     member _.``REQ-FP-3.4 fetchAll without filter happy path``() =
-        let railroad = withoutTransaction(fun tran ->
-            result {
-                let! fetched = FiscalPeriod.fetchAll tran false
-                fixture.Data.openFiscalPeriodIds
-                |> List.forall(fun id -> fetched |> List.exists(fun fp -> FiscalPeriod.fiscalPeriodId fp = id))
-                |> Assert.True
-                fetched
-                |> List.exists(fun fp -> FiscalPeriod.fiscalPeriodId fp = fixture.Data.closedFiscalPeriodId)
-                |> Assert.True
-                ()
-            })
+        let railroad =
+            withoutTransaction(fun tran ->
+                result {
+                    let! fetched = FiscalPeriod.fetchAll tran false
+                    fixture.Data.openFiscalPeriodIds
+                    |> List.forall(fun id -> fetched |> List.exists(fun fp -> FiscalPeriod.fiscalPeriodId fp = id))
+                    |> Assert.True
+                    fetched
+                    |> List.exists(fun fp -> FiscalPeriod.fiscalPeriodId fp = fixture.Data.closedFiscalPeriodId)
+                    |> Assert.True
+                    ()
+                })
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]
     member _.``REQ-FP-3.5 fetchAll with open only filters out closed periods``() =
-        let railroad = withoutTransaction(fun tran ->
-            result {
-                let! fetched = FiscalPeriod.fetchAll tran true
-                fetched
-                |> List.exists(fun fp -> FiscalPeriod.fiscalPeriodId fp = fixture.Data.closedFiscalPeriodId)
-                |> Assert.False
-                fixture.Data.openFiscalPeriodIds
-                |> List.forall(fun id -> fetched |> List.exists(fun fp -> FiscalPeriod.fiscalPeriodId fp = id))
-                |> Assert.True
-                ()
-            })
+        let railroad =
+            withoutTransaction(fun tran ->
+                result {
+                    let! fetched = FiscalPeriod.fetchAll tran true
+                    fetched
+                    |> List.exists(fun fp -> FiscalPeriod.fiscalPeriodId fp = fixture.Data.closedFiscalPeriodId)
+                    |> Assert.False
+                    fixture.Data.openFiscalPeriodIds
+                    |> List.forall(fun id -> fetched |> List.exists(fun fp -> FiscalPeriod.fiscalPeriodId fp = id))
+                    |> Assert.True
+                    ()
+                })
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -201,10 +196,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
             let railroad =
                 result {
                     let! reopened =
-                        FiscalPeriod.reopenFiscalPeriod
-                            fixture.Data.closedFiscalPeriodId
-                            genericAuditEnvelope
-                            tran
+                        FiscalPeriod.reopenFiscalPeriod fixture.Data.closedFiscalPeriodId genericAuditEnvelope tran
                     Assert.True(FiscalPeriod.isOpen reopened)
                     ()
                 }
@@ -245,10 +237,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
             let railroad =
                 result {
                     let! fp =
-                        FiscalPeriodCreation.constructNewAndSaveToDb
-                            genericFiscalPeriodKey
-                            genericAuditEnvelope
-                            tran
+                        FiscalPeriodCreation.constructNewAndSaveToDb genericFiscalPeriodKey genericAuditEnvelope tran
                     Assert.Equal(expected, FiscalPeriod.createdAt fp)
                     Assert.Equal(expected, FiscalPeriod.modifiedAt fp)
                     ()

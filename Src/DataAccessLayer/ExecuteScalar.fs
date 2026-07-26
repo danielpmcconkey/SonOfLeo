@@ -165,7 +165,7 @@ let executeScalar
              *)
             let objResult =
                 try
-                
+
                     match dbTransaction |> isNone with
                     | true ->
                         use connection = ds.OpenConnection()
@@ -176,7 +176,7 @@ let executeScalar
                         let tran, conn =
                             dbTransaction
                             |> getTranAndConn
-                            |> Result.defaultWith (fun e -> failwith (AppError.toMessage e)) // we do this because we're already inside the boundary of DB try / catch. Result railroad doesn't really work here.
+                            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)) // we do this because we're already inside the boundary of DB try / catch. Result railroad doesn't really work here.
                         use command = new NpgsqlCommand(query, conn)
                         command.Transaction <- tran
                         parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)

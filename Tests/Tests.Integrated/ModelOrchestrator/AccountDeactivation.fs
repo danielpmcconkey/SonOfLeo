@@ -46,8 +46,7 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
                     let badActiveEnd =
                         (original |> Account.activityPeriod |> AccountActivityPeriod.activeBegin).PlusDays(-1)
                     let! account = fixture.Data.moneyMarket1270Id |> Account.fetchById tran
-                    let deactivationResult =
-                        account |> deactivateAccount tran envelope (Some badActiveEnd)
+                    let deactivationResult = account |> deactivateAccount tran envelope (Some badActiveEnd)
                     do!
                         match deactivationResult with
                         | Ok _ -> Error(TestingError "Expected failure; returned success.")

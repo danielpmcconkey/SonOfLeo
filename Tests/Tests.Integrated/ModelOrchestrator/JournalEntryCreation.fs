@@ -354,7 +354,15 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
               (fixture.Data.creditCard2220Id, 340.99M, "Credit", None) ]
         withRollback(fun tran ->
             let result =
-                createTestJournalEntryFromPrimitives "JE create unhappy892" None today unbalancedLines [] [] envelope tran
+                createTestJournalEntryFromPrimitives
+                    "JE create unhappy892"
+                    None
+                    today
+                    unbalancedLines
+                    []
+                    []
+                    envelope
+                    tran
             match result with
             | Error(JournalEntryDebitCreditMismatch _) -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)

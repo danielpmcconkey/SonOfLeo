@@ -1,12 +1,12 @@
-namespace Model.Audit
+module Logger.Audit
+
 
 open System
 open NodaTime
 open Utilities
 
-
-
 type AuditableAction =
+    | FetchOnly
     | AccountCreate
     | AccountUpdateName
     | AccountUpdateExtReference
@@ -20,7 +20,6 @@ type AuditableAction =
     | JournalEntryAddExternalReference
     | JournalEntryAddComment
     | JournalEntryUpdateComment
-
 
 type AuditEnvelope =
     private // intentionally private to prevent tampering

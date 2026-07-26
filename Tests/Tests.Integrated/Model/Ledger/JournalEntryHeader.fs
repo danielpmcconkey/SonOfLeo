@@ -15,8 +15,8 @@ type JournalEntryHeaderTests(fixture: TestDataFixture) =
         // The read path must not re-run the creation-time period-is-open rule
         // (REQ-JE-2.7). Closing a period is the normal end of its lifecycle;
         // historical entries stay readable.
-        let result = withoutTransaction (fun tran ->
-            fixture.Data.jeInClosedPeriodId |> JournalEntryHeader.fetchById tran)
+        let result =
+            withoutTransaction(fun tran -> fixture.Data.jeInClosedPeriodId |> JournalEntryHeader.fetchById tran)
         match result with
         | Ok h ->
             Assert.Equal(fixture.Data.jeInClosedPeriodId, h |> JournalEntryHeader.journalEntryHeaderId)

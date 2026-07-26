@@ -1,7 +1,9 @@
 <Solution>
   <Folder Name="/Src/">
+    <Project Path="Src/Context/Context.fsproj" />
     <Project Path="Src/DataAccessLayer/DataAccessLayer.fsproj" />
     <Project Path="Src/InterfaceBridge/InterfaceBridge.fsproj" />
+    <Project Path="Src/Logger/Logger.fsproj" />
     <Project Path="Src/Model/Model.fsproj" />
     <Project Path="Src/ModelOrchestrator/ModelOrchestrator.fsproj" />
     <Project Path="Src/SonOfLeoCli/SonOfLeoCli.fsproj" />
