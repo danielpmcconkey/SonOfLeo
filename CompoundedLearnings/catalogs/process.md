@@ -6,6 +6,8 @@ migrations, guardrails, traceability.
 | Concept | Article | Read when... |
 |---|---|---|
 | Guardrail triage | (rule lives in `Skills/CreateLearning/SKILL.md`, Step 7) | A new problem or violation class surfaces and you're deciding where its remediation belongs |
+| Checks read the tree, git records the index | `articles/process/checks-read-the-tree-not-the-commit.md` | You're writing or modifying anything in `Checks/` or `.git/hooks/`, or a commit passed its gate and you're about to trust that it was inspected |
+| A check verdict is evidence, not truth | `articles/process/a-check-verdict-is-evidence-not-truth.md` | `Checks/run-all.sh` or the pre-commit hook just failed — before you run a formatter, edit the named files, or reach for `--no-verify` |
 
 Standing rules not yet needing articles: migration review is always Dan's/Hobson's job
 before anything is applied; BD presents work only after a green `Checks/run-all.sh`,

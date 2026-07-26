@@ -36,6 +36,12 @@ dotnet test --artifacts-path /tmp/sonofleo-build
 Any failure: stop, fix, rerun. **Never present red.** Do not rationalize a failure as
 pre-existing without verifying it fails on a clean checkout of your starting commit.
 
+Equally, do not act on a red you have not confirmed. Reproduce the individual failing
+check before you run a formatter, edit the files it names, or reach for `--no-verify` —
+`check-format` has produced both a false PASS and a false FAIL, and the files it names
+may not be yours to touch. See
+`CompoundedLearnings/articles/process/a-check-verdict-is-evidence-not-truth.md`.
+
 ## Pass 1 — "there's already a function for that"
 
 For each new or changed function, check the P2 infrastructure catalog (P2.1–P2.9).
