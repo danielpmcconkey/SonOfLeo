@@ -7,9 +7,9 @@ open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
 open Utilities.AppError
 open DataAccessLayer.QueryParameters
-open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteReader
 open Utilities.ResultHelper
+open Context.Context
 
 type AccountBalance = { accountId: AccountId; totalCredits: Money; totalDebits: Money; netBalance: Money }
 type AccountBalanceComponent =
@@ -32,7 +32,7 @@ let private reconstitute (raw: Guid * string * string * decimal) : Result<Accoun
     }
 
 let fetchByAccountIdList // REQ-JE-3.6
-    (transaction: DbTransaction)
+    (context: Context)
     (accountIds: AccountId list)
     (asOf: LocalDate option) // REQ-JE-3.6.2
     : Result<AccountBalance list, AppError> =
@@ -86,7 +86,13 @@ let fetchByAccountIdList // REQ-JE-3.6
         result {
             let! moneyZero = Money.fromDecimal 0M
             let! components =
-                executeReaderQuery query parameters mapRawForDbRead reconstitute AnyQuantityIsAcceptable transaction
+                executeReaderQuery
+                    (context |> getDatabaseTransaction)
+                    query
+                    parameters
+                    mapRawForDbRead
+                    reconstitute
+                    AnyQuantityIsAcceptable
             let balances =
                 components
                 |> List.groupBy(fun c -> c.accountId, c.accountType)

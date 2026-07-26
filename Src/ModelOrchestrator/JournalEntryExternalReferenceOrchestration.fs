@@ -1,35 +1,30 @@
 module ModelOrchestrator.JournalEntryExternalReferenceOrchestration
 
-open Model.Audit
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
 open DataAccessLayer.QueryParameters
-open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.ExecuteNonQuery
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
+open Context.Context
 
-let validateJournalEntryHeader
-    (transaction: DbTransaction)
-    (journalEntryId: JournalEntryHeaderId)
-    : Result<unit, AppError> =
-    journalEntryId |> JournalEntryHeader.fetchById transaction |> Result.map ignore
+let validateJournalEntryHeader (context: Context) (journalEntryId: JournalEntryHeaderId) : Result<unit, AppError> =
+    journalEntryId |> JournalEntryHeader.fetchById context |> Result.map ignore
 
 let constructNewAndSaveToDb
+    (context: Context)
     (journalEntryHeaderId: JournalEntryHeaderId)
     (financialInstitution: JournalRefFinancialInstitution)
     (referenceText: JournalExternalReferenceText)
-    (auditEnvelope: AuditEnvelope)
-    (transaction: DbTransaction)
     : Result<JournalEntryExternalReference, AppError> =
     let journalEntryExternalReferenceId = JournalEntryExternalReferenceId.create()
-    let now = AuditEnvelope.instant auditEnvelope
+    let now = context |> getInitiationInstant
     let createdAt = now // REQ-SYS-3.2
     let modifiedAt = now // REQ-SYS-3.2
     result {
-        do! journalEntryHeaderId |> validateJournalEntryHeader transaction |> Result.map ignore
+        do! journalEntryHeaderId |> validateJournalEntryHeader context
         let journalExternalReference =
             JournalEntryExternalReference.create
                 journalEntryExternalReferenceId
@@ -38,20 +33,19 @@ let constructNewAndSaveToDb
                 referenceText
                 createdAt
                 modifiedAt
-        do! JournalEntryExternalReference.insertNewToDb journalExternalReference transaction
+        do! journalExternalReference |> JournalEntryExternalReference.insertNewToDb context
         return journalExternalReference
     }
 
 let updateFiAndReferenceText // REQ-JE-4.9
-    (transaction: DbTransaction)
-    (auditEnvelope: AuditEnvelope)
+    (context: Context)
     (fiUpdate: FieldUpdate<JournalRefFinancialInstitution>)
     (referenceUpdate: FieldUpdate<JournalExternalReferenceText>)
     (journalEntryExternalReferenceId: JournalEntryExternalReferenceId)
     : Result<JournalEntryExternalReference, AppError> =
     let uuid = journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
     let baseParams =
-        [ { name = "@modified"; value = DbInstant(AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3
+        [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) } // REQ-SYS-3.3
           { name = "@unique_id"; value = UniqueId uuid } ]
     let updates =
         [ fiUpdate
@@ -81,6 +75,6 @@ let updateFiAndReferenceText // REQ-JE-4.9
                 Error(JournalEntryReferenceUpdateNoOp)
             else
                 Ok()
-        let! _ = executeNonQuery query parameters ExactlyOne transaction
-        return! journalEntryExternalReferenceId |> JournalEntryExternalReference.fetchById transaction
+        let! _ = executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        return! journalEntryExternalReferenceId |> JournalEntryExternalReference.fetchById context
     }

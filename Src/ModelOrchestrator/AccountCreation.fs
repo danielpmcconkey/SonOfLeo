@@ -1,14 +1,13 @@
 module ModelOrchestrator.AccountCreation
 
-open Model.Audit
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.Account
 open Model.Ledger.Accounts.AccountComponent
 open NodaTime
 open Utilities
 open Utilities.AppError
-open DataAccessLayer.DbTransaction
 open Utilities.ResultHelper
+open Context.Context
 
 let private confirmParentAccountIsActive (parentAccount: Account) (referenceDate: LocalDate) : Result<unit, AppError> =
     match parentAccount |> activityPeriod |> AccountActivityPeriod.isActive referenceDate with
@@ -40,7 +39,7 @@ let private confirmParentAndChildAreDistinct
     | _ -> Ok()
 
 let private validateParentChildRelationship
-    (transaction: DbTransaction)
+    (context: Context)
     (parentId: AccountId option)
     (childId: AccountId)
     (childType: AccountType)
@@ -58,7 +57,7 @@ let private validateParentChildRelationship
     | None -> Ok()
     | Some someParentId ->
         result {
-            let! validParent = someParentId |> fetchById transaction // REQ-AC-2.6,
+            let! validParent = someParentId |> fetchById context // REQ-AC-2.6,
             let parentType = validParent |> accountType
             do! confirmParentAccountIsActive validParent referenceDate // REQ-AC-2.7
             do! confirmParentAndChildAccountTypesMatch parentType childType
@@ -83,6 +82,7 @@ let confirmTypeAndSubtypeAreValid (accountType: AccountType) (subType: AccountSu
 /// persistence layer. Internal model functions may construct through other
 /// means if they're operating on known good data.
 let constructNewAndSaveToDb
+    (context: Context)
     (code: AccountCode)
     (accountName: AccountName)
     (accountType: AccountType)
@@ -90,16 +90,14 @@ let constructNewAndSaveToDb
     (subType: AccountSubtype option)
     (parentId: AccountId option)
     (reference: AccountExternalReference option)
-    (auditEnvelope: AuditEnvelope)
-    (transaction: DbTransaction)
     : Result<Account, AppError> =
     result {
         let accountId = AccountId.create() // REQ-AC-1.39, REQ-AC-2.13
-        let now = AuditEnvelope.instant auditEnvelope
+        let now = context |> getInitiationInstant
         let createdAt = now // REQ-SYS-3.2
         let modifiedAt = now // REQ-SYS-3.2
         let validAccount =
-            create
+            Account.create
                 accountId
                 code
                 accountName
@@ -110,9 +108,9 @@ let constructNewAndSaveToDb
                 reference
                 createdAt
                 modifiedAt
-        let referenceDate = (AuditEnvelope.instant auditEnvelope) |> Calendar.dateFromInstant
-        do! validateParentChildRelationship transaction parentId accountId accountType referenceDate
+        let referenceDate = context |> getInitiationInstant |> Calendar.dateFromInstant
+        do! validateParentChildRelationship context parentId accountId accountType referenceDate
         do! confirmTypeAndSubtypeAreValid accountType subType
-        do! insertNewToDb validAccount transaction // REQ-AC-2.14
+        do! validAccount |> insertNewToDb context // REQ-AC-2.14
         return validAccount
     }

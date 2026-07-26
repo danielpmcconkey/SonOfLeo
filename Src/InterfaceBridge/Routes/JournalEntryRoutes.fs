@@ -6,7 +6,6 @@ open InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
 open InterfaceBridge.BoundaryConverters.JournalEntryFieldConverters
 open InterfaceBridge.InterfaceContracts.JournalContracts
 open InterfaceBridge.Json
-open Model.Audit
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator
@@ -17,17 +16,19 @@ open Utilities.AppError
 open Utilities.FieldUpdate
 open Utilities.FieldUpdate.FieldUpdate
 open Utilities.ResultHelper
+open Logger.Audit
+open Context
 
 let private postNew payload _ : Result<string, AppError> =
-    let envelope = AuditEnvelope.create JournalEntryPostNew
-    withAutoCommitTransaction(fun tran ->
+    let context = Context.create NewTransaction JournalEntryPostNew
+    withAutoCommitTransaction context.dataContext.dbTransaction (fun () ->
         result {
             let! input = Json.fromJson<JournalEntryInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
             let! description = input.header.description |> JournalEntryDescription.create
             let! source = input.header.source |> ``convert JeSourceString Option to JeSource Option``
-            let! entryDate = input.header.entryDate |> EntryDate.create tran
+            let! entryDate = input.header.entryDate |> EntryDate.create context
             let! lines =
-                input.lines |> ``convert [JournalEntryLineInput list] to [JournalEntryLinePrimitives list]`` tran
+                input.lines |> ``convert [JournalEntryLineInput list] to [JournalEntryLinePrimitives list]`` context
             let! references =
                 input.externalReferences
                 |> ``convert [JournalEntryExternalReferenceInput list] to [JournalEntryExternalReferencePrimitives list]``
@@ -35,37 +36,29 @@ let private postNew payload _ : Result<string, AppError> =
                 input.comments
                 |> ``convert [JournalEntryCommentInput list] to [JournalEntryCommentPrimitives list]``
             let! newJournalEntry =
-                JournalEntry.constructNewAndSaveToDb
-                    tran
-                    description
-                    source
-                    entryDate
-                    lines
-                    references
-                    comments
-                    envelope
-            let! returnVal = ``convert JournalEntry to JournalEntryReturn`` tran newJournalEntry
+                JournalEntry.constructNewAndSaveToDb context description source entryDate lines references comments
+            let! returnVal = ``convert JournalEntry to JournalEntryReturn`` context newJournalEntry
             return! Json.toJson<JournalEntryReturn> returnVal
         }) // REQ-NGUI-2.4, REQ-NGUI-3.5
 
 let private fetchById payload _ =
-    withoutTransaction(fun tran ->
-        result {
-            let! input = Json.fromJson<JournalEntryFetchByIdInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
-            let! journalEntry = input.id |> JournalEntryHeaderId.fromGuid |> JournalEntry.fetchById tran
-            let! returnVal = ``convert JournalEntry to JournalEntryReturn`` tran journalEntry
-            return! Json.toJson<JournalEntryReturn> returnVal
-        }) // REQ-NGUI-2.4, REQ-NGUI-3.5
+    let context = Context.create NoTransaction FetchOnly
+    result {
+        let! input = Json.fromJson<JournalEntryFetchByIdInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! journalEntry = input.id |> JournalEntryHeaderId.fromGuid |> JournalEntry.fetchById context
+        let! returnVal = ``convert JournalEntry to JournalEntryReturn`` context journalEntry
+        return! Json.toJson<JournalEntryReturn> returnVal
+    } // REQ-NGUI-2.4, REQ-NGUI-3.5
 
 let private fetchByPeriod payload _ = // REQ-JE-3.3
-    withoutTransaction(fun tran ->
-        result {
-            let! input = Json.fromJson<JournalEntryFetchByPeriodInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
-            let! fiscalPeriod = input.periodKey |> ``convert [FiscalPeriodKeyString] to FiscalPeriod`` tran
-            let! model = fiscalPeriod |> JournalEntry.fetchByPeriod tran
-            let! returnVal = model |> ``convert JournalEntry list to JournalEntryReturn list`` tran
-            return! Json.toJson<JournalEntryReturn list> returnVal
-        }) // REQ-NGUI-2.4, REQ-NGUI-3.5
+    let context = Context.create NoTransaction FetchOnly
+    result {
+        let! input = Json.fromJson<JournalEntryFetchByPeriodInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! fiscalPeriod = input.periodKey |> ``convert [FiscalPeriodKeyString] to FiscalPeriod`` context
+        let! model = fiscalPeriod |> JournalEntry.fetchByPeriod context
+        let! returnVal = model |> ``convert JournalEntry list to JournalEntryReturn list`` context
+        return! Json.toJson<JournalEntryReturn list> returnVal
+    } // REQ-NGUI-2.4, REQ-NGUI-3.5
 
 let private fetchLinesByAccount payload _ = // REQ-JE-3.4
     withoutTransaction(fun tran ->

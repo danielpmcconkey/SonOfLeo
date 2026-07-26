@@ -5,9 +5,9 @@ open NodaTime
 open Utilities.AppError
 open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
-open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.ExecuteNonQuery
+open Context.Context
 
 type JournalEntryExternalReference =
     private
@@ -41,10 +41,7 @@ module JournalEntryExternalReference =
           createdAt = createdAt
           modifiedAt = modifiedAt }
 
-    let insertNewToDb
-        (externalReference: JournalEntryExternalReference)
-        (transaction: DbTransaction)
-        : Result<unit, AppError> =
+    let insertNewToDb (context: Context) (externalReference: JournalEntryExternalReference) : Result<unit, AppError> =
         let query =
             """
             INSERT INTO ledger.journal_entry_ext_reference(
@@ -64,7 +61,7 @@ module JournalEntryExternalReference =
                 value = CharString(externalReference.referenceText |> JournalExternalReferenceText.value) }
               { name = "@created_at"; value = DbInstant externalReference.createdAt }
               { name = "@modified_at"; value = DbInstant externalReference.modifiedAt } ]
-        executeNonQuery query parameters ExactlyOne transaction
+        executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
 
 
     /// The mapRow function is used to pass into DAL read functions to let DAL know
@@ -106,12 +103,12 @@ module JournalEntryExternalReference =
     /// readRowsFromDb is designed to produce a flexible read query that can
     /// satisfy diverse use cases
     let private readRowsFromDb
+        (context: Context)
         (predicate: string option)
         (limit: int option)
         (orderBy: string option)
         (parameters: QueryParameter list)
         (expectedRows: AcceptableExpectedRows)
-        (transaction: DbTransaction)
         : Result<JournalEntryExternalReference list, AppError> =
         let select =
             """
@@ -120,28 +117,34 @@ module JournalEntryExternalReference =
             """
         let from = "ledger.journal_entry_ext_reference jer"
         let query = buildReadQuery select from None predicate limit None orderBy
-        executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
+        executeReaderQuery
+            (context |> getDatabaseTransaction)
+            query
+            parameters
+            mapRawForDbRead
+            reconstitute
+            expectedRows
 
     let fetchById
-        (transaction: DbTransaction)
+        (context: Context)
         (journalEntryExternalReferenceId: JournalEntryExternalReferenceId)
         : Result<JournalEntryExternalReference, AppError> =
         let uuid = journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
         let predicate = "jer.unique_id = @unique_id"
         let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
-        readRowsFromDb (Some predicate) None None parameters ExactlyOne transaction |> Result.map List.head
+        readRowsFromDb context (Some predicate) None None parameters ExactlyOne |> Result.map List.head
 
     let fetchByJournalEntryId
-        (transaction: DbTransaction)
+        (context: Context)
         (journalEntryId: JournalEntryHeaderId)
         : Result<JournalEntryExternalReference list, AppError> =
         let uuid = journalEntryId |> JournalEntryHeaderId.value
         let predicate = "jer.journal_entry_id = @unique_id"
         let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
-        readRowsFromDb (Some predicate) None None parameters AnyQuantityIsAcceptable transaction
+        readRowsFromDb context (Some predicate) None None parameters AnyQuantityIsAcceptable
 
     let fetchByJournalEntryHeaderIdList
-        (transaction: DbTransaction)
+        (context: Context)
         (journalEntryHeaderIds: JournalEntryHeaderId list)
         : Result<JournalEntryExternalReference list, AppError> =
         let ordinals = [ 1 .. journalEntryHeaderIds.Length ]
@@ -156,4 +159,4 @@ module JournalEntryExternalReference =
         let names = namesAndParameters |> List.map fst |> String.concat ", "
         let parameters = namesAndParameters |> List.map snd
         let predicate = $"jer.journal_entry_id in ({names})"
-        readRowsFromDb (Some predicate) None None parameters AnyQuantityIsAcceptable transaction
+        readRowsFromDb context (Some predicate) None None parameters AnyQuantityIsAcceptable

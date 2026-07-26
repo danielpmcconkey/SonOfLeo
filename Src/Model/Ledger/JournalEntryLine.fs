@@ -8,9 +8,9 @@ open NodaTime
 open Utilities.AppError
 open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
-open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.ExecuteNonQuery
+open Context.Context
 
 type JournalEntryLine =
     private
@@ -52,7 +52,7 @@ module JournalEntryLine =
           createdAt = createdAt
           modifiedAt = modifiedAt }
 
-    let insertNewToDb (transaction: DbTransaction) (journalEntryLine: JournalEntryLine) : Result<unit, AppError> =
+    let insertNewToDb (context: Context) (journalEntryLine: JournalEntryLine) : Result<unit, AppError> =
         let query =
             """
             INSERT INTO ledger.journal_entry_line(
@@ -75,7 +75,7 @@ module JournalEntryLine =
                 value = NullableCharString(journalEntryLine.memo |> Option.map JournalEntryLineMemo.value) }
               { name = "@created_at"; value = DbInstant journalEntryLine.createdAt }
               { name = "@modified_at"; value = DbInstant journalEntryLine.modifiedAt } ]
-        executeNonQuery query parameters ExactlyOne transaction
+        executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
 
     /// The mapRow function is used to pass into DAL read functions to let DAL know
     /// how to map our query columns. Thus, we don't need to know anything about the
@@ -111,42 +111,47 @@ module JournalEntryLine =
         }
 
     let private readRowsFromDb
+        (context: Context)
         (join: string option)
         (predicate: string option)
         (limit: int option)
         (orderBy: string option)
         (parameters: QueryParameter list)
         (expectedRows: AcceptableExpectedRows)
-        (transaction: DbTransaction)
         : Result<JournalEntryLine list, AppError> =
         let select =
-            "jel.unique_id, jel.journal_entry_id, jel.account_id, jel.amount, jel.line_type, jel.memo, jel.created_at, jel.modified_at"
+            """
+            jel.unique_id, jel.journal_entry_id, jel.account_id, jel.amount,
+            jel.line_type, jel.memo, jel.created_at, jel.modified_at
+        """
         let from = "ledger.journal_entry_line jel"
         let query = buildReadQuery select from join predicate limit None orderBy
-        executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
+        executeReaderQuery
+            (context |> getDatabaseTransaction)
+            query
+            parameters
+            mapRawForDbRead
+            reconstitute
+            expectedRows
 
-    let fetchById
-        (transaction: DbTransaction)
-        (journalEntryLineId: JournalEntryLineId)
-        : Result<JournalEntryLine, AppError> =
+    let fetchById (context: Context) (journalEntryLineId: JournalEntryLineId) : Result<JournalEntryLine, AppError> =
         let uuid = journalEntryLineId |> JournalEntryLineId.value
         let predicate = "jel.unique_id = @unique_id"
         let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
-        readRowsFromDb None (Some predicate) None None parameters ExactlyOne transaction
-        |> Result.map List.head
+        readRowsFromDb context None (Some predicate) None None parameters ExactlyOne |> Result.map List.head
 
     let fetchByJournalEntryHeaderId
-        (transaction: DbTransaction)
+        (context: Context)
         (journalEntryHeaderId: JournalEntryHeaderId)
         : Result<JournalEntryLine list, AppError> =
         let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
         let predicate = "jel.journal_entry_id = @journal_entry_id"
         let parameters = [ { name = "@journal_entry_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
         let orderBy = "jel.created_at"
-        readRowsFromDb None (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable transaction
+        readRowsFromDb context None (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable
 
     let fetchByJournalEntryHeaderIdList
-        (transaction: DbTransaction)
+        (context: Context)
         (journalEntryHeaderIds: JournalEntryHeaderId list)
         : Result<JournalEntryLine list, AppError> =
         let ordinals = [ 1 .. journalEntryHeaderIds.Length ]
@@ -161,10 +166,10 @@ module JournalEntryLine =
         let names = namesAndParameters |> List.map fst |> String.concat ", "
         let parameters = namesAndParameters |> List.map snd
         let predicate = $"jel.journal_entry_id in ({names})"
-        readRowsFromDb None (Some predicate) None None parameters AnyQuantityIsAcceptable transaction
+        readRowsFromDb context None (Some predicate) None None parameters AnyQuantityIsAcceptable
 
     let fetchByAccountId // REQ-JE-3.4
-        (transaction: DbTransaction)
+        (context: Context)
         (nonVoidedOnly: bool)
         (accountId: AccountId)
         : Result<JournalEntryLine list, AppError> =
@@ -177,7 +182,7 @@ module JournalEntryLine =
         let predicate = Some $"jel.account_id = @account_id {voidCheck}"
         let parameters = [ { name = "@account_id"; value = UniqueId accountIdGuid } ] // REQ-DAL-2.3
         let orderBy = Some "jel.created_at"
-        readRowsFromDb join predicate None orderBy parameters AnyQuantityIsAcceptable transaction
+        readRowsFromDb context join predicate None orderBy parameters AnyQuantityIsAcceptable
 
     let sumLinesByType (debitOrCredit: JournalEntryLineType) (lines: JournalEntryLine list) : Result<Money, AppError> =
         lines |> List.filter(fun x -> lineType x = debitOrCredit) |> List.map(amount) |> Money.sumList

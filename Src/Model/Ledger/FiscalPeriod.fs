@@ -3,11 +3,10 @@ namespace Model.Ledger.FiscalPeriods
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
-open DataAccessLayer.DbTransaction
-open Model.Audit
 open NodaTime
 open Utilities.AppError
 open Utilities.ResultHelper
+open Context.Context
 
 
 type FiscalPeriod =
@@ -49,7 +48,7 @@ module FiscalPeriod =
     /// insertNewToDb is a private function used as an interface to the DAL. It
     /// assumes that the calling function handled all necessary validations to
     /// ensure only legal data states persist
-    let insertNewToDb (fp: FiscalPeriod) (transaction: DbTransaction) : Result<unit, AppError> =
+    let insertNewToDb (context: Context) (fp: FiscalPeriod) : Result<unit, AppError> =
         let query =
             """
             insert into ledger.fiscal_period( -- REQ-SYS-5.1
@@ -66,7 +65,7 @@ module FiscalPeriod =
               { name = "@is_open"; value = Boolean fp.isOpen }
               { name = "@created_at"; value = DbInstant fp.createdAt }
               { name = "@modified_at"; value = DbInstant fp.modifiedAt } ]
-        executeNonQuery query parameters ExactlyOne transaction
+        executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
 
     /// The mapRow function is used to pass into DAL read functions to let DAL know
     /// how to map our query columns. Thus, we don't need to know anything about the
@@ -95,28 +94,34 @@ module FiscalPeriod =
     /// readRowsFromDb is designed to produce a flexible read query that can
     /// satisfy diverse use cases
     let private readRowsFromDb
+        (context: Context)
         (predicate: string option)
         (limit: int option)
         (parameters: QueryParameter list)
         (expectedRows: AcceptableExpectedRows)
-        (transaction: DbTransaction)
         : Result<FiscalPeriod list, AppError> = // REQ-FP-3.1
         let select =
             "fp.unique_id, fp.period_key, fp.start_date, fp.end_date, fp.is_open, fp.created_at, fp.modified_at"
         let from = "ledger.fiscal_period fp"
         let query = buildReadQuery select from None predicate limit None None
-        executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
+        executeReaderQuery
+            (context |> getDatabaseTransaction)
+            query
+            parameters
+            mapRawForDbRead
+            reconstitute
+            expectedRows
 
-    let fetchById (transaction: DbTransaction) (id: FiscalPeriodId) : Result<FiscalPeriod, AppError> =
+    let fetchById (context: Context) (id: FiscalPeriodId) : Result<FiscalPeriod, AppError> =
         let predicate = "fp.unique_id = @unique_id"
         let uuid = id |> FiscalPeriodId.value
         let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
-        readRowsFromDb (Some predicate) None parameters ExactlyOne transaction |> Result.map List.head
+        readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
     /// fetchIdByKey should only be used sparingly, as it goes against
     /// the doctrine that the model deals in UUIDs while the boundary
     /// does the translation between keys and IDs
-    let fetchIdByKey (transaction: DbTransaction) (key: string) : Result<FiscalPeriodId, AppError> =
+    let fetchIdByKey (context: Context) (key: string) : Result<FiscalPeriodId, AppError> =
         let mapRaw (row: RowReader) =
             (row |> RowReader.getUuid "unique_id"), ()
         let constructFromRaw raw =
@@ -125,29 +130,30 @@ module FiscalPeriod =
         let query = "select unique_id from ledger.fiscal_period where period_key = @period_key"
         let parameters = [ { name = "@period_key"; value = CharString key } ] // REQ-DAL-2.3
 
-        match executeReaderQuery query parameters mapRaw constructFromRaw ExactlyOne transaction with
+        match
+            executeReaderQuery (context |> getDatabaseTransaction) query parameters mapRaw constructFromRaw ExactlyOne
+        with
         | Ok x -> Ok(x |> List.head |> FiscalPeriodId.fromGuid)
         | Error(DalResultantRowsDidntMatchExpectation _) -> Error(FiscalPeriodNoPeriodMatchingKey key)
         | Error e -> Error e
 
-    let fetchAll (transaction: DbTransaction) (openOnly: bool) : Result<FiscalPeriod list, AppError> = // REQ-FP-3.4
+    let fetchAll (context: Context) (openOnly: bool) : Result<FiscalPeriod list, AppError> = // REQ-FP-3.4
         let predicate =
             match openOnly with
             | true -> Some "fp.is_open = true" // REQ-FP-3.5
             | _ -> None
         let parameters = []
-        readRowsFromDb predicate None parameters AnyQuantityIsAcceptable transaction
+        readRowsFromDb context predicate None parameters AnyQuantityIsAcceptable
 
     let private toggleOpenFlagById
+        (context: Context)
         (fpId: FiscalPeriodId)
         (newValue: bool)
-        (auditEnvelope: AuditEnvelope)
-        (transaction: DbTransaction)
         : Result<FiscalPeriod, AppError> =
         let enforcedCurrentValue = not newValue
         let uuid = fpId |> FiscalPeriodId.value
         let parameters =
-            [ { name = "@modified"; value = DbInstant(AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3
+            [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) } // REQ-SYS-3.3
               { name = "@unique_id"; value = UniqueId uuid }
               { name = "@newValue"; value = Boolean newValue }
               { name = "@enforcedCurrentValue"; value = Boolean enforcedCurrentValue } ]
@@ -162,20 +168,18 @@ module FiscalPeriod =
             ;
         """
         result {
-            let! () = executeNonQuery query parameters ExactlyOne transaction
-            return! fpId |> fetchById transaction
+            let! () = executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+            return! fpId |> fetchById context
         }
 
     let closeFiscalPeriod // REQ-FP-4.1
+        (context: Context)
         (fpId: FiscalPeriodId)
-        (auditEnvelope: AuditEnvelope)
-        (transaction: DbTransaction)
         : Result<FiscalPeriod, AppError> =
-        toggleOpenFlagById fpId false auditEnvelope transaction
+        toggleOpenFlagById context fpId false
 
     let reopenFiscalPeriod // REQ-FP-4.2
+        (context: Context)
         (fpId: FiscalPeriodId)
-        (auditEnvelope: AuditEnvelope)
-        (transaction: DbTransaction)
         : Result<FiscalPeriod, AppError> =
-        toggleOpenFlagById fpId true auditEnvelope transaction
+        toggleOpenFlagById context fpId true

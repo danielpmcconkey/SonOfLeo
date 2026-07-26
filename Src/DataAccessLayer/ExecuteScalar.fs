@@ -149,10 +149,10 @@ let uuidOptionUnboxing (objRaw: obj) : Result<Guid option, AppError> =
         Error(DalErrorDuringUuidOptionUnboxing ex)
 
 let executeScalar
+    (dbTransaction: DbTransaction)
     (query: string)
     (parameters: QueryParameter list)
     (unboxingFunc: obj -> Result<'T, AppError>)
-    (dbTransaction: DbTransaction)
     : Result<'T, AppError> =
     result {
         let! ds = dataSource.Value

@@ -10,8 +10,8 @@ open Utilities.AppError
 open Utilities.ResultHelper
 open Model.Ledger.FiscalPeriods
 open DataAccessLayer.QueryParameters
-open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteReader
+open Context.Context
 
 type AccountActivityDetail =
     { lineId: JournalEntryLineId
@@ -131,7 +131,7 @@ let private reconstitute raw =
     }
 
 let fetchFiltered // REQ-JE-3.9
-    (transaction: DbTransaction)
+    (context: Context)
     (filter: AccountActivityFilter)
     (sort: FetchSort option)
     : Result<AccountActivity list, AppError> =
@@ -142,7 +142,7 @@ let fetchFiltered // REQ-JE-3.9
             | Some(DateRange dr) -> Ok(Some(dr.beginDate, dr.endInclusive))
             | Some(FiscalPeriodIdentifier fpId) ->
                 fpId
-                |> FiscalPeriod.fetchById transaction
+                |> FiscalPeriod.fetchById context
                 |> Result.map(fun fp -> Some(fp |> FiscalPeriod.startDate, fp |> FiscalPeriod.endDate))
 
         let voidClause =
@@ -233,5 +233,12 @@ let fetchFiltered // REQ-JE-3.9
             {voidClause}
             {sortClause}
             """
-        return! executeReaderQuery query parameters mapRawForDbRead reconstitute AnyQuantityIsAcceptable transaction
+        return!
+            executeReaderQuery
+                (context |> getDatabaseTransaction)
+                query
+                parameters
+                mapRawForDbRead
+                reconstitute
+                AnyQuantityIsAcceptable
     }

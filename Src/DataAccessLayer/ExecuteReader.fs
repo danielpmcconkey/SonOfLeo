@@ -141,12 +141,12 @@ let buildReadQuery
         """
 
 let executeReaderQuery
+    (dbTransaction: DbTransaction)
     (query: string)
     (parameters: QueryParameter list)
     (mapRaw: RowReader -> 'Tuple) // REQ-DAL-3.2
     (constructFromRaw: 'Tuple -> Result<'T, AppError>)
     (expectedRows: AcceptableExpectedRows)
-    (dbTransaction: DbTransaction)
     : Result<'T list, AppError> =
     result {
         let! ds = dataSource.Value

@@ -9,10 +9,10 @@ open Utilities.AppError
 open Utilities.ResultHelper
 
 let executeNonQuery
+    (dbTransaction: DbTransaction)
     (query: string)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    (dbTransaction: DbTransaction)
     : Result<unit, AppError> =
     result {
         let! ds = dataSource.Value

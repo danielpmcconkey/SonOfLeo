@@ -4,10 +4,14 @@ open Npgsql
 open Utilities.AppError
 open Utilities.ResultHelper
 open DataAccessLayer.DbConnections
-
 type NpgTranAndConn = private { connection: NpgsqlConnection; transaction: NpgsqlTransaction }
 
 type DbTransaction = private { npgTranAndConn: NpgTranAndConn option }
+
+type TransactionNeed =
+    | NoTransaction
+    | NewTransaction
+    | ExistingTransaction of DbTransaction
 
 type CompletionAction =
     | Commit
@@ -33,7 +37,7 @@ let internal getTranAndConn dbTransaction =
         let conn = npgTranAndConn.connection
         Ok(tran, conn)
 
-let private createDbTransaction () : Result<DbTransaction, AppError> =
+let createDbTransaction () : Result<DbTransaction, AppError> =
     result {
         let! ds = dataSource.Value
         return!
@@ -72,27 +76,22 @@ let commit (dbTransaction: DbTransaction) : Result<unit, AppError> =
 let rollback (dbTransaction: DbTransaction) : Result<unit, AppError> =
     dbTransaction |> commitOrRollbackAndDispose Rollback
 
-let withAutoCommitTransaction (func: DbTransaction -> Result<'T, AppError>) : Result<'T, AppError> =
-    match createDbTransaction() with
-    | Error createError -> Error createError
-    | Ok tran ->
-        match tran |> func with
+let withAutoCommitTransaction
+    (dbTransaction: DbTransaction)
+    (func: unit -> Result<'T, AppError>)
+    : Result<'T, AppError> =
+    if dbTransaction.npgTranAndConn |> Option.isNone then
+        Error DalCantUseTransactionOfNoneInAutoCommit
+    else
+        match () |> func with
         | Error funcError ->
-            match tran |> rollback with
+            match dbTransaction |> rollback with
             | Ok _ -> Error funcError
             | Error rollbackError -> Error rollbackError
         | Ok funcResult ->
-            match tran |> commit with
+            match dbTransaction |> commit with
             | Ok _ -> Ok funcResult
             | Error commitError -> Error commitError
 
-let withManualCommitTransaction (func: DbTransaction -> Result<'T, AppError>) : ManualTransactionResult<'T> =
-    match createDbTransaction() with
-    | Error createError -> TransactionCreateFail createError
-    | Ok tran ->
-        match tran |> func with
-        | Ok funcResult -> Success(funcResult, tran)
-        | Error funcError -> Failed(funcError, tran)
-
-let withoutTransaction (func: DbTransaction -> Result<'T, AppError>) : Result<'T, AppError> =
-    { npgTranAndConn = None } |> func
+/// createNoTransaction is used to easily establish context without creating an unneeded DbContext
+let createNoTransaction () : DbTransaction = { npgTranAndConn = None }

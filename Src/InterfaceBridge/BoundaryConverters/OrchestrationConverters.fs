@@ -16,7 +16,7 @@ open Utilities.ResultHelper
 open DataAccessLayer.DbTransaction
 
 let ``convert TemporalFilterInput to TemporalFilter``
-    (tran: DbTransaction)
+    (context: Context)
     (input: TemporalFilterInput)
     : Result<TemporalFilter, AppError> =
 
@@ -34,14 +34,14 @@ let ``convert TemporalFilterInput to TemporalFilter``
             return uuid |> FiscalPeriodId.fromGuid |> TemporalFilter.FiscalPeriodIdentifier
         }
 let ``convert TemporalFilterInput Option To TemporalFilter Option``
-    (tran: DbTransaction)
+    (context: Context)
     (input: TemporalFilterInput option)
     : Result<TemporalFilter option, AppError> =
     let fallibleConverter = (fun x -> x |> ``convert TemporalFilterInput to TemporalFilter`` tran)
     input |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
 let ``convert AccountActivityFilterInput to AccountActivityFilter``
-    (tran: DbTransaction)
+    (context: Context)
     (input: AccountActivityFilterInput)
     : Result<AccountActivityFilter, AppError> =
     result {
@@ -88,7 +88,7 @@ let ``convert AccountActivityDetail to AccountActivityDetailReturn``
       journalEntryVoidedAt = input.journalEntryVoidedAt }
 
 let ``convert AccountActivity to AccountActivityReturn``
-    (tran: DbTransaction)
+    (context: Context)
     (input: AccountActivity)
     : Result<AccountActivityReturn, AppError> =
     result {
@@ -107,7 +107,7 @@ let ``convert AccountActivity to AccountActivityReturn``
     }
 
 let ``convert AccountActivity List to AccountActivityReturn List``
-    (tran: DbTransaction)
+    (context: Context)
     (input: AccountActivity list)
     : Result<AccountActivityReturn list, AppError> =
     input

@@ -9,7 +9,7 @@ open DataAccessLayer.DbTransaction
 open Utilities.ResultHelper
 
 let ``convert FiscalPeriodKeyString to FiscalPeriodId``
-    (tran: DbTransaction)
+    (context: Context)
     (key: string)
     : Result<FiscalPeriodId, AppError> =
     key
@@ -23,7 +23,7 @@ let ``convert FiscalPeriodKeyString to FiscalPeriodId``
     |> Result.map(FiscalPeriodId.fromGuid)
 
 let ``convert [FiscalPeriodKeyString] to FiscalPeriod``
-    (tran: DbTransaction)
+    (context: Context)
     (key: string)
     : Result<FiscalPeriod, AppError> =
     result {

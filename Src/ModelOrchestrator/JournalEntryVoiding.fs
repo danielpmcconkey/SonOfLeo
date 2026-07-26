@@ -1,6 +1,5 @@
 module ModelOrchestrator.JournalEntryVoiding
 
-open Model.Audit
 open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
@@ -8,19 +7,19 @@ open ModelOrchestrator.JournalEntries
 open Utilities.AppError
 open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
-open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.ExecuteNonQuery
+open Context.Context
 
 let private confirmFiscalPeriodIsStillOpenBeforeVoiding
-    (transaction: DbTransaction)
+    (context: Context)
     (journalEntryHeader: JournalEntryHeader)
     : Result<unit, AppError> =
     let entryDate = journalEntryHeader |> JournalEntryHeader.entryDate
     let fiscalPeriodId = entryDate |> EntryDate.fiscalPeriodId
     result {
         let! fiscalPeriod =
-            match fiscalPeriodId |> FiscalPeriod.fetchById transaction with
+            match fiscalPeriodId |> FiscalPeriod.fetchById context with
             | Ok x -> Ok x
             | Error(DalResultantRowsDidntMatchExpectation _) ->
                 Error(
@@ -43,14 +42,14 @@ let private confirmFiscalPeriodIsStillOpenBeforeVoiding
     }
 
 let private voidById // REQ-JE-4.3
-    (transaction: DbTransaction)
-    (auditEnvelope: AuditEnvelope)
+    (context: Context)
     (journalEntryHeaderId: JournalEntryHeaderId)
     : Result<unit, AppError> =
     let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
+    let now = context |> getInitiationInstant
     let parameters =
-        [ { name = "@modified"; value = DbInstant(AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3
-          { name = "@newValue"; value = DbInstant(AuditEnvelope.instant auditEnvelope) }
+        [ { name = "@modified"; value = DbInstant(now) } // REQ-SYS-3.3
+          { name = "@newValue"; value = DbInstant(now) }
           { name = "@unique_id"; value = UniqueId uuid } ]
     let query =
         $"""
@@ -63,38 +62,35 @@ let private voidById // REQ-JE-4.3
         ;
     """
     result {
-        let! je = journalEntryHeaderId |> JournalEntryHeader.fetchById transaction
-        do! je |> confirmFiscalPeriodIsStillOpenBeforeVoiding transaction // REQ-JE-4.5
-        do! executeNonQuery query parameters ExactlyOne transaction // REQ-JE-4.6
+        let! je = journalEntryHeaderId |> JournalEntryHeader.fetchById context
+        do! je |> confirmFiscalPeriodIsStillOpenBeforeVoiding context // REQ-JE-4.5
+        do! executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne // REQ-JE-4.6
     }
 
 let private insertReason // REQ-JE-4.4
+    (context: Context)
     (primaryJournalEntryId: JournalEntryHeaderId)
     (secondaryJournalEntryId: JournalEntryHeaderId option)
     (commentText: CommentText)
-    (auditEnvelope: AuditEnvelope)
-    (transaction: DbTransaction)
     : Result<unit, AppError> =
     JournalEntryCommentOrchestration.constructNewAndSaveToDb
+        context
         primaryJournalEntryId
         secondaryJournalEntryId
         commentText
-        auditEnvelope
-        transaction
     |> Result.map ignore
 
 let voidJournalEntry // REQ-JE-4.3
-    (dbTransaction: DbTransaction)
-    (auditEnvelope: AuditEnvelope)
+    (context: Context)
     (secondaryJournalEntryIdForComment: JournalEntryHeaderId option)
     (commentText: CommentText)
     (journalEntryHeaderId: JournalEntryHeaderId)
     : Result<JournalEntry, AppError> =
     result {
-        do! insertReason journalEntryHeaderId secondaryJournalEntryIdForComment commentText auditEnvelope dbTransaction // REQ-JE-4.4
+        do! insertReason context journalEntryHeaderId secondaryJournalEntryIdForComment commentText // REQ-JE-4.4
         do!
             journalEntryHeaderId
-            |> voidById dbTransaction auditEnvelope
+            |> voidById context
             |> function
                 | Ok y -> Ok y
                 | Error(DalResultantRowsDidntMatchExpectation(_, 0)) ->
@@ -102,5 +98,5 @@ let voidJournalEntry // REQ-JE-4.3
                 | Error(DalResultantRowsDidntMatchExpectation(expected, actual)) ->
                     Error(DalResultantRowsDidntMatchExpectation(expected, actual))
                 | Error e -> Error e
-        return! journalEntryHeaderId |> JournalEntry.fetchById dbTransaction
+        return! journalEntryHeaderId |> JournalEntry.fetchById context
     }

@@ -1,14 +1,13 @@
 module ModelOrchestrator.JournalEntryLineOrchestration
 
 open Model
-open Model.Audit
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
-open DataAccessLayer.DbTransaction
 open Utilities.ResultHelper
+open Context.Context
 
 let confirmAmountIsPositive (m: Money) : Result<unit, AppError> =
     if
@@ -18,29 +17,28 @@ let confirmAmountIsPositive (m: Money) : Result<unit, AppError> =
     else
         Ok()
 
-let confirmAccountExists (transaction: DbTransaction) (accountId: AccountId) : Result<unit, AppError> =
-    match accountId |> Account.fetchById transaction with
+let confirmAccountExists (context: Context) (accountId: AccountId) : Result<unit, AppError> =
+    match accountId |> Account.fetchById context with
     | Error(DalResultantRowsDidntMatchExpectation _) ->
         Error(JournalEntryLineAccountDoesntExist(accountId |> AccountId.value))
     | Error e -> Error e
     | Ok _ -> Ok()
 
 let constructNewAndSaveToDb
+    (context: Context)
     (journalEntryId: JournalEntryHeaderId)
     (accountId: AccountId)
     (amount: Money)
     (lineType: JournalEntryLineType)
     (memo: JournalEntryLineMemo option)
-    (auditEnvelope: AuditEnvelope)
-    (transaction: DbTransaction)
     : Result<JournalEntryLine, AppError> =
     let journalEntryLineId = JournalEntryLineId.create()
-    let now = AuditEnvelope.instant auditEnvelope
+    let now = context |> getInitiationInstant
     let createdAt = now // REQ-SYS-3.2
     let modifiedAt = now // REQ-SYS-3.2
     result {
         do! amount |> confirmAmountIsPositive
-        do! accountId |> confirmAccountExists transaction //REQ-JE-1.22
+        do! accountId |> confirmAccountExists context //REQ-JE-1.22
         let line =
             JournalEntryLine.create
                 journalEntryLineId
@@ -51,7 +49,7 @@ let constructNewAndSaveToDb
                 memo
                 createdAt
                 modifiedAt
-        let! () = line |> JournalEntryLine.insertNewToDb transaction
+        let! () = line |> JournalEntryLine.insertNewToDb context
         return line
     }
 

@@ -1,13 +1,12 @@
 namespace Model.Ledger.Accounts
 
+open Context.Context
 open Utilities
 open Utilities.AppError
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
-open Model.Audit
 open AccountComponent
 open NodaTime
-open DataAccessLayer.DbTransaction
 open DataAccessLayer.QueryParameters
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.ExecuteNonQuery
@@ -129,11 +128,11 @@ module Account =
     /// readRowsFromDb is designed to produce a flexible read query that can
     /// satisfy diverse use cases
     let private readRowsFromDb
+        (context: Context)
         (predicate: string option)
         (limit: int option)
         (parameters: QueryParameter list)
         (expectedRows: AcceptableExpectedRows)
-        (transaction: DbTransaction)
         : Result<Account list, AppError> =
         let select =
             """
@@ -142,12 +141,18 @@ module Account =
             """
         let from = "ledger.account a"
         let query = buildReadQuery select from None predicate limit None None // REQ-AC-3.2
-        executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
+        executeReaderQuery
+            (context |> getDatabaseTransaction)
+            query
+            parameters
+            mapRawForDbRead
+            reconstitute
+            expectedRows
 
     /// insertNewToDb is a function used as an interface to the DAL. It
     /// assumes that the calling function handled all necessary validations to
     /// ensure only legal data states persist
-    let insertNewToDb (account: Account) (transaction: DbTransaction) : Result<unit, AppError> =
+    let insertNewToDb (context: Context) (account: Account) : Result<unit, AppError> =
         let query =
             """
             insert into ledger.account( -- REQ-SYS-5.1
@@ -192,33 +197,33 @@ module Account =
               { name = "@account_subtype"; value = NullableCharString subTypeString }
               { name = "@parent_id"; value = NullableUniqueId parentId }
               { name = "@external_ref"; value = NullableCharString externalReferenceString } ]
-        executeNonQuery query parameters ExactlyOne transaction
+        executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
 
-    let fetchById (transaction: DbTransaction) (accountId: AccountId) : Result<Account, AppError> = // REQ-AC-3.3
+    let fetchById (context: Context) (accountId: AccountId) : Result<Account, AppError> = // REQ-AC-3.3
         let predicate = "a.unique_id = @unique_id"
         let accountIdGuid = accountId |> AccountId.value
         let parameters = [ { name = "@unique_id"; value = UniqueId accountIdGuid } ] // REQ-DAL-2.3
-        readRowsFromDb (Some predicate) None parameters ExactlyOne transaction |> Result.map List.head
+        readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
-    let fetchByParentId (transaction: DbTransaction) (parentId: AccountId) : Result<Account list, AppError> = // REQ-AC-3.5
+    let fetchByParentId (context: Context) (parentId: AccountId) : Result<Account list, AppError> = // REQ-AC-3.5
         let predicate = "a.parent_id = @parent_id"
         let parentIdGuid = parentId |> AccountId.value
         let parameters = [ { name = "@parent_id"; value = UniqueId parentIdGuid } ] // REQ-DAL-2.3
-        readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable transaction
+        readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-    let fetchByAccountType (transaction: DbTransaction) (accountType: AccountType) : Result<Account list, AppError> = // REQ-AC-3.6
+    let fetchByAccountType (context: Context) (accountType: AccountType) : Result<Account list, AppError> = // REQ-AC-3.6
         let predicate = "a.account_type = @account_type"
         let parameters = [ { name = "@account_type"; value = CharString(accountType |> AccountType.toString) } ] // REQ-DAL-2.3
-        readRowsFromDb (Some predicate) None parameters AnyQuantityIsAcceptable transaction
+        readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
 
     /// fetchAll returns all accounts or, if activeOnly is true, fetches all accounts
     /// that are active with respect to the system runtime
-    let fetchAll (activeOnly: bool) (transaction: DbTransaction) : Result<Account list, AppError> = // REQ-AC-3.7
+    let fetchAll (context: Context) (activeOnly: bool) : Result<Account list, AppError> = // REQ-AC-3.7
         let predicate = None
         let parameters = []
         let activeReference = Calendar.today()
 
-        match readRowsFromDb predicate None parameters AnyQuantityIsAcceptable transaction with
+        match readRowsFromDb context predicate None parameters AnyQuantityIsAcceptable with
         | Error e -> Error e
         | Ok allRows ->
             if activeOnly then
@@ -229,15 +234,14 @@ module Account =
                 Ok allRows
 
     let private updateDb
+        (context: Context)
         (accountId: AccountId)
         (nameUpdate: FieldUpdate<AccountName>)
         (referenceUpdate: FieldUpdate<AccountExternalReference option>)
-        (auditEnvelope: AuditEnvelope)
-        (transaction: DbTransaction)
         : Result<Account, AppError> =
         let accountIdGuid = accountId |> AccountId.value
         let baseParams =
-            [ { name = "@modified"; value = DbInstant(AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3
+            [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) } // REQ-SYS-3.3
               { name = "@unique_id"; value = UniqueId accountIdGuid } ]
         let updates =
             [ nameUpdate
@@ -263,33 +267,27 @@ module Account =
         """
         result {
             do! if updates.IsEmpty then Error(AccountUpdateNoOp) else Ok()
-            let! () = executeNonQuery query parameters ExactlyOne transaction
-            return! accountId |> fetchById transaction
+            let! () = executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+            return! accountId |> fetchById context
         }
 
-    let updateAccountNameById
-        (accountId: AccountId)
-        (newName: string)
-        (auditEnvelope: AuditEnvelope)
-        (transaction: DbTransaction)
-        : Result<Account, AppError> = // REQ-AC-4.8
+    let updateAccountNameById (context: Context) (accountId: AccountId) (newName: string) : Result<Account, AppError> = // REQ-AC-4.8
         result {
             let! validAccountName = AccountName.create newName // REQ-SYS-2.1
-            let! newAccount = updateDb accountId (SetTo validAccountName) NoChange auditEnvelope transaction
+            let! newAccount = updateDb context accountId (SetTo validAccountName) NoChange
             return newAccount
         }
 
     let updateExternalReferenceById
+        (context: Context)
         (accountId: AccountId)
         (newReference: string option) // todo make this as FieldUpdate
-        (auditEnvelope: AuditEnvelope)
-        (transaction: DbTransaction)
         : Result<Account, AppError> = // REQ-AC-4.9
         result {
             let! validRef = // REQ-SYS-2.1
                 match newReference with
                 | Some x -> AccountExternalReference.create x |> Result.map Some
                 | None -> Ok None
-            let! newAccount = updateDb accountId NoChange (SetTo validRef) auditEnvelope transaction
+            let! newAccount = updateDb context accountId NoChange (SetTo validRef)
             return newAccount
         }

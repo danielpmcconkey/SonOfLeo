@@ -13,6 +13,7 @@ type AppError =
     | DalEnvVarNotSet of string
     | DalConnectionStringIsEmpty
     | DalErrorDuringTransactionCreation of exn
+    | DalCantUseTransactionOfNoneInAutoCommit
     | DalCantCompleteTransactionOfNone
     | DalCantFetchTransactionOfNone
     | DalErrorDuringTransactionCommit of exn
@@ -124,6 +125,8 @@ module AppError =
         | DalConnectionStringIsEmpty -> "Connection string is empty."
         | DalErrorDuringTransactionCreation ex ->
             $"Database error during transaction creation: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+        | DalCantUseTransactionOfNoneInAutoCommit ->
+            "Error. You cannot send a transaction of None into the auto-commit pipeline."
         | DalCantCompleteTransactionOfNone -> "Error. You cannot commit or rollback with a raw transaction of None."
         | DalCantFetchTransactionOfNone -> "Error. You cannot fetch a connection with a raw transaction of None."
         | DalErrorDuringTransactionCommit ex ->

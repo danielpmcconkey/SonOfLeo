@@ -4,9 +4,9 @@ open DataAccessLayer.ExecuteNonQuery
 open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
 open Utilities.AppError
-open DataAccessLayer.DbTransaction
 open DataAccessLayer.QueryParameters
 open DataAccessLayer.ExecuteReader
+open Context.Context
 
 type JournalEntryComment =
     private
@@ -40,7 +40,7 @@ module JournalEntryComment =
           createdAt = createdAt
           modifiedAt = modifiedAt }
 
-    let insertNewToDb (comment: JournalEntryComment) (transaction: DbTransaction) : Result<unit, AppError> =
+    let insertNewToDb (context: Context) (comment: JournalEntryComment) : Result<unit, AppError> =
         let query =
             """
             INSERT INTO ledger.journal_entry_comment(
@@ -58,7 +58,7 @@ module JournalEntryComment =
               { name = "@comment_text"; value = CharString(comment.commentText |> CommentText.value) }
               { name = "@created_at"; value = DbInstant comment.createdAt }
               { name = "@modified_at"; value = DbInstant comment.modifiedAt } ]
-        executeNonQuery query parameters ExactlyOne transaction
+        executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
 
     /// The mapRow function is used to pass into DAL read functions to let DAL know
     /// how to map our query columns. Thus, we don't need to know anything about the
@@ -96,12 +96,12 @@ module JournalEntryComment =
                   modifiedAt = modifiedAt }
 
     let private readRowsFromDb
+        (context: Context)
         (predicate: string option)
         (limit: int option)
         (orderBy: string option)
         (parameters: QueryParameter list)
         (expectedRows: AcceptableExpectedRows)
-        (transaction: DbTransaction)
         : Result<JournalEntryComment list, AppError> =
         let select =
             """
@@ -110,22 +110,28 @@ module JournalEntryComment =
             """
         let from = "ledger.journal_entry_comment jec"
         let query = buildReadQuery select from None predicate limit None orderBy
-        executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
+        executeReaderQuery
+            (context |> getDatabaseTransaction)
+            query
+            parameters
+            mapRawForDbRead
+            reconstitute
+            expectedRows
 
     let fetchById
-        (transaction: DbTransaction)
+        (context: Context)
         (journalEntryCommentId: JournalEntryCommentId)
         : Result<JournalEntryComment, AppError> =
         let uuid = journalEntryCommentId |> JournalEntryCommentId.value
         let predicate = "jec.unique_id = @unique_id"
         let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
-        readRowsFromDb (Some predicate) None None parameters ExactlyOne transaction |> Result.map List.head
+        readRowsFromDb context (Some predicate) None None parameters ExactlyOne |> Result.map List.head
 
     /// fetchByJournalEntryId returns all comments associated to a Journal
     /// Entry, whether as the primary or secondary, ordered by comment create
     /// instant
     let fetchByJournalEntryId
-        (transaction: DbTransaction)
+        (context: Context)
         (journalEntryId: JournalEntryHeaderId)
         : Result<JournalEntryComment list, AppError> =
         let uuid = journalEntryId |> JournalEntryHeaderId.value
@@ -133,10 +139,10 @@ module JournalEntryComment =
             "jec.journal_primary_entry_id = @unique_id or jec.journal_secondary_entry_id = @unique_id"
         let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
         let orderBy = "created_at"
-        readRowsFromDb (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable transaction
+        readRowsFromDb context (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable
 
     let fetchByJournalEntryHeaderIdList
-        (transaction: DbTransaction)
+        (context: Context)
         (journalEntryHeaderIds: JournalEntryHeaderId list)
         : Result<JournalEntryComment list, AppError> =
         let ordinals = [ 1 .. journalEntryHeaderIds.Length ]
@@ -151,4 +157,4 @@ module JournalEntryComment =
         let names = namesAndParameters |> List.map fst |> String.concat ", "
         let parameters = namesAndParameters |> List.map snd
         let predicate = $"jec.journal_primary_entry_id in ({names})" // todo: decide whether this should check the secondary entry ID as well. Also figure out what's using this and whether it should be replaced by the fetchHeadersFromFilter function in JE orchestration
-        readRowsFromDb (Some predicate) None None parameters AnyQuantityIsAcceptable transaction
+        readRowsFromDb context (Some predicate) None None parameters AnyQuantityIsAcceptable

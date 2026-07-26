@@ -5,7 +5,7 @@ open Model.Ledger.FiscalPeriods
 open Utilities.AppError
 open NodaTime
 open Utilities.ResultHelper
-open DataAccessLayer.DbTransaction
+open Context.Context
 
 type JournalEntryHeaderId = private JournalEntryHeaderId of Guid
 module JournalEntryHeaderId =
@@ -94,13 +94,13 @@ type EntryDate =
 module EntryDate =
     let entryDate (e: EntryDate) : LocalDate = e.entryDate
     let fiscalPeriodId (e: EntryDate) : FiscalPeriodId = e.fiscalPeriodId
-    let create (transaction: DbTransaction) (entryDate: LocalDate) : Result<EntryDate, AppError> = // REQ-JE-2.5
+    let create (context: Context) (entryDate: LocalDate) : Result<EntryDate, AppError> = // REQ-JE-2.5
         let monthF = entryDate.Month.ToString("D2")
         result {
             let key = $"{entryDate.Year}-{monthF}" // REQ-JE-1.11
             let! id =
                 key
-                |> FiscalPeriod.fetchIdByKey transaction // REQ-JE-2.6
+                |> FiscalPeriod.fetchIdByKey context // REQ-JE-2.6
                 |> Result.mapError(fun _ -> (JournalEntryDateNotInFiscalPeriod entryDate))
             return { entryDate = entryDate; fiscalPeriodId = id }
         }

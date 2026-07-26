@@ -24,7 +24,7 @@ let ``convert JeSourceString Option to JeSource Option``
     stringOption |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
 let ``convert JournalEntryLineInput to JournalEntryLinePrimitives``
-    (tran: DbTransaction)
+    (context: Context)
     (input: JournalEntryLineInput)
     : Result<AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option, AppError> =
     result {
@@ -36,7 +36,7 @@ let ``convert JournalEntryLineInput to JournalEntryLinePrimitives``
     }
 
 let ``convert [JournalEntryLineInput list] to [JournalEntryLinePrimitives list]``
-    (tran: DbTransaction)
+    (context: Context)
     (input: JournalEntryLineInput list)
     : Result<(AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option) list, AppError> =
     input
@@ -44,7 +44,7 @@ let ``convert [JournalEntryLineInput list] to [JournalEntryLinePrimitives list]`
     |> convertListOfResultsToResultsList
 
 let ``convert JournalEntryLine to JournalEntryLineReturn``
-    (tran: DbTransaction)
+    (context: Context)
     (model: JournalEntryLine)
     : Result<JournalEntryLineReturn, AppError> =
     result {
@@ -60,7 +60,7 @@ let ``convert JournalEntryLine to JournalEntryLineReturn``
     }
 
 let ``convert JournalEntryLine list to JournalEntryLineReturn list``
-    (tran: DbTransaction)
+    (context: Context)
     (input: JournalEntryLine list)
     : Result<JournalEntryLineReturn list, AppError> =
     input
@@ -145,7 +145,7 @@ let ``convert JournalEntryComment list to JournalEntryCommentReturn list``
     model |> List.map(fun x -> x |> ``convert JournalEntryComment to JournalEntryCommentReturn``)
 
 let ``convert JournalEntry to JournalEntryReturn``
-    (tran: DbTransaction)
+    (context: Context)
     (journalEntry: JournalEntry)
     : Result<JournalEntryReturn, AppError> =
     result {
@@ -167,7 +167,7 @@ let ``convert JournalEntry to JournalEntryReturn``
     }
 
 let ``convert JournalEntry list to JournalEntryReturn list``
-    (tran: DbTransaction)
+    (context: Context)
     (journalEntries: JournalEntry list)
     : Result<JournalEntryReturn list, AppError> =
     journalEntries

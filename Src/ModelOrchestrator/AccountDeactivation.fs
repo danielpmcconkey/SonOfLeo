@@ -1,6 +1,5 @@
 module ModelOrchestrator.AccountDeactivation
 
-open Model.Audit
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling
@@ -10,22 +9,17 @@ open NodaTime
 open Utilities
 open Utilities.AppError
 open DataAccessLayer.QueryParameters
-open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteScalar
 open Utilities.ResultHelper
+open Context.Context
 
-let private updateDb
-    (account: Account)
-    (activeEndUpdate: LocalDate)
-    (auditEnvelope: AuditEnvelope)
-    (transaction: DbTransaction)
-    : Result<Account, AppError> =
+let private updateDb (context: Context) (activeEndUpdate: LocalDate) (account: Account) : Result<Account, AppError> =
     let accountId = account |> Account.accountId
     let uuid = accountId |> AccountId.value
     let parameters =
-        [ { name = "@modified"; value = DbInstant(AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3
+        [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) } // REQ-SYS-3.3
           { name = "@unique_id"; value = UniqueId uuid }
           { name = "@active_end"; value = NullableDbLocalDate(Some activeEndUpdate) } ]
 
@@ -38,13 +32,13 @@ let private updateDb
         WHERE unique_id = @unique_id;
     """
     result {
-        let! () = executeNonQuery query parameters ExactlyOne transaction
-        return! accountId |> Account.fetchById transaction
+        let! () = executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        return! accountId |> Account.fetchById context
     }
 
 let private confirmProposedDeactivationDateIsValid
-    (account: Account)
     (proposedDate: LocalDate)
+    (account: Account)
     : Result<unit, AppError> =
     let ab = account |> Account.activityPeriod |> AccountActivityPeriod.activeBegin
     if proposedDate < ab then
@@ -54,16 +48,12 @@ let private confirmProposedDeactivationDateIsValid
     else
         Ok() // REQ-AC-4.2
 
-let private confirmNoActiveChildrenBeforeDeactivation
-    (transaction: DbTransaction)
-    (account: Account)
-    (auditEnvelope: AuditEnvelope)
-    : Result<unit, AppError> =
+let private confirmNoActiveChildrenBeforeDeactivation (context: Context) (account: Account) : Result<unit, AppError> =
     let accountId = account |> Account.accountId
     result {
-        let! children = accountId |> Account.fetchByParentId transaction
+        let! children = accountId |> Account.fetchByParentId context
         do!
-            let referenceDate = (AuditEnvelope.instant auditEnvelope) |> Calendar.dateFromInstant
+            let referenceDate = (context |> getInitiationInstant) |> Calendar.dateFromInstant
             if
                 children
                 |> List.exists(fun x -> x |> Account.activityPeriod |> AccountActivityPeriod.isActive referenceDate) // REQ-AC-4.3
@@ -73,13 +63,10 @@ let private confirmNoActiveChildrenBeforeDeactivation
                 Ok()
     }
 
-let private confirmZeroBalanceBeforeDeactivation
-    (transaction: DbTransaction)
-    (account: Account)
-    : Result<unit, AppError> =
+let private confirmZeroBalanceBeforeDeactivation (context: Context) (account: Account) : Result<unit, AppError> =
     let accountId = account |> Account.accountId
     result {
-        let! nonVoidedLines = accountId |> JournalEntryLine.fetchByAccountId transaction true // REQ-JE-4.7
+        let! nonVoidedLines = accountId |> JournalEntryLine.fetchByAccountId context true // REQ-JE-4.7
         let! debits = nonVoidedLines |> JournalEntryLine.sumLinesByType Debit
         let! credits = nonVoidedLines |> JournalEntryLine.sumLinesByType Credit
         let! diff = Money.subtractVal1FromVal2 debits credits
@@ -97,8 +84,8 @@ let private confirmZeroBalanceBeforeDeactivation
     }
 
 let private confirmNoJournalEntriesAfterDeactivationDate
+    (context: Context)
     (deactivationDate: LocalDate)
-    (transaction: DbTransaction)
     (account: Account)
     : Result<unit, AppError> =
     let accountId = account |> Account.accountId
@@ -115,20 +102,20 @@ let private confirmNoJournalEntriesAfterDeactivationDate
     let parameters =
         [ { name = "@account_id"; value = UniqueId uuid }
           { name = "@deactivation_date"; value = DbLocalDate deactivationDate } ]
-    match executeScalar query parameters longUnboxing transaction with
+    match executeScalar (context |> getDatabaseTransaction) query parameters longUnboxing with
     | Error e -> Error e
     | Ok x when x = 0L -> Ok()
     | Ok x when x > 0L -> Error(AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate uuid)
     | _ -> Error(AccountDeactivationFailedJournalEntryValidation)
 
 let private confirmJournalEntriesAreInProperState
-    (account: Account)
+    (context: Context)
     (deactivationDate: LocalDate)
-    (transaction: DbTransaction)
+    (account: Account)
     : Result<unit, AppError> =
     result {
-        do! account |> confirmZeroBalanceBeforeDeactivation transaction // REQ-AC-4.4
-        do! account |> confirmNoJournalEntriesAfterDeactivationDate deactivationDate transaction // REQ-AC-4.6
+        do! account |> confirmZeroBalanceBeforeDeactivation context // REQ-AC-4.4
+        do! account |> confirmNoJournalEntriesAfterDeactivationDate context deactivationDate // REQ-AC-4.6
         return ()
     }
 
@@ -137,8 +124,7 @@ let private confirmJournalEntriesAreInProperState
 /// explicitEnd, the system will update the active_end to that explicit time.
 /// Otherwise, the active_end will be the system clock time
 let deactivateAccount
-    (transaction: DbTransaction)
-    (auditEnvelope: AuditEnvelope)
+    (context: Context)
     (explicitEnd: LocalDate option)
     (account: Account)
     : Result<Account, AppError> = // REQ-AC-4.1
@@ -146,16 +132,16 @@ let deactivateAccount
     let deactivationDate =
         match explicitEnd with
         | Some m -> m
-        | None -> Calendar.dateFromInstant(AuditEnvelope.instant auditEnvelope)
+        | None -> Calendar.dateFromInstant(context |> getInitiationInstant)
     result {
         let activeEnd = account |> Account.activityPeriod |> AccountActivityPeriod.activeEnd
         do! // REQ-AC-4.5
             match activeEnd with
             | None -> Ok()
             | Some x -> Error(AccountAlreadyInactive(accountId |> AccountId.value, x))
-        let! () = confirmProposedDeactivationDateIsValid account deactivationDate // REQ-AC-4.2
-        let! () = confirmNoActiveChildrenBeforeDeactivation transaction account auditEnvelope // REQ-AC-4.3
-        let! () = confirmJournalEntriesAreInProperState account deactivationDate transaction
-        let! newAccount = updateDb account deactivationDate auditEnvelope transaction
+        let! () = account |> confirmProposedDeactivationDateIsValid deactivationDate // REQ-AC-4.2
+        let! () = account |> confirmNoActiveChildrenBeforeDeactivation context // REQ-AC-4.3
+        let! () = account |> confirmJournalEntriesAreInProperState context deactivationDate
+        let! newAccount = account |> updateDb context deactivationDate
         return newAccount
     }

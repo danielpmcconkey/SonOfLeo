@@ -20,6 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Context\Context.fsproj" />
     <ProjectReference Include="..\DataAccessLayer\DataAccessLayer.fsproj" />
     <ProjectReference Include="..\Utilities\Utilities.fsproj" />
   </ItemGroup>

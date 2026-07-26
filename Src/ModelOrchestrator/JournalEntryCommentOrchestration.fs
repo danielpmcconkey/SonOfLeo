@@ -1,21 +1,17 @@
 module ModelOrchestrator.JournalEntryCommentOrchestration
 
-open Model.Audit
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
 open DataAccessLayer.QueryParameters
-open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.ExecuteNonQuery
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
+open Context.Context
 
-let validateJournalEntryHeader
-    (transaction: DbTransaction)
-    (journalEntryId: JournalEntryHeaderId)
-    : Result<unit, AppError> =
-    journalEntryId |> JournalEntryHeader.fetchById transaction |> Result.map ignore
+let validateJournalEntryHeader (context: Context) (journalEntryId: JournalEntryHeaderId) : Result<unit, AppError> =
+    journalEntryId |> JournalEntryHeader.fetchById context |> Result.map ignore
 
 let validatePrimaryAndSecondaryRelationship // REQ-JE-1.53
     (primaryJournalEntryId: JournalEntryHeaderId)
@@ -32,22 +28,21 @@ let validatePrimaryAndSecondaryRelationship // REQ-JE-1.53
             Ok()
 
 let constructNewAndSaveToDb // REQ-JE-5.1
+    (context: Context)
     (primaryJournalEntryId: JournalEntryHeaderId)
     (secondaryJournalEntryId: JournalEntryHeaderId option)
     (commentText: CommentText)
-    (auditEnvelope: AuditEnvelope)
-    (transaction: DbTransaction)
     : Result<JournalEntryComment, AppError> =
     let journalEntryCommentId = JournalEntryCommentId.create() // REQ-JE-5.2
-    let now = AuditEnvelope.instant auditEnvelope
+    let now = context |> getInitiationInstant
     let createdAt = now // REQ-SYS-3.2
     let modifiedAt = now // REQ-SYS-3.2
     result {
-        do! primaryJournalEntryId |> validateJournalEntryHeader transaction
+        do! primaryJournalEntryId |> validateJournalEntryHeader context
         do!
             match secondaryJournalEntryId with
             | None -> Ok()
-            | Some id -> id |> validateJournalEntryHeader transaction
+            | Some id -> id |> validateJournalEntryHeader context
         do! validatePrimaryAndSecondaryRelationship primaryJournalEntryId secondaryJournalEntryId
         let journalEntryComment =
             JournalEntryComment.create
@@ -57,20 +52,19 @@ let constructNewAndSaveToDb // REQ-JE-5.1
                 commentText
                 createdAt
                 modifiedAt
-        do! JournalEntryComment.insertNewToDb journalEntryComment transaction
+        do! journalEntryComment |> JournalEntryComment.insertNewToDb context
         return journalEntryComment
     }
 
 let updateComment // REQ-JE-5.3
-    (auditEnvelope: AuditEnvelope)
+    (context: Context)
     (journalEntryCommentId: JournalEntryCommentId)
     (commentUpdate: FieldUpdate<CommentText>)
     (secondaryIdUpdate: FieldUpdate<JournalEntryHeaderId option>)
-    (transaction: DbTransaction)
     : Result<JournalEntryComment, AppError> =
     let commentUuid = journalEntryCommentId |> JournalEntryCommentId.value
     let baseParams =
-        [ { name = "@modified"; value = DbInstant(AuditEnvelope.instant auditEnvelope) } // REQ-SYS-3.3
+        [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) } // REQ-SYS-3.3
           { name = "@unique_id"; value = UniqueId commentUuid } ]
     result {
         let! validSecondaryId =
@@ -78,7 +72,7 @@ let updateComment // REQ-JE-5.3
             | NoChange -> Ok NoChange
             | SetTo x ->
                 result {
-                    let! existing = journalEntryCommentId |> (JournalEntryComment.fetchById transaction)
+                    let! existing = journalEntryCommentId |> (JournalEntryComment.fetchById context)
                     let primaryJournalEntryId = existing |> JournalEntryComment.primaryJournalEntryId
                     do! validatePrimaryAndSecondaryRelationship primaryJournalEntryId x
                     return (SetTo x)
@@ -105,6 +99,6 @@ let updateComment // REQ-JE-5.3
                                 modified_at = @modified -- REQ-SYS-3.3
                                 {setClauses}
                             WHERE unique_id = @unique_id; """
-        let! _ = executeNonQuery query parameters ExactlyOne transaction
-        return! journalEntryCommentId |> JournalEntryComment.fetchById transaction
+        let! _ = executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        return! journalEntryCommentId |> JournalEntryComment.fetchById context
     }

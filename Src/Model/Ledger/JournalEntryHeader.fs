@@ -6,9 +6,9 @@ open NodaTime
 open Utilities.AppError
 open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
-open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.ExecuteNonQuery
+open Context.Context
 
 type JournalEntryHeader =
     private
@@ -46,7 +46,7 @@ module JournalEntryHeader =
           createdAt = createdAt
           modifiedAt = modifiedAt }
 
-    let insertNewToDb (journalEntry: JournalEntryHeader) (transaction: DbTransaction) : Result<unit, AppError> =
+    let insertNewToDb (context: Context) (journalEntry: JournalEntryHeader) : Result<unit, AppError> =
         let query =
             """
             INSERT INTO ledger.journal_entry(
@@ -66,7 +66,7 @@ module JournalEntryHeader =
               { name = "@voided_at"; value = NullableDbInstant journalEntry.voidedAt }
               { name = "@created_at"; value = DbInstant journalEntry.createdAt }
               { name = "@modified_at"; value = DbInstant journalEntry.modifiedAt } ]
-        executeNonQuery query parameters ExactlyOne transaction
+        executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
 
     /// The mapRow function is used to pass into DAL read functions to let DAL know
     /// how to map our query columns. Thus, we don't need to know anything about the
@@ -99,31 +99,40 @@ module JournalEntryHeader =
         }
 
     let readRowsFromDb
+        (context: Context)
         (join: string option)
         (predicate: string option)
         (limit: int option)
         (orderBy: string option)
         (parameters: QueryParameter list)
         (expectedRows: AcceptableExpectedRows)
-        (transaction: DbTransaction)
         : Result<JournalEntryHeader list, AppError> =
         let selectColumns =
-            "je.unique_id, je.description, je.je_source, je.entry_date, je.fiscal_period_id, je.voided_at, je.created_at, je.modified_at"
+            """
+            je.unique_id, je.description, je.je_source, je.entry_date,
+            je.fiscal_period_id, je.voided_at, je.created_at, je.modified_at
+        """
         let from = "ledger.journal_entry je"
         let query = buildReadQuery selectColumns from join predicate limit None orderBy
-        executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
+        executeReaderQuery
+            (context |> getDatabaseTransaction)
+            query
+            parameters
+            mapRawForDbRead
+            reconstitute
+            expectedRows
 
     let fetchById // REQ-JE-3.2
-        (transaction: DbTransaction)
+        (context: Context)
         (journalEntryHeaderId: JournalEntryHeaderId)
         : Result<JournalEntryHeader, AppError> =
         let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
         let predicate = Some "je.unique_id = @unique_id"
         let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
-        readRowsFromDb None predicate None None parameters ExactlyOne transaction |> Result.map List.head
+        readRowsFromDb context None predicate None None parameters ExactlyOne |> Result.map List.head
 
     let fetchByPeriod // REQ-JE-3.3
-        (transaction: DbTransaction)
+        (context: Context)
         (periodId: FiscalPeriodId)
         : Result<JournalEntryHeader list, AppError> =
         let uuid = periodId |> FiscalPeriodId.value
@@ -131,5 +140,5 @@ module JournalEntryHeader =
         let orderBy = Some "je.entry_date asc"
         result {
             let parameters = [ { name = "@fiscal_period_id"; value = UniqueId uuid } ]
-            return! readRowsFromDb None predicate None orderBy parameters AnyQuantityIsAcceptable transaction
+            return! readRowsFromDb context None predicate None orderBy parameters AnyQuantityIsAcceptable
         }
