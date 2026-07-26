@@ -1,6 +1,7 @@
 namespace Tests.Integrated.InterfaceBridge.AccountRoutes
 
 open System
+open DataAccessLayer.DbTransaction
 open InterfaceBridge.InterfaceContracts.SharedContracts
 open InterfaceBridge.Json.Json
 open Model
@@ -24,19 +25,20 @@ type AccountRouteTests(fixture: TestDataFixture) =
     member _.``REQ-AC-2.21 Account Create happy path``() =
         let mutable accountIdToCleanup: AccountId option = None
         try
-            let railroad =
-                result {
-                    let accountInput = createAccountInput genericAccountCodeString
-                    let! payload = accountInput |> toJson<AccountCreateInput>
-                    let! resultPayload = routeUiCommandForTesting "Account" "Create" [] payload
-                    let! accountReturn = fromJson<AccountReturn> resultPayload
-                    let! cleanUpId = accountReturn.code |> LookupCache.accountCodeToId.fetch
-                    accountIdToCleanup <- (cleanUpId |> AccountId.fromGuid |> Some)
-                    return ()
-                }
-            match railroad with
-            | Ok _ -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
+            
+                let railroad = withoutTransaction (fun tran -> 
+                    result {
+                        let accountInput = createAccountInput genericAccountCodeString
+                        let! payload = accountInput |> toJson<AccountCreateInput>
+                        let! resultPayload = routeUiCommandForTesting "Account" "Create" [] payload
+                        let! accountReturn = fromJson<AccountReturn> resultPayload
+                        let! cleanUpId = accountReturn.code |>LookupCache.accountCodeToId.fetch tran
+                        accountIdToCleanup <- (cleanUpId |> AccountId.fromGuid |> Some)
+                        return ()
+                    })
+                match railroad with
+                | Ok _ -> ()
+                | Error e -> Assert.Fail(AppError.toMessage e)
         finally
             cleanUpAccountId accountIdToCleanup |> ignore
 
@@ -45,7 +47,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let mutable accountIdToCleanup: AccountId option = None
         try
             let badAccountCode = Some "BullS**t"
-            let railroad =
+            let railroad = withoutTransaction (fun tran -> 
                 result {
                     let accountInput =
                         { code = genericAccountCodeString
@@ -62,14 +64,14 @@ type AccountRouteTests(fixture: TestDataFixture) =
                         | Ok resultPayload ->
                             result {
                                 let! accountReturn = fromJson<AccountReturn> resultPayload
-                                let! cleanUpId = accountReturn.code |> LookupCache.accountCodeToId.fetch
+                                let! cleanUpId = accountReturn.code |> LookupCache.accountCodeToId.fetch tran
                                 accountIdToCleanup <- (cleanUpId |> AccountId.fromGuid |> Some)
                                 return! Error(TestingError "Expected failure; returned success.")
                             }
                         | Error(AccountParentCodeInvalid _) -> Ok()
                         | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
                     return ()
-                }
+                })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -166,9 +168,9 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let endDate = now.PlusDays(-1)
         let mutable idToCleanUp_1 = None
         try
-            let railroad =
+            let railroad = withoutTransaction (fun tran -> 
                 result {
-                    let! _, accountId = createTestAccountFromCodeString genericAccountCodeString
+                    let! _, accountId = createTestAccountFromCodeString genericAccountCodeString tran
                     idToCleanUp_1 <- Some accountId
                     let! payload =
                         { code = genericAccountCodeString; activeEnd = Some endDate }
@@ -177,7 +179,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
                     let! accountReturn = returnPayload |> fromJson<AccountReturn>
                     Assert.Equal(Some endDate, accountReturn.activeEnd)
                     return ()
-                }
+                })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -211,16 +213,16 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let newName = "He's got the monkeys, let's see the monkeys"
         let mutable idToCleanUp_1 = None
         try
-            let railroad =
+            let railroad = withoutTransaction (fun tran -> 
                 result {
-                    let! _, accountId = createTestAccountFromCodeString code
+                    let! _, accountId = createTestAccountFromCodeString code tran
                     idToCleanUp_1 <- Some accountId
                     let! payload = { code = code; newName = newName } |> toJson<AccountUpdateNameInput>
                     let! returnPayload = routeUiCommandForTesting "Account" "UpdateName" [] payload
                     let! accountReturn = returnPayload |> fromJson<AccountReturn>
                     Assert.Equal(newName, accountReturn.name)
                     return ()
-                }
+                })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -253,9 +255,9 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let newReference = Some "Genuflect, show some respect"
         let mutable idToCleanUp_1 = None
         try
-            let railroad =
+            let railroad = withoutTransaction (fun tran -> 
                 result {
-                    let! _, accountId = createTestAccountFromCodeString code
+                    let! _, accountId = createTestAccountFromCodeString code tran
                     idToCleanUp_1 <- Some accountId
                     let! payload =
                         { code = code; newReference = newReference } |> toJson<AccountUpdateExternalReferenceInput>
@@ -263,7 +265,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
                     let! accountReturn = returnPayload |> fromJson<AccountReturn>
                     Assert.Equal(newReference, accountReturn.reference)
                     return ()
-                }
+                })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -374,8 +376,8 @@ type AccountRouteTests(fixture: TestDataFixture) =
             match value.IndexOf(':') with
             | -1 -> Error(TestingError "bad inline data on temporal filter")
             | index ->
-                let subField = value.[0 .. (index - 1)]
-                let valueToTest = value.[index + 1 ..]
+                let subField = value[0 .. (index - 1)]
+                let valueToTest = value[index + 1 ..]
                 match subField with
                 | "periodKey" -> Ok(TemporalFilterInput.PeriodKey valueToTest)
                 | "beginDate" -> Error(TestingError "it's impossible to send in a mal-formed LocalDate")

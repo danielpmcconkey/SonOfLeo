@@ -2,7 +2,7 @@ module Tests.Integrated.ModelOrchestrator.FiscalPeriodCreation
 
 open Model.Ledger.FiscalPeriods
 open ModelOrchestrator
-open Utilities.DAL
+open Tests.Integrated.Rollback
 open Xunit
 open Utilities.AppError
 open Tests.Integrated.GenericTestProperties
@@ -17,15 +17,12 @@ let ``REQ-FP-1.4 REQ-FP-1.5 REQ-FP-2.3 Fiscal period start and end date are deri
         keyString
         |> FiscalPeriodKey.fromString
         |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    let transaction = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)) // if this fails, nothing can proceed
-    try
+    withRollback(fun tran ->
         let fp =
-            FiscalPeriodCreation.constructNewAndSaveToDb key genericAuditEnvelope (Some transaction)
+            FiscalPeriodCreation.constructNewAndSaveToDb key genericAuditEnvelope tran
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         let startDate = FiscalPeriod.startDate fp
         let endDate = FiscalPeriod.endDate fp
         Assert.Equal(expectedMonth, startDate.Month)
         Assert.Equal(expectedStartDay, startDate.Day)
-        Assert.Equal(expectedEndDay, endDate.Day)
-    finally
-        rollbackDbTransactionAndDisposeConnection transaction |> ignore
+        Assert.Equal(expectedEndDay, endDate.Day))

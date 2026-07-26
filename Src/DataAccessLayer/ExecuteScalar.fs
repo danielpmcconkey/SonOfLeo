@@ -163,26 +163,26 @@ let executeScalar
              * we use a try/with block to convert their results into more
              * paradigmatic F# Result Ok/Error at the impure boundary
              *)
-            try
-                let objResult =
+            let objResult =
+                try
+                
                     match dbTransaction |> isNone with
                     | true ->
                         use connection = ds.OpenConnection()
                         use command = new NpgsqlCommand(query, connection)
                         parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
-                        Ok(command.ExecuteScalar())
+                        command.ExecuteScalar()
                     | false ->
-                        dbTransaction
-                        |> getTranAndConn
-                        |> function
-                            | Error e -> Error e
-                            | Ok(tran, conn) ->
-                                use command = new NpgsqlCommand(query, conn)
-                                command.Transaction <- tran
-                                parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
-                                Ok(command.ExecuteScalar())
-                objResult |> unboxingFunc
-            with ex ->
-                Error(DalErrorDuringScalarExecution ex)
+                        let tran, conn =
+                            dbTransaction
+                            |> getTranAndConn
+                            |> Result.defaultWith (fun e -> failwith (AppError.toMessage e)) // we do this because we're already inside the boundary of DB try / catch. Result railroad doesn't really work here.
+                        use command = new NpgsqlCommand(query, conn)
+                        command.Transaction <- tran
+                        parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
+                        command.ExecuteScalar()
+                with ex ->
+                    Error(DalErrorDuringScalarExecution ex)
+            objResult |> unboxingFunc
         return rows
     }

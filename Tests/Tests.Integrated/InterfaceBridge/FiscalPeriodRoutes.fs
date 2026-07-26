@@ -1,5 +1,6 @@
 module Tests.Integrated.InterfaceBridge.FiscalPeriodRoutes
 
+open DataAccessLayer.DbTransaction
 open InterfaceBridge.Json.Json
 open Model
 open Tests.Integrated.GenericTestProperties
@@ -32,19 +33,19 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         let payload = createFiscalPeriodInputPayload expected
         let mutable keyToCleanUp = None
         try
-            let railroad =
+            let railroad = withoutTransaction (fun tran -> 
                 result {
                     let! resultPayload = routeUiCommandForTesting "FiscalPeriod" "Create" [] payload
                     let! fp = fromJson<FiscalPeriodReturn> resultPayload
                     let returnedKey = fp.periodKey
-                    let! uuid = returnedKey |> LookupCache.fiscalPeriodKeyToId.fetch
+                    let! uuid = returnedKey |> LookupCache.fiscalPeriodKeyToId.fetch tran
                     let id = uuid |> FiscalPeriodId.fromGuid
                     keyToCleanUp <- Some returnedKey
                     Assert.Equal(expected, returnedKey)
-                    let! fetched = id |> fetchById None
+                    let! fetched = id |> fetchById tran
                     Assert.Equal(expected, FiscalPeriodKey.value(periodKey fetched))
                     ()
-                }
+                })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -55,16 +56,16 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-FP-3.2 FiscalPeriod FetchByKey happy path``() =
-        let railroad =
+        let railroad = withoutTransaction (fun tran -> 
             result {
-                let! existingPeriod = fetchById None (fixture.Data.openFiscalPeriodIds |> List.head)
+                let! existingPeriod = fetchById tran (fixture.Data.openFiscalPeriodIds |> List.head)
                 let existingKey = existingPeriod |> periodKey |> FiscalPeriodKey.value
                 let payload = createFiscalPeriodInputPayload existingKey
                 let! resultPayload = routeUiCommandForTesting "FiscalPeriod" "FetchByKey" [] payload
                 let! returned = fromJson<FiscalPeriodReturn> resultPayload
                 Assert.Equal(existingKey, returned.periodKey)
                 ()
-            }
+            })
         match railroad with
         | Ok _ -> ()
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -89,9 +90,9 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         let payload = createFiscalPeriodInputPayload expected
         let mutable keyToCleanUp = None
         try
-            let railroad =
+            let railroad = withoutTransaction (fun tran -> 
                 result {
-                    let! created = createTestFiscalPeriodFromPrimitives None expected
+                    let! created = createTestFiscalPeriodFromPrimitives tran expected
                     let keyString = periodKey created |> FiscalPeriodKey.value
                     keyToCleanUp <- Some keyString
                     let! resultPayload = routeUiCommandForTesting "FiscalPeriod" "Close" [] payload
@@ -100,7 +101,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
                     Assert.Equal(expected, returnedKey)
                     Assert.False(returned.isOpen)
                     ()
-                }
+                })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -115,13 +116,13 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         let payload = createFiscalPeriodInputPayload expected
         let mutable keyToCleanUp = None
         try
-            let railroad =
+            let railroad = withoutTransaction (fun tran -> 
                 result {
-                    let! created = createTestFiscalPeriodFromPrimitives None expected
+                    let! created = createTestFiscalPeriodFromPrimitives tran expected
                     let id = created |> fiscalPeriodId
                     let keyString = periodKey created |> FiscalPeriodKey.value
                     keyToCleanUp <- Some keyString
-                    let! closed = closeFiscalPeriod id genericAuditEnvelope None
+                    let! closed = closeFiscalPeriod id genericAuditEnvelope tran
                     Assert.False(isOpen closed)
                     let! resultPayload = routeUiCommandForTesting "FiscalPeriod" "Reopen" [] payload
                     let! returned = fromJson<FiscalPeriodReturn> resultPayload
@@ -129,7 +130,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
                     Assert.Equal(expected, returnedKey)
                     Assert.True(returned.isOpen)
                     ()
-                }
+                })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)

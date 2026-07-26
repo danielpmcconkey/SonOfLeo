@@ -3,8 +3,8 @@ namespace Tests.Integrated.Model.Ledger
 open System
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator
+open Tests.Integrated.Rollback
 open Utilities.AppError
-open Utilities.DAL
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
 open Xunit
@@ -19,68 +19,61 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-5.1 constructNewAndSaveToDb attaches a comment to a journal entry``() =
         let envelope = AuditEnvelope.create JournalEntryAddComment
-        let transaction = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         let commentText =
             "Test comment text"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        try
+        withRollback(fun tran ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     fixture.Data.basicJeId
                     None
                     commentText
                     envelope
-                    (Some transaction)
+                    tran
             match result with
             | Ok c ->
                 Assert.Equal(fixture.Data.basicJeId, c |> JournalEntryComment.primaryJournalEntryId)
                 Assert.Equal(commentText, c |> JournalEntryComment.commentText)
-            | Error e -> Assert.Fail(AppError.toMessage e)
-        finally
-            rollbackDbTransactionAndDisposeConnection transaction |> ignore
+            | Error e -> Assert.Fail(AppError.toMessage e))
 
     [<Fact>]
     member _.``REQ-JE-5.1 constructNewAndSaveToDb attaches a comment with a secondary JE link``() =
         let envelope = AuditEnvelope.create JournalEntryAddComment
-        let transaction = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         let commentText =
             "Comment with secondary link"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        try
+        withRollback(fun tran ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     fixture.Data.basicJeId
                     (Some fixture.Data.jeWithRefId)
                     commentText
                     envelope
-                    (Some transaction)
+                    tran
             match result with
             | Ok c ->
                 Assert.Equal(fixture.Data.basicJeId, c |> JournalEntryComment.primaryJournalEntryId)
                 Assert.Equal(Some fixture.Data.jeWithRefId, c |> JournalEntryComment.secondaryJournalEntryId)
-            | Error e -> Assert.Fail(AppError.toMessage e)
-        finally
-            rollbackDbTransactionAndDisposeConnection transaction |> ignore
+            | Error e -> Assert.Fail(AppError.toMessage e))
 
     [<Fact>]
     member _.``REQ-JE-5.2 constructNewAndSaveToDb generates UUID and sets timestamps``() =
         let envelope = AuditEnvelope.create JournalEntryAddComment
         let expectedInstant = AuditEnvelope.instant envelope
-        let transaction = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         let commentText =
             "Comment with secondary link"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        try
+        withRollback(fun tran ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     fixture.Data.basicJeId
                     None
                     commentText
                     envelope
-                    (Some transaction)
+                    tran
             match result with
             | Ok c ->
                 Assert.NotEqual(
@@ -89,101 +82,90 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
                 )
                 Assert.Equal(expectedInstant, c |> JournalEntryComment.createdAt)
                 Assert.Equal(expectedInstant, c |> JournalEntryComment.modifiedAt)
-            | Error e -> Assert.Fail(AppError.toMessage e)
-        finally
-            rollbackDbTransactionAndDisposeConnection transaction |> ignore
+            | Error e -> Assert.Fail(AppError.toMessage e))
 
     [<Fact>]
     member _.``REQ-JE-1.52 constructNewAndSaveToDb accepts null secondary JE ID``() =
         let envelope = AuditEnvelope.create JournalEntryAddComment
-        let transaction = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         let commentText =
             "Null secondary"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        try
+        withRollback(fun tran ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     fixture.Data.basicJeId
                     None
                     commentText
                     envelope
-                    (Some transaction)
+                    tran
             match result with
             | Ok c -> Assert.True(c |> JournalEntryComment.secondaryJournalEntryId |> Option.isNone)
-            | Error e -> Assert.Fail(AppError.toMessage e)
-        finally
-            rollbackDbTransactionAndDisposeConnection transaction |> ignore
+            | Error e -> Assert.Fail(AppError.toMessage e))
 
     [<Fact>]
     member _.``REQ-JE-1.53 constructNewAndSaveToDb rejects secondary JE ID equal to primary``() =
-        let commentText =
-            "Same primary and secondary"
-            |> CommentText.create
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        let envelope = AuditEnvelope.create JournalEntryAddComment
-        let result =
-            JournalEntryCommentOrchestration.constructNewAndSaveToDb
-                fixture.Data.basicJeId
-                (Some fixture.Data.basicJeId)
-                commentText
-                envelope
-                None
-        match result with
-        | Error(JournalEntryCommentPrimaryAndSecondaryIdsAreSame _) -> ()
-        | Ok _ -> Assert.Fail("Expected failure; returned success.")
-        | Error e -> Assert.Fail($"Wrong error type: {AppError.toMessage e}")
+        withRollback(fun tran ->
+            let commentText =
+                "Same primary and secondary"
+                |> CommentText.create
+                |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            let envelope = AuditEnvelope.create JournalEntryAddComment
+            let result =
+                JournalEntryCommentOrchestration.constructNewAndSaveToDb
+                    fixture.Data.basicJeId
+                    (Some fixture.Data.basicJeId)
+                    commentText
+                    envelope
+                    tran
+            match result with
+            | Error(JournalEntryCommentPrimaryAndSecondaryIdsAreSame _) -> ()
+            | Ok _ -> Assert.Fail("Expected failure; returned success.")
+            | Error e -> Assert.Fail($"Wrong error type: {AppError.toMessage e}"))
 
     [<Fact>]
     member _.``REQ-JE-5.5 constructNewAndSaveToDb allows comment on a voided entry``() =
         let envelope = AuditEnvelope.create JournalEntryAddComment
-        let transaction = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         let commentText =
             "Comment on voided"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        try
+        withRollback(fun tran ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     fixture.Data.voidedJeId
                     None
                     commentText
                     envelope
-                    (Some transaction)
+                    tran
             match result with
             | Ok c -> Assert.Equal(fixture.Data.voidedJeId, c |> JournalEntryComment.primaryJournalEntryId)
-            | Error e -> Assert.Fail(AppError.toMessage e)
-        finally
-            rollbackDbTransactionAndDisposeConnection transaction |> ignore
+            | Error e -> Assert.Fail(AppError.toMessage e))
 
     [<Fact>]
     member _.``REQ-JE-5.5 constructNewAndSaveToDb allows comment when fiscal period is closed``() =
         let envelope = AuditEnvelope.create JournalEntryAddComment
-        let transaction = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         let commentText =
             "Comment on closed period entry"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        try
+        withRollback(fun tran ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     fixture.Data.jeInClosedPeriodId
                     None
                     commentText
                     envelope
-                    (Some transaction)
+                    tran
             match result with
             | Ok c -> Assert.Equal(fixture.Data.jeInClosedPeriodId, c |> JournalEntryComment.primaryJournalEntryId)
-            | Error e -> Assert.Fail(AppError.toMessage e)
-        finally
-            rollbackDbTransactionAndDisposeConnection transaction |> ignore
+            | Error e -> Assert.Fail(AppError.toMessage e))
 
     [<Fact>]
     member _.``REQ-JE-5.3 updateComment amends the comment text``() =
         let envelope = AuditEnvelope.create JournalEntryUpdateComment
-        let transaction = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         let expected = "Updated comment text"
-        try
+        withRollback(fun tran ->
             let railroad =
                 result {
                     let! textUpdate = expected |> CommentText.create |> Result.map SetTo
@@ -194,22 +176,19 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
                             fixture.Data.fixtureCommentId
                             textUpdate
                             secondaryIdUpdate
-                            (Some transaction)
+                            tran
                     Assert.Equal(expected, updatedComment |> JournalEntryComment.commentText |> CommentText.value)
                     return ()
                 }
             match railroad with
             | Ok _ -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
-        finally
-            rollbackDbTransactionAndDisposeConnection transaction |> ignore
+            | Error e -> Assert.Fail(AppError.toMessage e))
 
     [<Fact>]
     member _.``REQ-JE-5.3 REQ-SYS-3.3 updateComment updates modified_at timestamp``() =
         let envelope = AuditEnvelope.create JournalEntryUpdateComment
         let expectedInstant = AuditEnvelope.instant envelope
-        let transaction = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        try
+        withRollback(fun tran ->
             let railroad =
                 result {
                     let! textUpdate = "Modified timestamp test" |> CommentText.create |> Result.map SetTo
@@ -220,21 +199,18 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
                             fixture.Data.fixtureCommentId
                             textUpdate
                             secondaryIdUpdate
-                            (Some transaction)
+                            tran
                     Assert.Equal(expectedInstant, updatedComment |> JournalEntryComment.modifiedAt)
                     return ()
                 }
             match railroad with
             | Ok _ -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
-        finally
-            rollbackDbTransactionAndDisposeConnection transaction |> ignore
+            | Error e -> Assert.Fail(AppError.toMessage e))
 
     [<Fact>]
     member _.``REQ-JE-5.6 updateComment does not change the primary JE link``() =
         let envelope = AuditEnvelope.create JournalEntryUpdateComment
-        let transaction = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        try
+        withRollback(fun tran ->
             let railroad =
                 result {
                     let! textUpdate = "Primary link unchanged" |> CommentText.create |> Result.map SetTo
@@ -245,32 +221,29 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
                             fixture.Data.fixtureCommentId
                             textUpdate
                             secondaryIdUpdate
-                            (Some transaction)
+                            tran
                     Assert.Equal(fixture.Data.basicJeId, updatedComment |> JournalEntryComment.primaryJournalEntryId)
                     return ()
                 }
             match railroad with
             | Ok _ -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
-        finally
-            rollbackDbTransactionAndDisposeConnection transaction |> ignore
+            | Error e -> Assert.Fail(AppError.toMessage e))
 
     [<Fact>]
     member _.``REQ-SYS-5.1 comment round-trips through persistence with all fields intact``() =
         let envelope = AuditEnvelope.create JournalEntryAddComment
-        let transaction = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         let commentText =
             "Round-trip comment"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        try
+        withRollback(fun tran ->
             let createResult =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     fixture.Data.basicJeId
                     (Some fixture.Data.jeWithRefId)
                     commentText
                     envelope
-                    (Some transaction)
+                    tran
             match createResult with
             | Error e -> Assert.Fail(AppError.toMessage e)
             | Ok created ->
@@ -278,7 +251,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
                 let fetchResult =
                     created
                     |> JournalEntryComment.journalEntryCommentId
-                    |> JournalEntryComment.fetchById(Some transaction)
+                    |> JournalEntryComment.fetchById tran
                 match fetchResult with
                 | Error e -> Assert.Fail $"Fetch after creation failed: {e}"
                 | Ok fetched ->
@@ -299,6 +272,4 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
                         fetched |> JournalEntryComment.commentText |> CommentText.value
                     )
                     Assert.Equal(created |> JournalEntryComment.createdAt, fetched |> JournalEntryComment.createdAt)
-                    Assert.Equal(created |> JournalEntryComment.modifiedAt, fetched |> JournalEntryComment.modifiedAt)
-        finally
-            rollbackDbTransactionAndDisposeConnection transaction |> ignore
+                    Assert.Equal(created |> JournalEntryComment.modifiedAt, fetched |> JournalEntryComment.modifiedAt))

@@ -3,7 +3,7 @@ module Tests.Integrated.ModelOrchestrator.AccountCreation
 open System
 open Model.Audit
 open ModelOrchestrator
-open Utilities.DAL
+open Tests.Integrated.Rollback
 open Xunit
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
@@ -12,8 +12,7 @@ open Tests.Integrated.GenericTestProperties
 
 [<Fact>]
 let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew generates UUID`` () =
-    let transaction = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)) // if this fails, nothing can proceed
-    try
+    withRollback(fun tran ->
         let code = "abc1" |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         AccountCreation.constructNewAndSaveToDb
             code
@@ -24,18 +23,15 @@ let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew generates UUID`` () =
             genericAccountParentId
             genericAccountReference
             genericAuditEnvelope
-            (Some transaction)
+            tran
         |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         |> Account.accountId
         |> AccountId.value
-        |> fun id -> Assert.NotEqual(Guid.Empty, id)
-    finally
-        rollbackDbTransactionAndDisposeConnection transaction |> ignore
+        |> fun id -> Assert.NotEqual(Guid.Empty, id))
 
 [<Fact>]
 let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` () =
-    let transaction = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)) // if this fails, nothing can proceed
-    try
+    withRollback(fun tran ->
         let code = "abc2" |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         let expected = AuditEnvelope.instant genericAuditEnvelope
         let account =
@@ -48,9 +44,7 @@ let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` 
                 genericAccountParentId
                 genericAccountReference
                 genericAuditEnvelope
-                (Some transaction)
+                tran
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         Assert.Equal(expected, Account.createdAt account)
-        Assert.Equal(expected, Account.modifiedAt account)
-    finally
-        rollbackDbTransactionAndDisposeConnection transaction |> ignore
+        Assert.Equal(expected, Account.modifiedAt account))

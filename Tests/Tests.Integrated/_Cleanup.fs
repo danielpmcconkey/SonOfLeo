@@ -1,12 +1,15 @@
 module Tests.Integrated._Cleanup
 
 open System
+open DataAccessLayer.DbTransaction
+open DataAccessLayer.ExecuteNonQuery
+open DataAccessLayer.ExecuteReader
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
-open Utilities.DAL
 open Utilities.ResultHelper
+open DataAccessLayer.QueryParameters
 
 (*
  * These functions are used in tests' "finally" blocks where the test flow that
@@ -30,7 +33,7 @@ let cleanUpAccountId (accountId: AccountId option) : Result<unit, AppError> =
                 delete from ledger.account
                 WHERE unique_id = @unique_id;
             """
-        result { return! executeNonQuery query parameters ExactlyOne None }
+        withoutTransaction(executeNonQuery query parameters ExactlyOne) 
 
 let cleanUpAccountList (l: AccountId option list) : Result<unit, AppError> =
     l
@@ -69,7 +72,8 @@ let cleanUpFiscalPeriodId (fpId: FiscalPeriodId option) : Result<unit, AppError>
                 delete from ledger.fiscal_period
                 WHERE unique_id = @unique_id;
             """
-        result { return! executeNonQuery query parameters ExactlyOne None }
+        withoutTransaction(executeNonQuery query parameters ExactlyOne)
+        
 let cleanUpFiscalPeriodKey (key: string option) : Result<unit, AppError> =
     match key with
     | None -> Ok()
@@ -80,7 +84,7 @@ let cleanUpFiscalPeriodKey (key: string option) : Result<unit, AppError> =
                 delete from ledger.fiscal_period
                 WHERE period_key = @period_key;
             """
-        result { return! executeNonQuery query parameters ExactlyOne None }
+        withoutTransaction(executeNonQuery query parameters ExactlyOne)
 
 let cleanUpFiscalPeriodIdsList (l: FiscalPeriodId option list) : Result<unit, AppError> =
     l
@@ -142,12 +146,13 @@ let cleanUpJournalEntryId (journalEntryHeaderId: JournalEntryHeaderId option) : 
                 delete from ledger.journal_entry
                 WHERE unique_id = @unique_id;
             """
-        result {
-            let! _ = executeNonQuery commentQuery parameters AnyQuantityIsAcceptable None
-            let! _ = executeNonQuery extReferenceQuery parameters AnyQuantityIsAcceptable None
-            let! _ = executeNonQuery lineQuery parameters AnyQuantityIsAcceptable None
-            return! executeNonQuery headerQuery parameters ExactlyOne None
-        }
+        withoutTransaction(fun tran ->
+            result {
+                let! _ = executeNonQuery commentQuery parameters AnyQuantityIsAcceptable tran
+                let! _ = executeNonQuery extReferenceQuery parameters AnyQuantityIsAcceptable tran
+                let! _ = executeNonQuery lineQuery parameters AnyQuantityIsAcceptable tran
+                return! executeNonQuery headerQuery parameters ExactlyOne tran
+            })
 
 let cleanUpJournalEntryExtReferenceId (uniqueId: Guid option) : Result<unit, AppError> =
     match uniqueId with
@@ -159,7 +164,7 @@ let cleanUpJournalEntryExtReferenceId (uniqueId: Guid option) : Result<unit, App
                 delete from ledger.journal_entry_ext_reference
                 WHERE unique_id = @unique_id;
             """
-        result { return! executeNonQuery query parameters ExactlyOne None }
+        withoutTransaction(executeNonQuery query parameters ExactlyOne)
 
 let cleanUpJournalEntryCommentId (uniqueId: Guid option) : Result<unit, AppError> =
     match uniqueId with
@@ -171,7 +176,7 @@ let cleanUpJournalEntryCommentId (uniqueId: Guid option) : Result<unit, AppError
                 delete from ledger.journal_entry_comment
                 WHERE unique_id = @unique_id;
             """
-        executeNonQuery query parameters ExactlyOne None
+        withoutTransaction(executeNonQuery query parameters ExactlyOne)
 
 let cleanUpJournalEntryList (l: JournalEntryHeaderId option list) : Result<unit, AppError> =
     l

@@ -1,13 +1,14 @@
 module Tests.Integrated.InterfaceBridge.JournalEntryRoutes
 
 open System
+open DataAccessLayer.DbTransaction
 open InterfaceBridge.InterfaceContracts.JournalContracts
 open InterfaceBridge.Json.Json
 open Model.Audit
 open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
-open ModelOrchestrator.JournalEntries
+open ModelOrchestrator.JournalEntries.JournalEntry
 open Tests.Integrated.GenericTestProperties
 open Tests.Integrated.InterfaceBridge._routeResolver
 open Utilities.AppError
@@ -42,6 +43,47 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                     Assert.Equal("CLI PostNew test", returned.header.description)
                     Assert.Equal(2, returned.lines |> List.length)
                     return ()
+                }
+            match railroad with
+            | Ok _ -> ()
+            | Error e -> Assert.Fail(AppError.toMessage e)
+        finally
+            match cleanUpJournalEntryId idToCleanUp with
+            | Ok() -> ()
+            | Error e -> failwith(AppError.toMessage e)
+
+    [<Fact>]
+    member _.``REQ-JE-2.13 REQ-JE-2.3 PostNew route unhappy path cleans up after itself``() =
+        let expected = fixture.Data.journalEntries |> List.length
+        let today = Calendar.today()
+        let input: JournalEntryInput =
+            { header = { description = "CLI PostNew test"; source = Some "CliTest"; entryDate = today }
+              lines =
+                [ { accountCode = "F-2210"; amount = 50.00M; lineType = "Debit"; memo = None } ] // only 1 line should fail and roll back
+              externalReferences = []
+              comments = [] }
+        let mutable idToCleanUp = None
+        try
+            let railroad =
+                result {
+                    let! payload = input |> toJson<JournalEntryInput>
+                    match routeUiCommandForTesting "JournalEntry" "PostNew" [] payload with
+                    | Error(JournalEntryInsufficientLines _) -> 
+                        let railroad = withoutTransaction(fun tran -> 
+                            result {
+                                let absurdBegin = today.PlusYears(-7)
+                                let absurdEnd = today.PlusYears(7)
+                                let! newState = fetchByDateRange tran absurdBegin absurdEnd
+                                let newCount = newState |> List.length
+                                Assert.Equal(expected, newCount)
+                                return ()
+                            })
+                        match railroad with
+                        | Ok _ -> ()
+                        | Error e -> Assert.Fail(AppError.toMessage e)
+                    | Error e -> Assert.Fail $"Wrong error. {AppError.toMessage e}"
+                    | Ok _ -> // clean-up on aisle four
+                        Assert.Fail "Expected failure; got success. You have data to clean up"
                 }
             match railroad with
             | Ok _ -> ()
@@ -211,7 +253,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         let expected =
             fixture.Data.journalEntries
             |> List.filter(fun x ->
-                x |> JournalEntry.header |> JournalEntryHeader.entryDate |> EntryDate.fiscalPeriodId = periodId)
+                x |> header |> JournalEntryHeader.entryDate |> EntryDate.fiscalPeriodId = periodId)
             |> List.length
         let railroad =
             result {
@@ -263,7 +305,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         let expected =
             fixture.Data.journalEntries
             |> List.filter(fun je ->
-                let entryDate = je |> JournalEntry.header |> JournalEntryHeader.entryDate |> EntryDate.entryDate
+                let entryDate = je |> header |> JournalEntryHeader.entryDate |> EntryDate.entryDate
                 entryDate >= today && entryDate <= today)
             |> List.length
         let railroad =
@@ -283,7 +325,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     member _.``REQ-JE-4.3 Void route happy path``() =
         let mutable idToCleanUp_1 = None
         try
-            let railroad =
+            let railroad = withoutTransaction (fun tran -> 
                 result {
                     let! _, jeToVoidId =
                         createTestJournalEntryFromPrimitives
@@ -295,6 +337,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                             []
                             []
                             (AuditEnvelope.create JournalEntryPostNew)
+                            tran
                     idToCleanUp_1 <- Some jeToVoidId
                     let voidInput: JournalEntryVoidInput =
                         { id = jeToVoidId |> JournalEntryHeaderId.value
@@ -304,7 +347,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                     let! voided = fromJson<JournalEntryReturn> returnPayload
                     Assert.True(voided.header.voidedAt |> Option.isSome)
                     return ()
-                }
+                })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -317,7 +360,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     member _.``REQ-JE-4.9 UpdateExternalReference happy path``() =
         let mutable idToCleanUp_1 = None
         try
-            let railroad =
+            let railroad = withoutTransaction (fun tran -> 
                 result {
                     let! jeToUpdate, jeToUpdateId =
                         createTestJournalEntryFromPrimitives
@@ -329,10 +372,11 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                             [ ("TestBank", "TXN-001") ]
                             []
                             (AuditEnvelope.create JournalEntryPostNew)
+                            tran
                     idToCleanUp_1 <- Some jeToUpdateId
                     let refUuid =
                         jeToUpdate
-                        |> JournalEntry.externalReferences
+                        |> externalReferences
                         |> List.head
                         |> JournalEntryExternalReference.journalEntryExternalReferenceId
                         |> JournalEntryExternalReferenceId.value
@@ -344,7 +388,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                     Assert.Equal("CliUpdatedBank", returned.financialInstitution)
                     Assert.Equal("CLI-UPD-001", returned.referenceText)
                     return ()
-                }
+                })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -357,7 +401,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     member _.``REQ-JE-4.10 AddExternalReference route happy path``() =
         let mutable idToCleanUp_1 = None
         try
-            let railroad =
+            let railroad = withoutTransaction (fun tran -> 
                 result {
                     let! _, jeToUpdateId =
                         createTestJournalEntryFromPrimitives
@@ -369,6 +413,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                             []
                             []
                             (AuditEnvelope.create JournalEntryPostNew)
+                            tran
                     idToCleanUp_1 <- Some jeToUpdateId
                     let addInput: JournalEntryAddExternalReferenceInput =
                         { journalEntryId = jeToUpdateId |> JournalEntryHeaderId.value
@@ -379,7 +424,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                     Assert.Equal("CliAddBank", returned.financialInstitution)
                     Assert.Equal("CLI-ADD-001", returned.referenceText)
                     return ()
-                }
+                })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -392,7 +437,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     member _.``REQ-JE-5.1 AddComment route happy path``() =
         let mutable idToCleanUp_1 = None
         try
-            let railroad =
+            let railroad = withoutTransaction (fun tran -> 
                 result {
                     let! _, jeToUpdateId =
                         createTestJournalEntryFromPrimitives
@@ -404,6 +449,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                             []
                             []
                             (AuditEnvelope.create JournalEntryPostNew)
+                            tran
                     idToCleanUp_1 <- Some jeToUpdateId
                     let addInput: JournalEntryAddCommentInput =
                         { journalEntryId = jeToUpdateId |> JournalEntryHeaderId.value
@@ -413,7 +459,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                     let! returned = fromJson<JournalEntryCommentReturn> returnPayload
                     Assert.Equal("CLI added comment", returned.commentText)
                     return ()
-                }
+                })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -427,7 +473,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         let expected = "CLI updated comment text"
         let mutable idToCleanUp_1 = None
         try
-            let railroad =
+            let railroad = withoutTransaction (fun tran -> 
                 result {
                     let! jeToUpdate, jeToUpdateId =
                         createTestJournalEntryFromPrimitives
@@ -439,10 +485,11 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                             []
                             [ (None, "Fixture comment for testing") ]
                             (AuditEnvelope.create JournalEntryPostNew)
+                            tran
                     idToCleanUp_1 <- Some jeToUpdateId
                     let commentUuid =
                         jeToUpdate
-                        |> JournalEntry.comments
+                        |> comments
                         |> List.head
                         |> JournalEntryComment.journalEntryCommentId
                         |> JournalEntryCommentId.value
@@ -453,7 +500,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                     let! returned = fromJson<JournalEntryCommentReturn> returnPayload
                     Assert.Equal(expected, returned.commentText)
                     return ()
-                }
+                })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -466,7 +513,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     member _.``REQ-JE-5.3 updateComment rejects empty text``() = // todo: refactor with multi-fail theory
         let mutable idToCleanUp_1 = None
         try
-            let railroad =
+            let railroad = withoutTransaction (fun tran -> 
                 result {
                     let! jeToUpdate, jeToUpdateId =
                         createTestJournalEntryFromPrimitives
@@ -478,10 +525,11 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                             []
                             [ (None, "Fixture comment for testing") ]
                             (AuditEnvelope.create JournalEntryPostNew)
+                            tran
                     idToCleanUp_1 <- Some jeToUpdateId
                     let commentUuid =
                         jeToUpdate
-                        |> JournalEntry.comments
+                        |> comments
                         |> List.head
                         |> JournalEntryComment.journalEntryCommentId
                         |> JournalEntryCommentId.value
@@ -494,7 +542,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                         | Error(JournalEntryCommentIsEmpty _) -> Ok()
                         | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
                     return ()
-                }
+                })
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
