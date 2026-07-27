@@ -64,6 +64,11 @@ Design rules for the scripts:
    skip apperror-coverage). Installed by `Checks/install-hooks.sh` into `.git/hooks/`
    — opt-in, one command, and BD's container setup runs it. Not versioned magic;
    the hook is 3 lines calling the runner.
+   **DISABLED 2026-07-26** — `check-format` produces an intermittent false FAIL and a
+   gate that can refuse a needed commit for a nonexistent violation is worse than no
+   gate. `install-hooks.sh` now requires `--force`. The checks and the review contract
+   (point 2) are unaffected and carry the load until the flake is diagnosed. See
+   `CompoundedLearnings/articles/process/a-check-verdict-is-evidence-not-truth.md`.
 2. **The review contract** — BD's process (CodeReviewer skill, §3) requires a clean
    `run-all.sh` *and* `dotnet build` *and* `dotnet test` before work is presented to
    you. The transcript shows the output; you never review code that hasn't passed.

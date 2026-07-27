@@ -10,8 +10,10 @@ eventually bless content it never examined.
 ## What works
 
 - A pre-commit gate must first prove tree and index agree for every file being
-  committed, then run the checks. `.git/hooks/pre-commit` does this by refusing when any
-  staged file also carries unstaged edits.
+  committed, then run the checks. The hook body in `Checks/install-hooks.sh` does this by
+  refusing when any staged file also carries unstaged edits. **Note: the hook is
+  currently uninstalled** (see `a-check-verdict-is-evidence-not-truth.md`), so nothing
+  enforces this today — the reasoning survives for whoever reinstates it.
 - **Detect and refuse — never silently reconcile.** Guessing which version the author
   meant (re-staging, or checking the index instead) is how a gate becomes untrustworthy.
   Name the offending files and stop.
