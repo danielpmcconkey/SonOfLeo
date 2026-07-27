@@ -76,7 +76,10 @@ let commit (dbTransaction: DbTransaction) : Result<unit, AppError> =
 let rollback (dbTransaction: DbTransaction) : Result<unit, AppError> =
     dbTransaction |> commitOrRollbackAndDispose Rollback
 
-let withAutoCommitTransaction
+/// runWithAutoCompleteTransaction executes the func and then either
+/// automatically commits or rolls back the transaction, depending
+/// on success or failure of the function.
+let runWithAutoCompleteTransaction
     (dbTransaction: DbTransaction)
     (func: unit -> Result<'T, AppError>)
     : Result<'T, AppError> =

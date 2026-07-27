@@ -13,7 +13,7 @@ open ModelOrchestrator.FetchFilters
 open Utilities.AppError
 open Model.Ledger.Accounts.AccountComponent
 open Utilities.ResultHelper
-open DataAccessLayer.DbTransaction
+open Context.Context
 
 let ``convert TemporalFilterInput to TemporalFilter``
     (context: Context)
@@ -29,7 +29,7 @@ let ``convert TemporalFilterInput to TemporalFilter``
             let! _ = periodKey |> FiscalPeriodKey.fromString
             let! uuid =
                 periodKey
-                |> LookupCache.fiscalPeriodKeyToId.fetch tran
+                |> LookupCache.fiscalPeriodKeyToId.fetch context
                 |> Result.mapError(fun _ -> FiscalPeriodNoPeriodMatchingKey periodKey)
             return uuid |> FiscalPeriodId.fromGuid |> TemporalFilter.FiscalPeriodIdentifier
         }
@@ -37,7 +37,7 @@ let ``convert TemporalFilterInput Option To TemporalFilter Option``
     (context: Context)
     (input: TemporalFilterInput option)
     : Result<TemporalFilter option, AppError> =
-    let fallibleConverter = (fun x -> x |> ``convert TemporalFilterInput to TemporalFilter`` tran)
+    let fallibleConverter = (fun x -> x |> ``convert TemporalFilterInput to TemporalFilter`` context)
     input |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
 let ``convert AccountActivityFilterInput to AccountActivityFilter``
@@ -46,9 +46,9 @@ let ``convert AccountActivityFilterInput to AccountActivityFilter``
     : Result<AccountActivityFilter, AppError> =
     result {
         let! accountId = // REQ-NGUI-1.5
-            input.accountCode |> ``convert AccountCodeString Option to AccountId Option`` tran
+            input.accountCode |> ``convert AccountCodeString Option to AccountId Option`` context
         let! accountParentId = // REQ-NGUI-1.5
-            match input.accountParentCode |> ``convert AccountCodeString Option to AccountId Option`` tran with
+            match input.accountParentCode |> ``convert AccountCodeString Option to AccountId Option`` context with
             | Ok x -> Ok x
             | Error(AccountCodeDoesntMatchAccountId codeString) -> Error(AccountParentCodeInvalid codeString)
             | Error e -> Error e
@@ -58,7 +58,7 @@ let ``convert AccountActivityFilterInput to AccountActivityFilter``
         let! description = input.description |> ``convert JeDescriptionString Option to JeDescription Option``
         let! source = input.source |> ``convert JeSourceString Option to JeSource Option``
         let! temporalFilter =
-            input.temporalFilter |> ``convert TemporalFilterInput Option To TemporalFilter Option`` tran
+            input.temporalFilter |> ``convert TemporalFilterInput Option To TemporalFilter Option`` context
         return
             { accountId = accountId
               temporalFilter = temporalFilter
@@ -92,7 +92,7 @@ let ``convert AccountActivity to AccountActivityReturn``
     (input: AccountActivity)
     : Result<AccountActivityReturn, AppError> =
     result {
-        let! parentCodeOptionId = input.accountParentId |> ``convert AccountId Option to AccountCode Option`` tran // REQ-NGUI-1.5
+        let! parentCodeOptionId = input.accountParentId |> ``convert AccountId Option to AccountCode Option`` context // REQ-NGUI-1.5
         let parentCodeOptionString = parentCodeOptionId |> Option.map(AccountCode.value)
         let detail =
             input.activityDetail |> Option.map(``convert AccountActivityDetail to AccountActivityDetailReturn``)
@@ -111,5 +111,5 @@ let ``convert AccountActivity List to AccountActivityReturn List``
     (input: AccountActivity list)
     : Result<AccountActivityReturn list, AppError> =
     input
-    |> List.map(fun x -> x |> ``convert AccountActivity to AccountActivityReturn`` tran)
+    |> List.map(fun x -> x |> ``convert AccountActivity to AccountActivityReturn`` context)
     |> convertListOfResultsToResultsList

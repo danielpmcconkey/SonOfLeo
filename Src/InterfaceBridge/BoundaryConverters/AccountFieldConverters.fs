@@ -8,47 +8,46 @@ open Model.Ledger.Accounts.Account
 open Model.Ledger.Accounts.AccountComponent
 open ModelOrchestrator.AccountBalance
 open Utilities.AppError
-open DataAccessLayer.DbTransaction
 open Utilities.ResultHelper
 open System
 
-let fallibleConverterAccountCodeStringToAccountUuid tran codeString =
+let fallibleConverterAccountCodeStringToAccountUuid context codeString =
     result {
         // see if the string represents a valid code first
         let! _ = codeString |> AccountCode.create
         // now see if it matches an account ID
         return!
-            match codeString |> LookupCache.accountCodeToId.fetch tran with
+            match codeString |> LookupCache.accountCodeToId.fetch context with
             | Ok x -> Ok x
             | Error(DalResultantRowsDidntMatchExpectation _) -> Error(AccountCodeDoesntMatchAccountId codeString)
             | Error e -> Error e
     }
 
-let fallibleConverterAccountCodeToAccountId tran codeString =
+let fallibleConverterAccountCodeToAccountId context codeString =
     result {
-        let! uuid = codeString |> fallibleConverterAccountCodeStringToAccountUuid tran
+        let! uuid = codeString |> fallibleConverterAccountCodeStringToAccountUuid context
         return uuid |> AccountId.fromGuid
     }
 
 let ``convert AccountId to AccountCodeString`` (context: Context) (id: AccountId) : Result<string, AppError> =
-    id |> AccountId.value |> LookupCache.accountIdToCode.fetch tran
+    id |> AccountId.value |> LookupCache.accountIdToCode.fetch context
 
 let ``convert AccountId to AccountCode`` (context: Context) (id: AccountId) : Result<AccountCode, AppError> =
-    id |> ``convert AccountId to AccountCodeString`` tran |> Result.bind AccountCode.create
+    id |> ``convert AccountId to AccountCodeString`` context |> Result.bind AccountCode.create
 
 let ``convert AccountId Option to AccountCode Option``
     (context: Context)
     (idOption: AccountId option)
     : Result<AccountCode option, AppError> =
     let fallibleConverter =
-        (fun id -> id |> AccountId.value |> LookupCache.accountIdToCode.fetch tran |> Result.bind AccountCode.create)
+        (fun id -> id |> AccountId.value |> LookupCache.accountIdToCode.fetch context |> Result.bind AccountCode.create)
     idOption |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
 let ``convert AccountId Option to AccountCodeString Option``
     (context: Context)
     (idOption: AccountId option)
     : Result<string option, AppError> =
-    let code = idOption |> ``convert AccountId Option to AccountCode Option`` tran
+    let code = idOption |> ``convert AccountId Option to AccountCode Option`` context
     match code with
     | Error e ->
         let originalType = idOption.GetType().Name
@@ -68,7 +67,7 @@ let ``convert AccountCodeString Option to AccountUuidOption``
     match code with
     | Some x ->
         x
-        |> LookupCache.accountCodeToId.fetch tran
+        |> LookupCache.accountCodeToId.fetch context
         |> Result.mapError(fun e ->
             let originalType = code.GetType().Name
             let originalValue =
@@ -83,7 +82,7 @@ let ``convert AccountCodeString Option to AccountUuidOption``
 
 let ``convert Account to AccountReturn`` (context: Context) (a: Account) : Result<AccountReturn, AppError> =
     result {
-        let! parentCode = a |> parentId |> ``convert AccountId Option to AccountCodeString Option`` tran
+        let! parentCode = a |> parentId |> ``convert AccountId Option to AccountCodeString Option`` context
         let activityPeriod = a |> Account.activityPeriod
         let activeBegin = activityPeriod |> AccountActivityPeriod.activeBegin
         let activeEnd = activityPeriod |> AccountActivityPeriod.activeEnd
@@ -101,12 +100,12 @@ let ``convert Account to AccountReturn`` (context: Context) (a: Account) : Resul
     }
 
 let ``convert AccountCodeString to Id`` (context: Context) (codeString: string) : Result<AccountId, AppError> =
-    codeString |> fallibleConverterAccountCodeToAccountId tran
+    codeString |> fallibleConverterAccountCodeToAccountId context
 
 let ``convert AccountCodeString to Account`` (context: Context) (codeString: string) : Result<Account, AppError> =
     result {
-        let! accountId = codeString |> fallibleConverterAccountCodeToAccountId tran
-        return! accountId |> fetchById tran
+        let! accountId = codeString |> fallibleConverterAccountCodeToAccountId context
+        return! accountId |> fetchById context
     }
 
 let ``convert AccountCodeString Option to AccountId Option``
@@ -117,7 +116,7 @@ let ``convert AccountCodeString Option to AccountId Option``
     | None -> Ok None
     | Some codeString ->
         result {
-            let! accountId = codeString |> fallibleConverterAccountCodeToAccountId tran
+            let! accountId = codeString |> fallibleConverterAccountCodeToAccountId context
             return (Some accountId)
         }
 
@@ -126,7 +125,7 @@ let ``convert AccountCodeString List to AccountId List``
     (codes: string list)
     : Result<AccountId list, AppError> =
     codes
-    |> List.map(fun x -> x |> ``convert AccountCodeString to Id`` tran)
+    |> List.map(fun x -> x |> ``convert AccountCodeString to Id`` context)
     |> convertListOfResultsToResultsList
 
 let ``convert AccountUuId Option to AccountCode Option``
@@ -134,7 +133,7 @@ let ``convert AccountUuId Option to AccountCode Option``
     (uuidOption: Guid option)
     : Result<AccountCode option, AppError> =
     let fallibleConverter =
-        (fun id -> id |> LookupCache.accountIdToCode.fetch tran |> Result.bind AccountCode.create)
+        (fun id -> id |> LookupCache.accountIdToCode.fetch context |> Result.bind AccountCode.create)
     uuidOption |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
 let ``convert AccountTypeString Option to AccountType Option``
@@ -154,7 +153,7 @@ let ``convert AccountBalance to AccountBalanceReturn``
     (balance: AccountBalance)
     : Result<AccountBalanceReturn, AppError> =
     result {
-        let! codeString = balance.accountId |> ``convert AccountId to AccountCodeString`` tran
+        let! codeString = balance.accountId |> ``convert AccountId to AccountCodeString`` context
         return
             { accountCode = codeString
               totalCredits = balance.totalCredits |> Money.amount

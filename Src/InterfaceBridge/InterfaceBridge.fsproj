@@ -17,6 +17,7 @@
     <Compile Include="BoundaryConverters\MoneyFieldConverters.fs" />
     <Compile Include="BoundaryConverters\OrchestrationConverters.fs" />
     <Compile Include="BoundaryConverters\FiscalPeriodFieldConverters.fs" />
+    <Compile Include="AutoCommitPipeline.fs" />
     <Compile Include="Routes\AccountRoutes.fs" />
     <Compile Include="Routes\FiscalPeriodRoutes.fs" />
     <Compile Include="Routes\JournalEntryRoutes.fs" />
