@@ -23,7 +23,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             "Test comment text"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        withRollback(fun tran ->
+        runFuncAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     fixture.Data.basicJeId
@@ -44,7 +44,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             "Comment with secondary link"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        withRollback(fun tran ->
+        runFuncAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     fixture.Data.basicJeId
@@ -66,7 +66,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             "Comment with secondary link"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        withRollback(fun tran ->
+        runFuncAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     fixture.Data.basicJeId
@@ -91,7 +91,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             "Null secondary"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        withRollback(fun tran ->
+        runFuncAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     fixture.Data.basicJeId
@@ -105,7 +105,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-1.53 constructNewAndSaveToDb rejects secondary JE ID equal to primary``() =
-        withRollback(fun tran ->
+        runFuncAndAutoRollback AccountCreate (fun context ->
             let commentText =
                 "Same primary and secondary"
                 |> CommentText.create
@@ -130,7 +130,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             "Comment on voided"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        withRollback(fun tran ->
+        runFuncAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     fixture.Data.voidedJeId
@@ -149,7 +149,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             "Comment on closed period entry"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        withRollback(fun tran ->
+        runFuncAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     fixture.Data.jeInClosedPeriodId
@@ -165,7 +165,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
     member _.``REQ-JE-5.3 updateComment amends the comment text``() =
         let envelope = AuditEnvelope.create JournalEntryUpdateComment
         let expected = "Updated comment text"
-        withRollback(fun tran ->
+        runFuncAndAutoRollback AccountCreate (fun context ->
             let railroad =
                 result {
                     let! textUpdate = expected |> CommentText.create |> Result.map SetTo
@@ -188,7 +188,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
     member _.``REQ-JE-5.3 REQ-SYS-3.3 updateComment updates modified_at timestamp``() =
         let envelope = AuditEnvelope.create JournalEntryUpdateComment
         let expectedInstant = AuditEnvelope.instant envelope
-        withRollback(fun tran ->
+        runFuncAndAutoRollback AccountCreate (fun context ->
             let railroad =
                 result {
                     let! textUpdate = "Modified timestamp test" |> CommentText.create |> Result.map SetTo
@@ -210,7 +210,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-5.6 updateComment does not change the primary JE link``() =
         let envelope = AuditEnvelope.create JournalEntryUpdateComment
-        withRollback(fun tran ->
+        runFuncAndAutoRollback AccountCreate (fun context ->
             let railroad =
                 result {
                     let! textUpdate = "Primary link unchanged" |> CommentText.create |> Result.map SetTo
@@ -236,7 +236,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             "Round-trip comment"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        withRollback(fun tran ->
+        runFuncAndAutoRollback AccountCreate (fun context ->
             let createResult =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     fixture.Data.basicJeId

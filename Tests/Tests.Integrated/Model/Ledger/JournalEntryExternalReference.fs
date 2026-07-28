@@ -1,13 +1,13 @@
 namespace Tests.Integrated.Model.Ledger
 
 open System
+open Logger.Audit
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator
 open Tests.Integrated.GenericTestProperties
-open Tests.Integrated.Rollback
+open Tests.Integrated.InterfaceBridge._routeResolver
 open Xunit
 open Tests.Integrated
-open Model.Audit
 open Model.Ledger.Journaling
 open Utilities.AppError
 
@@ -16,14 +16,12 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-4.9 updateFiAndReferenceText updates FI and value on existing reference``() =
-        let envelope = AuditEnvelope.create JournalEntryUpdateExternalReference
         let fiUpdate = "UpdatedBank" |> createFiUpdateFromString
         let refUpdate = "UPD-001" |> createReferenceTextUpdateFromString
-        withRollback(fun tran ->
+        runFuncAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryExternalReferenceOrchestration.updateFiAndReferenceText
-                    tran
-                    envelope
+                    context
                     fiUpdate
                     refUpdate
                     fixture.Data.jeWithRefExtRefId
@@ -45,10 +43,10 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
         let expectedInstant = AuditEnvelope.instant envelope
         let fiUpdate = "TimestampBank" |> createFiUpdateFromString
         let refUpdate = "TS-001" |> createReferenceTextUpdateFromString
-        withRollback(fun tran ->
+        runFuncAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryExternalReferenceOrchestration.updateFiAndReferenceText
-                    tran
+                    context
                     envelope
                     fiUpdate
                     refUpdate
@@ -64,14 +62,14 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
         let expected2 = "NEW-001"
         let fiAdd = expected1 |> createJournalRefFinancialInstitutionFromString
         let refAdd = expected2 |> createJournalExternalReferenceTextFromString
-        withRollback(fun tran ->
+        runFuncAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
                     fixture.Data.basicJeId
                     fiAdd
                     refAdd
                     envelope
-                    tran
+                    context
             match result with
             | Ok r ->
                 Assert.Equal(fixture.Data.basicJeId, r |> JournalEntryExternalReference.journalEntryHeaderId)
@@ -90,14 +88,14 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
         let envelope = AuditEnvelope.create JournalEntryAddExternalReference
         let fiAdd = "UuidBank" |> createJournalRefFinancialInstitutionFromString
         let refAdd = "UUID-001" |> createJournalExternalReferenceTextFromString
-        withRollback(fun tran ->
+        runFuncAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
                     fixture.Data.basicJeId
                     fiAdd
                     refAdd
                     envelope
-                    tran
+                    context
             match result with
             | Ok r ->
                 Assert.NotEqual(
@@ -113,14 +111,14 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
         let envelope = AuditEnvelope.create JournalEntryAddExternalReference
         let fiAdd = "VoidedBank" |> createJournalRefFinancialInstitutionFromString
         let refAdd = "VOID-001" |> createJournalExternalReferenceTextFromString
-        withRollback(fun tran ->
+        runFuncAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
                     fixture.Data.voidedJeId
                     fiAdd
                     refAdd
                     envelope
-                    tran
+                    context
             match result with
             | Ok r -> Assert.Equal(fixture.Data.voidedJeId, r |> JournalEntryExternalReference.journalEntryHeaderId)
             | Error e -> Assert.Fail(AppError.toMessage e))
@@ -130,22 +128,22 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
         let envelope = AuditEnvelope.create JournalEntryAddExternalReference
         let fiAdd = "FidelityBank" |> createJournalRefFinancialInstitutionFromString
         let refAdd = "FID-RT-001" |> createJournalExternalReferenceTextFromString
-        withRollback(fun tran ->
+        runFuncAndAutoRollback AccountCreate (fun context ->
             let createResult =
                 JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
                     fixture.Data.basicJeId
                     fiAdd
                     refAdd
                     envelope
-                    tran
+                    context
             match createResult with
             | Error e -> Assert.Fail(AppError.toMessage e)
             | Ok created ->
-                // fetch inside the same transaction — the create is never committed
+                // fetch inside the same contextsaction — the create is never committed
                 let fetchResult =
                     created
                     |> JournalEntryExternalReference.journalEntryExternalReferenceId
-                    |> JournalEntryExternalReference.fetchById tran
+                    |> JournalEntryExternalReference.fetchById context
                 match fetchResult with
                 | Error e -> Assert.Fail $"Fetch after creation failed: {e}"
                 | Ok fetched ->

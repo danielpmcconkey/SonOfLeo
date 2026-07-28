@@ -2,7 +2,6 @@ module Tests.Integrated.GenericTestProperties
 
 open InterfaceBridge.InterfaceContracts.AccountContracts
 open Model
-open Model.Audit
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.FiscalPeriods
@@ -15,12 +14,10 @@ open Utilities
 open Utilities.AppError
 open Utilities.ResultHelper
 open Utilities.FieldUpdate
-open DataAccessLayer.DbTransaction
+open Context.Context
 
 // todo: rename this module or move the helper functions out of it
 
-// audit
-let genericAuditEnvelope = AuditEnvelope.create AccountCreate
 // account
 let genericAccountCodeString = "GenCode"
 let genericAccountCode =
@@ -56,14 +53,14 @@ let genericFiscalPeriodKey =
     |> FiscalPeriodKey.fromString
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
 
-let createTestFiscalPeriodFromPrimitives transaction keyStr : Result<FiscalPeriod, AppError> =
+let createTestFiscalPeriodFromPrimitives context keyStr : Result<FiscalPeriod, AppError> =
     result {
         let! key = keyStr |> FiscalPeriodKey.fromString
-        let envelope = AuditEnvelope.create FiscalPeriodCreate
-        return! FiscalPeriodCreation.constructNewAndSaveToDb key envelope transaction
+        return! key |> FiscalPeriodCreation.constructNewAndSaveToDb context
     }
 
 let createTestAccountFromPrimitives
+    context
     code
     name
     actType
@@ -72,12 +69,11 @@ let createTestAccountFromPrimitives
     subtype
     parentId
     reference
-    envelope
-    transaction
     : Result<(Account * AccountId), AppError> =
     result {
         let! account =
             AccountCreation.constructNewAndSaveToDb
+                context
                 (code |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
                 (name |> AccountName.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
                 (actType |> AccountType.fromString |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
@@ -90,13 +86,12 @@ let createTestAccountFromPrimitives
                 (reference
                  |> convertOptionToDesiredTypeWithFallibleConverter AccountExternalReference.create
                  |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
-                envelope
-                transaction
         return (account, account |> Account.accountId)
     }
 
-let createTestAccountFromCodeString codeToUse tran =
+let createTestAccountFromCodeString context codeToUse =
     createTestAccountFromPrimitives
+        context
         codeToUse
         genericAccountNameString
         genericAccountTypeString
@@ -105,8 +100,7 @@ let createTestAccountFromCodeString codeToUse tran =
         genericAccountSubtype
         genericAccountParentId
         genericAccountReference
-        genericAuditEnvelope
-        tran
+        
 let createAccountInput codeToUse : AccountCreateInput =
     { code = codeToUse
       name = genericAccountNameString
@@ -117,14 +111,13 @@ let createAccountInput codeToUse : AccountCreateInput =
       parentCode = genericAccountParentCode
       reference = genericAccountReference }
 let createTestJournalEntryFromPrimitives
+    (context: Context)
     (description: string)
     (source: string option)
     (entryDate: LocalDate)
     (lines: (AccountId * decimal * string * string option) list)
     (references: (string * string) list)
     (comments: (JournalEntryHeaderId option * string) list)
-    (auditEnvelope: AuditEnvelope)
-    (tran: DbTransaction)
     : Result<JournalEntry * JournalEntryHeaderId, AppError> =
     let convertLines
         (linesIn: (AccountId * decimal * string * string option) list)
@@ -165,20 +158,19 @@ let createTestJournalEntryFromPrimitives
     result {
         let! description = description |> JournalEntryDescription.create
         let! source = source |> convertOptionToDesiredTypeWithFallibleConverter JournalEntrySource.create
-        let! entryDate = entryDate |> EntryDate.create tran
+        let! entryDate = entryDate |> EntryDate.create context
         let! linesConverted = lines |> convertLines
         let! refsConverted = references |> convertRefs
         let! commentsConverted = comments |> convertComments
         let! journalEntry =
             JournalEntry.constructNewAndSaveToDb
-                tran
+                context
                 description
                 source
                 entryDate
                 linesConverted
                 refsConverted
                 commentsConverted
-                auditEnvelope
         let headerId = journalEntry |> JournalEntry.header |> JournalEntryHeader.journalEntryHeaderId
         return (journalEntry, headerId)
     }

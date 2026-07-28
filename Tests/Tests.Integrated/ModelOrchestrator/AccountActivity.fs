@@ -1,6 +1,7 @@
 namespace Tests.Integrated.ModelOrchestrator
 
 open DataAccessLayer.DbTransaction
+open Logger.Audit
 open Model.Ledger.Accounts
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
@@ -11,6 +12,7 @@ open Tests.Integrated
 open ModelOrchestrator.AccountActivity
 open System
 open ModelOrchestrator.FetchFilters
+open Context
 
 [<Collection("SharedTestData")>]
 type AccountActivityTests(fixture: TestDataFixture) =
@@ -30,7 +32,8 @@ type AccountActivityTests(fixture: TestDataFixture) =
               amount = None
               description = None
               unVoidedOnly = false }
-        let result = withoutTransaction(fun tran -> fetchFiltered tran filter None)
+        let context = Context.create NoTransaction FetchOnly
+        let result = fetchFiltered context filter None
         match result with
         | Ok activities ->
             Assert.Equal(expectedCountTotal, activities |> List.length)
@@ -68,7 +71,8 @@ type AccountActivityTests(fixture: TestDataFixture) =
               amount = None
               description = None
               unVoidedOnly = true }
-        let result = withoutTransaction(fun tran -> fetchFiltered tran filter None)
+        let context = Context.create NoTransaction FetchOnly
+        let result = fetchFiltered context filter None
         match result with
         | Ok activities -> Assert.Equal(expectedCountTotal, activities |> List.length)
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -91,7 +95,8 @@ type AccountActivityTests(fixture: TestDataFixture) =
               amount = None
               description = None
               unVoidedOnly = false }
-        let result = withoutTransaction(fun tran -> fetchFiltered tran filter None)
+        let context = Context.create NoTransaction FetchOnly
+        let result = fetchFiltered context filter None
         match result with
         | Ok activities ->
             Assert.Equal(1, activities |> List.length)

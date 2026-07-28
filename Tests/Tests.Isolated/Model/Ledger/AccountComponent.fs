@@ -1,7 +1,6 @@
 module Tests.Isolated.Model.Ledger.AccountComponent
 
 open System
-open Model.Audit
 open Tests.Isolated.Model.GenericTestProperties
 open Xunit
 open Model.Ledger.Accounts.AccountComponent
@@ -568,7 +567,7 @@ let ``REQ-AC-1.42 REQ-AC-1.43 AccountActivityPeriod accepts valid begin and end`
 let ``REQ-AC-1.50 isActive returns true when begin <= ref and no end`` () =
     let ab = Calendar.today().PlusDays(-1)
     let ae = None
-    let now = ((AuditEnvelope.instant genericAuditEnvelope) |> Calendar.dateFromInstant)
+    let now = Calendar.today()
     AccountActivityPeriod.create ab ae
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
     |> AccountActivityPeriod.isActive now
@@ -578,7 +577,7 @@ let ``REQ-AC-1.50 isActive returns true when begin <= ref and no end`` () =
 let ``REQ-AC-1.50 isActive returns true when begin <= ref and end > ref`` () =
     let ab = Calendar.today().PlusDays(-1)
     let ae = Some(Calendar.today().PlusDays(1))
-    let now = ((AuditEnvelope.instant genericAuditEnvelope) |> Calendar.dateFromInstant)
+    let now = Calendar.today()
     AccountActivityPeriod.create ab ae
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
     |> AccountActivityPeriod.isActive now
@@ -589,7 +588,7 @@ let ``REQ-AC-1.50 isActive returns true when begin <= ref and end > ref`` () =
 let ``REQ-AC-1.48 isActive returns false when end < ref (deactivated)`` () =
     let ab = Calendar.today().PlusDays(-2)
     let ae = Some(Calendar.today().PlusDays(-1))
-    let now = ((AuditEnvelope.instant genericAuditEnvelope) |> Calendar.dateFromInstant)
+    let now = Calendar.today()
     AccountActivityPeriod.create ab ae
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
     |> AccountActivityPeriod.isActive now
@@ -599,7 +598,7 @@ let ``REQ-AC-1.48 isActive returns false when end < ref (deactivated)`` () =
 let ``REQ-AC-1.50 isActive returns false when ref precedes begin (not yet started)`` () =
     let ab = Calendar.today().PlusDays(1)
     let ae = None
-    let now = ((AuditEnvelope.instant genericAuditEnvelope) |> Calendar.dateFromInstant)
+    let now = Calendar.today()
     AccountActivityPeriod.create ab ae
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
     |> AccountActivityPeriod.isActive now

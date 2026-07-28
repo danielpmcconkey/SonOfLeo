@@ -1,12 +1,10 @@
 module Tests.Isolated.Model.GenericTestProperties
 
-open Model.Audit
 open Model.Ledger.Accounts.AccountComponent
 open Utilities
 open Utilities.AppError
 
 // audit
-let genericAuditEnvelope = AuditEnvelope.create AccountCreate
 // account
 let genericAccountCodeString = "GenCode"
 let genericAccountCode =

@@ -2,7 +2,6 @@ module InterfaceBridge.Routes.JournalEntryRoutes
 
 open Context.Context
 open DataAccessLayer.DbTransaction
-open InterfaceBridge.AutoCommitPipeline
 open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
 open InterfaceBridge.BoundaryConverters.JournalEntryFieldConverters

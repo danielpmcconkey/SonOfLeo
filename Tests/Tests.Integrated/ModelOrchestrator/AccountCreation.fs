@@ -1,9 +1,11 @@
 module Tests.Integrated.ModelOrchestrator.AccountCreation
 
 open System
-open Model.Audit
+open Context.Context
+open Logger.Audit
 open ModelOrchestrator
-open Tests.Integrated.Rollback
+open Tests.Integrated.InterfaceBridge._routeResolver
+open Tests.Integrated.Railroad
 open Xunit
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
@@ -12,9 +14,10 @@ open Tests.Integrated.GenericTestProperties
 
 [<Fact>]
 let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew generates UUID`` () =
-    withRollback(fun tran ->
+    runFuncAndAutoRollback AccountCreate (fun context ->
         let code = "abc1" |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         AccountCreation.constructNewAndSaveToDb
+            context
             code
             genericAccountName
             genericAccountType
@@ -22,20 +25,20 @@ let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew generates UUID`` () =
             genericAccountSubtype
             genericAccountParentId
             genericAccountReference
-            genericAuditEnvelope
-            tran
         |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         |> Account.accountId
         |> AccountId.value
-        |> fun id -> Assert.NotEqual(Guid.Empty, id))
+        |> fun id -> Assert.NotEqual(Guid.Empty, id)
+        Ok ()) |> railroadWrapper
 
 [<Fact>]
 let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` () =
-    withRollback(fun tran ->
+    runFuncAndAutoRollback AccountCreate (fun context ->
         let code = "abc2" |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        let expected = AuditEnvelope.instant genericAuditEnvelope
+        let expected = context |> getInitiationInstant
         let account =
             AccountCreation.constructNewAndSaveToDb
+                context
                 code
                 genericAccountName
                 genericAccountType
@@ -43,8 +46,7 @@ let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` 
                 genericAccountSubtype
                 genericAccountParentId
                 genericAccountReference
-                genericAuditEnvelope
-                tran
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         Assert.Equal(expected, Account.createdAt account)
-        Assert.Equal(expected, Account.modifiedAt account))
+        Assert.Equal(expected, Account.modifiedAt account)
+        Ok ()) |> railroadWrapper

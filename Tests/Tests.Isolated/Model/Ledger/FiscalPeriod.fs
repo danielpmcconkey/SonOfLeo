@@ -1,12 +1,10 @@
 module Tests.Isolated.Model.Ledger.FiscalPeriod
 
-open Model.Audit
 open Model.Ledger.FiscalPeriods
 open Utilities.AppError
+open Utilities.ResultHelper
 open Xunit
 let genericKey = "2026-06"
-let genericEnvelope = AuditEnvelope.create FiscalPeriodCreate
-
 
 [<Fact>]
 let ``REQ-FP-1.2 PeriodKey.fromString happy path`` () =

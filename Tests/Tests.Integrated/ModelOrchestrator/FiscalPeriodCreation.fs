@@ -1,11 +1,12 @@
 module Tests.Integrated.ModelOrchestrator.FiscalPeriodCreation
 
+open Logger.Audit
 open Model.Ledger.FiscalPeriods
 open ModelOrchestrator
-open Tests.Integrated.Rollback
+open Tests.Integrated.InterfaceBridge._routeResolver
+open Tests.Integrated.Railroad
 open Xunit
 open Utilities.AppError
-open Tests.Integrated.GenericTestProperties
 
 [<Fact>]
 let ``REQ-FP-1.4 REQ-FP-1.5 REQ-FP-2.3 Fiscal period start and end date are derived from the key`` () =
@@ -17,12 +18,15 @@ let ``REQ-FP-1.4 REQ-FP-1.5 REQ-FP-2.3 Fiscal period start and end date are deri
         keyString
         |> FiscalPeriodKey.fromString
         |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    withRollback(fun tran ->
+    runFuncAndAutoRollback FiscalPeriodCreate (fun context ->
         let fp =
-            FiscalPeriodCreation.constructNewAndSaveToDb key genericAuditEnvelope tran
+            key
+            |> FiscalPeriodCreation.constructNewAndSaveToDb context
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         let startDate = FiscalPeriod.startDate fp
         let endDate = FiscalPeriod.endDate fp
         Assert.Equal(expectedMonth, startDate.Month)
         Assert.Equal(expectedStartDay, startDate.Day)
-        Assert.Equal(expectedEndDay, endDate.Day))
+        Assert.Equal(expectedEndDay, endDate.Day)
+        Ok ()
+    ) |> railroadWrapper

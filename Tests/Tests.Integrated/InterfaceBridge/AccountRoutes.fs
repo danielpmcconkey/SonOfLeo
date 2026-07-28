@@ -4,6 +4,7 @@ open System
 open DataAccessLayer.DbTransaction
 open InterfaceBridge.InterfaceContracts.SharedContracts
 open InterfaceBridge.Json.Json
+open Logger.Audit
 open Model
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
@@ -17,6 +18,7 @@ open Xunit
 open Tests.Integrated._Cleanup
 open InterfaceBridge.InterfaceContracts.AccountContracts
 open Utilities.AppError
+open Context.Context
 
 [<Collection("SharedTestData")>]
 type AccountRouteTests(fixture: TestDataFixture) =
@@ -27,16 +29,16 @@ type AccountRouteTests(fixture: TestDataFixture) =
         try
 
             let railroad =
-                withoutTransaction(fun tran ->
-                    result {
-                        let accountInput = createAccountInput genericAccountCodeString
-                        let! payload = accountInput |> toJson<AccountCreateInput>
-                        let! resultPayload = routeUiCommandForTesting "Account" "Create" [] payload
-                        let! accountReturn = fromJson<AccountReturn> resultPayload
-                        let! cleanUpId = accountReturn.code |> LookupCache.accountCodeToId.fetch tran
-                        accountIdToCleanup <- (cleanUpId |> AccountId.fromGuid |> Some)
-                        return ()
-                    })
+                let context = create NoTransaction FetchOnly
+                result {
+                    let accountInput = createAccountInput genericAccountCodeString
+                    let! payload = accountInput |> toJson<AccountCreateInput>
+                    let! resultPayload = routeUiCommandForTesting "Account" "Create" [] payload
+                    let! accountReturn = fromJson<AccountReturn> resultPayload
+                    let! cleanUpId = accountReturn.code |> LookupCache.accountCodeToId.fetch context
+                    accountIdToCleanup <- (cleanUpId |> AccountId.fromGuid |> Some)
+                    return ()
+                }
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -49,31 +51,31 @@ type AccountRouteTests(fixture: TestDataFixture) =
         try
             let badAccountCode = Some "BullS**t"
             let railroad =
-                withoutTransaction(fun tran ->
-                    result {
-                        let accountInput =
-                            { code = genericAccountCodeString
-                              name = genericAccountNameString
-                              accountTypeSt = genericAccountTypeString
-                              activeBegin = genericAccountActiveBegin
-                              activeEnd = genericAccountActiveEnd
-                              subType = genericAccountSubtype
-                              parentCode = badAccountCode
-                              reference = genericAccountReference }
-                        let! payload = accountInput |> toJson<AccountCreateInput>
-                        do!
-                            match routeUiCommandForTesting "Account" "Create" [] payload with
-                            | Ok resultPayload ->
-                                result {
-                                    let! accountReturn = fromJson<AccountReturn> resultPayload
-                                    let! cleanUpId = accountReturn.code |> LookupCache.accountCodeToId.fetch tran
-                                    accountIdToCleanup <- (cleanUpId |> AccountId.fromGuid |> Some)
-                                    return! Error(TestingError "Expected failure; returned success.")
-                                }
-                            | Error(AccountParentCodeInvalid _) -> Ok()
-                            | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
-                        return ()
-                    })
+                let context = create NoTransaction FetchOnly
+                result {
+                    let accountInput =
+                        { code = genericAccountCodeString
+                          name = genericAccountNameString
+                          accountTypeSt = genericAccountTypeString
+                          activeBegin = genericAccountActiveBegin
+                          activeEnd = genericAccountActiveEnd
+                          subType = genericAccountSubtype
+                          parentCode = badAccountCode
+                          reference = genericAccountReference }
+                    let! payload = accountInput |> toJson<AccountCreateInput>
+                    do!
+                        match routeUiCommandForTesting "Account" "Create" [] payload with
+                        | Ok resultPayload ->
+                            result {
+                                let! accountReturn = fromJson<AccountReturn> resultPayload
+                                let! cleanUpId = accountReturn.code |> LookupCache.accountCodeToId.fetch context
+                                accountIdToCleanup <- (cleanUpId |> AccountId.fromGuid |> Some)
+                                return! Error(TestingError "Expected failure; returned success.")
+                            }
+                        | Error(AccountParentCodeInvalid _) -> Ok()
+                        | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                    return ()
+                }
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -171,18 +173,18 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let mutable idToCleanUp_1 = None
         try
             let railroad =
-                withoutTransaction(fun tran ->
-                    result {
-                        let! _, accountId = createTestAccountFromCodeString genericAccountCodeString tran
-                        idToCleanUp_1 <- Some accountId
-                        let! payload =
-                            { code = genericAccountCodeString; activeEnd = Some endDate }
-                            |> toJson<AccountDeactivationInput>
-                        let! returnPayload = routeUiCommandForTesting "Account" "Deactivate" [] payload
-                        let! accountReturn = returnPayload |> fromJson<AccountReturn>
-                        Assert.Equal(Some endDate, accountReturn.activeEnd)
-                        return ()
-                    })
+                let context = create NoTransaction FetchOnly
+                result {
+                    let! _, accountId = genericAccountCodeString |> createTestAccountFromCodeString context
+                    idToCleanUp_1 <- Some accountId
+                    let! payload =
+                        { code = genericAccountCodeString; activeEnd = Some endDate }
+                        |> toJson<AccountDeactivationInput>
+                    let! returnPayload = routeUiCommandForTesting "Account" "Deactivate" [] payload
+                    let! accountReturn = returnPayload |> fromJson<AccountReturn>
+                    Assert.Equal(Some endDate, accountReturn.activeEnd)
+                    return ()
+                }
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -217,16 +219,16 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let mutable idToCleanUp_1 = None
         try
             let railroad =
-                withoutTransaction(fun tran ->
-                    result {
-                        let! _, accountId = createTestAccountFromCodeString code tran
-                        idToCleanUp_1 <- Some accountId
-                        let! payload = { code = code; newName = newName } |> toJson<AccountUpdateNameInput>
-                        let! returnPayload = routeUiCommandForTesting "Account" "UpdateName" [] payload
-                        let! accountReturn = returnPayload |> fromJson<AccountReturn>
-                        Assert.Equal(newName, accountReturn.name)
-                        return ()
-                    })
+                let context = create NoTransaction FetchOnly
+                result {
+                    let! _, accountId = code |> createTestAccountFromCodeString context
+                    idToCleanUp_1 <- Some accountId
+                    let! payload = { code = code; newName = newName } |> toJson<AccountUpdateNameInput>
+                    let! returnPayload = routeUiCommandForTesting "Account" "UpdateName" [] payload
+                    let! accountReturn = returnPayload |> fromJson<AccountReturn>
+                    Assert.Equal(newName, accountReturn.name)
+                    return ()
+                }
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
@@ -260,17 +262,17 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let mutable idToCleanUp_1 = None
         try
             let railroad =
-                withoutTransaction(fun tran ->
-                    result {
-                        let! _, accountId = createTestAccountFromCodeString code tran
-                        idToCleanUp_1 <- Some accountId
-                        let! payload =
-                            { code = code; newReference = newReference } |> toJson<AccountUpdateExternalReferenceInput>
-                        let! returnPayload = routeUiCommandForTesting "Account" "UpdateExternalReference" [] payload
-                        let! accountReturn = returnPayload |> fromJson<AccountReturn>
-                        Assert.Equal(newReference, accountReturn.reference)
-                        return ()
-                    })
+                let context = create NoTransaction FetchOnly
+                result {
+                    let! _, accountId = code |> createTestAccountFromCodeString context
+                    idToCleanUp_1 <- Some accountId
+                    let! payload =
+                        { code = code; newReference = newReference } |> toJson<AccountUpdateExternalReferenceInput>
+                    let! returnPayload = routeUiCommandForTesting "Account" "UpdateExternalReference" [] payload
+                    let! accountReturn = returnPayload |> fromJson<AccountReturn>
+                    Assert.Equal(newReference, accountReturn.reference)
+                    return ()
+                }
             match railroad with
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
