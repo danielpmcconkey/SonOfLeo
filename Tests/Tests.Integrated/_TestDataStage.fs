@@ -1,6 +1,5 @@
 namespace Tests.Integrated
 
-open System
 open Context.Context
 open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteNonQuery
@@ -82,6 +81,22 @@ type TestDataFixture() =
         let stageResult =
             
             result {
+            
+                // =============================================================================
+                // Delete prior data
+                // =============================================================================
+                
+                let deleteQuery = """
+                        TRUNCATE
+                            ledger.journal_entry_comment,
+                            ledger.journal_entry_ext_reference,
+                            ledger.journal_entry_line,
+                            ledger.journal_entry,
+                            ledger.account,
+                            ledger.fiscal_period
+                        CASCADE;
+                """
+                let! _ = executeNonQuery (context |> getDatabaseTransaction) deleteQuery [] AnyQuantityIsAcceptable
 
                 // =============================================================================
                 // Set up counters to use for our fetch tests
@@ -558,24 +573,6 @@ type TestDataFixture() =
         stageResult |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
 
     member _.Data = data
-
-    interface IDisposable with
-        member _.Dispose() =
-            let context = create NoTransaction FetchOnly
-            result {
-                let query =
-                    """ 
-                TRUNCATE
-                    ledger.journal_entry_comment,
-                    ledger.journal_entry_ext_reference,
-                    ledger.journal_entry_line,
-                    ledger.journal_entry,
-                    ledger.account,
-                    ledger.fiscal_period
-                CASCADE; """
-                return! executeNonQuery (context |> getDatabaseTransaction) query [] AnyQuantityIsAcceptable
-            }
-            |> ignore
 
 [<CollectionDefinition("SharedTestData")>]
 type SharedTestDataCollection() =

@@ -6,7 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="DataStage.fs" />
     <Compile Include="Program.fs" />
     <Content Include="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -17,6 +16,7 @@
     <ProjectReference Include="..\Src\ModelOrchestrator\ModelOrchestrator.fsproj" />
     <ProjectReference Include="..\Src\Model\Model.fsproj" />
     <ProjectReference Include="..\Src\Utilities\Utilities.fsproj" />
+    <ProjectReference Include="..\Tests\Tests.Integrated\Tests.Integrated.fsproj" />
   </ItemGroup>
 
 </Project>

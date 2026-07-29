@@ -1,11 +1,13 @@
 namespace Tests.Integrated.Model.Ledger
 
 open System
+open Context.Context
 open Logger.Audit
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator
 open Tests.Integrated.GenericTestProperties
 open Tests.Integrated.InterfaceBridge._routeResolver
+open Tests.Integrated.Railroad
 open Xunit
 open Tests.Integrated
 open Model.Ledger.Journaling
@@ -16,8 +18,10 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-4.9 updateFiAndReferenceText updates FI and value on existing reference``() =
-        let fiUpdate = "UpdatedBank" |> createFiUpdateFromString
-        let refUpdate = "UPD-001" |> createReferenceTextUpdateFromString
+        let expectedFi = "UpdatedBank"
+        let expectedRef = "UPD-001"
+        let fiUpdate = expectedFi |> createFiUpdateFromString
+        let refUpdate = expectedRef |> createReferenceTextUpdateFromString
         runFuncAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryExternalReferenceOrchestration.updateFiAndReferenceText
@@ -27,75 +31,72 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
                     fixture.Data.jeWithRefExtRefId
             match result with
             | Ok r ->
-                Assert.Equal(
-                    "UpdatedBank",
+                let actualFi =
                     r |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value
-                )
-                Assert.Equal(
-                    "UPD-001",
+                let actualRef =
                     r |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value
-                )
-            | Error e -> Assert.Fail(AppError.toMessage e))
+                Assert.Equal(expectedFi, actualFi)
+                Assert.Equal(expectedRef, actualRef)
+                Ok ()
+            | Error e -> Error e)
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-4.9 REQ-SYS-3.3 updateFiAndReferenceText updates modified_at timestamp``() =
-        let envelope = AuditEnvelope.create JournalEntryUpdateExternalReference
-        let expectedInstant = AuditEnvelope.instant envelope
         let fiUpdate = "TimestampBank" |> createFiUpdateFromString
         let refUpdate = "TS-001" |> createReferenceTextUpdateFromString
         runFuncAndAutoRollback AccountCreate (fun context ->
+            let expectedInstant = context |> getInitiationInstant
             let result =
                 JournalEntryExternalReferenceOrchestration.updateFiAndReferenceText
                     context
-                    envelope
                     fiUpdate
                     refUpdate
                     fixture.Data.jeWithRefExtRefId
             match result with
-            | Ok r -> Assert.Equal(expectedInstant, r |> JournalEntryExternalReference.modifiedAt)
-            | Error e -> Assert.Fail(AppError.toMessage e))
+            | Ok r ->
+                Assert.Equal(expectedInstant, r |> JournalEntryExternalReference.modifiedAt)
+                Ok ()
+            | Error e -> Error e
+        ) |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-4.10 constructNewAndSaveToDb appends a reference to an existing entry``() =
-        let envelope = AuditEnvelope.create JournalEntryAddExternalReference
         let expected1 = "NewBank"
         let expected2 = "NEW-001"
         let fiAdd = expected1 |> createJournalRefFinancialInstitutionFromString
         let refAdd = expected2 |> createJournalExternalReferenceTextFromString
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runFuncAndAutoRollback JournalEntryAddExternalReference (fun context ->
             let result =
                 JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
+                    context
                     fixture.Data.basicJeId
                     fiAdd
                     refAdd
-                    envelope
-                    context
             match result with
             | Ok r ->
                 Assert.Equal(fixture.Data.basicJeId, r |> JournalEntryExternalReference.journalEntryHeaderId)
-                Assert.Equal(
-                    expected1,
+                let actual1 =
                     r |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value
-                )
-                Assert.Equal(
-                    expected2,
+                let actual2 =
                     r |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value
-                )
-            | Error e -> Assert.Fail(AppError.toMessage e))
+                Assert.Equal(expected1, actual1)
+                Assert.Equal(expected2, actual2)
+                Ok ()
+            | Error e -> Error e
+        ) |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-4.10 constructNewAndSaveToDb generates a unique UUID for the new reference``() =
-        let envelope = AuditEnvelope.create JournalEntryAddExternalReference
         let fiAdd = "UuidBank" |> createJournalRefFinancialInstitutionFromString
         let refAdd = "UUID-001" |> createJournalExternalReferenceTextFromString
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runFuncAndAutoRollback JournalEntryAddExternalReference (fun context ->
             let result =
                 JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
+                    context
                     fixture.Data.basicJeId
                     fiAdd
                     refAdd
-                    envelope
-                    context
             match result with
             | Ok r ->
                 Assert.NotEqual(
@@ -104,40 +105,41 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
                     |> JournalEntryExternalReference.journalEntryExternalReferenceId
                     |> JournalEntryExternalReferenceId.value
                 )
-            | Error e -> Assert.Fail(AppError.toMessage e))
+                Ok ()
+            | Error e -> Error e
+        ) |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-4.10 appending a reference is permitted on a voided entry``() =
-        let envelope = AuditEnvelope.create JournalEntryAddExternalReference
         let fiAdd = "VoidedBank" |> createJournalRefFinancialInstitutionFromString
         let refAdd = "VOID-001" |> createJournalExternalReferenceTextFromString
         runFuncAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
+                    context
                     fixture.Data.voidedJeId
                     fiAdd
                     refAdd
-                    envelope
-                    context
             match result with
-            | Ok r -> Assert.Equal(fixture.Data.voidedJeId, r |> JournalEntryExternalReference.journalEntryHeaderId)
-            | Error e -> Assert.Fail(AppError.toMessage e))
+            | Ok r ->
+                Assert.Equal(fixture.Data.voidedJeId, r |> JournalEntryExternalReference.journalEntryHeaderId)
+                Ok ()
+            | Error e -> Error e
+        ) |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-5.1 external reference round-trips through persistence with all fields intact``() =
-        let envelope = AuditEnvelope.create JournalEntryAddExternalReference
         let fiAdd = "FidelityBank" |> createJournalRefFinancialInstitutionFromString
         let refAdd = "FID-RT-001" |> createJournalExternalReferenceTextFromString
         runFuncAndAutoRollback AccountCreate (fun context ->
             let createResult =
                 JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
+                    context
                     fixture.Data.basicJeId
                     fiAdd
                     refAdd
-                    envelope
-                    context
             match createResult with
-            | Error e -> Assert.Fail(AppError.toMessage e)
+            | Error e -> Error e
             | Ok created ->
                 // fetch inside the same contextsaction — the create is never committed
                 let fetchResult =
@@ -145,7 +147,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
                     |> JournalEntryExternalReference.journalEntryExternalReferenceId
                     |> JournalEntryExternalReference.fetchById context
                 match fetchResult with
-                | Error e -> Assert.Fail $"Fetch after creation failed: {e}"
+                | Error e -> Error(TestingError $"Fetch after creation failed: {e}")
                 | Ok fetched ->
                     Assert.Equal(
                         created |> JournalEntryExternalReference.journalEntryExternalReferenceId,
@@ -174,4 +176,6 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
                     Assert.Equal(
                         created |> JournalEntryExternalReference.modifiedAt,
                         fetched |> JournalEntryExternalReference.modifiedAt
-                    ))
+                    )
+                    Ok()
+        ) |> railroadWrapper

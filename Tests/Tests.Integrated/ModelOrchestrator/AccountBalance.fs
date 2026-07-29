@@ -5,6 +5,7 @@ open Logger.Audit
 open Model
 open Model.Ledger.Journaling.JournalEntryComponent
 open Tests.Integrated.GenericTestProperties
+open Tests.Integrated.Railroad
 open Utilities.AppError
 open Xunit
 open Tests.Integrated
@@ -44,8 +45,9 @@ type AccountBalanceTests(fixture: TestDataFixture) =
             Assert.Equal(expectedDebits2, row2.totalDebits |> Money.amount)
             Assert.Equal(expectedBal1, row1.netBalance |> Money.amount)
             Assert.Equal(expectedBal2, row2.netBalance |> Money.amount)
-        | Error e -> Assert.Fail(AppError.toMessage e)
-        Ok()
+            Ok()
+        | Error e -> Error e
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-3.6 REQ-JE-4.7 fetchByAccountIdList excludes voided entry amounts``() =
@@ -77,8 +79,9 @@ type AccountBalanceTests(fixture: TestDataFixture) =
             Assert.Equal(expectedDebits2, row2.totalDebits |> Money.amount)
             Assert.Equal(expectedBal1, row1.netBalance |> Money.amount)
             Assert.Equal(expectedBal2, row2.netBalance |> Money.amount)
-        | Error e -> Assert.Fail(AppError.toMessage e)
-        Ok()
+            Ok()
+        | Error e -> Error e
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList returns zero balances for account with no activity``() =
