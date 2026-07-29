@@ -30,49 +30,49 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
     member _.``REQ-JE-4.3 voidJournalEntryOrchestration sets voided_at on the entry``() =
         let today = Calendar.today()
         runFuncAndAutoRollback JournalEntryVoid (fun context ->
-                result {
-                    let! _, jeId =
-                        createTestJournalEntryFromPrimitives
-                            context
-                            "JE create for void 4.3"
-                            None
-                            today
-                            [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
-                              (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
-                            []
-                            []
-                    let! voided = jeId |> voidJournalEntry context None commentText
-                    Assert.True(voided |> header |> JournalEntryHeader.voidedAt |> Option.isSome)
-                    return ()
-                })
+            result {
+                let! _, jeId =
+                    createTestJournalEntryFromPrimitives
+                        context
+                        "JE create for void 4.3"
+                        None
+                        today
+                        [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
+                          (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
+                        []
+                        []
+                let! voided = jeId |> voidJournalEntry context None commentText
+                Assert.True(voided |> header |> JournalEntryHeader.voidedAt |> Option.isSome)
+                return ()
+            })
         |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-4.4 voidJournalEntryOrchestration attaches a reason comment to the voided entry``() =
         let today = Calendar.today()
         runFuncAndAutoRollback JournalEntryVoid (fun context ->
-                result {
-                    let! je, jeId =
-                        createTestJournalEntryFromPrimitives
-                            context
-                            "JE create for void 4.4"
-                            None
-                            today
-                            [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
-                              (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
-                            []
-                            []
-                    Assert.Equal(0, je |> comments |> List.length) // just confirming that it's zero at the satrt
-                    let! voided = jeId |> voidJournalEntry context None commentText
-                    let comments = voided |> comments
-                    Assert.Equal(1, comments |> List.length)
-                    let comment = comments |> List.head
-                    Assert.Equal(
-                        commentText |> CommentText.value,
-                        comment |> JournalEntryComment.commentText |> CommentText.value
-                    )
-                    return ()
-                })
+            result {
+                let! je, jeId =
+                    createTestJournalEntryFromPrimitives
+                        context
+                        "JE create for void 4.4"
+                        None
+                        today
+                        [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
+                          (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
+                        []
+                        []
+                Assert.Equal(0, je |> comments |> List.length) // just confirming that it's zero at the satrt
+                let! voided = jeId |> voidJournalEntry context None commentText
+                let comments = voided |> comments
+                Assert.Equal(1, comments |> List.length)
+                let comment = comments |> List.head
+                Assert.Equal(
+                    commentText |> CommentText.value,
+                    comment |> JournalEntryComment.commentText |> CommentText.value
+                )
+                return ()
+            })
         |> railroadWrapper
 
     [<Fact>]
@@ -82,33 +82,33 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
         let monthF = sevenMonthsAgo.Month.ToString("D2")
         let periodKeyStr = $"{sevenMonthsAgo.Year}-{monthF}"
         runFuncAndAutoRollback JournalEntryVoid (fun context ->
-                result {
-                    // create Fiscal Period as open so you can add an entry into it
-                    let! periodKey = periodKeyStr |> FiscalPeriodKey.fromString
-                    let! fp = periodKey |> FiscalPeriodCreation.constructNewAndSaveToDb context
-                    let fpId = fp |> fiscalPeriodId
-                    // add the JE into that FP
-                    let! _, jeId =
-                        createTestJournalEntryFromPrimitives
-                            context
-                            "JE create for void 4.5"
-                            None
-                            sevenMonthsAgo
-                            [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
-                              (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
-                            []
-                            []
-                    // close the FP
-                    let! _ = fpId |> closeFiscalPeriod context
-                    // try to void
-                    let voidedResult = jeId |> voidJournalEntry context None commentText
-                    do!
-                        match voidedResult with
-                        | Error(JournalEntryVoidingFiscalPeriodIsClosed _) -> Ok()
-                        | Error e -> Error (TestingError $"Wrong error message. {AppError.toMessage e}")
-                        | Ok _ -> Error(TestingError "Expected failure; got success")
-                    return ()
-                })
+            result {
+                // create Fiscal Period as open so you can add an entry into it
+                let! periodKey = periodKeyStr |> FiscalPeriodKey.fromString
+                let! fp = periodKey |> FiscalPeriodCreation.constructNewAndSaveToDb context
+                let fpId = fp |> fiscalPeriodId
+                // add the JE into that FP
+                let! _, jeId =
+                    createTestJournalEntryFromPrimitives
+                        context
+                        "JE create for void 4.5"
+                        None
+                        sevenMonthsAgo
+                        [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
+                          (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
+                        []
+                        []
+                // close the FP
+                let! _ = fpId |> closeFiscalPeriod context
+                // try to void
+                let voidedResult = jeId |> voidJournalEntry context None commentText
+                do!
+                    match voidedResult with
+                    | Error(JournalEntryVoidingFiscalPeriodIsClosed _) -> Ok()
+                    | Error e -> Error(TestingError $"Wrong error message. {AppError.toMessage e}")
+                    | Ok _ -> Error(TestingError "Expected failure; got success")
+                return ()
+            })
         |> railroadWrapper
 
     [<Fact>]
@@ -116,9 +116,9 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
         runFuncAndAutoRollback JournalEntryVoid (fun context ->
             let voidedResult = fixture.Data.voidedJeId |> voidJournalEntry context None commentText
             match voidedResult with
-            | Error(JournalEntryVoidingNoOp _) -> Ok ()
-            | Error e -> Error (TestingError $"Wrong error message. {AppError.toMessage e}")
-            | Ok _ ->Error (TestingError "Expected failure; got success"))
+            | Error(JournalEntryVoidingNoOp _) -> Ok()
+            | Error e -> Error(TestingError $"Wrong error message. {AppError.toMessage e}")
+            | Ok _ -> Error(TestingError "Expected failure; got success"))
         |> railroadWrapper
 
     [<Fact>]
@@ -129,7 +129,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
             let badId = Guid.NewGuid() |> JournalEntryHeaderId.fromGuid
             let voidedResult = badId |> voidJournalEntry context None commentText
             match voidedResult with
-            | Error(DalResultantRowsDidntMatchExpectation _) -> Ok () // todo: surface a better error message
-            | Error e -> Error (TestingError $"Wrong error message. {AppError.toMessage e}")
-            | Ok _ ->Error (TestingError "Expected failure; got success"))
+            | Error(DalResultantRowsDidntMatchExpectation _) -> Ok() // todo: surface a better error message
+            | Error e -> Error(TestingError $"Wrong error message. {AppError.toMessage e}")
+            | Ok _ -> Error(TestingError "Expected failure; got success"))
         |> railroadWrapper

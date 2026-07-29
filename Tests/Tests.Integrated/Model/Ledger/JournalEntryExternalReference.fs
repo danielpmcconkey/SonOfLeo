@@ -33,11 +33,10 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
             | Ok r ->
                 let actualFi =
                     r |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value
-                let actualRef =
-                    r |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value
+                let actualRef = r |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value
                 Assert.Equal(expectedFi, actualFi)
                 Assert.Equal(expectedRef, actualRef)
-                Ok ()
+                Ok()
             | Error e -> Error e)
         |> railroadWrapper
 
@@ -56,9 +55,9 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
             match result with
             | Ok r ->
                 Assert.Equal(expectedInstant, r |> JournalEntryExternalReference.modifiedAt)
-                Ok ()
-            | Error e -> Error e
-        ) |> railroadWrapper
+                Ok()
+            | Error e -> Error e)
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-4.10 constructNewAndSaveToDb appends a reference to an existing entry``() =
@@ -78,13 +77,12 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
                 Assert.Equal(fixture.Data.basicJeId, r |> JournalEntryExternalReference.journalEntryHeaderId)
                 let actual1 =
                     r |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value
-                let actual2 =
-                    r |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value
+                let actual2 = r |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value
                 Assert.Equal(expected1, actual1)
                 Assert.Equal(expected2, actual2)
-                Ok ()
-            | Error e -> Error e
-        ) |> railroadWrapper
+                Ok()
+            | Error e -> Error e)
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-4.10 constructNewAndSaveToDb generates a unique UUID for the new reference``() =
@@ -105,9 +103,9 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
                     |> JournalEntryExternalReference.journalEntryExternalReferenceId
                     |> JournalEntryExternalReferenceId.value
                 )
-                Ok ()
-            | Error e -> Error e
-        ) |> railroadWrapper
+                Ok()
+            | Error e -> Error e)
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-4.10 appending a reference is permitted on a voided entry``() =
@@ -123,9 +121,9 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
             match result with
             | Ok r ->
                 Assert.Equal(fixture.Data.voidedJeId, r |> JournalEntryExternalReference.journalEntryHeaderId)
-                Ok ()
-            | Error e -> Error e
-        ) |> railroadWrapper
+                Ok()
+            | Error e -> Error e)
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-5.1 external reference round-trips through persistence with all fields intact``() =
@@ -177,5 +175,5 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
                         created |> JournalEntryExternalReference.modifiedAt,
                         fetched |> JournalEntryExternalReference.modifiedAt
                     )
-                    Ok()
-        ) |> railroadWrapper
+                    Ok())
+        |> railroadWrapper

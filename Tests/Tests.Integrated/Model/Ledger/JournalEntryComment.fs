@@ -35,9 +35,9 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             | Ok c ->
                 Assert.Equal(fixture.Data.basicJeId, c |> JournalEntryComment.primaryJournalEntryId)
                 Assert.Equal(commentText, c |> JournalEntryComment.commentText)
-                Ok ()
-            | Error e -> Error e
-        ) |> railroadWrapper
+                Ok()
+            | Error e -> Error e)
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-5.1 constructNewAndSaveToDb attaches a comment with a secondary JE link``() =
@@ -56,9 +56,9 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             | Ok c ->
                 Assert.Equal(fixture.Data.basicJeId, c |> JournalEntryComment.primaryJournalEntryId)
                 Assert.Equal(Some fixture.Data.jeWithRefId, c |> JournalEntryComment.secondaryJournalEntryId)
-                Ok ()
-            | Error e -> Error e
-        ) |> railroadWrapper
+                Ok()
+            | Error e -> Error e)
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-5.2 constructNewAndSaveToDb generates UUID and sets timestamps``() =
@@ -82,9 +82,9 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
                 )
                 Assert.Equal(expectedInstant, c |> JournalEntryComment.createdAt)
                 Assert.Equal(expectedInstant, c |> JournalEntryComment.modifiedAt)
-                Ok ()
-            | Error e -> Error e
-        ) |> railroadWrapper
+                Ok()
+            | Error e -> Error e)
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-1.52 constructNewAndSaveToDb accepts null secondary JE ID``() =
@@ -102,9 +102,9 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             match result with
             | Ok c ->
                 Assert.True(c |> JournalEntryComment.secondaryJournalEntryId |> Option.isNone)
-                Ok ()
-            | Error e -> Error e
-        ) |> railroadWrapper
+                Ok()
+            | Error e -> Error e)
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-1.53 constructNewAndSaveToDb rejects secondary JE ID equal to primary``() =
@@ -120,10 +120,10 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
                     (Some fixture.Data.basicJeId)
                     commentText
             match result with
-            | Error(JournalEntryCommentPrimaryAndSecondaryIdsAreSame _) -> Ok ()
+            | Error(JournalEntryCommentPrimaryAndSecondaryIdsAreSame _) -> Ok()
             | Ok _ -> Error(TestingError "Expected failure; returned success.")
-            | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
-        ) |> railroadWrapper
+            | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}"))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-5.5 constructNewAndSaveToDb allows comment on a voided entry``() =
@@ -141,9 +141,9 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             match result with
             | Ok c ->
                 Assert.Equal(fixture.Data.voidedJeId, c |> JournalEntryComment.primaryJournalEntryId)
-                Ok ()
-            | Error e -> Error e
-        ) |> railroadWrapper
+                Ok()
+            | Error e -> Error e)
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-5.5 constructNewAndSaveToDb allows comment when fiscal period is closed``() =
@@ -161,9 +161,9 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             match result with
             | Ok c ->
                 Assert.Equal(fixture.Data.jeInClosedPeriodId, c |> JournalEntryComment.primaryJournalEntryId)
-                Ok ()
-            | Error e -> Error e
-        ) |> railroadWrapper
+                Ok()
+            | Error e -> Error e)
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-5.3 updateComment amends the comment text``() =
@@ -181,7 +181,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
                 Assert.Equal(expected, updatedComment |> JournalEntryComment.commentText |> CommentText.value)
                 return ()
             })
-            |> railroadWrapper
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-5.3 REQ-SYS-3.3 updateComment updates modified_at timestamp``() =
@@ -198,7 +198,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
                 Assert.Equal(context |> getInitiationInstant, updatedComment |> JournalEntryComment.modifiedAt)
                 return ()
             })
-            |> railroadWrapper
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-5.6 updateComment does not change the primary JE link``() =
@@ -215,7 +215,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
                 Assert.Equal(fixture.Data.basicJeId, updatedComment |> JournalEntryComment.primaryJournalEntryId)
                 return ()
             })
-            |> railroadWrapper
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-5.1 comment round-trips through persistence with all fields intact``() =
@@ -257,5 +257,5 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
                     )
                     Assert.Equal(created |> JournalEntryComment.createdAt, fetched |> JournalEntryComment.createdAt)
                     Assert.Equal(created |> JournalEntryComment.modifiedAt, fetched |> JournalEntryComment.modifiedAt)
-                Ok ()
-        ) |> railroadWrapper
+                Ok())
+        |> railroadWrapper

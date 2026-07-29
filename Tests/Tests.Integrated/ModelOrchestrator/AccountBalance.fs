@@ -86,7 +86,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList returns zero balances for account with no activity``() =
         let context = create NoTransaction FetchOnly
-        let result =fetchByAccountIdList context [ fixture.Data.assets1000Id ] None
+        let result = fetchByAccountIdList context [ fixture.Data.assets1000Id ] None
         match result with
         | Ok balances ->
             Assert.Equal(1, balances |> List.length)
@@ -95,7 +95,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
             Assert.Equal(0M, bal.totalCredits |> Money.amount)
             Assert.Equal(0M, bal.netBalance |> Money.amount)
         | Error e -> Assert.Fail(AppError.toMessage e)
-        
+
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList with empty list returns Error``() =
         let context = create NoTransaction FetchOnly

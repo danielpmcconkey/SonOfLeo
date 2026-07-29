@@ -26,22 +26,22 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let expected = "JE create happy"
         let today = Calendar.today()
         runFuncAndAutoRollback JournalEntryPostNew (fun context ->
-                result {
-                    let! jeHappy, _ = // the test helper resolves to constructNewAndSaveToDb
-                        createTestJournalEntryFromPrimitives
-                            context
-                            expected
-                            None
-                            today
-                            [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
-                              (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
-                            []
-                            []
-                    let actual = jeHappy |> header |> JournalEntryHeader.description |> JournalEntryDescription.value
-                    Assert.Equal(expected, actual)
-                    Assert.Equal(2, jeHappy |> lines |> List.length)
-                    return ()
-                })
+            result {
+                let! jeHappy, _ = // the test helper resolves to constructNewAndSaveToDb
+                    createTestJournalEntryFromPrimitives
+                        context
+                        expected
+                        None
+                        today
+                        [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
+                          (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
+                        []
+                        []
+                let actual = jeHappy |> header |> JournalEntryHeader.description |> JournalEntryDescription.value
+                Assert.Equal(expected, actual)
+                Assert.Equal(2, jeHappy |> lines |> List.length)
+                return ()
+            })
         |> railroadWrapper
 
     [<Fact>]
@@ -199,19 +199,19 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             [ (None, "Fixture comment for testing")
               (None, "Fixture comment for testing 2") ]
         runFuncAndAutoRollback JournalEntryPostNew (fun context ->
-                result {
-                    let! _ = // the test helper resolves to constructNewAndSaveToDb
-                        createTestJournalEntryFromPrimitives
-                            context
-                            "JE create happy"
-                            None
-                            today
-                            [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
-                              (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
-                            []
-                            explicitlyMultiple
-                    return ()
-                })
+            result {
+                let! _ = // the test helper resolves to constructNewAndSaveToDb
+                    createTestJournalEntryFromPrimitives
+                        context
+                        "JE create happy"
+                        None
+                        today
+                        [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
+                          (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
+                        []
+                        explicitlyMultiple
+                return ()
+            })
         |> railroadWrapper
 
     [<Fact>]
@@ -219,19 +219,19 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let today = Calendar.today()
         let explicitlyNone = None
         runFuncAndAutoRollback JournalEntryPostNew (fun context ->
-                result {
-                    let! _ = // the test helper resolves to constructNewAndSaveToDb
-                        createTestJournalEntryFromPrimitives
-                            context
-                            "JE create happy"
-                            explicitlyNone
-                            today
-                            [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
-                              (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
-                            []
-                            []
-                    return ()
-                })
+            result {
+                let! _ = // the test helper resolves to constructNewAndSaveToDb
+                    createTestJournalEntryFromPrimitives
+                        context
+                        "JE create happy"
+                        explicitlyNone
+                        today
+                        [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
+                          (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
+                        []
+                        []
+                return ()
+            })
         |> railroadWrapper
 
     [<Fact>]
@@ -239,19 +239,19 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let today = Calendar.today()
         let explicitlyNone = None
         runFuncAndAutoRollback JournalEntryPostNew (fun context ->
-                result {
-                    let! _ = // the test helper resolves to constructNewAndSaveToDb
-                        createTestJournalEntryFromPrimitives
-                            context
-                            "JE create happy"
-                            explicitlyNone
-                            today
-                            [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", explicitlyNone)
-                              (fixture.Data.creditCard2220Id, 86.04M, "Credit", explicitlyNone) ]
-                            []
-                            []
-                    return ()
-                })
+            result {
+                let! _ = // the test helper resolves to constructNewAndSaveToDb
+                    createTestJournalEntryFromPrimitives
+                        context
+                        "JE create happy"
+                        explicitlyNone
+                        today
+                        [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", explicitlyNone)
+                          (fixture.Data.creditCard2220Id, 86.04M, "Credit", explicitlyNone) ]
+                        []
+                        []
+                return ()
+            })
         |> railroadWrapper
 
     [<Fact>]
@@ -259,19 +259,19 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let today = Calendar.today()
         let explicitlySame = [ ("TestBank", "F-SHARED-001"); ("TestBank", "F-SHARED-001") ]
         runFuncAndAutoRollback JournalEntryPostNew (fun context ->
-                result {
-                    let! _ = // the test helper resolves to constructNewAndSaveToDb
-                        createTestJournalEntryFromPrimitives
-                            context
-                            "JE create happy"
-                            None
-                            today
-                            [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
-                              (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
-                            explicitlySame
-                            []
-                    return ()
-                })
+            result {
+                let! _ = // the test helper resolves to constructNewAndSaveToDb
+                    createTestJournalEntryFromPrimitives
+                        context
+                        "JE create happy"
+                        None
+                        today
+                        [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
+                          (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
+                        explicitlySame
+                        []
+                return ()
+            })
         |> railroadWrapper
 
     [<Fact>]
@@ -282,10 +282,10 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             let result =
                 createTestJournalEntryFromPrimitives context "JE create unhappy432" None today onlyOneLine [] []
             match result with
-            | Error(JournalEntryInsufficientLines _) -> Ok ()
-            | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
-            | Ok _ -> Error (TestingError $"Expected failure; succeeded")
-        ) |> railroadWrapper
+            | Error(JournalEntryInsufficientLines _) -> Ok()
+            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-1.13 REQ-JE-2.12 constructNewAndSaveToDb rejects unbalanced entry — debits != credits``() =
@@ -295,19 +295,12 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
               (fixture.Data.creditCard2220Id, 340.99M, "Credit", None) ]
         runFuncAndAutoRollback JournalEntryPostNew (fun context ->
             let result =
-                createTestJournalEntryFromPrimitives
-                            context
-                    "JE create unhappy892"
-                    None
-                    today
-                    unbalancedLines
-                    []
-                    []
+                createTestJournalEntryFromPrimitives context "JE create unhappy892" None today unbalancedLines [] []
             match result with
-            | Error(JournalEntryDebitCreditMismatch _) -> Ok ()
-            | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
-            | Ok _ -> Error (TestingError $"Expected failure; succeeded")
-        ) |> railroadWrapper
+            | Error(JournalEntryDebitCreditMismatch _) -> Ok()
+            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-1.22 constructNewAndSaveToDb rejects line with nonexistent account ID``() =
@@ -325,13 +318,13 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     []
                     []
             match result with
-            | Error(JournalEntryLineAccountDoesntExist _) -> Ok ()
-            | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
-            | Ok _ -> Error (TestingError $"Expected failure; succeeded")
-        ) |> railroadWrapper
+            | Error(JournalEntryLineAccountDoesntExist _) -> Ok()
+            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
+        |> railroadWrapper
 
     [<Fact>]
-    member _.``JE-2.5 JE-2.6 JE-1.11 constructNewAndSaveToDb rejects entry date w/ no matching fiscal period`` () =
+    member _.``JE-2.5 JE-2.6 JE-1.11 constructNewAndSaveToDb rejects entry date w/ no matching fiscal period``() =
         let today = Calendar.today()
         let badDate = today.PlusYears(-3)
         runFuncAndAutoRollback JournalEntryPostNew (fun context ->
@@ -346,10 +339,10 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     []
                     []
             match result with
-            | Error(JournalEntryDateNotInFiscalPeriod _) -> Ok ()
-            | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
-            | Ok _ -> Error (TestingError $"Expected failure; succeeded")
-        ) |> railroadWrapper
+            | Error(JournalEntryDateNotInFiscalPeriod _) -> Ok()
+            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-2.7 constructNewAndSaveToDb rejects entry date in a closed fiscal period``() =
@@ -366,10 +359,10 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     []
                     []
             match result with
-            | Error(JournalEntryHeaderEntryDateInvalid _) -> Ok ()
-            | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
-            | Ok _ -> Error (TestingError $"Expected failure; succeeded")
-        ) |> railroadWrapper
+            | Error(JournalEntryHeaderEntryDateInvalid _) -> Ok()
+            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-2.8 constructNewAndSaveToDb rejects line referencing an inactive account as of entry date``() =
@@ -389,7 +382,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     []
                     []
             match result with
-            | Error(JournalEntryLineAccountInactive _) -> Ok ()
-            | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
-            | Ok _ -> Error (TestingError $"Expected failure; succeeded")
-        ) |> railroadWrapper
+            | Error(JournalEntryLineAccountInactive _) -> Ok()
+            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
+        |> railroadWrapper

@@ -73,15 +73,15 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
             let fpId = fpUuid |> FiscalPeriodId.fromGuid
             let expected =
                 fixture.Data.journalEntries
-                |> List.filter(fun x ->
-                    x |> header |> JournalEntryHeader.entryDate |> EntryDate.fiscalPeriodId = fpId)
+                |> List.filter(fun x -> x |> header |> JournalEntryHeader.entryDate |> EntryDate.fiscalPeriodId = fpId)
                 |> List.length
             let! fp = fpId |> FiscalPeriod.fetchById context
             let! fetchList = fp |> fetchByPeriod context
             let actual = fetchList |> List.length
             Assert.Equal(expected, actual)
             return ()
-        } |> railroadWrapper
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-3.3 fetchByPeriod returns empty list for period with no entries``() =
@@ -96,7 +96,8 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
             let! entries = fp |> fetchByPeriod context
             Assert.Equal(0, entries |> List.length)
             return ()
-        } |> railroadWrapper
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-3.5 fetchByReference returns entries matching source FI and reference value``() =
@@ -124,7 +125,8 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
                 |> List.length
             Assert.True(matchedCount > 0)
             return ()
-        } |> railroadWrapper
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-3.5 REQ-JE-1.48 fetchByReference returns multiple entries when reference is shared``() =
@@ -143,7 +145,8 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
             let! fetched = fetchByReference context (Some fi) (Some refText)
             Assert.Equal(expected, fetched |> List.length)
             return ()
-        } |> railroadWrapper
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-3.5 fetchByReference returns empty list for nonexistent reference``() =
@@ -157,7 +160,8 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
             let! fetched = fetchByReference context (Some fi) (Some refText)
             Assert.Equal(expected, fetched |> List.length)
             return ()
-        } |> railroadWrapper
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-3.8 fetchByReference with FI only returns all entries for that FI``() =
@@ -172,10 +176,11 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
             let! fetched = fetchByReference context (Some fi) None
             Assert.Equal(expected, fetched |> List.length)
             return ()
-        } |> railroadWrapper
+        }
+        |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-3.8 fetchByReference with reference text only only returns all entries that match`` () =
+    member _.``REQ-JE-3.8 fetchByReference with reference text only only returns all entries that match``() =
         let refStr = "TXN-001"
         let context = create NoTransaction FetchOnly
         result {
@@ -187,7 +192,8 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
             let! fetched = fetchByReference context None (Some refText)
             Assert.Equal(expected, fetched |> List.length)
             return ()
-        } |> railroadWrapper
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-3.5 REQ-JE-3.8 fetchByReference with both parameters None returns Error``() =
@@ -216,7 +222,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
     member _.``REQ-JE-3.7 fetchByDateRange returns empty list when no entries in range``() =
         let context = create NoTransaction FetchOnly
         let farDate = NodaTime.LocalDate(2050, 1, 1)
-        let result =  fetchByDateRange context farDate farDate
+        let result = fetchByDateRange context farDate farDate
         match result with
         | Ok entries -> Assert.Equal(0, entries |> List.length)
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -231,4 +237,5 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
                 | Error(DalResultantRowsDidntMatchExpectation _) -> Ok()
                 | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
             return ()
-        } |> railroadWrapper
+        }
+        |> railroadWrapper

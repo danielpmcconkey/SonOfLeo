@@ -28,5 +28,5 @@ let ``REQ-FP-1.4 REQ-FP-1.5 REQ-FP-2.3 Fiscal period start and end date are deri
         Assert.Equal(expectedMonth, startDate.Month)
         Assert.Equal(expectedStartDay, startDate.Day)
         Assert.Equal(expectedEndDay, endDate.Day)
-        Ok ()
-    ) |> railroadWrapper
+        Ok())
+    |> railroadWrapper

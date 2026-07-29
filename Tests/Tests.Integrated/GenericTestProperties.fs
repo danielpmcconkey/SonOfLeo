@@ -100,7 +100,7 @@ let createTestAccountFromCodeString context codeToUse =
         genericAccountSubtype
         genericAccountParentId
         genericAccountReference
-        
+
 let createAccountInput codeToUse : AccountCreateInput =
     { code = codeToUse
       name = genericAccountNameString

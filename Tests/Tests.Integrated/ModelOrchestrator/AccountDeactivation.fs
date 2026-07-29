@@ -26,9 +26,7 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
                 let! deactivated = account |> deactivateAccount context explicitDeactivationDate
 
                 Assert.Equal(fixture.Data.moneyMarket1270Id, Account.accountId deactivated)
-                Assert.False(
-                    deactivated |> Account.activityPeriod |> AccountActivityPeriod.isActive(Calendar.today())
-                )
+                Assert.False(deactivated |> Account.activityPeriod |> AccountActivityPeriod.isActive(Calendar.today()))
                 return ()
             })
         |> railroadWrapper
@@ -85,7 +83,7 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
         runFuncAndAutoRollback AccountDeactivate (fun context ->
             result {
                 let! account = fixture.Data.mortgage2210Id |> Account.fetchById context
-                let deactivationResult = account |> deactivateAccount context  goodActiveEnd
+                let deactivationResult = account |> deactivateAccount context goodActiveEnd
                 do!
                     match deactivationResult with
                     | Ok _ -> Error(TestingError "Expected failure; returned success.")

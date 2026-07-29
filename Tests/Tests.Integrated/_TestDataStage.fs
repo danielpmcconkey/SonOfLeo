@@ -75,18 +75,19 @@ type TestDataFixture() =
         let yesterday = today.PlusDays(-1)
         let lastYear = today.PlusYears(-1)
         let twoMonthsAgo = today.PlusMonths(-2)
-        
+
         let context = create NoTransaction FetchOnly
 
         let stageResult =
-            
+
             result {
-            
+
                 // =============================================================================
                 // Delete prior data
                 // =============================================================================
-                
-                let deleteQuery = """
+
+                let deleteQuery =
+                    """
                         TRUNCATE
                             ledger.journal_entry_comment,
                             ledger.journal_entry_ext_reference,
@@ -112,16 +113,7 @@ type TestDataFixture() =
                 // =============================================================================
 
                 let! assets1000, assets1000Id =
-                    createTestAccountFromPrimitives
-                        context
-                        "F-1000"
-                        "Assets"
-                        "Asset"
-                        lastYear
-                        None
-                        None
-                        None
-                        None
+                    createTestAccountFromPrimitives context "F-1000" "Assets" "Asset" lastYear None None None None
                 accounts <- assets1000 :: accounts
 
                 let! liabilities2000, liabilities2000Id =
@@ -138,42 +130,15 @@ type TestDataFixture() =
                 accounts <- liabilities2000 :: accounts
 
                 let! equity3000, equity3000Id =
-                    createTestAccountFromPrimitives
-                        context
-                        "F-3000"
-                        "Equity"
-                        "Equity"
-                        lastYear
-                        None
-                        None
-                        None
-                        None
+                    createTestAccountFromPrimitives context "F-3000" "Equity" "Equity" lastYear None None None None
                 accounts <- equity3000 :: accounts
 
                 let! revenue4000, revenue4000Id =
-                    createTestAccountFromPrimitives
-                        context
-                        "F-4000"
-                        "Revenue"
-                        "Revenue"
-                        lastYear
-                        None
-                        None
-                        None
-                        None
+                    createTestAccountFromPrimitives context "F-4000" "Revenue" "Revenue" lastYear None None None None
                 accounts <- revenue4000 :: accounts
 
                 let! expenses5000, expenses5000Id =
-                    createTestAccountFromPrimitives
-                        context
-                        "F-5000"
-                        "Expenses"
-                        "Expense"
-                        lastYear
-                        None
-                        None
-                        None
-                        None
+                    createTestAccountFromPrimitives context "F-5000" "Expenses" "Expense" lastYear None None None None
                 accounts <- expenses5000 :: accounts
 
                 let! rothIra1250, rothIra1250Id =
@@ -457,8 +422,7 @@ type TestDataFixture() =
                 // =============================================================================
 
                 let! commentText = "Fixture voiding reason" |> CommentText.create
-                let! voidedJe =
-                    jeToVoidId |> JournalEntryVoiding.voidJournalEntry context None commentText
+                let! voidedJe = jeToVoidId |> JournalEntryVoiding.voidJournalEntry context None commentText
                 let voidedJeId = voidedJe |> JournalEntry.header |> JournalEntryHeader.journalEntryHeaderId
                 journalEntries <- voidedJe :: journalEntries
 
@@ -498,16 +462,14 @@ type TestDataFixture() =
                 let totalFiscalPeriods = fiscalPeriods |> List.length
                 let totalClosedAccounts =
                     accounts
-                    |> List.filter(fun l ->
-                        l |> Account.activityPeriod |> AccountActivityPeriod.isActive today |> not)
+                    |> List.filter(fun l -> l |> Account.activityPeriod |> AccountActivityPeriod.isActive today |> not)
                     |> List.length
                 let totalClosedFiscalPeriods =
                     fiscalPeriods |> List.filter(fun fp -> fp |> FiscalPeriod.isOpen = false) |> List.length
                 let totalJournalEntryHeaders = journalEntries |> List.length
                 let voidedEntries =
                     journalEntries
-                    |> List.filter(fun x ->
-                        x |> JournalEntry.header |> JournalEntryHeader.voidedAt |> Option.isSome)
+                    |> List.filter(fun x -> x |> JournalEntry.header |> JournalEntryHeader.voidedAt |> Option.isSome)
                 let totalVoidedJournalEntryHeaders = voidedEntries |> List.length
                 let totalJournalEntryLines =
                     journalEntries |> List.sumBy(fun x -> x |> JournalEntry.lines |> List.length)

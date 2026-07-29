@@ -152,12 +152,13 @@ let cleanUpJournalEntryId (journalEntryHeaderId: JournalEntryHeaderId option) : 
                 delete from ledger.journal_entry
                 WHERE unique_id = @unique_id;
             """
-        
+
         result {
-            let! _ = executeNonQuery (context |> getDatabaseTransaction) commentQuery parameters AnyQuantityIsAcceptable 
-            let! _ = executeNonQuery (context |> getDatabaseTransaction) extReferenceQuery parameters AnyQuantityIsAcceptable 
-            let! _ = executeNonQuery (context |> getDatabaseTransaction) lineQuery parameters AnyQuantityIsAcceptable 
-            return! executeNonQuery (context |> getDatabaseTransaction) headerQuery parameters ExactlyOne 
+            let! _ = executeNonQuery (context |> getDatabaseTransaction) commentQuery parameters AnyQuantityIsAcceptable
+            let! _ =
+                executeNonQuery (context |> getDatabaseTransaction) extReferenceQuery parameters AnyQuantityIsAcceptable
+            let! _ = executeNonQuery (context |> getDatabaseTransaction) lineQuery parameters AnyQuantityIsAcceptable
+            return! executeNonQuery (context |> getDatabaseTransaction) headerQuery parameters ExactlyOne
         }
 
 let cleanUpJournalEntryExtReferenceId (uniqueId: Guid option) : Result<unit, AppError> =

@@ -31,18 +31,18 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-FP-1.3 REQ-FP-2.2 Period Key must be unique``() =
         runFuncAndAutoRollback AccountCreate (fun context ->
-                result {
-                    let! existingPeriod = FiscalPeriod.fetchById context (fixture.Data.openFiscalPeriodIds |> List.head)
-                    let existingKey = FiscalPeriod.periodKey existingPeriod
-                    let duplicateResult = existingKey |> FiscalPeriodCreation.constructNewAndSaveToDb context
-                    do!
-                        match duplicateResult with
-                        | Error(DalErrorDuringNonQueryExecution _) -> Ok()
-                        | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                        | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
-                    Assert.True(Result.isError duplicateResult)
-                    ()
-                })
+            result {
+                let! existingPeriod = FiscalPeriod.fetchById context (fixture.Data.openFiscalPeriodIds |> List.head)
+                let existingKey = FiscalPeriod.periodKey existingPeriod
+                let duplicateResult = existingKey |> FiscalPeriodCreation.constructNewAndSaveToDb context
+                do!
+                    match duplicateResult with
+                    | Error(DalErrorDuringNonQueryExecution _) -> Ok()
+                    | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                    | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                Assert.True(Result.isError duplicateResult)
+                ()
+            })
         |> railroadWrapper
 
     [<Fact>]
@@ -145,10 +145,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
                 let originalModified = FiscalPeriod.modifiedAt original
                 Assert.False(FiscalPeriod.isOpen original)
                 System.Threading.Thread.Sleep(10) // this is here to ensure that we haven't updated the modified date
-                let attemptResult =
-                    FiscalPeriod.closeFiscalPeriod
-                        context
-                        fixture.Data.closedFiscalPeriodId
+                let attemptResult = FiscalPeriod.closeFiscalPeriod context fixture.Data.closedFiscalPeriodId
                 do!
                     match attemptResult with
                     | Error(DalResultantRowsDidntMatchExpectation _) -> Ok() // todo: create a no op error for this
@@ -198,8 +195,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
         runFuncAndAutoRollback AccountCreate (fun context ->
             let expected = context |> getInitiationInstant
             result {
-                let! fp =
-                    genericFiscalPeriodKey |> FiscalPeriodCreation.constructNewAndSaveToDb context
+                let! fp = genericFiscalPeriodKey |> FiscalPeriodCreation.constructNewAndSaveToDb context
                 Assert.Equal(expected, FiscalPeriod.createdAt fp)
                 Assert.Equal(expected, FiscalPeriod.modifiedAt fp)
                 ()

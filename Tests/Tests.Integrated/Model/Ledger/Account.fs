@@ -34,9 +34,9 @@ type AccountTests(fixture: TestDataFixture) =
                     genericAccountParentId
                     genericAccountReference
             match duplicateResult with
-            | Error(DalErrorDuringNonQueryExecution _) -> Ok ()
-            | Ok _ -> Error (TestingError "Expected failure; returned success.")
-            | Error e -> Error (TestingError $"Wrong error type: {AppError.toMessage e}"))
+            | Error(DalErrorDuringNonQueryExecution _) -> Ok()
+            | Ok _ -> Error(TestingError "Expected failure; returned success.")
+            | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}"))
 
     [<Fact>]
     member _.``REQ-AC-1.5 Account code is case sensitive.``() =
@@ -55,7 +55,8 @@ type AccountTests(fixture: TestDataFixture) =
                         genericAccountReference
                 Assert.NotEqual(fixture.Data.assets1000Id, returned |> Account.accountId)
                 return ()
-            }) |> railroadWrapper
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-AC-2.14 REQ-SYS-5.1 create account and fetch by ID returns identical record``() =
@@ -80,7 +81,8 @@ type AccountTests(fixture: TestDataFixture) =
                 Assert.Equal(accountCode, returnedCode)
                 Assert.Equal(accountName, returnedName)
                 return ()
-            }) |> railroadWrapper
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-AC-3.5 fetch by parent ID returns all children``() =
@@ -98,21 +100,23 @@ type AccountTests(fixture: TestDataFixture) =
             |> List.forall(fun id -> fetched |> List.exists(fun a -> Account.accountId a = id))
             |> Assert.True
             return ()
-        } |> railroadWrapper
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-AC-3.6 fetch by account type returns matching accounts``() =
-            let context = create NoTransaction FetchOnly
-            result {
-                let! fetchType = AccountType.fromString "Equity"
-                let! fetched = Account.fetchByAccountType context fetchType
-                let expectedIds = [ fixture.Data.equity3000Id; fixture.Data.retirement3030Id ]
-                expectedIds
-                |> List.forall(fun id -> fetched |> List.exists(fun a -> Account.accountId a = id))
-                |> Assert.True
-                fetched |> List.forall(fun a -> Account.accountType a = fetchType) |> Assert.True
-                return ()
-            } |> railroadWrapper
+        let context = create NoTransaction FetchOnly
+        result {
+            let! fetchType = AccountType.fromString "Equity"
+            let! fetched = Account.fetchByAccountType context fetchType
+            let expectedIds = [ fixture.Data.equity3000Id; fixture.Data.retirement3030Id ]
+            expectedIds
+            |> List.forall(fun id -> fetched |> List.exists(fun a -> Account.accountId a = id))
+            |> Assert.True
+            fetched |> List.forall(fun a -> Account.accountType a = fetchType) |> Assert.True
+            return ()
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-AC-3.7 fetch all fetches everything``() =
@@ -140,7 +144,8 @@ type AccountTests(fixture: TestDataFixture) =
             |> fun closedId -> fetched |> List.exists(fun a -> Account.accountId a = closedId)
             |> Assert.False
             return ()
-        } |> railroadWrapper
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-AC-2.6 parent ID must reference existing account``() =
@@ -159,9 +164,9 @@ type AccountTests(fixture: TestDataFixture) =
                     parentAccountId
                     genericAccountReference
             match result with
-            | Error(DalResultantRowsDidntMatchExpectation _) -> Ok ()
-            | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
-            | Ok _ -> Error (TestingError $"Expected failure; succeeded"))
+            | Error(DalResultantRowsDidntMatchExpectation _) -> Ok()
+            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
 
     [<Fact>]
     member _.``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--positive``() =
@@ -195,9 +200,9 @@ type AccountTests(fixture: TestDataFixture) =
                     parentAccountId
                     genericAccountReference
             match result with
-            | Error(AccountParentIsInactive _) -> Ok ()
-            | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
-            | Ok _ -> Error (TestingError $"Expected failure; succeeded"))
+            | Error(AccountParentIsInactive _) -> Ok()
+            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
 
     [<Fact>]
@@ -220,9 +225,9 @@ type AccountTests(fixture: TestDataFixture) =
                     parentAccountId
                     genericAccountReference
             match result with
-            | Error(AccountParentAndChildTypesDontMatch _) -> Ok ()
-            | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
-            | Ok _ -> Error (TestingError $"Expected failure; succeeded"))
+            | Error(AccountParentAndChildTypesDontMatch _) -> Ok()
+            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
 
     [<Fact>]
@@ -231,14 +236,11 @@ type AccountTests(fixture: TestDataFixture) =
             let goodAccountName = "fahrvergnügen"
             result {
                 let! renamedAccount =
-                    Account.updateAccountNameById
-                        context
-                        fixture.Data.moneyMarket1270Id
-                        goodAccountName
+                    Account.updateAccountNameById context fixture.Data.moneyMarket1270Id goodAccountName
                 Assert.Equal(goodAccountName, AccountName.value(Account.accountName renamedAccount))
                 return ()
             })
-            |> railroadWrapper
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-AC-4.9 updateExternalReference succeeds with valid reference``() =
@@ -246,43 +248,36 @@ type AccountTests(fixture: TestDataFixture) =
             let goodReference = Some "Fliegende Ratte"
             result {
                 let! updatedAccount =
-                    Account.updateExternalReferenceById
-                        context
-                        fixture.Data.moneyMarket1270Id
-                        goodReference
+                    Account.updateExternalReferenceById context fixture.Data.moneyMarket1270Id goodReference
                 let newReference =
                     Account.externalReference updatedAccount |> Option.map AccountExternalReference.value
                 Assert.Equal(goodReference, newReference)
                 return ()
             })
-            |> railroadWrapper
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-AC-4.9 updateExternalReference can be updated to None``() =
         runFuncAndAutoRollback AccountUpdateExtReference (fun context ->
             result {
-                let! updatedAccount =
-                    Account.updateExternalReferenceById context fixture.Data.moneyMarket1270Id None
+                let! updatedAccount = Account.updateExternalReferenceById context fixture.Data.moneyMarket1270Id None
                 let newReference =
                     Account.externalReference updatedAccount |> Option.map AccountExternalReference.value
                 Assert.Equal(None, newReference)
                 return ()
             })
-            |> railroadWrapper
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-3.3 account update operations set modifiedAt from AuditEnvelope``() =
         runFuncAndAutoRollback AccountUpdateName (fun context ->
             result {
                 let! updatedAccount =
-                    Account.updateAccountNameById
-                        context
-                        fixture.Data.moneyMarket1270Id
-                        "Blah blah blah"
+                    Account.updateAccountNameById context fixture.Data.moneyMarket1270Id "Blah blah blah"
                 Assert.Equal(context |> getInitiationInstant, Account.modifiedAt updatedAccount)
                 return ()
             })
-            |> railroadWrapper
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-AC-4.19 update to deactivated account is permitted``() =
@@ -290,12 +285,10 @@ type AccountTests(fixture: TestDataFixture) =
             let newName = "Blah blah blah"
             result {
                 let! original = Account.fetchById context fixture.Data.closedBank1290Id
-                let isActive =
-                    original |> Account.activityPeriod |> AccountActivityPeriod.isActive(Calendar.today())
+                let isActive = original |> Account.activityPeriod |> AccountActivityPeriod.isActive(Calendar.today())
                 Assert.False(isActive) // just confirming that you indeed start with an inactive account
-                let! updatedAccount =
-                    Account.updateAccountNameById context fixture.Data.closedBank1290Id newName
+                let! updatedAccount = Account.updateAccountNameById context fixture.Data.closedBank1290Id newName
                 Assert.Equal(newName, AccountName.value(Account.accountName updatedAccount))
                 return ()
             })
-            |> railroadWrapper
+        |> railroadWrapper

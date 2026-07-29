@@ -383,8 +383,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                     let updateInput: JournalEntryUpdateExternalReferenceInput =
                         { id = refUuid; fi = Some "CliUpdatedBank"; reference = Some "CLI-UPD-001" }
                     let! payload = updateInput |> toJson<JournalEntryUpdateExternalReferenceInput>
-                    let! returnPayload =
-                        routeUiCommandForTesting "JournalEntry" "UpdateExternalReference" [] payload
+                    let! returnPayload = routeUiCommandForTesting "JournalEntry" "UpdateExternalReference" [] payload
                     let! returned = fromJson<JournalEntryExternalReferenceReturn> returnPayload
                     Assert.Equal("CliUpdatedBank", returned.financialInstitution)
                     Assert.Equal("CLI-UPD-001", returned.referenceText)

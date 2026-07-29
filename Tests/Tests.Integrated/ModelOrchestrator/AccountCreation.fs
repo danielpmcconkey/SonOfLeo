@@ -29,7 +29,8 @@ let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew generates UUID`` () =
         |> Account.accountId
         |> AccountId.value
         |> fun id -> Assert.NotEqual(Guid.Empty, id)
-        Ok ()) |> railroadWrapper
+        Ok())
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` () =
@@ -49,4 +50,5 @@ let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` 
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         Assert.Equal(expected, Account.createdAt account)
         Assert.Equal(expected, Account.modifiedAt account)
-        Ok ()) |> railroadWrapper
+        Ok())
+    |> railroadWrapper
