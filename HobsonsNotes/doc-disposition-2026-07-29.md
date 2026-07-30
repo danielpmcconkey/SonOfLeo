@@ -116,9 +116,13 @@ tells him what he did not think to look for.
 | `Money` — all money arithmetic | P2.8 |
 | `InterfaceBridge.Json` — single `JsonSerializerOptions` | P2.9 |
 
+[Dan]then you should also add the mapping functions in Src/Utilities/FieldUpdate.fs[/Dan]
+
 **Proposed home:** one short index. This is also the most checkable thing in the corpus —
 a script can verify every named module still exists, which makes it the one document that
 cannot silently rot.
+
+[Dan]It seems silly to me to write a script for this. We will have periodic audits that will pick out any egregious stink.[/Dan]
 
 ## 3b. Domain knowledge — not derivable from code at all
 
@@ -127,7 +131,7 @@ cannot silently rot.
 | Money / Price / Quantity / Rate taxonomy | `Specs/Definitions.md`; `CL/gaap-domain/numeric-type-taxonomy.md` | KEEP — dedupe to one |
 | Entity vs lookup, two litmus questions | `Specs/Definitions.md` | KEEP |
 | Instant vs Date as separate algebras | `Specs/Definitions.md`; `CL/coding/temporal-arithmetic.md` | KEEP — dedupe |
-| Cash-basis means cash moved | `CL/gaap-domain/cash-basis-ledger.md` | KEEP |
+| Cash-basis means cash moved | `CL/gaap-domain/cash-basis-ledger.md` | KEEP | [Dan]isn't this pretty standard GAAP terminology?[/Dan]
 | Balance invariant is exact, tolerance-free | `CL/gaap-domain/balance-invariant.md` | KEEP |
 | Reconciliation tolerance is domain data, never a code epsilon | `CL/gaap-domain/reconciliation-vs-balance.md` | KEEP |
 | Voiding, not reversing — no formal reversal mechanism | `CL/gaap-domain/voiding-not-reversing.md` | KEEP |
@@ -207,3 +211,17 @@ one shape BD is guaranteed to misread.
 
 6. **Two things worth writing that do not exist yet:** the five test forms, and the xUnit
    silent-pass hazard. Both currently live only in commit messages and Dan's head.
+
+[Dan]I've read it all. You can assume I agree with everything that I didn't comment on. Also, in case you lost it, the test forms are:
+
+1. Tests that check the rules around converting primitives to model base types.
+
+3. Tests that check standard model DB interactivity that don't need to write anything to the DB, thus don't need to be cleaned up after.
+
+4. Tests that check model write functions where the model write function doen't need to manage its own transaction (meaning the tests can roll back after the fact)
+
+5. Tests that check model write functions that *do* manage their own transaction, meaning we can't rollback their write ops and need to clean-up manually
+
+6. Tests of the CLI calls themselves that execute in their own process, so we need to clean them up manually.
+
+[/Dan]
