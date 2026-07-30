@@ -1,6 +1,6 @@
 # Temporal Persistence
 
-**Source:** Temporal.md, Persistence Layer Conventions
+**Source:** the retired Conventions/Temporal.md (removed 2026-07-30)
 
 The persistence layer stores all `Instant` values as `timestamptz` and all calendar dates as Postgres `date`. No exceptions. The database is never the originator of temporal values.
 

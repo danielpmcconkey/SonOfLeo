@@ -1,6 +1,6 @@
 # Voiding, Not Reversing
 
-**Source:** Decisions.md, 2026-06-22
+**Source:** Specs/Archive/Decisions.md, 2026-06-22
 
 There is no formal reversal mechanism. A correction is an ordinary offsetting journal entry plus a comment linking it to the original.
 

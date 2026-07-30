@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Enforces P2.3 (PATTERNS.md): the DataAccessLayer project is the only place Npgsql is
+# Enforces: the DataAccessLayer project is the only place Npgsql is
 # touched (extracted from Utilities.DAL 2026-07-25).
 # Allowlist: Src/DataAccessLayer/ (the boundary itself) and
 # Tests/Tests.Integrated/_TestDataStage.fs (fixture TRUNCATE teardown — sanctioned test infrastructure).
@@ -12,6 +12,6 @@ hits=$(grep -rn --include='*.fs' 'Npgsql' Src Tests |
 
 if [[ -n "$hits" ]]; then
     echo "$hits"
-    echo 'Npgsql reference outside the DAL (P2.3).'
+    echo 'Npgsql reference outside the DataAccessLayer project.'
     exit 1
 fi

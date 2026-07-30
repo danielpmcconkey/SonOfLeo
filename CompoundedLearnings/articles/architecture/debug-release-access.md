@@ -1,6 +1,6 @@
 # Debug/Release Access Rules
 
-**Source:** BuildAndEnvironment.md
+**Source:** the retired Conventions/BuildAndEnvironment.md (removed 2026-07-30)
 
 Build configuration determines which database an executable may access. This is a hard boundary, not a suggestion.
 

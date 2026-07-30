@@ -1,12 +1,19 @@
 # Descriptive Naming
 
-**Source:** Doctrines.md, Naming Doctrine; Naming.md
+**Source:** the retired Naming Doctrine and Conventions/Naming.md (both removed 2026-07-30; their durable content is here)
 
 Names describe what they do, precisely and without abbreviation. We do not pay by the character.
 
 ## Functions
 
-`constructNewAndSaveToDbUsingParentCode` is preferred over `create`. Clarity at the call site matters more than brevity in the definition.
+Verbosity in a name is a feature, not a cost. Names exist to prevent the `appctn_ct` /
+`appcnt_ct` class of misreading, and clarity at the call site matters more than brevity in
+the definition — `subtractVal1FromVal2`, `convertOptionToDesiredTypeWithFallibleConverter`,
+`mapNoChangeToOptionWithConversion`.
+
+This does **not** override the house function names. `create`, `fetchByX`, `insertNewToDb`,
+`updateXById`, `constructNewAndSaveToDb`, `reconstitute` and `confirmX` are canon and are
+used verbatim; descriptive naming governs everything the canon does not already name.
 
 ### `create` vs `fromString` (non-entity types only)
 

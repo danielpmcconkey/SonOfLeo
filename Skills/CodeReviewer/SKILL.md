@@ -9,19 +9,18 @@ description: >
 
 # SonOfLeo CodeReviewer
 
-You are the first-pass reviewer of your own diff. Dan personally reviews every line
-you present; this skill exists so the worst offenses never reach him. Review the
-**diff** — every file you created or changed this session — not the whole repo.
+You are the first-pass reviewer of your own diff. Dan personally reviews every line you
+present; this skill exists so the worst offenses never reach him. Review the **diff** —
+every file you created or changed this session — not the whole repo.
 
-The authority for every rule cited here is `PATTERNS.md` at the repo root (pattern IDs
-like P2.4, P6.1). This skill tells you *where to look*; PATTERNS.md tells you *what
-right looks like*. On any conflict, PATTERNS.md wins and this skill needs updating.
+This skill tells you *where to look*. What right looks like lives elsewhere:
 
-## Before you begin
-
-- Read `PATTERNS.md` in full if you have not already this session.
-- Read the CompoundedLearnings catalogs relevant to the change (`CompoundedLearnings/README.md`
-  explains the system; follow "when to read" triggers into articles).
+| For | Read |
+|---|---|
+| What infrastructure already exists | `Src/README.md` |
+| Test standards | `Tests/README.md`, plus the README in the test directory you touched |
+| Behavioral requirements | `Specs/Behavioral/` |
+| Judgment — layering, validation location, naming, temporal, money | `CompoundedLearnings/` catalogs, following their "read when" triggers |
 
 ## Gate 0 — mechanical (hard gate)
 
@@ -36,64 +35,73 @@ dotnet test --artifacts-path /tmp/sonofleo-build
 Any failure: stop, fix, rerun. **Never present red.** Do not rationalize a failure as
 pre-existing without verifying it fails on a clean checkout of your starting commit.
 
-Equally, do not act on a red you have not confirmed. Reproduce the individual failing
-check before you run a formatter, edit the files it names, or reach for `--no-verify` —
-`check-format` has produced both a false PASS and a false FAIL, and the files it names
-may not be yours to touch. See
+Equally, do not act on a red you have not confirmed. Reproduce the individual failing check
+before you run a formatter, edit the files it names, or reach for `--no-verify` —
+`check-format` has produced both a false PASS and a false FAIL, and the files it names may
+not be yours to touch. See
 `CompoundedLearnings/articles/process/a-check-verdict-is-evidence-not-truth.md`.
 
 ## Pass 1 — "there's already a function for that"
 
-For each new or changed function, check the P2 infrastructure catalog (P2.1–P2.9).
-Reinventing any of it is a review rejection. Symptoms to hunt in your diff:
+Check each new or changed function against the inventory in `Src/README.md`. Reinventing any
+of it is a review rejection. Symptoms to hunt in your diff:
 
 | If your diff contains… | You should have used… |
 |---|---|
-| A string being built to describe an error | `AppError` case + its `toMessage` arm (P2.1) |
-| A hand-rolled fold/loop over `Result` values | `ResultHelper` (P2.2) |
-| `NpgsqlCommand`, `NpgsqlConnection`, raw SQL execution | `Utilities.DAL` (P2.3) |
-| `DateTime.Now`, `DateTimeOffset.UtcNow`, `SystemClock` | `Clock.now()` / `Calendar.today()` (P2.4) |
-| An option/flag meaning "don't update this field" | `FieldUpdate` (P2.5) |
-| A query looking up an account code or period key by string | `LookupCache` boundary converters (P2.6) |
-| A fresh `Clock.now()` inside a mutating operation | The route handler's `AuditEnvelope` instant (P2.7) |
-| Arithmetic on raw `decimal` money values | `Model.Money` (P2.8) |
-| A `JsonSerializerOptions` or direct serializer call | `InterfaceBridge.Json` (P2.9) |
+| A string being built to describe an error | An `AppError` case and its `toMessage` arm |
+| A hand-rolled fold or loop over `Result` values | `ResultHelper` |
+| `NpgsqlCommand`, `NpgsqlConnection`, raw SQL execution | `DataAccessLayer` |
+| `DateTime.Now`, `DateTimeOffset.UtcNow`, `SystemClock` | `Clock.now()` / `Calendar.today()` |
+| An option or flag meaning "don't update this field" | `FieldUpdate` and its converters |
+| A query looking up an account code or period key by string | `LookupCache` boundary converters |
+| A fresh `Clock.now()` inside a mutating operation | The route handler's `AuditEnvelope` instant |
+| Arithmetic on raw `decimal` money values | `Model.Money` |
+| A `JsonSerializerOptions` or a direct serializer call | `InterfaceBridge.Json` |
 
 ## Pass 2 — altitude and layering
 
-- **Dependency direction** (P1.1): does each changed file reference only layers below it?
-- **Validation altitude** (P3, P4.3/P4.4): per-field validation in component smart
-  constructors; cross-entity rules in the orchestrator; shape-only checks at the boundary.
-- **Error translation altitude** (P5.3): infrastructure errors re-branded to domain
-  errors only at the caller that knows the domain meaning; all else passes through.
-- **Transaction ownership** (P4.6): route handlers own transactions; model/orchestrator
+- **Dependency direction:** does each changed file reference only layers below it?
+- **Validation altitude:** per-field validation in component smart constructors; cross-entity
+  rules in the orchestrator; shape-only checks at the boundary. F# versus SQL is a real
+  question with a real test — `CompoundedLearnings/articles/coding/validation-location.md`.
+- **Error translation altitude:** infrastructure errors are re-branded to domain errors only
+  at the caller that knows the domain meaning; everything else passes through unchanged.
+- **Transaction ownership:** route handlers own transactions; model and orchestrator
   functions are participants taking `DbTransaction option`.
-- **Compile order** (P1.2): every new file inserted at the correct position in its
-  `.fsproj`, never appended blindly.
+- **Compile order:** every new file inserted at its correct position in the `.fsproj`, never
+  appended blindly.
 
 ## Pass 3 — the single-author test
 
-Read your diff as if Dan wrote it. **If a reviewer could tell your hunk from Dan's
-code, name the difference and eliminate it.** Check in particular:
+Read your diff as if Dan wrote it. **If a reviewer could tell your hunk from Dan's code, name
+the difference and eliminate it.** In particular:
 
-- Naming canon (P6.1) — including `confirmX` not `validateX` (P5.1).
-- Boundary converter names in the square-bracket dialect (P6.2) — and scan for an
-  existing converter before writing one.
-- Parameter order: context first, subject last (P4.8).
-- Visibility: private by default; a function whose analogs elsewhere are private must
-  be private (P6.8).
-- Comment philosophy (P6.6): REQ tags, `///` contracts, `(* *)` rationale — no narration.
-- No `match` expression as a direct list item (P2.5/P4.7).
+- Naming: `fetchById` / `fetchByX` / `fetchAll`, `insertNewToDb`, `updateXById`,
+  `constructNewAndSaveToDb`, `mapRawForDbRead` / `reconstitute` / `readRowsFromDb`, and
+  `confirmX` for unit-returning checks — `validateX` is retired
+  (`Checks/check-confirm-naming.sh`).
+- Boundary converters are named in prose with square brackets around each side:
+  ``` ``convert [Account code string option list] to [AccountId option list]`` ```. Scan for
+  an existing converter before writing one; that is what the convention is for.
+- Parameter order: context first, subject last (`Src/README.md`).
+- Visibility: private by default; a function whose analogs elsewhere are private must be
+  private (`Src/README.md`).
+- Comments: REQ tags, `///` contracts, `(* *)` rationale. No narration.
+- No `match` expression as a direct item in a list literal — it is the one shape Fantomas
+  formats unstably. Use a pipeline expression instead.
 
 ## Pass 4 — test quality
 
-The TestWriter skill owns test standards; do not restate them. Spot-check its two most
-violated rules before presenting:
+`Tests/README.md` owns test standards; do not restate them. Spot-check the three most
+violated before presenting:
 
-- Every new test asserts domain **values**, not just counts (P7.4, P7.6), and sad-path
-  tests match the typed error case with both escape arms (P7.6).
-- Every entity a test creates carries a unique, test-identifying name/code and is
-  cleaned up by rollback or `_Cleanup` helpers (P7.5).
+- Every railroad is terminated by `railroadWrapper`. A `[<Fact>]` returning a bare `Result`
+  passes unconditionally.
+- Every new test asserts domain **values**, not just counts, and sad-path tests match the
+  typed error case with both escape arms.
+- Every entity a test creates carries a unique, test-identifying name or code and is disposed
+  of by the cleanup obligation of its form — rollback for form 3, `_Cleanup` helpers in
+  `finally` for forms 4 and 5.
 
 ## Output contract
 
@@ -108,6 +116,6 @@ Honest flags are cheap; violations Dan discovers himself are expensive.
 
 ## Iterating on this skill
 
-When Dan's review catches something this skill should have caught, that is a guardrail
-gap: record it via the CreateLearning skill's triage (mechanical → new `Checks/` script;
-judgment → CompoundedLearnings article + one checklist line here).
+When Dan's review catches something this skill should have caught, that is a guardrail gap:
+record it via the CreateLearning skill's triage (mechanical → new `Checks/` script; judgment
+→ CompoundedLearnings article plus one checklist line here).

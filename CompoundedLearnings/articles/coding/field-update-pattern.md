@@ -1,6 +1,6 @@
 # Field Update Pattern
 
-**Source:** Decisions.md, 2026-06-08
+**Source:** Specs/Archive/Decisions.md, 2026-06-08
 
 `FieldUpdate<'a>` is a discriminated union with two cases: `NoChange` and `SetTo of 'a`. There is no `Clear` case.
 

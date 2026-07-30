@@ -2,61 +2,62 @@
 name: SonOfLeo:TestWriter
 description: >
   This skill should be used when planning, creating, or maintaining xUnit tests for SonOfLeo.
-  It covers REQ-traceability enforcement, test fixture design, and the two-phase
+  It covers REQ-traceability enforcement, the waiver process, and the two-phase
   stub-then-implement workflow. Triggers on "write tests", "test coverage", "stub tests",
   "add tests for", or any work involving SonOfLeo's Tests.Isolated or Tests.Integrated projects.
 ---
 
 # SonOfLeo TestWriter
 
-Plan, create, and maintain xUnit tests for SonOfLeo with full REQ traceability against the
-behavioral specs.
+The procedure for writing tests. The **standard** they are written to lives in
+`Tests/README.md` — the five test forms, the silent-pass hazard, assertion shape, fixture
+rules, and what a worthless test looks like. Read it before you write anything; this skill
+does not restate it.
 
-**Authority:** `PATTERNS.md` §7 (repo root) is the canonical test doctrine. This skill
-operationalizes it; on any conflict, PATTERNS.md wins and this skill needs updating.
-Before writing tests, read §7 and the negative exemplars in
-`references/bullshit-test-specimens.md` — real purged tests showing what a worthless
-test looks like and its rewrite.
+Also read the README in the test directory you're working in. Each layer states what
+belongs in it and what does not.
 
 ## Core contract
 
-Every active REQ in `Specs/Behavioral/*.md` must be in exactly one of two states: **tested**
-or **waived**. There is no third state. The TestWriter's primary job is closing gaps between
-specs and tests.
+Every active REQ in `Specs/Behavioral/*.md` is in exactly one of two states: **tested** or
+**waived**. There is no third state. Closing the gap between specs and tests is this
+skill's whole job.
 
 ## Two-phase workflow
 
-All test creation follows a two-phase process. Never skip phase 1.
+Never skip phase 1.
 
 ### Phase 1 — Stub
 
 1. Read the relevant spec file(s) in `Specs/Behavioral/`.
-2. Inventory all `REQ-` IDs in the spec (including sub-dot IDs like `REQ-AC-1.48.1`).
-3. Cross-reference against existing tests (grep for the REQ ID in test files).
+2. Inventory every `REQ-` ID in the spec, including sub-dot IDs like `REQ-AC-1.48.1`.
+3. Cross-reference against existing tests (grep for the REQ ID across both test projects).
 4. Cross-reference against the spec's **Waived from testing** table.
-5. For each untested, non-waived REQ, determine how many test cases it needs. One REQ may
-   require multiple tests (happy path, boundary, error cases).
-6. Produce stub test functions: `[<Fact>]` attribute, backtick name with REQ tag, body of
+5. For each untested, non-waived REQ, decide how many test cases it needs. One REQ may need
+   several — happy path, boundary, error cases.
+6. For each case, decide its **form** (`Tests/README.md`) before writing a line. The form
+   determines the project, the class-vs-module shape, and the cleanup obligation.
+7. Produce stubs: `[<Fact>]`, backtick name carrying the REQ tag, body of
    `Assert.Fail "not implemented"`.
-7. For any REQ that appears untestable, propose a waiver with rationale. Flag it for Dan's
-   approval — never add to the waived table without explicit sign-off.
-8. Present the stubs to Dan for review before proceeding.
+8. For any REQ that appears untestable, propose a waiver with rationale. Flag it for Dan —
+   never add to the waived table without explicit sign-off.
+9. Present the stubs to Dan for review before proceeding.
 
-Stub naming format (integrated tests use class members):
+Integrated stubs are class members:
 ```fsharp
 [<Fact>]
 member _.``REQ-XX-N.N short description of what is being verified`` () =
     Assert.Fail "not implemented"
 ```
 
-Isolated tests use module-level functions:
+Isolated stubs are module-level:
 ```fsharp
 [<Fact>]
 let ``REQ-XX-N.N short description of what is being verified`` () =
     Assert.Fail "not implemented"
 ```
 
-When a single REQ needs multiple tests, use consistent naming:
+When one REQ needs several tests, keep the naming parallel:
 ```fsharp
 member _.``REQ-XX-N.N description — happy path`` () =
 member _.``REQ-XX-N.N description — empty input`` () =
@@ -65,139 +66,59 @@ member _.``REQ-XX-N.N description — exceeds max length`` () =
 
 ### Phase 2 — Implement
 
-After Dan approves the stubs, implement them. Follow the patterns in
-`references/test-patterns.md`. Match the code quality and style of the production codebase —
-read production code in the relevant module before writing tests to absorb naming, pipeline
-style, and structure.
+After Dan approves the stubs, implement them. Read the production code for the module under
+test first and match its style — Dan's naming and pipeline idiom, not generic F# convention.
 
-## Test layering doctrine
+## Choosing the layer
 
-Three rules govern where tests live and what they cover:
+During phase 1, read the actual function signatures to decide where each test belongs. Three
+rules govern it:
 
-1. **Don't test what the type system enforces.** If a field is a `Guid` (value type, can't
-   be null), a DU (can only be one of N cases), or a specific numeric type, the compiler
-   already prevents the invalid state. No test needed — propose a waiver instead.
-
-2. **Test happy paths at each layer.** Every layer (component, model, orchestrator, CLI)
-   gets its own happy-path test proving it works end to end at that layer. Happy paths
-   compose upward — the orchestration happy-path test implicitly exercises the components,
-   but the component happy-path test proves the component in isolation.
-
+1. **Don't test what the type system enforces.** A `Guid` cannot be null; a DU cannot hold a
+   case that doesn't exist; a validated wrapper cannot hold an invalid value. Propose a
+   waiver instead of a test.
+2. **Test happy paths at every layer.** Each layer gets its own happy-path test proving it
+   works end to end at that layer. They compose upward, but the lower test still earns its
+   place by proving the component in isolation.
 3. **Test unhappy paths once, at the lowest layer where the failure can occur.** If
-   `Description.create` rejects whitespace, test that in the isolated component tests.
-   Do NOT re-test it at the orchestration level. The orchestration tests assume component
-   validation works because the isolated tests already proved it. Orchestration-level
-   unhappy-path tests cover only failures that emerge at orchestration — line count,
-   debit/credit balance, fiscal period validation, cross-entity checks.
+   `Description.create` rejects whitespace, that is an isolated component test and is not
+   re-tested at orchestration. Orchestration-level sad paths cover only failures that
+   *emerge* at orchestration — line count, debit/credit balance, fiscal period state,
+   cross-entity checks.
 
-During Phase 1 (stubbing), read the actual function signatures to determine the correct
-layer for each test. A REQ about optionality may be enforced at the orchestration boundary,
-not at the component level — or may be enforced by the type system and need no test at all.
-
-## Deciding isolated vs integrated
-
-- **Isolated** (`Tests.Isolated`): Pure functions with no database interaction. Validation,
-  parsing, construction, arithmetic. These run in parallel freely.
-- **Integrated** (`Tests.Integrated`): Anything that touches the database or invokes the CLI
-  subprocess. These run serially (`parallelizeTestCollections: false`).
-
-The dividing line is database access, not complexity.
+A REQ about optionality may turn out to be enforced at the boundary, or by the type system,
+and need no test at all.
 
 ## Waiver criteria
 
-Suggest a waiver only when one of these applies:
+Suggest a waiver only when one of these holds:
 
-- The F# type system makes the invalid state unrepresentable (e.g., non-nullable types
-  prevent null, DU cases prevent invalid enum values).
-- The requirement is a negative existence claim over the API surface ("no function exposes
-  a delete") that cannot be proven by a unit test.
+- The F# type system makes the invalid state unrepresentable.
+- The requirement is a negative existence claim over the API surface ("no function exposes a
+  delete") that no unit test can prove.
 - The requirement describes behavior enforced entirely by the caller, not by the module
   under test.
 
-Always include rationale. Never add to the waived table without Dan's explicit approval.
-
-## Test fixture — shared reference data
-
-Read `references/test-fixture-design.md` for the fixture architecture. The fixture is
-implemented in `Tests/Tests.Integrated/_TestDataStage.fs`.
-
-Key rules:
-- The fixture provides reference data (accounts with `F-` prefix codes, fiscal periods
-  spanning -4 to +4 months from today). It is an `ICollectionFixture<TestDataFixture>`.
-- All integrated tests live in classes with `[<Collection("SharedTestData")>]` and receive
-  the fixture via constructor injection.
-- **Tests do not create their own setup entities.** If a test needs an entity to exist
-  before it can exercise the behavior under test, that entity belongs in the fixture —
-  either it's already there or it should be added. Creating an entity inside a test solely
-  to set up conditions for a subsequent action is always wrong. The only entities a test
-  should create are the ones whose creation *is* the behavior being tested.
-- **Fixture entities are multi-purpose by design.** Don't add a fixture entity to serve
-  one test. Before adding anything, ask what archetype is missing — a closed account, a
-  child with a specific subtype, a period in a specific state. Design each fixture entity
-  to satisfy multiple tests. Three well-chosen archetypes beat fourteen single-purpose
-  snowflakes.
-- Tests may read fixture data directly (no transaction needed for pure reads).
-- Tests may mutate fixture data within a transaction that rolls back.
-- Tests must never commit mutations to fixture data.
-- **Sanctioned exception — orchestrator-committing tests.** The creation and voiding
-  orchestrators seal their own internal transactions, so tests exercising them commit
-  for real. Such tests must clean up after themselves in `finally` using the
-  `_Cleanup.fs` helpers (CLI-test pattern: `mutable idToCleanUp`, set after the create
-  succeeds). The dispose-time TRUNCATE is a backstop, not a license — one test must not
-  pollute the others.
-- **Consumable victims.** For irreversible committed operations (voiding, CLI-layer
-  updates that cannot roll back across a subprocess), the fixture provides dedicated
-  victim entities — one per test, never shared. Their consumed end-state after a run is
-  by design and needs no cleanup. See the void victims and the CLI update victim in
-  `_TestDataStage.fs`.
-- Tests that need entities beyond what the fixture provides create them inside their own
-  transaction.
-- Hardcoded period keys in tests must avoid the fixture's range. Use distant years (e.g.,
-  `"2050-01"`) to prevent collisions.
-- **The +4-month fiscal period is reserved-empty.** No test may post an entry dated in
-  the fixture's furthest-future period — the `fetchByPeriod` empty-list test depends on
-  it staying empty.
-- Cleanup is `TRUNCATE ... CASCADE` on all ledger tables — no per-entity tracking needed.
-- Do not assert exact counts on queries like `fetchAll` or `fetchByType` — fixture data
-  means the DB is not empty. Assert containment of expected IDs instead.
-
-## Assertion shape (P7.6 — mandatory)
-
-- **Happy path:** railroad inside `result { … Assert … }`, ending
-  `match railroad with | Ok _ -> () | Error e -> Assert.Fail (AppError.toMessage e)` —
-  a leaked error fails with its message, never passes silently.
-- **Sad path:** match the **typed DU case**, with both escape arms — wrong error →
-  `Assert.Fail $"Wrong error. {…}"`; `| Ok _ -> Assert.Fail "Expected failure; got success"`
-  (capturing any created ID for cleanup). Never `Result.isError`, never string-matching
-  on error text.
-- **Assert domain values** (names, amounts, dates round-tripped) and membership; counts
-  only in addition to values, never instead of them (P7.4). Expected values derive from
-  fixture data, never hard-coded constants.
-
-If a test you've written resembles anything in `references/bullshit-test-specimens.md`,
-rewrite it before presenting.
+Always give the rationale. Never add to the waived table without Dan's explicit approval.
 
 ## Timing and AuditEnvelope
 
-`AuditEnvelope.create` captures `Clock.now()` which uses real `DateTimeOffset.UtcNow`,
-truncated to microsecond precision. When a test needs two distinct timestamps, insert
-`System.Threading.Thread.Sleep(10)` between envelope creations. Ten milliseconds is
-three orders of magnitude above the microsecond truncation boundary.
-
-Do not use `Thread.Sleep(1000)`. One second is wasteful overkill.
+`AuditEnvelope` carries one instant per user action, taken from `Clock.now()`
+(`SystemClock.Instance.GetCurrentInstant()`, truncated to DB-storable precision). When a test
+needs two genuinely distinct timestamps, put `System.Threading.Thread.Sleep(10)` between the
+envelope creations — three orders of magnitude above the truncation boundary. Not
+`Sleep(1000)`; one second is wasteful overkill.
 
 ## Code quality
 
-Write tests to the same standard as production code. Before writing tests for a module,
-read the production code for that module and match Dan's style — not generic F# convention.
+Write tests to the same standard as production code:
 
-Specific expectations:
-- Pipeline style (`value |> function`) over nested calls where Dan uses it
-- Respect Dan's naming and legibility preferences even when they diverge from F# norms
-- No unnecessary mutability — use `let` bindings threaded through `result { }` blocks
-- Descriptive error messages in `Result.mapError` — never rely on generic `failwith`
-- `defaultWith failwith` is acceptable only in test setup where failure means the test
-  infrastructure is broken, not for asserting user-facing behavior
+- Pipeline style (`value |> function`) over nested calls, where Dan uses it
+- No unnecessary mutability — `let` bindings threaded through `result { }`. The one
+  sanctioned exception is the `let mutable idToCleanUp` of forms 4 and 5.
+- Descriptive errors in `Result.mapError`; never a bare `failwith` to assert behavior
+- `defaultWith failwith` is acceptable in test setup — a broken fixture means every test is
+  broken — never for asserting user-facing behavior
 
 ## Build and run
 
@@ -217,6 +138,6 @@ dotnet test Tests/Tests.Integrated/Tests.Integrated.fsproj --artifacts-path /tmp
 
 ## Iterating on this skill
 
-This skill is a living document. After each test-writing session, evaluate what worked and
-what didn't. If the workflow, patterns, or fixture design need refinement, update this skill
-and its references. Dan expects this process to improve over time.
+This skill is the procedure; `Tests/README.md` is the standard. When a session shows the
+*workflow* needs refinement, update this file. When it shows a *rule* is wrong or missing,
+update `Tests/README.md` — do not restate it here.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SLOW
-# Tracks #125a (PATTERNS.md P2.1 goal): every AppError case exercised by at least one
+# Tracks the coverage goal: every AppError case exercised by at least one
 # test asserting that specific case. REPORT-ONLY until #125a lands — always exits 0.
 # Flip to gating by replacing the final `exit 0` with `exit $((missing > 0))`.
 set -u

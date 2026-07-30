@@ -1,6 +1,6 @@
 # Environment Separation
 
-**Source:** BuildAndEnvironment.md
+**Source:** the retired Conventions/BuildAndEnvironment.md (removed 2026-07-30)
 
 The system maintains entirely separate databases for development and production. Cross-contamination of entity data (see `Specs/Definitions.md`, Entity) between environments is strictly prohibited.
 

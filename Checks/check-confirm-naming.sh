@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Enforces P5.1 (PATTERNS.md): unit-returning checks are named confirmX; validateX is retired.
+# Enforces: unit-returning checks are named confirmX; validateX is retired.
 # Allowlist: pre-canon definitions awaiting the #123a rename sweep (they migrate on touch).
 # When #123a lands, empty this list.
 set -u
@@ -26,6 +26,6 @@ while IFS= read -r line; do
 done <<<"$(grep -rn --include='*.fs' -E 'let (private )?validate[A-Z]' Src)"
 
 if [[ $status -ne 0 ]]; then
-    echo 'New validateX definition — the canon is confirmX (P5.1).'
+    echo 'New validateX definition — the canon is confirmX.'
 fi
 exit $status

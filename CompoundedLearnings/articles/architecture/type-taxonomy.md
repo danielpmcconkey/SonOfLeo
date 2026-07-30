@@ -1,6 +1,6 @@
 # Type Taxonomy
 
-**Source:** Codebase observation, 2026-07-11; Dan's clarification on domain primitives. Updated 2026-07-25 for the July refactor (consistent with PATTERNS.md P3, P1.4).
+**Source:** Codebase observation, 2026-07-11; Dan's clarification on domain primitives. Updated 2026-07-25 for the July refactor.
 
 The system has distinct kinds of types, each with different construction rules and responsibilities.
 
@@ -12,11 +12,11 @@ Domain primitives exist to serve composites — don't invent a new one unless it
 
 ## Entity types
 
-Private records with a same-named companion module providing accessors, `create` (over already-validated component types), and persistence (PATTERNS.md P3.1). `Account`, `FiscalPeriod`. These are what `Specs/Definitions.md` (Entity) defines. Owned by domain modules in `Model/`.
+Private records with a same-named companion module providing accessors, `create` (over already-validated component types), and persistence. `Account`, `FiscalPeriod`. These are what `Specs/Definitions.md` (Entity) defines. Owned by domain modules in `Model/`.
 
 ## Composite types
 
-Multi-part entities composed and validated at the orchestrator (PATTERNS.md P3.8). `JournalEntry` (header + lines + references + comments) — the orchestrator enforces collection-level rules (≥2 lines, debits = credits). The composite and its components live in the same namespace slice.
+Multi-part entities composed and validated at the orchestrator. `JournalEntry` (header + lines + references + comments) — the orchestrator enforces collection-level rules (≥2 lines, debits = credits). The composite and its components live in the same namespace slice.
 
 ## Component types
 
@@ -24,6 +24,6 @@ Parts of a composite. `JournalEntryHeader`, `JournalEntryLine`, `JournalEntryExt
 
 ## Interface contracts
 
-DTOs at the CLI boundary, owned by `InterfaceBridge` (PATTERNS.md P1.1, P1.4). These use primitives (string, decimal, Guid, LocalDate, Instant) — not domain types. They validate *shape only* and translate between the outside world and the domain layer via boundary converters.
+DTOs at the CLI boundary, owned by `InterfaceBridge`. These use primitives (string, decimal, Guid, LocalDate, Instant) — not domain types. They validate *shape only* and translate between the outside world and the domain layer via boundary converters.
 
 Each UI operation gets its own independent contract — think of them like Swagger docs, one per endpoint. Return types may be shared when operations return the exact same shape (e.g., fetch-by-parent and fetch-by-type both return `AccountReturn`). Input types are never shared across semantically different operations, even when they happen to have the same primitive shape (e.g., a string input for "fetch JE by external reference" is not the same contract as a string input for "fetch account by name").

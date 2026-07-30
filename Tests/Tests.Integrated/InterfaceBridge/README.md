@@ -1,4 +1,4 @@
-# Tests.Integrated.InferfaceBridge
+# Tests.Integrated.InterfaceBridge
 
 These tests are primarily here so that we don't have to invoke the CLI to test how the UI marshalls requests and unmarshalls responses.
 

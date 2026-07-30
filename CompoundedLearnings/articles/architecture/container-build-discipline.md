@@ -1,6 +1,6 @@
 # Container Build Discipline
 
-**Source:** BuildAndEnvironment.md
+**Source:** the retired Conventions/BuildAndEnvironment.md (removed 2026-07-30)
 
 This article applies only to LLM agents building inside the Docker container. Dan builds from Rider on the host and is unaffected.
 

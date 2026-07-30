@@ -1,6 +1,6 @@
 # Architecture
 
-Settled structural decisions for SonOfLeo — what was decided, why, and what not to re-litigate. Read this catalog before proposing structural changes or placing new code. For the layering itself — which project a file belongs in, dependency direction — the authority is `PATTERNS.md` P1 at the repo root.
+Settled structural decisions for SonOfLeo — what was decided, why, and what not to re-litigate. Read this catalog before proposing structural changes or placing new code. For the layering itself — which project a file belongs in, dependency direction — and for what infrastructure already exists, the authority is `Src/README.md`.
 
 | Concept | Article | Read when... |
 |---|---|---|

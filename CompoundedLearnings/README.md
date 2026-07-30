@@ -33,4 +33,6 @@ If your skill discovers something worth compounding, invoke the CreateLearning s
 
 ## Authority
 
-CompoundedLearnings is operational guidance. The chain is **Specs/Behavioral/ > PATTERNS.md > learnings**: requirements override the house-style doc, and both override learnings. When a learning conflicts with either, the learning is wrong and needs updating.
+CompoundedLearnings is operational guidance. The chain is **Specs/Behavioral/ > learnings**: a behavioral requirement overrides a learning. When a learning conflicts with a requirement, the learning is wrong and needs updating.
+
+Learnings are judgment. Anything mechanically checkable belongs in `Checks/` as a script, not here — a check that goes stale fails; an article that goes stale just sits there. Anything that is an inventory of what already exists belongs in `Src/README.md`.

@@ -1,6 +1,6 @@
 # Reconciliation vs Balance
 
-**Source:** Decisions.md, 2026-06-11
+**Source:** Specs/Archive/Decisions.md, 2026-06-11
 
 Internal arithmetic and external reconciliation follow different rules. Do not conflate them.
 

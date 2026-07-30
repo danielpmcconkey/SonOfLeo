@@ -6,8 +6,8 @@ a pattern that **passed CI while verifying nothing** — the test equivalent of 
 that opens for any key. If a test you are writing resembles a "before", stop and write
 the "after".
 
-The authority for the rules is `PATTERNS.md` §7 (P7.4, P7.6). These are the labeled
-corpses.
+The authority for the rules is `Tests/README.md` — assertion shape and the
+bullshit-practice list. These are the labeled corpses.
 
 ---
 
@@ -37,8 +37,7 @@ let expected =
 // ...
 Assert.Equal(expected, fetchedChildren |> List.length)
 ```
-The expected value is *derived from the same fixture data the code under test reads*
-(P7.4). The test now states the relationship, not a snapshot.
+The expected value is *derived from the same fixture data the code under test reads*. The test now states the relationship, not a snapshot.
 
 ## Specimen 2 — the cowardly inequality
 
@@ -80,7 +79,7 @@ Assert.Equal(expectedDebits1, row1.totalDebits |> Money.amount)
 Assert.Equal(expectedCredits1, row1.totalCredits |> Money.amount)
 Assert.Equal(expectedBal1, row1.netBalance |> Money.amount)
 ```
-Counts are allowed *in addition to* value assertions, never instead of them (P7.6).
+Counts are allowed *in addition to* value assertions, never instead of them.
 
 ## Specimen 4 — the untyped failure
 
@@ -96,7 +95,7 @@ firing, a broken DB connection, a typo'd column name. String `Contains` is the s
 bug plus brittleness: reword the message and the test breaks; produce the wrong error
 with similar wording and it passes.
 
-**After (the P7.6 sad-path canon):**
+**After (the sad-path canon):**
 ```fsharp
 match railroad with
 | Error (JournalEntryDebitCreditMismatch _) -> ()
@@ -115,10 +114,10 @@ Assert.Equal(expectedReturnCode, code)
 …as the *only* assertion on a CLI operation's behavior.
 
 **Why it's worthless:** exit code 1 means "something failed somewhere." As a lone
-assertion it verifies plumbing, not behavior. This is why P7.7 splits route-level
-tests (real assertions on deserialized returns and typed errors) from the thin
-`ProgramTests` process-boundary checks — exit codes belong only to the latter, and
-those tests are deliberately few.
+assertion it verifies plumbing, not behavior. This is why route-level
+tests are split from process-level tests: the route tests make real assertions on
+deserialized returns and typed errors; the thin `ProgramTests` class checks the process
+boundary. Exit codes belong only to the latter, and those tests are deliberately few.
 
 **After:** test the behavior at the route level via `routeUiCommandForTesting` with
 typed assertions; keep process-level tests to plumbing (exit codes, stdout/stderr,

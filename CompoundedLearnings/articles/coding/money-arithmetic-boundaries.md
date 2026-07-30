@@ -1,6 +1,6 @@
 # Money Arithmetic Boundaries
 
-**Source:** Money.md, Direct Arithmetic / Arithmetic with Money Amounts / Leftovers
+**Source:** the retired Conventions/Money.md (removed 2026-07-30) and Specs/Archive/Decisions.md, 2026-06-11. This article is now the single home for the rounding and allocation rules.
 
 Money records (see `Specs/Definitions.md`, Money) have strict arithmetic boundaries. Some operations are prohibited directly; others require unpacking first.
 

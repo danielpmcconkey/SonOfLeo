@@ -1,9 +1,17 @@
-# Decisions
+# Decisions — ARCHIVE
 
-Append-only log of structural decisions that don't attach to any single requirement ID.
-One line per decision, dated, with a one-sentence why. If an entry wants to grow past that,
-it's hiding a requirement — extract it. If it maps to a requirement ID, it doesn't belong
-here; put the *Why* under the ID.
+> **This is history, not authority.** Archived 2026-07-30. Every entry below records what
+> was decided on the date shown; several have since been overturned. Do not cite an entry
+> here as a current rule — find the rule where it lives now (`Specs/Behavioral/`,
+> `Src/README.md`, `Tests/README.md`, `CompoundedLearnings/`) and cite that.
+>
+> **The overturn rule:** an entry that is overturned gets a **new, dated entry** saying so.
+> It is never edited in place and never annotated with a trailing "actually, no". A document
+> that states a rule confidently and retracts it in a trailing clause is the one shape a
+> reader is guaranteed to misread — which is exactly how the two entries below went wrong.
+
+Append-only log of structural decisions that didn't attach to any single requirement ID.
+One line per decision, dated, with a one-sentence why.
 
 - **2026-06-06** — Two-layer architecture, not the C# three-layer split: domain modules own
   their entity end-to-end (type + validation + persistence); orchestration composes across
@@ -28,11 +36,13 @@ here; put the *Why* under the ID.
 - **2026-06-11** — Temporal model: all temporal values are instants; no date-only values
   anywhere in the system; persistence stores the instant and deliberately discards the
   original local offset. *Why: date-only values are clumsy at best and wildly inaccurate at
-  worst, and the system has no business knowing where the viewer was standing.* Note: the prohibition against date-only has been overturned. See Definitions.md
+  worst, and the system has no business knowing where the viewer was standing.*
+  **[OVERTURNED — see the 2026-06-22 entry on Account active_begin / active_end.]**
 
 - **2026-06-11** — NodaTime adopted as the temporal library, mapped through `Npgsql.NodaTime`.
   *Why: it makes the instants-only model compiler-enforced rather than review-enforced, and
-  its injectable `IClock` is what makes the audit-timestamp requirements testable.* Note: we rejected the IClock in favor of the AuditEnvelope type.
+  its injectable `IClock` is what makes the audit-timestamp requirements testable.*
+  **[PARTIALLY OVERTURNED — see the 2026-07-30 entry below.]**
 - **2026-06-11** — Leap seconds are deliberately ignored. *Why: NTP smearing hides them, the
   stack (.NET, Postgres) cannot represent them, no domain operation can observe a one-second
   window, and the CGPM abolishes them by 2035 anyway.*
@@ -62,3 +72,11 @@ here; put the *Why* under the ID.
 - **2026-06-22** — Journal entry references split into two concepts: external references (an external transaction id + its source FI) and comments (free text, optionally linking a second entry). Deduplication of imported rows is the importer's concern, not the ledger's. *Why: prod LeoBloom's one `reference` string was overloaded across three roles — real external ids, synthetic composite dedup keys, and stringly-typed JE→JE pointers; separating them removes the dedup key from the ledger entirely and gives the JE→JE link a real foreign key.*
 - **2026-06-22** — Reversal is not a distinct mechanism: a reversal is an ordinary offsetting entry plus a comment linking it to the original. *Why: prod LeoBloom never used a formal reversal — every closed-period-respecting correction was already an offsetting entry plus a note (no `reverses` reference type exists in the live ledger).*
 - **2026-06-22** — Account `active_begin` / `active_end` are Calendar Dates (inclusive on both ends), not Instants. *Why: they are business boundaries compared only against day-granular entry dates and never observed at sub-day precision (same logic that retired leap seconds); making them dates removes all date↔instant conversion from posting validation and unifies them with the fiscal-period and entry-date types. The instant a (de)activation occurred remains captured by `modified_at`.*
+
+- **2026-07-30** (recorded; the change itself predates this entry) — `IClock` injection is
+  rejected. Audit timestamps come from `AuditEnvelope`: one instant per user action, created
+  at the route handler and threaded down, rather than each operation calling a clock.
+  *Why: injectability solved testability but not consistency — several timestamps within a
+  single user action would legitimately differ by microseconds, and the envelope makes "one
+  action, one instant" structural. This overturns the `IClock` clause of the 2026-06-11
+  NodaTime entry; NodaTime itself stands.*

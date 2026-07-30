@@ -1,6 +1,6 @@
 # Balance Invariant
 
-**Source:** Decisions.md, 2026-06-11
+**Source:** Specs/Archive/Decisions.md, 2026-06-11
 
 Every journal entry's lines must sum to exactly zero — debits and credits balance to the penny. This is exact and tolerance-free.
 

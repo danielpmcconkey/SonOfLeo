@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Enforces P6 formatting (PATTERNS.md) via Fantomas, configured by the repo-root
+# Enforces formatting via Fantomas, configured by the repo-root
 # .editorconfig. Self-skips (exit 2) until the Fantomas pilot is adopted — adoption
 # means the .editorconfig exists at repo root. Self-skips likewise where fantomas
 # isn't installed (e.g. a container without the dotnet tool) — the review contract

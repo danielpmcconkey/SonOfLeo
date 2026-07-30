@@ -1,8 +1,8 @@
 # Testing
 
 Test writing doctrine, fixture rules, and coverage accounting. The canonical test
-doctrine is `PATTERNS.md` §7; the TestWriter skill (`Skills/TestWriter/`) operationalizes
-it. Articles here capture judgment learned beyond both.
+standard is `Tests/README.md`; the TestWriter skill (`Skills/TestWriter/`) is the procedure
+for applying it. Articles here capture judgment learned beyond both.
 
 | Concept | Article | Read when... |
 |---|---|---|

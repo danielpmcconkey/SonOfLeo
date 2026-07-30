@@ -1,6 +1,6 @@
 # Validation Location
 
-**Source:** Doctrines.md, Validation Location Doctrine
+**Source:** the retired Validation Location Doctrine (Doctrines.md removed 2026-07-30; this article is its salvage)
 
 Validation logic belongs in F#, not in SQL. The efficiency cost of pulling data into memory and processing it through domain types is accepted as the price of keeping business logic in one place.
 
@@ -15,5 +15,5 @@ If the pure data question can be answered through existing F# infrastructure wit
 
 ## Examples
 
-- **Zero balance check** (F#): fetches JournalEntryLines, sums through `Money.sumLinesByType` and `Money.subtract`. Domain types are load-bearing — Money's precision rules do real work. Stays in F#.
+- **Zero balance check** (F#): `confirmZeroBalanceBeforeDeactivation` fetches the non-voided JournalEntryLines and sums them through `JournalEntryLine.sumLinesByType` and `Money.subtractVal1FromVal2`. Domain types are load-bearing — Money's precision rules do real work. Stays in F#.
 - **No journal entries after deactivation date** (SQL): existence check across Account -> JournalEntryLine -> JournalEntry. The answer is yes/no. The comparison is `LocalDate > LocalDate` — identical in F# and Postgres. No domain type adds value. Goes to SQL.

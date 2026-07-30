@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Enforces P7.3 (PATTERNS.md): fixtures move forward through time — integrated-test
+# Enforces: fixtures move forward through time — integrated-test
 # data derives from Calendar.today() offsets, never hard-wired near-present dates.
 # Distant sentinel years (2040+) are allowed per the TestWriter skill ("2050-01" keys
 # deliberately outside the fixture's range). Scope is Tests.Integrated only —
@@ -11,6 +11,6 @@ hits=$(grep -rn --include='*.fs' -E '"20[0-3][0-9]-|LocalDate ?\( ?20[0-3][0-9]'
 
 if [[ -n "$hits" ]]; then
     echo "$hits"
-    echo 'Hard-wired near-present date in an integrated test (P7.3). Derive from Calendar.today() or use a 2040+ sentinel.'
+    echo 'Hard-wired near-present date in an integrated test. Derive from Calendar.today() or use a 2040+ sentinel.'
     exit 1
 fi

@@ -1,13 +1,15 @@
 # Cash-Basis Ledger
 
-**Source:** Decisions.md, 2026-06-11; Dan's clarification 2026-07-12
+**Source:** Specs/Archive/Decisions.md, 2026-06-11; Dan's clarification 2026-07-12
 
-The ledger (`Model/Ledger/`) is a double-entry accounting system tracking cash-basis USD transactions. It records money that moved — the USD amount the financial institution actually settled. No accrual, no FX revaluation.
+What cash basis *means* is standard GAAP and is not restated here. What is specific to
+SonOfLeo is the **scope**:
 
-The broader system is planned to include obligations and investments, but those are separate domains living in their own model namespaces outside of `Ledger/`. The ledger itself is purely cash-basis.
+`Model/Ledger/` is a double-entry, cash-basis, USD ledger and nothing else. It records the
+USD amount the financial institution actually settled. It has no concept of unrealized
+gains, accrued interest, or pending obligations, and no multi-currency machinery — a foreign
+transaction enters as its USD settlement amount.
 
-## What cash-basis means
-
-- A transaction is recorded when cash moves, not when an obligation is created
-- Foreign transactions enter as the USD settlement amount — no multi-currency machinery
-- The ledger has no concept of unrealized gains, accrued interest, or pending obligations
+Obligations and investments are planned, but they are separate domains in their own model
+namespaces **outside** `Ledger/`. If a feature needs accrual semantics, it does not belong
+in the ledger.

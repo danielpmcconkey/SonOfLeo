@@ -1,6 +1,6 @@
 # Money Type Enforcement
 
-**Source:** Money.md; Decisions.md 2026-06-11
+**Source:** the retired Conventions/Money.md (removed 2026-07-30); Specs/Archive/Decisions.md, 2026-06-11
 
 The system enforces a specific `Money` type any time it represents money — an amount denominated purely in currency (see `Specs/Definitions.md`, Money). Money is the singularly most important concept to get right.
 

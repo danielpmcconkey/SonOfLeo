@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Enforces P1.2 (PATTERNS.md): the .fsproj <Compile Include> list is hand-maintained.
+# Enforces: the .fsproj <Compile Include> list is hand-maintained.
 # This verifies MEMBERSHIP both ways — every .fs on disk is declared, every declared
 # file exists. Compile ORDER itself is verified by `dotnet build`; this catches the
 # file that was created on disk but never added, or declared but deleted.

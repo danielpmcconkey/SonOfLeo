@@ -1,6 +1,6 @@
 # Temporal Arithmetic
 
-**Source:** Temporal.md, Instants / Dates / Calendar Periods
+**Source:** the retired Conventions/Temporal.md (removed 2026-07-30)
 
 Instants and dates (see `Specs/Definitions.md`, Instant and Date) are separate algebras with separate arithmetic rules. Do not mix them.
 
@@ -9,7 +9,10 @@ Instants and dates (see `Specs/Definitions.md`, Instant and Date) are separate a
 - Arithmetic may use hours, minutes, or seconds
 - Arithmetic may **never** use years or months — those require calendar conventions
 - Arithmetic using days is **discouraged** — prefer hours, minutes, or seconds where practical
-- Precision: the system must reconstitute any instant to seconds precision at minimum
+- Precision: the system must reconstitute any instant to seconds precision at minimum. An
+  instant arriving from an external system that cannot meet that standard is rejected as
+  invalid — unless the interface bringing it in is a component of this system, in which case
+  that middleware converts it under its own requirements
 
 ## Dates
 
