@@ -7,6 +7,13 @@ Source code and migrations carry **no** `// REQ-XX-N.N` annotations. Requirement
 runs spec → test only. Test names begin with the requirement IDs they verify; that is the
 whole linkage.
 
+**What this does not cover: rationale that cites a requirement.** A `(* *)` block explaining
+*why* the code is shaped the way it is may name a REQ ID, and should. The distinction is
+what the comment claims. A traceability tag asserts "this site enforces REQ-X" — an
+unverifiable claim about coverage, and the thing being retired. Rationale asserts "REQ-X is
+why this looks wrong but isn't" — an explanation that stops the next reader from
+re-introducing a bug. Delete the first, keep the second.
+
 ## Why
 
 - **Nothing verifies them.** A test carrying a REQ ID executes: it passes, fails, or stops
@@ -32,8 +39,10 @@ whole linkage.
 - Adding a REQ annotation to `.fs` or `.sql`, however tempting at a site that "clearly bears
   load."
 - Reporting a missing source annotation as an audit finding. There is no such defect.
-- Reading a surviving annotation as authority. ~373 predate this decision and are being
-  removed; a stale one is noise, not a contract.
+- Stripping a REQ ID out of a `(* *)` rationale block because a sweep matched it. The
+  removal on 2026-07-31 deliberately spared `AccountCreation.fs`'s explanation of why
+  `validateParentChildRelationship` no longer checks circular ancestry — it cites
+  REQ-AC-2.16 and REQ-AC-4.22 as the reason a whole class of validation was dropped.
 
 ## Example
 
