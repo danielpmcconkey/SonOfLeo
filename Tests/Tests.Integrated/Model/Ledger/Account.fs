@@ -37,6 +37,7 @@ type AccountTests(fixture: TestDataFixture) =
             | Error(DalErrorDuringNonQueryExecution _) -> Ok()
             | Ok _ -> Error(TestingError "Expected failure; returned success.")
             | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}"))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-AC-1.5 Account code is case sensitive.``() =
@@ -167,6 +168,7 @@ type AccountTests(fixture: TestDataFixture) =
             | Error(DalResultantRowsDidntMatchExpectation _) -> Ok()
             | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--positive``() =
