@@ -52,6 +52,9 @@ type FixtureData =
       fixtureCommentId: JournalEntryCommentId
       sharedRefJe1Id: JournalEntryHeaderId
       sharedRefJe2Id: JournalEntryHeaderId
+      sharedCommentJe2: JournalEntry
+      sharedCommentJe1Id: JournalEntryHeaderId
+      sharedCommentJe2Id: JournalEntryHeaderId
       totalAccounts: int
       totalClosedAccounts: int
       totalFiscalPeriods: int
@@ -455,6 +458,34 @@ type TestDataFixture() =
                 journalEntries <- sharedRefJe2 :: journalEntries
 
                 // =============================================================================
+                // Create shared-comment JE pair (two entries, one with a comment referencing the other)
+                // =============================================================================
+
+                let! sharedCommentJe1, sharedCommentJe1Id =
+                    createTestJournalEntryFromPrimitives
+                        context
+                        "Fixture shared-comment JE 1"
+                        (Some "Test")
+                        today
+                        [ (mortgage2210Id, 34.00M, "Debit", None)
+                          (food5350Id, 34.00M, "Credit", None) ]
+                        []
+                        []
+                journalEntries <- sharedCommentJe1 :: journalEntries
+
+                let! sharedCommentJe2, sharedCommentJe2Id =
+                    createTestJournalEntryFromPrimitives
+                        context
+                        "Fixture shared-comment JE 2"
+                        (Some "Test")
+                        today
+                        [ (mortgage2210Id, 34.03M, "Debit", None)
+                          (food5350Id, 34.03M, "Credit", None) ]
+                        []
+                        [ (Some sharedCommentJe1Id, "Comment that points to my bro") ]
+                journalEntries <- sharedCommentJe2 :: journalEntries
+
+                // =============================================================================
                 // Calculate aggregate totals for fetch tests
                 // =============================================================================
 
@@ -515,6 +546,9 @@ type TestDataFixture() =
                       fixtureCommentId = fixtureCommentId
                       sharedRefJe1Id = sharedRefJe1Id
                       sharedRefJe2Id = sharedRefJe2Id
+                      sharedCommentJe2 = sharedCommentJe2
+                      sharedCommentJe1Id = sharedCommentJe1Id
+                      sharedCommentJe2Id = sharedCommentJe2Id
                       totalAccounts = totalAccounts
                       totalClosedAccounts = totalClosedAccounts
                       totalFiscalPeriods = totalFiscalPeriods
