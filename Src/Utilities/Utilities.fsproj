@@ -8,7 +8,7 @@
   <ItemGroup>
     <Compile Include="AppError.fs" />
     <Compile Include="ResultHelper.fs" />
-    <Compile Include="Clock.fs" />. 
+    <Compile Include="Clock.fs" />
     <Compile Include="Calendar.fs" />
     <Compile Include="FieldUpdate.fs" />
   </ItemGroup>
