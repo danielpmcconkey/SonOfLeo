@@ -27,7 +27,7 @@ a verdict means before you act on it.
   someone else's in-flight work, formatting it "to get green" rewrites their buffer under
   them. Reproduce first; if the finding is real, tell the owner.
 
-## Known flake: check-format false FAIL
+## The worked example: `check-format`'s false FAIL (historical)
 
 2026-07-26, twice within ten minutes, on notes-only commits touching no F# at all:
 

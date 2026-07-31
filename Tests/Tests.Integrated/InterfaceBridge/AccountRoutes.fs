@@ -32,7 +32,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
             let railroad =
                 let context = create NoTransaction FetchOnly
                 result {
-                    let accountInput = createAccountInput genericAccountCodeString
+                    let accountInput = createAccountInput "AC-2.21"
                     let! payload = accountInput |> toJson<AccountCreateInput>
                     let! resultPayload = routeUiCommandForTesting "Account" "Create" [] payload
                     let! accountReturn = fromJson<AccountReturn> resultPayload
@@ -44,7 +44,9 @@ type AccountRouteTests(fixture: TestDataFixture) =
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
         finally
-            cleanUpAccountId accountIdToCleanup |> ignore
+            match cleanUpAccountId accountIdToCleanup with
+            | Ok() -> ()
+            | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]
     member _.``REQ-NGUI-1.5 Account Create fails with invalid parent code``() =
@@ -81,7 +83,9 @@ type AccountRouteTests(fixture: TestDataFixture) =
             | Ok _ -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
         finally
-            cleanUpAccountId accountIdToCleanup |> ignore
+            match cleanUpAccountId accountIdToCleanup with
+            | Ok() -> ()
+            | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]
     member _.``REQ-AC-3.4 Account FetchByCode happy path``() =

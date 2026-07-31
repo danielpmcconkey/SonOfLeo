@@ -36,9 +36,9 @@ Any failure: stop, fix, rerun. **Never present red.** Do not rationalize a failu
 pre-existing without verifying it fails on a clean checkout of your starting commit.
 
 Equally, do not act on a red you have not confirmed. Reproduce the individual failing check
-before you run a formatter, edit the files it names, or reach for `--no-verify` —
-`check-format` has produced both a false PASS and a false FAIL, and the files it names may
-not be yours to touch. See
+before you edit the files it names or reach for `--no-verify`; a check has produced both a
+false PASS and a false FAIL in this repo's history, and the files it names may not be yours
+to touch. See
 `CompoundedLearnings/articles/process/a-check-verdict-is-evidence-not-truth.md`.
 
 ## Pass 1 — "there's already a function for that"
@@ -87,8 +87,9 @@ the difference and eliminate it.** In particular:
 - Visibility: private by default; a function whose analogs elsewhere are private must be
   private (`Src/README.md`).
 - Comments: REQ tags, `///` contracts, `(* *)` rationale. No narration.
-- No `match` expression as a direct item in a list literal — it is the one shape Fantomas
-  formats unstably. Use a pipeline expression instead.
+- No `match` expression as a direct item in a list literal. Build the item as a pipeline
+  expression instead — `FieldUpdate.mapNoChangeToOptionWithConversion` is there for exactly
+  this in SET-clause builders.
 
 ## Pass 4 — test quality
 
