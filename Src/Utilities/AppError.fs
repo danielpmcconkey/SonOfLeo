@@ -16,6 +16,7 @@ type AppError =
     | DalCantUseTransactionOfNoneInAutoCommit
     | DalCantCompleteTransactionOfNone
     | DalCantFetchTransactionOfNone
+    | DalErrorDuringAutoCompleteTransactionRun of exn
     | DalErrorDuringTransactionCommit of exn
     | DalErrorDuringTransactionRollback of exn
     | DalResultantRowsDidntMatchExpectation of string * int
@@ -129,6 +130,7 @@ module AppError =
             "Error. You cannot send a transaction of None into the auto-commit pipeline."
         | DalCantCompleteTransactionOfNone -> "Error. You cannot commit or rollback with a raw transaction of None."
         | DalCantFetchTransactionOfNone -> "Error. You cannot fetch a connection with a raw transaction of None."
+        | DalErrorDuringAutoCompleteTransactionRun ex -> $"Database error during runWithAutoCompleteTransaction. {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringTransactionCommit ex ->
             $"Database error during transaction commit. {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
         | DalErrorDuringTransactionRollback ex ->

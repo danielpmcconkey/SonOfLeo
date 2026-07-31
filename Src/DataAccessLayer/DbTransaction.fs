@@ -86,15 +86,23 @@ let runWithAutoCompleteTransaction
     if dbTransaction.npgTranAndConn |> Option.isNone then
         Error DalCantUseTransactionOfNoneInAutoCommit
     else
-        match () |> func with
-        | Error funcError ->
-            match dbTransaction |> rollback with
-            | Ok _ -> Error funcError
-            | Error rollbackError -> Error rollbackError
-        | Ok funcResult ->
-            match dbTransaction |> commit with
-            | Ok _ -> Ok funcResult
-            | Error commitError -> Error commitError
+        // there are 3 possibilities
+        //  - func returns Ok, should commit and return Ok result
+        //  - func returns Error, should roll back and return Error
+        //  - func throws, should roll back return an AppError that wraps the exception
+        try
+            match () |> func with
+            | Error funcError ->
+                match dbTransaction |> rollback with
+                | Ok _ -> Error funcError
+                | Error rollbackError -> Error rollbackError
+            | Ok funcResult ->
+                match dbTransaction |> commit with
+                | Ok _ -> Ok funcResult
+                | Error commitError -> Error commitError
+        with ex ->
+            dbTransaction |> rollback |> ignore
+            Error (DalErrorDuringAutoCompleteTransactionRun ex)
 
 /// createNoTransaction is used to easily establish context without creating an unneeded DbContext
 let createNoTransaction () : DbTransaction = { npgTranAndConn = None }
