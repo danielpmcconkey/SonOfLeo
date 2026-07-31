@@ -31,10 +31,10 @@ let private reconstitute (raw: Guid * string * string * decimal) : Result<Accoun
         return { accountId = accountId; lineType = jeLineType; accountType = accountType; sumAtType = sumAtTypeM }
     }
 
-let fetchByAccountIdList // REQ-JE-3.6
+let fetchByAccountIdList
     (context: Context)
     (accountIds: AccountId list)
-    (asOf: LocalDate option) // REQ-JE-3.6.2
+    (asOf: LocalDate option)
     : Result<AccountBalance list, AppError> =
     match accountIds with
     | [] -> Error(AccountBalanceFetchInvalidArguments)
@@ -77,7 +77,7 @@ let fetchByAccountIdList // REQ-JE-3.6
             left join ledger.journal_entry_line jel on ant.account_id = jel.account_id
                 and ant.line_type = jel.line_type
             left join ledger.journal_entry je on jel.journal_entry_id = je.unique_id
-                {asOfJoin} -- REQ-JE-3.6.2
+                {asOfJoin}
             group by 
                 ant.account_id,
                 ant.line_type,
@@ -108,7 +108,7 @@ let fetchByAccountIdList // REQ-JE-3.6
                         |> Option.map(fun r -> r.sumAtType)
                         |> Option.defaultValue moneyZero
                     if
-                        accountType |> AccountType.normalBalance = AccountTypeNormalBalance.Debit // REQ-JE-3.6.1
+                        accountType |> AccountType.normalBalance = AccountTypeNormalBalance.Debit
                     then
                         Money.subtractVal1FromVal2 credits debits
                     else

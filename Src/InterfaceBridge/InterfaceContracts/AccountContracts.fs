@@ -10,7 +10,7 @@ open System
 // ****************************************
 
 type AccountReturn =
-    { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+    {
       code: string
       name: string
       accountTypeSt: string
@@ -23,7 +23,7 @@ type AccountReturn =
       modifiedAt: Instant }
 
 type AccountActivityDetailReturn =
-    { lineId: Guid // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+    { lineId: Guid
       amount: decimal
       lineType: string
       lineMemo: string option
@@ -36,7 +36,7 @@ type AccountActivityDetailReturn =
       journalEntryVoidedAt: Instant option }
 
 type AccountActivityReturn =
-    { accountCode: string // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+    { accountCode: string
       accountName: string
       accountType: string
       accountSubtype: string option
@@ -44,7 +44,7 @@ type AccountActivityReturn =
       accountExternalRef: string option
       activityDetail: AccountActivityDetailReturn option }
 type AccountBalanceReturn =
-    { accountCode: string // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+    { accountCode: string
       totalCredits: decimal
       totalDebits: decimal
       netBalance: decimal }
@@ -54,7 +54,7 @@ type AccountBalanceReturn =
 // ****************************************
 
 type AccountCreateInput =
-    { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+    {
       code: string
       name: string
       accountTypeSt: string
@@ -68,13 +68,13 @@ type AccountCreateInput =
 // READ
 // ****************************************
 
-type AccountFetchByCodeInput = { code: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
-type AccountFetchByParentCodeInput = { parentCode: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
-type AccountFetchByAccountTypeInput = { accountTypeSt: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
-type AccountFetchAllInput = { activeOnly: bool } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+type AccountFetchByCodeInput = { code: string }
+type AccountFetchByParentCodeInput = { parentCode: string }
+type AccountFetchByAccountTypeInput = { accountTypeSt: string }
+type AccountFetchAllInput = { activeOnly: bool }
 
 type AccountActivityFilterInput =
-    { // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+    {
       accountCode: string option
       temporalFilter: TemporalFilterInput option
       source: string option
@@ -86,14 +86,14 @@ type AccountActivityFilterInput =
       description: string option
       unVoidedOnly: bool }
 
-type AccountActivityFetchInput = { filter: AccountActivityFilterInput; sort: FetchSort option } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+type AccountActivityFetchInput = { filter: AccountActivityFilterInput; sort: FetchSort option }
 
-type AccountBalanceFetchByAccountListInput = { codes: string list; asOf: LocalDate option } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+type AccountBalanceFetchByAccountListInput = { codes: string list; asOf: LocalDate option }
 
 // ****************************************
 // UPDATE
 // ****************************************
 
-type AccountDeactivationInput = { code: string; activeEnd: LocalDate option } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
-type AccountUpdateNameInput = { code: string; newName: string } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
-type AccountUpdateExternalReferenceInput = { code: string; newReference: string option } // REQ-NGUI-2.1, REQ-NGUI-2.1.1, REQ-NGUI-2.2
+type AccountDeactivationInput = { code: string; activeEnd: LocalDate option }
+type AccountUpdateNameInput = { code: string; newName: string }
+type AccountUpdateExternalReferenceInput = { code: string; newReference: string option }

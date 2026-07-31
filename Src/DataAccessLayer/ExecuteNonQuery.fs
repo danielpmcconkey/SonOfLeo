@@ -42,5 +42,5 @@ let executeNonQuery
                             Ok(command.ExecuteNonQuery())
             with ex ->
                 Error(DalErrorDuringNonQueryExecution ex)
-        return! validateNumRows numRows expectedRows // REQ-DAL-2.2
+        return! validateNumRows numRows expectedRows
     }

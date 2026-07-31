@@ -13,13 +13,13 @@ module Json =
         o.Converters.Add(NodaConverters.LocalDateConverter)
         o
 
-    let fromJson<'T> (json: string) : Result<'T, AppError> = // REQ-NGUI-2.4, REQ-NGUI-3.5
+    let fromJson<'T> (json: string) : Result<'T, AppError> =
         try
             Ok(JsonSerializer.Deserialize<'T>(json, options))
         with e ->
             Error(InterfaceBridgeFailedJsonDeserialization(typeof<'T>.ToString(), e.Message, e.StackTrace))
 
-    let toJson<'T> (value: 'T) : Result<string, AppError> = // REQ-NGUI-2.4, REQ-NGUI-3.5
+    let toJson<'T> (value: 'T) : Result<string, AppError> =
         try
             Ok(JsonSerializer.Serialize<'T>(value, options))
         with e ->

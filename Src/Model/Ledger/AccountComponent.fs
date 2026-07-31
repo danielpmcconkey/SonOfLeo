@@ -19,10 +19,10 @@ module AccountComponent =
 
     type AccountActivityPeriod =
         private
-            { activeBegin: LocalDate // REQ-AC-1.42, REQ-AC-1.44
-              activeEnd: LocalDate option } // REQ-AC-1.43, REQ-AC-1.45
+            { activeBegin: LocalDate
+              activeEnd: LocalDate option }
 
-    module AccountActivityPeriod = // REQ-AC-2.17
+    module AccountActivityPeriod =
         let activeBegin (a: AccountActivityPeriod) = a.activeBegin
         let activeEnd (a: AccountActivityPeriod) = a.activeEnd
         let create (rawBegin: LocalDate) (rawEnd: LocalDate option) : Result<AccountActivityPeriod, AppError> =
@@ -31,10 +31,10 @@ module AccountComponent =
             | Some x ->
                 if x < rawBegin then
                     Error(AccountActiveEndBeforeBegin(rawBegin, rawEnd))
-                else // REQ-AC-1.46, REQ-AC-2.18
+                else
                     Ok { activeBegin = rawBegin; activeEnd = rawEnd }
-        let isActive // REQ-AC-1.50
-            (referencePoint: LocalDate) // REQ-AC-1.48.1
+        let isActive
+            (referencePoint: LocalDate)
             (aap: AccountActivityPeriod)
             : bool =
             let beginDate = activeBegin aap
@@ -53,11 +53,11 @@ module AccountComponent =
         let maxLength = 10
         let value (AccountCode ac) = ac // required because AccountCode is a private string
         let create (raw: string) : Result<AccountCode, AppError> =
-            let trimmed = raw.Trim() // REQ-SYS-1.1
+            let trimmed = raw.Trim()
             if String.IsNullOrWhiteSpace trimmed then
-                Error(AccountCodeIsEmpty raw) // REQ-AC-1.1, REQ-AC-1.2, REQ-SYS-1.2
+                Error(AccountCodeIsEmpty raw)
             elif trimmed.Length > maxLength then
-                Error(AccountCodeTooLong(raw, maxLength)) // REQ-AC-1.3
+                Error(AccountCodeTooLong(raw, maxLength))
             else
                 Ok(AccountCode trimmed)
 
@@ -67,19 +67,19 @@ module AccountComponent =
         let maxLength = 100
         let value (AccountName an) = an // required because AccountName is a private string
         let create (raw: string) : Result<AccountName, AppError> =
-            let trimmed = raw.Trim() // REQ-SYS-1.1
+            let trimmed = raw.Trim()
             if String.IsNullOrWhiteSpace trimmed then
-                Error(AccountNameIsEmpty raw) // REQ-AC-1.6, REQ-AC-1.7, REQ-SYS-1.2
+                Error(AccountNameIsEmpty raw)
             elif trimmed.Length > maxLength then
-                Error(AccountNameTooLong(raw, maxLength)) // REQ-AC-1.8
+                Error(AccountNameTooLong(raw, maxLength))
             else
                 Ok(AccountName trimmed)
 
-    type AccountTypeNormalBalance = // REQ-AC-1.9
+    type AccountTypeNormalBalance =
         | Debit
         | Credit
 
-    type AccountType = // REQ-AC-1.10
+    type AccountType =
         | Asset
         | Liability
         | Equity
@@ -87,8 +87,8 @@ module AccountComponent =
         | Expense
 
     module AccountType =
-        let fromString (accountType: string) : Result<AccountType, AppError> = // REQ-AC-1.10 (parse boundary)
-            match accountType.Trim() with // REQ-SYS-1.1
+        let fromString (accountType: string) : Result<AccountType, AppError> =
+            match accountType.Trim() with
             | "Asset" -> Ok Asset
             | "Liability" -> Ok Liability
             | "Equity" -> Ok Equity
@@ -107,12 +107,12 @@ module AccountComponent =
         let normalBalance (``type``: AccountType) : AccountTypeNormalBalance =
             match ``type`` with
             | Asset
-            | Expense -> Debit // REQ-AC-1.16
+            | Expense -> Debit
             | Liability
             | Equity
-            | Revenue -> Credit // REQ-AC-1.17
+            | Revenue -> Credit
 
-    type AccountSubtype = // REQ-AC-1.18
+    type AccountSubtype =
         | Cash
         | CurrentLiability
         | FixedAsset
@@ -135,8 +135,8 @@ module AccountComponent =
             | OperatingExpense -> "OperatingExpense"
             | OtherRevenue -> "OtherRevenue"
             | OtherExpense -> "OtherExpense"
-        let fromString (subtype: string) : Result<AccountSubtype, AppError> = // REQ-AC-1.18 (parse boundary)
-            match subtype.Trim() with // REQ-SYS-1.1
+        let fromString (subtype: string) : Result<AccountSubtype, AppError> =
+            match subtype.Trim() with
             | "Cash" -> Ok Cash
             | "CurrentLiability" -> Ok CurrentLiability
             | "FixedAsset" -> Ok FixedAsset
@@ -151,21 +151,21 @@ module AccountComponent =
             match subtype with
             | Cash
             | FixedAsset
-            | Investment -> Asset // REQ-AC-1.28
+            | Investment -> Asset
             | CurrentLiability
-            | LongTermLiability -> Liability // REQ-AC-1.30
+            | LongTermLiability -> Liability
             | OperatingRevenue
-            | OtherRevenue -> Revenue // REQ-AC-1.33
+            | OtherRevenue -> Revenue
             | OperatingExpense
-            | OtherExpense -> Expense // REQ-AC-1.35
+            | OtherExpense -> Expense
 
         let validWith (``type``: AccountType) : AccountSubtype list = // confirms that type Y can only accept subtype A, B, C
             match ``type`` with
-            | Asset -> [ Cash; FixedAsset; Investment ] // REQ-AC-1.29
-            | Liability -> [ CurrentLiability; LongTermLiability ] // REQ-AC-1.31
-            | Equity -> [] // REQ-AC-1.32 Account records of type 'Equity' can only have null subtypes
-            | Revenue -> [ OperatingRevenue; OtherRevenue ] // REQ-AC-1.34
-            | Expense -> [ OperatingExpense; OtherExpense ] // REQ-AC-1.36
+            | Asset -> [ Cash; FixedAsset; Investment ]
+            | Liability -> [ CurrentLiability; LongTermLiability ]
+            | Equity -> []
+            | Revenue -> [ OperatingRevenue; OtherRevenue ]
+            | Expense -> [ OperatingExpense; OtherExpense ]
 
         let validTypeSubtypeCombination (``type``: AccountType) (subtype: AccountSubtype option) : bool =
             match subtype with
@@ -179,10 +179,10 @@ module AccountComponent =
         let maxLength = 50
         let value (AccountExternalReference reference) = reference // required due to private value
         let create (raw: string) : Result<AccountExternalReference, AppError> =
-            let trimmed = raw.Trim() // REQ-SYS-1.1
+            let trimmed = raw.Trim()
             if trimmed = String.Empty then
-                Error(AccountExternalReferenceIsEmpty raw) // REQ-AC-1.49, REQ-SYS-1.3
+                Error(AccountExternalReferenceIsEmpty raw)
             elif trimmed.Length > maxLength then
-                Error(AccountExternalReferenceTooLong(raw, maxLength)) // REQ-AC-1.20
+                Error(AccountExternalReferenceTooLong(raw, maxLength))
             else
                 Ok(AccountExternalReference trimmed)

@@ -21,13 +21,13 @@ let constructNewAndSaveToDb
     (source: JournalEntrySource option)
     (entryDate: EntryDate)
     : Result<JournalEntryHeader, AppError> =
-    let journalEntryId = JournalEntryHeaderId.create() // REQ-JE-2.1
+    let journalEntryId = JournalEntryHeaderId.create()
     let now = context |> getInitiationInstant
-    let createdAt = now // REQ-SYS-3.2
-    let modifiedAt = now // REQ-SYS-3.2
-    let voidedAt = None // REQ-JE-2.14
+    let createdAt = now
+    let modifiedAt = now
+    let voidedAt = None
     result {
-        do! entryDate |> confirmEntryDateIsInOpenFiscalPeriod context // REQ-JE-2.7
+        do! entryDate |> confirmEntryDateIsInOpenFiscalPeriod context
         let journalEntryHeader =
             JournalEntryHeader.create journalEntryId description source entryDate voidedAt createdAt modifiedAt
         let! () = journalEntryHeader |> JournalEntryHeader.insertNewToDb context

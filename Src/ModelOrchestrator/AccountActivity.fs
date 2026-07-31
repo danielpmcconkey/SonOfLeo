@@ -130,7 +130,7 @@ let private reconstitute raw =
                           journalEntryVoidedAt = journalEntryVoidedAt } }
     }
 
-let fetchFiltered // REQ-JE-3.9
+let fetchFiltered
     (context: Context)
     (filter: AccountActivityFilter)
     (sort: FetchSort option)

@@ -14,10 +14,10 @@ module FiscalPeriodId =
 type FiscalPeriodKey = private FiscalPeriodKey of string
 
 module FiscalPeriodKey =
-    let validationRegex = @"^\d{4}-(0[1-9]|1[0-2])$" // REQ-FP-1.2
+    let validationRegex = @"^\d{4}-(0[1-9]|1[0-2])$"
     let isValidString (s: string) : bool = Regex.IsMatch(s, validationRegex)
     let fromString (raw: string) : Result<FiscalPeriodKey, AppError> =
-        let trimmed = raw.Trim() // REQ-SYS-1.1
+        let trimmed = raw.Trim()
         match trimmed |> isValidString with
         | false -> Error(FiscalPeriodInvalidKeyString raw)
         | true -> Ok(FiscalPeriodKey trimmed)

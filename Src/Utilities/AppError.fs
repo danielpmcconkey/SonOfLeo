@@ -119,30 +119,30 @@ module AppError =
 
         | DalConnectionStringEnvVarNotFound -> "ConnectionStringEnvVar not found in appsettings.json."
         | DalErrorRetrievingAppSettings ex ->
-            $"Error retrieving appsettings.json. Error message: {ex.Message}{Environment.NewLine} {ex.StackTrace}" // REQ-DAL-1.3, REQ-NGUI-1.3.1
+            $"Error retrieving appsettings.json. Error message: {ex.Message}{Environment.NewLine} {ex.StackTrace}"
         | DalConnectionStringEnvVarContainsConnectionString ->
             "ConnectionStringEnvVar contains a connection string, not an env var name."
         | DalEnvVarNotSet envVarName -> $"Environment variable {envVarName} not set or empty."
         | DalConnectionStringIsEmpty -> "Connection string is empty."
         | DalErrorDuringTransactionCreation ex ->
-            $"Database error during transaction creation: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during transaction creation: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalCantUseTransactionOfNoneInAutoCommit ->
             "Error. You cannot send a transaction of None into the auto-commit pipeline."
         | DalCantCompleteTransactionOfNone -> "Error. You cannot commit or rollback with a raw transaction of None."
         | DalCantFetchTransactionOfNone -> "Error. You cannot fetch a connection with a raw transaction of None."
         | DalErrorDuringAutoCompleteTransactionRun ex -> $"Database error during runWithAutoCompleteTransaction. {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringTransactionCommit ex ->
-            $"Database error during transaction commit. {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during transaction commit. {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringTransactionRollback ex ->
-            $"Database error during transaction rollback. You probably have corrupted data that you should address immediately. {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during transaction rollback. You probably have corrupted data that you should address immediately. {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalResultantRowsDidntMatchExpectation(expected, actual) ->
             $"Resultant rows didn't match expectation. Expected {expected}. Actual {actual}."
         | DalErrorDuringNonQueryExecution ex ->
-            $"Database error during non query execution: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during non query execution: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringReaderQueryExecution ex ->
-            $"Database error during reader query execution: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during reader query execution: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringScalarExecution ex ->
-            $"Database error during scalar execution: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during scalar execution: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalStringUnboxingReturnedNull -> "String unboxing returned DB null"
         | DalIntUnboxingReturnedNull -> "Int unboxing returned DB null"
         | DalLongUnboxingReturnedNull -> "Long unboxing returned DB null"
@@ -151,33 +151,33 @@ module AppError =
         | DalInstantUnboxingReturnedNull -> "Instant unboxing returned DB null"
         | DalUuidUnboxingReturnedNull -> "UUID unboxing returned DB null"
         | DalErrorDuringStringUnboxing ex ->
-            $"Database error during string unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during string unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringStringOptionUnboxing ex ->
-            $"Database error during string option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during string option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringIntUnboxing ex ->
-            $"Database error during int unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during int unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringIntOptionUnboxing ex ->
-            $"Database error during int option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during int option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringLongUnboxing ex ->
-            $"Database error during long unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during long unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringLongOptionUnboxing ex ->
-            $"Database error during long option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during long option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringDecimalUnboxing ex ->
-            $"Database error during decimal unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during decimal unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringDecimalOptionUnboxing ex ->
-            $"Database error decimal option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error decimal option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringLocalDateUnboxing ex ->
-            $"Database error during LocalDate unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during LocalDate unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringLocalDateOptionUnboxing ex ->
-            $"Database error during LocalDate option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during LocalDate option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringInstantUnboxing ex ->
-            $"Database error during instant unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during instant unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringInstantOptionUnboxing ex ->
-            $"Database error during instant option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during instant option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringUuidUnboxing ex ->
-            $"Database error during UUID unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during UUID unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringUuidOptionUnboxing ex ->
-            $"Database error during UUID option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}" // REQ-NGUI-1.3.1
+            $"Database error during UUID option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
 
         | AccountActiveEndBeforeBegin(activeBegin, activeEnd) ->
             $"Active end ({activeEnd}) cannot be before active begin ({activeBegin})"

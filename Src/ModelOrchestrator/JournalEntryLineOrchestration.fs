@@ -11,7 +11,7 @@ open Context.Context
 
 let confirmAmountIsPositive (m: Money) : Result<unit, AppError> =
     if
-        m |> Money.amount <= 0M // REQ-JE-1.24
+        m |> Money.amount <= 0M
     then
         Error(JournalEntryLineNonPositiveAmount(m |> Money.amount))
     else
@@ -34,11 +34,11 @@ let constructNewAndSaveToDb
     : Result<JournalEntryLine, AppError> =
     let journalEntryLineId = JournalEntryLineId.create()
     let now = context |> getInitiationInstant
-    let createdAt = now // REQ-SYS-3.2
-    let modifiedAt = now // REQ-SYS-3.2
+    let createdAt = now
+    let modifiedAt = now
     result {
         do! amount |> confirmAmountIsPositive
-        do! accountId |> confirmAccountExists context //REQ-JE-1.22
+        do! accountId |> confirmAccountExists context
         let line =
             JournalEntryLine.create
                 journalEntryLineId

@@ -11,8 +11,8 @@
 CREATE DATABASE sonofleo_dev
     WITH
     OWNER = postgres
-    ENCODING = 'UTF8' -- REQ-DAL-3.4
-    LC_COLLATE = 'en_US.UTF-8' -- REQ-DAL-3.5
+    ENCODING = 'UTF8'
+    LC_COLLATE = 'en_US.UTF-8'
     LOCALE_PROVIDER = 'libc'
     CONNECTION LIMIT = -1
     IS_TEMPLATE = False;

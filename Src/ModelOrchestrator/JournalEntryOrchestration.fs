@@ -20,8 +20,8 @@ type JournalEntry =
     private
         { header: JournalEntryHeader
           lines: JournalEntryLine list
-          externalReferences: JournalEntryExternalReference list // REQ-JE-1.46
-          comments: JournalEntryComment list } // REQ-JE-1.55
+          externalReferences: JournalEntryExternalReference list
+          comments: JournalEntryComment list }
 
 module JournalEntry =
     let header je = je.header
@@ -46,14 +46,14 @@ module JournalEntry =
 
     let private validateLineCount (lines: JournalEntryLine list) : Result<unit, AppError> =
         if lines |> List.length < 2 then
-            Error(JournalEntryInsufficientLines(lines |> List.length)) // REQ-JE-1.12
+            Error(JournalEntryInsufficientLines(lines |> List.length))
         else
             Ok()
 
     let validateLineList (lines: JournalEntryLine list) : Result<unit, AppError> =
         result {
-            let! _ = validateLineCount lines // REQ-JE-1.12
-            let! _ = validateAmountEquality lines // REQ-JE-1.13
+            let! _ = validateLineCount lines
+            let! _ = validateAmountEquality lines
             return ()
         }
 
@@ -91,7 +91,7 @@ module JournalEntry =
                     let entryDateLd = entryDate |> EntryDate.entryDate
                     let beginDate = activityPeriod |> AccountActivityPeriod.activeBegin
                     let endDate = activityPeriod |> AccountActivityPeriod.activeEnd
-                    Error(JournalEntryLineAccountInactive(accountUuid, entryDateLd, beginDate, endDate)) // REQ-JE-2.8
+                    Error(JournalEntryLineAccountInactive(accountUuid, entryDateLd, beginDate, endDate))
         }
 
     let private createValidLines
@@ -104,7 +104,7 @@ module JournalEntry =
         |> List.map(fun line ->
             let accountId, amount, lineType, memo = line
             result {
-                do! accountId |> confirmAccountIsActiveAtEntryDate context entryDate // REQ-JE-2.8
+                do! accountId |> confirmAccountIsActiveAtEntryDate context entryDate
                 return!
                     JournalEntryLineOrchestration.constructNewAndSaveToDb
                         context
@@ -151,7 +151,7 @@ module JournalEntry =
     /// Journal Entry creation should route through here before being sent to the
     /// persistence layer. Internal model functions may construct through other
     /// means if they're operating on known good data.
-    let constructNewAndSaveToDb // REQ-JE-2.13
+    let constructNewAndSaveToDb
         (context: Context)
         (description: JournalEntryDescription)
         (source: JournalEntrySource option)
@@ -298,7 +298,7 @@ module JournalEntry =
             return innerRailroad
         }
 
-    let fetchById // REQ-JE-3.1, REQ-JE-3.2
+    let fetchById
         (context: Context)
         (journalEntryHeaderId: JournalEntryHeaderId)
         : Result<JournalEntry, AppError> =
@@ -317,7 +317,7 @@ module JournalEntry =
         let expectedRows = ExactlyOne
         fetchFiltered context filter expectedRows |> Result.map List.head
 
-    let fetchByPeriod // REQ-JE-3.1
+    let fetchByPeriod
         (context: Context)
         (fiscalPeriod: FiscalPeriod)
         : Result<JournalEntry list, AppError> =
@@ -332,7 +332,7 @@ module JournalEntry =
         let expectedRows = AnyQuantityIsAcceptable
         fetchFiltered context filter expectedRows
 
-    let fetchByDateRange // REQ-JE-3.7
+    let fetchByDateRange
         (context: Context)
         (beginDate: LocalDate)
         (endDateInclusive: LocalDate)
@@ -347,7 +347,7 @@ module JournalEntry =
         let expectedRows = AnyQuantityIsAcceptable
         fetchFiltered context filter expectedRows
 
-    let fetchByReference // REQ-JE-3.1, REQ-JE-3.5, REQ-JE-3.8
+    let fetchByReference
         (context: Context)
         (financialInstitution: JournalRefFinancialInstitution option)
         (referenceText: JournalExternalReferenceText option)

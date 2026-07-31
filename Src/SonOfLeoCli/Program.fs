@@ -10,23 +10,23 @@ let commandRoutes =
     accountDomainCommandRoutes @ fiscalPeriodDomainCommandRoutes @ journalEntryDomainCommandRoutes
 
 let route domain verb rest payload : Result<string, AppError> =
-    match commandRoutes |> List.tryFind(fun r -> r.domain = domain && r.verb = verb) with // REQ-NGUI-1.1, REQ-NGUI-3.8
+    match commandRoutes |> List.tryFind(fun r -> r.domain = domain && r.verb = verb) with
     | Some command -> command.handler payload rest
-    | None -> Error(CliUnknownCommand(domain, verb)) // REQ-NGUI-3.9
+    | None -> Error(CliUnknownCommand(domain, verb))
 
 [<EntryPoint>]
 let main args =
-    let payload = Console.In.ReadToEnd() // REQ-NGUI-3.3
+    let payload = Console.In.ReadToEnd()
     match args |> Array.toList with
-    | domain :: verb :: rest -> // REQ-NGUI-3.1, REQ-NGUI-3.2, REQ-NGUI-3.4
-        let result = (route domain verb rest payload) // REQ-NGUI-1.1
+    | domain :: verb :: rest ->
+        let result = (route domain verb rest payload)
         match result with
         | Ok n ->
             n |> printfn "%s"
-            0 // REQ-NGUI-3.6 REQ-NGUI-1.3
+            0
         | Error e ->
             e |> AppError.toMessage |> eprintfn "%s"
-            1 // REQ-NGUI-3.7, REQ-NGUI-1.3.1
+            1
     | _ ->
         eprintfn "Usage: sonofleo <domain> <verb> [args...]"
         1

@@ -13,16 +13,16 @@ open DataAccessLayer.ExecuteNonQuery
 
 type Account =
     private
-        { accountId: AccountId // REQ-AC-1.21, REQ-AC-1.22
-          code: AccountCode // REQ-AC-1.1–1.5
-          accountName: AccountName // REQ-AC-1.6–1.8
-          accountType: AccountType // REQ-AC-1.10, REQ-AC-1.23
+        { accountId: AccountId
+          code: AccountCode
+          accountName: AccountName
+          accountType: AccountType
           activityPeriod: AccountActivityPeriod
-          accountSubType: AccountSubtype option // REQ-AC-1.19, REQ-AC-1.28–1.36
-          parentId: AccountId option // REQ-AC-1.37–1.40
-          externalReference: AccountExternalReference option // REQ-AC-1.20, REQ-AC-1.41
-          createdAt: Instant // REQ-SYS-3.1
-          modifiedAt: Instant } // REQ-SYS-3.1
+          accountSubType: AccountSubtype option
+          parentId: AccountId option
+          externalReference: AccountExternalReference option
+          createdAt: Instant
+          modifiedAt: Instant }
 
 module Account =
 
@@ -140,7 +140,7 @@ module Account =
             a.account_subtype, a.parent_id, a.external_ref, a.created_at, a.modified_at
             """
         let from = "ledger.account a"
-        let query = buildReadQuery select from None predicate limit None None // REQ-AC-3.2
+        let query = buildReadQuery select from None predicate limit None None
         executeReaderQuery
             (context |> getDatabaseTransaction)
             query
@@ -155,7 +155,7 @@ module Account =
     let insertNewToDb (context: Context) (account: Account) : Result<unit, AppError> =
         let query =
             """
-            insert into ledger.account( -- REQ-SYS-5.1
+            insert into ledger.account(
 	            unique_id, 
                 code, 
                 account_name, 
@@ -167,7 +167,7 @@ module Account =
                 external_ref,
                 created_at, 
                 modified_at)
-            values ( --  REQ-DAL-2.1, REQ-SYS-5.1
+            values (
 	            @unique_id, 
                 @code, 
                 @account_name, 
@@ -184,7 +184,7 @@ module Account =
             Option.map AccountExternalReference.value account.externalReference
         let parentId = account.parentId |> Option.map AccountId.value
         let parameters =
-            [ //  REQ-DAL-2.1, REQ-DAL-2.3
+            [
               { name = "@unique_id"; value = UniqueId(account.accountId |> AccountId.value) }
               { name = "@code"; value = CharString(AccountCode.value account.code) }
               { name = "@account_name"; value = CharString(AccountName.value account.accountName) }
@@ -199,26 +199,26 @@ module Account =
               { name = "@external_ref"; value = NullableCharString externalReferenceString } ]
         executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
 
-    let fetchById (context: Context) (accountId: AccountId) : Result<Account, AppError> = // REQ-AC-3.3
+    let fetchById (context: Context) (accountId: AccountId) : Result<Account, AppError> =
         let predicate = "a.unique_id = @unique_id"
         let accountIdGuid = accountId |> AccountId.value
-        let parameters = [ { name = "@unique_id"; value = UniqueId accountIdGuid } ] // REQ-DAL-2.3
+        let parameters = [ { name = "@unique_id"; value = UniqueId accountIdGuid } ]
         readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
-    let fetchByParentId (context: Context) (parentId: AccountId) : Result<Account list, AppError> = // REQ-AC-3.5
+    let fetchByParentId (context: Context) (parentId: AccountId) : Result<Account list, AppError> =
         let predicate = "a.parent_id = @parent_id"
         let parentIdGuid = parentId |> AccountId.value
-        let parameters = [ { name = "@parent_id"; value = UniqueId parentIdGuid } ] // REQ-DAL-2.3
+        let parameters = [ { name = "@parent_id"; value = UniqueId parentIdGuid } ]
         readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-    let fetchByAccountType (context: Context) (accountType: AccountType) : Result<Account list, AppError> = // REQ-AC-3.6
+    let fetchByAccountType (context: Context) (accountType: AccountType) : Result<Account list, AppError> =
         let predicate = "a.account_type = @account_type"
-        let parameters = [ { name = "@account_type"; value = CharString(accountType |> AccountType.toString) } ] // REQ-DAL-2.3
+        let parameters = [ { name = "@account_type"; value = CharString(accountType |> AccountType.toString) } ]
         readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
 
     /// fetchAll returns all accounts or, if activeOnly is true, fetches all accounts
     /// that are active with respect to the system runtime
-    let fetchAll (context: Context) (activeOnly: bool) : Result<Account list, AppError> = // REQ-AC-3.7
+    let fetchAll (context: Context) (activeOnly: bool) : Result<Account list, AppError> =
         let predicate = None
         let parameters = []
         let activeReference = Calendar.today()
@@ -229,7 +229,7 @@ module Account =
             if activeOnly then
                 allRows
                 |> List.filter(fun x -> x.activityPeriod |> AccountActivityPeriod.isActive activeReference)
-                |> Ok // REQ-AC-3.9
+                |> Ok
             else
                 Ok allRows
 
@@ -241,7 +241,7 @@ module Account =
         : Result<Account, AppError> =
         let accountIdGuid = accountId |> AccountId.value
         let baseParams =
-            [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) } // REQ-SYS-3.3
+            [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) }
               { name = "@unique_id"; value = UniqueId accountIdGuid } ]
         let updates =
             [ nameUpdate
@@ -261,7 +261,7 @@ module Account =
             $"""
             UPDATE ledger.account
             set
-                modified_at = @modified -- REQ-SYS-3.3
+                modified_at = @modified
                 {setClauses}
             WHERE unique_id = @unique_id;
         """
@@ -271,9 +271,9 @@ module Account =
             return! accountId |> fetchById context
         }
 
-    let updateAccountNameById (context: Context) (accountId: AccountId) (newName: string) : Result<Account, AppError> = // REQ-AC-4.8
+    let updateAccountNameById (context: Context) (accountId: AccountId) (newName: string) : Result<Account, AppError> =
         result {
-            let! validAccountName = AccountName.create newName // REQ-SYS-2.1
+            let! validAccountName = AccountName.create newName
             let! newAccount = updateDb context accountId (SetTo validAccountName) NoChange
             return newAccount
         }
@@ -282,9 +282,9 @@ module Account =
         (context: Context)
         (accountId: AccountId)
         (newReference: string option) // todo make this as FieldUpdate
-        : Result<Account, AppError> = // REQ-AC-4.9
+        : Result<Account, AppError> =
         result {
-            let! validRef = // REQ-SYS-2.1
+            let! validRef =
                 match newReference with
                 | Some x -> AccountExternalReference.create x |> Result.map Some
                 | None -> Ok None

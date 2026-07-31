@@ -12,11 +12,11 @@ open Context.Context
 
 type JournalEntryHeader =
     private
-        { journalEntryHeaderId: JournalEntryHeaderId // REQ-JE-1.1, REQ-JE-1.2
-          description: JournalEntryDescription // REQ-JE-1.3
-          source: JournalEntrySource option // REQ-JE-1.6
-          entryDate: EntryDate // REQ-JE-1.9
-          voidedAt: Instant option // REQ-JE-1.14
+        { journalEntryHeaderId: JournalEntryHeaderId
+          description: JournalEntryDescription
+          source: JournalEntrySource option
+          entryDate: EntryDate
+          voidedAt: Instant option
           createdAt: Instant
           modifiedAt: Instant }
 
@@ -56,7 +56,7 @@ module JournalEntryHeader =
         let uuid = journalEntry.journalEntryHeaderId |> JournalEntryHeaderId.value
         let fpUuid = journalEntry.entryDate |> EntryDate.fiscalPeriodId |> FiscalPeriodId.value
         let parameters =
-            [ //  REQ-DAL-2.1, REQ-DAL-2.3
+            [
               { name = "@unique_id"; value = UniqueId uuid }
               { name = "@description"; value = CharString(journalEntry.description |> JournalEntryDescription.value) }
               { name = "@je_source"
@@ -122,16 +122,16 @@ module JournalEntryHeader =
             reconstitute
             expectedRows
 
-    let fetchById // REQ-JE-3.2
+    let fetchById
         (context: Context)
         (journalEntryHeaderId: JournalEntryHeaderId)
         : Result<JournalEntryHeader, AppError> =
         let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
         let predicate = Some "je.unique_id = @unique_id"
-        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
+        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
         readRowsFromDb context None predicate None None parameters ExactlyOne |> Result.map List.head
 
-    let fetchByPeriod // REQ-JE-3.3
+    let fetchByPeriod
         (context: Context)
         (periodId: FiscalPeriodId)
         : Result<JournalEntryHeader list, AppError> =

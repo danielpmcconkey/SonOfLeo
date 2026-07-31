@@ -21,8 +21,8 @@ let constructNewAndSaveToDb
     : Result<JournalEntryExternalReference, AppError> =
     let journalEntryExternalReferenceId = JournalEntryExternalReferenceId.create()
     let now = context |> getInitiationInstant
-    let createdAt = now // REQ-SYS-3.2
-    let modifiedAt = now // REQ-SYS-3.2
+    let createdAt = now
+    let modifiedAt = now
     result {
         do! journalEntryHeaderId |> validateJournalEntryHeader context
         let journalExternalReference =
@@ -37,7 +37,7 @@ let constructNewAndSaveToDb
         return journalExternalReference
     }
 
-let updateFiAndReferenceText // REQ-JE-4.9
+let updateFiAndReferenceText
     (context: Context)
     (fiUpdate: FieldUpdate<JournalRefFinancialInstitution>)
     (referenceUpdate: FieldUpdate<JournalExternalReferenceText>)
@@ -45,7 +45,7 @@ let updateFiAndReferenceText // REQ-JE-4.9
     : Result<JournalEntryExternalReference, AppError> =
     let uuid = journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
     let baseParams =
-        [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) } // REQ-SYS-3.3
+        [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) }
           { name = "@unique_id"; value = UniqueId uuid } ]
     let updates =
         [ fiUpdate
@@ -64,7 +64,7 @@ let updateFiAndReferenceText // REQ-JE-4.9
         $"""
         UPDATE ledger.journal_entry_ext_reference
         set
-            modified_at = @modified -- REQ-SYS-3.3
+            modified_at = @modified
                 {setClauses}
             WHERE unique_id = @unique_id;
         ;

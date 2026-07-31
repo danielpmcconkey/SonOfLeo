@@ -45,9 +45,9 @@ let ``convert AccountActivityFilterInput to AccountActivityFilter``
     (input: AccountActivityFilterInput)
     : Result<AccountActivityFilter, AppError> =
     result {
-        let! accountId = // REQ-NGUI-1.5
+        let! accountId =
             input.accountCode |> ``convert AccountCodeString Option to AccountId Option`` context
-        let! accountParentId = // REQ-NGUI-1.5
+        let! accountParentId =
             match input.accountParentCode |> ``convert AccountCodeString Option to AccountId Option`` context with
             | Ok x -> Ok x
             | Error(AccountCodeDoesntMatchAccountId codeString) -> Error(AccountParentCodeInvalid codeString)
@@ -92,7 +92,7 @@ let ``convert AccountActivity to AccountActivityReturn``
     (input: AccountActivity)
     : Result<AccountActivityReturn, AppError> =
     result {
-        let! parentCodeOptionId = input.accountParentId |> ``convert AccountId Option to AccountCode Option`` context // REQ-NGUI-1.5
+        let! parentCodeOptionId = input.accountParentId |> ``convert AccountId Option to AccountCode Option`` context
         let parentCodeOptionString = parentCodeOptionId |> Option.map(AccountCode.value)
         let detail =
             input.activityDetail |> Option.map(``convert AccountActivityDetail to AccountActivityDetailReturn``)

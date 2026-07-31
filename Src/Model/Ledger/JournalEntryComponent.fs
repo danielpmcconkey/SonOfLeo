@@ -37,11 +37,11 @@ module JournalRefFinancialInstitution =
     let max = 100
     let value (JournalRefFinancialInstitution d) = d
     let create (raw: string) : Result<JournalRefFinancialInstitution, AppError> =
-        let trimmed = raw.Trim() // REQ-SYS-1.1
+        let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
-            Error(JournalEntryExternalReferenceIsEmpty raw) // REQ-JE-1.42, REQ-SYS-1.2
+            Error(JournalEntryExternalReferenceIsEmpty raw)
         elif trimmed.Length > max then
-            Error(JournalEntryExternalReferenceTooLong(raw, max)) // REQ-JE-1.49
+            Error(JournalEntryExternalReferenceTooLong(raw, max))
         else
             Ok(JournalRefFinancialInstitution trimmed)
 
@@ -50,11 +50,11 @@ module JournalExternalReferenceText =
     let value (JournalExternalReferenceText d) = d
     let create (raw: string) : Result<JournalExternalReferenceText, AppError> =
         let max = 100
-        let trimmed = raw.Trim() // REQ-SYS-1.1
+        let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
-            Error(JournalEntryReferenceTextIsEmpty raw) // REQ-JE-1.44, REQ-SYS-1.2
+            Error(JournalEntryReferenceTextIsEmpty raw)
         elif trimmed.Length > max then
-            Error(JournalEntryReferenceTextTooLong(raw, max)) // REQ-JE-1.45
+            Error(JournalEntryReferenceTextTooLong(raw, max))
         else
             Ok(JournalExternalReferenceText trimmed)
 
@@ -64,11 +64,11 @@ module JournalEntryDescription =
     let value (JournalEntryDescription d) = d
     let create (raw: string) : Result<JournalEntryDescription, AppError> =
         let max = 1000
-        let trimmed = raw.Trim() // REQ-SYS-1.1
+        let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
-            Error(JournalEntryDescriptionIsEmpty raw) // REQ-JE-1.4, REQ-SYS-1.2
+            Error(JournalEntryDescriptionIsEmpty raw)
         elif trimmed.Length > max then
-            Error(JournalEntryDescriptionTooLong(raw, max)) // REQ-JE-1.5
+            Error(JournalEntryDescriptionTooLong(raw, max))
         else
             Ok(JournalEntryDescription trimmed)
 
@@ -78,29 +78,29 @@ module JournalEntrySource =
     let value (JournalEntrySource d) = d
     let create (raw: string) : Result<JournalEntrySource, AppError> =
         let max = 50
-        let trimmed = raw.Trim() // REQ-SYS-1.1
+        let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
-            Error(JournalEntrySourceIsEmpty raw) // REQ-JE-1.7, REQ-SYS-1.2
+            Error(JournalEntrySourceIsEmpty raw)
         elif trimmed.Length > max then
-            Error(JournalEntrySourceTooLong(raw, max)) // REQ-JE-1.8
+            Error(JournalEntrySourceTooLong(raw, max))
         else
             Ok(JournalEntrySource trimmed)
 
 type EntryDate =
     private
-        { entryDate: LocalDate // REQ-JE-1.10
+        { entryDate: LocalDate
           fiscalPeriodId: FiscalPeriodId }
 
 module EntryDate =
     let entryDate (e: EntryDate) : LocalDate = e.entryDate
     let fiscalPeriodId (e: EntryDate) : FiscalPeriodId = e.fiscalPeriodId
-    let create (context: Context) (entryDate: LocalDate) : Result<EntryDate, AppError> = // REQ-JE-2.5
+    let create (context: Context) (entryDate: LocalDate) : Result<EntryDate, AppError> =
         let monthF = entryDate.Month.ToString("D2")
         result {
-            let key = $"{entryDate.Year}-{monthF}" // REQ-JE-1.11
+            let key = $"{entryDate.Year}-{monthF}"
             let! id =
                 key
-                |> FiscalPeriod.fetchIdByKey context // REQ-JE-2.6
+                |> FiscalPeriod.fetchIdByKey context
                 |> Result.mapError(fun _ -> (JournalEntryDateNotInFiscalPeriod entryDate))
             return { entryDate = entryDate; fiscalPeriodId = id }
         }
@@ -115,7 +115,7 @@ module EntryDate =
     let internal createWithFiscalPeriodId (entryDate: LocalDate) (fiscalPeriodId: FiscalPeriodId) : EntryDate =
         { entryDate = entryDate; fiscalPeriodId = fiscalPeriodId }
 
-type JournalEntryLineType = // REQ-JE-1.25
+type JournalEntryLineType =
     | Debit
     | Credit
 
@@ -137,11 +137,11 @@ module JournalEntryLineMemo =
     let value (LineMemo d) = d
     let create (raw: string) : Result<JournalEntryLineMemo, AppError> =
         let max = 1000
-        let trimmed = raw.Trim() // REQ-SYS-1.1
+        let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
-            Error(JournalEntryLineMemoIsEmpty raw) // REQ-JE-1.27, REQ-SYS-1.2
+            Error(JournalEntryLineMemoIsEmpty raw)
         elif trimmed.Length > max then
-            Error(JournalEntryLineMemoTooLong(raw, max)) // REQ-JE-1.28
+            Error(JournalEntryLineMemoTooLong(raw, max))
         else
             Ok(LineMemo trimmed)
 type CommentText = private CommentText of string
@@ -149,10 +149,10 @@ module CommentText =
     let max = 2000
     let value (CommentText d) = d
     let create (raw: string) : Result<CommentText, AppError> =
-        let trimmed = raw.Trim() // REQ-SYS-1.1
+        let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
-            Error(JournalEntryCommentIsEmpty raw) // REQ-JE-1.54, REQ-SYS-1.2
+            Error(JournalEntryCommentIsEmpty raw)
         elif trimmed.Length > max then
-            Error(JournalEntryCommentTooLong(raw, max)) // REQ-JE-1.54
+            Error(JournalEntryCommentTooLong(raw, max))
         else
             Ok(CommentText trimmed)

@@ -17,9 +17,9 @@ let routeUiCommandForTesting
     (rest: string list)
     (payload: string)
     : Result<string, AppError> =
-    match commandRoutes |> List.tryFind(fun r -> r.domain = domain && r.verb = verb) with // REQ-NGUI-1.1, REQ-NGUI-3.8
+    match commandRoutes |> List.tryFind(fun r -> r.domain = domain && r.verb = verb) with
     | Some command -> command.handler payload rest
-    | None -> Error(CliUnknownCommand(domain, verb)) // REQ-NGUI-3.9
+    | None -> Error(CliUnknownCommand(domain, verb))
 
 
 

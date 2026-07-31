@@ -20,15 +20,15 @@ let constructNewAndSaveToDb (context: Context) (periodKey: FiscalPeriodKey) : Re
     let yearNum = Int32.Parse(year) // we already validated via regex that this won't throw
     let month = keyString[5..6]
     let monthNum = Int32.Parse(month) // we already validated via regex that this won't throw
-    let startDate = LocalDate(yearNum, monthNum, 1) // REQ-FP-1.4, REQ-FP-2.3
-    let endDate = startDate.PlusMonths(1).PlusDays(-1) // REQ-FP-1.5, REQ-FP-2.3
-    let isOpen = true // REQ-FP-1.8
+    let startDate = LocalDate(yearNum, monthNum, 1)
+    let endDate = startDate.PlusMonths(1).PlusDays(-1)
+    let isOpen = true
     let now = context |> getInitiationInstant
-    let createdAt = now // REQ-SYS-3.2
-    let modifiedAt = now // REQ-SYS-3.2
+    let createdAt = now
+    let modifiedAt = now
     let fiscalPeriod =
         FiscalPeriod.create fiscalPeriodId periodKey startDate endDate isOpen createdAt modifiedAt
     result {
-        do! fiscalPeriod |> insertNewToDb context // REQ-FP-2.4
+        do! fiscalPeriod |> insertNewToDb context
         return fiscalPeriod
-    } // REQ-FP-2.4
+    }

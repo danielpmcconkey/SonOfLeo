@@ -19,7 +19,7 @@ let ``convert FiscalPeriodKeyString to FiscalPeriodId``
         let originalValue = key
         let desiredType = "FiscalPeriodId"
         let childError = e |> AppError.toMessage
-        InterfaceBridgeConversionFailure(originalType, originalValue, desiredType, childError)) // REQ-NGUI-1.5
+        InterfaceBridgeConversionFailure(originalType, originalValue, desiredType, childError))
     |> Result.map(FiscalPeriodId.fromGuid)
 
 let ``convert [FiscalPeriodKeyString] to FiscalPeriod``

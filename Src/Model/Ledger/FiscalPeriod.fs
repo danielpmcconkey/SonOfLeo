@@ -16,8 +16,8 @@ type FiscalPeriod =
           startDate: LocalDate
           endDate: LocalDate
           isOpen: bool
-          createdAt: Instant // REQ-SYS-3.1
-          modifiedAt: Instant } // REQ-SYS-3.1
+          createdAt: Instant
+          modifiedAt: Instant }
 module FiscalPeriod =
     // accessors
     let fiscalPeriodId fp = fp.fiscalPeriodId
@@ -29,8 +29,8 @@ module FiscalPeriod =
     let modifiedAt fp = fp.modifiedAt
 
     let create
-        (fiscalPeriodId: FiscalPeriodId) // REQ-FP-1.6
-        (periodKey: FiscalPeriodKey) // REQ-FP-1.1
+        (fiscalPeriodId: FiscalPeriodId)
+        (periodKey: FiscalPeriodKey)
         (startDate: LocalDate)
         (endDate: LocalDate)
         (isOpen: bool)
@@ -51,13 +51,13 @@ module FiscalPeriod =
     let insertNewToDb (context: Context) (fp: FiscalPeriod) : Result<unit, AppError> =
         let query =
             """
-            insert into ledger.fiscal_period( -- REQ-SYS-5.1
+            insert into ledger.fiscal_period(
                 unique_id, period_key, start_date, end_date, is_open, created_at, modified_at)
             VALUES (@unique_id, @period_key, @start_date, @end_date, @is_open, @created_at, @modified_at);
             """
         let uuid = fp.fiscalPeriodId |> FiscalPeriodId.value
         let parameters =
-            [ //  REQ-DAL-2.1, REQ-DAL-2.3
+            [
               { name = "@unique_id"; value = UniqueId uuid }
               { name = "@period_key"; value = CharString(FiscalPeriodKey.value fp.periodKey) }
               { name = "@start_date"; value = DbLocalDate fp.startDate }
@@ -99,7 +99,7 @@ module FiscalPeriod =
         (limit: int option)
         (parameters: QueryParameter list)
         (expectedRows: AcceptableExpectedRows)
-        : Result<FiscalPeriod list, AppError> = // REQ-FP-3.1
+        : Result<FiscalPeriod list, AppError> =
         let select =
             "fp.unique_id, fp.period_key, fp.start_date, fp.end_date, fp.is_open, fp.created_at, fp.modified_at"
         let from = "ledger.fiscal_period fp"
@@ -115,7 +115,7 @@ module FiscalPeriod =
     let fetchById (context: Context) (id: FiscalPeriodId) : Result<FiscalPeriod, AppError> =
         let predicate = "fp.unique_id = @unique_id"
         let uuid = id |> FiscalPeriodId.value
-        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
+        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
         readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
     /// fetchIdByKey should only be used sparingly, as it goes against
@@ -128,7 +128,7 @@ module FiscalPeriod =
             let id, _ = raw
             Ok id
         let query = "select unique_id from ledger.fiscal_period where period_key = @period_key"
-        let parameters = [ { name = "@period_key"; value = CharString key } ] // REQ-DAL-2.3
+        let parameters = [ { name = "@period_key"; value = CharString key } ]
 
         match
             executeReaderQuery (context |> getDatabaseTransaction) query parameters mapRaw constructFromRaw ExactlyOne
@@ -137,10 +137,10 @@ module FiscalPeriod =
         | Error(DalResultantRowsDidntMatchExpectation _) -> Error(FiscalPeriodNoPeriodMatchingKey key)
         | Error e -> Error e
 
-    let fetchAll (context: Context) (openOnly: bool) : Result<FiscalPeriod list, AppError> = // REQ-FP-3.4
+    let fetchAll (context: Context) (openOnly: bool) : Result<FiscalPeriod list, AppError> =
         let predicate =
             match openOnly with
-            | true -> Some "fp.is_open = true" // REQ-FP-3.5
+            | true -> Some "fp.is_open = true"
             | _ -> None
         let parameters = []
         readRowsFromDb context predicate None parameters AnyQuantityIsAcceptable
@@ -153,7 +153,7 @@ module FiscalPeriod =
         let enforcedCurrentValue = not newValue
         let uuid = fpId |> FiscalPeriodId.value
         let parameters =
-            [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) } // REQ-SYS-3.3
+            [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) }
               { name = "@unique_id"; value = UniqueId uuid }
               { name = "@newValue"; value = Boolean newValue }
               { name = "@enforcedCurrentValue"; value = Boolean enforcedCurrentValue } ]
@@ -161,9 +161,9 @@ module FiscalPeriod =
             $"""
             UPDATE ledger.fiscal_period
             set
-                modified_at = @modified -- REQ-SYS-3.3
+                modified_at = @modified
                 , is_open = @newValue
-            WHERE unique_id = @unique_id -- REQ-FP-4.1.1, REQ-FP-4.2.1
+            WHERE unique_id = @unique_id
             and is_open = @enforcedCurrentValue
             ;
         """
@@ -172,13 +172,13 @@ module FiscalPeriod =
             return! fpId |> fetchById context
         }
 
-    let closeFiscalPeriod // REQ-FP-4.1
+    let closeFiscalPeriod
         (context: Context)
         (fpId: FiscalPeriodId)
         : Result<FiscalPeriod, AppError> =
         toggleOpenFlagById context fpId false
 
-    let reopenFiscalPeriod // REQ-FP-4.2
+    let reopenFiscalPeriod
         (context: Context)
         (fpId: FiscalPeriodId)
         : Result<FiscalPeriod, AppError> =

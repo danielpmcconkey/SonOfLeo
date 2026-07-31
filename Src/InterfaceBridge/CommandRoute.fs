@@ -6,13 +6,13 @@ open Context.Context
 
 
 type CommandRoute =
-    { // REQ-NGUI-1.1
+    {
       domain: string
       verb: string
       description: string
       inputType: string
       outputType: string
-      handler: string -> string list -> Result<string, AppError> } // REQ-NGUI-1.2
+      handler: string -> string list -> Result<string, AppError> }
 
 // runRouteAndAutoCompleteTransaction is used for routes only. It creates a net
 // new transaction and context, then has the DAL automatically commit or

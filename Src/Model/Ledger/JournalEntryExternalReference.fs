@@ -11,9 +11,9 @@ open Context.Context
 
 type JournalEntryExternalReference =
     private
-        { journalEntryExternalReferenceId: JournalEntryExternalReferenceId // REQ-JE-1.40
-          journalEntryHeaderId: JournalEntryHeaderId // REQ-JE-1.41
-          financialInstitution: JournalRefFinancialInstitution // REQ-JE-1.42
+        { journalEntryExternalReferenceId: JournalEntryExternalReferenceId
+          journalEntryHeaderId: JournalEntryHeaderId
+          financialInstitution: JournalRefFinancialInstitution
           referenceText: JournalExternalReferenceText
           createdAt: Instant
           modifiedAt: Instant }
@@ -31,8 +31,8 @@ module JournalEntryExternalReference =
         (journalEntryHeaderId: JournalEntryHeaderId)
         (financialInstitution: JournalRefFinancialInstitution)
         (referenceText: JournalExternalReferenceText)
-        (createdAt: Instant) // REQ-SYS-3.2
-        (modifiedAt: Instant) // REQ-SYS-3.2
+        (createdAt: Instant)
+        (modifiedAt: Instant)
         : JournalEntryExternalReference =
         { journalEntryExternalReferenceId = journalEntryExternalReferenceId
           journalEntryHeaderId = journalEntryHeaderId
@@ -52,7 +52,7 @@ module JournalEntryExternalReference =
             externalReference.journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
         let journalEntryUuid = externalReference.journalEntryHeaderId |> JournalEntryHeaderId.value
         let parameters =
-            [ //  REQ-DAL-2.1, REQ-DAL-2.3
+            [
               { name = "@unique_id"; value = UniqueId journalEntryExternalReferenceUuid }
               { name = "@journal_entry_id"; value = UniqueId journalEntryUuid }
               { name = "@financial_institution"
@@ -131,7 +131,7 @@ module JournalEntryExternalReference =
         : Result<JournalEntryExternalReference, AppError> =
         let uuid = journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
         let predicate = "jer.unique_id = @unique_id"
-        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
+        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
         readRowsFromDb context (Some predicate) None None parameters ExactlyOne |> Result.map List.head
 
     let fetchByJournalEntryId
@@ -140,7 +140,7 @@ module JournalEntryExternalReference =
         : Result<JournalEntryExternalReference list, AppError> =
         let uuid = journalEntryId |> JournalEntryHeaderId.value
         let predicate = "jer.journal_entry_id = @unique_id"
-        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
+        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
         readRowsFromDb context (Some predicate) None None parameters AnyQuantityIsAcceptable
 
     let fetchByJournalEntryHeaderIdList

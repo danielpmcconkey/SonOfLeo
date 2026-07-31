@@ -10,13 +10,13 @@ open Utilities.ResultHelper
 open Utilities.AppError
 open System.Data
 
-type AcceptableExpectedRows = // REQ-DAL-2.2
+type AcceptableExpectedRows =
     | Zero
     | ExactlyOne
     | OneOrMany
     | AnyQuantityIsAcceptable
 
-let internal validateNumRows (numRows: int) (expectation: AcceptableExpectedRows) : Result<unit, AppError> = // REQ-DAL-2.2
+let internal validateNumRows (numRows: int) (expectation: AcceptableExpectedRows) : Result<unit, AppError> =
     match expectation with
     | Zero when numRows = 0 -> Ok()
     | ExactlyOne when numRows = 1 -> Ok()
@@ -26,7 +26,7 @@ let internal validateNumRows (numRows: int) (expectation: AcceptableExpectedRows
 
 type RowReader = private { reader: Common.DbDataReader }
 
-module RowReader = // REQ-DAL-3.2
+module RowReader =
     let create (reader: Common.DbDataReader) : RowReader = { reader = reader }
     let getInt (col: string) (r: RowReader) =
         r.reader.GetInt32(r.reader.GetOrdinal(col))
@@ -85,7 +85,7 @@ module RowReader = // REQ-DAL-3.2
         else
             Some(r.reader.GetBoolean(ordinal))
 
-let rec private readRawRows // REQ-DAL-3.2
+let rec private readRawRows
     (reader: Common.DbDataReader)
     (mapRawFunc: RowReader -> 'T)
     (acc: 'T list) // the list that gets pre-pended with every recursion, the "accumulator"
@@ -144,7 +144,7 @@ let executeReaderQuery
     (dbTransaction: DbTransaction)
     (query: string)
     (parameters: QueryParameter list)
-    (mapRaw: RowReader -> 'Tuple) // REQ-DAL-3.2
+    (mapRaw: RowReader -> 'Tuple)
     (constructFromRaw: 'Tuple -> Result<'T, AppError>)
     (expectedRows: AcceptableExpectedRows)
     : Result<'T list, AppError> =
@@ -182,6 +182,6 @@ let executeReaderQuery
                             rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList
             with ex ->
                 Error(DalErrorDuringReaderQueryExecution ex)
-        let! () = validateNumRows rows.Length expectedRows // REQ-DAL-2.2
+        let! () = validateNumRows rows.Length expectedRows
         return rows
     }

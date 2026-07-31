@@ -19,7 +19,7 @@ let private updateDb (context: Context) (activeEndUpdate: LocalDate) (account: A
     let accountId = account |> Account.accountId
     let uuid = accountId |> AccountId.value
     let parameters =
-        [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) } // REQ-SYS-3.3
+        [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) }
           { name = "@unique_id"; value = UniqueId uuid }
           { name = "@active_end"; value = NullableDbLocalDate(Some activeEndUpdate) } ]
 
@@ -27,7 +27,7 @@ let private updateDb (context: Context) (activeEndUpdate: LocalDate) (account: A
         $"""
         UPDATE ledger.account
         set
-            modified_at = @modified -- REQ-SYS-3.3
+            modified_at = @modified
             , active_end = @active_end
         WHERE unique_id = @unique_id;
     """
@@ -46,7 +46,7 @@ let private confirmProposedDeactivationDateIsValid
             AccountDeactivationProposedDateIsInvalid(account |> Account.accountId |> AccountId.value, proposedDate, ab)
         )
     else
-        Ok() // REQ-AC-4.2
+        Ok()
 
 let private confirmNoActiveChildrenBeforeDeactivation (context: Context) (account: Account) : Result<unit, AppError> =
     let accountId = account |> Account.accountId
@@ -56,7 +56,7 @@ let private confirmNoActiveChildrenBeforeDeactivation (context: Context) (accoun
             let referenceDate = (context |> getInitiationInstant) |> Calendar.dateFromInstant
             if
                 children
-                |> List.exists(fun x -> x |> Account.activityPeriod |> AccountActivityPeriod.isActive referenceDate) // REQ-AC-4.3
+                |> List.exists(fun x -> x |> Account.activityPeriod |> AccountActivityPeriod.isActive referenceDate)
             then
                 Error(AccountActiveChildrenBeforeDeactivation(account |> Account.accountId |> AccountId.value))
             else
@@ -66,7 +66,7 @@ let private confirmNoActiveChildrenBeforeDeactivation (context: Context) (accoun
 let private confirmZeroBalanceBeforeDeactivation (context: Context) (account: Account) : Result<unit, AppError> =
     let accountId = account |> Account.accountId
     result {
-        let! nonVoidedLines = accountId |> JournalEntryLine.fetchByAccountId context true // REQ-JE-4.7
+        let! nonVoidedLines = accountId |> JournalEntryLine.fetchByAccountId context true
         let! debits = nonVoidedLines |> JournalEntryLine.sumLinesByType Debit
         let! credits = nonVoidedLines |> JournalEntryLine.sumLinesByType Credit
         let! diff = Money.subtractVal1FromVal2 debits credits
@@ -114,8 +114,8 @@ let private confirmJournalEntriesAreInProperState
     (account: Account)
     : Result<unit, AppError> =
     result {
-        do! account |> confirmZeroBalanceBeforeDeactivation context // REQ-AC-4.4
-        do! account |> confirmNoJournalEntriesAfterDeactivationDate context deactivationDate // REQ-AC-4.6
+        do! account |> confirmZeroBalanceBeforeDeactivation context
+        do! account |> confirmNoJournalEntriesAfterDeactivationDate context deactivationDate
         return ()
     }
 
@@ -127,7 +127,7 @@ let deactivateAccount
     (context: Context)
     (explicitEnd: LocalDate option)
     (account: Account)
-    : Result<Account, AppError> = // REQ-AC-4.1
+    : Result<Account, AppError> =
     let accountId = account |> Account.accountId
     let deactivationDate =
         match explicitEnd with
@@ -135,12 +135,12 @@ let deactivateAccount
         | None -> Calendar.dateFromInstant(context |> getInitiationInstant)
     result {
         let activeEnd = account |> Account.activityPeriod |> AccountActivityPeriod.activeEnd
-        do! // REQ-AC-4.5
+        do!
             match activeEnd with
             | None -> Ok()
             | Some x -> Error(AccountAlreadyInactive(accountId |> AccountId.value, x))
-        let! () = account |> confirmProposedDeactivationDateIsValid deactivationDate // REQ-AC-4.2
-        let! () = account |> confirmNoActiveChildrenBeforeDeactivation context // REQ-AC-4.3
+        let! () = account |> confirmProposedDeactivationDateIsValid deactivationDate
+        let! () = account |> confirmNoActiveChildrenBeforeDeactivation context
         let! () = account |> confirmJournalEntriesAreInProperState context deactivationDate
         let! newAccount = account |> updateDb context deactivationDate
         return newAccount

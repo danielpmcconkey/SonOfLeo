@@ -2,10 +2,10 @@ module DataAccessLayer.QueryParameters
 
 open System
 open NodaTime
-open Npgsql // REQ-DAL-3.1
-open NpgsqlTypes // REQ-DAL-3.1
+open Npgsql
+open NpgsqlTypes
 
-type QueryParameterValue = // REQ-DAL-3.2
+type QueryParameterValue =
     | Integer of int
     | Numeric of decimal
     | CharString of string
@@ -21,13 +21,11 @@ type QueryParameterValue = // REQ-DAL-3.2
     | NullableUniqueId of Guid option
     | NullableBoolean of bool option
 
-type QueryParameter =
-    { // REQ-DAL-3.2
-      name: string
-      value: QueryParameterValue }
+type QueryParameter = { name: string
+                        value: QueryParameterValue }
 
 
-let private convertParamToDbParam (parameter: QueryParameter) : NpgsqlParameter = // REQ-DAL-3.2
+let private convertParamToDbParam (parameter: QueryParameter) : NpgsqlParameter =
     let dbType, value =
         match parameter.value with
         | Integer x -> NpgsqlDbType.Integer, box x
@@ -76,5 +74,5 @@ let private convertParamToDbParam (parameter: QueryParameter) : NpgsqlParameter 
     p.Value <- value // necessary because NpgsqlParameter doesn't take a value in its constructor
     p
 
-let internal buildParamsList (parameters: QueryParameter list) : NpgsqlParameter list = // REQ-DAL-3.2
+let internal buildParamsList (parameters: QueryParameter list) : NpgsqlParameter list =
     parameters |> List.map convertParamToDbParam

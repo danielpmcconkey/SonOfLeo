@@ -7,12 +7,12 @@ drop table if exists ledger.journal_entry_line;
 drop table if exists ledger.journal_entry;
 CREATE TABLE IF NOT EXISTS ledger.journal_entry
 (
-    unique_id uuid primary key,                                                  -- REQ-JE-1.1, REQ-JE-1.2
-    description character varying(1000) collate pg_catalog."default" NOT NULL,   -- REQ-JE-1.3, REQ-JE-1.5
-    je_source character varying(50) collate pg_catalog."default",                -- REQ-JE-1.6, REQ-JE-1.8
-    entry_date date NOT NULL,                                                    -- REQ-JE-1.9, REQ-JE-1.10
+    unique_id uuid primary key,
+    description character varying(1000) collate pg_catalog."default" NOT NULL,
+    je_source character varying(50) collate pg_catalog."default",
+    entry_date date NOT NULL,
     fiscal_period_id uuid not null,
-    voided_at timestamp with time zone,                                          -- REQ-JE-1.14
+    voided_at timestamp with time zone,
     created_at timestamp with time zone NOT NULL,
     modified_at timestamp with time zone NOT NULL,
                               CONSTRAINT journal_entry_fiscal_period_id_fkey FOREIGN KEY (fiscal_period_id)
@@ -23,20 +23,20 @@ CREATE TABLE IF NOT EXISTS ledger.journal_entry
 
 CREATE TABLE IF NOT EXISTS ledger.journal_entry_line
 (
-    unique_id uuid primary key,                                                  -- REQ-JE-1.20, REQ-JE-1.21
-    journal_entry_id uuid not null,                                              -- REQ-JE-1.29
-    account_id uuid not null,                                                    -- REQ-JE-1.22
-    amount numeric(12,2) not null,                                               -- REQ-JE-1.23
-    line_type character varying(6) not null,                                     -- REQ-JE-1.25
-    memo character varying(1000) collate pg_catalog."default",                   -- REQ-JE-1.26, REQ-JE-1.28
+    unique_id uuid primary key,
+    journal_entry_id uuid not null,
+    account_id uuid not null,
+    amount numeric(12,2) not null,
+    line_type character varying(6) not null,
+    memo character varying(1000) collate pg_catalog."default",
     created_at timestamp with time zone NOT NULL,
     modified_at timestamp with time zone NOT NULL,
-        CONSTRAINT journal_entry_line_journal_entry_id_fkey                      -- REQ-JE-1.29
+        CONSTRAINT journal_entry_line_journal_entry_id_fkey
         FOREIGN KEY (journal_entry_id)
     REFERENCES ledger.journal_entry (unique_id) MATCH SIMPLE
                           ON UPDATE NO ACTION
                           ON DELETE RESTRICT,
-    CONSTRAINT journal_entry_line_account_id_fkey FOREIGN KEY (account_id)       -- REQ-JE-1.22
+    CONSTRAINT journal_entry_line_account_id_fkey FOREIGN KEY (account_id)
     REFERENCES ledger.account (unique_id) MATCH SIMPLE
                           ON UPDATE NO ACTION
                           ON DELETE RESTRICT
@@ -44,14 +44,14 @@ CREATE TABLE IF NOT EXISTS ledger.journal_entry_line
 
 CREATE TABLE IF NOT EXISTS ledger.journal_entry_ext_reference
 (
-    unique_id uuid primary key,                                                  -- REQ-JE-1.40
-    journal_entry_id uuid not null,                                              -- REQ-JE-1.41
-    financial_institution character varying(100)                                 -- REQ-JE-1.42
+    unique_id uuid primary key,
+    journal_entry_id uuid not null,
+    financial_institution character varying(100)
     not null collate pg_catalog."default",
-    reference character varying(100) not null collate pg_catalog."default",      -- REQ-JE-1.45
+    reference character varying(100) not null collate pg_catalog."default",
     created_at timestamp with time zone NOT NULL,
     modified_at timestamp with time zone NOT NULL,
-        CONSTRAINT journal_entry_ext_reference_journal_entry_id_fkey             -- REQ-JE-1.41
+        CONSTRAINT journal_entry_ext_reference_journal_entry_id_fkey
         FOREIGN KEY (journal_entry_id)
     REFERENCES ledger.journal_entry (unique_id) MATCH SIMPLE
                           ON UPDATE NO ACTION
@@ -60,18 +60,18 @@ CREATE TABLE IF NOT EXISTS ledger.journal_entry_ext_reference
 
 CREATE TABLE IF NOT EXISTS ledger.journal_entry_comment
 (
-    unique_id uuid primary key,                                                  -- REQ-JE-1.50
-    journal_primary_entry_id uuid not null,                                      -- REQ-JE-1.51
-    journal_secondary_entry_id uuid,                                             -- REQ-JE-1.52
-    comment character varying(2000) not null collate pg_catalog."default",       -- REQ-JE-1.54
+    unique_id uuid primary key,
+    journal_primary_entry_id uuid not null,
+    journal_secondary_entry_id uuid,
+    comment character varying(2000) not null collate pg_catalog."default",
     created_at timestamp with time zone NOT NULL,
     modified_at timestamp with time zone NOT NULL,
-        CONSTRAINT journal_entry_comment_journal_primary_entry_id_fkey           -- REQ-JE-1.51
+        CONSTRAINT journal_entry_comment_journal_primary_entry_id_fkey
         FOREIGN KEY (journal_primary_entry_id)
     REFERENCES ledger.journal_entry (unique_id) MATCH SIMPLE
                           ON UPDATE NO ACTION
                           ON DELETE RESTRICT,
-    CONSTRAINT journal_entry_comment_journal_secondary_entry_id_fkey             -- REQ-JE-1.52
+    CONSTRAINT journal_entry_comment_journal_secondary_entry_id_fkey
     FOREIGN KEY (journal_secondary_entry_id)
     REFERENCES ledger.journal_entry (unique_id) MATCH SIMPLE
                           ON UPDATE NO ACTION

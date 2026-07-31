@@ -17,7 +17,7 @@ let private getConnectionStringConfig () : Result<string, AppError> =
         let configVal = config["ConnectionStringEnvVar"]
         if String.IsNullOrWhiteSpace(configVal) then
             Error DalConnectionStringEnvVarNotFound
-        else // REQ-DAL-1.14, REQ-DAL-1.15
+        else
             Ok(configVal)
     with ex ->
         Error(DalErrorRetrievingAppSettings ex)
@@ -25,20 +25,20 @@ let private getConnectionStringConfig () : Result<string, AppError> =
 let private confirmConfigDoesntContainConnectionString (configVal: string) : Result<unit, AppError> =
     let doesContain = configVal.Contains(";") || configVal.Contains("Host=")
     match doesContain with
-    | true -> Error DalConnectionStringEnvVarContainsConnectionString // REQ-DAL-1.16
+    | true -> Error DalConnectionStringEnvVarContainsConnectionString
     | false -> Ok()
 
 let private getRawConnectionString (envVarName: string) : Result<string, AppError> =
     match Environment.GetEnvironmentVariable envVarName |> Option.ofObj with
     | Some x -> Ok x
-    | None -> Error(DalEnvVarNotSet envVarName) // REQ-DAL-1.17
+    | None -> Error(DalEnvVarNotSet envVarName)
 
 let private getValidConnectionString (raw: string) : Result<string, AppError> =
     let trimmed = raw.Trim()
     if String.IsNullOrWhiteSpace(trimmed) then
-        Error(DalConnectionStringIsEmpty) // REQ-DAL-1.18
+        Error(DalConnectionStringIsEmpty)
     else
-        Ok trimmed // REQ-DAL-1.19
+        Ok trimmed
 
 let private getConnectionString () : Result<string, AppError> =
     result {

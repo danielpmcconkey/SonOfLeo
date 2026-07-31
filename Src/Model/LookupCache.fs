@@ -19,7 +19,7 @@ type Cache<'K, 'V when 'K: comparison>
             | Ok v ->
                 cache <- cache |> Map.add key v
                 Ok v
-            | Error e -> Error e // REQ-NGUI-1.5
+            | Error e -> Error e
 
 type idAndString = { id: Guid; key: string }
 
@@ -51,7 +51,7 @@ let accountCodeToId =
             }),
         (fun context code ->
             let query = "select unique_id, code from ledger.account where code = @code"
-            let parameters = [ { name = "@code"; value = CharString code } ] // REQ-DAL-2.3
+            let parameters = [ { name = "@code"; value = CharString code } ]
             result {
                 let! rows =
                     executeReaderQuery
@@ -115,7 +115,7 @@ let fiscalPeriodKeyToId =
             }),
         (fun context periodKey ->
             let query = "select unique_id, period_key from ledger.fiscal_period where period_key = @period_key"
-            let parameters = [ { name = "@period_key"; value = CharString periodKey } ] // REQ-DAL-2.3
+            let parameters = [ { name = "@period_key"; value = CharString periodKey } ]
             result {
                 let! rows =
                     executeReaderQuery

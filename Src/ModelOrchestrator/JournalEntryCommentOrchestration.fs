@@ -13,7 +13,7 @@ open Context.Context
 let validateJournalEntryHeader (context: Context) (journalEntryId: JournalEntryHeaderId) : Result<unit, AppError> =
     journalEntryId |> JournalEntryHeader.fetchById context |> Result.map ignore
 
-let validatePrimaryAndSecondaryRelationship // REQ-JE-1.53
+let validatePrimaryAndSecondaryRelationship
     (primaryJournalEntryId: JournalEntryHeaderId)
     (secondaryJournalEntryId: JournalEntryHeaderId option)
     : Result<unit, AppError> =
@@ -27,16 +27,16 @@ let validatePrimaryAndSecondaryRelationship // REQ-JE-1.53
         else
             Ok()
 
-let constructNewAndSaveToDb // REQ-JE-5.1
+let constructNewAndSaveToDb
     (context: Context)
     (primaryJournalEntryId: JournalEntryHeaderId)
     (secondaryJournalEntryId: JournalEntryHeaderId option)
     (commentText: CommentText)
     : Result<JournalEntryComment, AppError> =
-    let journalEntryCommentId = JournalEntryCommentId.create() // REQ-JE-5.2
+    let journalEntryCommentId = JournalEntryCommentId.create()
     let now = context |> getInitiationInstant
-    let createdAt = now // REQ-SYS-3.2
-    let modifiedAt = now // REQ-SYS-3.2
+    let createdAt = now
+    let modifiedAt = now
     result {
         do! primaryJournalEntryId |> validateJournalEntryHeader context
         do!
@@ -56,7 +56,7 @@ let constructNewAndSaveToDb // REQ-JE-5.1
         return journalEntryComment
     }
 
-let updateComment // REQ-JE-5.3
+let updateComment
     (context: Context)
     (journalEntryCommentId: JournalEntryCommentId)
     (commentUpdate: FieldUpdate<CommentText>)
@@ -64,7 +64,7 @@ let updateComment // REQ-JE-5.3
     : Result<JournalEntryComment, AppError> =
     let commentUuid = journalEntryCommentId |> JournalEntryCommentId.value
     let baseParams =
-        [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) } // REQ-SYS-3.3
+        [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) }
           { name = "@unique_id"; value = UniqueId commentUuid } ]
     result {
         let! validSecondaryId =
@@ -96,7 +96,7 @@ let updateComment // REQ-JE-5.3
         let query =
             $"""    UPDATE ledger.journal_entry_comment
                             set
-                                modified_at = @modified -- REQ-SYS-3.3
+                                modified_at = @modified
                                 {setClauses}
                             WHERE unique_id = @unique_id; """
         let! _ = executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne

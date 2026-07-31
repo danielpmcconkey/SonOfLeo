@@ -10,9 +10,9 @@ open Context.Context
 
 type JournalEntryComment =
     private
-        { journalEntryCommentId: JournalEntryCommentId // REQ-JE-1.50
-          primaryJournalEntryId: JournalEntryHeaderId // REQ-JE-1.51
-          secondaryJournalEntryId: JournalEntryHeaderId option // REQ-JE-1.52
+        { journalEntryCommentId: JournalEntryCommentId
+          primaryJournalEntryId: JournalEntryHeaderId
+          secondaryJournalEntryId: JournalEntryHeaderId option
           commentText: CommentText
           createdAt: Instant
           modifiedAt: Instant }
@@ -26,12 +26,12 @@ module JournalEntryComment =
     let modifiedAt jec = jec.modifiedAt
 
     let create
-        (journalEntryCommentId: JournalEntryCommentId) // REQ-JE-5.2
-        (primaryJournalEntryId: JournalEntryHeaderId) // REQ-JE-5.1
-        (secondaryJournalEntryId: JournalEntryHeaderId option) // REQ-JE-5.1
+        (journalEntryCommentId: JournalEntryCommentId)
+        (primaryJournalEntryId: JournalEntryHeaderId)
+        (secondaryJournalEntryId: JournalEntryHeaderId option)
         (commentText: CommentText)
-        (createdAt: Instant) // REQ-JE-5.2
-        (modifiedAt: Instant) // REQ-JE-5.2
+        (createdAt: Instant)
+        (modifiedAt: Instant)
         : JournalEntryComment =
         { journalEntryCommentId = journalEntryCommentId
           primaryJournalEntryId = primaryJournalEntryId
@@ -51,7 +51,7 @@ module JournalEntryComment =
         let primaryUuid = comment.primaryJournalEntryId |> JournalEntryHeaderId.value
         let secondaryUuid = comment.secondaryJournalEntryId |> Option.map JournalEntryHeaderId.value
         let parameters =
-            [ //  REQ-DAL-2.1, REQ-DAL-2.3
+            [
               { name = "@unique_id"; value = UniqueId commentUuid }
               { name = "@journal_primary_entry_id"; value = UniqueId primaryUuid }
               { name = "@journal_secondary_entry_id"; value = NullableUniqueId secondaryUuid }
@@ -124,7 +124,7 @@ module JournalEntryComment =
         : Result<JournalEntryComment, AppError> =
         let uuid = journalEntryCommentId |> JournalEntryCommentId.value
         let predicate = "jec.unique_id = @unique_id"
-        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
+        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
         readRowsFromDb context (Some predicate) None None parameters ExactlyOne |> Result.map List.head
 
     /// fetchByJournalEntryId returns all comments associated to a Journal
@@ -137,7 +137,7 @@ module JournalEntryComment =
         let uuid = journalEntryId |> JournalEntryHeaderId.value
         let predicate =
             "jec.journal_primary_entry_id = @unique_id or jec.journal_secondary_entry_id = @unique_id"
-        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
+        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
         let orderBy = "created_at"
         readRowsFromDb context (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable
 

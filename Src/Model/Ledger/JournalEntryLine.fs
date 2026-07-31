@@ -14,20 +14,20 @@ open Context.Context
 
 type JournalEntryLine =
     private
-        { journalEntryLineId: JournalEntryLineId // REQ-JE-1.20, REQ-JE-1.21
+        { journalEntryLineId: JournalEntryLineId
           journalEntryHeaderId: JournalEntryHeaderId
           accountId: AccountId
           amount: Money
           lineType: JournalEntryLineType
-          memo: JournalEntryLineMemo option // REQ-JE-1.26
+          memo: JournalEntryLineMemo option
           createdAt: Instant
           modifiedAt: Instant }
 
 module JournalEntryLine =
     let journalEntryLineId jel = jel.journalEntryLineId
-    let journalEntryHeaderId jel = jel.journalEntryHeaderId // REQ-JE-1.29
+    let journalEntryHeaderId jel = jel.journalEntryHeaderId
     let accountId jel = jel.accountId
-    let amount jel = jel.amount // REQ-JE-1.23
+    let amount jel = jel.amount
     let lineType jel = jel.lineType
     let memo jel = jel.memo
     let createdAt jel = jel.createdAt
@@ -65,7 +65,7 @@ module JournalEntryLine =
         let journalEntryUuid = journalEntryLine.journalEntryHeaderId |> JournalEntryHeaderId.value
         let accountIdUuid = journalEntryLine.accountId |> AccountId.value
         let parameters =
-            [ //  REQ-DAL-2.1, REQ-DAL-2.3
+            [
               { name = "@unique_id"; value = UniqueId journalEntryLineUuid }
               { name = "@journal_entry_id"; value = UniqueId journalEntryUuid }
               { name = "@account_id"; value = UniqueId accountIdUuid }
@@ -137,7 +137,7 @@ module JournalEntryLine =
     let fetchById (context: Context) (journalEntryLineId: JournalEntryLineId) : Result<JournalEntryLine, AppError> =
         let uuid = journalEntryLineId |> JournalEntryLineId.value
         let predicate = "jel.unique_id = @unique_id"
-        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
+        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
         readRowsFromDb context None (Some predicate) None None parameters ExactlyOne |> Result.map List.head
 
     let fetchByJournalEntryHeaderId
@@ -146,7 +146,7 @@ module JournalEntryLine =
         : Result<JournalEntryLine list, AppError> =
         let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
         let predicate = "jel.journal_entry_id = @journal_entry_id"
-        let parameters = [ { name = "@journal_entry_id"; value = UniqueId uuid } ] // REQ-DAL-2.3
+        let parameters = [ { name = "@journal_entry_id"; value = UniqueId uuid } ]
         let orderBy = "jel.created_at"
         readRowsFromDb context None (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable
 
@@ -168,7 +168,7 @@ module JournalEntryLine =
         let predicate = $"jel.journal_entry_id in ({names})"
         readRowsFromDb context None (Some predicate) None None parameters AnyQuantityIsAcceptable
 
-    let fetchByAccountId // REQ-JE-3.4
+    let fetchByAccountId
         (context: Context)
         (nonVoidedOnly: bool)
         (accountId: AccountId)
@@ -180,7 +180,7 @@ module JournalEntryLine =
             | false -> String.Empty
         let accountIdGuid = accountId |> AccountId.value
         let predicate = Some $"jel.account_id = @account_id {voidCheck}"
-        let parameters = [ { name = "@account_id"; value = UniqueId accountIdGuid } ] // REQ-DAL-2.3
+        let parameters = [ { name = "@account_id"; value = UniqueId accountIdGuid } ]
         let orderBy = Some "jel.created_at"
         readRowsFromDb context join predicate None orderBy parameters AnyQuantityIsAcceptable
 

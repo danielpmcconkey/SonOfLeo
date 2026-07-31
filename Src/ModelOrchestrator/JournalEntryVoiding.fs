@@ -41,33 +41,33 @@ let private confirmFiscalPeriodIsStillOpenBeforeVoiding
                 )
     }
 
-let private voidById // REQ-JE-4.3
+let private voidById
     (context: Context)
     (journalEntryHeaderId: JournalEntryHeaderId)
     : Result<unit, AppError> =
     let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
     let now = context |> getInitiationInstant
     let parameters =
-        [ { name = "@modified"; value = DbInstant(now) } // REQ-SYS-3.3
+        [ { name = "@modified"; value = DbInstant(now) }
           { name = "@newValue"; value = DbInstant(now) }
           { name = "@unique_id"; value = UniqueId uuid } ]
     let query =
         $"""
         UPDATE ledger.journal_entry
         set
-            modified_at = @modified -- REQ-SYS-3.3
+            modified_at = @modified
             , voided_at = @newValue
         WHERE unique_id = @unique_id
-        and voided_at is null -- REQ-JE-4.6
+        and voided_at is null
         ;
     """
     result {
         let! je = journalEntryHeaderId |> JournalEntryHeader.fetchById context
-        do! je |> confirmFiscalPeriodIsStillOpenBeforeVoiding context // REQ-JE-4.5
-        do! executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne // REQ-JE-4.6
+        do! je |> confirmFiscalPeriodIsStillOpenBeforeVoiding context
+        do! executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
     }
 
-let private insertReason // REQ-JE-4.4
+let private insertReason
     (context: Context)
     (primaryJournalEntryId: JournalEntryHeaderId)
     (secondaryJournalEntryId: JournalEntryHeaderId option)
@@ -80,14 +80,14 @@ let private insertReason // REQ-JE-4.4
         commentText
     |> Result.map ignore
 
-let voidJournalEntry // REQ-JE-4.3
+let voidJournalEntry
     (context: Context)
     (secondaryJournalEntryIdForComment: JournalEntryHeaderId option)
     (commentText: CommentText)
     (journalEntryHeaderId: JournalEntryHeaderId)
     : Result<JournalEntry, AppError> =
     result {
-        do! insertReason context journalEntryHeaderId secondaryJournalEntryIdForComment commentText // REQ-JE-4.4
+        do! insertReason context journalEntryHeaderId secondaryJournalEntryIdForComment commentText
         do!
             journalEntryHeaderId
             |> voidById context

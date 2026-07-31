@@ -26,7 +26,7 @@ let private confirmParentAndChildAccountTypesMatch
                 parentAccountType |> AccountType.toString,
                 childAccountType |> AccountType.toString
             )
-        ) // REQ-AC-2.20
+        )
 
 let private confirmParentAndChildAreDistinct
     (parentId: AccountId option)
@@ -57,9 +57,9 @@ let private validateParentChildRelationship
     | None -> Ok()
     | Some someParentId ->
         result {
-            let! validParent = someParentId |> fetchById context // REQ-AC-2.6,
+            let! validParent = someParentId |> fetchById context
             let parentType = validParent |> accountType
-            do! confirmParentAccountIsActive validParent referenceDate // REQ-AC-2.7
+            do! confirmParentAccountIsActive validParent referenceDate
             do! confirmParentAndChildAccountTypesMatch parentType childType
             do! confirmParentAndChildAreDistinct parentId childId
             return ()
@@ -92,10 +92,10 @@ let constructNewAndSaveToDb
     (reference: AccountExternalReference option)
     : Result<Account, AppError> =
     result {
-        let accountId = AccountId.create() // REQ-AC-1.39, REQ-AC-2.13
+        let accountId = AccountId.create()
         let now = context |> getInitiationInstant
-        let createdAt = now // REQ-SYS-3.2
-        let modifiedAt = now // REQ-SYS-3.2
+        let createdAt = now
+        let modifiedAt = now
         let validAccount =
             Account.create
                 accountId
@@ -111,6 +111,6 @@ let constructNewAndSaveToDb
         let referenceDate = context |> getInitiationInstant |> Calendar.dateFromInstant
         do! validateParentChildRelationship context parentId accountId accountType referenceDate
         do! confirmTypeAndSubtypeAreValid accountType subType
-        do! validAccount |> insertNewToDb context // REQ-AC-2.14
+        do! validAccount |> insertNewToDb context
         return validAccount
     }

@@ -57,7 +57,7 @@ let ``convert AccountId Option to AccountCodeString Option``
             | Some x -> x.ToString()
         let desiredType = "AccountCode string option"
         let childError = e |> AppError.toMessage
-        Error(InterfaceBridgeConversionFailure(originalType, originalValue, desiredType, childError)) // REQ-NGUI-1.5
+        Error(InterfaceBridgeConversionFailure(originalType, originalValue, desiredType, childError))
     | Ok x -> Ok(x |> Option.map(AccountCode.value))
 
 let ``convert AccountCodeString Option to AccountUuidOption``
@@ -76,7 +76,7 @@ let ``convert AccountCodeString Option to AccountUuidOption``
                 | Some x -> x.ToString()
             let desiredType = "Account UUID option"
             let childError = e |> AppError.toMessage
-            InterfaceBridgeConversionFailure(originalType, originalValue, desiredType, childError)) // REQ-NGUI-1.5
+            InterfaceBridgeConversionFailure(originalType, originalValue, desiredType, childError))
         |> Result.map Some
     | None -> Ok None
 
