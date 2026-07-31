@@ -1,4 +1,4 @@
-module Tests.Integrated.Railroad
+module Tests.Helpers.Railroad
 
 open Utilities.AppError
 open Xunit

@@ -1,10 +1,10 @@
-module Tests.Isolated.Model.GenericTestProperties
+module Tests.Helpers.GenericTestProperties
 
 open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.FiscalPeriods
 open Utilities
 open Utilities.AppError
 
-// audit
 // account
 let genericAccountCodeString = "GenCode"
 let genericAccountCode =
@@ -34,4 +34,8 @@ let genericAccountParentId = None
 let genericAccountParentCode = None
 let genericAccountReference = None
 // fiscal period
-let genericFiscalPeriodKey = "2050-01"
+let genericFiscalPeriodKeyString = "2050-01"
+let genericFiscalPeriodKey =
+    genericFiscalPeriodKeyString
+    |> FiscalPeriodKey.fromString
+    |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))

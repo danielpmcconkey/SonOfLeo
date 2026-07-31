@@ -8,7 +8,7 @@ open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.JournalEntries
 open Utilities.AppError
 open Xunit
-open Tests.Integrated
+open Tests.Helpers
 open ModelOrchestrator.AccountActivity
 open System
 open ModelOrchestrator.FetchFilters

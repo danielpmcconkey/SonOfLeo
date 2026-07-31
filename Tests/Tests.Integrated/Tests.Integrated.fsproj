@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Src\Model\Model.fsproj" />
     <ProjectReference Include="..\..\Src\SonOfLeoCli\SonOfLeoCli.fsproj" />
+    <ProjectReference Include="..\Tests.Helpers\Tests.Helpers.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -25,13 +26,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="Railroad.fs" />
-    <Compile Include="_Cleanup.fs" />
-    <Compile Include="GenericTestProperties.fs" />
-    <Compile Include="_TestDataStage.fs" />
-    <Compile Include="InterfaceBridge\_routeResolver.fs" />
     <Compile Include="Model\Ledger\Account.fs" />
     <Compile Include="Model\Ledger\FiscalPeriod.fs" />
+    <Compile Include="SharedTestDataCollection.fs" />
     <Compile Include="SonOfLeoCli\CliExecutor.fs" />
     <Compile Include="SonOfLeoCli\Program.fs" />
     <Content Include="SonOfLeoCli\README.md" />

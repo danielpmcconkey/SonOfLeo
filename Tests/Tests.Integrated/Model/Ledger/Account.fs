@@ -4,9 +4,9 @@ open System
 open DataAccessLayer.DbTransaction
 open Logger.Audit
 open ModelOrchestrator
-open Tests.Integrated
-open Tests.Integrated.GenericTestProperties
-open Tests.Integrated.InterfaceBridge._routeResolver
+open Tests.Helpers
+open Tests.Helpers.GenericTestProperties
+open Tests.Helpers.RouteResolver
 open Utilities
 open Utilities.ResultHelper
 open Xunit
@@ -14,7 +14,7 @@ open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
 open Utilities.AppError
 open Context.Context
-open Tests.Integrated.Railroad
+open Tests.Helpers.Railroad
 
 [<Collection("SharedTestData")>]
 type AccountTests(fixture: TestDataFixture) =

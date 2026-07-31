@@ -1,7 +1,6 @@
 module Tests.Isolated.Model.Ledger.AccountComponent
 
 open System
-open Tests.Isolated.Model.GenericTestProperties
 open Xunit
 open Model.Ledger.Accounts.AccountComponent
 open Utilities

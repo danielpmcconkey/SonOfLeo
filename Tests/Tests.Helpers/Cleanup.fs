@@ -1,4 +1,4 @@
-module Tests.Integrated._Cleanup
+module Tests.Helpers.Cleanup
 
 open System
 open DataAccessLayer.DbTransaction

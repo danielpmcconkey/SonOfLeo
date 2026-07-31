@@ -4,15 +4,16 @@ open DataAccessLayer.DbTransaction
 open InterfaceBridge.Json.Json
 open Logger.Audit
 open Model
-open Tests.Integrated.GenericTestProperties
-open Tests.Integrated.InterfaceBridge._routeResolver
+open Tests.Helpers.EntityFunctions
+open Tests.Helpers
+open Tests.Helpers.RouteResolver
 open Utilities.AppError
 open Utilities.ResultHelper
 open Xunit
 open Model.Ledger.FiscalPeriods
 open Model.Ledger.FiscalPeriods.FiscalPeriod
 open Tests.Integrated
-open Tests.Integrated._Cleanup
+open Tests.Helpers.Cleanup
 open InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
 open Context.Context
 

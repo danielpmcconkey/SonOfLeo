@@ -2,7 +2,7 @@ namespace Tests.Integrated.SonOfLeoCli
 
 open InterfaceBridge.InterfaceContracts.AccountContracts
 open InterfaceBridge.Json.Json
-open Tests.Integrated
+open Tests.Helpers
 open Tests.Integrated.SonOfLeoCli.CliExecutor
 open Utilities.AppError
 open Utilities.ResultHelper

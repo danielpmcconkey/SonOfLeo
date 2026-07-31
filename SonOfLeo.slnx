@@ -12,6 +12,7 @@
   <Folder Name="/Tests/">
     <Project Path="Tests/Tests.Integrated/Tests.Integrated.fsproj" />
     <Project Path="Tests/Tests.Isolated/Tests.Isolated.fsproj" />
+    <Project Path="Tests\Tests.Helpers\Tests.Helpers.fsproj" />
   </Folder>
   <Project Path="DevDataStage/DevDataStage.fsproj" />
 </Solution>

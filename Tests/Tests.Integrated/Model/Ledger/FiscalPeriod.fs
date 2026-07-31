@@ -5,10 +5,10 @@ open DataAccessLayer.DbTransaction
 open Logger.Audit
 open Model.Ledger.FiscalPeriods
 open ModelOrchestrator
-open Tests.Integrated
-open Tests.Integrated.GenericTestProperties
-open Tests.Integrated.InterfaceBridge._routeResolver
-open Tests.Integrated.Railroad
+open Tests.Helpers
+open Tests.Helpers.GenericTestProperties
+open Tests.Helpers.RouteResolver
+open Tests.Helpers.Railroad
 open Utilities.ResultHelper
 open Xunit
 open Utilities.AppError

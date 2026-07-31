@@ -17,10 +17,10 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Src\ModelOrchestrator\ModelOrchestrator.fsproj" />
     <ProjectReference Include="..\..\Src\Model\Model.fsproj" />
+    <ProjectReference Include="..\Tests.Helpers\Tests.Helpers.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="Model\GenericTestProperties.fs" />
     <Compile Include="Model\Ledger\AccountComponent.fs" />
     <Compile Include="Model\Ledger\FiscalPeriod.fs" />
     <Compile Include="Model\Ledger\JournalEntryComponent.fs" />

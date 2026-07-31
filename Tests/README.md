@@ -4,6 +4,19 @@ The single home for test doctrine. `Skills/TestWriter/` is the *procedure* for w
 tests; this is the *standard* they are written to. Each test directory has its own README
 saying what belongs in that layer — read the one for the layer you are working in.
 
+## Three projects
+
+| Project | What it is |
+|---|---|
+| `Tests.Helpers` | Not a test project. The shared library both suites reference: `Railroad.fs`, `Cleanup.fs`, `GenericTestProperties.fs`, `EntityFunctions.fs`, `TestDataStage.fs`, `RouteResolver.fs`. No tests live here. |
+| `Tests.Isolated` | Tests that never touch the database. Run in parallel. |
+| `Tests.Integrated` | Everything that touches the database or the CLI process. Run serially. |
+
+`SharedTestDataCollection.fs` lives in `Tests.Integrated` and can never move to
+`Tests.Helpers`. xUnit reflects over the *test assembly it is executing* to find types
+carrying `[<CollectionDefinition>]`; a definition in a referenced library is never
+discovered. The fixture itself is shared; the two-line collection declaration is not.
+
 ## Hierarchy of testing layers
 
 The various tests are stratified into layers that roughly follow the trajectory of core Model type tests -> user interface tests. The idea is that you test every happy path at each layer, but test every failure point only once, and at the lowest possible layer. Example, if you've already tested that the ModelOrchestrator.AccountBalance.fetchByAccountIdList excludes voided journal entries in its calculations, you should not also test that same concept in the UI functions that call that fetch.
@@ -40,7 +53,7 @@ test, assert, then roll back and dispose in `finally`. Nothing survives the test
 
 **4.** Yes — the function being tested owns its own transaction → **Form 4**.
 It has already committed by the time it returns to you, so rollback is not available. The
-test deletes what it created, by hand, in `finally`, using the `_Cleanup.fs` helpers.
+test deletes what it created, by hand, in `finally`, using the `Cleanup.fs` helpers.
 Capture the ID into a `let mutable idToCleanUp = None` the instant the create succeeds —
 including on the `| Ok _ -> Assert.Fail "expected failure"` arm of a sad-path test. Children
 before parents; the helpers take options so they no-op when nothing was created.
@@ -68,10 +81,13 @@ result {
 |> railroadWrapper
 ```
 
-`railroadWrapper` (`Tests.Integrated.Railroad`) takes the `Result`, returns `unit`, and fails
-the test with `AppError.toMessage` on the error branch. A trailing
-`match railroad with | Ok _ -> () | Error e -> Assert.Fail ...` does the same job, but it is
-the older form and it is easy to forget. Forgetting it is invisible.
+`railroadWrapper` (`Tests.Helpers.Railroad`) takes the `Result`, returns `unit`, and fails
+the test with `AppError.toMessage` on the error branch. Both suites reference
+`Tests.Helpers`, so it is available everywhere — there is no second rule for isolated tests.
+
+A trailing `match railroad with | Ok _ -> () | Error e -> Assert.Fail ...` does the same job
+and still appears in the route tests. It is the older form, it is easy to leave off, and
+leaving it off is invisible. New tests use the wrapper.
 
 ## Assertion shape
 
@@ -87,7 +103,7 @@ the older form and it is easy to forget. Forgetting it is invisible.
 ## Test data strategy
 
 The test database is populated at test execution start by `TestDataFixture`
-(`Tests.Integrated/_TestDataStage.fs`), whose first act is `TRUNCATE … CASCADE` across all
+(`Tests.Helpers/TestDataStage.fs`), whose first act is `TRUNCATE … CASCADE` across all
 ledger tables. This happens whether you run an individual test or the entire test suite.
 
 **The database is left populated when the run ends.** Truncation is setup, not teardown —

@@ -1,4 +1,4 @@
-module Tests.Integrated.InterfaceBridge._routeResolver
+module Tests.Helpers.RouteResolver
 
 open Context.Context
 open DataAccessLayer.DbTransaction

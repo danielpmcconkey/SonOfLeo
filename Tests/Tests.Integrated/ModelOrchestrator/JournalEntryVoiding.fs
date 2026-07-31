@@ -6,12 +6,12 @@ open Model.Ledger.FiscalPeriods
 open Model.Ledger.FiscalPeriods.FiscalPeriod
 open ModelOrchestrator
 open ModelOrchestrator.JournalEntries.JournalEntry
-open Tests.Integrated.GenericTestProperties
-open Tests.Integrated.InterfaceBridge._routeResolver
-open Tests.Integrated.Railroad
+open Tests.Helpers.EntityFunctions
+open Tests.Helpers.RouteResolver
+open Tests.Helpers.Railroad
 open Utilities.ResultHelper
 open Xunit
-open Tests.Integrated
+open Tests.Helpers
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.JournalEntryVoiding

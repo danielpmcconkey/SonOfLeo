@@ -360,9 +360,10 @@ CHECK:
 2. Tests asserting weaker properties than their REQ claims (e.g. "doesn't throw" standing
    in for "returns the specced error").
 3. Active requirements with neither a test nor a Waived-table entry (the two-state rule).
-4. Shared fixture/staging code (GenericTestProperties, _TestDataStage, _Cleanup,
-   CliExecutor): hidden ordering dependencies, cleanup gaps, anything that would make the
-   suites flaky or order-dependent as they grow.
+4. Shared fixture/staging code (the Tests.Helpers project — GenericTestProperties,
+   TestDataStage, Cleanup, EntityFunctions, RouteResolver — plus CliExecutor): hidden
+   ordering dependencies, cleanup gaps, anything that would make the suites flaky or
+   order-dependent as they grow.
 
 DO NOT: run or modify anything. DO NOT flag style.`,
   { label: 'truthfulness:tests', phase: 'Truthfulness', schema: REPORT_SCHEMA }

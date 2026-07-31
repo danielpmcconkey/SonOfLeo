@@ -1,4 +1,4 @@
-namespace Tests.Integrated
+namespace Tests.Helpers
 
 open Context.Context
 open DataAccessLayer.DbTransaction
@@ -9,7 +9,7 @@ open Model.Ledger.Accounts
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator
 open ModelOrchestrator.JournalEntries
-open Tests.Integrated.GenericTestProperties
+open Tests.Helpers.EntityFunctions
 open Utilities.ResultHelper
 open Xunit
 open Model.Ledger.FiscalPeriods

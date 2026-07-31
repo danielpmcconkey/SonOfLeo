@@ -5,11 +5,11 @@ open DataAccessLayer.DbTransaction
 open InterfaceBridge.InterfaceContracts.JournalContracts
 open InterfaceBridge.Json.Json
 open Logger.Audit
-open Tests.Integrated.InterfaceBridge._routeResolver
-open Tests.Integrated.Railroad
+open Tests.Helpers.RouteResolver
+open Tests.Helpers.Railroad
 open Utilities.ResultHelper
 open Xunit
-open Tests.Integrated
+open Tests.Helpers
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open Model.Ledger.FiscalPeriods

@@ -3,7 +3,7 @@ open Context.Context
 open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteScalar
 open Logger.Audit
-open Tests.Integrated
+open Tests.Helpers
 open Utilities.AppError
 
 (* The stage's first act is a TRUNCATE CASCADE over every ledger table. This asks the

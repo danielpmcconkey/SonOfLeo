@@ -9,14 +9,14 @@ open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.JournalEntries.JournalEntry
-open Tests.Integrated.GenericTestProperties
-open Tests.Integrated.InterfaceBridge._routeResolver
+open Tests.Helpers.EntityFunctions
+open Tests.Helpers
+open Tests.Helpers.RouteResolver
 open Utilities.AppError
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
 open Xunit
-open Tests.Integrated
-open Tests.Integrated._Cleanup
+open Tests.Helpers.Cleanup
 open Utilities
 open Context.Context
 

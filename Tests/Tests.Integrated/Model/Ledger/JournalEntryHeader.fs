@@ -4,7 +4,7 @@ open DataAccessLayer.DbTransaction
 open Logger.Audit
 open Utilities.AppError
 open Xunit
-open Tests.Integrated
+open Tests.Helpers
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open Context.Context

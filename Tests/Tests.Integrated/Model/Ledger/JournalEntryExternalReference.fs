@@ -5,11 +5,11 @@ open Context.Context
 open Logger.Audit
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator
-open Tests.Integrated.GenericTestProperties
-open Tests.Integrated.InterfaceBridge._routeResolver
-open Tests.Integrated.Railroad
+open Tests.Helpers.EntityFunctions
+open Tests.Helpers.RouteResolver
+open Tests.Helpers.Railroad
 open Xunit
-open Tests.Integrated
+open Tests.Helpers
 open Model.Ledger.Journaling
 open Utilities.AppError
 

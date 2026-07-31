@@ -6,12 +6,12 @@ open Logger.Audit
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.FiscalPeriods
-open Tests.Integrated.GenericTestProperties
-open Tests.Integrated.InterfaceBridge._routeResolver
-open Tests.Integrated.Railroad
+open Tests.Helpers.EntityFunctions
+open Tests.Helpers.Railroad
+open Tests.Helpers.RouteResolver
 open Utilities.ResultHelper
 open Xunit
-open Tests.Integrated
+open Tests.Helpers
 open ModelOrchestrator.JournalEntries.JournalEntry
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent

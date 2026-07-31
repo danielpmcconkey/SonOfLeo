@@ -4,13 +4,13 @@ open System
 open Context.Context
 open Logger.Audit
 open ModelOrchestrator
-open Tests.Integrated.InterfaceBridge._routeResolver
-open Tests.Integrated.Railroad
+open Tests.Helpers.RouteResolver
+open Tests.Helpers.Railroad
 open Xunit
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
 open Utilities.AppError
-open Tests.Integrated.GenericTestProperties
+open Tests.Helpers.GenericTestProperties
 
 [<Fact>]
 let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew generates UUID`` () =

@@ -1,9 +1,9 @@
 namespace Tests.Integrated.ModelOrchestrator
 
 open Logger.Audit
-open Tests.Integrated
-open Tests.Integrated.InterfaceBridge._routeResolver
-open Tests.Integrated.Railroad
+open Tests.Helpers
+open Tests.Helpers.RouteResolver
+open Tests.Helpers.Railroad
 open Utilities.ResultHelper
 open Xunit
 open Model.Ledger.Accounts

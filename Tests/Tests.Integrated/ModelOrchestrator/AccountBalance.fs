@@ -4,11 +4,11 @@ open DataAccessLayer.DbTransaction
 open Logger.Audit
 open Model
 open Model.Ledger.Journaling.JournalEntryComponent
-open Tests.Integrated.GenericTestProperties
-open Tests.Integrated.Railroad
+open Tests.Helpers.EntityFunctions
+open Tests.Helpers.Railroad
 open Utilities.AppError
 open Xunit
-open Tests.Integrated
+open Tests.Helpers
 open ModelOrchestrator.AccountBalance
 open Context.Context
 

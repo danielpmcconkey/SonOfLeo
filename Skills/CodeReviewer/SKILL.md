@@ -100,7 +100,7 @@ violated before presenting:
 - Every new test asserts domain **values**, not just counts, and sad-path tests match the
   typed error case with both escape arms.
 - Every entity a test creates carries a unique, test-identifying name or code and is disposed
-  of by the cleanup obligation of its form — rollback for form 3, `_Cleanup` helpers in
+  of by the cleanup obligation of its form — rollback for form 3, `Cleanup.fs` helpers in
   `finally` for forms 4 and 5.
 
 ## Output contract

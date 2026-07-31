@@ -5,13 +5,13 @@ open Context.Context
 open Logger.Audit
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator
-open Tests.Integrated.InterfaceBridge._routeResolver
-open Tests.Integrated.Railroad
+open Tests.Helpers.RouteResolver
+open Tests.Helpers.Railroad
 open Utilities.AppError
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
 open Xunit
-open Tests.Integrated
+open Tests.Helpers
 open Model.Ledger.Journaling
 
 [<Collection("SharedTestData")>]
