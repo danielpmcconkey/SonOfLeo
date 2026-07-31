@@ -22,7 +22,7 @@ open Logger.Audit
 let private postNew payload _ : Result<string, AppError> =
     runRouteAndAutoCompleteTransaction JournalEntryPostNew (fun context ->
         result {
-            let! input = Json.fromJson<JournalEntryInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+            let! input = Json.fromJson<JournalEntryInput> payload
             let! description = input.header.description |> JournalEntryDescription.create
             let! source = input.header.source |> ``convert JeSourceString Option to JeSource Option``
             let! entryDate = input.header.entryDate |> EntryDate.create context
@@ -38,41 +38,41 @@ let private postNew payload _ : Result<string, AppError> =
                 JournalEntry.constructNewAndSaveToDb context description source entryDate lines references comments
             let! returnVal = ``convert JournalEntry to JournalEntryReturn`` context newJournalEntry
             return! Json.toJson<JournalEntryReturn> returnVal
-        }) // REQ-NGUI-2.4, REQ-NGUI-3.5
+        })
 
 let private fetchById payload _ =
     let context = create NoTransaction FetchOnly
     result {
-        let! input = Json.fromJson<JournalEntryFetchByIdInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! input = Json.fromJson<JournalEntryFetchByIdInput> payload
         let! journalEntry = input.id |> JournalEntryHeaderId.fromGuid |> JournalEntry.fetchById context
         let! returnVal = ``convert JournalEntry to JournalEntryReturn`` context journalEntry
         return! Json.toJson<JournalEntryReturn> returnVal
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
-let private fetchByPeriod payload _ = // REQ-JE-3.3
+let private fetchByPeriod payload _ =
     let context = create NoTransaction FetchOnly
     result {
-        let! input = Json.fromJson<JournalEntryFetchByPeriodInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! input = Json.fromJson<JournalEntryFetchByPeriodInput> payload
         let! fiscalPeriod = input.periodKey |> ``convert [FiscalPeriodKeyString] to FiscalPeriod`` context
         let! model = fiscalPeriod |> JournalEntry.fetchByPeriod context
         let! returnVal = model |> ``convert JournalEntry list to JournalEntryReturn list`` context
         return! Json.toJson<JournalEntryReturn list> returnVal
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
-let private fetchLinesByAccount payload _ = // REQ-JE-3.4
+let private fetchLinesByAccount payload _ =
     let context = create NoTransaction FetchOnly
     result {
-        let! input = Json.fromJson<JournalEntryFetchLinesByAccountInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! input = Json.fromJson<JournalEntryFetchLinesByAccountInput> payload
         let! id = input.accountCode |> ``convert AccountCodeString to Id`` context
         let! model = id |> JournalEntryLine.fetchByAccountId context input.nonVoidedOnly
         let! returnVal = model |> ``convert JournalEntryLine list to JournalEntryLineReturn list`` context
         return! Json.toJson<JournalEntryLineReturn list> returnVal
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let private fetchByExternalReference payload _ =
     let context = create NoTransaction FetchOnly
     result {
-        let! input = Json.fromJson<JournalEntryFetchByExternalReferenceInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! input = Json.fromJson<JournalEntryFetchByExternalReferenceInput> payload
         let! fi = input.fi |> convertOptionToDesiredTypeWithFallibleConverter JournalRefFinancialInstitution.create
         let! reference =
             input.reference
@@ -80,33 +80,33 @@ let private fetchByExternalReference payload _ =
         let! model = JournalEntry.fetchByReference context fi reference
         let! returnVal = model |> ``convert JournalEntry list to JournalEntryReturn list`` context
         return! Json.toJson<JournalEntryReturn list> returnVal
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let private fetchByDateRange payload _ =
     let context = create NoTransaction FetchOnly
     result {
-        let! input = Json.fromJson<JournalEntryFetchByDateRangeInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! input = Json.fromJson<JournalEntryFetchByDateRangeInput> payload
         let! model = JournalEntry.fetchByDateRange context input.beginDate input.endDateInclusive
         let! returnVal = model |> ``convert JournalEntry list to JournalEntryReturn list`` context
         return! Json.toJson<JournalEntryReturn list> returnVal
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let private voidJe payload _ =
     runRouteAndAutoCompleteTransaction JournalEntryVoid (fun context ->
         result {
-            let! input = Json.fromJson<JournalEntryVoidInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+            let! input = Json.fromJson<JournalEntryVoidInput> payload
             let headerId = input.id |> JournalEntryHeaderId.fromGuid
             let! secondaryJournalEntryIdForComment, commentText =
                 input.reason |> ``convert [JournalEntryCommentInput] to [JournalEntryCommentPrimitives]``
             let! model = headerId |> voidJournalEntry context secondaryJournalEntryIdForComment commentText
             let! returnVal = ``convert JournalEntry to JournalEntryReturn`` context model
             return! Json.toJson<JournalEntryReturn> returnVal
-        }) // REQ-NGUI-2.4, REQ-NGUI-3.5
+        })
 
 let private updateExternalReference payload _ =
     let context = create NoTransaction JournalEntryUpdateExternalReference
     result {
-        let! input = Json.fromJson<JournalEntryUpdateExternalReferenceInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! input = Json.fromJson<JournalEntryUpdateExternalReferenceInput> payload
         let referenceId = input.id |> JournalEntryExternalReferenceId.fromGuid
         let! fi = input.fi |> convertOptionToDesiredTypeWithFallibleConverter JournalRefFinancialInstitution.create
         let fiFieldUpdate =
@@ -128,24 +128,24 @@ let private updateExternalReference payload _ =
                 referenceFieldUpdate
         let returnVal = ``convert JournalEntryExternalReference to JournalEntryExternalReferenceReturn`` model
         return! Json.toJson<JournalEntryExternalReferenceReturn> returnVal
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
-let private addExternalReference payload _ = // REQ-JE-4.10
+let private addExternalReference payload _ =
     let context = create NoTransaction JournalEntryAddExternalReference
     result {
-        let! input = Json.fromJson<JournalEntryAddExternalReferenceInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! input = Json.fromJson<JournalEntryAddExternalReferenceInput> payload
         let headerId = input.journalEntryId |> JournalEntryHeaderId.fromGuid
         let! fi = input.reference.financialInstitution |> JournalRefFinancialInstitution.create
         let! reference = input.reference.referenceText |> JournalExternalReferenceText.create
         let! model = JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb context headerId fi reference
         let returnVal = ``convert JournalEntryExternalReference to JournalEntryExternalReferenceReturn`` model
         return! Json.toJson<JournalEntryExternalReferenceReturn> returnVal
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let private addComment payload _ =
     let context = create NoTransaction JournalEntryAddComment
     result {
-        let! input = Json.fromJson<JournalEntryAddCommentInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! input = Json.fromJson<JournalEntryAddCommentInput> payload
         let headerId = input.journalEntryId |> JournalEntryHeaderId.fromGuid
         let secondaryJournalEntryId =
             input.comment.secondaryJournalEntryId |> Option.map JournalEntryHeaderId.fromGuid
@@ -158,12 +158,12 @@ let private addComment payload _ =
                 commentText
         let returnVal = ``convert JournalEntryComment to JournalEntryCommentReturn`` model
         return! Json.toJson<JournalEntryCommentReturn> returnVal
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let private updateComment payload _ =
     let context = create NoTransaction JournalEntryUpdateComment
     result {
-        let! input = Json.fromJson<JournalEntryUpdateCommentInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! input = Json.fromJson<JournalEntryUpdateCommentInput> payload
         let journalEntryCommentId = input.id |> JournalEntryCommentId.fromGuid
         let secondaryJournalEntryId =
             input.secondaryJournalEntryId
@@ -177,7 +177,7 @@ let private updateComment payload _ =
                 secondaryJournalEntryId
         let returnVal = ``convert JournalEntryComment to JournalEntryCommentReturn`` model
         return! Json.toJson<JournalEntryCommentReturn> returnVal
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let journalEntryDomainCommandRoutes =
     [ { domain = "JournalEntry"

@@ -18,7 +18,7 @@ open Context
 let private accountCreate payload _ =
     let context = Context.create NoTransaction AccountCreate
     result {
-        let! accountCreateInput = Json.fromJson<AccountCreateInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! accountCreateInput = Json.fromJson<AccountCreateInput> payload
         let! code = accountCreateInput.code |> AccountCode.create
         let! name = accountCreateInput.name |> AccountName.create
         let! accountType = accountCreateInput.accountTypeSt |> AccountType.fromString
@@ -48,53 +48,53 @@ let private accountCreate payload _ =
                 reference
         let! returnAccount = account |> ``convert Account to AccountReturn`` context
         return! Json.toJson<AccountReturn> returnAccount
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let private accountDeactivate payload _ =
     let context = Context.create NoTransaction AccountDeactivate
     result {
-        let! accountDeactivationInput = Json.fromJson<AccountDeactivationInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! accountDeactivationInput = Json.fromJson<AccountDeactivationInput> payload
         let! account = accountDeactivationInput.code |> ``convert AccountCodeString to Account`` context
         let! deactivatedAccount =
             account |> AccountDeactivation.deactivateAccount context accountDeactivationInput.activeEnd
         let! returnAccount = ``convert Account to AccountReturn`` context deactivatedAccount
         return! Json.toJson<AccountReturn> returnAccount
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let private accountUpdateName payload _ =
     let context = Context.create NoTransaction AccountUpdateName
     result {
-        let! accountUpdate = Json.fromJson<AccountUpdateNameInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! accountUpdate = Json.fromJson<AccountUpdateNameInput> payload
         let! id = accountUpdate.code |> ``convert AccountCodeString to Id`` context
         let! updatedAccount = updateAccountNameById context id accountUpdate.newName
         let! returnAccount = ``convert Account to AccountReturn`` context updatedAccount
         return! Json.toJson<AccountReturn> returnAccount
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let private accountUpdateExternalReference payload _ =
     let context = Context.create NoTransaction AccountUpdateExtReference
     result {
-        let! accountUpdate = Json.fromJson<AccountUpdateExternalReferenceInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! accountUpdate = Json.fromJson<AccountUpdateExternalReferenceInput> payload
         let! id = accountUpdate.code |> ``convert AccountCodeString to Id`` context
         let! updatedAccount = updateExternalReferenceById context id accountUpdate.newReference
         let! returnAccount = ``convert Account to AccountReturn`` context updatedAccount
         return! Json.toJson<AccountReturn> returnAccount
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let private accountFetchByCode payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
-        let! accountFetch = Json.fromJson<AccountFetchByCodeInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! accountFetch = Json.fromJson<AccountFetchByCodeInput> payload
         let! id = accountFetch.code |> ``convert AccountCodeString to Id`` context
         let! account = fetchById context id
         let! returnAccount = ``convert Account to AccountReturn`` context account
         return! Json.toJson<AccountReturn> returnAccount
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let private accountFetchByParentCode payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
-        let! accountFetch = Json.fromJson<AccountFetchByParentCodeInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! accountFetch = Json.fromJson<AccountFetchByParentCodeInput> payload
         let! parentId = accountFetch.parentCode |> ``convert AccountCodeString to Id`` context
         let! accounts = parentId |> fetchByParentId context
         let! returnAccounts =
@@ -102,12 +102,12 @@ let private accountFetchByParentCode payload _ =
             |> List.map(``convert Account to AccountReturn`` context)
             |> convertListOfResultsToResultsList
         return! Json.toJson<AccountReturn list> returnAccounts
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let private accountFetchByAccountType payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
-        let! accountFetch = Json.fromJson<AccountFetchByAccountTypeInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! accountFetch = Json.fromJson<AccountFetchByAccountTypeInput> payload
         let! validType = AccountType.fromString accountFetch.accountTypeSt
         let! accounts = fetchByAccountType context validType
         let! returnAccounts =
@@ -115,35 +115,35 @@ let private accountFetchByAccountType payload _ =
             |> List.map(``convert Account to AccountReturn`` context)
             |> convertListOfResultsToResultsList
         return! Json.toJson<AccountReturn list> returnAccounts
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let private accountFetchAll payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
-        let! accountFetch = Json.fromJson<AccountFetchAllInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! accountFetch = Json.fromJson<AccountFetchAllInput> payload
         let! accounts = fetchAll context accountFetch.activeOnly
         let! returnAccounts =
             accounts
             |> List.map(``convert Account to AccountReturn`` context)
             |> convertListOfResultsToResultsList
         return! Json.toJson<AccountReturn list> returnAccounts
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let private accountActivityFetch payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
-        let! input = Json.fromJson<AccountActivityFetchInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! input = Json.fromJson<AccountActivityFetchInput> payload
         let! filter = input.filter |> ``convert AccountActivityFilterInput to AccountActivityFilter`` context
         let! fetched = fetchFiltered context filter input.sort
         let! returnList = fetched |> ``convert AccountActivity List to AccountActivityReturn List`` context
         return! returnList |> Json.toJson<AccountActivityReturn list>
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
-let private accountBalancesFetch payload _ = // REQ-JE-3.6
+let private accountBalancesFetch payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
-        let! input = Json.fromJson<AccountBalanceFetchByAccountListInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
-        let! accountList = input.codes |> ``convert AccountCodeString List to AccountId List`` context // REQ-NGUI-1.5
+        let! input = Json.fromJson<AccountBalanceFetchByAccountListInput> payload
+        let! accountList = input.codes |> ``convert AccountCodeString List to AccountId List`` context
         let! accountBalances = AccountBalance.fetchByAccountIdList context accountList input.asOf
         let! returnList =
             accountBalances
@@ -151,7 +151,7 @@ let private accountBalancesFetch payload _ = // REQ-JE-3.6
                 accountBalance |> ``convert AccountBalance to AccountBalanceReturn`` context)
             |> convertListOfResultsToResultsList
         return! returnList |> Json.toJson<AccountBalanceReturn list>
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let accountDomainCommandRoutes: CommandRoute list =
     [

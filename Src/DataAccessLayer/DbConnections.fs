@@ -1,7 +1,7 @@
 module DataAccessLayer.DbConnections
 
 open System
-open Npgsql // REQ-DAL-3.1
+open Npgsql
 open Microsoft.Extensions.Configuration
 open Utilities.ResultHelper
 open Utilities.AppError

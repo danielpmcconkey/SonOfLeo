@@ -15,51 +15,51 @@ open Context
 let private create payload _ =
     let context = Context.create NoTransaction FiscalPeriodCreate
     result {
-        let! input = Json.fromJson<FiscalPeriodInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! input = Json.fromJson<FiscalPeriodInput> payload
         let! fiscalPeriodKey = input.periodKey |> FiscalPeriodKey.fromString
         let! model = constructNewAndSaveToDb context fiscalPeriodKey
         let returnVal = ``convert FiscalPeriod to FiscalPeriodReturn`` model
         return! Json.toJson<FiscalPeriodReturn> returnVal
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
-let private fetch payload _ = // REQ-FP-3.2
+let private fetch payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
-        let! input = Json.fromJson<FiscalPeriodInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! input = Json.fromJson<FiscalPeriodInput> payload
         let! id = input.periodKey |> ``convert FiscalPeriodKeyString to FiscalPeriodId`` context
         let! model = id |> fetchById context
         let returnVal = ``convert FiscalPeriod to FiscalPeriodReturn`` model
         return! Json.toJson<FiscalPeriodReturn> returnVal
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let private fetchAll payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
-        let! input = Json.fromJson<FiscalPeriodFetchAllInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! input = Json.fromJson<FiscalPeriodFetchAllInput> payload
         let! models = fetchAll context input.openOnly
         let returnVal = models |> List.map ``convert FiscalPeriod to FiscalPeriodReturn``
         return! Json.toJson<FiscalPeriodReturn list> returnVal
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let private close payload _ =
     let context = Context.create NoTransaction FiscalPeriodClose
     result {
-        let! input = Json.fromJson<FiscalPeriodInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! input = Json.fromJson<FiscalPeriodInput> payload
         let! id = input.periodKey |> ``convert FiscalPeriodKeyString to FiscalPeriodId`` context
         let! model = id |> closeFiscalPeriod context
         let returnVal = ``convert FiscalPeriod to FiscalPeriodReturn`` model
         return! Json.toJson<FiscalPeriodReturn> returnVal
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let private reopen payload _ =
     let context = Context.create NoTransaction FiscalPeriodReopen
     result {
-        let! input = Json.fromJson<FiscalPeriodInput> payload // REQ-NGUI-2.4, REQ-NGUI-3.5
+        let! input = Json.fromJson<FiscalPeriodInput> payload
         let! id = input.periodKey |> ``convert FiscalPeriodKeyString to FiscalPeriodId`` context
         let! model = id |> reopenFiscalPeriod context
         let returnVal = ``convert FiscalPeriod to FiscalPeriodReturn`` model
         return! Json.toJson<FiscalPeriodReturn> returnVal
-    } // REQ-NGUI-2.4, REQ-NGUI-3.5
+    }
 
 let fiscalPeriodDomainCommandRoutes =
     [
