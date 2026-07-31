@@ -37,11 +37,18 @@ Never skip phase 1.
    several — happy path, boundary, error cases.
 6. For each case, decide its **form** (`Tests/README.md`) before writing a line. The form
    determines the project, the class-vs-module shape, and the cleanup obligation.
-7. Produce stubs: `[<Fact>]`, backtick name carrying the REQ tag, body of
+7. **Decide what state each test needs to already exist.** If a test needs an entity in a
+   particular state before it can exercise the behavior under test, that entity belongs in
+   the fixture — not in the test. The only entity a test creates is the one whose creation
+   *is* the behavior being tested. Ask what *archetype* is missing (a closed account, a
+   comment already carrying a secondary link), not what row this one test wants.
+8. Produce stubs: `[<Fact>]`, backtick name carrying the REQ tag, body of
    `Assert.Fail "not implemented"`.
-8. For any REQ that appears untestable, propose a waiver with rationale. Flag it for Dan —
+9. For any REQ that appears untestable, propose a waiver with rationale. Flag it for Dan —
    never add to the waived table without explicit sign-off.
-9. Present the stubs to Dan for review before proceeding.
+10. Present the stubs to Dan for review before proceeding — **and with them, any fixture
+    archetype step 7 identified as missing.** A fixture addition is a change to shared
+    state every other test reads; it gets reviewed before it gets written, not after.
 
 Integrated stubs are class members:
 ```fsharp
