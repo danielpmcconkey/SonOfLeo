@@ -14,7 +14,9 @@ cd "$REPO_ROOT"
 
 ID_RE='REQ-[A-Z]+-[0-9]+(\.[0-9]+)*'
 SPEC_FILES=(Specs/Behavioral/*.md)
-CODE_DIRS=(Src DbMigrations)
+# Source and migrations carry no REQ annotations (retired 2026-07-31 — see
+# CompoundedLearnings/articles/architecture/no-req-annotations-in-source.md). Tests are
+# the only destination, so they are the only thing scanned.
 TEST_DIRS=(Tests)
 
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
@@ -38,22 +40,20 @@ section_ids "Withdrawn"           > "$tmp/withdrawn"
 section_ids "Waived from testing" > "$tmp/waived"
 
 # ---- scan destinations ------------------------------------------------------
-grep -rhoE "$ID_RE" "${CODE_DIRS[@]}" 2>/dev/null | sort > "$tmp/code_all" || true
 grep -rhoE "$ID_RE" "${TEST_DIRS[@]}" 2>/dev/null | sort > "$tmp/test_all" || true
-sort -u "$tmp/code_all" > "$tmp/code_refs"
 sort -u "$tmp/test_all" > "$tmp/test_refs"
-sort -u "$tmp/code_refs" "$tmp/test_refs" > "$tmp/all_refs"
+cp "$tmp/test_refs" "$tmp/all_refs"
 
 # ---- invariant 1: no phantoms (HARD FAIL) -----------------------------------
 comm -23 "$tmp/all_refs" "$tmp/active" > "$tmp/phantoms"
 comm -12 "$tmp/phantoms" "$tmp/withdrawn" > "$tmp/ph_withdrawn"
 comm -23 "$tmp/phantoms" "$tmp/withdrawn" > "$tmp/ph_unknown"
 
-echo "=== Invariant 1: phantom references (code/tests -> nonexistent or withdrawn requirement) ==="
+echo "=== Invariant 1: phantom references (tests -> nonexistent or withdrawn requirement) ==="
 if [[ -s "$tmp/phantoms" ]]; then
     show_refs() {  # exact-ID match: not followed by another digit or sub-number
         local esc; esc=$(sed 's/\./\\./g' <<< "$1")
-        grep -rnE "${esc}([^.0-9]|\$)" "${CODE_DIRS[@]}" "${TEST_DIRS[@]}" 2>/dev/null | sed 's/^/    /'
+        grep -rnE "${esc}([^.0-9]|\$)" "${TEST_DIRS[@]}" 2>/dev/null | sed 's/^/    /'
     }
     while read -r id; do
         echo "WITHDRAWN: $id is referenced but withdrawn:"
@@ -86,20 +86,11 @@ if [[ -s "$tmp/stale_waivers" ]]; then
     cat "$tmp/stale_waivers"
 fi
 
-# ---- invariant 3: unimplemented (report only) ---------------------------------
+# ---- invariant 3: bullshit-sniffer feed ---------------------------------------
+# (the old invariant 3 — active requirements with no code annotation — was retired
+#  2026-07-31 along with source annotations themselves)
 echo ""
-echo "=== Invariant 3: active requirements with no code annotation (spec precedes code; FYI) ==="
-comm -23 "$tmp/active" "$tmp/code_refs" > "$tmp/unimplemented"
-if [[ -s "$tmp/unimplemented" ]]; then
-    cat "$tmp/unimplemented"
-    echo "($(wc -l < "$tmp/unimplemented") of $(wc -l < "$tmp/active") active requirements)"
-else
-    echo "clean"
-fi
-
-# ---- invariant 4: bullshit-sniffer feed ---------------------------------------
-echo ""
-echo "=== Invariant 4: test annotations per requirement, descending ==="
+echo "=== Invariant 3: test annotations per requirement, descending ==="
 if [[ -s "$tmp/test_all" ]]; then
     uniq -c "$tmp/test_all" | sort -rn
 else

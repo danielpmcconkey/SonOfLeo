@@ -2,7 +2,9 @@
 
 **Source:** Audit 2026-07-06a — ML-6/ORCH-4 overrules, skill improvement items #56a, #72a
 
-Before reporting that a requirement's enforcement or annotation is missing, grep the full repo for the REQ ID. Before citing a requirement as justification for a finding, quote the relevant text and verify the finding matches what the requirement actually says.
+Before reporting that a requirement's enforcement is missing, grep the full repo for the REQ ID. Before citing a requirement as justification for a finding, quote the relevant text and verify the finding matches what the requirement actually says.
+
+**Partly superseded (2026-07-31).** Source and migrations no longer carry REQ annotations, so "this requirement is unannotated" is not a defect and is never a finding — see [[no-req-annotations-in-source]] (`../architecture/no-req-annotations-in-source.md`). The examples below predate that decision and describe annotations as though they were load-bearing. The rule they teach — look before you claim — is unchanged; only the annotation half is void.
 
 ## What went wrong
 
@@ -12,6 +14,7 @@ Before reporting that a requirement's enforcement or annotation is missing, grep
 
 ## The rule
 
-1. Grep `REQ-{ID}` across the entire repo before claiming it's unannotated
+1. Grep `REQ-{ID}` across `Tests/` before claiming a requirement is unverified
 2. Read the requirement text before citing it as justification
 3. If the requirement says something different from what your finding assumes, the finding is wrong
+4. Never raise a missing source annotation as a finding — there is no such defect

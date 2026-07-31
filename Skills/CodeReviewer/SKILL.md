@@ -86,7 +86,9 @@ the difference and eliminate it.** In particular:
 - Parameter order: context first, subject last (`Src/README.md`).
 - Visibility: private by default; a function whose analogs elsewhere are private must be
   private (`Src/README.md`).
-- Comments: REQ tags, `///` contracts, `(* *)` rationale. No narration.
+- Comments: `///` contracts, `(* *)` rationale. No narration, and **no REQ annotations** —
+  they were retired 2026-07-31
+  (`CompoundedLearnings/articles/architecture/no-req-annotations-in-source.md`).
 - No `match` expression as a direct item in a list literal. Build the item as a pipeline
   expression instead — `FieldUpdate.mapNoChangeToOptionWithConversion` is there for exactly
   this in SET-clause builders.

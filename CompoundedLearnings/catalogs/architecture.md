@@ -9,3 +9,4 @@ Settled structural decisions for SonOfLeo — what was decided, why, and what no
 | Debug/release access | `articles/architecture/debug-release-access.md` | Configuring build modes or database connection strings |
 | Type taxonomy | `articles/architecture/type-taxonomy.md` | Creating a new type and deciding what category it belongs to |
 | Container build discipline | `articles/architecture/container-build-discipline.md` | Running dotnet build inside the Docker container |
+| No REQ annotations in source | `articles/architecture/no-req-annotations-in-source.md` | You're about to add a `// REQ-` comment to `.fs` or `.sql`, report a missing source annotation as a finding, or trust one you found in the code |
