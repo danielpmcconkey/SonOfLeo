@@ -468,7 +468,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     [<InlineData("commentEmpty", "JournalEntryCommentIsEmpty")>]
     [<InlineData("commentTooLong", "JournalEntryCommentTooLong")>]
     [<InlineData("sameIds", "JournalEntryCommentPrimaryAndSecondaryIdsAreSame")>]
-    [<InlineData("bogusId", "JournalEntryCommentPrimaryJeHeaderIdNotFound")>]
+    [<InlineData("bogusId", "JournalEntryHeaderIdDoesntExist")>]
     [<InlineData("bogusSecondary", "JournalEntryCommentSecondaryJeHeaderIdNotFound")>]
     [<InlineData("voidedJe", "JournalEntryVoidingNoOp")>]
     [<InlineData("closedPeriod", "JournalEntryVoidingFiscalPeriodIsClosed")>]
