@@ -498,7 +498,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
             let! payload = voidInput |> toJson<JournalEntryVoidInput>
             do!
                 match routeUiCommandForTesting "JournalEntry" "Void" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Ok _ -> Error(TestingError "Expected failure; returned success. This probably caused other tests to fail")
                 | Error e ->
                     let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
                     if caseName = expectedError then Ok()
