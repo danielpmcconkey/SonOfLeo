@@ -19,37 +19,57 @@ adding error cases at all.
 | Accidental field collisions | 5 | Yes |
 | Relational / joint-condition collisions | 7 | Judgment call — may be correct as-is |
 | Operation attribution (multi-purpose contracts) | 4 | Yes |
-| **List-position loss** | **11 fields** | **No. Structurally impossible.** |
+| List-position loss | 11 fields | Not needed — see below |
 
 **Narrow reading** — only the accidental collisions matching Dan's `code` vs
 `parentCode` example: **5 new cases.**
 **Broad reading** — everything above except list position: **~18 new cases.**
-Neither number addresses list position.
 
-## Why list position settles the case-vs-payload question
+## List position — ruled out by Dan, 2026-08-01
 
-`Src/Utilities/ResultHelper.fs:15` — `convertListOfResultsToResultsList` folds a
-`Result list` and returns the first `Error`. The index is discarded. Eleven fields
-across four lists depend on it:
+An earlier draft of this document argued that list-position loss forced a payload-based
+design, on the grounds that an element index is an unbounded integer no set of DU cases
+can express. **That argument was wrong and is withdrawn.** Two reasons, both Dan's.
 
-- `JournalEntryInput.lines[]` — accountCode, amount, lineType, memo
-- `JournalEntryInput.externalReferences[]` — financialInstitution, referenceText
-- `JournalEntryInput.comments[]` — secondaryJournalEntryId, commentText
-- `AccountBalanceFetchByAccountListInput.codes[]`
+First, the error payloads already carry the offending value.
+`JournalEntryLineMemoTooLong of string * int` renders as "Journal Entry LineMemo cannot
+exceed 500 characters. Provided string is …". The value identifies the element without a
+position.
 
-For these, the field identity is *already* distinct. `JournalEntryLineMemoTooLong` is
-unambiguous about which field failed. What is missing is **which element** — and an
-element index is an unbounded integer. There is no finite set of DU cases that
-expresses "line 3." A case-per-position design is not merely expensive, it is
-impossible.
+Second, and more important: **the consumer of this application is Hobson, an agent
+holding the payload it just submitted.** It reads the message, looks at its own request,
+and sees which line was missing an account code. It does not need the system to tell it
+a position it can already derive. This is not a form UI that must highlight a row.
 
-So the position payload has to exist regardless of how the field-collision question is
-settled. That does not automatically decide field granularity too, but it does mean the
-codebase acquires an error-context payload either way, and the marginal cost of putting
-the field in it is near zero.
+Residue, acknowledged and accepted: the `IsEmpty` family carries a definitionally blank
+value, so it has no discriminating power — `AccountCodeIsEmpty ""` renders "Provided
+code is ." That affects six list fields (`lines[].accountCode`, `lines[].memo`, both
+external-reference fields, `comments[].commentText`, and the balance-fetch `codes`
+list). Dan's position is that the caller re-reads its own payload and finds the omission
+in seconds. Revisit only if batch staging import (backlog #93a) makes payloads large
+enough that eyeballing stops working.
 
-Corollary the multi-fail theories don't currently see: both existing theories only ever
+Note for whoever writes the Phase 2 tests: both existing multi-fail theories only ever
 place the bad value in element 0.
+
+## Case-per-field vs payload — recommendation, 2026-08-01
+
+**Case-per-field. 5 new cases narrow, ~18 broad.**
+
+BD initially recommended payload on two arguments; Dan killed both. Position does not
+need to be carried (above), and structural field-binding is not needed because the
+consumer is an agent, not a form. The surviving argument — a test proving the *right*
+field was validated — is served equally well by either mechanism, so it does not break
+the tie.
+
+What breaks it in favor of cases: if the reader is an LLM parsing `toMessage` prose,
+that sentence is the API. A distinct case earns a hand-written "Parent account code
+cannot be empty." A shared case with a field payload produces a templated sentence with
+a field name bolted on. Bespoke wording is worth more to this consumer than structured
+data it does not need.
+
+Cost accepted: `toMessage` grows by one arm per new case, and it is exhaustive with no
+wildcard (enforced by `Checks/check-tomessage-wildcard.sh`).
 
 ## Category 1 — accidental field collisions (5)
 
