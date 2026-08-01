@@ -1,11 +1,19 @@
 # Release-Candidate Merge Flow
 
 **Source:** Dan's directive, session 2026-07-31, after BD verified three task branches
-individually and then noticed their combination had never been built.
+individually and then noticed their combination had never been built. Restated and ruled
+in full by Dan 2026-08-01.
 
-One task, one branch. At the end of a session BD assembles the task branches into a
-release-candidate branch, verifies *that*, and pushes it. Dan verifies the RC and merges it
-to `main`. BD never touches `main`.
+## The rule
+
+- **F# code goes in a branch.** One branch per task, and tasks stay narrowly scoped.
+- **Dan approves every branch.** No exceptions.
+- **One branch in a session:** Dan approves it and it merges to `main` directly. No RC.
+- **Multiple branches in a session:** they merge into an RC branch first, then to `main`.
+- **Dan runs the tests before merging to `main`.**
+- **Dan does the merge.** BD never touches `main` with code.
+- **Notes are not code.** Changes confined to `BdsNotes/` commit straight to `main` — no
+  branch, no approval gate, no RC. Swapping notes back and forth is not worth a merge.
 
 ## What works
 
@@ -14,8 +22,12 @@ to `main`. BD never touches `main`.
   second commit on this one.
 - **BD verifies every branch before handing it over** — `Checks/run-all.sh`, build, test.
   That is BD's "never present red" obligation, not a substitute for Dan's final gate.
-- **Assemble the RC from `main`, then re-run everything on it.** Name it `rc-<date>`. The
-  task branches stay pushed, so Dan can still read each one on its own.
+- **Assemble the RC from `main`, then re-run everything on it** — but only when there is
+  **more than one** task branch. Name it `rc-<date>`. The task branches stay pushed, so Dan
+  can still read each one on its own.
+- **One task branch means no RC.** Dan merges that branch directly. An RC built from a
+  single branch fast-forwards to the identical commit, so it is a second name for a tree
+  that was already verified — ceremony that looks like a gate.
 - **Announce before the final verification run.** BD's container and Dan's host both point
   at `Host=172.18.0.1 / sonofleo_test`, and `TestDataFixture` opens with
   `TRUNCATE ... CASCADE`. Two simultaneous integrated runs corrupt each other; whoever is
