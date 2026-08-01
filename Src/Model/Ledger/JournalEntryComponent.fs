@@ -39,9 +39,9 @@ module JournalRefFinancialInstitution =
     let create (raw: string) : Result<JournalRefFinancialInstitution, AppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
-            Error(JournalEntryExternalReferenceIsEmpty raw)
+            Error(JournalRefFinancialInstitutionIsEmpty raw)
         elif trimmed.Length > max then
-            Error(JournalEntryExternalReferenceTooLong(raw, max))
+            Error(JournalRefFinancialInstitutionTooLong(raw, max))
         else
             Ok(JournalRefFinancialInstitution trimmed)
 

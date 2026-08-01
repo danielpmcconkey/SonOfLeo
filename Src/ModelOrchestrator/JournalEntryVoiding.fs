@@ -62,7 +62,14 @@ let private voidById
         ;
     """
     result {
-        let! je = journalEntryHeaderId |> JournalEntryHeader.fetchById context
+        let! je =
+            match journalEntryHeaderId |> JournalEntryHeader.fetchById context with
+            | Ok x -> Ok x
+            | Error (DalResultantRowsDidntMatchExpectation(expected, actual)) ->
+                if actual = 0
+                then Error (JournalEntryHeaderIdDoesntExist uuid)
+                else Error (DalResultantRowsDidntMatchExpectation(expected, actual))
+            | Error e -> Error e
         do! je |> confirmFiscalPeriodIsStillOpenBeforeVoiding context
         do! executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
     }

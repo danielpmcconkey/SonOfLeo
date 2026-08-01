@@ -12,15 +12,10 @@ let ``convert FiscalPeriodKeyString to FiscalPeriodId``
     (context: Context)
     (key: string)
     : Result<FiscalPeriodId, AppError> =
-    key
-    |> LookupCache.fiscalPeriodKeyToId.fetch context
-    |> Result.mapError(fun e ->
-        let originalType = key.GetType().Name
-        let originalValue = key
-        let desiredType = "FiscalPeriodId"
-        let childError = e |> AppError.toMessage
-        InterfaceBridgeConversionFailure(originalType, originalValue, desiredType, childError))
-    |> Result.map(FiscalPeriodId.fromGuid)
+    match key |> LookupCache.fiscalPeriodKeyToId.fetch context with
+    | Ok x -> x |> FiscalPeriodId.fromGuid |> Ok
+    | Error (DalResultantRowsDidntMatchExpectation _) -> Error (FiscalPeriodNoPeriodMatchingKey key)
+    | Error e -> Error e
 
 let ``convert [FiscalPeriodKeyString] to FiscalPeriod``
     (context: Context)

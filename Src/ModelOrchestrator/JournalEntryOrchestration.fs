@@ -315,7 +315,12 @@ module JournalEntry =
         // template for a new fetch function, know that the deduplication of
         // records happens *after* DAL checks the exactly one condition.
         let expectedRows = ExactlyOne
-        fetchFiltered context filter expectedRows |> Result.map List.head
+        match fetchFiltered context filter expectedRows with
+        | Ok x -> x |> List.head |> Ok
+        | Error (DalResultantRowsDidntMatchExpectation (expected, actual)) ->
+            if actual = 0 then Error (JournalEntryHeaderIdDoesntExist (journalEntryHeaderId |> JournalEntryHeaderId.value))
+            else Error (DalResultantRowsDidntMatchExpectation (expected, actual))
+        | Error e -> Error e
 
     let fetchByPeriod
         (context: Context)
@@ -337,15 +342,21 @@ module JournalEntry =
         (beginDate: LocalDate)
         (endDateInclusive: LocalDate)
         : Result<JournalEntry list, AppError> =
-        let filter =
-            { journalEntryHeaderId = None
-              source = None
-              financialInstitution = None
-              referenceText = None
-              temporalFilter = Some(TemporalFilter.DateRange { beginDate = beginDate; endInclusive = endDateInclusive })
-              unVoidedOnly = false }
-        let expectedRows = AnyQuantityIsAcceptable
-        fetchFiltered context filter expectedRows
+        if beginDate > endDateInclusive
+        then
+            Error (JournalEntryFetchByDateRangeBeginAfterEnd (beginDate, endDateInclusive))
+        else
+            let filter =
+                { journalEntryHeaderId = None
+                  source = None
+                  financialInstitution = None
+                  referenceText = None
+                  temporalFilter =
+                      TemporalFilter.DateRange { beginDate = beginDate; endInclusive = endDateInclusive }
+                      |> Some
+                  unVoidedOnly = false }
+            let expectedRows = AnyQuantityIsAcceptable
+            fetchFiltered context filter expectedRows
 
     let fetchByReference
         (context: Context)

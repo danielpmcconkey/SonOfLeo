@@ -25,6 +25,12 @@ let constructNewAndSaveToDb
     let modifiedAt = now
     result {
         do! journalEntryHeaderId |> validateJournalEntryHeader context
+        do! match journalEntryHeaderId |> JournalEntryHeader.fetchById context with
+            | Ok _ -> Ok ()
+            | Error (DalResultantRowsDidntMatchExpectation(expected, actual)) ->
+                if actual = 0 then Error(JournalEntryHeaderIdDoesntExist (journalEntryHeaderId |> JournalEntryHeaderId.value))
+                else Error (DalResultantRowsDidntMatchExpectation(expected, actual))
+            | Error e -> Error e
         let journalExternalReference =
             JournalEntryExternalReference.create
                 journalEntryExternalReferenceId

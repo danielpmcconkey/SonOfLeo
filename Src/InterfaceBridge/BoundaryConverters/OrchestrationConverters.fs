@@ -50,6 +50,8 @@ let ``convert AccountActivityFilterInput to AccountActivityFilter``
         let! accountParentId =
             match input.accountParentCode |> ``convert AccountCodeString Option to AccountId Option`` context with
             | Ok x -> Ok x
+            | Error(AccountCodeIsEmpty codeString) -> Error(AccountParentCodeIsEmpty codeString)
+            | Error(AccountCodeTooLong (codeString, max)) -> Error(AccountParentCodeTooLong (codeString, max))
             | Error(AccountCodeDoesntMatchAccountId codeString) -> Error(AccountParentCodeInvalid codeString)
             | Error e -> Error e
         let! accountType = input.accountType |> ``convert AccountTypeString Option to AccountType Option``

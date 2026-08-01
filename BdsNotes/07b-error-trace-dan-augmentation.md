@@ -45,8 +45,8 @@
 | Account	| FetchActivity	| accountActivityFetch	| AccountActivityFetchInput	| filter.accountCode	| AccountCodeIsEmpty	| 	| 	| 	 |
 | Account	| FetchActivity	| accountActivityFetch	| AccountActivityFetchInput	| filter.accountCode	| AccountCodeTooLong	| 	| 	| 	 |
 | Account	| FetchActivity	| accountActivityFetch	| AccountActivityFetchInput	| filter.accountCode	| AccountCodeDoesntMatchAccountId	| 	| 	| 	 |
-| Account	| FetchActivity	| accountActivityFetch	| AccountActivityFetchInput	| filter.accountParentCode	| AccountCodeIsEmpty	| 	| yes	| 	 |
-| Account	| FetchActivity	| accountActivityFetch	| AccountActivityFetchInput	| filter.accountParentCode	| AccountCodeTooLong	| 	| yes	| 	 |
+| Account	| FetchActivity	| accountActivityFetch	| AccountActivityFetchInput	| filter.accountParentCode	| AccountParentCodeIsEmpty	| 	| 	| 	 |
+| Account	| FetchActivity	| accountActivityFetch	| AccountActivityFetchInput	| filter.accountParentCode	| AccountParentCodeTooLong	| 	| 	| 	 |
 | Account	| FetchActivity	| accountActivityFetch	| AccountActivityFetchInput	| filter.accountParentCode	| AccountParentCodeInvalid	| 	| 	| 	 |
 | Account	| FetchActivity	| accountActivityFetch	| AccountActivityFetchInput	| filter.accountType	| AccountTypeInvalid	| 	| 	| 	 |
 | Account	| FetchActivity	| accountActivityFetch	| AccountActivityFetchInput	| filter.accountSubtype	| AccountSubtypeInvalid	| 	| 	| 	 |
@@ -64,13 +64,14 @@
 | Account	| FetchBalances	| accountBalancesFetch	| AccountBalanceFetchByAccountListInput	| codes	| AccountCodeDoesntMatchAccountId	| 	| 	| 	 |
 | Account	| FetchBalances	| accountBalancesFetch	| AccountBalanceFetchByAccountListInput	| codes	| AccountBalanceFetchInvalidArguments	| 	| 	| 	 |
 | FiscalPeriod	| Create	| create	| FiscalPeriodInput	| periodKey	| FiscalPeriodInvalidKeyString	| 	| 	| 	 |
-| FiscalPeriod	| Create	| create	| FiscalPeriodInput	| combined	| DalResultantRowsDidntMatchExpectation	| BACKSTOP	| yes	| 	 |
-| FiscalPeriod	| FetchByKey	| fetch	| FiscalPeriodInput	| periodKey	| InterfaceBridgeConversionFailure	| BACKSTOP	| yes	| 	 |
-| FiscalPeriod	| FetchByKey	| fetch	| FiscalPeriodInput	| periodKey	| DalResultantRowsDidntMatchExpectation	| BACKSTOP	| yes	| 	 |
-| FiscalPeriod	| Close	| close	| FiscalPeriodInput	| periodKey	| InterfaceBridgeConversionFailure	| BACKSTOP	| yes	| 	 |
-| FiscalPeriod	| Close	| close	| FiscalPeriodInput	| periodKey	| DalResultantRowsDidntMatchExpectation	| BACKSTOP	| yes	| 	 |
-| FiscalPeriod	| Reopen	| reopen	| FiscalPeriodInput	| periodKey	| InterfaceBridgeConversionFailure	| BACKSTOP	| yes	| 	 |
-| FiscalPeriod	| Reopen	| reopen	| FiscalPeriodInput	| periodKey	| DalResultantRowsDidntMatchExpectation	| BACKSTOP	| yes	| 	 |
+| FiscalPeriod	| Create	| create	| FiscalPeriodInput	| combined	| DalResultantRowsDidntMatchExpectation	| nearly impossible to reach this error	| 	| 	 |
+| FiscalPeriod	| FetchByKey	| fetch	| FiscalPeriodInput	| periodKey	| FiscalPeriodNoPeriodMatchingKey	| 	| 	| 	 |
+| FiscalPeriod	| FetchByKey	| fetch	| FiscalPeriodInput	| periodKey	| FiscalPeriodNoPeriodMatchingId	| 	| 	| 	 |
+| FiscalPeriod	| Close	| close	| FiscalPeriodInput	| periodKey	| FiscalPeriodNoPeriodMatchingKey	| 	| 	| 	 |
+| FiscalPeriod	| Close	| close	| FiscalPeriodInput	| periodKey	| DalResultantRowsDidntMatchExpectation	| nearly impossible to reach this error	| 	| 	 |
+| FiscalPeriod	| Reopen	| reopen	| FiscalPeriodInput	| periodKey	| FiscalPeriodNoPeriodMatchingKey	| 	| 	| 	 |
+| FiscalPeriod	| Reopen	| reopen	| FiscalPeriodInput	| periodKey	| FiscalPeriodToggleOpenNoOp	| 	| 	| 	 |
+| FiscalPeriod	| Reopen	| reopen	| FiscalPeriodInput	| periodKey	| DalResultantRowsDidntMatchExpectation	| nearly impossible to reach this error	| 	| 	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| description	| JournalEntryDescriptionIsEmpty	| 	| 	| 	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| description	| JournalEntryDescriptionTooLong	| 	| 	| 	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| source	| JournalEntrySourceIsEmpty	| 	| 	| 	 |
@@ -98,38 +99,40 @@
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| combined	| JournalEntryCommentPrimaryAndSecondaryIdsAreSame	| 	| 	| 	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| combined	| JournalEntryInsufficientLines	| 	| 	| 	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| combined	| JournalEntryDebitCreditMismatch	| 	| 	| 	 |
-| JournalEntry	| FetchById	| fetchById	| JournalEntryFetchByIdInput	| id	| DalResultantRowsDidntMatchExpectation	| BACKSTOP	| yes	| 	 |
-| JournalEntry	| FetchByPeriod	| fetchByPeriod	| JournalEntryFetchByPeriodInput	| periodKey	| InterfaceBridgeConversionFailure	| BACKSTOP	| yes	| 	 |
+| JournalEntry	| FetchById	| fetchById	| JournalEntryFetchByIdInput	| id	| JournalEntryHeaderIdDoesntExist	| 	| 	| 	 |
+| JournalEntry	| FetchByPeriod	| fetchByPeriod	| JournalEntryFetchByPeriodInput	| periodKey	| FiscalPeriodNoPeriodMatchingKey	| 	| 	| 	 |
 | JournalEntry	| FetchLinesByAccount	| fetchLinesByAccount	| JournalEntryFetchLinesByAccountInput	| accountCode	| AccountCodeIsEmpty	| 	| 	| 	 |
 | JournalEntry	| FetchLinesByAccount	| fetchLinesByAccount	| JournalEntryFetchLinesByAccountInput	| accountCode	| AccountCodeTooLong	| 	| 	| 	 |
 | JournalEntry	| FetchLinesByAccount	| fetchLinesByAccount	| JournalEntryFetchLinesByAccountInput	| accountCode	| AccountCodeDoesntMatchAccountId	| 	| 	| 	 |
-| JournalEntry	| FetchByExternalReference	| fetchByExternalReference	| JournalEntryFetchByExternalReferenceInput	| fi	| JournalEntryExternalReferenceIsEmpty	| wrong error code	| yes	| 	 |
-| JournalEntry	| FetchByExternalReference	| fetchByExternalReference	| JournalEntryFetchByExternalReferenceInput	| fi	| JournalEntryExternalReferenceTooLong	| wrong error code	| yes	| 	 |
+| JournalEntry	| FetchByExternalReference	| fetchByExternalReference	| JournalEntryFetchByExternalReferenceInput	| fi	| JournalRefFinancialInstitutionIsEmpty	| 	| 	| 	 |
+| JournalEntry	| FetchByExternalReference	| fetchByExternalReference	| JournalEntryFetchByExternalReferenceInput	| fi	| JournalRefFinancialInstitutionTooLong	| 	| 	| 	 |
 | JournalEntry	| FetchByExternalReference	| fetchByExternalReference	| JournalEntryFetchByExternalReferenceInput	| reference	| JournalEntryReferenceTextIsEmpty	| 	| 	| 	 |
 | JournalEntry	| FetchByExternalReference	| fetchByExternalReference	| JournalEntryFetchByExternalReferenceInput	| reference	| JournalEntryReferenceTextTooLong	| 	| 	| 	 |
 | JournalEntry	| FetchByExternalReference	| fetchByExternalReference	| JournalEntryFetchByExternalReferenceInput	| combined	| JournalEntryFetchByReferenceBothArgumentsNull	| 	| 	| 	 |
-| JournalEntry	| FetchByDateRange	| fetchByDateRange	| JournalEntryFetchByDateRangeInput	| (none)	| (none — no domain errors)	| we need to check that begin is not after end	| yes	| 	 |
+| JournalEntry	| FetchByDateRange	| fetchByDateRange	| JournalEntryFetchByDateRangeInput	| (none)	| JournalEntryFetchByDateRangeBeginAfterEnd	| 	| 	| 	 |
 | JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| commentText	| JournalEntryCommentIsEmpty	| 	| 	| 	 |
 | JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| commentText	| JournalEntryCommentTooLong	| 	| 	| 	 |
 | JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| combined	| JournalEntryCommentPrimaryAndSecondaryIdsAreSame	| 	| 	| 	 |
 | JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| id	| JournalEntryVoidingCannotFetchFiscalPeriod	| 	| 	| 	 |
 | JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| id	| JournalEntryVoidingFiscalPeriodIsClosed	| 	| 	| 	 |
 | JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| id	| JournalEntryVoidingNoOp	| 	| 	| 	 |
-| JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| id	| DalResultantRowsDidntMatchExpectation	| BACKSTOP	| yes	| 	 |
-| JournalEntry	| UpdateExternalReference	| updateExternalReference	| JournalEntryUpdateExternalReferenceInput	| fi	| JournalEntryExternalReferenceIsEmpty	| wrong error code	| yes	| 	 |
-| JournalEntry	| UpdateExternalReference	| updateExternalReference	| JournalEntryUpdateExternalReferenceInput	| fi	| JournalEntryExternalReferenceTooLong	| wrong error code	| yes	| 	 |
+| JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| id	| JournalEntryHeaderIdDoesntExist	| 	| 	| 	 |
+| JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| JournalEntryCommentInput	| JournalEntryCommentPrimaryJeHeaderIdNotFound	| 	| 	| 	 |
+| JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| JournalEntryCommentInput	| JournalEntryCommentSecondaryJeHeaderIdNotFound	| 	| 	| 	 |
+| JournalEntry	| UpdateExternalReference	| updateExternalReference	| JournalEntryUpdateExternalReferenceInput	| fi	| JournalRefFinancialInstitutionIsEmpty	| 	| 	| 	 |
+| JournalEntry	| UpdateExternalReference	| updateExternalReference	| JournalEntryUpdateExternalReferenceInput	| fi	| JournalRefFinancialInstitutionTooLong	| 	| 	| 	 |
 | JournalEntry	| UpdateExternalReference	| updateExternalReference	| JournalEntryUpdateExternalReferenceInput	| reference	| JournalEntryReferenceTextIsEmpty	| 	| 	| 	 |
 | JournalEntry	| UpdateExternalReference	| updateExternalReference	| JournalEntryUpdateExternalReferenceInput	| reference	| JournalEntryReferenceTextTooLong	| 	| 	| 	 |
 | JournalEntry	| UpdateExternalReference	| updateExternalReference	| JournalEntryUpdateExternalReferenceInput	| combined	| JournalEntryReferenceUpdateNoOp	| 	| 	| 	 |
-| JournalEntry	| AddExternalReference	| addExternalReference	| JournalEntryAddExternalReferenceInput	| financialInstitution	| JournalEntryExternalReferenceIsEmpty	| wrong error code	| yes	| 	 |
-| JournalEntry	| AddExternalReference	| addExternalReference	| JournalEntryAddExternalReferenceInput	| financialInstitution	| JournalEntryExternalReferenceTooLong	| wrong error code	| yes	| 	 |
+| JournalEntry	| AddExternalReference	| addExternalReference	| JournalEntryAddExternalReferenceInput	| financialInstitution	| JournalRefFinancialInstitutionIsEmpty	| 	| 	| 	 |
+| JournalEntry	| AddExternalReference	| addExternalReference	| JournalEntryAddExternalReferenceInput	| financialInstitution	| JournalRefFinancialInstitutionTooLong	| 	| 	| 	 |
 | JournalEntry	| AddExternalReference	| addExternalReference	| JournalEntryAddExternalReferenceInput	| referenceText	| JournalEntryReferenceTextIsEmpty	| 	| 	| 	 |
 | JournalEntry	| AddExternalReference	| addExternalReference	| JournalEntryAddExternalReferenceInput	| referenceText	| JournalEntryReferenceTextTooLong	| 	| 	| 	 |
-| JournalEntry	| AddExternalReference	| addExternalReference	| JournalEntryAddExternalReferenceInput	| journalEntryId	| DalResultantRowsDidntMatchExpectation	| BACKSTOP	| yes	| 	 |
+| JournalEntry	| AddExternalReference	| addExternalReference	| JournalEntryAddExternalReferenceInput	| journalEntryId	| JournalEntryHeaderIdDoesntExist	| 	| 	| 	 |
 | JournalEntry	| AddComment	| addComment	| JournalEntryAddCommentInput	| commentText	| JournalEntryCommentIsEmpty	| 	| 	| 	 |
 | JournalEntry	| AddComment	| addComment	| JournalEntryAddCommentInput	| commentText	| JournalEntryCommentTooLong	| 	| 	| 	 |
-| JournalEntry	| AddComment	| addComment	| JournalEntryAddCommentInput	| journalEntryId	| DalResultantRowsDidntMatchExpectation	| BACKSTOP	| yes	| 	 |
-| JournalEntry	| AddComment	| addComment	| JournalEntryAddCommentInput	| secondaryJournalEntryId	| DalResultantRowsDidntMatchExpectation	| BACKSTOP	| yes	| 	 |
+| JournalEntry	| AddComment	| addComment	| JournalEntryAddCommentInput	| journalEntryId	| JournalEntryCommentPrimaryJeHeaderIdNotFound	| 	| 	| 	 |
+| JournalEntry	| AddComment	| addComment	| JournalEntryAddCommentInput	| secondaryJournalEntryId	| JournalEntryCommentSecondaryJeHeaderIdNotFound	| 	| 	| 	 |
 | JournalEntry	| AddComment	| addComment	| JournalEntryAddCommentInput	| combined	| JournalEntryCommentPrimaryAndSecondaryIdsAreSame	| 	| 	| 	 |
 | JournalEntry	| UpdateComment	| updateComment	| JournalEntryUpdateCommentInput	| commentText	| JournalEntryCommentIsEmpty	| 	| 	| 	 |
 | JournalEntry	| UpdateComment	| updateComment	| JournalEntryUpdateCommentInput	| commentText	| JournalEntryCommentTooLong	| 	| 	| 	 |

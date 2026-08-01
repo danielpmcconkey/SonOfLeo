@@ -11,7 +11,13 @@ open Utilities.ResultHelper
 open Context.Context
 
 let validateJournalEntryHeader (context: Context) (journalEntryId: JournalEntryHeaderId) : Result<unit, AppError> =
-    journalEntryId |> JournalEntryHeader.fetchById context |> Result.map ignore
+    match journalEntryId |> JournalEntryHeader.fetchById context with
+    | Ok _ -> Ok ()
+    | Error (DalResultantRowsDidntMatchExpectation(expected, actual)) ->
+        if actual = 0
+        then Error (JournalEntryHeaderIdDoesntExist (journalEntryId |> JournalEntryHeaderId.value))
+        else Error (DalResultantRowsDidntMatchExpectation(expected, actual))
+    | Error e -> Error e
 
 let validatePrimaryAndSecondaryRelationship
     (primaryJournalEntryId: JournalEntryHeaderId)
@@ -38,11 +44,14 @@ let constructNewAndSaveToDb
     let createdAt = now
     let modifiedAt = now
     result {
-        do! primaryJournalEntryId |> validateJournalEntryHeader context
-        do!
-            match secondaryJournalEntryId with
-            | None -> Ok()
-            | Some id -> id |> validateJournalEntryHeader context
+        do! match primaryJournalEntryId |> validateJournalEntryHeader context with
+            | Ok _ -> Ok()
+            | Error (JournalEntryHeaderIdDoesntExist uuid) -> Error (JournalEntryCommentPrimaryJeHeaderIdNotFound uuid)
+            | Error e -> Error e
+        do! match secondaryJournalEntryId |> convertOptionToDesiredTypeWithFallibleConverter (validateJournalEntryHeader context) with
+            | Ok _ -> Ok()
+            | Error (JournalEntryHeaderIdDoesntExist uuid) -> Error (JournalEntryCommentSecondaryJeHeaderIdNotFound uuid)
+            | Error e -> Error e
         do! validatePrimaryAndSecondaryRelationship primaryJournalEntryId secondaryJournalEntryId
         let journalEntryComment =
             JournalEntryComment.create

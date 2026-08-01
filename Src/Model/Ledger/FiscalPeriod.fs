@@ -116,7 +116,10 @@ module FiscalPeriod =
         let predicate = "fp.unique_id = @unique_id"
         let uuid = id |> FiscalPeriodId.value
         let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-        readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+        match readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head with
+        | Ok x -> Ok x
+        | Error (DalResultantRowsDidntMatchExpectation _) -> Error (FiscalPeriodNoPeriodMatchingId uuid)
+        | Error e -> Error e
 
     /// fetchIdByKey should only be used sparingly, as it goes against
     /// the doctrine that the model deals in UUIDs while the boundary
@@ -168,7 +171,14 @@ module FiscalPeriod =
             ;
         """
         result {
-            let! () = executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+            let! executeResult =
+                match executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne with
+                | Ok _ -> Ok ()
+                | Error (DalResultantRowsDidntMatchExpectation (expected, actual)) ->
+                    if actual = 0
+                    then Error FiscalPeriodToggleOpenNoOp
+                    else Error (DalResultantRowsDidntMatchExpectation (expected, actual))
+                | Error e -> Error e
             return! fpId |> fetchById context
         }
 
