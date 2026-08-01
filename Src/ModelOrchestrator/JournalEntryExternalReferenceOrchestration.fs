@@ -10,8 +10,13 @@ open Utilities.FieldUpdate
 open Utilities.ResultHelper
 open Context.Context
 
-let validateJournalEntryHeader (context: Context) (journalEntryId: JournalEntryHeaderId) : Result<unit, AppError> =
-    journalEntryId |> JournalEntryHeader.fetchById context |> Result.map ignore
+let validateJournalEntryHeader (context: Context) (journalEntryHeaderId: JournalEntryHeaderId) : Result<unit, AppError> =
+    match journalEntryHeaderId |> JournalEntryHeader.fetchById context with
+    | Ok _ -> Ok ()
+    | Error (DalResultantRowsDidntMatchExpectation(expected, actual)) ->
+        if actual = 0 then Error(JournalEntryHeaderIdDoesntExist (journalEntryHeaderId |> JournalEntryHeaderId.value))
+        else Error (DalResultantRowsDidntMatchExpectation(expected, actual))
+    | Error e -> Error e
 
 let constructNewAndSaveToDb
     (context: Context)
@@ -25,12 +30,6 @@ let constructNewAndSaveToDb
     let modifiedAt = now
     result {
         do! journalEntryHeaderId |> validateJournalEntryHeader context
-        do! match journalEntryHeaderId |> JournalEntryHeader.fetchById context with
-            | Ok _ -> Ok ()
-            | Error (DalResultantRowsDidntMatchExpectation(expected, actual)) ->
-                if actual = 0 then Error(JournalEntryHeaderIdDoesntExist (journalEntryHeaderId |> JournalEntryHeaderId.value))
-                else Error (DalResultantRowsDidntMatchExpectation(expected, actual))
-            | Error e -> Error e
         let journalExternalReference =
             JournalEntryExternalReference.create
                 journalEntryExternalReferenceId
