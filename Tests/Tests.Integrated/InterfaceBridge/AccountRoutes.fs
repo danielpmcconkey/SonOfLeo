@@ -333,8 +333,8 @@ type AccountRouteTests(fixture: TestDataFixture) =
     [<InlineData("source", "012345678901234567890123456789012345678901234567890123456789", "JournalEntrySourceTooLong")>]
     [<InlineData("accountType", "Fudge", "AccountTypeInvalid")>]
     [<InlineData("accountSubtype", "Fluffy", "AccountSubtypeInvalid")>]
-    [<InlineData("accountParentCode", "", "AccountCodeIsEmpty")>]
-    [<InlineData("accountParentCode", "aaaaaaaaaaaaa", "AccountCodeTooLong")>]
+    [<InlineData("accountParentCode", "", "AccountParentCodeIsEmpty")>]
+    [<InlineData("accountParentCode", "aaaaaaaaaaaaa", "AccountParentCodeTooLong")>]
     [<InlineData("accountParentCode", "9999", "AccountParentCodeInvalid")>]
     [<InlineData("amount", "10.307", "MoneyFailedToConvertImproperPrecision")>]
     [<InlineData("amount", "19999999999.99", "MoneyFailedToConvertExceededMax")>]
@@ -389,6 +389,8 @@ type AccountRouteTests(fixture: TestDataFixture) =
                 | Error e ->
                     if e.IsAccountCodeIsEmpty && error = "AccountCodeIsEmpty" then Ok()
                     elif e.IsAccountCodeTooLong && error = "AccountCodeTooLong" then Ok()
+                    elif e.IsAccountParentCodeIsEmpty && error = "AccountParentCodeIsEmpty" then Ok()
+                    elif e.IsAccountParentCodeTooLong && error = "AccountParentCodeTooLong" then Ok()
                     elif e.IsFiscalPeriodInvalidKeyString && error = "FiscalPeriodInvalidKeyString" then Ok()
                     elif e.IsFiscalPeriodNoPeriodMatchingKey && error = "FiscalPeriodNoPeriodMatchingKey" then Ok()
                     elif e.IsJournalEntrySourceIsEmpty && error = "JournalEntrySourceIsEmpty" then Ok()

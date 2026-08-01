@@ -106,10 +106,10 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     [<InlineData("memo",
                  "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789CM",
                  "JournalEntryLineMemoTooLong")>]
-    [<InlineData("fi", "", "JournalEntryExternalReferenceIsEmpty")>]
+    [<InlineData("fi", "", "JournalRefFinancialInstitutionIsEmpty")>]
     [<InlineData("fi",
                  "01234567890123456789012345678901234567890123456789L01234567890123456789012345678901234567890123456789LC",
-                 "JournalEntryExternalReferenceTooLong")>]
+                 "JournalRefFinancialInstitutionTooLong")>]
     [<InlineData("refText", "", "JournalEntryReferenceTextIsEmpty")>]
     [<InlineData("refText",
                  "01234567890123456789012345678901234567890123456789L01234567890123456789012345678901234567890123456789LC",
@@ -173,8 +173,8 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                         elif e.IsJournalEntryLineTypeInvalid && error = "JournalEntryLineTypeInvalid" then Ok()
                         elif e.IsJournalEntryLineMemoIsEmpty && error = "JournalEntryLineMemoIsEmpty" then Ok()
                         elif e.IsJournalEntryLineMemoTooLong && error = "JournalEntryLineMemoTooLong" then Ok()
-                        elif e.IsJournalEntryExternalReferenceIsEmpty && error = "JournalEntryExternalReferenceIsEmpty" then Ok()
-                        elif e.IsJournalEntryExternalReferenceTooLong && error = "JournalEntryExternalReferenceTooLong" then Ok()
+                        elif e.IsJournalRefFinancialInstitutionIsEmpty && error = "JournalRefFinancialInstitutionIsEmpty" then Ok()
+                        elif e.IsJournalRefFinancialInstitutionTooLong && error = "JournalRefFinancialInstitutionTooLong" then Ok()
                         elif e.IsJournalEntryReferenceTextIsEmpty && error = "JournalEntryReferenceTextIsEmpty" then Ok()
                         elif e.IsJournalEntryReferenceTextTooLong && error = "JournalEntryReferenceTextTooLong" then Ok()
                         elif e.IsJournalEntryCommentIsEmpty && error = "JournalEntryCommentIsEmpty" then Ok()

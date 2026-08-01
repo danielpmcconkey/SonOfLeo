@@ -148,7 +148,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
                 let attemptResult = FiscalPeriod.closeFiscalPeriod context fixture.Data.closedFiscalPeriodId
                 do!
                     match attemptResult with
-                    | Error(DalResultantRowsDidntMatchExpectation _) -> Ok() // todo: create a no op error for this
+                    | Error(FiscalPeriodToggleOpenNoOp) -> Ok()
                     | Ok _ -> Error(TestingError "Expected failure; returned success.")
                     | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
                 let! fetched = FiscalPeriod.fetchById context fixture.Data.closedFiscalPeriodId
@@ -180,7 +180,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
                 let attemptResult = id |> FiscalPeriod.reopenFiscalPeriod context
                 do!
                     match attemptResult with
-                    | Error(DalResultantRowsDidntMatchExpectation _) -> Ok() // todo: create a no op error for this
+                    | Error(FiscalPeriodToggleOpenNoOp) -> Ok()
                     | Ok _ -> Error(TestingError "Expected failure; returned success.")
                     | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
                 let! fetched = FiscalPeriod.fetchById context id

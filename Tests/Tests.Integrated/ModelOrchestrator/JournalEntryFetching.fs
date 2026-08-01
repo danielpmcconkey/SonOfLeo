@@ -234,7 +234,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
             do!
                 match routeUiCommandForTesting "JournalEntry" "FetchById" [] payload with
                 | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error(DalResultantRowsDidntMatchExpectation _) -> Ok()
+                | Error(JournalEntryHeaderIdDoesntExist _) -> Ok()
                 | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
             return ()
         }
