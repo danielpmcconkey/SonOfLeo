@@ -129,7 +129,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
             let badId = Guid.NewGuid() |> JournalEntryHeaderId.fromGuid
             let voidedResult = badId |> voidJournalEntry context None commentText
             match voidedResult with
-            | Error(JournalEntryCommentPrimaryJeHeaderIdNotFound _) -> Ok()
+            | Error(JournalEntryHeaderIdDoesntExist _) -> Ok()
             | Error e -> Error(TestingError $"Wrong error message. {AppError.toMessage e}")
             | Ok _ -> Error(TestingError "Expected failure; got success"))
         |> railroadWrapper
