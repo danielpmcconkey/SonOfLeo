@@ -340,7 +340,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
     [<InlineData("amount", "19999999999.99", "MoneyFailedToConvertExceededMax")>]
     [<InlineData("amount", "-19999999999.99", "MoneyFailedToConvertBelowMin")>]
     member _.``REQ-JE-3.9 FetchActivity validates all input as valid types``
-        (field: string, value: string, error: string)
+        (field: string, value: string, expectedError: string)
         = // todo: ask claude to provide the correct REQ #
         let convertValueToTemporalFilter () : Result<TemporalFilterInput, AppError> =
             match value.IndexOf(':') with
@@ -387,22 +387,9 @@ type AccountRouteTests(fixture: TestDataFixture) =
                 match routeUiCommandForTesting "Account" "FetchActivity" [] payload with
                 | Ok _ -> Error(TestingError "Expected failure; returned success.")
                 | Error e ->
-                    if e.IsAccountCodeIsEmpty && error = "AccountCodeIsEmpty" then Ok()
-                    elif e.IsAccountCodeTooLong && error = "AccountCodeTooLong" then Ok()
-                    elif e.IsAccountParentCodeIsEmpty && error = "AccountParentCodeIsEmpty" then Ok()
-                    elif e.IsAccountParentCodeTooLong && error = "AccountParentCodeTooLong" then Ok()
-                    elif e.IsFiscalPeriodInvalidKeyString && error = "FiscalPeriodInvalidKeyString" then Ok()
-                    elif e.IsFiscalPeriodNoPeriodMatchingKey && error = "FiscalPeriodNoPeriodMatchingKey" then Ok()
-                    elif e.IsJournalEntrySourceIsEmpty && error = "JournalEntrySourceIsEmpty" then Ok()
-                    elif e.IsJournalEntrySourceTooLong && error = "JournalEntrySourceTooLong" then Ok()
-                    elif e.IsAccountTypeInvalid && error = "AccountTypeInvalid" then Ok()
-                    elif e.IsAccountSubtypeInvalid && error = "AccountSubtypeInvalid" then Ok()
-                    elif e.IsAccountParentCodeInvalid && error = "AccountParentCodeInvalid" then Ok()
-                    elif e.IsDalResultantRowsDidntMatchExpectation && error = "DalResultantRowsDidntMatchExpectation" then Ok()
-                    elif e.IsMoneyFailedToConvertImproperPrecision && error = "MoneyFailedToConvertImproperPrecision" then Ok()
-                    elif e.IsMoneyFailedToConvertExceededMax && error = "MoneyFailedToConvertExceededMax" then Ok()
-                    elif e.IsMoneyFailedToConvertBelowMin && error = "MoneyFailedToConvertBelowMin" then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {error}. {AppError.toMessage e}")
+                    let fullTypeExpected = $"Utilities.AppError+AppError+{expectedError}"
+                    if e.GetType().ToString() = fullTypeExpected then Ok()
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. {AppError.toMessage e}")
             return ()
         }
         |> railroadWrapper
