@@ -131,3 +131,42 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
             match cleanUpFiscalPeriodKey keyToCleanUp with
             | Ok() -> ()
             | Error e -> failwith(AppError.toMessage e)
+
+    [<Fact>]
+    member _.``REQ-FP-3.2 FetchByKey rejects non-existent period key``() =
+        let payload = createFiscalPeriodInputPayload "1850-01"
+        result {
+            do!
+                match routeUiCommandForTesting "FiscalPeriod" "FetchByKey" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error(FiscalPeriodNoPeriodMatchingKey _) -> Ok()
+                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-FP-4.1 Close rejects non-existent period key``() =
+        let payload = createFiscalPeriodInputPayload "1850-01"
+        result {
+            do!
+                match routeUiCommandForTesting "FiscalPeriod" "Close" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error(FiscalPeriodNoPeriodMatchingKey _) -> Ok()
+                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-FP-4.2 Reopen rejects non-existent period key``() =
+        let payload = createFiscalPeriodInputPayload "1850-01"
+        result {
+            do!
+                match routeUiCommandForTesting "FiscalPeriod" "Reopen" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error(FiscalPeriodNoPeriodMatchingKey _) -> Ok()
+                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper

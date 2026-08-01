@@ -431,6 +431,122 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
             | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]
+    member _.``REQ-JE-3.7 FetchByDateRange rejects begin date after end date``() =
+        let today = Calendar.today()
+        let yesterday = today.PlusDays(-1)
+        result {
+            let! payload =
+                { beginDate = today; endDateInclusive = yesterday } |> toJson<JournalEntryFetchByDateRangeInput>
+            do!
+                match routeUiCommandForTesting "JournalEntry" "FetchByDateRange" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error(JournalEntryFetchByDateRangeBeginAfterEnd _) -> Ok()
+                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-JE-5.1 AddComment rejects non-existent secondary JE header ID``() =
+        let primaryJeId = fixture.Data.basicJeId |> JournalEntryHeaderId.value
+        let bogusSecondaryId = Guid.NewGuid()
+        let input: JournalEntryAddCommentInput =
+            { journalEntryId = primaryJeId
+              comment = { secondaryJournalEntryId = Some bogusSecondaryId; commentText = "Test comment" } }
+        result {
+            let! payload = input |> toJson<JournalEntryAddCommentInput>
+            do!
+                match routeUiCommandForTesting "JournalEntry" "AddComment" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error(JournalEntryCommentSecondaryJeHeaderIdNotFound _) -> Ok()
+                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper
+
+    [<Theory>]
+    [<InlineData("commentEmpty", "JournalEntryCommentIsEmpty")>]
+    [<InlineData("commentTooLong", "JournalEntryCommentTooLong")>]
+    [<InlineData("sameIds", "JournalEntryCommentPrimaryAndSecondaryIdsAreSame")>]
+    [<InlineData("bogusId", "JournalEntryCommentPrimaryJeHeaderIdNotFound")>]
+    [<InlineData("bogusSecondary", "JournalEntryCommentSecondaryJeHeaderIdNotFound")>]
+    [<InlineData("voidedJe", "JournalEntryVoidingNoOp")>]
+    [<InlineData("closedPeriod", "JournalEntryVoidingFiscalPeriodIsClosed")>]
+    member _.``REQ-JE-4.4 Void validates input and state``
+        (scenario: string, expectedError: string)
+        =
+        let jeIdToUse =
+            match scenario with
+            | "bogusId" -> Guid.NewGuid()
+            | "voidedJe" -> fixture.Data.voidedJeId |> JournalEntryHeaderId.value
+            | "closedPeriod" -> fixture.Data.jeInClosedPeriodId |> JournalEntryHeaderId.value
+            | _ -> fixture.Data.basicJeId |> JournalEntryHeaderId.value
+        let commentTextToUse =
+            match scenario with
+            | "commentEmpty" -> ""
+            | "commentTooLong" -> String.replicate 201 "0123456789" + "X"
+            | _ -> "Valid void reason"
+        let secondaryIdToUse =
+            match scenario with
+            | "sameIds" -> Some jeIdToUse
+            | "bogusSecondary" -> Some(Guid.NewGuid())
+            | _ -> None
+        let voidInput: JournalEntryVoidInput =
+            { id = jeIdToUse
+              reason = { secondaryJournalEntryId = secondaryIdToUse; commentText = commentTextToUse } }
+        result {
+            let! payload = voidInput |> toJson<JournalEntryVoidInput>
+            do!
+                match routeUiCommandForTesting "JournalEntry" "Void" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error e ->
+                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
+                    if caseName = expectedError then Ok()
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-JE-4.9 REQ-SYS-6.1 UpdateExternalReference rejects no-op update``() =
+        let mutable idToCleanUp = None
+        try
+            let context = create NoTransaction FetchOnly
+            result {
+                let! jeToUpdate, jeToUpdateId =
+                    createTestJournalEntryFromPrimitives
+                        context
+                        "REQ-JE-4.9 JE for no-op ref update"
+                        None
+                        (Calendar.today())
+                        [ (fixture.Data.entertainment5650Id, 75.00M, "Debit", None)
+                          (fixture.Data.creditCard2220Id, 75.00M, "Credit", None) ]
+                        [ ("TestBank", "TXN-NOOP") ]
+                        []
+                idToCleanUp <- Some jeToUpdateId
+                let refUuid =
+                    jeToUpdate
+                    |> externalReferences
+                    |> List.head
+                    |> JournalEntryExternalReference.journalEntryExternalReferenceId
+                    |> JournalEntryExternalReferenceId.value
+                let updateInput: JournalEntryUpdateExternalReferenceInput =
+                    { id = refUuid; fi = None; reference = None }
+                let! payload = updateInput |> toJson<JournalEntryUpdateExternalReferenceInput>
+                do!
+                    match routeUiCommandForTesting "JournalEntry" "UpdateExternalReference" [] payload with
+                    | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                    | Error(JournalEntryReferenceUpdateNoOp) -> Ok()
+                    | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            match idToCleanUp |> cleanUpJournalEntryId with
+            | Ok() -> ()
+            | Error e -> Assert.Fail(AppError.toMessage e)
+
+    [<Fact>]
     member _.``REQ-JE-5.3 updateComment rejects empty text``() = // todo: refactor with multi-fail theory
         let mutable idToCleanUp_1 = None
         try
