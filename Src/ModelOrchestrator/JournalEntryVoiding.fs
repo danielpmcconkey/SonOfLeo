@@ -11,6 +11,17 @@ open DataAccessLayer.ExecuteReader
 open DataAccessLayer.ExecuteNonQuery
 open Context.Context
 
+let private confirmJournalEntryIdIsReal
+    (context: Context)
+    (journalEntryHeaderId: JournalEntryHeaderId)
+    : Result<unit, AppError> =
+    match journalEntryHeaderId |> JournalEntryHeader.fetchById context with
+    | Ok _ -> Ok ()
+    | Error (DalResultantRowsDidntMatchExpectation _) ->
+        Error (JournalEntryHeaderIdDoesntExist(journalEntryHeaderId |> JournalEntryHeaderId.value))
+    | Error e -> Error e
+    
+
 let private confirmFiscalPeriodIsStillOpenBeforeVoiding
     (context: Context)
     (journalEntryHeader: JournalEntryHeader)
@@ -94,6 +105,7 @@ let voidJournalEntry
     (journalEntryHeaderId: JournalEntryHeaderId)
     : Result<JournalEntry, AppError> =
     result {
+        do! journalEntryHeaderId |> confirmJournalEntryIdIsReal context // validate here so the error message is helpful
         do! insertReason context journalEntryHeaderId secondaryJournalEntryIdForComment commentText
         do!
             journalEntryHeaderId
