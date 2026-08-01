@@ -546,8 +546,13 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
             | Ok() -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
 
-    [<Fact>]
-    member _.``REQ-JE-5.3 updateComment rejects empty text``() = // todo: refactor with multi-fail theory
+    [<Theory>]
+    [<InlineData("commentEmpty", "JournalEntryCommentIsEmpty")>]
+    [<InlineData("commentTooLong", "JournalEntryCommentTooLong")>]
+    [<InlineData("sameIds", "JournalEntryCommentPrimaryAndSecondaryIdsAreSame")>]
+    member _.``REQ-JE-5.3 UpdateComment validates input and state``
+        (scenario: string, expectedError: string)
+        =
         let mutable idToCleanUp_1 = None
         try
             let context = create NoTransaction FetchOnly
@@ -569,14 +574,25 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                     |> List.head
                     |> JournalEntryComment.journalEntryCommentId
                     |> JournalEntryCommentId.value
+                let commentTextUpdate =
+                    match scenario with
+                    | "commentEmpty" -> SetTo ""
+                    | "commentTooLong" -> SetTo(String.replicate 201 "0123456789" + "X")
+                    | _ -> NoChange
+                let secondaryIdUpdate =
+                    match scenario with
+                    | "sameIds" -> SetTo(Some(jeToUpdateId |> JournalEntryHeaderId.value))
+                    | _ -> NoChange
                 let updateInput: JournalEntryUpdateCommentInput =
-                    { id = commentUuid; secondaryJournalEntryId = NoChange; commentText = SetTo "" }
+                    { id = commentUuid; secondaryJournalEntryId = secondaryIdUpdate; commentText = commentTextUpdate }
                 let! payload = updateInput |> toJson<JournalEntryUpdateCommentInput>
                 do!
                     match routeUiCommandForTesting "JournalEntry" "UpdateComment" [] payload with
                     | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                    | Error(JournalEntryCommentIsEmpty _) -> Ok()
-                    | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                    | Error e ->
+                        let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
+                        if caseName = expectedError then Ok()
+                        else Error(TestingError $"Wrong error type. Expected {expectedError}. {AppError.toMessage e}")
                 return ()
             }
             |> railroadWrapper
