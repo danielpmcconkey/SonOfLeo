@@ -5,6 +5,7 @@ open DataAccessLayer.DbTransaction
 open InterfaceBridge.InterfaceContracts.SharedContracts
 open InterfaceBridge.Json.Json
 open Logger.Audit
+open Microsoft.FSharp.Reflection
 open Model
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
@@ -387,8 +388,8 @@ type AccountRouteTests(fixture: TestDataFixture) =
                 match routeUiCommandForTesting "Account" "FetchActivity" [] payload with
                 | Ok _ -> Error(TestingError "Expected failure; returned success.")
                 | Error e ->
-                    let fullTypeExpected = $"Utilities.AppError+AppError+{expectedError}"
-                    if e.GetType().ToString() = fullTypeExpected then Ok()
+                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
+                    if caseName = expectedError then Ok()
                     else Error(TestingError $"Wrong error type. Expected {expectedError}. {AppError.toMessage e}")
             return ()
         }

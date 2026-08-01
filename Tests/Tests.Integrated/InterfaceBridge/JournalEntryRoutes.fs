@@ -5,6 +5,7 @@ open DataAccessLayer.DbTransaction
 open InterfaceBridge.InterfaceContracts.JournalContracts
 open InterfaceBridge.Json.Json
 open Logger.Audit
+open Microsoft.FSharp.Reflection
 open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
@@ -119,7 +120,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                  "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789CM0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789CM",
                  "JournalEntryCommentTooLong")>]
     member _.``REQ-JE-2.13 REQ-JE-2.4 PostNew validates input as valid types``
-        (field: string, value: string, error: string)
+        (field: string, value: string, expectedError: string)
         =
         let today = Calendar.today()
         let descriptionToUse =
@@ -161,26 +162,9 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                         | Error e ->
                             Error(TestingError $"Expected failure; returned success. Record clean up failed. {e}")
                     | Error e ->
-                        if e.IsJournalEntryDescriptionIsEmpty && error = "JournalEntryDescriptionIsEmpty" then Ok()
-                        elif e.IsJournalEntryDescriptionTooLong && error = "JournalEntryDescriptionTooLong" then Ok()
-                        elif e.IsJournalEntrySourceIsEmpty && error = "JournalEntrySourceIsEmpty" then Ok()
-                        elif e.IsJournalEntrySourceTooLong && error = "JournalEntrySourceTooLong" then Ok()
-                        elif e.IsAccountCodeIsEmpty && error = "AccountCodeIsEmpty" then Ok()
-                        elif e.IsAccountCodeTooLong && error = "AccountCodeTooLong" then Ok()
-                        elif e.IsMoneyFailedToConvertImproperPrecision && error = "MoneyFailedToConvertImproperPrecision" then Ok()
-                        elif e.IsMoneyFailedToConvertExceededMax && error = "MoneyFailedToConvertExceededMax" then Ok()
-                        elif e.IsMoneyFailedToConvertBelowMin && error = "MoneyFailedToConvertBelowMin" then Ok()
-                        elif e.IsJournalEntryLineTypeInvalid && error = "JournalEntryLineTypeInvalid" then Ok()
-                        elif e.IsJournalEntryLineMemoIsEmpty && error = "JournalEntryLineMemoIsEmpty" then Ok()
-                        elif e.IsJournalEntryLineMemoTooLong && error = "JournalEntryLineMemoTooLong" then Ok()
-                        elif e.IsJournalRefFinancialInstitutionIsEmpty && error = "JournalRefFinancialInstitutionIsEmpty" then Ok()
-                        elif e.IsJournalRefFinancialInstitutionTooLong && error = "JournalRefFinancialInstitutionTooLong" then Ok()
-                        elif e.IsJournalEntryReferenceTextIsEmpty && error = "JournalEntryReferenceTextIsEmpty" then Ok()
-                        elif e.IsJournalEntryReferenceTextTooLong && error = "JournalEntryReferenceTextTooLong" then Ok()
-                        elif e.IsJournalEntryCommentIsEmpty && error = "JournalEntryCommentIsEmpty" then Ok()
-                        elif e.IsJournalEntryCommentTooLong && error = "JournalEntryCommentTooLong" then Ok()
-                        else
-                            Error(TestingError $"Wrong error type. Expected {error}. {AppError.toMessage e}")
+                        let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
+                        if caseName = expectedError then Ok()
+                        else Error(TestingError $"Wrong error type. Expected {expectedError}. {AppError.toMessage e}")
                 return ()
             }
             |> railroadWrapper
