@@ -600,3 +600,75 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
             match idToCleanUp_1 |> cleanUpJournalEntryId with
             | Ok() -> ()
             | Error e -> Assert.Fail(AppError.toMessage e)
+
+    [<Theory>]
+    [<InlineData("fi", "", "JournalRefFinancialInstitutionIsEmpty")>]
+    [<InlineData("fi",
+                 "01234567890123456789012345678901234567890123456789L01234567890123456789012345678901234567890123456789LC",
+                 "JournalRefFinancialInstitutionTooLong")>]
+    [<InlineData("reference", "", "JournalEntryReferenceTextIsEmpty")>]
+    [<InlineData("reference",
+                 "01234567890123456789012345678901234567890123456789L01234567890123456789012345678901234567890123456789LC",
+                 "JournalEntryReferenceTextTooLong")>]
+    [<InlineData("bothNull", "", "JournalEntryFetchByReferenceBothArgumentsNull")>]
+    member _.``REQ-JE-3.5 FetchByExternalReference validates input as valid types``
+        (field: string, value: string, expectedError: string)
+        =
+        let fiToUse =
+            match field with
+            | "fi" -> Some value
+            | "bothNull" -> None
+            | _ -> Some "TestBank"
+        let referenceToUse =
+            match field with
+            | "reference" -> Some value
+            | "bothNull" -> None
+            | _ -> Some "TXN-001"
+        let input: JournalEntryFetchByExternalReferenceInput =
+            { fi = fiToUse; reference = referenceToUse }
+        result {
+            let! payload = input |> toJson<JournalEntryFetchByExternalReferenceInput>
+            do!
+                match routeUiCommandForTesting "JournalEntry" "FetchByExternalReference" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error e ->
+                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
+                    if caseName = expectedError then Ok()
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper
+
+    [<Theory>]
+    [<InlineData("fi", "", "JournalRefFinancialInstitutionIsEmpty")>]
+    [<InlineData("fi",
+                 "01234567890123456789012345678901234567890123456789L01234567890123456789012345678901234567890123456789LC",
+                 "JournalRefFinancialInstitutionTooLong")>]
+    [<InlineData("referenceText", "", "JournalEntryReferenceTextIsEmpty")>]
+    [<InlineData("referenceText",
+                 "01234567890123456789012345678901234567890123456789L01234567890123456789012345678901234567890123456789LC",
+                 "JournalEntryReferenceTextTooLong")>]
+    [<InlineData("bogusId", "", "JournalEntryHeaderIdDoesntExist")>]
+    member _.``REQ-JE-4.10 AddExternalReference validates input as valid types``
+        (field: string, value: string, expectedError: string)
+        =
+        let jeIdToUse =
+            if field = "bogusId" then Guid.NewGuid()
+            else fixture.Data.basicJeId |> JournalEntryHeaderId.value
+        let fiToUse = if field = "fi" then value else "TestBank"
+        let refTextToUse = if field = "referenceText" then value else "TXN-VALID"
+        let input: JournalEntryAddExternalReferenceInput =
+            { journalEntryId = jeIdToUse
+              reference = { financialInstitution = fiToUse; referenceText = refTextToUse } }
+        result {
+            let! payload = input |> toJson<JournalEntryAddExternalReferenceInput>
+            do!
+                match routeUiCommandForTesting "JournalEntry" "AddExternalReference" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error e ->
+                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
+                    if caseName = expectedError then Ok()
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper

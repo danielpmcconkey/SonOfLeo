@@ -22,6 +22,7 @@ open Tests.Helpers.Cleanup
 open InterfaceBridge.InterfaceContracts.AccountContracts
 open Utilities.AppError
 open Context.Context
+open Model.Ledger.Journaling.JournalEntryComponent
 
 [<Collection("SharedTestData")>]
 type AccountRouteTests(fixture: TestDataFixture) =
@@ -319,9 +320,145 @@ type AccountRouteTests(fixture: TestDataFixture) =
         }
         |> railroadWrapper
 
-    // todo: create a test that checks that FetchBalances fails with improper codes
+    [<Theory>]
+    [<InlineData("code", "", "AccountCodeIsEmpty")>]
+    [<InlineData("code", "01234567890", "AccountCodeTooLong")>]
+    [<InlineData("name", "", "AccountNameIsEmpty")>]
+    [<InlineData("name",
+                 "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789X",
+                 "AccountNameTooLong")>]
+    [<InlineData("accountTypeSt", "Fudge", "AccountTypeInvalid")>]
+    [<InlineData("subType", "Fluffy", "AccountSubtypeInvalid")>]
+    [<InlineData("parentCode", "", "AccountCodeIsEmpty")>]
+    [<InlineData("parentCode", "01234567890", "AccountCodeTooLong")>]
+    [<InlineData("reference", "", "AccountExternalReferenceIsEmpty")>]
+    [<InlineData("reference",
+                 "012345678901234567890123456789012345678901234567890",
+                 "AccountExternalReferenceTooLong")>]
+    member _.``REQ-AC-2.21 Create validates input as valid types``
+        (field: string, value: string, expectedError: string)
+        =
+        let mutable accountIdToCleanup: AccountId option = None
+        try
+            let context = create NoTransaction FetchOnly
+            let codeToUse = if field = "code" then value else genericAccountCodeString
+            let nameToUse = if field = "name" then value else genericAccountNameString
+            let typeToUse = if field = "accountTypeSt" then value else genericAccountTypeString
+            let subTypeToUse = if field = "subType" then Some value else genericAccountSubtype
+            let parentCodeToUse = if field = "parentCode" then Some value else genericAccountParentCode
+            let referenceToUse = if field = "reference" then Some value else genericAccountReference
+            let input: AccountCreateInput =
+                { code = codeToUse
+                  name = nameToUse
+                  accountTypeSt = typeToUse
+                  activeBegin = genericAccountActiveBegin
+                  activeEnd = genericAccountActiveEnd
+                  subType = subTypeToUse
+                  parentCode = parentCodeToUse
+                  reference = referenceToUse }
+            result {
+                let! payload = input |> toJson<AccountCreateInput>
+                do!
+                    match routeUiCommandForTesting "Account" "Create" [] payload with
+                    | Ok resultPayload ->
+                        result {
+                            let! accountReturn = fromJson<AccountReturn> resultPayload
+                            let! cleanUpId = accountReturn.code |> LookupCache.accountCodeToId.fetch context
+                            accountIdToCleanup <- (cleanUpId |> AccountId.fromGuid |> Some)
+                            return! Error(TestingError "Expected failure; returned success. Record should be cleaned up.")
+                        }
+                    | Error e ->
+                        let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
+                        if caseName = expectedError then Ok()
+                        else Error(TestingError $"Wrong error type. Expected {expectedError}. {AppError.toMessage e}")
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            match cleanUpAccountId accountIdToCleanup with
+            | Ok() -> ()
+            | Error e -> Assert.Fail(AppError.toMessage e)
 
-    // todo: create a test that checks that FetchBalances fails with improper asOf
+    [<Theory>]
+    [<InlineData("codeEmpty", "AccountCodeIsEmpty")>]
+    [<InlineData("codeTooLong", "AccountCodeTooLong")>]
+    [<InlineData("alreadyInactive", "AccountAlreadyInactive")>]
+    [<InlineData("proposedDateInvalid", "AccountDeactivationProposedDateIsInvalid")>]
+    [<InlineData("activeChildren", "AccountActiveChildrenBeforeDeactivation")>]
+    [<InlineData("nonZeroBalance", "AccountNonZeroBalanceBeforeDeactivation")>]
+    member _.``REQ-AC-4.1 Deactivate validates input and state``
+        (scenario: string, expectedError: string)
+        =
+        let today = Calendar.today()
+        let yesterday = today.PlusDays(-1)
+        let codeToUse =
+            match scenario with
+            | "codeEmpty" -> ""
+            | "codeTooLong" -> "01234567890"
+            | "alreadyInactive" -> "F-1290"
+            | "proposedDateInvalid" -> "F-3030"
+            | "activeChildren" -> "F-5000"
+            | "nonZeroBalance" -> "F-2210"
+            | _ -> failwith $"Unknown scenario: {scenario}"
+        let activeEndToUse =
+            match scenario with
+            | "proposedDateInvalid" -> Some(today.PlusYears(-2))
+            | _ -> Some yesterday
+        let input: AccountDeactivationInput = { code = codeToUse; activeEnd = activeEndToUse }
+        result {
+            let! payload = input |> toJson<AccountDeactivationInput>
+            do!
+                match routeUiCommandForTesting "Account" "Deactivate" [] payload with
+                | Ok _ ->
+                    Error(TestingError "Expected failure; returned success. This probably caused other tests to fail")
+                | Error e ->
+                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
+                    if caseName = expectedError then Ok()
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-AC-4.1 Deactivate rejects when JEs dated after deactivation date``() =
+        let today = Calendar.today()
+        let yesterday = today.PlusDays(-1)
+        let mutable accountIdToCleanUp: AccountId option = None
+        let mutable jeIdToCleanUp: JournalEntryHeaderId option = None
+        try
+            let context = create NoTransaction FetchOnly
+            result {
+                let! _, accountId =
+                    createTestAccountFromPrimitives
+                        context "AC-DJE" "Deactivation JE date test" "Expense"
+                        (today.PlusYears(-1)) None (Some "OperatingExpense")
+                        (Some fixture.Data.expenses5000Id) None
+                accountIdToCleanUp <- Some accountId
+                let! _, jeId =
+                    createTestJournalEntryFromPrimitives
+                        context "JE for deactivation date test" None today
+                        [ (accountId, 50.00M, "Debit", None)
+                          (accountId, 50.00M, "Credit", None) ]
+                        [] []
+                jeIdToCleanUp <- Some jeId
+                let! payload =
+                    { code = "AC-DJE"; activeEnd = Some yesterday } |> toJson<AccountDeactivationInput>
+                do!
+                    match routeUiCommandForTesting "Account" "Deactivate" [] payload with
+                    | Ok _ ->
+                        Error(TestingError "Expected failure; returned success. This probably caused other tests to fail")
+                    | Error(AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate _) -> Ok()
+                    | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            match cleanUpJournalEntryId jeIdToCleanUp with
+            | Ok() -> ()
+            | Error e -> Assert.Fail(AppError.toMessage e)
+            match cleanUpAccountId accountIdToCleanUp with
+            | Ok() -> ()
+            | Error e -> Assert.Fail(AppError.toMessage e)
 
 
 
