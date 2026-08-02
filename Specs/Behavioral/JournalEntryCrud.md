@@ -150,6 +150,7 @@ construction pattern) but deliberately not verified by tests.
 | REQ-JE-1.41 | Same shape as REQ-JE-1.29 — non-nullable Guid plus not-null FK. | Dan, 2026-07-03 |
 | REQ-JE-1.50 | Same as REQ-JE-1.2 — system-generated UUID plus primary key constraint. | Dan, 2026-07-03 |
 | REQ-JE-1.51 | Non-nullable Guid plus not-null FK; existence of the primary entry is validated at construction (validateJournalEntryHeader, exercised by every comment test). | Dan, 2026-07-03 |
+| REQ-JE-1.14 | Enforced by the type definition — `voidedAt` is `Instant option` on the header type. Void behavior tested under REQ-JE-4.3/4.7 | Dan, 2026-08-02 |
 | REQ-JE-2.14 | Enforced structurally — no creation input contract exposes `voidedAt` (`JournalContracts.fs`: it appears only on `JournalEntryHeaderReturn`). Model-layer reconstitution legitimately carries `voidedAt`; reconstitution is not creation. | Dan, 2026-08-02 |
 | REQ-JE-4.1 | A negative existence claim over the entire API surface ("no function exposes an update path for these fields") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-06-22 |
 | REQ-JE-4.2 | The prohibition "no spec, requirement, or tooling may characterize journal entries as immutable" is a negative existence claim over documentation and the API surface; the positive behaviors it depends on (void, comments) are tested under REQ-JE-4.3/4.7/5.x. Enforced by review. | Dan, 2026-06-22 |

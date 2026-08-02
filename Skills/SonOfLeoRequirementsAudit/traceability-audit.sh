@@ -26,8 +26,8 @@ tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 # Promotion-candidates sections. Only the leading bolded ID on the line is a
 # definition; IDs later in the line are cross-references.
 for f in "${SPEC_FILES[@]}"; do
-    awk '/^## (Withdrawn|Waived from testing|Promotion candidates)/{exit} {print}' "$f" \
-        | grep -oE "^[[:space:]]*- \*\*$ID_RE" | grep -oE "$ID_RE" || true
+    awk '/^## (Withdrawn|Waived from testing|Promotion candidates|Unenforceable)/{exit} {print}' "$f" \
+        | grep -iv 'stricken' | grep -oE "^[[:space:]]*- \*\*$ID_RE" | grep -oE "$ID_RE" || true
 done | sort -u > "$tmp/active"
 
 section_ids() {  # $1 = section heading; first table column only

@@ -155,6 +155,10 @@ construction pattern) but deliberately not verified by tests.
 | REQ-AC-1.37 | Parent ID is an Option type — nullability is inherent in the type | Dan, 2026-07-06 |
 | REQ-AC-1.41 | External reference is an Option type — nullability is inherent in the type | Dan, 2026-07-06 |
 | REQ-AC-1.44 | Active begin is a NodaTime LocalDate (value type) — cannot be null | Dan, 2026-07-06 |
+| REQ-AC-2.10 | Covered by REQ-AC-1.18 tests — the create-time rejection is the same constraint tested at the data-state level | Dan, 2026-08-02 |
+| REQ-AC-2.18 | Covered by REQ-AC-1.46 tests — the create-time validation is the same constraint tested at the data-state level | Dan, 2026-08-02 |
+| REQ-AC-2.8 | Account ID is a system-generated UUID (REQ-AC-2.13) — duplication is structurally impossible | Dan, 2026-08-02 |
+| REQ-AC-3.2 | Too broadly scoped — every read test proves it implicitly | Dan, 2026-08-02 |
 
 ## Unenforceable
 
@@ -162,7 +166,12 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 
 | ID | Why it cannot be enforced | Approved |
 |---|---|---|
+| REQ-AC-1.48.1 | Policy for spec writers — "each requirement that references activity status must specify which reference point applies." Binds humans authoring specs, not code | Dan, 2026-08-02 |
 | REQ-AC-2.17 | The requirement assigns responsibility to the caller and explicitly states there is no validation. Nothing in the system checks that the caller provided a correct begin date | Dan, 2026-06-11 |
+| REQ-AC-2.6.1 | Contextual annotation ("caller is an internal application layer function only") — not a testable behavior | Dan, 2026-08-02 |
+| REQ-AC-2.7.1 | Contextual annotation ("caller is an internal application layer function only") — not a testable behavior | Dan, 2026-08-02 |
+| REQ-AC-3.3.1 | A contextual annotation ("this is an internal-only capability"), not a testable behavior. Nothing in the system enforces internal-vs-external access boundaries | Dan, 2026-08-02 |
+| REQ-AC-3.5.2 | Contextual annotation ("caller is an internal application layer function only") — not a testable behavior | Dan, 2026-08-02 |
 | REQ-AC-3.3.1 | A contextual annotation ("this is an internal-only capability"), not a testable behavior. Nothing in the system enforces internal-vs-external access boundaries | Dan, 2026-08-02 |
 
 ## Withdrawn
