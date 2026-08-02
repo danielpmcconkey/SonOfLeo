@@ -416,7 +416,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-AC-4.1 Deactivate rejects when JEs dated after deactivation date``() =
+    member _.``REQ-AC-4.6 Deactivate rejects when JEs dated after deactivation date``() =
         let today = Calendar.today()
         let yesterday = today.PlusDays(-1)
         let mutable accountIdToCleanUp: AccountId option = None

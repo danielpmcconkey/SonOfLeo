@@ -37,6 +37,8 @@ type FixtureData =
       personalRevenue4290Id: AccountId
       food5350Id: AccountId
       entertainment5650Id: AccountId
+      temporalRevenue4500Id: AccountId
+      temporalExpense5700Id: AccountId
       closedBank1290Id: AccountId
       closedAccount: Account
       openFiscalPeriodIds: FiscalPeriodId list
@@ -247,6 +249,20 @@ type TestDataFixture() =
                         (Some expenses5000Id)
                         None
                 accounts <- entertainment5650 :: accounts
+
+                let! temporalRevenue4500, temporalRevenue4500Id =
+                    createTestAccountFromPrimitives
+                        context "F-4500" "Temporal Revenue" "Revenue"
+                        lastYear None (Some "OperatingRevenue")
+                        (Some revenue4000Id) None
+                accounts <- temporalRevenue4500 :: accounts
+
+                let! temporalExpense5700, temporalExpense5700Id =
+                    createTestAccountFromPrimitives
+                        context "F-5700" "Temporal Expense" "Expense"
+                        lastYear None (Some "OperatingExpense")
+                        (Some expenses5000Id) None
+                accounts <- temporalExpense5700 :: accounts
 
 
                 // create an account that will be closed after we add an entry to it
@@ -486,6 +502,46 @@ type TestDataFixture() =
                 journalEntries <- sharedCommentJe2 :: journalEntries
 
                 // =============================================================================
+                // Temporal JEs — spread across dates for as-of and filter testing
+                // =============================================================================
+
+                let! temporalAlpha, _ =
+                    createTestJournalEntryFromPrimitives
+                        context
+                        "Temporal entry alpha"
+                        None
+                        (today.PlusDays(-3))
+                        [ (temporalExpense5700Id, 137.42M, "Debit", None)
+                          (temporalRevenue4500Id, 137.42M, "Credit", None) ]
+                        []
+                        []
+                journalEntries <- temporalAlpha :: journalEntries
+
+                let! temporalBeta, _ =
+                    createTestJournalEntryFromPrimitives
+                        context
+                        "Temporal entry beta"
+                        None
+                        (today.PlusDays(-1))
+                        [ (temporalExpense5700Id, 88.17M, "Debit", None)
+                          (temporalRevenue4500Id, 88.17M, "Credit", None) ]
+                        []
+                        []
+                journalEntries <- temporalBeta :: journalEntries
+
+                let! temporalGamma, _ =
+                    createTestJournalEntryFromPrimitives
+                        context
+                        "Temporal entry gamma"
+                        None
+                        today
+                        [ (temporalExpense5700Id, 61.50M, "Debit", None)
+                          (temporalRevenue4500Id, 61.50M, "Credit", None) ]
+                        []
+                        []
+                journalEntries <- temporalGamma :: journalEntries
+
+                // =============================================================================
                 // Calculate aggregate totals for fetch tests
                 // =============================================================================
 
@@ -531,6 +587,8 @@ type TestDataFixture() =
                       personalRevenue4290Id = personalRevenue4290Id
                       food5350Id = food5350Id
                       entertainment5650Id = entertainment5650Id
+                      temporalRevenue4500Id = temporalRevenue4500Id
+                      temporalExpense5700Id = temporalExpense5700Id
                       closedBank1290Id = closedBank1290Id
                       closedAccount = updatedClosedBank
                       openFiscalPeriodIds = openFiscalPeriods |> List.map FiscalPeriod.fiscalPeriodId

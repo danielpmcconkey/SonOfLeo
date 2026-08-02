@@ -9,6 +9,8 @@ open ModelOrchestrator.JournalEntries
 open Utilities.AppError
 open Xunit
 open Tests.Helpers
+open Model
+open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.AccountActivity
 open System
 open ModelOrchestrator.FetchFilters
@@ -102,4 +104,59 @@ type AccountActivityTests(fixture: TestDataFixture) =
             Assert.Equal(1, activities |> List.length)
             let activity = activities |> List.head
             Assert.True(activity.activityDetail |> Option.isNone)
+        | Error e -> Assert.Fail(AppError.toMessage e)
+
+    [<Fact>]
+    member _.``REQ-JE-3.9 fetchFiltered by amount returns only matching lines``() =
+        let targetAmount =
+            137.42M |> Money.fromDecimal |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+        let filter =
+            { accountId = None
+              temporalFilter = None
+              source = None
+              accountType = None
+              accountSubtype = None
+              accountParentId = None
+              journalEntryId = None
+              amount = Some targetAmount
+              description = None
+              unVoidedOnly = false }
+        let context = Context.create NoTransaction FetchOnly
+        let result = fetchFiltered context filter None
+        match result with
+        | Ok activities ->
+            let withDetail = activities |> List.filter(fun a -> a.activityDetail |> Option.isSome)
+            Assert.Equal(2, withDetail |> List.length)
+            for activity in withDetail do
+                let detail = activity.activityDetail |> Option.get
+                Assert.Equal(137.42M, detail.amount |> Money.amount)
+                Assert.Equal("Temporal entry alpha", detail.journalEntryDescription |> JournalEntryDescription.value)
+        | Error e -> Assert.Fail(AppError.toMessage e)
+
+    [<Fact>]
+    member _.``REQ-JE-3.9 fetchFiltered by description returns only matching lines``() =
+        let targetDescription =
+            "Temporal entry alpha"
+            |> JournalEntryDescription.create
+            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+        let filter =
+            { accountId = None
+              temporalFilter = None
+              source = None
+              accountType = None
+              accountSubtype = None
+              accountParentId = None
+              journalEntryId = None
+              amount = None
+              description = Some targetDescription
+              unVoidedOnly = false }
+        let context = Context.create NoTransaction FetchOnly
+        let result = fetchFiltered context filter None
+        match result with
+        | Ok activities ->
+            let withDetail = activities |> List.filter(fun a -> a.activityDetail |> Option.isSome)
+            Assert.Equal(2, withDetail |> List.length)
+            for activity in withDetail do
+                let detail = activity.activityDetail |> Option.get
+                Assert.Equal("Temporal entry alpha", detail.journalEntryDescription |> JournalEntryDescription.value)
         | Error e -> Assert.Fail(AppError.toMessage e)

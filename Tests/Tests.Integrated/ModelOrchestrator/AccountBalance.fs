@@ -10,6 +10,7 @@ open Utilities.AppError
 open Xunit
 open Tests.Helpers
 open ModelOrchestrator.AccountBalance
+open Utilities
 open Context.Context
 
 [<Collection("SharedTestData")>]
@@ -102,4 +103,37 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         let result = fetchByAccountIdList context [] None
         Assert.True(Result.isError result) // todo: change this to a precise assertion on error type
 
-// todo: create a test on fetchByAccountIdList that checks that as-of works
+    [<Fact>]
+    member _.``REQ-JE-3.6.2 fetchByAccountIdList with asOf excludes entries after cutoff``() =
+        let context = create NoTransaction FetchOnly
+        let today = Calendar.today()
+        let asOfDate = today.PlusDays(-2)
+        let expenseId = fixture.Data.temporalExpense5700Id
+        let result = fetchByAccountIdList context [ expenseId ] (Some asOfDate)
+        match result with
+        | Ok balances ->
+            Assert.Equal(1, balances |> List.length)
+            let bal = balances |> List.head
+            Assert.Equal(137.42M, bal.totalDebits |> Money.amount)
+            Assert.Equal(0M, bal.totalCredits |> Money.amount)
+            Assert.Equal(137.42M, bal.netBalance |> Money.amount)
+        | Error e -> Assert.Fail(AppError.toMessage e)
+
+    [<Fact>]
+    member _.``REQ-JE-3.6.1 net balance is positive in normal-balance orientation``() =
+        let context = create NoTransaction FetchOnly
+        let expenseId = fixture.Data.temporalExpense5700Id
+        let revenueId = fixture.Data.temporalRevenue4500Id
+        let result = fetchByAccountIdList context [ expenseId; revenueId ] None
+        match result with
+        | Ok balances ->
+            Assert.Equal(2, balances |> List.length)
+            let expenseBal = balances |> List.find(fun b -> b.accountId = expenseId)
+            let revenueBal = balances |> List.find(fun b -> b.accountId = revenueId)
+            Assert.Equal(287.09M, expenseBal.totalDebits |> Money.amount)
+            Assert.Equal(0M, expenseBal.totalCredits |> Money.amount)
+            Assert.True(expenseBal.netBalance |> Money.amount > 0M)
+            Assert.Equal(0M, revenueBal.totalDebits |> Money.amount)
+            Assert.Equal(287.09M, revenueBal.totalCredits |> Money.amount)
+            Assert.True(revenueBal.netBalance |> Money.amount > 0M)
+        | Error e -> Assert.Fail(AppError.toMessage e)

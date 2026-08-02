@@ -294,3 +294,15 @@ type AccountTests(fixture: TestDataFixture) =
                 return ()
             })
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-AC-3.3 fetchById returns account matching provided ID``() =
+        let context = create NoTransaction FetchOnly
+        let expectedId = fixture.Data.mortgage2210Id
+        result {
+            let! account = Account.fetchById context expectedId
+            Assert.Equal(expectedId, account |> Account.accountId)
+            Assert.Equal("F-2210", account |> Account.code |> AccountCode.value)
+            return ()
+        }
+        |> railroadWrapper

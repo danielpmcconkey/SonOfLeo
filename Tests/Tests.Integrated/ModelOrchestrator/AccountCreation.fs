@@ -52,3 +52,24 @@ let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` 
         Assert.Equal(expected, Account.modifiedAt account)
         Ok())
     |> railroadWrapper
+
+[<Fact>]
+let ``REQ-AC-1.40 constructNew rejects non-existent parent ID`` () =
+    runFuncAndAutoRollback AccountCreate (fun context ->
+        let code = "ac140" |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+        let bogusParentId = Some(Guid.NewGuid() |> AccountId.fromGuid)
+        let result =
+            AccountCreation.constructNewAndSaveToDb
+                context
+                code
+                genericAccountName
+                genericAccountType
+                genericAccountActivityPeriod
+                genericAccountSubtype
+                bogusParentId
+                genericAccountReference
+        match result with
+        | Error(DalResultantRowsDidntMatchExpectation _) -> Ok()
+        | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+        | Ok _ -> Error(TestingError "Expected failure; got success"))
+    |> railroadWrapper
