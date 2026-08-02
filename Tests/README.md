@@ -128,6 +128,7 @@ break some later test's count. It does not exist to leave a clean database behin
 - Do not ever architect a test that relies on data persisted by a previous run.
 - Test data fixtures are created with dates relative to the system date/time, so do not count on any statically dated test data.
 - Do not ever write tests that assume the count of anything in the database is a constant (ex: number of accounts of type "Asset"). Always calculate expected counts (using a different means than what you're testing) before the assertion phase of the test.
+- When testing a filter, derive the filter target from the fixture data (e.g., find the most common amount via list operations), not from a hardcoded value. This ensures the test adapts if fixtures change — and also proves you're testing against real data, not a value you hope exists.
 - **Tests do not create their own setup entities.** If a test needs an entity to exist before it can exercise the behavior under test, that entity belongs in the fixture. The only entities a test should create are the ones whose creation *is* the behavior being tested.
 - It is okay to create new fixture data, but your first thought should be to see if an existing fixture can suffice. Before adding one, ask what *archetype* is missing — a closed account, a child of a particular subtype, a period in a given state. Three well-chosen archetypes beat fourteen single-purpose snowflakes.
 - Do not leave the database in a mutated state relative to how you found it. Roll back or clean up, per your form.

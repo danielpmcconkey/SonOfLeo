@@ -108,8 +108,22 @@ type AccountActivityTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.9 fetchFiltered by amount returns only matching lines``() =
+        let nonVoidedLines =
+            fixture.Data.journalEntries
+            |> List.filter(fun je ->
+                je |> JournalEntry.header |> JournalEntryHeader.voidedAt |> Option.isNone)
+            |> List.collect JournalEntry.lines
+        let targetAmountDecimal =
+            nonVoidedLines
+            |> List.countBy(fun l -> l |> JournalEntryLine.amount |> Money.amount)
+            |> List.maxBy snd
+            |> fst
+        let expectedCount =
+            nonVoidedLines
+            |> List.filter(fun l -> l |> JournalEntryLine.amount |> Money.amount = targetAmountDecimal)
+            |> List.length
         let targetAmount =
-            137.42M |> Money.fromDecimal |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            targetAmountDecimal |> Money.fromDecimal |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         let filter =
             { accountId = None
               temporalFilter = None
@@ -126,17 +140,31 @@ type AccountActivityTests(fixture: TestDataFixture) =
         match result with
         | Ok activities ->
             let withDetail = activities |> List.filter(fun a -> a.activityDetail |> Option.isSome)
-            Assert.Equal(2, withDetail |> List.length)
+            Assert.Equal(expectedCount, withDetail |> List.length)
             for activity in withDetail do
                 let detail = activity.activityDetail |> Option.get
-                Assert.Equal(137.42M, detail.amount |> Money.amount)
-                Assert.Equal("Temporal entry alpha", detail.journalEntryDescription |> JournalEntryDescription.value)
+                Assert.Equal(targetAmountDecimal, detail.amount |> Money.amount)
         | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]
     member _.``REQ-JE-3.9 fetchFiltered by description returns only matching lines``() =
+        let nonVoidedEntries =
+            fixture.Data.journalEntries
+            |> List.filter(fun je ->
+                je |> JournalEntry.header |> JournalEntryHeader.voidedAt |> Option.isNone)
+        let targetDescriptionString =
+            nonVoidedEntries
+            |> List.countBy(fun je ->
+                je |> JournalEntry.header |> JournalEntryHeader.description |> JournalEntryDescription.value)
+            |> List.maxBy snd
+            |> fst
+        let expectedCount =
+            nonVoidedEntries
+            |> List.filter(fun je ->
+                je |> JournalEntry.header |> JournalEntryHeader.description |> JournalEntryDescription.value = targetDescriptionString)
+            |> List.sumBy(fun je -> je |> JournalEntry.lines |> List.length)
         let targetDescription =
-            "Temporal entry alpha"
+            targetDescriptionString
             |> JournalEntryDescription.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         let filter =
@@ -155,8 +183,8 @@ type AccountActivityTests(fixture: TestDataFixture) =
         match result with
         | Ok activities ->
             let withDetail = activities |> List.filter(fun a -> a.activityDetail |> Option.isSome)
-            Assert.Equal(2, withDetail |> List.length)
+            Assert.Equal(expectedCount, withDetail |> List.length)
             for activity in withDetail do
                 let detail = activity.activityDetail |> Option.get
-                Assert.Equal("Temporal entry alpha", detail.journalEntryDescription |> JournalEntryDescription.value)
+                Assert.Equal(targetDescriptionString, detail.journalEntryDescription |> JournalEntryDescription.value)
         | Error e -> Assert.Fail(AppError.toMessage e)
