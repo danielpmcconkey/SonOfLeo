@@ -25,7 +25,7 @@ let stringOptionUnboxing (objRaw: obj) : Result<string option, AppError> =
         else
             Ok(Some(objRaw :?> string))
     with ex ->
-        Error(DalErrorDuringStringUnboxing ex)
+        Error(DalErrorDuringStringOptionUnboxing ex)
 
 let intUnboxing (objRaw: obj) : Result<int, AppError> =
     try
@@ -157,7 +157,7 @@ let executeScalar
     result {
         let! ds = dataSource.Value
         let parameters = buildParamsList parameters
-        let! rows =
+        let! returnVal =
             (*
              * standard dotnet I/O libraries throw standard dotnet exceptions
              * we use a try/with block to convert their results into more
@@ -165,13 +165,12 @@ let executeScalar
              *)
             let objResult =
                 try
-
                     match dbTransaction |> isNone with
                     | true ->
                         use connection = ds.OpenConnection()
                         use command = new NpgsqlCommand(query, connection)
                         parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
-                        command.ExecuteScalar()
+                        Ok (command.ExecuteScalar())
                     | false ->
                         let tran, conn =
                             dbTransaction
@@ -180,9 +179,11 @@ let executeScalar
                         use command = new NpgsqlCommand(query, conn)
                         command.Transaction <- tran
                         parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
-                        command.ExecuteScalar()
+                        Ok (command.ExecuteScalar())
                 with ex ->
                     Error(DalErrorDuringScalarExecution ex)
-            objResult |> unboxingFunc
-        return rows
+            match objResult with
+            | Error e -> Error e
+            | Ok x -> x |> unboxingFunc
+        return returnVal
     }

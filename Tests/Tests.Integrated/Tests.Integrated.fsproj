@@ -52,6 +52,7 @@
     <Compile Include="InterfaceBridge\AccountRoutes.fs" />
     <Compile Include="InterfaceBridge\FiscalPeriodRoutes.fs" />
     <Compile Include="InterfaceBridge\JournalEntryRoutes.fs" />
+    <Compile Include="DataAccessLayer\DalTests.fs" />
   </ItemGroup>
 
   <Target Name="CopyEnvConfig" AfterTargets="Build">
