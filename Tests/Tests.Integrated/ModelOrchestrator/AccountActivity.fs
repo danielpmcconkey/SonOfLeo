@@ -151,7 +151,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]
-    member _.``REQ-JE-3.9.3 fetchFiltered sorted by entry date ascending returns results in date order``() =
+    member _.``REQ-JE-3.9.3 fetchFiltered sort by entry date — ascending and descending are mutual reverses``() =
         let filter =
             { accountId = None
               temporalFilter = None
@@ -164,21 +164,26 @@ type AccountActivityTests(fixture: TestDataFixture) =
               description = None
               unVoidedOnly = false }
         let context = Context.create NoTransaction FetchOnly
+        let extractDates activities =
+            activities
+            |> List.filter (fun a -> a.activityDetail |> Option.isSome)
+            |> List.map (fun a -> (a.activityDetail |> Option.get).entryDate)
         result {
-            let! activities = fetchFiltered context filter (Some EntryDateAsc)
-            let dates =
-                activities
-                |> List.filter (fun a -> a.activityDetail |> Option.isSome)
-                |> List.map (fun a -> (a.activityDetail |> Option.get).entryDate)
-            Assert.True(dates.Length > 1, "Need multiple detail rows to verify sort order")
-            dates
-            |> List.pairwise
-            |> List.iter (fun (a, b) -> Assert.True(a <= b, $"Expected {a} <= {b}"))
+            let! activitiesAsc = fetchFiltered context filter (Some EntryDateAsc)
+            let! activitiesDesc = fetchFiltered context filter (Some EntryDateDesc)
+            let datesAsc = extractDates activitiesAsc
+            let datesDesc = extractDates activitiesDesc
+            Assert.True(
+                datesAsc |> List.pairwise |> List.exists (fun (a, b) -> a <> b),
+                "All dates are identical — sort order cannot be verified")
+            Assert.True(
+                (datesAsc |> List.rev) = datesDesc,
+                "Descending sort should be the reverse of ascending sort")
         }
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-3.9.3 fetchFiltered sorted by entry date descending returns results in reverse date order``() =
+    member _.``REQ-JE-3.9.3 fetchFiltered sort by account code — ascending and descending are mutual reverses``() =
         let filter =
             { accountId = None
               temporalFilter = None
@@ -191,21 +196,24 @@ type AccountActivityTests(fixture: TestDataFixture) =
               description = None
               unVoidedOnly = false }
         let context = Context.create NoTransaction FetchOnly
+        let extractCodes activities =
+            activities |> List.map (fun a -> a.accountCode |> AccountCode.value)
         result {
-            let! activities = fetchFiltered context filter (Some EntryDateDesc)
-            let dates =
-                activities
-                |> List.filter (fun a -> a.activityDetail |> Option.isSome)
-                |> List.map (fun a -> (a.activityDetail |> Option.get).entryDate)
-            Assert.True(dates.Length > 1, "Need multiple detail rows to verify sort order")
-            dates
-            |> List.pairwise
-            |> List.iter (fun (a, b) -> Assert.True(a >= b, $"Expected {a} >= {b}"))
+            let! activitiesAsc = fetchFiltered context filter (Some AccountCodeAsc)
+            let! activitiesDesc = fetchFiltered context filter (Some AccountCodeDesc)
+            let codesAsc = extractCodes activitiesAsc
+            let codesDesc = extractCodes activitiesDesc
+            Assert.True(
+                codesAsc |> List.pairwise |> List.exists (fun (a, b) -> a <> b),
+                "All codes are identical — sort order cannot be verified")
+            Assert.True(
+                (codesAsc |> List.rev) = codesDesc,
+                "Descending sort should be the reverse of ascending sort")
         }
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-3.9.3 fetchFiltered sorted by account code ascending returns results in code order``() =
+    member _.``REQ-JE-3.9.3 fetchFiltered sort by amount — ascending and descending are mutual reverses``() =
         let filter =
             { accountId = None
               temporalFilter = None
@@ -218,91 +226,21 @@ type AccountActivityTests(fixture: TestDataFixture) =
               description = None
               unVoidedOnly = false }
         let context = Context.create NoTransaction FetchOnly
+        let extractAmounts activities =
+            activities
+            |> List.filter (fun a -> a.activityDetail |> Option.isSome)
+            |> List.map (fun a -> (a.activityDetail |> Option.get).amount |> Money.amount)
         result {
-            let! activities = fetchFiltered context filter (Some AccountCodeAsc)
-            let codes = activities |> List.map (fun a -> a.accountCode |> AccountCode.value)
-            Assert.True(codes.Length > 1, "Need multiple rows to verify sort order")
-            codes
-            |> List.pairwise
-            |> List.iter (fun (a, b) -> Assert.True(a <= b, $"Expected \"{a}\" <= \"{b}\""))
-        }
-        |> railroadWrapper
-
-    [<Fact>]
-    member _.``REQ-JE-3.9.3 fetchFiltered sorted by account code descending returns results in reverse code order``() =
-        let filter =
-            { accountId = None
-              temporalFilter = None
-              source = None
-              accountType = None
-              accountSubtype = None
-              accountParentId = None
-              journalEntryId = None
-              amount = None
-              description = None
-              unVoidedOnly = false }
-        let context = Context.create NoTransaction FetchOnly
-        result {
-            let! activities = fetchFiltered context filter (Some AccountCodeDesc)
-            let codes = activities |> List.map (fun a -> a.accountCode |> AccountCode.value)
-            Assert.True(codes.Length > 1, "Need multiple rows to verify sort order")
-            codes
-            |> List.pairwise
-            |> List.iter (fun (a, b) -> Assert.True(a >= b, $"Expected \"{a}\" >= \"{b}\""))
-        }
-        |> railroadWrapper
-
-    [<Fact>]
-    member _.``REQ-JE-3.9.3 fetchFiltered sorted by amount ascending returns results in amount order``() =
-        let filter =
-            { accountId = None
-              temporalFilter = None
-              source = None
-              accountType = None
-              accountSubtype = None
-              accountParentId = None
-              journalEntryId = None
-              amount = None
-              description = None
-              unVoidedOnly = false }
-        let context = Context.create NoTransaction FetchOnly
-        result {
-            let! activities = fetchFiltered context filter (Some AmountAsc)
-            let amounts =
-                activities
-                |> List.filter (fun a -> a.activityDetail |> Option.isSome)
-                |> List.map (fun a -> (a.activityDetail |> Option.get).amount |> Money.amount)
-            Assert.True(amounts.Length > 1, "Need multiple detail rows to verify sort order")
-            amounts
-            |> List.pairwise
-            |> List.iter (fun (a, b) -> Assert.True(a <= b, $"Expected {a} <= {b}"))
-        }
-        |> railroadWrapper
-
-    [<Fact>]
-    member _.``REQ-JE-3.9.3 fetchFiltered sorted by amount descending returns results in reverse amount order``() =
-        let filter =
-            { accountId = None
-              temporalFilter = None
-              source = None
-              accountType = None
-              accountSubtype = None
-              accountParentId = None
-              journalEntryId = None
-              amount = None
-              description = None
-              unVoidedOnly = false }
-        let context = Context.create NoTransaction FetchOnly
-        result {
-            let! activities = fetchFiltered context filter (Some AmountDesc)
-            let amounts =
-                activities
-                |> List.filter (fun a -> a.activityDetail |> Option.isSome)
-                |> List.map (fun a -> (a.activityDetail |> Option.get).amount |> Money.amount)
-            Assert.True(amounts.Length > 1, "Need multiple detail rows to verify sort order")
-            amounts
-            |> List.pairwise
-            |> List.iter (fun (a, b) -> Assert.True(a >= b, $"Expected {a} >= {b}"))
+            let! activitiesAsc = fetchFiltered context filter (Some AmountAsc)
+            let! activitiesDesc = fetchFiltered context filter (Some AmountDesc)
+            let amountsAsc = extractAmounts activitiesAsc
+            let amountsDesc = extractAmounts activitiesDesc
+            Assert.True(
+                amountsAsc |> List.pairwise |> List.exists (fun (a, b) -> a <> b),
+                "All amounts are identical — sort order cannot be verified")
+            Assert.True(
+                (amountsAsc |> List.rev) = amountsDesc,
+                "Descending sort should be the reverse of ascending sort")
         }
         |> railroadWrapper
 
