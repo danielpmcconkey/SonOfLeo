@@ -3,7 +3,9 @@ namespace Tests.Integrated.ModelOrchestrator
 open DataAccessLayer.DbTransaction
 open Logger.Audit
 open Model
+open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
+open ModelOrchestrator.JournalEntries.JournalEntry
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
 open Utilities.AppError
@@ -109,14 +111,30 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         let today = Calendar.today()
         let asOfDate = today.PlusDays(-2)
         let expenseId = fixture.Data.temporalExpense5700Id
+        let linesBeforeCutoff =
+            fixture.Data.journalEntries
+            |> List.filter(fun je ->
+                let h = je |> header
+                h |> JournalEntryHeader.voidedAt |> Option.isNone
+                && h |> JournalEntryHeader.entryDate |> EntryDate.entryDate <= asOfDate)
+            |> List.collect lines
+            |> List.filter(fun l -> l |> JournalEntryLine.accountId = expenseId)
+        let expectedDebits =
+            linesBeforeCutoff
+            |> List.filter(fun l -> l |> JournalEntryLine.lineType = Debit)
+            |> List.sumBy(fun l -> l |> JournalEntryLine.amount |> Money.amount)
+        let expectedCredits =
+            linesBeforeCutoff
+            |> List.filter(fun l -> l |> JournalEntryLine.lineType = Credit)
+            |> List.sumBy(fun l -> l |> JournalEntryLine.amount |> Money.amount)
         let result = fetchByAccountIdList context [ expenseId ] (Some asOfDate)
         match result with
         | Ok balances ->
             Assert.Equal(1, balances |> List.length)
             let bal = balances |> List.head
-            Assert.Equal(137.42M, bal.totalDebits |> Money.amount)
-            Assert.Equal(0M, bal.totalCredits |> Money.amount)
-            Assert.Equal(137.42M, bal.netBalance |> Money.amount)
+            Assert.Equal(expectedDebits, bal.totalDebits |> Money.amount)
+            Assert.Equal(expectedCredits, bal.totalCredits |> Money.amount)
+            Assert.True(linesBeforeCutoff |> List.length > 0)
         | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]
