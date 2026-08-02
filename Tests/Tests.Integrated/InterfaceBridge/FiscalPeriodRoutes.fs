@@ -172,7 +172,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-FP-2.4 Create rejects invalid period key string``() =
+    member _.``REQ-FP-2.4 Fiscal Period Create rejects invalid period key string``() =
         let payload = createFiscalPeriodInputPayload "abc"
         result {
             do!
