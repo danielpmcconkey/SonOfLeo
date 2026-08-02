@@ -5,17 +5,17 @@
 | Account	| Create	| accountCreate	| AccountCreateInput	| name	| AccountNameIsEmpty	| 	| 	| 	 |
 | Account	| Create	| accountCreate	| AccountCreateInput	| name	| AccountNameTooLong	| 	| 	| 	 |
 | Account	| Create	| accountCreate	| AccountCreateInput	| accountTypeSt	| AccountTypeInvalid	| 	| 	| 	 |
-| Account	| Create	| accountCreate	| AccountCreateInput	| combined	| AccountActiveEndBeforeBegin	| 	| 	| lower	 |
+| Account	| Create	| accountCreate	| AccountCreateInput	| combined	| AccountActiveEndBeforeBegin	| not needed in route testing	| 	| lower	 |
 | Account	| Create	| accountCreate	| AccountCreateInput	| subType	| AccountSubtypeInvalid	| 	| 	| 	 |
 | Account	| Create	| accountCreate	| AccountCreateInput	| parentCode	| AccountCodeIsEmpty	| 	| 	| 	 |
 | Account	| Create	| accountCreate	| AccountCreateInput	| parentCode	| AccountCodeTooLong	| 	| 	| 	 |
 | Account	| Create	| accountCreate	| AccountCreateInput	| parentCode	| AccountParentCodeInvalid	| 	| 	| 	 |
 | Account	| Create	| accountCreate	| AccountCreateInput	| reference	| AccountExternalReferenceIsEmpty	| 	| 	| 	 |
 | Account	| Create	| accountCreate	| AccountCreateInput	| reference	| AccountExternalReferenceTooLong	| 	| 	| 	 |
-| Account	| Create	| accountCreate	| AccountCreateInput	| parentCode	| AccountParentIsInactive	| 	| 	| lower	 |
-| Account	| Create	| accountCreate	| AccountCreateInput	| parentCode	| AccountParentAndChildTypesDontMatch	| 	| 	| lower	 |
-| Account	| Create	| accountCreate	| AccountCreateInput	| parentCode	| AccountParentAndChildAreSame	| 	| 	| yes	 |
-| Account	| Create	| accountCreate	| AccountCreateInput	| combined	| AccountInvalidTypeSubtypeCombo	| 	| 	| lower	 |
+| Account	| Create	| accountCreate	| AccountCreateInput	| parentCode	| AccountParentIsInactive	| not needed in route testing	| 	| lower	 |
+| Account	| Create	| accountCreate	| AccountCreateInput	| parentCode	| AccountParentAndChildTypesDontMatch	| not needed in route testing	| 	| lower	 |
+| Account	| Create	| accountCreate	| AccountCreateInput	| parentCode	| AccountParentAndChildAreSame	| claude says unreachable	| 	| yes	 |
+| Account	| Create	| accountCreate	| AccountCreateInput	| combined	| AccountInvalidTypeSubtypeCombo	| not needed in route testing	| 	| lower	 |
 | Account	| Deactivate	| accountDeactivate	| AccountDeactivationInput	| code	| AccountCodeIsEmpty	| 	| 	| 	 |
 | Account	| Deactivate	| accountDeactivate	| AccountDeactivationInput	| code	| AccountCodeTooLong	| 	| 	| 	 |
 | Account	| Deactivate	| accountDeactivate	| AccountDeactivationInput	| code	| AccountCodeDoesntMatchAccountId	| 	| 	| 	 |
@@ -24,7 +24,7 @@
 | Account	| Deactivate	| accountDeactivate	| AccountDeactivationInput	| code	| AccountActiveChildrenBeforeDeactivation	| 	| 	| 	 |
 | Account	| Deactivate	| accountDeactivate	| AccountDeactivationInput	| code	| AccountNonZeroBalanceBeforeDeactivation	| 	| 	| 	 |
 | Account	| Deactivate	| accountDeactivate	| AccountDeactivationInput	| code	| AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate	| 	| 	| 	 |
-| Account	| Deactivate	| accountDeactivate	| AccountDeactivationInput	| code	| AccountDeactivationFailedJournalEntryValidation	| 	| 	| yes	 |
+| Account	| Deactivate	| accountDeactivate	| AccountDeactivationInput	| code	| AccountDeactivationFailedJournalEntryValidation	| Impossible to test. This error is is there to shut the compile up because it thinks that a count scalar can return a negative value	| 	| yes	 |
 | Account	| UpdateName	| accountUpdateName	| AccountUpdateNameInput	| code	| AccountCodeIsEmpty	| 	| 	| lower	 |
 | Account	| UpdateName	| accountUpdateName	| AccountUpdateNameInput	| code	| AccountCodeTooLong	| 	| 	| lower	 |
 | Account	| UpdateName	| accountUpdateName	| AccountUpdateNameInput	| code	| AccountCodeDoesntMatchAccountId	| 	| 	| 	 |
@@ -66,17 +66,17 @@
 | FiscalPeriod	| Create	| create	| FiscalPeriodInput	| periodKey	| FiscalPeriodInvalidKeyString	| 	| 	| lower	 |
 | FiscalPeriod	| Create	| create	| FiscalPeriodInput	| combined	| DalResultantRowsDidntMatchExpectation	| nearly impossible to reach this error	| 	| yes	 |
 | FiscalPeriod	| FetchByKey	| fetch	| FiscalPeriodInput	| periodKey	| FiscalPeriodNoPeriodMatchingKey	| 	| 	| 	 |
-| FiscalPeriod	| FetchByKey	| fetch	| FiscalPeriodInput	| periodKey	| FiscalPeriodNoPeriodMatchingId	| 	| 	| yes	 |
+| FiscalPeriod	| FetchByKey	| fetch	| FiscalPeriodInput	| periodKey	| FiscalPeriodNoPeriodMatchingId	| nearly impossible to reach this error	| 	| yes	 |
 | FiscalPeriod	| Close	| close	| FiscalPeriodInput	| periodKey	| FiscalPeriodNoPeriodMatchingKey	| 	| 	| 	 |
 | FiscalPeriod	| Close	| close	| FiscalPeriodInput	| periodKey	| DalResultantRowsDidntMatchExpectation	| nearly impossible to reach this error	| 	| yes	 |
 | FiscalPeriod	| Reopen	| reopen	| FiscalPeriodInput	| periodKey	| FiscalPeriodNoPeriodMatchingKey	| 	| 	| 	 |
-| FiscalPeriod	| Reopen	| reopen	| FiscalPeriodInput	| periodKey	| FiscalPeriodToggleOpenNoOp	| 	| 	| lower	 |
+| FiscalPeriod	| Reopen	| reopen	| FiscalPeriodInput	| periodKey	| FiscalPeriodToggleOpenNoOp	| not needed in route testing	| 	| lower	 |
 | FiscalPeriod	| Reopen	| reopen	| FiscalPeriodInput	| periodKey	| DalResultantRowsDidntMatchExpectation	| nearly impossible to reach this error	| 	| yes	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| description	| JournalEntryDescriptionIsEmpty	| 	| 	| 	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| description	| JournalEntryDescriptionTooLong	| 	| 	| 	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| source	| JournalEntrySourceIsEmpty	| 	| 	| 	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| source	| JournalEntrySourceTooLong	| 	| 	| 	 |
-| JournalEntry	| PostNew	| postNew	| JournalEntryInput	| entryDate	| JournalEntryDateNotInFiscalPeriod	| 	| 	| lower	 |
+| JournalEntry	| PostNew	| postNew	| JournalEntryInput	| entryDate	| JournalEntryDateNotInFiscalPeriod	| not needed in route testing	| 	| lower	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| accountCode	| AccountCodeIsEmpty	| 	| 	| 	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| accountCode	| AccountCodeTooLong	| 	| 	| 	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| accountCode	| AccountCodeDoesntMatchAccountId	| 	| 	| lower	 |
@@ -94,13 +94,13 @@
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| commentText	| JournalEntryCommentTooLong	| 	| 	| 	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| entryDate	| JournalEntryHeaderEntryDateInvalid	| 	| 	| lower	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| accountCode	| JournalEntryLineAccountDoesntExist	| 	| 	| lower	 |
-| JournalEntry	| PostNew	| postNew	| JournalEntryInput	| accountCode	| JournalEntryLineAccountInactive	| 	| 	| lower	 |
-| JournalEntry	| PostNew	| postNew	| JournalEntryInput	| amount	| JournalEntryLineNonPositiveAmount	| 	| 	| lower	 |
-| JournalEntry	| PostNew	| postNew	| JournalEntryInput	| combined	| JournalEntryCommentPrimaryAndSecondaryIdsAreSame	| 	| 	| lower	 |
+| JournalEntry	| PostNew	| postNew	| JournalEntryInput	| accountCode	| JournalEntryLineAccountInactive	| not needed in route testing	| 	| lower	 |
+| JournalEntry	| PostNew	| postNew	| JournalEntryInput	| amount	| JournalEntryLineNonPositiveAmount	| not needed in route testing	| 	| lower	 |
+| JournalEntry	| PostNew	| postNew	| JournalEntryInput	| combined	| JournalEntryCommentPrimaryAndSecondaryIdsAreSame	| not needed in route testing	| 	| lower	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| combined	| JournalEntryInsufficientLines	| 	| 	| 	 |
-| JournalEntry	| PostNew	| postNew	| JournalEntryInput	| combined	| JournalEntryDebitCreditMismatch	| 	| 	| lower	 |
+| JournalEntry	| PostNew	| postNew	| JournalEntryInput	| combined	| JournalEntryDebitCreditMismatch	| not needed in route testing	| 	| lower	 |
 | JournalEntry	| FetchById	| fetchById	| JournalEntryFetchByIdInput	| id	| JournalEntryHeaderIdDoesntExist	| 	| 	| 	 |
-| JournalEntry	| FetchByPeriod	| fetchByPeriod	| JournalEntryFetchByPeriodInput	| periodKey	| FiscalPeriodNoPeriodMatchingKey	| 	| 	| lower	 |
+| JournalEntry	| FetchByPeriod	| fetchByPeriod	| JournalEntryFetchByPeriodInput	| periodKey	| FiscalPeriodNoPeriodMatchingKey	| not needed in route testing	| 	| lower	 |
 | JournalEntry	| FetchLinesByAccount	| fetchLinesByAccount	| JournalEntryFetchLinesByAccountInput	| accountCode	| AccountCodeIsEmpty	| 	| 	| lower	 |
 | JournalEntry	| FetchLinesByAccount	| fetchLinesByAccount	| JournalEntryFetchLinesByAccountInput	| accountCode	| AccountCodeTooLong	| 	| 	| lower	 |
 | JournalEntry	| FetchLinesByAccount	| fetchLinesByAccount	| JournalEntryFetchLinesByAccountInput	| accountCode	| AccountCodeDoesntMatchAccountId	| 	| 	| lower	 |
@@ -113,11 +113,11 @@
 | JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| commentText	| JournalEntryCommentIsEmpty	| 	| 	| 	 |
 | JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| commentText	| JournalEntryCommentTooLong	| 	| 	| 	 |
 | JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| combined	| JournalEntryCommentPrimaryAndSecondaryIdsAreSame	| 	| 	| 	 |
-| JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| id	| JournalEntryVoidingCannotFetchFiscalPeriod	| 	| 	| yes	 |
+| JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| id	| JournalEntryVoidingCannotFetchFiscalPeriod	| Claude says requires deleting a FP out from under a JE	| 	| yes	 |
 | JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| id	| JournalEntryVoidingFiscalPeriodIsClosed	| 	| 	| 	 |
 | JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| id	| JournalEntryVoidingNoOp	| 	| 	| 	 |
 | JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| id	| JournalEntryHeaderIdDoesntExist	| 	| 	| 	 |
-| JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| JournalEntryCommentInput	| JournalEntryCommentPrimaryJeHeaderIdNotFound	| 	| 	| lower	 |
+| JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| JournalEntryCommentInput	| JournalEntryCommentPrimaryJeHeaderIdNotFound	| not needed in route testing	| 	| lower	 |
 | JournalEntry	| Void	| voidJe	| JournalEntryVoidInput	| JournalEntryCommentInput	| JournalEntryCommentSecondaryJeHeaderIdNotFound	| 	| 	| 	 |
 | JournalEntry	| UpdateExternalReference	| updateExternalReference	| JournalEntryUpdateExternalReferenceInput	| fi	| JournalRefFinancialInstitutionIsEmpty	| 	| 	| lower	 |
 | JournalEntry	| UpdateExternalReference	| updateExternalReference	| JournalEntryUpdateExternalReferenceInput	| fi	| JournalRefFinancialInstitutionTooLong	| 	| 	| lower	 |
@@ -131,9 +131,9 @@
 | JournalEntry	| AddExternalReference	| addExternalReference	| JournalEntryAddExternalReferenceInput	| journalEntryId	| JournalEntryHeaderIdDoesntExist	| 	| 	| 	 |
 | JournalEntry	| AddComment	| addComment	| JournalEntryAddCommentInput	| commentText	| JournalEntryCommentIsEmpty	| 	| 	| lower	 |
 | JournalEntry	| AddComment	| addComment	| JournalEntryAddCommentInput	| commentText	| JournalEntryCommentTooLong	| 	| 	| lower	 |
-| JournalEntry	| AddComment	| addComment	| JournalEntryAddCommentInput	| journalEntryId	| JournalEntryCommentPrimaryJeHeaderIdNotFound	| 	| 	| lower	 |
+| JournalEntry	| AddComment	| addComment	| JournalEntryAddCommentInput	| journalEntryId	| JournalEntryCommentPrimaryJeHeaderIdNotFound	| not needed in route testing	| 	| lower	 |
 | JournalEntry	| AddComment	| addComment	| JournalEntryAddCommentInput	| secondaryJournalEntryId	| JournalEntryCommentSecondaryJeHeaderIdNotFound	| 	| 	| 	 |
-| JournalEntry	| AddComment	| addComment	| JournalEntryAddCommentInput	| combined	| JournalEntryCommentPrimaryAndSecondaryIdsAreSame	| 	| 	| lower	 |
+| JournalEntry	| AddComment	| addComment	| JournalEntryAddCommentInput	| combined	| JournalEntryCommentPrimaryAndSecondaryIdsAreSame	| not needed in route testing	| 	| lower	 |
 | JournalEntry	| UpdateComment	| updateComment	| JournalEntryUpdateCommentInput	| commentText	| JournalEntryCommentIsEmpty	| 	| 	| 	 |
 | JournalEntry	| UpdateComment	| updateComment	| JournalEntryUpdateCommentInput	| commentText	| JournalEntryCommentTooLong	| 	| 	| 	 |
 | JournalEntry	| UpdateComment	| updateComment	| JournalEntryUpdateCommentInput	| secondaryJournalEntryId	| JournalEntryCommentPrimaryAndSecondaryIdsAreSame 	| 	| 	| 	 |
