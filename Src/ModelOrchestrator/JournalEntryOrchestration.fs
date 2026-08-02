@@ -272,8 +272,16 @@ module JournalEntry =
             let joinClause = if joins = "" then None else Some joins
             let sort = Some "je.entry_date asc"
             let! headersDuplicates =
-                JournalEntryHeader.readRowsFromDb context joinClause predicate None sort parameters expectedRows
-            return headersDuplicates |> List.distinctBy(fun h -> h |> JournalEntryHeader.journalEntryHeaderId)
+                JournalEntryHeader.readRowsFromDb context joinClause predicate None sort parameters AnyQuantityIsAcceptable
+            let deduped = headersDuplicates |> List.distinctBy(fun h -> h |> JournalEntryHeader.journalEntryHeaderId)
+            let dedupedCount = deduped |> List.length
+            do! match expectedRows with
+                | Zero when dedupedCount = 0 -> Ok()
+                | ExactlyOne when dedupedCount = 1 -> Ok()
+                | OneOrMany when dedupedCount >= 1 -> Ok()
+                | AnyQuantityIsAcceptable -> Ok()
+                | _ -> Error(DalResultantRowsDidntMatchExpectation(expectedRows.ToString(), dedupedCount))
+            return deduped
         }
 
     let fetchFiltered
