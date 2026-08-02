@@ -93,7 +93,7 @@
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| commentText	| JournalEntryCommentIsEmpty	| 	| 	| 	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| commentText	| JournalEntryCommentTooLong	| 	| 	| 	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| entryDate	| JournalEntryHeaderEntryDateInvalid	| 	| 	| 	 |
-| JournalEntry	| PostNew	| postNew	| JournalEntryInput	| accountCode	| JournalEntryLineAccountDoesntExist	| 	| 	| lower	 |
+| JournalEntry	| PostNew	| postNew	| JournalEntryInput	| accountCode	| JournalEntryLineAccountDoesntExist	| stale-cache backstop — code resolves to ID but entity fetch returns zero rows	| 	| lower	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| accountCode	| JournalEntryLineAccountInactive	| not needed in route testing	| 	| lower	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| amount	| JournalEntryLineNonPositiveAmount	| not needed in route testing	| 	| lower	 |
 | JournalEntry	| PostNew	| postNew	| JournalEntryInput	| combined	| JournalEntryCommentPrimaryAndSecondaryIdsAreSame	| not needed in route testing	| 	| lower	 |
