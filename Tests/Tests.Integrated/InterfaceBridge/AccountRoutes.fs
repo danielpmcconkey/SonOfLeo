@@ -273,7 +273,8 @@ type AccountRouteTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-3.9 FetchActivity happy path``() =        let code = "F-2210"
+    member _.``REQ-JE-3.9 FetchActivity happy path``() =
+        let code = "F-2210"
         let account =
             fixture.Data.accounts
             |> List.filter(fun a -> a |> Account.code |> AccountCode.value = code)
@@ -307,7 +308,8 @@ type AccountRouteTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-3.6 FetchBalances route happy path``() =        // note, we only check simple execution. We have more specific tests in the model orchestration tests.
+    member _.``REQ-JE-3.6 FetchBalances route happy path``() =
+        // note, we only check simple execution. We have more specific tests in the model orchestration tests.
         result {
             let input: AccountBalanceFetchByAccountListInput = { codes = [ "F-2210"; "F-5350" ]; asOf = None }
             let! payload = input |> toJson<AccountBalanceFetchByAccountListInput>
@@ -479,7 +481,8 @@ type AccountRouteTests(fixture: TestDataFixture) =
     [<InlineData("amount", "-19999999999.99", "MoneyFailedToConvertBelowMin")>]
     member _.``REQ-JE-3.9 FetchActivity validates all input as valid types``
         (field: string, value: string, expectedError: string)
-        =        let convertValueToTemporalFilter () : Result<TemporalFilterInput, AppError> =
+        =
+        let convertValueToTemporalFilter () : Result<TemporalFilterInput, AppError> =
             match value.IndexOf(':') with
             | -1 -> Error(TestingError "bad inline data on temporal filter")
             | index ->
