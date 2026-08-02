@@ -20,13 +20,13 @@ Classification buckets, per Dan's framing:
 
 | # | Item | Evidence |
 |---|---|---|
-| 6 | Tests for REQ-AC-1.40 (parent exists), REQ-AC-3.3 (fetch-by-ID) | Neither ID appears in any test name; neither is waived |
-| 38 | Consolidate REQ-AC-1.19 / 1.19.1 | Still verbatim duplicates at `AccountCrud.md:25-26` |
-| 60 | REQ-JE-3.4 verification | Spec note claims "we have functioning tests" — no test cites it. Capability is covered under JE-3.9; needs a waiver row or a citing test |
-| 69 | Defensive-parameterization REQ | **Disposed 2026-08-02 — overruled; see Dispositions below.** New origin-agnostic REQ rejected; REQ-DAL-2.3 to be amended instead to clarify when interpolation is acceptable |
-| 99a | As-of balance tests (REQ-JE-3.6.2) | Only `asOf = None` appears in tests (`AccountRoutes.fs:314`) |
-| 100a | Amount/description filter tests | `AccountActivity.fs` has 3 tests, none exercising these filters; batch-2 multi-fail covers sad paths only |
-| 101a | Signed-balance normal-orientation test (REQ-JE-3.6.1) | Not cited by any test |
+| 6 | Tests for REQ-AC-1.40 (parent exists), REQ-AC-3.3 (fetch-by-ID) | **Done 2026-08-02 (P2).** Tests written by BD; REQ-AC-3.3.1 classified unenforceable |
+| 38 | Consolidate REQ-AC-1.19 / 1.19.1 | **Done 2026-08-02 (P1).** 1.19.1 withdrawn; five tests renamed by BD to cite 1.19 |
+| 60 | REQ-JE-3.4 verification | **Done 2026-08-02 (P1).** Spec note corrected — no test cites it, capability covered by JE-3.9 |
+| 69 | Defensive-parameterization REQ | **Disposed 2026-08-02 — overruled; see Dispositions below.** REQ-DAL-2.3 amended to clarify when interpolation is acceptable |
+| 99a | As-of balance tests (REQ-JE-3.6.2) | **Done 2026-08-02 (P2).** Two tests by BD; uncovered a bug in AccountBalance.fs (null check on as-of filtered entries, `830b5c8`) |
+| 100a | Amount/description filter tests | **Done 2026-08-02 (P2).** Tests by BD; uncovered a bug in AccountActivity.fs (description filter not unwrapping DU value, `c54fe0c`) |
+| 101a | Signed-balance normal-orientation test (REQ-JE-3.6.1) | **Done 2026-08-02 (P2).** Test by BD |
 | 102a | Counter-account revisit | Not addressed in `cli-requirements-from-leobloom-usage.md` |
 | 115 | Next-month period auto-create check | Nothing in code |
 | 119a | fetchHeadersFromFilter dedup-then-enforce | Still passes `expectedRows` to the DAL before deduping; the warning comment the item wanted removed is alive at `JournalEntryOrchestration.fs:312-316` |

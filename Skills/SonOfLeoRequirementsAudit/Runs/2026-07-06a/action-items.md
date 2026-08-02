@@ -15,7 +15,7 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | # | ID | Finding | Action | Status |
 |---|-----|---------|--------|--------|
 | 1 | SD-01 | REQ-AC-4.4 (zero-balance deactivation guard) coded but untested and unwaived | Dan wrote the test | RESOLVED |
-| 2 | SD-02 | REQ-AC-4.6 (no JE after deactivation date) coded but untested and unwaived | Confirm finding and fix if confirmed | CONFIRMED |
+| 2 | SD-02 | REQ-AC-4.6 (no JE after deactivation date) coded but untested and unwaived | Confirm finding and fix if confirmed | RESOLVED |
 | 3 | CQ-1 | Conventions/README.md does not index Doctrines.md | Added index entry | RESOLVED |
 
 ## Medium
