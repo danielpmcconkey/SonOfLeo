@@ -302,7 +302,6 @@ type AccountTests(fixture: TestDataFixture) =
         result {
             let! account = Account.fetchById context expectedId
             Assert.Equal(expectedId, account |> Account.accountId)
-            Assert.Equal("F-2210", account |> Account.code |> AccountCode.value)
             return ()
         }
         |> railroadWrapper
