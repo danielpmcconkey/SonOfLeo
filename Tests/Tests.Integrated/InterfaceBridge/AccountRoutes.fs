@@ -462,6 +462,11 @@ type AccountRouteTests(fixture: TestDataFixture) =
     [<Theory>]
     [<InlineData("accountCode", "", "AccountCodeIsEmpty")>]
     [<InlineData("accountCode", "aaaaaaaaaaaaa", "AccountCodeTooLong")>]
+    [<InlineData("accountCode", "Z-9999", "AccountCodeDoesntMatchAccountId")>]
+    [<InlineData("description", "", "JournalEntryDescriptionIsEmpty")>]
+    [<InlineData("description",
+                 "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789C0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789CM",
+                 "JournalEntryDescriptionTooLong")>]
     [<InlineData("temporalFilter", "periodKey: ", "FiscalPeriodInvalidKeyString")>]
     [<InlineData("temporalFilter", "periodKey:1974-03", "FiscalPeriodNoPeriodMatchingKey")>]
     [<InlineData("source", "", "JournalEntrySourceIsEmpty")>]
@@ -520,6 +525,138 @@ type AccountRouteTests(fixture: TestDataFixture) =
             let! payload = input |> toJson<AccountActivityFetchInput>
             do!
                 match routeUiCommandForTesting "Account" "FetchActivity" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error e ->
+                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
+                    if caseName = expectedError then Ok()
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper
+
+    [<Theory>]
+    [<InlineData("code", "", "AccountCodeIsEmpty")>]
+    [<InlineData("code", "01234567890", "AccountCodeTooLong")>]
+    [<InlineData("newName", "", "AccountNameIsEmpty")>]
+    [<InlineData("newName",
+                 "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789X",
+                 "AccountNameTooLong")>]
+    member _.``REQ-AC-4.8 UpdateName validates input as valid types``
+        (field: string, value: string, expectedError: string) =
+        let codeToUse = if field = "code" then value else "F-1270"
+        let nameToUse = if field = "newName" then value else "Valid name"
+        let input: AccountUpdateNameInput = { code = codeToUse; newName = nameToUse }
+        result {
+            let! payload = input |> toJson<AccountUpdateNameInput>
+            do!
+                match routeUiCommandForTesting "Account" "UpdateName" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error e ->
+                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
+                    if caseName = expectedError then Ok()
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper
+
+    [<Theory>]
+    [<InlineData("code", "", "AccountCodeIsEmpty")>]
+    [<InlineData("code", "01234567890", "AccountCodeTooLong")>]
+    [<InlineData("newReference", "", "AccountExternalReferenceIsEmpty")>]
+    [<InlineData("newReference",
+                 "012345678901234567890123456789012345678901234567890",
+                 "AccountExternalReferenceTooLong")>]
+    member _.``REQ-AC-4.9 UpdateExternalReference validates input as valid types``
+        (field: string, value: string, expectedError: string) =
+        let codeToUse = if field = "code" then value else "F-1270"
+        let referenceToUse = if field = "newReference" then Some value else Some "Valid ref"
+        let input: AccountUpdateExternalReferenceInput = { code = codeToUse; newReference = referenceToUse }
+        result {
+            let! payload = input |> toJson<AccountUpdateExternalReferenceInput>
+            do!
+                match routeUiCommandForTesting "Account" "UpdateExternalReference" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error e ->
+                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
+                    if caseName = expectedError then Ok()
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper
+
+    [<Theory>]
+    [<InlineData("", "AccountCodeIsEmpty")>]
+    [<InlineData("01234567890", "AccountCodeTooLong")>]
+    [<InlineData("Z-9999", "AccountCodeDoesntMatchAccountId")>]
+    member _.``REQ-AC-3.4 FetchByCode validates input as valid types``
+        (code: string, expectedError: string) =
+        result {
+            let! payload = { AccountFetchByCodeInput.code = code } |> toJson<AccountFetchByCodeInput>
+            do!
+                match routeUiCommandForTesting "Account" "FetchByCode" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error e ->
+                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
+                    if caseName = expectedError then Ok()
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper
+
+    [<Theory>]
+    [<InlineData("", "AccountCodeIsEmpty")>]
+    [<InlineData("01234567890", "AccountCodeTooLong")>]
+    member _.``REQ-AC-3.10 FetchByParentCode validates input as valid types``
+        (parentCode: string, expectedError: string) =
+        result {
+            let! payload =
+                { AccountFetchByParentCodeInput.parentCode = parentCode }
+                |> toJson<AccountFetchByParentCodeInput>
+            do!
+                match routeUiCommandForTesting "Account" "FetchByParentCode" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error e ->
+                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
+                    if caseName = expectedError then Ok()
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-AC-3.6 FetchByAccountType rejects invalid type string``() =
+        result {
+            let! payload =
+                { AccountFetchByAccountTypeInput.accountTypeSt = "Fudge" }
+                |> toJson<AccountFetchByAccountTypeInput>
+            do!
+                match routeUiCommandForTesting "Account" "FetchByAccountType" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error(AccountTypeInvalid _) -> Ok()
+                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper
+
+    [<Theory>]
+    [<InlineData("codeEmpty", "AccountCodeIsEmpty")>]
+    [<InlineData("codeTooLong", "AccountCodeTooLong")>]
+    [<InlineData("codeInvalid", "AccountCodeDoesntMatchAccountId")>]
+    [<InlineData("emptyList", "AccountBalanceFetchInvalidArguments")>]
+    member _.``REQ-JE-3.6 FetchBalances validates input as valid types``
+        (scenario: string, expectedError: string) =
+        let codesToUse =
+            match scenario with
+            | "codeEmpty" -> [ "" ]
+            | "codeTooLong" -> [ "01234567890" ]
+            | "codeInvalid" -> [ "Z-9999" ]
+            | "emptyList" -> []
+            | _ -> failwith $"Unknown scenario: {scenario}"
+        let input: AccountBalanceFetchByAccountListInput = { codes = codesToUse; asOf = None }
+        result {
+            let! payload = input |> toJson<AccountBalanceFetchByAccountListInput>
+            do!
+                match routeUiCommandForTesting "Account" "FetchBalances" [] payload with
                 | Ok _ -> Error(TestingError "Expected failure; returned success.")
                 | Error e ->
                     let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name

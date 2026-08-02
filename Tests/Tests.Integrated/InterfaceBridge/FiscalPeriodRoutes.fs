@@ -170,3 +170,16 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
             return ()
         }
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-FP-2.4 Create rejects invalid period key string``() =
+        let payload = createFiscalPeriodInputPayload "abc"
+        result {
+            do!
+                match routeUiCommandForTesting "FiscalPeriod" "Create" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error(FiscalPeriodInvalidKeyString _) -> Ok()
+                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper

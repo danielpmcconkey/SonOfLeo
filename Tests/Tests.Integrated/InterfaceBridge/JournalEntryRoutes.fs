@@ -99,6 +99,8 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     [<InlineData("source", "01234567890123456789012345678901234567890123456789L", "JournalEntrySourceTooLong")>]
     [<InlineData("accountCode", "", "AccountCodeIsEmpty")>]
     [<InlineData("accountCode", "0123456789X", "AccountCodeTooLong")>]
+    [<InlineData("accountCode", "Z-9999", "AccountCodeDoesntMatchAccountId")>]
+    [<InlineData("entryDate", "closedPeriod", "JournalEntryHeaderEntryDateInvalid")>]
     [<InlineData("amount", "10.307", "MoneyFailedToConvertImproperPrecision")>]
     [<InlineData("amount", "19999999999.99", "MoneyFailedToConvertExceededMax")>]
     [<InlineData("amount", "-19999999999.99", "MoneyFailedToConvertBelowMin")>]
@@ -140,8 +142,9 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                 value
             else
                 "Fixture comment for testing"
+        let entryDateToUse = if field = "entryDate" then today.PlusMonths(-5) else today
         let input: JournalEntryInput =
-            { header = { description = descriptionToUse; source = sourceToUse; entryDate = today }
+            { header = { description = descriptionToUse; source = sourceToUse; entryDate = entryDateToUse }
               lines =
                 [ { accountCode = accountCodeToUse; amount = amountToUse; lineType = lineTypeToUse; memo = memoToUse }
                   { accountCode = "F-5350"; amount = amountToUse; lineType = "Credit"; memo = None } ]
@@ -660,6 +663,81 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
             let! payload = input |> toJson<JournalEntryAddExternalReferenceInput>
             do!
                 match routeUiCommandForTesting "JournalEntry" "AddExternalReference" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error e ->
+                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
+                    if caseName = expectedError then Ok()
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper
+
+    [<Theory>]
+    [<InlineData("", "AccountCodeIsEmpty")>]
+    [<InlineData("01234567890", "AccountCodeTooLong")>]
+    [<InlineData("Z-9999", "AccountCodeDoesntMatchAccountId")>]
+    member _.``REQ-JE-3.4 FetchLinesByAccount validates input as valid types``
+        (accountCode: string, expectedError: string) =
+        let input: JournalEntryFetchLinesByAccountInput =
+            { accountCode = accountCode; nonVoidedOnly = false }
+        result {
+            let! payload = input |> toJson<JournalEntryFetchLinesByAccountInput>
+            do!
+                match routeUiCommandForTesting "JournalEntry" "FetchLinesByAccount" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error e ->
+                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
+                    if caseName = expectedError then Ok()
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper
+
+    [<Theory>]
+    [<InlineData("fi", "", "JournalRefFinancialInstitutionIsEmpty")>]
+    [<InlineData("fi",
+                 "01234567890123456789012345678901234567890123456789L01234567890123456789012345678901234567890123456789LC",
+                 "JournalRefFinancialInstitutionTooLong")>]
+    [<InlineData("reference", "", "JournalEntryReferenceTextIsEmpty")>]
+    [<InlineData("reference",
+                 "01234567890123456789012345678901234567890123456789L01234567890123456789012345678901234567890123456789LC",
+                 "JournalEntryReferenceTextTooLong")>]
+    member _.``REQ-JE-4.9 UpdateExternalReference validates input as valid types``
+        (field: string, value: string, expectedError: string) =
+        let fiToUse = if field = "fi" then Some value else Some "TestBank"
+        let referenceToUse = if field = "reference" then Some value else Some "TXN-001"
+        let input: JournalEntryUpdateExternalReferenceInput =
+            { id = Guid.NewGuid(); fi = fiToUse; reference = referenceToUse }
+        result {
+            let! payload = input |> toJson<JournalEntryUpdateExternalReferenceInput>
+            do!
+                match routeUiCommandForTesting "JournalEntry" "UpdateExternalReference" [] payload with
+                | Ok _ -> Error(TestingError "Expected failure; returned success.")
+                | Error e ->
+                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
+                    if caseName = expectedError then Ok()
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+            return ()
+        }
+        |> railroadWrapper
+
+    [<Theory>]
+    [<InlineData("commentEmpty", "JournalEntryCommentIsEmpty")>]
+    [<InlineData("commentTooLong", "JournalEntryCommentTooLong")>]
+    member _.``REQ-JE-5.1 AddComment validates input as valid types``
+        (scenario: string, expectedError: string) =
+        let commentTextToUse =
+            match scenario with
+            | "commentEmpty" -> ""
+            | "commentTooLong" -> String.replicate 201 "0123456789" + "X"
+            | _ -> failwith $"Unknown scenario: {scenario}"
+        let input: JournalEntryAddCommentInput =
+            { journalEntryId = fixture.Data.basicJeId |> JournalEntryHeaderId.value
+              comment = { secondaryJournalEntryId = None; commentText = commentTextToUse } }
+        result {
+            let! payload = input |> toJson<JournalEntryAddCommentInput>
+            do!
+                match routeUiCommandForTesting "JournalEntry" "AddComment" [] payload with
                 | Ok _ -> Error(TestingError "Expected failure; returned success.")
                 | Error e ->
                     let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
