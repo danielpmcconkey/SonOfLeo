@@ -163,6 +163,7 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 | ID | Why it cannot be enforced | Approved |
 |---|---|---|
 | REQ-AC-2.17 | The requirement assigns responsibility to the caller and explicitly states there is no validation. Nothing in the system checks that the caller provided a correct begin date | Dan, 2026-06-11 |
+| REQ-AC-3.3.1 | A contextual annotation ("this is an internal-only capability"), not a testable behavior. Nothing in the system enforces internal-vs-external access boundaries | Dan, 2026-08-02 |
 
 ## Withdrawn
 
