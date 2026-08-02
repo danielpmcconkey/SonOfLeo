@@ -159,6 +159,8 @@ type AccountBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.6.1 net balance is positive in normal-balance orientation``() =
+        let amount = 200.00M
+        let zero = 0M
         runFuncAndAutoRollback JournalEntryPostNew (fun context ->
             result {
                 let! _, expenseId =
@@ -174,19 +176,19 @@ type AccountBalanceTests(fixture: TestDataFixture) =
                 let! _ =
                     createTestJournalEntryFromPrimitives
                         context "Normal balance orientation test" None (Calendar.today())
-                        [ (expenseId, 200.00M, "Debit", None)
-                          (revenueId, 200.00M, "Credit", None) ]
+                        [ (expenseId, amount, "Debit", None)
+                          (revenueId, amount, "Credit", None) ]
                         [] []
                 let! balances = fetchByAccountIdList context [ expenseId; revenueId ] None
                 Assert.Equal(2, balances |> List.length)
                 let expenseBal = balances |> List.find(fun b -> b.accountId = expenseId)
                 let revenueBal = balances |> List.find(fun b -> b.accountId = revenueId)
-                Assert.Equal(200.00M, expenseBal.totalDebits |> Money.amount)
-                Assert.Equal(0M, expenseBal.totalCredits |> Money.amount)
-                Assert.True(expenseBal.netBalance |> Money.amount > 0M)
-                Assert.Equal(0M, revenueBal.totalDebits |> Money.amount)
-                Assert.Equal(200.00M, revenueBal.totalCredits |> Money.amount)
-                Assert.True(revenueBal.netBalance |> Money.amount > 0M)
+                Assert.Equal(amount, expenseBal.totalDebits |> Money.amount)
+                Assert.Equal(zero, expenseBal.totalCredits |> Money.amount)
+                Assert.True(expenseBal.netBalance |> Money.amount > zero)
+                Assert.Equal(zero, revenueBal.totalDebits |> Money.amount)
+                Assert.Equal(amount, revenueBal.totalCredits |> Money.amount)
+                Assert.True(revenueBal.netBalance |> Money.amount > zero)
                 return ()
             })
         |> railroadWrapper
