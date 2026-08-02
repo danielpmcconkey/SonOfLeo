@@ -68,7 +68,9 @@ let errorRowCount ()
     match executeReaderQuery (context |> getDatabaseTransaction) "select code, account_name from ledger.account where 1 = 2;" [] mapRaw contructFromRaw ExactlyOne with
     | Ok _ -> Ok ()
     | Error e -> Error e
-
+    
+(* Note: several of the DAL errors are impossible to provoke from a buildable, functioning code base (e.g.
+DalEnvVarNotSet). Therefore, we elect not to try testing them here*)
 [<Theory>]
 [<InlineData("DalCantCompleteTransactionOfNone")>]
 [<InlineData("DalCantUseTransactionOfNoneInAutoCommit")>]

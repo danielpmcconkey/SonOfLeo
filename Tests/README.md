@@ -26,7 +26,8 @@ Listed highest to lowest:
 2. Tests.Integrated.InterfaceBridge
 3. Tests.Integrated.ModelOrchestrator
 4. Tests.Integrated.Model
-5. Tests.Isolated.Model
+5. Tests.Integrated.DataAccessLayer
+6. Tests.Isolated.Model
 
 ## The five test forms
 

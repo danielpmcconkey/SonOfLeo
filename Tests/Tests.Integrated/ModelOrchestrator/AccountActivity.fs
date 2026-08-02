@@ -48,7 +48,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]
-    member _.``REQ-JE-3.9 fetchFiltered with unVoidedOnly excludes voided entries``() =
+    member _.``REQ-JE-3.9.1 fetchFiltered with unVoidedOnly excludes voided entries``() =
         let unVoidedJournalEntries =
             fixture.Data.journalEntries
             |> List.filter(fun je -> je |> JournalEntry.header |> JournalEntryHeader.voidedAt |> Option.isNone)

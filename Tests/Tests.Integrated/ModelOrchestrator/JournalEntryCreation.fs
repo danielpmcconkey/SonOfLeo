@@ -324,7 +324,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``JE-2.5 JE-2.6 JE-1.11 constructNewAndSaveToDb rejects entry date w/ no matching fiscal period``() =
+    member _.``REQ-JE-2.5 REQ-JE-2.6 REQ-JE-1.11 constructNewAndSaveToDb rejects entry date w/ no matching fiscal period``() =
         let today = Calendar.today()
         let badDate = today.PlusYears(-3)
         runFuncAndAutoRollback JournalEntryPostNew (fun context ->
