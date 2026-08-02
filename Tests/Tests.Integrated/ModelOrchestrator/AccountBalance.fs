@@ -120,6 +120,22 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]
+    member _.``REQ-JE-3.6.2 fetchByAccountIdList with asOf before all entries returns zero balances``() =
+        let context = create NoTransaction FetchOnly
+        let today = Calendar.today()
+        let asOfDate = today.PlusDays(-4)
+        let expenseId = fixture.Data.temporalExpense5700Id
+        let result = fetchByAccountIdList context [ expenseId ] (Some asOfDate)
+        match result with
+        | Ok balances ->
+            Assert.Equal(1, balances |> List.length)
+            let bal = balances |> List.head
+            Assert.Equal(0M, bal.totalDebits |> Money.amount)
+            Assert.Equal(0M, bal.totalCredits |> Money.amount)
+            Assert.Equal(0M, bal.netBalance |> Money.amount)
+        | Error e -> Assert.Fail(AppError.toMessage e)
+
+    [<Fact>]
     member _.``REQ-JE-3.6.1 net balance is positive in normal-balance orientation``() =
         let context = create NoTransaction FetchOnly
         let expenseId = fixture.Data.temporalExpense5700Id
