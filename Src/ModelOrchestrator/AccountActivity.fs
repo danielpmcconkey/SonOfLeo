@@ -200,7 +200,8 @@ let fetchFiltered
 
               filter.description
               |> Option.map(fun x ->
-                  ("and je.description like @description", { name = "@description"; value = CharString $"%%{x}%%" })) ]
+                  let descVal = x |> JournalEntryDescription.value
+                  ("and je.description like @description", { name = "@description"; value = CharString $"%%{descVal}%%" })) ]
             |> List.choose id
         let whereClauses = whereClausesAndParams |> List.map fst |> String.concat Environment.NewLine
         let parameters = whereClausesAndParams |> List.map snd
