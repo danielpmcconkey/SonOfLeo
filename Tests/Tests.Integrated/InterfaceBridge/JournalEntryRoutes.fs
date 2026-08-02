@@ -472,9 +472,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     [<InlineData("bogusSecondary", "JournalEntryCommentSecondaryJeHeaderIdNotFound")>]
     [<InlineData("voidedJe", "JournalEntryVoidingNoOp")>]
     [<InlineData("closedPeriod", "JournalEntryVoidingFiscalPeriodIsClosed")>]
-    member _.``REQ-JE-4.4 Void validates input and state``
-        (scenario: string, expectedError: string)
-        =
+    member _.``REQ-JE-4.4 Void validates input and state`` (scenario: string, expectedError: string)=
         let jeIdToUse =
             match scenario with
             | "bogusId" -> Guid.NewGuid()
@@ -502,7 +500,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                 | Error e ->
                     let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
                     if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. {AppError.toMessage e}")
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
             return ()
         }
         |> railroadWrapper
@@ -592,7 +590,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                     | Error e ->
                         let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
                         if caseName = expectedError then Ok()
-                        else Error(TestingError $"Wrong error type. Expected {expectedError}. {AppError.toMessage e}")
+                        else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
                 return ()
             }
             |> railroadWrapper
@@ -612,8 +610,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                  "JournalEntryReferenceTextTooLong")>]
     [<InlineData("bothNull", "", "JournalEntryFetchByReferenceBothArgumentsNull")>]
     member _.``REQ-JE-3.5 FetchByExternalReference validates input as valid types``
-        (field: string, value: string, expectedError: string)
-        =
+        (field: string, value: string, expectedError: string) =
         let fiToUse =
             match field with
             | "fi" -> Some value
@@ -634,7 +631,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                 | Error e ->
                     let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
                     if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. {AppError.toMessage e}")
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
             return ()
         }
         |> railroadWrapper
@@ -650,8 +647,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                  "JournalEntryReferenceTextTooLong")>]
     [<InlineData("bogusId", "", "JournalEntryHeaderIdDoesntExist")>]
     member _.``REQ-JE-4.10 AddExternalReference validates input as valid types``
-        (field: string, value: string, expectedError: string)
-        =
+        (field: string, value: string, expectedError: string) =
         let jeIdToUse =
             if field = "bogusId" then Guid.NewGuid()
             else fixture.Data.basicJeId |> JournalEntryHeaderId.value
@@ -668,7 +664,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                 | Error e ->
                     let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
                     if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. {AppError.toMessage e}")
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
             return ()
         }
         |> railroadWrapper

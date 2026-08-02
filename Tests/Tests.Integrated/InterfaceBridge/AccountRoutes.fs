@@ -335,9 +335,8 @@ type AccountRouteTests(fixture: TestDataFixture) =
     [<InlineData("reference",
                  "012345678901234567890123456789012345678901234567890",
                  "AccountExternalReferenceTooLong")>]
-    member _.``REQ-AC-2.21 Create validates input as valid types``
-        (field: string, value: string, expectedError: string)
-        =
+    member _.``REQ-AC-2.21 Account Create validates input as valid types``
+        (field: string, value: string, expectedError: string)  =
         let mutable accountIdToCleanup: AccountId option = None
         try
             let context = create NoTransaction FetchOnly
@@ -370,7 +369,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
                     | Error e ->
                         let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
                         if caseName = expectedError then Ok()
-                        else Error(TestingError $"Wrong error type. Expected {expectedError}. {AppError.toMessage e}")
+                        else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
                 return ()
             }
             |> railroadWrapper
@@ -386,9 +385,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
     [<InlineData("proposedDateInvalid", "AccountDeactivationProposedDateIsInvalid")>]
     [<InlineData("activeChildren", "AccountActiveChildrenBeforeDeactivation")>]
     [<InlineData("nonZeroBalance", "AccountNonZeroBalanceBeforeDeactivation")>]
-    member _.``REQ-AC-4.1 Deactivate validates input and state``
-        (scenario: string, expectedError: string)
-        =
+    member _.``REQ-AC-4.1 Deactivate validates input and state`` (scenario: string, expectedError: string) =
         let today = Calendar.today()
         let yesterday = today.PlusDays(-1)
         let codeToUse =
@@ -414,7 +411,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
                 | Error e ->
                     let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
                     if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. {AppError.toMessage e}")
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
             return ()
         }
         |> railroadWrapper
@@ -527,7 +524,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
                 | Error e ->
                     let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
                     if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. {AppError.toMessage e}")
+                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
             return ()
         }
         |> railroadWrapper
