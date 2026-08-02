@@ -72,6 +72,7 @@ let fetchByAccountIdList
                 sum ( case 
                         when je.voided_at is not null then 0
                         when jel.amount is null then 0 
+						when je.entry_date is null then 0 -- the asOf only filters out the JE, not the line
                         else jel.amount end) as sum_at_type
             from account_and_types ant
             left join ledger.journal_entry_line jel on ant.account_id = jel.account_id
