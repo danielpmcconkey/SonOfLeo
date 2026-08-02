@@ -29,7 +29,7 @@ Classification buckets, per Dan's framing:
 | 101a | Signed-balance normal-orientation test (REQ-JE-3.6.1) | **Done 2026-08-02 (P2).** Test by BD |
 | 102a | Counter-account revisit | Not addressed in `cli-requirements-from-leobloom-usage.md` |
 | 115 | Next-month period auto-create check | Nothing in code |
-| 119a | fetchHeadersFromFilter dedup-then-enforce | Still passes `expectedRows` to the DAL before deduping; the warning comment the item wanted removed is alive at `JournalEntryOrchestration.fs:312-316` |
+| 119a | fetchHeadersFromFilter dedup-then-enforce | **Done 2026-08-02 (P6).** Dan refactored: DAL gets `AnyQuantityIsAcceptable`, dedup via `List.distinctBy`, then check `expectedRows` against the deduped count |
 | 120a | `unwrap` test helper | Open; now ~178 `Result.defaultWith` sites, home is `Tests.Helpers` |
 | 121a | Isolated test-file mismatches | Banner at `JournalEntryComponent.fs:181` still names nonexistent `JournalEntryLine.validateAmount`; tests named `validateAmount` call `confirmAmountIsPositive` |
 | 122a | Comment fetch secondary-match | The todo is still in `JournalEntryComment.fs:159` |
