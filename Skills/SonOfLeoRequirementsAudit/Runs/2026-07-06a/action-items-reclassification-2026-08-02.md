@@ -23,7 +23,7 @@ Classification buckets, per Dan's framing:
 | 6 | Tests for REQ-AC-1.40 (parent exists), REQ-AC-3.3 (fetch-by-ID) | Neither ID appears in any test name; neither is waived |
 | 38 | Consolidate REQ-AC-1.19 / 1.19.1 | Still verbatim duplicates at `AccountCrud.md:25-26` |
 | 60 | REQ-JE-3.4 verification | Spec note claims "we have functioning tests" — no test cites it. Capability is covered under JE-3.9; needs a waiver row or a citing test |
-| 69 | Defensive-parameterization REQ | REQ-DAL-2.3 still says "originating from user input"; no origin-agnostic requirement was added |
+| 69 | Defensive-parameterization REQ | **Disposed 2026-08-02 — overruled; see Dispositions below.** New origin-agnostic REQ rejected; REQ-DAL-2.3 to be amended instead to clarify when interpolation is acceptable |
 | 99a | As-of balance tests (REQ-JE-3.6.2) | Only `asOf = None` appears in tests (`AccountRoutes.fs:314`) |
 | 100a | Amount/description filter tests | `AccountActivity.fs` has 3 tests, none exercising these filters; batch-2 multi-fail covers sad paths only |
 | 101a | Signed-balance normal-orientation test (REQ-JE-3.6.1) | Not cited by any test |
@@ -369,6 +369,19 @@ verifies against a written baseline instead of re-deriving the threat model.
 auditors *should* re-verify environment isolation — drift in networking or secrets
 placement is exactly what an audit is for. The suppression mechanism is for settled
 design arguments, not for standing security posture.
+
+### #69 — defensive parameterization: overruled; amend REQ-DAL-2.3 instead
+
+**Ruling (Dan, 2026-08-02):** the proposed origin-agnostic parameterization REQ is
+overruled. The existing REQ-DAL-2.3 ("originating from user input") is deliberately
+scoped: the only non-parameterized SQL values are type-safe by construction (e.g. `limit`
+is `int option` — F# enforces that at compile time, so injection is structurally
+impossible). A blanket "parameterize everything" rule would demand ceremony where the type
+system already provides the guarantee.
+
+**Work item:** amend REQ-DAL-2.3's language to explain *when* interpolation is acceptable
+— specifically, when the value's type makes injection structurally impossible (e.g.
+compiler-enforced `int`). The requirement should teach, not just mandate.
 
 ### #108a — negative-existence guardrail discoverability: closed as met; the Checks suite is the mechanism
 
