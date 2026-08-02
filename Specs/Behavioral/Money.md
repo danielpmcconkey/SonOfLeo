@@ -37,17 +37,23 @@ How the system handles Money values (see Definitions)
 
 ## Waived from testing
 
-Active requirements that are deliberately not verified by tests. Two-state rule: every
-active requirement is either tested or in this table.
+Active requirements that are enforced (by type system, code review, schema, or
+construction pattern) but deliberately not verified by tests.
 
 | ID | Reason testing is waived | Approved |
 |---|---|---|
-| REQ-MON-1.1 | This is by convention. Nothing in the system actually tracks currency | Dan, 2026-06-19 |
 | REQ-MON-2.1 | You cannot test for the total absence of something | Dan, 2026-06-19 |
 | REQ-MON-2.1.1 | You cannot test for the total absence of something | Dan, 2026-06-19 |
 | REQ-MON-2.7 | You cannot test for the total absence of something | Dan, 2026-06-19 |
 | REQ-MON-2.7.1 | You cannot test for the total absence of something | Dan, 2026-06-19 |
 
+## Unenforceable
+
+Active requirements that bind humans, not code. Nothing in the system enforces these.
+
+| ID | Why it cannot be enforced | Approved |
+|---|---|---|
+| REQ-MON-1.1 | Nothing in the system tracks currency. USD-only is by convention | Dan, 2026-06-19 |
 
 ## Withdrawn
 

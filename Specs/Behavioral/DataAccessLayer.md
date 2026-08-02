@@ -29,7 +29,7 @@ Generic database functions: connecting, executing queries, parameterization, and
 
 - **REQ-DAL-2.1** All data inserted into the database must be parameterized in accordance with industry standard best practice to prevent SQL injection
 - **REQ-DAL-2.2** All non-scalar queries (set-based read, insert, update, and delete) must verify against expected rows affected
-- **REQ-DAL-2.3** All values originating from user input must be parameterized to prevent SQL injection
+- **REQ-DAL-2.3** All values originating from user input must be parameterized to prevent SQL injection. Values whose type makes injection structurally impossible (e.g. `limit: int option`, where F# enforces the type at compile time) may be interpolated directly.
 
 ## 3. Database and data access architecture
 
@@ -46,14 +46,21 @@ Generic database functions: connecting, executing queries, parameterization, and
 
 ## Waived from testing
 
-Active requirements that are deliberately not verified by tests. Two-state rule: every
-active requirement is either tested or in this table.
+Active requirements that are enforced (by type system, code review, schema, or
+construction pattern) but deliberately not verified by tests.
 
 | ID | Reason testing is waived | Approved |
 |---|---|---|
 | REQ-DAL-1.20 | It's a build-configuration fact, not something we can dynamically test. I've manually verified it works | Dan, 2026-07-06 |
 | REQ-DAL-3.7 | It's impossible to test that a behavior isn't present | Dan, 2026-07-06 |
 
+## Unenforceable
+
+Active requirements that bind humans, not code. Nothing in the system enforces these.
+
+| ID | Why it cannot be enforced | Approved |
+|---|---|---|
+|  |  |  |
 
 ## Withdrawn
 

@@ -38,6 +38,7 @@ section_ids() {  # $1 = section heading; first table column only
 }
 section_ids "Withdrawn"           > "$tmp/withdrawn"
 section_ids "Waived from testing" > "$tmp/waived"
+section_ids "Unenforceable"       > "$tmp/unenforceable"
 
 # ---- scan destinations ------------------------------------------------------
 grep -rhoE "$ID_RE" "${TEST_DIRS[@]}" 2>/dev/null | sort > "$tmp/test_all" || true
@@ -67,10 +68,10 @@ else
     echo "clean"
 fi
 
-# ---- invariant 2: every active requirement tested or waived ------------------
+# ---- invariant 2: every active requirement tested, waived, or unenforceable --
 echo ""
-echo "=== Invariant 2: active requirements with no test and no waiver ==="
-comm -23 "$tmp/active" <(sort -u "$tmp/test_refs" "$tmp/waived") > "$tmp/untested"
+echo "=== Invariant 2: active requirements with no test, no waiver, and not unenforceable ==="
+comm -23 "$tmp/active" <(sort -u "$tmp/test_refs" "$tmp/waived" "$tmp/unenforceable") > "$tmp/untested"
 if [[ -s "$tmp/untested" ]]; then
     cat "$tmp/untested"
     echo "($(wc -l < "$tmp/untested") of $(wc -l < "$tmp/active") active requirements)"
@@ -84,6 +85,22 @@ if [[ -s "$tmp/stale_waivers" ]]; then
     echo ""
     echo "=== Stale waivers: waived from testing but tests exist ==="
     cat "$tmp/stale_waivers"
+fi
+
+# ---- consistency: unenforceable but tested (contradiction) -------------------
+comm -12 "$tmp/unenforceable" "$tmp/test_refs" > "$tmp/enforced_unenforceable"
+if [[ -s "$tmp/enforced_unenforceable" ]]; then
+    echo ""
+    echo "=== Contradiction: marked unenforceable but tests exist ==="
+    cat "$tmp/enforced_unenforceable"
+fi
+
+# ---- consistency: both waived and unenforceable (pick one) -------------------
+comm -12 "$tmp/waived" "$tmp/unenforceable" > "$tmp/dual_classified"
+if [[ -s "$tmp/dual_classified" ]]; then
+    echo ""
+    echo "=== Dual-classified: both waived and unenforceable ==="
+    cat "$tmp/dual_classified"
 fi
 
 # ---- invariant 3: bullshit-sniffer feed ---------------------------------------

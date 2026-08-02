@@ -23,7 +23,6 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-1.17** Account types with name of 'Liability','Equity','Revenue' must have a normal balance of 'Credit'
 - **REQ-AC-1.18** Account subtype must be constrained to ['Cash','CurrentLiability','FixedAsset','Investment','LongTermLiability','OperatingExpense','OperatingRevenue','OtherRevenue','OtherExpense']
 - **REQ-AC-1.19** Account subtype can be null and a null subtype can be paired with any type
-- **REQ-AC-1.19.1** A null subtype can be paired with any type
 - **REQ-AC-1.20** Account external reference length must not exceed 50 characters
 - **REQ-AC-1.21** Account ID cannot be null
 - **REQ-AC-1.22** Account ID must be unique
@@ -135,8 +134,8 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 
 ## Waived from testing
 
-Active requirements that are deliberately not verified by tests. Two-state rule: every
-active requirement is either tested or in this table.
+Active requirements that are enforced (by type system, code review, schema, or
+construction pattern) but deliberately not verified by tests.
 
 | ID          | Reason testing is waived  | Approved |
 |---|---|---|
@@ -148,7 +147,6 @@ active requirement is either tested or in this table.
 | REQ-AC-1.39 | It is impossible to try. You can't set the account ID manually so you can't set the parent to its own ID |
 | REQ-AC-1.47 | This is an impossible state if done through the code. The ID of the account is generated at creation time and therefore there can be no children of it. Only possible through direct DB editing                                           | Dan, 2026-06-13 |
 | REQ-AC-2.16 | This is an impossible state if done through the code. See rationale for REQ-AC-1.47 |
-| REQ-AC-2.17 | Validating "active begin" is not AccountCrud's responsibility — the requirement assigns that responsibility to the caller. There is no AccountCrud behavior to test.                                                                      | Dan, 2026-06-11 |
 | REQ-AC-4.22 | A negative existence claim over the entire API surface ("no function exposes an update path for these fields") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-06-11 |
 | REQ-AC-5.1  | A negative existence claim over the entire API surface ("no function exposes a hard delete") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface.                  | Dan, 2026-06-11 |
 | REQ-AC-1.21 | Account ID is a Guid (value type) — cannot be null | Dan, 2026-07-06 |
@@ -158,10 +156,19 @@ active requirement is either tested or in this table.
 | REQ-AC-1.41 | External reference is an Option type — nullability is inherent in the type | Dan, 2026-07-06 |
 | REQ-AC-1.44 | Active begin is a NodaTime LocalDate (value type) — cannot be null | Dan, 2026-07-06 |
 
+## Unenforceable
+
+Active requirements that bind humans, not code. Nothing in the system enforces these.
+
+| ID | Why it cannot be enforced | Approved |
+|---|---|---|
+| REQ-AC-2.17 | The requirement assigns responsibility to the caller and explicitly states there is no validation. Nothing in the system checks that the caller provided a correct begin date | Dan, 2026-06-11 |
+
 ## Withdrawn
 
 | ID          | Original Requirement | Reason |
 |-------------|----------------------|--------|
+| REQ-AC-1.19.1 | A null subtype can be paired with any type | Verbatim duplicate of the second clause of REQ-AC-1.19. Five tests cite 1.19.1 — rename to cite 1.19 (BD). |
 | REQ-AC-1.11 | Account type name of 'Asset' must map to the database ID of 1 | Removed Account Type as a separate DB lookup |
 | REQ-AC-1.12 | Account type name of 'Liability' must map to the database ID of 2 | Removed Account Type as a separate DB lookup |
 | REQ-AC-1.13 | Account type name of 'Equity' must map to the database ID of 3 | Removed Account Type as a separate DB lookup |

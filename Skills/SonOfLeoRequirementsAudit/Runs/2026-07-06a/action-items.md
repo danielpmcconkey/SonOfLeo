@@ -28,30 +28,30 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | 7 | AMB-AC-1 | Traceability.md contradicts AccountCrud on inclusive/exclusive active_end | Fixed Traceability.md | RESOLVED |
 | 8 | IE-AC-1 | REQ-AC-3.9 instant source for reads unspecified (AuditEnvelope vs clock) | Added to resolved-findings.md | OVERRULED |
 | 9 | AMB-AC-2 | REQ-AC-4.4 balance reference date unfixed | Added to resolved-findings.md | OVERRULED |
-| 9a | — | Audit skill quality-reviewer prompts lack GAAP domain literacy | Update prompts: standard accounting terms (balance, posting, debit, credit, void, close) have precise meanings; do not flag as ambiguous unless usage conflicts with the GAAP definition | CONFIRMED |
+| 9a | — | Audit skill quality-reviewer prompts lack GAAP domain literacy | Update prompts: standard accounting terms (balance, posting, debit, credit, void, close) have precise meanings; do not flag as ambiguous unless usage conflicts with the GAAP definition | RESOLVED |
 | 10 | WV-AC-1 | Type-guaranteed null REQs active but unwaived (inconsistency with siblings) | Duplicate of SD-05 — already resolved | RESOLVED |
 | 11 | SYS-CLK-1 | REQ-SYS-3.3 says "system clock" — should say AuditEnvelope | Added to resolved-findings.md | OVERRULED |
-| 12 | SYS-2STATE-1 | REQ-SYS-6.1 two-state rule via delegated instances | Dan waived from testing. Add REQ-SYS-6.1 code annotations at enforcement sites (no-op error checks) | CONFIRMED |
+| 12 | SYS-2STATE-1 | REQ-SYS-6.1 two-state rule via delegated instances | Dan waived from testing. Add REQ-SYS-6.1 code annotations at enforcement sites (no-op error checks) | RESOLVED |
 | 13 | AMB-DAL-01 | REQ-DAL-1.16 "contains an actual connection string" undetectable | Added to resolved-findings.md | OVERRULED |
 | 14 | CON-DAL-02 | REQ-DAL-2.2 "verify rows affected" conflicts with flexible read pattern | Added to resolved-findings.md | OVERRULED |
 | 15 | AMB-JE-1 | REQ-JE-1.11 is vacuous (always true by construction) | Added to resolved-findings.md — auditor's premises were wrong | OVERRULED |
 | 16 | GAP-JE-2 | External references missing audit timestamps (violates REQ-SYS-3.1) | Added to resolved-findings.md — SYS-3.1 covers it | OVERRULED |
 | 17a | AMB-JE-3a | REQ-JE-4.9 target reference identification unspecified | Added to resolved-findings.md — identifying by PK is obvious | OVERRULED |
 | 17b | AMB-JE-3b | REQ-JE-4.9 void/closed-period posture unspecified | Should NOT be allowed after void. Review in a future session with LeoBloom context and Saturday routine to confirm, then spec it | CONFIRMED |
-| 17c | — | Audit skill prompts produce findings that ask for obvious inferences | Update prompts: do not flag entity identification by primary key as under-elaborated | CONFIRMED |
+| 17c | — | Audit skill prompts produce findings that ask for obvious inferences | Update prompts: do not flag entity identification by primary key as under-elaborated | RESOLVED |
 | 18 | MON-1 | Definitions Rate "scales a Money value" contradicts MON-2.7 prohibition | Three sub-issues: (a) Rate def says "scales Quantity" — probably wrong, Rate*Quantity is nonsensical in this domain; (b) design session needed on how Rate*Money will work for future projections (loan balance in N months); (c) Rate definition wording blocked on outcome of (b) | CONFIRMED |
 | 19 | MON-2 | Sum intermediate-overflow behavior undefined | Auditor assumed a bad implementation (fold over add) instead of checking the code (List.sumBy) | OVERRULED |
-| 19a | — | Audit skill: auditors assume implementation details without verifying | Update prompts: spec quality auditors must not assume implementation details. Either verify against the code or confine the finding to the spec text as written | CONFIRMED |
-| 20a | — | Audit skill: ambiguity bar is too low — auditors flag any theoretical divergence | Update prompts: apply a reasonable-person standard. A requirement is ambiguous only if a competent developer with domain knowledge would genuinely implement it differently, not if a pathological reading could be constructed. These are specs, not legal briefs | CONFIRMED |
-| 27a | — | Audit skill: conventions flagged for missing REQ IDs when no domain exists to receive them | Update prompts: conventions can exist as prose without REQ IDs when the business domain they apply to hasn't been specced yet. REQ extraction happens when the domain is built, not before | CONFIRMED |
-| 33a | — | Audit skill: auditors must check migrations/schema before questioning waiver soundness | Update prompts: before flagging a waiver as unsound, verify against the DB schema (NOT NULL constraints, types) and the F# type system — not just the prose | CONFIRMED |
-| 48a | — | Audit skill: requirements may be stricter than conventions | Update prompts: a behavioral requirement that is narrower than its underlying convention is not a contradiction — requirements elaborate conventions for specific domains | CONFIRMED |
+| 19a | — | Audit skill: auditors assume implementation details without verifying | Update prompts: spec quality auditors must not assume implementation details. Either verify against the code or confine the finding to the spec text as written | RESOLVED |
+| 20a | — | Audit skill: ambiguity bar is too low — auditors flag any theoretical divergence | Update prompts: apply a reasonable-person standard. A requirement is ambiguous only if a competent developer with domain knowledge would genuinely implement it differently, not if a pathological reading could be constructed. These are specs, not legal briefs | RESOLVED |
+| 27a | — | Audit skill: conventions flagged for missing REQ IDs when no domain exists to receive them | Update prompts: conventions can exist as prose without REQ IDs when the business domain they apply to hasn't been specced yet. REQ extraction happens when the domain is built, not before | RESOLVED |
+| 33a | — | Audit skill: auditors must check migrations/schema before questioning waiver soundness | Update prompts: before flagging a waiver as unsound, verify against the DB schema (NOT NULL constraints, types) and the F# type system — not just the prose | RESOLVED |
+| 48a | — | Audit skill: requirements may be stricter than conventions | Update prompts: a behavioral requirement that is narrower than its underlying convention is not a contradiction — requirements elaborate conventions for specific domains | RESOLVED |
 | 20 | MON-3 | Split count N type/integrality unspecified | Added to resolved-findings.md | OVERRULED |
 | 21 | AMB-FP-1 | Design note says closing tooling deferred but close/reopen are active tested REQs | The is_open toggle and the accounting close process are different things | OVERRULED |
 | 22 | XREF-1 | REQ-NGUI-2.4 cites Definitions for terms that don't exist there | "(See Definitions)" references "interface layer", which IS defined — auditor misread the pointer | OVERRULED |
 | 23 | CONTRA-1 | REQ-NGUI-1.4 "option for code" is looser than Decision "codes exclusively" | Dan updated the Decision to match intent — no contradiction | OVERRULED |
 | 24 | WAIVE-1 | REQ-NGUI-3.1-3.5 waiver reason unsound for narrow testable reqs | Added to resolved-findings.md — waiver reason is fine | OVERRULED |
-| 25 | AMB-1 | REQ-NGUI-1.3.1 "system exceptions" for stack trace undefined | Spec is correct, implementation is wrong. DAL catch sites use ex.Message which swallows the stack trace. Change to ex.ToString() so stack trace survives through the Result railway | CONFIRMED |
+| 25 | AMB-1 | REQ-NGUI-1.3.1 "system exceptions" for stack trace undefined | Spec is correct, implementation is wrong. DAL catch sites use ex.Message which swallows the stack trace. Change to ex.ToString() so stack trace survives through the Result railway | RESOLVED |
 | 26 | CQ-2 | Temporal.md calls instant-to-date "rare" — it's routine now | Dan clarified "rare" in Temporal.md — means few call sites, not few invocations | RESOLVED |
 | 27 | CQ-3 | Temporal.md has testable rules with no REQ IDs | DB-origination extracted to REQ-DAL-3.7 (waived). Other two are convention prose for domains that don't exist yet — conventions can exist without REQs until the domain is built | RESOLVED |
 | 28 | CQ-4 | BuildAndEnvironment.md safety rules (debug-never-prod) have no REQ IDs | Dan extracted REQ-DAL-1.20 (unique ConnectionStringEnvVar per build config), waived as build-config fact. Remaining B&E rules stay as convention prose — operational domain not yet specced | RESOLVED |
@@ -71,7 +71,7 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | 37 | AMB-JE-7 | REQ-JE-3.9 ordering direction unspecified | Databases default to ascending. Reasonable person call | OVERRULED |
 | 38 | RED-AC-1 | REQ-AC-1.19 / 1.19.1 duplicate | Determine least damaging way to consolidate | CONFIRMED |
 | 39 | REF-AC-1 | REQ-AC-2.20.1 dangling reference (copy-paste artifact) | Dan deleted 2.20.1 | RESOLVED |
-| 40 | AMB-AC-3 | "inactive" synonym creates tri-state ambiguity | Real issue is 1.48 and 1.50 fighting. 1.50 is correct, 1.48 may need to go. Discuss in clean context | CONFIRMED |
+| 40 | AMB-AC-3 | "inactive" synonym creates tri-state ambiguity | Real issue is 1.48 and 1.50 fighting. 1.50 is correct, 1.48 may need to go. Discuss in clean context | RESOLVED |
 | 41 | MON-4 | Conversion "validate all section 1" includes unvalidatable MON-1.1 | Dan edited 2.2.1 to except 1.1. MON-1.1 is genuinely unenforceable — add to an unenforceable table when those are created (see CQ-5) | CONFIRMED |
 | 42 | MON-5 | "Sort order" should say "positional order" | Dan updated to "sort / positional order" | RESOLVED |
 | 43 | MON-6 | Batch conversion atomicity unspecified | Not a persistence operation — behavior is obvious from the code | OVERRULED |
@@ -97,34 +97,34 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | 51 | ML-1 | FiscalPeriod.validateThenConstruct is public (should be private) | Dan fixed | RESOLVED |
 | 52 | ML-2 | updateComment can't clear secondary link to null (REQ-JE-1.56 unreachable) | Dan fixed — FieldUpdate<Guid option> wired in | RESOLVED |
 | 53 | ML-3 | updateComment secondary re-pointing bypasses REQ-JE-1.53 self-link check | Dan fixed — validatePrimaryAndSecondaryRelationship runs before write | RESOLVED |
-| 54 | TT-05 | REQ-JE-1.56 (repoint/clear secondary link) untested and unwaived | Write tests: repoint to different JE, clear to None | CONFIRMED |
+| 54 | TT-05 | REQ-JE-1.56 (repoint/clear secondary link) untested and unwaived | Write tests: repoint to different JE, clear to None | RESOLVED |
 | 55 | ORCH-2 | REQ-JE-3.9 ordering is optional, not enforced | Dan updated REQ-JE-3.9 wording | RESOLVED |
 | 56 | ORCH-3 | Line-count/balance checks run after DB writes (REQ-SYS-2.1.1) | Auditor misread REQ-SYS-2.1.1 — "entity's own properties" does not apply to cross-line composite checks | OVERRULED |
-| 56a | — | Audit skill: agents cite requirements without reading them | Update prompts: when citing a requirement as justification for a finding, quote the relevant text and verify the finding matches what the requirement actually says | CONFIRMED |
+| 56a | — | Audit skill: agents cite requirements without reading them | Update prompts: when citing a requirement as justification for a finding, quote the relevant text and verify the finding matches what the requirement actually says | RESOLVED |
 | 57 | TMC-1 | JE UI contract types missing NGUI-2.1/2.1.1/2.2 annotations | Dan fixed | RESOLVED |
-| 58 | TT-02 | Shared fixture makes entertainment5650's balance order-dependent | Covered by #65 — no tests should mutate fixtures without rollback or self-cleanup; each should create its own data | CONFIRMED |
-| 59 | TT-03 | Fixture staging commits row-by-row; mid-stage failure wedges DB | Move TRUNCATE CASCADE to constructor top (pre-stage) instead of Dispose — self-healing on dirty DB | CONFIRMED |
+| 58 | TT-02 | Shared fixture makes entertainment5650's balance order-dependent | Covered by #65 — no tests should mutate fixtures without rollback or self-cleanup; each should create its own data | RESOLVED |
+| 59 | TT-03 | Fixture staging commits row-by-row; mid-stage failure wedges DB | Move TRUNCATE CASCADE to constructor top (pre-stage) instead of Dispose — self-healing on dirty DB | RESOLVED |
 | 60 | TT-04 | REQ-JE-3.4 reinstated but untested/unwaived | Check git history — Dan believes tests existed. Verify | CONFIRMED |
 | 61 | TT-06 | ~17 active DAL requirements neither tested nor waived | Dan wants to see the list — may be misattribution since DAL capabilities are exercised by every integration test | CONFIRMED |
 | 62 | GAP-CLI-1 | REQ-NGUI-1.5 enforced but unannotated at Account code-lookup sites | Dan added ~112 annotations | RESOLVED |
 | 63 | GAP-CLI-2 | Activity/balance handlers missing NGUI-2.4/3.5 marshalling annotations | Dan fixed | RESOLVED |
 | 64 | INC-CLI-1 | Means-to REQ annotations applied inconsistently across CLI handlers | Hobson recommends placement, Dan adds them | CONFIRMED |
-| 65 | — | Talk to BD about "consumable fixture victim" test pattern | No tests should update fixtures without rolling back. Each test needing mutable state should create its own account/JE/etc. Void victims are the known family — check for others | CONFIRMED |
+| 65 | — | Talk to BD about "consumable fixture victim" test pattern | No tests should update fixtures without rolling back. Each test needing mutable state should create its own account/JE/etc. Void victims are the known family — check for others | RESOLVED |
 
 ### Low
 
 | # | ID | Finding | Action | Status |
 |---|-----|---------|--------|--------|
-| 66 | UTIL-1 | Clock.now uses DateTimeOffset instead of NodaTime SystemClock | Discuss merits — Dan prefers NodaTime but we're at the F# boundary regardless | CONFIRMED |
+| 66 | UTIL-1 | Clock.now uses DateTimeOffset instead of NodaTime SystemClock | Discuss merits — Dan prefers NodaTime but we're at the F# boundary regardless | RESOLVED |
 | 67 | UTIL-2 | DAL parameterization missing REQ-DAL-2.1/2.3 annotations | No enforcement happens in that code block — annotation would be false | OVERRULED |
 | 68 | TMC-2 | fromDecimalList missing REQ-MON-2.3.1/2.3.2 annotations | Dan fixed | RESOLVED |
 | 69 | TMC-3 | REQ-DAL-2.3 incorrectly annotated on UUID lookups (not user input) | Dan removed annotation. Rethink parameterization requirements — parameterizing UUIDs is good practice but has no REQ. Need a requirement for defensive parameterization regardless of input origin | CONFIRMED |
 | 70 | ML-4 | Dangling // REQ- annotation with no ID in JournalEntryLine.fs | Intentional placeholder — Dan wants the next audit to tell him which REQ belongs there | DEFERRED |
 | 71 | ML-5 | fetchAll missing REQ-AC-3.7/3.9 annotations | Dan fixed | RESOLVED |
 | 72 | ML-6 | Composite reqs (JE-2.8, 1.12, 1.13) — verify orchestrator enforces them | All enforced. 1.12/1.13 were already annotated. Dan added JE-2.8 to validateAccountByLine and all 3 to orchestrateCreation rollback. Only one annotation was missing — agents need to read more carefully before flagging | RESOLVED |
-| 72a | — | Audit skill: truthfulness agents must verify enforcement exists NOWHERE before claiming it's missing | Update prompts: grep the full repo for the REQ ID before reporting a missing-annotation finding | CONFIRMED |
-| 105a | — | Audit skill: customer panel "three horizons" framing produces findings against future plans | Update prompts: narrow customer panel to judge against Dan's statement of position and the current CLI surface. Mid/far horizon observations are advisory context, not findings. Do not flag capability gaps in domains that don't exist yet | CONFIRMED |
-| 106a | — | Audit skill: agents flag idiomatic code as unsafe without checking the underlying guarantees | Update prompts: before flagging Option.get or similar partial operations, verify whether the value is guaranteed by schema constraints (NOT NULL, FK) or query structure. Schema-guaranteed values are not "smuggled partiality" | CONFIRMED |
+| 72a | — | Audit skill: truthfulness agents must verify enforcement exists NOWHERE before claiming it's missing | Update prompts: grep the full repo for the REQ ID before reporting a missing-annotation finding | RESOLVED |
+| 105a | — | Audit skill: customer panel "three horizons" framing produces findings against future plans | Update prompts: narrow customer panel to judge against Dan's statement of position and the current CLI surface. Mid/far horizon observations are advisory context, not findings. Do not flag capability gaps in domains that don't exist yet | RESOLVED |
+| 106a | — | Audit skill: agents flag idiomatic code as unsafe without checking the underlying guarantees | Update prompts: before flagging Option.get or similar partial operations, verify whether the value is guaranteed by schema constraints (NOT NULL, FK) or query structure. Schema-guaranteed values are not "smuggled partiality" | RESOLVED |
 | 73 | ORCH-4 | fetchByPeriod missing REQ-JE-3.3 annotation | Wrong — fetchByPeriod takes a UUID, not a key. REQ-JE-3.3 is correctly annotated in the CLI routing file. Agent didn't read the requirement | OVERRULED |
 | 73a | — | Audit skill: agent cited wrong enforcement site for ORCH-4 | Same as #56a — agents must read the requirement text before citing it | OVERRULED |
 | 74 | ORCH-5 | validateNoNewVoidedEntries missing annotation | No requirement exists for this check. Dan to add one | CONFIRMED |
@@ -149,7 +149,7 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | # | ID | Finding | Action | Status |
 |---|-----|---------|--------|--------|
 | 83 | FSDDD-02 | JE slice validateThenConstruct functions hit the DB (impure constructors) | Two action items: (a) #88 standardize entity-level module functions, (b) #89 domain-type validation on read | CONFIRMED |
-| 84 | FSDDD-03 | Errors are prose not data — mid-railway string matching on error messages | Dan to design a more robust error system (#90) | CONFIRMED |
+| 84 | FSDDD-03 | Errors are prose not data — mid-railway string matching on error messages | Dan to design a more robust error system (#90) | RESOLVED |
 | 85 | FSDDD-04 | Result.defaultWith failwith inside Result-returning functions; hand-rolled transaction bracket | Three sub-issues: (1) LookupCache init — discuss after architecture (#91); (2) exception safety in railroad — review transaction mechanics (#92); (3) defaultWith failwith on transaction create — Dan wants loud failure, keeps as-is | CONFIRMED |
 | 86 | FSDDD-06 | Option.get calls in AccountActivity | Schema guarantees non-null for those columns; Option.get is appropriate | OVERRULED |
 | 87 | FSDDD-07 | Two JE construction sites, no cross-component ID check | Partly agreed — orchestrateCreation does enforce ID agreement by construction. Naming and structure depend on outcomes of #88 and #89 | CONFIRMED |
@@ -169,14 +169,14 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 
 | # | Source | Action | Status |
 |---|--------|--------|--------|
-| 88 | FSDDD-02, FSDDD-07 | Design discussion: standardize entity-level module function names (validateThenConstruct, constructFromPreValidatedComponents, etc.) | CONFIRMED |
+| 88 | FSDDD-02, FSDDD-07 | Design discussion: standardize entity-level module function names (validateThenConstruct, constructFromPreValidatedComponents, etc.) | RESOLVED |
 | 89 | FSDDD-02, FSDDD-07 | Design discussion: domain-type validation on read — should reconstitution re-prove facts the DB guarantees? | CONFIRMED |
-| 90 | FSDDD-03 | Design: more robust error system — DU, error code dict, or custom Error type to replace mid-railway string matching | CONFIRMED |
+| 90 | FSDDD-03 | Design: more robust error system — DU, error code dict, or custom Error type to replace mid-railway string matching | RESOLVED |
 | 91 | FSDDD-04 | Design discussion: LookupCache architecture — discuss after greater architecture discussion (#88/#89) | CONFIRMED |
-| 92 | FSDDD-04 | Review: how transactions work with orchestrated write ops — exception safety, bracket combinator | CONFIRMED |
-| 93a | ARCH-1 | Learn about DB transactions; design the batch transaction seam for atomic multi-JE posting (staging import) | CONFIRMED |
-| 94 | ARCH-7 | Fix AccountActivityTemporalFilterInput: change FiscalPeriodId of Guid to FiscalPeriodKey of string — UUID leak at CLI boundary | CONFIRMED |
-| 95a | ARCH-3 | Split InterfaceContractTypes.fs into per-domain files (Account, JournalEntry, FiscalPeriod) while it's still small | CONFIRMED |
+| 92 | FSDDD-04 | Review: how transactions work with orchestrated write ops — exception safety, bracket combinator | RESOLVED |
+| 93a | ARCH-1 | Learn about DB transactions; design the batch transaction seam for atomic multi-JE posting (staging import) | RESOLVED |
+| 94 | ARCH-7 | Fix AccountActivityTemporalFilterInput: change FiscalPeriodId of Guid to FiscalPeriodKey of string — UUID leak at CLI boundary | RESOLVED |
+| 95a | ARCH-3 | Split InterfaceContractTypes.fs into per-domain files (Account, JournalEntry, FiscalPeriod) while it's still small | RESOLVED |
 | 96a | GAAP-1 | Design discussion: what is "period close"? Posting lock (done) vs GAAP closing entries (annual grain, retained earnings). Settle before building the slice. Includes GAAP-2 atomicity question | CONFIRMED |
 | 97a | GAAP-3 | Update REQ-JE-3.6 spec text to match normal-balance-oriented netBalance convention (REQ-JE-3.6.1 added) | RESOLVED |
 | 98a | GAAP-5 | fetchByReference duplicate entries — fixed with List.distinct | RESOLVED |
@@ -229,27 +229,6 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | 103 | ARCH-9 | Period dates write-only, calendar-month granularity hardcoded | Calendar months are deterministic — no need to code against impossible drift | OVERRULED |
 | 104 | ARCH-10 | AuditableAction DU is a flat cross-domain registry | 13 cases is fine; logging design undecided; one DU entry per new feature is negligible | OVERRULED |
 
-## Phase 4 — GAAP Panel
-
-### High
-
-| # | ID | Finding | Action | Status |
-|---|-----|---------|--------|--------|
-| 105 | GAAP-1 | "Period close" overloaded — posting lock vs GAAP closing entries; monthly grain has no annual anchor | Action item #96a — design discussion before closing slice | CONFIRMED |
-
-### Medium
-
-| # | ID | Finding | Action | Status |
-|---|-----|---------|--------|--------|
-| 106 | GAAP-2 | closeFiscalPeriod can't post closing entries atomically | Deferred to #96a design discussion. Non-atomic is recoverable if JEs post first, period closes second. Single-user CLI risk is low | DEFERRED |
-| 107 | GAAP-3 | netBalance uses fixed sign convention instead of normal-balance orientation | Dan fixed code + added REQ-JE-3.6.1 | RESOLVED |
-
-### Low
-
-| # | ID | Finding | Action | Status |
-|---|-----|---------|--------|--------|
-| 108 | GAAP-5 | fetchByReference returns duplicate entries (missing DISTINCT) | Dan fixed with List.distinct in F# | RESOLVED |
-
 ## Phase 4 — Customer Panel
 
 ### High
@@ -283,7 +262,7 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | 101a | CUST-3, GAAP-3 | Add test asserting non-zero signed balance in normal-balance orientation | CONFIRMED |
 | 102a | CUST-4 | Revisit counter-account question with Hobson in fresh LeoBloom context — is there an actual workflow gap or does JE fetch-by-date-range already cover it? | CONFIRMED |
 | 103a | CUST-5 | Spec the reclass verb — scope the actual problem before implementing | CONFIRMED |
-| 104a | CUST-9 | Hobson to review PersonalFinance (Monte Carlo sim) so future audit panels have grounded context about Dan's ML needs instead of speculating | CONFIRMED |
+| 104a | CUST-9 | Hobson to review PersonalFinance (Monte Carlo sim) so future audit panels have grounded context about Dan's ML needs instead of speculating | RESOLVED |
 
 ## Phase 4 — AI-Maintainability Panel
 
@@ -314,9 +293,9 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 |---|--------|--------|--------|
 | 107a | AIM-1 | Vet the env-guard defense in depth: confirm all 4 backstops (test appsettings, no prod password in Docker, IP restriction, release-config gate) and document them | CONFIRMED |
 | 108a | AIM-2 | Devise a mechanism for making negative-existence guardrails discoverable to agents without documentation-of-documentation | CONFIRMED |
-| 109a | AIM-4 | Introduce single-case DU wrappers for entity UUIDs (AccountId, JournalEntryId, CommentId, etc.) — start with JE composite where same-typed IDs sit adjacent | CONFIRMED |
-| 110a | AIM-8 | Design a compounded learnings skill for SonOfLeo — structured precedent/convention accumulation to replace free-text ledger and scattered action items | CONFIRMED |
-| 111a | AIM-8 (unrelated) | Discussion: could git-based traceability (commit links, blame) replace REQ annotations? Explore the "no code comments" philosophy vs. spec-to-code traceability links | CONFIRMED |
+| 109a | AIM-4 | Introduce single-case DU wrappers for entity UUIDs (AccountId, JournalEntryId, CommentId, etc.) — start with JE composite where same-typed IDs sit adjacent | RESOLVED |
+| 110a | AIM-8 | Design a compounded learnings skill for SonOfLeo — structured precedent/convention accumulation to replace free-text ledger and scattered action items | RESOLVED |
+| 111a | AIM-8 (unrelated) | Discussion: could git-based traceability (commit links, blame) replace REQ annotations? Explore the "no code comments" philosophy vs. spec-to-code traceability links | RESOLVED |
 | 112a | AIM-5 | Add a minimal CLAUDE.md placeholder to repo root — point to Specs/README.md, note migration review gate | CONFIRMED |
 | 113a | Phase 1 gap | Cross-reference traceability Invariant 2 (98 untested/unwaived REQ IDs) and Invariant 3 (99 unannotated REQ IDs) against all Phase 2-4 findings and action items. Flag any REQ ID that was never picked up by a downstream agent. Lists are in 01-B-Traceability.md | CONFIRMED |
 | 114a | AMB-FP-2 | Dropped finding: fiscal period start/end dates — ambiguous whether persisted or recomputed on read | Dates are persisted AND re-derived. No ambiguity — the system does both | OVERRULED |
@@ -340,8 +319,8 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | # | Action | Status |
 |---|--------|--------|
 | 115a | Build a Claude Code hook (for both Hobson and BD harnesses) that prevents agents from modifying application config files, environment variables, or DAL functions in the connection string chain. Enforces the debug/release access boundary mechanically. | CONFIRMED |
-| 116a | Move DevDataStage out of `Src/` — it's a dev-only hack, not production code. It doesn't deserve a higher pride of place than Tests. | CONFIRMED |
-| 117a | Replace `Result<_, string>` with a typed `AppError` DU across the codebase. Error cases carry contextual data; formatting happens at the boundary. Eliminates brittle string assertions in tests. | CONFIRMED |
+| 116a | Move DevDataStage out of `Src/` — it's a dev-only hack, not production code. It doesn't deserve a higher pride of place than Tests. | RESOLVED |
+| 117a | Replace `Result<_, string>` with a typed `AppError` DU across the codebase. Error cases carry contextual data; formatting happens at the boundary. Eliminates brittle string assertions in tests. | RESOLVED |
 
 ## From Pattern Review — Phase 2 (2026-07-25)
 
@@ -349,7 +328,7 @@ Source: `HobsonsNotes/patterns-draft.md` discussion (Hobson pattern extraction, 
 
 | # | Source | Action | Status |
 |---|--------|--------|--------|
-| 118a | P4.6 (extends #92, #93a / ARCH-1) | Move transaction ownership from ModelOrchestrator up to InterfaceBridge route handlers — transactions are decided at the use-case level. **Design chosen 2026-07-25 (Dan):** a private wrapper type in Utilities.DAL — `Transaction` record holding `DbTransaction option` — becomes the only public transaction currency. Participants take `(transaction: Transaction)` (non-option, uniform); read routes pass an explicit autocommit constructor (e.g. `Transaction.autocommit`); `withTransaction` bracket creates the raw transaction (failwith on creation per P5.4), hands the lambda a wrapper carrying `Some`, commits on Ok / rolls back on Error / disposes either way — calling commit/rollback on the raw transaction, not the wrapper. Converts `JournalEntry.constructNewAndSaveToDb` and `voidJournalEntry` into ordinary participants, unblocking atomic batch imports. Open sub-decision: the P7.5 rollback-form test story (test-facing always-rollback bracket vs exposed begin/rollback pair). Sweep: all Model/ModelOrchestrator participant signatures + test call sites. Sequencing: before BD writes code — it changes the signatures he'd learn from. | CONFIRMED |
+| 118a | P4.6 (extends #92, #93a / ARCH-1) | Move transaction ownership from ModelOrchestrator up to InterfaceBridge route handlers — transactions are decided at the use-case level. **Design chosen 2026-07-25 (Dan):** a private wrapper type in Utilities.DAL — `Transaction` record holding `DbTransaction option` — becomes the only public transaction currency. Participants take `(transaction: Transaction)` (non-option, uniform); read routes pass an explicit autocommit constructor (e.g. `Transaction.autocommit`); `withTransaction` bracket creates the raw transaction (failwith on creation per P5.4), hands the lambda a wrapper carrying `Some`, commits on Ok / rolls back on Error / disposes either way — calling commit/rollback on the raw transaction, not the wrapper. Converts `JournalEntry.constructNewAndSaveToDb` and `voidJournalEntry` into ordinary participants, unblocking atomic batch imports. Open sub-decision: the P7.5 rollback-form test story (test-facing always-rollback bracket vs exposed begin/rollback pair). Sweep: all Model/ModelOrchestrator participant signatures + test call sites. Sequencing: before BD writes code — it changes the signatures he'd learn from. | RESOLVED |
 | 119a | P4.2 | `JournalEntry.fetchHeadersFromFilter`: pass `AnyQuantityIsAcceptable` to the DAL, dedup, then enforce the caller's `expectedRows` against the deduped count. Removes the ordering compromise and the warning comment in `fetchById`. | CONFIRMED |
 | 120a | D12 | Add a shared `unwrap` helper to each test project's GenericTestProperties, replacing the ~60 verbatim `Result.defaultWith (fun e -> failwith (AppError.toMessage e))` sites (non-CE flavor only; `let!`-in-CE and railroad-ending match forms stay as-is). | CONFIRMED |
 | 121a | D14 | Clean up mismatched isolated test files: `Tests.Isolated/Model/Ledger/FiscalPeriod.fs` tests only `FiscalPeriodKey.fromString` (name implies broader coverage); `Tests.Isolated/Model/Ledger/JournalEntryComponent.fs:185-200` tests the orchestrator's `confirmAmountIsPositive` under a Model file, and the banner at :181 names a nonexistent `JournalEntryLine.validateAmount`. Deeper test-file-structure discussion (1 code file : N test files) deliberately deferred. | CONFIRMED |
@@ -365,4 +344,4 @@ Source: Fantomas pilot on `Src/Model/Ledger/Account.fs` + census of the list-bui
 | # | Source | Action | Status |
 |---|--------|--------|--------|
 | 126a | Census of match-in-list sites | Hoist `match` expressions out of list literals at the three FieldUpdate SET-clause builders — `Account.updateDb`, `JournalEntryCommentOrchestration.updateComment`, `JournalEntryExternalReferenceOrchestration.updateFiAndReferenceText`. Resolved better than specced: Dan added `FieldUpdate.mapNoChangeToOptionWithConversion`, making items inline pipeline expressions (same idiom as P4.7 filters), blank-line separated. P2.5 amended accordingly. | DONE 2026-07-25 |
-| 127a | 126a | One-time formatting migration: `.editorconfig` at repo root + `fantomas Src Tests` as a single formatting-only commit (`66d2385`). Cost accepted by Dan with eyes open: Src +12.1%, Tests +21.5% lines; the two unconfigurable Fantomas behaviors (CE brace off the binding line, one-arg-per-line calls) were tested against every config option including Stroustrup before accepting. `check-format.sh` now active. | DONE 2026-07-25 |
+| 127a | 126a | One-time formatting migration: `.editorconfig` at repo root + `fantomas Src Tests` as a single formatting-only commit (`66d2385`). Cost accepted by Dan with eyes open: Src +12.1%, Tests +21.5% lines; the two unconfigurable Fantomas behaviors (CE brace off the binding line, one-arg-per-line calls) were tested against every config option including Stroustrup before accepting. `check-format.sh` now active. Deliberately reversed on 2026-07-31 — Fantomas formatting removed, `.editorconfig` and `check-format.sh` deactivated. | DONE then REVERSED 2026-07-31 |

@@ -45,8 +45,8 @@ domain-level decision, made in each entity's spec (for Accounts, see REQ-AC-5.1)
 
 ## Waived from testing
 
-Active requirements that are deliberately not verified by tests. Two-state rule: every
-active requirement is either tested or in this table.
+Active requirements that are enforced (by type system, code review, schema, or
+construction pattern) but deliberately not verified by tests.
 
 | ID | Reason testing is waived | Approved |
 |---|---|---|
@@ -55,6 +55,14 @@ active requirement is either tested or in this table.
 | REQ-SYS-2.1.2 | it's too general for a test and you can't test that there isn't a violation | Dan, 2026-07-06 |
 | REQ-SYS-6.1 | This is a general requirement. Testing should be enforced by every individual write operation with a no-op possibility | Dan, 2026-07-06 |
 | REQ-SYS-6.1.1 | simply untestable | Dan, 2026-07-06 |
+
+## Unenforceable
+
+Active requirements that bind humans, not code. Nothing in the system enforces these.
+
+| ID | Why it cannot be enforced | Approved |
+|---|---|---|
+|  |  |  |
 
 ## Withdrawn
 

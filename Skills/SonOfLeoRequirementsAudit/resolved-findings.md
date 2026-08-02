@@ -144,6 +144,18 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 - **Scope:** Whether REQ-MON-2.4's split count N needs its type and integrality specified
 - **Ruling:** "Split N ways" means N is a positive integer. This is not ambiguous. The sub-requirements (reject 0, reject 1, reject negative) make it obvious. Do not flag domain-obvious semantics as under-elaborated.
 
+## GAAP-CLOSE: Period Close vs GAAP Closing Entries
+- **Status:** deferred
+- **Date:** 2026-08-02
+- **Revisit when:** Dan schedules the closing-entries slice
+- **Ruling:** FP closing (`is_open` toggle) is a posting lock only. GAAP closing entries (annual retained-earnings sweep) are a planned, unscheduled enhancement — not abandoned, not incomplete. The design session happens when Dan schedules that slice. Do not flag closing as incomplete.
+
+## CLAUDE-MD: No Repo-Level Agent Entry Point
+- **Status:** overruled
+- **Date:** 2026-08-02
+- **Scope:** Whether a CLAUDE.md (or equivalent) should exist at the SonOfLeo repo root
+- **Ruling:** Vetoed repeatedly. Agents enter via wakeups and prompts, not a repo-root file. The harness launches from its own root (`~/penthouse-pete/` for Hobson, `~/` for BD); a CLAUDE.md at the SonOfLeo repo root would never load. The imagined problem (agents lacking context) doesn't exist — the wakeup protocol provides it. Do not re-flag.
+
 ## WAIVE-1: REQ-NGUI-3.1-3.5 Waiver Reason Soundness
 - **Status:** overruled
 - **Date:** 2026-07-06

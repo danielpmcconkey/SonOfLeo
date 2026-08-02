@@ -70,9 +70,19 @@ The *Why* line is optional and reserved for requirements where a reasonable revi
 ask "wait, why?" — annotating the obvious is noise. Withdrawn-table rows carry their why in
 the Reason column.
 
-A requirement that cannot or should not be verified by a test gets a row in its document's
-**Waived from testing** table: ID, reason, and Dan's approval date. Every active requirement
-is therefore in exactly one of two states: tested or waived.
+A requirement that cannot or should not be verified by a test is in exactly one of two
+non-tested states:
+
+- **Waived from testing** — something enforces it (the type system, schema constraints,
+  construction patterns, code review, or periodic audit), but a test either cannot or need
+  not verify it. Waiver table: ID, reason, Dan's approval date.
+- **Unenforceable** — nothing in the system enforces it; it binds humans, not code. These
+  are requirements that state policy, convention, or responsibility assignments that the
+  system cannot mechanically verify. Unenforceable table: ID, why it cannot be enforced,
+  Dan's approval date.
+
+Every active requirement is therefore in exactly one of three states: **tested**, **waived**,
+or **unenforceable**.
 
 ## Linkage rules (the star chart)
 

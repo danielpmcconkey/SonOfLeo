@@ -54,8 +54,8 @@ Service-level behavioral specs for creating, reading, and updating fiscal period
 
 ## Waived from testing
 
-Active requirements that are deliberately not verified by tests. Two-state rule: every
-active requirement is either tested or in this table.
+Active requirements that are enforced (by type system, code review, schema, or
+construction pattern) but deliberately not verified by tests.
 
 | ID | Reason testing is waived | Approved |
 |---|---|---|
@@ -67,6 +67,14 @@ active requirement is either tested or in this table.
 | REQ-FP-2.6.1 | You cannot test for the absence of something | Dan, 2026-06-21 |
 | REQ-FP-4.3 | You cannot test for the absence of something | Dan, 2026-06-21 |
 | REQ-FP-5.1 | You cannot test for the absence of something | Dan, 2026-06-21 |
+
+## Unenforceable
+
+Active requirements that bind humans, not code. Nothing in the system enforces these.
+
+| ID | Why it cannot be enforced | Approved |
+|---|---|---|
+|  |  |  |
 
 ## Withdrawn
 

@@ -92,7 +92,7 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-3.1** When retrieving a journal entry from the persistence layer, the system must return a JournalEntry type with all header properties, all associated lines, all external references, and all comments.
 - **REQ-JE-3.2** The system must be able to retrieve a journal entry by the caller providing that entry's ID.
 - **REQ-JE-3.3** The system must be able to retrieve all journal entries for a given fiscal period by the caller providing a PeriodKey.
-- **REQ-JE-3.4** The system must be able to retrieve all journal entry lines for a given account. Note: this requirement is no longer needed, thanks to JE-3.9. However, it is retained because we have functioning tests and model code that I don't want to strip out in case a future need arises.
+- **REQ-JE-3.4** The system must be able to retrieve all journal entry lines for a given account. Note: this requirement is retained alongside JE-3.9 because the underlying model code exists and may serve a future need. No test currently cites this requirement; the capability is exercised through JE-3.9.
 - **REQ-JE-3.5** The system must be able to retrieve the journal entries carrying a given external reference, by the caller providing a source FI and reference value. The result is a set (external references are not unique across entries, per REQ-JE-1.48).
 - **REQ-JE-3.6** The system must be able to compute and return the total debit amount, total credit amount, and net balance for a given account's non-voided journal entry lines (per REQ-JE-4.7).
 - **REQ-JE-3.6.1** Net balance is expressed in the account's **normal balance** orientation such that a positive net balance always means "more of what
@@ -115,7 +115,7 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-4.6** Voiding an already-voided entry must produce an error rather than update nothing, per REQ-SYS-6.1. *Why:* this diverges deliberately from LeoBloom, which made re-void idempotent; a silent no-op masks a caller working from a stale view of the entry's state.
 - **REQ-JE-4.7** Voided journal entries must be excluded from every balance, trial-balance, and account-sum computation. The exclusion must be applied such that a voided entry's lines contribute nothing (see the leobloom_prod skill's note on the `LEFT JOIN ... AND voided_at IS NULL` overstatement trap — the void check belongs in the `WHERE`, not the join).
 - **REQ-JE-4.8** Corrections to an entry in a closed period are made by posting an ordinary offsetting journal entry into the current open period and linking it to the original with a comment (secondary journal entry = the original). There is no separate reversal operation.
-- **REQ-JE-4.9** The system must provide a means for an actor to update a journal entry reference's FI and value
+- **REQ-JE-4.9** The system must provide a means for an actor to update a journal entry reference's FI and value. The FI and value may be updated regardless of whether the entry is voided or its fiscal period is closed (mirrors REQ-JE-4.10 and REQ-JE-5.5).
 - **REQ-JE-4.10** The system must provide a means to attach a new external reference to an existing journal entry, by the caller providing a journal entry ID, a source FI, and a reference value. The system must generate a unique UUID for the new reference and persist it (per REQ-JE-2.9 semantics). A reference may be appended regardless of whether the entry is voided or its fiscal period is closed (mirrors REQ-JE-5.5 for comments).
 
 ## 5. Comment behaviors
@@ -135,8 +135,8 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 
 ## Waived from testing
 
-Active requirements that are deliberately not verified by tests. Two-state rule: every
-active requirement is either tested or in this table.
+Active requirements that are enforced (by type system, code review, schema, or
+construction pattern) but deliberately not verified by tests.
 
 | ID | Reason testing is waived | Approved |
 |---|---|---|
@@ -150,11 +150,19 @@ active requirement is either tested or in this table.
 | REQ-JE-1.41 | Same shape as REQ-JE-1.29 — non-nullable Guid plus not-null FK. | Dan, 2026-07-03 |
 | REQ-JE-1.50 | Same as REQ-JE-1.2 — system-generated UUID plus primary key constraint. | Dan, 2026-07-03 |
 | REQ-JE-1.51 | Non-nullable Guid plus not-null FK; existence of the primary entry is validated at construction (validateJournalEntryHeader, exercised by every comment test). | Dan, 2026-07-03 |
+| REQ-JE-2.14 | Enforced structurally — no creation input contract exposes `voidedAt` (`JournalContracts.fs`: it appears only on `JournalEntryHeaderReturn`). Model-layer reconstitution legitimately carries `voidedAt`; reconstitution is not creation. | Dan, 2026-08-02 |
 | REQ-JE-4.1 | A negative existence claim over the entire API surface ("no function exposes an update path for these fields") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-06-22 |
 | REQ-JE-4.2 | The prohibition "no spec, requirement, or tooling may characterize journal entries as immutable" is a negative existence claim over documentation and the API surface; the positive behaviors it depends on (void, comments) are tested under REQ-JE-4.3/4.7/5.x. Enforced by review. | Dan, 2026-06-22 |
-| REQ-JE-4.8 | We can test against voiding in a closed period, but we can't actually test that someone would, instead, create an offset | Dan, 2026-06-22 | 
 | REQ-JE-6.1 | A negative existence claim over the entire API surface ("no function exposes a hard delete") cannot be proven by a unit test; enforced by code review and periodic adversarial audit. | Dan, 2026-06-22 |
 | REQ-JE-6.2 | Same negative-existence rationale as REQ-JE-6.1, extended to external references and comments. | Dan, 2026-06-22 |
+
+## Unenforceable
+
+Active requirements that bind humans, not code. Nothing in the system enforces these.
+
+| ID | Why it cannot be enforced | Approved |
+|---|---|---|
+| REQ-JE-4.8 | The system blocks voiding in a closed period (REQ-JE-4.5, tested), but nothing forces the operator to post an offsetting entry as the remedy. The correction procedure is guidance for the human, not a system-enforced constraint | Dan, 2026-06-22 |
 
 ## Withdrawn
 
