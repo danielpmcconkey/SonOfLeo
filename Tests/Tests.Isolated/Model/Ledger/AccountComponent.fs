@@ -472,32 +472,32 @@ let ``REQ-AC-1.35 REQ-AC-1.36 Expense type can be matched with OtherExpense subt
     Assert.True(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
-let ``REQ-AC-1.19.1 Asset type can be matched with a subtype of null`` () =
+let ``REQ-AC-1.19 Asset type can be matched with a subtype of null`` () =
     let t = Result.defaultWith (fun e -> failwith(AppError.toMessage e)) (AccountType.fromString "Asset")
     let st = None
     Assert.True(AccountSubtype.validTypeSubtypeCombination t st)
 
 [<Fact>]
-let ``REQ-AC-1.19.1 Liability type can be matched with a subtype of null`` () =
+let ``REQ-AC-1.19 Liability type can be matched with a subtype of null`` () =
     let t =
         Result.defaultWith (fun e -> failwith(AppError.toMessage e)) (AccountType.fromString "Liability")
     let st = None
     Assert.True(AccountSubtype.validTypeSubtypeCombination t st)
 
 [<Fact>]
-let ``REQ-AC-1.19.1 Equity type can be matched with a subtype of null`` () =
+let ``REQ-AC-1.19 Equity type can be matched with a subtype of null`` () =
     let t = Result.defaultWith (fun e -> failwith(AppError.toMessage e)) (AccountType.fromString "Equity")
     let st = None
     Assert.True(AccountSubtype.validTypeSubtypeCombination t st)
 
 [<Fact>]
-let ``REQ-AC-1.19.1 Revenue type can be matched with a subtype of null`` () =
+let ``REQ-AC-1.19 Revenue type can be matched with a subtype of null`` () =
     let t = Result.defaultWith (fun e -> failwith(AppError.toMessage e)) (AccountType.fromString "Revenue")
     let st = None
     Assert.True(AccountSubtype.validTypeSubtypeCombination t st)
 
 [<Fact>]
-let ``REQ-AC-1.19.1 Expense type can be matched with a subtype of null`` () =
+let ``REQ-AC-1.19 Expense type can be matched with a subtype of null`` () =
     let t = Result.defaultWith (fun e -> failwith(AppError.toMessage e)) (AccountType.fromString "Expense")
     let st = None
     Assert.True(AccountSubtype.validTypeSubtypeCombination t st)
