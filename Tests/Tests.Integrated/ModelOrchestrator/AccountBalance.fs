@@ -12,7 +12,11 @@ open Utilities.AppError
 open Xunit
 open Tests.Helpers
 open ModelOrchestrator.AccountBalance
+open Tests.Helpers.EntityFunctions
+open Tests.Helpers.RouteResolver
 open Utilities
+open Utilities.ResultHelper
+open Logger.Audit
 open Context.Context
 
 [<Collection("SharedTestData")>]
@@ -155,19 +159,34 @@ type AccountBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.6.1 net balance is positive in normal-balance orientation``() =
-        let context = create NoTransaction FetchOnly
-        let expenseId = fixture.Data.temporalExpense5700Id
-        let revenueId = fixture.Data.temporalRevenue4500Id
-        let result = fetchByAccountIdList context [ expenseId; revenueId ] None
-        match result with
-        | Ok balances ->
-            Assert.Equal(2, balances |> List.length)
-            let expenseBal = balances |> List.find(fun b -> b.accountId = expenseId)
-            let revenueBal = balances |> List.find(fun b -> b.accountId = revenueId)
-            Assert.Equal(287.09M, expenseBal.totalDebits |> Money.amount)
-            Assert.Equal(0M, expenseBal.totalCredits |> Money.amount)
-            Assert.True(expenseBal.netBalance |> Money.amount > 0M)
-            Assert.Equal(0M, revenueBal.totalDebits |> Money.amount)
-            Assert.Equal(287.09M, revenueBal.totalCredits |> Money.amount)
-            Assert.True(revenueBal.netBalance |> Money.amount > 0M)
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+            result {
+                let! _, expenseId =
+                    createTestAccountFromPrimitives
+                        context "NB-EXP" "Normal Balance Expense" "Expense"
+                        (Calendar.today().PlusYears(-1)) None (Some "OperatingExpense")
+                        (Some fixture.Data.expenses5000Id) None
+                let! _, revenueId =
+                    createTestAccountFromPrimitives
+                        context "NB-REV" "Normal Balance Revenue" "Revenue"
+                        (Calendar.today().PlusYears(-1)) None (Some "OperatingRevenue")
+                        (Some fixture.Data.revenue4000Id) None
+                let! _ =
+                    createTestJournalEntryFromPrimitives
+                        context "Normal balance orientation test" None (Calendar.today())
+                        [ (expenseId, 200.00M, "Debit", None)
+                          (revenueId, 200.00M, "Credit", None) ]
+                        [] []
+                let! balances = fetchByAccountIdList context [ expenseId; revenueId ] None
+                Assert.Equal(2, balances |> List.length)
+                let expenseBal = balances |> List.find(fun b -> b.accountId = expenseId)
+                let revenueBal = balances |> List.find(fun b -> b.accountId = revenueId)
+                Assert.Equal(200.00M, expenseBal.totalDebits |> Money.amount)
+                Assert.Equal(0M, expenseBal.totalCredits |> Money.amount)
+                Assert.True(expenseBal.netBalance |> Money.amount > 0M)
+                Assert.Equal(0M, revenueBal.totalDebits |> Money.amount)
+                Assert.Equal(200.00M, revenueBal.totalCredits |> Money.amount)
+                Assert.True(revenueBal.netBalance |> Money.amount > 0M)
+                return ()
+            })
+        |> railroadWrapper
