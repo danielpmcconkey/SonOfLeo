@@ -105,7 +105,7 @@ Phase-at-a-time manual audit. Findings reviewed with Dan one at a time, highest 
 | 58 | TT-02 | Shared fixture makes entertainment5650's balance order-dependent | Covered by #65 — no tests should mutate fixtures without rollback or self-cleanup; each should create its own data | RESOLVED |
 | 59 | TT-03 | Fixture staging commits row-by-row; mid-stage failure wedges DB | Move TRUNCATE CASCADE to constructor top (pre-stage) instead of Dispose — self-healing on dirty DB | RESOLVED |
 | 60 | TT-04 | REQ-JE-3.4 reinstated but untested/unwaived | Check git history — Dan believes tests existed. Verify | CONFIRMED |
-| 61 | TT-06 | ~17 active DAL requirements neither tested nor waived | Dan wants to see the list — may be misattribution since DAL capabilities are exercised by every integration test | CONFIRMED |
+| 61 | TT-06 | ~17 active DAL requirements neither tested nor waived | Dan wants to see the list — may be misattribution since DAL capabilities are exercised by every integration test | RESOLVED |
 | 62 | GAP-CLI-1 | REQ-NGUI-1.5 enforced but unannotated at Account code-lookup sites | Dan added ~112 annotations | RESOLVED |
 | 63 | GAP-CLI-2 | Activity/balance handlers missing NGUI-2.4/3.5 marshalling annotations | Dan fixed | RESOLVED |
 | 64 | INC-CLI-1 | Means-to REQ annotations applied inconsistently across CLI handlers | Hobson recommends placement, Dan adds them | CONFIRMED |
