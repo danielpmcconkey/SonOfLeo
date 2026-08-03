@@ -101,7 +101,7 @@ let updateComment
             |> List.choose id
         do!
             if updates.IsEmpty then
-                Error(JournalEntryReferenceUpdateNoOp)
+                Error(JournalEntryCommentUpdateNoOp)
             else
                 Ok()
         let setClauses = updates |> List.map fst |> String.concat ""
