@@ -27,8 +27,8 @@ Classification buckets, per Dan's framing:
 | 99a | As-of balance tests (REQ-JE-3.6.2) | **Done 2026-08-02 (P2).** Two tests by BD; uncovered a bug in AccountBalance.fs (null check on as-of filtered entries, `830b5c8`) |
 | 100a | Amount/description filter tests | **Done 2026-08-02 (P2).** Tests by BD; uncovered a bug in AccountActivity.fs (description filter not unwrapping DU value, `c54fe0c`) |
 | 101a | Signed-balance normal-orientation test (REQ-JE-3.6.1) | **Done 2026-08-02 (P2).** Test by BD |
-| 102a | Counter-account revisit | Not addressed in `cli-requirements-from-leobloom-usage.md` |
-| 115 | Next-month period auto-create check | Nothing in code |
+| 102a | Counter-account revisit | **Overruled 2026-08-03 (P7).** Hobson reviewed with fresh LeoBloom context: the assumed workflow (walking cash activity to review categorization) doesn't exist. Categorization review happens through staging tables (Phase 2), spending reports (per-category totals), and specific JE lookups (recon deltas) — none require counter-account on activity rows. Multi-line JEs make "the counter-account" ill-defined anyway |
+| 115 | Next-month period auto-create check | **Overruled 2026-08-03 (P7).** Monthly friction is a 30-second procedural step (create the period, retry). Hobson adds it to the Saturday routine. Auto-create-on-post is a side effect that hides state creation; batch create is YAGNI. No code change warranted |
 | 119a | fetchHeadersFromFilter dedup-then-enforce | **Done 2026-08-02 (P6).** Dan refactored: DAL gets `AnyQuantityIsAcceptable`, dedup via `List.distinctBy`, then check `expectedRows` against the deduped count |
 | 120a | `unwrap` test helper | Open; now ~178 `Result.defaultWith` sites, home is `Tests.Helpers` |
 | 121a | Isolated test-file mismatches | Banner at `JournalEntryComponent.fs:181` still names nonexistent `JournalEntryLine.validateAmount`; tests named `validateAmount` call `confirmAmountIsPositive` |
@@ -67,10 +67,10 @@ Classification buckets, per Dan's framing:
 | # | Item | Done / remaining |
 |---|---|---|
 | 2 | REQ-AC-4.6 test | The behavior **is** tested — `AccountRoutes.fs:420` "Deactivate rejects when JEs dated after deactivation date" — but the test cites REQ-AC-4.1, so 4.6 is still untested by linkage. One rename fixes it |
-| 18 | Rate definition / Rate×Money | Definition wording updated ("scales a Money or Quantity value"); the design session on projections (loan balance in N months) never happened |
+| 18 | Rate definition / Rate×Money | **Done 2026-08-03 (P7).** Rate def: "or Quantity" removed (Rate×Quantity nonsensical). Money def: note added that Model.Money is one instance of the Money concept; future projection type (double-backed) will support multiplication under the same definition. No design session needed — Model.Money doesn't get scaling; projection type is a separate future concern (see `HobsonsNotes/montecarlo-constraints-from-personalfinance.md`) |
 | 85 | FSDDD-04 trio | Sub-2 (transaction mechanics) met; sub-3 kept-as-is by Dan's ruling; sub-1 (LookupCache init) still open under #91 |
 | 96a, 105, 106 | Period-close design | **Disposed 2026-08-02 — see Dispositions below.** Hobson misread this: closing entries are a *planned enhancement*, not abandoned. The design session stays owed, sequenced to when the closing slice is scheduled. Near-term work: a deferred entry in `resolved-findings.md` so auditors stop re-flagging it |
-| 103a | Reclass verb | Problem scoped in the CLI-requirements doc (`ledger reclass` = atomic void+repost, weekly use); no REQs written |
+| 103a | Reclass verb | **Overruled 2026-08-03 (P7).** The weekly reclass volume is a LeoBloom importer problem. SonOfLeo's import domain is being redesigned (staging, rules engine, dedup); if the new design categorizes correctly, the problem disappears. Void + create already exist as primitives. Don't spec a convenience verb for a problem that may not survive the import redesign |
 | 107a | Env-guard defense vetting | **Done 2026-08-03 (P5).** All four backstops confirmed and recorded with attestation dates in `CompoundedLearnings/articles/architecture/debug-release-access.md` |
 | 123a | confirmX rename sweep | `check-confirm-naming.sh` blocks new `validateX` with an 8-entry allowlist "awaiting the #123a sweep" — the sweep itself pending |
 | 125a | Every AppError case tested | `check-apperror-coverage.sh` exists; the 07b error-trace gap-filling is this item in progress; BD's waiver candidates pending Dan's ruling |
