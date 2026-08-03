@@ -134,9 +134,9 @@ let buildReadQuery
         from {from}
         {joinString}
         {predicateString}
-        {limitString}
         {groupByString}
         {orderByString}
+        {limitString}
         ;
         """
 
