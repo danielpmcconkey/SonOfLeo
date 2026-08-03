@@ -72,9 +72,3 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 | REQ-SYS-2.2 | Rejections under REQ-SYS-2.1 must occur before any database write, and must produce a meaningful error message. | replaced with 2.1.1 and 2.1.2 for better clarity |
 | REQ-SYS-4.1 | The system must not provide a user interface for hard-deleting any entity record. | Deletion policy is per-entity, not system-wide (see Decisions, 2026-06-11). Account's prohibition restored to REQ-AC-5.1. |
 
-
-## Promotion candidates
-
-Rules that look general but stay entity-specific until a second entity confirms them:
-
-- **REQ-AC-2.13** (IDs are system-generated UUIDs; new UUIDs may not be passed in) — revisit when journal entry creation is specced.

@@ -74,7 +74,7 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-2.1** When posting a journal entry, the system must generate a unique UUID for the header ID (new UUIDs may not be passed in).
 - **REQ-JE-2.2** When posting a journal entry, the system must generate a unique UUID for each line ID (new UUIDs may not be passed in).
 - **REQ-JE-2.3** At the interface boundary, journal entry lines reference accounts by **code**. 
-- **REQ-JE-2.4** When posting a journal entry, the system must reject any line whose account code does not resolve to an existing account (before any database write, per REQ-SYS-2.1.1).
+- **REQ-JE-2.4** When posting a journal entry, the system must reject any line whose account code does not resolve to an existing account (before any database write).
 - **REQ-JE-2.5** When posting a journal entry, the system must derive the fiscal period from the entry date: parse year and month, construct the PeriodKey, and look up the corresponding fiscal period record.
 - **REQ-JE-2.6** When posting a journal entry, the system must reject any entry whose derived fiscal period does not exist in the database.
 - **REQ-JE-2.7** When posting a journal entry, the system must reject any entry whose derived fiscal period is not open (`is_open = false`).
@@ -92,7 +92,7 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-3.1** When retrieving a journal entry from the persistence layer, the system must return a JournalEntry type with all header properties, all associated lines, all external references, and all comments.
 - **REQ-JE-3.2** The system must be able to retrieve a journal entry by the caller providing that entry's ID.
 - **REQ-JE-3.3** The system must be able to retrieve all journal entries for a given fiscal period by the caller providing a PeriodKey.
-- **REQ-JE-3.4** The system must be able to retrieve all journal entry lines for a given account. Note: this requirement is retained alongside JE-3.9 because the underlying model code exists and may serve a future need. No test currently cites this requirement; the capability is exercised through JE-3.9.
+- **REQ-JE-3.4** The system must be able to retrieve all journal entry lines for a given account. Note: this requirement is retained alongside JE-3.9 because the underlying model code exists and may serve a future need.
 - **REQ-JE-3.5** The system must be able to retrieve the journal entries carrying a given external reference, by the caller providing a source FI and reference value. The result is a set (external references are not unique across entries, per REQ-JE-1.48).
 - **REQ-JE-3.6** The system must be able to compute and return the total debit amount, total credit amount, and net balance for a given account's non-voided journal entry lines (per REQ-JE-4.7).
 - **REQ-JE-3.6.1** Net balance is expressed in the account's **normal balance** orientation such that a positive net balance always means "more of what
@@ -101,8 +101,8 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-3.7** The system must be able to retrieve all journal entries whose entry date falls within a caller-provided date range (start date and end date, both inclusive Calendar Dates). The result is a set of complete journal entries (per REQ-JE-3.1).
 - **REQ-JE-3.8** The system must be able to retrieve all journal entries carrying at least one external reference whose source FI matches a caller-provided value. Unlike REQ-JE-3.5, this requires only the FI — no reference value. The result is a set of complete journal entries (per REQ-JE-3.1).
 - **REQ-JE-3.9** The system must be able to retrieve all journal entry lines for a given account, enriched with their parent entry's `entry_date`, `description`, `source`, and `voided_at`. 
-- **REQ-JE-3.9.1** The caller may filter to non-voided entries only (per REQ-JE-4.7). The result is ordered by entry date. The enriched fields are a boundary-only return type — the domain model is unchanged.
-- **REQ-JE-3.9.3** The result can be ordered by entry date or account code at the caller's choosing.
+- **REQ-JE-3.9.1** The caller may filter to non-voided entries only (per REQ-JE-4.7). The enriched fields are a boundary-only return type — the domain model is unchanged.
+- **REQ-JE-3.9.3** The result can be ordered by entry date, account code, or amount (either ascending or descending for either) at the caller's choosing.
 
 
 ## 4. Update and void behaviors

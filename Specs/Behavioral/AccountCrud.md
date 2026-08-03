@@ -51,7 +51,7 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-1.45** An account record's "active end" may be null
 - **REQ-AC-1.46** An account record's "active end" may not be earlier than its "active begin". Equality is permitted and represents an account active for exactly one day (the inclusive single-day window).
 - **REQ-AC-1.47** An Account record's parent ID can never reference one of its descendent accounts.
-- **REQ-AC-1.48** An Account record is considered "deactivated" (or "inactive") relative to a reference Calendar Date when its "active end" is non-null and is earlier than that reference date (the active-end date itself is still active — the boundary is inclusive).
+- **REQ-AC-1.48** An Account record is considered not active relative to a reference Calendar Date when its "active end" is non-null and is earlier than that reference date (the active-end date itself is still active — the boundary is inclusive).
   - **REQ-AC-1.48.1** The reference point is a Calendar Date and is context-dependent: it may be the current date (the Eastern calendar date of the AuditEnvelope's system instant) or a date specific to the operation (e.g., a transaction's entry date). Each requirement that references activity status must specify which reference point applies.
 - **REQ-AC-1.49** Account external reference cannot be whitespace only (pre-trimmed) or empty
 - **REQ-AC-1.50** An Account record is considered "active" relative to a reference Calendar Date when its "active begin" is earlier than or equal to that reference date AND (its "active end" is null OR its "active end" is later than or equal to that reference date). Both boundaries are inclusive.
@@ -172,7 +172,6 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 | REQ-AC-2.7.1 | Contextual annotation ("caller is an internal application layer function only") — not a testable behavior | Dan, 2026-08-02 |
 | REQ-AC-3.3.1 | A contextual annotation ("this is an internal-only capability"), not a testable behavior. Nothing in the system enforces internal-vs-external access boundaries | Dan, 2026-08-02 |
 | REQ-AC-3.5.2 | Contextual annotation ("caller is an internal application layer function only") — not a testable behavior | Dan, 2026-08-02 |
-| REQ-AC-3.3.1 | A contextual annotation ("this is an internal-only capability"), not a testable behavior. Nothing in the system enforces internal-vs-external access boundaries | Dan, 2026-08-02 |
 
 ## Withdrawn
 

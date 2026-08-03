@@ -57,7 +57,7 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 ## IE-4: Equity Subtypes Not Future-Proofed
 - **Status:** deferred
 - **Date:** 2026-06-13
-- **Revisit when:** Period closure is designed
+- **Revisit when:** GAAP closing entries (retained-earnings sweep) are designed
 - **Ruling:** The subtype isn't the only or obvious way to identify retained earnings. Could use code, name, or a flag. Speculating on the mechanism before knowing what period closure needs just cements a guess.
 
 ## DEC-1: Convention "Must" vs Requirement "Must"
@@ -155,6 +155,12 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 - **Date:** 2026-08-02
 - **Scope:** Whether a CLAUDE.md (or equivalent) should exist at the SonOfLeo repo root
 - **Ruling:** Vetoed repeatedly. Agents enter via wakeups and prompts, not a repo-root file. The harness launches from its own root (`~/penthouse-pete/` for Hobson, `~/` for BD); a CLAUDE.md at the SonOfLeo repo root would never load. The imagined problem (agents lacking context) doesn't exist — the wakeup protocol provides it. Do not re-flag.
+
+## JE-COMPOSITE-ORDER: Composite Validation Runs After Component Writes
+- **Status:** overruled
+- **Date:** 2026-08-03
+- **Scope:** Whether JE composite checks (min 2 lines, debit=credit balance) must run before any DB write per REQ-SYS-2.1.1
+- **Ruling:** It is impossible to validate that we have 2+ *valid* lines until each line has been constructed and persisted — a line's validity depends on DB state (account existence, period state). Pre-write validation would mean either (a) validating twice, or (b) validating against unvalidated input, both of which are worse than the current design. The transaction bracket ensures atomicity; a failed composite check rolls back everything. REQ-SYS-2.1.1 ("determinable from the entity's own properties") does not apply because line validity is not determinable from properties alone. Vetoed repeatedly. Do not re-flag.
 
 ## WAIVE-1: REQ-NGUI-3.1-3.5 Waiver Reason Soundness
 - **Status:** overruled

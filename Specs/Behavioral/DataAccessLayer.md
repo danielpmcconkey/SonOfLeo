@@ -51,16 +51,16 @@ construction pattern) but deliberately not verified by tests.
 
 | ID | Reason testing is waived | Approved |
 |---|---|---|
-| REQ-DAL-1.3 | Enforced in code (AppError case `DalErrorRetrievingAppSettings`), but impossible to provoke from the test harness without corrupting the environment | Dan, 2026-08-02 |
-| REQ-DAL-1.14 | Enforced in code (AppError case `DalConnectionStringEnvVarNotFound`), but impossible to provoke from the test harness without corrupting the environment | Dan, 2026-08-02 |
-| REQ-DAL-1.15 | Enforced in code (AppError case `DalConnectionStringIsEmpty`), but impossible to provoke from the test harness without corrupting the environment | Dan, 2026-08-02 |
-| REQ-DAL-1.16 | Enforced in code (AppError case `DalConnectionStringEnvVarContainsConnectionString`), but impossible to provoke from the test harness without corrupting the environment | Dan, 2026-08-02 |
-| REQ-DAL-1.17 | Enforced in code (AppError case `DalEnvVarNotSet`), but impossible to provoke from the test harness without corrupting the environment | Dan, 2026-08-02 |
-| REQ-DAL-1.18 | Enforced in code (AppError case `DalConnectionStringIsEmpty`), but impossible to provoke from the test harness without corrupting the environment | Dan, 2026-08-02 |
+| REQ-DAL-1.3 | Enforced in code (fails with a typed AppError), but impossible to provoke from the test harness without corrupting the environment | Dan, 2026-08-02 |
+| REQ-DAL-1.14 | Enforced in code (fails with a typed AppError), but impossible to provoke from the test harness without corrupting the environment | Dan, 2026-08-02 |
+| REQ-DAL-1.15 | Enforced in code (fails with a typed AppError), but impossible to provoke from the test harness without corrupting the environment | Dan, 2026-08-02 |
+| REQ-DAL-1.16 | Enforced in code (fails with a typed AppError), but impossible to provoke from the test harness without corrupting the environment | Dan, 2026-08-02 |
+| REQ-DAL-1.17 | Enforced in code (fails with a typed AppError), but impossible to provoke from the test harness without corrupting the environment | Dan, 2026-08-02 |
+| REQ-DAL-1.18 | Enforced in code (fails with a typed AppError), but impossible to provoke from the test harness without corrupting the environment | Dan, 2026-08-02 |
 | REQ-DAL-1.19 | Enforced in code (trim before connection), but impossible to provoke — the test harness always connects with the correctly configured env var | Dan, 2026-08-02 |
 | REQ-DAL-1.20 | It's a build-configuration fact, not something we can dynamically test. I've manually verified it works | Dan, 2026-07-06 |
 | REQ-DAL-2.1 | Negative existence claim — "all inserted data must be parameterized." Enforced by code review and the parameterization pattern in ExecuteReader/ExecuteScalar/ExecuteNonQuery | Dan, 2026-08-02 |
-| REQ-DAL-2.2 | Enforced in code (AppError case `DalResultantRowsDidntMatchExpectation`, exercised by DalTests). Behavior proven; waived from REQ-ID citation because the test exercises the mechanism, not the requirement by name | Dan, 2026-08-02 |
+| REQ-DAL-2.2 | Enforced in code (typed AppError, exercised by DalTests). Behavior proven; waived from REQ-ID citation because the test exercises the mechanism, not the requirement by name | Dan, 2026-08-02 |
 | REQ-DAL-2.3 | Negative existence claim — "all user-input values must be parameterized." Enforced by code review and the parameterization pattern | Dan, 2026-08-02 |
 | REQ-DAL-3.1 | Architectural fact — every integration test proves the DAL interfaces with PostgreSQL | Dan, 2026-08-02 |
 | REQ-DAL-3.2 | Enforced by module structure — callers reference `DataAccessLayer.*` modules, never Npgsql directly. Checked by `check-npgsql.sh` | Dan, 2026-08-02 |

@@ -24,6 +24,6 @@ Parts of a composite. `JournalEntryHeader`, `JournalEntryLine`, `JournalEntryExt
 
 ## Interface contracts
 
-DTOs at the CLI boundary, owned by `InterfaceBridge`. These use primitives (string, decimal, Guid, LocalDate, Instant) — not domain types. They validate *shape only* and translate between the outside world and the domain layer via boundary converters.
+DTOs at the CLI boundary, owned by `InterfaceBridge`. These typically use primitives (string, decimal, Guid, LocalDate, Instant) because most domain types require validated construction. Exceptions exist where a boundary type is stable and self-evident from serialization (e.g., `FetchSort`, `FieldUpdate`). Contracts validate *shape only* and translate between the outside world and the domain layer via boundary converters.
 
 Each UI operation gets its own independent contract — think of them like Swagger docs, one per endpoint. Return types may be shared when operations return the exact same shape (e.g., fetch-by-parent and fetch-by-type both return `AccountReturn`). Input types are never shared across semantically different operations, even when they happen to have the same primitive shape (e.g., a string input for "fetch JE by external reference" is not the same contract as a string input for "fetch account by name").
