@@ -10,3 +10,5 @@
 | 6 | TRACE-1 | Remove REQ-SYS-6.1 from test names that co-cite it (JournalEntryRoutes.fs:512, JournalEntryVoiding.fs:115) — clears the stale waiver flag | Dan | pending |
 | 7 | IDIOM-1 | Add test for AccountActivityFilter with journalEntryId = Some (no test currently exercises the non-None path) | Dan/BD | pending |
 | 8 | IDIOM-NOOP-1/2 | Add test for comment update no-op: both commentUpdate=NoChange and secondaryIdUpdate=NoChange, assert JournalEntryCommentUpdateNoOp | Dan/BD | pending |
+| 9 | AUDIT-SKILL | Auditors with no findings must still write their reasoning — what they checked, what they considered, why nothing rose to finding level. "No findings" with no explanation is indistinguishable from a shallow run | Hobson | pending |
+| 10 | AUDIT-SKILL | Record FT-1 revision: auditors now run in parallel batches of 5, not sequentially. Update any FT-1 references in CompoundedLearnings or audit docs | Hobson | pending |
