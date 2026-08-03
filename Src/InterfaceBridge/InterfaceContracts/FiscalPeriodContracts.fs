@@ -12,8 +12,8 @@ type FiscalPeriodReturn =
       createdAt: Instant
       modifiedAt: Instant }
 
-/// FiscalPeriodInput is a multi-purpose interface contract, used for create, fetch by key, close, and reopen
-type FiscalPeriodInput =
-    {
-      periodKey: string }
+type FiscalPeriodCreateInput = { periodKey: string }
+type FiscalPeriodFetchByKeyInput = { periodKey: string }
+type FiscalPeriodCloseInput = { periodKey: string }
+type FiscalPeriodReopenInput = { periodKey: string }
 type FiscalPeriodFetchAllInput = { openOnly: bool }

@@ -21,9 +21,24 @@ open Context.Context
 [<Collection("SharedTestData")>]
 type FiscalPeriodRouteTests(fixture: TestDataFixture) =
 
-    static let createFiscalPeriodInputPayload keyToUse =
-        { FiscalPeriodInput.periodKey = keyToUse }
-        |> toJson<FiscalPeriodInput>
+    static let createFiscalPeriodCreateInputPayload keyToUse =
+        { FiscalPeriodCreateInput.periodKey = keyToUse }
+        |> toJson<FiscalPeriodCreateInput>
+        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+
+    static let createFiscalPeriodFetchByKeyInputPayload keyToUse =
+        { FiscalPeriodFetchByKeyInput.periodKey = keyToUse }
+        |> toJson<FiscalPeriodFetchByKeyInput>
+        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+
+    static let createFiscalPeriodCloseInputPayload keyToUse =
+        { FiscalPeriodCloseInput.periodKey = keyToUse }
+        |> toJson<FiscalPeriodCloseInput>
+        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+
+    static let createFiscalPeriodReopenInputPayload keyToUse =
+        { FiscalPeriodReopenInput.periodKey = keyToUse }
+        |> toJson<FiscalPeriodReopenInput>
         |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
 
     static let createFiscalPeriodFetchAllInputPayload openOnly =
@@ -34,7 +49,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-FP-2.4 FiscalPeriod Create happy path``() =
         let expected = "1993-06"
-        let payload = createFiscalPeriodInputPayload expected
+        let payload = createFiscalPeriodCreateInputPayload expected
         let mutable keyToCleanUp = None
         try
             let context = create NoTransaction FetchOnly
@@ -62,7 +77,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         result {
             let! existingPeriod = fetchById context (fixture.Data.openFiscalPeriodIds |> List.head)
             let existingKey = existingPeriod |> periodKey |> FiscalPeriodKey.value
-            let payload = createFiscalPeriodInputPayload existingKey
+            let payload = createFiscalPeriodFetchByKeyInputPayload existingKey
             let! resultPayload = routeUiCommandForTesting "FiscalPeriod" "FetchByKey" [] payload
             let! returned = fromJson<FiscalPeriodReturn> resultPayload
             Assert.Equal(existingKey, returned.periodKey)
@@ -84,7 +99,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-FP-4.1 FiscalPeriod Close happy path``() =
         let expected = "1992-05"
-        let payload = createFiscalPeriodInputPayload expected
+        let payload = createFiscalPeriodCloseInputPayload expected
         let mutable keyToCleanUp = None
         try
             let context = create NoTransaction FetchOnly
@@ -108,7 +123,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-FP-4.2 FiscalPeriod Reopen happy path``() =
         let expected = "2048-11"
-        let payload = createFiscalPeriodInputPayload expected
+        let payload = createFiscalPeriodReopenInputPayload expected
         let mutable keyToCleanUp = None
         try
             let context = create NoTransaction FetchOnly
@@ -134,7 +149,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-FP-3.2 FetchByKey rejects non-existent period key``() =
-        let payload = createFiscalPeriodInputPayload "1850-01"
+        let payload = createFiscalPeriodFetchByKeyInputPayload "1850-01"
         result {
             do!
                 match routeUiCommandForTesting "FiscalPeriod" "FetchByKey" [] payload with
@@ -147,7 +162,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-FP-4.1 Close rejects non-existent period key``() =
-        let payload = createFiscalPeriodInputPayload "1850-01"
+        let payload = createFiscalPeriodCloseInputPayload "1850-01"
         result {
             do!
                 match routeUiCommandForTesting "FiscalPeriod" "Close" [] payload with
@@ -160,7 +175,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-FP-4.2 Reopen rejects non-existent period key``() =
-        let payload = createFiscalPeriodInputPayload "1850-01"
+        let payload = createFiscalPeriodReopenInputPayload "1850-01"
         result {
             do!
                 match routeUiCommandForTesting "FiscalPeriod" "Reopen" [] payload with
@@ -173,7 +188,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-FP-2.4 Fiscal Period Create rejects invalid period key string``() =
-        let payload = createFiscalPeriodInputPayload "abc"
+        let payload = createFiscalPeriodCreateInputPayload "abc"
         result {
             do!
                 match routeUiCommandForTesting "FiscalPeriod" "Create" [] payload with

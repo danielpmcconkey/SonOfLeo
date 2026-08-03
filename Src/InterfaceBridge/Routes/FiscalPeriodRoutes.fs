@@ -15,7 +15,7 @@ open Context
 let private create payload _ =
     let context = Context.create NoTransaction FiscalPeriodCreate
     result {
-        let! input = Json.fromJson<FiscalPeriodInput> payload
+        let! input = Json.fromJson<FiscalPeriodCreateInput> payload
         let! fiscalPeriodKey = input.periodKey |> FiscalPeriodKey.fromString
         let! model = constructNewAndSaveToDb context fiscalPeriodKey
         let returnVal = ``convert FiscalPeriod to FiscalPeriodReturn`` model
@@ -25,7 +25,7 @@ let private create payload _ =
 let private fetch payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
-        let! input = Json.fromJson<FiscalPeriodInput> payload
+        let! input = Json.fromJson<FiscalPeriodFetchByKeyInput> payload
         let! id = input.periodKey |> ``convert FiscalPeriodKeyString to FiscalPeriodId`` context
         let! model = id |> fetchById context
         let returnVal = ``convert FiscalPeriod to FiscalPeriodReturn`` model
@@ -44,7 +44,7 @@ let private fetchAll payload _ =
 let private close payload _ =
     let context = Context.create NoTransaction FiscalPeriodClose
     result {
-        let! input = Json.fromJson<FiscalPeriodInput> payload
+        let! input = Json.fromJson<FiscalPeriodCloseInput> payload
         let! id = input.periodKey |> ``convert FiscalPeriodKeyString to FiscalPeriodId`` context
         let! model = id |> closeFiscalPeriod context
         let returnVal = ``convert FiscalPeriod to FiscalPeriodReturn`` model
@@ -54,7 +54,7 @@ let private close payload _ =
 let private reopen payload _ =
     let context = Context.create NoTransaction FiscalPeriodReopen
     result {
-        let! input = Json.fromJson<FiscalPeriodInput> payload
+        let! input = Json.fromJson<FiscalPeriodReopenInput> payload
         let! id = input.periodKey |> ``convert FiscalPeriodKeyString to FiscalPeriodId`` context
         let! model = id |> reopenFiscalPeriod context
         let returnVal = ``convert FiscalPeriod to FiscalPeriodReturn`` model
@@ -67,14 +67,14 @@ let fiscalPeriodDomainCommandRoutes =
       { domain = "FiscalPeriod"
         verb = "Create"
         description = "Create a new fiscal period and insert it into the database."
-        inputType = typeof<FiscalPeriodInput>.Name
+        inputType = typeof<FiscalPeriodCreateInput>.Name
         outputType = typeof<FiscalPeriodReturn>.Name
         handler = create }
       // read
       { domain = "FiscalPeriod"
         verb = "FetchByKey"
         description = "Retrieve a specific fiscal period from the database."
-        inputType = typeof<FiscalPeriodInput>.Name
+        inputType = typeof<FiscalPeriodFetchByKeyInput>.Name
         outputType = typeof<FiscalPeriodReturn>.Name
         handler = fetch }
       { domain = "FiscalPeriod"
@@ -88,12 +88,12 @@ let fiscalPeriodDomainCommandRoutes =
       { domain = "FiscalPeriod"
         verb = "Close"
         description = "Closes an existing open fiscal period."
-        inputType = typeof<FiscalPeriodInput>.Name
+        inputType = typeof<FiscalPeriodCloseInput>.Name
         outputType = typeof<FiscalPeriodReturn>.Name
         handler = close }
       { domain = "FiscalPeriod"
         verb = "Reopen"
         description = "Reopens an existing closed fiscal period."
-        inputType = typeof<FiscalPeriodInput>.Name
+        inputType = typeof<FiscalPeriodReopenInput>.Name
         outputType = typeof<FiscalPeriodReturn>.Name
         handler = reopen } ]
