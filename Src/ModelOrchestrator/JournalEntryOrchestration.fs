@@ -33,7 +33,7 @@ module JournalEntry =
     // validating JE as a collection
     // =============================================================================
 
-    let private validateAmountEquality (lines: JournalEntryLine list) : Result<unit, AppError> =
+    let private confirmAmountEquality (lines: JournalEntryLine list) : Result<unit, AppError> =
         result {
             let! totalDebits = lines |> JournalEntryLine.sumLinesByType Debit
             let! totalCredits = lines |> JournalEntryLine.sumLinesByType Credit
@@ -44,16 +44,16 @@ module JournalEntry =
                     Error(JournalEntryDebitCreditMismatch(totalDebits |> Money.amount, totalCredits |> Money.amount))
         }
 
-    let private validateLineCount (lines: JournalEntryLine list) : Result<unit, AppError> =
+    let private confirmLineCount (lines: JournalEntryLine list) : Result<unit, AppError> =
         if lines |> List.length < 2 then
             Error(JournalEntryInsufficientLines(lines |> List.length))
         else
             Ok()
 
-    let validateLineList (lines: JournalEntryLine list) : Result<unit, AppError> =
+    let confirmLineList (lines: JournalEntryLine list) : Result<unit, AppError> =
         result {
-            let! _ = validateLineCount lines
-            let! _ = validateAmountEquality lines
+            let! _ = confirmLineCount lines
+            let! _ = confirmAmountEquality lines
             return ()
         }
 
@@ -166,7 +166,7 @@ module JournalEntry =
             let! validLines = createValidLines context journalEntryHeaderId entryDate lines
             let! validReferences = createValidExternalReferences context journalEntryHeaderId references
             let! validComments = createValidComments context journalEntryHeaderId comments
-            do! validateLineList validLines
+            do! confirmLineList validLines
             return
                 { header = validHeader
                   lines = validLines

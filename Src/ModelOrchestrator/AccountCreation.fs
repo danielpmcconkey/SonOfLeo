@@ -38,7 +38,7 @@ let private confirmParentAndChildAreDistinct
         Error(AccountParentAndChildAreSame(parentId |> Option.map AccountId.value, childId |> AccountId.value))
     | _ -> Ok()
 
-let private validateParentChildRelationship
+let private confirmParentChildRelationship
     (context: Context)
     (parentId: AccountId option)
     (childId: AccountId)
@@ -109,7 +109,7 @@ let constructNewAndSaveToDb
                 createdAt
                 modifiedAt
         let referenceDate = context |> getInitiationInstant |> Calendar.dateFromInstant
-        do! validateParentChildRelationship context parentId accountId accountType referenceDate
+        do! confirmParentChildRelationship context parentId accountId accountType referenceDate
         do! confirmTypeAndSubtypeAreValid accountType subType
         do! validAccount |> insertNewToDb context
         return validAccount

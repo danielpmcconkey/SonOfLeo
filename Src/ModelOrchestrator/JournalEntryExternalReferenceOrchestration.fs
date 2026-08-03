@@ -10,7 +10,7 @@ open Utilities.FieldUpdate
 open Utilities.ResultHelper
 open Context.Context
 
-let validateJournalEntryHeader (context: Context) (journalEntryHeaderId: JournalEntryHeaderId) : Result<unit, AppError> =
+let confirmJournalEntryHeader (context: Context) (journalEntryHeaderId: JournalEntryHeaderId) : Result<unit, AppError> =
     match journalEntryHeaderId |> JournalEntryHeader.fetchById context with
     | Ok _ -> Ok ()
     | Error (DalResultantRowsDidntMatchExpectation(expected, actual)) ->
@@ -29,7 +29,7 @@ let constructNewAndSaveToDb
     let createdAt = now
     let modifiedAt = now
     result {
-        do! journalEntryHeaderId |> validateJournalEntryHeader context
+        do! journalEntryHeaderId |> confirmJournalEntryHeader context
         let journalExternalReference =
             JournalEntryExternalReference.create
                 journalEntryExternalReferenceId

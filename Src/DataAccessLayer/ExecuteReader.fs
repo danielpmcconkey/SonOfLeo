@@ -16,7 +16,7 @@ type AcceptableExpectedRows =
     | OneOrMany
     | AnyQuantityIsAcceptable
 
-let internal validateNumRows (numRows: int) (expectation: AcceptableExpectedRows) : Result<unit, AppError> =
+let internal confirmNumRows (numRows: int) (expectation: AcceptableExpectedRows) : Result<unit, AppError> =
     match expectation with
     | Zero when numRows = 0 -> Ok()
     | ExactlyOne when numRows = 1 -> Ok()
@@ -182,6 +182,6 @@ let executeReaderQuery
                             rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList
             with ex ->
                 Error(DalErrorDuringReaderQueryExecution ex)
-        let! () = validateNumRows rows.Length expectedRows
+        let! () = confirmNumRows rows.Length expectedRows
         return rows
     }

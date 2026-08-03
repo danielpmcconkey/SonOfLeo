@@ -10,7 +10,7 @@ open Utilities.FieldUpdate
 open Utilities.ResultHelper
 open Context.Context
 
-let validateJournalEntryHeader (context: Context) (journalEntryId: JournalEntryHeaderId) : Result<unit, AppError> =
+let confirmJournalEntryHeader (context: Context) (journalEntryId: JournalEntryHeaderId) : Result<unit, AppError> =
     match journalEntryId |> JournalEntryHeader.fetchById context with
     | Ok _ -> Ok ()
     | Error (DalResultantRowsDidntMatchExpectation(expected, actual)) ->
@@ -19,7 +19,7 @@ let validateJournalEntryHeader (context: Context) (journalEntryId: JournalEntryH
         else Error (DalResultantRowsDidntMatchExpectation(expected, actual))
     | Error e -> Error e
 
-let validatePrimaryAndSecondaryRelationship
+let confirmPrimaryAndSecondaryRelationship
     (primaryJournalEntryId: JournalEntryHeaderId)
     (secondaryJournalEntryId: JournalEntryHeaderId option)
     : Result<unit, AppError> =
@@ -44,15 +44,15 @@ let constructNewAndSaveToDb
     let createdAt = now
     let modifiedAt = now
     result {
-        do! match primaryJournalEntryId |> validateJournalEntryHeader context with
+        do! match primaryJournalEntryId |> confirmJournalEntryHeader context with
             | Ok _ -> Ok()
             | Error (JournalEntryHeaderIdDoesntExist uuid) -> Error (JournalEntryCommentPrimaryJeHeaderIdNotFound uuid)
             | Error e -> Error e
-        do! match secondaryJournalEntryId |> convertOptionToDesiredTypeWithFallibleConverter (validateJournalEntryHeader context) with
+        do! match secondaryJournalEntryId |> convertOptionToDesiredTypeWithFallibleConverter (confirmJournalEntryHeader context) with
             | Ok _ -> Ok()
             | Error (JournalEntryHeaderIdDoesntExist uuid) -> Error (JournalEntryCommentSecondaryJeHeaderIdNotFound uuid)
             | Error e -> Error e
-        do! validatePrimaryAndSecondaryRelationship primaryJournalEntryId secondaryJournalEntryId
+        do! confirmPrimaryAndSecondaryRelationship primaryJournalEntryId secondaryJournalEntryId
         let journalEntryComment =
             JournalEntryComment.create
                 journalEntryCommentId
@@ -83,7 +83,7 @@ let updateComment
                 result {
                     let! existing = journalEntryCommentId |> (JournalEntryComment.fetchById context)
                     let primaryJournalEntryId = existing |> JournalEntryComment.primaryJournalEntryId
-                    do! validatePrimaryAndSecondaryRelationship primaryJournalEntryId x
+                    do! confirmPrimaryAndSecondaryRelationship primaryJournalEntryId x
                     return (SetTo x)
                 }
 
