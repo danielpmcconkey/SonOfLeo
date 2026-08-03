@@ -32,7 +32,9 @@ Workflow({
     repoRoot: "<absolute path to this clone>",
     runDir:   "<repoRoot>/Audit/<YYYY-MM-DD[a]>",
     danStatement: "<Dan's where-I-think-we-are paragraph, verbatim>",
-    runTests: false
+    runTests: false,
+    batch: 1,
+    batchSize: 5
   }
 })
 ```
@@ -44,9 +46,16 @@ Dan fresh each time; do not recycle an old one.
 only when independent execution is wanted (the Integrated suite needs a reachable
 test DB).
 
+`batch` (default 1) and `batchSize` (default 5) control batched execution. Batch
+1 runs baseline (scout + traceability) and caches results to `.baseline-cache.json`
+in the run folder, then runs auditors 1–5. Subsequent batches load the cache and
+run the next slice. The final batch also writes the disposition template. Invoke
+with `batch: 2`, `batch: 3`, etc. to continue — the return value tells you the
+next batch number and total count.
+
 The run is read-only against the repo except for `runDir`. Auditors run
-sequentially — ~20 auditors, plus baseline and writer agents. Reports are written
-to the run folder in batches of 5 as auditors complete.
+sequentially within each batch — ~20 auditors total, split across batches, plus
+baseline and writer agents.
 
 ## After the run
 

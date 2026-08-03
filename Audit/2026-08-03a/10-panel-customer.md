@@ -1,0 +1,14 @@
+# Hobson (customer audit)
+
+## CUST-NAME-1 — customer-gap
+- **Location:** Src/InterfaceBridge/InterfaceContracts/AccountContracts.fs (AccountBalanceReturn, lines 47-50), Src/InterfaceBridge/InterfaceContracts/JournalContracts.fs (JournalEntryLineReturn, lines 37-46)
+- **Summary:** AccountBalanceReturn and JournalEntryLineReturn identify accounts by code only, omitting the account name the operator always needs.
+- **Resolution:** fix-spec
+
+AccountBalanceReturn (AccountContracts.fs:47-50) carries accountCode, totalCredits, totalDebits, and netBalance. JournalEntryLineReturn (JournalContracts.fs:37-46) carries accountCode, amount, lineType, and memo. Neither includes accountName. The converters that build these types (AccountFieldConverters.fs:151-162 and JournalEntryFieldConverters.fs:46-60) resolve the internal AccountId to a code string via the LookupCache but do not resolve or carry the name, despite having the context to do so. By contrast, AccountActivityReturn (AccountContracts.fs:39-46, built by OrchestrationConverters.fs:92-109) DOES include accountName alongside accountCode, proving the pattern is already established in the codebase. The Saturday routine specification says 'Present decisions with account names, not just codes' and the cli-requirements document (HobsonsNotes/cli-requirements-from-leobloom-usage.md, cross-cutting lessons) says 'Names, not just codes, in human output -- Dan reviews decisions by account name.' REQ-NGUI-1.4 mandates codes in all return payloads but is silent on names, so the code is spec-compliant; the spec itself is incomplete for the operator's actual needs. Every balance check (Phase 4 reconciliation) and every JE verification (Phase 1 import confirmation, Phase 2 categorization review) requires the operator to do a separate Account FetchByCode per account to get a readable identifier, or to maintain an external code-to-name map -- the same 'medieval scribe' problem the cli-requirements document describes with IDs.
+
+**Action:** Add a requirement to NonGraphicalInterface.md (or amend REQ-NGUI-1.4) requiring that all return payloads identifying an account include both the account code and the account name. Then add an accountName field to AccountBalanceReturn and JournalEntryLineReturn, and update their converters to resolve the name from the LookupCache (the same mechanism AccountActivityReturn already uses).
+
+**Why:** These two return types are the most-read outputs of the Saturday routine. The operator verifies every posted JE (JournalEntryReturn, which wraps JournalEntryLineReturn) and checks balances across 10+ accounts (AccountBalanceReturn) every single week. Without names, the operator must either memorize the code-to-name map or issue a parallel FetchAll and cross-reference manually. The friction is small per lookup but compounds across the 50-100+ JE verifications and the multi-account reconciliation that constitute a typical Saturday run.
+
+---

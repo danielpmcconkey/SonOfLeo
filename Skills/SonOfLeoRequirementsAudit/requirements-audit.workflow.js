@@ -1,10 +1,10 @@
 export const meta = {
   name: 'sonofleo-audit',
-  description: 'SonOfLeo audit: traceability + spec quality + code truthfulness + expert panel, one auditor at a time',
+  description: 'SonOfLeo audit in batches: traceability + spec quality + code truthfulness + expert panel',
   phases: [
-    { title: 'Baseline', detail: 'Scout repo state and run traceability script' },
-    { title: 'Auditors', detail: 'Sequential auditors — each writes output as it completes' },
-    { title: 'Wrap', detail: 'Write baseline docs and disposition template' },
+    { title: 'Baseline', detail: 'Scout repo state (batch 1) or load cached baseline (batch 2+)' },
+    { title: 'Auditors', detail: 'Run this batch of auditors — reports written as they complete' },
+    { title: 'Wrap', detail: 'Write disposition template (final batch only)' },
   ],
 }
 
@@ -18,6 +18,9 @@ const DAN_STATEMENT = input.danStatement
 const AUDIT_SCRIPT = `${REPO}/Skills/SonOfLeoRequirementsAudit/traceability-audit.sh`
 const LEDGER_PATH = `${REPO}/Skills/SonOfLeoRequirementsAudit/resolved-findings.md`
 const CONDUCT_PATH = `${REPO}/CompoundedLearnings/catalogs/audit-conduct.md`
+const BATCH = input.batch || 1
+const BATCH_SIZE = input.batchSize || 5
+const CACHE_FILE = `${RUN_DIR}/.baseline-cache.json`
 
 const REPORT_SCHEMA = {
   type: 'object',
@@ -53,6 +56,17 @@ const SCOUT_SCHEMA = {
     srcFiles: { type: 'array', items: { type: 'string' }, description: 'Repo-relative paths of every .fs file under Src/ (exclude obj/ and bin/)' },
   },
   required: ['stateSummary', 'behavioralSpecs', 'srcFiles'],
+}
+
+const CACHE_SCHEMA = {
+  type: 'object',
+  properties: {
+    stateSummary: { type: 'string' },
+    behavioralSpecs: { type: 'array', items: { type: 'string' } },
+    srcFiles: { type: 'array', items: { type: 'string' } },
+    traceability: { type: 'string' },
+  },
+  required: ['stateSummary', 'behavioralSpecs', 'srcFiles', 'traceability'],
 }
 
 // ---------------------------------------------------------------------------
@@ -124,11 +138,14 @@ function formatReport(result) {
 // ============================================================================
 phase('Baseline')
 const RUN_TESTS = !!input.runTests
-log('Scouting repo state and running traceability script...')
+let scout, traceability, testRun
 
-const baselineTasks = [
-  () => agent(
-    `You are the state scout for a SonOfLeo audit. Repo: ${REPO}.
+if (BATCH === 1) {
+  log('Scouting repo state and running traceability script...')
+
+  const baselineTasks = [
+    () => agent(
+      `You are the state scout for a SonOfLeo audit. Repo: ${REPO}.
 
 Derive the CURRENT state mechanically. Read:
 - git: current branch, HEAD sha, last ~15 commit subjects
@@ -142,21 +159,21 @@ Derive the CURRENT state mechanically. Read:
 Produce a dense, factual stateSummary — it becomes shared context for downstream
 auditors. Include what they need to avoid flagging phantoms: which domains have specs,
 which have code, which have tests.`,
-    { label: 'scout', phase: 'Baseline', schema: SCOUT_SCHEMA }
-  ),
-  () => agent(
-    `Run the mechanical traceability audit for SonOfLeo.
+      { label: 'scout', phase: 'Baseline', schema: SCOUT_SCHEMA }
+    ),
+    () => agent(
+      `Run the mechanical traceability audit for SonOfLeo.
 
 Execute: bash ${AUDIT_SCRIPT} ${REPO}
 
 Capture the complete raw stdout regardless of exit code. Return it verbatim.`,
-    { label: 'traceability-script', phase: 'Baseline' }
-  ),
-]
+      { label: 'traceability-script', phase: 'Baseline' }
+    ),
+  ]
 
-if (RUN_TESTS) {
-  baselineTasks.push(() => agent(
-    `Build and test SonOfLeo at ${REPO}.
+  if (RUN_TESTS) {
+    baselineTasks.push(() => agent(
+      `Build and test SonOfLeo at ${REPO}.
 
 1. Find the .fsproj files, dotnet build.
 2. Run Tests.Isolated and Tests.Integrated with dotnet test.
@@ -165,12 +182,43 @@ if (RUN_TESTS) {
 3. Report: build success/failure, per-suite counts, runtime, full text of failures.
 
 Read-only except for build output.`,
-    { label: 'test-run', phase: 'Baseline' }
-  ))
-}
+      { label: 'test-run', phase: 'Baseline' }
+    ))
+  }
 
-const [scout, traceability, testRun] = await parallel(baselineTasks)
-if (!scout) throw new Error('Scout failed — cannot proceed without derived state')
+  const baselineResults = await parallel(baselineTasks)
+  scout = baselineResults[0]
+  traceability = baselineResults[1]
+  testRun = baselineResults[2]
+  if (!scout) throw new Error('Scout failed — cannot proceed without derived state')
+
+  const baselineWriteFiles = [
+    { name: '00-scout-state.md', content: `# Scout — Derived Repo State\n\n${scout.stateSummary}` },
+    { name: '01-traceability.md', content: `# Traceability Script Output\n\n\`\`\`\n${traceability}\n\`\`\`` },
+    { name: '02-test-run.md', content: `# Build & Test Run\n\n${testRun || (RUN_TESTS ? '(agent failed)' : '(skipped)')}` },
+    { name: '03-dan-statement.md', content: `# Dan's Statement of Position\n\n${DAN_STATEMENT}` },
+    { name: '.baseline-cache.json', content: JSON.stringify({
+      stateSummary: scout.stateSummary,
+      behavioralSpecs: scout.behavioralSpecs,
+      srcFiles: scout.srcFiles,
+      traceability: traceability || '',
+    }) },
+  ]
+  await agent(
+    `Create ${RUN_DIR} (mkdir -p) if needed, then write these files exactly as given:\n\n` +
+    baselineWriteFiles.map(f => `FILE: ${RUN_DIR}/${f.name}\nBEGIN_CONTENT\n${f.content}\nEND_CONTENT`).join('\n\n'),
+    { label: 'baseline-writer', phase: 'Baseline' }
+  )
+} else {
+  log(`Batch ${BATCH}: loading cached baseline...`)
+  const cached = await agent(
+    `Read the file ${CACHE_FILE}. It contains a JSON object. Parse it and return the object exactly as structured.`,
+    { label: 'cache-reader', phase: 'Baseline', schema: CACHE_SCHEMA }
+  )
+  if (!cached) throw new Error('Could not load baseline cache — run batch 1 first')
+  scout = { stateSummary: cached.stateSummary, behavioralSpecs: cached.behavioralSpecs, srcFiles: cached.srcFiles }
+  traceability = cached.traceability
+}
 
 const STATE_BLOCK = `
 CURRENT REPO STATE (derived by scout this run — verify specifics yourself when load-bearing):
@@ -186,7 +234,7 @@ This is his mental model, not ground truth. Where the repo disagrees, flag it
 const CONTEXT = `${AUTHORITY_HIERARCHY}\n${VISION}\n${DAN_BLOCK}\n${STATE_BLOCK}\n${PRECEDENT_RULES}\n${CONDUCT_RULES}\n${HYGIENE}`
 
 // ============================================================================
-// Phase 2 — Auditors (sequential, report written after each batch of 5)
+// Phase 2 — Auditors (this batch only)
 // ============================================================================
 phase('Auditors')
 
@@ -451,66 +499,82 @@ EVALUATE:
 Ranked by how badly BD could hurt the books before anyone noticed.`,
 })
 
-// --- Run auditors sequentially, flush reports every 5 ---
-const allFindings = []
-let batchFiles = []
-let batchNum = 0
+// --- Slice for this batch ---
+const batchStart = (BATCH - 1) * BATCH_SIZE
+const batchEnd = Math.min(batchStart + BATCH_SIZE, auditors.length)
+const batchAuditors = auditors.slice(batchStart, batchEnd)
+const isLastBatch = batchEnd >= auditors.length
 
-for (let i = 0; i < auditors.length; i++) {
-  const aud = auditors[i]
-  log(`[${i + 1}/${auditors.length}] ${aud.label}`)
-  const result = await agent(aud.prompt, { label: aud.label, phase: 'Auditors', schema: REPORT_SCHEMA })
+if (batchAuditors.length === 0) {
+  log(`Batch ${BATCH}: no auditors remaining (all ${auditors.length} covered).`)
+} else {
+  log(`Batch ${BATCH}: auditors ${batchStart + 1}–${batchEnd} of ${auditors.length} (parallel)`)
 
-  if (result && result.findings && result.findings.length > 0) {
-    for (const f of result.findings) {
-      allFindings.push({ auditor: aud.label, ...f })
+  await pipeline(
+    batchAuditors,
+    (aud, _, i) => {
+      log(`[${batchStart + i + 1}/${auditors.length}] ${aud.label}`)
+      return agent(aud.prompt, { label: aud.label, phase: 'Auditors', schema: REPORT_SCHEMA })
+    },
+    (result, aud) => {
+      const content = (result && result.findings && result.findings.length > 0)
+        ? formatReport(result)
+        : `# ${aud.label}\n\n_No findings._`
+      if (result && result.findings && result.findings.length > 0) {
+        log(`${aud.label}: ${result.findings.length} finding(s)`)
+      }
+      return agent(
+        `Create ${RUN_DIR} (mkdir -p) if needed, then write this file exactly as given. The delimiters BEGIN_CONTENT and END_CONTENT are structural markers — do NOT include them in the file.\n\nFILE: ${RUN_DIR}/${aud.filename}\nBEGIN_CONTENT\n${content}\nEND_CONTENT`,
+        { label: `writer:${aud.label}`, phase: 'Auditors' }
+      )
     }
-    batchFiles.push({ name: aud.filename, content: formatReport(result) })
-    log(`  ${result.findings.length} finding(s)`)
-  } else {
-    batchFiles.push({ name: aud.filename, content: `# ${aud.label}\n\n_No findings._` })
-  }
-
-  if (batchFiles.length >= 5 || i === auditors.length - 1) {
-    batchNum++
-    await agent(
-      `Create ${RUN_DIR} (mkdir -p) if needed, then write these files exactly as given:\n\n` +
-      batchFiles.map(f => `FILE: ${RUN_DIR}/${f.name}\n---\n${f.content}\n===END===`).join('\n\n'),
-      { label: `writer-${batchNum}`, phase: 'Auditors' }
-    )
-    batchFiles = []
-  }
+  )
 }
 
 // ============================================================================
-// Phase 3 — Wrap: baseline docs + disposition template
+// Phase 3 — Wrap (final batch only)
 // ============================================================================
-phase('Wrap')
-log(`${allFindings.length} total findings from ${auditors.length} auditors. Writing disposition template...`)
+if (isLastBatch) {
+  phase('Wrap')
+  log('Final batch. Building disposition template from all auditor reports...')
 
-const dispositionRows = allFindings.map((f, i) =>
-  `| ${String(i + 1).padStart(3, '0')} | ${f.auditor} | ${f.id} | ${f.summary} | ${f.resolutionOwner} | pending | | |`
-).join('\n')
+  await agent(
+    `Read every file matching the pattern ${RUN_DIR}/10-*.md. For each file that contains
+findings (indicated by ## headings with Location/Summary/Resolution fields), extract
+each finding.
 
-const wrapFiles = [
-  { name: '00-scout-state.md', content: `# Scout — Derived Repo State\n\n${scout.stateSummary}` },
-  { name: '01-traceability.md', content: `# Traceability Script Output\n\n\`\`\`\n${traceability}\n\`\`\`` },
-  { name: '02-test-run.md', content: `# Build & Test Run\n\n${testRun || (RUN_TESTS ? '(agent failed)' : '(skipped)')}` },
-  { name: '03-dan-statement.md', content: `# Dan's Statement of Position\n\n${DAN_STATEMENT}` },
-  { name: '99-disposition.md', content: `# Disposition Record\n\n${allFindings.length} findings from ${auditors.length} auditors.\n\n| # | Auditor | ID | Summary | Owner | Status | Ruling | Date |\n|---|---------|----|---------|----- -|--------|--------|------|\n${dispositionRows || '| — | — | — | No findings | — | — | — | — |'}\n\n## Statuses\n- **pending** — not yet reviewed\n- **accepted** — finding valid, action assigned\n- **overruled** — finding rejected with reason\n- **deferred** — acknowledged, not acting now (add revisit trigger)\n` },
-]
+Write ${RUN_DIR}/99-disposition.md with this exact format:
 
-await agent(
-  `Create ${RUN_DIR} (mkdir -p) if needed, then write these files exactly as given:\n\n` +
-  wrapFiles.map(f => `FILE: ${RUN_DIR}/${f.name}\n---\n${f.content}\n===END===`).join('\n\n'),
-  { label: 'wrap-writer', phase: 'Wrap' }
-)
+# Disposition Record
+
+| # | Auditor | ID | Summary | Owner | Status | Ruling | Date |
+|---|---------|----|---------|----- -|--------|--------|------|
+(one row per finding across ALL 10-*.md files, sequentially numbered starting at 001,
+Auditor = the H1 heading of the source file, ID = the finding's ## heading ID,
+Summary = the Summary field value, Owner = the Resolution field value, Status = pending,
+Ruling and Date left empty)
+
+If no findings exist across any file, write a single row:
+| --- | --- | --- | No findings | --- | --- | --- | --- |
+
+End with:
+
+## Statuses
+- **pending** — not yet reviewed
+- **accepted** — finding valid, action assigned
+- **overruled** — finding rejected with reason
+- **deferred** — acknowledged, not acting now (add revisit trigger)`,
+    { label: 'disposition-writer', phase: 'Wrap' }
+  )
+}
 
 return {
   runDir: RUN_DIR,
-  auditors: auditors.length,
-  totalFindings: allFindings.length,
-  byCategory: allFindings.reduce((acc, f) => { acc[f.category] = (acc[f.category] || 0) + 1; return acc }, {}),
-  byOwner: allFindings.reduce((acc, f) => { acc[f.resolutionOwner] = (acc[f.resolutionOwner] || 0) + 1; return acc }, {}),
-  danDecides: allFindings.filter(f => f.resolutionOwner === 'dan-decides').length,
+  batch: BATCH,
+  batchSize: BATCH_SIZE,
+  totalAuditors: auditors.length,
+  totalBatches: Math.ceil(auditors.length / BATCH_SIZE),
+  rangeThisBatch: batchAuditors.length > 0 ? `${batchStart + 1}–${batchEnd}` : 'none',
+  isLastBatch,
+  nextBatch: isLastBatch ? null : BATCH + 1,
 }

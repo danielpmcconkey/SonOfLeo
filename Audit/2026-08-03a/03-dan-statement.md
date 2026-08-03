@@ -1,0 +1,5 @@
+---
+# Dan's Statement of Position
+
+We have built a very strong foundation for a managing Dan's personal and business financials (no separate LLC or anything like that--I report my business income and expenses on my personal tax filing). We have created everything needed to create, read, and update a chart of accounts and journal entries into the ledger. That's it that we've built. The foundation will serve a broader management suite that tracks my current investment portfolio and financial obligations. We will eventually build a robust data staging and import layer and also a reporting layer that will sit on top of what we built today. In the far corner of our product roadmap, we will have my current actual financials feed into a monte carlo simulation, though that sim will convert our ledger model typed data into its own simulation types.
+===END===
