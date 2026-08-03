@@ -36,7 +36,7 @@ Corollaries, learned the hard way:
 | **Judgment and interpretation** | `CompoundedLearnings/` | Nothing; it is guidance |
 | **Mechanical rules** | `Checks/*.sh` | Themselves — that is the point |
 | **Procedure** | `Skills/` | Whoever runs the skill |
-| **History** | `Specs/Archive/`, `Audit/`, `Skills/SonOfLeoRequirementsAudit/Runs/`, `HobsonsNotes/`, `BdsNotes/` | Nothing. Never read as authority. |
+| **History** | `Specs/Archive/`, `Audit/`, `HobsonsNotes/`, `BdsNotes/` | Nothing. Never read as authority. |
 
 Authority runs `Specs/Behavioral/` > everything else. A learning, a skill or a README that
 contradicts a requirement is wrong and gets fixed.
@@ -83,6 +83,18 @@ non-tested states:
 
 Every active requirement is therefore in exactly one of three states: **tested**, **waived**,
 or **unenforceable**.
+
+## Commit gate
+
+A new REQ ships in the same commit as a citing test. A placeholder
+`Assert.Fail "Not yet implemented"` satisfies the gate — the point is that an
+untested requirement is loud (red in every run) until the real test lands.
+
+The gate checks existence only. Whether a test is meaningful is the audit's job
+and code review's job, not the gate's.
+
+Enforced by `Checks/check-traceability.sh` (Invariant 2 of the traceability
+audit), which runs in the pre-commit hook via `Checks/run-all.sh --quick`.
 
 ## Linkage rules (the star chart)
 

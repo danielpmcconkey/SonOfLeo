@@ -5,8 +5,9 @@
 # Usage: traceability-audit.sh [repo-root]
 #   repo-root defaults to $(git rev-parse --show-toplevel)
 #
-# Exit code: 1 if phantom references exist (invariant 1), 0 otherwise.
-# Everything else is a report, not a failure.
+# Exit code: 1 if phantom references (invariant 1) or uncovered active
+# requirements (invariant 2) exist. Invariant 3 and consistency checks are
+# reports, not failures.
 set -euo pipefail
 
 REPO_ROOT="${1:-$(git rev-parse --show-toplevel)}"
@@ -114,4 +115,7 @@ else
     echo "(no test annotations yet)"
 fi
 
-[[ -s "$tmp/phantoms" ]] && exit 1 || exit 0
+rc=0
+[[ -s "$tmp/phantoms" ]] && rc=1
+[[ -s "$tmp/untested" ]] && rc=1
+exit $rc

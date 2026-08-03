@@ -2,7 +2,8 @@
 
 Periodic multi-agent audit of the whole project: spec hygiene, code truthfulness,
 and a five-lens expert panel (customer, GAAP, F#/DDD, architecture,
-AI-maintainability). Rewritten 2026-07-05 to be state-free and re-runnable.
+AI-maintainability). Rewritten 2026-08-03 per FT-1/2/3/4/8 rulings: sequential
+auditors, no synthesis, no severity, conduct catalog wired in, progressive writes.
 
 ## Design rule
 
@@ -18,7 +19,7 @@ output (the statement-delta section).
 | `requirements-audit.workflow.js` | The workflow script (Claude Code `Workflow` tool) |
 | `traceability-audit.sh` | Mechanical REQ traceability check (also runnable standalone) |
 | `resolved-findings.md` | Precedent ledger — Dan's prior rulings. Precedent, not law: agents suppress only exact matches, re-raise anything ambiguous. The audit also vets this file for staleness each run. |
-| `Runs/<date>/` | Per-run reports: `00-`–`03-` baseline artifacts, `10-*` one per auditor, `99-synthesis.md` |
+| `Audit/<date>/` (repo root) | Per-run reports: `00-`–`03-` baseline artifacts, `10-*` one per auditor, `99-disposition.md` |
 
 ## Running it
 
@@ -28,10 +29,10 @@ From a Claude Code session (Hobson or BD), invoke the `Workflow` tool:
 Workflow({
   scriptPath: "<repo>/Skills/SonOfLeoRequirementsAudit/requirements-audit.workflow.js",
   args: {
-    repoRoot: "<absolute path to this clone>",        // Hobson: /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo
-    runDir:   "<repoRoot>/Skills/SonOfLeoRequirementsAudit/Runs/<YYYY-MM-DD[a]>",
+    repoRoot: "<absolute path to this clone>",
+    runDir:   "<repoRoot>/Audit/<YYYY-MM-DD[a]>",
     danStatement: "<Dan's where-I-think-we-are paragraph, verbatim>",
-    runTests: false                                    // optional; true = audit builds and runs the suites itself
+    runTests: false
   }
 })
 ```
@@ -39,20 +40,19 @@ Workflow({
 `danStatement` is **required** — the run refuses to start without it. Get it from
 Dan fresh each time; do not recycle an old one.
 
-`runTests` defaults to false — Dan runs the suites himself in Rider, and the
-audit reads Rider's session logs (`~/.cache/JetBrains/Rider*/log/UnitTestLogs/Sessions/`,
-UTF-16) as evidence of recency and scope instead of re-running. Those logs prove
-completion, not per-test outcomes. Set `runTests: true` only when independent
-execution is wanted (the Integrated suite needs a reachable test DB; without one
-the agent reports an environment limitation, not a failure).
+`runTests` defaults to false — Dan runs the suites himself in Rider. Set `true`
+only when independent execution is wanted (the Integrated suite needs a reachable
+test DB).
 
-The run is read-only against the repo except for `runDir`. ~20 subagents.
+The run is read-only against the repo except for `runDir`. Auditors run
+sequentially — ~20 auditors, plus baseline and writer agents. Reports are written
+to the run folder in batches of 5 as auditors complete.
 
 ## After the run
 
-1. Dan reads `99-synthesis.md`; Hobson walks him through it item by item
-   (Saturday-exception style).
-2. Every ruling Dan makes gets appended to `resolved-findings.md` with date,
-   scope, and status (`overruled` / `deferred` + revisit trigger).
-3. Accepted actions go wherever they belong (spec edit, code fix, BD task) —
+1. Hobson walks Dan through each auditor's report one at a time
+   (obligation-review style — one finding, discuss, next finding).
+2. Dan's rulings go into `99-disposition.md` in the run folder.
+3. Rulings that establish reusable precedent also go into `resolved-findings.md`.
+4. Accepted actions go wherever they belong (spec edit, code fix, BD task) —
    the audit itself changes nothing.
