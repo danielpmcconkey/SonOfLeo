@@ -23,7 +23,7 @@ A count denominated in units other than currency: shares, months, items. A Quant
 - The maximum number of tenants allowed in a property 
 
 ## Rate (as a variety of number)
-A dimensionless proportion — a pure multiplier, usually expressed as a percentage and often per time period. A Rate is denominated in neither currency nor count; it scales a Money or Quantity value without changing its units. Examples of real-world concepts that the system should define as Rate:
+A dimensionless proportion — a pure multiplier, usually expressed as a percentage and often per time period. A Rate is denominated in neither currency nor count; it scales a Money value without changing its units. Examples of real-world concepts that the system should define as Rate:
 - The APR on a loan
 - A dividend yield
 
