@@ -1,18 +1,10 @@
 #!/usr/bin/env bash
 # Enforces: unit-returning checks are named confirmX; validateX is retired.
-# Allowlist: pre-canon definitions awaiting the #123a rename sweep (they migrate on touch).
-# When #123a lands, empty this list.
+# Allowlist: empty since #123a sweep (2026-08-03).
 set -u
 cd "$(dirname "$0")/.."
 
-allow='ExecuteReader.fs:validateNumRows
-AccountCreation.fs:validateParentChildRelationship
-JournalEntryOrchestration.fs:validateAmountEquality
-JournalEntryOrchestration.fs:validateLineCount
-JournalEntryOrchestration.fs:validateLineList
-JournalEntryCommentOrchestration.fs:validateJournalEntryHeader
-JournalEntryCommentOrchestration.fs:validatePrimaryAndSecondaryRelationship
-JournalEntryExternalReferenceOrchestration.fs:validateJournalEntryHeader'
+allow=''
 
 status=0
 while IFS= read -r line; do
