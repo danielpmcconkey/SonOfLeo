@@ -14,7 +14,7 @@ keys used by the callers of our public user interfaces. It is designed currently
 where the cache lifetime only needs to be the life of any single route. Therefore, there is no invalidation by design.
 
 We also intentionally fail loudly using failwith on init load. That tells the caller that something is wrong and they
-need to triage before proceeding. deliberate.
+need to triage before proceeding. This is deliberate.
 
 Any future usages for this application that will carry longer life cycles will need to re-design this cache if it plans
 to also involve any CRUD operations of core module entities.

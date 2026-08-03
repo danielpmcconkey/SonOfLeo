@@ -10,6 +10,8 @@ An amount denominated purely in currency (USD). Money is the only concept that s
 - Dan paid 600.06 USD at the liquor store (the total accumulated transaction)
 - Dan's checking account has a balance of -17.40 USD
 
+Note: the type defined in Model.Money is the only example of a type in this system that fits within the Money definition. However, in future, we will be building out a Monte Carlo simulation that will have its own type that fits within the Money definition. In short, this definition encompasses the Model.Money type *and* future "Money" types but rules governing the Model.Money type do not all apply to all types defined under the "Money" definition.
+
 ## Price (as a variety of number)
 A ratio of currency to a non-currency unit: USD per share, USD per month. A Price is never summed and never appears in a ledger; its only arithmetic role is converting a Quantity into Money by multiplication. Examples of real-world concepts that the system should define as Price:
 - The per-share valuation of a stock
