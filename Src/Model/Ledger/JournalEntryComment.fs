@@ -149,6 +149,7 @@ module JournalEntryComment =
         (context: Context)
         (journalEntryHeaderIds: JournalEntryHeaderId list)
         : Result<JournalEntryComment list, AppError> =
+        if journalEntryHeaderIds |> List.isEmpty then Error JournalEntryHeaderIdListCannotBeEmpty else
         let ordinals = [ 1 .. journalEntryHeaderIds.Length ]
         let zipped = List.zip ordinals journalEntryHeaderIds
         let namesAndParameters =

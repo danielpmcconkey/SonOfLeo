@@ -100,6 +100,7 @@ type AppError =
     | JournalEntryFetchByReferenceBothArgumentsNull
     | JournalEntryHeaderEntryDateInvalid of LocalDate
     | JournalEntryHeaderIdDoesntExist of Guid
+    | JournalEntryHeaderIdListCannotBeEmpty
     | JournalEntryInsufficientLines of int
     | JournalEntryLineAccountDoesntExist of Guid
     | JournalEntryLineAccountInactive of Guid * LocalDate * LocalDate * LocalDate Option
@@ -221,6 +222,7 @@ module AppError =
         | JournalEntryFetchByReferenceBothArgumentsNull -> "FI and reference cannot both be null when fetching by reference"
         | JournalEntryHeaderEntryDateInvalid entryDate -> $"Entry date of {entryDate} is not associated to an open Fiscal Period."
         | JournalEntryHeaderIdDoesntExist uuid -> $"Could not locate a journal entry header with the id of {uuid}."
+        | JournalEntryHeaderIdListCannotBeEmpty -> "The journalEntryHeaderIds list must contain at least 1 Header ID."
         | JournalEntryInsufficientLines lineCount -> $"Insufficient number of lines ({lineCount}) for a journal entry. At least two are required."
         | JournalEntryLineAccountDoesntExist uuid -> $"Account fetch on {uuid} returned zero rows while creating Journal Entry Line."
         | JournalEntryLineAccountInactive(uuid, entryDate, beginDate, endDate) ->
