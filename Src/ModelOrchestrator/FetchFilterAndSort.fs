@@ -28,7 +28,7 @@ type AccountActivityFilter =
       accountType: AccountType option
       accountSubtype: AccountSubtype option
       accountParentId: AccountId option
-      journalEntryId: Guid option
+      journalEntryId: JournalEntryHeaderId option
       amount: Money option
       description: JournalEntryDescription option
       unVoidedOnly: bool }

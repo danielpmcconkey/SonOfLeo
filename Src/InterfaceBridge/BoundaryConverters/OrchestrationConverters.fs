@@ -68,7 +68,7 @@ let ``convert AccountActivityFilterInput to AccountActivityFilter``
               accountType = accountType
               accountSubtype = accountSubtype
               accountParentId = accountParentId
-              journalEntryId = input.journalEntryId
+              journalEntryId = input.journalEntryId |> Option.map(JournalEntryHeaderId.fromGuid)
               amount = amount
               description = description
               unVoidedOnly = input.unVoidedOnly }

@@ -192,7 +192,9 @@ let fetchFiltered
                    { name = "@je_source"; value = CharString(x |> JournalEntrySource.value) }))
 
               filter.journalEntryId
-              |> Option.map(fun x -> ("and je.unique_id = @je_id", { name = "@je_id"; value = UniqueId x }))
+              |> Option.map(fun x ->
+                  let uuid = x |> JournalEntryHeaderId.value
+                  ("and je.unique_id = @je_id", { name = "@je_id"; value = UniqueId uuid }))
 
               filter.amount
               |> Option.map(fun x ->
