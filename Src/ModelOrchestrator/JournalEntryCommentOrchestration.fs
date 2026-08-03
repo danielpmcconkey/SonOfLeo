@@ -99,7 +99,11 @@ let updateComment
                   (", journal_secondary_entry_id = @journal_secondary_entry_id",
                    { name = "@journal_secondary_entry_id"; value = NullableUniqueId validUuidOption })) ]
             |> List.choose id
-
+        do!
+            if updates.IsEmpty then
+                Error(JournalEntryReferenceUpdateNoOp)
+            else
+                Ok()
         let setClauses = updates |> List.map fst |> String.concat ""
         let parameters = baseParams @ (updates |> List.map snd)
         let query =

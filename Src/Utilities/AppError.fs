@@ -89,6 +89,7 @@ type AppError =
     | JournalEntryCommentPrimaryJeHeaderIdNotFound of Guid
     | JournalEntryCommentSecondaryJeHeaderIdNotFound of Guid
     | JournalEntryCommentTooLong of string * int
+    | JournalEntryCommentUpdateNoOp
     | JournalEntryDateNotInFiscalPeriod of LocalDate
     | JournalEntryDebitCreditMismatch of decimal * decimal
     | JournalEntryDescriptionIsEmpty of string
@@ -209,6 +210,7 @@ module AppError =
         | JournalEntryCommentPrimaryJeHeaderIdNotFound uuid -> $"Error looking up primary header ID. Could not locate a journal entry header with the id of {uuid}."
         | JournalEntryCommentSecondaryJeHeaderIdNotFound uuid -> $"Error looking up secondary header ID. Could not locate a journal entry header with the id of {uuid}."
         | JournalEntryCommentTooLong(comment, max) -> $"Journal Entry Comment cannot exceed {max} characters. Provided string is {comment}."
+        | JournalEntryCommentUpdateNoOp -> "Updating the Journal Entry Comment record failed because at least one updatable parameter must be set."
         | JournalEntryDateNotInFiscalPeriod entryDate -> $"Entry date {entryDate} is not associated to any recorded Fiscal Periods in the database."
         | JournalEntryDebitCreditMismatch(debits, credits) -> $"The sum of all debit line amounts ({debits}) must exactly equal the sum of all credit line amounts ({credits})."
         | JournalEntryDescriptionIsEmpty description -> $"Journal Entry Description cannot be empty. Provided string is {description}."
