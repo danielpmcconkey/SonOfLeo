@@ -67,7 +67,7 @@ type AccountTests(fixture: TestDataFixture) =
             result {
                 let! accountCode = code |> AccountCode.create
                 let! accountName = name |> AccountName.create
-                let! returned =
+                let! created =
                     AccountCreation.constructNewAndSaveToDb
                         context
                         accountCode
@@ -77,10 +77,11 @@ type AccountTests(fixture: TestDataFixture) =
                         genericAccountSubtype
                         genericAccountParentId
                         genericAccountReference
-                let returnedCode = returned |> Account.code
-                let returnedName = returned |> Account.accountName
-                Assert.Equal(accountCode, returnedCode)
-                Assert.Equal(accountName, returnedName)
+                let! fetched = created |> Account.accountId |> Account.fetchById context
+                let fetchedCode = fetched |> Account.code
+                let fetchedName = fetched |> Account.accountName
+                Assert.Equal(accountCode, fetchedCode)
+                Assert.Equal(accountName, fetchedName)
                 return ()
             })
         |> railroadWrapper
