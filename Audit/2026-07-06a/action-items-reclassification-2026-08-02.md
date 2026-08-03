@@ -34,8 +34,8 @@ Classification buckets, per Dan's framing:
 | 121a | Isolated test-file mismatches | Banner at `JournalEntryComponent.fs:181` still names nonexistent `JournalEntryLine.validateAmount`; tests named `validateAmount` call `confirmAmountIsPositive` |
 | 122a | Comment fetch secondary-match | The todo is still in `JournalEntryComment.fs:159` |
 | 124a | LookupCache lifetime doc | No comment on the module; the `failwith` init is there but undocumented |
-| FT-1 | Sequential audit flow | Workflow still `parallel()` fan-out (`workflow.js:540`) |
-| FT-3 | Remove severity rankings | `severity: high/medium/low` still in the finding schema (`workflow.js:45`) |
+| FT-1 | Sequential audit flow | **Done 2026-08-03 (P5).** Workflow rewritten: sequential auditors, no parallel fan-out, no synthesis agent |
+| FT-3 | Remove severity rankings | **Done 2026-08-03 (P5).** `severity` removed from finding schema; HYGIENE block tells auditors not to assign it |
 | FT-9 | Re-run the audit | The capstone, once the last test session lands |
 
 ## 2. Aligned — met by the refactor
@@ -71,12 +71,12 @@ Classification buckets, per Dan's framing:
 | 85 | FSDDD-04 trio | Sub-2 (transaction mechanics) met; sub-3 kept-as-is by Dan's ruling; sub-1 (LookupCache init) still open under #91 |
 | 96a, 105, 106 | Period-close design | **Disposed 2026-08-02 — see Dispositions below.** Hobson misread this: closing entries are a *planned enhancement*, not abandoned. The design session stays owed, sequenced to when the closing slice is scheduled. Near-term work: a deferred entry in `resolved-findings.md` so auditors stop re-flagging it |
 | 103a | Reclass verb | Problem scoped in the CLI-requirements doc (`ledger reclass` = atomic void+repost, weekly use); no REQs written |
-| 107a | Env-guard defense vetting | Mostly resolved by Dan's 2026-08-02 attestation under #115a (see Dispositions): container has no prod password AND is network-blocked from the prod DB. Residue: confirm test appsettings point at dev/test only and the release-config gate, then record all four backstops in `debug-release-access.md` |
+| 107a | Env-guard defense vetting | **Done 2026-08-03 (P5).** All four backstops confirmed and recorded with attestation dates in `CompoundedLearnings/articles/architecture/debug-release-access.md` |
 | 123a | confirmX rename sweep | `check-confirm-naming.sh` blocks new `validateX` with an 8-entry allowlist "awaiting the #123a sweep" — the sweep itself pending |
 | 125a | Every AppError case tested | `check-apperror-coverage.sh` exists; the 07b error-trace gap-filling is this item in progress; BD's waiver candidates pending Dan's ruling |
-| FT-2 | Per-phase output to run folder | The 07-05 workflow rewrite writes per-auditor `10-*` files to `runDir`; whether it writes as-it-goes is unconfirmed from the script alone |
-| FT-4 | Prompt meta-review | Substance fully landed as audit-conduct articles — **but the workflow script never tells auditors to read the catalog**. It wires in `resolved-findings.md` only. One prompt edit closes it |
-| FT-8 | Finding-disposition system | `resolved-findings.md` + the schema's `priorRuling` field exist; per-run finding IDs and a clean disposition record per run — partially there |
+| FT-2 | Per-phase output to run folder | **Done 2026-08-03 (P5).** Progressive writes in batches of 5 auditors; reports land in run folder as auditors complete |
+| FT-4 | Prompt meta-review | **Done 2026-08-03 (P5).** `CONDUCT_RULES` block wired into every auditor prompt — reads `audit-conduct.md` catalog and all articles before reporting |
+| FT-8 | Finding-disposition system | **Done 2026-08-03 (P5).** Run-global sequential finding IDs; `99-disposition.md` template with status/ruling/date columns written per run |
 
 ## 4. Partially aligned — needs Dan's re-adjudication
 
@@ -87,7 +87,7 @@ Classification buckets, per Dan's framing:
 | 61 | DAL requirements coverage | **Disposed 2026-08-02 — see Dispositions below.** None of the offered outs: DAL requirements get **direct tests**. Remaining work: a DAL test suite driving the DAL functions with crafted bad inputs, asserting the typed AppError case |
 | 108a | Negative-existence guardrail discoverability | **Disposed 2026-08-02 — closed as met.** See Dispositions below: the Checks suite + `Src/README.md`'s "Never" column IS the mechanism |
 | 112a | Minimal CLAUDE.md at repo root | **Disposed 2026-08-02 — VETOED (repeat veto; do not re-raise).** See Dispositions below |
-| 113a | Traceability cross-reference | **Disposed 2026-08-02 — see Dispositions below.** Hand cross-reference retired; Invariant 2 becomes a commit gate, with a placeholder-test policy for new REQs |
+| 113a | Traceability cross-reference | **Disposed 2026-08-02; work items done 2026-08-03 (P4).** Invariant 2 promoted to hard fail, `check-traceability.sh` wired into Checks/run-all.sh, placeholder-test policy written in Specs/README.md |
 | 115a | Config/env/connection-guard hook | **Disposed 2026-08-02 — no hook. See Dispositions below.** Container isolation is physical (no password, network block); Hobson's prod access is sanctioned Saturday-comptroller work a hook would break |
 
 ## 5. Not well enough understood — needs discussion
