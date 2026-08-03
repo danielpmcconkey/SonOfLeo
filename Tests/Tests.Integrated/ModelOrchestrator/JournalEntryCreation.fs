@@ -255,20 +255,34 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-1.48 constructNewAndSaveToDb accepts duplicate source_fi/reference pairs across entries``() =
+    member _.``REQ-JE-1.48 constructNewAndSaveToDb accepts duplicate source_fi/reference pairs``() =
         let today = Calendar.today()
-        let explicitlySame = [ ("TestBank", "F-SHARED-001"); ("TestBank", "F-SHARED-001") ]
+        let sameRef = ("TestBank", "F-SHARED-001")
+        let explicitlySame = [ sameRef; sameRef ]
         runFuncAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! _ = // the test helper resolves to constructNewAndSaveToDb
+                // test that you can do it in one single entry 
+                let! _ = 
                     createTestJournalEntryFromPrimitives
                         context
-                        "JE create happy"
+                        "REQ-JE-1.48 1"
                         None
                         today
                         [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
                           (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
                         explicitlySame
+                        []
+                
+                // now test that you can do it across different entities
+                let! _ =
+                    createTestJournalEntryFromPrimitives
+                        context
+                        "REQ-JE-1.48 2"
+                        None
+                        today
+                        [ (fixture.Data.entertainment5650Id, 286.04M, "Debit", None)
+                          (fixture.Data.creditCard2220Id, 286.04M, "Credit", None) ]
+                        [sameRef]
                         []
                 return ()
             })
