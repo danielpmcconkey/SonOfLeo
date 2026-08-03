@@ -4,3 +4,9 @@
 |---|---------|------|-------|--------|
 | 1 | TT-JE410-CLOSED | Add test: append external reference to entry in closed fiscal period (REQ-JE-4.10 closed-period half). Mirror JournalEntryComment.fs:149 pattern, use fixture.Data.jeInClosedPeriodId | Dan/BD | pending |
 | 2 | TT-JE49-STATE | Add two tests for REQ-JE-4.9: (a) update FI/value on reference belonging to a voided entry, (b) update FI/value on reference belonging to an entry in a closed fiscal period | Dan/BD | pending |
+| 3 | CUST-NAME-1 | Add accountName to AccountBalanceReturn and JournalEntryLineReturn. Amend or add REQ requiring account name alongside code in all return payloads. Converters resolve from LookupCache (pattern exists in AccountActivityReturn) | Dan | pending |
+| 4 | GUARD-1 | Add Checks/check-assertion-shape.sh — grep Tests/ for Result.isError and Result.isOk, fail pre-commit hook when found | Dan | pending |
+| 5 | GUARD-1 | Modernize 73 existing tests using Result.isError/isOk to match typed AppError DU cases (isolated tests are the primary offenders) | Dan/BD | pending |
+| 6 | TRACE-1 | Remove REQ-SYS-6.1 from test names that co-cite it (JournalEntryRoutes.fs:512, JournalEntryVoiding.fs:115) — clears the stale waiver flag | Dan | pending |
+| 7 | IDIOM-1 | Add test for AccountActivityFilter with journalEntryId = Some (no test currently exercises the non-None path) | Dan/BD | pending |
+| 8 | IDIOM-NOOP-1/2 | Add test for comment update no-op: both commentUpdate=NoChange and secondaryIdUpdate=NoChange, assert JournalEntryCommentUpdateNoOp | Dan/BD | pending |
