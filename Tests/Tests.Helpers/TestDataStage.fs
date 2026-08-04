@@ -50,7 +50,9 @@ type FixtureData =
       jeWithLinesRefsAndCommentsId: JournalEntryHeaderId
       jeWithLinesRefsAndComments: JournalEntry
       voidedJeId: JournalEntryHeaderId
+      voidedJeExtRefId: JournalEntryExternalReferenceId
       jeInClosedPeriodId: JournalEntryHeaderId
+      jeInClosedPeriodExtRefId: JournalEntryExternalReferenceId
       fixtureCommentId: JournalEntryCommentId
       sharedRefJe1Id: JournalEntryHeaderId
       sharedRefJe2Id: JournalEntryHeaderId
@@ -357,7 +359,7 @@ type TestDataFixture() =
                         yesterday
                         [ (entertainment5650Id, 75.00M, "Debit", None)
                           (creditCard2220Id, 75.00M, "Credit", None) ]
-                        []
+                        [ ("VoidedEntryBank", "VOIDED-REF-001") ]
                         []
                 // note: don't add jeToVoid to the list because we later update it by voiding
 
@@ -383,9 +385,14 @@ type TestDataFixture() =
                         closedPeriodEntryDate
                         [ (mortgage2210Id, 25.00M, "Debit", None)
                           (food5350Id, 25.00M, "Credit", None) ]
-                        []
+                        [ ("ClosedPeriodBank", "CLOSED-REF-001") ]
                         []
                 journalEntries <- jeInClosedPeriod :: journalEntries
+                let jeInClosedPeriodExtRefId =
+                    jeInClosedPeriod
+                    |> JournalEntry.externalReferences
+                    |> List.head
+                    |> JournalEntryExternalReference.journalEntryExternalReferenceId
 
                 let! jeInClosedAccount, _ =
                     createTestJournalEntryFromPrimitives
@@ -443,6 +450,11 @@ type TestDataFixture() =
                 let! commentText = "Fixture voiding reason" |> CommentText.create
                 let! voidedJe = jeToVoidId |> JournalEntryVoiding.voidJournalEntry context None commentText
                 let voidedJeId = voidedJe |> JournalEntry.header |> JournalEntryHeader.journalEntryHeaderId
+                let voidedJeExtRefId =
+                    voidedJe
+                    |> JournalEntry.externalReferences
+                    |> List.head
+                    |> JournalEntryExternalReference.journalEntryExternalReferenceId
                 journalEntries <- voidedJe :: journalEntries
 
                 // =============================================================================
@@ -600,7 +612,9 @@ type TestDataFixture() =
                       jeWithLinesRefsAndComments = jeWithLinesRefsAndComments
                       jeWithLinesRefsAndCommentsId = jeWithLinesRefsAndCommentsId
                       voidedJeId = voidedJeId
+                      voidedJeExtRefId = voidedJeExtRefId
                       jeInClosedPeriodId = jeInClosedPeriodId
+                      jeInClosedPeriodExtRefId = jeInClosedPeriodExtRefId
                       fixtureCommentId = fixtureCommentId
                       sharedRefJe1Id = sharedRefJe1Id
                       sharedRefJe2Id = sharedRefJe2Id

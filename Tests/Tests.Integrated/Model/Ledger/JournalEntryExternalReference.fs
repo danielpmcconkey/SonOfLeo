@@ -126,6 +126,72 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
+    member _.``REQ-JE-4.9 updateFiAndReferenceText is permitted on a voided entry``() =
+        let expectedFi = "UpdatedVoidedBank"
+        let expectedRef = "UPD-VOIDED-001"
+        let fiUpdate = expectedFi |> createFiUpdateFromString
+        let refUpdate = expectedRef |> createReferenceTextUpdateFromString
+        runFuncAndAutoRollback AccountCreate (fun context ->
+            let result =
+                JournalEntryExternalReferenceOrchestration.updateFiAndReferenceText
+                    context
+                    fiUpdate
+                    refUpdate
+                    fixture.Data.voidedJeExtRefId
+            match result with
+            | Ok r ->
+                let actualFi =
+                    r |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value
+                let actualRef = r |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value
+                Assert.Equal(expectedFi, actualFi)
+                Assert.Equal(expectedRef, actualRef)
+                Ok()
+            | Error e -> Error e)
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-JE-4.9 updateFiAndReferenceText is permitted when fiscal period is closed``() =
+        let expectedFi = "UpdatedClosedPeriodBank"
+        let expectedRef = "UPD-CLOSED-001"
+        let fiUpdate = expectedFi |> createFiUpdateFromString
+        let refUpdate = expectedRef |> createReferenceTextUpdateFromString
+        runFuncAndAutoRollback AccountCreate (fun context ->
+            let result =
+                JournalEntryExternalReferenceOrchestration.updateFiAndReferenceText
+                    context
+                    fiUpdate
+                    refUpdate
+                    fixture.Data.jeInClosedPeriodExtRefId
+            match result with
+            | Ok r ->
+                let actualFi =
+                    r |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value
+                let actualRef = r |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value
+                Assert.Equal(expectedFi, actualFi)
+                Assert.Equal(expectedRef, actualRef)
+                Ok()
+            | Error e -> Error e)
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-JE-4.10 appending a reference is permitted when fiscal period is closed``() =
+        let fiAdd = "ClosedPeriodBank" |> createJournalRefFinancialInstitutionFromString
+        let refAdd = "CLOSED-001" |> createJournalExternalReferenceTextFromString
+        runFuncAndAutoRollback AccountCreate (fun context ->
+            let result =
+                JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
+                    context
+                    fixture.Data.jeInClosedPeriodId
+                    fiAdd
+                    refAdd
+            match result with
+            | Ok r ->
+                Assert.Equal(fixture.Data.jeInClosedPeriodId, r |> JournalEntryExternalReference.journalEntryHeaderId)
+                Ok()
+            | Error e -> Error e)
+        |> railroadWrapper
+
+    [<Fact>]
     member _.``REQ-SYS-5.1 external reference round-trips through persistence with all fields intact``() =
         let fiAdd = "FidelityBank" |> createJournalRefFinancialInstitutionFromString
         let refAdd = "FID-RT-001" |> createJournalExternalReferenceTextFromString
