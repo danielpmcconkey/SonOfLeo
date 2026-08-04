@@ -23,11 +23,11 @@ to also involve any CRUD operations of core module entities.
 type Cache<'K, 'V when 'K: comparison>
     (loadAll: unit -> Result<Map<'K, 'V>, AppError>, loadOne: Context -> 'K -> Result<'V, AppError>) =
     let mutable cache = loadAll() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    member _.fetch tran (key: 'K) : Result<'V, AppError> =
+    member _.fetch context (key: 'K) : Result<'V, AppError> =
         match cache |> Map.tryFind key with
         | Some v -> Ok v
         | None ->
-            match key |> loadOne tran with
+            match key |> loadOne context with
             | Ok v ->
                 cache <- cache |> Map.add key v
                 Ok v
@@ -167,6 +167,38 @@ let fiscalPeriodIdToKey =
                         query
                         parameters
                         (mapRawForDbRead "unique_id" "period_key")
+                        constructFromRawForDbRead
+                        ExactlyOne
+                return (rows |> List.head).key
+            })
+    )
+
+let accountIdToName =
+    Cache<Guid, string>(
+        (fun _ ->
+            let tran = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            let query = "select unique_id, account_name from ledger.account"
+            result {
+                let! rows =
+                    executeReaderQuery
+                        tran
+                        query
+                        []
+                        (mapRawForDbRead "unique_id" "account_name")
+                        constructFromRawForDbRead
+                        AnyQuantityIsAcceptable
+                return rows |> List.map(fun x -> x.id, x.key) |> Map.ofList
+            }),
+        (fun context id ->
+            let query = "select unique_id, account_name from ledger.account where unique_id = @unique_id"
+            let parameters = [ { name = "@unique_id"; value = UniqueId id } ]
+            result {
+                let! rows =
+                    executeReaderQuery
+                        (context |> getDatabaseTransaction)
+                        query
+                        parameters
+                        (mapRawForDbRead "unique_id" "account_name")
                         constructFromRawForDbRead
                         ExactlyOne
                 return (rows |> List.head).key

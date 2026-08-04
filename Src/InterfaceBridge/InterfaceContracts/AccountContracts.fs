@@ -45,6 +45,7 @@ type AccountActivityReturn =
       activityDetail: AccountActivityDetailReturn option }
 type AccountBalanceReturn =
     { accountCode: string
+      accountName: string
       totalCredits: decimal
       totalDebits: decimal
       netBalance: decimal }

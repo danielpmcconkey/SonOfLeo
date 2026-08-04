@@ -49,9 +49,11 @@ let ``convert JournalEntryLine to JournalEntryLineReturn``
     : Result<JournalEntryLineReturn, AppError> =
     result {
         let! accountCode = model |> JournalEntryLine.accountId |> ``convert AccountId to AccountCodeString`` context
+        let! nameString = model |> JournalEntryLine.accountId |> ``convert AccountId to AccountNameString`` context
         return
             { id = model |> JournalEntryLine.journalEntryLineId |> JournalEntryLineId.value
               accountCode = accountCode
+              accountName = nameString
               amount = model |> JournalEntryLine.amount |> Money.amount
               lineType = model |> JournalEntryLine.lineType |> JournalEntryLineType.toString
               memo = model |> JournalEntryLine.memo |> Option.map(fun x -> x |> JournalEntryLineMemo.value)

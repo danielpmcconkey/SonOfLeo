@@ -38,6 +38,7 @@ type JournalEntryLineReturn =
     {
       id: Guid
       accountCode: string
+      accountName: string
       amount: decimal
       lineType: string
       memo: string option

@@ -32,6 +32,9 @@ let fallibleConverterAccountCodeToAccountId context codeString =
 let ``convert AccountId to AccountCodeString`` (context: Context) (id: AccountId) : Result<string, AppError> =
     id |> AccountId.value |> LookupCache.accountIdToCode.fetch context
 
+let ``convert AccountId to AccountNameString`` (context: Context) (id: AccountId) : Result<string, AppError> =
+    id |> AccountId.value |> LookupCache.accountIdToName.fetch context
+
 let ``convert AccountId to AccountCode`` (context: Context) (id: AccountId) : Result<AccountCode, AppError> =
     id |> ``convert AccountId to AccountCodeString`` context |> Result.bind AccountCode.create
 
@@ -154,8 +157,10 @@ let ``convert AccountBalance to AccountBalanceReturn``
     : Result<AccountBalanceReturn, AppError> =
     result {
         let! codeString = balance.accountId |> ``convert AccountId to AccountCodeString`` context
+        let! nameString = balance.accountId |> ``convert AccountId to AccountNameString`` context
         return
             { accountCode = codeString
+              accountName = nameString
               totalCredits = balance.totalCredits |> Money.amount
               totalDebits = balance.totalDebits |> Money.amount
               netBalance = balance.netBalance |> Money.amount }
