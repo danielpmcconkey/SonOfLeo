@@ -15,6 +15,7 @@ open Tests.Helpers
 open Tests.Helpers.GenericTestProperties
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
+open Tests.Helpers.SadPath
 open Utilities
 open Utilities.ResultHelper
 open Xunit
@@ -263,11 +264,10 @@ type AccountRouteTests(fixture: TestDataFixture) =
             let! payload =
                 { code = badAccountCode; newReference = newReference }
                 |> toJson<AccountUpdateExternalReferenceInput>
-            do!
-                match routeUiCommandForTesting "Account" "UpdateExternalReference" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error(AccountCodeDoesntMatchAccountId _) -> Ok()
-                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+            do! isCorrectError
+                    (routeUiCommandForTesting "Account" "UpdateExternalReference" [] payload)
+                    AccountCodeDoesntMatchAccountId
+                    None
             return ()
         }
         |> railroadWrapper
@@ -335,47 +335,31 @@ type AccountRouteTests(fixture: TestDataFixture) =
                  "012345678901234567890123456789012345678901234567890",
                  "AccountExternalReferenceTooLong")>]
     member _.``REQ-AC-2.21 Account Create validates input as valid types``
-        (field: string, value: string, expectedError: string)  =
-        let mutable accountIdToCleanup: AccountId option = None
-        try
-            let context = create NoTransaction FetchOnly
-            let codeToUse = if field = "code" then value else genericAccountCodeString
-            let nameToUse = if field = "name" then value else genericAccountNameString
-            let typeToUse = if field = "accountTypeSt" then value else genericAccountTypeString
-            let subTypeToUse = if field = "subType" then Some value else genericAccountSubtype
-            let parentCodeToUse = if field = "parentCode" then Some value else genericAccountParentCode
-            let referenceToUse = if field = "reference" then Some value else genericAccountReference
-            let input: AccountCreateInput =
-                { code = codeToUse
-                  name = nameToUse
-                  accountTypeSt = typeToUse
-                  activeBegin = genericAccountActiveBegin
-                  activeEnd = genericAccountActiveEnd
-                  subType = subTypeToUse
-                  parentCode = parentCodeToUse
-                  reference = referenceToUse }
-            result {
-                let! payload = input |> toJson<AccountCreateInput>
-                do!
-                    match routeUiCommandForTesting "Account" "Create" [] payload with
-                    | Ok resultPayload ->
-                        result {
-                            let! accountReturn = fromJson<AccountReturn> resultPayload
-                            let! cleanUpId = accountReturn.code |> LookupCache.accountCodeToId.fetch context
-                            accountIdToCleanup <- (cleanUpId |> AccountId.fromGuid |> Some)
-                            return! Error(TestingError "Expected failure; returned success. Record should be cleaned up.")
-                        }
-                    | Error e ->
-                        let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
-                        if caseName = expectedError then Ok()
-                        else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
-                return ()
-            }
-            |> railroadWrapper
-        finally
-            match cleanUpAccountId accountIdToCleanup with
-            | Ok() -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
+        (field: string, value: string, expectedError: string)  =        
+        let codeToUse = if field = "code" then value else genericAccountCodeString
+        let nameToUse = if field = "name" then value else genericAccountNameString
+        let typeToUse = if field = "accountTypeSt" then value else genericAccountTypeString
+        let subTypeToUse = if field = "subType" then Some value else genericAccountSubtype
+        let parentCodeToUse = if field = "parentCode" then Some value else genericAccountParentCode
+        let referenceToUse = if field = "reference" then Some value else genericAccountReference
+        let input: AccountCreateInput =
+            { code = codeToUse
+              name = nameToUse
+              accountTypeSt = typeToUse
+              activeBegin = genericAccountActiveBegin
+              activeEnd = genericAccountActiveEnd
+              subType = subTypeToUse
+              parentCode = parentCodeToUse
+              reference = referenceToUse }
+        result {
+            let! payload = input |> toJson<AccountCreateInput>
+            do! isCorrectErrorString
+                    (routeUiCommandForTesting "Account" "Create" [] payload)
+                    expectedError
+                    (Some "This may cause other tests to fail.")
+            return ()
+        }
+        |> railroadWrapper
 
     [<Theory>]
     [<InlineData("codeEmpty", "AccountCodeIsEmpty")>]

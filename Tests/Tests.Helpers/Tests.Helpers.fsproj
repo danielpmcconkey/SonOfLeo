@@ -14,6 +14,7 @@
     <Compile Include="EntityFunctions.fs" />
     <Compile Include="TestDataStage.fs" />
     <Compile Include="RouteResolver.fs" />
+    <Compile Include="SadPath.fs" />
   </ItemGroup>
 
   <ItemGroup>
