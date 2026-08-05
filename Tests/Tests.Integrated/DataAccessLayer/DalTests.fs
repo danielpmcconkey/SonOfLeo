@@ -11,6 +11,7 @@ open Tests.Helpers.Railroad
 open Utilities.ResultHelper
 open Xunit
 open Utilities.AppError
+open Tests.Helpers.SadPath
 open Context.Context
 
 let unBoxingNull
@@ -140,13 +141,10 @@ let ``DAL errors surface when they should`` expectedError =
             | "DalUuidUnboxingReturnedNull" -> unBoxingNull uuidUnboxing
             | _ -> Error(TestingError "Some dipshit done goofed.")
         do!
-            match resultOfAction with
-            | Ok _ ->
-                Error(TestingError "Expected failure; returned success. This implies your entire project is AFU")
-            | Error e ->
-                let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
-                if caseName = expectedError then Ok()
-                else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+            isCorrectErrorString
+                resultOfAction
+                expectedError
+                (Some "This implies your entire project is AFU.")
         return ()
     }
     |> railroadWrapper

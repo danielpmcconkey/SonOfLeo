@@ -13,6 +13,7 @@ open Xunit
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
 open Utilities.AppError
+open Tests.Helpers.SadPath
 open Context.Context
 open Tests.Helpers.Railroad
 
@@ -33,10 +34,7 @@ type AccountTests(fixture: TestDataFixture) =
                     genericAccountSubtype
                     genericAccountParentId
                     genericAccountReference
-            match duplicateResult with
-            | Error(DalErrorDuringNonQueryExecution _) -> Ok()
-            | Ok _ -> Error(TestingError "Expected failure; returned success.")
-            | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}"))
+            isCorrectError duplicateResult DalErrorDuringNonQueryExecution None)
         |> railroadWrapper
 
     [<Fact>]

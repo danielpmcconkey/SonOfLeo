@@ -15,6 +15,7 @@ open Tests.Helpers
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
 open Utilities.AppError
+open Tests.Helpers.SadPath
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
 open Xunit
@@ -155,19 +156,10 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
             result {
                 let! payload = input |> toJson<JournalEntryInput>
                 do!
-                    match routeUiCommandForTesting "JournalEntry" "PostNew" [] payload with
-                    | Ok payloadToErase ->
-                        let returnedResult = payloadToErase |> fromJson<JournalEntryReturn>
-                        match returnedResult with
-                        | Ok x ->
-                            idToCleanUp <- x.header.id |> JournalEntryHeaderId.fromGuid |> Some
-                            Error(TestingError "Expected failure; returned success. Record should be cleaned up.")
-                        | Error e ->
-                            Error(TestingError $"Expected failure; returned success. Record clean up failed. {e}")
-                    | Error e ->
-                        let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
-                        if caseName = expectedError then Ok()
-                        else Error(TestingError $"Wrong error type. Expected {expectedError}. {AppError.toMessage e}")
+                    isCorrectErrorString
+                        (routeUiCommandForTesting "JournalEntry" "PostNew" [] payload)
+                        expectedError
+                        (Some "Record should be cleaned up.")
                 return ()
             }
             |> railroadWrapper
@@ -441,10 +433,10 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
             let! payload =
                 { beginDate = today; endDateInclusive = yesterday } |> toJson<JournalEntryFetchByDateRangeInput>
             do!
-                match routeUiCommandForTesting "JournalEntry" "FetchByDateRange" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error(JournalEntryFetchByDateRangeBeginAfterEnd _) -> Ok()
-                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                isCorrectError
+                    (routeUiCommandForTesting "JournalEntry" "FetchByDateRange" [] payload)
+                    JournalEntryFetchByDateRangeBeginAfterEnd
+                    None
             return ()
         }
         |> railroadWrapper
@@ -459,10 +451,10 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         result {
             let! payload = input |> toJson<JournalEntryAddCommentInput>
             do!
-                match routeUiCommandForTesting "JournalEntry" "AddComment" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error(JournalEntryCommentSecondaryJeHeaderIdNotFound _) -> Ok()
-                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                isCorrectError
+                    (routeUiCommandForTesting "JournalEntry" "AddComment" [] payload)
+                    JournalEntryCommentSecondaryJeHeaderIdNotFound
+                    None
             return ()
         }
         |> railroadWrapper
@@ -498,12 +490,10 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         result {
             let! payload = voidInput |> toJson<JournalEntryVoidInput>
             do!
-                match routeUiCommandForTesting "JournalEntry" "Void" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success. This probably caused other tests to fail")
-                | Error e ->
-                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
-                    if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+                isCorrectErrorString
+                    (routeUiCommandForTesting "JournalEntry" "Void" [] payload)
+                    expectedError
+                    (Some "This probably caused other tests to fail.")
             return ()
         }
         |> railroadWrapper
@@ -535,10 +525,10 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                     { id = refUuid; fi = None; reference = None }
                 let! payload = updateInput |> toJson<JournalEntryUpdateExternalReferenceInput>
                 do!
-                    match routeUiCommandForTesting "JournalEntry" "UpdateExternalReference" [] payload with
-                    | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                    | Error(JournalEntryReferenceUpdateNoOp) -> Ok()
-                    | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                    isCorrectErrorEmpty
+                        (routeUiCommandForTesting "JournalEntry" "UpdateExternalReference" [] payload)
+                        JournalEntryReferenceUpdateNoOp
+                        None
                 return ()
             }
             |> railroadWrapper
@@ -588,12 +578,10 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                     { id = commentUuid; secondaryJournalEntryId = secondaryIdUpdate; commentText = commentTextUpdate }
                 let! payload = updateInput |> toJson<JournalEntryUpdateCommentInput>
                 do!
-                    match routeUiCommandForTesting "JournalEntry" "UpdateComment" [] payload with
-                    | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                    | Error e ->
-                        let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
-                        if caseName = expectedError then Ok()
-                        else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+                    isCorrectErrorString
+                        (routeUiCommandForTesting "JournalEntry" "UpdateComment" [] payload)
+                        expectedError
+                        None
                 return ()
             }
             |> railroadWrapper
@@ -629,12 +617,10 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         result {
             let! payload = input |> toJson<JournalEntryFetchByExternalReferenceInput>
             do!
-                match routeUiCommandForTesting "JournalEntry" "FetchByExternalReference" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error e ->
-                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
-                    if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+                isCorrectErrorString
+                    (routeUiCommandForTesting "JournalEntry" "FetchByExternalReference" [] payload)
+                    expectedError
+                    None
             return ()
         }
         |> railroadWrapper
@@ -662,12 +648,10 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         result {
             let! payload = input |> toJson<JournalEntryAddExternalReferenceInput>
             do!
-                match routeUiCommandForTesting "JournalEntry" "AddExternalReference" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error e ->
-                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
-                    if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+                isCorrectErrorString
+                    (routeUiCommandForTesting "JournalEntry" "AddExternalReference" [] payload)
+                    expectedError
+                    None
             return ()
         }
         |> railroadWrapper
@@ -683,12 +667,10 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         result {
             let! payload = input |> toJson<JournalEntryFetchLinesByAccountInput>
             do!
-                match routeUiCommandForTesting "JournalEntry" "FetchLinesByAccount" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error e ->
-                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
-                    if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+                isCorrectErrorString
+                    (routeUiCommandForTesting "JournalEntry" "FetchLinesByAccount" [] payload)
+                    expectedError
+                    None
             return ()
         }
         |> railroadWrapper
@@ -711,12 +693,10 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         result {
             let! payload = input |> toJson<JournalEntryUpdateExternalReferenceInput>
             do!
-                match routeUiCommandForTesting "JournalEntry" "UpdateExternalReference" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error e ->
-                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
-                    if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+                isCorrectErrorString
+                    (routeUiCommandForTesting "JournalEntry" "UpdateExternalReference" [] payload)
+                    expectedError
+                    None
             return ()
         }
         |> railroadWrapper
@@ -737,12 +717,10 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         result {
             let! payload = input |> toJson<JournalEntryAddCommentInput>
             do!
-                match routeUiCommandForTesting "JournalEntry" "AddComment" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error e ->
-                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
-                    if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+                isCorrectErrorString
+                    (routeUiCommandForTesting "JournalEntry" "AddComment" [] payload)
+                    expectedError
+                    None
             return ()
         }
         |> railroadWrapper

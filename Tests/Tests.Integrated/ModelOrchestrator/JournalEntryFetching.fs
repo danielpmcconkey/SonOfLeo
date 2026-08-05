@@ -233,10 +233,10 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         result {
             let! payload = { JournalEntryFetchByIdInput.id = Guid.NewGuid() } |> toJson<JournalEntryFetchByIdInput>
             do!
-                match routeUiCommandForTesting "JournalEntry" "FetchById" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error(JournalEntryHeaderIdDoesntExist _) -> Ok()
-                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                isCorrectError
+                    (routeUiCommandForTesting "JournalEntry" "FetchById" [] payload)
+                    JournalEntryHeaderIdDoesntExist
+                    None
             return ()
         }
         |> railroadWrapper

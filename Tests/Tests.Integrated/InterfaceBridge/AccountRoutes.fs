@@ -66,16 +66,10 @@ type AccountRouteTests(fixture: TestDataFixture) =
                       reference = genericAccountReference }
                 let! payload = accountInput |> toJson<AccountCreateInput>
                 do!
-                    match routeUiCommandForTesting "Account" "Create" [] payload with
-                    | Ok resultPayload ->
-                        result {
-                            let! accountReturn = fromJson<AccountReturn> resultPayload
-                            let! cleanUpId = accountReturn.code |> LookupCache.accountCodeToId.fetch context
-                            accountIdToCleanup <- (cleanUpId |> AccountId.fromGuid |> Some)
-                            return! Error(TestingError "Expected failure; returned success.")
-                        }
-                    | Error(AccountParentCodeInvalid _) -> Ok()
-                    | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                    isCorrectError
+                        (routeUiCommandForTesting "Account" "Create" [] payload)
+                        AccountParentCodeInvalid
+                        (Some "This may cause other tests to fail.")
                 return ()
             }
             |> railroadWrapper
@@ -119,10 +113,10 @@ type AccountRouteTests(fixture: TestDataFixture) =
         result {
             let! payload = { parentCode = badAccountCode } |> toJson<AccountFetchByParentCodeInput>
             do!
-                match routeUiCommandForTesting "Account" "FetchByParentCode" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error(AccountCodeDoesntMatchAccountId _) -> Ok()
-                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                isCorrectError
+                    (routeUiCommandForTesting "Account" "FetchByParentCode" [] payload)
+                    AccountCodeDoesntMatchAccountId
+                    None
             return ()
         }
         |> railroadWrapper
@@ -188,10 +182,10 @@ type AccountRouteTests(fixture: TestDataFixture) =
         result {
             let! payload = { code = badAccountCode; activeEnd = Some activeEnd } |> toJson<AccountDeactivationInput>
             do!
-                match routeUiCommandForTesting "Account" "Deactivate" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error(AccountCodeDoesntMatchAccountId _) -> Ok()
-                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                isCorrectError
+                    (routeUiCommandForTesting "Account" "Deactivate" [] payload)
+                    AccountCodeDoesntMatchAccountId
+                    None
             return ()
         }
         |> railroadWrapper
@@ -225,10 +219,10 @@ type AccountRouteTests(fixture: TestDataFixture) =
         result {
             let! payload = { code = badAccountCode; newName = newName } |> toJson<AccountUpdateNameInput>
             do!
-                match routeUiCommandForTesting "Account" "UpdateName" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error(AccountCodeDoesntMatchAccountId _) -> Ok()
-                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                isCorrectError
+                    (routeUiCommandForTesting "Account" "UpdateName" [] payload)
+                    AccountCodeDoesntMatchAccountId
+                    None
             return ()
         }
         |> railroadWrapper
@@ -388,13 +382,10 @@ type AccountRouteTests(fixture: TestDataFixture) =
         result {
             let! payload = input |> toJson<AccountDeactivationInput>
             do!
-                match routeUiCommandForTesting "Account" "Deactivate" [] payload with
-                | Ok _ ->
-                    Error(TestingError "Expected failure; returned success. This probably caused other tests to fail")
-                | Error e ->
-                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
-                    if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+                isCorrectErrorString
+                    (routeUiCommandForTesting "Account" "Deactivate" [] payload)
+                    expectedError
+                    (Some "This probably caused other tests to fail.")
             return ()
         }
         |> railroadWrapper
@@ -424,11 +415,10 @@ type AccountRouteTests(fixture: TestDataFixture) =
                 let! payload =
                     { code = "AC-DJE"; activeEnd = Some yesterday } |> toJson<AccountDeactivationInput>
                 do!
-                    match routeUiCommandForTesting "Account" "Deactivate" [] payload with
-                    | Ok _ ->
-                        Error(TestingError "Expected failure; returned success. This probably caused other tests to fail")
-                    | Error(AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate _) -> Ok()
-                    | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                    isCorrectError
+                        (routeUiCommandForTesting "Account" "Deactivate" [] payload)
+                        AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate
+                        (Some "This probably caused other tests to fail.")
                 return ()
             }
             |> railroadWrapper
@@ -506,12 +496,10 @@ type AccountRouteTests(fixture: TestDataFixture) =
                   sort = None }
             let! payload = input |> toJson<AccountActivityFetchInput>
             do!
-                match routeUiCommandForTesting "Account" "FetchActivity" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error e ->
-                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
-                    if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+                isCorrectErrorString
+                    (routeUiCommandForTesting "Account" "FetchActivity" [] payload)
+                    expectedError
+                    None
             return ()
         }
         |> railroadWrapper
@@ -531,12 +519,10 @@ type AccountRouteTests(fixture: TestDataFixture) =
         result {
             let! payload = input |> toJson<AccountUpdateNameInput>
             do!
-                match routeUiCommandForTesting "Account" "UpdateName" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error e ->
-                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
-                    if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+                isCorrectErrorString
+                    (routeUiCommandForTesting "Account" "UpdateName" [] payload)
+                    expectedError
+                    None
             return ()
         }
         |> railroadWrapper
@@ -556,12 +542,10 @@ type AccountRouteTests(fixture: TestDataFixture) =
         result {
             let! payload = input |> toJson<AccountUpdateExternalReferenceInput>
             do!
-                match routeUiCommandForTesting "Account" "UpdateExternalReference" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error e ->
-                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
-                    if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+                isCorrectErrorString
+                    (routeUiCommandForTesting "Account" "UpdateExternalReference" [] payload)
+                    expectedError
+                    None
             return ()
         }
         |> railroadWrapper
@@ -575,12 +559,10 @@ type AccountRouteTests(fixture: TestDataFixture) =
         result {
             let! payload = { AccountFetchByCodeInput.code = code } |> toJson<AccountFetchByCodeInput>
             do!
-                match routeUiCommandForTesting "Account" "FetchByCode" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error e ->
-                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
-                    if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+                isCorrectErrorString
+                    (routeUiCommandForTesting "Account" "FetchByCode" [] payload)
+                    expectedError
+                    None
             return ()
         }
         |> railroadWrapper
@@ -595,12 +577,10 @@ type AccountRouteTests(fixture: TestDataFixture) =
                 { AccountFetchByParentCodeInput.parentCode = parentCode }
                 |> toJson<AccountFetchByParentCodeInput>
             do!
-                match routeUiCommandForTesting "Account" "FetchByParentCode" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error e ->
-                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
-                    if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+                isCorrectErrorString
+                    (routeUiCommandForTesting "Account" "FetchByParentCode" [] payload)
+                    expectedError
+                    None
             return ()
         }
         |> railroadWrapper
@@ -612,10 +592,10 @@ type AccountRouteTests(fixture: TestDataFixture) =
                 { AccountFetchByAccountTypeInput.accountTypeSt = "Fudge" }
                 |> toJson<AccountFetchByAccountTypeInput>
             do!
-                match routeUiCommandForTesting "Account" "FetchByAccountType" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error(AccountTypeInvalid _) -> Ok()
-                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                isCorrectError
+                    (routeUiCommandForTesting "Account" "FetchByAccountType" [] payload)
+                    AccountTypeInvalid
+                    None
             return ()
         }
         |> railroadWrapper
@@ -638,12 +618,10 @@ type AccountRouteTests(fixture: TestDataFixture) =
         result {
             let! payload = input |> toJson<AccountBalanceFetchByAccountListInput>
             do!
-                match routeUiCommandForTesting "Account" "FetchBalances" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error e ->
-                    let caseName = FSharpValue.GetUnionFields(e, typeof<AppError>) |> fst |> _.Name
-                    if caseName = expectedError then Ok()
-                    else Error(TestingError $"Wrong error type. Expected {expectedError}. Got {caseName}: {AppError.toMessage e}")
+                isCorrectErrorString
+                    (routeUiCommandForTesting "Account" "FetchBalances" [] payload)
+                    expectedError
+                    None
             return ()
         }
         |> railroadWrapper

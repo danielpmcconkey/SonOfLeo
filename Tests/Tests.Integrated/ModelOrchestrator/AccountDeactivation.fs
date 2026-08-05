@@ -11,6 +11,7 @@ open Model.Ledger.Accounts.AccountComponent
 open ModelOrchestrator.AccountDeactivation
 open Utilities
 open Utilities.AppError
+open Tests.Helpers.SadPath
 
 [<Collection("SharedTestData")>]
 type AccountDeactivationTests(fixture: TestDataFixture) =
@@ -39,12 +40,11 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
                 let badActiveEnd =
                     (original |> Account.activityPeriod |> AccountActivityPeriod.activeBegin).PlusDays(-1)
                 let! account = fixture.Data.moneyMarket1270Id |> Account.fetchById context
-                let deactivationResult = account |> deactivateAccount context (Some badActiveEnd)
                 do!
-                    match deactivationResult with
-                    | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                    | Error(AccountDeactivationProposedDateIsInvalid _) -> Ok()
-                    | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                    isCorrectError
+                        (account |> deactivateAccount context (Some badActiveEnd))
+                        AccountDeactivationProposedDateIsInvalid
+                        None
                 return ()
             })
         |> railroadWrapper
@@ -67,12 +67,11 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
         runFuncAndAutoRollback AccountDeactivate (fun context ->
             result {
                 let! account = fixture.Data.assets1000Id |> Account.fetchById context
-                let deactivationResult = account |> deactivateAccount context goodActiveEnd
                 do!
-                    match deactivationResult with
-                    | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                    | Error(AccountActiveChildrenBeforeDeactivation _) -> Ok()
-                    | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                    isCorrectError
+                        (account |> deactivateAccount context goodActiveEnd)
+                        AccountActiveChildrenBeforeDeactivation
+                        None
                 return ()
             })
         |> railroadWrapper
@@ -83,12 +82,11 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
         runFuncAndAutoRollback AccountDeactivate (fun context ->
             result {
                 let! account = fixture.Data.mortgage2210Id |> Account.fetchById context
-                let deactivationResult = account |> deactivateAccount context goodActiveEnd
                 do!
-                    match deactivationResult with
-                    | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                    | Error(AccountNonZeroBalanceBeforeDeactivation _) -> Ok()
-                    | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                    isCorrectError
+                        (account |> deactivateAccount context goodActiveEnd)
+                        AccountNonZeroBalanceBeforeDeactivation
+                        None
                 return ()
             })
         |> railroadWrapper
@@ -99,12 +97,11 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
         runFuncAndAutoRollback AccountDeactivate (fun context ->
             result {
                 let! account = fixture.Data.closedBank1290Id |> Account.fetchById context
-                let deactivationResult = account |> deactivateAccount context goodActiveEnd
                 do!
-                    match deactivationResult with
-                    | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                    | Error(AccountAlreadyInactive _) -> Ok()
-                    | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                    isCorrectError
+                        (account |> deactivateAccount context goodActiveEnd)
+                        AccountAlreadyInactive
+                        None
                 return ()
             })
         |> railroadWrapper

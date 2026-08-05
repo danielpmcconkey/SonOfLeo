@@ -10,6 +10,7 @@ open Xunit
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
 open Utilities.AppError
+open Tests.Helpers.SadPath
 open Tests.Helpers.GenericTestProperties
 
 [<Fact>]
@@ -68,8 +69,5 @@ let ``REQ-AC-1.40 constructNew rejects non-existent parent ID`` () =
                 genericAccountSubtype
                 bogusParentId
                 genericAccountReference
-        match result with
-        | Error(DalResultantRowsDidntMatchExpectation _) -> Ok()
-        | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
-        | Ok _ -> Error(TestingError "Expected failure; got success"))
+        isCorrectError result DalResultantRowsDidntMatchExpectation None)
     |> railroadWrapper
