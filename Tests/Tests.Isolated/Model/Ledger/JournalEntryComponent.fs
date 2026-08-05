@@ -6,6 +6,8 @@ open Utilities.AppError
 open Xunit
 open Model.Ledger.Journaling.JournalEntryComponent
 open Model
+open Tests.Helpers.SadPath
+open Tests.Helpers.Railroad
 
 
 // =============================================================================
@@ -13,18 +15,18 @@ open Model
 // =============================================================================
 [<Fact>]
 let ``REQ-JE-1.54 CommentText.create rejects empty string`` () =
-    let result = CommentText.create String.Empty
-    Assert.True(Result.isError result)
+    isCorrectError (CommentText.create String.Empty) JournalEntryCommentIsEmpty None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.54 CommentText.create rejects whitespace-only string`` () =
-    let result = CommentText.create "     "
-    Assert.True(Result.isError result)
+    isCorrectError (CommentText.create "     ") JournalEntryCommentIsEmpty None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.54 CommentText.create rejects string exceeding 2000 characters`` () =
-    let result = CommentText.create(String('A', 2001))
-    Assert.True(Result.isError result)
+    isCorrectError (CommentText.create(String('A', 2001))) JournalEntryCommentTooLong None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.54 CommentText.create accepts string at exactly 2000 characters`` () =
@@ -50,18 +52,18 @@ let ``REQ-JE-1.54 CommentText.create accepts valid string`` () =
 
 [<Fact>]
 let ``REQ-JE-1.4 REQ-SYS-1.2 Description.create rejects empty string`` () =
-    let result = JournalEntryDescription.create String.Empty
-    Assert.True(Result.isError result)
+    isCorrectError (JournalEntryDescription.create String.Empty) JournalEntryDescriptionIsEmpty None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.4 REQ-SYS-1.2 Description.create rejects whitespace-only string`` () =
-    let result = JournalEntryDescription.create "     "
-    Assert.True(Result.isError result)
+    isCorrectError (JournalEntryDescription.create "     ") JournalEntryDescriptionIsEmpty None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.5 Description.create rejects string exceeding 1000 characters`` () =
-    let result = JournalEntryDescription.create(String('A', 1001))
-    Assert.True(Result.isError result)
+    isCorrectError (JournalEntryDescription.create(String('A', 1001))) JournalEntryDescriptionTooLong None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.5 Description.create accepts string at exactly 1000 characters`` () =
@@ -87,18 +89,18 @@ let ``REQ-JE-1.3 Description.create accepts valid non-empty string`` () =
 
 [<Fact>]
 let ``REQ-JE-1.7 REQ-SYS-1.2 Source.create rejects empty string`` () =
-    let result = JournalEntrySource.create String.Empty
-    Assert.True(Result.isError result)
+    isCorrectError (JournalEntrySource.create String.Empty) JournalEntrySourceIsEmpty None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.7 REQ-SYS-1.2 Source.create rejects whitespace-only string`` () =
-    let result = JournalEntrySource.create "     "
-    Assert.True(Result.isError result)
+    isCorrectError (JournalEntrySource.create "     ") JournalEntrySourceIsEmpty None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.8 Source.create rejects string exceeding 50 characters`` () =
-    let result = JournalEntrySource.create(String('A', 51))
-    Assert.True(Result.isError result)
+    isCorrectError (JournalEntrySource.create(String('A', 51))) JournalEntrySourceTooLong None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.8 Source.create accepts string at exactly 50 characters`` () =
@@ -127,13 +129,13 @@ let ``REQ-JE-1.25 JournalEntryLineType.fromString accepts Credit`` () =
 
 [<Fact>]
 let ``REQ-JE-1.25 JournalEntryLineType.fromString rejects invalid string`` () =
-    let result = JournalEntryLineType.fromString "Refund"
-    Assert.True(Result.isError result)
+    isCorrectError (JournalEntryLineType.fromString "Refund") JournalEntryLineTypeInvalid None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.25 JournalEntryLineType.fromString is case sensitive`` () =
-    let result = JournalEntryLineType.fromString "debit"
-    Assert.True(Result.isError result)
+    isCorrectError (JournalEntryLineType.fromString "debit") JournalEntryLineTypeInvalid None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.25 JournalEntryLineType.toString round-trips with fromString`` () =
@@ -151,18 +153,18 @@ let ``REQ-JE-1.25 JournalEntryLineType.toString round-trips with fromString`` ()
 
 [<Fact>]
 let ``REQ-JE-1.27 REQ-SYS-1.2 LineMemo.create rejects empty string`` () =
-    let result = JournalEntryLineMemo.create String.Empty
-    Assert.True(Result.isError result)
+    isCorrectError (JournalEntryLineMemo.create String.Empty) JournalEntryLineMemoIsEmpty None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.27 REQ-SYS-1.2 LineMemo.create rejects whitespace-only string`` () =
-    let result = JournalEntryLineMemo.create "     "
-    Assert.True(Result.isError result)
+    isCorrectError (JournalEntryLineMemo.create "     ") JournalEntryLineMemoIsEmpty None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.28 LineMemo.create rejects string exceeding 1000 characters`` () =
-    let result = JournalEntryLineMemo.create(String('A', 1001))
-    Assert.True(Result.isError result)
+    isCorrectError (JournalEntryLineMemo.create(String('A', 1001))) JournalEntryLineMemoTooLong None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.28 LineMemo.create accepts string at exactly 1000 characters`` () =
@@ -184,14 +186,14 @@ let ``REQ-SYS-1.1 LineMemo.create trims leading and trailing whitespace`` () =
 [<Fact>]
 let ``REQ-JE-1.24 validateAmount rejects zero amount`` () =
     let zero = Money.fromDecimal 0.00M |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    let result = confirmAmountIsPositive zero
-    Assert.True(Result.isError result)
+    isCorrectError (confirmAmountIsPositive zero) JournalEntryLineNonPositiveAmount None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.24 validateAmount rejects negative amount`` () =
     let negative = Money.fromDecimal -5.00M |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    let result = confirmAmountIsPositive negative
-    Assert.True(Result.isError result)
+    isCorrectError (confirmAmountIsPositive negative) JournalEntryLineNonPositiveAmount None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.24 validateAmount accepts positive amount`` () =

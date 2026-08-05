@@ -12,6 +12,7 @@ open Tests.Helpers.Railroad
 open Utilities.ResultHelper
 open Xunit
 open Utilities.AppError
+open Tests.Helpers.SadPath
 open Context.Context
 
 [<Collection("SharedTestData")>]
@@ -34,14 +35,11 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
             result {
                 let! existingPeriod = FiscalPeriod.fetchById context (fixture.Data.openFiscalPeriodIds |> List.head)
                 let existingKey = FiscalPeriod.periodKey existingPeriod
-                let duplicateResult = existingKey |> FiscalPeriodCreation.constructNewAndSaveToDb context
                 do!
-                    match duplicateResult with
-                    | Error(DalErrorDuringNonQueryExecution _) -> Ok()
-                    | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                    | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
-                Assert.True(Result.isError duplicateResult)
-                ()
+                    isCorrectError
+                        (existingKey |> FiscalPeriodCreation.constructNewAndSaveToDb context)
+                        DalErrorDuringNonQueryExecution
+                        None
             })
         |> railroadWrapper
 

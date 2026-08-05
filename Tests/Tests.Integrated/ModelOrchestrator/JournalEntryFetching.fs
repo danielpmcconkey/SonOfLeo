@@ -17,6 +17,7 @@ open Model.LookupCache
 open ModelOrchestrator.JournalEntries.JournalEntry
 open Utilities
 open Utilities.AppError
+open Tests.Helpers.SadPath
 open Context.Context
 
 [<Collection("SharedTestData")>]
@@ -44,8 +45,8 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
     member _.``REQ-JE-3.2 fetchById returns error for nonexistent ID``() =
         let context = create NoTransaction FetchOnly
         let bogusId = Guid.NewGuid() |> JournalEntryHeaderId.fromGuid
-        let result = bogusId |> fetchById context
-        Assert.True(Result.isError result)
+        isCorrectError (bogusId |> fetchById context) JournalEntryHeaderIdDoesntExist None
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-3.1 fetchById returns header, lines, external references, and comments``() =

@@ -4,6 +4,8 @@ open System
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
 open Xunit
+open Tests.Helpers.SadPath
+open Tests.Helpers.Railroad
 
 // =============================================================================
 // JournalRefFinancialInstitution
@@ -11,18 +13,18 @@ open Xunit
 
 [<Fact>]
 let ``REQ-JE-1.42 JournalRefFinancialInstitution.create rejects empty string`` () =
-    let result = JournalRefFinancialInstitution.create String.Empty
-    Assert.True(Result.isError result)
+    isCorrectError (JournalRefFinancialInstitution.create String.Empty) JournalRefFinancialInstitutionIsEmpty None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.42 JournalRefFinancialInstitution.create rejects whitespace-only string`` () =
-    let result = JournalRefFinancialInstitution.create ""
-    Assert.True(Result.isError result)
+    isCorrectError (JournalRefFinancialInstitution.create "") JournalRefFinancialInstitutionIsEmpty None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.49 JournalRefFinancialInstitution.create rejects string exceeding 100 characters`` () =
-    let result = JournalRefFinancialInstitution.create(String('A', 101))
-    Assert.True(Result.isError result)
+    isCorrectError (JournalRefFinancialInstitution.create(String('A', 101))) JournalRefFinancialInstitutionTooLong None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.49 JournalRefFinancialInstitution.create accepts string at exactly 100 characters`` () =
@@ -48,18 +50,18 @@ let ``REQ-JE-1.42 JournalRefFinancialInstitution.create accepts valid string`` (
 
 [<Fact>]
 let ``REQ-JE-1.44 JournalExternalReferenceText.create rejects empty string`` () =
-    let result = JournalExternalReferenceText.create String.Empty
-    Assert.True(Result.isError result)
+    isCorrectError (JournalExternalReferenceText.create String.Empty) JournalEntryReferenceTextIsEmpty None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.44 JournalExternalReferenceText.create rejects whitespace-only string`` () =
-    let result = JournalExternalReferenceText.create ""
-    Assert.True(Result.isError result)
+    isCorrectError (JournalExternalReferenceText.create "") JournalEntryReferenceTextIsEmpty None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.45 JournalExternalReferenceText.create rejects string exceeding 100 characters`` () =
-    let result = JournalExternalReferenceText.create(String('A', 101))
-    Assert.True(Result.isError result)
+    isCorrectError (JournalExternalReferenceText.create(String('A', 101))) JournalEntryReferenceTextTooLong None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.45 JournalExternalReferenceText.create accepts string at exactly 100 characters`` () =

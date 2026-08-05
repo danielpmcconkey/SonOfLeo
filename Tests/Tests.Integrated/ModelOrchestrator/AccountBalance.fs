@@ -11,6 +11,7 @@ open Tests.Helpers.Railroad
 open Utilities.AppError
 open Xunit
 open Tests.Helpers
+open Tests.Helpers.SadPath
 open ModelOrchestrator.AccountBalance
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.RouteResolver
@@ -106,8 +107,8 @@ type AccountBalanceTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList with empty list returns Error``() =
         let context = create NoTransaction FetchOnly
-        let result = fetchByAccountIdList context [] None
-        Assert.True(Result.isError result) // todo: change this to a precise assertion on error type
+        isCorrectErrorString (fetchByAccountIdList context [] None) "AccountBalanceFetchInvalidArguments" None
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-3.6.2 fetchByAccountIdList with asOf excludes entries after cutoff``() =

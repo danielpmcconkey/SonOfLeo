@@ -5,6 +5,8 @@ open Xunit
 open Model.Ledger.Accounts.AccountComponent
 open Utilities
 open Utilities.AppError
+open Tests.Helpers.SadPath
+open Tests.Helpers.Railroad
 
 // =============================================================================
 // AccountCode
@@ -12,18 +14,18 @@ open Utilities.AppError
 
 [<Fact>]
 let ``REQ-AC-1.2 REQ-SYS-1.2 AccountCode rejects empty input`` () =
-    let result = AccountCode.create String.Empty
-    Assert.True(Result.isError result)
+    isCorrectError (AccountCode.create String.Empty) AccountCodeIsEmpty None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-AC-1.2 REQ-SYS-1.2 AccountCode rejects whitespace-only input`` () =
-    let result = AccountCode.create "     "
-    Assert.True(Result.isError result)
+    isCorrectError (AccountCode.create "     ") AccountCodeIsEmpty None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-AC-1.3 AccountCode rejects strings exceeding 10 chars`` () =
-    let result = AccountCode.create(String('A', 11))
-    Assert.True(Result.isError result)
+    isCorrectError (AccountCode.create(String('A', 11))) AccountCodeTooLong None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-AC-1.3 AccountCode accepts string at exactly 10 chars`` () =
@@ -48,13 +50,13 @@ let ``REQ-AC-1.3 REQ-SYS-1.1 AccountCode length check applies post-trim`` () =
 
 [<Fact>]
 let ``REQ-AC-1.7 REQ-SYS-1.2 AccountName rejects empty and whitespace-only input`` () =
-    let result = AccountName.create "      "
-    Assert.True(Result.isError result)
+    isCorrectError (AccountName.create "      ") AccountNameIsEmpty None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-AC-1.8 AccountName rejects strings exceeding 100 chars`` () =
-    let result = AccountName.create(String('A', 101))
-    Assert.True(Result.isError result)
+    isCorrectError (AccountName.create(String('A', 101))) AccountNameTooLong None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-AC-1.8 AccountName accepts string at exactly 100 chars`` () =
@@ -94,7 +96,8 @@ let ``REQ-AC-2.4 REQ-AC-1.10 AccountType fromString accepts Expense`` () =
 
 [<Fact>]
 let ``REQ-AC-2.4 AccountType fromString rejects invalid type name`` () =
-    Assert.True(Result.isError(AccountType.fromString "Valley Girl"))
+    isCorrectError (AccountType.fromString "Valley Girl") AccountTypeInvalid None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-SYS-1.1 AccountType fromString trims input before matching`` () =
@@ -144,7 +147,8 @@ let ``REQ-AC-1.18 AccountSubtype fromString accepts OtherExpense`` () =
 
 [<Fact>]
 let ``REQ-AC-1.18 AccountSubtype fromString rejects invalid subtype name`` () =
-    Assert.True(Result.isError(AccountSubtype.fromString "Ladies' lingerie"))
+    isCorrectError (AccountSubtype.fromString "Ladies' lingerie") AccountSubtypeInvalid None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-SYS-1.1 AccountSubtype fromString trims input before matching`` () =
@@ -508,18 +512,18 @@ let ``REQ-AC-1.19 Expense type can be matched with a subtype of null`` () =
 
 [<Fact>]
 let ``REQ-AC-1.49 REQ-SYS-1.3 AccountExternalReference rejects empty input`` () =
-    let result = AccountExternalReference.create String.Empty
-    Assert.True(Result.isError result)
+    isCorrectError (AccountExternalReference.create String.Empty) AccountExternalReferenceIsEmpty None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-AC-1.49 REQ-SYS-1.3 AccountExternalReference rejects whitespace-only input`` () =
-    let result = AccountExternalReference.create "     "
-    Assert.True(Result.isError result)
+    isCorrectError (AccountExternalReference.create "     ") AccountExternalReferenceIsEmpty None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-AC-1.20 AccountExternalReference rejects strings exceeding 50 chars`` () =
-    let result = AccountExternalReference.create(String('A', 51))
-    Assert.True(Result.isError result)
+    isCorrectError (AccountExternalReference.create(String('A', 51))) AccountExternalReferenceTooLong None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-AC-1.20 AccountExternalReference allows strings of exactly 50 chars`` () =
@@ -542,7 +546,8 @@ let ``REQ-SYS-1.1 AccountExternalReference trims leading and trailing whitespace
 let ``REQ-AC-1.46 AccountActivityPeriod rejects activeEnd earlier than activeBegin`` () =
     let ab = Calendar.today()
     let ae = Some(ab.PlusDays(-1))
-    AccountActivityPeriod.create ab ae |> Result.isError |> Assert.True
+    isCorrectError (AccountActivityPeriod.create ab ae) AccountActiveEndBeforeBegin None
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-AC-1.46 AccountActivityPeriod accepts activeEnd equal to activeBegin`` () =
