@@ -1,5 +1,6 @@
 module Tests.Helpers.SadPath
 
+open System
 open Microsoft.FSharp.Reflection
 open Utilities.AppError
 
@@ -36,13 +37,24 @@ let isCorrectErrorString
         if caseName = expected then Ok()
         else Error(TestingError $"Wrong error type. Expected {expected}. Got {caseName}: {AppError.toMessage e}")
 
+let private makeDefault (t: Type) : obj =
+    if t = typeof<string> then "" :> obj
+    elif t.IsValueType then Activator.CreateInstance(t)
+    else null
+
 let isCorrectError
     (result: Result<'T, AppError>)
     (expectedCaseConstructor: 'A -> AppError)
     (additionalWarningOnSuccess: string option)
     : Result<unit, AppError> =
-    // build a "default" version of that error so we can get the string type for the comparison
-    let sample = expectedCaseConstructor (Unchecked.defaultof<'A>)
+    let argType = typeof<'A>
+    let defaultArg =
+        if FSharpType.IsTuple argType then
+            let elements = FSharpType.GetTupleElements argType |> Array.map makeDefault
+            FSharpValue.MakeTuple(elements, argType) :?> 'A
+        else
+            makeDefault argType :?> 'A
+    let sample = expectedCaseConstructor defaultArg
     let caseName = FSharpValue.GetUnionFields(sample, typeof<AppError>) |> fst |> _.Name
     isCorrectErrorString result caseName additionalWarningOnSuccess
     

@@ -107,7 +107,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList with empty list returns Error``() =
         let context = create NoTransaction FetchOnly
-        isCorrectErrorString (fetchByAccountIdList context [] None) "AccountBalanceFetchInvalidArguments" None
+        isCorrectErrorEmpty (fetchByAccountIdList context [] None) AccountBalanceFetchInvalidArguments None
         |> railroadWrapper
 
     [<Fact>]
