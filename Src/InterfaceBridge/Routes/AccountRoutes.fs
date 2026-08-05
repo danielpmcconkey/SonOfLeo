@@ -144,7 +144,7 @@ let private accountBalancesFetch payload _ =
     result {
         let! input = Json.fromJson<AccountBalanceFetchByAccountListInput> payload
         let! accountList = input.codes |> ``convert AccountCodeString List to AccountId List`` context
-        let! accountBalances = AccountBalance.fetchByAccountIdList context accountList input.asOf
+        let! accountBalances = AccountBalance.fetchByAccountIdList context (Some accountList) input.asOf
         let! returnList =
             accountBalances
             |> List.map(fun accountBalance ->

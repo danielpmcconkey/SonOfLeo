@@ -13,11 +13,9 @@ open Xunit
 open Tests.Helpers
 open Tests.Helpers.SadPath
 open ModelOrchestrator.AccountBalance
-open Tests.Helpers.EntityFunctions
 open Tests.Helpers.RouteResolver
 open Utilities
 open Utilities.ResultHelper
-open Logger.Audit
 open Context.Context
 
 [<Collection("SharedTestData")>]
@@ -39,7 +37,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
             fixture.Data.journalEntryLines |> sumJournalEntryLinesByAccountIdAndType context false id2 Credit
         let expectedBal1 = expectedCredits1 - expectedDebits1 // liability
         let expectedBal2 = expectedDebits2 - expectedCredits2 // expense
-        let result = fetchByAccountIdList context accountsList None
+        let result = fetchByAccountIdList context (Some accountsList) None
         match result with
         | Ok balances ->
             // first check that we got the right number of rows
@@ -73,7 +71,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
             fixture.Data.journalEntryLines |> sumJournalEntryLinesByAccountIdAndType context true id2 Credit
         let expectedBal1 = expectedCredits1 - expectedDebits1 // liability
         let expectedBal2 = expectedDebits2 - expectedCredits2 // expense
-        let result = fetchByAccountIdList context accountsList None
+        let result = fetchByAccountIdList context (Some accountsList) None
         match result with
         | Ok balances ->
             // first check that we got the right number of rows
@@ -94,7 +92,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList returns zero balances for account with no activity``() =
         let context = create NoTransaction FetchOnly
-        let result = fetchByAccountIdList context [ fixture.Data.assets1000Id ] None
+        let result = fetchByAccountIdList context (Some [fixture.Data.assets1000Id]) None
         match result with
         | Ok balances ->
             Assert.Equal(1, balances |> List.length)
@@ -107,7 +105,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList with empty list returns Error``() =
         let context = create NoTransaction FetchOnly
-        isCorrectErrorEmpty (fetchByAccountIdList context [] None) AccountBalanceFetchInvalidArguments None
+        isCorrectErrorEmpty (fetchByAccountIdList context (Some []) None) AccountBalanceFetchInvalidArguments None
         |> railroadWrapper
 
     [<Fact>]
@@ -132,7 +130,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
             linesBeforeCutoff
             |> List.filter(fun l -> l |> JournalEntryLine.lineType = Credit)
             |> List.sumBy(fun l -> l |> JournalEntryLine.amount |> Money.amount)
-        let result = fetchByAccountIdList context [ expenseId ] (Some asOfDate)
+        let result = fetchByAccountIdList context (Some [expenseId]) (Some asOfDate)
         match result with
         | Ok balances ->
             Assert.Equal(1, balances |> List.length)
@@ -148,7 +146,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         let today = Calendar.today()
         let asOfDate = today.PlusDays(-4)
         let expenseId = fixture.Data.temporalExpense5700Id
-        let result = fetchByAccountIdList context [ expenseId ] (Some asOfDate)
+        let result = fetchByAccountIdList context (Some [expenseId]) (Some asOfDate)
         match result with
         | Ok balances ->
             Assert.Equal(1, balances |> List.length)
@@ -180,7 +178,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
                         [ (expenseId, amount, "Debit", None)
                           (revenueId, amount, "Credit", None) ]
                         [] []
-                let! balances = fetchByAccountIdList context [ expenseId; revenueId ] None
+                let! balances = fetchByAccountIdList context (Some [expenseId; revenueId]) None
                 Assert.Equal(2, balances |> List.length)
                 let expenseBal = balances |> List.find(fun b -> b.accountId = expenseId)
                 let revenueBal = balances |> List.find(fun b -> b.accountId = revenueId)
