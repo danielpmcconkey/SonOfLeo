@@ -9,6 +9,7 @@ open Tests.Helpers
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
 open Utilities.AppError
+open Tests.Helpers.SadPath
 open Utilities.ResultHelper
 open Xunit
 open Model.Ledger.FiscalPeriods
@@ -152,10 +153,10 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         let payload = createFiscalPeriodFetchByKeyInputPayload "1850-01"
         result {
             do!
-                match routeUiCommandForTesting "FiscalPeriod" "FetchByKey" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error(FiscalPeriodNoPeriodMatchingKey _) -> Ok()
-                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                isCorrectError
+                    (routeUiCommandForTesting "FiscalPeriod" "FetchByKey" [] payload)
+                    FiscalPeriodNoPeriodMatchingKey
+                    None
             return ()
         }
         |> railroadWrapper
@@ -165,10 +166,10 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         let payload = createFiscalPeriodCloseInputPayload "1850-01"
         result {
             do!
-                match routeUiCommandForTesting "FiscalPeriod" "Close" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error(FiscalPeriodNoPeriodMatchingKey _) -> Ok()
-                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                isCorrectError
+                    (routeUiCommandForTesting "FiscalPeriod" "Close" [] payload)
+                    FiscalPeriodNoPeriodMatchingKey
+                    None
             return ()
         }
         |> railroadWrapper
@@ -178,10 +179,10 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         let payload = createFiscalPeriodReopenInputPayload "1850-01"
         result {
             do!
-                match routeUiCommandForTesting "FiscalPeriod" "Reopen" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error(FiscalPeriodNoPeriodMatchingKey _) -> Ok()
-                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                isCorrectError
+                    (routeUiCommandForTesting "FiscalPeriod" "Reopen" [] payload)
+                    FiscalPeriodNoPeriodMatchingKey
+                    None
             return ()
         }
         |> railroadWrapper
@@ -191,10 +192,10 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         let payload = createFiscalPeriodCreateInputPayload "abc"
         result {
             do!
-                match routeUiCommandForTesting "FiscalPeriod" "Create" [] payload with
-                | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                | Error(FiscalPeriodInvalidKeyString _) -> Ok()
-                | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                isCorrectError
+                    (routeUiCommandForTesting "FiscalPeriod" "Create" [] payload)
+                    FiscalPeriodInvalidKeyString
+                    None
             return ()
         }
         |> railroadWrapper

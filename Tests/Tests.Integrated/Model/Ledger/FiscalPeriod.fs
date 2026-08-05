@@ -143,12 +143,11 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
                 let originalModified = FiscalPeriod.modifiedAt original
                 Assert.False(FiscalPeriod.isOpen original)
                 System.Threading.Thread.Sleep(10) // this is here to ensure that we haven't updated the modified date
-                let attemptResult = FiscalPeriod.closeFiscalPeriod context fixture.Data.closedFiscalPeriodId
                 do!
-                    match attemptResult with
-                    | Error(FiscalPeriodToggleOpenNoOp) -> Ok()
-                    | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                    | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                    isCorrectErrorEmpty
+                        (FiscalPeriod.closeFiscalPeriod context fixture.Data.closedFiscalPeriodId)
+                        FiscalPeriodToggleOpenNoOp
+                        None
                 let! fetched = FiscalPeriod.fetchById context fixture.Data.closedFiscalPeriodId
                 Assert.False(FiscalPeriod.isOpen fetched)
                 Assert.Equal(originalModified, FiscalPeriod.modifiedAt fetched)
@@ -175,12 +174,11 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
                 let originalModified = FiscalPeriod.modifiedAt original
                 Assert.True(FiscalPeriod.isOpen original)
                 System.Threading.Thread.Sleep(10) // this is here to ensure that we haven't updated the modified date
-                let attemptResult = id |> FiscalPeriod.reopenFiscalPeriod context
                 do!
-                    match attemptResult with
-                    | Error(FiscalPeriodToggleOpenNoOp) -> Ok()
-                    | Ok _ -> Error(TestingError "Expected failure; returned success.")
-                    | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}")
+                    isCorrectErrorEmpty
+                        (id |> FiscalPeriod.reopenFiscalPeriod context)
+                        FiscalPeriodToggleOpenNoOp
+                        None
                 let! fetched = FiscalPeriod.fetchById context id
                 Assert.True(FiscalPeriod.isOpen fetched)
                 Assert.Equal(originalModified, FiscalPeriod.modifiedAt fetched)

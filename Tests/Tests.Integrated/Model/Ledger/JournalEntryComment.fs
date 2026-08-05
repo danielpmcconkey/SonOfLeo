@@ -8,6 +8,7 @@ open ModelOrchestrator
 open Tests.Helpers.RouteResolver
 open Tests.Helpers.Railroad
 open Utilities.AppError
+open Tests.Helpers.SadPath
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
 open Xunit
@@ -119,10 +120,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
                     fixture.Data.basicJeId
                     (Some fixture.Data.basicJeId)
                     commentText
-            match result with
-            | Error(JournalEntryCommentPrimaryAndSecondaryIdsAreSame _) -> Ok()
-            | Ok _ -> Error(TestingError "Expected failure; returned success.")
-            | Error e -> Error(TestingError $"Wrong error type: {AppError.toMessage e}"))
+            isCorrectError result JournalEntryCommentPrimaryAndSecondaryIdsAreSame None)
         |> railroadWrapper
 
     [<Fact>]
