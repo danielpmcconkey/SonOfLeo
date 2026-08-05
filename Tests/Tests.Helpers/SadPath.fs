@@ -9,15 +9,16 @@ Functions that help with validating sad path functionality
 Example usages
 
 //  AccountCodeDoesntMatchAccountId of string
-let burp =
-    isCorrectError (Ok "burp") AccountCodeDoesntMatchAccountId None
+let burp = isCorrectError (Ok "burp") AccountCodeDoesntMatchAccountId None
 
 // AccountDeactivationProposedDateIsInvalid of Guid * LocalDate * LocalDate
-let fart =
-    isCorrectError (Ok "fart") AccountDeactivationProposedDateIsInvalid None
+let fart = isCorrectError (Ok "fart") AccountDeactivationProposedDateIsInvalid None
 
 // AccountNameTooLong of string * int
 let sneeze = isCorrectErrorString (Ok "sneeze") "AccountNameTooLong" (Some "You probably need to clean up test data.")
+
+// AccountBalanceFetchInvalidArguments (no arguments)
+let cough = isCorrectErrorEmpty (Ok "cough") AccountBalanceFetchInvalidArguments None
 
 *)
 
@@ -42,6 +43,16 @@ let isCorrectError
     : Result<unit, AppError> =
     // build a "default" version of that error so we can get the string type for the comparison
     let sample = expectedCaseConstructor (Unchecked.defaultof<'A>)
+    let caseName = FSharpValue.GetUnionFields(sample, typeof<AppError>) |> fst |> _.Name
+    isCorrectErrorString result caseName additionalWarningOnSuccess
+    
+let isCorrectErrorEmpty
+    (result: Result<'T, AppError>)
+    expectedCaseConstructor
+    (additionalWarningOnSuccess: string option)
+    : Result<unit, AppError> =
+    // build a "default" version of that error so we can get the string type for the comparison
+    let sample = expectedCaseConstructor
     let caseName = FSharpValue.GetUnionFields(sample, typeof<AppError>) |> fst |> _.Name
     isCorrectErrorString result caseName additionalWarningOnSuccess
     
