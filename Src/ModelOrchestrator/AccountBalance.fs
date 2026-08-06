@@ -41,9 +41,7 @@ let fetchByAccountIdList
         match asOf with
         | None -> [], ""
         | Some x -> [ { name = "@as_of"; value = DbLocalDate x } ], "and je.entry_date <= @as_of"
-    let accountIds =
-        if accountIdFilter |> Option.isNone then []
-        else accountIdFilter |> Option.get
+    let accountIds = accountIdFilter |> Option.defaultValue []
     let accountFilters =
         [ 1 .. (accountIds |> List.length) ]
         |> List.zip accountIds

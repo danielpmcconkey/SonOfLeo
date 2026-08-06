@@ -36,7 +36,7 @@ let private trialBalance payload _ =
 let reportingRoutes: ReportRoute list =
     [
         { name = "TrialBalance"
-          description = "Create a new account and insert it into the database"
+          description = "If data only, returns a sorted list of accounts, with their debits, credits, and net balances. Child debits, credits, and balances roll up to their parents. If Report, it creates a trial balance report and returns the full file path to it."
           inputContract = typeof<TrialBalanceInput>.Name
           outputContract = typeof<TrialBalanceReturn>.Name
           handler = trialBalance }

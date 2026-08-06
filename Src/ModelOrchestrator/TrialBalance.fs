@@ -51,7 +51,7 @@ let rec private crawlAndCompile
         // send each child through the recursion loop
         let! compiledChildren =
             children
-            |> List.map(fun child -> crawlAndCompile child allAccounts allAccountBalances thisGeneration)
+            |> List.map(fun child -> crawlAndCompile child allAccounts allAccountBalances (thisGeneration + 1))
             |> convertListOfResultsToResultsList
         // sum the credits, debits, and net across all children
         let! sumChildrenCredits =
@@ -80,7 +80,6 @@ let rec private crawlAndCompile
                  children = compiledChildren } }
 
 let rec private flattenNestedTrialBalance
-    (accumulator: TrialBalanceRowFlattened list)
     (nested: TrialBalanceRowNested)
     : TrialBalanceRowFlattened list =
     let selfFlattened = 
@@ -90,18 +89,7 @@ let rec private flattenNestedTrialBalance
           totalCredits = nested.totalCredits
           totalDebits = nested.totalDebits
           netBalance = nested.netBalance }
-    let allChildren = nested.children
-    if allChildren |> List.isEmpty
-    then
-        // you've hit bottom, return yourself in additional to the accumulator
-        selfFlattened::accumulator
-    else
-        // send each child through the recursion
-        let flattenedChildren = allChildren |> List.map(fun x -> x |> flattenNestedTrialBalance accumulator)
-        // combine yourself and all children and the accumulator
-        let combinedChildren = flattenedChildren |> List.collect id
-        let combinedWithAccumulator = accumulator @ combinedChildren
-        selfFlattened::combinedWithAccumulator
+    selfFlattened:: (nested.children |> List.collect flattenNestedTrialBalance)
     
 let fetchTrialBalanceData
     (context: Context)
@@ -115,7 +103,7 @@ let fetchTrialBalanceData
             topLevelParents
             |> List.map (fun a -> crawlAndCompile a allAccounts accountBalances 0)
             |> convertListOfResultsToResultsList
-        let flattenedAndSeparated = nestedAndSeparated |> List.map (fun x -> x |> flattenNestedTrialBalance [])
+        let flattenedAndSeparated = nestedAndSeparated |> List.map (fun x -> x |> flattenNestedTrialBalance)
         let allOneList = flattenedAndSeparated |> List.collect id
         let allOneListSorted = allOneList |> List.sortBy(_.accountCode)
         return allOneListSorted
