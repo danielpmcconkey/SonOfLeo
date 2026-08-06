@@ -75,6 +75,8 @@ type AppError =
     | DalStringUnboxingReturnedNull
     | DalUuidUnboxingReturnedNull
     
+    | FileIoError of exn
+    
     | FiscalPeriodInvalidKeyString of string
     | FiscalPeriodNoPeriodMatchingId of Guid
     | FiscalPeriodNoPeriodMatchingKey of string
@@ -198,6 +200,8 @@ module AppError =
         | DalResultantRowsDidntMatchExpectation(expected, actual) -> $"Resultant rows didn't match expectation. Expected {expected}. Actual {actual}."
         | DalStringUnboxingReturnedNull -> "String unboxing returned DB null"
         | DalUuidUnboxingReturnedNull -> "UUID unboxing returned DB null"
+    
+        | FileIoError ex -> $"Error in File I/O operation. Error message: {ex.Message}{Environment.NewLine} {ex.StackTrace}"
         
         | FiscalPeriodInvalidKeyString key -> $"Passed string \"{key}\" is invalid as a Period Key."
         | FiscalPeriodNoPeriodMatchingId uuid -> $"No Fiscal Period matching the id {uuid} could be found in the database."

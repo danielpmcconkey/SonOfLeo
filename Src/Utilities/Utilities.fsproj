@@ -11,6 +11,7 @@
     <Compile Include="Clock.fs" />
     <Compile Include="Calendar.fs" />
     <Compile Include="FieldUpdate.fs" />
+    <Compile Include="FileIO.fs" />
   </ItemGroup>
 
   <ItemGroup>
