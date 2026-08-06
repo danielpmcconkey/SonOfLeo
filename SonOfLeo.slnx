@@ -6,6 +6,7 @@
     <Project Path="Src/Logger/Logger.fsproj" />
     <Project Path="Src/Model/Model.fsproj" />
     <Project Path="Src/ModelOrchestrator/ModelOrchestrator.fsproj" />
+    <Project Path="Src/Reports/Reports.fsproj" />
     <Project Path="Src/SonOfLeoCli/SonOfLeoCli.fsproj" />
     <Project Path="Src/Utilities/Utilities.fsproj" />
   </Folder>

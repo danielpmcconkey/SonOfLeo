@@ -25,6 +25,7 @@
     <Compile Include="JournalEntryHeaderOrchestration.fs" />
     <Compile Include="JournalEntryOrchestration.fs" />
     <Compile Include="JournalEntryVoiding.fs" />
+    <Compile Include="TrialBalance.fs" />
   </ItemGroup>
 
 </Project>

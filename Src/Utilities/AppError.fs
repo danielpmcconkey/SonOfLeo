@@ -124,6 +124,8 @@ type AppError =
     | MoneyFailedToConvertImproperPrecision of decimal
     | MoneyImproperSplit of int
     | MoneySplitFailedReconciliation of decimal * decimal
+    
+    | ReportingUnknownReportName of string
 
 module AppError =
     let toMessage =
@@ -250,4 +252,6 @@ module AppError =
         | MoneyFailedToConvertImproperPrecision raw -> $"Failed to convert {raw} to Money record due to improper decimal precision."
         | MoneyImproperSplit n -> $"Improper Money split of {n}. Money can only be split by a positive integer, greater than 1."
         | MoneySplitFailedReconciliation(originalAmount, sumTotal) -> $"Sum of all shares {sumTotal} does not match original amount {originalAmount}."
+        
+        | ReportingUnknownReportName name -> $"Unknown report: {name}."
 

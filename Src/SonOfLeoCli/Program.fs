@@ -28,5 +28,5 @@ let main args =
             e |> AppError.toMessage |> eprintfn "%s"
             1
     | _ ->
-        eprintfn "Usage: sonofleo <domain> <verb> [args...]"
+        eprintfn "Usage: SonOfLeoCli <domain> <verb> [args...]"
         1
