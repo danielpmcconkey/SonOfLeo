@@ -16,17 +16,14 @@ let route domain verb rest payload : Result<string, AppError> =
 
 [<EntryPoint>]
 let main args =
-    let payload = Console.In.ReadToEnd()
-    match args |> Array.toList with
-    | domain :: verb :: rest ->
-        let result = (route domain verb rest payload)
-        match result with
-        | Ok n ->
-            n |> printfn "%s"
-            0
-        | Error e ->
-            e |> AppError.toMessage |> eprintfn "%s"
-            1
-    | _ ->
-        eprintfn "Usage: SonOfLeoCli <domain> <verb> [args...]"
-        1
+    let argList = args |> Array.toList
+    let domain, verb, payload, rest =
+        match argList with
+        | domain :: verb :: "--file" :: filePath :: rest -> domain, verb , System.IO.File.ReadAllText(filePath), rest
+        | domain :: verb :: rest  -> domain, verb, Console.In.ReadToEnd(), rest
+        | _ ->
+            eprintfn "Usage: SonOfLeoCli <domain> <verb> [--file <path>] [args...]"
+            exit 1; failwith ""
+    match route domain verb rest payload with 
+    | Ok n -> n |> printfn "%s"; 0
+    | Error e -> e |> AppError.toMessage |> eprintfn "%s"; 1
