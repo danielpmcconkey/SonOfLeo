@@ -7,6 +7,8 @@ open InterfaceBridge.ReportVisualizationAssets.ReportBody
 open InterfaceBridge.ReportVisualizationAssets.ReportFooter
 open InterfaceBridge.ReportVisualizationAssets.ReportHeader
 open Model
+open Model.Ledger.Accounts.AccountComponent
+open ModelOrchestrator.TrialBalanceReport
 open NodaTime
 open Utilities.AppError
 open Utilities.Calendar
@@ -165,62 +167,64 @@ type LabelType =
     | NetBal
     
 let createAccountLabel labelType amount ordinal   =
-    match amount |> Money.fromDecimal with
-    | Error e -> Error e
-    | Ok amountM -> Ok (
-        let fAmount = amountM |> Money.toCurrencyString
-        let className = if amountM |> Money.amount >= 0M then "val pos" else "val neg"
-        let label =
-            match labelType with
-            | Credits -> "Credits"
-            | Debits -> "Debits"
-            | NetBal -> "Net Balance"
-        let labelSpan:DomElement =
-            { ordinal = 10
-              elementType = (Span label)
-              identifierType = (Class "lbl")
-              contents = [] }
-        let labelBold =
-            { ordinal = 20
-              elementType = (Bold fAmount)
-              identifierType = (Class className)
-              contents =[] }
-        {
-            ordinal = ordinal
-            elementType = NestedSpan
-            identifierType = (Class "tab")
-            contents = [ labelSpan; labelBold ]
-        } )
+    let fAmount = amount |> Money.toCurrencyString
+    let className =
+        match amount |> Money.amount with
+        | 0M -> "val zero"
+        | x when x > 0M -> "val pos"
+        | _ -> "val neg"
+    let label =
+        match labelType with
+        | Credits -> "Credits"
+        | Debits -> "Debits"
+        | NetBal -> "Net Balance"
+    let labelSpan:DomElement =
+        { ordinal = 10
+          elementType = (Span label)
+          identifierType = (Class "lbl")
+          contents = [] }
+    let labelBold =
+        { ordinal = 20
+          elementType = (Bold fAmount)
+          identifierType = (Class className)
+          contents =[] }
+    {
+        ordinal = ordinal
+        elementType = NestedSpan
+        identifierType = (Class "tab")
+        contents = [ labelSpan; labelBold ]
+    } 
 
-let createAccountRowDomElement ordinal (row:TrialBalanceReturnRow) =
+let createAccountRowDomElement ordinal row =
+    let code = row.accountCode |> AccountCode.value
+    let accountName = row.accountName |> AccountName.value
     let accountLabelName = {
         ordinal = 10
-        elementType = (Span $"{row.accountCode} &middot; {row.accountName}")
+        elementType = (Span $"{code} &middot; {accountName}")
         identifierType = (Class "head")
         contents = []
     }
-    result {
-        let! accountLabelCredits = createAccountLabel Credits row.totalCredits 10
-        let! accountLabelDebits = createAccountLabel Debits row.totalDebits 20
-        let! accountLabelNet = createAccountLabel NetBal row.netBalance 30
-        let divClass = $"acct level-{row.level}"
-        let divInside = {
-            ordinal = 10
-            elementType = Div
-            identifierType = (Class "acct-label")
-            contents = [accountLabelName; accountLabelCredits; accountLabelDebits; accountLabelNet] }
-        return {
-            ordinal = ordinal
-            elementType = Div
-            identifierType = (Class divClass)
-            contents = [divInside]
-        } }
+    let accountLabelCredits = createAccountLabel Credits row.totalCredits 10
+    let accountLabelDebits = createAccountLabel Debits row.totalDebits 20
+    let accountLabelNet = createAccountLabel NetBal row.netBalance 30
+    let divClass = $"acct level-{row.generation}"
+    let divInside = {
+        ordinal = 10
+        elementType = Div
+        identifierType = (Class "acct-label")
+        contents = [accountLabelName; accountLabelCredits; accountLabelDebits; accountLabelNet] }
+    {
+        ordinal = ordinal
+        elementType = Div
+        identifierType = (Class divClass)
+        contents = [divInside]
+    } 
     
 
 let write
     (pathInfo: OutputPathInput)
     (asOf: LocalDate)
-    (sortedRows: TrialBalanceReturnRow list)
+    (sortedRows: TrialBalanceRowFlattened list)
     : Result<TrialBalanceReturn, AppError> =
     let head = {
         charSet = "utf-8"
@@ -230,39 +234,39 @@ let write
         script = ""
     }
     let header = createAsOfHeader "Trial Balance Report" asOf
-    result {
-        let! accountRows =
-            [ 1 .. (sortedRows |> List.length) ]
-            |> List.zip sortedRows
-            |> List.map(fun (row, iterator) ->
-                row |> createAccountRowDomElement iterator)
-            |> convertListOfResultsToResultsList
-        let reportBody = createReportBody accountRows
-        let footer = createReportFooter()
-        let section = {
-                ordinal = 10; elementType = Section; identifierType = (Class "report"); contents =
-                    [
-                        header
-                        reportBody
-                        footer
-                    ]
-            }
-        let body = {elements =
-            [
-                section
-            ]}
-        let htmlWrapper:HtmlWrapper = {
-            language = "en"
-            head = head
-            body = body
+    
+    let accountRows =
+        [ 1 .. (sortedRows |> List.length) ]
+        |> List.zip sortedRows
+        |> List.map(fun (row, iterator) ->
+            row |> createAccountRowDomElement iterator)
+    let reportBody = createReportBody accountRows
+    let footer = createReportFooter()
+    let section = {
+            ordinal = 10; elementType = Section; identifierType = (Class "report"); contents =
+                [
+                    header
+                    reportBody
+                    footer
+                ]
         }
-        let dateInterpolation =
-            if pathInfo.interpolateAsOf
-            then
-                let fDate = asOf |> localDateToString "yyyy-MM-dd"
-                $"-{fDate}"
-            else ""
-        let fileName = $"{pathInfo.fileName}{dateInterpolation}"
+    let body = {elements =
+        [
+            section
+        ]}
+    let htmlWrapper:HtmlWrapper = {
+        language = "en"
+        head = head
+        body = body
+    }
+    let dateInterpolation =
+        if pathInfo.interpolateAsOf
+        then
+            let fDate = asOf |> localDateToString "yyyy-MM-dd"
+            $"-{fDate}"
+        else ""
+    let fileName = $"{pathInfo.fileName}{dateInterpolation}"
+    result {
         let! path =
             htmlWrapper
             |> HtmlWrapper.toString

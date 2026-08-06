@@ -25,7 +25,7 @@ let private trialBalance payload _ =
             match input.reportOutput with
             | OutputSpecifier.DataOnly -> Ok (TrialBalanceReturn.DataOnly trialBalanceRows) 
             | OutputSpecifier.Report outputPathInput ->
-                trialBalanceRows |> TrialBalanceWriter.write outputPathInput input.asOf.asOf
+                trialBalanceData |> TrialBalanceWriter.write outputPathInput input.asOf.asOf
         return! trialBalanceReturn |> Json.toJson<TrialBalanceReturn>
     }
     

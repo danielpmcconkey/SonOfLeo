@@ -31,7 +31,7 @@ let baseCssDeclarations = [
     {
         ordinal = 30
         declarator = "html, body"
-        definition = "box-sizing: border-box;" }
+        definition = "background: var(--bg); color: var(--ink); margin: 0; padding: 0;" }
     {
         ordinal = 40
         declarator = "body"
@@ -71,6 +71,10 @@ let baseCssDeclarations = [
     {
         ordinal = 90
         declarator = ".report-head .range b"
+        definition = "color: var(--ink); font-weight: 500;" }
+    {
+        ordinal = 100
+        declarator = ".report-foot"
         definition = """
     margin-top: 3rem;
     padding-top: 1rem;
