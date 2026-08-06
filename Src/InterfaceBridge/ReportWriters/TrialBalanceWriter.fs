@@ -238,7 +238,7 @@ let write
                 row |> createAccountRowDomElement iterator)
             |> convertListOfResultsToResultsList
         let reportBody = createReportBody accountRows
-        let footer = createReportFooter
+        let footer = createReportFooter()
         let section = {
                 ordinal = 10; elementType = Section; identifierType = (Class "report"); contents =
                     [
