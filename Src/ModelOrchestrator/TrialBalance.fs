@@ -1,6 +1,5 @@
 module ModelOrchestrator.TrialBalanceReport
 
-open System
 open Context.Context
 open Model
 open Model.Ledger.Accounts
@@ -17,7 +16,7 @@ type TrialBalanceRowNested =
       totalCredits: Money
       totalDebits: Money
       netBalance: Money
-      children:  TrialBalanceRowNested list}
+      children:  TrialBalanceRowNested list }
 
 type TrialBalanceRowFlattened =
     { accountCode: AccountCode
@@ -25,7 +24,7 @@ type TrialBalanceRowFlattened =
       generation: int
       totalCredits: Money
       totalDebits: Money
-      netBalance: Money}
+      netBalance: Money }
     
 let rec private crawlAndCompile
     (accountToCrawl: Account)
@@ -84,11 +83,25 @@ let rec private flattenNestedTrialBalance
     (accumulator: TrialBalanceRowFlattened list)
     (nested: TrialBalanceRowNested)
     : TrialBalanceRowFlattened list =
-    // let allChildren = nested |> List.collect (fun x -> x.children)
-    // if allChildren |> List.isEmpty then
-    //     // you've hit bottom
-    //     accumulator else
-    []
+    let selfFlattened = 
+        { accountCode = nested.accountCode
+          accountName = nested.accountName
+          generation = nested.generation
+          totalCredits = nested.totalCredits
+          totalDebits = nested.totalDebits
+          netBalance = nested.netBalance }
+    let allChildren = nested.children
+    if allChildren |> List.isEmpty
+    then
+        // you've hit bottom, return yourself in additional to the accumulator
+        selfFlattened::accumulator
+    else
+        // send each child through the recursion
+        let flattenedChildren = allChildren |> List.map(fun x -> x |> flattenNestedTrialBalance accumulator)
+        // combine yourself and all children and the accumulator
+        let combinedChildren = flattenedChildren |> List.collect id
+        let combinedWithAccumulator = accumulator @ combinedChildren
+        selfFlattened::combinedWithAccumulator
     
 let fetchTrialBalanceData
     (context: Context)
@@ -103,7 +116,7 @@ let fetchTrialBalanceData
             |> List.map (fun a -> crawlAndCompile a allAccounts accountBalances 0)
             |> convertListOfResultsToResultsList
         let flattenedAndSeparated = nestedAndSeparated |> List.map (fun x -> x |> flattenNestedTrialBalance [])
-        let nestedAndCombined = nestedAndSeparated |> List.collect id
-        let flattened = nestedAndCombined |> List.map 
-        return nestedAndCombined |> flattenGenerationalTrialBalances []
+        let allOneList = flattenedAndSeparated |> List.collect id
+        let allOneListSorted = allOneList |> List.sortBy(_.accountCode)
+        return allOneListSorted
     }
