@@ -19,11 +19,11 @@ open Utilities.ResultHelper
 let specificCss = [
     //* ----- account blocks ----- */
     {
-        ordinal = 0
+        ordinal = 10
         declarator = ".acct"
         definition = "margin: 0;" }
     {
-        ordinal = 0
+        ordinal = 20
         declarator = ".acct-label"
         definition = """
     display: flex;
@@ -32,13 +32,13 @@ let specificCss = [
     flex-wrap: wrap;
     padding: 0.3rem 0;""" }
     {
-        ordinal = 0
+        ordinal = 30
         declarator = ".acct-label .head"
         definition = """
     flex: 1 1 auto;
     min-width: 0;""" }
     {
-        ordinal = 0
+        ordinal = 40
         declarator = ".acct-label .tab"
         definition = """
     flex: 0 0 auto;
@@ -48,7 +48,7 @@ let specificCss = [
     align-items: baseline;
     gap: 0.5rem;""" }
     {
-        ordinal = 0
+        ordinal = 50
         declarator = ".acct-label .tab .lbl"
         definition = """
     color: var(--ink-light);
@@ -57,28 +57,28 @@ let specificCss = [
     text-transform: uppercase;
     font-size: 0.72rem;""" }
     {
-        ordinal = 0
+        ordinal = 60
         declarator = ".acct-label .tab .val"
         definition = "color: var(--ink); font-weight: 500;" }
     {
-        ordinal = 0
+        ordinal = 70
         declarator = ".acct-label .tab .val.neg"
         definition = "color: var(--neg);" }
     {
-        ordinal = 0
+        ordinal = 80
         declarator = ".acct-label .tab .val.zero"
         definition = """color: var(--zero);""" }
     //* level-0: top band */
     {
-        ordinal = 0
+        ordinal = 90
         declarator = ".acct.level-0 "
         definition = "margin-top: 2.5rem;" }
     {
-        ordinal = 0
+        ordinal = 100
         declarator = ".acct.level-0:first-child"
         definition = "margin-top: 0;" }
     {
-        ordinal = 0
+        ordinal = 110
         declarator = ".acct.level-0 > .acct-label"
         definition = """
     padding: 0.75rem 0 0.65rem;
@@ -86,7 +86,7 @@ let specificCss = [
     border-bottom: 1px solid var(--rule-strong);
     margin-bottom: 0.5rem;""" }
     {
-        ordinal = 0
+        ordinal = 120
         declarator = ".acct.level-0 > .acct-label .head"
         definition = """
     font-size: 0.95rem;
@@ -94,69 +94,69 @@ let specificCss = [
     letter-spacing: 0.12em;
     text-transform: uppercase;""" }
     {
-        ordinal = 0
+        ordinal = 130
         declarator = ".acct.level-0 > .acct-label .tab .val"
         definition = "font-size: 1rem; font-weight: 500;" }
     //* level-1: mid parent */
     {
-        ordinal = 0
+        ordinal = 140
         declarator = ".acct.level-1"
         definition = "padding-left: 1.5rem; margin-top: 0.85rem;" }
     {
-        ordinal = 0
+        ordinal = 150
         declarator = ".acct.level-1 > .acct-label "
         definition = """
     padding: 0.4rem 0 0.3rem;
     border-bottom: 1px solid var(--rule);
     margin-bottom: 0.25rem;""" }
     {
-        ordinal = 0
+        ordinal = 160
         declarator = ".acct.level-1 > .acct-label .head"
         definition = """
     font-size: 0.95rem;
     font-weight: 600;""" }
     //* level-2: sub-parent */
     {
-        ordinal = 0
+        ordinal = 170
         declarator = ".acct.level-2"
         definition = "padding-left: 3rem; margin-top: 0.4rem;" }
     {
-        ordinal = 0
+        ordinal = 180
         declarator = ".acct.level-2 > .acct-label"
         definition = """
     padding: 0.3rem 0 0.25rem;
     border-bottom: 1px dashed var(--rule);""" }
     {
-        ordinal = 0
+        ordinal = 190
         declarator = ".acct.level-2 > .acct-label .head"
         definition = "font-weight: 500; font-size: 0.9rem;" }
     //* level-3+: leaves */
     {
-        ordinal = 0
+        ordinal = 200
         declarator = ".acct.level-3"
         definition = "padding-left: 4.5rem; margin-top: 0.25rem;" }
     {
-        ordinal = 0
+        ordinal = 210
         declarator = ".acct.level-4"
         definition = "padding-left: 6rem;" }
     {
-        ordinal = 0
+        ordinal = 220
         declarator = ".acct.level-5"
         definition = "padding-left: 7.5rem;" }
     {
-        ordinal = 0
+        ordinal = 230
         declarator = ".acct.leaf > .acct-label"
         definition = "padding: 0.35rem 0;" }
     {
-        ordinal = 0
+        ordinal = 240
         declarator = ".acct.leaf > .acct-label .head"
         definition = "font-weight: 500; font-size: 0.88rem;" }
     {
-        ordinal = 0
+        ordinal = 250
         declarator = ".acct.leaf.dormant > .acct-label .head"
         definition = "color: var(--ink-light); font-weight: 400;" }
     {
-        ordinal = 0
+        ordinal = 260
         declarator = ".acct.leaf.dormant > .acct-label .tab .val"
         definition = "color: var(--zero);" }
     ]
