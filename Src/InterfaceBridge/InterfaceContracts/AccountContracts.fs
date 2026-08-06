@@ -43,6 +43,7 @@ type AccountActivityReturn =
       accountParentCode: string option
       accountExternalRef: string option
       activityDetail: AccountActivityDetailReturn option }
+    
 type AccountBalanceReturn =
     { accountCode: string
       accountName: string

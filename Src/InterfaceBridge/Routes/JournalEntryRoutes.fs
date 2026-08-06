@@ -20,7 +20,7 @@ open Utilities.ResultHelper
 open Logger.Audit
 
 let private postNew payload _ : Result<string, AppError> =
-    runRouteAndAutoCompleteTransaction JournalEntryPostNew (fun context ->
+    runCommandRouteAndAutoCompleteTransaction JournalEntryPostNew (fun context ->
         result {
             let! input = Json.fromJson<JournalEntryInput> payload
             let! description = input.header.description |> JournalEntryDescription.create
@@ -92,7 +92,7 @@ let private fetchByDateRange payload _ =
     }
 
 let private voidJe payload _ =
-    runRouteAndAutoCompleteTransaction JournalEntryVoid (fun context ->
+    runCommandRouteAndAutoCompleteTransaction JournalEntryVoid (fun context ->
         result {
             let! input = Json.fromJson<JournalEntryVoidInput> payload
             let headerId = input.id |> JournalEntryHeaderId.fromGuid
@@ -183,69 +183,69 @@ let journalEntryDomainCommandRoutes =
     [ { domain = "JournalEntry"
         verb = "PostNew"
         description = "Create a complete Journal Entry with all related objects (lines, references, comments)."
-        inputType = typeof<JournalEntryInput>.Name
-        outputType = typeof<JournalEntryReturn>.Name
+        inputContract = typeof<JournalEntryInput>.Name
+        outputContract = typeof<JournalEntryReturn>.Name
         handler = postNew }
       { domain = "JournalEntry"
         verb = "FetchById"
         description = "Retrieve a complete Journal Entry based on its unique ID in the database."
-        inputType = typeof<JournalEntryFetchByIdInput>.Name
-        outputType = typeof<JournalEntryReturn>.Name
+        inputContract = typeof<JournalEntryFetchByIdInput>.Name
+        outputContract = typeof<JournalEntryReturn>.Name
         handler = fetchById }
       { domain = "JournalEntry"
         verb = "FetchByPeriod"
         description = "Retrieve all Journal Entries (and related objects) for a given Fiscal Period."
-        inputType = typeof<JournalEntryFetchByPeriodInput>.Name
-        outputType = typeof<JournalEntryReturn list>.Name
+        inputContract = typeof<JournalEntryFetchByPeriodInput>.Name
+        outputContract = typeof<JournalEntryReturn list>.Name
         handler = fetchByPeriod }
       { domain = "JournalEntry"
         verb = "FetchLinesByAccount"
         description = "Retrieve all Journal Entry Lines for a given Account."
-        inputType = typeof<JournalEntryFetchLinesByAccountInput>.Name
-        outputType = typeof<JournalEntryLineReturn list>.Name
+        inputContract = typeof<JournalEntryFetchLinesByAccountInput>.Name
+        outputContract = typeof<JournalEntryLineReturn list>.Name
         handler = fetchLinesByAccount }
       { domain = "JournalEntry"
         verb = "FetchByExternalReference"
         description =
           "Retrieve all Journal Entries (and related objects) matching a specific External Account Reference (FI and / or reference). You must specify at least one."
-        inputType = typeof<JournalEntryFetchByExternalReferenceInput>.Name
-        outputType = typeof<JournalEntryReturn list>.Name
+        inputContract = typeof<JournalEntryFetchByExternalReferenceInput>.Name
+        outputContract = typeof<JournalEntryReturn list>.Name
         handler = fetchByExternalReference }
       { domain = "JournalEntry"
         verb = "FetchByDateRange"
         description =
           "Retrieve all Journal Entries (and related objects) whose entry date falls between begin and end (inclusive) dates."
-        inputType = typeof<JournalEntryFetchByDateRangeInput>.Name
-        outputType = typeof<JournalEntryReturn list>.Name
+        inputContract = typeof<JournalEntryFetchByDateRangeInput>.Name
+        outputContract = typeof<JournalEntryReturn list>.Name
         handler = fetchByDateRange }
       { domain = "JournalEntry"
         verb = "Void"
         description =
           "Void a Journal Entry by setting its “voided at” Instant to the system run time (requires a reason comment)"
-        inputType = typeof<JournalEntryVoidInput>.Name
-        outputType = typeof<JournalEntryReturn>.Name
+        inputContract = typeof<JournalEntryVoidInput>.Name
+        outputContract = typeof<JournalEntryReturn>.Name
         handler = voidJe }
       { domain = "JournalEntry"
         verb = "UpdateExternalReference"
         description = "Update an existing Journal Entry External Reference"
-        inputType = typeof<JournalEntryUpdateExternalReferenceInput>.Name
-        outputType = typeof<JournalEntryExternalReferenceReturn>.Name
+        inputContract = typeof<JournalEntryUpdateExternalReferenceInput>.Name
+        outputContract = typeof<JournalEntryExternalReferenceReturn>.Name
         handler = updateExternalReference }
       { domain = "JournalEntry"
         verb = "AddExternalReference"
         description = "Add a new External Reference to an existing Journal Entry"
-        inputType = typeof<JournalEntryAddExternalReferenceInput>.Name
-        outputType = typeof<JournalEntryExternalReferenceReturn>.Name
+        inputContract = typeof<JournalEntryAddExternalReferenceInput>.Name
+        outputContract = typeof<JournalEntryExternalReferenceReturn>.Name
         handler = addExternalReference }
       { domain = "JournalEntry"
         verb = "AddComment"
         description = "Add a new Comment to an existing Journal Entry"
-        inputType = typeof<JournalEntryAddCommentInput>.Name
-        outputType = typeof<JournalEntryCommentReturn>.Name
+        inputContract = typeof<JournalEntryAddCommentInput>.Name
+        outputContract = typeof<JournalEntryCommentReturn>.Name
         handler = addComment }
       { domain = "JournalEntry"
         verb = "UpdateComment"
         description = "Update an existing Journal Entry Comment"
-        inputType = typeof<JournalEntryUpdateCommentInput>.Name
-        outputType = typeof<JournalEntryCommentReturn>.Name
+        inputContract = typeof<JournalEntryUpdateCommentInput>.Name
+        outputContract = typeof<JournalEntryCommentReturn>.Name
         handler = updateComment } ]

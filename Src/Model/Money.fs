@@ -10,11 +10,14 @@ module Money =
 
     let maxMoney: decimal = 9999999999.99M
     let minMoney: decimal = -9999999999.99M
-
+    let usFormatProvider: IFormatProvider =
+      System.Globalization.CultureInfo("en-US") :> IFormatProvider
 
     let amount (m: Money) = m.amount
 
     let private create (validD: decimal) : Money = { amount = validD }
+    let toCurrencyString m = m.amount.ToString("C2", usFormatProvider)
+    let toAccountingString m = m.amount.ToString("N2", usFormatProvider)
 
     let fromDecimal (raw: decimal) : Result<Money, AppError> =
         let rounded = Math.Round(raw, 2, MidpointRounding.AwayFromZero)

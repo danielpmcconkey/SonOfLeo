@@ -75,6 +75,8 @@ type AppError =
     | DalStringUnboxingReturnedNull
     | DalUuidUnboxingReturnedNull
     
+    | FileIoError of exn
+    
     | FiscalPeriodInvalidKeyString of string
     | FiscalPeriodNoPeriodMatchingId of Guid
     | FiscalPeriodNoPeriodMatchingKey of string
@@ -124,6 +126,8 @@ type AppError =
     | MoneyFailedToConvertImproperPrecision of decimal
     | MoneyImproperSplit of int
     | MoneySplitFailedReconciliation of decimal * decimal
+    
+    | ReportingUnknownReportName of string
 
 module AppError =
     let toMessage =
@@ -196,6 +200,8 @@ module AppError =
         | DalResultantRowsDidntMatchExpectation(expected, actual) -> $"Resultant rows didn't match expectation. Expected {expected}. Actual {actual}."
         | DalStringUnboxingReturnedNull -> "String unboxing returned DB null"
         | DalUuidUnboxingReturnedNull -> "UUID unboxing returned DB null"
+    
+        | FileIoError ex -> $"Error in File I/O operation. Error message: {ex.Message}{Environment.NewLine} {ex.StackTrace}"
         
         | FiscalPeriodInvalidKeyString key -> $"Passed string \"{key}\" is invalid as a Period Key."
         | FiscalPeriodNoPeriodMatchingId uuid -> $"No Fiscal Period matching the id {uuid} could be found in the database."
@@ -250,4 +256,6 @@ module AppError =
         | MoneyFailedToConvertImproperPrecision raw -> $"Failed to convert {raw} to Money record due to improper decimal precision."
         | MoneyImproperSplit n -> $"Improper Money split of {n}. Money can only be split by a positive integer, greater than 1."
         | MoneySplitFailedReconciliation(originalAmount, sumTotal) -> $"Sum of all shares {sumTotal} does not match original amount {originalAmount}."
+        
+        | ReportingUnknownReportName name -> $"Unknown report: {name}."
 

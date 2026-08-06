@@ -55,8 +55,4 @@
     <Compile Include="DataAccessLayer\DalTests.fs" />
   </ItemGroup>
 
-  <Target Name="CopyEnvConfig" AfterTargets="Build">
-    <Copy SourceFiles="appsettings.Development.json" DestinationFiles="$(OutputPath)appsettings.json" />
-  </Target>
-
 </Project>
