@@ -24,6 +24,9 @@
     <Compile Include="Routes\JournalEntryRoutes.fs" />
     <Compile Include="ReportVisualizationAssets\Css.fs" />
     <Compile Include="ReportVisualizationAssets\HtmlWrapper.fs" />
+    <Compile Include="ReportVisualizationAssets\ReportHeader.fs" />
+    <Compile Include="ReportVisualizationAssets\ReportBody.fs" />
+    <Compile Include="ReportVisualizationAssets\ReportFooter.fs" />
     <Compile Include="ReportWriters\TrialBalanceWriter.fs" />
     <Compile Include="Routes\ReportRoutes.fs" />
   </ItemGroup>

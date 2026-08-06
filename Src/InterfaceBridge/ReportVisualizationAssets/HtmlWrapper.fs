@@ -4,7 +4,7 @@ open InterfaceBridge.ReportVisualizationAssets.Css
 open System
 
         
-type HtmlHeader =
+type HtmlHead =
     internal 
         { charSet: string
           title: string
@@ -12,7 +12,7 @@ type HtmlHeader =
           specificCss: CssDeclaration list
           script: string }
 
-module HtmlHeader =
+module HtmlHead =
     let toString h =
         let baseCss =
             h.baseCss
@@ -46,17 +46,20 @@ module HtmlHeader =
 type DomElementType =
     | Section
     | Header
+    | Footer of string
     | H1 of string
     | H2 of string
     | H3 of string
     | Div
+    | NestedSpan
     | Span of string
+    | Bold of string
     | Paragraph
     | Table
     | TableRow
     | TableHeadCell of string
     | TableDataCell of string
-    | None of string
+    | NoTag of string
 
 type DomElementIdentifier =
     | Id of string
@@ -70,17 +73,39 @@ type DomElement =
           identifierType: DomElementIdentifier
           contents: DomElement list }
 
+type TagType =
+    | WrapperTag of string
+    | ContentTag of string
+
 module DomElement =
-    let rec toString e =
+    let private createTagString tag identifier tagType =
+        match tagType with
+        | WrapperTag elements -> $"<{tag} {identifier} >{elements}</{tag}>"
+        | ContentTag s -> $"<{tag} {identifier} >{s}</{tag}>"
+        
+    let rec internal toString e =
         let sortedSubElements =
             e.contents
             |> List.sortBy(_.ordinal)
             |> List.map(toString)
             |> String.concat Environment.NewLine
+        let identifier =
+            match e.identifierType with
+            | Class c -> $"class=\"{c}\""
+            | Id id -> $"id=\"{id}\""
+            | NoIdentifier -> ""
         match e.elementType with
-        | Span s -> $"<span>{s}</span>"
-        | Paragraph -> $"<p>{sortedSubElements}</p>"
-        | _ -> ""
+        | H1 s -> createTagString "h1" identifier (ContentTag s)
+        | Span s -> createTagString "span" identifier (ContentTag s)
+        | Bold s -> createTagString "b" identifier (ContentTag s)
+        | Footer s -> createTagString "footer" identifier (ContentTag s)
+        | NoTag s -> $" {s} "
+        | Section -> createTagString "h1" identifier (WrapperTag sortedSubElements)
+        | Header -> createTagString "header" identifier (WrapperTag sortedSubElements)
+        | Div -> createTagString "div" identifier (WrapperTag sortedSubElements)
+        | Paragraph -> createTagString "p" identifier (WrapperTag sortedSubElements)
+        | NestedSpan -> createTagString "span" identifier (WrapperTag sortedSubElements)
+        | _ -> "tag not implemented"
         
 type HtmlBody =
     internal 
@@ -102,14 +127,14 @@ module HtmlBody =
 type HtmlWrapper =
     internal
         { language: string
-          header: HtmlHeader
+          head: HtmlHead
           body: HtmlBody }
 
 module HtmlWrapper =
     let toString h = $"""
 <!doctype html>
 <html lang="{h.language}">
-{h.header |> HtmlHeader.toString}
+{h.head |> HtmlHead.toString}
 {h.body |> HtmlBody.toString}
 </html>
 """ 
