@@ -22,6 +22,8 @@
     <Compile Include="Routes\AccountRoutes.fs" />
     <Compile Include="Routes\FiscalPeriodRoutes.fs" />
     <Compile Include="Routes\JournalEntryRoutes.fs" />
+    <Compile Include="ReportVisualizationAssets\HtmlWrapper.fs" />
+    <Compile Include="ReportWriters\TrialBalanceWriter.fs" />
     <Compile Include="Routes\ReportRoutes.fs" />
   </ItemGroup>
 

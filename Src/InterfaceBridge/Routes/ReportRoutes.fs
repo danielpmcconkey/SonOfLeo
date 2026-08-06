@@ -7,6 +7,7 @@ open InterfaceBridge.CommandRoute
 open Context
 open InterfaceBridge.InterfaceContracts.ReportsContracts
 open InterfaceBridge.Json
+open InterfaceBridge.ReportWriters
 open Logger.Audit
 open ModelOrchestrator.TrialBalanceReport
 open Utilities.ResultHelper
@@ -21,15 +22,11 @@ let private trialBalance payload _ =
         let trialBalanceRows =
             trialBalanceData
             |> ``convert [TrialBalanceRowFlattened list] to [TrialBalanceReturnRow list]``
-        let (trialBalanceReturn:TrialBalanceReturn) =
+        let! (trialBalanceReturn:TrialBalanceReturn) =
             match input.reportOutput with
-            | OutputSpecifier.DataOnly -> (TrialBalanceReturn.DataOnly trialBalanceRows) 
-            | OutputSpecifier.Report outputPathInput -> 
-                let dateInterpolation = if outputPathInput.interpolateAsOf then $"{input.asOf.asOf}" else ""
-                let fullPath = $"{outputPathInput.baseDir}/{outputPathInput.fileName}{dateInterpolation}.html"
-                let outputPathReturn = { fullyQualifiedPath = fullPath}
-                raise (NotImplementedException "report generator not yet built.")
-                (TrialBalanceReturn.Report outputPathReturn)
+            | OutputSpecifier.DataOnly -> Ok (TrialBalanceReturn.DataOnly trialBalanceRows) 
+            | OutputSpecifier.Report outputPathInput ->
+                trialBalanceRows |> TrialBalanceWriter.write outputPathInput input.asOf.asOf
         return! trialBalanceReturn |> Json.toJson<TrialBalanceReturn>
     }
     
