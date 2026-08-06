@@ -38,6 +38,7 @@ module HtmlHead =
     .report {{ box-shadow: none; margin: 0; padding: 1rem 1.5rem; max-width: none; }}
     .acct, .acct-label, .acct > table.tx {{ break-inside: avoid; }}
     .acct.level-0 {{ break-before: auto; }}
+    }}
         </style>
         {h.script}
     </head>
@@ -100,7 +101,7 @@ module DomElement =
         | Bold s -> createTagString "b" identifier (ContentTag s)
         | Footer s -> createTagString "footer" identifier (ContentTag s)
         | NoTag s -> $" {s} "
-        | Section -> createTagString "h1" identifier (WrapperTag sortedSubElements)
+        | Section -> createTagString "section" identifier (WrapperTag sortedSubElements)
         | Header -> createTagString "header" identifier (WrapperTag sortedSubElements)
         | Div -> createTagString "div" identifier (WrapperTag sortedSubElements)
         | Paragraph -> createTagString "p" identifier (WrapperTag sortedSubElements)

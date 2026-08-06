@@ -157,34 +157,6 @@ let specificCss = [
         ordinal = 0
         declarator = ".acct.leaf.dormant > .acct-label .tab .val"
         definition = "color: var(--zero);" }
-    // {
-    //     ordinal = 0
-    //     declarator = ""
-    //     definition = """""" }
-    // {
-    //     ordinal = 0
-    //     declarator = ""
-    //     definition = """""" }
-    // {
-    //     ordinal = 0
-    //     declarator = ""
-    //     definition = """""" }
-    // {
-    //     ordinal = 0
-    //     declarator = ""
-    //     definition = """""" }
-    // {
-    //     ordinal = 0
-    //     declarator = ""
-    //     definition = """""" }
-    // {
-    //     ordinal = 0
-    //     declarator = ""
-    //     definition = """""" }
-    // {
-    //     ordinal = 0
-    //     declarator = ""
-    //     definition = """""" }
     ]
 
 type LabelType =

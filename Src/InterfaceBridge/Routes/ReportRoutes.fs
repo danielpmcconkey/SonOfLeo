@@ -1,6 +1,5 @@
 module InterfaceBridge.Routes.ReportRoutes
 
-open System
 open DataAccessLayer.DbTransaction
 open InterfaceBridge.BoundaryConverters.ReportConverters
 open InterfaceBridge.CommandRoute
