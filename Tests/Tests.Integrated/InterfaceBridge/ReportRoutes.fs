@@ -24,18 +24,18 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             let! payload = input |> toJson<TrialBalanceInput>
             let! returnPayload = routeReportingCommandForTesting "TrialBalance" [] payload
             let! returned = returnPayload |> fromJson<TrialBalanceReturn>
-            return returned
+            return!
+                match returned with
+                | TrialBalanceReturn.DataOnly rows ->
+                    Assert.True(rows |> List.length > 0)
+                    let row = rows |> List.head
+                    Assert.False(System.String.IsNullOrWhiteSpace row.accountCode)
+                    Assert.False(System.String.IsNullOrWhiteSpace row.accountName)
+                    Assert.True(row.level >= 0)
+                    Ok ()
+                | TrialBalanceReturn.Report _ ->
+                    Error (TestingError "Expected DataOnly but got Report")
         }
-        |> Result.map(fun returned ->
-            match returned with
-            | TrialBalanceReturn.DataOnly rows ->
-                Assert.True(rows |> List.length > 0)
-                let row = rows |> List.head
-                Assert.False(System.String.IsNullOrWhiteSpace row.accountCode)
-                Assert.False(System.String.IsNullOrWhiteSpace row.accountName)
-                Assert.True(row.level >= 0)
-            | TrialBalanceReturn.Report _ ->
-                Assert.Fail "Expected DataOnly but got Report")
         |> railroadWrapper
 
     [<Fact>]
