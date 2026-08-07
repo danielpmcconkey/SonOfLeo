@@ -7,6 +7,8 @@ open ModelOrchestrator.JournalEntries
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
+open Tests.Helpers.SadPath
+open Utilities.AppError
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
 open Xunit
@@ -56,4 +58,21 @@ type JournalEntryCommentOrchestrationTests(fixture: TestDataFixture) =
                 Assert.Equal(expected, actual)
                 return ()
             })
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-JE-4.9 updateComment rejects no-op when both fields are NoChange``() =
+        let comment =
+            fixture.Data.sharedCommentJe2
+            |> JournalEntry.comments
+            |> List.head
+        let commentId = comment |> JournalEntryComment.journalEntryCommentId
+        runFuncAndAutoRollback JournalEntryUpdateComment (fun context ->
+            let result =
+                JournalEntryCommentOrchestration.updateComment
+                    context
+                    commentId
+                    NoChange
+                    NoChange
+            isCorrectErrorEmpty result JournalEntryCommentUpdateNoOp None)
         |> railroadWrapper
