@@ -2,6 +2,12 @@ namespace Tests.Integrated.InterfaceBridge
 
 open InterfaceBridge.InterfaceContracts.ReportsContracts
 open InterfaceBridge.Json.Json
+open Model.Ledger.Accounts
+open Model.Ledger.Accounts.AccountComponent
+open Model
+open Model.Ledger.Journaling
+open Model.Ledger.Journaling.JournalEntryComponent
+open ModelOrchestrator.JournalEntries.JournalEntry
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
@@ -20,6 +26,27 @@ type ReportRoutesTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-RPT-2.2 data-only mode returns boundary-type rows with expected field types``() =
         let input: TrialBalanceInput = { asOf = { asOf = nextMonth }; reportOutput = OutputSpecifier.DataOnly }
+        let expectedCount = fixture.Data.accounts |> List.length
+        let leafId = fixture.Data.food5350Id
+        let leafCode =
+            fixture.Data.accounts
+            |> List.find(fun a -> a |> Account.accountId = leafId)
+            |> Account.code
+            |> AccountCode.value
+        let unvoidedLines =
+            fixture.Data.journalEntries
+            |> List.filter(fun je ->
+                je |> header |> JournalEntryHeader.voidedAt |> Option.isNone)
+            |> List.collect lines
+        let expectedDebits =
+            unvoidedLines
+            |> List.filter(fun l -> l |> JournalEntryLine.accountId = leafId && l |> JournalEntryLine.lineType = Debit)
+            |> List.sumBy(fun l -> l |> JournalEntryLine.amount |> Money.amount)
+        let expectedCredits =
+            unvoidedLines
+            |> List.filter(fun l -> l |> JournalEntryLine.accountId = leafId && l |> JournalEntryLine.lineType = Credit)
+            |> List.sumBy(fun l -> l |> JournalEntryLine.amount |> Money.amount)
+        let expectedNet = expectedDebits - expectedCredits
         result {
             let! payload = input |> toJson<TrialBalanceInput>
             let! returnPayload = routeReportingCommandForTesting "TrialBalance" [] payload
@@ -27,11 +54,11 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             return!
                 match returned with
                 | TrialBalanceReturn.DataOnly rows ->
-                    Assert.True(rows |> List.length > 0)
-                    let row = rows |> List.head
-                    Assert.False(System.String.IsNullOrWhiteSpace row.accountCode)
-                    Assert.False(System.String.IsNullOrWhiteSpace row.accountName)
-                    Assert.True(row.level >= 0)
+                    Assert.Equal(expectedCount, rows |> List.length)
+                    let leafRow = rows |> List.find(fun r -> r.accountCode = leafCode)
+                    Assert.Equal(expectedDebits, leafRow.totalDebits)
+                    Assert.Equal(expectedCredits, leafRow.totalCredits)
+                    Assert.Equal(expectedNet, leafRow.netBalance)
                     Ok ()
                 | TrialBalanceReturn.Report _ ->
                     Error (TestingError "Expected DataOnly but got Report")
@@ -47,16 +74,16 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             let! payload = input |> toJson<TrialBalanceInput>
             let! returnPayload = routeReportingCommandForTesting "TrialBalance" [] payload
             let! returned = returnPayload |> fromJson<TrialBalanceReturn>
-            return returned
+            return!
+                match returned with
+                | TrialBalanceReturn.Report pathReturn ->
+                    Assert.True(System.IO.File.Exists pathReturn.fullyQualifiedPath)
+                    Assert.Contains(".html", pathReturn.fullyQualifiedPath)
+                    System.IO.File.Delete pathReturn.fullyQualifiedPath
+                    Ok ()
+                | TrialBalanceReturn.DataOnly _ ->
+                    Error (TestingError "Expected Report but got DataOnly")
         }
-        |> Result.map(fun returned ->
-            match returned with
-            | TrialBalanceReturn.Report pathReturn ->
-                Assert.True(System.IO.File.Exists pathReturn.fullyQualifiedPath)
-                Assert.Contains(".html", pathReturn.fullyQualifiedPath)
-                System.IO.File.Delete pathReturn.fullyQualifiedPath
-            | TrialBalanceReturn.DataOnly _ ->
-                Assert.Fail "Expected Report but got DataOnly")
         |> railroadWrapper
 
     [<Fact>]
@@ -69,14 +96,21 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             let! payload = input |> toJson<TrialBalanceInput>
             let! returnPayload = routeReportingCommandForTesting "TrialBalance" [] payload
             let! returned = returnPayload |> fromJson<TrialBalanceReturn>
-            return returned
+            return!
+                match returned with
+                | TrialBalanceReturn.Report pathReturn ->
+                    Assert.Contains($"-{expectedDateStr}", pathReturn.fullyQualifiedPath)
+                    System.IO.File.Delete pathReturn.fullyQualifiedPath
+                    Ok ()
+                | TrialBalanceReturn.DataOnly _ ->
+                    Error (TestingError "Expected Report but got DataOnly")
         }
-        |> Result.map(fun returned ->
-            match returned with
-            | TrialBalanceReturn.Report pathReturn ->
-                let fileName = System.IO.Path.GetFileNameWithoutExtension pathReturn.fullyQualifiedPath
-                Assert.Contains($"-{expectedDateStr}", fileName)
-                System.IO.File.Delete pathReturn.fullyQualifiedPath
-            | TrialBalanceReturn.DataOnly _ ->
-                Assert.Fail "Expected Report but got DataOnly")
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-NGUI-4.5 unknown report name fails with typed error``() =
+        isCorrectError
+            (routeReportingCommandForTesting "BogusReport" [] "{}")
+            ReportingUnknownReportName
+            None
         |> railroadWrapper
