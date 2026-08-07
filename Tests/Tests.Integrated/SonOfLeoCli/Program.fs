@@ -3,7 +3,7 @@ namespace Tests.Integrated.SonOfLeoCli
 open InterfaceBridge.InterfaceContracts.AccountContracts
 open InterfaceBridge.Json.Json
 open Tests.Helpers
-open Tests.Integrated.SonOfLeoCli.CliExecutor
+open Tests.Helpers.CliExecutor
 open Utilities.AppError
 open Utilities.ResultHelper
 open Xunit
@@ -15,7 +15,7 @@ type ProgramTests(fixture: TestDataFixture) =
     member _.``REQ-NGUI-1.3 System responds with a failure code when failing``() =
         let args = [ "Account"; "Create" ]
         let badPayload = "{}"
-        let exitCode, _, _ = runCli args badPayload
+        let exitCode, _, _ = runCli SonOfLeoCli args badPayload
         (exitCode = 1) |> Assert.True
 
     [<Fact>]
@@ -25,7 +25,7 @@ type ProgramTests(fixture: TestDataFixture) =
             { activeOnly = true }
             |> toJson<AccountFetchAllInput>
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        let exitCode, _, _ = runCli args payload
+        let exitCode, _, _ = runCli SonOfLeoCli args payload
         (exitCode = 0) |> Assert.True
 
     [<Fact>]
@@ -37,7 +37,7 @@ type ProgramTests(fixture: TestDataFixture) =
             { code = code }
             |> toJson<AccountFetchByCodeInput>
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        let _, _, e = runCli args payload
+        let _, _, e = runCli SonOfLeoCli args payload
         Assert.Contains(expectedError, e)
 
     [<Fact>]
@@ -47,7 +47,7 @@ type ProgramTests(fixture: TestDataFixture) =
             { code = "F-1270" }
             |> toJson<AccountFetchByCodeInput>
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        let exitCode, p, _ = runCli args payload
+        let exitCode, p, _ = runCli SonOfLeoCli args payload
         Assert.Equal(0, exitCode)
         let railroad =
             result {
@@ -66,7 +66,7 @@ type ProgramTests(fixture: TestDataFixture) =
             { activeOnly = true }
             |> toJson<AccountFetchAllInput>
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        let exitCode, _, _ = runCli args payload
+        let exitCode, _, _ = runCli SonOfLeoCli args payload
         (exitCode = 1) |> Assert.True
 
     [<Fact>]
@@ -76,7 +76,7 @@ type ProgramTests(fixture: TestDataFixture) =
             { activeOnly = true }
             |> toJson<AccountFetchAllInput>
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        let exitCode, _, _ = runCli args payload
+        let exitCode, _, _ = runCli SonOfLeoCli args payload
         (exitCode = 1) |> Assert.True
 
     [<Fact>]
@@ -87,6 +87,6 @@ type ProgramTests(fixture: TestDataFixture) =
             { activeOnly = true }
             |> toJson<AccountFetchAllInput>
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        let exitCode, _, e = runCli args payload
+        let exitCode, _, e = runCli SonOfLeoCli args payload
         (exitCode = 1) |> Assert.True
         Assert.Equal(expected, e.Trim())

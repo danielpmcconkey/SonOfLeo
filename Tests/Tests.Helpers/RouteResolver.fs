@@ -5,6 +5,7 @@ open DataAccessLayer.DbTransaction
 open InterfaceBridge.Routes.AccountRoutes
 open InterfaceBridge.Routes.FiscalPeriodRoutes
 open InterfaceBridge.Routes.JournalEntryRoutes
+open InterfaceBridge.Routes.ReportRoutes
 open Utilities.AppError
 
 
@@ -20,6 +21,15 @@ let routeUiCommandForTesting
     match commandRoutes |> List.tryFind(fun r -> r.domain = domain && r.verb = verb) with
     | Some command -> command.handler payload rest
     | None -> Error(CliUnknownCommand(domain, verb))
+
+let routeReportingCommandForTesting
+    (name: string)
+    (rest: string list)
+    (payload: string)
+    : Result<string, AppError> =
+    match reportingRoutes |> List.tryFind(fun r -> r.name = name) with
+    | Some command -> command.handler payload rest
+    | None -> Error(ReportingUnknownReportName name)
 
 
 

@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Src\Model\Model.fsproj" />
+    <ProjectReference Include="..\..\Src\Reports\Reports.fsproj" />
     <ProjectReference Include="..\..\Src\SonOfLeoCli\SonOfLeoCli.fsproj" />
     <ProjectReference Include="..\Tests.Helpers\Tests.Helpers.fsproj" />
   </ItemGroup>
@@ -29,7 +30,6 @@
     <Compile Include="Model\Ledger\Account.fs" />
     <Compile Include="Model\Ledger\FiscalPeriod.fs" />
     <Compile Include="SharedTestDataCollection.fs" />
-    <Compile Include="SonOfLeoCli\CliExecutor.fs" />
     <Compile Include="SonOfLeoCli\Program.fs" />
     <Content Include="SonOfLeoCli\README.md" />
     <Compile Include="ModelOrchestrator\AccountDeactivation.fs" />
@@ -55,6 +55,10 @@
     <Compile Include="InterfaceBridge\JournalEntryRoutes.fs" />
     <Compile Include="InterfaceBridge\ReportRoutes.fs" />
     <Compile Include="DataAccessLayer\DalTests.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Reports\Program.fs" />
   </ItemGroup>
 
 </Project>

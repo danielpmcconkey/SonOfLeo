@@ -16,8 +16,7 @@ Behavioral specs for the reporting domain. Reports are read-only computations ov
   - *Why:* The trial balance is a point-in-time snapshot. (2026-08-07)
 - **REQ-RPT-1.10** Net balance computation respects the account type's normal balance direction: debit-normal accounts compute net as debits minus credits; credit-normal accounts compute net as credits minus debits.
 - **REQ-RPT-1.11** An account with no qualifying journal entry activity as of the report date must appear in the result with zero Money values for total credits, total debits, and net balance.
-- **REQ-RPT-1.12** The balance computation underlying the trial balance must accept an optional account filter. When no filter is provided, balances are returned for all accounts. An explicitly empty filter (a list of zero account identifiers) is invalid and must fail with a typed AppError.
-  - *Why:* No filter means "all accounts" — the trial balance use case. An empty explicit list is a programming error, not a request for zero results. (2026-08-07)
+- **REQ-RPT-1.12** Stricken.
 
 ## 2. Report output
 
@@ -70,4 +69,5 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 
 | ID | Original Requirement | Reason |
 |---|---|---|
-| | | |
+| REQ-RPT-1.12 | The balance computation underlying the trial balance must accept an optional account filter. When no filter is provided, balances are returned for all accounts. An explicitly empty filter (a list of zero account identifiers) is invalid and must fail with a typed AppError. | Trial balance must have 100% of accounts to actually confirm balance. |
+
