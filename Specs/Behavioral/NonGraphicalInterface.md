@@ -65,9 +65,7 @@ construction pattern) but deliberately not verified by tests.
 | REQ-NGUI-1.6   | Negative existence claim — cannot prove every payload includes account name; enforced by code review and periodic audit | Dan, 2026-08-07 |
 | REQ-NGUI-3.10  | CLI binary invocation — verified by code review and manual testing | Dan, 2026-08-07 |
 | REQ-NGUI-4.1   | Architectural constraint — verified by the existence of the Reports project | Dan, 2026-08-07 |
-| REQ-NGUI-4.2   | Too broadly scoped | Dan, 2026-08-07 |
 | REQ-NGUI-4.3   | Too broadly scoped | Dan, 2026-08-07 |
-| REQ-NGUI-4.4   | Too broadly scoped | Dan, 2026-08-07 |
 
 ## Unenforceable
 
