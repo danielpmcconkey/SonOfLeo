@@ -46,12 +46,14 @@
     <Compile Include="ModelOrchestrator\JournalEntryCommentOrchestration.fs" />
     <Compile Include="ModelOrchestrator\JournalEntryHeaderOrchestration.fs" />
     <Compile Include="ModelOrchestrator\JournalEntryOrchestration.fs" />
+    <Compile Include="ModelOrchestrator\TrialBalance.fs" />
     <Compile Include="Model\Ledger\JournalEntryHeader.fs" />
     <Compile Include="Model\Ledger\JournalEntryExternalReference.fs" />
     <Compile Include="Model\Ledger\JournalEntryComment.fs" />
     <Compile Include="InterfaceBridge\AccountRoutes.fs" />
     <Compile Include="InterfaceBridge\FiscalPeriodRoutes.fs" />
     <Compile Include="InterfaceBridge\JournalEntryRoutes.fs" />
+    <Compile Include="InterfaceBridge\ReportRoutes.fs" />
     <Compile Include="DataAccessLayer\DalTests.fs" />
   </ItemGroup>
 
