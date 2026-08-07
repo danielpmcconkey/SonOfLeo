@@ -45,6 +45,8 @@ const REPORT_SCHEMA = {
       },
     },
   },
+    noFindingsReasoning: { type: 'string', description: 'Required when findings is empty. What you checked, what you considered, and why nothing rose to finding level. "No findings" with no explanation is indistinguishable from a shallow run.' },
+  },
   required: ['agentName', 'findings'],
 }
 
@@ -113,11 +115,16 @@ RULES OF ENGAGEMENT:
 - Evidence over vibes: every finding cites file paths / REQ IDs / line-level specifics.
 - "Nice to have" is not a finding.
 - Do NOT assign severity — that is Dan's prerogative, not the auditor's.
+- If you have NO findings, you MUST populate noFindingsReasoning: what you checked, what you considered, and why nothing rose to finding level.
 `
 
 function formatReport(result) {
   if (!result || !result.findings || result.findings.length === 0) {
-    return `# ${(result && result.agentName) || 'Unknown'}\n\n_No findings._`
+    const name = (result && result.agentName) || 'Unknown'
+    const reasoning = (result && result.noFindingsReasoning)
+      ? `\n\n## Reasoning\n\n${result.noFindingsReasoning}`
+      : ''
+    return `# ${name}\n\n_No findings._${reasoning}`
   }
   let md = `# ${result.agentName}\n\n`
   for (const f of result.findings) {
@@ -517,9 +524,7 @@ if (batchAuditors.length === 0) {
       return agent(aud.prompt, { label: aud.label, phase: 'Auditors', schema: REPORT_SCHEMA })
     },
     (result, aud) => {
-      const content = (result && result.findings && result.findings.length > 0)
-        ? formatReport(result)
-        : `# ${aud.label}\n\n_No findings._`
+      const content = formatReport(result)
       if (result && result.findings && result.findings.length > 0) {
         log(`${aud.label}: ${result.findings.length} finding(s)`)
       }

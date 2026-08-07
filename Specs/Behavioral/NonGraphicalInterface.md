@@ -10,6 +10,7 @@ Applies to command line, importing, reporting, API, etc. Any use case where an e
 - **REQ-NGUI-1.3.1** In the event of an error, the payload will comprise the error message and, in cases of system exceptions, the full stack trace.
 - **REQ-NGUI-1.4** The user interface must never force the actor to interact with Account UUIDs. All interface capabilities must present an option for the actor to reference accounts by code and all return payloads must include account codes when identifying an account.
 - **REQ-NGUI-1.5** When a UI-facing operation references an Account entity by code and that code does not correspond to an existing Account entity, the operation must fail with an error.
+- **REQ-NGUI-1.6** All interface return payloads that identify an account must include the account name alongside the account code.
 
 ## 2. UI domain types
 
@@ -31,6 +32,15 @@ Applies to command line, importing, reporting, API, etc. Any use case where an e
 - **REQ-NGUI-3.7** Upon unsuccessful execution, the system will return the error via stderr and exit with a non-0 code.
 - **REQ-NGUI-3.8** The domain and verb command line arguments must be treated as case sensitive
 - **REQ-NGUI-3.9** If the actor provides an incorrect or otherwise unsupported domain and verb combination, the CLI application must exit with an appropriate error 
+- **REQ-NGUI-3.10** The actor may provide the payload component of the trigger via a `--file` argument followed by a file path, as an alternative to stdin (REQ-NGUI-3.3). The contents of the specified file replace the stdin payload. This mechanism applies to both the main CLI (this section) and the Reports CLI (section 4).
+
+## 4. Reports CLI
+
+- **REQ-NGUI-4.1** The system must provide a separate Reports CLI executable for report generation, distinct from the main CLI.
+- **REQ-NGUI-4.2** The Reports CLI accepts a report name as its first command line argument. The report name is case sensitive.
+- **REQ-NGUI-4.3** The Reports CLI accepts the payload via stdin or the `--file` flag (REQ-NGUI-3.10).
+- **REQ-NGUI-4.4** Upon successful execution, the Reports CLI returns the payload via stdout and exits with code 0. Upon failure, it returns the error via stderr and exits with a non-zero code.
+- **REQ-NGUI-4.5** If the actor provides an unsupported report name, the Reports CLI must exit with a typed error.
 
 
 ## Waived from testing
@@ -52,6 +62,12 @@ construction pattern) but deliberately not verified by tests.
 | REQ-NGUI-3.3   | It's too broadly scoped | Dan, 2026-06-18  |
 | REQ-NGUI-3.4   | It's too broadly scoped | Dan, 2026-06-18  |
 | REQ-NGUI-3.5   | It's too broadly scoped | Dan, 2026-06-18  |
+| REQ-NGUI-1.6   | Negative existence claim — cannot prove every payload includes account name; enforced by code review and periodic audit | Dan, 2026-08-07 |
+| REQ-NGUI-3.10  | CLI binary invocation — verified by code review and manual testing | Dan, 2026-08-07 |
+| REQ-NGUI-4.1   | Architectural constraint — verified by the existence of the Reports project | Dan, 2026-08-07 |
+| REQ-NGUI-4.2   | Too broadly scoped | Dan, 2026-08-07 |
+| REQ-NGUI-4.3   | Too broadly scoped | Dan, 2026-08-07 |
+| REQ-NGUI-4.4   | Too broadly scoped | Dan, 2026-08-07 |
 
 ## Unenforceable
 

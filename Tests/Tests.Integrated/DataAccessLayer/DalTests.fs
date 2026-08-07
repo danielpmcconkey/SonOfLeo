@@ -6,7 +6,6 @@ open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.ExecuteScalar
 open Logger.Audit
-open Microsoft.FSharp.Reflection
 open Tests.Helpers.Railroad
 open Utilities.ResultHelper
 open Xunit
