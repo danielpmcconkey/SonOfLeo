@@ -107,25 +107,13 @@ type TrialBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-1.7 top-level accounts have generation 0 and children increment by 1 per level``() =
-        let context = Context.Context.create NoTransaction FetchOnly
-        let nextMonth = Calendar.today().PlusMonths(1)
         result {
-            let! allAccounts = Account.fetchAll context false
-            let! rows = fetchTrialBalanceData context nextMonth
-            let topLevelCodes =
-                allAccounts
-                |> List.filter(fun a -> a |> Account.parentId |> Option.isNone)
-                |> List.map Account.code
-            topLevelCodes |> List.iter(fun code ->
-                let row = rows |> List.find(fun r -> r.accountCode = code)
-                Assert.Equal(0, row.generation))
-            let childAccounts =
-                allAccounts
-                |> List.filter(fun a -> a |> Account.parentId |> Option.isSome)
-            childAccounts |> List.iter(fun child ->
-                let childCode = child |> Account.code
-                let childRow = rows |> List.find(fun r -> r.accountCode = childCode)
-                Assert.Equal(1, childRow.generation))
+            let! rows = fetchTb()
+            let findGen code = (rows |> List.find(fun r -> r.accountCode |> AccountCode.value = code)).generation
+            Assert.Equal(0, findGen "F-5000")
+            Assert.Equal(1, findGen "F-5300")
+            Assert.Equal(2, findGen "F-5310")
+            Assert.Equal(3, findGen "F-5311")
             return ()
         }
         |> railroadWrapper

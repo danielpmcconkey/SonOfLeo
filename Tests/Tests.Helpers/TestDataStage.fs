@@ -37,6 +37,11 @@ type FixtureData =
       personalRevenue4290Id: AccountId
       food5350Id: AccountId
       entertainment5650Id: AccountId
+      personalExpenses5300Id: AccountId
+      healthInsurance5310Id: AccountId
+      healthInsuranceMedical5311Id: AccountId
+      healthInsuranceDental5312Id: AccountId
+      healthInsuranceVision5313Id: AccountId
       temporalRevenue4500Id: AccountId
       temporalExpense5700Id: AccountId
       closedBank1290Id: AccountId
@@ -251,6 +256,41 @@ type TestDataFixture() =
                         (Some expenses5000Id)
                         None
                 accounts <- entertainment5650 :: accounts
+
+                let! personalExpenses5300, personalExpenses5300Id =
+                    createTestAccountFromPrimitives
+                        context "F-5300" "Personal Expenses" "Expense"
+                        lastYear None None
+                        (Some expenses5000Id) None
+                accounts <- personalExpenses5300 :: accounts
+
+                let! healthInsurance5310, healthInsurance5310Id =
+                    createTestAccountFromPrimitives
+                        context "F-5310" "Health Insurance Premiums" "Expense"
+                        lastYear None None
+                        (Some personalExpenses5300Id) None
+                accounts <- healthInsurance5310 :: accounts
+
+                let! healthInsuranceMedical5311, healthInsuranceMedical5311Id =
+                    createTestAccountFromPrimitives
+                        context "F-5311" "Health Insurance Medical" "Expense"
+                        lastYear None (Some "OperatingExpense")
+                        (Some healthInsurance5310Id) None
+                accounts <- healthInsuranceMedical5311 :: accounts
+
+                let! healthInsuranceDental5312, healthInsuranceDental5312Id =
+                    createTestAccountFromPrimitives
+                        context "F-5312" "Health Insurance Dental" "Expense"
+                        lastYear None (Some "OperatingExpense")
+                        (Some healthInsurance5310Id) None
+                accounts <- healthInsuranceDental5312 :: accounts
+
+                let! healthInsuranceVision5313, healthInsuranceVision5313Id =
+                    createTestAccountFromPrimitives
+                        context "F-5313" "Health Insurance Vision" "Expense"
+                        lastYear None (Some "OperatingExpense")
+                        (Some healthInsurance5310Id) None
+                accounts <- healthInsuranceVision5313 :: accounts
 
                 let! temporalRevenue4500, temporalRevenue4500Id =
                     createTestAccountFromPrimitives
@@ -599,6 +639,11 @@ type TestDataFixture() =
                       personalRevenue4290Id = personalRevenue4290Id
                       food5350Id = food5350Id
                       entertainment5650Id = entertainment5650Id
+                      personalExpenses5300Id = personalExpenses5300Id
+                      healthInsurance5310Id = healthInsurance5310Id
+                      healthInsuranceMedical5311Id = healthInsuranceMedical5311Id
+                      healthInsuranceDental5312Id = healthInsuranceDental5312Id
+                      healthInsuranceVision5313Id = healthInsuranceVision5313Id
                       temporalRevenue4500Id = temporalRevenue4500Id
                       temporalExpense5700Id = temporalExpense5700Id
                       closedBank1290Id = closedBank1290Id
