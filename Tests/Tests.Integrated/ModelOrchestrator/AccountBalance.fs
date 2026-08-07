@@ -22,7 +22,7 @@ open Context.Context
 type AccountBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
-    member _.``REQ-JE-3.6 fetchByAccountIdList returns correct debit and credit totals``() =
+    member _.``REQ-JE-3.6 REQ-RPT-1.10 fetchByAccountIdList returns correct debit and credit totals``() =
         let context = create NoTransaction FetchOnly
         let id1 = fixture.Data.mortgage2210Id
         let id2 = fixture.Data.food5350Id
@@ -56,7 +56,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-3.6 REQ-JE-4.7 fetchByAccountIdList excludes voided entry amounts``() =
+    member _.``REQ-JE-3.6 REQ-JE-4.7 REQ-RPT-1.8 fetchByAccountIdList excludes voided entry amounts``() =
         let context = create NoTransaction FetchOnly
         let id1 = fixture.Data.creditCard2220Id
         let id2 = fixture.Data.entertainment5650Id
