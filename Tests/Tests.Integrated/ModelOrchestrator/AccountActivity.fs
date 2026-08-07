@@ -286,3 +286,53 @@ type AccountActivityTests(fixture: TestDataFixture) =
                 let detail = activity.activityDetail |> Option.get
                 Assert.Equal(targetDescriptionString, detail.journalEntryDescription |> JournalEntryDescription.value)
         | Error e -> Assert.Fail(AppError.toMessage e)
+
+    [<Fact>]
+    member _.``REQ-JE-3.9 fetchFiltered by journalEntryId returns only lines for that entry``() =
+        let targetId = fixture.Data.basicJeId
+        let expectedLineCount =
+            fixture.Data.journalEntryLines
+            |> List.filter(fun l -> l |> JournalEntryLine.journalEntryHeaderId = targetId)
+            |> List.length
+        Assert.True(expectedLineCount > 0, "Fixture basicJe should have lines")
+        let filter =
+            { accountId = None
+              temporalFilter = None
+              source = None
+              accountType = None
+              accountSubtype = None
+              accountParentId = None
+              journalEntryId = Some targetId
+              amount = None
+              description = None
+              unVoidedOnly = false }
+        let context = Context.create NoTransaction FetchOnly
+        let result = fetchFiltered context filter None
+        match result with
+        | Ok activities ->
+            let withDetail = activities |> List.filter(fun a -> a.activityDetail |> Option.isSome)
+            Assert.Equal(expectedLineCount, withDetail |> List.length)
+            for activity in withDetail do
+                let detail = activity.activityDetail |> Option.get
+                Assert.Equal(targetId, detail.journalEntryHeaderId)
+        | Error e -> Assert.Fail(AppError.toMessage e)
+
+    [<Fact>]
+    member _.``REQ-JE-3.9 fetchFiltered by journalEntryId with nonexistent id returns no activity rows``() =
+        let bogusId = Guid.NewGuid() |> JournalEntryHeaderId.fromGuid
+        let filter =
+            { accountId = None
+              temporalFilter = None
+              source = None
+              accountType = None
+              accountSubtype = None
+              accountParentId = None
+              journalEntryId = Some bogusId
+              amount = None
+              description = None
+              unVoidedOnly = false }
+        let context = Context.create NoTransaction FetchOnly
+        let result = fetchFiltered context filter None
+        match result with
+        | Ok activities -> Assert.Empty(activities)
+        | Error e -> Assert.Fail(AppError.toMessage e)
