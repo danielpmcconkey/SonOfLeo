@@ -123,6 +123,50 @@ boundary. Exit codes belong only to the latter, and those tests are deliberately
 typed assertions; keep process-level tests to plumbing (exit codes, stdout/stderr,
 case-sensitivity) and nothing else.
 
+## Specimen 6 — the fox guarding the hen house
+
+**Before (caught in review, August 2026):**
+```fsharp
+// Testing fetchTrialBalanceData, which internally calls fetchByAccountIdList
+let! balances = AccountBalance.fetchByAccountIdList context (Some [leafId]) None
+let expectedDebits = (balances |> List.head).totalDebits |> Money.amount
+let expectedCredits = (balances |> List.head).totalCredits |> Money.amount
+let! rows = fetchTrialBalanceData context nextMonth
+let leafRow = rows |> List.find(fun r -> r.accountCode = leafCode)
+Assert.Equal(expectedDebits, leafRow.totalDebits |> Money.amount)
+```
+
+**Why it's worthless:** `fetchTrialBalanceData` calls `fetchByAccountIdList` internally.
+Both sides of the assertion run the same code. If the balance computation is wrong —
+sign-flipped, off-by-one in the as-of filter, miscounting voided entries — both the
+expected and actual values are wrong in the same way, and the test passes. You have
+tested that a function agrees with itself.
+
+**After:**
+```fsharp
+let unvoidedLines =
+    fixture.Data.journalEntries
+    |> List.filter(fun je ->
+        je |> header |> JournalEntryHeader.voidedAt |> Option.isNone)
+    |> List.collect lines
+let expectedDebits =
+    unvoidedLines
+    |> List.filter(fun l ->
+        l |> JournalEntryLine.accountId = leafId
+        && l |> JournalEntryLine.lineType = Debit)
+    |> List.sumBy(fun l -> l |> JournalEntryLine.amount |> Money.amount)
+// ...
+Assert.Equal(expectedDebits, leafRow.totalDebits |> Money.amount)
+```
+Expected values are derived from the raw fixture data — the journal entry lines that
+were staged into the database — using only list operations, not any function in the
+system under test's call chain. If the balance computation is wrong, the expected value
+is right and the test fails.
+
+The rule: **no function in the call chain of the function under test may appear in the
+derivation of the expected value.** This applies to all expected values — amounts,
+counts, codes, dates — not just counts.
+
 ---
 
 ## The smell test

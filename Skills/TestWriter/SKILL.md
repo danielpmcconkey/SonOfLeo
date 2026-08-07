@@ -126,6 +126,31 @@ Write tests to the same standard as production code:
 - Descriptive errors in `Result.mapError`; never a bare `failwith` to assert behavior
 - `defaultWith failwith` is acceptable in test setup — a broken fixture means every test is
   broken — never for asserting user-facing behavior
+- When matching a DU case inside a result CE, use `return! match` — not `Result.map`
+  after the CE:
+
+```fsharp
+// correct — errors stay in the railway
+result {
+    let! returned = someOperation
+    return!
+        match returned with
+        | TrialBalanceReturn.DataOnly rows ->
+            Assert.Equal(expected, rows |> List.length)
+            Ok ()
+        | TrialBalanceReturn.Report _ ->
+            Error (TestingError "Expected DataOnly but got Report")
+}
+|> railroadWrapper
+
+// wrong — Assert.Fail throws outside the Result type
+result { ... return returned }
+|> Result.map(fun returned ->
+    match returned with
+    | TrialBalanceReturn.DataOnly rows -> Assert.Equal(expected, rows |> List.length)
+    | TrialBalanceReturn.Report _ -> Assert.Fail "Expected DataOnly but got Report")
+|> railroadWrapper
+```
 
 ## Build and run
 
