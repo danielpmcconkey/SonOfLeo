@@ -499,7 +499,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-4.9 REQ-SYS-6.1 UpdateExternalReference rejects no-op update``() =
+    member _.``REQ-JE-4.9 UpdateExternalReference rejects no-op update``() =
         let mutable idToCleanUp = None
         try
             let context = create NoTransaction FetchOnly

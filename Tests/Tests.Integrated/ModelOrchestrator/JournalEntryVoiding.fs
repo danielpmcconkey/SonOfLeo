@@ -112,7 +112,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-4.6 REQ-SYS-6.1 voidJournalEntryOrchestration rejects void on already-voided entry``() =
+    member _.``REQ-JE-4.6 voidJournalEntryOrchestration rejects void on already-voided entry``() =
         runFuncAndAutoRollback JournalEntryVoid (fun context ->
             let voidedResult = fixture.Data.voidedJeId |> voidJournalEntry context None commentText
             match voidedResult with
