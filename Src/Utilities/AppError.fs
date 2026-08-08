@@ -82,6 +82,13 @@ type AppError =
     | FiscalPeriodNoPeriodMatchingKey of string
     | FiscalPeriodToggleOpenNoOp
     
+    | IngestionBaseStageEntryGroupIdIsEmpty of string
+    | IngestionBaseStageEntryGroupIdTooLong of string * int
+    | IngestionBaseStageEntryNonPositiveAmount of decimal
+    | IngestionBaseStageGroupDebitCreditMismatch of decimal * decimal
+    | IngestionBaseStageGroupIdDistinctDataViolation of string
+    | IngestionBaseStageGroupInsufficientEntries of int
+    
     | InterfaceBridgeConversionFailure of string * string * string * string
     | InterfaceBridgeFailedJsonDeserialization of string * string * string
     | InterfaceBridgeFailedJsonSerialization of string * string * string
@@ -207,6 +214,13 @@ module AppError =
         | FiscalPeriodNoPeriodMatchingId uuid -> $"No Fiscal Period matching the id {uuid} could be found in the database."
         | FiscalPeriodNoPeriodMatchingKey key -> $"No Fiscal Period matching the key {key} could be found in the database."
         | FiscalPeriodToggleOpenNoOp -> "Opening or closing this fiscal period would've had no result. Likely because it was already in the desired state."
+        
+        | IngestionBaseStageEntryGroupIdIsEmpty str -> $"BaseStageEntryGroupId cannot be empty. Provided value is {str}."
+        | IngestionBaseStageEntryGroupIdTooLong(str, max) -> $"BaseStageEntryGroupId cannot exceed {max} characters. Provided value is {str}."
+        | IngestionBaseStageEntryNonPositiveAmount amount -> $"BaseStageEntry Amount field ({amount}) cannot be less than or equal to 0.00."
+        | IngestionBaseStageGroupDebitCreditMismatch(debits, credits) -> $"Error in Base Stage Entry Group. The sum of all debit amounts ({debits}) must exactly equal the sum of all credit amounts ({credits})."
+        | IngestionBaseStageGroupIdDistinctDataViolation str -> $"More than one combination of \"header\" data found for BaseStageEntryGroupId {str}"
+        | IngestionBaseStageGroupInsufficientEntries entryCount -> $"Insufficient number of entries ({entryCount}) for a base stage entry group. At least two are required."
         
         | InterfaceBridgeConversionFailure(originalType, originalValue, desiredType, childError) -> $"Failed conversion in InterfaceBridge. Original type: {originalType}. Desired type: {desiredType}. Original value: {originalValue}. Additional details: {childError}"
         | InterfaceBridgeFailedJsonDeserialization(typeName, error, stackTrace) -> $"Failed to deserialize JSON string into type {typeName}. {error}{Environment.NewLine}{stackTrace}"

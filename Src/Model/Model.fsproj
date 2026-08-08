@@ -17,6 +17,7 @@
     <Compile Include="Ledger\JournalEntryLine.fs" />
     <Compile Include="Ledger\JournalEntryExternalReference.fs" />
     <Compile Include="Ledger\JournalEntryComment.fs" />
+    <Compile Include="DataIngestion\BaseStageEntry.fs" />
   </ItemGroup>
 
   <ItemGroup>

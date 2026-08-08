@@ -37,7 +37,7 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-1.7** `entry_type`: required. Must be `"Debit"` or `"Credit"`.
 - **REQ-STG-1.8** `account_code`: optional (null). When present, must be a non-empty string. The parser populates this when the destination account is known; null when classification must determine it.
 - **REQ-STG-1.9** `description`: required, maximum 1000 characters. The raw description from the source document.
-- **REQ-STG-1.10** `fi_source`: required, maximum 50 characters. Identifies the institution and account that originated this data.
+- **REQ-STG-1.10** `fi_source`: required, maximum 100 characters. Identifies the institution and account that originated this data.
 - **REQ-STG-1.11** `fi_reference`: optional (null), maximum 100 characters. The financial institution's own transaction identifier.
 - **REQ-STG-1.12** `memo`: optional (null), maximum 1000 characters. A per-line note describing what this leg represents.
 - **REQ-STG-1.13** All records in a group (same `group_id`) must carry the same `entry_date`, `description`, `fi_source`, and `fi_reference` values.
