@@ -22,14 +22,14 @@ module BaseStageEntryGroupId =
         else
             Ok(BaseStageEntryGroupId trimmed)
                 
-type BaseStageEntry = private {
+type BaseStageEntryLine = private {
         amount : Money
-        entryType : JournalEntryLineType
+        lineType : JournalEntryLineType
         accountCode: AccountCode option
         memo: JournalEntryLineMemo option
     }
 
-module BaseStageEntry =
+module BaseStageEntryLine =
     
     let confirmAmountIsPositive (m: Money) : Result<unit, AppError> =
         if m |> Money.amount <= 0M
@@ -41,12 +41,12 @@ module BaseStageEntry =
         (entryType : JournalEntryLineType)
         (accountCode: AccountCode option)
         (memo: JournalEntryLineMemo option)
-        : Result<BaseStageEntry, AppError> =
+        : Result<BaseStageEntryLine, AppError> =
         match amount |> confirmAmountIsPositive with
         | Error e -> Error e
         | Ok _ -> Ok {
                     amount = amount
-                    entryType = entryType
+                    lineType = entryType
                     accountCode = accountCode
                     memo = memo }
                 
@@ -56,8 +56,8 @@ type BaseStageEntryGroup =
         entryDate : LocalDate
         description: JournalEntryDescription
         fiSource: JournalRefFinancialInstitution
-        fiReference: JournalExternalReferenceText option
-        entries: BaseStageEntry list
+        fiReference: JournalExternalReferenceText
+        entries: BaseStageEntryLine list
     }
 
 module BaseStageEntryGroup =
@@ -71,13 +71,13 @@ module BaseStageEntryGroup =
 
     let sumEntriesByType
         (debitOrCredit: JournalEntryLineType)
-        (entries: BaseStageEntry list)
+        (entries: BaseStageEntryLine list)
         : Result<Money, AppError> =
         entries
-        |> List.filter(fun x -> x.entryType = debitOrCredit)
+        |> List.filter(fun x -> x.lineType = debitOrCredit)
         |> List.map(_.amount) |> Money.sumList
         
-    let private confirmAmountEquality (entries: BaseStageEntry list) : Result<unit, AppError> =
+    let private confirmAmountEquality (entries: BaseStageEntryLine list) : Result<unit, AppError> =
         result {
             let! totalDebits = entries |> sumEntriesByType Debit
             let! totalCredits = entries |> sumEntriesByType Credit
@@ -88,13 +88,13 @@ module BaseStageEntryGroup =
                     Error(IngestionBaseStageGroupDebitCreditMismatch(totalDebits |> Money.amount, totalCredits |> Money.amount))
         }
 
-    let private confirmEntryCount (entries: BaseStageEntry list) : Result<unit, AppError> =
+    let private confirmEntryCount (entries: BaseStageEntryLine list) : Result<unit, AppError> =
         if entries |> List.length < 2 then
             Error(IngestionBaseStageGroupInsufficientEntries(entries |> List.length))
         else
             Ok()
     
-    let private confirmEntries (entries: BaseStageEntry list) : Result<unit, AppError> =
+    let private confirmEntries (entries: BaseStageEntryLine list) : Result<unit, AppError> =
         result {
             do! entries |> confirmEntryCount
             do! entries |> confirmAmountEquality }
@@ -104,8 +104,8 @@ module BaseStageEntryGroup =
         (entryDate : LocalDate)
         (description: JournalEntryDescription)
         (fiSource: JournalRefFinancialInstitution)
-        (fiReference: JournalExternalReferenceText option)
-        (entries: BaseStageEntry list)
+        (fiReference: JournalExternalReferenceText)
+        (entries: BaseStageEntryLine list)
         : Result<BaseStageEntryGroup, AppError> =
         match confirmEntries entries with
         | Error e -> Error e
@@ -124,7 +124,7 @@ module BaseStageRaw =
         entryDate : LocalDate
         description: JournalEntryDescription
         fiSource: JournalRefFinancialInstitution
-        fiReference: JournalExternalReferenceText option
+        fiReference: JournalExternalReferenceText
         amount : Money
         entryType : JournalEntryLineType
         accountCode: AccountCode option
@@ -150,7 +150,7 @@ module BaseStageRaw =
                     let! entries =
                         rawRowsAtTheOnly
                         |> List.map (fun row -> 
-                            BaseStageEntry.create
+                            BaseStageEntryLine.create
                                 row.amount row.entryType row.accountCode row.memo
                             )
                         |> convertListOfResultsToResultsList
