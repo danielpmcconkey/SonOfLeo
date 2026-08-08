@@ -39,6 +39,15 @@ A calendar coordinate: the name of a single day within a specific calendar (e.g.
 ## Calendar period
 The frequency of a regular event, expressed only in terms of years, days, months, weeks, or quarters. Never in temporal slices smaller than a single day. These are always relative to a specific calendar.
 
+## Staged entry
+A record in `stage.staged_entry` representing one economic event held in the staging area. A staged entry is a draft journal entry: it carries the same header-level fields (date, description, source) and is composed of staged lines that mirror journal entry lines. A staged entry becomes a journal entry only when batch-posted through the domain model. Until then it exists outside the ledger and does not affect balances.
+
+## Staged line
+A record in `stage.staged_line` representing one future journal entry line. A staged line belongs to exactly one staged entry and carries an amount, direction (entry_type), and an account assignment that may be null until classification or manual review fills it in.
+
+## Postable (staged entry)
+A staged entry whose status is `'classified'` or `'reviewed'` and whose every staged line has a non-null account_id. Only postable entries are eligible for shadow post or batch post.
+
 ## Interface
 The set of features, functions, services, windows, or reports that actors outside the system will trigger or consume.
 
