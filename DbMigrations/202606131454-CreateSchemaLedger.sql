@@ -7,4 +7,4 @@ drop schema ledger;
  
  */
 
-create schema ledger authorization claude;
+create schema ledger authorization sonofleo_dev;

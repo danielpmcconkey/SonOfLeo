@@ -31,4 +31,4 @@ CREATE TABLE IF NOT EXISTS ledger.account
     );
 
 ALTER TABLE IF EXISTS ledger.account
-    OWNER to claude;
+    OWNER to sonofleo_dev;

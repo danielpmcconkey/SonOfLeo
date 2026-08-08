@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS ledger.account_type
     );
 
 ALTER TABLE IF EXISTS ledger.account_type
-    OWNER to claude;
+    OWNER to sonofleo_dev;
 
 INSERT INTO ledger.account_type(id, name, normal_balance) VALUES (1,'asset','debit');
 INSERT INTO ledger.account_type(id, name, normal_balance) VALUES (2,'liability','credit');

@@ -7,7 +7,7 @@ drop schema ingestion cascade;
  
  */
 
-create schema ingestion authorization claude;
+create schema ingestion authorization sonofleo_dev;
 
 CREATE TABLE IF NOT EXISTS ingestion.source
 (
