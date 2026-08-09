@@ -84,7 +84,7 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-2.20** Audit record from_status is nullable (null on the initial ingestion transition).
 - **REQ-STG-2.21** Audit record to_status cannot be null.
 - **REQ-STG-2.22** Audit record changed_at is a non-null Instant.
-- **REQ-STG-2.23** Audit record change_mechanism cannot be null. Identifies what performed the transition (e.g., `'ingest'`, `'classifier'`, `'dedup'`, `'operator'`, `'post'`).
+- **REQ-STG-2.23** Audit record change_mechanism cannot be null. Must be one of: `'StageIngestion'`, `'Classifier'`, `'Deduplicator'`, `'Operator'`, `'LedgerPoster'`.
 
 
 ## 3. Ingestion behaviors
@@ -97,7 +97,8 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-3.5** The system must generate a UUID for each staged entry and each staged line.
 - **REQ-STG-3.6** When a record's fi_source does not resolve to an existing source in `ingestion.source`, the system must reject the file.
   - *Why:* An unrecognized source indicates a parser misconfiguration, not a classification concern. (2026-08-08)
-- **REQ-STG-3.7** When a record's account_code is non-null, the system stores it on the staged line as-is. Account code validation against the chart of accounts occurs at posting time, not at ingestion.
+- **REQ-STG-3.7** When a record's account_code is non-null, the system must validate it resolves to an existing account in the chart of accounts. If it does not, the system must reject the file. The staged line stores the account code (not the resolved account ID); code-to-ID resolution occurs at posting time.
+  - *Why:* A parser-assigned account code that does not exist is a parser defect. Fail fast. Account codes (not IDs) are stored because the review surface and classification rules operate on codes. (2026-08-09)
 - **REQ-STG-3.8** When a record's account_code is null, the staged line's account_code is set to null.
 - **REQ-STG-3.9** On successful ingestion, every staged entry's status is set to `'ingested'` and an audit record is created (from_status null, to_status `'ingested'`).
 - **REQ-STG-3.10** Ingestion is atomic: either the entire file is ingested (all entries and lines persisted) or no rows are created.
@@ -105,24 +106,33 @@ The base staging format is the interface contract between bespoke parsers and th
 
 ## 4. Status lifecycle
 
-- **REQ-STG-4.1** A staged entry's status must be one of: `'ingested'`, `'classified'`, `'unclassified'`, `'conflict'`, `'reviewed'`, `'duplicate'`, `'posted'`.
-- **REQ-STG-4.2** `'posted'` is a terminal status. No transitions out of `'posted'` are permitted.
+- **REQ-STG-4.1** A staged entry's status must be one of: `'Ingested'`, `'Classified'`, `'NoMatch'`, `'Conflict'`, `'Reviewed'`, `'Duplicate'`, `'Posted'`, `'Ignored'`.
+- **REQ-STG-4.2** `'Posted'` is a terminal status. No transitions out of `'Posted'` are permitted.
 - **REQ-STG-4.3** Every status transition must create an audit record in `ingestion.staged_entry_audit`.
-- **REQ-STG-4.4** A staged entry is postable when all of the following are true: (a) its status is `'classified'` or `'reviewed'`, and (b) every one of its staged lines has a non-null account_code.
+- **REQ-STG-4.4** A staged entry is postable when all of the following are true: (a) its status is `'Classified'` or `'Reviewed'`, and (b) every one of its staged lines has a non-null account_code.
+- **REQ-STG-4.5** `'Ignored'` marks an entry that should not be posted due to data problems at the source. The deduplication pass must treat `'Ignored'` entries as matches — re-importing a transaction that was deliberately ignored must flag the new entry as duplicate, not silently re-admit it.
+  - *Why:* Without this, voiding a bad JE and ignoring its staged source would cause the next overlapping file import to re-ingest the same bad data. (2026-08-09)
 
 Valid transitions:
 
 ```
-ingested     → classified    (all lines have account_codes after classification)
-ingested     → unclassified  (at least one line has no rule match after classification)
-ingested     → conflict      (at least one line has multiple rule matches at equal priority)
-ingested     → duplicate     (dedup identifies this entry as a duplicate)
-classified   → reviewed      (operator confirms or adjusts)
-classified   → posted        (batch post)
-unclassified → reviewed      (operator manually assigns missing accounts)
-conflict     → reviewed      (operator resolves the conflict)
-duplicate    → reviewed      (operator overrides — legitimate duplicate)
-reviewed     → posted        (batch post)
+Ingested   → Classified  (all lines have account_codes after classification)
+Ingested   → NoMatch     (at least one line has no rule match after classification)
+Ingested   → Conflict    (at least one line has multiple rule matches at equal priority)
+Ingested   → Duplicate   (dedup identifies this entry as a duplicate)
+Ingested   → Ignored     (operator deliberately excludes the entry)
+Classified → Reviewed    (operator confirms or adjusts)
+Classified → Ignored     (operator deliberately excludes the entry)
+Classified → Posted      (batch post)
+NoMatch    → Reviewed    (operator manually assigns missing accounts)
+NoMatch    → Ignored     (operator deliberately excludes the entry)
+Conflict   → Reviewed    (operator resolves the conflict)
+Conflict   → Ignored     (operator deliberately excludes the entry)
+Duplicate  → Reviewed    (operator overrides — legitimate duplicate)
+Duplicate  → Ignored     (operator deliberately excludes the entry)
+Ignored    → Reviewed    (operator resurrects a previously ignored entry)
+Reviewed   → Ignored     (operator deliberately excludes the entry)
+Reviewed   → Posted      (batch post)
 ```
 
 
@@ -137,7 +147,8 @@ The classification step runs the vendor classification rules engine against stag
 - **REQ-STG-5.4** When exactly one rule matches and the line's account_code is null, the classifier assigns the rule's account code to the line and records the classification_rule_id on the staged line.
 - **REQ-STG-5.5** When multiple rules match and one has strictly higher priority, the classifier assigns the highest-priority rule's account code.
 - **REQ-STG-5.6** When multiple rules match with equal priority for a line with null account_code, the staged entry's status is set to `'conflict'`.
-- **REQ-STG-5.7** When no rule matches a line with null account_code, the staged entry's status is set to `'unclassified'`.
+- **REQ-STG-5.7** When no rule matches a line with null account_code, the staged entry's status is set to `'NoMatch'`.
+  - *Why:* `'NoMatch'` means the classifier ran and found nothing — it is distinct from "not yet classified." The name was chosen over "unclassified" to avoid ambiguity. (2026-08-09)
 - **REQ-STG-5.8** When classification completes and every line in the staged entry has a non-null account_code, the entry's status is set to `'classified'`.
 
 
@@ -152,7 +163,7 @@ The classification step runs the vendor classification rules engine against stag
 ## 7. Deduplication behaviors
 
 - **REQ-STG-7.1** The system must provide a means to run deduplication against staged entries.
-- **REQ-STG-7.2** A staged entry is flagged as duplicate when another staged entry (in any non-terminal status) shares the same source_id and fi_reference values.
+- **REQ-STG-7.2** A staged entry is flagged as duplicate when another staged entry (in any status other than `'Posted'`) shares the same source_id and fi_reference values. This includes `'Ignored'` entries (per REQ-STG-4.5).
 - **REQ-STG-7.3** A staged entry is flagged as duplicate when a posted journal entry in the ledger carries an external reference whose financial_institution and reference values match the staged entry's source and fi_reference.
   - *Why:* Prevents re-importing transactions that were posted in a prior cycle. (2026-08-08)
 - **REQ-STG-7.4** Stricken.

@@ -46,7 +46,7 @@ A record in `ingestion.staged_entry` representing one economic event held in the
 A record in `ingestion.staged_entry_line` representing one future journal entry line. A staged line belongs to exactly one staged entry and carries an amount, direction (line_type), and an account code that may be null until classification or manual review fills it in.
 
 ## Postable (staged entry)
-A staged entry whose status is `'classified'` or `'reviewed'` and whose every staged line has a non-null account_code. Only postable entries are eligible for shadow post or batch post.
+A staged entry whose status is `'Classified'` or `'Reviewed'` and whose every staged line has a non-null account_code. Only postable entries are eligible for shadow post or batch post.
 
 ## Interface
 The set of features, functions, services, windows, or reports that actors outside the system will trigger or consume.
