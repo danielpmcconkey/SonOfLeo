@@ -55,7 +55,7 @@ let create
 let insertNewToDb (context: Context) (stageEntryLine: StageEntryLine) : Result<unit, AppError> =
     let query =
         """
-        insert into ingestion.staged_entry(
+        insert into ingestion.staged_entry_line (
 	        unique_id, entry_id, amount, line_type, code, memo, classification_rule_id)
         values (
 	        @unique_id, 
@@ -114,7 +114,7 @@ let private reconstitute raw =
 
 let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getUuid "unique_id"),
-    (row |> RowReader.getUuid "headerUuid"),
+    (row |> RowReader.getUuid "entry_id"),
     (row |> RowReader.getNumeric "amount"),
     (row |> RowReader.getString "line_type"),
     (row |> RowReader.getStringOption "code"),
@@ -144,8 +144,8 @@ let private readRowsFromDb
 
 let fetchById (context: Context) (lineId: StageEntryLineId) : Result<StageEntryLine, AppError> =
     let predicate = "l.unique_id = @unique_id"
-    let accountIdGuid = lineId |> StageEntryLineId.value
-    let parameters = [ { name = "@unique_id"; value = UniqueId accountIdGuid } ]
+    let uuid = lineId |> StageEntryLineId.value
+    let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
 let fetchByHeaderId (context: Context) (lineId: StageEntryHeaderId) : Result<StageEntryLine list, AppError> =
@@ -190,48 +190,47 @@ let private updateDb
         [
               stageEntryHeaderIdUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  (", entry_id = @entry_id",
+                  ("entry_id = @entry_id",
                    { name = "@entry_id"; value = UniqueId(n |> StageEntryHeaderId.value) }))
               
               amountUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  (", amount = @amount",
+                  ("amount = @amount",
                    { name = "@amount"; value = Numeric(n |> Money.amount) }))
               
               entryTypeUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  (", line_type = @line_type",
+                  ("line_type = @line_type",
                    { name = "@line_type"; value = CharString(n |> JournalEntryLineType.toString) }))
               
               accountCodeUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  (", code = @code",
+                  ("code = @code",
                    { name = "@code"; value = NullableCharString(n |> Option.map AccountCode.value) }))              
               
               memoUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  (", memo = @memo",
+                  ("memo = @memo",
                    { name = "@memo"; value = NullableCharString(n |> Option.map JournalEntryLineMemo.value) }))
               
               classificationRuleIdUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  (", classification_rule_id = @classification_rule_id",
+                  ("classification_rule_id = @classification_rule_id",
                    { name = "@classification_rule_id"
                      value = NullableUniqueId(n |> Option.map ClassificationRuleId.value) }))
         ]
         |> List.choose id
-    let setClauses = updates |> List.map fst |> String.concat ""
+    let setClauses = updates |> List.map fst |> String.concat ", "
     let parameters = baseParams @ (updates |> List.map snd)
     let query =
         $"""
         UPDATE ingestion.staged_entry_line
         set
-            modified_at = @modified
             {setClauses}
         WHERE unique_id = @unique_id;
     """
     result {
-        do! if updates.IsEmpty then Error(AccountUpdateNoOp) else Ok()
+        do! if updates.IsEmpty then Error(IngestionStageEntryLineNoOp) else Ok()
         let! () = executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
         return! stageEntryLineId |> fetchById context
     }

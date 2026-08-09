@@ -136,10 +136,10 @@ let private constructSetFromRaw
                 let! ingestionSource = fiSource |> IngestionSource.fetchByName context
                 let header =
                     StageEntryHeader.create
-                        sourceFile stageEntryId entryDate description ingestionSource fiReference Read
+                        sourceFile stageEntryId entryDate description ingestionSource fiReference Ingested
                 let transitionId = StageEntryStatusTransitionId.create ()
                 let transition = StageEntryStatusTransition.create transitionId stageEntryId
-                                      None Read (context |> getInitiationInstant) BaseParser
+                                      None Ingested (context |> getInitiationInstant) StageIngestion
                 do! confirmValidTransition transition
                 return {
                     stageEntryHeader = header
@@ -208,6 +208,11 @@ let ingestRawToStage
             entries
             |> List.collect lines
             |> List.map(fun l -> l |> StageEntryLine.insertNewToDb context )
+            |> convertListOfResultsToResultsList
+        let! _ =
+            entries
+            |> List.collect statusTransitions
+            |> List.map(fun l -> l |> StageEntryStatusTransition.insertNewToDb context )
             |> convertListOfResultsToResultsList
         return! sourceFile |> fetchAllByFile context 
     }

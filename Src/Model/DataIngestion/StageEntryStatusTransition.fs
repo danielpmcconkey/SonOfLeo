@@ -26,16 +26,15 @@ let instant v = v.instant
 let stageStatusChangeMechanism v = v.stageStatusChangeMechanism
 
 let validTransitions fromType = fromType |> function
-    | None -> [ Read ]
+    | None -> [ Ingested ]
     | Some x ->
         match x with
-        | Read -> [ Ingested ]
-        | Ingested -> [ Classified; NoMatch; Conflict ]
-        | Classified -> [ Reviewed; Posted ]
-        | NoMatch -> [ Reviewed ]
-        | Conflict -> [ Reviewed ]
-        | Reviewed -> [ Posted ]
-        | Duplicate -> [ Reviewed ]
+        | Ingested -> [ Duplicate; Classified; NoMatch; Conflict; Ignored ]
+        | Classified -> [ Reviewed; Posted; Ignored ]
+        | NoMatch -> [ Reviewed; Ignored ]
+        | Conflict -> [ Reviewed; Ignored ]
+        | Reviewed -> [ Posted; Ignored ]
+        | Duplicate -> [ Reviewed; Ignored ]
         | Posted -> []
         | Ignored -> [ Reviewed ]
 

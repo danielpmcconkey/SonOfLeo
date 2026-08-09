@@ -101,9 +101,9 @@ let private readRowsFromDb
         expectedRows
 
 let fetchByName (context: Context) (name: JournalRefFinancialInstitution) : Result<IngestionSource, AppError> =
-    let predicate = "s.source_name = @s.source_name"
+    let predicate = "s.source_name = @source_name"
     let nameStr = name |> JournalRefFinancialInstitution.value
-    let parameters = [ { name = "@s.source_name"; value = CharString(nameStr) } ]
+    let parameters = [ { name = "@source_name"; value = CharString(nameStr) } ]
     readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
         

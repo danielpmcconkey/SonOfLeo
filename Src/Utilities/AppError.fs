@@ -91,6 +91,8 @@ type AppError =
     | IngestionStageLineNonPositiveAmount of decimal
     | IngestionStageEntryDebitCreditMismatch of decimal * decimal
     | IngestionStageEntryInsufficientLines of int
+    | IngestionStageEntryHeaderNoOp
+    | IngestionStageEntryLineNoOp
     | IngestionStageHeaderIdListCannotBeEmpty
     | IngestionSourceFileIsEmpty of string
     | IngestionSourceFileTooLong of string * int
@@ -227,6 +229,8 @@ module AppError =
         | IngestionInvalidStagedEntryStatus str -> $"Provided string of '{str}' is not a valid StagedEntryStatus."
         | IngestionInvalidStageStatusChangeMechanism str -> $"Provided string of '{str}' is not a valid StageStatusChangeMechanism."
         | IngestionInvalidStageStatusTransition (fromStr, toStr) -> $"Invalid stage status transition. Cannot move from {fromStr} to {toStr}."
+        | IngestionStageEntryHeaderNoOp -> "Updating the StageEntryHeader record failed because at least one updatable parameter must be set."
+        | IngestionStageEntryLineNoOp -> "Updating the StageEntryLine record failed because at least one updatable parameter must be set."
         | IngestionStageHeaderIdListCannotBeEmpty -> "The stageEntryHeaderIds list must contain at least 1 Header ID."
         | IngestionStageLineNonPositiveAmount amount -> $"StageEntry Amount field ({amount}) cannot be less than or equal to 0.00."
         | IngestionStageEntryDebitCreditMismatch(debits, credits) -> $"Error in Base Stage Entry Group. The sum of all debit amounts ({debits}) must exactly equal the sum of all credit amounts ({credits})."

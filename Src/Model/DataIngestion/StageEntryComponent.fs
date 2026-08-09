@@ -11,7 +11,6 @@ module IngestionSourceId =
     let value (IngestionSourceId g) : Guid = g
 
 type StagedEntryStatus =
-    | Read // read from file, not yet loaded into stage table
     | Ingested // added to stage table, not yet classified
     | Classified // classifier ran, found a match
     | NoMatch // classifier ran, no match found
@@ -23,7 +22,6 @@ type StagedEntryStatus =
 
 module StagedEntryStatus =
     let fromString str = str |> function
-        | "Read" -> Ok Read
         | "Ingested" -> Ok Ingested
         | "Classified" -> Ok Classified
         | "NoMatch" -> Ok NoMatch
@@ -35,7 +33,6 @@ module StagedEntryStatus =
         | _ -> Error(IngestionInvalidStagedEntryStatus str)
     
     let toString ``type`` = ``type`` |> function
-        | Read -> "Read"
         | Ingested -> "Ingested"
         | Classified -> "Classified"
         | NoMatch -> "NoMatch"
@@ -46,7 +43,6 @@ module StagedEntryStatus =
         | Ignored -> "Ignored"
         
 type StageStatusChangeMechanism =
-    | BaseParser // the process that reads the base file and hands off to the stage ingestion
     | StageIngestion // the process that initially loads the staged entry into staged tables
     | Classifier // the process that runs vendor classification rules and updates "the other legs" of a JE
     | Deduplicator // the process that recognizes when an entry already has been ingested
@@ -55,7 +51,6 @@ type StageStatusChangeMechanism =
 
 module StageStatusChangeMechanism =
     let fromString str = str |> function
-        | "BaseParser" -> Ok BaseParser
         | "StageIngestion" -> Ok StageIngestion
         | "Classifier" -> Ok Classifier
         | "Deduplicator" -> Ok Deduplicator
@@ -64,7 +59,6 @@ module StageStatusChangeMechanism =
         | _ -> Error(IngestionInvalidStageStatusChangeMechanism str)
     
     let toString ``type`` = ``type`` |> function
-        | BaseParser -> "BaseParser"
         | StageIngestion -> "StageIngestion"
         | Classifier -> "Classifier"
         | Deduplicator -> "Deduplicator"

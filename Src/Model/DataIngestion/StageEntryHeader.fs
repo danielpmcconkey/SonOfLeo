@@ -131,7 +131,7 @@ let private readRowsFromDb
     : Result<StageEntryHeader list, AppError> =
     let select =
         """
-        e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, e.status
+        e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, e.status,
         s.source_name, s.created_at as source_created, s.modified_at as source_modified
         """
     let from = "ingestion.staged_entry e"
@@ -147,8 +147,8 @@ let private readRowsFromDb
 
 let fetchById (context: Context) (headerId: StageEntryHeaderId) : Result<StageEntryHeader, AppError> =
     let predicate = "e.unique_id = @unique_id"
-    let accountIdGuid = headerId |> StageEntryHeaderId.value
-    let parameters = [ { name = "@unique_id"; value = UniqueId accountIdGuid } ]
+    let uuid = headerId |> StageEntryHeaderId.value
+    let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
 let fetchByStatus (context: Context) (status: StagedEntryStatus) : Result<StageEntryHeader list, AppError> =
@@ -160,7 +160,7 @@ let fetchByStatus (context: Context) (status: StagedEntryStatus) : Result<StageE
 let fetchBySourceFile (context: Context) (sourceFile: SourceFile) : Result<StageEntryHeader list, AppError> =
     let predicate = "e.source_file = @source_file"
     let fileStr = sourceFile |> SourceFile.value
-    let parameters = [ { name = "@status"; value = CharString fileStr } ]
+    let parameters = [ { name = "@source_file"; value = CharString fileStr } ]
     readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
 
 let private updateDb
@@ -180,48 +180,47 @@ let private updateDb
         [
               sourceFileUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  (", source_file = @source_file",
+                  ("source_file = @source_file",
                    { name = "@source_file"; value = CharString(SourceFile.value n) }))
               
               entryDateUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  (", entry_date = @entry_date",
+                  ("entry_date = @entry_date",
                    { name = "@entry_date"; value = DbLocalDate(n) }))
               
               descriptionUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  (", description = @description",
+                  ("description = @description",
                    { name = "@description"; value = CharString(JournalEntryDescription.value n) }))
               
               ingestionSourceUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
                   let uuid = n |> ingestionSourceId |> IngestionSourceId.value
-                  (", source_id = @source_id",
+                  ("source_id = @source_id",
                    { name = "@source_id"; value = UniqueId(uuid) }))
               
               fiReferenceUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  (", fi_reference = @fi_reference",
+                  ("fi_reference = @fi_reference",
                    { name = "@fi_reference"; value = CharString(JournalExternalReferenceText.value n) }))
               
               statusUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  (", status = @status",
+                  ("status = @status",
                    { name = "@status"; value = CharString(StagedEntryStatus.toString n) }))
         ]
         |> List.choose id
-    let setClauses = updates |> List.map fst |> String.concat ""
+    let setClauses = updates |> List.map fst |> String.concat ", "
     let parameters = baseParams @ (updates |> List.map snd)
     let query =
         $"""
         UPDATE ingestion.staged_entry
         set
-            modified_at = @modified
             {setClauses}
         WHERE unique_id = @unique_id;
     """
     result {
-        do! if updates.IsEmpty then Error(AccountUpdateNoOp) else Ok()
+        do! if updates.IsEmpty then Error(IngestionStageEntryHeaderNoOp) else Ok()
         let! () = executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
         return! stageEntryHeaderId |> fetchById context
     }
