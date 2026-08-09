@@ -145,9 +145,9 @@ let private readRowsFromDb
         reconstitute
         expectedRows
 
-let fetchById (context: Context) (accountId: StageEntryHeaderId) : Result<StageEntryHeader, AppError> =
+let fetchById (context: Context) (headerId: StageEntryHeaderId) : Result<StageEntryHeader, AppError> =
     let predicate = "e.unique_id = @unique_id"
-    let accountIdGuid = accountId |> StageEntryHeaderId.value
+    let accountIdGuid = headerId |> StageEntryHeaderId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId accountIdGuid } ]
     readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
@@ -155,6 +155,12 @@ let fetchByStatus (context: Context) (status: StagedEntryStatus) : Result<StageE
     let predicate = "e.status = @status"
     let statusStr = status |> StagedEntryStatus.toString
     let parameters = [ { name = "@status"; value = CharString statusStr } ]
+    readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
+
+let fetchBySourceFile (context: Context) (sourceFile: SourceFile) : Result<StageEntryHeader list, AppError> =
+    let predicate = "e.source_file = @source_file"
+    let fileStr = sourceFile |> SourceFile.value
+    let parameters = [ { name = "@status"; value = CharString fileStr } ]
     readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
 
 let private updateDb
@@ -206,10 +212,9 @@ let private updateDb
         |> List.choose id
     let setClauses = updates |> List.map fst |> String.concat ""
     let parameters = baseParams @ (updates |> List.map snd)
-
     let query =
         $"""
-        UPDATE ledger.account
+        UPDATE ingestion.staged_entry
         set
             modified_at = @modified
             {setClauses}

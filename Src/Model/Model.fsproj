@@ -21,6 +21,7 @@
     <Compile Include="DataIngestion\StageEntryStatusTransition.fs" />
     <Compile Include="DataIngestion\IngestionSource.fs" />
     <Compile Include="DataIngestion\StageEntryHeader.fs" />
+    <Compile Include="DataIngestion\ClassificationRule.fs" />
     <Compile Include="DataIngestion\BaseStageEntry.fs" />
     <Compile Include="DataIngestion\StageEntryLine.fs" />
   </ItemGroup>

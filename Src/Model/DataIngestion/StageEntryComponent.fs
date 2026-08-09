@@ -11,7 +11,6 @@ module IngestionSourceId =
     let value (IngestionSourceId g) : Guid = g
 
 type StagedEntryStatus =
-    | NoStatus
     | Read // read from file, not yet loaded into stage table
     | Ingested // added to stage table, not yet classified
     | Classified // classifier ran, found a match
@@ -24,7 +23,6 @@ type StagedEntryStatus =
 
 module StagedEntryStatus =
     let fromString str = str |> function
-        | "NoStatus" -> Ok NoStatus
         | "Read" -> Ok Read
         | "Ingested" -> Ok Ingested
         | "Classified" -> Ok Classified
@@ -37,7 +35,6 @@ module StagedEntryStatus =
         | _ -> Error(IngestionInvalidStagedEntryStatus str)
     
     let toString ``type`` = ``type`` |> function
-        | NoStatus -> "NoStatus"
         | Read -> "Read"
         | Ingested -> "Ingested"
         | Classified -> "Classified"
@@ -88,6 +85,20 @@ module SourceFile =
         else
             Ok(SourceFile trimmed)
 
+type StageEntryStatusTransitionId = private StageEntryStatusTransitionId of Guid
+
+module StageEntryStatusTransitionId =
+    let create () : StageEntryStatusTransitionId = StageEntryStatusTransitionId(Guid.NewGuid())
+    let fromGuid g = StageEntryStatusTransitionId g
+    let value (StageEntryStatusTransitionId g) : Guid = g
+
+type StageEntryLineId = private StageEntryLineId of Guid
+
+module StageEntryLineId =
+    let create () : StageEntryLineId = StageEntryLineId(Guid.NewGuid())
+    let fromGuid g = StageEntryLineId g
+    let value (StageEntryLineId g) : Guid = g
+    
 type StageEntryHeaderId = private StageEntryHeaderId of Guid
 
 module StageEntryHeaderId =

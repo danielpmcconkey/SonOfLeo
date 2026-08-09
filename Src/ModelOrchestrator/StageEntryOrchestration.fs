@@ -1,5 +1,6 @@
 module ModelOrchestrator.StageEntryOrchestration
 
+open System
 open Context.Context
 open Model
 open Model.DataIngestion
@@ -7,6 +8,7 @@ open Model.DataIngestion.BaseStageRaw
 open Model.DataIngestion.StageEntryHeader
 open Model.DataIngestion.StageEntryLine
 open Model.DataIngestion.StageEntryStatusTransition
+open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
 open Utilities.ResultHelper
@@ -47,12 +49,64 @@ let private confirmLineCount (lines: StageEntryLine list) : Result<unit, AppErro
     else
         Ok()
 
-let private confirmLines (lines: StageEntryLine list) : Result<unit, AppError> =
+let private confirmLinesAreAllPositive (lines: StageEntryLine list) : Result<unit, AppError> =
+    let checkedLines =
+        lines
+        |> List.map(fun x ->
+            let amountDec = x |> amount |> Money.amount
+            if amountDec <= 0M then Error(IngestionStageLineNonPositiveAmount(amountDec))
+            else Ok ()
+            )
+        |> convertListOfResultsToResultsList
+    match checkedLines with
+    | Error e -> Error e
+    | Ok _ -> Ok ()
+
+let private confirmLinesAccountCodes
+    (context: Context)
+    (lines: StageEntryLine list)
+    : Result<unit, AppError> =
+    let checkedLines =
+        lines
+        |> List.map(fun x ->
+            let code = x |> accountCode
+            if code |> Option.isNone then Ok ()
+            else 
+                let lookupResult =
+                    code
+                    |> Option.get
+                    |> AccountCode.value
+                    |> LookupCache.accountCodeToId.fetch context 
+                match lookupResult with
+                | Error e -> Error e
+                | Ok _ -> Ok ()
+            )
+        |> convertListOfResultsToResultsList
+    match checkedLines with
+    | Error e -> Error e
+    | Ok _ -> Ok ()
+
+let private confirmLines
+    (context: Context)
+    (lines: StageEntryLine list)
+    : Result<unit, AppError> =
     result {
         do! lines |> confirmLineCount
-        do! lines |> confirmAmountEquality }
+        do! lines |> confirmAmountEquality
+        do! lines |> confirmLinesAreAllPositive
+        do! lines |> confirmLinesAccountCodes context // do the expensive one last
+    }
+
+let private confirmValidTransition transition =
+    let fromType = transition |> fromStatus
+    let toType = transition |> toStatus
+    if fromType |> validTransitions |> List.contains toType then Ok ()
+    else
+        let fromStr = fromType |> Option.map StagedEntryStatus.toString
+        let toStr = toType |> StagedEntryStatus.toString
+        Error (IngestionInvalidStageStatusTransition (fromStr, toStr))
     
-let private createStageEntriesFromRaw
+let private constructSetFromRaw
     (context: Context)
     (sourceFile: SourceFile)
     (rawRows: BaseStageRawRow list)
@@ -70,21 +124,23 @@ let private createStageEntriesFromRaw
             let entryDate, description, fiSource, fiReference = theOnly |> fst
             let rawRowsAtTheOnly = theOnly |> snd
             result {
-                let! lines =
+                let stageEntryId = StageEntryHeaderId.create ()
+                let lines =
                     rawRowsAtTheOnly
                     |> List.map (fun row -> 
+                        let lineId = StageEntryLineId.create ()
                         StageEntryLine.create
-                            row.amount row.entryType row.accountCode row.memo
+                            lineId stageEntryId row.amount row.entryType row.accountCode row.memo None
                         )
-                    |> convertListOfResultsToResultsList
-                let stageEntryId = StageEntryHeaderId.create ()
-                do! lines |> confirmLines
+                do! lines |> confirmLines context
                 let! ingestionSource = fiSource |> IngestionSource.fetchByName context
                 let header =
                     StageEntryHeader.create
                         sourceFile stageEntryId entryDate description ingestionSource fiReference Read
-                let! transition = StageEntryStatusTransition.create
-                                      NoStatus Read (context |> getInitiationInstant) BaseParser
+                let transitionId = StageEntryStatusTransitionId.create ()
+                let transition = StageEntryStatusTransition.create transitionId stageEntryId
+                                      None Read (context |> getInitiationInstant) BaseParser
+                do! confirmValidTransition transition
                 return {
                     stageEntryHeader = header
                     lines = lines
@@ -93,3 +149,65 @@ let private createStageEntriesFromRaw
             }
         )
     |> convertListOfResultsToResultsList
+
+let private fetchAllLinesByHeaders
+    (context: Context)
+    (headers: StageEntryHeader list)
+    : Result<StageEntryLine list, AppError> =
+    headers
+    |> List.map(fun x -> x |> StageEntryHeader.stageEntryHeaderId)
+    |> StageEntryLine.fetchByHeaderIdList context
+
+let private fetchAllTransitionsByHeaders
+    (context: Context)
+    (headers: StageEntryHeader list)
+    : Result<StageEntryStatusTransition list, AppError> =
+    headers
+    |> List.map(fun x -> x |> StageEntryHeader.stageEntryHeaderId)
+    |> StageEntryStatusTransition.fetchByHeaderIdList context
+
+let private compileFromSubLists
+    (headers: StageEntryHeader list)
+    (lines: StageEntryLine list)
+    (statusTransitions: StageEntryStatusTransition list)
+    : StageEntry list =
+    headers
+    |> List.map (fun h ->
+        let headerId = h |> StageEntryHeader.stageEntryHeaderId
+        let linesAtH = lines |> List.filter(fun l -> l |> StageEntryLine.stageEntryHeaderId = headerId)
+        let transitionsAtH =
+            statusTransitions
+            |> List.filter(fun l -> l |> StageEntryStatusTransition.stageEntryHeaderId = headerId)
+        { stageEntryHeader = h
+          lines = linesAtH
+          statusTransitions = transitionsAtH } )
+    
+let fetchAllByFile
+    (context: Context)
+    (sourceFile: SourceFile)
+    : Result<StageEntry list, AppError> =
+    result {
+        let! headers = fetchBySourceFile context sourceFile
+        let! lines = headers |> fetchAllLinesByHeaders context
+        let! statuses = headers |> fetchAllTransitionsByHeaders context
+        return compileFromSubLists headers lines statuses
+    }
+
+let ingestRawToStage
+    (context: Context)
+    (sourceFile: SourceFile)
+    (rawRows: BaseStageRawRow list)
+    : Result<StageEntry list, AppError> =
+    result {
+        let! entries = rawRows |> constructSetFromRaw context sourceFile
+        let! _ =
+            entries
+            |> List.map(fun e -> e |> stageEntryHeader  |> StageEntryHeader.insertNewToDb context )
+            |> convertListOfResultsToResultsList
+        let! _ =
+            entries
+            |> List.collect lines
+            |> List.map(fun l -> l |> StageEntryLine.insertNewToDb context )
+            |> convertListOfResultsToResultsList
+        return! sourceFile |> fetchAllByFile context 
+    }
