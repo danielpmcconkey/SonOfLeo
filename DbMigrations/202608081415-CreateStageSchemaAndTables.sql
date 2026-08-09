@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS ingestion.source
     source_name character varying(100) not null collate pg_catalog."default",
     created_at timestamp with time zone NOT NULL,
     modified_at timestamp with time zone NOT NULL
-                              );
+);
 
 CREATE TABLE IF NOT EXISTS ingestion.staged_entry
 (
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS ingestion.staged_entry
     fi_reference character varying(100) not null collate pg_catalog."default",
     source_file character varying(150) not null collate pg_catalog."default",
     status character varying(25) not null collate pg_catalog."default"
-    );
+);
 
 CREATE TABLE IF NOT EXISTS ingestion.classification_rule
 (
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS ingestion.classification_rule
     -- todo: figure out what the rest of the ingestion.classification_rule table needs to look like. that'll be an alter table script in a separate migration
     created_at timestamp with time zone NOT NULL,
     modified_at timestamp with time zone NOT NULL
-        );
+);
 
 CREATE TABLE IF NOT EXISTS ingestion.staged_entry_line
 (
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS ingestion.staged_entry_line
     MATCH SIMPLE
     ON UPDATE NO ACTION
     ON DELETE RESTRICT
-    );
+);
 
 CREATE TABLE IF NOT EXISTS ingestion.staged_entry_audit
 (
@@ -76,8 +76,8 @@ CREATE TABLE IF NOT EXISTS ingestion.staged_entry_audit
     from_status varchar(25), -- nullable on initial creation
     to_status varchar(25) not null,
     modified_at timestamp with time zone NOT NULL,
-        change_mechanism varchar(25) not null
-    );
+    change_mechanism varchar(25) not null
+);
 
 
 

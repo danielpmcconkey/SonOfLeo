@@ -84,10 +84,15 @@ type AppError =
     
     | IngestionBaseStageEntryGroupIdIsEmpty of string
     | IngestionBaseStageEntryGroupIdTooLong of string * int
-    | IngestionBaseStageEntryNonPositiveAmount of decimal
-    | IngestionBaseStageGroupDebitCreditMismatch of decimal * decimal
     | IngestionBaseStageGroupIdDistinctDataViolation of string
-    | IngestionBaseStageGroupInsufficientEntries of int
+    | IngestionInvalidStagedEntryStatus of string
+    | IngestionInvalidStageStatusChangeMechanism of string
+    | IngestionInvalidStageStatusTransition of string * string
+    | IngestionStageLineNonPositiveAmount of decimal
+    | IngestionStageEntryDebitCreditMismatch of decimal * decimal
+    | IngestionStageEntryInsufficientLines of int
+    | IngestionSourceFileIsEmpty of string
+    | IngestionSourceFileTooLong of string * int
     
     | InterfaceBridgeConversionFailure of string * string * string * string
     | InterfaceBridgeFailedJsonDeserialization of string * string * string
@@ -216,11 +221,16 @@ module AppError =
         | FiscalPeriodToggleOpenNoOp -> "Opening or closing this fiscal period would've had no result. Likely because it was already in the desired state."
         
         | IngestionBaseStageEntryGroupIdIsEmpty str -> $"BaseStageEntryGroupId cannot be empty. Provided value is {str}."
-        | IngestionBaseStageEntryGroupIdTooLong(str, max) -> $"BaseStageEntryGroupId cannot exceed {max} characters. Provided value is {str}."
-        | IngestionBaseStageEntryNonPositiveAmount amount -> $"BaseStageEntry Amount field ({amount}) cannot be less than or equal to 0.00."
-        | IngestionBaseStageGroupDebitCreditMismatch(debits, credits) -> $"Error in Base Stage Entry Group. The sum of all debit amounts ({debits}) must exactly equal the sum of all credit amounts ({credits})."
+        | IngestionBaseStageEntryGroupIdTooLong (str, max) -> $"BaseStageEntryGroupId cannot exceed {max} characters. Provided value is {str}."
         | IngestionBaseStageGroupIdDistinctDataViolation str -> $"More than one combination of \"header\" data found for BaseStageEntryGroupId {str}"
-        | IngestionBaseStageGroupInsufficientEntries entryCount -> $"Insufficient number of entries ({entryCount}) for a base stage entry group. At least two are required."
+        | IngestionInvalidStagedEntryStatus str -> $"Provided string of '{str}' is not a valid StagedEntryStatus."
+        | IngestionInvalidStageStatusChangeMechanism str -> $"Provided string of '{str}' is not a valid StageStatusChangeMechanism."
+        | IngestionInvalidStageStatusTransition (fromStr, toStr) -> $"Invalid stage status transition. Cannot move from {fromStr} to {toStr}."
+        | IngestionStageLineNonPositiveAmount amount -> $"StageEntry Amount field ({amount}) cannot be less than or equal to 0.00."
+        | IngestionStageEntryDebitCreditMismatch(debits, credits) -> $"Error in Base Stage Entry Group. The sum of all debit amounts ({debits}) must exactly equal the sum of all credit amounts ({credits})."
+        | IngestionStageEntryInsufficientLines lineCount -> $"Insufficient number of lines ({lineCount}) for a stage entry. At least two are required."
+        | IngestionSourceFileIsEmpty str -> $"Ingestion source file cannot be empty. Provided value is {str}."
+        | IngestionSourceFileTooLong (str, max) -> $"Ingestion source file cannot exceed {max} characters. Provided value is {str}."
         
         | InterfaceBridgeConversionFailure(originalType, originalValue, desiredType, childError) -> $"Failed conversion in InterfaceBridge. Original type: {originalType}. Desired type: {desiredType}. Original value: {originalValue}. Additional details: {childError}"
         | InterfaceBridgeFailedJsonDeserialization(typeName, error, stackTrace) -> $"Failed to deserialize JSON string into type {typeName}. {error}{Environment.NewLine}{stackTrace}"

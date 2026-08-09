@@ -17,7 +17,12 @@
     <Compile Include="Ledger\JournalEntryLine.fs" />
     <Compile Include="Ledger\JournalEntryExternalReference.fs" />
     <Compile Include="Ledger\JournalEntryComment.fs" />
+    <Compile Include="DataIngestion\StageEntryComponent.fs" />
+    <Compile Include="DataIngestion\StageEntryStatusTransition.fs" />
+    <Compile Include="DataIngestion\IngestionSource.fs" />
+    <Compile Include="DataIngestion\StageEntryHeader.fs" />
     <Compile Include="DataIngestion\BaseStageEntry.fs" />
+    <Compile Include="DataIngestion\StageEntryLine.fs" />
   </ItemGroup>
 
   <ItemGroup>
