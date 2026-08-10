@@ -88,6 +88,8 @@ type AppError =
     | IngestionInvalidStagedEntryStatus of string
     | IngestionInvalidStageStatusChangeMechanism of string
     | IngestionInvalidStageStatusTransition of string option * string
+    | IngestionSearchPatternIsEmpty of string
+    | IngestionSearchPatternTooLong of string * int
     | IngestionStageLineNonPositiveAmount of decimal
     | IngestionStageEntryDebitCreditMismatch of decimal * decimal
     | IngestionStageEntryInsufficientLines of int
@@ -229,6 +231,8 @@ module AppError =
         | IngestionInvalidStagedEntryStatus str -> $"Provided string of '{str}' is not a valid StagedEntryStatus."
         | IngestionInvalidStageStatusChangeMechanism str -> $"Provided string of '{str}' is not a valid StageStatusChangeMechanism."
         | IngestionInvalidStageStatusTransition (fromStr, toStr) -> $"Invalid stage status transition. Cannot move from {fromStr} to {toStr}."
+        | IngestionSearchPatternIsEmpty str -> $"SearchPattern cannot be empty. Provided value is {str}."
+        | IngestionSearchPatternTooLong (str, max) -> $"SearchPattern cannot exceed {max} characters. Provided value is {str}."
         | IngestionStageEntryHeaderNoOp -> "Updating the StageEntryHeader record failed because at least one updatable parameter must be set."
         | IngestionStageEntryLineNoOp -> "Updating the StageEntryLine record failed because at least one updatable parameter must be set."
         | IngestionStageHeaderIdListCannotBeEmpty -> "The stageEntryHeaderIds list must contain at least 1 Header ID."

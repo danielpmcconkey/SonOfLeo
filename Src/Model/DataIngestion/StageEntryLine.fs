@@ -1,7 +1,7 @@
 module Model.DataIngestion.StageEntryLine
 
 open Model
-open Model.DataIngestion.ClassificationRule
+open Model.DataIngestion.Classification
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError

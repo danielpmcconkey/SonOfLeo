@@ -9,7 +9,8 @@ Behavioral specs for the reporting domain. Reports are read-only computations ov
 - **REQ-RPT-1.3** Each trial balance row must include: account code, account name, hierarchical depth (generation), total credits (Money), total debits (Money), and net balance (Money).
 - **REQ-RPT-1.4** For leaf accounts (accounts with no children in the chart of accounts hierarchy), the row's credit, debit, and net balance values reflect only the account's own balance data.
 - **REQ-RPT-1.5** For parent accounts, the row's total credits, total debits, and net balance must equal the account's own values plus the sum of all descendant accounts' corresponding values. The roll-up is recursive: a grandparent's totals include its children's rolled-up totals.
-- **REQ-RPT-1.6** The result list must be sorted by account code.
+- **REQ-RPT-1.6** The result list must be sorted in depth-first tree order: top-level accounts are sorted by account code, and within each parent, children are sorted by account code. A parent account's row appears immediately before its children's rows.
+  - *Why:* A flat code sort interleaves unrelated subtrees (e.g., child 5311 sorts after sibling parent 5300, breaking the hierarchy). Depth-first code-ordered traversal preserves the outline structure that makes a trial balance readable. (2026-08-10)
 - **REQ-RPT-1.7** Top-level accounts (those with no parent) are at generation 0. Each level of nesting increments the generation by 1.
 - **REQ-RPT-1.8** Voided journal entries do not contribute to the trial balance. Their amounts are treated as zero.
 - **REQ-RPT-1.9** Only journal entries with an entry date on or before the as-of Calendar Date contribute to the trial balance. Entries dated after the as-of date are excluded.
