@@ -36,7 +36,10 @@ let rec private crawlAndCompile
     let creditsForThisAccount = balanceRowForThisAccount.totalCredits
     let debitsForThisAccount = balanceRowForThisAccount.totalDebits
     let netForThisAccount = balanceRowForThisAccount.netBalance
-    let children = allAccounts |> List.filter(fun a -> a |> Account.parentId = (accountToCrawl |> Account.accountId |> Some))
+    let children =
+        allAccounts
+        |> List.filter(fun a -> a |> Account.parentId = (accountToCrawl |> Account.accountId |> Some))
+        |> List.sortBy(fun a -> a |> Account.code |> AccountCode.value)
     if children |> List.isEmpty
     then
         // you're a bottom rung, just add your own tallies
@@ -98,13 +101,16 @@ let fetchTrialBalanceData
     result {
         let! accountBalances = AccountBalance.fetchByAccountIdList context None (Some asOf)
         let! allAccounts = Account.fetchAll context false
-        let topLevelParents = allAccounts |> List.filter(fun a -> a |> Account.parentId |> Option.isNone)
+        let topLevelParents =
+            allAccounts
+            |> List.filter(fun a -> a |> Account.parentId |> Option.isNone)
+            |> List.sortBy(fun a -> a |> Account.code |> AccountCode.value)
         let! nestedAndSeparated =
             topLevelParents
             |> List.map (fun a -> crawlAndCompile a allAccounts accountBalances 0)
             |> convertListOfResultsToResultsList
         let flattenedAndSeparated = nestedAndSeparated |> List.map (fun x -> x |> flattenNestedTrialBalance)
         let allOneList = flattenedAndSeparated |> List.collect id
-        let allOneListSorted = allOneList |> List.sortBy(_.accountCode)
-        return allOneListSorted
+        //let allOneListSorted = allOneList |> List.sortBy(_.accountCode)
+        return allOneList
     }

@@ -108,6 +108,7 @@ type TrialBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-1.6 result list is sorted by account code``() =
+        // todo: this rules is wrong and this test needs to be revisited. The parent child hierarchy is primary. Account code is secondary
         result {
             let! rows = prefetchedTb
             let codes = rows |> List.map(fun r -> r.accountCode |> AccountCode.value)
