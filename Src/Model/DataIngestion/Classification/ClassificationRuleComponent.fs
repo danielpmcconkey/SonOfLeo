@@ -2,6 +2,8 @@ namespace Model.DataIngestion.Classification
 
 open System
 open Model
+open Model.DataIngestion
+open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
 
@@ -34,9 +36,9 @@ module ClassificationRuleName =
     let create (raw: string) : Result<ClassificationRuleName, AppError> =
         let trimmed = raw.Trim()
         if trimmed = String.Empty then
-            Error(IngestionSearchPatternIsEmpty raw)
+            Error(IngestionClassificationRuleNameIsEmpty raw)
         elif trimmed.Length > maxLength then
-            Error(IngestionSearchPatternTooLong(raw, maxLength))
+            Error(IngestionClassificationRuleNameTooLong(raw, maxLength))
         else
             Ok(ClassificationRuleName trimmed)
 
@@ -60,9 +62,26 @@ type ClassificationGroupConnector =
     | Or
 
 type MatchCandidate = {
+        stageEntryLineId : StageEntryLineId
         ingestionSource: JournalRefFinancialInstitution
         description: JournalEntryDescription
         amount: Money
         lineType: JournalEntryLineType
         memo: JournalEntryLineMemo option
 }
+
+type PrioritizedMatch = {
+    code: AccountCode
+    ruleId: ClassificationRuleId
+    priority: int
+}
+
+type ClassifierOutcome =
+    | NoMatch
+    | OneMatch of PrioritizedMatch
+    | ManyMatches of PrioritizedMatch list 
+
+type ClassificationResult = {
+        candidate: MatchCandidate
+        outcome: ClassifierOutcome
+    }

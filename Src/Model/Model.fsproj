@@ -28,6 +28,7 @@
     <Compile Include="DataIngestion\Classification\FieldMatchChain.fs" />
     <Compile Include="DataIngestion\Classification\ClassificationRuleGroup.fs" />
     <Compile Include="DataIngestion\Classification\ClassificationRule.fs" />
+    <Compile Include="DataIngestion\Classification\Classifier.fs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -135,6 +135,7 @@ let private readRowsFromDb
     (predicate: string option)
     (limit: int option)
     (parameters: QueryParameter list)
+    (orderBy: string option)
     (expectedRows: AcceptableExpectedRows)
     : Result<ClassificationRule list, AppError> =
     let select =
@@ -143,7 +144,7 @@ let private readRowsFromDb
         cr.rule_groups, cr.is_active, cr.created_at, cr.modified_at
         """
     let from = "ingestion.classification_rule cr"
-    let query = buildReadQuery select from None predicate limit None None
+    let query = buildReadQuery select from None predicate limit None orderBy
     executeReaderQuery
         (context |> getDatabaseTransaction)
         query
@@ -156,13 +157,18 @@ let fetchById (context: Context) (ruleId: ClassificationRuleId) : Result<Classif
     let predicate = "cr.unique_id = @unique_id"
     let nameStr = ruleId |> ClassificationRuleId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId(nameStr) } ]
-    readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+    readRowsFromDb context (Some predicate) None parameters None ExactlyOne |> Result.map List.head
 
 let fetchByName (context: Context) (name: ClassificationRuleName) : Result<ClassificationRule, AppError> =
     let predicate = "cr.rule_name = @rule_name"
     let nameStr = name |> ClassificationRuleName.value
     let parameters = [ { name = "@rule_name"; value = CharString(nameStr) } ]
-    readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+    readRowsFromDb context (Some predicate) None parameters None ExactlyOne |> Result.map List.head
+
+// todo: move fetchAllSortedByPriorityDesc up into the orchestration layer and have it take a FetchSort argument
+let fetchAllSortedByPriorityDesc (context: Context) : Result<ClassificationRule, AppError> =
+    let orderBy = "cr.priority desc" |> Some
+    readRowsFromDb context None None [] orderBy AnyQuantityIsAcceptable |> Result.map List.head
     
 let private updateDb
     (context: Context)
