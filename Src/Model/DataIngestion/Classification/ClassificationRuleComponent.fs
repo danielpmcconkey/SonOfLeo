@@ -26,6 +26,20 @@ type MoneySearchPattern = {
         amount: Money
     }
 
+type ClassificationRuleName = private ClassificationRuleName of string
+
+module ClassificationRuleName =
+    let maxLength = 250
+    let value (ClassificationRuleName reference) = reference 
+    let create (raw: string) : Result<ClassificationRuleName, AppError> =
+        let trimmed = raw.Trim()
+        if trimmed = String.Empty then
+            Error(IngestionSearchPatternIsEmpty raw)
+        elif trimmed.Length > maxLength then
+            Error(IngestionSearchPatternTooLong(raw, maxLength))
+        else
+            Ok(ClassificationRuleName trimmed)
+
 type StringSearchPattern = private StringSearchPattern of string
 
 module StringSearchPattern =
