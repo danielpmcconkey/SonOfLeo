@@ -85,6 +85,8 @@ type AppError =
     | IngestionBaseStageEntryGroupIdIsEmpty of string
     | IngestionBaseStageEntryGroupIdTooLong of string * int
     | IngestionBaseStageGroupIdDistinctDataViolation of string
+    | IngestionClassificationRuleUpdateNoOp
+    | IngestionClassificationRuleToggleOpenNoOp
     | IngestionInvalidStagedEntryStatus of string
     | IngestionInvalidStageStatusChangeMechanism of string
     | IngestionInvalidStageStatusTransition of string option * string
@@ -228,6 +230,8 @@ module AppError =
         | IngestionBaseStageEntryGroupIdIsEmpty str -> $"BaseStageEntryGroupId cannot be empty. Provided value is {str}."
         | IngestionBaseStageEntryGroupIdTooLong (str, max) -> $"BaseStageEntryGroupId cannot exceed {max} characters. Provided value is {str}."
         | IngestionBaseStageGroupIdDistinctDataViolation str -> $"More than one combination of \"header\" data found for BaseStageEntryGroupId {str}"
+        | IngestionClassificationRuleUpdateNoOp -> "Updating the ClassificationRule record failed because at least one updatable parameter must be set."
+        | IngestionClassificationRuleToggleOpenNoOp -> "Activating or deactivating this rule would've had no result. Likely because it was already in the desired state."
         | IngestionInvalidStagedEntryStatus str -> $"Provided string of '{str}' is not a valid StagedEntryStatus."
         | IngestionInvalidStageStatusChangeMechanism str -> $"Provided string of '{str}' is not a valid StageStatusChangeMechanism."
         | IngestionInvalidStageStatusTransition (fromStr, toStr) -> $"Invalid stage status transition. Cannot move from {fromStr} to {toStr}."

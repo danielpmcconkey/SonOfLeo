@@ -13,6 +13,7 @@ type QueryParameterValue =
     | DbLocalDate of LocalDate
     | UniqueId of Guid
     | Boolean of bool
+    | Jsonb of string
     | NullableInteger of int option
     | NullableNumeric of decimal option
     | NullableCharString of string option
@@ -20,6 +21,7 @@ type QueryParameterValue =
     | NullableDbLocalDate of LocalDate option
     | NullableUniqueId of Guid option
     | NullableBoolean of bool option
+    | NullableJsonb of string option
 
 type QueryParameter = { name: string
                         value: QueryParameterValue }
@@ -35,6 +37,7 @@ let private convertParamToDbParam (parameter: QueryParameter) : NpgsqlParameter 
         | DbLocalDate x -> NpgsqlDbType.Date, box x
         | UniqueId x -> NpgsqlDbType.Uuid, box x
         | Boolean x -> NpgsqlDbType.Boolean, box x
+        | Jsonb x -> NpgsqlDbType.Jsonb, box x
         | NullableInteger x ->
             NpgsqlDbType.Integer,
             match x with
@@ -67,6 +70,11 @@ let private convertParamToDbParam (parameter: QueryParameter) : NpgsqlParameter 
             | None -> box DBNull.Value
         | NullableBoolean x ->
             NpgsqlDbType.Boolean,
+            match x with
+            | Some b -> box b
+            | None -> box DBNull.Value
+        | NullableJsonb x ->
+            NpgsqlDbType.Jsonb,
             match x with
             | Some b -> box b
             | None -> box DBNull.Value

@@ -171,8 +171,7 @@ module FiscalPeriod =
             ;
         """
         result {
-            let! executeResult =
-                match executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne with
+            do! match executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne with
                 | Ok _ -> Ok ()
                 | Error (DalResultantRowsDidntMatchExpectation (expected, actual)) ->
                     if actual = 0

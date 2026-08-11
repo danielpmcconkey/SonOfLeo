@@ -8,6 +8,7 @@ open DataAccessLayer.QueryParameters
 open Model.Ledger.Accounts.AccountComponent
 open NodaTime
 open Utilities.AppError
+open Utilities.FieldUpdate
 open Utilities.Json.Json
 open Utilities.ResultHelper
 
@@ -92,57 +93,209 @@ let insertNewToDb (context: Context) (classificationRule: ClassificationRule) : 
         return! executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
     }
     
-// let private reconstitute raw =
-//     result {
-//         let (uuid,
-//              sourceString,
-//              createdAt,
-//              modifiedAt) =
-//             raw
-//         let ingestionSourceId = uuid |> IngestionSourceId.fromGuid
-//         let! name = sourceString |> JournalRefFinancialInstitution.create
-//         return
-//             create
-//                 ingestionSourceId
-//                 name
-//                 createdAt
-//                 modifiedAt
-//     }
-//     
-// let private mapRawForDbRead (row: RowReader) =
-//     (row |> RowReader.getUuid "unique_id"),
-//     (row |> RowReader.getString "source_name"),
-//     (row |> RowReader.getInstant "created_at"),
-//     (row |> RowReader.getInstant "modified_at")
-//
-// let private readRowsFromDb
-//     (context: Context)
-//     (predicate: string option)
-//     (limit: int option)
-//     (parameters: QueryParameter list)
-//     (expectedRows: AcceptableExpectedRows)
-//     : Result<IngestionSource list, AppError> =
-//     let select =
-//         """
-//         s.unique_id, s.source_name, s.created_at, s.modified_at
-//         """
-//     let from = "ingestion.source s"
-//     let query = buildReadQuery select from None predicate limit None None
-//     executeReaderQuery
-//         (context |> getDatabaseTransaction)
-//         query
-//         parameters
-//         mapRawForDbRead
-//         reconstitute
-//         expectedRows
-//
-// let fetchByName (context: Context) (name: JournalRefFinancialInstitution) : Result<IngestionSource, AppError> =
-//     let predicate = "s.source_name = @source_name"
-//     let nameStr = name |> JournalRefFinancialInstitution.value
-//     let parameters = [ { name = "@source_name"; value = CharString(nameStr) } ]
-//     readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
-
+let private reconstitute raw =
+    result {
+        let (uuid,
+             nameStr,
+             codeStr,
+             priority,
+             ruleGroupsStr,
+             isActive,
+             createdAt,
+             modifiedAt) =
+            raw
+        let classificationRuleId = uuid |> ClassificationRuleId.fromGuid
+        let! name = nameStr |> ClassificationRuleName.create
+        let! codeAtMatch = codeStr |> AccountCode.create
+        let! ruleGroups = ruleGroupsStr |> fromJson<ClassificationRuleGroup list>
+        return
+            create
+                classificationRuleId
+                name
+                codeAtMatch
+                priority
+                ruleGroups
+                isActive
+                createdAt
+                modifiedAt
+    }
     
+let private mapRawForDbRead (row: RowReader) =
+    (row |> RowReader.getUuid "unique_id"),
+    (row |> RowReader.getString "rule_name"),
+    (row |> RowReader.getString "code_at_match"),
+    (row |> RowReader.getInt "priority"),
+    (row |> RowReader.getString "rule_groups"),
+    (row |> RowReader.getBool "is_active"),
+    (row |> RowReader.getInstant "created_at"),
+    (row |> RowReader.getInstant "modified_at")
+
+let private readRowsFromDb
+    (context: Context)
+    (predicate: string option)
+    (limit: int option)
+    (parameters: QueryParameter list)
+    (expectedRows: AcceptableExpectedRows)
+    : Result<ClassificationRule list, AppError> =
+    let select =
+        """
+        cr.unique_id, cr.rule_name, cr.code_at_match, cr.priority,
+        cr.rule_groups, cr.is_active, cr.created_at, cr.modified_at
+        """
+    let from = "ingestion.classification_rule cr"
+    let query = buildReadQuery select from None predicate limit None None
+    executeReaderQuery
+        (context |> getDatabaseTransaction)
+        query
+        parameters
+        mapRawForDbRead
+        reconstitute
+        expectedRows
+
+let fetchById (context: Context) (ruleId: ClassificationRuleId) : Result<ClassificationRule, AppError> =
+    let predicate = "cr.unique_id = @unique_id"
+    let nameStr = ruleId |> ClassificationRuleId.value
+    let parameters = [ { name = "@unique_id"; value = UniqueId(nameStr) } ]
+    readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+
+let fetchByName (context: Context) (name: ClassificationRuleName) : Result<ClassificationRule, AppError> =
+    let predicate = "cr.rule_name = @rule_name"
+    let nameStr = name |> ClassificationRuleName.value
+    let parameters = [ { name = "@rule_name"; value = CharString(nameStr) } ]
+    readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+    
+let private updateDb
+    (context: Context)
+    (classificationRuleNameUpdate: FieldUpdate<ClassificationRuleName>)
+    (codeAtMatchUpdate: FieldUpdate<AccountCode>)
+    (priorityUpdate: FieldUpdate<int>)
+    (ruleGroupsUpdate: FieldUpdate<ClassificationRuleGroup list>)
+    (isActiveUpdate: FieldUpdate<bool>)
+    (classificationRuleId: ClassificationRuleId)
+    : Result<ClassificationRule, AppError> =
+    let uuid = classificationRuleId |> ClassificationRuleId.value
+    let baseParams =
+        [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) }
+          { name = "@unique_id"; value = UniqueId uuid } ]
+    result {
+        let! groupStr = // do this up here because it's a pain in the ass to do it down in the updates block
+            match ruleGroupsUpdate with
+            | NoChange -> Ok ""
+            | SetTo x -> x |> toJson<ClassificationRuleGroup list> 
+            
+        let updates =
+            [
+                  classificationRuleNameUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                      ("rule_name = @rule_name",
+                       { name = "@rule_name"; value = CharString(n |> ClassificationRuleName.value) }))
+                  
+                  codeAtMatchUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                      ("code_at_match = @code_at_match",
+                       { name = "@code_at_match"; value = CharString(n |> AccountCode.value) }))
+                  
+                  priorityUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                      ("priority = @priority",
+                       { name = "@priority"; value = Integer(n) }))
+                  
+                  ruleGroupsUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun _ ->
+                      ("rule_groups = @rule_groups",
+                       { name = "@rule_groups"; value = Jsonb(groupStr) }))
+                  
+                  isActiveUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                      ("is_active = @is_active",
+                       { name = "@is_active"; value = Boolean(n) }))
+            ]
+            |> List.choose id
+        let setClauses = updates |> List.map fst |> String.concat ", "
+        let parameters = baseParams @ (updates |> List.map snd)
+        let query =
+            $"""
+            UPDATE ingestion.classification_rule
+            set
+                {setClauses},
+                modified_at = @modified
+            WHERE unique_id = @unique_id;
+        """
+        do! if updates.IsEmpty then Error(IngestionClassificationRuleUpdateNoOp) else Ok()
+        let! () = executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        return! classificationRuleId |> fetchById context
+    }
+
+/// updateCodeAtMatchById assumes the orchestrator is validating the code maps to a real account 
+let private updateCodeAtMatchById
+    (context: Context)
+    (accountCodeAtMatchUpdate: FieldUpdate<AccountCode>)
+    (classificationRuleId: ClassificationRuleId)
+    : Result<ClassificationRule, AppError> =
+    classificationRuleId
+    |> updateDb context NoChange accountCodeAtMatchUpdate NoChange NoChange NoChange
+
+let private updateRuleGroupsById
+    (context: Context)
+    (ruleGroupsUpdate: FieldUpdate<ClassificationRuleGroup list>)
+    (classificationRuleId: ClassificationRuleId)
+    : Result<ClassificationRule, AppError> =
+    classificationRuleId
+    |> updateDb context NoChange NoChange NoChange ruleGroupsUpdate NoChange 
+
+let private updatePriorityById
+    (context: Context)
+    (priorityUpdate: FieldUpdate<int>)
+    (classificationRuleId: ClassificationRuleId)
+    : Result<ClassificationRule, AppError> =
+    classificationRuleId
+    |> updateDb context NoChange NoChange priorityUpdate NoChange NoChange 
+
+let private toggleActiveById
+    (context: Context)
+    (newValue: bool)
+    (classificationRuleId: ClassificationRuleId)
+    : Result<ClassificationRule, AppError> =
+    let enforcedCurrentValue = not newValue
+    let uuid = classificationRuleId |> ClassificationRuleId.value
+    let parameters =
+        [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) }
+          { name = "@unique_id"; value = UniqueId uuid }
+          { name = "@newValue"; value = Boolean newValue }
+          { name = "@enforcedCurrentValue"; value = Boolean enforcedCurrentValue } ]
+    let query =
+        $"""
+        UPDATE ingestion.classification_rule
+        set
+            modified_at = @modified
+            , is_active = @newValue
+        WHERE unique_id = @unique_id
+        and is_active = @enforcedCurrentValue
+        ;
+    """
+    result {
+        do! match executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne with
+            | Ok _ -> Ok ()
+            | Error (DalResultantRowsDidntMatchExpectation (expected, actual)) ->
+                if actual = 0
+                then Error IngestionClassificationRuleToggleOpenNoOp
+                else Error (DalResultantRowsDidntMatchExpectation (expected, actual))
+            | Error e -> Error e
+        return! classificationRuleId |> fetchById context
+    }
+
+let deactivateRuleById
+    (context: Context)
+    (classificationRuleId: ClassificationRuleId)
+    : Result<ClassificationRule, AppError> =
+    classificationRuleId |> toggleActiveById context false
+
+let activateRuleById
+    (context: Context)
+    (classificationRuleId: ClassificationRuleId)
+    : Result<ClassificationRule, AppError> =
+    classificationRuleId |> toggleActiveById context true
+
 let doesMatch
     (candidate: MatchCandidate)
     (classificationRule: ClassificationRule)
