@@ -1,7 +1,7 @@
 namespace Tests.Integrated.InterfaceBridge
 
 open InterfaceBridge.InterfaceContracts.ReportsContracts
-open InterfaceBridge.Json.Json
+open Utilities.Json.Json
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
 open Model

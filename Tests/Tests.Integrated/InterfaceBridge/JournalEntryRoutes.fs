@@ -3,7 +3,7 @@ module Tests.Integrated.InterfaceBridge.JournalEntryRoutes
 open System
 open DataAccessLayer.DbTransaction
 open InterfaceBridge.InterfaceContracts.JournalContracts
-open InterfaceBridge.Json.Json
+open Utilities.Json.Json
 open Logger.Audit
 open Microsoft.FSharp.Reflection
 open Model.Ledger.FiscalPeriods

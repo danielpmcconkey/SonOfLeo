@@ -1,4 +1,4 @@
-module InterfaceBridge.Json
+module Utilities.Json
 
 open System.Text.Json
 open System.Text.Json.Serialization

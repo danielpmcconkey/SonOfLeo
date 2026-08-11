@@ -3,7 +3,7 @@ namespace Tests.Integrated.InterfaceBridge.AccountRoutes
 open System
 open DataAccessLayer.DbTransaction
 open InterfaceBridge.InterfaceContracts.SharedContracts
-open InterfaceBridge.Json.Json
+open Utilities.Json.Json
 open Logger.Audit
 open Microsoft.FSharp.Reflection
 open Model

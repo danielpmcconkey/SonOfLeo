@@ -1,7 +1,7 @@
 module Tests.Integrated.InterfaceBridge.FiscalPeriodRoutes
 
 open DataAccessLayer.DbTransaction
-open InterfaceBridge.Json.Json
+open Utilities.Json.Json
 open Logger.Audit
 open Model
 open Tests.Helpers.EntityFunctions

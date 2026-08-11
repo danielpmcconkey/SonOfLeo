@@ -3,7 +3,7 @@ module Tests.Integrated.Reports.Program
 open System
 open InterfaceBridge.InterfaceContracts.AccountContracts
 open InterfaceBridge.InterfaceContracts.ReportsContracts
-open InterfaceBridge.Json.Json
+open Utilities.Json.Json
 open Tests.Helpers
 open Tests.Helpers.CliExecutor
 open Tests.Helpers.Railroad

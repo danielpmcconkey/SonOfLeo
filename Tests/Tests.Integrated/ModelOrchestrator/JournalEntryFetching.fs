@@ -3,7 +3,7 @@ namespace Tests.Integrated.ModelOrchestrator
 open System
 open DataAccessLayer.DbTransaction
 open InterfaceBridge.InterfaceContracts.JournalContracts
-open InterfaceBridge.Json.Json
+open Utilities.Json.Json
 open Logger.Audit
 open Tests.Helpers.RouteResolver
 open Tests.Helpers.Railroad

@@ -6,7 +6,7 @@ open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
 open InterfaceBridge.BoundaryConverters.JournalEntryFieldConverters
 open InterfaceBridge.InterfaceContracts.JournalContracts
-open InterfaceBridge.Json
+open Utilities.Json
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator

@@ -6,7 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Json.fs" />
     <Compile Include="CommandRoute.fs" />
     <Compile Include="InterfaceContracts\SharedContracts.fs" />
     <Compile Include="InterfaceContracts\AccountContracts.fs" />

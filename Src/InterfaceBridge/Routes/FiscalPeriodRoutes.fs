@@ -2,7 +2,7 @@ module InterfaceBridge.Routes.FiscalPeriodRoutes
 
 open InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
 open InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
-open InterfaceBridge.Json
+open Utilities.Json
 open Logger.Audit
 open Model.Ledger.FiscalPeriods
 open Model.Ledger.FiscalPeriods.FiscalPeriod

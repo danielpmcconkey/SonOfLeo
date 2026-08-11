@@ -5,7 +5,7 @@ open InterfaceBridge.BoundaryConverters.ReportConverters
 open InterfaceBridge.CommandRoute
 open Context
 open InterfaceBridge.InterfaceContracts.ReportsContracts
-open InterfaceBridge.Json
+open Utilities.Json
 open InterfaceBridge.ReportWriters
 open Logger.Audit
 open ModelOrchestrator.TrialBalanceReport

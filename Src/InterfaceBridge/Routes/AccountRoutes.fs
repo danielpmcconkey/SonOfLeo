@@ -8,7 +8,7 @@ open Model.Ledger.Accounts.Account
 open Model.Ledger.Accounts.AccountComponent
 open ModelOrchestrator
 open ModelOrchestrator.AccountActivity
-open InterfaceBridge.Json
+open Utilities.Json
 open InterfaceBridge.CommandRoute
 open DataAccessLayer.DbTransaction
 open Utilities.AppError

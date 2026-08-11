@@ -12,6 +12,7 @@
     <Compile Include="Calendar.fs" />
     <Compile Include="FieldUpdate.fs" />
     <Compile Include="FileIO.fs" />
+    <Compile Include="Json.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -19,6 +20,15 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.8" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.8" />
     <PackageReference Include="NodaTime" Version="3.3.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="FSharp.SystemTextJson">
+      <HintPath>..\..\..\..\..\..\..\home\dan\.nuget\packages\fsharp.systemtextjson\1.4.36\lib\netstandard2.0\FSharp.SystemTextJson.dll</HintPath>
+    </Reference>
+    <Reference Include="NodaTime.Serialization.SystemTextJson">
+      <HintPath>..\..\..\..\..\..\..\home\dan\.nuget\packages\nodatime.serialization.systemtextjson\1.4.0\lib\net6.0\NodaTime.Serialization.SystemTextJson.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>
