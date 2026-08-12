@@ -265,11 +265,11 @@ let write
             let fDate = asOf |> localDateToString "yyyy-MM-dd"
             $"-{fDate}"
         else ""
-    let fileName = $"{pathInfo.fileName}{dateInterpolation}"
+    let fileName = $"{pathInfo.fileName}{dateInterpolation}.html"
     result {
-        let! path =
-            htmlWrapper
+        let! path = createFullPath pathInfo.baseDir fileName
+        do! htmlWrapper
             |> HtmlWrapper.toString
-            |> writeTextFile pathInfo.baseDir fileName "html" 
+            |> writeTextFile path
         return TrialBalanceReturn.Report{ fullyQualifiedPath = path}
     }

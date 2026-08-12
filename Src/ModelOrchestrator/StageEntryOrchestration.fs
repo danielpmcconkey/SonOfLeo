@@ -1,6 +1,5 @@
 module ModelOrchestrator.StageEntryOrchestration
 
-open System
 open Context.Context
 open Model
 open Model.DataIngestion

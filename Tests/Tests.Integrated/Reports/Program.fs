@@ -45,18 +45,22 @@ type ProgramTests(fixture: TestDataFixture) =
     member _.``REQ-NGUI-1.3.1, REQ-NGUI-4.4 The stderr will comprise the error message``() =
         // intentionally get the file write to throw the same error you're expecting
         let textToWrite = "this was supposed to fail fail. If you can read this, something is broke in SonOfLeo"
-        match textToWrite |> FileIO.writeTextFile badPathRoot badPathFile "html" with
-        | Ok _ -> Error (TestingError "expected failure but got success")
-        | Error intendedError -> 
-            let expectedErrorMessage = $"{AppError.toMessage(intendedError)}{Environment.NewLine}"
-            let args = [ "TrialBalance" ]
-            let payload =
-                badPathInput
-                |> toJson<TrialBalanceInput>
-                |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-            let _, _, e = runCli Reports args payload
-            Assert.Equal(expectedErrorMessage, e)
-            Ok ()
+        result {
+            let! path = FileIO.createFullPath badPathRoot $"{badPathFile}.html"
+            do! match textToWrite |> FileIO.writeTextFile path with
+                | Ok _ -> Error (TestingError "expected failure but got success")
+                | Error intendedError -> 
+                    let expectedErrorMessage = $"{AppError.toMessage(intendedError)}{Environment.NewLine}"
+                    let args = [ "TrialBalance" ]
+                    let payload =
+                        badPathInput
+                        |> toJson<TrialBalanceInput>
+                        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+                    let _, _, e = runCli Reports args payload
+                    Assert.Equal(expectedErrorMessage, e)
+                    Ok()
+            return ()
+        }
         |> railroadWrapper
 
     [<Fact>]

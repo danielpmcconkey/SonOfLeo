@@ -15,8 +15,8 @@ open Utilities.ResultHelper
 type StageEntryLine = private {
         stageEntryLineId: StageEntryLineId
         stageEntryHeaderId: StageEntryHeaderId
-        amount : Money
-        lineType : JournalEntryLineType
+        amount: Money
+        lineType: JournalEntryLineType
         accountCode: AccountCode option
         memo: JournalEntryLineMemo option
         classificationRuleId: ClassificationRuleId option

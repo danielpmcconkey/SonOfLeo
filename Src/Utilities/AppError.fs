@@ -75,6 +75,8 @@ type AppError =
     | DalStringUnboxingReturnedNull
     | DalUuidUnboxingReturnedNull
     
+    | FileIoDirectoryDoesntExist of string
+    | FileIoFileDoesntExist of string
     | FileIoError of exn
     
     | FiscalPeriodInvalidKeyString of string
@@ -222,6 +224,8 @@ module AppError =
         | DalStringUnboxingReturnedNull -> "String unboxing returned DB null"
         | DalUuidUnboxingReturnedNull -> "UUID unboxing returned DB null"
     
+        | FileIoDirectoryDoesntExist str -> $"Directory {str} doesn't exist."
+        | FileIoFileDoesntExist str -> $"No file exists at path \"{str}\"."
         | FileIoError ex -> $"Error in File I/O operation. Error message: {ex.Message}{Environment.NewLine} {ex.StackTrace}"
         
         | FiscalPeriodInvalidKeyString key -> $"Passed string \"{key}\" is invalid as a Period Key."
