@@ -4,13 +4,14 @@ open Context.Context
 open DataAccessLayer.DbTransaction
 open InterfaceBridge.Routes.AccountRoutes
 open InterfaceBridge.Routes.FiscalPeriodRoutes
+open InterfaceBridge.Routes.IngestionRoutes
 open InterfaceBridge.Routes.JournalEntryRoutes
 open InterfaceBridge.Routes.ReportRoutes
 open Utilities.AppError
 
 
 let commandRoutes =
-    accountDomainCommandRoutes @ fiscalPeriodDomainCommandRoutes @ journalEntryDomainCommandRoutes
+    accountDomainCommandRoutes @ fiscalPeriodDomainCommandRoutes @ journalEntryDomainCommandRoutes @ ingestionDomainCommandRoutes
 
 let routeUiCommandForTesting
     (domain: string)

@@ -61,7 +61,27 @@ let private newClassificationRule payload _ =
         return! Json.toJson<ClassificationRuleReturn> returnVal
     }
 
-let accountDomainCommandRoutes: CommandRoute list =
+let private fetchClassificationRuleById payload _ =
+    let context = create NoTransaction FetchOnly
+    result {
+        let! input = Json.fromJson<ClassificationRuleFetchByIdInput> payload
+        let classificationRuleId = input.classificationRuleId |> ClassificationRuleId.fromGuid
+        let! model = classificationRuleId |> ClassificationRule.fetchById context
+        let returnVal = ``convert [ClassificationRule] to [ClassificationRuleReturn]`` model
+        return! Json.toJson<ClassificationRuleReturn> returnVal
+    }
+
+let private fetchClassificationRuleByName payload _ =
+    let context = create NoTransaction FetchOnly
+    result {
+        let! input = Json.fromJson<ClassificationRuleFetchByNameInput> payload
+        let! name = input.classificationRuleName |> ClassificationRuleName.create
+        let! model = name |> ClassificationRule.fetchByName context
+        let returnVal = ``convert [ClassificationRule] to [ClassificationRuleReturn]`` model
+        return! Json.toJson<ClassificationRuleReturn> returnVal
+    }
+
+let ingestionDomainCommandRoutes: CommandRoute list =
     [
       { domain = "Ingestion"
         verb = "IngestRawFileToStage"
@@ -76,5 +96,19 @@ let accountDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<NewClassificationRuleInput>.Name
         outputContract = typeof<ClassificationRuleReturn>.Name
         handler = newClassificationRule }
+      
+      { domain = "Ingestion"
+        verb = "FetchClassificationRuleById"
+        description = "Fetch a specific ClassificationRule by providing its Id."
+        inputContract = typeof<ClassificationRuleFetchByIdInput>.Name
+        outputContract = typeof<ClassificationRuleReturn>.Name
+        handler = fetchClassificationRuleById }
+      
+      { domain = "Ingestion"
+        verb = "FetchClassificationRuleByName"
+        description = "Fetch a specific ClassificationRule by providing its name."
+        inputContract = typeof<ClassificationRuleFetchByNameInput>.Name
+        outputContract = typeof<ClassificationRuleReturn>.Name
+        handler = fetchClassificationRuleByName }
       
     ]

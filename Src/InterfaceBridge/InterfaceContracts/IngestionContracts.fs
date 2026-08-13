@@ -99,3 +99,6 @@ type NewClassificationRuleInput = {
         priority: int 
         ruleGroups: ClassificationRuleGroupContract list
     }
+
+type ClassificationRuleFetchByIdInput = { classificationRuleId: Guid }
+type ClassificationRuleFetchByNameInput = { classificationRuleName: string }

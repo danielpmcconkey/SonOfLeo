@@ -1,13 +1,14 @@
 ﻿open System
 open InterfaceBridge.Routes.AccountRoutes
 open InterfaceBridge.Routes.FiscalPeriodRoutes
+open InterfaceBridge.Routes.IngestionRoutes
 open InterfaceBridge.Routes.JournalEntryRoutes
 open InterfaceBridge.CommandRoute
 open Utilities.AppError
 
 
 let commandRoutes =
-    accountDomainCommandRoutes @ fiscalPeriodDomainCommandRoutes @ journalEntryDomainCommandRoutes
+    accountDomainCommandRoutes @ fiscalPeriodDomainCommandRoutes @ journalEntryDomainCommandRoutes @ ingestionDomainCommandRoutes
 
 let route domain verb rest payload : Result<string, AppError> =
     match commandRoutes |> List.tryFind(fun r -> r.domain = domain && r.verb = verb) with
