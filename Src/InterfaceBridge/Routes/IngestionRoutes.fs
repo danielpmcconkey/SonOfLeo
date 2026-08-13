@@ -49,7 +49,7 @@ let private newClassificationRule payload _ =
         let priority = input.priority
         let! ruleGroups = input.ruleGroups |> ``convert [ClassificationRuleGroupContract list] to [ClassificationRuleGroup list]``
         let isActive = true // no new rules that are already inactive
-        let model =
+        let! model =
             createNewClassificationRule
                 context
                 name
@@ -75,6 +75,6 @@ let accountDomainCommandRoutes: CommandRoute list =
         description = "Create a new ClassificationRule."
         inputContract = typeof<NewClassificationRuleInput>.Name
         outputContract = typeof<ClassificationRuleReturn>.Name
-        handler = ingestRawEntries }
+        handler = newClassificationRule }
       
     ]

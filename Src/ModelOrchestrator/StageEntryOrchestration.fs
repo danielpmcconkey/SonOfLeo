@@ -225,7 +225,7 @@ let createNewClassificationRule
     (priority: int)
     (ruleGroups: ClassificationRuleGroup list)
     (isActive: bool)
-    : ClassificationRule = 
+    : Result<ClassificationRule, AppError> = 
     let classificationRuleId = ClassificationRuleId.create()
     let instant = context |> getInitiationInstant
     let newRule =
