@@ -8,6 +8,11 @@ type FieldMatchChain =
     }
 
 module FieldMatchChain =
+    
+    let chain fmc = fmc.chain
+    
+    let create (chain: FieldMatch list) = { chain = chain }
+    
     let doesMatch
         (candidate: MatchCandidate)
         (fieldMatchChain: FieldMatchChain) 

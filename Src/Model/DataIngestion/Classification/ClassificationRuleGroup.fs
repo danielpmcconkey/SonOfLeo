@@ -12,6 +12,20 @@ type ClassificationRuleGroup =
     }
 
 module ClassificationRuleGroup =
+    
+    let connector g = g.connector
+    let chainOne g = g.chainOne
+    let chainTwo g = g.chainTwo
+    
+    let create
+        (connector: ClassificationGroupConnector)
+        (chainOne: FieldMatchChain)
+        (chainTwo: FieldMatchChain option) =
+        {
+            connector = connector
+            chainOne = chainOne
+            chainTwo = chainTwo }
+    
     let doesMatch
         (candidate: MatchCandidate)
         (classificationRuleGroup: ClassificationRuleGroup)

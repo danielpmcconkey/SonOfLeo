@@ -1,10 +1,15 @@
 module InterfaceBridge.Routes.IngestionRoutes
 
+open Context.Context
+open DataAccessLayer.DbTransaction
 open InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 open InterfaceBridge.InterfaceContracts.IngestionContracts
 open Logger.Audit
+open Model
 open Model.DataIngestion
 open Model.DataIngestion.BaseStageRaw
+open Model.DataIngestion.Classification
+open Model.Ledger.Accounts.AccountComponent
 open ModelOrchestrator.StageEntryOrchestration
 open Utilities
 open Utilities.FileIO
@@ -33,6 +38,29 @@ let private ingestRawEntries payload _ =
             let returnEntries = stagedEntries |> ``convert [StageEntry list] to [StageEntryReturn list]``
             return! Json.toJson<StageEntryReturn list> returnEntries })
 
+let private newClassificationRule payload _ =
+    let context = create NoTransaction IngestNewClassificationRule
+    result {
+        let! input = Json.fromJson<NewClassificationRuleInput> payload
+        let! name = input.classificationRuleName |> ClassificationRuleName.create
+        let codeAtMatchStr = input.codeAtMatch
+        let! codeAtMatch = codeAtMatchStr |> AccountCode.create
+        let! _ = codeAtMatchStr |> LookupCache.accountCodeToId.fetch context // check that it's a real code
+        let priority = input.priority
+        let! ruleGroups = input.ruleGroups |> ``convert [ClassificationRuleGroupContract list] to [ClassificationRuleGroup list]``
+        let isActive = true // no new rules that are already inactive
+        let model =
+            createNewClassificationRule
+                context
+                name
+                codeAtMatch
+                priority
+                ruleGroups
+                isActive
+        let returnVal = ``convert [ClassificationRule] to [ClassificationRuleReturn]`` model
+        return! Json.toJson<ClassificationRuleReturn> returnVal
+    }
+
 let accountDomainCommandRoutes: CommandRoute list =
     [
       { domain = "Ingestion"
@@ -41,4 +69,12 @@ let accountDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<IngestRawFileToStageInput>.Name
         outputContract = typeof<StageEntryReturn list>.Name
         handler = ingestRawEntries }
+      
+      { domain = "Ingestion"
+        verb = "NewClassificationRule"
+        description = "Create a new ClassificationRule."
+        inputContract = typeof<NewClassificationRuleInput>.Name
+        outputContract = typeof<ClassificationRuleReturn>.Name
+        handler = ingestRawEntries }
+      
     ]

@@ -4,6 +4,8 @@ open Context.Context
 open Model
 open Model.DataIngestion
 open Model.DataIngestion.BaseStageRaw
+open Model.DataIngestion.Classification
+open Model.DataIngestion.Classification.ClassificationRule
 open Model.DataIngestion.StageEntryHeader
 open Model.DataIngestion.StageEntryLine
 open Model.DataIngestion.StageEntryStatusTransition
@@ -214,4 +216,29 @@ let ingestRawToStage
             |> List.map(fun l -> l |> StageEntryStatusTransition.insertNewToDb context )
             |> convertListOfResultsToResultsList
         return! sourceFile |> fetchAllByFile context 
+    }
+
+let createNewClassificationRule
+    (context: Context)
+    (classificationRuleName: ClassificationRuleName)
+    (codeAtMatch: AccountCode)
+    (priority: int)
+    (ruleGroups: ClassificationRuleGroup list)
+    (isActive: bool)
+    : ClassificationRule = 
+    let classificationRuleId = ClassificationRuleId.create()
+    let instant = context |> getInitiationInstant
+    let newRule =
+        ClassificationRule.create
+            classificationRuleId
+            classificationRuleName
+            codeAtMatch
+            priority
+            ruleGroups
+            isActive
+            instant
+            instant
+    result {
+        do! newRule |> ClassificationRule.insertNewToDb context
+        return newRule
     }

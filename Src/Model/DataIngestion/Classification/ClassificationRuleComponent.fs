@@ -22,6 +22,24 @@ type NumericSearchOperator =
     | GreaterThanOrEqualTo
     | LessThanOrEqualTo
     | ExactlyEqual
+
+module NumericSearchOperator =
+    let toString o =
+        match o with
+        | GreaterThan -> "GreaterThan"
+        | LessThan -> "LessThan"
+        | GreaterThanOrEqualTo -> "GreaterThanOrEqualTo"
+        | LessThanOrEqualTo -> "LessThanOrEqualTo"
+        | ExactlyEqual -> "ExactlyEqual"
+        
+    let fromString str =
+        match str with
+        | "GreaterThan" -> Ok GreaterThan
+        | "LessThan" -> Ok LessThan
+        | "GreaterThanOrEqualTo" -> Ok GreaterThanOrEqualTo
+        | "LessThanOrEqualTo" -> Ok LessThanOrEqualTo
+        | "ExactlyEqual" -> Ok ExactlyEqual
+        | _ -> Error (IngestionInvalidNumericSearchOperator str)
     
 type MoneySearchPattern = {
         numericSearchOperator: NumericSearchOperator
@@ -60,6 +78,19 @@ module StringSearchPattern =
 type ClassificationGroupConnector =
     | And
     | Or
+
+module ClassificationGroupConnector =
+    
+    let toString c =
+        match c with
+        | And -> "And"
+        | Or -> "Or"
+    
+    let fromString str =
+        match str with
+        | "And" -> Ok And
+        | "Or" -> Ok Or
+        | _ -> Error (IngestionInvalidClassificationGroupConnector str)
 
 type MatchCandidate = {
         stageEntryLineId : StageEntryLineId

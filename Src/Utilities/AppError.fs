@@ -91,6 +91,8 @@ type AppError =
     | IngestionClassificationRuleNameTooLong of string * int 
     | IngestionClassificationRuleUpdateNoOp
     | IngestionClassificationRuleToggleOpenNoOp
+    | IngestionInvalidClassificationGroupConnector of string
+    | IngestionInvalidNumericSearchOperator of string
     | IngestionInvalidStagedEntryStatus of string
     | IngestionInvalidStageStatusChangeMechanism of string
     | IngestionInvalidStageStatusTransition of string option * string
@@ -240,6 +242,8 @@ module AppError =
         | IngestionClassificationRuleNameTooLong (str, max) -> $"ClassificationRuleName cannot exceed {max} characters. Provided value is {str}."
         | IngestionClassificationRuleUpdateNoOp -> "Updating the ClassificationRule record failed because at least one updatable parameter must be set."
         | IngestionClassificationRuleToggleOpenNoOp -> "Activating or deactivating this rule would've had no result. Likely because it was already in the desired state."
+        | IngestionInvalidClassificationGroupConnector str -> $"Invalid ClassificationConnector of \"{str}\"."
+        | IngestionInvalidNumericSearchOperator str -> $"Invalid NumericSearchOperator of \"{str}\"."
         | IngestionInvalidStagedEntryStatus str -> $"Provided string of '{str}' is not a valid StagedEntryStatus."
         | IngestionInvalidStageStatusChangeMechanism str -> $"Provided string of '{str}' is not a valid StageStatusChangeMechanism."
         | IngestionInvalidStageStatusTransition (fromStr, toStr) -> $"Invalid stage status transition. Cannot move from {fromStr} to {toStr}."

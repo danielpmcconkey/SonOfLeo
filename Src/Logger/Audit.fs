@@ -15,6 +15,7 @@ type AuditableAction =
     | FiscalPeriodClose
     | FiscalPeriodReopen
     | IngestRawEntries
+    | IngestNewClassificationRule
     | JournalEntryPostNew
     | JournalEntryVoid
     | JournalEntryUpdateExternalReference

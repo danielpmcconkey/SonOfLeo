@@ -6,6 +6,36 @@ open Model.DataIngestion.IngestionSource
 open Model.Ledger.Journaling.JournalEntryComponent
 open NodaTime
 
+// ****************************************
+// Bi-directional contracts
+// ****************************************
+    
+type MoneySearchPatternContract = {
+        numericSearchOperator: string
+        amount: decimal
+    }
+
+type FieldMatchContract =
+    | Source of string
+    | Description of string
+    | Memo of string
+    | LineType of string
+    | Amount of MoneySearchPatternContract
+    
+type FieldMatchChainContract = {
+        chain: FieldMatchContract list
+    }
+
+type ClassificationRuleGroupContract = {
+        connector: string
+        chainOne: FieldMatchChainContract
+        chainTwo: FieldMatchChainContract option
+    }
+
+// ****************************************
+// Return
+// ****************************************
+
 type StageEntryHeaderReturn = {
         sourceFile: string
         stageEntryHeaderId: Guid
@@ -41,8 +71,31 @@ type StageEntryReturn = {
         statusTransitions: StageEntryStatusTransitionReturn list
 }
 
+type ClassificationRuleReturn = {
+        classificationRuleId: Guid
+        classificationRuleName: string
+        codeAtMatch: string
+        priority: int
+        ruleGroups: ClassificationRuleGroupContract list
+        isActive: bool
+        createdAt: Instant
+        modifiedAt: Instant
+    }
+
+// ****************************************
+// Input
+// ****************************************
+
+
 type IngestRawFileToStageInput = {
     fileName: string // just the name of the file and its extension. no path info
     importDir: string // the directory where raw file can be read 
     processedDir: string // where to put the raw file when done with it
 }
+
+type NewClassificationRuleInput = {
+        classificationRuleName: string
+        codeAtMatch: string
+        priority: int 
+        ruleGroups: ClassificationRuleGroupContract list
+    }
