@@ -217,28 +217,3 @@ let ingestRawToStage
             |> convertListOfResultsToResultsList
         return! sourceFile |> fetchAllByFile context 
     }
-
-let createNewClassificationRule
-    (context: Context)
-    (classificationRuleName: ClassificationRuleName)
-    (codeAtMatch: AccountCode)
-    (priority: int)
-    (ruleGroups: ClassificationRuleGroup list)
-    (isActive: bool)
-    : Result<ClassificationRule, AppError> = 
-    let classificationRuleId = ClassificationRuleId.create()
-    let instant = context |> getInitiationInstant
-    let newRule =
-        ClassificationRule.create
-            classificationRuleId
-            classificationRuleName
-            codeAtMatch
-            priority
-            ruleGroups
-            isActive
-            instant
-            instant
-    result {
-        do! newRule |> ClassificationRule.insertNewToDb context
-        return newRule
-    }

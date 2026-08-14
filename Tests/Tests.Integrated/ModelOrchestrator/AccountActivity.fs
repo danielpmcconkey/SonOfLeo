@@ -199,8 +199,8 @@ type AccountActivityTests(fixture: TestDataFixture) =
         let extractCodes activities =
             activities |> List.map (fun a -> a.accountCode |> AccountCode.value)
         result {
-            let! activitiesAsc = fetchFiltered context filter (Some AccountCodeAsc)
-            let! activitiesDesc = fetchFiltered context filter (Some AccountCodeDesc)
+            let! activitiesAsc = fetchFiltered context filter (Some FetchSort.AccountCodeAsc)
+            let! activitiesDesc = fetchFiltered context filter (Some FetchSort.AccountCodeDesc)
             let codesAsc = extractCodes activitiesAsc
             let codesDesc = extractCodes activitiesDesc
             Assert.True(
@@ -246,21 +246,22 @@ type AccountActivityTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.9 fetchFiltered by description returns only matching lines``() =
-        let nonVoidedEntries =
+        let targetDescriptionStringFull =
+            fixture.Data.jeWithUniqueDescription
+            |> JournalEntry.header
+            |> JournalEntryHeader.description
+            |> JournalEntryDescription.value
+        // the description is a like match, so we want to take a substring
+        let targetDescriptionLength = targetDescriptionStringFull |> String.length
+        let targetDescriptionString = targetDescriptionStringFull.Substring(2, targetDescriptionLength - 4)
+        let numLines = fixture.Data.jeWithUniqueDescription |> JournalEntry.lines |> List.length
+        let numMatchingEntries =
             fixture.Data.journalEntries
             |> List.filter(fun je ->
-                je |> JournalEntry.header |> JournalEntryHeader.voidedAt |> Option.isNone)
-        let targetDescriptionString =
-            nonVoidedEntries
-            |> List.countBy(fun je ->
-                je |> JournalEntry.header |> JournalEntryHeader.description |> JournalEntryDescription.value)
-            |> List.maxBy snd
-            |> fst
-        let expectedCount =
-            nonVoidedEntries
-            |> List.filter(fun je ->
-                je |> JournalEntry.header |> JournalEntryHeader.description |> JournalEntryDescription.value = targetDescriptionString)
-            |> List.sumBy(fun je -> je |> JournalEntry.lines |> List.length)
+                let full = je |> JournalEntry.header |> JournalEntryHeader.description |> JournalEntryDescription.value
+                full.Contains(targetDescriptionString))
+            |> List.length
+        let expectedCount = numMatchingEntries * numLines // the report surfaces all lines whose entry matches
         let targetDescription =
             targetDescriptionString
             |> JournalEntryDescription.create
@@ -284,7 +285,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
             Assert.Equal(expectedCount, withDetail |> List.length)
             for activity in withDetail do
                 let detail = activity.activityDetail |> Option.get
-                Assert.Equal(targetDescriptionString, detail.journalEntryDescription |> JournalEntryDescription.value)
+                Assert.Equal(targetDescriptionStringFull, detail.journalEntryDescription |> JournalEntryDescription.value)
         | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]

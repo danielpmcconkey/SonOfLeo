@@ -2,6 +2,7 @@ module ModelOrchestrator.FetchFilters
 
 open System
 open Model
+open Model.DataIngestion.Classification
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling.JournalEntryComponent
@@ -40,3 +41,16 @@ type JournalEntryFetchFilter =
       referenceText: JournalExternalReferenceText option
       temporalFilter: TemporalFilter option
       unVoidedOnly: bool }
+
+type ClassificationRuleFilter =
+    { ruleId: ClassificationRuleId option
+      nameLike: ClassificationRuleName option
+      codeAtMatch: AccountCode option
+      sourceLike: string option
+      activeOnly: bool }
+
+type FetchSortClassificationRule =
+    | AccountCodeAsc
+    | AccountCodeDesc
+    | PriorityAsc
+    | PriorityDesc

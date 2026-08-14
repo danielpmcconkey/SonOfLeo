@@ -4,6 +4,7 @@ open System
 open Model.DataIngestion
 open Model.DataIngestion.IngestionSource
 open Model.Ledger.Journaling.JournalEntryComponent
+open ModelOrchestrator.FetchFilters
 open NodaTime
 
 // ****************************************
@@ -100,5 +101,10 @@ type NewClassificationRuleInput = {
         ruleGroups: ClassificationRuleGroupContract list
     }
 
-type ClassificationRuleFetchByIdInput = { classificationRuleId: Guid }
-type ClassificationRuleFetchByNameInput = { classificationRuleName: string }
+type FetchClassificationRuleFilteredInput = {
+    filter: ClassificationRuleFilter
+    sort: FetchSortClassificationRule option
+}
+
+type FetchClassificationRuleByIdInput = { classificationRuleId: Guid }
+type FetchClassificationRuleByNameInput = { classificationRuleName: string }

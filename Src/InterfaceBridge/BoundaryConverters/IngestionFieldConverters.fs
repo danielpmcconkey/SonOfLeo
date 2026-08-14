@@ -226,3 +226,8 @@ let ``convert [ClassificationRule] to [ClassificationRuleReturn]``
         createdAt = createdAt
         modifiedAt = modifiedAt
     }
+
+let ``convert [ClassificationRule list] to [ClassificationRuleReturn list]``
+    (rules: ClassificationRule list)
+    : ClassificationRuleReturn list =
+    rules |> List.map ``convert [ClassificationRule] to [ClassificationRuleReturn]``

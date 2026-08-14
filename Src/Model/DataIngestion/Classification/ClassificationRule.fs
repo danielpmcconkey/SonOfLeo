@@ -85,7 +85,7 @@ let insertNewToDb (context: Context) (classificationRule: ClassificationRule) : 
               { name = "@rule_name"; value = CharString(ruleName) }
               { name = "@code_at_match"; value = CharString(code) }
               { name = "@priority"; value = Integer(priority) }
-              { name = "@rule_groups"; value = CharString(ruleGroups) }
+              { name = "@rule_groups"; value = Jsonb(ruleGroups) }
               { name = "@is_active"; value = Boolean(isActive) }
               { name = "@created_at"; value = DbInstant createdAt }
               { name = "@modified_at"; value = DbInstant modifiedAt }

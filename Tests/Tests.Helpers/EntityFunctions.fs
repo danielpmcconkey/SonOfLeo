@@ -1,7 +1,11 @@
 module Tests.Helpers.EntityFunctions
 
+open InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 open InterfaceBridge.InterfaceContracts.AccountContracts
+open InterfaceBridge.InterfaceContracts.IngestionContracts
 open Model
+open Model.DataIngestion.Classification
+open Model.DataIngestion.Classification.ClassificationRule
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.FiscalPeriods
@@ -170,3 +174,40 @@ let sumJournalEntryLinesByAccountIdAndType tran unvoidedOnly accountId lineType 
         else
             allLinesAtAccountAndType
     filteredFurther |> List.sumBy(fun x -> x |> JournalEntryLine.amount |> Money.amount)
+    
+let createClassificationRuleGroupListForTest
+    (ruleGroupPrimitives: (string * FieldMatch list * FieldMatch list option) list)
+    : Result<ClassificationRuleGroup list, AppError> =
+    let ruleGroups =
+        ruleGroupPrimitives
+        |> List.map(fun x -> 
+        let connectorStr, fmChain1, fmChain2 = x
+        result {
+            let! connector = connectorStr |> ClassificationGroupConnector.fromString
+            let chainOne = fmChain1 |> FieldMatchChain.create
+            let chainTwo = fmChain2 |> Option.map FieldMatchChain.create
+            return ClassificationRuleGroup.create connector chainOne chainTwo
+        }) |> convertListOfResultsToResultsList
+    ruleGroups    
+
+let createClassificationRuleForTest
+    (context: Context)
+    (classificationRuleNameStr: string)
+    (codeAtMatchStr: string)
+    (priority: int)
+    (ruleGroupPrimitives: (string * FieldMatch list * FieldMatch list option) list)
+    (isActive: bool)
+    : Result<ClassificationRule, AppError> =
+    result {
+        let! classificationRuleName = classificationRuleNameStr |> ClassificationRuleName.create
+        let! codeAtMatch = codeAtMatchStr |> AccountCode.create
+        let! ruleGroups = ruleGroupPrimitives |> createClassificationRuleGroupListForTest
+        return!
+            ClassificationOrchestration.createNewClassificationRule
+                context
+                classificationRuleName
+                codeAtMatch
+                priority
+                ruleGroups
+                isActive
+    }

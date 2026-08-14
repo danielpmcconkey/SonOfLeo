@@ -5,6 +5,7 @@ open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open Logger.Audit
+open Model.DataIngestion.Classification
 open Model.Ledger.Accounts
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator
@@ -54,6 +55,7 @@ type FixtureData =
       jeWithRefExtRefId: JournalEntryExternalReferenceId
       jeWithLinesRefsAndCommentsId: JournalEntryHeaderId
       jeWithLinesRefsAndComments: JournalEntry
+      jeWithUniqueDescription: JournalEntry
       voidedJeId: JournalEntryHeaderId
       voidedJeExtRefId: JournalEntryExternalReferenceId
       jeInClosedPeriodId: JournalEntryHeaderId
@@ -106,7 +108,12 @@ type TestDataFixture() =
                             ledger.journal_entry_line,
                             ledger.journal_entry,
                             ledger.account,
-                            ledger.fiscal_period
+                            ledger.fiscal_period,
+                            ingestion.classification_rule,
+                            ingestion.source,
+                            ingestion.staged_entry,
+                            ingestion.staged_entry_audit,
+                            ingestion.staged_entry_line
                         CASCADE;
                 """
                 let! _ = executeNonQuery (context |> getDatabaseTransaction) deleteQuery [] AnyQuantityIsAcceptable
@@ -471,6 +478,18 @@ type TestDataFixture() =
                         [ (None, "Fixture comment for testing") ]
                 journalEntries <- jeWithLinesRefsAndComments :: journalEntries
 
+                let! jeWithUniqueDescription, jeWithUniqueDescriptionId = // this is used to test a "like" match on description. Do not name any other JE anything close to this.
+                    createTestJournalEntryFromPrimitives
+                        context
+                        "This is my very unique description"
+                        None
+                        today
+                        [ (mortgage2210Id, 100.00M, "Debit", None)
+                          (food5350Id, 100.00M, "Credit", (Some "Grocery run")) ]
+                        []
+                        [ (None, "Fixture comment for testing") ]
+                journalEntries <- jeWithUniqueDescription :: journalEntries
+
                 // =============================================================================
                 // Close the fiscal period and account (after JE creation)
                 // =============================================================================
@@ -594,6 +613,53 @@ type TestDataFixture() =
                 journalEntries <- temporalGamma :: journalEntries
 
                 // =============================================================================
+                // Classification rules
+                // =============================================================================
+                
+                // generic rule to be overridden 
+                let! sourceCheckingAccountMatchPattern = StringSearchPattern.create "Checking Account"
+                let sourceCheckingAccountMatch = FieldMatch.Source(sourceCheckingAccountMatchPattern)
+                let (sourceCheckingAccountRuleGroup: (string * FieldMatch list * FieldMatch list option) list) =
+                    [("And", [sourceCheckingAccountMatch], None)]
+                let! sourceCheckingAccount5300Rule =
+                    createClassificationRuleForTest
+                        context
+                        "Source = Checking Account then 5300"
+                        (personalExpenses5300 |> Account.code |> AccountCode.value)
+                        1000
+                        sourceCheckingAccountRuleGroup
+                        true
+                
+                // override the source = checking 5300 rule
+                let! descDoorDashMatchPattern = StringSearchPattern.create "^(DD|DoorDash)[\\w\\s\\d-,!'\"]{1,}$"
+                let descDoorDashMatch = FieldMatch.Description(descDoorDashMatchPattern)
+                let (sourceCheckingDescDoorDashRuleGroup: (string * FieldMatch list * FieldMatch list option) list) =
+                    [("And", [sourceCheckingAccountMatch; descDoorDashMatch], None)]
+                let! sourceCheckingDescDoorDash5350Rule =
+                    createClassificationRuleForTest
+                        context
+                        "Source = Checking Account && Desc = DoorDash then 5350"
+                        (food5350 |> Account.code |> AccountCode.value)
+                        100
+                        sourceCheckingDescDoorDashRuleGroup
+                        true
+                
+                let! sourceVisaMatchPattern = StringSearchPattern.create "Visa"
+                let sourceVisaMatch = FieldMatch.Source(sourceVisaMatchPattern)
+                let! descReiMatchPattern = StringSearchPattern.create "^REI REI Co-op [\\d]{4,5}[\\w\\s\\d-,!'\"]{1,}$"
+                let descReiMatch = FieldMatch.Description(descReiMatchPattern)
+                let (sourceVisaDescReiRuleGroup: (string * FieldMatch list * FieldMatch list option) list) =
+                    [("And", [sourceVisaMatch; descReiMatch], None)]
+                let! sourceVisaDescRei5650Rule =
+                    createClassificationRuleForTest
+                        context
+                        "Source = Visa && Desc = Rei then 5650"
+                        (entertainment5650 |> Account.code |> AccountCode.value)
+                        10
+                        sourceVisaDescReiRuleGroup
+                        true
+                
+                // =============================================================================
                 // Calculate aggregate totals for fetch tests
                 // =============================================================================
 
@@ -660,6 +726,7 @@ type TestDataFixture() =
                       voidedJeExtRefId = voidedJeExtRefId
                       jeInClosedPeriodId = jeInClosedPeriodId
                       jeInClosedPeriodExtRefId = jeInClosedPeriodExtRefId
+                      jeWithUniqueDescription = jeWithUniqueDescription
                       fixtureCommentId = fixtureCommentId
                       sharedRefJe1Id = sharedRefJe1Id
                       sharedRefJe2Id = sharedRefJe2Id

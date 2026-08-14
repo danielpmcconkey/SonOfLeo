@@ -10,6 +10,7 @@ open Model.DataIngestion
 open Model.DataIngestion.BaseStageRaw
 open Model.DataIngestion.Classification
 open Model.Ledger.Accounts.AccountComponent
+open ModelOrchestrator.ClassificationOrchestration
 open ModelOrchestrator.StageEntryOrchestration
 open Utilities
 open Utilities.FileIO
@@ -64,7 +65,7 @@ let private newClassificationRule payload _ =
 let private fetchClassificationRuleById payload _ =
     let context = create NoTransaction FetchOnly
     result {
-        let! input = Json.fromJson<ClassificationRuleFetchByIdInput> payload
+        let! input = Json.fromJson<FetchClassificationRuleByIdInput> payload
         let classificationRuleId = input.classificationRuleId |> ClassificationRuleId.fromGuid
         let! model = classificationRuleId |> ClassificationRule.fetchById context
         let returnVal = ``convert [ClassificationRule] to [ClassificationRuleReturn]`` model
@@ -74,11 +75,20 @@ let private fetchClassificationRuleById payload _ =
 let private fetchClassificationRuleByName payload _ =
     let context = create NoTransaction FetchOnly
     result {
-        let! input = Json.fromJson<ClassificationRuleFetchByNameInput> payload
+        let! input = Json.fromJson<FetchClassificationRuleByNameInput> payload
         let! name = input.classificationRuleName |> ClassificationRuleName.create
         let! model = name |> ClassificationRule.fetchByName context
         let returnVal = ``convert [ClassificationRule] to [ClassificationRuleReturn]`` model
         return! Json.toJson<ClassificationRuleReturn> returnVal
+    }
+
+let private fetchClassificationRuleFiltered payload _ =
+    let context = create NoTransaction FetchOnly
+    result {
+        let! input = Json.fromJson<FetchClassificationRuleFilteredInput> payload
+        let! model = fetchFiltered context input.filter input.sort
+        let returnVal = ``convert [ClassificationRule list] to [ClassificationRuleReturn list]`` model
+        return! Json.toJson<ClassificationRuleReturn list> returnVal
     }
 
 let ingestionDomainCommandRoutes: CommandRoute list =
@@ -100,15 +110,22 @@ let ingestionDomainCommandRoutes: CommandRoute list =
       { domain = "Ingestion"
         verb = "FetchClassificationRuleById"
         description = "Fetch a specific ClassificationRule by providing its Id."
-        inputContract = typeof<ClassificationRuleFetchByIdInput>.Name
+        inputContract = typeof<FetchClassificationRuleByIdInput>.Name
         outputContract = typeof<ClassificationRuleReturn>.Name
         handler = fetchClassificationRuleById }
       
       { domain = "Ingestion"
         verb = "FetchClassificationRuleByName"
         description = "Fetch a specific ClassificationRule by providing its name."
-        inputContract = typeof<ClassificationRuleFetchByNameInput>.Name
+        inputContract = typeof<FetchClassificationRuleByNameInput>.Name
         outputContract = typeof<ClassificationRuleReturn>.Name
         handler = fetchClassificationRuleByName }
+      
+      { domain = "Ingestion"
+        verb = "FetchClassificationRuleFiltered"
+        description = "Fetch a whichever rules match a specific combination of filter inputs. This is more computationally expensive than the more basic FetchByX."
+        inputContract = typeof<FetchClassificationRuleFilteredInput>.Name
+        outputContract = typeof<ClassificationRuleReturn list>.Name
+        handler = fetchClassificationRuleFiltered }
       
     ]

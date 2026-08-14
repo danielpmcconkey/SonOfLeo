@@ -153,8 +153,8 @@ let fetchFiltered
         let sortClause =
             match sort with
             | None -> ""
-            | Some AccountCodeAsc -> "order by a.code asc"
-            | Some AccountCodeDesc -> "order by a.code desc"
+            | Some FetchSort.AccountCodeAsc -> "order by a.code asc"
+            | Some FetchSort.AccountCodeDesc -> "order by a.code desc"
             | Some EntryDateAsc -> "order by je.entry_date asc"
             | Some EntryDateDesc -> "order by je.entry_date desc"
             | Some AmountAsc -> "order by jel.amount asc"
