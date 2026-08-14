@@ -34,7 +34,6 @@ let create
         modifiedAt = modifiedAt
     }
     
-// todo: don't forget to create a CLI route for making new sources 
 let insertNewToDb (context: Context) (ingestionSource: IngestionSource) : Result<unit, AppError> =
     let query =
         """

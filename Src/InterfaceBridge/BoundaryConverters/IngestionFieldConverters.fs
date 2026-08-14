@@ -5,6 +5,7 @@ open Model
 open Model.DataIngestion
 open Model.DataIngestion.Classification
 open Model.DataIngestion.Classification.ClassificationRule
+open Model.DataIngestion.IngestionSource
 open Model.DataIngestion.StageEntryHeader
 open Model.DataIngestion.StageEntryLine
 open Model.DataIngestion.StageEntryStatusTransition
@@ -231,3 +232,13 @@ let ``convert [ClassificationRule list] to [ClassificationRuleReturn list]``
     (rules: ClassificationRule list)
     : ClassificationRuleReturn list =
     rules |> List.map ``convert [ClassificationRule] to [ClassificationRuleReturn]``
+
+let ``convert [IngestionSource] to [IngestionSourceReturn]``
+    (source: IngestionSource)
+    : IngestionSourceReturn = {
+        ingestionSourceId = source |> IngestionSource.ingestionSourceId |> IngestionSourceId.value
+        name = source |> IngestionSource.name |> JournalRefFinancialInstitution.value
+        createdAt = source |> IngestionSource.createdAt
+        modifiedAt = source |> IngestionSource.modifiedAt
+    }
+    

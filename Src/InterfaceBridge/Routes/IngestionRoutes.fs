@@ -10,6 +10,7 @@ open Model.DataIngestion
 open Model.DataIngestion.BaseStageRaw
 open Model.DataIngestion.Classification
 open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.ClassificationOrchestration
 open ModelOrchestrator.StageEntryOrchestration
 open Utilities
@@ -58,7 +59,7 @@ let private newClassificationRule payload _ =
                 priority
                 ruleGroups
                 isActive
-        let returnVal = ``convert [ClassificationRule] to [ClassificationRuleReturn]`` model
+        let returnVal = model |> ``convert [ClassificationRule] to [ClassificationRuleReturn]``
         return! Json.toJson<ClassificationRuleReturn> returnVal
     }
 
@@ -68,7 +69,7 @@ let private fetchClassificationRuleById payload _ =
         let! input = Json.fromJson<FetchClassificationRuleByIdInput> payload
         let classificationRuleId = input.classificationRuleId |> ClassificationRuleId.fromGuid
         let! model = classificationRuleId |> ClassificationRule.fetchById context
-        let returnVal = ``convert [ClassificationRule] to [ClassificationRuleReturn]`` model
+        let returnVal = model |> ``convert [ClassificationRule] to [ClassificationRuleReturn]``
         return! Json.toJson<ClassificationRuleReturn> returnVal
     }
 
@@ -78,7 +79,7 @@ let private fetchClassificationRuleByName payload _ =
         let! input = Json.fromJson<FetchClassificationRuleByNameInput> payload
         let! name = input.classificationRuleName |> ClassificationRuleName.create
         let! model = name |> ClassificationRule.fetchByName context
-        let returnVal = ``convert [ClassificationRule] to [ClassificationRuleReturn]`` model
+        let returnVal = model |> ``convert [ClassificationRule] to [ClassificationRuleReturn]``
         return! Json.toJson<ClassificationRuleReturn> returnVal
     }
 
@@ -87,8 +88,18 @@ let private fetchClassificationRuleFiltered payload _ =
     result {
         let! input = Json.fromJson<FetchClassificationRuleFilteredInput> payload
         let! model = fetchFiltered context input.filter input.sort
-        let returnVal = ``convert [ClassificationRule list] to [ClassificationRuleReturn list]`` model
+        let returnVal = model |> ``convert [ClassificationRule list] to [ClassificationRuleReturn list]``
         return! Json.toJson<ClassificationRuleReturn list> returnVal
+    }
+
+let private createNewSource payload _ =
+    let context = create NoTransaction IngestNewSource
+    result {
+        let! input = Json.fromJson<CreateNewIngestionSourceInput> payload
+        let! name = input.name |> JournalRefFinancialInstitution.create
+        let! model = name |> createNewSource context
+        let returnVal = model |> ``convert [IngestionSource] to [IngestionSourceReturn]``
+        return! Json.toJson<IngestionSourceReturn> returnVal
     }
 
 let ingestionDomainCommandRoutes: CommandRoute list =
@@ -127,5 +138,12 @@ let ingestionDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<FetchClassificationRuleFilteredInput>.Name
         outputContract = typeof<ClassificationRuleReturn list>.Name
         handler = fetchClassificationRuleFiltered }
+      
+      { domain = "Ingestion"
+        verb = "CreateIngestionSource"
+        description = "Create a new ingestion source"
+        inputContract = typeof<CreateNewIngestionSourceInput>.Name
+        outputContract = typeof<IngestionSourceReturn>.Name
+        handler = createNewSource }
       
     ]

@@ -83,6 +83,13 @@ type ClassificationRuleReturn = {
         modifiedAt: Instant
     }
 
+type IngestionSourceReturn = {
+        ingestionSourceId: Guid
+        name: string
+        createdAt: Instant
+        modifiedAt: Instant
+    }
+
 // ****************************************
 // Input
 // ****************************************
@@ -108,3 +115,4 @@ type FetchClassificationRuleFilteredInput = {
 
 type FetchClassificationRuleByIdInput = { classificationRuleId: Guid }
 type FetchClassificationRuleByNameInput = { classificationRuleName: string }
+type CreateNewIngestionSourceInput = { name: string }

@@ -4,8 +4,7 @@ open Context.Context
 open Model
 open Model.DataIngestion
 open Model.DataIngestion.BaseStageRaw
-open Model.DataIngestion.Classification
-open Model.DataIngestion.Classification.ClassificationRule
+open Model.DataIngestion.IngestionSource
 open Model.DataIngestion.StageEntryHeader
 open Model.DataIngestion.StageEntryLine
 open Model.DataIngestion.StageEntryStatusTransition
@@ -217,3 +216,14 @@ let ingestRawToStage
             |> convertListOfResultsToResultsList
         return! sourceFile |> fetchAllByFile context 
     }
+
+let createNewSource
+    (context: Context)
+    (name: JournalRefFinancialInstitution)
+    : Result<IngestionSource, AppError> =
+    result {
+        let instant = context |> getInitiationInstant
+        let uuid = IngestionSourceId.create()
+        let newSource = IngestionSource.create uuid name instant instant
+        do! newSource |> IngestionSource.insertNewToDb context
+        return newSource }

@@ -3,9 +3,12 @@ module ModelOrchestrator.ClassificationOrchestration
 open System
 open Context.Context
 open DataAccessLayer.ExecuteReader
+open Model.DataIngestion
 open Model.DataIngestion.Classification
 open Model.DataIngestion.Classification.ClassificationRule
+open Model.DataIngestion.IngestionSource
 open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.FetchFilters
 open NodaTime
 open Utilities.AppError
@@ -24,7 +27,7 @@ let createNewClassificationRule
     let classificationRuleId = ClassificationRuleId.create()
     let instant = context |> getInitiationInstant
     let newRule =
-        create
+        ClassificationRule.create
             classificationRuleId
             classificationRuleName
             codeAtMatch
@@ -34,7 +37,7 @@ let createNewClassificationRule
             instant
             instant
     result {
-        do! newRule |> insertNewToDb context
+        do! newRule |> ClassificationRule.insertNewToDb context
         return newRule
     }
 
@@ -57,7 +60,7 @@ let private reconstitute
         let! classificationRuleName = nameStr |> ClassificationRuleName.create
         let! codeAtMatch = codeStr |> AccountCode.create
         let! ruleGroups = ruleGroupsStr |> Json.fromJson<ClassificationRuleGroup list>
-        return create
+        return ClassificationRule.create
                 classificationRuleId
                 classificationRuleName
                 codeAtMatch
