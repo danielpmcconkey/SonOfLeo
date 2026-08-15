@@ -13,10 +13,10 @@ open ModelOrchestrator.FetchFilters
 open Utilities.AppError
 open Model.Ledger.Accounts.AccountComponent
 open Utilities.ResultHelper
-open Context.Context
+
 
 let ``convert TemporalFilterInput to TemporalFilter``
-    (context: Context)
+    (context: Context.Context)
     (input: TemporalFilterInput)
     : Result<TemporalFilter, AppError> =
 
@@ -34,14 +34,14 @@ let ``convert TemporalFilterInput to TemporalFilter``
             return uuid |> FiscalPeriodId.fromGuid |> TemporalFilter.FiscalPeriodIdentifier
         }
 let ``convert TemporalFilterInput Option To TemporalFilter Option``
-    (context: Context)
+    (context: Context.Context)
     (input: TemporalFilterInput option)
     : Result<TemporalFilter option, AppError> =
     let fallibleConverter = (fun x -> x |> ``convert TemporalFilterInput to TemporalFilter`` context)
     input |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
 let ``convert AccountActivityFilterInput to AccountActivityFilter``
-    (context: Context)
+    (context: Context.Context)
     (input: AccountActivityFilterInput)
     : Result<AccountActivityFilter, AppError> =
     result {
@@ -90,7 +90,7 @@ let ``convert AccountActivityDetail to AccountActivityDetailReturn``
       journalEntryVoidedAt = input.journalEntryVoidedAt }
 
 let ``convert AccountActivity to AccountActivityReturn``
-    (context: Context)
+    (context: Context.Context)
     (input: AccountActivity)
     : Result<AccountActivityReturn, AppError> =
     result {
@@ -109,7 +109,7 @@ let ``convert AccountActivity to AccountActivityReturn``
     }
 
 let ``convert AccountActivity List to AccountActivityReturn List``
-    (context: Context)
+    (context: Context.Context)
     (input: AccountActivity list)
     : Result<AccountActivityReturn list, AppError> =
     input

@@ -1,5 +1,5 @@
 ﻿
-open Context.Context
+
 open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteScalar
 open Logger.Audit
@@ -11,10 +11,10 @@ open Utilities.AppError
  will use, and refuses anything but dev. Do not soften this back into a reminder. *)
 let private expectedDatabase = "sonofleo_dev"
 
-let private context = create NoTransaction FetchOnly
+let private context = Context.create NoTransaction FetchOnly
 
 let private actualDatabase =
-  executeScalar (context |> getDatabaseTransaction) "select current_database()" [] stringUnboxing
+  executeScalar (context |> Context.getDatabaseTransaction) "select current_database()" [] stringUnboxing
   |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
 
 if actualDatabase <> expectedDatabase then

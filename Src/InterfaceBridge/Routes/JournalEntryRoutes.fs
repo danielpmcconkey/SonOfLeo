@@ -1,6 +1,6 @@
 module InterfaceBridge.Routes.JournalEntryRoutes
 
-open Context.Context
+
 open DataAccessLayer.DbTransaction
 open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
@@ -41,7 +41,7 @@ let private postNew payload _ : Result<string, AppError> =
         })
 
 let private fetchById payload _ =
-    let context = create NoTransaction FetchOnly
+    let context = Context.create NoTransaction FetchOnly
     result {
         let! input = Json.fromJson<JournalEntryFetchByIdInput> payload
         let! journalEntry = input.id |> JournalEntryHeaderId.fromGuid |> JournalEntry.fetchById context
@@ -50,7 +50,7 @@ let private fetchById payload _ =
     }
 
 let private fetchByPeriod payload _ =
-    let context = create NoTransaction FetchOnly
+    let context = Context.create NoTransaction FetchOnly
     result {
         let! input = Json.fromJson<JournalEntryFetchByPeriodInput> payload
         let! fiscalPeriod = input.periodKey |> ``convert [FiscalPeriodKeyString] to FiscalPeriod`` context
@@ -60,7 +60,7 @@ let private fetchByPeriod payload _ =
     }
 
 let private fetchLinesByAccount payload _ =
-    let context = create NoTransaction FetchOnly
+    let context = Context.create NoTransaction FetchOnly
     result {
         let! input = Json.fromJson<JournalEntryFetchLinesByAccountInput> payload
         let! id = input.accountCode |> ``convert AccountCodeString to Id`` context
@@ -70,7 +70,7 @@ let private fetchLinesByAccount payload _ =
     }
 
 let private fetchByExternalReference payload _ =
-    let context = create NoTransaction FetchOnly
+    let context = Context.create NoTransaction FetchOnly
     result {
         let! input = Json.fromJson<JournalEntryFetchByExternalReferenceInput> payload
         let! fi = input.fi |> convertOptionToDesiredTypeWithFallibleConverter JournalRefFinancialInstitution.create
@@ -83,7 +83,7 @@ let private fetchByExternalReference payload _ =
     }
 
 let private fetchByDateRange payload _ =
-    let context = create NoTransaction FetchOnly
+    let context = Context.create NoTransaction FetchOnly
     result {
         let! input = Json.fromJson<JournalEntryFetchByDateRangeInput> payload
         let! model = JournalEntry.fetchByDateRange context input.beginDate input.endDateInclusive
@@ -104,7 +104,7 @@ let private voidJe payload _ =
         })
 
 let private updateExternalReference payload _ =
-    let context = create NoTransaction JournalEntryUpdateExternalReference
+    let context = Context.create NoTransaction JournalEntryUpdateExternalReference
     result {
         let! input = Json.fromJson<JournalEntryUpdateExternalReferenceInput> payload
         let referenceId = input.id |> JournalEntryExternalReferenceId.fromGuid
@@ -131,7 +131,7 @@ let private updateExternalReference payload _ =
     }
 
 let private addExternalReference payload _ =
-    let context = create NoTransaction JournalEntryAddExternalReference
+    let context = Context.create NoTransaction JournalEntryAddExternalReference
     result {
         let! input = Json.fromJson<JournalEntryAddExternalReferenceInput> payload
         let headerId = input.journalEntryId |> JournalEntryHeaderId.fromGuid
@@ -143,7 +143,7 @@ let private addExternalReference payload _ =
     }
 
 let private addComment payload _ =
-    let context = create NoTransaction JournalEntryAddComment
+    let context = Context.create NoTransaction JournalEntryAddComment
     result {
         let! input = Json.fromJson<JournalEntryAddCommentInput> payload
         let headerId = input.journalEntryId |> JournalEntryHeaderId.fromGuid
@@ -161,7 +161,7 @@ let private addComment payload _ =
     }
 
 let private updateComment payload _ =
-    let context = create NoTransaction JournalEntryUpdateComment
+    let context = Context.create NoTransaction JournalEntryUpdateComment
     result {
         let! input = Json.fromJson<JournalEntryUpdateCommentInput> payload
         let journalEntryCommentId = input.id |> JournalEntryCommentId.fromGuid

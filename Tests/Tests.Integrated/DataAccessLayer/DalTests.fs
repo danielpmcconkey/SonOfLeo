@@ -11,61 +11,61 @@ open Utilities.ResultHelper
 open Xunit
 open Utilities.AppError
 open Tests.Helpers.SadPath
-open Context.Context
+
 
 let unBoxingNull
     (unboxingFunc: obj -> Result<'T, AppError>)
     : Result<unit, AppError> =
-    let context = create NoTransaction FetchOnly
-    match executeScalar (context |> getDatabaseTransaction) "select 'burp' where 1 = 0" [] unboxingFunc with
+    let context = Context.create NoTransaction FetchOnly
+    match executeScalar (context |> Context.getDatabaseTransaction) "select 'burp' where 1 = 0" [] unboxingFunc with
     | Ok _ -> Ok ()
     | Error e -> Error e
     
 let unBoxingNonNullReturnsString
     (unboxingFunc: obj -> Result<'T, AppError>)
     : Result<unit, AppError> =
-    let context = create NoTransaction FetchOnly
-    match executeScalar (context |> getDatabaseTransaction) "SELECT 'hello'" [] unboxingFunc with
+    let context = Context.create NoTransaction FetchOnly
+    match executeScalar (context |> Context.getDatabaseTransaction) "SELECT 'hello'" [] unboxingFunc with
     | Ok _ -> Ok ()
     | Error e -> Error e
     
 let unBoxingNonNullReturnsInt
     (unboxingFunc: obj -> Result<'T, AppError>)
     : Result<unit, AppError> =
-    let context = create NoTransaction FetchOnly
-    match executeScalar (context |> getDatabaseTransaction) "SELECT 1" [] unboxingFunc with
+    let context = Context.create NoTransaction FetchOnly
+    match executeScalar (context |> Context.getDatabaseTransaction) "SELECT 1" [] unboxingFunc with
     | Ok _ -> Ok ()
     | Error e -> Error e
 
 let errorNonQuery ()
     : Result<unit, AppError> =
-    let context = create NoTransaction FetchOnly
-    match executeNonQuery (context |> getDatabaseTransaction) "SEL ECT from ledger.account;" [] Zero with
+    let context = Context.create NoTransaction FetchOnly
+    match executeNonQuery (context |> Context.getDatabaseTransaction) "SEL ECT from ledger.account;" [] Zero with
     | Ok _ -> Ok ()
     | Error e -> Error e
 
 let errorReaderQuery ()
     : Result<unit, AppError> =
-    let context = create NoTransaction FetchOnly
+    let context = Context.create NoTransaction FetchOnly
     let mapRaw _ = ("", "")
     let contructFromRaw _ = Ok ""
-    match executeReaderQuery (context |> getDatabaseTransaction) "SEL ECT from ledger.account;" [] mapRaw contructFromRaw Zero with
+    match executeReaderQuery (context |> Context.getDatabaseTransaction) "SEL ECT from ledger.account;" [] mapRaw contructFromRaw Zero with
     | Ok _ -> Ok ()
     | Error e -> Error e
 
 let errorScalar ()
     : Result<unit, AppError> =
-    let context = create NoTransaction FetchOnly
-    match executeScalar (context |> getDatabaseTransaction) "SEL ECT from ledger.account;" [] stringUnboxing with
+    let context = Context.create NoTransaction FetchOnly
+    match executeScalar (context |> Context.getDatabaseTransaction) "SEL ECT from ledger.account;" [] stringUnboxing with
     | Ok _ -> Ok ()
     | Error e -> Error e
 
 let errorRowCount ()
     : Result<unit, AppError> =
-    let context = create NoTransaction FetchOnly
+    let context = Context.create NoTransaction FetchOnly
     let mapRaw _ = ("", "")
     let contructFromRaw _ = Ok ""
-    match executeReaderQuery (context |> getDatabaseTransaction) "select code, account_name from ledger.account where 1 = 2;" [] mapRaw contructFromRaw ExactlyOne with
+    match executeReaderQuery (context |> Context.getDatabaseTransaction) "select code, account_name from ledger.account where 1 = 2;" [] mapRaw contructFromRaw ExactlyOne with
     | Ok _ -> Ok ()
     | Error e -> Error e
     
@@ -107,13 +107,13 @@ let ``DAL errors surface when they should`` expectedError =
             | "DalCantCompleteTransactionOfNone" -> createNoTransaction() |> commit
             | "DalCantUseTransactionOfNoneInAutoCommit" ->
                 let func _ = Ok()
-                let context = create NoTransaction FetchOnly
-                runWithAutoCompleteTransaction (context |> getDatabaseTransaction) (fun () -> func context)
+                let context = Context.create NoTransaction FetchOnly
+                runWithAutoCompleteTransaction (context |> Context.getDatabaseTransaction) (fun () -> func context)
             | "DalDecimalUnboxingReturnedNull" -> unBoxingNull decimalUnboxing
             | "DalErrorDuringAutoCompleteTransactionRun" ->
                 let func _ = (raise (ApplicationException("everybody stay calm. I'm a trained professional.")))
-                let context = create NewTransaction FetchOnly
-                runWithAutoCompleteTransaction (context |> getDatabaseTransaction) (fun () -> func context)
+                let context = Context.create NewTransaction FetchOnly
+                runWithAutoCompleteTransaction (context |> Context.getDatabaseTransaction) (fun () -> func context)
             | "DalErrorDuringDecimalOptionUnboxing" -> unBoxingNonNullReturnsString decimalOptionUnboxing
             | "DalErrorDuringDecimalUnboxing" -> unBoxingNonNullReturnsString decimalUnboxing
             | "DalErrorDuringInstantOptionUnboxing" -> unBoxingNonNullReturnsString instantOptionUnboxing

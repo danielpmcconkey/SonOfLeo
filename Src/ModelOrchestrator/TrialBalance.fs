@@ -1,6 +1,6 @@
 module ModelOrchestrator.TrialBalanceReport
 
-open Context.Context
+
 open Model
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
@@ -95,7 +95,7 @@ let rec private flattenNestedTrialBalance
     selfFlattened:: (nested.children |> List.collect flattenNestedTrialBalance)
     
 let fetchTrialBalanceData
-    (context: Context)
+    (context: Context.Context)
     (asOf: LocalDate)
     : Result<TrialBalanceRowFlattened list, AppError> =
     result {

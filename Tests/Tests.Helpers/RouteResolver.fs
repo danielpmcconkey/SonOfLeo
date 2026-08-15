@@ -1,6 +1,6 @@
 module Tests.Helpers.RouteResolver
 
-open Context.Context
+
 open DataAccessLayer.DbTransaction
 open InterfaceBridge.Routes.AccountRoutes
 open InterfaceBridge.Routes.FiscalPeriodRoutes
@@ -37,9 +37,9 @@ let routeReportingCommandForTesting
 /// runFuncAndAutoRollback is used for testing only. It creates a context and
 /// automatically rolls back any database changes at the end (whether the func
 /// succeeds, fails, or raises).
-let runFuncAndAutoRollback auditAction (func: Context -> Result<'T, AppError>) : Result<'T, AppError> =
-    let context = create NewTransaction auditAction
-    let tran = context |> getDatabaseTransaction
+let runFuncAndAutoRollback auditAction (func: Context.Context -> Result<'T, AppError>) : Result<'T, AppError> =
+    let context = Context.create NewTransaction auditAction
+    let tran = context |> Context.getDatabaseTransaction
     (* A failing Assert raises rather than returning Error, so on that path the rollback
        below never runs: the transaction stays open holding its row locks, and the next
        test to touch those rows blocks until the connection dies. Roll back here and

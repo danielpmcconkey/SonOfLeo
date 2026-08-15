@@ -13,13 +13,13 @@ open DataAccessLayer.ExecuteReader
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteScalar
 open Utilities.ResultHelper
-open Context.Context
 
-let private updateDb (context: Context) (activeEndUpdate: LocalDate) (account: Account) : Result<Account, AppError> =
+
+let private updateDb (context: Context.Context) (activeEndUpdate: LocalDate) (account: Account) : Result<Account, AppError> =
     let accountId = account |> Account.accountId
     let uuid = accountId |> AccountId.value
     let parameters =
-        [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) }
+        [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
           { name = "@unique_id"; value = UniqueId uuid }
           { name = "@active_end"; value = NullableDbLocalDate(Some activeEndUpdate) } ]
 
@@ -32,7 +32,7 @@ let private updateDb (context: Context) (activeEndUpdate: LocalDate) (account: A
         WHERE unique_id = @unique_id;
     """
     result {
-        let! () = executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        let! () = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
         return! accountId |> Account.fetchById context
     }
 
@@ -48,12 +48,12 @@ let private confirmProposedDeactivationDateIsValid
     else
         Ok()
 
-let private confirmNoActiveChildrenBeforeDeactivation (context: Context) (account: Account) : Result<unit, AppError> =
+let private confirmNoActiveChildrenBeforeDeactivation (context: Context.Context) (account: Account) : Result<unit, AppError> =
     let accountId = account |> Account.accountId
     result {
         let! children = accountId |> Account.fetchByParentId context
         do!
-            let referenceDate = (context |> getInitiationInstant) |> Calendar.dateFromInstant
+            let referenceDate = (context |> Context.getInitiationInstant) |> Calendar.dateFromInstant
             if
                 children
                 |> List.exists(fun x -> x |> Account.activityPeriod |> AccountActivityPeriod.isActive referenceDate)
@@ -63,7 +63,7 @@ let private confirmNoActiveChildrenBeforeDeactivation (context: Context) (accoun
                 Ok()
     }
 
-let private confirmZeroBalanceBeforeDeactivation (context: Context) (account: Account) : Result<unit, AppError> =
+let private confirmZeroBalanceBeforeDeactivation (context: Context.Context) (account: Account) : Result<unit, AppError> =
     let accountId = account |> Account.accountId
     result {
         let! nonVoidedLines = accountId |> JournalEntryLine.fetchByAccountId context true
@@ -84,7 +84,7 @@ let private confirmZeroBalanceBeforeDeactivation (context: Context) (account: Ac
     }
 
 let private confirmNoJournalEntriesAfterDeactivationDate
-    (context: Context)
+    (context: Context.Context)
     (deactivationDate: LocalDate)
     (account: Account)
     : Result<unit, AppError> =
@@ -102,14 +102,14 @@ let private confirmNoJournalEntriesAfterDeactivationDate
     let parameters =
         [ { name = "@account_id"; value = UniqueId uuid }
           { name = "@deactivation_date"; value = DbLocalDate deactivationDate } ]
-    match executeScalar (context |> getDatabaseTransaction) query parameters longUnboxing with
+    match executeScalar (context |> Context.getDatabaseTransaction) query parameters longUnboxing with
     | Error e -> Error e
     | Ok x when x = 0L -> Ok()
     | Ok x when x > 0L -> Error(AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate uuid)
     | _ -> Error(AccountDeactivationFailedJournalEntryValidation)
 
 let private confirmJournalEntriesAreInProperState
-    (context: Context)
+    (context: Context.Context)
     (deactivationDate: LocalDate)
     (account: Account)
     : Result<unit, AppError> =
@@ -124,7 +124,7 @@ let private confirmJournalEntriesAreInProperState
 /// explicitEnd, the system will update the active_end to that explicit time.
 /// Otherwise, the active_end will be the system clock time
 let deactivateAccount
-    (context: Context)
+    (context: Context.Context)
     (explicitEnd: LocalDate option)
     (account: Account)
     : Result<Account, AppError> =
@@ -132,7 +132,7 @@ let deactivateAccount
     let deactivationDate =
         match explicitEnd with
         | Some m -> m
-        | None -> Calendar.dateFromInstant(context |> getInitiationInstant)
+        | None -> Calendar.dateFromInstant(context |> Context.getInitiationInstant)
     result {
         let activeEnd = account |> Account.activityPeriod |> AccountActivityPeriod.activeEnd
         do!

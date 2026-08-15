@@ -1,6 +1,6 @@
 module InterfaceBridge.Routes.IngestionRoutes
 
-open Context.Context
+
 open DataAccessLayer.DbTransaction
 open InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 open InterfaceBridge.InterfaceContracts.IngestionContracts
@@ -33,7 +33,7 @@ let private ingestRawEntries payload _ =
                 linesStr
                 |> List.map(fun l -> l |> Json.fromJson<BaseStageRawRow>)
                 |> convertListOfResultsToResultsList
-            let! stagedEntries = baseStageRawRows |> ingestRawToStage context sourceFile
+            let! stagedEntries = baseStageRawRows |> ingestRawToStageThenDedupAndClassify context sourceFile
             let timeStamp = Clock.now() |> Clock.instantToString "yyyy-MM-dd.HHmmss.fff"
             let! moveToPath = createFullPath processedDir $"{timeStamp}-{input.fileName}"
             do! moveFile toBeProcessedPath moveToPath
@@ -41,7 +41,7 @@ let private ingestRawEntries payload _ =
             return! Json.toJson<StageEntryReturn list> returnEntries })
 
 let private newClassificationRule payload _ =
-    let context = create NoTransaction IngestNewClassificationRule
+    let context = Context.create NoTransaction IngestNewClassificationRule
     result {
         let! input = Json.fromJson<NewClassificationRuleInput> payload
         let! name = input.classificationRuleName |> ClassificationRuleName.create
@@ -64,7 +64,7 @@ let private newClassificationRule payload _ =
     }
 
 let private fetchClassificationRuleById payload _ =
-    let context = create NoTransaction FetchOnly
+    let context = Context.create NoTransaction FetchOnly
     result {
         let! input = Json.fromJson<FetchClassificationRuleByIdInput> payload
         let classificationRuleId = input.classificationRuleId |> ClassificationRuleId.fromGuid
@@ -74,7 +74,7 @@ let private fetchClassificationRuleById payload _ =
     }
 
 let private fetchClassificationRuleByName payload _ =
-    let context = create NoTransaction FetchOnly
+    let context = Context.create NoTransaction FetchOnly
     result {
         let! input = Json.fromJson<FetchClassificationRuleByNameInput> payload
         let! name = input.classificationRuleName |> ClassificationRuleName.create
@@ -84,7 +84,7 @@ let private fetchClassificationRuleByName payload _ =
     }
 
 let private fetchClassificationRuleFiltered payload _ =
-    let context = create NoTransaction FetchOnly
+    let context = Context.create NoTransaction FetchOnly
     result {
         let! input = Json.fromJson<FetchClassificationRuleFilteredInput> payload
         let! model = fetchFiltered context input.filter input.sort
@@ -93,7 +93,7 @@ let private fetchClassificationRuleFiltered payload _ =
     }
 
 let private createNewSource payload _ =
-    let context = create NoTransaction IngestNewSource
+    let context = Context.create NoTransaction IngestNewSource
     result {
         let! input = Json.fromJson<CreateNewIngestionSourceInput> payload
         let! name = input.name |> JournalRefFinancialInstitution.create
@@ -106,7 +106,7 @@ let ingestionDomainCommandRoutes: CommandRoute list =
     [
       { domain = "Ingestion"
         verb = "IngestRawFileToStage"
-        description = "Read a raw jsonl file and write to the stage database. No classification or deduplication is performed. It also moves the file from its current directory to the processed directory."
+        description = "Read a raw jsonl file and write to the stage database. Automatically runs deduplication and classification. It also moves the file from its current directory to the processed directory."
         inputContract = typeof<IngestRawFileToStageInput>.Name
         outputContract = typeof<StageEntryReturn list>.Name
         handler = ingestRawEntries }

@@ -11,7 +11,7 @@ open Utilities.ResultHelper
 open Model.Ledger.FiscalPeriods
 open DataAccessLayer.QueryParameters
 open DataAccessLayer.ExecuteReader
-open Context.Context
+
 
 type AccountActivityDetail =
     { lineId: JournalEntryLineId
@@ -131,7 +131,7 @@ let private reconstitute raw =
     }
 
 let fetchFiltered
-    (context: Context)
+    (context: Context.Context)
     (filter: AccountActivityFilter)
     (sort: FetchSort option)
     : Result<AccountActivity list, AppError> =
@@ -238,7 +238,7 @@ let fetchFiltered
             """
         return!
             executeReaderQuery
-                (context |> getDatabaseTransaction)
+                (context |> Context.getDatabaseTransaction)
                 query
                 parameters
                 mapRawForDbRead

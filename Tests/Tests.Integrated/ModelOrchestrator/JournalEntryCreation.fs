@@ -1,7 +1,7 @@
 namespace Tests.Integrated.ModelOrchestrator
 
 open System
-open Context.Context
+
 open Logger.Audit
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
@@ -114,7 +114,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
     member _.``REQ-SYS-3.2 constructNewAndSaveToDb sets created_at and modified_at from AuditEnvelope``() =
         let today = Calendar.today()
         runFuncAndAutoRollback JournalEntryPostNew (fun context ->
-            let expected = context |> getInitiationInstant
+            let expected = context |> Context.getInitiationInstant
             result {
                 let! jeHappy, _ = // the test helper resolves to constructNewAndSaveToDb
                     createTestJournalEntryFromPrimitives

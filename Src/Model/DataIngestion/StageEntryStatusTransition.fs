@@ -2,7 +2,6 @@ module Model.DataIngestion.StageEntryStatusTransition
 
 open NodaTime
 open Utilities.AppError
-open Context.Context
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
@@ -53,7 +52,7 @@ let create
         instant = instant
         stageStatusChangeMechanism = stageStatusChangeMechanism } 
 
-let insertNewToDb (context: Context) (stageEntryStatusTransition: StageEntryStatusTransition) : Result<unit, AppError> =
+let insertNewToDb (context: Context.Context) (stageEntryStatusTransition: StageEntryStatusTransition) : Result<unit, AppError> =
     let query =
         """
         insert into ingestion.staged_entry_audit(
@@ -80,7 +79,7 @@ let insertNewToDb (context: Context) (stageEntryStatusTransition: StageEntryStat
           { name = "@modified_at"; value = DbInstant(stageEntryStatusTransition.instant) }
           { name = "@change_mechanism"; value = CharString(stageStatusChangeMechanism) }
         ]
-    executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+    executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
         
 let private reconstitute raw =
     result {
@@ -115,7 +114,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getString "change_mechanism")
     
 let private readRowsFromDb
-    (context: Context)
+    (context: Context.Context)
     (predicate: string option)
     (limit: int option)
     (parameters: QueryParameter list)
@@ -128,7 +127,7 @@ let private readRowsFromDb
     let from = "ingestion.staged_entry_audit sea"
     let query = buildReadQuery select from None predicate limit None None
     executeReaderQuery
-        (context |> getDatabaseTransaction)
+        (context |> Context.getDatabaseTransaction)
         query
         parameters
         mapRawForDbRead
@@ -136,7 +135,7 @@ let private readRowsFromDb
         expectedRows
 
 let fetchById
-    (context: Context)
+    (context: Context.Context)
     (transitionId: StageEntryStatusTransitionId)
     : Result<StageEntryStatusTransition, AppError> =
     let predicate = "sea.unique_id = @unique_id"
@@ -144,14 +143,14 @@ let fetchById
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
-let fetchByHeaderId (context: Context) (lineId: StageEntryHeaderId) : Result<StageEntryStatusTransition list, AppError> =
+let fetchByHeaderId (context: Context.Context) (lineId: StageEntryHeaderId) : Result<StageEntryStatusTransition list, AppError> =
     let predicate = "sea.entry_id = @unique_id"
     let uuid = lineId |> StageEntryHeaderId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
 
 let fetchByHeaderIdList
-    (context: Context)
+    (context: Context.Context)
     (stageEntryHeaderIds: StageEntryHeaderId list)
     : Result<StageEntryStatusTransition list, AppError> =
     if stageEntryHeaderIds |> List.isEmpty then Error IngestionStageHeaderIdListCannotBeEmpty else

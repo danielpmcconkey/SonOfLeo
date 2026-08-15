@@ -1,6 +1,6 @@
 module ModelOrchestrator.StageEntryOrchestration
 
-open Context.Context
+
 open Model
 open Model.DataIngestion
 open Model.DataIngestion.BaseStageRaw
@@ -63,7 +63,7 @@ let private confirmLinesAreAllPositive (lines: StageEntryLine list) : Result<uni
     | Ok _ -> Ok ()
 
 let private confirmLinesAccountCodes
-    (context: Context)
+    (context: Context.Context)
     (lines: StageEntryLine list)
     : Result<unit, AppError> =
     let checkedLines =
@@ -87,7 +87,7 @@ let private confirmLinesAccountCodes
     | Ok _ -> Ok ()
 
 let private confirmLines
-    (context: Context)
+    (context: Context.Context)
     (lines: StageEntryLine list)
     : Result<unit, AppError> =
     result {
@@ -105,9 +105,34 @@ let private confirmValidTransition transition =
         let fromStr = fromType |> Option.map StagedEntryStatus.toString
         let toStr = toType |> StagedEntryStatus.toString
         Error (IngestionInvalidStageStatusTransition (fromStr, toStr))
+
+let private confirmValidTransitions transitions =
+    let check =
+        transitions
+        |> List.map confirmValidTransition
+        |> convertListOfResultsToResultsList
+    match check with
+    | Error e -> Error e
+    | Ok _ -> Ok ()
+
+let createStageEntry
+    (context: Context.Context)
+    (header: StageEntryHeader)
+    (lines: StageEntryLine list)
+    (transitions: StageEntryStatusTransition list)
+    : Result<StageEntry, AppError> =
+    result {
+        do! lines |> confirmLines context
+        do! transitions |> confirmValidTransitions
+        return {
+            stageEntryHeader = header
+            lines = lines
+            statusTransitions = transitions
+        }
+    }
     
 let private constructSetFromRaw
-    (context: Context)
+    (context: Context.Context)
     (sourceFile: SourceFile)
     (rawRows: BaseStageRawRow list)
     : Result<StageEntry list, AppError> =
@@ -132,26 +157,20 @@ let private constructSetFromRaw
                         StageEntryLine.create
                             lineId stageEntryId row.amount row.entryType row.accountCode row.memo None
                         )
-                do! lines |> confirmLines context
                 let! ingestionSource = fiSource |> IngestionSource.fetchByName context
                 let header =
                     StageEntryHeader.create
                         sourceFile stageEntryId entryDate description ingestionSource fiReference Ingested
                 let transitionId = StageEntryStatusTransitionId.create ()
                 let transition = StageEntryStatusTransition.create transitionId stageEntryId
-                                      None Ingested (context |> getInitiationInstant) StageIngestion
-                do! confirmValidTransition transition
-                return {
-                    stageEntryHeader = header
-                    lines = lines
-                    statusTransitions = [transition]
-                }
+                                      None Ingested (context |> Context.getInitiationInstant) StageIngestion
+                return! createStageEntry context header lines [transition]
             }
         )
     |> convertListOfResultsToResultsList
 
 let private fetchAllLinesByHeaders
-    (context: Context)
+    (context: Context.Context)
     (headers: StageEntryHeader list)
     : Result<StageEntryLine list, AppError> =
     headers
@@ -159,7 +178,7 @@ let private fetchAllLinesByHeaders
     |> StageEntryLine.fetchByHeaderIdList context
 
 let private fetchAllTransitionsByHeaders
-    (context: Context)
+    (context: Context.Context)
     (headers: StageEntryHeader list)
     : Result<StageEntryStatusTransition list, AppError> =
     headers
@@ -183,7 +202,7 @@ let private compileFromSubLists
           statusTransitions = transitionsAtH } )
     
 let fetchAllByFile
-    (context: Context)
+    (context: Context.Context)
     (sourceFile: SourceFile)
     : Result<StageEntry list, AppError> =
     result {
@@ -193,8 +212,63 @@ let fetchAllByFile
         return compileFromSubLists headers lines statuses
     }
 
-let ingestRawToStage
-    (context: Context)
+let createNewSource
+    (context: Context.Context)
+    (name: JournalRefFinancialInstitution)
+    : Result<IngestionSource, AppError> =
+    result {
+        let instant = context |> Context.getInitiationInstant
+        let uuid = IngestionSourceId.create()
+        let newSource = IngestionSource.create uuid name instant instant
+        do! newSource |> IngestionSource.insertNewToDb context
+        return newSource }
+
+let deduplicateStagedEntries
+    (context: Context.Context)
+    : Result<unit, AppError> =
+    result {
+        let! duplicateHeaders = fetchDuplicates context
+        // update the status on the header record first
+        let! _ = duplicateHeaders
+                 |> List.map(fun dup ->
+                     dup |> StageEntryHeader.stageEntryHeaderId |> StageEntryHeader.updateStatus context Duplicate
+                     )
+                 |> convertListOfResultsToResultsList
+        // now add an audit row entry
+        let! statusTransitions = duplicateHeaders |> fetchAllTransitionsByHeaders context
+        let headerIdAndLatestTran =
+            duplicateHeaders
+            |> List.map(fun dup ->
+                let headerId = dup |> StageEntryHeader.stageEntryHeaderId
+                let mostRecentTransition =
+                    statusTransitions
+                    |> List.filter(fun s -> s |> StageEntryStatusTransition.stageEntryHeaderId = headerId)
+                    |> List.sortByDescending(fun s -> s |> StageEntryStatusTransition.instant)
+                    |> List.head
+                headerId, mostRecentTransition
+                )
+        let! _ =
+            headerIdAndLatestTran
+            |> List.map(fun (headerId, mostRecentTran) ->
+                let fromStatus = mostRecentTran |> StageEntryStatusTransition.toStatus |> Some
+                let newTransitionId = StageEntryStatusTransitionId.create()
+                let instant = context |> Context.getInitiationInstant
+                let toStatus = StagedEntryStatus.Duplicate
+                let mechanism = StageStatusChangeMechanism.Deduplicator
+                let newTransition =
+                    StageEntryStatusTransition.create newTransitionId headerId
+                        fromStatus toStatus instant mechanism
+                result {
+                    do! newTransition |> confirmValidTransition
+                    return! newTransition |> StageEntryStatusTransition.insertNewToDb context
+                }
+                )
+            |> convertListOfResultsToResultsList
+        Ok ()
+    }
+
+let ingestRawToStageThenDedupAndClassify
+    (context: Context.Context)
     (sourceFile: SourceFile)
     (rawRows: BaseStageRawRow list)
     : Result<StageEntry list, AppError> =
@@ -214,16 +288,6 @@ let ingestRawToStage
             |> List.collect statusTransitions
             |> List.map(fun l -> l |> StageEntryStatusTransition.insertNewToDb context )
             |> convertListOfResultsToResultsList
+        do! deduplicateStagedEntries context
         return! sourceFile |> fetchAllByFile context 
     }
-
-let createNewSource
-    (context: Context)
-    (name: JournalRefFinancialInstitution)
-    : Result<IngestionSource, AppError> =
-    result {
-        let instant = context |> getInitiationInstant
-        let uuid = IngestionSourceId.create()
-        let newSource = IngestionSource.create uuid name instant instant
-        do! newSource |> IngestionSource.insertNewToDb context
-        return newSource }

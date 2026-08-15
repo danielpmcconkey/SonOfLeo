@@ -5,7 +5,7 @@ open Model.Ledger.FiscalPeriods
 open Utilities.AppError
 open NodaTime
 open Utilities.ResultHelper
-open Context.Context
+
 
 type JournalEntryHeaderId = private JournalEntryHeaderId of Guid
 module JournalEntryHeaderId =
@@ -94,7 +94,7 @@ type EntryDate =
 module EntryDate =
     let entryDate (e: EntryDate) : LocalDate = e.entryDate
     let fiscalPeriodId (e: EntryDate) : FiscalPeriodId = e.fiscalPeriodId
-    let create (context: Context) (entryDate: LocalDate) : Result<EntryDate, AppError> =
+    let create (context: Context.Context) (entryDate: LocalDate) : Result<EntryDate, AppError> =
         let monthF = entryDate.Month.ToString("D2")
         result {
             let key = $"{entryDate.Year}-{monthF}"

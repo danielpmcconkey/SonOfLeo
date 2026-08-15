@@ -1,7 +1,7 @@
 module Tests.Integrated.ModelOrchestrator.AccountCreation
 
 open System
-open Context.Context
+
 open Logger.Audit
 open ModelOrchestrator
 open Tests.Helpers.RouteResolver
@@ -37,7 +37,7 @@ let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew generates UUID`` () =
 let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` () =
     runFuncAndAutoRollback AccountCreate (fun context ->
         let code = "abc2" |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        let expected = context |> getInitiationInstant
+        let expected = context |> Context.getInitiationInstant
         let account =
             AccountCreation.constructNewAndSaveToDb
                 context

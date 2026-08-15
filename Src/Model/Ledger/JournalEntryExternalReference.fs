@@ -7,7 +7,7 @@ open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.ExecuteNonQuery
-open Context.Context
+
 
 type JournalEntryExternalReference =
     private
@@ -41,7 +41,7 @@ module JournalEntryExternalReference =
           createdAt = createdAt
           modifiedAt = modifiedAt }
 
-    let insertNewToDb (context: Context) (externalReference: JournalEntryExternalReference) : Result<unit, AppError> =
+    let insertNewToDb (context: Context.Context) (externalReference: JournalEntryExternalReference) : Result<unit, AppError> =
         let query =
             """
             INSERT INTO ledger.journal_entry_ext_reference(
@@ -61,7 +61,7 @@ module JournalEntryExternalReference =
                 value = CharString(externalReference.referenceText |> JournalExternalReferenceText.value) }
               { name = "@created_at"; value = DbInstant externalReference.createdAt }
               { name = "@modified_at"; value = DbInstant externalReference.modifiedAt } ]
-        executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
 
 
     /// The mapRow function is used to pass into DAL read functions to let DAL know
@@ -103,7 +103,7 @@ module JournalEntryExternalReference =
     /// readRowsFromDb is designed to produce a flexible read query that can
     /// satisfy diverse use cases
     let private readRowsFromDb
-        (context: Context)
+        (context: Context.Context)
         (predicate: string option)
         (limit: int option)
         (orderBy: string option)
@@ -118,7 +118,7 @@ module JournalEntryExternalReference =
         let from = "ledger.journal_entry_ext_reference jer"
         let query = buildReadQuery select from None predicate limit None orderBy
         executeReaderQuery
-            (context |> getDatabaseTransaction)
+            (context |> Context.getDatabaseTransaction)
             query
             parameters
             mapRawForDbRead
@@ -126,7 +126,7 @@ module JournalEntryExternalReference =
             expectedRows
 
     let fetchById
-        (context: Context)
+        (context: Context.Context)
         (journalEntryExternalReferenceId: JournalEntryExternalReferenceId)
         : Result<JournalEntryExternalReference, AppError> =
         let uuid = journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
@@ -135,7 +135,7 @@ module JournalEntryExternalReference =
         readRowsFromDb context (Some predicate) None None parameters ExactlyOne |> Result.map List.head
 
     let fetchByJournalEntryId
-        (context: Context)
+        (context: Context.Context)
         (journalEntryId: JournalEntryHeaderId)
         : Result<JournalEntryExternalReference list, AppError> =
         let uuid = journalEntryId |> JournalEntryHeaderId.value
@@ -144,7 +144,7 @@ module JournalEntryExternalReference =
         readRowsFromDb context (Some predicate) None None parameters AnyQuantityIsAcceptable
 
     let fetchByJournalEntryHeaderIdList
-        (context: Context)
+        (context: Context.Context)
         (journalEntryHeaderIds: JournalEntryHeaderId list)
         : Result<JournalEntryExternalReference list, AppError> =
         if journalEntryHeaderIds |> List.isEmpty then Error JournalEntryHeaderIdListCannotBeEmpty else

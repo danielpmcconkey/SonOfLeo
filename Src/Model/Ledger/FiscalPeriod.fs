@@ -6,7 +6,7 @@ open DataAccessLayer.QueryParameters
 open NodaTime
 open Utilities.AppError
 open Utilities.ResultHelper
-open Context.Context
+
 
 
 type FiscalPeriod =
@@ -48,7 +48,7 @@ module FiscalPeriod =
     /// insertNewToDb is a private function used as an interface to the DAL. It
     /// assumes that the calling function handled all necessary validations to
     /// ensure only legal data states persist
-    let insertNewToDb (context: Context) (fp: FiscalPeriod) : Result<unit, AppError> =
+    let insertNewToDb (context: Context.Context) (fp: FiscalPeriod) : Result<unit, AppError> =
         let query =
             """
             insert into ledger.fiscal_period(
@@ -65,7 +65,7 @@ module FiscalPeriod =
               { name = "@is_open"; value = Boolean fp.isOpen }
               { name = "@created_at"; value = DbInstant fp.createdAt }
               { name = "@modified_at"; value = DbInstant fp.modifiedAt } ]
-        executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
 
     /// The mapRow function is used to pass into DAL read functions to let DAL know
     /// how to map our query columns. Thus, we don't need to know anything about the
@@ -94,7 +94,7 @@ module FiscalPeriod =
     /// readRowsFromDb is designed to produce a flexible read query that can
     /// satisfy diverse use cases
     let private readRowsFromDb
-        (context: Context)
+        (context: Context.Context)
         (predicate: string option)
         (limit: int option)
         (parameters: QueryParameter list)
@@ -105,14 +105,14 @@ module FiscalPeriod =
         let from = "ledger.fiscal_period fp"
         let query = buildReadQuery select from None predicate limit None None
         executeReaderQuery
-            (context |> getDatabaseTransaction)
+            (context |> Context.getDatabaseTransaction)
             query
             parameters
             mapRawForDbRead
             reconstitute
             expectedRows
 
-    let fetchById (context: Context) (id: FiscalPeriodId) : Result<FiscalPeriod, AppError> =
+    let fetchById (context: Context.Context) (id: FiscalPeriodId) : Result<FiscalPeriod, AppError> =
         let predicate = "fp.unique_id = @unique_id"
         let uuid = id |> FiscalPeriodId.value
         let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
@@ -124,7 +124,7 @@ module FiscalPeriod =
     /// fetchIdByKey should only be used sparingly, as it goes against
     /// the doctrine that the model deals in UUIDs while the boundary
     /// does the translation between keys and IDs
-    let fetchIdByKey (context: Context) (key: string) : Result<FiscalPeriodId, AppError> =
+    let fetchIdByKey (context: Context.Context) (key: string) : Result<FiscalPeriodId, AppError> =
         let mapRaw (row: RowReader) =
             (row |> RowReader.getUuid "unique_id"), ()
         let constructFromRaw raw =
@@ -134,13 +134,13 @@ module FiscalPeriod =
         let parameters = [ { name = "@period_key"; value = CharString key } ]
 
         match
-            executeReaderQuery (context |> getDatabaseTransaction) query parameters mapRaw constructFromRaw ExactlyOne
+            executeReaderQuery (context |> Context.getDatabaseTransaction) query parameters mapRaw constructFromRaw ExactlyOne
         with
         | Ok x -> Ok(x |> List.head |> FiscalPeriodId.fromGuid)
         | Error(DalResultantRowsDidntMatchExpectation _) -> Error(FiscalPeriodNoPeriodMatchingKey key)
         | Error e -> Error e
 
-    let fetchAll (context: Context) (openOnly: bool) : Result<FiscalPeriod list, AppError> =
+    let fetchAll (context: Context.Context) (openOnly: bool) : Result<FiscalPeriod list, AppError> =
         let predicate =
             match openOnly with
             | true -> Some "fp.is_open = true"
@@ -149,14 +149,14 @@ module FiscalPeriod =
         readRowsFromDb context predicate None parameters AnyQuantityIsAcceptable
 
     let private toggleOpenFlagById
-        (context: Context)
+        (context: Context.Context)
         (fpId: FiscalPeriodId)
         (newValue: bool)
         : Result<FiscalPeriod, AppError> =
         let enforcedCurrentValue = not newValue
         let uuid = fpId |> FiscalPeriodId.value
         let parameters =
-            [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) }
+            [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
               { name = "@unique_id"; value = UniqueId uuid }
               { name = "@newValue"; value = Boolean newValue }
               { name = "@enforcedCurrentValue"; value = Boolean enforcedCurrentValue } ]
@@ -171,7 +171,7 @@ module FiscalPeriod =
             ;
         """
         result {
-            do! match executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne with
+            do! match executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne with
                 | Ok _ -> Ok ()
                 | Error (DalResultantRowsDidntMatchExpectation (expected, actual)) ->
                     if actual = 0
@@ -182,13 +182,13 @@ module FiscalPeriod =
         }
 
     let closeFiscalPeriod
-        (context: Context)
+        (context: Context.Context)
         (fpId: FiscalPeriodId)
         : Result<FiscalPeriod, AppError> =
         toggleOpenFlagById context fpId false
 
     let reopenFiscalPeriod
-        (context: Context)
+        (context: Context.Context)
         (fpId: FiscalPeriodId)
         : Result<FiscalPeriod, AppError> =
         toggleOpenFlagById context fpId true

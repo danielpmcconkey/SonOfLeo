@@ -1,7 +1,7 @@
 namespace Tests.Integrated.Model.Ledger
 
 open System
-open Context.Context
+
 open Logger.Audit
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator
@@ -68,7 +68,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         runFuncAndAutoRollback JournalEntryAddComment (fun context ->
-            let expectedInstant = context |> getInitiationInstant
+            let expectedInstant = context |> Context.getInitiationInstant
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     context
@@ -193,7 +193,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
                         fixture.Data.fixtureCommentId
                         textUpdate
                         secondaryIdUpdate
-                Assert.Equal(context |> getInitiationInstant, updatedComment |> JournalEntryComment.modifiedAt)
+                Assert.Equal(context |> Context.getInitiationInstant, updatedComment |> JournalEntryComment.modifiedAt)
                 return ()
             })
         |> railroadWrapper

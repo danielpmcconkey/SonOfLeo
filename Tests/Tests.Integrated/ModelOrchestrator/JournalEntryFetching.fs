@@ -18,14 +18,14 @@ open ModelOrchestrator.JournalEntries.JournalEntry
 open Utilities
 open Utilities.AppError
 open Tests.Helpers.SadPath
-open Context.Context
+
 
 [<Collection("SharedTestData")>]
 type JournalEntryFetchingTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.2 fetchById returns the correct journal entry``() =
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         let idToCheck = fixture.Data.basicJeId
         let expected =
             fixture.Data.journalEntries
@@ -43,14 +43,14 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.2 fetchById returns error for nonexistent ID``() =
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         let bogusId = Guid.NewGuid() |> JournalEntryHeaderId.fromGuid
         isCorrectError (bogusId |> fetchById context) JournalEntryHeaderIdDoesntExist None
         |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-3.1 fetchById returns header, lines, external references, and comments``() =
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         let expectedLinesCount = fixture.Data.jeWithLinesRefsAndComments |> lines |> List.length
         let expectedRefsCount = fixture.Data.jeWithLinesRefsAndComments |> externalReferences |> List.length
         let expectedCommentsCount = fixture.Data.jeWithLinesRefsAndComments |> comments |> List.length
@@ -68,7 +68,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let today = Calendar.today()
         let monthF = today.Month.ToString("D2")
         let periodKey = $"{today.Year}-{monthF}"
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         result {
             let! fpUuid = periodKey |> fiscalPeriodKeyToId.fetch context
             let fpId = fpUuid |> FiscalPeriodId.fromGuid
@@ -90,7 +90,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let farDate = today.PlusMonths(4)
         let monthF = farDate.Month.ToString("D2")
         let periodKey = $"{farDate.Year}-{monthF}"
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         result {
             let! uuid = periodKey |> fiscalPeriodKeyToId.fetch context
             let! fp = uuid |> FiscalPeriodId.fromGuid |> FiscalPeriod.fetchById context
@@ -104,7 +104,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
     member _.``REQ-JE-3.5 fetchByReference returns entries matching source FI and reference value``() =
         let fiStr = "TestBank"
         let refStr = "TXN-001"
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         result {
             let! fi = fiStr |> JournalRefFinancialInstitution.create
             let! refText = refStr |> JournalExternalReferenceText.create
@@ -133,7 +133,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
     member _.``REQ-JE-3.5 REQ-JE-1.48 fetchByReference returns multiple entries when reference is shared``() =
         let fiStr = "TestBank"
         let refStr = "F-SHARED-001"
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         result {
             let! fi = fiStr |> JournalRefFinancialInstitution.create
             let! refText = refStr |> JournalExternalReferenceText.create
@@ -154,7 +154,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let fiStr = "Bogus"
         let refStr = "Nada"
         let expected = 0
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         result {
             let! fi = fiStr |> JournalRefFinancialInstitution.create
             let! refText = refStr |> JournalExternalReferenceText.create
@@ -167,7 +167,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.8 fetchByReference with FI only returns all entries for that FI``() =
         let fiStr = "TestBank"
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         result {
             let! fi = fiStr |> JournalRefFinancialInstitution.create
             let expected =
@@ -183,7 +183,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.8 fetchByReference with reference text only only returns all entries that match``() =
         let refStr = "TXN-001"
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         result {
             let! refText = refStr |> JournalExternalReferenceText.create
             let expected =
@@ -198,7 +198,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.5 REQ-JE-3.8 fetchByReference with both parameters None returns Error``() =
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         match fetchByReference context None None with
         | Error(JournalEntryFetchByReferenceBothArgumentsNull) -> ()
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -206,7 +206,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.7 fetchByDateRange returns entries within inclusive date range``() =
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         let today = Calendar.today()
         let expected =
             fixture.Data.journalEntries
@@ -221,7 +221,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.7 fetchByDateRange returns empty list when no entries in range``() =
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         let farDate = NodaTime.LocalDate(2050, 1, 1)
         let result = fetchByDateRange context farDate farDate
         match result with

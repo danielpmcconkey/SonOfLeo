@@ -6,7 +6,6 @@ open NodaTime
 open Utilities.AppError
 open DataAccessLayer.QueryParameters
 open DataAccessLayer.ExecuteReader
-open Context.Context
 
 type JournalEntryComment =
     private
@@ -40,7 +39,7 @@ module JournalEntryComment =
           createdAt = createdAt
           modifiedAt = modifiedAt }
 
-    let insertNewToDb (context: Context) (comment: JournalEntryComment) : Result<unit, AppError> =
+    let insertNewToDb (context: Context.Context) (comment: JournalEntryComment) : Result<unit, AppError> =
         let query =
             """
             INSERT INTO ledger.journal_entry_comment(
@@ -58,7 +57,7 @@ module JournalEntryComment =
               { name = "@comment_text"; value = CharString(comment.commentText |> CommentText.value) }
               { name = "@created_at"; value = DbInstant comment.createdAt }
               { name = "@modified_at"; value = DbInstant comment.modifiedAt } ]
-        executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
 
     /// The mapRow function is used to pass into DAL read functions to let DAL know
     /// how to map our query columns. Thus, we don't need to know anything about the
@@ -96,7 +95,7 @@ module JournalEntryComment =
                   modifiedAt = modifiedAt }
 
     let private readRowsFromDb
-        (context: Context)
+        (context: Context.Context)
         (predicate: string option)
         (limit: int option)
         (orderBy: string option)
@@ -111,7 +110,7 @@ module JournalEntryComment =
         let from = "ledger.journal_entry_comment jec"
         let query = buildReadQuery select from None predicate limit None orderBy
         executeReaderQuery
-            (context |> getDatabaseTransaction)
+            (context |> Context.getDatabaseTransaction)
             query
             parameters
             mapRawForDbRead
@@ -119,7 +118,7 @@ module JournalEntryComment =
             expectedRows
 
     let fetchById
-        (context: Context)
+        (context: Context.Context)
         (journalEntryCommentId: JournalEntryCommentId)
         : Result<JournalEntryComment, AppError> =
         let uuid = journalEntryCommentId |> JournalEntryCommentId.value
@@ -131,7 +130,7 @@ module JournalEntryComment =
     /// Entry, whether as the primary or secondary, ordered by comment create
     /// instant
     let fetchByJournalEntryId
-        (context: Context)
+        (context: Context.Context)
         (journalEntryId: JournalEntryHeaderId)
         : Result<JournalEntryComment list, AppError> =
         let uuid = journalEntryId |> JournalEntryHeaderId.value
@@ -146,7 +145,7 @@ module JournalEntryComment =
     /// ID is referenced in a comment as a secondary, but that comment's primary header ID isn't already in the list of
     /// header IDs to pull for, then that comment isn't needed in the final assembly.
     let fetchByJournalEntryHeaderIdList
-        (context: Context)
+        (context: Context.Context)
         (journalEntryHeaderIds: JournalEntryHeaderId list)
         : Result<JournalEntryComment list, AppError> =
         if journalEntryHeaderIds |> List.isEmpty then Error JournalEntryHeaderIdListCannotBeEmpty else

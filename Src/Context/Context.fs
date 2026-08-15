@@ -1,4 +1,4 @@
-module Context.Context
+module Context
 
 open DataAccessLayer.DbTransaction
 open Logger.Audit

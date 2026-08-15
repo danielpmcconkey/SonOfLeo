@@ -13,7 +13,7 @@ open Utilities.ResultHelper
 open Xunit
 open Utilities.AppError
 open Tests.Helpers.SadPath
-open Context.Context
+
 
 [<Collection("SharedTestData")>]
 type FiscalPeriodTests(fixture: TestDataFixture) =
@@ -85,7 +85,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-FP-3.1 fetchById happy path``() =
         let expectedId = fixture.Data.openFiscalPeriodIds |> List.head
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         result {
             let! fetched = FiscalPeriod.fetchById context expectedId
             Assert.Equal(expectedId, FiscalPeriod.fiscalPeriodId fetched)
@@ -96,7 +96,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-FP-3.4 fetchAll without filter happy path``() =
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         result {
             let! fetched = FiscalPeriod.fetchAll context false
             fixture.Data.openFiscalPeriodIds
@@ -111,7 +111,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-FP-3.5 fetchAll with open only filters out closed periods``() =
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         result {
             let! fetched = FiscalPeriod.fetchAll context true
             fetched
@@ -189,7 +189,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-SYS-3.2 insertNewToDb sets create and modified timestamps``() =
         runFuncAndAutoRollback AccountCreate (fun context ->
-            let expected = context |> getInitiationInstant
+            let expected = context |> Context.getInitiationInstant
             result {
                 let! fp = genericFiscalPeriodKey |> FiscalPeriodCreation.constructNewAndSaveToDb context
                 Assert.Equal(expected, FiscalPeriod.createdAt fp)

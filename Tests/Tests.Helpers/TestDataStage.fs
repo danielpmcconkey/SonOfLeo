@@ -1,15 +1,17 @@
 namespace Tests.Helpers
 
-open Context.Context
+
 open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open Logger.Audit
+open Model.DataIngestion
 open Model.DataIngestion.Classification
 open Model.Ledger.Accounts
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator
 open ModelOrchestrator.JournalEntries
+open ModelOrchestrator.StageEntryOrchestration
 open Tests.Helpers.EntityFunctions
 open Utilities.ResultHelper
 open Xunit
@@ -81,7 +83,10 @@ type FixtureData =
       journalEntries: JournalEntry list
       journalEntryLines: JournalEntryLine list
       journalEntryExternalReferences: JournalEntryExternalReference list
-      journalEntryComments: JournalEntryComment list }
+      journalEntryComments: JournalEntryComment list
+      ingestionSources: IngestionSource.IngestionSource list
+      stageEntries: StageEntry list
+      classificationRules: ClassificationRule.ClassificationRule list }
 
 type TestDataFixture() =
     let data =
@@ -90,7 +95,7 @@ type TestDataFixture() =
         let lastYear = today.PlusYears(-1)
         let twoMonthsAgo = today.PlusMonths(-2)
 
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
 
         let stageResult =
 
@@ -116,16 +121,19 @@ type TestDataFixture() =
                             ingestion.staged_entry_line
                         CASCADE;
                 """
-                let! _ = executeNonQuery (context |> getDatabaseTransaction) deleteQuery [] AnyQuantityIsAcceptable
+                let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) deleteQuery [] AnyQuantityIsAcceptable
 
                 // =============================================================================
-                // Set up counters to use for our fetch tests
+                // Set up mutable lists to add our fixtures to
                 // =============================================================================
 
                 // note: these are mutable for practical reasons and this is just a test harness
                 let mutable accounts: Account list = []
                 let mutable fiscalPeriods: FiscalPeriod list = []
                 let mutable journalEntries: JournalEntry list = []
+                let mutable ingestionSources: IngestionSource.IngestionSource list = []
+                let mutable stageEntries: StageEntry list = []
+                let mutable classificationRules: ClassificationRule.ClassificationRule list = []
 
                 // =============================================================================
                 // Create accounts
@@ -362,6 +370,27 @@ type TestDataFixture() =
                 let closedFiscalPeriodId = closedFiscalPeriod |> FiscalPeriod.fiscalPeriodId
 
                 // =============================================================================
+                // Create ingestion sources
+                // =============================================================================
+                
+                let testBankStr = "TestBank"
+                let! testBankSource = testBankStr |> createIngestionSourceForTest context
+                ingestionSources <- testBankSource :: ingestionSources
+                
+                let testCreditCardStr = "TestCreditCardCo"
+                let! testCreditCardSource = testCreditCardStr |> createIngestionSourceForTest context
+                ingestionSources <- testCreditCardSource :: ingestionSources
+                
+                let closedPeriodBankStr = "ClosedPeriodBank"
+                let! closedPeriodBankSource = closedPeriodBankStr |> createIngestionSourceForTest context
+                ingestionSources <- closedPeriodBankSource :: ingestionSources
+                
+                let voidedEntryBankStr = "VoidedEntryBank"
+                let! voidedEntryBankSource = testBankStr |> createIngestionSourceForTest context
+                ingestionSources <- voidedEntryBankSource :: ingestionSources
+                
+
+                // =============================================================================
                 // Create journal entries
                 // =============================================================================
 
@@ -388,7 +417,7 @@ type TestDataFixture() =
                         yesterday
                         [ (rothIra1250Id, 50.00M, "Debit", None)
                           (personalRevenue4290Id, 50.00M, "Credit", None) ]
-                        [ ("TestBank", "TXN-001") ]
+                        [ (testBankStr, "TXN-001") ]
                         []
                 journalEntries <- jeWithRef :: journalEntries
 
@@ -406,7 +435,7 @@ type TestDataFixture() =
                         yesterday
                         [ (entertainment5650Id, 75.00M, "Debit", None)
                           (creditCard2220Id, 75.00M, "Credit", None) ]
-                        [ ("VoidedEntryBank", "VOIDED-REF-001") ]
+                        [ (voidedEntryBankStr, "VOIDED-REF-001") ]
                         []
                 // note: don't add jeToVoid to the list because we later update it by voiding
 
@@ -432,7 +461,7 @@ type TestDataFixture() =
                         closedPeriodEntryDate
                         [ (mortgage2210Id, 25.00M, "Debit", None)
                           (food5350Id, 25.00M, "Credit", None) ]
-                        [ ("ClosedPeriodBank", "CLOSED-REF-001") ]
+                        [ (closedPeriodBankStr, "CLOSED-REF-001") ]
                         []
                 journalEntries <- jeInClosedPeriod :: journalEntries
                 let jeInClosedPeriodExtRefId =
@@ -474,7 +503,7 @@ type TestDataFixture() =
                         today
                         [ (mortgage2210Id, 100.00M, "Debit", None)
                           (food5350Id, 100.00M, "Credit", (Some "Grocery run")) ]
-                        [ ("TestBank", "TXN-001") ]
+                        [ (testBankStr, "TXN-001") ]
                         [ (None, "Fixture comment for testing") ]
                 journalEntries <- jeWithLinesRefsAndComments :: journalEntries
 
@@ -528,7 +557,7 @@ type TestDataFixture() =
                         today
                         [ (mortgage2210Id, 10.00M, "Debit", None)
                           (food5350Id, 10.00M, "Credit", None) ]
-                        [ ("TestBank", "F-SHARED-001") ]
+                        [ (testBankStr, "F-SHARED-001") ]
                         []
                 journalEntries <- sharedRefJe1 :: journalEntries
 
@@ -540,7 +569,7 @@ type TestDataFixture() =
                         today
                         [ (mortgage2210Id, 20.00M, "Debit", None)
                           (food5350Id, 20.00M, "Credit", None) ]
-                        [ ("TestBank", "F-SHARED-001") ]
+                        [ (testBankStr, "F-SHARED-001") ]
                         []
                 journalEntries <- sharedRefJe2 :: journalEntries
 
@@ -617,18 +646,19 @@ type TestDataFixture() =
                 // =============================================================================
                 
                 // generic rule to be overridden 
-                let! sourceCheckingAccountMatchPattern = StringSearchPattern.create "Checking Account"
+                let! sourceCheckingAccountMatchPattern = StringSearchPattern.create testBankStr
                 let sourceCheckingAccountMatch = FieldMatch.Source(sourceCheckingAccountMatchPattern)
                 let (sourceCheckingAccountRuleGroup: (string * FieldMatch list * FieldMatch list option) list) =
                     [("And", [sourceCheckingAccountMatch], None)]
                 let! sourceCheckingAccount5300Rule =
                     createClassificationRuleForTest
                         context
-                        "Source = Checking Account then 5300"
+                        "Source = TestBank then 5300"
                         (personalExpenses5300 |> Account.code |> AccountCode.value)
                         1000
                         sourceCheckingAccountRuleGroup
                         true
+                classificationRules <- sourceCheckingAccount5300Rule :: classificationRules
                 
                 // override the source = checking 5300 rule
                 let! descDoorDashMatchPattern = StringSearchPattern.create "^(DD|DoorDash)[\\w\\s\\d-,!'\"]{1,}$"
@@ -638,13 +668,14 @@ type TestDataFixture() =
                 let! sourceCheckingDescDoorDash5350Rule =
                     createClassificationRuleForTest
                         context
-                        "Source = Checking Account && Desc = DoorDash then 5350"
+                        "Source = TestBank && Desc = DoorDash then 5350"
                         (food5350 |> Account.code |> AccountCode.value)
                         100
                         sourceCheckingDescDoorDashRuleGroup
                         true
+                classificationRules <- sourceCheckingDescDoorDash5350Rule :: classificationRules
                 
-                let! sourceVisaMatchPattern = StringSearchPattern.create "Visa"
+                let! sourceVisaMatchPattern = StringSearchPattern.create testCreditCardStr
                 let sourceVisaMatch = FieldMatch.Source(sourceVisaMatchPattern)
                 let! descReiMatchPattern = StringSearchPattern.create "^REI REI Co-op [\\d]{4,5}[\\w\\s\\d-,!'\"]{1,}$"
                 let descReiMatch = FieldMatch.Description(descReiMatchPattern)
@@ -653,11 +684,98 @@ type TestDataFixture() =
                 let! sourceVisaDescRei5650Rule =
                     createClassificationRuleForTest
                         context
-                        "Source = Visa && Desc = Rei then 5650"
+                        "Source = TestCreditCardCo && Desc = Rei then 5650"
                         (entertainment5650 |> Account.code |> AccountCode.value)
                         10
                         sourceVisaDescReiRuleGroup
                         true
+                classificationRules <- sourceVisaDescRei5650Rule :: classificationRules
+                
+                // =============================================================================
+                // Create test stage entities
+                // =============================================================================
+                    
+                let! duplicateStageEntry = // should be a duplicate
+                      createStageEntryForTest
+                        context
+                        "/tmp/this-file-doesnt-exist.dat"
+                        "Windex - is dup"
+                        "TXN-001" // same as jeWithRef
+                        testBankSource
+                        yesterday
+                        [ (50.00M, "Debit", rothIra1250 |> Account.code |> AccountCode.value |> Some, None, None)
+                          (50.00M, "Credit", None, None, None) ]
+                        [(None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)]
+                stageEntries <- duplicateStageEntry :: stageEntries
+                
+                let! stageEntryWithSameAmountDateAndDescButDiffRef = // unique
+                      createStageEntryForTest
+                        context
+                        "/tmp/this-file-doesnt-exist.dat"
+                        "Windex - not dup"
+                        (System.Guid.NewGuid().ToString()) // definitely not a duplicate
+                        testBankSource
+                        yesterday
+                        [ (50.00M, "Debit", rothIra1250 |> Account.code |> AccountCode.value |> Some, None, None)
+                          (50.00M, "Credit", None, None, None) ]
+                        [(None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)]
+                stageEntries <- stageEntryWithSameAmountDateAndDescButDiffRef :: stageEntries
+                
+                let! stageEntryWithSameRefDiffOtherStuff = // still counts as a duplicate
+                      createStageEntryForTest
+                        context
+                        "/tmp/this-file-doesnt-exist.dat"
+                        "Fixture JE in closed period - is dup"
+                        "CLOSED-REF-001" // same as jeInClosedPeriod
+                        closedPeriodBankSource
+                        lastYear
+                        [ (23.00M, "Debit", mortgage2210 |> Account.code |> AccountCode.value |> Some, None, None)
+                          (23.00M, "Credit", None, None, None) ]
+                        [(None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)]
+                stageEntries <- stageEntryWithSameRefDiffOtherStuff :: stageEntries
+                
+                let! stageEntryMatchesVoidedJe = // shouldn't counts as a duplicate
+                      createStageEntryForTest
+                        context
+                        "/tmp/this-file-doesnt-exist.dat"
+                        "Blow gun and darts - not dup"
+                        "VOIDED-REF-001" // same as jeToVoid
+                        testBankSource
+                        today
+                        [ (75.00M, "Debit", entertainment5650 |> Account.code |> AccountCode.value |> Some, None, None)
+                          (75.00M, "Credit", None, None, None) ]
+                        [(None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)]
+                stageEntries <- stageEntryMatchesVoidedJe :: stageEntries
+                
+                let reusableRef = System.Guid.NewGuid().ToString()
+                
+                let! stageEntryPriorUnposted = // shouldn't counts as a duplicate
+                      createStageEntryForTest
+                        context
+                        "/tmp/this-file-doesnt-exist.dat"
+                        "Ultra Big Ass Fries - not dup"
+                        reusableRef
+                        testBankSource
+                        lastYear
+                        [ (451.00M, "Debit", food5350 |> Account.code |> AccountCode.value |> Some, None, None)
+                          (451.00M, "Credit", None, None, None) ]
+                        [(None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)]
+                stageEntries <- stageEntryPriorUnposted :: stageEntries
+                
+                // create a new context so the timestamp on the status entry is later
+                let laterContext = Context.create NoTransaction FetchOnly
+                let! stageEntryDupOfPriorUnposted = // counts as a duplicate
+                      createStageEntryForTest
+                        laterContext
+                        "/tmp/this-file-doesnt-exist.dat"
+                        "Ultra Big Ass Fries - is dup"
+                        reusableRef
+                        testBankSource
+                        lastYear
+                        [ (451.00M, "Debit", food5350 |> Account.code |> AccountCode.value |> Some, None, None)
+                          (451.00M, "Credit", None, None, None) ]
+                        [(None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)]
+                stageEntries <- stageEntryDupOfPriorUnposted :: stageEntries
                 
                 // =============================================================================
                 // Calculate aggregate totals for fetch tests
@@ -748,7 +866,10 @@ type TestDataFixture() =
                       journalEntries = journalEntries
                       journalEntryLines = journalEntryLines
                       journalEntryExternalReferences = journalEntryExternalReferences
-                      journalEntryComments = journalEntryComments }
+                      journalEntryComments = journalEntryComments
+                      ingestionSources = ingestionSources
+                      stageEntries = stageEntries
+                      classificationRules = classificationRules }
             }
         stageResult |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
 

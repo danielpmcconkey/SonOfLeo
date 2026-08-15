@@ -9,7 +9,7 @@ open Utilities.AppError
 open DataAccessLayer.QueryParameters
 open DataAccessLayer.ExecuteReader
 open Utilities.ResultHelper
-open Context.Context
+
 
 type AccountBalance = { accountId: AccountId; totalCredits: Money; totalDebits: Money; netBalance: Money }
 type AccountBalanceComponent =
@@ -32,7 +32,7 @@ let private reconstitute (raw: Guid * string * string * decimal) : Result<Accoun
     }
 
 let fetchByAccountIdList
-    (context: Context)
+    (context: Context.Context)
     (accountIdFilter: AccountId list option)
     (asOf: LocalDate option)
     : Result<AccountBalance list, AppError> =
@@ -88,7 +88,7 @@ let fetchByAccountIdList
         let! moneyZero = Money.fromDecimal 0M
         let! components =
             executeReaderQuery
-                (context |> getDatabaseTransaction)
+                (context |> Context.getDatabaseTransaction)
                 query
                 parameters
                 mapRawForDbRead

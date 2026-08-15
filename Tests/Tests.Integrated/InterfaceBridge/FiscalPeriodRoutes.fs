@@ -17,7 +17,7 @@ open Model.Ledger.FiscalPeriods.FiscalPeriod
 open Tests.Integrated
 open Tests.Helpers.Cleanup
 open InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
-open Context.Context
+
 
 [<Collection("SharedTestData")>]
 type FiscalPeriodRouteTests(fixture: TestDataFixture) =
@@ -53,7 +53,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         let payload = createFiscalPeriodCreateInputPayload expected
         let mutable keyToCleanUp = None
         try
-            let context = create NoTransaction FetchOnly
+            let context = Context.create NoTransaction FetchOnly
             result {
                 let! resultPayload = routeUiCommandForTesting "FiscalPeriod" "Create" [] payload
                 let! fp = fromJson<FiscalPeriodReturn> resultPayload
@@ -74,7 +74,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-FP-3.2 FiscalPeriod FetchByKey happy path``() =
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         result {
             let! existingPeriod = fetchById context (fixture.Data.openFiscalPeriodIds |> List.head)
             let existingKey = existingPeriod |> periodKey |> FiscalPeriodKey.value
@@ -103,7 +103,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         let payload = createFiscalPeriodCloseInputPayload expected
         let mutable keyToCleanUp = None
         try
-            let context = create NoTransaction FetchOnly
+            let context = Context.create NoTransaction FetchOnly
             result {
                 let! created = createTestFiscalPeriodFromPrimitives context expected
                 let keyString = periodKey created |> FiscalPeriodKey.value
@@ -127,7 +127,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         let payload = createFiscalPeriodReopenInputPayload expected
         let mutable keyToCleanUp = None
         try
-            let context = create NoTransaction FetchOnly
+            let context = Context.create NoTransaction FetchOnly
             result {
                 let! created = createTestFiscalPeriodFromPrimitives context expected
                 let id = created |> fiscalPeriodId

@@ -5,7 +5,6 @@ open DataAccessLayer.DbTransaction
 open InterfaceBridge.InterfaceContracts.SharedContracts
 open Utilities.Json.Json
 open Logger.Audit
-open Microsoft.FSharp.Reflection
 open Model
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
@@ -22,7 +21,7 @@ open Xunit
 open Tests.Helpers.Cleanup
 open InterfaceBridge.InterfaceContracts.AccountContracts
 open Utilities.AppError
-open Context.Context
+
 open Model.Ledger.Journaling.JournalEntryComponent
 
 [<Collection("SharedTestData")>]
@@ -32,7 +31,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
     member _.``REQ-AC-2.21 Account Create happy path``() =
         let mutable accountIdToCleanup: AccountId option = None
         try
-            let context = create NoTransaction FetchOnly
+            let context = Context.create NoTransaction FetchOnly
             result {
                 let accountInput = createAccountInput "AC-2.21"
                 let! payload = accountInput |> toJson<AccountCreateInput>
@@ -53,7 +52,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let mutable accountIdToCleanup: AccountId option = None
         try
             let badAccountCode = Some "BullS**t"
-            let context = create NoTransaction FetchOnly
+            let context = Context.create NoTransaction FetchOnly
             result {
                 let accountInput =
                     { code = genericAccountCodeString
@@ -156,7 +155,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let endDate = now.PlusDays(-1)
         let mutable idToCleanUp_1 = None
         try
-            let context = create NoTransaction FetchOnly
+            let context = Context.create NoTransaction FetchOnly
             result {
                 let! _, accountId = genericAccountCodeString |> createTestAccountFromCodeString context
                 idToCleanUp_1 <- Some accountId
@@ -196,7 +195,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let newName = "He's got the monkeys, let's see the monkeys"
         let mutable idToCleanUp_1 = None
         try
-            let context = create NoTransaction FetchOnly
+            let context = Context.create NoTransaction FetchOnly
             result {
                 let! _, accountId = code |> createTestAccountFromCodeString context
                 idToCleanUp_1 <- Some accountId
@@ -233,7 +232,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let newReference = Some "Genuflect, show some respect"
         let mutable idToCleanUp_1 = None
         try
-            let context = create NoTransaction FetchOnly
+            let context = Context.create NoTransaction FetchOnly
             result {
                 let! _, accountId = code |> createTestAccountFromCodeString context
                 idToCleanUp_1 <- Some accountId
@@ -397,7 +396,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let mutable accountIdToCleanUp: AccountId option = None
         let mutable jeIdToCleanUp: JournalEntryHeaderId option = None
         try
-            let context = create NoTransaction FetchOnly
+            let context = Context.create NoTransaction FetchOnly
             result {
                 let! _, accountId =
                     createTestAccountFromPrimitives

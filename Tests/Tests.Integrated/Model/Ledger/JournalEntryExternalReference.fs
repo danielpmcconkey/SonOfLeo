@@ -1,7 +1,7 @@
 namespace Tests.Integrated.Model.Ledger
 
 open System
-open Context.Context
+
 open Logger.Audit
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator
@@ -45,7 +45,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
         let fiUpdate = "TimestampBank" |> createFiUpdateFromString
         let refUpdate = "TS-001" |> createReferenceTextUpdateFromString
         runFuncAndAutoRollback AccountCreate (fun context ->
-            let expectedInstant = context |> getInitiationInstant
+            let expectedInstant = context |> Context.getInitiationInstant
             let result =
                 JournalEntryExternalReferenceOrchestration.updateFiAndReferenceText
                     context

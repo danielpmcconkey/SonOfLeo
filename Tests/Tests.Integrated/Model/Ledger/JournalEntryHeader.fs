@@ -7,7 +7,7 @@ open Xunit
 open Tests.Helpers
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
-open Context.Context
+
 
 [<Collection("SharedTestData")>]
 type JournalEntryHeaderTests(fixture: TestDataFixture) =
@@ -18,7 +18,7 @@ type JournalEntryHeaderTests(fixture: TestDataFixture) =
         // The read path must not re-run the creation-time period-is-open rule
         // (REQ-JE-2.7). Closing a period is the normal end of its lifecycle;
         // historical entries stay readable.
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         let result = fixture.Data.jeInClosedPeriodId |> JournalEntryHeader.fetchById context
         match result with
         | Ok h ->

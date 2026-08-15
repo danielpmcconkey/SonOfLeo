@@ -1,6 +1,6 @@
 namespace Model.Ledger.Accounts
 
-open Context.Context
+
 open Utilities
 open Utilities.AppError
 open Utilities.FieldUpdate
@@ -128,7 +128,7 @@ module Account =
     /// readRowsFromDb is designed to produce a flexible read query that can
     /// satisfy diverse use cases
     let private readRowsFromDb
-        (context: Context)
+        (context: Context.Context)
         (predicate: string option)
         (limit: int option)
         (parameters: QueryParameter list)
@@ -142,7 +142,7 @@ module Account =
         let from = "ledger.account a"
         let query = buildReadQuery select from None predicate limit None None
         executeReaderQuery
-            (context |> getDatabaseTransaction)
+            (context |> Context.getDatabaseTransaction)
             query
             parameters
             mapRawForDbRead
@@ -152,7 +152,7 @@ module Account =
     /// insertNewToDb is a function used as an interface to the DAL. It
     /// assumes that the calling function handled all necessary validations to
     /// ensure only legal data states persist
-    let insertNewToDb (context: Context) (account: Account) : Result<unit, AppError> =
+    let insertNewToDb (context: Context.Context) (account: Account) : Result<unit, AppError> =
         let query =
             """
             insert into ledger.account(
@@ -197,28 +197,28 @@ module Account =
               { name = "@account_subtype"; value = NullableCharString subTypeString }
               { name = "@parent_id"; value = NullableUniqueId parentId }
               { name = "@external_ref"; value = NullableCharString externalReferenceString } ]
-        executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
 
-    let fetchById (context: Context) (accountId: AccountId) : Result<Account, AppError> =
+    let fetchById (context: Context.Context) (accountId: AccountId) : Result<Account, AppError> =
         let predicate = "a.unique_id = @unique_id"
         let accountIdGuid = accountId |> AccountId.value
         let parameters = [ { name = "@unique_id"; value = UniqueId accountIdGuid } ]
         readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
-    let fetchByParentId (context: Context) (parentId: AccountId) : Result<Account list, AppError> =
+    let fetchByParentId (context: Context.Context) (parentId: AccountId) : Result<Account list, AppError> =
         let predicate = "a.parent_id = @parent_id"
         let parentIdGuid = parentId |> AccountId.value
         let parameters = [ { name = "@parent_id"; value = UniqueId parentIdGuid } ]
         readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-    let fetchByAccountType (context: Context) (accountType: AccountType) : Result<Account list, AppError> =
+    let fetchByAccountType (context: Context.Context) (accountType: AccountType) : Result<Account list, AppError> =
         let predicate = "a.account_type = @account_type"
         let parameters = [ { name = "@account_type"; value = CharString(accountType |> AccountType.toString) } ]
         readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
 
     /// fetchAll returns all accounts or, if activeOnly is true, fetches all accounts
     /// that are active with respect to the system runtime
-    let fetchAll (context: Context) (activeOnly: bool) : Result<Account list, AppError> =
+    let fetchAll (context: Context.Context) (activeOnly: bool) : Result<Account list, AppError> =
         let predicate = None
         let parameters = []
         let activeReference = Calendar.today()
@@ -234,14 +234,14 @@ module Account =
                 Ok allRows
 
     let private updateDb
-        (context: Context)
+        (context: Context.Context)
         (accountId: AccountId)
         (nameUpdate: FieldUpdate<AccountName>)
         (referenceUpdate: FieldUpdate<AccountExternalReference option>)
         : Result<Account, AppError> =
         let accountIdGuid = accountId |> AccountId.value
         let baseParams =
-            [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) }
+            [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
               { name = "@unique_id"; value = UniqueId accountIdGuid } ]
         let updates =
             [ nameUpdate
@@ -267,11 +267,11 @@ module Account =
         """
         result {
             do! if updates.IsEmpty then Error(AccountUpdateNoOp) else Ok()
-            let! () = executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+            let! () = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
             return! accountId |> fetchById context
         }
 
-    let updateAccountNameById (context: Context) (accountId: AccountId) (newName: string) : Result<Account, AppError> =
+    let updateAccountNameById (context: Context.Context) (accountId: AccountId) (newName: string) : Result<Account, AppError> =
         result {
             let! validAccountName = AccountName.create newName
             let! newAccount = updateDb context accountId (SetTo validAccountName) NoChange
@@ -279,7 +279,7 @@ module Account =
         }
 
     let updateExternalReferenceById
-        (context: Context)
+        (context: Context.Context)
         (accountId: AccountId)
         (newReference: string option) // todo make this as FieldUpdate
         : Result<Account, AppError> =

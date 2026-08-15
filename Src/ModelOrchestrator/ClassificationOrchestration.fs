@@ -1,7 +1,7 @@
 module ModelOrchestrator.ClassificationOrchestration
 
 open System
-open Context.Context
+
 open DataAccessLayer.ExecuteReader
 open Model.DataIngestion
 open Model.DataIngestion.Classification
@@ -17,7 +17,7 @@ open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
 
 let createNewClassificationRule
-    (context: Context)
+    (context: Context.Context)
     (classificationRuleName: ClassificationRuleName)
     (codeAtMatch: AccountCode)
     (priority: int)
@@ -25,7 +25,7 @@ let createNewClassificationRule
     (isActive: bool)
     : Result<ClassificationRule, AppError> = 
     let classificationRuleId = ClassificationRuleId.create()
-    let instant = context |> getInitiationInstant
+    let instant = context |> Context.getInitiationInstant
     let newRule =
         ClassificationRule.create
             classificationRuleId
@@ -71,7 +71,7 @@ let private reconstitute
                 modifiedAt }
 
 let fetchFiltered
-    (context: Context)
+    (context: Context.Context)
     (filter: ClassificationRuleFilter)
     (sort: FetchSortClassificationRule option)
     : Result<ClassificationRule list, AppError> =
@@ -142,7 +142,7 @@ let fetchFiltered
             """
         return!
             executeReaderQuery
-                (context |> getDatabaseTransaction)
+                (context |> Context.getDatabaseTransaction)
                 query
                 parameters
                 mapRawForDbRead

@@ -1,7 +1,6 @@
 module Model.DataIngestion.Classification.ClassificationRule
 
 open Context
-open Context.Context
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
@@ -56,7 +55,7 @@ let create
     }
     
 // todo: don't forget to create a CLI route for making new rules 
-let insertNewToDb (context: Context) (classificationRule: ClassificationRule) : Result<unit, AppError> =
+let insertNewToDb (context: Context.Context) (classificationRule: ClassificationRule) : Result<unit, AppError> =
     let query =
         """
         insert into ingestion.classification_rule(
@@ -90,7 +89,7 @@ let insertNewToDb (context: Context) (classificationRule: ClassificationRule) : 
               { name = "@created_at"; value = DbInstant createdAt }
               { name = "@modified_at"; value = DbInstant modifiedAt }
             ]
-        return! executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        return! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
     }
     
 let private reconstitute raw =
@@ -131,7 +130,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "modified_at")
 
 let private readRowsFromDb
-    (context: Context)
+    (context: Context.Context)
     (predicate: string option)
     (limit: int option)
     (parameters: QueryParameter list)
@@ -146,32 +145,32 @@ let private readRowsFromDb
     let from = "ingestion.classification_rule cr"
     let query = buildReadQuery select from None predicate limit None orderBy
     executeReaderQuery
-        (context |> getDatabaseTransaction)
+        (context |> Context.getDatabaseTransaction)
         query
         parameters
         mapRawForDbRead
         reconstitute
         expectedRows
 
-let fetchById (context: Context) (ruleId: ClassificationRuleId) : Result<ClassificationRule, AppError> =
+let fetchById (context: Context.Context) (ruleId: ClassificationRuleId) : Result<ClassificationRule, AppError> =
     let predicate = "cr.unique_id = @unique_id"
     let nameStr = ruleId |> ClassificationRuleId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId(nameStr) } ]
     readRowsFromDb context (Some predicate) None parameters None ExactlyOne |> Result.map List.head
 
-let fetchByName (context: Context) (name: ClassificationRuleName) : Result<ClassificationRule, AppError> =
+let fetchByName (context: Context.Context) (name: ClassificationRuleName) : Result<ClassificationRule, AppError> =
     let predicate = "cr.rule_name = @rule_name"
     let nameStr = name |> ClassificationRuleName.value
     let parameters = [ { name = "@rule_name"; value = CharString(nameStr) } ]
     readRowsFromDb context (Some predicate) None parameters None ExactlyOne |> Result.map List.head
 
 // todo: move fetchAllSortedByPriorityDesc up into the orchestration layer and have it take a FetchSort argument
-let fetchAllSortedByPriorityDesc (context: Context) : Result<ClassificationRule, AppError> =
+let fetchAllSortedByPriorityDesc (context: Context.Context) : Result<ClassificationRule, AppError> =
     let orderBy = "cr.priority desc" |> Some
     readRowsFromDb context None None [] orderBy AnyQuantityIsAcceptable |> Result.map List.head
     
 let private updateDb
-    (context: Context)
+    (context: Context.Context)
     (classificationRuleNameUpdate: FieldUpdate<ClassificationRuleName>)
     (codeAtMatchUpdate: FieldUpdate<AccountCode>)
     (priorityUpdate: FieldUpdate<int>)
@@ -181,7 +180,7 @@ let private updateDb
     : Result<ClassificationRule, AppError> =
     let uuid = classificationRuleId |> ClassificationRuleId.value
     let baseParams =
-        [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) }
+        [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
           { name = "@unique_id"; value = UniqueId uuid } ]
     result {
         let! groupStr = // do this up here because it's a pain in the ass to do it down in the updates block
@@ -228,13 +227,13 @@ let private updateDb
             WHERE unique_id = @unique_id;
         """
         do! if updates.IsEmpty then Error(IngestionClassificationRuleUpdateNoOp) else Ok()
-        let! () = executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        let! () = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
         return! classificationRuleId |> fetchById context
     }
 
 /// updateCodeAtMatchById assumes the orchestrator is validating the code maps to a real account 
 let private updateCodeAtMatchById
-    (context: Context)
+    (context: Context.Context)
     (accountCodeAtMatchUpdate: FieldUpdate<AccountCode>)
     (classificationRuleId: ClassificationRuleId)
     : Result<ClassificationRule, AppError> =
@@ -242,7 +241,7 @@ let private updateCodeAtMatchById
     |> updateDb context NoChange accountCodeAtMatchUpdate NoChange NoChange NoChange
 
 let private updateRuleGroupsById
-    (context: Context)
+    (context: Context.Context)
     (ruleGroupsUpdate: FieldUpdate<ClassificationRuleGroup list>)
     (classificationRuleId: ClassificationRuleId)
     : Result<ClassificationRule, AppError> =
@@ -250,7 +249,7 @@ let private updateRuleGroupsById
     |> updateDb context NoChange NoChange NoChange ruleGroupsUpdate NoChange 
 
 let private updatePriorityById
-    (context: Context)
+    (context: Context.Context)
     (priorityUpdate: FieldUpdate<int>)
     (classificationRuleId: ClassificationRuleId)
     : Result<ClassificationRule, AppError> =
@@ -258,14 +257,14 @@ let private updatePriorityById
     |> updateDb context NoChange NoChange priorityUpdate NoChange NoChange 
 
 let private toggleActiveById
-    (context: Context)
+    (context: Context.Context)
     (newValue: bool)
     (classificationRuleId: ClassificationRuleId)
     : Result<ClassificationRule, AppError> =
     let enforcedCurrentValue = not newValue
     let uuid = classificationRuleId |> ClassificationRuleId.value
     let parameters =
-        [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) }
+        [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
           { name = "@unique_id"; value = UniqueId uuid }
           { name = "@newValue"; value = Boolean newValue }
           { name = "@enforcedCurrentValue"; value = Boolean enforcedCurrentValue } ]
@@ -280,7 +279,7 @@ let private toggleActiveById
         ;
     """
     result {
-        do! match executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne with
+        do! match executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne with
             | Ok _ -> Ok ()
             | Error (DalResultantRowsDidntMatchExpectation (expected, actual)) ->
                 if actual = 0
@@ -291,13 +290,13 @@ let private toggleActiveById
     }
 
 let deactivateRuleById
-    (context: Context)
+    (context: Context.Context)
     (classificationRuleId: ClassificationRuleId)
     : Result<ClassificationRule, AppError> =
     classificationRuleId |> toggleActiveById context false
 
 let activateRuleById
-    (context: Context)
+    (context: Context.Context)
     (classificationRuleId: ClassificationRuleId)
     : Result<ClassificationRule, AppError> =
     classificationRuleId |> toggleActiveById context true

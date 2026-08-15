@@ -14,7 +14,7 @@ open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
 open Utilities.AppError
 open Tests.Helpers.SadPath
-open Context.Context
+
 open Tests.Helpers.Railroad
 
 [<Collection("SharedTestData")>]
@@ -92,7 +92,7 @@ type AccountTests(fixture: TestDataFixture) =
             |> List.filter(fun x -> x |> Account.parentId = (parentId |> Some))
             |> List.map(fun x -> x |> Account.accountId)
         let expectedCount = expectedChildren |> List.length
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         result {
             let! fetched = Account.fetchByParentId context parentId
             Assert.Equal(expectedCount, List.length fetched)
@@ -105,7 +105,7 @@ type AccountTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-3.6 fetch by account type returns matching accounts``() =
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         result {
             let! fetchType = AccountType.fromString "Equity"
             let! fetched = Account.fetchByAccountType context fetchType
@@ -121,7 +121,7 @@ type AccountTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-AC-3.7 fetch all fetches everything``() =
         let expectedCount = fixture.Data.accounts |> List.length
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         result {
             let! fetched = Account.fetchAll context false
             Assert.Equal(expectedCount, fetched |> List.length)
@@ -136,7 +136,7 @@ type AccountTests(fixture: TestDataFixture) =
             fixture.Data.accounts
             |> List.filter(fun a -> a |> Account.activityPeriod |> AccountActivityPeriod.isActive today)
         let expectedCount = activeAccounts |> List.length
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         result {
             let! fetched = Account.fetchAll context true
             Assert.Equal(expectedCount, fetched |> List.length)
@@ -275,7 +275,7 @@ type AccountTests(fixture: TestDataFixture) =
             result {
                 let! updatedAccount =
                     Account.updateAccountNameById context fixture.Data.moneyMarket1270Id "Blah blah blah"
-                Assert.Equal(context |> getInitiationInstant, Account.modifiedAt updatedAccount)
+                Assert.Equal(context |> Context.getInitiationInstant, Account.modifiedAt updatedAccount)
                 return ()
             })
         |> railroadWrapper
@@ -296,7 +296,7 @@ type AccountTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-3.3 fetchById returns account matching provided ID``() =
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         let expectedId = fixture.Data.mortgage2210Id
         result {
             let! account = Account.fetchById context expectedId

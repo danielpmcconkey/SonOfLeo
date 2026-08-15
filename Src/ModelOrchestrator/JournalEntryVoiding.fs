@@ -9,10 +9,10 @@ open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.ExecuteNonQuery
-open Context.Context
+
 
 let private confirmJournalEntryIdIsReal
-    (context: Context)
+    (context: Context.Context)
     (journalEntryHeaderId: JournalEntryHeaderId)
     : Result<unit, AppError> =
     match journalEntryHeaderId |> JournalEntryHeader.fetchById context with
@@ -23,7 +23,7 @@ let private confirmJournalEntryIdIsReal
     
 
 let private confirmFiscalPeriodIsStillOpenBeforeVoiding
-    (context: Context)
+    (context: Context.Context)
     (journalEntryHeader: JournalEntryHeader)
     : Result<unit, AppError> =
     let entryDate = journalEntryHeader |> JournalEntryHeader.entryDate
@@ -53,11 +53,11 @@ let private confirmFiscalPeriodIsStillOpenBeforeVoiding
     }
 
 let private voidById
-    (context: Context)
+    (context: Context.Context)
     (journalEntryHeaderId: JournalEntryHeaderId)
     : Result<unit, AppError> =
     let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
-    let now = context |> getInitiationInstant
+    let now = context |> Context.getInitiationInstant
     let parameters =
         [ { name = "@modified"; value = DbInstant(now) }
           { name = "@newValue"; value = DbInstant(now) }
@@ -82,11 +82,11 @@ let private voidById
                 else Error (DalResultantRowsDidntMatchExpectation(expected, actual))
             | Error e -> Error e
         do! je |> confirmFiscalPeriodIsStillOpenBeforeVoiding context
-        do! executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        do! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
     }
 
 let private insertReason
-    (context: Context)
+    (context: Context.Context)
     (primaryJournalEntryId: JournalEntryHeaderId)
     (secondaryJournalEntryId: JournalEntryHeaderId option)
     (commentText: CommentText)
@@ -99,7 +99,7 @@ let private insertReason
     |> Result.map ignore
 
 let voidJournalEntry
-    (context: Context)
+    (context: Context.Context)
     (secondaryJournalEntryIdForComment: JournalEntryHeaderId option)
     (commentText: CommentText)
     (journalEntryHeaderId: JournalEntryHeaderId)

@@ -11,7 +11,7 @@ open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
 open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
-open Context.Context
+
 
 (*
  * These functions are used in tests' "finally" blocks where the test flow that
@@ -25,7 +25,7 @@ open Context.Context
 //=================================================
 
 let cleanUpAccountId (accountId: AccountId option) : Result<unit, AppError> =
-    let context = create NoTransaction FetchOnly
+    let context = Context.create NoTransaction FetchOnly
     match accountId with
     | None -> Ok()
     | Some x ->
@@ -36,7 +36,7 @@ let cleanUpAccountId (accountId: AccountId option) : Result<unit, AppError> =
                 delete from ledger.account
                 WHERE unique_id = @unique_id;
             """
-        executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
 
 let cleanUpAccountList (l: AccountId option list) : Result<unit, AppError> =
     l
@@ -65,7 +65,7 @@ let cleanUpParentIdAndChildren (parentId: AccountId option) (children: AccountId
 // Fiscal Period clean up
 //=================================================
 let cleanUpFiscalPeriodId (fpId: FiscalPeriodId option) : Result<unit, AppError> =
-    let context = create NoTransaction FetchOnly
+    let context = Context.create NoTransaction FetchOnly
     match fpId with
     | None -> Ok()
     | Some x ->
@@ -76,10 +76,10 @@ let cleanUpFiscalPeriodId (fpId: FiscalPeriodId option) : Result<unit, AppError>
                 delete from ledger.fiscal_period
                 WHERE unique_id = @unique_id;
             """
-        executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
 
 let cleanUpFiscalPeriodKey (key: string option) : Result<unit, AppError> =
-    let context = create NoTransaction FetchOnly
+    let context = Context.create NoTransaction FetchOnly
     match key with
     | None -> Ok()
     | Some x ->
@@ -89,7 +89,7 @@ let cleanUpFiscalPeriodKey (key: string option) : Result<unit, AppError> =
                 delete from ledger.fiscal_period
                 WHERE period_key = @period_key;
             """
-        executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
 
 let cleanUpFiscalPeriodIdsList (l: FiscalPeriodId option list) : Result<unit, AppError> =
     l
@@ -124,7 +124,7 @@ let cleanUpFiscalPeriodKeysList (l: string option list) : Result<unit, AppError>
 //=================================================
 
 let cleanUpJournalEntryId (journalEntryHeaderId: JournalEntryHeaderId option) : Result<unit, AppError> =
-    let context = create NoTransaction FetchOnly
+    let context = Context.create NoTransaction FetchOnly
     match journalEntryHeaderId with
     | None -> Ok()
     | Some x ->
@@ -154,15 +154,15 @@ let cleanUpJournalEntryId (journalEntryHeaderId: JournalEntryHeaderId option) : 
             """
 
         result {
-            let! _ = executeNonQuery (context |> getDatabaseTransaction) commentQuery parameters AnyQuantityIsAcceptable
+            let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) commentQuery parameters AnyQuantityIsAcceptable
             let! _ =
-                executeNonQuery (context |> getDatabaseTransaction) extReferenceQuery parameters AnyQuantityIsAcceptable
-            let! _ = executeNonQuery (context |> getDatabaseTransaction) lineQuery parameters AnyQuantityIsAcceptable
-            return! executeNonQuery (context |> getDatabaseTransaction) headerQuery parameters ExactlyOne
+                executeNonQuery (context |> Context.getDatabaseTransaction) extReferenceQuery parameters AnyQuantityIsAcceptable
+            let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) lineQuery parameters AnyQuantityIsAcceptable
+            return! executeNonQuery (context |> Context.getDatabaseTransaction) headerQuery parameters ExactlyOne
         }
 
 let cleanUpJournalEntryExtReferenceId (uniqueId: Guid option) : Result<unit, AppError> =
-    let context = create NoTransaction FetchOnly
+    let context = Context.create NoTransaction FetchOnly
     match uniqueId with
     | None -> Ok()
     | Some x ->
@@ -172,10 +172,10 @@ let cleanUpJournalEntryExtReferenceId (uniqueId: Guid option) : Result<unit, App
                 delete from ledger.journal_entry_ext_reference
                 WHERE unique_id = @unique_id;
             """
-        executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
 
 let cleanUpJournalEntryCommentId (uniqueId: Guid option) : Result<unit, AppError> =
-    let context = create NoTransaction FetchOnly
+    let context = Context.create NoTransaction FetchOnly
     match uniqueId with
     | None -> Ok()
     | Some x ->
@@ -185,7 +185,7 @@ let cleanUpJournalEntryCommentId (uniqueId: Guid option) : Result<unit, AppError
                 delete from ledger.journal_entry_comment
                 WHERE unique_id = @unique_id;
             """
-        executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
 
 let cleanUpJournalEntryList (l: JournalEntryHeaderId option list) : Result<unit, AppError> =
     l

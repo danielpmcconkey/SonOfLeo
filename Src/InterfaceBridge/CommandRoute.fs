@@ -2,7 +2,7 @@ module InterfaceBridge.CommandRoute
 
 open Utilities.AppError
 open DataAccessLayer.DbTransaction
-open Context.Context
+
 
 
 type CommandRoute =
@@ -26,6 +26,7 @@ type ReportRoute =
 // runRouteAndAutoCompleteTransaction is used for routes only. It creates a net
 // new transaction and context, then has the DAL automatically commit or
 // rollback, depending on success or failure of the function.
-let runCommandRouteAndAutoCompleteTransaction auditAction (func: Context -> Result<'T, AppError>) : Result<'T, AppError> =
-    let context = create NewTransaction auditAction
-    runWithAutoCompleteTransaction (context |> getDatabaseTransaction) (fun () -> func context)
+let runCommandRouteAndAutoCompleteTransaction auditAction
+        (func: Context.Context -> Result<'T, AppError>) : Result<'T, AppError> =
+    let context = Context.create NewTransaction auditAction
+    runWithAutoCompleteTransaction (context |> Context.getDatabaseTransaction) (fun () -> func context)

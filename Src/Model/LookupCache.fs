@@ -6,7 +6,7 @@ open Utilities.AppError
 open Utilities.ResultHelper
 open DataAccessLayer.DbTransaction
 open DataAccessLayer.QueryParameters
-open Context.Context
+
 
 (*
 Note: the LookupCache is designed to support an easy translation between UUIDs used in the model and string codes and
@@ -21,7 +21,7 @@ to also involve any CRUD operations of core module entities.
 *)
 
 type Cache<'K, 'V when 'K: comparison>
-    (loadAll: unit -> Result<Map<'K, 'V>, AppError>, loadOne: Context -> 'K -> Result<'V, AppError>) =
+    (loadAll: unit -> Result<Map<'K, 'V>, AppError>, loadOne: Context.Context -> 'K -> Result<'V, AppError>) =
     let mutable cache = loadAll() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
     member _.fetch context (key: 'K) : Result<'V, AppError> =
         match cache |> Map.tryFind key with
@@ -67,7 +67,7 @@ let accountCodeToId =
             result {
                 let! rows =
                     executeReaderQuery
-                        (context |> getDatabaseTransaction)
+                        (context |> Context.getDatabaseTransaction)
                         query
                         parameters
                         (mapRawForDbRead "unique_id" "code")
@@ -99,7 +99,7 @@ let accountIdToCode =
             result {
                 let! rows =
                     executeReaderQuery
-                        (context |> getDatabaseTransaction)
+                        (context |> Context.getDatabaseTransaction)
                         query
                         parameters
                         (mapRawForDbRead "unique_id" "code")
@@ -131,7 +131,7 @@ let fiscalPeriodKeyToId =
             result {
                 let! rows =
                     executeReaderQuery
-                        (context |> getDatabaseTransaction)
+                        (context |> Context.getDatabaseTransaction)
                         query
                         parameters
                         (mapRawForDbRead "unique_id" "period_key")
@@ -163,7 +163,7 @@ let fiscalPeriodIdToKey =
             result {
                 let! rows =
                     executeReaderQuery
-                        (context |> getDatabaseTransaction)
+                        (context |> Context.getDatabaseTransaction)
                         query
                         parameters
                         (mapRawForDbRead "unique_id" "period_key")
@@ -195,7 +195,7 @@ let accountIdToName =
             result {
                 let! rows =
                     executeReaderQuery
-                        (context |> getDatabaseTransaction)
+                        (context |> Context.getDatabaseTransaction)
                         query
                         parameters
                         (mapRawForDbRead "unique_id" "account_name")

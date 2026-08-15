@@ -5,9 +5,9 @@ open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
 open Utilities.ResultHelper
-open Context.Context
 
-let confirmEntryDateIsInOpenFiscalPeriod (context: Context) (entryDate: EntryDate) : Result<unit, AppError> =
+
+let confirmEntryDateIsInOpenFiscalPeriod (context: Context.Context) (entryDate: EntryDate) : Result<unit, AppError> =
     result {
         let! fiscalPeriod = entryDate |> EntryDate.fiscalPeriodId |> FiscalPeriod.fetchById context
         match fiscalPeriod |> FiscalPeriod.isOpen with
@@ -16,13 +16,13 @@ let confirmEntryDateIsInOpenFiscalPeriod (context: Context) (entryDate: EntryDat
     }
 
 let constructNewAndSaveToDb
-    (context: Context)
+    (context: Context.Context)
     (description: JournalEntryDescription)
     (source: JournalEntrySource option)
     (entryDate: EntryDate)
     : Result<JournalEntryHeader, AppError> =
     let journalEntryId = JournalEntryHeaderId.create()
-    let now = context |> getInitiationInstant
+    let now = context |> Context.getInitiationInstant
     let createdAt = now
     let modifiedAt = now
     let voidedAt = None

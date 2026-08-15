@@ -8,9 +8,9 @@ open DataAccessLayer.ExecuteReader
 open DataAccessLayer.ExecuteNonQuery
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
-open Context.Context
 
-let confirmJournalEntryHeader (context: Context) (journalEntryId: JournalEntryHeaderId) : Result<unit, AppError> =
+
+let confirmJournalEntryHeader (context: Context.Context) (journalEntryId: JournalEntryHeaderId) : Result<unit, AppError> =
     match journalEntryId |> JournalEntryHeader.fetchById context with
     | Ok _ -> Ok ()
     | Error (DalResultantRowsDidntMatchExpectation(expected, actual)) ->
@@ -34,13 +34,13 @@ let confirmPrimaryAndSecondaryRelationship
             Ok()
 
 let constructNewAndSaveToDb
-    (context: Context)
+    (context: Context.Context)
     (primaryJournalEntryId: JournalEntryHeaderId)
     (secondaryJournalEntryId: JournalEntryHeaderId option)
     (commentText: CommentText)
     : Result<JournalEntryComment, AppError> =
     let journalEntryCommentId = JournalEntryCommentId.create()
-    let now = context |> getInitiationInstant
+    let now = context |> Context.getInitiationInstant
     let createdAt = now
     let modifiedAt = now
     result {
@@ -66,14 +66,14 @@ let constructNewAndSaveToDb
     }
 
 let updateComment
-    (context: Context)
+    (context: Context.Context)
     (journalEntryCommentId: JournalEntryCommentId)
     (commentUpdate: FieldUpdate<CommentText>)
     (secondaryIdUpdate: FieldUpdate<JournalEntryHeaderId option>)
     : Result<JournalEntryComment, AppError> =
     let commentUuid = journalEntryCommentId |> JournalEntryCommentId.value
     let baseParams =
-        [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) }
+        [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
           { name = "@unique_id"; value = UniqueId commentUuid } ]
     result {
         let! validSecondaryId =
@@ -112,6 +112,6 @@ let updateComment
                                 modified_at = @modified
                                 {setClauses}
                             WHERE unique_id = @unique_id; """
-        let! _ = executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
         return! journalEntryCommentId |> JournalEntryComment.fetchById context
     }

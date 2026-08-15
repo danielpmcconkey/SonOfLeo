@@ -7,7 +7,7 @@ open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
 open Utilities.ResultHelper
-open Context.Context
+
 
 let confirmAmountIsPositive (m: Money) : Result<unit, AppError> =
     if
@@ -17,7 +17,7 @@ let confirmAmountIsPositive (m: Money) : Result<unit, AppError> =
     else
         Ok()
 
-let confirmAccountExists (context: Context) (accountId: AccountId) : Result<unit, AppError> =
+let confirmAccountExists (context: Context.Context) (accountId: AccountId) : Result<unit, AppError> =
     match accountId |> Account.fetchById context with
     | Error(DalResultantRowsDidntMatchExpectation _) ->
         Error(JournalEntryLineAccountDoesntExist(accountId |> AccountId.value))
@@ -25,7 +25,7 @@ let confirmAccountExists (context: Context) (accountId: AccountId) : Result<unit
     | Ok _ -> Ok()
 
 let constructNewAndSaveToDb
-    (context: Context)
+    (context: Context.Context)
     (journalEntryId: JournalEntryHeaderId)
     (accountId: AccountId)
     (amount: Money)
@@ -33,7 +33,7 @@ let constructNewAndSaveToDb
     (memo: JournalEntryLineMemo option)
     : Result<JournalEntryLine, AppError> =
     let journalEntryLineId = JournalEntryLineId.create()
-    let now = context |> getInitiationInstant
+    let now = context |> Context.getInitiationInstant
     let createdAt = now
     let modifiedAt = now
     result {

@@ -163,7 +163,8 @@ The classification step runs the vendor classification rules engine against stag
 ## 7. Deduplication behaviors
 
 - **REQ-STG-7.1** The system must provide a means to run deduplication against staged entries.
-- **REQ-STG-7.2** A staged entry is flagged as duplicate when another staged entry (in any status other than `'Posted'`) shares the same source_id and fi_reference values. This includes `'Ignored'` entries (per REQ-STG-4.5).
+- **REQ-STG-7.2** A staged entry is flagged as duplicate when another staged entry shares the same source_id and fi_reference values. This includes `'Ignored'` entries (per REQ-STG-4.5).
+  - *Why:* The original parenthetical excluded `'Posted'` entries on the assumption that REQ-STG-7.3 covered them via the ledger. Removed — each requirement should stand alone, and a Posted staged entry with the same key is evidence of a duplicate regardless of whether 7.3 exists. (2026-08-15)
 - **REQ-STG-7.3** A staged entry is flagged as duplicate when a posted journal entry in the ledger carries an external reference whose financial_institution and reference values match the staged entry's source and fi_reference.
   - *Why:* Prevents re-importing transactions that were posted in a prior cycle. (2026-08-08)
 - **REQ-STG-7.4** Stricken.

@@ -1,6 +1,5 @@
 module Model.DataIngestion.IngestionSource
 
-open Context.Context
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
@@ -34,7 +33,7 @@ let create
         modifiedAt = modifiedAt
     }
     
-let insertNewToDb (context: Context) (ingestionSource: IngestionSource) : Result<unit, AppError> =
+let insertNewToDb (context: Context.Context) (ingestionSource: IngestionSource) : Result<unit, AppError> =
     let query =
         """
         insert into ingestion.source(
@@ -53,7 +52,7 @@ let insertNewToDb (context: Context) (ingestionSource: IngestionSource) : Result
           { name = "@created_at"; value = DbInstant ingestionSource.createdAt }
           { name = "@modified_at"; value = DbInstant ingestionSource.modifiedAt }
         ]
-    executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+    executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
     
 let private reconstitute raw =
     result {
@@ -79,7 +78,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "modified_at")
 
 let private readRowsFromDb
-    (context: Context)
+    (context: Context.Context)
     (predicate: string option)
     (limit: int option)
     (parameters: QueryParameter list)
@@ -92,14 +91,14 @@ let private readRowsFromDb
     let from = "ingestion.source s"
     let query = buildReadQuery select from None predicate limit None None
     executeReaderQuery
-        (context |> getDatabaseTransaction)
+        (context |> Context.getDatabaseTransaction)
         query
         parameters
         mapRawForDbRead
         reconstitute
         expectedRows
 
-let fetchByName (context: Context) (name: JournalRefFinancialInstitution) : Result<IngestionSource, AppError> =
+let fetchByName (context: Context.Context) (name: JournalRefFinancialInstitution) : Result<IngestionSource, AppError> =
     let predicate = "s.source_name = @source_name"
     let nameStr = name |> JournalRefFinancialInstitution.value
     let parameters = [ { name = "@source_name"; value = CharString(nameStr) } ]

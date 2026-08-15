@@ -1,7 +1,7 @@
 namespace ModelOrchestrator.JournalEntries
 
 open System
-open Context.Context
+
 open DataAccessLayer.ExecuteReader
 open Model
 open Model.Ledger.Accounts.AccountComponent
@@ -62,7 +62,7 @@ module JournalEntry =
     // =============================================================================
 
     let private createValidHeader
-        (context: Context)
+        (context: Context.Context)
         (description: JournalEntryDescription)
         (source: JournalEntrySource option)
         (entryDate: EntryDate)
@@ -70,7 +70,7 @@ module JournalEntry =
         JournalEntryHeaderOrchestration.constructNewAndSaveToDb context description source entryDate
 
     let private confirmAccountIsActiveAtEntryDate
-        (context: Context)
+        (context: Context.Context)
         (entryDate: EntryDate)
         (accountId: AccountId)
         : Result<unit, AppError> =
@@ -95,7 +95,7 @@ module JournalEntry =
         }
 
     let private createValidLines
-        (context: Context)
+        (context: Context.Context)
         (journalEntryId: JournalEntryHeaderId)
         (entryDate: EntryDate)
         (lines: (AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option) list)
@@ -117,7 +117,7 @@ module JournalEntry =
         |> convertListOfResultsToResultsList
 
     let private createValidExternalReferences
-        (context: Context)
+        (context: Context.Context)
         (journalEntryHeaderId: JournalEntryHeaderId)
         (references: (JournalRefFinancialInstitution * JournalExternalReferenceText) list)
         : Result<JournalEntryExternalReference list, AppError> =
@@ -132,7 +132,7 @@ module JournalEntry =
         |> convertListOfResultsToResultsList
 
     let private createValidComments
-        (context: Context)
+        (context: Context.Context)
         (primaryJournalEntryId: JournalEntryHeaderId)
         (comments: (JournalEntryHeaderId option * CommentText) list)
         : Result<JournalEntryComment list, AppError> =
@@ -152,7 +152,7 @@ module JournalEntry =
     /// persistence layer. Internal model functions may construct through other
     /// means if they're operating on known good data.
     let constructNewAndSaveToDb
-        (context: Context)
+        (context: Context.Context)
         (description: JournalEntryDescription)
         (source: JournalEntrySource option)
         (entryDate: EntryDate)
@@ -200,7 +200,7 @@ module JournalEntry =
               comments = commentsForHeader })
 
     let private fetchHeadersFromFilter
-        (context: Context)
+        (context: Context.Context)
         (filter: JournalEntryFetchFilter)
         (expectedRows: AcceptableExpectedRows)
         : Result<JournalEntryHeader list, AppError> =
@@ -285,7 +285,7 @@ module JournalEntry =
         }
 
     let fetchFiltered
-        (context: Context)
+        (context: Context.Context)
         (filter: JournalEntryFetchFilter)
         (expectedRows: AcceptableExpectedRows)
         : Result<JournalEntry list, AppError> =
@@ -307,7 +307,7 @@ module JournalEntry =
         }
 
     let fetchById
-        (context: Context)
+        (context: Context.Context)
         (journalEntryHeaderId: JournalEntryHeaderId)
         : Result<JournalEntry, AppError> =
         let filter =
@@ -331,7 +331,7 @@ module JournalEntry =
         | Error e -> Error e
 
     let fetchByPeriod
-        (context: Context)
+        (context: Context.Context)
         (fiscalPeriod: FiscalPeriod)
         : Result<JournalEntry list, AppError> =
         let filter =
@@ -346,7 +346,7 @@ module JournalEntry =
         fetchFiltered context filter expectedRows
 
     let fetchByDateRange
-        (context: Context)
+        (context: Context.Context)
         (beginDate: LocalDate)
         (endDateInclusive: LocalDate)
         : Result<JournalEntry list, AppError> =
@@ -367,7 +367,7 @@ module JournalEntry =
             fetchFiltered context filter expectedRows
 
     let fetchByReference
-        (context: Context)
+        (context: Context.Context)
         (financialInstitution: JournalRefFinancialInstitution option)
         (referenceText: JournalExternalReferenceText option)
         : Result<JournalEntry list, AppError> =

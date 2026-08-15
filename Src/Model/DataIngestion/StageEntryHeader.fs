@@ -1,6 +1,5 @@
 module Model.DataIngestion.StageEntryHeader
 
-open Context.Context
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
@@ -47,7 +46,7 @@ let create
         fiReference = fiReference
         status = status }
 
-let insertNewToDb (context: Context) (stageEntryHeader: StageEntryHeader) : Result<unit, AppError> =
+let insertNewToDb (context: Context.Context) (stageEntryHeader: StageEntryHeader) : Result<unit, AppError> =
     let query =
         """
         insert into ingestion.staged_entry(
@@ -76,7 +75,7 @@ let insertNewToDb (context: Context) (stageEntryHeader: StageEntryHeader) : Resu
           { name = "@source_file"; value = CharString(sourceFile) }
           { name = "@status"; value = CharString(status) }
         ]
-    executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+    executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
         
 let private reconstitute raw =
     result {
@@ -123,7 +122,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getString "status")
     
 let private readRowsFromDb
-    (context: Context)
+    (context: Context.Context)
     (predicate: string option)
     (limit: int option)
     (parameters: QueryParameter list)
@@ -138,33 +137,90 @@ let private readRowsFromDb
     let join = "left join ingestion.source s on e.source_id = s.unique_id"
     let query = buildReadQuery select from (Some join) predicate limit None None
     executeReaderQuery
-        (context |> getDatabaseTransaction)
+        (context |> Context.getDatabaseTransaction)
         query
         parameters
         mapRawForDbRead
         reconstitute
         expectedRows
 
-let fetchById (context: Context) (headerId: StageEntryHeaderId) : Result<StageEntryHeader, AppError> =
+let fetchById (context: Context.Context) (headerId: StageEntryHeaderId) : Result<StageEntryHeader, AppError> =
     let predicate = "e.unique_id = @unique_id"
     let uuid = headerId |> StageEntryHeaderId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
-let fetchByStatus (context: Context) (status: StagedEntryStatus) : Result<StageEntryHeader list, AppError> =
+let fetchByStatus (context: Context.Context) (status: StagedEntryStatus) : Result<StageEntryHeader list, AppError> =
     let predicate = "e.status = @status"
     let statusStr = status |> StagedEntryStatus.toString
     let parameters = [ { name = "@status"; value = CharString statusStr } ]
     readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-let fetchBySourceFile (context: Context) (sourceFile: SourceFile) : Result<StageEntryHeader list, AppError> =
+let fetchBySourceFile (context: Context.Context) (sourceFile: SourceFile) : Result<StageEntryHeader list, AppError> =
     let predicate = "e.source_file = @source_file"
     let fileStr = sourceFile |> SourceFile.value
     let parameters = [ { name = "@source_file"; value = CharString fileStr } ]
     readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
 
+let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, AppError> =    
+    let query = """
+        with all_statuses as (
+            select 
+                entry_id,
+                modified_at,
+                row_number() over (partition by entry_id order by modified_at asc) as ordinal        
+            from ingestion.staged_entry_audit
+        ), in_ledger_already as (
+            select 
+                jex.journal_entry_id,
+                jex.financial_institution,
+                jex.reference
+            from ledger.journal_entry_ext_reference jex
+            left join ledger.journal_entry je on jex.journal_entry_id = je.unique_id
+            where je.voided_at is null
+        ), in_stage_already as (
+            select 
+                se.unique_id as stage_entry_id,
+                s.source_name,
+                se.fi_reference,
+                se.description as stage_entry_description,
+                se.status as stage_entry_status,
+                all_statuses.modified_at as earliest_status_time_stamp
+            from ingestion.staged_entry se
+            join ingestion.source s on se.source_id = s.unique_id
+            left join all_statuses on se.unique_id = all_statuses.entry_id and all_statuses.ordinal = 1
+        ), duplicates as (
+            select distinct 
+                se.unique_id as stage_entry_id
+            from ingestion.staged_entry se
+            join ingestion.source s on se.source_id = s.unique_id
+            left join in_ledger_already ila -- note this join creates duplicates because 2 JEs can share the same FI and reference
+                on s.source_name = ila.financial_institution
+                and se.fi_reference = ila.reference
+            left join all_statuses on se.unique_id = all_statuses.entry_id and all_statuses.ordinal = 1
+            left join in_stage_already isa -- note this join creates duplicates a row can be duplicated mulitple times
+                on s.source_name = isa.source_name
+                and se.fi_reference = isa.fi_reference
+                and isa.earliest_status_time_stamp < all_statuses.modified_at -- not <= because that would join to itself
+            where 1 = 1
+            and se.status not in ('Duplicate', 'Posted', 'Ignored')
+            and (ila.financial_institution is not null or isa.source_name is not null)
+        )
+        select 
+            se.unique_id, se.entry_date, se.description, se.source_id, se.fi_reference, se.source_file, se.status
+        from ingestion.staged_entry se
+        join duplicates d on se.unique_id = d.stage_entry_id
+        """
+    executeReaderQuery
+        (context |> Context.getDatabaseTransaction)
+        query
+        []
+        mapRawForDbRead
+        reconstitute
+        AnyQuantityIsAcceptable
+
 let private updateDb
-    (context: Context)
+    (context: Context.Context)
     (sourceFileUpdate: FieldUpdate<SourceFile>)
     (entryDateUpdate: FieldUpdate<LocalDate>)
     (descriptionUpdate: FieldUpdate<JournalEntryDescription>)
@@ -204,7 +260,7 @@ let private updateDb
                   ("fi_reference = @fi_reference",
                    { name = "@fi_reference"; value = CharString(JournalExternalReferenceText.value n) }))
               
-              statusUpdate
+              statusUpdate // note: you still need to add an entry to the audit table
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
                   ("status = @status",
                    { name = "@status"; value = CharString(StagedEntryStatus.toString n) }))
@@ -221,13 +277,13 @@ let private updateDb
     """
     result {
         do! if updates.IsEmpty then Error(IngestionStageEntryHeaderNoOp) else Ok()
-        let! () = executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        let! () = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
         return! stageEntryHeaderId |> fetchById context
     }
 
 /// updateStatus assumes the orchestrator is validating the status change and adding a record to the audit table 
-let private updateStatus
-    (context: Context)
+let updateStatus
+    (context: Context.Context)
     (newStatus: StagedEntryStatus)
     (stageEntryHeaderId : StageEntryHeaderId)
     : Result<StageEntryHeader, AppError> =

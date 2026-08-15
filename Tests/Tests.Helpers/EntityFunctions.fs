@@ -1,11 +1,12 @@
 module Tests.Helpers.EntityFunctions
 
-open InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 open InterfaceBridge.InterfaceContracts.AccountContracts
-open InterfaceBridge.InterfaceContracts.IngestionContracts
 open Model
+open Model.DataIngestion
 open Model.DataIngestion.Classification
 open Model.DataIngestion.Classification.ClassificationRule
+open Model.DataIngestion.IngestionSource
+open Model.DataIngestion.StageEntryLine
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.FiscalPeriods
@@ -13,14 +14,12 @@ open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator
 open ModelOrchestrator.JournalEntries
+open ModelOrchestrator.StageEntryOrchestration
 open NodaTime
 open Tests.Helpers.GenericTestProperties
 open Utilities.AppError
 open Utilities.ResultHelper
 open Utilities.FieldUpdate
-open Context.Context
-
-
 
 let createTestFiscalPeriodFromPrimitives context keyStr : Result<FiscalPeriod, AppError> =
     result {
@@ -80,7 +79,7 @@ let createAccountInput codeToUse : AccountCreateInput =
       parentCode = genericAccountParentCode
       reference = genericAccountReference }
 let createTestJournalEntryFromPrimitives
-    (context: Context)
+    (context: Context.Context)
     (description: string)
     (source: string option)
     (entryDate: LocalDate)
@@ -191,7 +190,7 @@ let createClassificationRuleGroupListForTest
     ruleGroups    
 
 let createClassificationRuleForTest
-    (context: Context)
+    (context: Context.Context)
     (classificationRuleNameStr: string)
     (codeAtMatchStr: string)
     (priority: int)
@@ -211,3 +210,119 @@ let createClassificationRuleForTest
                 ruleGroups
                 isActive
     }
+
+let createIngestionSourceForTest
+    (context: Context.Context)
+    (nameStr: string)
+    : Result<IngestionSource, AppError> =
+    result {
+        let instant = context |> Context.getInitiationInstant
+        let uuid = IngestionSourceId.create()
+        let! name = nameStr |> JournalRefFinancialInstitution.create
+        let source = IngestionSource.create uuid name instant instant
+        do! source |> IngestionSource.insertNewToDb context
+        return source
+        }
+    
+let createStageEntryHeaderForTest 
+    (context: Context.Context)
+    (sourceFileStr: string)
+    (descriptionStr: string)
+    (fiReferenceStr: string)
+    (ingestionSource: IngestionSource)
+    (entryDate: LocalDate)
+    : Result<StageEntryHeader.StageEntryHeader, AppError> =
+    result {
+        let! sourceFile = sourceFileStr |> SourceFile.create
+        let stageEntryHeaderId = StageEntryHeaderId.create()
+        let entryDate = entryDate
+        let! description = descriptionStr |> JournalEntryDescription.create
+        let! fiReference = fiReferenceStr |> JournalExternalReferenceText.create
+        let header =
+            StageEntryHeader.create sourceFile stageEntryHeaderId
+                entryDate description ingestionSource fiReference Ingested
+        do! header |> StageEntryHeader.insertNewToDb context
+        return header
+        }
+
+let createStageEntryLineForTest 
+    (context: Context.Context)
+    (stageEntryHeaderId: StageEntryHeaderId)
+    (amountDec: decimal)
+    (entryTypeStr : string)
+    (accountCodeStr: string option)
+    (memoStr: string option)
+    (classificationRuleId: ClassificationRuleId option)
+    : Result<StageEntryLine, AppError> =
+    result {
+        let uuid = StageEntryLineId.create()
+        let! amount = amountDec |> Money.fromDecimal
+        let! entryType = entryTypeStr |> JournalEntryLineType.fromString
+        let! accountCode = accountCodeStr |> convertOptionToDesiredTypeWithFallibleConverter AccountCode.create
+        let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
+        let line =
+            StageEntryLine.create uuid stageEntryHeaderId amount entryType accountCode memo classificationRuleId
+        do! line |> StageEntryLine.insertNewToDb context
+        return line
+        }
+
+let createStageEntryLineListForTest
+    (context: Context.Context)
+    (stageEntryHeaderId: StageEntryHeaderId)
+    (lines: (decimal * string * string option * string option * ClassificationRuleId option) list)
+    : Result<StageEntryLine list, AppError> =
+    lines
+    |> List.map (fun (amountDec, entryTypeStr, accountCodeStr, memoStr, classificationRuleId) ->
+        createStageEntryLineForTest context stageEntryHeaderId amountDec entryTypeStr
+            accountCodeStr memoStr classificationRuleId)
+    |> convertListOfResultsToResultsList
+
+let createStageEntryStatusTransitionForTest
+    (context: Context.Context)
+    (stageEntryHeaderId: StageEntryHeaderId)
+    (fromStatusStr: string option)
+    (toStatusStr: string)
+    (instant: Instant)
+    (stageStatusChangeMechanismStr: string)
+    : Result<StageEntryStatusTransition.StageEntryStatusTransition, AppError> =
+    result {
+        let uuid = StageEntryStatusTransitionId.create()
+        let! fromStatus = fromStatusStr |> convertOptionToDesiredTypeWithFallibleConverter StagedEntryStatus.fromString
+        let! toStatus = toStatusStr |> StagedEntryStatus.fromString
+        let! stageStatusChangeMechanism = stageStatusChangeMechanismStr |> StageStatusChangeMechanism.fromString
+        let transition = StageEntryStatusTransition.create uuid stageEntryHeaderId fromStatus
+                             toStatus instant stageStatusChangeMechanism
+        do! transition |> StageEntryStatusTransition.insertNewToDb context
+        return transition
+    }
+
+let createStageEntryStatusTransitionListForTest
+    (context: Context.Context)
+    (stageEntryHeaderId: StageEntryHeaderId)
+    (transitions: (string option * string * Instant * string) list)
+    : Result<StageEntryStatusTransition.StageEntryStatusTransition list, AppError> =
+    transitions
+    |> List.map (fun (fromStatusStr, toStatusStr, instant, stageStatusChangeMechanismStr) ->
+        createStageEntryStatusTransitionForTest context stageEntryHeaderId fromStatusStr toStatusStr
+            instant stageStatusChangeMechanismStr)
+    |> convertListOfResultsToResultsList
+    
+
+let createStageEntryForTest 
+    (context: Context.Context)
+    (sourceFileStr: string)
+    (descriptionStr: string)
+    (fiReferenceStr: string)
+    (ingestionSource: IngestionSource)
+    (entryDate: LocalDate)
+    (linePrimitives: (decimal * string * string option * string option * ClassificationRuleId option) list)
+    (transitionPrimitives: (string option * string * Instant * string) list)
+    : Result<StageEntry, AppError> =
+    result {
+        let! header = createStageEntryHeaderForTest context sourceFileStr descriptionStr fiReferenceStr ingestionSource entryDate
+        let headerId = header |> StageEntryHeader.stageEntryHeaderId
+        let! lines = linePrimitives |> createStageEntryLineListForTest context headerId
+        let! transitions = transitionPrimitives |> createStageEntryStatusTransitionListForTest context headerId
+        return! createStageEntry context header lines transitions
+        }
+    

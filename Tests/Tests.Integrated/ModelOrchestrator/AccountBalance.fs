@@ -16,14 +16,14 @@ open ModelOrchestrator.AccountBalance
 open Tests.Helpers.RouteResolver
 open Utilities
 open Utilities.ResultHelper
-open Context.Context
+
 
 [<Collection("SharedTestData")>]
 type AccountBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.6 REQ-RPT-1.10 fetchByAccountIdList returns correct debit and credit totals``() =
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         let id1 = fixture.Data.mortgage2210Id
         let id2 = fixture.Data.food5350Id
         let accountsList = [ id1; id2 ]
@@ -57,7 +57,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.6 REQ-JE-4.7 REQ-RPT-1.8 fetchByAccountIdList excludes voided entry amounts``() =
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         let id1 = fixture.Data.creditCard2220Id
         let id2 = fixture.Data.entertainment5650Id
         let accountsList = [ id1; id2 ]
@@ -91,7 +91,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList returns zero balances for account with no activity``() =
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         let result = fetchByAccountIdList context (Some [fixture.Data.assets1000Id]) None
         match result with
         | Ok balances ->
@@ -104,13 +104,13 @@ type AccountBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList with empty list returns Error``() =
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         isCorrectErrorEmpty (fetchByAccountIdList context (Some []) None) AccountBalanceFetchInvalidArguments None
         |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-3.6.2 fetchByAccountIdList with asOf excludes entries after cutoff``() =
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         let today = Calendar.today()
         let asOfDate = today.PlusDays(-2)
         let expenseId = fixture.Data.temporalExpense5700Id
@@ -142,7 +142,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.6.2 fetchByAccountIdList with asOf before all entries returns zero balances``() =
-        let context = create NoTransaction FetchOnly
+        let context = Context.create NoTransaction FetchOnly
         let today = Calendar.today()
         let asOfDate = today.PlusDays(-4)
         let expenseId = fixture.Data.temporalExpense5700Id

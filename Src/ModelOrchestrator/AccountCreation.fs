@@ -7,7 +7,7 @@ open NodaTime
 open Utilities
 open Utilities.AppError
 open Utilities.ResultHelper
-open Context.Context
+
 
 let private confirmParentAccountIsActive (parentAccount: Account) (referenceDate: LocalDate) : Result<unit, AppError> =
     match parentAccount |> activityPeriod |> AccountActivityPeriod.isActive referenceDate with
@@ -39,7 +39,7 @@ let private confirmParentAndChildAreDistinct
     | _ -> Ok()
 
 let private confirmParentChildRelationship
-    (context: Context)
+    (context: Context.Context)
     (parentId: AccountId option)
     (childId: AccountId)
     (childType: AccountType)
@@ -82,7 +82,7 @@ let confirmTypeAndSubtypeAreValid (accountType: AccountType) (subType: AccountSu
 /// persistence layer. Internal model functions may construct through other
 /// means if they're operating on known good data.
 let constructNewAndSaveToDb
-    (context: Context)
+    (context: Context.Context)
     (code: AccountCode)
     (accountName: AccountName)
     (accountType: AccountType)
@@ -93,7 +93,7 @@ let constructNewAndSaveToDb
     : Result<Account, AppError> =
     result {
         let accountId = AccountId.create()
-        let now = context |> getInitiationInstant
+        let now = context |> Context.getInitiationInstant
         let createdAt = now
         let modifiedAt = now
         let validAccount =
@@ -108,7 +108,7 @@ let constructNewAndSaveToDb
                 reference
                 createdAt
                 modifiedAt
-        let referenceDate = context |> getInitiationInstant |> Calendar.dateFromInstant
+        let referenceDate = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
         do! confirmParentChildRelationship context parentId accountId accountType referenceDate
         do! confirmTypeAndSubtypeAreValid accountType subType
         do! validAccount |> insertNewToDb context

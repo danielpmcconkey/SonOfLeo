@@ -5,7 +5,6 @@ open Model.DataIngestion.Classification
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
-open Context.Context
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
@@ -52,7 +51,7 @@ let create
                 memo = memo 
                 classificationRuleId = classificationRuleId }
 
-let insertNewToDb (context: Context) (stageEntryLine: StageEntryLine) : Result<unit, AppError> =
+let insertNewToDb (context: Context.Context) (stageEntryLine: StageEntryLine) : Result<unit, AppError> =
     let query =
         """
         insert into ingestion.staged_entry_line (
@@ -82,7 +81,7 @@ let insertNewToDb (context: Context) (stageEntryLine: StageEntryLine) : Result<u
           { name = "@memo"; value = NullableCharString(memo) }
           { name = "@classification_rule_id"; value = NullableUniqueId(ruleUuid) }
         ]
-    executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+    executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
         
 let private reconstitute raw =
     result {
@@ -122,7 +121,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getUuidOption "classification_rule_id")
     
 let private readRowsFromDb
-    (context: Context)
+    (context: Context.Context)
     (predicate: string option)
     (limit: int option)
     (parameters: QueryParameter list)
@@ -135,27 +134,27 @@ let private readRowsFromDb
     let from = "ingestion.staged_entry_line l"
     let query = buildReadQuery select from None predicate limit None None
     executeReaderQuery
-        (context |> getDatabaseTransaction)
+        (context |> Context.getDatabaseTransaction)
         query
         parameters
         mapRawForDbRead
         reconstitute
         expectedRows
 
-let fetchById (context: Context) (lineId: StageEntryLineId) : Result<StageEntryLine, AppError> =
+let fetchById (context: Context.Context) (lineId: StageEntryLineId) : Result<StageEntryLine, AppError> =
     let predicate = "l.unique_id = @unique_id"
     let uuid = lineId |> StageEntryLineId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
-let fetchByHeaderId (context: Context) (lineId: StageEntryHeaderId) : Result<StageEntryLine list, AppError> =
+let fetchByHeaderId (context: Context.Context) (lineId: StageEntryHeaderId) : Result<StageEntryLine list, AppError> =
     let predicate = "l.entry_id = @unique_id"
     let accountIdGuid = lineId |> StageEntryHeaderId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId accountIdGuid } ]
     readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
 
 let fetchByHeaderIdList
-    (context: Context)
+    (context: Context.Context)
     (stageEntryHeaderIds: StageEntryHeaderId list)
     : Result<StageEntryLine list, AppError> =
     if stageEntryHeaderIds |> List.isEmpty then Error IngestionStageHeaderIdListCannotBeEmpty else
@@ -174,7 +173,7 @@ let fetchByHeaderIdList
     readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
     
 let private updateDb
-    (context: Context)
+    (context: Context.Context)
     (stageEntryHeaderIdUpdate: FieldUpdate<StageEntryHeaderId>)
     (amountUpdate: FieldUpdate<Money>)
     (entryTypeUpdate: FieldUpdate<JournalEntryLineType>)
@@ -231,13 +230,13 @@ let private updateDb
     """
     result {
         do! if updates.IsEmpty then Error(IngestionStageEntryLineNoOp) else Ok()
-        let! () = executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        let! () = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
         return! stageEntryLineId |> fetchById context
     }
 
 /// updateCode assumes the orchestrator is validating the code maps to a real account 
 let private updateCode
-    (context: Context)
+    (context: Context.Context)
     (accountCodeUpdate: FieldUpdate<AccountCode option>)
     (stageEntryLineId : StageEntryLineId)
     : Result<StageEntryLine, AppError> =
@@ -246,7 +245,7 @@ let private updateCode
 
 /// updateCodeAndRuleId assumes the orchestrator is validating the code maps to a real account and that the rule ID is real
 let private updateCodeAndRuleId
-    (context: Context)
+    (context: Context.Context)
     (accountCodeUpdate: FieldUpdate<AccountCode option>)
     (classificationRuleIdUpdate: FieldUpdate<ClassificationRuleId option>)
     (stageEntryLineId : StageEntryLineId)

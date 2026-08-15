@@ -1,7 +1,7 @@
 module InterfaceBridge.BoundaryConverters.ReportConverters
 
 open Context
-open Context.Context
+
 open InterfaceBridge.InterfaceContracts.ReportsContracts
 open Model
 open Model.Ledger.Accounts

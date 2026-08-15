@@ -5,7 +5,6 @@ open DataAccessLayer.DbTransaction
 open InterfaceBridge.InterfaceContracts.JournalContracts
 open Utilities.Json.Json
 open Logger.Audit
-open Microsoft.FSharp.Reflection
 open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
@@ -21,7 +20,7 @@ open Utilities.ResultHelper
 open Xunit
 open Tests.Helpers.Cleanup
 open Utilities
-open Context.Context
+
 
 [<Collection("SharedTestData")>]
 type JournalEntryRouteTests(fixture: TestDataFixture) =
@@ -69,7 +68,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                 match routeUiCommandForTesting "JournalEntry" "PostNew" [] payload with
                 | Error(JournalEntryInsufficientLines _) ->
                     let railroad =
-                        let context = create NoTransaction FetchOnly
+                        let context = Context.create NoTransaction FetchOnly
                         result {
                             let absurdBegin = today.PlusYears(-7)
                             let absurdEnd = today.PlusYears(7)
@@ -256,7 +255,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     member _.``REQ-JE-4.3 Void route happy path``() =
         let mutable idToCleanUp_1 = None
         try
-            let context = create NoTransaction FetchOnly
+            let context = Context.create NoTransaction FetchOnly
             result {
                 let! _, jeToVoidId =
                     createTestJournalEntryFromPrimitives
@@ -288,7 +287,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     member _.``REQ-JE-4.9 UpdateExternalReference happy path``() =
         let mutable idToCleanUp_1 = None
         try
-            let context = create NoTransaction FetchOnly
+            let context = Context.create NoTransaction FetchOnly
             result {
                 let! jeToUpdate, jeToUpdateId =
                     createTestJournalEntryFromPrimitives
@@ -326,7 +325,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     member _.``REQ-JE-4.10 AddExternalReference route happy path``() =
         let mutable idToCleanUp_1 = None
         try
-            let context = create NoTransaction FetchOnly
+            let context = Context.create NoTransaction FetchOnly
             result {
                 let! _, jeToUpdateId =
                     createTestJournalEntryFromPrimitives
@@ -359,7 +358,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     member _.``REQ-JE-5.1 AddComment route happy path``() =
         let mutable idToCleanUp_1 = None
         try
-            let context = create NoTransaction FetchOnly
+            let context = Context.create NoTransaction FetchOnly
             result {
                 let! _, jeToUpdateId =
                     createTestJournalEntryFromPrimitives
@@ -392,7 +391,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         let expected = "CLI updated comment text"
         let mutable idToCleanUp_1 = None
         try
-            let context = create NoTransaction FetchOnly
+            let context = Context.create NoTransaction FetchOnly
             result {
                 let! jeToUpdate, jeToUpdateId =
                     createTestJournalEntryFromPrimitives
@@ -502,7 +501,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     member _.``REQ-JE-4.9 UpdateExternalReference rejects no-op update``() =
         let mutable idToCleanUp = None
         try
-            let context = create NoTransaction FetchOnly
+            let context = Context.create NoTransaction FetchOnly
             result {
                 let! jeToUpdate, jeToUpdateId =
                     createTestJournalEntryFromPrimitives
@@ -546,7 +545,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         =
         let mutable idToCleanUp_1 = None
         try
-            let context = create NoTransaction FetchOnly
+            let context = Context.create NoTransaction FetchOnly
             result {
                 let! jeToUpdate, jeToUpdateId =
                     createTestJournalEntryFromPrimitives

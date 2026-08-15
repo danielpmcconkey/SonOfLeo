@@ -8,7 +8,7 @@ open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.ExecuteNonQuery
-open Context.Context
+
 
 type JournalEntryHeader =
     private
@@ -46,7 +46,7 @@ module JournalEntryHeader =
           createdAt = createdAt
           modifiedAt = modifiedAt }
 
-    let insertNewToDb (context: Context) (journalEntry: JournalEntryHeader) : Result<unit, AppError> =
+    let insertNewToDb (context: Context.Context) (journalEntry: JournalEntryHeader) : Result<unit, AppError> =
         let query =
             """
             INSERT INTO ledger.journal_entry(
@@ -66,7 +66,7 @@ module JournalEntryHeader =
               { name = "@voided_at"; value = NullableDbInstant journalEntry.voidedAt }
               { name = "@created_at"; value = DbInstant journalEntry.createdAt }
               { name = "@modified_at"; value = DbInstant journalEntry.modifiedAt } ]
-        executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
 
     /// The mapRow function is used to pass into DAL read functions to let DAL know
     /// how to map our query columns. Thus, we don't need to know anything about the
@@ -99,7 +99,7 @@ module JournalEntryHeader =
         }
 
     let readRowsFromDb
-        (context: Context)
+        (context: Context.Context)
         (join: string option)
         (predicate: string option)
         (limit: int option)
@@ -115,7 +115,7 @@ module JournalEntryHeader =
         let from = "ledger.journal_entry je"
         let query = buildReadQuery selectColumns from join predicate limit None orderBy
         executeReaderQuery
-            (context |> getDatabaseTransaction)
+            (context |> Context.getDatabaseTransaction)
             query
             parameters
             mapRawForDbRead
@@ -123,7 +123,7 @@ module JournalEntryHeader =
             expectedRows
 
     let fetchById
-        (context: Context)
+        (context: Context.Context)
         (journalEntryHeaderId: JournalEntryHeaderId)
         : Result<JournalEntryHeader, AppError> =
         let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
@@ -132,7 +132,7 @@ module JournalEntryHeader =
         readRowsFromDb context None predicate None None parameters ExactlyOne |> Result.map List.head
 
     let fetchByPeriod
-        (context: Context)
+        (context: Context.Context)
         (periodId: FiscalPeriodId)
         : Result<JournalEntryHeader list, AppError> =
         let uuid = periodId |> FiscalPeriodId.value

@@ -8,9 +8,9 @@ open DataAccessLayer.ExecuteReader
 open DataAccessLayer.ExecuteNonQuery
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
-open Context.Context
 
-let confirmJournalEntryHeader (context: Context) (journalEntryHeaderId: JournalEntryHeaderId) : Result<unit, AppError> =
+
+let confirmJournalEntryHeader (context: Context.Context) (journalEntryHeaderId: JournalEntryHeaderId) : Result<unit, AppError> =
     match journalEntryHeaderId |> JournalEntryHeader.fetchById context with
     | Ok _ -> Ok ()
     | Error (DalResultantRowsDidntMatchExpectation(expected, actual)) ->
@@ -19,13 +19,13 @@ let confirmJournalEntryHeader (context: Context) (journalEntryHeaderId: JournalE
     | Error e -> Error e
 
 let constructNewAndSaveToDb
-    (context: Context)
+    (context: Context.Context)
     (journalEntryHeaderId: JournalEntryHeaderId)
     (financialInstitution: JournalRefFinancialInstitution)
     (referenceText: JournalExternalReferenceText)
     : Result<JournalEntryExternalReference, AppError> =
     let journalEntryExternalReferenceId = JournalEntryExternalReferenceId.create()
-    let now = context |> getInitiationInstant
+    let now = context |> Context.getInitiationInstant
     let createdAt = now
     let modifiedAt = now
     result {
@@ -43,14 +43,14 @@ let constructNewAndSaveToDb
     }
 
 let updateFiAndReferenceText
-    (context: Context)
+    (context: Context.Context)
     (fiUpdate: FieldUpdate<JournalRefFinancialInstitution>)
     (referenceUpdate: FieldUpdate<JournalExternalReferenceText>)
     (journalEntryExternalReferenceId: JournalEntryExternalReferenceId)
     : Result<JournalEntryExternalReference, AppError> =
     let uuid = journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
     let baseParams =
-        [ { name = "@modified"; value = DbInstant(context |> getInitiationInstant) }
+        [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
           { name = "@unique_id"; value = UniqueId uuid } ]
     let updates =
         [ fiUpdate
@@ -80,6 +80,6 @@ let updateFiAndReferenceText
                 Error(JournalEntryReferenceUpdateNoOp)
             else
                 Ok()
-        let! _ = executeNonQuery (context |> getDatabaseTransaction) query parameters ExactlyOne
+        let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
         return! journalEntryExternalReferenceId |> JournalEntryExternalReference.fetchById context
     }

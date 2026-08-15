@@ -6,10 +6,10 @@ open Model.Ledger.FiscalPeriods
 open Model.Ledger.FiscalPeriods.FiscalPeriod
 open Utilities.AppError
 open Utilities.ResultHelper
-open Context.Context
+
 
 let ``convert FiscalPeriodKeyString to FiscalPeriodId``
-    (context: Context)
+    (context: Context.Context)
     (key: string)
     : Result<FiscalPeriodId, AppError> =
     match key |> LookupCache.fiscalPeriodKeyToId.fetch context with
@@ -18,7 +18,7 @@ let ``convert FiscalPeriodKeyString to FiscalPeriodId``
     | Error e -> Error e
 
 let ``convert [FiscalPeriodKeyString] to FiscalPeriod``
-    (context: Context)
+    (context: Context.Context)
     (key: string)
     : Result<FiscalPeriod, AppError> =
     result {

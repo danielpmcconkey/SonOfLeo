@@ -1,6 +1,6 @@
 module InterfaceBridge.BoundaryConverters.AccountFieldConverters
 
-open Context.Context
+
 open InterfaceBridge.InterfaceContracts.AccountContracts
 open Model
 open Model.Ledger.Accounts
@@ -29,17 +29,17 @@ let fallibleConverterAccountCodeToAccountId context codeString =
         return uuid |> AccountId.fromGuid
     }
 
-let ``convert AccountId to AccountCodeString`` (context: Context) (id: AccountId) : Result<string, AppError> =
+let ``convert AccountId to AccountCodeString`` (context: Context.Context) (id: AccountId) : Result<string, AppError> =
     id |> AccountId.value |> LookupCache.accountIdToCode.fetch context
 
-let ``convert AccountId to AccountNameString`` (context: Context) (id: AccountId) : Result<string, AppError> =
+let ``convert AccountId to AccountNameString`` (context: Context.Context) (id: AccountId) : Result<string, AppError> =
     id |> AccountId.value |> LookupCache.accountIdToName.fetch context
 
-let ``convert AccountId to AccountCode`` (context: Context) (id: AccountId) : Result<AccountCode, AppError> =
+let ``convert AccountId to AccountCode`` (context: Context.Context) (id: AccountId) : Result<AccountCode, AppError> =
     id |> ``convert AccountId to AccountCodeString`` context |> Result.bind AccountCode.create
 
 let ``convert AccountId Option to AccountCode Option``
-    (context: Context)
+    (context: Context.Context)
     (idOption: AccountId option)
     : Result<AccountCode option, AppError> =
     let fallibleConverter =
@@ -47,7 +47,7 @@ let ``convert AccountId Option to AccountCode Option``
     idOption |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
 let ``convert AccountId Option to AccountCodeString Option``
-    (context: Context)
+    (context: Context.Context)
     (idOption: AccountId option)
     : Result<string option, AppError> =
     let code = idOption |> ``convert AccountId Option to AccountCode Option`` context
@@ -64,7 +64,7 @@ let ``convert AccountId Option to AccountCodeString Option``
     | Ok x -> Ok(x |> Option.map(AccountCode.value))
 
 let ``convert AccountCodeString Option to AccountUuidOption``
-    (context: Context)
+    (context: Context.Context)
     (code: string option)
     : Result<Guid option, AppError> =
     match code with
@@ -83,7 +83,7 @@ let ``convert AccountCodeString Option to AccountUuidOption``
         |> Result.map Some
     | None -> Ok None
 
-let ``convert Account to AccountReturn`` (context: Context) (a: Account) : Result<AccountReturn, AppError> =
+let ``convert Account to AccountReturn`` (context: Context.Context) (a: Account) : Result<AccountReturn, AppError> =
     result {
         let! parentCode = a |> parentId |> ``convert AccountId Option to AccountCodeString Option`` context
         let activityPeriod = a |> Account.activityPeriod
@@ -102,17 +102,17 @@ let ``convert Account to AccountReturn`` (context: Context) (a: Account) : Resul
               modifiedAt = modifiedAt a }
     }
 
-let ``convert AccountCodeString to Id`` (context: Context) (codeString: string) : Result<AccountId, AppError> =
+let ``convert AccountCodeString to Id`` (context: Context.Context) (codeString: string) : Result<AccountId, AppError> =
     codeString |> fallibleConverterAccountCodeToAccountId context
 
-let ``convert AccountCodeString to Account`` (context: Context) (codeString: string) : Result<Account, AppError> =
+let ``convert AccountCodeString to Account`` (context: Context.Context) (codeString: string) : Result<Account, AppError> =
     result {
         let! accountId = codeString |> fallibleConverterAccountCodeToAccountId context
         return! accountId |> fetchById context
     }
 
 let ``convert AccountCodeString Option to AccountId Option``
-    (context: Context)
+    (context: Context.Context)
     (codeStringOption: string option)
     : Result<AccountId option, AppError> =
     match codeStringOption with
@@ -124,7 +124,7 @@ let ``convert AccountCodeString Option to AccountId Option``
         }
 
 let ``convert AccountCodeString List to AccountId List``
-    (context: Context)
+    (context: Context.Context)
     (codes: string list)
     : Result<AccountId list, AppError> =
     codes
@@ -132,7 +132,7 @@ let ``convert AccountCodeString List to AccountId List``
     |> convertListOfResultsToResultsList
 
 let ``convert AccountUuId Option to AccountCode Option``
-    (context: Context)
+    (context: Context.Context)
     (uuidOption: Guid option)
     : Result<AccountCode option, AppError> =
     let fallibleConverter =
@@ -152,7 +152,7 @@ let ``convert AccountSubtypeString Option to AccountSubtype Option``
     stringOption |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
 let ``convert AccountBalance to AccountBalanceReturn``
-    (context: Context)
+    (context: Context.Context)
     (balance: AccountBalance)
     : Result<AccountBalanceReturn, AppError> =
     result {

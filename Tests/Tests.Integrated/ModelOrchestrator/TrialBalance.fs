@@ -1,6 +1,6 @@
 namespace Tests.Integrated.ModelOrchestrator
 
-open Context.Context
+
 open DataAccessLayer.DbTransaction
 open Logger.Audit
 open Model
@@ -13,7 +13,6 @@ open ModelOrchestrator.TrialBalanceReport
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Utilities
-open Utilities.AppError
 open Utilities.ResultHelper
 open Xunit
 
@@ -21,7 +20,7 @@ open Xunit
 type TrialBalanceTests(fixture: TestDataFixture) =
 
     let nextMonth = Calendar.today().PlusMonths(1)
-    let context = create NoTransaction FetchOnly
+    let context = Context.create NoTransaction FetchOnly
     let prefetchedTb = fetchTrialBalanceData context nextMonth
 
     let unvoidedLines =
@@ -157,7 +156,7 @@ type TrialBalanceTests(fixture: TestDataFixture) =
             |> List.filter(fun l -> l |> JournalEntryLine.lineType = Credit)
             |> List.sumBy(fun l -> l |> JournalEntryLine.amount |> Money.amount)
         Assert.True(linesBeforeCutoff |> List.length > 0, "No lines before cutoff — test is vacuous")
-        let cutoffContext = create NoTransaction FetchOnly
+        let cutoffContext = Context.create NoTransaction FetchOnly
         result {
             let! rows = fetchTrialBalanceData cutoffContext asOfDate
             let row = rows |> List.find(fun r -> r.accountCode = expenseCode)
