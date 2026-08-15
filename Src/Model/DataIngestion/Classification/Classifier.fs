@@ -17,7 +17,12 @@ let classifyCandidate
     match matches |> List.length with
     | 0 -> { candidate = candidate; outcome = NoMatch; }
     | 1 -> { candidate = candidate; outcome = OneMatch (matches |> List.head); }
-    | _ -> { candidate = candidate; outcome = ManyMatches matches; }
+    | _ ->
+        let lowestPriority = matches |> List.map _.priority |> List.min
+        let matchesAtLowest = matches |> List.filter(fun x -> x.priority = lowestPriority)
+        if matchesAtLowest |> List.length = 1
+        then  { candidate = candidate; outcome = ManyMatchesClearWinner (matchesAtLowest |> List.head, matches); }
+        else { candidate = candidate; outcome = ManyMatchesTied matches }
     
 let classify
     (rules: ClassificationRule list)

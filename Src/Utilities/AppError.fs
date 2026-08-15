@@ -106,6 +106,7 @@ type AppError =
     | IngestionStageHeaderIdListCannotBeEmpty
     | IngestionSourceFileIsEmpty of string
     | IngestionSourceFileTooLong of string * int
+    | IngestionStatusTransitionList
     
     | InterfaceBridgeConversionFailure of string * string * string * string
     | InterfaceBridgeFailedJsonDeserialization of string * string * string
@@ -257,6 +258,7 @@ module AppError =
         | IngestionStageEntryInsufficientLines lineCount -> $"Insufficient number of lines ({lineCount}) for a stage entry. At least two are required."
         | IngestionSourceFileIsEmpty str -> $"Ingestion source file cannot be empty. Provided value is {str}."
         | IngestionSourceFileTooLong (str, max) -> $"Ingestion source file cannot exceed {max} characters. Provided value is {str}."
+        | IngestionStatusTransitionList -> "StageEntryStatusTransition list cannot be empty."
         
         | InterfaceBridgeConversionFailure(originalType, originalValue, desiredType, childError) -> $"Failed conversion in InterfaceBridge. Original type: {originalType}. Desired type: {desiredType}. Original value: {originalValue}. Additional details: {childError}"
         | InterfaceBridgeFailedJsonDeserialization(typeName, error, stackTrace) -> $"Failed to deserialize JSON string into type {typeName}. {error}{Environment.NewLine}{stackTrace}"

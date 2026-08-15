@@ -87,7 +87,7 @@ let private fetchClassificationRuleFiltered payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
         let! input = Json.fromJson<FetchClassificationRuleFilteredInput> payload
-        let! model = fetchFiltered context input.filter input.sort
+        let! model = fetchRulesFiltered context input.filter input.sort
         let returnVal = model |> ``convert [ClassificationRule list] to [ClassificationRuleReturn list]``
         return! Json.toJson<ClassificationRuleReturn list> returnVal
     }

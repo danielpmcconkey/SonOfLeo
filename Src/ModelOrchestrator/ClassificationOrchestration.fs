@@ -3,18 +3,14 @@ module ModelOrchestrator.ClassificationOrchestration
 open System
 
 open DataAccessLayer.ExecuteReader
-open Model.DataIngestion
 open Model.DataIngestion.Classification
-open Model.DataIngestion.Classification.ClassificationRule
-open Model.DataIngestion.IngestionSource
+open Model.DataIngestion.StageEntryLine
 open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.FetchFilters
-open NodaTime
 open Utilities.AppError
-open Utilities.Json
 open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
+open Utilities.FieldUpdate
 
 let createNewClassificationRule
     (context: Context.Context)
@@ -23,7 +19,7 @@ let createNewClassificationRule
     (priority: int)
     (ruleGroups: ClassificationRuleGroup list)
     (isActive: bool)
-    : Result<ClassificationRule, AppError> = 
+    : Result<ClassificationRule.ClassificationRule, AppError> = 
     let classificationRuleId = ClassificationRuleId.create()
     let instant = context |> Context.getInitiationInstant
     let newRule =
@@ -41,40 +37,11 @@ let createNewClassificationRule
         return newRule
     }
 
-let private mapRawForDbRead (row: RowReader) =
-    (row |> RowReader.getUuid "unique_id"),
-    (row |> RowReader.getString "rule_name"),
-    (row |> RowReader.getString "code_at_match"),
-    (row |> RowReader.getInt "priority"),
-    (row |> RowReader.getString "rule_groups"),
-    (row |> RowReader.getBool "is_active"),
-    (row |> RowReader.getInstant "created_at"),
-    (row |> RowReader.getInstant "modified_at")
-
-let private reconstitute
-    (raw: Guid * string * string * int * string * bool * Instant * Instant)
-    : Result<ClassificationRule, AppError> =
-    let uuid, nameStr, codeStr, priority, ruleGroupsStr, isActive, createdAt, modifiedAt = raw
-    result {
-        let classificationRuleId = uuid |> ClassificationRuleId.fromGuid
-        let! classificationRuleName = nameStr |> ClassificationRuleName.create
-        let! codeAtMatch = codeStr |> AccountCode.create
-        let! ruleGroups = ruleGroupsStr |> Json.fromJson<ClassificationRuleGroup list>
-        return ClassificationRule.create
-                classificationRuleId
-                classificationRuleName
-                codeAtMatch
-                priority
-                ruleGroups
-                isActive
-                createdAt
-                modifiedAt }
-
-let fetchFiltered
+let fetchRulesFiltered
     (context: Context.Context)
     (filter: ClassificationRuleFilter)
     (sort: FetchSortClassificationRule option)
-    : Result<ClassificationRule list, AppError> =
+    : Result<ClassificationRule.ClassificationRule list, AppError> =
     result {
         let sourcePredicate = """
             and EXISTS (
@@ -145,7 +112,57 @@ let fetchFiltered
                 (context |> Context.getDatabaseTransaction)
                 query
                 parameters
-                mapRawForDbRead
-                reconstitute
+                ClassificationRule.mapRawForDbRead
+                ClassificationRule.reconstitute
                 AnyQuantityIsAcceptable
+    }
+
+let updateLineWithMatch
+    (context: Context.Context)
+    (prioritizedMatch: PrioritizedMatch)
+    (candidate: MatchCandidate)
+    : Result<unit, AppError> =
+    let code = Some prioritizedMatch.code // we can trust this because the DB has a foreign key constraint between ingestion.classification_rule and ledger.account 
+    let codeUpdate = FieldUpdate.SetTo code
+    let ruleId = Some prioritizedMatch.ruleId
+    let ruleUpdate = FieldUpdate.SetTo ruleId
+    match updateCodeAndRuleId context codeUpdate ruleUpdate candidate.stageEntryLineId with
+    | Ok _ -> Ok ()
+    | Error e -> Error e
+
+let updateDbFromResultsList
+    (context: Context.Context)
+    (results: ClassificationResult list)
+    : Result<unit, AppError> =
+    result {
+        // first update the line
+        let! _ =
+            results
+            |> List.map (fun result ->
+                    let candidate = result.candidate
+                    match result.outcome with
+                    | NoMatch -> Ok ()
+                    | OneMatch prioritizedMatch -> candidate |> updateLineWithMatch context prioritizedMatch
+                    | ManyMatchesClearWinner (winner, _) -> candidate |> updateLineWithMatch context winner
+                    | ManyMatchesTied _ -> Ok () // no line update today
+                )
+            |> convertListOfResultsToResultsList
+        // now update the header and status
+        return ()
+        }
+    
+let classifyMatchCandidatesAndUpdateLines
+    (context: Context.Context)
+    (candidates: MatchCandidate list)
+    : Result<ClassificationResult list, AppError> =
+    result {
+        let ruleFilter =  {
+            ruleId = None
+            nameLike = None
+            codeAtMatch = None
+            sourceLike = None
+            activeOnly = true }
+        let! rules = fetchRulesFiltered context ruleFilter None
+        let classificationResults = Classifier.classify rules candidates
+        return classificationResults
     }

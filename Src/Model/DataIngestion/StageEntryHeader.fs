@@ -156,8 +156,24 @@ let fetchByStatus (context: Context.Context) (status: StagedEntryStatus) : Resul
     let parameters = [ { name = "@status"; value = CharString statusStr } ]
     readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-let fetchBySourceFile (context: Context.Context) (sourceFile: SourceFile) : Result<StageEntryHeader list, AppError> =
-    let predicate = "e.source_file = @source_file"
+let fetchBySourceFile
+    (context: Context.Context)
+    (statusFilter: StagedEntryStatus list option)
+    (sourceFile: SourceFile)
+    : Result<StageEntryHeader list, AppError> =
+    let statusListClause =
+        match statusFilter with
+        | None -> ""
+        | Some l ->
+            let strings =
+                l
+                |> List.map(fun x -> $"'{x |> StagedEntryStatus.toString}'") // direct interpolation is okay since this is directly pulled from the DU
+                |> String.concat ","
+            $"and e.status in ({strings})"
+    let predicate = $"""
+        e.source_file = @source_file
+        {statusListClause}
+    """
     let fileStr = sourceFile |> SourceFile.value
     let parameters = [ { name = "@source_file"; value = CharString fileStr } ]
     readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
@@ -207,9 +223,11 @@ let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, A
             and (ila.financial_institution is not null or isa.source_name is not null)
         )
         select 
-            se.unique_id, se.entry_date, se.description, se.source_id, se.fi_reference, se.source_file, se.status
-        from ingestion.staged_entry se
-        join duplicates d on se.unique_id = d.stage_entry_id
+            e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, e.status,
+            s.source_name, s.created_at as source_created, s.modified_at as source_modified
+        from ingestion.staged_entry e
+        join duplicates d on e.unique_id = d.stage_entry_id
+        join ingestion.source s on e.source_id = s.unique_id
         """
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)

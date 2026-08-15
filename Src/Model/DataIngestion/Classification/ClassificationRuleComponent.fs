@@ -110,7 +110,8 @@ type PrioritizedMatch = {
 type ClassifierOutcome =
     | NoMatch
     | OneMatch of PrioritizedMatch
-    | ManyMatches of PrioritizedMatch list 
+    | ManyMatchesClearWinner of PrioritizedMatch * PrioritizedMatch list
+    | ManyMatchesTied of PrioritizedMatch list 
 
 type ClassificationResult = {
         candidate: MatchCandidate

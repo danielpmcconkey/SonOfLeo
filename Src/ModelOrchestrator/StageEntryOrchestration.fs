@@ -4,10 +4,7 @@ module ModelOrchestrator.StageEntryOrchestration
 open Model
 open Model.DataIngestion
 open Model.DataIngestion.BaseStageRaw
-open Model.DataIngestion.IngestionSource
-open Model.DataIngestion.StageEntryHeader
-open Model.DataIngestion.StageEntryLine
-open Model.DataIngestion.StageEntryStatusTransition
+open Model.DataIngestion.Classification
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
@@ -15,9 +12,9 @@ open Utilities.ResultHelper
 
 type StageEntry =
     private {
-        stageEntryHeader: StageEntryHeader
-        lines: StageEntryLine list
-        statusTransitions: StageEntryStatusTransition list
+        stageEntryHeader: StageEntryHeader.StageEntryHeader
+        lines: StageEntryLine.StageEntryLine list
+        statusTransitions: StageEntryStatusTransition.StageEntryStatusTransition list
     }
 
 let stageEntryHeader se = se.stageEntryHeader
@@ -26,13 +23,13 @@ let statusTransitions se = se.statusTransitions
 
 let private sumLinesByType
     (debitOrCredit: JournalEntryLineType)
-    (lines: StageEntryLine list)
+    (lines: StageEntryLine.StageEntryLine list)
     : Result<Money, AppError> =
     lines
-    |> List.filter(fun x -> x |> lineType = debitOrCredit)
-    |> List.map(fun x -> x |> amount) |> Money.sumList
+    |> List.filter(fun x -> x |> StageEntryLine.lineType = debitOrCredit)
+    |> List.map(fun x -> x |> StageEntryLine.amount) |> Money.sumList
     
-let private confirmAmountEquality (lines: StageEntryLine list) : Result<unit, AppError> =
+let private confirmAmountEquality (lines: StageEntryLine.StageEntryLine list) : Result<unit, AppError> =
     result {
         let! totalDebits = lines |> sumLinesByType Debit
         let! totalCredits = lines |> sumLinesByType Credit
@@ -43,17 +40,17 @@ let private confirmAmountEquality (lines: StageEntryLine list) : Result<unit, Ap
                 Error(IngestionStageEntryDebitCreditMismatch(totalDebits |> Money.amount, totalCredits |> Money.amount))
     }
 
-let private confirmLineCount (lines: StageEntryLine list) : Result<unit, AppError> =
+let private confirmLineCount (lines: StageEntryLine.StageEntryLine list) : Result<unit, AppError> =
     if lines |> List.length < 2 then
         Error(IngestionStageEntryInsufficientLines(lines |> List.length))
     else
         Ok()
 
-let private confirmLinesAreAllPositive (lines: StageEntryLine list) : Result<unit, AppError> =
+let private confirmLinesAreAllPositive (lines: StageEntryLine.StageEntryLine list) : Result<unit, AppError> =
     let checkedLines =
         lines
         |> List.map(fun x ->
-            let amountDec = x |> amount |> Money.amount
+            let amountDec = x |> StageEntryLine.amount |> Money.amount
             if amountDec <= 0M then Error(IngestionStageLineNonPositiveAmount(amountDec))
             else Ok ()
             )
@@ -64,12 +61,12 @@ let private confirmLinesAreAllPositive (lines: StageEntryLine list) : Result<uni
 
 let private confirmLinesAccountCodes
     (context: Context.Context)
-    (lines: StageEntryLine list)
+    (lines: StageEntryLine.StageEntryLine list)
     : Result<unit, AppError> =
     let checkedLines =
         lines
         |> List.map(fun x ->
-            let code = x |> accountCode
+            let code = x |> StageEntryLine.accountCode
             if code |> Option.isNone then Ok ()
             else 
                 let lookupResult =
@@ -88,7 +85,7 @@ let private confirmLinesAccountCodes
 
 let private confirmLines
     (context: Context.Context)
-    (lines: StageEntryLine list)
+    (lines: StageEntryLine.StageEntryLine list)
     : Result<unit, AppError> =
     result {
         do! lines |> confirmLineCount
@@ -98,9 +95,9 @@ let private confirmLines
     }
 
 let private confirmValidTransition transition =
-    let fromType = transition |> fromStatus
-    let toType = transition |> toStatus
-    if fromType |> validTransitions |> List.contains toType then Ok ()
+    let fromType = transition |> StageEntryStatusTransition.fromStatus
+    let toType = transition |> StageEntryStatusTransition.toStatus
+    if fromType |> StageEntryStatusTransition.validTransitions |> List.contains toType then Ok ()
     else
         let fromStr = fromType |> Option.map StagedEntryStatus.toString
         let toStr = toType |> StagedEntryStatus.toString
@@ -117,13 +114,14 @@ let private confirmValidTransitions transitions =
 
 let createStageEntry
     (context: Context.Context)
-    (header: StageEntryHeader)
-    (lines: StageEntryLine list)
-    (transitions: StageEntryStatusTransition list)
+    (header: StageEntryHeader.StageEntryHeader)
+    (lines: StageEntryLine.StageEntryLine list)
+    (transitions: StageEntryStatusTransition.StageEntryStatusTransition list)
     : Result<StageEntry, AppError> =
     result {
         do! lines |> confirmLines context
         do! transitions |> confirmValidTransitions
+        do! if transitions |> List.isEmpty then Error IngestionStatusTransitionList else Ok ()
         return {
             stageEntryHeader = header
             lines = lines
@@ -171,24 +169,24 @@ let private constructSetFromRaw
 
 let private fetchAllLinesByHeaders
     (context: Context.Context)
-    (headers: StageEntryHeader list)
-    : Result<StageEntryLine list, AppError> =
+    (headers: StageEntryHeader.StageEntryHeader list)
+    : Result<StageEntryLine.StageEntryLine list, AppError> =
     headers
     |> List.map(fun x -> x |> StageEntryHeader.stageEntryHeaderId)
     |> StageEntryLine.fetchByHeaderIdList context
 
 let private fetchAllTransitionsByHeaders
     (context: Context.Context)
-    (headers: StageEntryHeader list)
-    : Result<StageEntryStatusTransition list, AppError> =
+    (headers: StageEntryHeader.StageEntryHeader list)
+    : Result<StageEntryStatusTransition.StageEntryStatusTransition list, AppError> =
     headers
     |> List.map(fun x -> x |> StageEntryHeader.stageEntryHeaderId)
     |> StageEntryStatusTransition.fetchByHeaderIdList context
 
 let private compileFromSubLists
-    (headers: StageEntryHeader list)
-    (lines: StageEntryLine list)
-    (statusTransitions: StageEntryStatusTransition list)
+    (headers: StageEntryHeader.StageEntryHeader list)
+    (lines: StageEntryLine.StageEntryLine list)
+    (statusTransitions: StageEntryStatusTransition.StageEntryStatusTransition list)
     : StageEntry list =
     headers
     |> List.map (fun h ->
@@ -203,10 +201,11 @@ let private compileFromSubLists
     
 let fetchAllByFile
     (context: Context.Context)
+    (statusFilter: StagedEntryStatus list option)
     (sourceFile: SourceFile)
     : Result<StageEntry list, AppError> =
     result {
-        let! headers = fetchBySourceFile context sourceFile
+        let! headers = sourceFile |> StageEntryHeader.fetchBySourceFile context statusFilter
         let! lines = headers |> fetchAllLinesByHeaders context
         let! statuses = headers |> fetchAllTransitionsByHeaders context
         return compileFromSubLists headers lines statuses
@@ -215,7 +214,7 @@ let fetchAllByFile
 let createNewSource
     (context: Context.Context)
     (name: JournalRefFinancialInstitution)
-    : Result<IngestionSource, AppError> =
+    : Result<IngestionSource.IngestionSource, AppError> =
     result {
         let instant = context |> Context.getInitiationInstant
         let uuid = IngestionSourceId.create()
@@ -227,7 +226,7 @@ let deduplicateStagedEntries
     (context: Context.Context)
     : Result<unit, AppError> =
     result {
-        let! duplicateHeaders = fetchDuplicates context
+        let! duplicateHeaders = StageEntryHeader.fetchDuplicates context
         // update the status on the header record first
         let! _ = duplicateHeaders
                  |> List.map(fun dup ->
@@ -244,7 +243,7 @@ let deduplicateStagedEntries
                     statusTransitions
                     |> List.filter(fun s -> s |> StageEntryStatusTransition.stageEntryHeaderId = headerId)
                     |> List.sortByDescending(fun s -> s |> StageEntryStatusTransition.instant)
-                    |> List.head
+                    |> List.head // this is safe unless someone directly manipulated the DB thanks to validation in the create function
                 headerId, mostRecentTransition
                 )
         let! _ =
@@ -264,14 +263,36 @@ let deduplicateStagedEntries
                 }
                 )
             |> convertListOfResultsToResultsList
-        Ok ()
+        return ()
     }
+
+/// classifyStagedEntries is used for when you have a list of recently ingested stage entries and you just want the
+/// classifier to run on anything that isn't already mapped to an account (your "other" leg usually)
+let classifyStagedEntries
+    (context: Context.Context)
+    (entries: StageEntry list)
+    : Result<ClassificationResult list, AppError> =
+    let (matchCandidates: MatchCandidate list) =
+        entries
+        |> List.collect(fun entry ->
+            let header = entry.stageEntryHeader
+            entry
+            |> lines
+            |> List.filter (fun line -> line |> StageEntryLine.accountCode |> Option.isNone)
+            |> List.map (fun line -> {
+                stageEntryLineId = line |> StageEntryLine.stageEntryLineId
+                ingestionSource = header |> StageEntryHeader.ingestionSource |> IngestionSource.name
+                description = header |> StageEntryHeader.description
+                amount = line |> StageEntryLine.amount
+                lineType = line |> StageEntryLine.lineType
+                memo = line |> StageEntryLine.memo }))
+    ClassificationOrchestration.classifyMatchCandidatesAndUpdateLines context matchCandidates
 
 let ingestRawToStageThenDedupAndClassify
     (context: Context.Context)
     (sourceFile: SourceFile)
     (rawRows: BaseStageRawRow list)
-    : Result<StageEntry list, AppError> =
+    : Result<StageEntry list * ClassificationResult list, AppError> =
     result {
         let! entries = rawRows |> constructSetFromRaw context sourceFile
         let! _ =
@@ -289,5 +310,10 @@ let ingestRawToStageThenDedupAndClassify
             |> List.map(fun l -> l |> StageEntryStatusTransition.insertNewToDb context )
             |> convertListOfResultsToResultsList
         do! deduplicateStagedEntries context
-        return! sourceFile |> fetchAllByFile context 
+        // re-fetch because we only one the deduplicated list
+        let! deduplicated = sourceFile |> fetchAllByFile context (Some[Ingested])
+        let! classificationResults = deduplicated |> classifyStagedEntries context
+        // re-fetch because the deduplication and classification altered everything
+        let! classified = sourceFile |> fetchAllByFile context None
+        return classified, classificationResults 
     }

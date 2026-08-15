@@ -92,7 +92,7 @@ let insertNewToDb (context: Context.Context) (classificationRule: Classification
         return! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
     }
     
-let private reconstitute raw =
+let reconstitute raw =
     result {
         let (uuid,
              nameStr,
@@ -119,7 +119,7 @@ let private reconstitute raw =
                 modifiedAt
     }
     
-let private mapRawForDbRead (row: RowReader) =
+let mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getUuid "unique_id"),
     (row |> RowReader.getString "rule_name"),
     (row |> RowReader.getString "code_at_match"),
@@ -163,11 +163,6 @@ let fetchByName (context: Context.Context) (name: ClassificationRuleName) : Resu
     let nameStr = name |> ClassificationRuleName.value
     let parameters = [ { name = "@rule_name"; value = CharString(nameStr) } ]
     readRowsFromDb context (Some predicate) None parameters None ExactlyOne |> Result.map List.head
-
-// todo: move fetchAllSortedByPriorityDesc up into the orchestration layer and have it take a FetchSort argument
-let fetchAllSortedByPriorityDesc (context: Context.Context) : Result<ClassificationRule, AppError> =
-    let orderBy = "cr.priority desc" |> Some
-    readRowsFromDb context None None [] orderBy AnyQuantityIsAcceptable |> Result.map List.head
     
 let private updateDb
     (context: Context.Context)

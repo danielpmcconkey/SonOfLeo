@@ -235,7 +235,7 @@ let private updateDb
     }
 
 /// updateCode assumes the orchestrator is validating the code maps to a real account 
-let private updateCode
+let updateCode
     (context: Context.Context)
     (accountCodeUpdate: FieldUpdate<AccountCode option>)
     (stageEntryLineId : StageEntryLineId)
@@ -244,7 +244,7 @@ let private updateCode
     |> updateDb context NoChange NoChange NoChange accountCodeUpdate NoChange NoChange
 
 /// updateCodeAndRuleId assumes the orchestrator is validating the code maps to a real account and that the rule ID is real
-let private updateCodeAndRuleId
+let updateCodeAndRuleId
     (context: Context.Context)
     (accountCodeUpdate: FieldUpdate<AccountCode option>)
     (classificationRuleIdUpdate: FieldUpdate<ClassificationRuleId option>)
