@@ -72,6 +72,39 @@ type StageEntryReturn = {
         statusTransitions: StageEntryStatusTransitionReturn list
 }
 
+type MatchCandidateReturn = {
+        stageEntryHeaderId: Guid
+        stageEntryLineId: Guid
+        ingestionSource: string
+        description: string
+        amount: decimal
+        lineType: string
+        memo: string option
+}
+
+type PrioritizedMatchReturn = {
+    code: string
+    ruleId: Guid
+    priority: int
+}
+
+type ClassifierOutcomeReturn =
+    | NoMatch
+    | OneMatch of PrioritizedMatchReturn
+    | ManyMatchesClearWinner of PrioritizedMatchReturn * PrioritizedMatchReturn list
+    | ManyMatchesTied of PrioritizedMatchReturn list 
+
+type ClassificationResultReturn = {
+        candidate: MatchCandidateReturn
+        outcome: ClassifierOutcomeReturn
+    }
+
+type IngestionFullResultReturn = {
+    stagedEntries: StageEntryReturn list
+    newDuplicates: StageEntryHeaderReturn list
+    classificationResults: ClassificationResultReturn list
+}
+
 type ClassificationRuleReturn = {
         classificationRuleId: Guid
         classificationRuleName: string

@@ -337,7 +337,7 @@ let classifyStagedEntries
                     memo = line |> StageEntryLine.memo }))
         let! classificationResults =
             ClassificationOrchestration.classifyMatchCandidatesAndUpdateLines context matchCandidates
-        // that only updated the lines. This module owns updating the header and adding an audit trail record
+        // That only updated the lines. This module owns updating the header and adding an audit trail record
         let! _ =
             classificationResults
             |> List.groupBy _.candidate.stageEntryHeaderId

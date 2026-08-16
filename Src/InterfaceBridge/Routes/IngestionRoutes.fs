@@ -33,12 +33,12 @@ let private ingestRawEntries payload _ =
                 linesStr
                 |> List.map(fun l -> l |> Json.fromJson<BaseStageRawRow>)
                 |> convertListOfResultsToResultsList
-            let! stagedEntries = baseStageRawRows |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
+            let! fullResult = baseStageRawRows |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
             let timeStamp = Clock.now() |> Clock.instantToString "yyyy-MM-dd.HHmmss.fff"
             let! moveToPath = createFullPath processedDir $"{timeStamp}-{input.fileName}"
             do! moveFile toBeProcessedPath moveToPath
-            let returnEntries = stagedEntries |> ``convert [StageEntry list] to [StageEntryReturn list]``
-            return! Json.toJson<StageEntryReturn list> returnEntries })
+            let fullReturn = fullResult |> ``convert [IngestionFullResult] to [IngestionFullResultReturn]``
+            return! Json.toJson<IngestionFullResultReturn> fullReturn })
 
 let private newClassificationRule payload _ =
     let context = Context.create NoTransaction IngestNewClassificationRule
@@ -108,7 +108,7 @@ let ingestionDomainCommandRoutes: CommandRoute list =
         verb = "IngestRawFileToStage"
         description = "Read a raw jsonl file and write to the stage database. Automatically runs deduplication and classification. It also moves the file from its current directory to the processed directory."
         inputContract = typeof<IngestRawFileToStageInput>.Name
-        outputContract = typeof<StageEntryReturn list>.Name
+        outputContract = typeof<IngestionFullResultReturn>.Name
         handler = ingestRawEntries }
       
       { domain = "Ingestion"

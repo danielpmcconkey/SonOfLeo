@@ -5,7 +5,6 @@ open Model
 open Model.DataIngestion
 open Model.DataIngestion.Classification
 open Model.DataIngestion.Classification.ClassificationRule
-open Model.DataIngestion.IngestionSource
 open Model.DataIngestion.StageEntryHeader
 open Model.DataIngestion.StageEntryLine
 open Model.DataIngestion.StageEntryStatusTransition
@@ -234,11 +233,72 @@ let ``convert [ClassificationRule list] to [ClassificationRuleReturn list]``
     rules |> List.map ``convert [ClassificationRule] to [ClassificationRuleReturn]``
 
 let ``convert [IngestionSource] to [IngestionSourceReturn]``
-    (source: IngestionSource)
+    (source: IngestionSource.IngestionSource)
     : IngestionSourceReturn = {
         ingestionSourceId = source |> IngestionSource.ingestionSourceId |> IngestionSourceId.value
         name = source |> IngestionSource.name |> JournalRefFinancialInstitution.value
         createdAt = source |> IngestionSource.createdAt
         modifiedAt = source |> IngestionSource.modifiedAt
     }
-    
+
+let ``convert [MatchCandidate] to [MatchCandidateReturn]``
+    (candidate: MatchCandidate)
+    : MatchCandidateReturn = {
+        stageEntryHeaderId = candidate.stageEntryHeaderId |> StageEntryHeaderId.value
+        stageEntryLineId = candidate.stageEntryLineId |> StageEntryLineId.value
+        ingestionSource = candidate.ingestionSource |> JournalRefFinancialInstitution.value
+        description = candidate.description |> JournalEntryDescription.value
+        amount = candidate.amount |> Money.amount
+        lineType = candidate.lineType |> JournalEntryLineType.toString
+        memo = candidate.memo |> Option.map JournalEntryLineMemo.value }
+
+let ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]``
+    (prioritizedMatch: PrioritizedMatch)
+    : PrioritizedMatchReturn = {
+    code = prioritizedMatch.code |> AccountCode.value
+    ruleId = prioritizedMatch.ruleId |> ClassificationRuleId.value
+    priority = prioritizedMatch.priority }
+
+let ``convert [ClassifierOutcome] to [ClassifierOutcomeReturn]``
+    (outcome: ClassifierOutcome)
+    : ClassifierOutcomeReturn =
+    match outcome with
+    | ClassifierOutcome.NoMatch -> ClassifierOutcomeReturn.NoMatch
+    | ClassifierOutcome.OneMatch pm ->
+        ClassifierOutcomeReturn.OneMatch (pm |> ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]``)
+    | ClassifierOutcome.ManyMatchesClearWinner (pm, pml) ->
+        let returnMatch = pm |> ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]``
+        let returnList = pml |> List.map ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]``
+        ClassifierOutcomeReturn.ManyMatchesClearWinner (returnMatch, returnList)
+    | ClassifierOutcome.ManyMatchesTied pml ->
+        let returnList = pml |> List.map ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]``
+        ClassifierOutcomeReturn.ManyMatchesTied returnList
+
+let ``convert [ClassificationResult] to [ClassificationResultReturn]``
+    (classificationResults: ClassificationResult)
+    : ClassificationResultReturn =
+    let candidate = classificationResults.candidate |>  ``convert [MatchCandidate] to [MatchCandidateReturn]``
+    let outcome = classificationResults.outcome |> ``convert [ClassifierOutcome] to [ClassifierOutcomeReturn]``
+    { candidate = candidate
+      outcome = outcome }
+
+let ``convert [ClassificationResult list] to [ClassificationResultReturn list]``
+    (classificationResults: ClassificationResult list)
+    : ClassificationResultReturn list =
+    classificationResults
+    |> List.map ``convert [ClassificationResult] to [ClassificationResultReturn]``
+
+let ``convert [IngestionFullResult] to [IngestionFullResultReturn]``
+    (fullResult: IngestionFullResult)
+    : IngestionFullResultReturn =
+    let stageEntryReturn =
+        fullResult.stagedEntries
+        |> List.map ``convert [StageEntry] to [StageEntryReturn]``
+    let newDuplicatesReturn =
+        fullResult.newDuplicates
+        |> List.map ``convert [StageEntryHeader] to [StageEntryHeaderReturn]``
+    let classificationResultsReturn =
+        fullResult.classificationResults |> ``convert [ClassificationResult list] to [ClassificationResultReturn list]``
+    { stagedEntries = stageEntryReturn
+      newDuplicates = newDuplicatesReturn
+      classificationResults = classificationResultsReturn }
