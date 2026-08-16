@@ -206,11 +206,14 @@ The classification step runs the vendor classification rules engine against stag
 
 | ID | Reason testing is waived | Approved |
 |---|---|---|
-| REQ-STG-2.1 | UUID is a value type; uniqueness enforced by PK constraint. Same rationale as REQ-JE-1.1/1.2. | |
-| REQ-STG-2.10 | Same as REQ-STG-2.1. | |
-| REQ-STG-2.18 | Same as REQ-STG-2.1. | |
-| REQ-STG-2.11 | Non-nullable FK; structurally enforced. Same rationale as REQ-JE-1.29. | |
-| REQ-STG-2.19 | Same as REQ-STG-2.11. | |
+| REQ-STG-2.1 | UUID is a value type; uniqueness enforced by PK constraint. Same rationale as REQ-JE-1.1/1.2. | Dan 2026-08-16 |
+| REQ-STG-2.10 | Same as REQ-STG-2.1. | Dan 2026-08-16 |
+| REQ-STG-2.18 | Same as REQ-STG-2.1. | Dan 2026-08-16 |
+| REQ-STG-2.11 | Non-nullable FK; structurally enforced. Same rationale as REQ-JE-1.29. | Dan 2026-08-16 |
+| REQ-STG-2.19 | Same as REQ-STG-2.11. | Dan 2026-08-16 |
+| REQ-STG-3.5 | UUID generation via Guid.NewGuid() in create functions; uniqueness enforced by PK constraint. Same rationale as REQ-STG-2.1. | Dan 2026-08-16 |
+| REQ-STG-3.8 | AccountCode is an option type. Null input maps to None by construction; no code path transforms null into a value. | Dan 2026-08-16 |
+| REQ-STG-9.9 | postStageEntry takes a single StageEntry and produces one JE. The calling loop is structural; no aggregation code exists. | Dan 2026-08-16 |
 
 ## Unenforceable
 
