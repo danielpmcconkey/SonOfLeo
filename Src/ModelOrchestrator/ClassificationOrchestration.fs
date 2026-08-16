@@ -167,5 +167,6 @@ let classifyMatchCandidatesAndUpdateLines
             activeOnly = true }
         let! rules = fetchRulesFiltered context ruleFilter None
         let classificationResults = Classifier.classify rules candidates
+        do! classificationResults |> updateDbLinesFromResultsList context
         return classificationResults
     }
