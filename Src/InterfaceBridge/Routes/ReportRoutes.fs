@@ -3,7 +3,6 @@ module InterfaceBridge.Routes.ReportRoutes
 open DataAccessLayer.DbTransaction
 open InterfaceBridge.BoundaryConverters.ReportConverters
 open InterfaceBridge.CommandRoute
-open Context
 open InterfaceBridge.InterfaceContracts.ReportsContracts
 open Utilities.Json
 open InterfaceBridge.ReportWriters

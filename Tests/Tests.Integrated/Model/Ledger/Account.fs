@@ -2,11 +2,11 @@ namespace Tests.Integrated.Model.Ledger
 
 open System
 open DataAccessLayer.DbTransaction
+open InterfaceBridge.CommandRoute
 open Logger.Audit
 open ModelOrchestrator
 open Tests.Helpers
 open Tests.Helpers.GenericTestProperties
-open Tests.Helpers.RouteResolver
 open Utilities
 open Utilities.ResultHelper
 open Xunit
@@ -22,7 +22,7 @@ type AccountTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-1.4 REQ-AC-2.9 AccountCode must be unique``() =
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let duplicateCode = "F-1250"
             let duplicateResult =
                 AccountCreation.constructNewAndSaveToDb
@@ -39,7 +39,7 @@ type AccountTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-1.5 Account code is case sensitive.``() =
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let code = "f-1000"
             result {
                 let! returned =
@@ -59,7 +59,7 @@ type AccountTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-2.14 REQ-SYS-5.1 create account and fetch by ID returns identical record``() =
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let code = "AC-2.14"
             let name = "Create account and fetch by ID returns identical record"
             result {
@@ -149,7 +149,7 @@ type AccountTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-2.6 parent ID must reference existing account``() =
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let parentId = Guid.NewGuid()
             let code = "AC-2.6"
             let result =
@@ -171,7 +171,7 @@ type AccountTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--positive``() =
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let code = "AC-2.7-C"
             let parentAccountId = fixture.Data.revenue4000Id |> Some
             AccountCreation.constructNewAndSaveToDb
@@ -187,7 +187,7 @@ type AccountTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--negative``() =
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let code = "AC-2.7-C"
             let result =
                 let parentAccountId = fixture.Data.closedBank1290Id |> Some
@@ -208,7 +208,7 @@ type AccountTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-2.20 child AccountType must match parent AccountType``() =
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let code = "AC-2.7-C"
             let result =
                 let parentAccountId = fixture.Data.assets1000Id |> Some
@@ -233,7 +233,7 @@ type AccountTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-4.8 updateAccountName succeeds with valid accountName``() =
-        runFuncAndAutoRollback AccountUpdateName (fun context ->
+        runCommandRouteAndAutoRollback AccountUpdateName (fun context ->
             let goodAccountName = "fahrvergnügen"
             result {
                 let! renamedAccount =
@@ -245,7 +245,7 @@ type AccountTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-4.9 updateExternalReference succeeds with valid reference``() =
-        runFuncAndAutoRollback AccountUpdateExtReference (fun context ->
+        runCommandRouteAndAutoRollback AccountUpdateExtReference (fun context ->
             let goodReference = Some "Fliegende Ratte"
             result {
                 let! updatedAccount =
@@ -259,7 +259,7 @@ type AccountTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-4.9 updateExternalReference can be updated to None``() =
-        runFuncAndAutoRollback AccountUpdateExtReference (fun context ->
+        runCommandRouteAndAutoRollback AccountUpdateExtReference (fun context ->
             result {
                 let! updatedAccount = Account.updateExternalReferenceById context fixture.Data.moneyMarket1270Id None
                 let newReference =
@@ -271,7 +271,7 @@ type AccountTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-SYS-3.3 account update operations set modifiedAt from AuditEnvelope``() =
-        runFuncAndAutoRollback AccountUpdateName (fun context ->
+        runCommandRouteAndAutoRollback AccountUpdateName (fun context ->
             result {
                 let! updatedAccount =
                     Account.updateAccountNameById context fixture.Data.moneyMarket1270Id "Blah blah blah"
@@ -282,7 +282,7 @@ type AccountTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-4.19 update to deactivated account is permitted``() =
-        runFuncAndAutoRollback AccountUpdateName (fun context ->
+        runCommandRouteAndAutoRollback AccountUpdateName (fun context ->
             let newName = "Blah blah blah"
             result {
                 let! original = Account.fetchById context fixture.Data.closedBank1290Id

@@ -7,6 +7,7 @@ open Model.DataIngestion.BaseStageRaw
 open Model.DataIngestion.Classification
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
+open ModelOrchestrator.JournalEntries
 open Utilities.AppError
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
@@ -226,6 +227,22 @@ let fetchAllByFile
         let! statuses = headers |> fetchAllTransitionsByHeaders context
         return compileFromSubLists headers lines statuses
     }
+
+let fetchAllForPosting
+    (context: Context.Context)
+    : Result<StageEntry list, AppError> =
+    result {
+        let! headersReviewed = StageEntryHeader.fetchByStatus context StagedEntryStatus.Reviewed
+        let! headersClassified = StageEntryHeader.fetchByStatus context StagedEntryStatus.Classified
+        let headersToBePosted = headersReviewed @ headersClassified
+        let headerIds = 
+            headersToBePosted
+            |> List.map (fun x -> x|> StageEntryHeader.stageEntryHeaderId)
+        let! lines = headerIds |> StageEntryLine.fetchByHeaderIdList context
+        let! statusTransitions = headerIds |> StageEntryStatusTransition.fetchByHeaderIdList context
+        return compileFromSubLists headersToBePosted lines statusTransitions
+    }
+
 
 let fetchByStageEntryHeaderId
     (context: Context.Context)
@@ -451,4 +468,80 @@ let updateStageEntry
         let! fetched = headerUpdates.headerIdToUpdate |> fetchByStageEntryHeaderId context
         do! fetched |> confirmStageEntryCompositeIsValid context
         return fetched
+    }
+
+let postStageEntry
+    (context: Context.Context)
+    (jeHeaderSource: JournalEntrySource option)
+    (stageEntry: StageEntry)
+    : Result<unit, AppError> =
+    result {
+        let description = stageEntry.stageEntryHeader |> StageEntryHeader.description
+        let! entryDate =
+            stageEntry.stageEntryHeader
+            |> StageEntryHeader.entryDate
+            |> EntryDate.create context
+        let fi = stageEntry.stageEntryHeader |> StageEntryHeader.ingestionSource |> IngestionSource.name
+        let fiReference = stageEntry.stageEntryHeader |> StageEntryHeader.fiReference
+        let references = [(fi, fiReference)]
+        let comments = []
+        let! lines =
+            stageEntry.lines
+            |> List.map (fun line ->
+                result {
+                    let accountCodeOption = line |> StageEntryLine.accountCode
+                    let! accountId =
+                        if accountCodeOption |> Option.isNone
+                        then
+                            Error (IngestionPostingNoneAccountCode (
+                                line |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value))
+                        else
+                            accountCodeOption
+                            |> Option.get
+                            |> AccountCode.value
+                            |> LookupCache.accountCodeToId.fetch context
+                            |> Result.map AccountId.fromGuid
+                    let amount = line |> StageEntryLine.amount
+                    let lineType = line |> StageEntryLine.lineType
+                    let memo = line |> StageEntryLine.memo
+                    return accountId, amount, lineType, memo
+                } )
+            |> convertListOfResultsToResultsList
+        do! JournalEntry.constructNewAndSaveToDb
+                context
+                description
+                jeHeaderSource
+                entryDate
+                lines
+                references
+                comments
+            |> Result.map ignore
+        return ()}
+    
+/// post writes new journal entries to the ledger tables and updates the status in stage. That's it. This is not a
+/// set-based operation, allowing the ledger types and modules to do their jobs in keeping stupid out of the ledger.
+let post
+    (context: Context.Context)
+    : Result<unit, AppError> =
+    result {
+        let! stageEntries = fetchAllForPosting context
+        let! jeHeaderSource =
+            Some "Data ingestion import"
+            |> convertOptionToDesiredTypeWithFallibleConverter JournalEntrySource.create
+        // post each
+        do! stageEntries
+            |> List.map(fun stageEntry -> stageEntry |> postStageEntry context jeHeaderSource)
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
+        // update our stage entry statuses
+        do! stageEntries
+            |> List.map(fun stageEntry ->
+                let headerId = stageEntry.stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let newStatus = StagedEntryStatus.Posted
+                let mechanism = StageStatusChangeMechanism.LedgerPoster
+                headerId |> updateHeaderStatusAndAddAuditRecord context newStatus mechanism
+                )
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
+        return ()
     }

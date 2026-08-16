@@ -2,13 +2,13 @@ namespace Tests.Integrated.ModelOrchestrator
 
 open System
 
+open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.FiscalPeriods
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
-open Tests.Helpers.RouteResolver
 open Utilities.ResultHelper
 open Xunit
 open Tests.Helpers
@@ -25,7 +25,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
     member _.``REQ-JE-2.13 REQ-JE-2.11 constructNewAndSaveToDb posts a valid journal entry and returns it``() =
         let expected = "JE create happy"
         let today = Calendar.today()
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
                 let! jeHappy, _ = // the test helper resolves to constructNewAndSaveToDb
                     createTestJournalEntryFromPrimitives
@@ -47,7 +47,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-2.1 constructNewAndSaveToDb generates a unique UUID for the header``() =
         let today = Calendar.today()
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
                 let! _, jeHappyId = // the test helper resolves to constructNewAndSaveToDb
                     createTestJournalEntryFromPrimitives
@@ -67,7 +67,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-2.2 REQ-JE-1.21 constructNewAndSaveToDb generates unique UUIDs for each line``() =
         let today = Calendar.today()
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
                 let! jeHappy, _ = // the test helper resolves to constructNewAndSaveToDb
                     createTestJournalEntryFromPrimitives
@@ -90,7 +90,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-2.9 REQ-JE-1.40 constructNewAndSaveToDb generates unique UUIDs for each external reference``() =
         let today = Calendar.today()
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
                 let! jeHappy, _ = // the test helper resolves to constructNewAndSaveToDb
                     createTestJournalEntryFromPrimitives
@@ -113,7 +113,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-SYS-3.2 constructNewAndSaveToDb sets created_at and modified_at from AuditEnvelope``() =
         let today = Calendar.today()
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             let expected = context |> Context.getInitiationInstant
             result {
                 let! jeHappy, _ = // the test helper resolves to constructNewAndSaveToDb
@@ -136,7 +136,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
     member _.``REQ-JE-1.46 constructNewAndSaveToDb accepts an entry with zero external references``() =
         let today = Calendar.today()
         let explicitlyEmpty = []
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
                 let! _ = // the test helper resolves to constructNewAndSaveToDb
                     createTestJournalEntryFromPrimitives
@@ -156,7 +156,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
     member _.``REQ-JE-1.46 constructNewAndSaveToDb accepts an entry with multiple external references``() =
         let today = Calendar.today()
         let explicitlyMultiple = [ ("TestBank", "F-SHARED-001"); ("TestBank", "TXN-001") ]
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
                 let! _ = // the test helper resolves to constructNewAndSaveToDb
                     createTestJournalEntryFromPrimitives
@@ -176,7 +176,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
     member _.``REQ-JE-1.55 constructNewAndSaveToDb accepts an entry with zero comments``() =
         let today = Calendar.today()
         let explicitlyEmpty = []
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
                 let! _ = // the test helper resolves to constructNewAndSaveToDb
                     createTestJournalEntryFromPrimitives
@@ -198,7 +198,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let explicitlyMultiple =
             [ (None, "Fixture comment for testing")
               (None, "Fixture comment for testing 2") ]
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
                 let! _ = // the test helper resolves to constructNewAndSaveToDb
                     createTestJournalEntryFromPrimitives
@@ -218,7 +218,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
     member _.``REQ-JE-1.6 constructNewAndSaveToDb accepts an entry with null source``() =
         let today = Calendar.today()
         let explicitlyNone = None
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
                 let! _ = // the test helper resolves to constructNewAndSaveToDb
                     createTestJournalEntryFromPrimitives
@@ -238,7 +238,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
     member _.``REQ-JE-1.26 constructNewAndSaveToDb accepts lines with null memos``() =
         let today = Calendar.today()
         let explicitlyNone = None
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
                 let! _ = // the test helper resolves to constructNewAndSaveToDb
                     createTestJournalEntryFromPrimitives
@@ -259,7 +259,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let today = Calendar.today()
         let sameRef = ("TestBank", "F-SHARED-001")
         let explicitlySame = [ sameRef; sameRef ]
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
                 // test that you can do it in one single entry 
                 let! _ = 
@@ -292,7 +292,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
     member _.``REQ-JE-1.12 constructNewAndSaveToDb rejects entry with fewer than 2 lines``() =
         let today = Calendar.today()
         let onlyOneLine = [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None) ]
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             let result =
                 createTestJournalEntryFromPrimitives context "JE create unhappy432" None today onlyOneLine [] []
             match result with
@@ -307,7 +307,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let unbalancedLines =
             [ (fixture.Data.entertainment5650Id, 15.79M, "Debit", None)
               (fixture.Data.creditCard2220Id, 340.99M, "Credit", None) ]
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             let result =
                 createTestJournalEntryFromPrimitives context "JE create unhappy892" None today unbalancedLines [] []
             match result with
@@ -320,7 +320,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
     member _.``REQ-JE-1.22 constructNewAndSaveToDb rejects line with nonexistent account ID``() =
         let today = Calendar.today()
         let phoneyAccountId = Guid.NewGuid() |> AccountId.fromGuid
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             let result =
                 createTestJournalEntryFromPrimitives
                     context
@@ -341,7 +341,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
     member _.``REQ-JE-2.5 REQ-JE-2.6 REQ-JE-1.11 constructNewAndSaveToDb rejects entry date w/ no matching fiscal period``() =
         let today = Calendar.today()
         let badDate = today.PlusYears(-3)
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             let result =
                 createTestJournalEntryFromPrimitives
                     context
@@ -361,7 +361,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-2.7 constructNewAndSaveToDb rejects entry date in a closed fiscal period``() =
         let badDate = (fixture.Data.closedFiscalPeriod |> FiscalPeriod.startDate).PlusDays(14)
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             let result =
                 createTestJournalEntryFromPrimitives
                     context
@@ -384,7 +384,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let badId = badAccount |> Account.accountId
         let badDate =
             (badAccount |> Account.activityPeriod |> AccountActivityPeriod.activeEnd |> Option.get).PlusMonths(1)
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             let result =
                 createTestJournalEntryFromPrimitives
                     context

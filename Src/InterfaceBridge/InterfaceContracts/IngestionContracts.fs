@@ -170,3 +170,5 @@ type UpdateStageEntryInput = {
     status: FieldUpdate<string>
     lines: UpdateStageEntryLineInput list
 }
+
+type PostStageEntriesInput = { isShadow: bool }

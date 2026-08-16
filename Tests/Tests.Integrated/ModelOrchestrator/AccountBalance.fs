@@ -1,6 +1,7 @@
 namespace Tests.Integrated.ModelOrchestrator
 
 open DataAccessLayer.DbTransaction
+open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model
 open Model.Ledger.Journaling
@@ -13,7 +14,6 @@ open Xunit
 open Tests.Helpers
 open Tests.Helpers.SadPath
 open ModelOrchestrator.AccountBalance
-open Tests.Helpers.RouteResolver
 open Utilities
 open Utilities.ResultHelper
 
@@ -160,7 +160,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
     member _.``REQ-JE-3.6.1 net balance is positive in normal-balance orientation``() =
         let amount = 200.00M
         let zero = 0M
-        runFuncAndAutoRollback JournalEntryPostNew (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
                 let! _, expenseId =
                     createTestAccountFromPrimitives

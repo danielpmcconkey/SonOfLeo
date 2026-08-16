@@ -2,12 +2,12 @@ namespace Tests.Integrated.Model.Ledger
 
 open System
 open DataAccessLayer.DbTransaction
+open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model.Ledger.FiscalPeriods
 open ModelOrchestrator
 open Tests.Helpers
 open Tests.Helpers.GenericTestProperties
-open Tests.Helpers.RouteResolver
 open Tests.Helpers.Railroad
 open Utilities.ResultHelper
 open Xunit
@@ -20,7 +20,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-FP-2.1 creating a fiscal period must generate a UUID``() =
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             result {
                 let! fp = genericFiscalPeriodKey |> FiscalPeriodCreation.constructNewAndSaveToDb context
                 let unique_id = FiscalPeriod.fiscalPeriodId fp |> FiscalPeriodId.value
@@ -31,7 +31,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-FP-1.3 REQ-FP-2.2 Period Key must be unique``() =
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             result {
                 let! existingPeriod = FiscalPeriod.fetchById context (fixture.Data.openFiscalPeriodIds |> List.head)
                 let existingKey = FiscalPeriod.periodKey existingPeriod
@@ -54,7 +54,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
         let expectedEndMonth = 10
         let expectedEndDay = 31
         let expectedIsOpen = true
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             result {
                 let! fp = expectedKey |> FiscalPeriodCreation.constructNewAndSaveToDb context
                 let startDate = FiscalPeriod.startDate fp
@@ -74,7 +74,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-FP-2.6 is open is automatically true``() =
         let expectedIsOpen = true
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             result {
                 let! fp = genericFiscalPeriodKey |> FiscalPeriodCreation.constructNewAndSaveToDb context
                 Assert.Equal(expectedIsOpen, FiscalPeriod.isOpen fp)
@@ -126,7 +126,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-FP-4.1 closeFiscalPeriod happy path``() =
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             result {
                 let id = fixture.Data.openFiscalPeriodIds |> List.head
                 let! closed = id |> FiscalPeriod.closeFiscalPeriod context
@@ -137,7 +137,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-FP-4.1.1 closeFiscalPeriod rejects already closed period``() =
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             result {
                 let! original = FiscalPeriod.fetchById context fixture.Data.closedFiscalPeriodId
                 let originalModified = FiscalPeriod.modifiedAt original
@@ -157,7 +157,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-FP-4.2 reopenFiscalPeriod happy path``() =
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             result {
                 let! reopened = fixture.Data.closedFiscalPeriodId |> FiscalPeriod.reopenFiscalPeriod context
                 Assert.True(FiscalPeriod.isOpen reopened)
@@ -167,7 +167,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-FP-4.2.1 reopenFiscalPeriod rejects already open period``() =
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             result {
                 let id = fixture.Data.openFiscalPeriodIds |> List.head
                 let! original = FiscalPeriod.fetchById context id
@@ -188,7 +188,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-SYS-3.2 insertNewToDb sets create and modified timestamps``() =
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let expected = context |> Context.getInitiationInstant
             result {
                 let! fp = genericFiscalPeriodKey |> FiscalPeriodCreation.constructNewAndSaveToDb context

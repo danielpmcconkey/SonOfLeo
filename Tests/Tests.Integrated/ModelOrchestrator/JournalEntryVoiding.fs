@@ -1,13 +1,13 @@
 namespace Tests.Integrated.ModelOrchestrator
 
 open System
+open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model.Ledger.FiscalPeriods
 open Model.Ledger.FiscalPeriods.FiscalPeriod
 open ModelOrchestrator
 open ModelOrchestrator.JournalEntries.JournalEntry
 open Tests.Helpers.EntityFunctions
-open Tests.Helpers.RouteResolver
 open Tests.Helpers.Railroad
 open Utilities.ResultHelper
 open Xunit
@@ -29,7 +29,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-4.3 voidJournalEntryOrchestration sets voided_at on the entry``() =
         let today = Calendar.today()
-        runFuncAndAutoRollback JournalEntryVoid (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryVoid (fun context ->
             result {
                 let! _, jeId =
                     createTestJournalEntryFromPrimitives
@@ -50,7 +50,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-4.4 voidJournalEntryOrchestration attaches a reason comment to the voided entry``() =
         let today = Calendar.today()
-        runFuncAndAutoRollback JournalEntryVoid (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryVoid (fun context ->
             result {
                 let! je, jeId =
                     createTestJournalEntryFromPrimitives
@@ -81,7 +81,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
         let sevenMonthsAgo = today.PlusMonths(-7)
         let monthF = sevenMonthsAgo.Month.ToString("D2")
         let periodKeyStr = $"{sevenMonthsAgo.Year}-{monthF}"
-        runFuncAndAutoRollback JournalEntryVoid (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryVoid (fun context ->
             result {
                 // create Fiscal Period as open so you can add an entry into it
                 let! periodKey = periodKeyStr |> FiscalPeriodKey.fromString
@@ -113,7 +113,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-4.6 voidJournalEntryOrchestration rejects void on already-voided entry``() =
-        runFuncAndAutoRollback JournalEntryVoid (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryVoid (fun context ->
             let voidedResult = fixture.Data.voidedJeId |> voidJournalEntry context None commentText
             match voidedResult with
             | Error(JournalEntryVoidingNoOp _) -> Ok()
@@ -125,7 +125,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
     member _.``REQ-JE-4.3 voidJournalEntryOrchestration returns error for nonexistent entry id``() =
         // guards the railway itself: the fetch failure must propagate as an
         // Error, not escape the orchestrator as an exception
-        runFuncAndAutoRollback JournalEntryVoid (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryVoid (fun context ->
             let badId = Guid.NewGuid() |> JournalEntryHeaderId.fromGuid
             let voidedResult = badId |> voidJournalEntry context None commentText
             match voidedResult with

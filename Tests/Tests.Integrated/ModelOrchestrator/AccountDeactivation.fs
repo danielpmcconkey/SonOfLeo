@@ -1,8 +1,8 @@
 namespace Tests.Integrated.ModelOrchestrator
 
+open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Tests.Helpers
-open Tests.Helpers.RouteResolver
 open Tests.Helpers.Railroad
 open Utilities.ResultHelper
 open Xunit
@@ -19,7 +19,7 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-AC-4.1 deactivateAccount sets active end and returns inactive account``() =
         let explicitDeactivationDate = Some(Calendar.today().PlusDays(-1))
-        runFuncAndAutoRollback AccountDeactivate (fun context ->
+        runCommandRouteAndAutoRollback AccountDeactivate (fun context ->
             result {
                 let! original = Account.fetchById context fixture.Data.moneyMarket1270Id
                 Assert.True(original |> Account.activityPeriod |> AccountActivityPeriod.isActive(Calendar.today()))
@@ -34,7 +34,7 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-4.2 deactivateAccount rejects end earlier than begin``() =
-        runFuncAndAutoRollback AccountDeactivate (fun context ->
+        runCommandRouteAndAutoRollback AccountDeactivate (fun context ->
             result {
                 let! original = Account.fetchById context fixture.Data.moneyMarket1270Id
                 let badActiveEnd =
@@ -51,7 +51,7 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-4.2 deactivateAccount accepts end equal to begin``() =
-        runFuncAndAutoRollback AccountDeactivate (fun context ->
+        runCommandRouteAndAutoRollback AccountDeactivate (fun context ->
             result {
                 let! original = Account.fetchById context fixture.Data.moneyMarket1270Id
                 let equalEnd = Some(original |> Account.activityPeriod |> AccountActivityPeriod.activeBegin)
@@ -64,7 +64,7 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-AC-4.3 deactivateAccount rejects when active children exist``() =
         let goodActiveEnd = Some(Calendar.today())
-        runFuncAndAutoRollback AccountDeactivate (fun context ->
+        runCommandRouteAndAutoRollback AccountDeactivate (fun context ->
             result {
                 let! account = fixture.Data.assets1000Id |> Account.fetchById context
                 do!
@@ -79,7 +79,7 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-AC-4.4 deactivateAccount rejects when balance is non-zero``() =
         let goodActiveEnd = Some(Calendar.today())
-        runFuncAndAutoRollback AccountDeactivate (fun context ->
+        runCommandRouteAndAutoRollback AccountDeactivate (fun context ->
             result {
                 let! account = fixture.Data.mortgage2210Id |> Account.fetchById context
                 do!
@@ -94,7 +94,7 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-AC-4.5 deactivateAccount rejects already deactivated account``() =
         let goodActiveEnd = Some(Calendar.today().PlusDays(1))
-        runFuncAndAutoRollback AccountDeactivate (fun context ->
+        runCommandRouteAndAutoRollback AccountDeactivate (fun context ->
             result {
                 let! account = fixture.Data.closedBank1290Id |> Account.fetchById context
                 do!

@@ -1,9 +1,9 @@
 module Tests.Integrated.ModelOrchestrator.FiscalPeriodCreation
 
+open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model.Ledger.FiscalPeriods
 open ModelOrchestrator
-open Tests.Helpers.RouteResolver
 open Tests.Helpers.Railroad
 open Xunit
 open Utilities.AppError
@@ -18,7 +18,7 @@ let ``REQ-FP-1.4 REQ-FP-1.5 REQ-FP-2.3 Fiscal period start and end date are deri
         keyString
         |> FiscalPeriodKey.fromString
         |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    runFuncAndAutoRollback FiscalPeriodCreate (fun context ->
+    runCommandRouteAndAutoRollback FiscalPeriodCreate (fun context ->
         let fp =
             key
             |> FiscalPeriodCreation.constructNewAndSaveToDb context

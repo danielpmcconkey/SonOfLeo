@@ -1,12 +1,12 @@
 namespace Tests.Integrated.ModelOrchestrator
 
+open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model.Ledger.Journaling
 open ModelOrchestrator
 open ModelOrchestrator.JournalEntries
 open Tests.Helpers
 open Tests.Helpers.Railroad
-open Tests.Helpers.RouteResolver
 open Tests.Helpers.SadPath
 open Utilities.AppError
 open Utilities.FieldUpdate
@@ -25,7 +25,7 @@ type JournalEntryCommentOrchestrationTests(fixture: TestDataFixture) =
         let commentId = comment |> JournalEntryComment.journalEntryCommentId
         let repointedJeId = fixture.Data.jeWithLinesRefsAndCommentsId
         let expected = Some repointedJeId
-        runFuncAndAutoRollback JournalEntryUpdateComment (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryUpdateComment (fun context ->
             result {
                 let! repointed =
                     JournalEntryCommentOrchestration.updateComment
@@ -46,7 +46,7 @@ type JournalEntryCommentOrchestrationTests(fixture: TestDataFixture) =
             |> List.head
         let commentId = comment |> JournalEntryComment.journalEntryCommentId
         let expected = None
-        runFuncAndAutoRollback JournalEntryUpdateComment (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryUpdateComment (fun context ->
             result {
                 let! cleared =
                     JournalEntryCommentOrchestration.updateComment
@@ -67,7 +67,7 @@ type JournalEntryCommentOrchestrationTests(fixture: TestDataFixture) =
             |> JournalEntry.comments
             |> List.head
         let commentId = comment |> JournalEntryComment.journalEntryCommentId
-        runFuncAndAutoRollback JournalEntryUpdateComment (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryUpdateComment (fun context ->
             let result =
                 JournalEntryCommentOrchestration.updateComment
                     context

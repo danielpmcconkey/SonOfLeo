@@ -2,11 +2,11 @@ namespace Tests.Integrated.Model.Ledger
 
 open System
 
+open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator
 open Tests.Helpers.EntityFunctions
-open Tests.Helpers.RouteResolver
 open Tests.Helpers.Railroad
 open Xunit
 open Tests.Helpers
@@ -22,7 +22,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
         let expectedRef = "UPD-001"
         let fiUpdate = expectedFi |> createFiUpdateFromString
         let refUpdate = expectedRef |> createReferenceTextUpdateFromString
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryExternalReferenceOrchestration.updateFiAndReferenceText
                     context
@@ -44,7 +44,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
     member _.``REQ-JE-4.9 REQ-SYS-3.3 updateFiAndReferenceText updates modified_at timestamp``() =
         let fiUpdate = "TimestampBank" |> createFiUpdateFromString
         let refUpdate = "TS-001" |> createReferenceTextUpdateFromString
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let expectedInstant = context |> Context.getInitiationInstant
             let result =
                 JournalEntryExternalReferenceOrchestration.updateFiAndReferenceText
@@ -65,7 +65,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
         let expected2 = "NEW-001"
         let fiAdd = expected1 |> createJournalRefFinancialInstitutionFromString
         let refAdd = expected2 |> createJournalExternalReferenceTextFromString
-        runFuncAndAutoRollback JournalEntryAddExternalReference (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryAddExternalReference (fun context ->
             let result =
                 JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
                     context
@@ -88,7 +88,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
     member _.``REQ-JE-4.10 constructNewAndSaveToDb generates a unique UUID for the new reference``() =
         let fiAdd = "UuidBank" |> createJournalRefFinancialInstitutionFromString
         let refAdd = "UUID-001" |> createJournalExternalReferenceTextFromString
-        runFuncAndAutoRollback JournalEntryAddExternalReference (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryAddExternalReference (fun context ->
             let result =
                 JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
                     context
@@ -111,7 +111,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
     member _.``REQ-JE-4.10 appending a reference is permitted on a voided entry``() =
         let fiAdd = "VoidedBank" |> createJournalRefFinancialInstitutionFromString
         let refAdd = "VOID-001" |> createJournalExternalReferenceTextFromString
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
                     context
@@ -131,7 +131,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
         let expectedRef = "UPD-VOIDED-001"
         let fiUpdate = expectedFi |> createFiUpdateFromString
         let refUpdate = expectedRef |> createReferenceTextUpdateFromString
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryExternalReferenceOrchestration.updateFiAndReferenceText
                     context
@@ -155,7 +155,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
         let expectedRef = "UPD-CLOSED-001"
         let fiUpdate = expectedFi |> createFiUpdateFromString
         let refUpdate = expectedRef |> createReferenceTextUpdateFromString
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryExternalReferenceOrchestration.updateFiAndReferenceText
                     context
@@ -177,7 +177,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
     member _.``REQ-JE-4.10 appending a reference is permitted when fiscal period is closed``() =
         let fiAdd = "ClosedPeriodBank" |> createJournalRefFinancialInstitutionFromString
         let refAdd = "CLOSED-001" |> createJournalExternalReferenceTextFromString
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let result =
                 JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
                     context
@@ -195,7 +195,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
     member _.``REQ-SYS-5.1 external reference round-trips through persistence with all fields intact``() =
         let fiAdd = "FidelityBank" |> createJournalRefFinancialInstitutionFromString
         let refAdd = "FID-RT-001" |> createJournalExternalReferenceTextFromString
-        runFuncAndAutoRollback AccountCreate (fun context ->
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let createResult =
                 JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
                     context

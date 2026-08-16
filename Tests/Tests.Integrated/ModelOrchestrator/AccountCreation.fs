@@ -2,9 +2,9 @@ module Tests.Integrated.ModelOrchestrator.AccountCreation
 
 open System
 
+open InterfaceBridge.CommandRoute
 open Logger.Audit
 open ModelOrchestrator
-open Tests.Helpers.RouteResolver
 open Tests.Helpers.Railroad
 open Xunit
 open Model.Ledger.Accounts
@@ -15,7 +15,7 @@ open Tests.Helpers.GenericTestProperties
 
 [<Fact>]
 let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew generates UUID`` () =
-    runFuncAndAutoRollback AccountCreate (fun context ->
+    runCommandRouteAndAutoRollback AccountCreate (fun context ->
         let code = "abc1" |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         AccountCreation.constructNewAndSaveToDb
             context
@@ -35,7 +35,7 @@ let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew generates UUID`` () =
 
 [<Fact>]
 let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` () =
-    runFuncAndAutoRollback AccountCreate (fun context ->
+    runCommandRouteAndAutoRollback AccountCreate (fun context ->
         let code = "abc2" |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         let expected = context |> Context.getInitiationInstant
         let account =
@@ -56,7 +56,7 @@ let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` 
 
 [<Fact>]
 let ``REQ-AC-1.40 constructNew rejects non-existent parent ID`` () =
-    runFuncAndAutoRollback AccountCreate (fun context ->
+    runCommandRouteAndAutoRollback AccountCreate (fun context ->
         let code = "ac140" |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         let bogusParentId = Some(Guid.NewGuid() |> AccountId.fromGuid)
         let result =

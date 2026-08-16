@@ -3,7 +3,9 @@ module InterfaceBridge.Routes.IngestionRoutes
 
 open DataAccessLayer.DbTransaction
 open InterfaceBridge.BoundaryConverters.IngestionFieldConverters
+open InterfaceBridge.BoundaryConverters.ReportConverters
 open InterfaceBridge.InterfaceContracts.IngestionContracts
+open InterfaceBridge.InterfaceContracts.ReportsContracts
 open Logger.Audit
 open Model
 open Model.DataIngestion
@@ -14,7 +16,9 @@ open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator
 open ModelOrchestrator.ClassificationOrchestration
+open ModelOrchestrator.TrialBalanceReport
 open Utilities
+open Utilities.AppError
 open Utilities.FieldUpdate
 open Utilities.FieldUpdate.FieldUpdate
 open Utilities.FileIO
@@ -135,6 +139,28 @@ let private updateStageEntry payload _ =
             let! model = StageEntryOrchestration.updateStageEntry context headerUpdates lineUpdates
             let returnVal = model |> ``convert [StageEntry] to [StageEntryReturn]``
             return! Json.toJson<StageEntryReturn> returnVal })
+let private postWithExternallyManagedTransaction
+    (context: Context.Context)
+    : Result<string, AppError> =
+    result {
+        do! StageEntryOrchestration.post context
+        let asOf = Calendar.today()
+        let! trialBalanceData = fetchTrialBalanceData context asOf
+        let trialBalanceRows =
+            trialBalanceData
+            |> ``convert [TrialBalanceRowFlattened list] to [TrialBalanceReturnRow list]``
+        return! trialBalanceRows |> Json.toJson<TrialBalanceReturnRow list>
+    }
+let private post payload _ =
+    result {
+        let! input = Json.fromJson<PostStageEntriesInput> payload
+        return! 
+            if input.isShadow
+            then runCommandRouteAndAutoRollback IngestShadowPostStageEntries (fun context ->
+                context |> postWithExternallyManagedTransaction)
+            else runCommandRouteAndAutoCompleteTransaction IngestPostStageEntries (fun context ->
+                context |> postWithExternallyManagedTransaction)
+    }
 
 let ingestionDomainCommandRoutes: CommandRoute list =
     [
@@ -186,5 +212,12 @@ let ingestionDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<UpdateStageEntryInput>.Name
         outputContract = typeof<StageEntryReturn>.Name
         handler = updateStageEntry }
+      
+      { domain = "Ingestion"
+        verb = "PostStageEntries"
+        description = "Writes all Classified and Reviewed stage entry rows to the ledger, updates their status, and returns trial balance data. If the shadow flag is set, that entire process is rolled back in the database."
+        inputContract = typeof<PostStageEntriesInput>.Name
+        outputContract = typeof<TrialBalanceReturnRow list>.Name
+        handler = post }
       
     ]

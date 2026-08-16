@@ -2,10 +2,10 @@ namespace Tests.Integrated.Model.Ledger
 
 open System
 
+open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator
-open Tests.Helpers.RouteResolver
 open Tests.Helpers.Railroad
 open Utilities.AppError
 open Tests.Helpers.SadPath
@@ -25,7 +25,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             "Test comment text"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        runFuncAndAutoRollback JournalEntryAddComment (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     context
@@ -46,7 +46,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             "Comment with secondary link"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        runFuncAndAutoRollback JournalEntryAddComment (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     context
@@ -67,7 +67,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             "Comment with secondary link"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        runFuncAndAutoRollback JournalEntryAddComment (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let expectedInstant = context |> Context.getInitiationInstant
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
@@ -93,7 +93,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             "Null secondary"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        runFuncAndAutoRollback JournalEntryAddComment (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     context
@@ -109,7 +109,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-1.53 constructNewAndSaveToDb rejects secondary JE ID equal to primary``() =
-        runFuncAndAutoRollback JournalEntryAddComment (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let commentText =
                 "Same primary and secondary"
                 |> CommentText.create
@@ -129,7 +129,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             "Comment on voided"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        runFuncAndAutoRollback JournalEntryAddComment (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     context
@@ -149,7 +149,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             "Comment on closed period entry"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        runFuncAndAutoRollback JournalEntryAddComment (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     context
@@ -166,7 +166,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-5.3 updateComment amends the comment text``() =
         let expected = "Updated comment text"
-        runFuncAndAutoRollback JournalEntryUpdateComment (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryUpdateComment (fun context ->
             result {
                 let! textUpdate = expected |> CommentText.create |> Result.map SetTo
                 let secondaryIdUpdate = NoChange
@@ -183,7 +183,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-5.3 REQ-SYS-3.3 updateComment updates modified_at timestamp``() =
-        runFuncAndAutoRollback JournalEntryUpdateComment (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryUpdateComment (fun context ->
             result {
                 let! textUpdate = "Modified timestamp test" |> CommentText.create |> Result.map SetTo
                 let secondaryIdUpdate = NoChange
@@ -200,7 +200,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-5.6 updateComment does not change the primary JE link``() =
-        runFuncAndAutoRollback JournalEntryUpdateComment (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryUpdateComment (fun context ->
             result {
                 let! textUpdate = "Primary link unchanged" |> CommentText.create |> Result.map SetTo
                 let secondaryIdUpdate = NoChange
@@ -221,7 +221,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             "Round-trip comment"
             |> CommentText.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        runFuncAndAutoRollback JournalEntryAddComment (fun context ->
+        runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let createResult =
                 JournalEntryCommentOrchestration.constructNewAndSaveToDb
                     context

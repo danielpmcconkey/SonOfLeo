@@ -18,6 +18,8 @@ type AuditableAction =
     | IngestNewClassificationRule
     | IngestNewSource
     | IngestUpdateStageEntry
+    | IngestPostStageEntries
+    | IngestShadowPostStageEntries
     | JournalEntryPostNew
     | JournalEntryVoid
     | JournalEntryUpdateExternalReference
