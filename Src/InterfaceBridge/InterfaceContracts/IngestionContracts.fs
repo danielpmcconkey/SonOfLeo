@@ -1,9 +1,7 @@
 module InterfaceBridge.InterfaceContracts.IngestionContracts
 
 open System
-open Model.DataIngestion
-open Model.DataIngestion.IngestionSource
-open Model.Ledger.Journaling.JournalEntryComponent
+open InterfaceBridge.InterfaceContracts.ReportsContracts
 open ModelOrchestrator.FetchFilters
 open NodaTime
 open Utilities.FieldUpdate
@@ -123,6 +121,17 @@ type IngestionSourceReturn = {
         createdAt: Instant
         modifiedAt: Instant
     }
+
+type PostStageEntriesTrialBalancesResult = {
+    trialBalanceBefore: TrialBalanceReturnRow list
+    trialBalanceAfter: TrialBalanceReturnRow list
+}
+
+type PostStageEntriesFullResult = {
+    trialBalanceBefore: TrialBalanceReturnRow list
+    trialBalanceAfter: TrialBalanceReturnRow list
+    wasRolledBack: bool
+}
 
 // ****************************************
 // Input

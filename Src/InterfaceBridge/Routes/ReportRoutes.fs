@@ -9,9 +9,6 @@ open InterfaceBridge.ReportWriters
 open Logger.Audit
 open ModelOrchestrator.TrialBalanceReport
 open Utilities.ResultHelper
-
-
-
 let private trialBalance payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {

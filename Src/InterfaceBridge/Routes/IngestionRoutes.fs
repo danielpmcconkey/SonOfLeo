@@ -5,7 +5,6 @@ open DataAccessLayer.DbTransaction
 open InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 open InterfaceBridge.BoundaryConverters.ReportConverters
 open InterfaceBridge.InterfaceContracts.IngestionContracts
-open InterfaceBridge.InterfaceContracts.ReportsContracts
 open Logger.Audit
 open Model
 open Model.DataIngestion
@@ -139,27 +138,45 @@ let private updateStageEntry payload _ =
             let! model = StageEntryOrchestration.updateStageEntry context headerUpdates lineUpdates
             let returnVal = model |> ``convert [StageEntry] to [StageEntryReturn]``
             return! Json.toJson<StageEntryReturn> returnVal })
+    
 let private postWithExternallyManagedTransaction
     (context: Context.Context)
-    : Result<string, AppError> =
+    : Result<PostStageEntriesTrialBalancesResult, AppError> =
     result {
-        do! StageEntryOrchestration.post context
         let asOf = Calendar.today()
-        let! trialBalanceData = fetchTrialBalanceData context asOf
-        let trialBalanceRows =
-            trialBalanceData
+        // get the "before" snapshot        
+        let! trialBalanceDataBefore = fetchTrialBalanceData context asOf
+        let trialBalanceRowsBefore =
+            trialBalanceDataBefore
             |> ``convert [TrialBalanceRowFlattened list] to [TrialBalanceReturnRow list]``
-        return! trialBalanceRows |> Json.toJson<TrialBalanceReturnRow list>
+        // post
+        do! StageEntryOrchestration.post context
+        // get the "after" snapshot        
+        let! trialBalanceDataAfter = fetchTrialBalanceData context asOf
+        let trialBalanceRowsAfter =
+            trialBalanceDataAfter
+            |> ``convert [TrialBalanceRowFlattened list] to [TrialBalanceReturnRow list]``
+        return { trialBalanceBefore = trialBalanceRowsBefore
+                 trialBalanceAfter = trialBalanceRowsAfter } 
     }
+    
 let private post payload _ =
     result {
         let! input = Json.fromJson<PostStageEntriesInput> payload
-        return! 
+        let runner, auditAction, willBeRolledBack =
             if input.isShadow
-            then runCommandRouteAndAutoRollback IngestShadowPostStageEntries (fun context ->
-                context |> postWithExternallyManagedTransaction)
-            else runCommandRouteAndAutoCompleteTransaction IngestPostStageEntries (fun context ->
-                context |> postWithExternallyManagedTransaction)
+            then runCommandRouteAndAutoRollback, IngestShadowPostStageEntries, true
+            else runCommandRouteAndAutoCompleteTransaction, IngestPostStageEntries, false
+        return!
+            runner auditAction (fun context ->
+                result {
+                    let! trialBalancesResult = postWithExternallyManagedTransaction context
+                    let fullResult = {
+                          trialBalanceBefore = trialBalancesResult.trialBalanceBefore
+                          trialBalanceAfter = trialBalancesResult.trialBalanceAfter
+                          wasRolledBack = willBeRolledBack }
+                    return! fullResult |> Json.toJson<PostStageEntriesFullResult>
+                })
     }
 
 let ingestionDomainCommandRoutes: CommandRoute list =
@@ -215,9 +232,9 @@ let ingestionDomainCommandRoutes: CommandRoute list =
       
       { domain = "Ingestion"
         verb = "PostStageEntries"
-        description = "Writes all Classified and Reviewed stage entry rows to the ledger, updates their status, and returns trial balance data. If the shadow flag is set, that entire process is rolled back in the database."
+        description = "Writes all Classified and Reviewed stage entry rows to the ledger, updates their status, and returns both before and after trial balance data. If the shadow flag is set, that entire process is rolled back in the database."
         inputContract = typeof<PostStageEntriesInput>.Name
-        outputContract = typeof<TrialBalanceReturnRow list>.Name
+        outputContract = typeof<PostStageEntriesFullResult>.Name
         handler = post }
       
     ]

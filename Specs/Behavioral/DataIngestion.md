@@ -160,7 +160,8 @@ The classification step runs the vendor classification rules engine against stag
 ## 6. Manual review behaviors
 
 - **REQ-STG-6.1** The system must provide a means for an operator to assign or override the account_code on a staged line, regardless of whether the account was previously set by a parser or the classifier.
-- **REQ-STG-6.2** When the operator modifies any staged line in an entry, the staged entry's status is set to `'reviewed'`.
+- **REQ-STG-6.2** The manual update mechanism allows the operator to set any field on the staged entry and its lines, including status. The system validates the result (balanced entry, valid account codes, legal status transition) but does not infer or auto-assign status from the operator's changes.
+  - *Why:* Original spec auto-transitioned to `'Reviewed'` on any line modification. Overruled — manual intervention is the highest authority tier, and the operator knows the intended status. Inferring it revokes that authority. (2026-08-16)
 - **REQ-STG-6.3** The operator may override a duplicate flag, transitioning the entry's status from `'duplicate'` to `'reviewed'`.
   - *Why:* Legitimate duplicate transactions exist (two identical charges on the same day). The operator, not the system, makes this call. (2026-08-08)
 
@@ -181,7 +182,8 @@ The classification step runs the vendor classification rules engine against stag
 - **REQ-STG-8.1** The system must provide a means to simulate posting all postable staged entries without modifying ledger state.
 - **REQ-STG-8.2** Shadow post must construct journal entries through the same domain model and validation path used by batch post (§9). The construction occurs within a database transaction that is rolled back after completion.
   - *Why:* A shadow post that skips domain validation gives false confidence. If a staged entry would fail validation (closed fiscal period, inactive account, imbalanced lines), shadow post must surface that failure identically. (2026-08-08)
-- **REQ-STG-8.3** Shadow post must produce a trial balance delta: the per-account balance impact that would result from posting the staged entries.
+- **REQ-STG-8.3** Shadow post must produce a trial balance before posting and a trial balance after posting (computed within the rolled-back transaction). The caller derives the delta.
+  - *Why:* Original spec required only a delta. The full before/after is more useful — the Saturday routine reconciles against point-in-time account balances, not movements. A delta alone can't be reconciled without a second call. (2026-08-16)
 - **REQ-STG-8.4** Shadow post must not modify any staged entry's status or any staging data. It is read-only against the staging tables and write-then-rollback against the ledger.
 
 

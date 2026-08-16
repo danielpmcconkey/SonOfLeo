@@ -28,4 +28,5 @@ type TrialBalanceReturnRow =
 type TrialBalanceReturn = 
     | DataOnly of TrialBalanceReturnRow list
     | Report of OutputPathReturn
+    
 
