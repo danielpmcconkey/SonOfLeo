@@ -44,9 +44,9 @@ Rip out the 6 fixture entries I added (fullyAssignedStageEntry, needsClassificat
 
 ## Fixture cleanup
 
-The ingestion-related fixtures Dan added to `TestDataStage.fs` — ingestion sources, classification rules, and all stage entries — were dev scaffolding, not test infrastructure. BD has the green light to rip all of it out when rewriting the tests. The fixture should go back to being purely ledger-focused. All staging test state will come from the pipeline run against your JSONL file.
+The ingestion-related fixtures Dan already has in `TestDataStage.fs` — ingestion sources, classification rules, and stage entries — were dev scaffolding, not test infrastructure. BD isn't married to any of it. We can modify, replace, or add to it as needed for the tests. The fixture will still have ingestion data — just data that's purpose-built for testing rather than for dev convenience.
 
-This means you don't need to worry about compatibility with the existing ingestion fixtures. Build the rules and data file from scratch to serve the tests. If a new source name makes more sense than "TestBank", use it.
+So don't worry about compatibility with what's already there. If the existing sources and rules work for your test data, great, keep them. If a different set makes more sense, change them.
 
 ## Context
 
