@@ -12,14 +12,21 @@ open Utilities.FieldUpdate
 open Utilities.ResultHelper
                 
 type StageEntryLine = private {
-        stageEntryLineId: StageEntryLineId
-        stageEntryHeaderId: StageEntryHeaderId
-        amount: Money
-        lineType: JournalEntryLineType
-        accountCode: AccountCode option
-        memo: JournalEntryLineMemo option
-        classificationRuleId: ClassificationRuleId option
-    }
+    stageEntryLineId: StageEntryLineId
+    stageEntryHeaderId: StageEntryHeaderId
+    amount: Money
+    lineType: JournalEntryLineType
+    accountCode: AccountCode option
+    memo: JournalEntryLineMemo option
+    classificationRuleId: ClassificationRuleId option }
+
+type StageEntryLineFieldUpdates = {
+    lineIdToUpdate: StageEntryLineId
+    amountUpdate: FieldUpdate<Money>
+    entryTypeUpdate: FieldUpdate<JournalEntryLineType>
+    accountCodeUpdate: FieldUpdate<AccountCode option>
+    memoUpdate: FieldUpdate<JournalEntryLineMemo option>
+    classificationRuleIdUpdate: FieldUpdate<ClassificationRuleId option> }
 
 let stageEntryLineId l = l.stageEntryLineId
 let stageEntryHeaderId l = l.stageEntryHeaderId
@@ -172,26 +179,24 @@ let fetchByHeaderIdList
     let predicate = $"l.entry_id in ({names})"
     readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
     
-let private updateDb
+/// updateDb is incredibly powerful and should only be used very deliberately. It will let you update your database in a
+/// type-unsafe manner. Only use it with controlled database transactions and with certainty that you are validating
+/// your resultant data state appropriately.
+let updateDb
     (context: Context.Context)
-    (stageEntryHeaderIdUpdate: FieldUpdate<StageEntryHeaderId>)
-    (amountUpdate: FieldUpdate<Money>)
-    (entryTypeUpdate: FieldUpdate<JournalEntryLineType>)
-    (accountCodeUpdate: FieldUpdate<AccountCode option>)
-    (memoUpdate: FieldUpdate<JournalEntryLineMemo option>)
-    (classificationRuleIdUpdate: FieldUpdate<ClassificationRuleId option>)
-    (stageEntryLineId : StageEntryLineId)
+    (fieldUpdates: StageEntryLineFieldUpdates)
     : Result<StageEntryLine, AppError> =
+    let stageEntryLineId = fieldUpdates.lineIdToUpdate
+    let amountUpdate = fieldUpdates.amountUpdate
+    let entryTypeUpdate = fieldUpdates.entryTypeUpdate
+    let accountCodeUpdate = fieldUpdates.accountCodeUpdate
+    let memoUpdate = fieldUpdates.memoUpdate
+    let classificationRuleIdUpdate = fieldUpdates.classificationRuleIdUpdate
     let uuid = stageEntryLineId |> StageEntryLineId.value
     let baseParams =
         [ { name = "@unique_id"; value = UniqueId uuid } ]
     let updates =
         [
-              stageEntryHeaderIdUpdate
-              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  ("entry_id = @entry_id",
-                   { name = "@entry_id"; value = UniqueId(n |> StageEntryHeaderId.value) }))
-              
               amountUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
                   ("amount = @amount",
@@ -234,15 +239,6 @@ let private updateDb
         return! stageEntryLineId |> fetchById context
     }
 
-/// updateCode assumes the orchestrator is validating the code maps to a real account 
-let updateCode
-    (context: Context.Context)
-    (accountCodeUpdate: FieldUpdate<AccountCode option>)
-    (stageEntryLineId : StageEntryLineId)
-    : Result<StageEntryLine, AppError> =
-    stageEntryLineId
-    |> updateDb context NoChange NoChange NoChange accountCodeUpdate NoChange NoChange
-
 /// updateCodeAndRuleId assumes the orchestrator is validating the code maps to a real account and that the rule ID is real
 let updateCodeAndRuleId
     (context: Context.Context)
@@ -250,5 +246,11 @@ let updateCodeAndRuleId
     (classificationRuleIdUpdate: FieldUpdate<ClassificationRuleId option>)
     (stageEntryLineId : StageEntryLineId)
     : Result<StageEntryLine, AppError> =
-    stageEntryLineId
-    |> updateDb context NoChange NoChange NoChange accountCodeUpdate NoChange classificationRuleIdUpdate
+    let fieldUpdates = {
+        lineIdToUpdate = stageEntryLineId
+        amountUpdate = NoChange
+        entryTypeUpdate = NoChange
+        accountCodeUpdate = accountCodeUpdate
+        memoUpdate = NoChange
+        classificationRuleIdUpdate = classificationRuleIdUpdate }
+    updateDb context fieldUpdates

@@ -12,6 +12,7 @@ open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.StageEntryOrchestration
 open Utilities.AppError
+open Utilities.FieldUpdate.FieldUpdate
 open Utilities.ResultHelper
 
 let ``convert [StageEntryStatusTransition] to [StageEntryStatusTransitionReturn]``
@@ -244,8 +245,8 @@ let ``convert [IngestionSource] to [IngestionSourceReturn]``
 let ``convert [MatchCandidate] to [MatchCandidateReturn]``
     (candidate: MatchCandidate)
     : MatchCandidateReturn = {
-        stageEntryHeaderId = candidate.stageEntryHeaderId |> StageEntryHeaderId.value
-        stageEntryLineId = candidate.stageEntryLineId |> StageEntryLineId.value
+        stageEntryHeaderId = candidate.headerIdOfCandidate |> StageEntryHeaderId.value
+        stageEntryLineId = candidate.lineIdOfCandidate |> StageEntryLineId.value
         ingestionSource = candidate.ingestionSource |> JournalRefFinancialInstitution.value
         description = candidate.description |> JournalEntryDescription.value
         amount = candidate.amount |> Money.amount
@@ -302,3 +303,30 @@ let ``convert [IngestionFullResult] to [IngestionFullResultReturn]``
     { stagedEntries = stageEntryReturn
       newDuplicates = newDuplicatesReturn
       classificationResults = classificationResultsReturn }
+
+let ``convert [UpdateStageEntryLineInput] to [StageEntryLineFieldUpdates]``
+    (line: UpdateStageEntryLineInput)
+    : Result<StageEntryLineFieldUpdates, AppError> =
+    result {
+        let lineIdToUpdate = line.stageEntryLineId |> StageEntryLineId.fromGuid
+        let! amountUpdate = line.amount |> convertFieldUpdateToNewTypeFallible Money.fromDecimal
+        let! entryTypeUpdate = line.lineType |> convertFieldUpdateToNewTypeFallible JournalEntryLineType.fromString
+        let! accountCodeUpdate = line.accountCode |> convertFieldUpdateOptionToNewTypeOptionFallible AccountCode.create
+        let! memoUpdate = line.memo |> convertFieldUpdateOptionToNewTypeOptionFallible JournalEntryLineMemo.create
+        let classificationRuleIdUpdate =
+            line.classificationRuleId
+            |> convertFieldUpdateOptionToNewTypeOption ClassificationRuleId.fromGuid
+        return {
+          lineIdToUpdate = lineIdToUpdate
+          amountUpdate = amountUpdate
+          entryTypeUpdate = entryTypeUpdate
+          accountCodeUpdate = accountCodeUpdate
+          memoUpdate = memoUpdate
+          classificationRuleIdUpdate = classificationRuleIdUpdate } }
+
+let ``convert [UpdateStageEntryLineInput list] to [StageEntryLineFieldUpdates list]``
+    (lines: UpdateStageEntryLineInput list)
+    : Result<StageEntryLineFieldUpdates list, AppError> =
+    lines
+    |> List.map ``convert [UpdateStageEntryLineInput] to [StageEntryLineFieldUpdates]``
+    |> convertListOfResultsToResultsList

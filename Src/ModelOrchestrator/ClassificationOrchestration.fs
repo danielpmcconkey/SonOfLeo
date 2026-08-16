@@ -126,7 +126,7 @@ let updateLineWithMatch
     let codeUpdate = FieldUpdate.SetTo code
     let ruleId = Some prioritizedMatch.ruleId
     let ruleUpdate = FieldUpdate.SetTo ruleId
-    match updateCodeAndRuleId context codeUpdate ruleUpdate candidate.stageEntryLineId with
+    match updateCodeAndRuleId context codeUpdate ruleUpdate candidate.lineIdOfCandidate with
     | Ok _ -> Ok ()
     | Error e -> Error e
 

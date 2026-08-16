@@ -21,6 +21,15 @@ type StageEntryHeader =
         status: StagedEntryStatus 
     }
 
+type StageEntryHeaderFieldUpdates = {
+    headerIdToUpdate: StageEntryHeaderId
+    sourceFileUpdate: FieldUpdate<SourceFile>
+    entryDateUpdate: FieldUpdate<LocalDate>
+    descriptionUpdate: FieldUpdate<JournalEntryDescription>
+    ingestionSourceUpdate: FieldUpdate<IngestionSource>
+    fiReferenceUpdate: FieldUpdate<JournalExternalReferenceText>
+    statusUpdate: FieldUpdate<StagedEntryStatus> }
+
 let sourceFile g = g.sourceFile
 let stageEntryHeaderId g = g.stageEntryHeaderId
 let entryDate g = g.entryDate
@@ -237,17 +246,21 @@ let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, A
         reconstitute
         AnyQuantityIsAcceptable
 
-let private updateDb
+/// updateDb is incredibly powerful and should only be used very deliberately. It will let you update your database in a
+/// type-unsafe manner. Only use it with controlled database transactions and with certainty that you are validating
+/// your resultant data state appropriately.
+let updateDb
     (context: Context.Context)
-    (sourceFileUpdate: FieldUpdate<SourceFile>)
-    (entryDateUpdate: FieldUpdate<LocalDate>)
-    (descriptionUpdate: FieldUpdate<JournalEntryDescription>)
-    (ingestionSourceUpdate: FieldUpdate<IngestionSource>)
-    (fiReferenceUpdate: FieldUpdate<JournalExternalReferenceText>)
-    (statusUpdate: FieldUpdate<StagedEntryStatus>)
-    (stageEntryHeaderId : StageEntryHeaderId)
+    (fieldUpdates: StageEntryHeaderFieldUpdates)
     : Result<StageEntryHeader, AppError> =
-    let uuid = stageEntryHeaderId |> StageEntryHeaderId.value
+    let headerId = fieldUpdates.headerIdToUpdate
+    let sourceFileUpdate = fieldUpdates.sourceFileUpdate
+    let entryDateUpdate = fieldUpdates.entryDateUpdate
+    let descriptionUpdate = fieldUpdates.descriptionUpdate
+    let ingestionSourceUpdate = fieldUpdates.ingestionSourceUpdate
+    let fiReferenceUpdate = fieldUpdates.fiReferenceUpdate
+    let statusUpdate = fieldUpdates.statusUpdate
+    let uuid = headerId |> StageEntryHeaderId.value
     let baseParams =
         [ { name = "@unique_id"; value = UniqueId uuid } ]
     let updates =
@@ -296,7 +309,7 @@ let private updateDb
     result {
         do! if updates.IsEmpty then Error(IngestionStageEntryHeaderNoOp) else Ok()
         let! () = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
-        return! stageEntryHeaderId |> fetchById context
+        return! headerId |> fetchById context
     }
 
 /// updateStatus assumes the orchestrator is validating the status change and adding a record to the audit table 
@@ -305,6 +318,14 @@ let updateStatus
     (newStatus: StagedEntryStatus)
     (stageEntryHeaderId : StageEntryHeaderId)
     : Result<StageEntryHeader, AppError> =
-    stageEntryHeaderId
-    |> updateDb context NoChange NoChange NoChange NoChange NoChange (SetTo newStatus)
+    let fieldUpdates = {
+        headerIdToUpdate = stageEntryHeaderId
+        sourceFileUpdate = NoChange
+        entryDateUpdate = NoChange
+        descriptionUpdate = NoChange
+        ingestionSourceUpdate = NoChange
+        fiReferenceUpdate = NoChange
+        statusUpdate = (SetTo newStatus)
+    }
+    updateDb context fieldUpdates
     

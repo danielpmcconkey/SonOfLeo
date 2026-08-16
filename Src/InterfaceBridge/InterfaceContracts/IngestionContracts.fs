@@ -6,6 +6,7 @@ open Model.DataIngestion.IngestionSource
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.FetchFilters
 open NodaTime
+open Utilities.FieldUpdate
 
 // ****************************************
 // Bi-directional contracts
@@ -149,3 +150,23 @@ type FetchClassificationRuleFilteredInput = {
 type FetchClassificationRuleByIdInput = { classificationRuleId: Guid }
 type FetchClassificationRuleByNameInput = { classificationRuleName: string }
 type CreateNewIngestionSourceInput = { name: string }
+
+type UpdateStageEntryLineInput = {
+    stageEntryLineId: Guid
+    amount: FieldUpdate<decimal>
+    lineType: FieldUpdate<string>
+    accountCode: FieldUpdate<string option>
+    memo: FieldUpdate<string option>
+    classificationRuleId: FieldUpdate<Guid option>
+}
+
+type UpdateStageEntryInput = {
+    stageEntryHeaderId: Guid
+    sourceFileUpdate: FieldUpdate<string>
+    entryDate: FieldUpdate<LocalDate>
+    description: FieldUpdate<string>
+    ingestionSource: FieldUpdate<string>
+    fiReference: FieldUpdate<string>
+    status: FieldUpdate<string>
+    lines: UpdateStageEntryLineInput list
+}

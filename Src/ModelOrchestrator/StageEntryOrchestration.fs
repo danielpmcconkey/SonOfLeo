@@ -8,6 +8,7 @@ open Model.DataIngestion.Classification
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
+open Utilities.FieldUpdate
 open Utilities.ResultHelper
 
 type StageEntry =
@@ -119,6 +120,16 @@ let private confirmValidTransitions transitions =
     | Error e -> Error e
     | Ok _ -> Ok ()
 
+let confirmStageEntryCompositeIsValid
+    (context: Context.Context)
+    (stageEntry: StageEntry)
+    : Result<unit, AppError> =
+    result {
+        do! stageEntry.lines |> confirmLines context
+        do! stageEntry.statusTransitions |> confirmValidTransitions
+        do! if stageEntry.statusTransitions |> List.isEmpty then Error IngestionStatusTransitionList else Ok ()
+    }
+
 let createStageEntry
     (context: Context.Context)
     (header: StageEntryHeader.StageEntryHeader)
@@ -126,14 +137,12 @@ let createStageEntry
     (transitions: StageEntryStatusTransition.StageEntryStatusTransition list)
     : Result<StageEntry, AppError> =
     result {
-        do! lines |> confirmLines context
-        do! transitions |> confirmValidTransitions
-        do! if transitions |> List.isEmpty then Error IngestionStatusTransitionList else Ok ()
-        return {
+        let stageEntry = {
             stageEntryHeader = header
             lines = lines
-            statusTransitions = transitions
-        }
+            statusTransitions = transitions }
+        do! stageEntry |> confirmStageEntryCompositeIsValid context
+        return stageEntry
     }
     
 let private constructSetFromRaw
@@ -216,6 +225,19 @@ let fetchAllByFile
         let! lines = headers |> fetchAllLinesByHeaders context
         let! statuses = headers |> fetchAllTransitionsByHeaders context
         return compileFromSubLists headers lines statuses
+    }
+
+let fetchByStageEntryHeaderId
+    (context: Context.Context)
+    (headerId: StageEntryHeaderId)
+    : Result<StageEntry, AppError> =
+    result {
+        let! header = headerId |> StageEntryHeader.fetchById context
+        let! lines = headerId |> StageEntryLine.fetchByHeaderId context
+        let! statusTransitions = headerId |> StageEntryStatusTransition.fetchByHeaderId context
+        return { stageEntryHeader = header
+                 lines = lines
+                 statusTransitions = statusTransitions }
     }
 
 let createNewSource
@@ -328,8 +350,8 @@ let classifyStagedEntries
                 |> lines
                 |> List.filter (fun line -> line |> StageEntryLine.accountCode |> Option.isNone)
                 |> List.map (fun line -> {
-                    stageEntryHeaderId = header |> StageEntryHeader.stageEntryHeaderId
-                    stageEntryLineId = line |> StageEntryLine.stageEntryLineId
+                    headerIdOfCandidate = header |> StageEntryHeader.stageEntryHeaderId
+                    lineIdOfCandidate = line |> StageEntryLine.stageEntryLineId
                     ingestionSource = header |> StageEntryHeader.ingestionSource |> IngestionSource.name
                     description = header |> StageEntryHeader.description
                     amount = line |> StageEntryLine.amount
@@ -340,7 +362,7 @@ let classifyStagedEntries
         // That only updated the lines. This module owns updating the header and adding an audit trail record
         let! _ =
             classificationResults
-            |> List.groupBy _.candidate.stageEntryHeaderId
+            |> List.groupBy _.candidate.headerIdOfCandidate
             |> List.map(fun idAndResult ->
                 let headerId = idAndResult |> fst
                 let resultsAtHeader = idAndResult |> snd
@@ -380,4 +402,53 @@ let ingestRawToStageThenDeduplicateAndClassify
         return { stagedEntries = classified
                  newDuplicates = newDuplicates
                  classificationResults =  classificationResults } 
+    }
+
+let confirmUpdateLinesMatchUpdateHeader
+    (context: Context.Context)
+    (headerUpdates: StageEntryHeader.StageEntryHeaderFieldUpdates)
+    (lineUpdates: StageEntryLine.StageEntryLineFieldUpdates list)
+    : Result<unit, AppError> =
+    lineUpdates
+    |> List.map (fun lineUpdate ->
+        result {
+            let! lineHeaderIdToCompare =
+                lineUpdate.lineIdToUpdate
+                |> StageEntryLine.fetchById context
+                |> Result.map StageEntryLine.stageEntryHeaderId
+            let headerId = headerUpdates.headerIdToUpdate
+            return!
+                if lineHeaderIdToCompare = headerId then Ok ()
+                else
+                    let headerUuid = headerId |> StageEntryHeaderId.value
+                    let lineUuid = lineUpdate.lineIdToUpdate |> StageEntryLineId.value
+                    Error (IngestionUpdateStageEntryLinesMustMatchHeader(headerUuid, lineUuid))
+        } )
+    |> convertListOfResultsToResultsList
+    |> Result.map ignore
+
+let updateStageEntry
+    (context: Context.Context)
+    (headerUpdates: StageEntryHeader.StageEntryHeaderFieldUpdates)
+    (lineUpdates: StageEntryLine.StageEntryLineFieldUpdates list)
+    : Result<StageEntry, AppError> =
+    result {
+        do! confirmUpdateLinesMatchUpdateHeader context headerUpdates lineUpdates
+        do! lineUpdates
+            |> List.map(fun lineUpdate -> lineUpdate |> StageEntryLine.updateDb context)
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
+        do! headerUpdates |> StageEntryHeader.updateDb context |> Result.map ignore
+        // that may have updated the status, but it didn't do it completely. we could've taken the status update out of
+        // the first pass but the effort isn't worth it. You arrive at the same data state regardless.
+        do!
+            match headerUpdates.statusUpdate with
+            | NoChange -> Ok ()
+            | SetTo newStatus ->
+                let headerId = headerUpdates.headerIdToUpdate
+                headerId |> updateHeaderStatusAndAddAuditRecord context newStatus StageStatusChangeMechanism.Operator
+        // now that we updated everything, we should read it back and ensure it still meets composite requirements
+        let! fetched = headerUpdates.headerIdToUpdate |> fetchByStageEntryHeaderId context
+        do! fetched |> confirmStageEntryCompositeIsValid context
+        return fetched
     }

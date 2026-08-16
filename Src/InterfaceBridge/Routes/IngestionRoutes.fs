@@ -9,11 +9,14 @@ open Model
 open Model.DataIngestion
 open Model.DataIngestion.BaseStageRaw
 open Model.DataIngestion.Classification
+open Model.DataIngestion.StageEntryHeader
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
+open ModelOrchestrator
 open ModelOrchestrator.ClassificationOrchestration
-open ModelOrchestrator.StageEntryOrchestration
 open Utilities
+open Utilities.FieldUpdate
+open Utilities.FieldUpdate.FieldUpdate
 open Utilities.FileIO
 open Utilities.Json
 open InterfaceBridge.CommandRoute
@@ -33,7 +36,9 @@ let private ingestRawEntries payload _ =
                 linesStr
                 |> List.map(fun l -> l |> Json.fromJson<BaseStageRawRow>)
                 |> convertListOfResultsToResultsList
-            let! fullResult = baseStageRawRows |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
+            let! fullResult =
+                    baseStageRawRows
+                    |> StageEntryOrchestration.ingestRawToStageThenDeduplicateAndClassify context sourceFile
             let timeStamp = Clock.now() |> Clock.instantToString "yyyy-MM-dd.HHmmss.fff"
             let! moveToPath = createFullPath processedDir $"{timeStamp}-{input.fileName}"
             do! moveFile toBeProcessedPath moveToPath
@@ -97,10 +102,39 @@ let private createNewSource payload _ =
     result {
         let! input = Json.fromJson<CreateNewIngestionSourceInput> payload
         let! name = input.name |> JournalRefFinancialInstitution.create
-        let! model = name |> createNewSource context
+        let! model = name |> StageEntryOrchestration.createNewSource context
         let returnVal = model |> ``convert [IngestionSource] to [IngestionSourceReturn]``
         return! Json.toJson<IngestionSourceReturn> returnVal
     }
+
+let private updateStageEntry payload _ =
+    runCommandRouteAndAutoCompleteTransaction IngestUpdateStageEntry (fun context ->
+        result {
+            let! input = Json.fromJson<UpdateStageEntryInput> payload
+            let! sourceFileUpdate = input.sourceFileUpdate |> convertFieldUpdateToNewTypeFallible SourceFile.create
+            let! descriptionUpdate = input.description |> convertFieldUpdateToNewTypeFallible JournalEntryDescription.create
+            let! ingestionSourceUpdate =
+                match input.ingestionSource with
+                | NoChange -> Ok NoChange
+                | SetTo nameStr ->
+                    result {
+                        let! name = nameStr |> JournalRefFinancialInstitution.create
+                        let! source = name |> IngestionSource.fetchByName context
+                        return SetTo source }
+            let! fiReferenceUpdate = input.fiReference |> convertFieldUpdateToNewTypeFallible JournalExternalReferenceText.create
+            let! statusUpdate = input.status |> convertFieldUpdateToNewTypeFallible StagedEntryStatus.fromString
+            let (headerUpdates:StageEntryHeaderFieldUpdates) = {
+                headerIdToUpdate = input.stageEntryHeaderId |> StageEntryHeaderId.fromGuid
+                sourceFileUpdate = sourceFileUpdate
+                entryDateUpdate = input.entryDate
+                descriptionUpdate = descriptionUpdate
+                ingestionSourceUpdate = ingestionSourceUpdate
+                fiReferenceUpdate = fiReferenceUpdate
+                statusUpdate = statusUpdate }
+            let! lineUpdates = input.lines |> ``convert [UpdateStageEntryLineInput list] to [StageEntryLineFieldUpdates list]``
+            let! model = StageEntryOrchestration.updateStageEntry context headerUpdates lineUpdates
+            let returnVal = model |> ``convert [StageEntry] to [StageEntryReturn]``
+            return! Json.toJson<StageEntryReturn> returnVal })
 
 let ingestionDomainCommandRoutes: CommandRoute list =
     [
@@ -145,5 +179,12 @@ let ingestionDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<CreateNewIngestionSourceInput>.Name
         outputContract = typeof<IngestionSourceReturn>.Name
         handler = createNewSource }
+      
+      { domain = "Ingestion"
+        verb = "UpdateStageEntry"
+        description = "Manually update any aspect of a StageEntry. Warning: this can really screw stuff up. Measure twice, cut once."
+        inputContract = typeof<UpdateStageEntryInput>.Name
+        outputContract = typeof<StageEntryReturn>.Name
+        handler = updateStageEntry }
       
     ]
