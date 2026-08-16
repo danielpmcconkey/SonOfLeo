@@ -47,6 +47,10 @@
     <Compile Include="ModelOrchestrator\JournalEntryHeaderOrchestration.fs" />
     <Compile Include="ModelOrchestrator\JournalEntryOrchestration.fs" />
     <Compile Include="ModelOrchestrator\TrialBalance.fs" />
+    <Compile Include="ModelOrchestrator\StageEntryIngestion.fs" />
+    <Compile Include="ModelOrchestrator\StageEntryClassification.fs" />
+    <Compile Include="ModelOrchestrator\StageEntryUpdate.fs" />
+    <Compile Include="ModelOrchestrator\StageEntryPosting.fs" />
     <Compile Include="Model\Ledger\JournalEntryHeader.fs" />
     <Compile Include="Model\Ledger\JournalEntryExternalReference.fs" />
     <Compile Include="Model\Ledger\JournalEntryComment.fs" />
@@ -54,6 +58,7 @@
     <Compile Include="InterfaceBridge\FiscalPeriodRoutes.fs" />
     <Compile Include="InterfaceBridge\JournalEntryRoutes.fs" />
     <Compile Include="InterfaceBridge\ReportRoutes.fs" />
+    <Compile Include="InterfaceBridge\IngestionRoutes.fs" />
     <Compile Include="DataAccessLayer\DalTests.fs" />
   </ItemGroup>
 

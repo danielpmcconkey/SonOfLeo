@@ -86,7 +86,13 @@ type FixtureData =
       journalEntryComments: JournalEntryComment list
       ingestionSources: IngestionSource.IngestionSource list
       stageEntries: StageEntry list
-      classificationRules: ClassificationRule.ClassificationRule list }
+      classificationRules: ClassificationRule.ClassificationRule list
+      fullyAssignedStageEntry: StageEntry
+      needsClassificationStageEntry: StageEntry
+      classifiedStageEntry: StageEntry
+      reviewedStageEntry: StageEntry
+      ignoredStageEntry: StageEntry
+      closedPeriodStageEntry: StageEntry }
 
 type TestDataFixture() =
     let data =
@@ -776,6 +782,96 @@ type TestDataFixture() =
                           (451.00M, "Credit", None, None, None) ]
                         [(None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)]
                 stageEntries <- stageEntryDupOfPriorUnposted :: stageEntries
+
+                // fully parser-assigned entry (all lines have account codes) — tests REQ-STG-5.8
+                let! fullyAssignedStageEntry =
+                      createStageEntryForTest
+                        context
+                        "/tmp/this-file-doesnt-exist.dat"
+                        "Fully assigned by parser"
+                        (System.Guid.NewGuid().ToString())
+                        testBankSource
+                        yesterday
+                        [ (200.00M, "Debit", food5350 |> Account.code |> AccountCode.value |> Some, None, None)
+                          (200.00M, "Credit", moneyMarket1270 |> Account.code |> AccountCode.value |> Some, None, None) ]
+                        [(None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)]
+                stageEntries <- fullyAssignedStageEntry :: stageEntries
+
+                // needs-classification entry (one line has null account_code, desc matches DoorDash rule)
+                let! needsClassificationStageEntry =
+                      createStageEntryForTest
+                        context
+                        "/tmp/this-file-doesnt-exist.dat"
+                        "DD DoorDash Order 2024-12-15"
+                        (System.Guid.NewGuid().ToString())
+                        testBankSource
+                        yesterday
+                        [ (45.00M, "Debit", None, None, None)
+                          (45.00M, "Credit", moneyMarket1270 |> Account.code |> AccountCode.value |> Some, None, None) ]
+                        [(None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)]
+                stageEntries <- needsClassificationStageEntry :: stageEntries
+
+                // classified entry (all lines have codes, status Classified) — for posting tests
+                let! classifiedStageEntry =
+                      createStageEntryForTest
+                        context
+                        "/tmp/this-file-doesnt-exist.dat"
+                        "Classified entry for posting"
+                        (System.Guid.NewGuid().ToString())
+                        testBankSource
+                        yesterday
+                        [ (150.00M, "Debit", food5350 |> Account.code |> AccountCode.value |> Some, None, None)
+                          (150.00M, "Credit", moneyMarket1270 |> Account.code |> AccountCode.value |> Some, None, None) ]
+                        [ (None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)
+                          (Some (Ingested |> StagedEntryStatus.toString), Classified |> StagedEntryStatus.toString, Clock.now(), Classifier |> StageStatusChangeMechanism.toString) ]
+                stageEntries <- classifiedStageEntry :: stageEntries
+
+                // reviewed entry (all lines have codes, status Reviewed) — for posting tests
+                let reviewedContext = Context.create NoTransaction FetchOnly
+                let! reviewedStageEntry =
+                      createStageEntryForTest
+                        reviewedContext
+                        "/tmp/this-file-doesnt-exist.dat"
+                        "Reviewed entry for posting"
+                        (System.Guid.NewGuid().ToString())
+                        testBankSource
+                        yesterday
+                        [ (75.00M, "Debit", entertainment5650 |> Account.code |> AccountCode.value |> Some, None, None)
+                          (75.00M, "Credit", moneyMarket1270 |> Account.code |> AccountCode.value |> Some, None, None) ]
+                        [ (None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)
+                          (Some (Ingested |> StagedEntryStatus.toString), Classified |> StagedEntryStatus.toString, Clock.now(), Classifier |> StageStatusChangeMechanism.toString)
+                          (Some (Classified |> StagedEntryStatus.toString), Reviewed |> StagedEntryStatus.toString, Clock.now(), Operator |> StageStatusChangeMechanism.toString) ]
+                stageEntries <- reviewedStageEntry :: stageEntries
+
+                // ignored entry — for dedup testing (re-import of ignored entry should flag as dup)
+                let! ignoredStageEntry =
+                      createStageEntryForTest
+                        context
+                        "/tmp/this-file-doesnt-exist.dat"
+                        "Ignored entry for dedup"
+                        "IGNORED-REF-001"
+                        testBankSource
+                        yesterday
+                        [ (30.00M, "Debit", food5350 |> Account.code |> AccountCode.value |> Some, None, None)
+                          (30.00M, "Credit", moneyMarket1270 |> Account.code |> AccountCode.value |> Some, None, None) ]
+                        [ (None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)
+                          (Some (Ingested |> StagedEntryStatus.toString), Ignored |> StagedEntryStatus.toString, Clock.now(), Operator |> StageStatusChangeMechanism.toString) ]
+                stageEntries <- ignoredStageEntry :: stageEntries
+
+                // entry in closed fiscal period — for shadow post failure testing (REQ-STG-8.2)
+                let! closedPeriodStageEntry =
+                      createStageEntryForTest
+                        context
+                        "/tmp/this-file-doesnt-exist.dat"
+                        "Entry in closed period"
+                        (System.Guid.NewGuid().ToString())
+                        testBankSource
+                        closedPeriodEntryDate
+                        [ (50.00M, "Debit", food5350 |> Account.code |> AccountCode.value |> Some, None, None)
+                          (50.00M, "Credit", moneyMarket1270 |> Account.code |> AccountCode.value |> Some, None, None) ]
+                        [ (None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)
+                          (Some (Ingested |> StagedEntryStatus.toString), Reviewed |> StagedEntryStatus.toString, Clock.now(), Operator |> StageStatusChangeMechanism.toString) ]
+                stageEntries <- closedPeriodStageEntry :: stageEntries
                 
                 // =============================================================================
                 // Calculate aggregate totals for fetch tests
@@ -869,7 +965,13 @@ type TestDataFixture() =
                       journalEntryComments = journalEntryComments
                       ingestionSources = ingestionSources
                       stageEntries = stageEntries
-                      classificationRules = classificationRules }
+                      classificationRules = classificationRules
+                      fullyAssignedStageEntry = fullyAssignedStageEntry
+                      needsClassificationStageEntry = needsClassificationStageEntry
+                      classifiedStageEntry = classifiedStageEntry
+                      reviewedStageEntry = reviewedStageEntry
+                      ignoredStageEntry = ignoredStageEntry
+                      closedPeriodStageEntry = closedPeriodStageEntry }
             }
         stageResult |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
 

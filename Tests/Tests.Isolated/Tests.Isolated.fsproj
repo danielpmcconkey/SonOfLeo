@@ -27,6 +27,8 @@
     <Compile Include="Model\Ledger\JournalEntryExternalReference.fs" />
     <Compile Include="Model\Ledger\JournalEntryComment.fs" />
     <Compile Include="Model\Money.fs" />
+    <Compile Include="Model\DataIngestion\StageEntryStatusTransition.fs" />
+    <Compile Include="Model\DataIngestion\Classifier.fs" />
   </ItemGroup>
 
 </Project>
