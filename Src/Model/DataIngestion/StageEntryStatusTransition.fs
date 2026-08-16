@@ -143,9 +143,9 @@ let fetchById
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
-let fetchByHeaderId (context: Context.Context) (lineId: StageEntryHeaderId) : Result<StageEntryStatusTransition list, AppError> =
+let fetchByHeaderId (context: Context.Context) (headerId: StageEntryHeaderId) : Result<StageEntryStatusTransition list, AppError> =
     let predicate = "sea.entry_id = @unique_id"
-    let uuid = lineId |> StageEntryHeaderId.value
+    let uuid = headerId |> StageEntryHeaderId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
 

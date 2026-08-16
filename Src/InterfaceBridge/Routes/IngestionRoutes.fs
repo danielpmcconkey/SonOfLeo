@@ -33,7 +33,7 @@ let private ingestRawEntries payload _ =
                 linesStr
                 |> List.map(fun l -> l |> Json.fromJson<BaseStageRawRow>)
                 |> convertListOfResultsToResultsList
-            let! stagedEntries = baseStageRawRows |> ingestRawToStageThenDedupAndClassify context sourceFile
+            let! stagedEntries = baseStageRawRows |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
             let timeStamp = Clock.now() |> Clock.instantToString "yyyy-MM-dd.HHmmss.fff"
             let! moveToPath = createFullPath processedDir $"{timeStamp}-{input.fileName}"
             do! moveFile toBeProcessedPath moveToPath

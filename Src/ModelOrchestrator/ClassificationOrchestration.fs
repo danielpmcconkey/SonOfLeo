@@ -130,7 +130,7 @@ let updateLineWithMatch
     | Ok _ -> Ok ()
     | Error e -> Error e
 
-let updateDbFromResultsList
+let updateDbLinesFromResultsList
     (context: Context.Context)
     (results: ClassificationResult list)
     : Result<unit, AppError> =
@@ -151,6 +151,9 @@ let updateDbFromResultsList
         return ()
         }
     
+/// classifyMatchCandidatesAndUpdateLines only updates the lines. StageEntryOrchestration owns making sure that status
+/// transitions are viable. This runs the risk of an "orphan" line update if subsequent updates to the entry or audit
+/// table fail. But this should all be under one transaction. Caveat emptor if you use individual transactions for this.
 let classifyMatchCandidatesAndUpdateLines
     (context: Context.Context)
     (candidates: MatchCandidate list)

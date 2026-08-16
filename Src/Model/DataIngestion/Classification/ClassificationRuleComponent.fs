@@ -93,7 +93,8 @@ module ClassificationGroupConnector =
         | _ -> Error (IngestionInvalidClassificationGroupConnector str)
 
 type MatchCandidate = {
-        stageEntryLineId : StageEntryLineId
+        stageEntryHeaderId: StageEntryHeaderId
+        stageEntryLineId: StageEntryLineId
         ingestionSource: JournalRefFinancialInstitution
         description: JournalEntryDescription
         amount: Money
