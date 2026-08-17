@@ -181,3 +181,15 @@ type UpdateStageEntryInput = {
 }
 
 type PostStageEntriesInput = { isShadow: bool }
+
+type BaseStageRawRowInput = {
+    baseStageEntryGroupId : string
+    entryDate : LocalDate
+    description: string
+    fiSource: string
+    fiReference: string
+    amount : decimal
+    entryType : string
+    accountCode: string option
+    memo: string option
+}

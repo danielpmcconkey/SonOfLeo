@@ -3,6 +3,7 @@ module InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 open InterfaceBridge.InterfaceContracts.IngestionContracts
 open Model
 open Model.DataIngestion
+open Model.DataIngestion.BaseStageRaw
 open Model.DataIngestion.Classification
 open Model.DataIngestion.Classification.ClassificationRule
 open Model.DataIngestion.StageEntryHeader
@@ -329,4 +330,35 @@ let ``convert [UpdateStageEntryLineInput list] to [StageEntryLineFieldUpdates li
     : Result<StageEntryLineFieldUpdates list, AppError> =
     lines
     |> List.map ``convert [UpdateStageEntryLineInput] to [StageEntryLineFieldUpdates]``
+    |> convertListOfResultsToResultsList
+
+let ``convert [BaseStageRawRowInput] to [BaseStageRawRow]``
+    (rawInputRow: BaseStageRawRowInput)
+    : Result<BaseStageRawRow, AppError> =
+    result {
+        let! baseStageEntryGroupId = rawInputRow.baseStageEntryGroupId |> BaseStageEntryGroupId.create
+        let entryDate = rawInputRow.entryDate
+        let! description = rawInputRow.description |> JournalEntryDescription.create
+        let! fiSource = rawInputRow.fiSource |> JournalRefFinancialInstitution.create
+        let! fiReference = rawInputRow.fiReference |> JournalExternalReferenceText.create
+        let! amount = rawInputRow.amount |> Money.fromDecimal
+        let! entryType = rawInputRow.entryType |> JournalEntryLineType.fromString
+        let! accountCode = rawInputRow.accountCode |> convertOptionToDesiredTypeWithFallibleConverter AccountCode.create
+        let! memo = rawInputRow.memo |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
+        return {
+            baseStageEntryGroupId = baseStageEntryGroupId
+            entryDate = entryDate
+            description = description
+            fiSource = fiSource
+            fiReference = fiReference
+            amount = amount
+            entryType = entryType
+            accountCode = accountCode
+            memo = memo } }
+    
+let ``convert [BaseStageRawRowInput list] to [BaseStageRawRow list]``
+    (rawInputRows: BaseStageRawRowInput list)
+    : Result<BaseStageRawRow list, AppError> =
+    rawInputRows
+    |> List.map ``convert [BaseStageRawRowInput] to [BaseStageRawRow]``
     |> convertListOfResultsToResultsList

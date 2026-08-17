@@ -8,7 +8,6 @@ open InterfaceBridge.InterfaceContracts.IngestionContracts
 open Logger.Audit
 open Model
 open Model.DataIngestion
-open Model.DataIngestion.BaseStageRaw
 open Model.DataIngestion.Classification
 open Model.DataIngestion.StageEntryHeader
 open Model.Ledger.Accounts.AccountComponent
@@ -35,10 +34,13 @@ let private ingestRawEntries payload _ =
             do! confirmDirectoryExists processedDir
             let! sourceFile = toBeProcessedPath |> SourceFile.create
             let! linesStr = readTextFileLines toBeProcessedPath
-            let! baseStageRawRows =
+            let! baseStageRawRowInputs =
                 linesStr
-                |> List.map(fun l -> l |> Json.fromJson<BaseStageRawRow>)
+                |> List.map(fun l -> l |> Json.fromJson<BaseStageRawRowInput>)
                 |> convertListOfResultsToResultsList
+            let! baseStageRawRows =
+                baseStageRawRowInputs
+                |> ``convert [BaseStageRawRowInput list] to [BaseStageRawRow list]``
             let! fullResult =
                     baseStageRawRows
                     |> StageEntryOrchestration.ingestRawToStageThenDeduplicateAndClassify context sourceFile
