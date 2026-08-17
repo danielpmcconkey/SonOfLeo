@@ -213,7 +213,7 @@ let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, A
                 all_statuses.modified_at as earliest_status_time_stamp,
                 row_number() 
                     over (partition by s.unique_id, se.fi_reference 
-                    order by all_statuses.modified_at, se.unique_id) as ordinal
+                    order by all_statuses.modified_at nulls first, se.unique_id) as ordinal
             from ingestion.staged_entry se
             join ingestion.source s on se.source_id = s.unique_id
             left join all_statuses on se.unique_id = all_statuses.entry_id and all_statuses.ordinal = 1
@@ -221,7 +221,6 @@ let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, A
             select  distinct 
                 ais.stage_entry_id
             from all_in_stage ais
-            left join all_statuses on ais.stage_entry_id = all_statuses.entry_id and all_statuses.ordinal = 1 
             left join all_in_ledger ail -- note this join creates duplicates because 2 JEs can share the same FI and reference
                 on ais.source_name = ail.financial_institution
                 and ais.fi_reference = ail.reference
