@@ -42,8 +42,8 @@ let private ingestRawEntries payload _ =
                 baseStageRawRowInputs
                 |> ``convert [BaseStageRawRowInput list] to [BaseStageRawRow list]``
             let! fullResult =
-                    baseStageRawRows
-                    |> StageEntryOrchestration.ingestRawToStageThenDeduplicateAndClassify context sourceFile
+                baseStageRawRows
+                |> StageEntryOrchestration.ingestRawToStageThenDeduplicateAndClassify context sourceFile
             let timeStamp = Clock.now() |> Clock.instantToString "yyyy-MM-dd.HHmmss.fff"
             let! moveToPath = createFullPath processedDir $"{timeStamp}-{input.fileName}"
             do! moveFile toBeProcessedPath moveToPath
