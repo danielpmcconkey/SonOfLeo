@@ -2,6 +2,7 @@ module Tests.Isolated.Model.DataIngestion.StageEntryStatusTransition
 
 open Model.DataIngestion
 open Model.DataIngestion.StageEntryStatusTransition
+open Utilities.AppError
 open Xunit
 
 
@@ -11,39 +12,42 @@ open Xunit
 
 [<Fact>]
 let ``REQ-STG-4.1 StagedEntryStatus.fromString accepts Ingested`` () =
-    Assert.Fail "not implemented"
+    Assert.Equal(Ok Ingested, StagedEntryStatus.fromString "Ingested")
 
 [<Fact>]
 let ``REQ-STG-4.1 StagedEntryStatus.fromString accepts Classified`` () =
-    Assert.Fail "not implemented"
+    Assert.Equal(Ok Classified, StagedEntryStatus.fromString "Classified")
 
 [<Fact>]
 let ``REQ-STG-4.1 StagedEntryStatus.fromString accepts NoMatch`` () =
-    Assert.Fail "not implemented"
+    Assert.Equal(Ok NoMatch, StagedEntryStatus.fromString "NoMatch")
 
 [<Fact>]
 let ``REQ-STG-4.1 StagedEntryStatus.fromString accepts Conflict`` () =
-    Assert.Fail "not implemented"
+    Assert.Equal(Ok Conflict, StagedEntryStatus.fromString "Conflict")
 
 [<Fact>]
 let ``REQ-STG-4.1 StagedEntryStatus.fromString accepts Reviewed`` () =
-    Assert.Fail "not implemented"
+    Assert.Equal(Ok Reviewed, StagedEntryStatus.fromString "Reviewed")
 
 [<Fact>]
 let ``REQ-STG-4.1 StagedEntryStatus.fromString accepts Duplicate`` () =
-    Assert.Fail "not implemented"
+    Assert.Equal(Ok Duplicate, StagedEntryStatus.fromString "Duplicate")
 
 [<Fact>]
 let ``REQ-STG-4.1 StagedEntryStatus.fromString accepts Posted`` () =
-    Assert.Fail "not implemented"
+    Assert.Equal(Ok Posted, StagedEntryStatus.fromString "Posted")
 
 [<Fact>]
 let ``REQ-STG-4.1 StagedEntryStatus.fromString accepts Ignored`` () =
-    Assert.Fail "not implemented"
+    Assert.Equal(Ok Ignored, StagedEntryStatus.fromString "Ignored")
 
 [<Fact>]
 let ``REQ-STG-4.1 StagedEntryStatus.fromString rejects invalid string`` () =
-    Assert.Fail "not implemented"
+    match StagedEntryStatus.fromString "Bogus" with
+    | Error (IngestionInvalidStagedEntryStatus _) -> ()
+    | Error e -> Assert.Fail $"Wrong error: {AppError.toMessage e}"
+    | Ok _ -> Assert.Fail "Expected failure; got success"
 
 
 // =============================================================================
@@ -52,11 +56,20 @@ let ``REQ-STG-4.1 StagedEntryStatus.fromString rejects invalid string`` () =
 
 [<Fact>]
 let ``REQ-STG-4.1 StageStatusChangeMechanism.fromString accepts all valid values`` () =
-    Assert.Fail "not implemented"
+    let expected = [ StageIngestion; Classifier; Deduplicator; Operator; LedgerPoster ]
+    let inputs = [ "StageIngestion"; "Classifier"; "Deduplicator"; "Operator"; "LedgerPoster" ]
+    let results = inputs |> List.map StageStatusChangeMechanism.fromString
+    let allOk = results |> List.forall Result.isOk
+    Assert.True(allOk, "All valid mechanism strings should parse successfully")
+    let values = results |> List.map (fun r -> match r with Ok v -> v | Error _ -> failwith "impossible")
+    Assert.Equal<StageStatusChangeMechanism list>(expected, values)
 
 [<Fact>]
 let ``REQ-STG-4.1 StageStatusChangeMechanism.fromString rejects invalid string`` () =
-    Assert.Fail "not implemented"
+    match StageStatusChangeMechanism.fromString "Bogus" with
+    | Error (IngestionInvalidStageStatusChangeMechanism _) -> ()
+    | Error e -> Assert.Fail $"Wrong error: {AppError.toMessage e}"
+    | Ok _ -> Assert.Fail "Expected failure; got success"
 
 
 // =============================================================================
@@ -65,7 +78,8 @@ let ``REQ-STG-4.1 StageStatusChangeMechanism.fromString rejects invalid string``
 
 [<Fact>]
 let ``REQ-STG-4.2 validTransitions from Posted returns empty list`` () =
-    Assert.Fail "not implemented"
+    let transitions = validTransitions (Some Posted)
+    Assert.Empty(transitions)
 
 
 // =============================================================================
@@ -82,8 +96,15 @@ let ``REQ-STG-4.2 validTransitions from Posted returns empty list`` () =
 [<InlineData("Posted", 0)>]
 [<InlineData("Ignored", 1)>]
 let ``REQ-STG-4.2 validTransitions returns correct count for each status`` (statusStr: string, expectedCount: int) =
-    Assert.Fail "not implemented"
+    let status =
+        statusStr
+        |> StagedEntryStatus.fromString
+        |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+    let transitions = validTransitions (Some status)
+    Assert.Equal(expectedCount, transitions |> List.length)
 
 [<Fact>]
 let ``REQ-STG-4.2 validTransitions from None returns only Ingested`` () =
-    Assert.Fail "not implemented"
+    let transitions = validTransitions None
+    Assert.Equal(1, transitions |> List.length)
+    Assert.Equal(Ingested, transitions |> List.head)

@@ -86,13 +86,7 @@ type FixtureData =
       journalEntryComments: JournalEntryComment list
       ingestionSources: IngestionSource.IngestionSource list
       stageEntries: StageEntry list
-      classificationRules: ClassificationRule.ClassificationRule list
-      fullyAssignedStageEntry: StageEntry
-      needsClassificationStageEntry: StageEntry
-      classifiedStageEntry: StageEntry
-      reviewedStageEntry: StageEntry
-      ignoredStageEntry: StageEntry
-      closedPeriodStageEntry: StageEntry }
+      classificationRules: ClassificationRule.ClassificationRule list }
 
 type TestDataFixture() =
     let data =
@@ -392,7 +386,7 @@ type TestDataFixture() =
                 ingestionSources <- closedPeriodBankSource :: ingestionSources
                 
                 let voidedEntryBankStr = "VoidedEntryBank"
-                let! voidedEntryBankSource = testBankStr |> createIngestionSourceForTest context
+                let! voidedEntryBankSource = voidedEntryBankStr |> createIngestionSourceForTest context
                 ingestionSources <- voidedEntryBankSource :: ingestionSources
                 
 
@@ -696,182 +690,36 @@ type TestDataFixture() =
                         sourceVisaDescReiRuleGroup
                         true
                 classificationRules <- sourceVisaDescRei5650Rule :: classificationRules
-                
-                // =============================================================================
-                // Create test stage entities
-                // =============================================================================
-                    
-                let! duplicateStageEntry = // should be a duplicate
-                      createStageEntryForTest
-                        context
-                        "/tmp/this-file-doesnt-exist.dat"
-                        "Windex - is dup"
-                        "TXN-001" // same as jeWithRef
-                        testBankSource
-                        yesterday
-                        [ (50.00M, "Debit", rothIra1250 |> Account.code |> AccountCode.value |> Some, None, None)
-                          (50.00M, "Credit", None, None, None) ]
-                        [(None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)]
-                stageEntries <- duplicateStageEntry :: stageEntries
-                
-                let! stageEntryWithSameAmountDateAndDescButDiffRef = // unique
-                      createStageEntryForTest
-                        context
-                        "/tmp/this-file-doesnt-exist.dat"
-                        "Windex - not dup"
-                        (System.Guid.NewGuid().ToString()) // definitely not a duplicate
-                        testBankSource
-                        yesterday
-                        [ (50.00M, "Debit", rothIra1250 |> Account.code |> AccountCode.value |> Some, None, None)
-                          (50.00M, "Credit", None, None, None) ]
-                        [(None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)]
-                stageEntries <- stageEntryWithSameAmountDateAndDescButDiffRef :: stageEntries
-                
-                let! stageEntryWithSameRefDiffOtherStuff = // still counts as a duplicate
-                      createStageEntryForTest
-                        context
-                        "/tmp/this-file-doesnt-exist.dat"
-                        "Fixture JE in closed period - is dup"
-                        "CLOSED-REF-001" // same as jeInClosedPeriod
-                        closedPeriodBankSource
-                        lastYear
-                        [ (23.00M, "Debit", mortgage2210 |> Account.code |> AccountCode.value |> Some, None, None)
-                          (23.00M, "Credit", None, None, None) ]
-                        [(None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)]
-                stageEntries <- stageEntryWithSameRefDiffOtherStuff :: stageEntries
-                
-                let! stageEntryMatchesVoidedJe = // shouldn't counts as a duplicate
-                      createStageEntryForTest
-                        context
-                        "/tmp/this-file-doesnt-exist.dat"
-                        "Blow gun and darts - not dup"
-                        "VOIDED-REF-001" // same as jeToVoid
-                        testBankSource
-                        today
-                        [ (75.00M, "Debit", entertainment5650 |> Account.code |> AccountCode.value |> Some, None, None)
-                          (75.00M, "Credit", None, None, None) ]
-                        [(None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)]
-                stageEntries <- stageEntryMatchesVoidedJe :: stageEntries
-                
-                let reusableRef = System.Guid.NewGuid().ToString()
-                
-                let! stageEntryPriorUnposted = // shouldn't counts as a duplicate
-                      createStageEntryForTest
-                        context
-                        "/tmp/this-file-doesnt-exist.dat"
-                        "Ultra Big Ass Fries - not dup"
-                        reusableRef
-                        testBankSource
-                        lastYear
-                        [ (451.00M, "Debit", food5350 |> Account.code |> AccountCode.value |> Some, None, None)
-                          (451.00M, "Credit", None, None, None) ]
-                        [(None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)]
-                stageEntries <- stageEntryPriorUnposted :: stageEntries
-                
-                // create a new context so the timestamp on the status entry is later
-                let laterContext = Context.create NoTransaction FetchOnly
-                let! stageEntryDupOfPriorUnposted = // counts as a duplicate
-                      createStageEntryForTest
-                        laterContext
-                        "/tmp/this-file-doesnt-exist.dat"
-                        "Ultra Big Ass Fries - is dup"
-                        reusableRef
-                        testBankSource
-                        lastYear
-                        [ (451.00M, "Debit", food5350 |> Account.code |> AccountCode.value |> Some, None, None)
-                          (451.00M, "Credit", None, None, None) ]
-                        [(None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)]
-                stageEntries <- stageEntryDupOfPriorUnposted :: stageEntries
 
-                // fully parser-assigned entry (all lines have account codes) — tests REQ-STG-5.8
-                let! fullyAssignedStageEntry =
-                      createStageEntryForTest
+                // Allstate conflict rules — two rules at same priority for grp-006 conflict testing
+                let! descAllstateMatchPattern = StringSearchPattern.create "^ALLSTATE"
+                let descAllstateMatch = FieldMatch.Description(descAllstateMatchPattern)
+                let (allstateRuleGroup: (string * FieldMatch list * FieldMatch list option) list) =
+                    [("And", [sourceCheckingAccountMatch; descAllstateMatch], None)]
+                let! allstate5300Rule =
+                    createClassificationRuleForTest
                         context
-                        "/tmp/this-file-doesnt-exist.dat"
-                        "Fully assigned by parser"
-                        (System.Guid.NewGuid().ToString())
-                        testBankSource
-                        yesterday
-                        [ (200.00M, "Debit", food5350 |> Account.code |> AccountCode.value |> Some, None, None)
-                          (200.00M, "Credit", moneyMarket1270 |> Account.code |> AccountCode.value |> Some, None, None) ]
-                        [(None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)]
-                stageEntries <- fullyAssignedStageEntry :: stageEntries
+                        "Allstate Insurance to 5300"
+                        (personalExpenses5300 |> Account.code |> AccountCode.value)
+                        500
+                        allstateRuleGroup
+                        true
+                classificationRules <- allstate5300Rule :: classificationRules
 
-                // needs-classification entry (one line has null account_code, desc matches DoorDash rule)
-                let! needsClassificationStageEntry =
-                      createStageEntryForTest
+                let! allstate5650Rule =
+                    createClassificationRuleForTest
                         context
-                        "/tmp/this-file-doesnt-exist.dat"
-                        "DD DoorDash Order 2024-12-15"
-                        (System.Guid.NewGuid().ToString())
-                        testBankSource
-                        yesterday
-                        [ (45.00M, "Debit", None, None, None)
-                          (45.00M, "Credit", moneyMarket1270 |> Account.code |> AccountCode.value |> Some, None, None) ]
-                        [(None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)]
-                stageEntries <- needsClassificationStageEntry :: stageEntries
+                        "Allstate Insurance to 5650"
+                        (entertainment5650 |> Account.code |> AccountCode.value)
+                        500
+                        allstateRuleGroup
+                        true
+                classificationRules <- allstate5650Rule :: classificationRules
 
-                // classified entry (all lines have codes, status Classified) — for posting tests
-                let! classifiedStageEntry =
-                      createStageEntryForTest
-                        context
-                        "/tmp/this-file-doesnt-exist.dat"
-                        "Classified entry for posting"
-                        (System.Guid.NewGuid().ToString())
-                        testBankSource
-                        yesterday
-                        [ (150.00M, "Debit", food5350 |> Account.code |> AccountCode.value |> Some, None, None)
-                          (150.00M, "Credit", moneyMarket1270 |> Account.code |> AccountCode.value |> Some, None, None) ]
-                        [ (None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)
-                          (Some (Ingested |> StagedEntryStatus.toString), Classified |> StagedEntryStatus.toString, Clock.now(), Classifier |> StageStatusChangeMechanism.toString) ]
-                stageEntries <- classifiedStageEntry :: stageEntries
-
-                // reviewed entry (all lines have codes, status Reviewed) — for posting tests
-                let reviewedContext = Context.create NoTransaction FetchOnly
-                let! reviewedStageEntry =
-                      createStageEntryForTest
-                        reviewedContext
-                        "/tmp/this-file-doesnt-exist.dat"
-                        "Reviewed entry for posting"
-                        (System.Guid.NewGuid().ToString())
-                        testBankSource
-                        yesterday
-                        [ (75.00M, "Debit", entertainment5650 |> Account.code |> AccountCode.value |> Some, None, None)
-                          (75.00M, "Credit", moneyMarket1270 |> Account.code |> AccountCode.value |> Some, None, None) ]
-                        [ (None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)
-                          (Some (Ingested |> StagedEntryStatus.toString), Classified |> StagedEntryStatus.toString, Clock.now(), Classifier |> StageStatusChangeMechanism.toString)
-                          (Some (Classified |> StagedEntryStatus.toString), Reviewed |> StagedEntryStatus.toString, Clock.now(), Operator |> StageStatusChangeMechanism.toString) ]
-                stageEntries <- reviewedStageEntry :: stageEntries
-
-                // ignored entry — for dedup testing (re-import of ignored entry should flag as dup)
-                let! ignoredStageEntry =
-                      createStageEntryForTest
-                        context
-                        "/tmp/this-file-doesnt-exist.dat"
-                        "Ignored entry for dedup"
-                        "IGNORED-REF-001"
-                        testBankSource
-                        yesterday
-                        [ (30.00M, "Debit", food5350 |> Account.code |> AccountCode.value |> Some, None, None)
-                          (30.00M, "Credit", moneyMarket1270 |> Account.code |> AccountCode.value |> Some, None, None) ]
-                        [ (None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)
-                          (Some (Ingested |> StagedEntryStatus.toString), Ignored |> StagedEntryStatus.toString, Clock.now(), Operator |> StageStatusChangeMechanism.toString) ]
-                stageEntries <- ignoredStageEntry :: stageEntries
-
-                // entry in closed fiscal period — for shadow post failure testing (REQ-STG-8.2)
-                let! closedPeriodStageEntry =
-                      createStageEntryForTest
-                        context
-                        "/tmp/this-file-doesnt-exist.dat"
-                        "Entry in closed period"
-                        (System.Guid.NewGuid().ToString())
-                        testBankSource
-                        closedPeriodEntryDate
-                        [ (50.00M, "Debit", food5350 |> Account.code |> AccountCode.value |> Some, None, None)
-                          (50.00M, "Credit", moneyMarket1270 |> Account.code |> AccountCode.value |> Some, None, None) ]
-                        [ (None, Ingested |> StagedEntryStatus.toString, Clock.now(), StageIngestion |> StageStatusChangeMechanism.toString)
-                          (Some (Ingested |> StagedEntryStatus.toString), Reviewed |> StagedEntryStatus.toString, Clock.now(), Operator |> StageStatusChangeMechanism.toString) ]
-                stageEntries <- closedPeriodStageEntry :: stageEntries
+                // TestSavings source — no classification rules, used for NoMatch testing
+                let testSavingsStr = "TestSavings"
+                let! testSavingsSource = testSavingsStr |> createIngestionSourceForTest context
+                ingestionSources <- testSavingsSource :: ingestionSources
                 
                 // =============================================================================
                 // Calculate aggregate totals for fetch tests
@@ -965,13 +813,7 @@ type TestDataFixture() =
                       journalEntryComments = journalEntryComments
                       ingestionSources = ingestionSources
                       stageEntries = stageEntries
-                      classificationRules = classificationRules
-                      fullyAssignedStageEntry = fullyAssignedStageEntry
-                      needsClassificationStageEntry = needsClassificationStageEntry
-                      classifiedStageEntry = classifiedStageEntry
-                      reviewedStageEntry = reviewedStageEntry
-                      ignoredStageEntry = ignoredStageEntry
-                      closedPeriodStageEntry = closedPeriodStageEntry }
+                      classificationRules = classificationRules }
             }
         stageResult |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
 
