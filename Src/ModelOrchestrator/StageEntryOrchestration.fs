@@ -410,12 +410,15 @@ let ingestRawToStageThenDeduplicateAndClassify
             |> List.collect statusTransitions
             |> List.map(fun l -> l |> StageEntryStatusTransition.insertNewToDb context )
             |> convertListOfResultsToResultsList
-        let! newDuplicates = deduplicateStagedEntries context
+        // update the context's audit date between major operations
+        let contextAfterLoad = context |> Context.updateInitiationInstant 
+        let! newDuplicates = deduplicateStagedEntries contextAfterLoad
         // re-fetch because we only want the de-duplicated list
-        let! deduplicated = sourceFile |> fetchAllByFile context (Some[Ingested])
-        let! classificationResults = deduplicated |> classifyStagedEntries context
+        let! deduplicated = sourceFile |> fetchAllByFile contextAfterLoad (Some[Ingested])
+        let contextAfterDedup = contextAfterLoad |> Context.updateInitiationInstant 
+        let! classificationResults = deduplicated |> classifyStagedEntries contextAfterDedup
         // re-fetch because the deduplication and classification altered everything
-        let! classified = sourceFile |> fetchAllByFile context None
+        let! classified = sourceFile |> fetchAllByFile contextAfterDedup None
         return { stagedEntries = classified
                  newDuplicates = newDuplicates
                  classificationResults =  classificationResults } 
