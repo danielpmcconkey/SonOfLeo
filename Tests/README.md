@@ -21,6 +21,8 @@ discovered. The fixture itself is shared; the two-line collection declaration is
 
 The various tests are stratified into layers that roughly follow the trajectory of core Model type tests -> user interface tests. The idea is that you test every happy path at each layer, but test every failure point only once, and at the lowest possible layer. Example, if you've already tested that the ModelOrchestrator.AccountBalance.fetchByAccountIdList excludes voided journal entries in its calculations, you should not also test that same concept in the UI functions that call that fetch.
 
+**A failure vector is a failed user interaction, not a technical failure mode.** The two are easy to conflate, and the difference decides the layer. "`Money.fromDecimal` rejects sub-cent precision" is one vector, and its lowest possible layer is an isolated `Money` test. "A caller posting a journal entry with a bad amount gets back an error naming the amount" is a *different* vector — different actor, different bad day — and its lowest possible layer is the route, because the route is the lowest place a caller exists. Testing both is not testing one vector twice. See `CompoundedLearnings/articles/testing/failure-vector-is-a-user-interaction.md`.
+
 Listed highest to lowest:
 1. Tests.Integrated.SonOfLeoCli
 2. Tests.Integrated.InterfaceBridge
@@ -156,7 +158,7 @@ break some later test's count. It does not exist to leave a clean database behin
 
 ## Bullshit test practices (unacceptable and deserving of ridicule)
 - Do not test the same thing twice. Ex: "Test that invalid input fails" by using an empty string in the "source" field and then "Test that empty source string fails" further down the file.
-- Do not test all possible failure vectors at all levels. All vectors should be tested, but only once, at their lowest possible level.
+- Do not test all possible failure vectors at all levels. All vectors should be tested, but only once, at their lowest possible level. Count vectors as user interactions before you decide a route-level case is redundant — see the hierarchy section above.
 - Do not assert failure without asserting an exact error. The wrong error code may be "only unhelpful" but it could also be masking a deeper problem.
 - Do not assert imprecise counts (number on Asset accounts > 2). I want to know that you know you should have 6 and expect exactly 6.
 - Do not write tests unless you have a behavioral REQ to cite. If the code you are testing does something uncited by the REQs, stop and point that out. Likely an REQ needs to be added.

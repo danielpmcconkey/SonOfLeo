@@ -92,6 +92,12 @@ rules govern it:
    re-tested at orchestration. Orchestration-level sad paths cover only failures that
    *emerge* at orchestration — line count, debit/credit balance, fiscal period state,
    cross-entity checks.
+4. **Count vectors as user interactions, not failure modes.** "The constructor rejects a bad
+   value" and "the caller gets back an error naming the field they got wrong" are two
+   vectors, not one — so rule 3 places them at two different lowest layers, isolated and
+   InterfaceBridge. Read
+   `CompoundedLearnings/articles/testing/failure-vector-is-a-user-interaction.md` before
+   deleting or waiving a route-level validation case as redundant.
 
 A REQ about optionality may turn out to be enforced at the boundary, or by the type system,
 and need no test at all.
