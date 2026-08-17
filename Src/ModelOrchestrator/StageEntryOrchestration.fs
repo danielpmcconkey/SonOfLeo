@@ -223,6 +223,7 @@ let fetchAllByFile
     : Result<StageEntry list, AppError> =
     result {
         let! headers = sourceFile |> StageEntryHeader.fetchBySourceFile context statusFilter
+        if headers |> List.isEmpty then return [] else
         let! lines = headers |> fetchAllLinesByHeaders context
         let! statuses = headers |> fetchAllTransitionsByHeaders context
         return compileFromSubLists headers lines statuses
