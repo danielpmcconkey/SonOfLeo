@@ -235,6 +235,7 @@ let fetchAllForPosting
         let! headersReviewed = StageEntryHeader.fetchByStatus context StagedEntryStatus.Reviewed
         let! headersClassified = StageEntryHeader.fetchByStatus context StagedEntryStatus.Classified
         let headersToBePosted = headersReviewed @ headersClassified
+        if headersToBePosted |> List.isEmpty then return [] else
         let headerIds = 
             headersToBePosted
             |> List.map (fun x -> x|> StageEntryHeader.stageEntryHeaderId)
@@ -528,6 +529,7 @@ let post
     : Result<unit, AppError> =
     result {
         let! stageEntries = fetchAllForPosting context
+        if stageEntries |> List.isEmpty then return () else
         let! jeHeaderSource =
             Some "Data ingestion import"
             |> convertOptionToDesiredTypeWithFallibleConverter JournalEntrySource.create
