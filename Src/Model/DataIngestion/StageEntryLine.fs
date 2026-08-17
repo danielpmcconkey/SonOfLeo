@@ -36,11 +36,6 @@ let accountCode l = l.accountCode
 let memo l = l.memo 
 let classificationRuleId l = l.classificationRuleId
 
-let confirmAmountIsPositive (m: Money) : Result<unit, AppError> =
-    if m |> Money.amount <= 0M
-    then Error(IngestionStageLineNonPositiveAmount(m |> Money.amount))
-    else Ok()
-
 let create
     (stageEntryLineId: StageEntryLineId)
     (stageEntryHeaderId: StageEntryHeaderId)
