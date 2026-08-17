@@ -195,7 +195,7 @@ let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, A
                 modified_at,
                 row_number() over (partition by entry_id order by modified_at asc) as ordinal        
             from ingestion.staged_entry_audit
-        ), in_ledger_already as (
+        ), all_in_ledger as (
             select 
                 jex.journal_entry_id,
                 jex.financial_institution,
@@ -203,33 +203,30 @@ let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, A
             from ledger.journal_entry_ext_reference jex
             left join ledger.journal_entry je on jex.journal_entry_id = je.unique_id
             where je.voided_at is null
-        ), in_stage_already as (
+        ), all_in_stage as (
             select 
                 se.unique_id as stage_entry_id,
                 s.source_name,
                 se.fi_reference,
                 se.description as stage_entry_description,
                 se.status as stage_entry_status,
-                all_statuses.modified_at as earliest_status_time_stamp
+                all_statuses.modified_at as earliest_status_time_stamp,
+                row_number() 
+                    over (partition by s.unique_id, se.fi_reference 
+                    order by all_statuses.modified_at, se.unique_id) as ordinal
             from ingestion.staged_entry se
             join ingestion.source s on se.source_id = s.unique_id
             left join all_statuses on se.unique_id = all_statuses.entry_id and all_statuses.ordinal = 1
         ), duplicates as (
-            select distinct 
-                se.unique_id as stage_entry_id
-            from ingestion.staged_entry se
-            join ingestion.source s on se.source_id = s.unique_id
-            left join in_ledger_already ila -- note this join creates duplicates because 2 JEs can share the same FI and reference
-                on s.source_name = ila.financial_institution
-                and se.fi_reference = ila.reference
-            left join all_statuses on se.unique_id = all_statuses.entry_id and all_statuses.ordinal = 1
-            left join in_stage_already isa -- note this join creates duplicates a row can be duplicated mulitple times
-                on s.source_name = isa.source_name
-                and se.fi_reference = isa.fi_reference
-                and isa.earliest_status_time_stamp < all_statuses.modified_at -- not <= because that would join to itself
-            where 1 = 1
-            and se.status not in ('Duplicate', 'Posted', 'Ignored')
-            and (ila.financial_institution is not null or isa.source_name is not null)
+            select  distinct 
+                ais.stage_entry_id
+            from all_in_stage ais
+            left join all_statuses on ais.stage_entry_id = all_statuses.entry_id and all_statuses.ordinal = 1 
+            left join all_in_ledger ail -- note this join creates duplicates because 2 JEs can share the same FI and reference
+                on ais.source_name = ail.financial_institution
+                and ais.fi_reference = ail.reference
+            where ais.stage_entry_status not in ('Duplicate', 'Posted', 'Ignored')
+            and (ais.ordinal > 1 or ail.journal_entry_id is not null)
         )
         select 
             e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, e.status,
