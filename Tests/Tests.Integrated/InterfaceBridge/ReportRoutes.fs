@@ -21,7 +21,13 @@ open Xunit
 type ReportRoutesTests(fixture: TestDataFixture) =
 
     let nextMonth = Calendar.today().PlusMonths(1)
-    let testOutputDir = "/tmp/son-of-leo-test-output"
+    (* A container-local scratch directory. /tmp does not survive a container restart, so
+       the directory is created here rather than assumed; each test deletes the file it
+       wrote. *)
+    let testOutputDir =
+        let dir = "/tmp/son-of-leo-test-output"
+        System.IO.Directory.CreateDirectory dir |> ignore
+        dir
 
     [<Fact>]
     member _.``REQ-RPT-2.2 data-only mode returns boundary-type rows with expected field types``() =
