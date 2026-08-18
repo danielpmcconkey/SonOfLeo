@@ -79,9 +79,8 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let firstLine = entry |> lines |> List.head
                 let lineId = firstLine |> StageEntryLine.stageEntryLineId
-                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with accountCodeUpdate = SetTo (Some newCode) } ]
-                let! updated = updateStageEntry context headerUpdates lineUpdates
+                let! updated = updateStageEntry context (noChangeHeaderUpdates headerId) lineUpdates
                 let updatedLine =
                     updated |> lines
                     |> List.find (fun l -> l |> StageEntryLine.stageEntryLineId = lineId)
@@ -102,9 +101,8 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let debitLine = entry |> lines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
                 let lineId = debitLine |> StageEntryLine.stageEntryLineId
-                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with accountCodeUpdate = SetTo (Some newCode) } ]
-                let! updated = updateStageEntry context headerUpdates lineUpdates
+                let! updated = updateStageEntry context (noChangeHeaderUpdates headerId) lineUpdates
                 let updatedLine =
                     updated |> lines
                     |> List.find (fun l -> l |> StageEntryLine.stageEntryLineId = lineId)
