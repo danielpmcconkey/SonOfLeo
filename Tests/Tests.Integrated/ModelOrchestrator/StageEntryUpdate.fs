@@ -42,6 +42,27 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
 
 
     // =========================================================================
+    // REQ-STG-6.2 — An update that sets nothing
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-STG-6.2 updateStageEntry rejects an update that changes no field`` () =
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let! fullResult = StageTestData.runPipeline context
+                let entry = fullResult.stagedEntries |> StageTestData.findByDescription "MARATHON PETRO 7218 ANYTOWN US"
+                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let lineId = entry |> lines |> List.head |> StageEntryLine.stageEntryLineId
+                return!
+                    match updateStageEntry context (noChangeHeaderUpdates headerId) [ noChangeLineUpdates lineId ] with
+                    | Error IngestionUpdateStageEntryNoOp -> Ok ()
+                    | Error e -> Error (TestingError $"Wrong error: {AppError.toMessage e}")
+                    | Ok _ -> Error (TestingError "Expected failure; got success")
+            })
+        |> railroadWrapper
+
+
+    // =========================================================================
     // REQ-STG-6.1 — Override account_code on a staged line
     // =========================================================================
 

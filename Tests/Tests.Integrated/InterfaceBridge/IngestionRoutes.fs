@@ -222,8 +222,6 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                   None ]
         assertRouteRejects $"ingestion-route-{expectedError}.jsonl" rows expectedError
 
-    (* The route rejects an update whose header is entirely NoChange, so neither call below
-       can be a line-only edit. See BdsNotes/finding-2026-08-18-update-route-header-required.md. *)
     [<Fact>]
     member _.``REQ-STG-6.1 REQ-STG-6.2 UpdateStageEntry route happy path`` () =
         let fileName = "ingestion-route-update.jsonl"
@@ -273,15 +271,14 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                 Assert.Equal(Some "F-5650", afterReview |> codeOf)
                 Assert.Equal("Reviewed", afterReview.stageEntryHeader.status)
                 (* REQ-STG-6.2: the system validates the result but does not infer status from
-                   the operator's changes. A second override with status left alone must not
-                   move the entry anywhere. The description is re-set to the value it already
-                   holds purely to give the header something to update. *)
+                   the operator's changes. A line-only override must leave the entry where the
+                   operator put it. *)
                 let! afterSecondOverride =
                     updateThroughRoute
                         { stageEntryHeaderId = headerId
                           sourceFileUpdate = NoChange
                           entryDate = NoChange
-                          description = SetTo description
+                          description = NoChange
                           ingestionSource = NoChange
                           fiReference = NoChange
                           status = NoChange
