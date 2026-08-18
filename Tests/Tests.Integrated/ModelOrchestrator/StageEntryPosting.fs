@@ -7,8 +7,10 @@ open Model.DataIngestion
 open Model.DataIngestion.StageEntryHeader
 open Model.DataIngestion.StageEntryLine
 open Model.DataIngestion.StageEntryStatusTransition
+open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.FiscalPeriods
+open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.StageEntryOrchestration
 open ModelOrchestrator.TrialBalanceReport
@@ -30,31 +32,58 @@ module PostedJournalEntry =
     let fetchByFiReference context financialInstitution fiReference =
         fetchByReference context (Some financialInstitution) (Some fiReference)
 
+    let fetchOnDate context (date: NodaTime.LocalDate) = fetchByDateRange context date date
+
+    let headerOf journalEntry = journalEntry |> header
+    let linesOf journalEntry = journalEntry |> lines
+    let externalReferencesOf journalEntry = journalEntry |> externalReferences
+
     let lineCount journalEntry = journalEntry |> lines |> List.length
 
 
 [<Collection("SharedTestData")>]
 type StageEntryPostingTests(fixture: TestDataFixture) =
 
+    (* Posting one staged entry and then finding what the ledger made of it needs a locator,
+       and the locator can never be a field the calling test asserts on — searching by a value
+       and then asserting the row carries that value proves only that the filter works. So
+       there are two locators, and each test takes the one that does not overlap its own
+       requirement: the header-mapping test owns description and entry date, the external
+       reference test owns the reference, and neither may look itself up. The requirements are
+       named in prose rather than by ID because the traceability audit greps whole files, and
+       an ID in a comment reads to it as a test annotation. *)
+    static let postStagedEntry context entry =
+        result {
+            let! jeSource =
+                Some "Data ingestion import"
+                |> convertOptionToDesiredTypeWithFallibleConverter JournalEntrySource.create
+            do! entry |> postStageEntry context jeSource
+        }
 
-    // =========================================================================
-    // REQ-STG-8.1 REQ-STG-8.4 — Shadow post does not modify ledger or staging
-    // =========================================================================
+    static let postThenFetchByExternalReference context entry =
+        result {
+            do! entry |> postStagedEntry context
+            let staged = entry |> stageEntryHeader
+            let fi = staged |> StageEntryHeader.ingestionSource |> IngestionSource.name
+            let fiReference = staged |> StageEntryHeader.fiReference
+            let! posted = PostedJournalEntry.fetchByFiReference context fi fiReference
+            Assert.Equal(1, posted |> List.length)
+            return posted |> List.head
+        }
 
-    [<Fact>]
-    member _.``REQ-STG-8.1 REQ-STG-8.4 shadow post does not create journal entries or change staging statuses`` () =
-        runCommandRouteAndAutoRollback IngestShadowPostStageEntries (fun context ->
-            result {
-                let! _ = StageTestData.runPipeline context
-                let contextForPost = context |> Context.updateInitiationInstant
-                let! postablesBefore = fetchAllForPosting contextForPost
-                let postableCountBefore = postablesBefore |> List.length
-                Assert.True(postableCountBefore > 0, "Need postable entries for this test")
-                do! ModelOrchestrator.StageEntryOrchestration.post contextForPost
-                let! postablesAfterPost = fetchAllForPosting contextForPost
-                Assert.Equal(0, postablesAfterPost |> List.length)
-            })
-        |> railroadWrapper
+    static let postThenFetchByDateAndDescription context entry =
+        result {
+            do! entry |> postStagedEntry context
+            let staged = entry |> stageEntryHeader
+            let description = staged |> StageEntryHeader.description
+            let! onThatDate = staged |> StageEntryHeader.entryDate |> PostedJournalEntry.fetchOnDate context
+            let matching =
+                onThatDate
+                |> List.filter (fun journalEntry ->
+                    journalEntry |> PostedJournalEntry.headerOf |> JournalEntryHeader.description = description)
+            Assert.Equal(1, matching |> List.length)
+            return matching |> List.head
+        }
 
 
     // =========================================================================
@@ -155,10 +184,15 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
             result {
                 let! fullResult = StageTestData.runPipeline context
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "HARRIS TEETER 0381 ANYTOWN US"
-                let! jeSource =
-                    Some "Data ingestion import"
-                    |> convertOptionToDesiredTypeWithFallibleConverter JournalEntrySource.create
-                do! postStageEntry context jeSource entry
+                let staged = entry |> stageEntryHeader
+                let! posted = entry |> postThenFetchByExternalReference context
+                let postedHeader = posted |> PostedJournalEntry.headerOf
+                Assert.Equal(
+                    staged |> StageEntryHeader.description |> JournalEntryDescription.value,
+                    postedHeader |> JournalEntryHeader.description |> JournalEntryDescription.value)
+                Assert.Equal(
+                    staged |> StageEntryHeader.entryDate,
+                    postedHeader |> JournalEntryHeader.entryDate |> EntryDate.entryDate)
             })
         |> railroadWrapper
 
@@ -168,15 +202,42 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-9.4 batch post resolves account codes to IDs`` () =
+    member _.``REQ-STG-9.4 posted JE lines carry the resolved account, amount, line type, and memo of each staged line`` () =
         runCommandRouteAndAutoRollback IngestPostStageEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
-                let entry = fullResult.stagedEntries |> StageTestData.findByDescription "HARRIS TEETER 0381 ANYTOWN US"
-                let! jeSource =
-                    Some "Data ingestion import"
-                    |> convertOptionToDesiredTypeWithFallibleConverter JournalEntrySource.create
-                do! postStageEntry context jeSource entry
+                (* The payroll group is the only fixture group whose lines differ from each
+                   other in account, amount, and memo all at once, so a mapping that crosses
+                   two lines cannot survive it. *)
+                let entry = fullResult.stagedEntries |> StageTestData.findByDescription "PAYROLL DEPOSIT ACME CORP"
+                (* The account ID is resolved from the fixture's own chart of accounts rather
+                   than from the lookup the poster uses, so a broken resolution cannot agree
+                   with itself. *)
+                let accountIdOfCode code =
+                    fixture.Data.accounts
+                    |> List.find (fun account -> account |> Account.code = code)
+                    |> Account.accountId
+                    |> AccountId.value
+                let expected =
+                    entry
+                    |> lines
+                    |> List.map (fun line ->
+                        line |> StageEntryLine.accountCode |> Option.get |> accountIdOfCode,
+                        line |> StageEntryLine.amount |> Money.amount,
+                        line |> StageEntryLine.lineType,
+                        line |> StageEntryLine.memo |> Option.map JournalEntryLineMemo.value)
+                    |> List.sort
+                let! posted = entry |> postThenFetchByExternalReference context
+                let actual =
+                    posted
+                    |> PostedJournalEntry.linesOf
+                    |> List.map (fun line ->
+                        line |> JournalEntryLine.accountId |> AccountId.value,
+                        line |> JournalEntryLine.amount |> Money.amount,
+                        line |> JournalEntryLine.lineType,
+                        line |> JournalEntryLine.memo |> Option.map JournalEntryLineMemo.value)
+                    |> List.sort
+                Assert.Equal<_ list>(expected, actual)
             })
         |> railroadWrapper
 
@@ -218,15 +279,26 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-9.5 posted JE has external reference with source name and fi_reference`` () =
+    member _.``REQ-STG-9.5 posted JE carries one external reference built from the staged source name and fi_reference`` () =
         runCommandRouteAndAutoRollback IngestPostStageEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "SPECTRUM SOUTHEAST 800-892-2253"
-                let! jeSource =
-                    Some "Data ingestion import"
-                    |> convertOptionToDesiredTypeWithFallibleConverter JournalEntrySource.create
-                do! postStageEntry context jeSource entry
+                let staged = entry |> stageEntryHeader
+                let! posted = entry |> postThenFetchByDateAndDescription context
+                let externalReferences = posted |> PostedJournalEntry.externalReferencesOf
+                Assert.Equal(1, externalReferences |> List.length)
+                let externalReference = externalReferences |> List.head
+                Assert.Equal(
+                    staged |> StageEntryHeader.ingestionSource |> IngestionSource.name |> JournalRefFinancialInstitution.value,
+                    externalReference
+                    |> JournalEntryExternalReference.financialInstitution
+                    |> JournalRefFinancialInstitution.value)
+                Assert.Equal(
+                    staged |> StageEntryHeader.fiReference |> JournalExternalReferenceText.value,
+                    externalReference
+                    |> JournalEntryExternalReference.referenceText
+                    |> JournalExternalReferenceText.value)
             })
         |> railroadWrapper
 
@@ -257,29 +329,12 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
 
-    // =========================================================================
-    // REQ-STG-9.8 — All-or-nothing batch post
-    // =========================================================================
-
-    [<Fact>]
-    member _.``REQ-STG-9.8 batch post rolls back all entries when one fails domain validation`` () =
-        runCommandRouteAndAutoRollback IngestPostStageEntries (fun context ->
-            result {
-                // ingest an entry in the closed period so it's postable but will fail
-                let closedPeriodDate =
-                    (fixture.Data.closedFiscalPeriod |> FiscalPeriod.startDate).PlusDays(14)
-                let! sourceFile = "/tmp/test-batch-fail.jsonl" |> SourceFile.create
-                let! row1 = StageTestData.makeRawRow "grp-bf" closedPeriodDate "Batch fail entry" "TestBank" "REF-BF-001" 50.00M "Debit" (Some "F-5350") None
-                let! row2 = StageTestData.makeRawRow "grp-bf" closedPeriodDate "Batch fail entry" "TestBank" "REF-BF-001" 50.00M "Credit" (Some "F-1270") None
-                let! _ = [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
-                // also run the standard pipeline so we have a mix of postable entries
-                let! _ = StageTestData.runPipeline context
-                return!
-                    match ModelOrchestrator.StageEntryOrchestration.post context with
-                    | Error _ -> Ok ()
-                    | Ok _ -> Error (TestingError "Expected batch post to fail due to closed period entry")
-            })
-        |> railroadWrapper
+    (* The all-or-nothing batch post requirement of spec section 9 has no test at this layer,
+       deliberately. Atomicity is a property of the transaction, and every orchestrator test
+       runs inside one that is rolled back regardless of the outcome, so a partially-posted
+       batch and a fully-rolled-back one leave identical evidence in here. It is tested at the
+       route, where the transaction is committed or discarded for real:
+       Tests.Integrated.InterfaceBridge.IngestionRoutes. *)
 
 
     // =========================================================================

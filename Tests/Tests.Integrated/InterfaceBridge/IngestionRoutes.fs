@@ -8,6 +8,7 @@ open InterfaceBridge.InterfaceContracts.ReportsContracts
 open Logger.Audit
 open Model.DataIngestion
 open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling
 open Model.Ledger.Journaling.JournalEntryComponent
 (* JournalEntry first, StageEntryOrchestration second: both expose `lines`, and the staged
@@ -305,12 +306,13 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             | Ok () -> ()
             | Error e -> failwith (AppError.toMessage e)
 
-    (* The orchestrator-level shadow post test observes from inside the very transaction that
-       is the feature, so it cannot tell a shadow post from a real one. This one asks the
-       question from outside: the route has returned and committed nothing, so any ledger row
-       it wrote is gone. *)
+    (* No orchestrator-level test can carry either of these two: down there every test already
+       runs inside a rolled-back transaction, so a shadow post and a real one leave identical
+       evidence. This one asks the question from outside — the route has returned and committed
+       nothing, so any ledger row it wrote is gone, and staging is exactly where the operator
+       left it. *)
     [<Fact>]
-    member _.``REQ-STG-8.1 PostStageEntries shadow route returns trial balances and wasRolledBack true`` () =
+    member _.``REQ-STG-8.1 REQ-STG-8.4 PostStageEntries shadow route returns trial balances and leaves ledger and staging untouched`` () =
         let fileName = "ingestion-route-shadow-post.jsonl"
         let referenceOne = "REF-ROUTE-SHADOW-001"
         let referenceTwo = "REF-ROUTE-SHADOW-002"
@@ -383,6 +385,67 @@ type IngestionRouteTests(fixture: TestDataFixture) =
         finally
             deleteImportFile fileName
             // journal entries first: they are the rows the post created, and nothing depends on them
+            match cleanUpJournalEntryList journalEntryIdsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (AppError.toMessage e)
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (AppError.toMessage e)
+
+    (* The all-or-nothing claim has two halves. That a poisoned batch fails is visible anywhere;
+       that *none* of it lands is visible only out here, after the route has decided whether to
+       commit. The two good groups are the point of the test — they would post cleanly on their
+       own, so finding them absent is what proves the batch was atomic rather than merely
+       unlucky. *)
+    [<Fact>]
+    member _.``REQ-STG-9.8 PostStageEntries real route commits no entry when one fails domain validation`` () =
+        let fileName = "ingestion-route-atomic-post.jsonl"
+        let referenceOne = "REF-ROUTE-ATOMIC-001"
+        let referenceTwo = "REF-ROUTE-ATOMIC-002"
+        let poisonReference = "REF-ROUTE-ATOMIC-POISON"
+        let mutable idsToCleanUp = []
+        let mutable journalEntryIdsToCleanUp = []
+        try
+            result {
+                // the closed fiscal period is the cheapest way to make one entry fail JE validation
+                let closedPeriodDate =
+                    (fixture.Data.closedFiscalPeriod |> FiscalPeriod.startDate)
+                        .PlusDays(14)
+                        .ToString("yyyy-MM-dd", null)
+                let poisonGroup =
+                    [ rawRow "grp-route-poison" closedPeriodDate "Route post closed period group" "TestBank" poisonReference "9.00" "Debit" (Some "F-5300") None
+                      rawRow "grp-route-poison" closedPeriodDate "Route post closed period group" "TestBank" poisonReference "9.00" "Credit" (Some "F-1270") None ]
+                let! ingested =
+                    twoValidGroups referenceOne referenceTwo @ poisonGroup |> ingestThroughRoute fileName
+                idsToCleanUp <- ingested |> headerIdsToCleanUp
+                Assert.Equal(3, ingested.stagedEntries |> List.length)
+                do! isCorrectError (postThroughRoute false) JournalEntryHeaderEntryDateInvalid None
+                let context = Context.create NoTransaction FetchOnly
+                let! financialInstitution = "TestBank" |> JournalRefFinancialInstitution.create
+                let! postedPerReference =
+                    [ referenceOne; referenceTwo; poisonReference ]
+                    |> List.map (fun reference ->
+                        result {
+                            let! referenceText = reference |> JournalExternalReferenceText.create
+                            return! fetchByReference context (Some financialInstitution) (Some referenceText)
+                        })
+                    |> convertListOfResultsToResultsList
+                let posted = postedPerReference |> List.concat
+                // captured before the assertion so a failing test still cleans up what it found
+                journalEntryIdsToCleanUp <-
+                    posted |> List.map (header >> JournalEntryHeader.journalEntryHeaderId >> Some)
+                Assert.Empty(posted)
+                // and the staged entries are still sitting there postable, none of them marked Posted
+                let! refetched =
+                    ingested.stagedEntries
+                    |> List.map (fun entry -> refetchStageEntry entry.stageEntryHeader.stageEntryHeaderId)
+                    |> convertListOfResultsToResultsList
+                refetched |> List.iter (fun entry -> Assert.Equal(Classified, entry |> latestStatusOf))
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            deleteImportFile fileName
             match cleanUpJournalEntryList journalEntryIdsToCleanUp with
             | Ok () -> ()
             | Error e -> failwith (AppError.toMessage e)
