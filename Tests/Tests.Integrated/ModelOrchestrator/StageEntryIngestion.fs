@@ -188,6 +188,56 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
 
 
     // =========================================================================
+    // REQ-STG-1.3 — group_id associates records into one economic event
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-STG-1.3 records sharing a group_id become one staged entry and a distinct group_id becomes another`` () =
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                let! sourceFile = "/tmp/test-grouping.jsonl" |> SourceFile.create
+                let! multiRow1 = StageTestData.makeRawRow "grp-multi" today "Multi leg event" "TestBank" "REF-MULTI-001" 800.00M "Debit" (Some "F-1270") (Some "Net pay to checking")
+                let! multiRow2 = StageTestData.makeRawRow "grp-multi" today "Multi leg event" "TestBank" "REF-MULTI-001" 312.50M "Credit" (Some "F-5300") (Some "Federal withholding")
+                let! multiRow3 = StageTestData.makeRawRow "grp-multi" today "Multi leg event" "TestBank" "REF-MULTI-001" 187.50M "Credit" (Some "F-5350") (Some "State withholding")
+                let! multiRow4 = StageTestData.makeRawRow "grp-multi" today "Multi leg event" "TestBank" "REF-MULTI-001" 300.00M "Credit" (Some "F-5650") (Some "401k contribution")
+                let! otherRow1 = StageTestData.makeRawRow "grp-other" today "Separate event" "TestBank" "REF-OTHER-001" 40.00M "Debit" (Some "F-5350") None
+                let! otherRow2 = StageTestData.makeRawRow "grp-other" today "Separate event" "TestBank" "REF-OTHER-001" 40.00M "Credit" (Some "F-1270") None
+                let! fullResult =
+                    [ multiRow1; multiRow2; multiRow3; multiRow4; otherRow1; otherRow2 ]
+                    |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
+                Assert.Equal(2, fullResult.stagedEntries |> List.length)
+                let multi = fullResult.stagedEntries |> StageTestData.findByDescription "Multi leg event"
+                Assert.Equal(4, multi |> lines |> List.length)
+                let other = fullResult.stagedEntries |> StageTestData.findByDescription "Separate event"
+                Assert.Equal(2, other |> lines |> List.length)
+            })
+        |> railroadWrapper
+
+    (* "within a single file" is the operative clause: group_id is the parser's local
+       association mechanism and is not globally unique, so the same value reappearing in
+       a later file associates nothing. *)
+    [<Fact>]
+    member _.``REQ-STG-1.3 the same group_id in a second file produces a separate staged entry`` () =
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                let! firstFile = "/tmp/test-grouping-file-one.jsonl" |> SourceFile.create
+                let! firstRow1 = StageTestData.makeRawRow "grp-reused" today "First file event" "TestBank" "REF-REUSED-001" 25.00M "Debit" (Some "F-5350") None
+                let! firstRow2 = StageTestData.makeRawRow "grp-reused" today "First file event" "TestBank" "REF-REUSED-001" 25.00M "Credit" (Some "F-1270") None
+                let! firstResult = [ firstRow1; firstRow2 ] |> ingestRawToStageThenDeduplicateAndClassify context firstFile
+                let contextForSecondFile = context |> Context.updateInitiationInstant
+                let! secondFile = "/tmp/test-grouping-file-two.jsonl" |> SourceFile.create
+                let! secondRow1 = StageTestData.makeRawRow "grp-reused" today "Second file event" "TestBank" "REF-REUSED-002" 61.00M "Debit" (Some "F-5350") None
+                let! secondRow2 = StageTestData.makeRawRow "grp-reused" today "Second file event" "TestBank" "REF-REUSED-002" 61.00M "Credit" (Some "F-1270") None
+                let! secondResult =
+                    [ secondRow1; secondRow2 ] |> ingestRawToStageThenDeduplicateAndClassify contextForSecondFile secondFile
+                let firstId = firstResult.stagedEntries |> List.exactlyOne |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let secondId = secondResult.stagedEntries |> List.exactlyOne |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                Assert.True(firstId <> secondId, "A reused group_id in a later file must not join the earlier entry")
+            })
+        |> railroadWrapper
+
+
+    // =========================================================================
     // REQ-STG-1.13 — Group with inconsistent header fields
     // =========================================================================
 

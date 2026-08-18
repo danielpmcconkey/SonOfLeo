@@ -20,6 +20,19 @@ open Utilities.ResultHelper
 open Xunit
 
 
+(* The orchestrator's JournalEntry type shadows its companion module on a fully qualified
+   path, and this file's file-level opens already bind `lines` to the staged-entry accessor.
+   A local module with its own open gets at the ledger-side names without disturbing either. *)
+module PostedJournalEntry =
+
+    open ModelOrchestrator.JournalEntries.JournalEntry
+
+    let fetchByFiReference context financialInstitution fiReference =
+        fetchByReference context (Some financialInstitution) (Some fiReference)
+
+    let lineCount journalEntry = journalEntry |> lines |> List.length
+
+
 [<Collection("SharedTestData")>]
 type StageEntryPostingTests(fixture: TestDataFixture) =
 
@@ -83,6 +96,33 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 let! trialBalanceAfter = fetchTrialBalanceData context asOf
                 Assert.NotEmpty(trialBalanceBefore)
                 Assert.NotEmpty(trialBalanceAfter)
+            })
+        |> railroadWrapper
+
+
+    // =========================================================================
+    // REQ-STG-1.3 — one group produces one journal entry when posted
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-STG-1.3 a four-record group posts as a single journal entry carrying all four lines`` () =
+        runCommandRouteAndAutoRollback IngestPostStageEntries (fun context ->
+            result {
+                let today = Calendar.today()
+                let! sourceFile = "/tmp/test-one-je-per-group.jsonl" |> SourceFile.create
+                let! row1 = StageTestData.makeRawRow "grp-1je" today "One JE per group" "TestBank" "REF-1JE-001" 800.00M "Debit" (Some "F-1270") (Some "Net pay to checking")
+                let! row2 = StageTestData.makeRawRow "grp-1je" today "One JE per group" "TestBank" "REF-1JE-001" 312.50M "Credit" (Some "F-5300") (Some "Federal withholding")
+                let! row3 = StageTestData.makeRawRow "grp-1je" today "One JE per group" "TestBank" "REF-1JE-001" 187.50M "Credit" (Some "F-5350") (Some "State withholding")
+                let! row4 = StageTestData.makeRawRow "grp-1je" today "One JE per group" "TestBank" "REF-1JE-001" 300.00M "Credit" (Some "F-5650") (Some "401k contribution")
+                let! _ =
+                    [ row1; row2; row3; row4 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
+                let contextForPost = context |> Context.updateInitiationInstant
+                do! ModelOrchestrator.StageEntryOrchestration.post contextForPost
+                let! fi = "TestBank" |> JournalRefFinancialInstitution.create
+                let! fiReference = "REF-1JE-001" |> JournalExternalReferenceText.create
+                let! posted = PostedJournalEntry.fetchByFiReference contextForPost fi fiReference
+                Assert.Equal(1, posted |> List.length)
+                Assert.Equal(4, posted |> List.exactlyOne |> PostedJournalEntry.lineCount)
             })
         |> railroadWrapper
 

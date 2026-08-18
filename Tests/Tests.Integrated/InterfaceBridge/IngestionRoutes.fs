@@ -1,13 +1,28 @@
 module Tests.Integrated.InterfaceBridge.IngestionRoutes
 
+open System
 open System.IO
+open DataAccessLayer.DbTransaction
 open InterfaceBridge.InterfaceContracts.IngestionContracts
+open InterfaceBridge.InterfaceContracts.ReportsContracts
+open Logger.Audit
+open Model.DataIngestion
+open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.Journaling
+open Model.Ledger.Journaling.JournalEntryComponent
+(* JournalEntry first, StageEntryOrchestration second: both expose `lines`, and the staged
+   side is what the bulk of this file reads. The ledger-side name used here is
+   `fetchByReference`, which only the JournalEntry module defines. *)
+open ModelOrchestrator.JournalEntries.JournalEntry
+open ModelOrchestrator.StageEntryOrchestration
 open Tests.Helpers
+open Tests.Helpers.Cleanup
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
 open Tests.Helpers.SadPath
 open Utilities
 open Utilities.AppError
+open Utilities.FieldUpdate
 open Utilities.Json.Json
 open Utilities.ResultHelper
 open Xunit
@@ -79,9 +94,80 @@ type IngestionRouteTests(fixture: TestDataFixture) =
         finally
             deleteImportFile fileName
 
+    /// Runs a file through the ingestion route and hands back the parsed result. The route
+    /// commits, so every caller owns the staged entries that come back and must clean them up.
+    static let ingestThroughRoute fileName rows =
+        writeImportFile fileName rows
+        result {
+            let! resultPayload =
+                routeUiCommandForTesting "Ingestion" "IngestRawFileToStage" [] (ingestPayload fileName)
+            return! fromJson<IngestionFullResultReturn> resultPayload
+        }
+
+    static let headerIdsToCleanUp (fullResult: IngestionFullResultReturn) =
+        fullResult.stagedEntries
+        |> List.map (fun entry -> entry.stageEntryHeader.stageEntryHeaderId |> StageEntryHeaderId.fromGuid |> Some)
+
+    static let postThroughRoute isShadow =
+        result {
+            let! payload = { PostStageEntriesInput.isShadow = isShadow } |> toJson<PostStageEntriesInput>
+            let! resultPayload = routeUiCommandForTesting "Ingestion" "PostStageEntries" [] payload
+            return! fromJson<PostStageEntriesFullResult> resultPayload
+        }
+
+    /// Reads a staged entry back through the fetch path the route wrote to, so assertions
+    /// about persisted state are made outside whatever transaction the route managed.
+    static let refetchStageEntry (headerIdGuid: Guid) =
+        let context = Context.create NoTransaction FetchOnly
+        headerIdGuid
+        |> StageEntryHeaderId.fromGuid
+        |> fetchByStageEntryHeaderId context
+
+    static let latestStatusOf (entry: StageEntry) =
+        entry
+        |> statusTransitions
+        |> List.sortByDescending (fun t -> t |> StageEntryStatusTransition.instant)
+        |> List.head
+        |> StageEntryStatusTransition.toStatus
+
+    /// Two balanced groups, both fully classifiable against the fixture's TestBank rules.
+    static let twoValidGroups referenceOne referenceTwo =
+        [ rawRow "grp-route-a" today "Route ingest first group" "TestBank" referenceOne "42.10" "Debit" None None
+          rawRow "grp-route-a" today "Route ingest first group" "TestBank" referenceOne "42.10" "Credit" (Some "F-1270") None
+          rawRow "grp-route-b" today "Route ingest second group" "TestBank" referenceTwo "18.00" "Debit" (Some "F-5300") None
+          rawRow "grp-route-b" today "Route ingest second group" "TestBank" referenceTwo "18.00" "Credit" (Some "F-1270") None ]
+
+
     [<Fact>]
     member _.``REQ-STG-3.1 IngestRawFileToStage route ingests valid file and returns result`` () =
-        Assert.Fail "not implemented"
+        let fileName = "ingestion-route-happy-path.jsonl"
+        let mutable idsToCleanUp = []
+        try
+            result {
+                let! fullResult =
+                    twoValidGroups "REF-ROUTE-INGEST-001" "REF-ROUTE-INGEST-002" |> ingestThroughRoute fileName
+                idsToCleanUp <- fullResult |> headerIdsToCleanUp
+                Assert.Equal(2, fullResult.stagedEntries |> List.length)
+                Assert.Empty(fullResult.newDuplicates)
+                let firstGroup =
+                    fullResult.stagedEntries
+                    |> List.find (fun entry -> entry.stageEntryHeader.description = "Route ingest first group")
+                Assert.Equal("TestBank", firstGroup.stageEntryHeader.ingestionSource)
+                Assert.Equal("REF-ROUTE-INGEST-001", firstGroup.stageEntryHeader.fiReference)
+                Assert.Equal(2, firstGroup.lines |> List.length)
+                Assert.Equal("Classified", firstGroup.stageEntryHeader.status)
+                (* The route's contract includes relocating the file it consumed, so a caller
+                   can tell an ingested file from one still waiting. *)
+                Assert.False(File.Exists(Path.Combine(importDir, fileName)))
+                Assert.NotEmpty(Directory.GetFiles(processedDir, $"*-{fileName}"))
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            deleteImportFile fileName
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (AppError.toMessage e)
 
     [<Theory>]
     [<InlineData("entryDate", "not-a-date", "InterfaceBridgeFailedJsonDeserialization")>]
@@ -136,18 +222,199 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                   None ]
         assertRouteRejects $"ingestion-route-{expectedError}.jsonl" rows expectedError
 
+    (* The route rejects an update whose header is entirely NoChange, so neither call below
+       can be a line-only edit. See BdsNotes/finding-2026-08-18-update-route-header-required.md. *)
     [<Fact>]
     member _.``REQ-STG-6.1 REQ-STG-6.2 UpdateStageEntry route happy path`` () =
-        Assert.Fail "not implemented"
+        let fileName = "ingestion-route-update.jsonl"
+        let description = "Route ingest first group"
+        let mutable idsToCleanUp = []
+        try
+            result {
+                let! ingested =
+                    twoValidGroups "REF-ROUTE-UPDATE-001" "REF-ROUTE-UPDATE-002" |> ingestThroughRoute fileName
+                idsToCleanUp <- ingested |> headerIdsToCleanUp
+                let toUpdate =
+                    ingested.stagedEntries
+                    |> List.find (fun entry -> entry.stageEntryHeader.description = description)
+                let headerId = toUpdate.stageEntryHeader.stageEntryHeaderId
+                let debitLine = toUpdate.lines |> List.find (fun line -> line.lineType = "Debit")
+                (* The classifier assigned this line's code. REQ-STG-6.1 says the operator
+                   overrides it regardless of which layer put it there. *)
+                Assert.Equal(Some "F-5300", debitLine.accountCode)
+                let overrideCodeWith newCode : UpdateStageEntryLineInput =
+                    { stageEntryLineId = debitLine.stageEntryLineId
+                      amount = NoChange
+                      lineType = NoChange
+                      accountCode = SetTo (Some newCode)
+                      memo = NoChange
+                      classificationRuleId = NoChange }
+                let updateThroughRoute (input: UpdateStageEntryInput) =
+                    result {
+                        let! payload = input |> toJson<UpdateStageEntryInput>
+                        let! resultPayload = routeUiCommandForTesting "Ingestion" "UpdateStageEntry" [] payload
+                        return! fromJson<StageEntryReturn> resultPayload
+                    }
+                let codeOf (entry: StageEntryReturn) =
+                    entry.lines
+                    |> List.find (fun line -> line.stageEntryLineId = debitLine.stageEntryLineId)
+                    |> _.accountCode
+                // the ordinary review flow: override the code and declare the entry reviewed
+                let! afterReview =
+                    updateThroughRoute
+                        { stageEntryHeaderId = headerId
+                          sourceFileUpdate = NoChange
+                          entryDate = NoChange
+                          description = NoChange
+                          ingestionSource = NoChange
+                          fiReference = NoChange
+                          status = SetTo "Reviewed"
+                          lines = [ overrideCodeWith "F-5650" ] }
+                Assert.Equal(Some "F-5650", afterReview |> codeOf)
+                Assert.Equal("Reviewed", afterReview.stageEntryHeader.status)
+                (* REQ-STG-6.2: the system validates the result but does not infer status from
+                   the operator's changes. A second override with status left alone must not
+                   move the entry anywhere. The description is re-set to the value it already
+                   holds purely to give the header something to update. *)
+                let! afterSecondOverride =
+                    updateThroughRoute
+                        { stageEntryHeaderId = headerId
+                          sourceFileUpdate = NoChange
+                          entryDate = NoChange
+                          description = SetTo description
+                          ingestionSource = NoChange
+                          fiReference = NoChange
+                          status = NoChange
+                          lines = [ overrideCodeWith "F-5350" ] }
+                Assert.Equal(Some "F-5350", afterSecondOverride |> codeOf)
+                Assert.Equal("Reviewed", afterSecondOverride.stageEntryHeader.status)
+                // both edits are durable outside the transaction the route managed
+                let! refetched = refetchStageEntry headerId
+                Assert.Equal(Reviewed, refetched |> latestStatusOf)
+                let refetchedCode =
+                    refetched
+                    |> lines
+                    |> List.find (fun line ->
+                        line |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value = debitLine.stageEntryLineId)
+                    |> StageEntryLine.accountCode
+                    |> Option.map AccountCode.value
+                Assert.Equal(Some "F-5350", refetchedCode)
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            deleteImportFile fileName
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (AppError.toMessage e)
 
+    (* The orchestrator-level shadow post test observes from inside the very transaction that
+       is the feature, so it cannot tell a shadow post from a real one. This one asks the
+       question from outside: the route has returned and committed nothing, so any ledger row
+       it wrote is gone. *)
     [<Fact>]
     member _.``REQ-STG-8.1 PostStageEntries shadow route returns trial balances and wasRolledBack true`` () =
-        Assert.Fail "not implemented"
+        let fileName = "ingestion-route-shadow-post.jsonl"
+        let referenceOne = "REF-ROUTE-SHADOW-001"
+        let referenceTwo = "REF-ROUTE-SHADOW-002"
+        let mutable idsToCleanUp = []
+        try
+            result {
+                let! ingested = twoValidGroups referenceOne referenceTwo |> ingestThroughRoute fileName
+                idsToCleanUp <- ingested |> headerIdsToCleanUp
+                let! postResult = postThroughRoute true
+                Assert.True(postResult.wasRolledBack, "The shadow route must report that it rolled back")
+                Assert.NotEmpty(postResult.trialBalanceBefore)
+                Assert.NotEmpty(postResult.trialBalanceAfter)
+                (* Both snapshots are taken inside the rolled-back transaction, so the after
+                   must already carry the two groups' debits — an unmoved balance means
+                   nothing was posted to measure. Both debit legs classify to F-5300. *)
+                let debitsFor code (rows: TrialBalanceReturnRow list) =
+                    rows |> List.find (fun row -> row.accountCode = code) |> _.totalDebits
+                Assert.Equal(
+                    (postResult.trialBalanceBefore |> debitsFor "F-5300") + 60.10M,
+                    postResult.trialBalanceAfter |> debitsFor "F-5300")
+                let context = Context.create NoTransaction FetchOnly
+                let! financialInstitution = "TestBank" |> JournalRefFinancialInstitution.create
+                let! firstReference = referenceOne |> JournalExternalReferenceText.create
+                let! secondReference = referenceTwo |> JournalExternalReferenceText.create
+                let! firstPosted = fetchByReference context (Some financialInstitution) (Some firstReference)
+                let! secondPosted = fetchByReference context (Some financialInstitution) (Some secondReference)
+                Assert.Empty(firstPosted)
+                Assert.Empty(secondPosted)
+                // and staging is untouched: the entries are still sitting there postable
+                let! refetched = refetchStageEntry (ingested.stagedEntries |> List.head).stageEntryHeader.stageEntryHeaderId
+                Assert.Equal(Classified, refetched |> latestStatusOf)
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            deleteImportFile fileName
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (AppError.toMessage e)
 
     [<Fact>]
     member _.``REQ-STG-9.1 PostStageEntries real route posts entries and returns wasRolledBack false`` () =
-        Assert.Fail "not implemented"
+        let fileName = "ingestion-route-real-post.jsonl"
+        let referenceOne = "REF-ROUTE-REALPOST-001"
+        let referenceTwo = "REF-ROUTE-REALPOST-002"
+        let mutable idsToCleanUp = []
+        let mutable journalEntryIdsToCleanUp = []
+        try
+            result {
+                let! ingested = twoValidGroups referenceOne referenceTwo |> ingestThroughRoute fileName
+                idsToCleanUp <- ingested |> headerIdsToCleanUp
+                let! postResult = postThroughRoute false
+                Assert.False(postResult.wasRolledBack, "The real route must report that it committed")
+                let context = Context.create NoTransaction FetchOnly
+                let! financialInstitution = "TestBank" |> JournalRefFinancialInstitution.create
+                let! firstReference = referenceOne |> JournalExternalReferenceText.create
+                let! secondReference = referenceTwo |> JournalExternalReferenceText.create
+                let! firstPosted = fetchByReference context (Some financialInstitution) (Some firstReference)
+                let! secondPosted = fetchByReference context (Some financialInstitution) (Some secondReference)
+                journalEntryIdsToCleanUp <-
+                    firstPosted @ secondPosted
+                    |> List.map (header >> JournalEntryHeader.journalEntryHeaderId >> Some)
+                Assert.Equal(1, firstPosted |> List.length)
+                Assert.Equal(1, secondPosted |> List.length)
+                let! refetched = refetchStageEntry (ingested.stagedEntries |> List.head).stageEntryHeader.stageEntryHeaderId
+                Assert.Equal(Posted, refetched |> latestStatusOf)
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            deleteImportFile fileName
+            // journal entries first: they are the rows the post created, and nothing depends on them
+            match cleanUpJournalEntryList journalEntryIdsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (AppError.toMessage e)
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (AppError.toMessage e)
 
     [<Fact>]
     member _.``REQ-STG-2.4 CreateIngestionSource route happy path`` () =
-        Assert.Fail "not implemented"
+        let sourceName = "RouteTestCreditUnion"
+        let mutable idToCleanUp = None
+        try
+            result {
+                let! payload = { CreateNewIngestionSourceInput.name = sourceName } |> toJson<CreateNewIngestionSourceInput>
+                let! resultPayload = routeUiCommandForTesting "Ingestion" "CreateIngestionSource" [] payload
+                let! returned = fromJson<IngestionSourceReturn> resultPayload
+                idToCleanUp <- returned.ingestionSourceId |> IngestionSourceId.fromGuid |> Some
+                Assert.Equal(sourceName, returned.name)
+                Assert.NotEqual(Guid.Empty, returned.ingestionSourceId)
+                (* A staged entry's source_id must point at a row in ingestion.source, so the
+                   created source has to be resolvable by the same lookup ingestion uses. *)
+                let context = Context.create NoTransaction FetchOnly
+                let! name = sourceName |> JournalRefFinancialInstitution.create
+                let! fetched = name |> IngestionSource.fetchByName context
+                Assert.Equal(returned.ingestionSourceId, fetched |> IngestionSource.ingestionSourceId |> IngestionSourceId.value)
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            match cleanUpIngestionSourceId idToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (AppError.toMessage e)

@@ -5,6 +5,7 @@ open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open Logger.Audit
+open Model.DataIngestion
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling.JournalEntryComponent
@@ -200,3 +201,70 @@ let cleanUpJournalEntryList (l: JournalEntryHeaderId option list) : Result<unit,
                 "One or more errors returns while deleting a list of journal entry IDs. Individual errors follow, separated by '||'"
             let insideErrors = errors |> List.map(AppError.toMessage) |> String.concat "||"
             Error(TestingError $"{baseMessage}||{insideErrors}")
+
+//=================================================
+// Staged entry clean up
+//=================================================
+
+let cleanUpStageEntryHeaderId (headerId: StageEntryHeaderId option) : Result<unit, AppError> =
+    let context = Context.create NoTransaction FetchOnly
+    match headerId with
+    | None -> Ok()
+    | Some x ->
+        let uuid = x |> StageEntryHeaderId.value
+        let parameters = [ { name = "@entry_id"; value = UniqueId uuid } ]
+        let headerParameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
+        // delete children before the header, in FK order
+        let auditQuery =
+            $"""
+                delete from ingestion.staged_entry_audit
+                WHERE entry_id = @entry_id;
+            """
+        let lineQuery =
+            $"""
+                delete from ingestion.staged_entry_line
+                WHERE entry_id = @entry_id;
+            """
+        let headerQuery =
+            $"""
+                delete from ingestion.staged_entry
+                WHERE unique_id = @unique_id;
+            """
+
+        result {
+            let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) auditQuery parameters AnyQuantityIsAcceptable
+            let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) lineQuery parameters AnyQuantityIsAcceptable
+            return! executeNonQuery (context |> Context.getDatabaseTransaction) headerQuery headerParameters ExactlyOne
+        }
+
+let cleanUpStageEntryHeaderIdList (l: StageEntryHeaderId option list) : Result<unit, AppError> =
+    l
+    |> List.map cleanUpStageEntryHeaderId
+    |> List.choose (function
+        | Error e -> Some e
+        | Ok _ -> None)
+    |> function
+        | [] -> Ok()
+        | errors ->
+            let baseMessage =
+                "One or more errors returns while deleting a list of staged entry IDs. Individual errors follow, separated by '||'"
+            let insideErrors = errors |> List.map(AppError.toMessage) |> String.concat "||"
+            Error(TestingError $"{baseMessage}||{insideErrors}")
+
+//=================================================
+// Ingestion source clean up
+//=================================================
+
+let cleanUpIngestionSourceId (sourceId: IngestionSourceId option) : Result<unit, AppError> =
+    let context = Context.create NoTransaction FetchOnly
+    match sourceId with
+    | None -> Ok()
+    | Some x ->
+        let uuid = x |> IngestionSourceId.value
+        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
+        let query =
+            $"""
+                delete from ingestion.source
+                WHERE unique_id = @unique_id;
+            """
+        executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
