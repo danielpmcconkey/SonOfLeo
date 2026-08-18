@@ -449,18 +449,54 @@ let private confirmUpdateLinesMatchUpdateHeader
     |> convertListOfResultsToResultsList
     |> Result.map ignore
 
+// if the updateStageEntry only wants to update lines, this is a way to know that you don't have to try to update the
+// header (and risk a no-op error)
+let isThereAHeaderUpdate
+    (headerUpdates: StageEntryHeader.StageEntryHeaderFieldUpdates)
+    : bool =
+    headerUpdates.sourceFileUpdate <> FieldUpdate.NoChange
+    || headerUpdates.entryDateUpdate <> FieldUpdate.NoChange
+    || headerUpdates.descriptionUpdate <> FieldUpdate.NoChange
+    || headerUpdates.ingestionSourceUpdate <> FieldUpdate.NoChange
+    || headerUpdates.fiReferenceUpdate <> FieldUpdate.NoChange
+    || headerUpdates.statusUpdate <> FieldUpdate.NoChange
+    
+// if the updateStageEntry only wants to update the header, this is a way to know that you don't have to try to update the
+// lines (and risk a no-op error)
+let isThereALineUpdate
+    (lineUpdates: StageEntryLine.StageEntryLineFieldUpdates list)
+    : bool =
+    lineUpdates
+    |> List.map (fun lu ->
+        lu.amountUpdate <> FieldUpdate.NoChange
+        || lu.entryTypeUpdate <> FieldUpdate.NoChange
+        || lu.accountCodeUpdate <> FieldUpdate.NoChange
+        || lu.memoUpdate <> FieldUpdate.NoChange
+        || lu.classificationRuleIdUpdate <> FieldUpdate.NoChange
+        )
+    |> List.exists id
+    
 let updateStageEntry
     (context: Context.Context)
     (headerUpdates: StageEntryHeader.StageEntryHeaderFieldUpdates)
     (lineUpdates: StageEntryLine.StageEntryLineFieldUpdates list)
     : Result<StageEntry, AppError> =
     result {
+        let shouldUpdateHeader = headerUpdates |> isThereAHeaderUpdate
+        let shouldUpdateLines = lineUpdates |> isThereALineUpdate
+        do! if shouldUpdateHeader = false && shouldUpdateLines = false
+            then (Error IngestionUpdateStageEntryNoOp)
+            else Ok ()
         do! confirmUpdateLinesMatchUpdateHeader context headerUpdates lineUpdates
-        do! lineUpdates
-            |> List.map(fun lineUpdate -> lineUpdate |> StageEntryLine.updateDb context)
-            |> convertListOfResultsToResultsList
-            |> Result.map ignore
-        do! headerUpdates |> StageEntryHeader.updateDb context |> Result.map ignore
+        do! if shouldUpdateLines
+            then
+                lineUpdates
+                |> List.map(fun lineUpdate -> lineUpdate |> StageEntryLine.updateDb context)
+                |> convertListOfResultsToResultsList
+                |> Result.map ignore
+            else Ok ()
+        do! if shouldUpdateHeader then headerUpdates |> StageEntryHeader.updateDb context |> Result.map ignore
+            else Ok ()
         // that may have updated the status, but it didn't do it completely. we could've taken the status update out of
         // the first pass but the effort isn't worth it. You arrive at the same data state regardless.
         do!

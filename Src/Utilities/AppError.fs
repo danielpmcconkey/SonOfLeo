@@ -109,6 +109,7 @@ type AppError =
     | IngestionStatusTransitionList
     | IngestionUpdateStageEntryLinesMustMatchHeader of Guid * Guid
     | IngestionPostingNoneAccountCode of Guid
+    | IngestionUpdateStageEntryNoOp
     
     | InterfaceBridgeConversionFailure of string * string * string * string
     | InterfaceBridgeFailedJsonDeserialization of string * string * string
@@ -263,6 +264,7 @@ module AppError =
         | IngestionStatusTransitionList -> "StageEntryStatusTransition list cannot be empty."
         | IngestionUpdateStageEntryLinesMustMatchHeader (headerId, lineId) -> $"Error updating StageEntry {headerId}. Line {lineId} is for a different header."
         | IngestionPostingNoneAccountCode uuid -> $"You cannot post a Stage Entry Line with an account code of None. Line ID: {uuid}"
+        | IngestionUpdateStageEntryNoOp -> "updateStageEntry failed because at least one updatable parameter must be set."
         
         | InterfaceBridgeConversionFailure(originalType, originalValue, desiredType, childError) -> $"Failed conversion in InterfaceBridge. Original type: {originalType}. Desired type: {desiredType}. Original value: {originalValue}. Additional details: {childError}"
         | InterfaceBridgeFailedJsonDeserialization(typeName, error, stackTrace) -> $"Failed to deserialize JSON string into type {typeName}. {error}{Environment.NewLine}{stackTrace}"
