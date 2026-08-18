@@ -1,11 +1,9 @@
 module Tests.Isolated.Model.Ledger.JournalEntryComponent
 
 open System
-open ModelOrchestrator.JournalEntryLineOrchestration
 open Utilities.AppError
 open Xunit
 open Model.Ledger.Journaling.JournalEntryComponent
-open Model
 open Tests.Helpers.SadPath
 open Tests.Helpers.Railroad
 
@@ -179,24 +177,3 @@ let ``REQ-SYS-1.1 LineMemo.create trims leading and trailing whitespace`` () =
     | Error e -> Assert.Fail(AppError.toMessage e)
     | Ok m -> Assert.Equal(trimmed, JournalEntryLineMemo.value m)
 
-// =============================================================================
-// Line amount validation (JournalEntryLine.validateAmount)
-// =============================================================================
-
-[<Fact>]
-let ``REQ-JE-1.24 validateAmount rejects zero amount`` () =
-    let zero = Money.fromDecimal 0.00M |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    isCorrectError (confirmAmountIsPositive zero) JournalEntryLineNonPositiveAmount None
-    |> railroadWrapper
-
-[<Fact>]
-let ``REQ-JE-1.24 validateAmount rejects negative amount`` () =
-    let negative = Money.fromDecimal -5.00M |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    isCorrectError (confirmAmountIsPositive negative) JournalEntryLineNonPositiveAmount None
-    |> railroadWrapper
-
-[<Fact>]
-let ``REQ-JE-1.24 validateAmount accepts positive amount`` () =
-    let positive = Money.fromDecimal 10.00M |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    let result = confirmAmountIsPositive positive
-    Assert.True(Result.isOk result)

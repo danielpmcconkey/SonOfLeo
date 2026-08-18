@@ -337,6 +337,29 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
 
+    [<Theory>]
+    [<InlineData("0.00")>]
+    [<InlineData("-5.00")>]
+    member _.``REQ-JE-1.24 constructNewAndSaveToDb rejects line whose amount is not positive``(amount: string) =
+        let today = Calendar.today()
+        let amountToUse = Decimal.Parse amount
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
+            let result =
+                createTestJournalEntryFromPrimitives
+                    context
+                    "JE create nonpositive line"
+                    None
+                    today
+                    [ (fixture.Data.entertainment5650Id, amountToUse, "Debit", None)
+                      (fixture.Data.moneyMarket1270Id, amountToUse, "Credit", None) ]
+                    []
+                    []
+            match result with
+            | Error(JournalEntryLineNonPositiveAmount _) -> Ok()
+            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
+        |> railroadWrapper
+
     [<Fact>]
     member _.``REQ-JE-2.5 REQ-JE-2.6 REQ-JE-1.11 constructNewAndSaveToDb rejects entry date w/ no matching fiscal period``() =
         let today = Calendar.today()
