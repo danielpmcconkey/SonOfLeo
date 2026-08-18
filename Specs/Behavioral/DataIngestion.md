@@ -113,7 +113,7 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-4.1** A staged entry's status must be one of: `'Ingested'`, `'Classified'`, `'NoMatch'`, `'Conflict'`, `'Reviewed'`, `'Duplicate'`, `'Posted'`, `'Ignored'`.
 - **REQ-STG-4.2** `'Posted'` is a terminal status. No transitions out of `'Posted'` are permitted.
 - **REQ-STG-4.3** Every status transition must create an audit record in `ingestion.staged_entry_audit`.
-- **REQ-STG-4.4** A staged entry is postable when all of the following are true: (a) its status is `'Classified'` or `'Reviewed'`, and (b) every one of its staged lines has a non-null account_code.
+- **REQ-STG-4.4** A staged entry is postable when its status is `'Classified'` or `'Reviewed'`. No additional filtering (e.g. line-level account_code presence) is applied — if the upstream invariants are sound, all lines are coded by the time an entry reaches these statuses. If they are not, posting fails loudly at account_code resolution (REQ-STG-9.4) rather than silently excluding the entry.
 - **REQ-STG-4.5** `'Ignored'` marks an entry that should not be posted due to data problems at the source. The deduplication pass must treat `'Ignored'` entries as matches — re-importing a transaction that was deliberately ignored must flag the new entry as duplicate, not silently re-admit it.
   - *Why:* Without this, voiding a bad JE and ignoring its staged source would cause the next overlapping file import to re-ingest the same bad data. (2026-08-09)
 
