@@ -357,31 +357,65 @@ DO NOT flag: unimplemented specs (spec precedes code), style preferences.`,
   })
 }
 
-// --- Test truthfulness ---
-auditors.push({
-  label: 'truthfulness:tests',
-  filename: '10-truthfulness-tests.md',
-  prompt: `You are a test-truthfulness auditor for SonOfLeo.
+// --- Test efficacy: one per behavioral spec ---
+const SPECIMENS_PATH = `${REPO}/Skills/TestWriter/references/bullshit-test-specimens.md`
+const TESTS_README_PATH = `${REPO}/Tests/README.md`
 
-YOUR SCOPE: ${REPO}/Tests/ (Tests.Isolated and Tests.Integrated).
+for (const specPath of scout.behavioralSpecs) {
+  const specName = specPath.split('/').pop().replace('.md', '')
+  auditors.push({
+    label: `efficacy:${specName}`,
+    filename: `10-efficacy-${specName}.md`,
+    prompt: `You are a test-efficacy auditor for SonOfLeo, a personal-finance double-entry
+ledger in F#.
+
+YOUR SCOPE: tests that cite REQ IDs from ${REPO}/${specPath}.
+Find them by grepping Tests/ for the REQ prefix (e.g. REQ-AC, REQ-JE, REQ-STG).
+
+REQUIRED READING (read ALL before reporting):
+- The behavioral spec: ${REPO}/${specPath}
+- Bullshit-test specimens: ${SPECIMENS_PATH}
+- Test standards: ${TESTS_README_PATH}
 
 ${CONTEXT}
 
-TEST RUN RESULTS:
-${testRun || '(no test run this audit — Dan runs suites in Rider)'}
+CHECK THESE FOUR THINGS. Every finding must cite the REQ ID, the test file and line,
+and the specific assertion(s) that fail the criterion.
 
-LINKAGE: test names begin with the REQ IDs they verify. This is the ONLY spec linkage
-in the codebase.
+1. BEHAVIORAL COVERAGE — For each active REQ in this spec, does a citing test actually
+   exercise the behavior described? A test that touches the right function but checks the
+   wrong property is not coverage. Read the REQ text and the test body side by side. Apply
+   the smell test: "if the function under test returned garbage of the right shape, would
+   this test fail?" If no, the behavior is untested regardless of the citation.
 
-CHECK:
-1. REQ-tagged tests: does the test body verify what the tagged requirement says?
-   Prioritize journal-entry tests (newest), but sample every area.
-2. Tests asserting weaker properties than their REQ claims.
-3. Active requirements with neither a test nor a waiver/unenforceable entry.
-4. Shared fixture/staging code: hidden ordering dependencies, cleanup gaps, flakiness.
+2. ASSERTION QUALITY — Apply the six specimen patterns from the bullshit-test specimens
+   doc. Specifically:
+   - Hard-wired counts instead of derived expected values (Specimen 1)
+   - Cowardly inequalities: >=, >, <> instead of exact equality (Specimen 2)
+   - Count-only assertions that never inspect values (Specimen 3)
+   - Untyped failure: Result.isError or string Contains instead of typed match (Specimen 4)
+   - Exit-code-only as the sole assertion (Specimen 5)
+   - Fox guarding the hen house: expected value derived from a function in the call chain
+     of the function under test (Specimen 6)
+   If an assertion matches a specimen pattern, cite which specimen and show the assertion.
 
-DO NOT: run or modify anything. DO NOT flag style.`,
-})
+3. NEGATIVE COVERAGE — For REQs that define rejection criteria (validation rules, illegal
+   state transitions, boundary violations, "must reject when"), is there a test that sends
+   the bad input and asserts the typed error? Not every REQ needs a negative test — only
+   those with an explicit rejection behavior. Flag missing negative tests only when the REQ
+   says something must fail and no test proves it does.
+
+4. UNCITED BEHAVIOR — Test or code behavior with no REQ backing it:
+   - Tests exercising logic not described in any spec (potential missing REQ)
+   - REQs that describe multiple distinct behaviors (e.g. "validate X, Y, and Z") where
+     only some are tested — the REQ is cited but coverage is partial
+   - Code paths visible in Src/ that implement behavior not captured by any REQ in this
+     spec or any other spec (potential missing REQ — check other specs before flagging)
+
+DO NOT: run or modify anything. DO NOT flag style. DO NOT flag tests for REQs outside
+your spec's scope — another efficacy auditor owns those.`,
+  })
+}
 
 // --- Panel: customer ---
 auditors.push({
