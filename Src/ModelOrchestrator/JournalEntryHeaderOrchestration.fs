@@ -7,7 +7,7 @@ open Utilities.AppError
 open Utilities.ResultHelper
 
 
-let confirmEntryDateIsInOpenFiscalPeriod (context: Context.Context) (entryDate: EntryDate) : Result<unit, AppError> =
+let private confirmEntryDateIsInOpenFiscalPeriod (context: Context.Context) (entryDate: EntryDate) : Result<unit, AppError> =
     result {
         let! fiscalPeriod = entryDate |> EntryDate.fiscalPeriodId |> FiscalPeriod.fetchById context
         match fiscalPeriod |> FiscalPeriod.isOpen with

@@ -65,7 +65,7 @@ let private confirmParentChildRelationship
             return ()
         }
 
-let confirmTypeAndSubtypeAreValid (accountType: AccountType) (subType: AccountSubtype option) : Result<unit, AppError> =
+let private confirmTypeAndSubtypeAreValid (accountType: AccountType) (subType: AccountSubtype option) : Result<unit, AppError> =
     if AccountSubtype.validTypeSubtypeCombination accountType subType then
         Ok()
     else

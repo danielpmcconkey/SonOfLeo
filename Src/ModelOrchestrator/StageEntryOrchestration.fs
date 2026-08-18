@@ -121,7 +121,7 @@ let private confirmValidTransitions transitions =
     | Error e -> Error e
     | Ok _ -> Ok ()
 
-let confirmStageEntryCompositeIsValid
+let private confirmStageEntryCompositeIsValid
     (context: Context.Context)
     (stageEntry: StageEntry)
     : Result<unit, AppError> =
@@ -426,7 +426,7 @@ let ingestRawToStageThenDeduplicateAndClassify
                  classificationResults =  classificationResults } 
     }
 
-let confirmUpdateLinesMatchUpdateHeader
+let private confirmUpdateLinesMatchUpdateHeader
     (context: Context.Context)
     (headerUpdates: StageEntryHeader.StageEntryHeaderFieldUpdates)
     (lineUpdates: StageEntryLine.StageEntryLineFieldUpdates list)

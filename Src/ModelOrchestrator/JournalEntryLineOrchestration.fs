@@ -8,8 +8,7 @@ open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
 open Utilities.ResultHelper
 
-
-let confirmAmountIsPositive (m: Money) : Result<unit, AppError> =
+let private confirmAmountIsPositive (m: Money) : Result<unit, AppError> =
     if
         m |> Money.amount <= 0M
     then
@@ -17,7 +16,7 @@ let confirmAmountIsPositive (m: Money) : Result<unit, AppError> =
     else
         Ok()
 
-let confirmAccountExists (context: Context.Context) (accountId: AccountId) : Result<unit, AppError> =
+let private confirmAccountExists (context: Context.Context) (accountId: AccountId) : Result<unit, AppError> =
     match accountId |> Account.fetchById context with
     | Error(DalResultantRowsDidntMatchExpectation _) ->
         Error(JournalEntryLineAccountDoesntExist(accountId |> AccountId.value))

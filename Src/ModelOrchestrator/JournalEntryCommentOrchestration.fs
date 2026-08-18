@@ -10,7 +10,7 @@ open Utilities.FieldUpdate
 open Utilities.ResultHelper
 
 
-let confirmJournalEntryHeader (context: Context.Context) (journalEntryId: JournalEntryHeaderId) : Result<unit, AppError> =
+let private confirmJournalEntryHeader (context: Context.Context) (journalEntryId: JournalEntryHeaderId) : Result<unit, AppError> =
     match journalEntryId |> JournalEntryHeader.fetchById context with
     | Ok _ -> Ok ()
     | Error (DalResultantRowsDidntMatchExpectation(expected, actual)) ->
@@ -19,7 +19,7 @@ let confirmJournalEntryHeader (context: Context.Context) (journalEntryId: Journa
         else Error (DalResultantRowsDidntMatchExpectation(expected, actual))
     | Error e -> Error e
 
-let confirmPrimaryAndSecondaryRelationship
+let private confirmPrimaryAndSecondaryRelationship
     (primaryJournalEntryId: JournalEntryHeaderId)
     (secondaryJournalEntryId: JournalEntryHeaderId option)
     : Result<unit, AppError> =
