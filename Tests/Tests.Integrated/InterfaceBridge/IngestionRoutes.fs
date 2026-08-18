@@ -2,7 +2,6 @@ module Tests.Integrated.InterfaceBridge.IngestionRoutes
 
 open System.IO
 open InterfaceBridge.InterfaceContracts.IngestionContracts
-open Model
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
@@ -35,6 +34,18 @@ type IngestionRouteTests(fixture: TestDataFixture) =
     static let rawRow groupId entryDate description fiSource fiReference amount lineType accountCode memo =
         $"""{{"baseStageEntryGroupId":"%s{groupId}","entryDate":"%s{entryDate}","description":"%s{description}","fiSource":"%s{fiSource}","fiReference":"%s{fiReference}","amount":%s{amount},"entryType":"%s{lineType}","accountCode":%s{quotedOrNull accountCode},"memo":%s{quotedOrNull memo}}}"""
 
+    (* An InlineData attribute cannot hold a 1001-character literal, so over-length rows
+       carry the sentinel "tooLong" and it is expanded here to one character past the
+       field's documented maximum. The expansion is derived from the maximum rather than
+       hard-coded so the row proves where the boundary actually sits. *)
+    static let maxLengthOf =
+        function
+        | "description"
+        | "memo" -> 1000
+        | "fiSource"
+        | "fiReference" -> 100
+        | other -> failwith $"No maximum length is defined for field {other}."
+
     static let writeImportFile fileName (rows: string list) =
         Directory.CreateDirectory importDir |> ignore
         Directory.CreateDirectory processedDir |> ignore
@@ -53,15 +64,15 @@ type IngestionRouteTests(fixture: TestDataFixture) =
         |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
 
     /// Writes a one-defect file, asserts the route rejects it with the exact error, cleans up.
-    static let assertRouteRejects fileName rows expectedCaseConstructor =
+    static let assertRouteRejects fileName rows expectedError =
         try
             writeImportFile fileName rows
             result {
                 do!
-                    isCorrectError
+                    isCorrectErrorString
                         (routeUiCommandForTesting "Ingestion" "IngestRawFileToStage" [] (ingestPayload fileName))
-                        expectedCaseConstructor
-                        None
+                        expectedError
+                        (Some "The file may have been moved to the processed directory.")
                 return ()
             }
             |> railroadWrapper
@@ -72,73 +83,58 @@ type IngestionRouteTests(fixture: TestDataFixture) =
     member _.``REQ-STG-3.1 IngestRawFileToStage route ingests valid file and returns result`` () =
         Assert.Fail "not implemented"
 
-    [<Fact>]
-    member _.``REQ-STG-1.5 IngestRawFileToStage rejects record with invalid entry_date`` () =
-        let fileName = "req-stg-1-5.jsonl"
+    [<Theory>]
+    [<InlineData("entryDate", "not-a-date", "InterfaceBridgeFailedJsonDeserialization")>]
+    [<InlineData("amount", "32.475", "MoneyFailedToConvertImproperPrecision")>]
+    [<InlineData("amount", "19999999999.99", "MoneyFailedToConvertExceededMax")>]
+    [<InlineData("entryType", "Sideways", "JournalEntryLineTypeInvalid")>]
+    [<InlineData("accountCode", "", "AccountCodeIsEmpty")>]
+    [<InlineData("description", "", "JournalEntryDescriptionIsEmpty")>]
+    [<InlineData("description", "tooLong", "JournalEntryDescriptionTooLong")>]
+    [<InlineData("fiSource", "", "JournalRefFinancialInstitutionIsEmpty")>]
+    [<InlineData("fiSource", "tooLong", "JournalRefFinancialInstitutionTooLong")>]
+    [<InlineData("fiReference", "", "JournalEntryReferenceTextIsEmpty")>]
+    [<InlineData("fiReference", "tooLong", "JournalEntryReferenceTextTooLong")>]
+    [<InlineData("memo", "", "JournalEntryLineMemoIsEmpty")>]
+    [<InlineData("memo", "tooLong", "JournalEntryLineMemoTooLong")>]
+    member _.``REQ-STG-1.5 REQ-STG-1.6 REQ-STG-1.7 REQ-STG-1.8 REQ-STG-1.9 REQ-STG-1.10 REQ-STG-1.11 REQ-STG-1.12 IngestRawFileToStage validates input as valid types``
+        (field: string, value: string, expectedError: string)
+        =
+        let valueToUse =
+            if value = "tooLong" then String.replicate (maxLengthOf field + 1) "x" else value
+        let entryDateToUse = if field = "entryDate" then valueToUse else today
+        let descriptionToUse = if field = "description" then valueToUse else "Route validation test entry"
+        let fiSourceToUse = if field = "fiSource" then valueToUse else "TestBank"
+        let fiReferenceToUse = if field = "fiReference" then valueToUse else "REF-ROUTE-VALIDATION"
+        let amountToUse = if field = "amount" then valueToUse else "32.47"
+        let entryTypeToUse = if field = "entryType" then valueToUse else "Debit"
+        let accountCodeToUse = if field = "accountCode" then Some valueToUse else None
+        let memoToUse = if field = "memo" then Some valueToUse else None
+        (* Header fields and the amount are repeated on both rows so the group stays
+           internally consistent and balanced; only the defect under test is wrong. Line
+           fields are fixed on the second row, so a line defect lands on the first alone. *)
         let rows =
-            [ rawRow "grp-1-5" "not-a-date" "Route test entry" "TestBank" "REF-1-5" "32.47" "Debit" None None
-              rawRow "grp-1-5" today "Route test entry" "TestBank" "REF-1-5" "32.47" "Credit" (Some "F-1270") None ]
-        assertRouteRejects fileName rows InterfaceBridgeFailedJsonDeserialization
-
-    [<Fact>]
-    member _.``REQ-STG-1.6 IngestRawFileToStage rejects record with negative amount`` () =
-        let fileName = "req-stg-1-6.jsonl"
-        let rows =
-            [ rawRow "grp-1-6" today "Route test entry" "TestBank" "REF-1-6" "-32.47" "Debit" None None
-              rawRow "grp-1-6" today "Route test entry" "TestBank" "REF-1-6" "-32.47" "Credit" (Some "F-1270") None ]
-        assertRouteRejects fileName rows IngestionStageLineNonPositiveAmount
-
-    [<Fact>]
-    member _.``REQ-STG-1.7 IngestRawFileToStage rejects record with invalid line_type`` () =
-        let fileName = "req-stg-1-7.jsonl"
-        let rows =
-            [ rawRow "grp-1-7" today "Route test entry" "TestBank" "REF-1-7" "32.47" "Sideways" None None
-              rawRow "grp-1-7" today "Route test entry" "TestBank" "REF-1-7" "32.47" "Credit" (Some "F-1270") None ]
-        assertRouteRejects fileName rows JournalEntryLineTypeInvalid
-
-    [<Fact>]
-    member _.``REQ-STG-1.8 IngestRawFileToStage rejects record with empty account_code`` () =
-        let fileName = "req-stg-1-8.jsonl"
-        let rows =
-            [ rawRow "grp-1-8" today "Route test entry" "TestBank" "REF-1-8" "32.47" "Debit" None None
-              rawRow "grp-1-8" today "Route test entry" "TestBank" "REF-1-8" "32.47" "Credit" (Some "") None ]
-        assertRouteRejects fileName rows AccountCodeIsEmpty
-
-    [<Fact>]
-    member _.``REQ-STG-1.9 IngestRawFileToStage rejects record with description over 1000 chars`` () =
-        let fileName = "req-stg-1-9.jsonl"
-        let tooLong = String.replicate 1001 "x"
-        let rows =
-            [ rawRow "grp-1-9" today tooLong "TestBank" "REF-1-9" "32.47" "Debit" None None
-              rawRow "grp-1-9" today tooLong "TestBank" "REF-1-9" "32.47" "Credit" (Some "F-1270") None ]
-        assertRouteRejects fileName rows JournalEntryDescriptionTooLong
-
-    [<Fact>]
-    member _.``REQ-STG-1.10 IngestRawFileToStage rejects record with fi_source over 100 chars`` () =
-        let fileName = "req-stg-1-10.jsonl"
-        let tooLong = String.replicate 101 "x"
-        let rows =
-            [ rawRow "grp-1-10" today "Route test entry" tooLong "REF-1-10" "32.47" "Debit" None None
-              rawRow "grp-1-10" today "Route test entry" tooLong "REF-1-10" "32.47" "Credit" (Some "F-1270") None ]
-        assertRouteRejects fileName rows JournalRefFinancialInstitutionTooLong
-
-    [<Fact>]
-    member _.``REQ-STG-1.11 IngestRawFileToStage rejects record with fi_reference over 100 chars`` () =
-        let fileName = "req-stg-1-11.jsonl"
-        let tooLong = String.replicate 101 "x"
-        let rows =
-            [ rawRow "grp-1-11" today "Route test entry" "TestBank" tooLong "32.47" "Debit" None None
-              rawRow "grp-1-11" today "Route test entry" "TestBank" tooLong "32.47" "Credit" (Some "F-1270") None ]
-        assertRouteRejects fileName rows JournalEntryReferenceTextTooLong
-
-    [<Fact>]
-    member _.``REQ-STG-1.12 IngestRawFileToStage rejects record with memo over 1000 chars`` () =
-        let fileName = "req-stg-1-12.jsonl"
-        let tooLong = String.replicate 1001 "x"
-        let rows =
-            [ rawRow "grp-1-12" today "Route test entry" "TestBank" "REF-1-12" "32.47" "Debit" None (Some tooLong)
-              rawRow "grp-1-12" today "Route test entry" "TestBank" "REF-1-12" "32.47" "Credit" (Some "F-1270") None ]
-        assertRouteRejects fileName rows JournalEntryLineMemoTooLong
+            [ rawRow
+                  "grp-route-validation"
+                  entryDateToUse
+                  descriptionToUse
+                  fiSourceToUse
+                  fiReferenceToUse
+                  amountToUse
+                  entryTypeToUse
+                  accountCodeToUse
+                  memoToUse
+              rawRow
+                  "grp-route-validation"
+                  entryDateToUse
+                  descriptionToUse
+                  fiSourceToUse
+                  fiReferenceToUse
+                  amountToUse
+                  "Credit"
+                  (Some "F-1270")
+                  None ]
+        assertRouteRejects $"ingestion-route-{expectedError}.jsonl" rows expectedError
 
     [<Fact>]
     member _.``REQ-STG-6.1 REQ-STG-6.2 UpdateStageEntry route happy path`` () =
