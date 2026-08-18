@@ -6,7 +6,7 @@ Behavioral specs for the staging and ingestion pipeline — the mechanism by whi
 
 **Design note — file format choice.** The base staging format is JSONL (newline-delimited JSON, one object per line). No industry interchange standard models multi-leg journal entry decomposition from the consumer's perspective. OFX, QIF, FIX, BIAN, and Plaid's transaction model were evaluated; all are single-entry, per-account formats designed for FI-to-consumer or FI-to-FI communication. The staging format's job is different: it carries the parser's decomposition of an economic event into journal entry legs, including legs the parser already knows the account for and legs it leaves for classification.
 
-**Design note — amount sign convention.** The base staging format carries amount as a positive value in every record. Direction is expressed by the line_type field. How the parser derives line_type from the source's own debit/credit/sign conventions is parser-specific — the format constrains only the result: positive amount, explicit direction.
+**Design note — amount sign convention.** The base staging format carries amount as a positive value in every record. Direction is expressed by the entryType field. How the parser derives entryType from the source's own debit/credit/sign conventions is parser-specific — the format constrains only the result: positive amount, explicit direction.
 
 **Design note — parser latitude.** The description field in the base staging format is the raw string from the financial institution, untransformed. However, the parser has full latitude to implement deterministic pre-processing of the overall record set. A payroll parser decomposes a paystub into 10 fully-assigned legs. A tenant-payment parser queries obligation data to produce a rent/utility split. A mortgage parser reads amortization data to split principal from interest. In each case the parser produces the full leg decomposition with account_code populated on every line. The classification step has nothing to do on these entries — it exists for the simple bank transactions where only the cash leg is known and the expense account must be determined by pattern matching.
 
@@ -16,7 +16,7 @@ Behavioral specs for the staging and ingestion pipeline — the mechanism by whi
 
 **Design note — classification authority hierarchy.** Three layers assign account codes to staged lines, in descending order of authority: (1) the bespoke parser, which assigns codes only when it knows the answer with certainty (payroll splits, tenant payment decompositions, mortgage allocations); (2) the classification rules engine, which fills null account_codes by pattern matching against the description; (3) the operator, who manually assigns or overrides during review. Each layer acts only where no higher-authority layer has already assigned a code. A parser that cannot determine the account leaves account_code null — it does not guess. This hierarchy is why the classifier cannot override parser assignments (REQ-STG-5.3) and why fully parser-assigned entries skip classification and transition directly to `'Classified'` (REQ-STG-5.8). (2026-08-15)
 
-**Design note — fi_reference is required.** Every parser must produce an fi_reference — the dedup key. For sources without a natural transaction ID (e.g., paystubs), the parser derives a deterministic reference (e.g., the check date). This ensures the dedup pass has universal coverage; no class of transaction is invisible to duplicate detection.
+**Design note — fiReference is required.** Every parser must produce an fiReference — the dedup key. For sources without a natural transaction ID (e.g., paystubs), the parser derives a deterministic reference (e.g., the check date). This ensures the dedup pass has universal coverage; no class of transaction is invisible to duplicate detection.
 
 **Scope exclusions — deliberately not supported by the staging pipeline.** These are design decisions, not gaps. Each was evaluated and excluded during the initial design (2026-08-08).
 
@@ -35,22 +35,22 @@ The base staging format is the interface contract between bespoke parsers and th
 
 - **REQ-STG-1.1** The base staging format is JSONL: one JSON object per text line, newline-delimited.
 - **REQ-STG-1.2** Each record in the file represents one future journal entry line.
-- **REQ-STG-1.3** Records sharing a `group_id` value within a single file form one economic event. All records in a group will produce one journal entry when posted.
-- **REQ-STG-1.4** `group_id`: required, string. Unique within the file. Not globally unique — the ingestion step replaces it with a system-generated staged entry ID.
-  - *Why:* group_id is a local association mechanism for the parser. Global identity is the staged entry's UUID, assigned at ingestion. (2026-08-08)
-- **REQ-STG-1.5** `entry_date`: required, ISO 8601 calendar date (`yyyy-MM-dd`). Must parse to a valid Calendar Date.
-- **REQ-STG-1.6** `amount`: required, positive decimal with exactly two decimal places. Maximum value 9,999,999,999.99. Direction is expressed by `line_type`, not by sign.
-- **REQ-STG-1.7** `line_type`: required. Must be `"Debit"` or `"Credit"`.
-- **REQ-STG-1.8** `account_code`: optional (null). When present, must be a non-empty string. The parser populates this when the destination account is known; null when classification must determine it.
+- **REQ-STG-1.3** Records sharing a `baseStageEntryGroupId` value within a single file form one economic event. All records in a group will produce one journal entry when posted.
+- **REQ-STG-1.4** `baseStageEntryGroupId`: required, string. Unique within the file. Not globally unique — the ingestion step replaces it with a system-generated staged entry ID.
+  - *Why:* baseStageEntryGroupId is a local association mechanism for the parser. Global identity is the staged entry's UUID, assigned at ingestion. (2026-08-08)
+- **REQ-STG-1.5** `entryDate`: required, ISO 8601 calendar date (`yyyy-MM-dd`). Must parse to a valid Calendar Date.
+- **REQ-STG-1.6** `amount`: required, positive decimal with exactly two decimal places. Maximum value 9,999,999,999.99. Direction is expressed by `entryType`, not by sign.
+- **REQ-STG-1.7** `entryType`: required. Must be `"Debit"` or `"Credit"`.
+- **REQ-STG-1.8** `accountCode`: optional (null). When present, must be a non-empty string. The parser populates this when the destination account is known; null when classification must determine it.
 - **REQ-STG-1.9** `description`: required, maximum 1000 characters. The raw description from the source document.
-- **REQ-STG-1.10** `fi_source`: required, maximum 100 characters. Identifies the institution and account that originated this data.
-- **REQ-STG-1.11** `fi_reference`: required, maximum 100 characters. The financial institution's own transaction identifier, or a deterministic parser-derived reference for sources without native IDs.
+- **REQ-STG-1.10** `fiSource`: required, maximum 100 characters. Identifies the institution and account that originated this data.
+- **REQ-STG-1.11** `fiReference`: required, maximum 100 characters. The financial institution's own transaction identifier, or a deterministic parser-derived reference for sources without native IDs.
 - **REQ-STG-1.12** `memo`: optional (null), maximum 1000 characters. A per-line note describing what this leg represents.
-- **REQ-STG-1.13** All records in a group (same `group_id`) must carry the same `entry_date`, `description`, `fi_source`, and `fi_reference` values.
+- **REQ-STG-1.13** All records in a group (same `baseStageEntryGroupId`) must carry the same `entryDate`, `description`, `fiSource`, and `fiReference` values.
   - *Why:* These are entry-level fields describing the economic event, not the individual leg. Inconsistency within a group indicates a parser defect. (2026-08-08)
 - **REQ-STG-1.14** A group must contain at least two records.
   - *Why:* Every journal entry requires at least two legs (REQ-JE-1.12). A single-record group cannot produce a balanced entry. (2026-08-08)
-- **REQ-STG-1.15** Within a group, the sum of all amounts where line_type is `"Debit"` must equal the sum of all amounts where line_type is `"Credit"`.
+- **REQ-STG-1.15** Within a group, the sum of all amounts where entryType is `"Debit"` must equal the sum of all amounts where entryType is `"Credit"`.
   - *Why:* The balanced-entry invariant (REQ-JE-1.13) is validated at ingestion rather than deferred to posting. Catching imbalance immediately gives the parser actionable feedback. (2026-08-08)
 
 
@@ -97,11 +97,11 @@ The base staging format is the interface contract between bespoke parsers and th
   - *Why:* A group that loses a record to validation cannot produce a balanced entry. All-or-nothing prevents orphaned legs. (2026-08-08)
 - **REQ-STG-3.4** For each group in the file, the system must create one staged entry and one staged line per record. The staged entry's entry_date, description, and fi_reference are populated from the group's shared values. The source_id is resolved from the group's fi_source. The source_file is the filename of the ingested file.
 - **REQ-STG-3.5** The system must generate a UUID for each staged entry and each staged line.
-- **REQ-STG-3.6** When a record's fi_source does not resolve to an existing source in `ingestion.source`, the system must reject the file.
+- **REQ-STG-3.6** When a record's fiSource does not resolve to an existing source in `ingestion.source`, the system must reject the file.
   - *Why:* An unrecognized source indicates a parser misconfiguration, not a classification concern. (2026-08-08)
-- **REQ-STG-3.7** When a record's account_code is non-null, the system must validate it resolves to an existing account in the chart of accounts. If it does not, the system must reject the file. The staged line stores the account code (not the resolved account ID); code-to-ID resolution occurs at posting time.
+- **REQ-STG-3.7** When a record's accountCode is non-null, the system must validate it resolves to an existing account in the chart of accounts. If it does not, the system must reject the file. The staged line stores the account code (not the resolved account ID); code-to-ID resolution occurs at posting time.
   - *Why:* A parser-assigned account code that does not exist is a parser defect. Fail fast. Account codes (not IDs) are stored because the review surface and classification rules operate on codes. (2026-08-09)
-- **REQ-STG-3.8** When a record's account_code is null, the staged line's account_code is set to null.
+- **REQ-STG-3.8** When a record's accountCode is null, the staged line's account_code is set to null.
 - **REQ-STG-3.9** On successful ingestion, every staged entry's status is set to `'ingested'` and an audit record is created (from_status null, to_status `'ingested'`).
 - **REQ-STG-3.10** Ingestion is atomic: either the entire file is ingested (all entries and lines persisted) or no rows are created.
 
