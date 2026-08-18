@@ -2,6 +2,8 @@
 
 Behavioral specs for the staging and ingestion pipeline — the mechanism by which external financial data enters the SonOfLeo ledger. Data flows through a universal staging area where it is validated, classified, deduplicated, reviewed, and batch-posted as journal entries through the existing JE domain model.
 
+**Design note — naming.** Identifiers in this spec (e.g. `fi_source`, `entry_date`, `line_type`) name domain concepts for readability. They do not prescribe variable names, function names, property names, or any other naming convention in the code or tests.
+
 **Design note — system boundary.** SonOfLeo's ingestion boundary is "a valid base staging format file appeared." The files are produced by bespoke parsers — lightweight, institution-specific scripts that live outside this repository. Each parser reads a financial institution's native export format and converts it to the base staging format. Parsers know nothing about accounts, classification, or the ledger. The staging pipeline knows nothing about CSV column positions, JSON shapes, or FI-specific quirks. The two meet at the file format and nowhere else.
 
 **Design note — file format choice.** The base staging format is JSONL (newline-delimited JSON, one object per line). No industry interchange standard models multi-leg journal entry decomposition from the consumer's perspective. OFX, QIF, FIX, BIAN, and Plaid's transaction model were evaluated; all are single-entry, per-account formats designed for FI-to-consumer or FI-to-FI communication. The staging format's job is different: it carries the parser's decomposition of an economic event into journal entry legs, including legs the parser already knows the account for and legs it leaves for classification.
@@ -213,13 +215,16 @@ The classification step runs the vendor classification rules engine against stag
 | REQ-STG-2.19 | Same as REQ-STG-2.11. | Dan 2026-08-16 |
 | REQ-STG-3.5 | UUID generation via Guid.NewGuid() in create functions; uniqueness enforced by PK constraint. Same rationale as REQ-STG-2.1. | Dan 2026-08-16 |
 | REQ-STG-3.8 | AccountCode is an option type. Null input maps to None by construction; no code path transforms null into a value. | Dan 2026-08-16 |
+| REQ-STG-1.1 | Definitional — states the file format (JSONL), not a testable behaviour. The parser reads newline-delimited JSON by construction. | Dan 2026-08-18 |
+| REQ-STG-1.2 | Definitional — states what a record represents, not a testable behaviour. The record-to-line mapping is structural (one JSON object → one StagedEntryLine). | Dan 2026-08-18 |
+| REQ-STG-1.4 | Structural — group_id is a required string field on BaseStageRawRow. Visible by inspection. | Dan 2026-08-18 |
 | REQ-STG-9.9 | postStageEntry takes a single StageEntry and produces one JE. The calling loop is structural; no aggregation code exists. | Dan 2026-08-16 |
 
 ## Unenforceable
 
 | ID | Why it cannot be enforced | Approved |
 |---|---|---|
-| | | |
+| REQ-STG-1.4 | "Unique within the file. Not globally unique" — file-scoped uniqueness is consumed by the grouping step (constructSetFromRaw) and discarded. No persistent state to assert against. | Dan 2026-08-18 |
 
 ## Withdrawn
 
