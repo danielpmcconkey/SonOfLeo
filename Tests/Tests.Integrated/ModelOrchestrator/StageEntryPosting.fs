@@ -92,15 +92,20 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
             do! entry |> postStageEntry context jeSource
         }
 
-    static let postThenFetchByExternalReference context entry =
+    static let fetchPostedByExternalReference context entry =
         result {
-            do! entry |> postStagedEntry context
             let staged = entry |> stageEntryHeader
             let fi = staged |> StageEntryHeader.ingestionSource |> IngestionSource.name
             let fiReference = staged |> StageEntryHeader.fiReference
             let! posted = PostedJournalEntry.fetchByFiReference context fi fiReference
             Assert.Equal(1, posted |> List.length)
             return posted |> List.head
+        }
+
+    static let postThenFetchByExternalReference context entry =
+        result {
+            do! entry |> postStagedEntry context
+            return! entry |> fetchPostedByExternalReference context
         }
 
     static let postThenFetchByDateAndDescription context entry =
@@ -277,6 +282,60 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 Assert.Equal(
                     staged |> StageEntryHeader.entryDate,
                     postedHeader |> JournalEntryHeader.entryDate |> EntryDate.entryDate)
+            })
+        |> railroadWrapper
+
+
+    [<Fact>]
+    member _.``REQ-STG-9.3 posted JE source is one fixed provenance label whatever institution the entry came from`` () =
+        runCommandRouteAndAutoRollback IngestPostStageEntries (fun context ->
+            result {
+                let today = Calendar.today()
+                let! sourceFile = "/tmp/test-je-source-provenance.jsonl" |> SourceFile.create
+                (* Two entries differing in the institution they came from and nothing else
+                   that matters here. The source names how these rows got into the ledger, so
+                   both journal entries have to carry the same one -- were it derived from the
+                   staged entry at all, these two would disagree. The label itself is not
+                   asserted: the requirement calls it fixed, not any particular string. *)
+                let! bankDebit = StageTestData.makeRawRow "grp-prov-a" today "Provenance from the bank" "TestBank" "REF-PROV-001" 25.00M "Debit" (Some "F-5300") None
+                let! bankCredit = StageTestData.makeRawRow "grp-prov-a" today "Provenance from the bank" "TestBank" "REF-PROV-001" 25.00M "Credit" (Some "F-1270") None
+                let! savingsDebit = StageTestData.makeRawRow "grp-prov-b" today "Provenance from the savings" "TestSavings" "REF-PROV-002" 31.00M "Debit" (Some "F-5300") None
+                let! savingsCredit = StageTestData.makeRawRow "grp-prov-b" today "Provenance from the savings" "TestSavings" "REF-PROV-002" 31.00M "Credit" (Some "F-1270") None
+                let! staged =
+                    [ bankDebit; bankCredit; savingsDebit; savingsCredit ]
+                    |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
+                let contextForPost = context |> Context.updateInitiationInstant
+                do! ModelOrchestrator.StageEntryOrchestration.post contextForPost
+                let sourceOfPosted description =
+                    result {
+                        let! posted =
+                            staged.stagedEntries
+                            |> StageTestData.findByDescription description
+                            |> fetchPostedByExternalReference contextForPost
+                        return
+                            posted
+                            |> PostedJournalEntry.headerOf
+                            |> JournalEntryHeader.source
+                            |> Option.map JournalEntrySource.value
+                    }
+                let! fromBank = sourceOfPosted "Provenance from the bank"
+                let! fromSavings = sourceOfPosted "Provenance from the savings"
+                Assert.True(fromBank |> Option.isSome, "A posted journal entry must carry a source")
+                Assert.Equal<string option>(fromBank, fromSavings)
+                (* and it is provenance, not identity: which institution the money came from
+                   lives on the external reference instead *)
+                let institutionNames =
+                    staged.stagedEntries
+                    |> List.map (fun entry ->
+                        entry
+                        |> stageEntryHeader
+                        |> StageEntryHeader.ingestionSource
+                        |> IngestionSource.name
+                        |> JournalRefFinancialInstitution.value)
+                    |> List.distinct
+                Assert.Equal(2, institutionNames |> List.length)
+                institutionNames
+                |> List.iter (fun name -> Assert.NotEqual<string option>(Some name, fromBank))
             })
         |> railroadWrapper
 
