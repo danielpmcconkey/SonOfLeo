@@ -194,7 +194,7 @@ The classification step runs the vendor classification rules engine against stag
 - **REQ-STG-9.1** The system must provide a means to batch-post all postable staged entries to the ledger.
 - **REQ-STG-9.2** For each postable staged entry, the system must construct a journal entry through the domain model (JournalEntryCrud §2), applying all existing JE validations.
 - **REQ-STG-9.3** The journal entry header fields are mapped from the staged entry: description from the staged entry's description, source from the staged entry's source name (resolved via `ingestion.source`), entry_date from the staged entry's entry_date.
-- **REQ-STG-9.4** For each staged line, the system must resolve the line's account_code to an account ID via the chart of accounts and construct a journal entry line with the line's amount, line_type, resolved account ID, and memo. If any account_code does not resolve, the batch post fails.
+- **REQ-STG-9.4** For each staged line, the system must resolve the line's account_code to an account ID via the chart of accounts and construct a journal entry line with the line's amount, line_type, resolved account ID, and memo. A null account_code at posting time is a loud failure — it indicates a broken upstream invariant (classification or review allowed an uncoded line through). Invalid non-null codes cannot occur: the chart of accounts is FK-constrained.
 - **REQ-STG-9.5** The system must construct one external reference on each journal entry: financial_institution from the staged entry's source name, reference from fi_reference.
 - **REQ-STG-9.6** Stricken.
 - **REQ-STG-9.7** On successful posting, each staged entry's status is set to `'posted'` and an audit record is created.
