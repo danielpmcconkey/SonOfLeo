@@ -330,7 +330,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                     "The line under test must be uncoded for this test to mean anything.")
                 return!
                     match ModelOrchestrator.StageEntryOrchestration.post context with
-                    | Error (IngestionPostingNoneAccountCode _) -> Ok ()
+                    | Error (IngestionNoneAccountCode _) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })

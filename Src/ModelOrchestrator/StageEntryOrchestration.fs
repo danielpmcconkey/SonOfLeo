@@ -24,6 +24,10 @@ type IngestionFullResult = {
     newDuplicates: StageEntryHeader.StageEntryHeader list
     classificationResults: ClassificationResult list
 }
+
+type AccountCodeValidationType =
+    | AllowNone
+    | DisallowNone
     
 
 let stageEntryHeader se = se.stageEntryHeader
@@ -70,15 +74,17 @@ let private confirmLinesAreAllPositive (lines: StageEntryLine.StageEntryLine lis
 
 let private confirmLinesAccountCodes
     (context: Context.Context)
-    (allowOptionNone: bool)
+    (accountCodeValidationType: AccountCodeValidationType)
     (lines: StageEntryLine.StageEntryLine list)
     : Result<unit, AppError> =
     let checkedLines =
         lines
         |> List.map(fun x ->
             let code = x |> StageEntryLine.accountCode
-            if allowOptionNone && code |> Option.isNone then Ok ()
-            else
+            match accountCodeValidationType, code |> Option.isNone with
+            | AllowNone, true -> Ok ()
+            | DisallowNone, true -> Error (IngestionNoneAccountCode (x |> StageEntryLine.stageEntryLineId |> StageEntryLineId .value))
+            | _, false ->
                 let lookupResult =
                     code
                     |> Option.get
@@ -98,14 +104,14 @@ let private confirmLinesAccountCodes
 
 let private confirmLines
     (context: Context.Context)
-    (allowOptionNone: bool)
+    (accountCodeValidationType: AccountCodeValidationType)
     (lines: StageEntryLine.StageEntryLine list)
     : Result<unit, AppError> =
     result {
         do! lines |> confirmLineCount
         do! lines |> confirmAmountEquality
         do! lines |> confirmLinesAreAllPositive
-        do! lines |> confirmLinesAccountCodes context allowOptionNone // do the expensive one last
+        do! lines |> confirmLinesAccountCodes context accountCodeValidationType // do the expensive one last
     }
 
 let private confirmValidTransition transition =
@@ -128,11 +134,11 @@ let private confirmValidTransitions transitions =
 
 let private confirmStageEntryCompositeIsValid
     (context: Context.Context)
-    (allowOptionNone: bool)
+    (accountCodeValidationType: AccountCodeValidationType)
     (stageEntry: StageEntry)
     : Result<unit, AppError> =
     result {
-        do! stageEntry.lines |> confirmLines context allowOptionNone
+        do! stageEntry.lines |> confirmLines context accountCodeValidationType
         do! stageEntry.statusTransitions |> confirmValidTransitions
         do! if stageEntry.statusTransitions |> List.isEmpty then Error IngestionStatusTransitionList else Ok ()
     }
@@ -148,7 +154,7 @@ let createStageEntry
             stageEntryHeader = header
             lines = lines
             statusTransitions = transitions }
-        do! stageEntry |> confirmStageEntryCompositeIsValid context true
+        do! stageEntry |> confirmStageEntryCompositeIsValid context AllowNone
         return stageEntry
     }
     
@@ -513,7 +519,7 @@ let updateStageEntry
                 headerId |> updateHeaderStatusAndAddAuditRecord context newStatus StageStatusChangeMechanism.Operator
         // now that we updated everything, we should read it back and ensure it still meets composite requirements
         let! fetched = headerUpdates.headerIdToUpdate |> fetchByStageEntryHeaderId context
-        do! fetched |> confirmStageEntryCompositeIsValid context true
+        do! fetched |> confirmStageEntryCompositeIsValid context AllowNone
         return fetched
     }
 
@@ -540,7 +546,7 @@ let postStageEntry
                     let! accountId =
                         if accountCodeOption |> Option.isNone
                         then
-                            Error (IngestionPostingNoneAccountCode (
+                            Error (IngestionNoneAccountCode (
                                 line |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value))
                         else
                             accountCodeOption
@@ -579,7 +585,7 @@ let post
         // check the lines one last time just to be sure we're not trying to post any records whose accounts aren't set
         do! stageEntries
             |> List.map(fun stageEntry ->
-                stageEntry.lines |> confirmLinesAccountCodes context false
+                stageEntry.lines |> confirmLinesAccountCodes context DisallowNone
                 )
             |> convertListOfResultsToResultsList
             |> Result.map ignore
