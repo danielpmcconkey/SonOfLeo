@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Installs the pre-commit hook: refuses when the working tree isn't what is about
 # to be committed, then runs `Checks/run-all.sh --quick`; a failing check refuses
-# the commit. Run once per clone. Host and BD's container share this clone through
-# the mounted workspace, so one install covers both sides — the hook uses only
-# repo-relative paths and self-skips any check whose tooling is absent.
+# the commit. Run once per clone. The host and container are separate clones;
+# install in each.
 #
 # History: this hook was disabled 2026-07-26 because check-format produced
 # intermittent false FAILs. Fantomas was dropped 2026-07-31 and check-format.sh
