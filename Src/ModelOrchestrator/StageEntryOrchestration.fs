@@ -80,20 +80,18 @@ let private confirmLinesAccountCodes
     let checkedLines =
         lines
         |> List.map(fun x ->
-            let code = x |> StageEntryLine.accountCode
-            match accountCodeValidationType, code |> Option.isNone with
-            | AllowNone, true -> Ok ()
-            | DisallowNone, true -> Error (IngestionNoneAccountCode (x |> StageEntryLine.stageEntryLineId |> StageEntryLineId .value))
-            | _, false ->
+            let codeOption = x |> StageEntryLine.accountCode
+            match accountCodeValidationType, codeOption with
+            | AllowNone, None -> Ok ()
+            | DisallowNone, None ->
+                Error (IngestionNoneAccountCode (x |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value))
+            | _, Some code ->
+                let codeStr = code |> AccountCode.value
                 let lookupResult =
-                    code
-                    |> Option.get
-                    |> AccountCode.value
-                    |> LookupCache.accountCodeToId.fetch context 
+                    codeStr |> LookupCache.accountCodeToId.fetch context 
                 match lookupResult with
                 | Ok _ -> Ok ()
                 | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                    let codeStr = code |> Option.get |> AccountCode.value
                     Error (AccountCodeDoesntMatchAccountId codeStr)
                 | Error e -> Error e
             )
