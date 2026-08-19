@@ -542,13 +542,11 @@ let postStageEntry
                 result {
                     let accountCodeOption = line |> StageEntryLine.accountCode
                     let! accountId =
-                        if accountCodeOption |> Option.isNone
-                        then
-                            Error (IngestionNoneAccountCode (
+                        match accountCodeOption with
+                        | None -> Error (IngestionNoneAccountCode (
                                 line |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value))
-                        else
-                            accountCodeOption
-                            |> Option.get
+                        | Some accountCode -> 
+                            accountCode
                             |> AccountCode.value
                             |> LookupCache.accountCodeToId.fetch context
                             |> Result.map AccountId.fromGuid
