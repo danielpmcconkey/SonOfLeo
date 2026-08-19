@@ -18,6 +18,7 @@ open Tests.Helpers
 open Tests.Helpers.Railroad
 open Utilities
 open Utilities.AppError
+open Utilities.FieldUpdate
 open Utilities.ResultHelper
 open Xunit
 
@@ -52,6 +53,37 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
        reference test owns the reference, and neither may look itself up. The requirements are
        named in prose rather than by ID because the traceability audit greps whole files, and
        an ID in a comment reads to it as a test annotation. *)
+    static let noChangeHeaderUpdates headerId : StageEntryHeaderFieldUpdates =
+        { headerIdToUpdate = headerId
+          sourceFileUpdate = NoChange
+          entryDateUpdate = NoChange
+          descriptionUpdate = NoChange
+          ingestionSourceUpdate = NoChange
+          fiReferenceUpdate = NoChange
+          statusUpdate = NoChange }
+
+    static let noChangeLineUpdates lineId : StageEntryLineFieldUpdates =
+        { lineIdToUpdate = lineId
+          amountUpdate = NoChange
+          entryTypeUpdate = NoChange
+          accountCodeUpdate = NoChange
+          memoUpdate = NoChange
+          classificationRuleIdUpdate = NoChange }
+
+    static let stageEntryHeaderIdOf entry =
+        entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+
+    /// Removes the account code the classifier assigned to an entry's first line, leaving the
+    /// entry's status untouched. This is the broken upstream invariant REQ-STG-4.4 and
+    /// REQ-STG-9.4 both turn on, and the only way to reach it without a fixture archetype
+    /// that would then be postable in every other test in this file.
+    static let stripAccountCodeFromFirstLine context entry =
+        let lineId = entry |> lines |> List.head |> StageEntryLine.stageEntryLineId
+        updateStageEntry
+            context
+            (entry |> stageEntryHeaderIdOf |> noChangeHeaderUpdates)
+            [ { noChangeLineUpdates lineId with accountCodeUpdate = SetTo None } ]
+
     static let postStagedEntry context entry =
         result {
             let! jeSource =
@@ -299,30 +331,13 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
             result {
                 let! fullResult = StageTestData.runPipeline context
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "HARRIS TEETER 0381 ANYTOWN US"
-                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-                let lineId = entry |> lines |> List.head |> StageEntryLine.stageEntryLineId
                 (* Strip the code the classifier assigned. The entry stays Classified and so
                    stays postable: this is exactly the broken upstream invariant the
                    requirement describes, and posting has to say so rather than quietly skip
                    the entry. An invalid non-null code cannot be staged at all, the chart of
                    accounts being FK-constrained, so a null is the only reachable shape of
                    this failure. *)
-                let headerUpdates: StageEntryHeaderFieldUpdates =
-                    { headerIdToUpdate = headerId
-                      sourceFileUpdate = Utilities.FieldUpdate.FieldUpdate.NoChange
-                      entryDateUpdate = Utilities.FieldUpdate.FieldUpdate.NoChange
-                      descriptionUpdate = Utilities.FieldUpdate.FieldUpdate.NoChange
-                      ingestionSourceUpdate = Utilities.FieldUpdate.FieldUpdate.NoChange
-                      fiReferenceUpdate = Utilities.FieldUpdate.FieldUpdate.NoChange
-                      statusUpdate = Utilities.FieldUpdate.FieldUpdate.NoChange }
-                let lineUpdates: StageEntryLineFieldUpdates list =
-                    [ { lineIdToUpdate = lineId
-                        amountUpdate = Utilities.FieldUpdate.FieldUpdate.NoChange
-                        entryTypeUpdate = Utilities.FieldUpdate.FieldUpdate.NoChange
-                        accountCodeUpdate = Utilities.FieldUpdate.FieldUpdate.SetTo None
-                        memoUpdate = Utilities.FieldUpdate.FieldUpdate.NoChange
-                        classificationRuleIdUpdate = Utilities.FieldUpdate.FieldUpdate.NoChange } ]
-                let! uncoded = updateStageEntry context headerUpdates lineUpdates
+                let! uncoded = entry |> stripAccountCodeFromFirstLine context
                 // the entry has to still be postable, or the post below would prove nothing
                 Assert.Equal(Classified, StageTestData.latestStatus uncoded)
                 Assert.True(
@@ -401,23 +416,41 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
 
 
     // =========================================================================
-    // REQ-STG-4.4 — fetchAllForPosting returns only postable entries
+    // REQ-STG-4.4 — fetchAllForPosting returns exactly the entries in a postable status
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-4.4 fetchAllForPosting returns only Classified and Reviewed entries with all lines coded`` () =
+    member _.``REQ-STG-4.4 fetchAllForPosting returns every Classified or Reviewed entry and nothing else`` () =
         runCommandRouteAndAutoRollback IngestPostStageEntries (fun context ->
             result {
-                let! _ = StageTestData.runPipeline context
+                let! fullResult = StageTestData.runPipeline context
+                (* Postability is a status test and nothing else. An uncoded line must not
+                   remove an entry from this list: the poster is what fails on it, loudly,
+                   whereas an entry filtered out here would sit in staging forever with nobody
+                   the wiser. *)
+                let toStrip =
+                    fullResult.stagedEntries |> StageTestData.findByDescription "HARRIS TEETER 0381 ANYTOWN US"
+                let strippedHeaderId = toStrip |> stageEntryHeaderIdOf
+                let! _ = toStrip |> stripAccountCodeFromFirstLine context
+                (* Expected is derived from the staged rows by status alone, which is the
+                   requirement restated as a list operation. Comparing the whole set catches a
+                   filter that returns too few as well as one that returns too many. *)
+                let headerIdsOf entries =
+                    entries |> List.map (stageEntryHeaderIdOf >> StageEntryHeaderId.value) |> List.sort
+                let expected =
+                    fullResult.stagedEntries
+                    |> List.filter (fun entry ->
+                        let status = StageTestData.latestStatus entry
+                        status = Classified || status = Reviewed)
+                    |> headerIdsOf
+                Assert.NotEmpty(expected)
                 let! postables = fetchAllForPosting context
-                Assert.True(postables |> List.length > 0, "Need postable entries for this test")
-                postables |> List.iter (fun entry ->
-                    let status = StageTestData.latestStatus entry
-                    Assert.True(status = Classified || status = Reviewed,
-                        $"Expected Classified or Reviewed but got {status}")
-                    let allLinesHaveCodes =
-                        entry |> lines
-                        |> List.forall (fun l -> l |> StageEntryLine.accountCode |> Option.isSome)
-                    Assert.True(allLinesHaveCodes, "All lines in a postable entry must have account codes"))
+                Assert.Equal<_ list>(expected, postables |> headerIdsOf)
+                // the stripped entry is among them, and came back still uncoded
+                let stripped =
+                    postables |> List.find (fun entry -> entry |> stageEntryHeaderIdOf = strippedHeaderId)
+                Assert.True(
+                    stripped |> lines |> List.exists (fun line -> line |> StageEntryLine.accountCode |> Option.isNone),
+                    "The stripped line must still be uncoded for this test to mean anything.")
             })
         |> railroadWrapper
