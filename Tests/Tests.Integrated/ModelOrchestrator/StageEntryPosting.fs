@@ -445,23 +445,33 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-9.7 batch post sets status to Posted and creates LedgerPoster audit record`` () =
+    member _.``REQ-STG-9.7 batch post sets every posted entry to Posted with a LedgerPoster audit record`` () =
         runCommandRouteAndAutoRollback IngestPostStageEntries (fun context ->
             result {
                 let! _ = StageTestData.runPipeline context
                 let contextForPost = context |> Context.updateInitiationInstant
                 let! postablesBefore = fetchAllForPosting contextForPost
-                Assert.True(postablesBefore |> List.length > 0, "Need postable entries")
-                let firstHeaderId =
-                    postablesBefore |> List.head |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                Assert.NotEmpty(postablesBefore)
+                (* Every entry the batch took, not whichever one the fetch happened to return
+                   first. The requirement is about each staged entry, and a post that marked
+                   one of nine satisfies any assertion made about a single head. *)
+                let postedHeaderIds = postablesBefore |> List.map stageEntryHeaderIdOf
                 do! ModelOrchestrator.StageEntryOrchestration.post contextForPost
-                let! refetched = firstHeaderId |> fetchByStageEntryHeaderId contextForPost
-                let latestTransition =
-                    refetched |> statusTransitions
-                    |> List.sortByDescending (fun t -> t |> StageEntryStatusTransition.instant)
-                    |> List.head
-                Assert.Equal(Posted, latestTransition |> StageEntryStatusTransition.toStatus)
-                Assert.Equal(LedgerPoster, latestTransition |> StageEntryStatusTransition.stageStatusChangeMechanism)
+                let! refetched =
+                    postedHeaderIds
+                    |> List.map (fun headerId -> headerId |> fetchByStageEntryHeaderId contextForPost)
+                    |> convertListOfResultsToResultsList
+                refetched
+                |> List.iter (fun entry ->
+                    let latestTransition =
+                        entry
+                        |> statusTransitions
+                        |> List.sortByDescending (fun t -> t |> StageEntryStatusTransition.instant)
+                        |> List.head
+                    Assert.Equal(Posted, latestTransition |> StageEntryStatusTransition.toStatus)
+                    Assert.Equal(
+                        LedgerPoster,
+                        latestTransition |> StageEntryStatusTransition.stageStatusChangeMechanism))
             })
         |> railroadWrapper
 
