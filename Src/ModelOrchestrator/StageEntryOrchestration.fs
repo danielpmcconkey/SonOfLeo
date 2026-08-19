@@ -573,6 +573,13 @@ let post
         let! jeHeaderSource =
             Some "Data ingestion import"
             |> convertOptionToDesiredTypeWithFallibleConverter JournalEntrySource.create
+        // check the lines one last time just to be sure we're not trying to post any records whose accounts aren't set
+        do! stageEntries
+            |> List.map(fun stageEntry ->
+                stageEntry.lines |> confirmLinesAccountCodes context
+                )
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
         // post each
         do! stageEntries
             |> List.map(fun stageEntry -> stageEntry |> postStageEntry context jeHeaderSource)
