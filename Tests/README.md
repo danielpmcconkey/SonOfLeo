@@ -114,6 +114,25 @@ the fixture is not `IDisposable`. Cleanup inside a run exists for *within-run* c
 expected values are derived from fixture data, so an entity a test forgot to delete will
 break some later test's count. It does not exist to leave a clean database behind.
 
+### Cross-test contamination is a known, accepted risk — not a finding
+
+A failed cleanup is *designed* to ripple. Tests run serially against one shared database and
+derive their expected values from fixture data, so an entity a test leaks will break some
+later test's count and the run goes red. That is the mechanism working, not a flaw in it.
+
+The residual risk is real and understood: a cleanup could fail in test A and land in test B
+in a way that makes B pass when it should not. The mitigation is coverage from more than one
+angle — the same behavior asserted at more than one layer, by tests that would not all be
+fooled the same way — so that a single silent pass does not survive. Critical mass reduces
+this risk; it does not eliminate it. That trade was made deliberately, in preference to
+per-test schema isolation, which costs more than it returns at this suite's size.
+
+**Do not file this as a defect.** "Test X could orphan rows if its cleanup failed, and test Y
+might then pass spuriously" describes the accepted design, and restating it is noise. What
+*is* worth reporting: a test with no cleanup at all where its form requires one, cleanup
+outside a `finally`, cleanup in the wrong FK order, or a behavior that only one test covers
+anywhere in the suite — that last one is where the mitigation is actually thin.
+
 ### The fixture
 
 - Reference accounts carry `F-` prefixed codes. Ad-hoc codes created by a test use the REQ
