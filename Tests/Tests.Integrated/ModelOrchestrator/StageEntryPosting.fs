@@ -250,7 +250,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
 
 
     // =========================================================================
-    // REQ-STG-9.4 — Account code to ID resolution at posting time
+    // REQ-STG-9.4 — Account code to ID resolution at posting time, and the uncoded line
     // =========================================================================
 
     [<Fact>]
@@ -294,15 +294,19 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-STG-9.4 batch post fails when account code does not resolve`` () =
+    member _.``REQ-STG-9.4 batch post fails loudly when a postable entry carries an uncoded line`` () =
         runCommandRouteAndAutoRollback IngestPostStageEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "HARRIS TEETER 0381 ANYTOWN US"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-                let firstLine = entry |> lines |> List.head
-                let lineId = firstLine |> StageEntryLine.stageEntryLineId
-                let! badCode = "BOGUS-9999" |> AccountCode.create
+                let lineId = entry |> lines |> List.head |> StageEntryLine.stageEntryLineId
+                (* Strip the code the classifier assigned. The entry stays Classified and so
+                   stays postable: this is exactly the broken upstream invariant the
+                   requirement describes, and posting has to say so rather than quietly skip
+                   the entry. An invalid non-null code cannot be staged at all, the chart of
+                   accounts being FK-constrained, so a null is the only reachable shape of
+                   this failure. *)
                 let headerUpdates: StageEntryHeaderFieldUpdates =
                     { headerIdToUpdate = headerId
                       sourceFileUpdate = Utilities.FieldUpdate.FieldUpdate.NoChange
@@ -315,18 +319,18 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                     [ { lineIdToUpdate = lineId
                         amountUpdate = Utilities.FieldUpdate.FieldUpdate.NoChange
                         entryTypeUpdate = Utilities.FieldUpdate.FieldUpdate.NoChange
-                        accountCodeUpdate = Utilities.FieldUpdate.FieldUpdate.SetTo (Some badCode)
+                        accountCodeUpdate = Utilities.FieldUpdate.FieldUpdate.SetTo None
                         memoUpdate = Utilities.FieldUpdate.FieldUpdate.NoChange
                         classificationRuleIdUpdate = Utilities.FieldUpdate.FieldUpdate.NoChange } ]
+                let! uncoded = updateStageEntry context headerUpdates lineUpdates
+                // the entry has to still be postable, or the post below would prove nothing
+                Assert.Equal(Classified, StageTestData.latestStatus uncoded)
+                Assert.True(
+                    uncoded |> lines |> List.exists (fun line -> line |> StageEntryLine.accountCode |> Option.isNone),
+                    "The line under test must be uncoded for this test to mean anything.")
                 return!
-                    match updateStageEntry context headerUpdates lineUpdates with
-                    (* This asserts a leak, not a design. An unresolvable account code reaches
-                       the caller as a raw row-count error from the data access layer instead
-                       of a domain error, because the lookup does not re-brand it the way
-                       FiscalPeriod.fetchIdByKey does. The exact case is asserted so that
-                       fixing the leak in Src turns this red rather than leaving it silently
-                       agreeing with the wrong thing. *)
-                    | Error (DalResultantRowsDidntMatchExpectation _) -> Ok ()
+                    match ModelOrchestrator.StageEntryOrchestration.post context with
+                    | Error (IngestionPostingNoneAccountCode _) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
