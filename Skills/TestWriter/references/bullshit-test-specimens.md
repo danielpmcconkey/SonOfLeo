@@ -1,7 +1,8 @@
 # Bullshit-Test Specimens
 
-Negative exemplars harvested from the July 2026 test-suite rewrite (commits
-`bba1c17..5cb26c4`), where these were purged from the real codebase. Each specimen is
+Negative exemplars harvested from two sweeps of the real codebase: the July 2026
+test-suite rewrite (commits `bba1c17..5cb26c4`), and the August 2026 data-ingestion
+review that produced specimens 7 through 9. Each specimen is
 a pattern that **passed CI while verifying nothing** — the test equivalent of a lock
 that opens for any key. If a test you are writing resembles a "before", stop and write
 the "after".
@@ -105,6 +106,25 @@ match railroad with
 The typed case is the assertion. Both escape arms are mandatory — without the
 `Ok _` arm a silently-succeeding operation passes a failure test.
 
+**The same disease in the idiom this codebase writes (August 2026):**
+```fsharp
+return!
+    match someOperation context with
+    | Error _ -> Ok ()
+    | Ok _ -> Error (TestingError "Expected failure; got success")
+```
+`| Error _ -> Ok ()` is `Result.isError` wearing a match expression. It was
+present in six ingestion tests. Replacing each bare arm with one that *reported*
+what it had actually caught revealed that four of them were passing on a raw data
+access layer error — `Resultant rows didn't match expectation. Expected ExactlyOne.
+Actual 0.` — which is what a user got when they named an unknown bank. Nobody knew,
+because nobody had ever asked the test what it was catching. Four leaks, one grep.
+
+If you cannot name the error case, you do not know what the code does, and the test
+does not either. Find out before you write the arm: replace it with
+`| Error e -> Error (TestingError $"DISCOVERED[{AppError.toMessage e}]")`, run it once,
+and read the answer off the failure.
+
 ## Specimen 5 — the exit-code-only CLI test
 
 **Before (purged in `bba1c17`):**
@@ -167,11 +187,162 @@ The rule: **no function in the call chain of the function under test may appear 
 derivation of the expected value.** This applies to all expected values — amounts,
 counts, codes, dates — not just counts.
 
+
+## Specimen 7 — the test that never asserts
+
+**Before (purged August 2026, and it held three requirements at once):**
+```fsharp
+[<Fact>]
+member _.``REQ-STG-9.3 posted JE has description and entry_date from staged entry`` () =
+    runCommandRouteAndAutoRollback IngestPostStageEntries (fun context ->
+        result {
+            let! fullResult = StageTestData.runPipeline context
+            let entry = fullResult.stagedEntries |> StageTestData.findByDescription "HARRIS TEETER 0381 ANYTOWN US"
+            let! jeSource =
+                Some "Data ingestion import"
+                |> convertOptionToDesiredTypeWithFallibleConverter JournalEntrySource.create
+            do! postStageEntry context jeSource entry
+        })
+    |> railroadWrapper
+```
+
+**Why it's worthless:** there is no assertion in it. It proves the call returned
+`Ok`. Every mapping the requirement describes — description, entry date, account
+resolution, external reference — is unexamined. Break any of them and this stays
+green. Two sibling tests carried nearly the same body under different REQ IDs, so
+one absent assertion was doing nothing three times.
+
+This is the cheapest specimen to detect and the easiest to miss in review, because
+the body *looks* like work: setup, a pipeline, a railroad, a wrapper. Everything a
+real test has except the part that decides anything.
+
+**After:** post, read the entity back, and assert its values against the input that
+produced them. See Specimen 8 for how to read it back without cheating.
+
+**Detection:** a `[<Fact>]` whose body contains no `Assert.` and no typed `| Error`
+match. Worth a grep before every hand-off.
+
+## Specimen 8 — the tautological locator
+
+**Before (caught in self-review, August 2026):**
+```fsharp
+// verifying that the posted JE carries the staged entry's fi and reference
+let! posted = fetchByReference context (Some fi) (Some fiReference)
+Assert.Equal(
+    fiReference |> JournalExternalReferenceText.value,
+    posted |> externalReferences |> List.head |> referenceText |> JournalExternalReferenceText.value)
+```
+
+**Why it's worthless:** the row was *selected* by the value the assertion then
+checks. `fetchByReference` filters on exactly that field, so the assertion can only
+fail if the fetch returns rows that do not match its own filter. It tests the
+`WHERE` clause. The mapping it claims to verify — that posting copies the staged
+reference onto the journal entry — is never exercised at all.
+
+This is Specimen 6's disease moved from the expected value to the lookup. Both sides
+of the comparison trace back to the same input.
+
+**After:** locate by a field this test does not assert on, and assert on a field it
+did not use to locate.
+```fsharp
+// this test owns the external reference, so it finds its entry by date and description
+let! onThatDate = fetchByDateRange context entryDate entryDate
+let posted = onThatDate |> List.find (fun je -> je |> header |> description = staged.description)
+```
+Where two requirements each own one of the two, they swap locators: the
+header-mapping test finds by external reference, the external-reference test finds
+by date and description. Neither may look itself up.
+
+**The rule:** the locator and the assertion must not overlap. If the only way to
+find the row is by the thing under test, the behavior needs a different layer or a
+different anchor — not a shrug.
+
+## Specimen 9 — observing from inside the mechanism under test
+
+**Before (deleted August 2026):**
+```fsharp
+[<Fact>]
+member _.``REQ-STG-8.1 REQ-STG-8.4 shadow post does not create journal entries or change staging statuses`` () =
+    runCommandRouteAndAutoRollback IngestShadowPostStageEntries (fun context ->
+        result {
+            let! _ = StageTestData.runPipeline context
+            do! StageEntryOrchestration.post contextForPost
+            let! postablesAfterPost = fetchAllForPosting contextForPost
+            Assert.Equal(0, postablesAfterPost |> List.length)
+        })
+    |> railroadWrapper
+```
+
+**Why it's worthless:** the feature under test *is* the rollback. Every
+orchestrator test already runs inside a transaction that is rolled back whatever
+happens, so a shadow post and a real post leave identical evidence from in there —
+the test cannot tell them apart even in principle. Worse, the assertion states the
+opposite of the requirement: 8.4 says staging is untouched, and this asserts that
+nothing remains postable. It passed by reading its own uncommitted writes.
+
+It had been copied from the batch-post happy path with the audit action swapped, so
+it also tested the same thing twice.
+
+**After:** observe from the layer where the mechanism has already resolved — for a
+transaction, that is outside it, after the route returned and committed or discarded.
+```fsharp
+let! postResult = postThroughRoute true          // the route owns the transaction
+let context = Context.create NoTransaction FetchOnly   // a fresh, separate read
+let! posted = fetchByReference context (Some fi) (Some reference)
+Assert.Empty(posted)                              // nothing survived the rollback
+```
+
+**The rule:** when the behavior is isolation, atomicity, rollback, or commit, no test
+running inside that boundary can see it. Pick the layer at which the boundary has
+already closed. If no such layer exists in your suite, that is the finding — say so
+rather than writing a test that cannot fail.
+
+---
+
+## Hollow names
+
+A name is the claim a test makes. Written badly it describes the *machinery* the test
+touches; written well it states the *property* that must hold. The body can only be
+as honest as the name it is trying to satisfy — a hollow name licenses a hollow body,
+and reviewers approve it because there is nothing visibly wrong.
+
+| Hollow | Real |
+|---|---|
+| `shadow post returns trial balance before and after` | `the difference between the two trial balances is the staged amount` |
+| `batch post creates journal entries through domain model` | `a four-record group posts as a single journal entry carrying all four lines` |
+| `fetchAllForPosting returns only Classified and Reviewed entries` | `fetchAllForPosting returns every Classified or Reviewed entry and nothing else` |
+| `batch post fails when account code does not resolve` | `batch post fails loudly when a postable entry carries an uncoded line` |
+
+The tells:
+
+- **It names the call, not the outcome.** "returns a trial balance" is satisfied by
+  any trial balance, including an unchanged one.
+- **It says "correctly", "properly", "as expected", or "through the domain model".**
+  These are placeholders for the property the author had not yet decided on.
+- **It is satisfiable by a stub.** If a function returning well-shaped garbage would
+  honour the name, the name has not asked for anything.
+- **It states only one side of a filter.** "returns only X" forbids over-returning
+  and permits returning nothing.
+- **It describes a failure without naming the trigger.** "fails when the code does
+  not resolve" — under what reachable circumstance? Ours turned out to be impossible;
+  the reachable case was a *null* code, and the name had been hiding that for weeks.
+
+Write the name so that a reader who never sees the body knows what would have to
+break for the test to go red.
+
 ---
 
 ## The smell test
 
-Before presenting any test, ask: **"if the function under test returned garbage of
-the right shape, would this test fail?"** If the answer is no — count-only,
-inequality, `isError`, exit-code-only — the test is one of these specimens wearing
-a new name.
+Before presenting any test, ask all three:
+
+1. **"If the function under test returned garbage of the right shape, would this
+   test fail?"** If no — count-only, inequality, `isError`, exit-code-only — the test
+   is one of these specimens wearing a new name.
+2. **"If I deleted the operation and asserted against the untouched state, would this
+   test still pass?"** If yes, it is measuring nothing that the operation caused.
+3. **"Did I find the row by the value I am about to assert?"** If yes, see Specimen 8.
+
+None of the three is a substitute for actually watching the test fail. Perturb the
+expected value, run it, read the failure, put it back. A test you have never seen
+red is a claim you have never checked.

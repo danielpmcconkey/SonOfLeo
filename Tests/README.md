@@ -139,7 +139,8 @@ anywhere in the suite — that last one is where the mitigation is actually thin
   ID (`"AC-4.8"`), so a failed cleanup names the test that leaked it.
 - Fiscal periods span -4 to +4 months from today, plus a closed period at -5.
 - **The +4 period is reserved-empty.** No test may post an entry dated in it —
-  `REQ-JE-3.3 fetchByPeriod returns empty list for period with no entries` depends on it.
+  the `fetchByPeriod returns empty list for period with no entries` test (JE-3.3) depends
+  on it. Written without the `REQ-` prefix on purpose; see Naming below.
 - Hard-coded period keys in tests must fall outside that range. Use a distant year
   (`"2050-01"`).
 - Dates derive from `Calendar.today()`. There are no hard-wired dates in the fixture and none
@@ -194,6 +195,25 @@ Worked before-and-after examples of each: `Skills/TestWriter/references/bullshit
 ## Naming
 
 Every test name starts with the requirement ID(s) it verifies, then the behavior:
-``REQ-JE-1.12 constructNewAndSaveToDb rejects entry with fewer than 2 lines``. Integrated
+``REQ-XX-N.N constructNewAndSaveToDb rejects entry with fewer than 2 lines``. Integrated
 tests are class members in `[<Collection("SharedTestData")>]` classes; isolated tests are
 module-level `let` bindings.
+
+**A requirement ID in a comment counts as a citation.** `traceability-audit.sh` greps whole
+files under `Tests/` for the ID pattern; it does not parse F# and cannot tell a test
+annotation from prose. A comment saying that some requirement *has no test at this layer*
+tells the audit the opposite — that it is tested right here — and a waived requirement
+mentioned in passing becomes a stale waiver. Name requirements in prose instead: "the
+all-or-nothing requirement of spec section 9". Put the ID only where you mean it, which in
+`Tests/` is the name of a test and nowhere else.
+
+That applies to this file and every README under `Tests/` too, which is why the examples
+above use the non-matching `REQ-XX-N.N` placeholder and drop the `REQ-` prefix when pointing
+at a real one. The pattern is `REQ-[A-Z]+-[0-9]+(\.[0-9]+)*`; anything that does not match it
+is invisible to the audit and safe to write.
+
+A name is a claim, not a label. `shadow post returns trial balance before and after` invites
+a body that checks two lists are non-empty; `the difference between the two trial balances is
+the staged amount` does not. Write it so a reader who never opens the body knows what would
+have to break for it to go red. The hollow-names table in
+`Skills/TestWriter/references/bullshit-test-specimens.md` has the tells.
