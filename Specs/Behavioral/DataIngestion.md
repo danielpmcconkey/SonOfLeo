@@ -38,7 +38,8 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-1.1** The base staging format is JSONL: one JSON object per text line, newline-delimited.
 - **REQ-STG-1.2** Each record in the file represents one future journal entry line.
 - **REQ-STG-1.3** Records sharing a `group_id` value within a single file form one economic event. All records in a group will produce one journal entry when posted.
-- **REQ-STG-1.4** `group_id`: required, string. Unique within the file. Not globally unique — the ingestion step replaces it with a system-generated staged entry ID.
+- **REQ-STG-1.4a** `group_id`: required, string.
+- **REQ-STG-1.4b** `group_id` is unique within the file. Not globally unique — the ingestion step replaces it with a system-generated staged entry ID.
   - *Why:* group_id is a local association mechanism for the parser. Global identity is the staged entry's UUID, assigned at ingestion. (2026-08-08)
 - **REQ-STG-1.5** `entry_date`: required, ISO 8601 calendar date (`yyyy-MM-dd`). Must parse to a valid Calendar Date.
 - **REQ-STG-1.6** `amount`: required, positive decimal with exactly two decimal places. Maximum value 9,999,999,999.99. Direction is expressed by `line_type`, not by sign.
@@ -217,14 +218,14 @@ The classification step runs the vendor classification rules engine against stag
 | REQ-STG-3.8 | AccountCode is an option type. Null input maps to None by construction; no code path transforms null into a value. | Dan 2026-08-16 |
 | REQ-STG-1.1 | Definitional — states the file format (JSONL), not a testable behaviour. The parser reads newline-delimited JSON by construction. | Dan 2026-08-18 |
 | REQ-STG-1.2 | Definitional — states what a record represents, not a testable behaviour. The record-to-line mapping is structural (one JSON object → one StagedEntryLine). | Dan 2026-08-18 |
-| REQ-STG-1.4 | Structural — group_id is a required string field on BaseStageRawRow. Visible by inspection. | Dan 2026-08-18 |
+| REQ-STG-1.4a | Structural — group_id is a required string field on BaseStageRawRow. Visible by inspection. | Dan 2026-08-18 |
 | REQ-STG-9.9 | postStageEntry takes a single StageEntry and produces one JE. The calling loop is structural; no aggregation code exists. | Dan 2026-08-16 |
 
 ## Unenforceable
 
 | ID | Why it cannot be enforced | Approved |
 |---|---|---|
-| REQ-STG-1.4 | "Unique within the file. Not globally unique" — file-scoped uniqueness is consumed by the grouping step (constructSetFromRaw) and discarded. No persistent state to assert against. | Dan 2026-08-18 |
+| REQ-STG-1.4b | "Unique within the file. Not globally unique" — file-scoped uniqueness is consumed by the grouping step (constructSetFromRaw) and discarded. No persistent state to assert against. | Dan 2026-08-18 |
 
 ## Withdrawn
 
