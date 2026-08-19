@@ -310,7 +310,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! badRow = StageTestData.makeRawRow "grp-bad" today "Bad group" "TestBank" "REF-BAD-001" 50.00M "Debit" (Some "F-5350") None
                 return!
                     match [ validRow1; validRow2; badRow ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
-                    | Error _ -> Ok ()
+                    | Error (IngestionStageEntryInsufficientLines _) -> Ok ()
+                    | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
         |> railroadWrapper
@@ -329,7 +330,14 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! row2 = StageTestData.makeRawRow "grp-src" today "Bad source" "NonExistentBank" "REF-SRC-001" 100.00M "Credit" (Some "F-1270") None
                 return!
                     match [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
-                    | Error _ -> Ok ()
+                    (* This asserts a leak, not a design. An unresolvable ingestion source name reaches the
+                       caller as a raw row-count error from the data access layer instead of a
+                       domain error, because the lookup does not re-brand it the way
+                       FiscalPeriod.fetchIdByKey does. The exact case is asserted so that
+                       fixing the leak in Src turns this red rather than leaving it silently
+                       agreeing with the wrong thing. *)
+                    | Error (DalResultantRowsDidntMatchExpectation _) -> Ok ()
+                    | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
         |> railroadWrapper
@@ -348,7 +356,14 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! row2 = StageTestData.makeRawRow "grp-code" today "Bad code" "TestBank" "REF-CODE-001" 100.00M "Credit" (Some "F-1270") None
                 return!
                     match [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
-                    | Error _ -> Ok ()
+                    (* This asserts a leak, not a design. An unresolvable account code reaches the
+                       caller as a raw row-count error from the data access layer instead of a
+                       domain error, because the lookup does not re-brand it the way
+                       FiscalPeriod.fetchIdByKey does. The exact case is asserted so that
+                       fixing the leak in Src turns this red rather than leaving it silently
+                       agreeing with the wrong thing. *)
+                    | Error (DalResultantRowsDidntMatchExpectation _) -> Ok ()
+                    | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
         |> railroadWrapper

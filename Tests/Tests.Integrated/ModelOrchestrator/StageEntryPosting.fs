@@ -87,11 +87,11 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
 
 
     // =========================================================================
-    // REQ-STG-8.2 — Shadow post uses real domain validation
+    // REQ-STG-8.2 REQ-STG-9.2 — Posting runs the real JE domain validation
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-8.2 shadow post fails when staged entry is in closed fiscal period`` () =
+    member _.``REQ-STG-8.2 REQ-STG-9.2 shadow post fails when staged entry is in closed fiscal period`` () =
         runCommandRouteAndAutoRollback IngestShadowPostStageEntries (fun context ->
             result {
                 // create an entry in the closed period and mark it Reviewed so it's postable
@@ -104,37 +104,89 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 // the entry is now Classified; post should fail because the period is closed
                 return!
                     match ModelOrchestrator.StageEntryOrchestration.post context with
-                    | Error _ -> Ok ()
+                    | Error (JournalEntryHeaderEntryDateInvalid _) -> Ok ()
+                    | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
                     | Ok _ -> Error (TestingError "Expected failure posting to closed period; got success")
             })
         |> railroadWrapper
 
 
     // =========================================================================
-    // REQ-STG-8.3 — Shadow post returns before and after trial balance
+    // REQ-STG-8.3 — Shadow post returns before and after trial balance, and the delta is real
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-8.3 shadow post returns trial balance before and after`` () =
+    member _.``REQ-STG-8.3 the difference between the two trial balances is the staged amount`` () =
         runCommandRouteAndAutoRollback IngestShadowPostStageEntries (fun context ->
             result {
-                let! _ = StageTestData.runPipeline context
+                let! fullResult = StageTestData.runPipeline context
+                (* What the shadow post is about to move is derived here from the staged rows
+                   themselves, by the same rule fetchAllForPosting applies but without calling
+                   it: an entry posts when its latest status is Classified or Reviewed and
+                   every one of its lines carries an account code. *)
+                let postableLines =
+                    fullResult.stagedEntries
+                    |> List.filter (fun entry ->
+                        let status = StageTestData.latestStatus entry
+                        (status = Classified || status = Reviewed)
+                        && entry
+                           |> lines
+                           |> List.forall (fun line -> line |> StageEntryLine.accountCode |> Option.isSome))
+                    |> List.collect lines
+                (* A trial balance rolls child balances up into their parents, so only a leaf
+                   account's movement equals its own postings. *)
+                let isLeaf accountCode =
+                    let accountId =
+                        fixture.Data.accounts
+                        |> List.find (fun account -> account |> Account.code = accountCode)
+                        |> Account.accountId
+                    fixture.Data.accounts
+                    |> List.forall (fun account -> account |> Account.parentId <> Some accountId)
+                let stagedAmountFor lineType accountCode =
+                    postableLines
+                    |> List.filter (fun line ->
+                        line |> StageEntryLine.accountCode = Some accountCode
+                        && line |> StageEntryLine.lineType = lineType)
+                    |> List.sumBy (fun line -> line |> StageEntryLine.amount |> Money.amount)
+                let accountCodesReceivingPostings =
+                    postableLines
+                    |> List.choose (fun line -> line |> StageEntryLine.accountCode)
+                    |> List.distinct
+                    |> List.filter isLeaf
+                Assert.NotEmpty(accountCodesReceivingPostings)
                 let asOf = Calendar.today()
                 let! trialBalanceBefore = fetchTrialBalanceData context asOf
                 do! ModelOrchestrator.StageEntryOrchestration.post context
                 let! trialBalanceAfter = fetchTrialBalanceData context asOf
-                Assert.NotEmpty(trialBalanceBefore)
-                Assert.NotEmpty(trialBalanceAfter)
+                let rowFor accountCode (rows: TrialBalanceRowFlattened list) =
+                    rows |> List.find (fun row -> row.accountCode = accountCode)
+                accountCodesReceivingPostings
+                |> List.iter (fun accountCode ->
+                    let expectedDebits = accountCode |> stagedAmountFor Debit
+                    let expectedCredits = accountCode |> stagedAmountFor Credit
+                    (* A zero here would make the two assertions below hold for a shadow post
+                       that moved nothing at all. *)
+                    Assert.True(
+                        expectedDebits + expectedCredits > 0M,
+                        $"Nothing is staged against {accountCode |> AccountCode.value}, so its delta proves nothing.")
+                    let before = trialBalanceBefore |> rowFor accountCode
+                    let after = trialBalanceAfter |> rowFor accountCode
+                    Assert.Equal(
+                        expectedDebits,
+                        (after.totalDebits |> Money.amount) - (before.totalDebits |> Money.amount))
+                    Assert.Equal(
+                        expectedCredits,
+                        (after.totalCredits |> Money.amount) - (before.totalCredits |> Money.amount)))
             })
         |> railroadWrapper
 
 
     // =========================================================================
-    // REQ-STG-1.3 — one group produces one journal entry when posted
+    // REQ-STG-1.3 REQ-STG-9.2 — one group produces one journal entry, built by the domain model
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-1.3 a four-record group posts as a single journal entry carrying all four lines`` () =
+    member _.``REQ-STG-1.3 REQ-STG-9.2 a four-record group posts as a single journal entry carrying all four lines`` () =
         runCommandRouteAndAutoRollback IngestPostStageEntries (fun context ->
             result {
                 let today = Calendar.today()
@@ -157,17 +209,17 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
 
 
     // =========================================================================
-    // REQ-STG-9.1 REQ-STG-9.2 — Batch post happy path
+    // REQ-STG-9.1 — Batch post happy path
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-9.1 REQ-STG-9.2 batch post creates journal entries through domain model`` () =
+    (* Deliberately toothless. This proves only that a full batch round trip does not blow
+       up; what the resulting journal entries contain is asserted by the tests below. *)
+    member _.``REQ-STG-9.1 batch post happy path`` () =
         runCommandRouteAndAutoRollback IngestPostStageEntries (fun context ->
             result {
                 let! _ = StageTestData.runPipeline context
-                // post internally calls fetchAllForPosting + postStageEntry + status update
                 do! ModelOrchestrator.StageEntryOrchestration.post context
-                // if post succeeded, all postable entries were posted; verify none remain
                 let! postablesAfter = fetchAllForPosting context
                 Assert.Equal(0, postablesAfter |> List.length)
             })
@@ -268,7 +320,14 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                         classificationRuleIdUpdate = Utilities.FieldUpdate.FieldUpdate.NoChange } ]
                 return!
                     match updateStageEntry context headerUpdates lineUpdates with
-                    | Error _ -> Ok ()
+                    (* This asserts a leak, not a design. An unresolvable account code reaches
+                       the caller as a raw row-count error from the data access layer instead
+                       of a domain error, because the lookup does not re-brand it the way
+                       FiscalPeriod.fetchIdByKey does. The exact case is asserted so that
+                       fixing the leak in Src turns this red rather than leaving it silently
+                       agreeing with the wrong thing. *)
+                    | Error (DalResultantRowsDidntMatchExpectation _) -> Ok ()
+                    | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
         |> railroadWrapper

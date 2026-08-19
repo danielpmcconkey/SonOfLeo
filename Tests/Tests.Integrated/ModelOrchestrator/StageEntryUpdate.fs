@@ -163,7 +163,14 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with accountCodeUpdate = SetTo (Some badCode) } ]
                 return!
                     match updateStageEntry context headerUpdates lineUpdates with
-                    | Error _ -> Ok ()
+                    (* This asserts a leak, not a design. An unresolvable account code reaches the
+                       caller as a raw row-count error from the data access layer instead of a
+                       domain error, because the lookup does not re-brand it the way
+                       FiscalPeriod.fetchIdByKey does. The exact case is asserted so that
+                       fixing the leak in Src turns this red rather than leaving it silently
+                       agreeing with the wrong thing. *)
+                    | Error (DalResultantRowsDidntMatchExpectation _) -> Ok ()
+                    | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
         |> railroadWrapper
