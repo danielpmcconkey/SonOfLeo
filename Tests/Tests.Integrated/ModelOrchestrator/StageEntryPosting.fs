@@ -223,7 +223,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-1.3 REQ-STG-9.2 a four-record group posts as a single journal entry carrying all four lines`` () =
+    member _.``REQ-STG-1.3 REQ-STG-9.2 a group posts as exactly one journal entry carrying one line per staged record`` () =
         runCommandRouteAndAutoRollback IngestPostStageEntries (fun context ->
             result {
                 let today = Calendar.today()
