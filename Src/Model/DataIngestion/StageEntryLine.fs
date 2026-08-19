@@ -53,6 +53,19 @@ let create
                 memo = memo 
                 classificationRuleId = classificationRuleId }
 
+let confirmAccountCode
+    (context: Context.Context)
+    (accountCodeOption: AccountCode option)
+    : Result<unit, AppError> =
+    match accountCodeOption with
+    | None -> Ok ()
+    | Some accountCode ->
+        let str = accountCode |> AccountCode.value
+        match str |> LookupCache.accountCodeToId.fetch context with
+        | Ok _ -> Ok ()
+        | Error(DalResultantRowsDidntMatchExpectation (_, 0)) -> Error (AccountCodeDoesntMatchAccountId str)
+        | Error e -> Error e
+
 let insertNewToDb (context: Context.Context) (stageEntryLine: StageEntryLine) : Result<unit, AppError> =
     let query =
         """
@@ -66,24 +79,27 @@ let insertNewToDb (context: Context.Context) (stageEntryLine: StageEntryLine) : 
             @code,
             @memo,
             @classification_rule_id);"""
-    let uuid = stageEntryLine.stageEntryLineId |> StageEntryLineId.value
-    let headerUuid = stageEntryLine.stageEntryHeaderId |> StageEntryHeaderId.value
-    let amount = stageEntryLine.amount |> Money.amount
-    let lineType = stageEntryLine.lineType |> JournalEntryLineType.toString
-    let code = stageEntryLine.accountCode |> Option.map AccountCode.value
-    let memo = stageEntryLine.memo |> Option.map JournalEntryLineMemo.value
-    let ruleUuid = stageEntryLine.classificationRuleId |> Option.map ClassificationRuleId.value
-    let parameters =
-        [
-          { name = "@unique_id"; value = UniqueId(uuid) }
-          { name = "@entry_id"; value = UniqueId(headerUuid) }
-          { name = "@amount"; value = Numeric(amount) }
-          { name = "@line_type"; value = CharString(lineType) }
-          { name = "@code"; value = NullableCharString(code) }
-          { name = "@memo"; value = NullableCharString(memo) }
-          { name = "@classification_rule_id"; value = NullableUniqueId(ruleUuid) }
-        ]
-    executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+    result {
+        let uuid = stageEntryLine.stageEntryLineId |> StageEntryLineId.value
+        let headerUuid = stageEntryLine.stageEntryHeaderId |> StageEntryHeaderId.value
+        let amount = stageEntryLine.amount |> Money.amount
+        let lineType = stageEntryLine.lineType |> JournalEntryLineType.toString
+        do! stageEntryLine.accountCode |> confirmAccountCode context
+        let code = stageEntryLine.accountCode |> Option.map AccountCode.value
+        let memo = stageEntryLine.memo |> Option.map JournalEntryLineMemo.value
+        let ruleUuid = stageEntryLine.classificationRuleId |> Option.map ClassificationRuleId.value
+        let parameters =
+            [
+              { name = "@unique_id"; value = UniqueId(uuid) }
+              { name = "@entry_id"; value = UniqueId(headerUuid) }
+              { name = "@amount"; value = Numeric(amount) }
+              { name = "@line_type"; value = CharString(lineType) }
+              { name = "@code"; value = NullableCharString(code) }
+              { name = "@memo"; value = NullableCharString(memo) }
+              { name = "@classification_rule_id"; value = NullableUniqueId(ruleUuid) }
+            ]
+        return! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+    }
         
 let private reconstitute raw =
     result {
@@ -181,55 +197,59 @@ let updateDb
     (context: Context.Context)
     (fieldUpdates: StageEntryLineFieldUpdates)
     : Result<StageEntryLine, AppError> =
-    let stageEntryLineId = fieldUpdates.lineIdToUpdate
-    let amountUpdate = fieldUpdates.amountUpdate
-    let entryTypeUpdate = fieldUpdates.entryTypeUpdate
-    let accountCodeUpdate = fieldUpdates.accountCodeUpdate
-    let memoUpdate = fieldUpdates.memoUpdate
-    let classificationRuleIdUpdate = fieldUpdates.classificationRuleIdUpdate
-    let uuid = stageEntryLineId |> StageEntryLineId.value
-    let baseParams =
-        [ { name = "@unique_id"; value = UniqueId uuid } ]
-    let updates =
-        [
-              amountUpdate
-              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  ("amount = @amount",
-                   { name = "@amount"; value = Numeric(n |> Money.amount) }))
-              
-              entryTypeUpdate
-              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  ("line_type = @line_type",
-                   { name = "@line_type"; value = CharString(n |> JournalEntryLineType.toString) }))
-              
-              accountCodeUpdate
-              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  ("code = @code",
-                   { name = "@code"; value = NullableCharString(n |> Option.map AccountCode.value) }))              
-              
-              memoUpdate
-              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  ("memo = @memo",
-                   { name = "@memo"; value = NullableCharString(n |> Option.map JournalEntryLineMemo.value) }))
-              
-              classificationRuleIdUpdate
-              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  ("classification_rule_id = @classification_rule_id",
-                   { name = "@classification_rule_id"
-                     value = NullableUniqueId(n |> Option.map ClassificationRuleId.value) }))
-        ]
-        |> List.choose id
-    let setClauses = updates |> List.map fst |> String.concat ", "
-    let parameters = baseParams @ (updates |> List.map snd)
-    let query =
-        $"""
-        UPDATE ingestion.staged_entry_line
-        set
-            {setClauses}
-        WHERE unique_id = @unique_id;
-    """
     result {
+        let stageEntryLineId = fieldUpdates.lineIdToUpdate
+        let amountUpdate = fieldUpdates.amountUpdate
+        let entryTypeUpdate = fieldUpdates.entryTypeUpdate
+        let accountCodeUpdate = fieldUpdates.accountCodeUpdate
+        do! match accountCodeUpdate with
+                | NoChange -> Ok ()
+                | SetTo x -> x |> confirmAccountCode context
+        let memoUpdate = fieldUpdates.memoUpdate
+        let classificationRuleIdUpdate = fieldUpdates.classificationRuleIdUpdate
+        let uuid = stageEntryLineId |> StageEntryLineId.value
+        let baseParams =
+            [ { name = "@unique_id"; value = UniqueId uuid } ]
+        let updates =
+            [
+                  amountUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                      ("amount = @amount",
+                       { name = "@amount"; value = Numeric(n |> Money.amount) }))
+                  
+                  entryTypeUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                      ("line_type = @line_type",
+                       { name = "@line_type"; value = CharString(n |> JournalEntryLineType.toString) }))
+                  
+                  accountCodeUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                      ("code = @code",
+                       { name = "@code"; value = NullableCharString(n |> Option.map AccountCode.value) }))              
+                  
+                  memoUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                      ("memo = @memo",
+                       { name = "@memo"; value = NullableCharString(n |> Option.map JournalEntryLineMemo.value) }))
+                  
+                  classificationRuleIdUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                      ("classification_rule_id = @classification_rule_id",
+                       { name = "@classification_rule_id"
+                         value = NullableUniqueId(n |> Option.map ClassificationRuleId.value) }))
+            ]
+            |> List.choose id
+        let setClauses = updates |> List.map fst |> String.concat ", "
+        let parameters = baseParams @ (updates |> List.map snd)
+        let query =
+            $"""
+            UPDATE ingestion.staged_entry_line
+            set
+                {setClauses}
+            WHERE unique_id = @unique_id;
+        """
         do! if updates.IsEmpty then Error(IngestionStageEntryLineNoOp) else Ok()
+        
         let! () = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
         return! stageEntryLineId |> fetchById context
     }

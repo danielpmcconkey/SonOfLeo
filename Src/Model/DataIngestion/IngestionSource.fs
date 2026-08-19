@@ -102,6 +102,9 @@ let fetchByName (context: Context.Context) (name: JournalRefFinancialInstitution
     let predicate = "s.source_name = @source_name"
     let nameStr = name |> JournalRefFinancialInstitution.value
     let parameters = [ { name = "@source_name"; value = CharString(nameStr) } ]
-    readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+    match readRowsFromDb context (Some predicate) None parameters ExactlyOne with
+    | Ok x -> x |> List.head |> Ok
+    | Error(DalResultantRowsDidntMatchExpectation (_, 0)) -> Error (IngestionSourceNameNotFound nameStr)
+    | Error e -> Error e
 
         

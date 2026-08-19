@@ -77,15 +77,18 @@ let private confirmLinesAccountCodes
         |> List.map(fun x ->
             let code = x |> StageEntryLine.accountCode
             if code |> Option.isNone then Ok ()
-            else 
+            else
                 let lookupResult =
                     code
                     |> Option.get
                     |> AccountCode.value
                     |> LookupCache.accountCodeToId.fetch context 
                 match lookupResult with
-                | Error e -> Error e
                 | Ok _ -> Ok ()
+                | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
+                    let codeStr = code |> Option.get |> AccountCode.value
+                    Error (AccountCodeDoesntMatchAccountId codeStr)
+                | Error e -> Error e
             )
         |> convertListOfResultsToResultsList
     match checkedLines with
