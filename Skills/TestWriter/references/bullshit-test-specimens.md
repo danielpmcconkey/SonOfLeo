@@ -80,7 +80,9 @@ Assert.Equal(expectedDebits1, row1.totalDebits |> Money.amount)
 Assert.Equal(expectedCredits1, row1.totalCredits |> Money.amount)
 Assert.Equal(expectedBal1, row1.netBalance |> Money.amount)
 ```
-Counts are allowed *in addition to* value assertions, never instead of them.
+Counts are allowed *in addition to* value assertions, never instead of them. When the
+thing being counted is a finite enumeration, see Specimen 10 — the fix there is a truth
+table, not a bigger count.
 
 ## Specimen 4 — the untyped failure
 
@@ -298,6 +300,55 @@ already closed. If no such layer exists in your suite, that is the finding — s
 rather than writing a test that cannot fail.
 
 ---
+
+## Specimen 10 — counting a truth table instead of reading it
+
+**Before (purged in the 2026-08-19a audit remediation):**
+```fsharp
+[<Theory>]
+[<InlineData("Ingested", 5)>]
+[<InlineData("Classified", 4)>]
+[<InlineData("NoMatch", 3)>]
+// ... one row per status
+let ``... validTransitions returns correct count for each status`` (statusStr: string, expectedCount: int) =
+    let transitions = validTransitions (Some status)
+    Assert.Equal(expectedCount, transitions |> List.length)
+```
+
+**Why it's worthless:** the function returns a finite list of DU cases and the test never
+looks at one of them. Had `validTransitions Ingested` returned `[ Ingested; Ingested;
+Ingested; Ingested; Ingested ]` the test would have passed — five of the wrong transition is
+still five. The transition table decides which status changes the system permits, so a
+member that is wrong while the cardinality is right is a silent gate: it either blocks a
+legitimate workflow or admits an illegal one, and nothing goes red.
+
+This is Specimen 3 in its most seductive form, because the counts *look* derived — they were
+transcribed from the spec's own transition table, so the author felt they were checking
+against the spec. They were checking the table's cardinality against itself.
+
+**After:** enumerate every pair the enumeration can form and give each an explicit verdict.
+Nine sources (eight statuses plus `None`) against eight targets is seventy-two rows: twenty
+one permitted, fifty one denied.
+
+```fsharp
+[<Theory>]
+[<InlineData("None", "Ingested", true)>]
+[<InlineData("None", "Classified", false)>]
+// ... seventy-two rows, transcribed from the spec's transition table
+let ``... validTransitions permits exactly the pairs the spec's transition table lists``
+    (fromStr: string, toStr: string, expectedPermitted: bool) =
+    let permitted = validTransitions fromStatus |> List.contains toStatus
+    Assert.Equal(expectedPermitted, permitted)
+```
+
+The denials are the half that carries the weight. A count test cannot express "and nothing
+else"; a truth table is nothing but that. Note also that the assertion uses `List.contains`
+because that is precisely how the production caller consults the list — the test asserts the
+property the system actually depends on, not a property that merely correlates with it.
+
+**When a truth table is the right shape:** the input space is a product of two finite
+enumerations, and the function's whole job is to say yes or no to each cell. Do not reach for
+one when the space is open-ended — you will end up enumerating the implementation.
 
 ## Hollow names
 

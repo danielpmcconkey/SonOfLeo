@@ -307,6 +307,22 @@ type TestDataFixture() =
                         (Some healthInsurance5310Id) None
                 accounts <- healthInsuranceVision5313 :: accounts
 
+                (*
+                 * Deliberately parentless, and deliberately coded so that it sorts *inside*
+                 * the F-5000 subtree. A flat alphabetical sort puts it between F-5300 and
+                 * F-5310; a depth-first walk puts it after the whole F-5000 subtree, because
+                 * it is a root. Without an account shaped like this, the two orderings produce
+                 * the identical sequence over this fixture and the trial balance sort test
+                 * cannot tell a correct implementation from a flat one. Do not reparent it and
+                 * do not renumber it.
+                 *)
+                let! sortDiscriminator5305, _ =
+                    createTestAccountFromPrimitives
+                        context "F-5305" "Sort Discriminator" "Expense"
+                        lastYear None (Some "OperatingExpense")
+                        None None
+                accounts <- sortDiscriminator5305 :: accounts
+
                 let! temporalRevenue4500, temporalRevenue4500Id =
                     createTestAccountFromPrimitives
                         context "F-4500" "Temporal Revenue" "Revenue"

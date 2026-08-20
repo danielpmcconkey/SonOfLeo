@@ -61,7 +61,7 @@ type JournalEntryCommentOrchestrationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-4.9 updateComment rejects no-op when both fields are NoChange``() =
+    member _.``REQ-JE-5.7 updateComment rejects no-op when both fields are NoChange``() =
         let comment =
             fixture.Data.sharedCommentJe2
             |> JournalEntry.comments

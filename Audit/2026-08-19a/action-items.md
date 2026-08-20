@@ -7,19 +7,19 @@
 | 3 | CON-STG-2 | Align Definitions.md "Postable" definition with REQ-STG-4.4 — remove the account_code criterion or update REQ-STG-4.4 to check it. | Dan | done — same ruling as #13 (STG-CONTRA-1) |
 | 4 | CON-JE-1 | Fix the spec to include all legal post-posting alterations | Hobson | done |
 | 5 | CON-NGUI-1 | Discuss with Dan — needs deeper reasoning about changing the specs around the UI layer. Not a quick fix. | Hobson | accepted |
-| 6 | TEST-GAP-RPT-1 | Fix REQ-RPT-1.6 test to verify depth-first tree order, not flat alphabetical sort (todo on line 110 confirms known issue). | Dan/BD | done — test now derives depth-first order from the fixture hierarchy; see note below on the fixture archetype still needed |
+| 6 | TEST-GAP-RPT-1 | Fix REQ-RPT-1.6 test to verify depth-first tree order, not flat alphabetical sort (todo on line 110 confirms known issue). | Dan/BD | done — depth-first order derived from the fixture hierarchy; fixture account F-5305 added so the assertion can distinguish depth-first from flat sort |
 | 7 | EG-SYS-3.1a | staged_entry and staged_entry_line lack created_at/modified_at columns required by REQ-SYS-3.1. Add columns or document exemption. | Dan | overruled — same as #30; staging entities are not first-class entities, have full audit logs |
 | 8 | SCHEMA-STG-1 | Same as EG-SYS-3.1a — code-truthfulness auditor independently found the missing timestamps on staging entities. | Dan | overruled — same as #7/#30 |
 | 9 | SPEC-STG-1 | Same as CON-STG-1 — code-truthfulness auditor independently found the lowercase status casing in four REQs. | Hobson | done — same ruling as #2 |
 | 10 | AQ-AC-1 | Add fetchByCode happy-path assertions in Tests/Tests.Integrated/Model/Ledger/Account.fs, just under the REQ-AC-3.3 fetchById test | Dan/BD | done — route test deserializes and asserts code/name/type; model-layer code-to-account test added under REQ-AC-3.3 |
-| 11 | STG-ASSERT-1 | Add to bullshit-test hall of shame AND rewrite. The test is worthless: (a) REQ-STG-4.2 is about terminal status, not counting transitions, (b) hard-coded constants, (c) counting DU elements has zero value. Replace with a Theory of all 72 status pairs (9 from × 8 to) with pass/fail expectations, or a manual gauntlet like AccountComponent.fs:160-507 | Dan/BD | accepted |
+| 11 | STG-ASSERT-1 | Add to bullshit-test hall of shame AND rewrite. The test is worthless: (a) REQ-STG-4.2 is about terminal status, not counting transitions, (b) hard-coded constants, (c) counting DU elements has zero value. Replace with a Theory of all 72 status pairs (9 from × 8 to) with pass/fail expectations, or a manual gauntlet like AccountComponent.fs:160-507 | Dan/BD | done — count-only Theory replaced with a 72-pair truth table transcribed from the spec's transition block; added to the specimens doc as Specimen 10 |
 | 12 | STG-MISLABEL-1 | Test cites REQ-STG-5.3 but exercises inactive-rule filtering. Rename to reflect actual behavior and cite correct REQ. (See #33–#35 for follow-on actions.) | Dan/BD | accepted |
 | 13 | STG-CONTRA-1 | Rewrite spec: posting process must fail loudly for any record whose status is Classified or Reviewed AND whose account_code is None or doesn't match an account code in the ledger. The test is correct; the spec wording is wrong. | Hobson | done — Definitions.md Postable rewritten; REQ-STG-4.4 and 9.4 already correct |
 | 14 | FP-AQ-1 | Rewrite test to use F# to count periods in fixture data and compare with exact equality. No >= allowed. | Dan/BD | done — exact set equality of period keys against fixture.Data.fiscalPeriods; no inequality remains |
 | 15 | FP-AQ-2 | Date-derivation tests for REQ-FP-1.4/1.5 assert month and day but never assert the year component. Add year assertions. | Dan/BD | done — year asserted on both dates in both tests; end-date month added to the orchestrator test |
 | 16 | IDIOM-JE-1 | REQ-JE-3.6.1 net-balance test uses `> zero` (cowardly inequality) instead of asserting exact $200 expected amount. | Dan/BD | overruled — added to resolved-findings.md |
 | 17 | IDIOM-JE-2 | Write happy-path test in model orchestrator tests (not just sad-path validation) | Dan/BD | done — happy path added at ModelOrchestrator/JournalEntryLineOrchestration.fs |
-| 18 | IDIOM-JE-3 | Added REQ-JE-5.7 (comment no-op rejection). BD to re-cite test from JE-4.9 to JE-5.7. | Dan/BD | accepted — spec done, test pending |
+| 18 | IDIOM-JE-3 | Added REQ-JE-5.7 (comment no-op rejection). BD to re-cite test from JE-4.9 to JE-5.7. | Dan/BD | done — re-cited to REQ-JE-5.7 |
 | 19 | IDIOM-JE-4 | Implement auditor's recommendation — add at minimum a null-input-returns-null assertion (or equivalent) to each of the six tests | Dan/BD | done — all six bind the returned entry and assert preservation of the input they name |
 | 20 | MON-SPEC4-1 | All 13 Money sad-path tests use Assert.True(result.IsError) instead of typed DU matching. Convert to typed match expressions. | Dan/BD | done — all 13 converted to typed DU matching with both escape arms |
 | 21 | NGUI-AQ-1 | SonOfLeoCli stderr test uses Assert.Contains (Specimen 4 pattern). Replace with Assert.Equal to match Reports CLI pattern. | Dan/BD | overruled — Contains check is equivalent to Reports CLI's newline-append pattern; both handle stderr's trailing line break differently but are equally safe |
@@ -63,10 +63,23 @@ Every assertion written or changed for these items was mutation-tested: the expe
 perturbed, the test was run, the failure message was read, and the perturbation was reverted.
 Forty-five assertions across eleven rounds; all fired for the reason their name claims.
 
-**#6/#23 is not finished by the test alone.** The fixture's account codes are arranged so that a
-flat alphabetical sort and a depth-first walk produce the identical sequence, so the rewritten
-test is correct but cannot yet tell the two apart — a flat-sort implementation would still pass
-it. Closing that needs one fixture archetype: a top-level account whose code sorts inside another
-root's subtree range (for example a parentless `F-5305`, which flat sort places between `F-5300`
-and `F-5310` but a depth-first walk places after the whole `F-5000` subtree). A fixture addition
-is shared state every other test reads, so it is Dan's call, not BD's.
+**#6/#23 fixture gap — closed 2026-08-20.** The fixture's account codes were arranged so that a
+flat alphabetical sort and a depth-first walk produced the identical sequence, which left the
+rewritten test correct but unable to tell the two apart. Dan approved the archetype and
+`F-5305 "Sort Discriminator"` is now in `TestDataStage.fs`: parentless, coded so flat sort places
+it between `F-5300` and `F-5310` while a depth-first walk places it after the whole `F-5000`
+subtree. Proof it works: setting the test's expected order to a flat sort now fails the test,
+where before the fixture change it would have passed. Do not reparent or renumber that account —
+the comment above it in the fixture says so too.
+
+### Round 2 — 2026-08-20
+
+Items 11, 18 and 6/23 closed. All new assertions mutation-tested, including the two that matter
+most: flipping one permitted and one denied pair in the transition truth table fails exactly
+those two cases and nothing else, and the flat-sort expectation described above now goes red.
+
+One thing left open, for Hobson. The spec's transition table sits in `DataIngestion.md` as
+unnumbered prose under section 4, so the 72-pair test cites `REQ-STG-4.2` — which by its own
+text covers only the Posted-is-terminal row. The other 71 verdicts have no numbered requirement
+to cite. The table deserves its own REQ ID; when it gets one, the test name changes in one edit.
+Same class of finding as #18 before REQ-JE-5.7 existed.
