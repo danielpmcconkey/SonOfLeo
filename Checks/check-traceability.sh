@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SLOW
 # Enforces: every active REQ is tested, waived, or unenforceable (invariant 2),
 # and no test cites a nonexistent or withdrawn REQ (invariant 1).
 # Only enforced on main — feature branches may have specs or tests in-flight.

@@ -126,6 +126,7 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-5.4** stricken
 - **REQ-JE-5.5** A comment may be appended to an existing journal entry, even if the JE is voided or if the JE's fiscal period is closed.
 - **REQ-JE-5.6** A comment's primary journal entry link is fixed once created. The primary relationship a comment records is a historical fact and must not be re-pointed.
+- **REQ-JE-5.7** Updating a comment where all mutable fields are unchanged (text and secondary journal entry both NoChange) must be rejected as a no-op per REQ-SYS-6.1.
 
 ## 6. Deletion behaviors
 
