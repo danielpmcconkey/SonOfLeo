@@ -37,6 +37,9 @@ type AppError =
     
     | CliUnknownCommand of string * string
     
+    | ConfigReadError of string * exn
+    | ConfigNotFound of string
+    
     | DalCantCompleteTransactionOfNone
     | DalCantFetchTransactionOfNone
     | DalCantUseTransactionOfNoneInAutoCommit
@@ -66,7 +69,6 @@ type AppError =
     | DalErrorDuringTransactionRollback of exn
     | DalErrorDuringUuidOptionUnboxing of exn
     | DalErrorDuringUuidUnboxing of exn
-    | DalErrorRetrievingAppSettings of exn
     | DalInstantUnboxingReturnedNull
     | DalIntUnboxingReturnedNull
     | DalLocalDateUnboxingReturnedNull
@@ -193,6 +195,9 @@ module AppError =
         
         | CliUnknownCommand(domain, verb) -> $"Unknown command: {domain} {verb}"
         
+        | ConfigReadError (keyString, ex) -> $"Cannot resolve config with key {keyString}. It likely cannot be parsed as the requested type. Full error: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
+        | ConfigNotFound keyString -> $"Cannot find config with key {keyString}."
+        
         | DalCantCompleteTransactionOfNone -> "Error. You cannot commit or rollback with a raw transaction of None."
         | DalCantFetchTransactionOfNone -> "Error. You cannot fetch a connection with a raw transaction of None."
         | DalCantUseTransactionOfNoneInAutoCommit -> "Error. You cannot send a transaction of None into the auto-commit pipeline."
@@ -222,7 +227,6 @@ module AppError =
         | DalErrorDuringTransactionRollback ex -> $"Database error during transaction rollback. You probably have corrupted data that you should address immediately. {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringUuidOptionUnboxing ex -> $"Database error during UUID option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
         | DalErrorDuringUuidUnboxing ex -> $"Database error during UUID unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorRetrievingAppSettings ex -> $"Error retrieving appsettings.json. Error message: {ex.Message}{Environment.NewLine} {ex.StackTrace}"
         | DalInstantUnboxingReturnedNull -> "Instant unboxing returned DB null"
         | DalIntUnboxingReturnedNull -> "Int unboxing returned DB null"
         | DalLocalDateUnboxingReturnedNull -> "LocalDate unboxing returned DB null"

@@ -2,8 +2,15 @@ module Utilities.Clock
 
 open System.Globalization
 open NodaTime
+open Utilities.AppError
+open Utilities.ConfigManager
 
-let eastern = DateTimeZoneProviders.Tzdb.["America/New_York"]
+
+let timeZoneLocal =
+    match getConfigValue<string> "LocalizedTimeZone" with
+    Ok x -> DateTimeZoneProviders.Tzdb.[x]
+    | Error e -> failwith (e |> AppError.toMessage)
+
 
 /// Clock.Now exists because the app layer creates time at a 1 * 10 ^ -7
 /// precision but the persistence layer can only store at 1 * 10 ^ -6 precision.
@@ -18,4 +25,4 @@ let instantToString
     (format: string)
     (instant: Instant)
     : string =
-    instant.InZone(eastern).ToString(format, CultureInfo.InvariantCulture)
+    instant.InZone(timeZoneLocal).ToString(format, CultureInfo.InvariantCulture)

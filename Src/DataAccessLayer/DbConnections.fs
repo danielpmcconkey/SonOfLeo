@@ -2,25 +2,16 @@ module DataAccessLayer.DbConnections
 
 open System
 open Npgsql
-open Microsoft.Extensions.Configuration
 open Utilities.ResultHelper
 open Utilities.AppError
+open Utilities.ConfigManager
 
 let private getConnectionStringConfig () : Result<string, AppError> =
-    try
-        let config =
-            ConfigurationBuilder()
-                .SetBasePath(AppContext.BaseDirectory)
-                .AddJsonFile("appsettings.json", optional = false)
-                .AddEnvironmentVariables()
-                .Build()
-        let configVal = config["ConnectionStringEnvVar"]
-        if String.IsNullOrWhiteSpace(configVal) then
-            Error DalConnectionStringEnvVarNotFound
-        else
-            Ok(configVal)
-    with ex ->
-        Error(DalErrorRetrievingAppSettings ex)
+    result {
+        let! configVal = getConfigValue<string> "ConnectionStringEnvVar"
+        do! if String.IsNullOrWhiteSpace(configVal) then Error DalConnectionStringEnvVarNotFound else Ok()
+        return configVal
+    }
 
 let private confirmConfigDoesntContainConnectionString (configVal: string) : Result<unit, AppError> =
     let doesContain = configVal.Contains(";") || configVal.Contains("Host=")
