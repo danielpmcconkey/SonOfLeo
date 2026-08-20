@@ -105,7 +105,7 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-3.7** When a record's account_code is non-null, the system must validate it resolves to an existing account in the chart of accounts. If it does not, the system must reject the file. The staged line stores the account code (not the resolved account ID); code-to-ID resolution occurs at posting time.
   - *Why:* A parser-assigned account code that does not exist is a parser defect. Fail fast. Account codes (not IDs) are stored because the review surface and classification rules operate on codes. (2026-08-09)
 - **REQ-STG-3.8** When a record's account_code is null, the staged line's account_code is set to null.
-- **REQ-STG-3.9** On successful ingestion, every staged entry's status is set to `'ingested'` and an audit record is created (from_status null, to_status `'ingested'`).
+- **REQ-STG-3.9** On successful ingestion, every staged entry's status is set to `'Ingested'` and an audit record is created (from_status null, to_status `'Ingested'`).
 - **REQ-STG-3.10** Ingestion is atomic: either the entire file is ingested (all entries and lines persisted) or no rows are created.
 
 
@@ -148,16 +148,16 @@ Reviewed   → Posted      (batch post)
 
 The classification step runs the vendor classification rules engine against staged entries. The rules entity (pattern, priority, FI scoping, account mapping) is specified separately. These requirements govern how the staging pipeline interacts with the rules engine.
 
-- **REQ-STG-5.1** The system must provide a means to run automated classification against staged entries with status `'ingested'`.
+- **REQ-STG-5.1** The system must provide a means to run automated classification against staged entries with status `'Ingested'`.
 - **REQ-STG-5.2** Classification evaluates each staged line whose account_code is null against the vendor classification rules, matching on the staged entry's description.
 - **REQ-STG-5.3** Classification must not modify a staged line whose account_code is already non-null.
   - *Why:* Parser-assigned accounts are authoritative. The classifier fills gaps; it does not override. (2026-08-08)
 - **REQ-STG-5.4** When exactly one rule matches and the line's account_code is null, the classifier assigns the rule's account code to the line and records the classification_rule_id on the staged line.
 - **REQ-STG-5.5** When multiple rules match and one has strictly higher priority, the classifier assigns the highest-priority rule's account code.
-- **REQ-STG-5.6** When multiple rules match with equal priority for a line with null account_code, the staged entry's status is set to `'conflict'`.
+- **REQ-STG-5.6** When multiple rules match with equal priority for a line with null account_code, the staged entry's status is set to `'Conflict'`.
 - **REQ-STG-5.7** When no rule matches a line with null account_code, the staged entry's status is set to `'NoMatch'`.
   - *Why:* `'NoMatch'` means the classifier ran and found nothing — it is distinct from "not yet classified." The name was chosen over "unclassified" to avoid ambiguity. (2026-08-09)
-- **REQ-STG-5.8** When classification completes and every line in the staged entry has a non-null account_code, the entry's status is set to `'classified'`.
+- **REQ-STG-5.8** When classification completes and every line in the staged entry has a non-null account_code, the entry's status is set to `'Classified'`.
 
 
 ## 6. Manual review behaviors
@@ -165,7 +165,7 @@ The classification step runs the vendor classification rules engine against stag
 - **REQ-STG-6.1** The system must provide a means for an operator to assign or override the account_code on a staged line, regardless of whether the account was previously set by a parser or the classifier.
 - **REQ-STG-6.2** The manual update mechanism allows the operator to set any field on the staged entry and its lines, including status. The system validates the result (balanced entry, valid account codes, legal status transition) but does not infer or auto-assign status from the operator's changes.
   - *Why:* Original spec auto-transitioned to `'Reviewed'` on any line modification. Overruled — manual intervention is the highest authority tier, and the operator knows the intended status. Inferring it revokes that authority. (2026-08-16)
-- **REQ-STG-6.3** The operator may override a duplicate flag, transitioning the entry's status from `'duplicate'` to `'reviewed'`.
+- **REQ-STG-6.3** The operator may override a duplicate flag, transitioning the entry's status from `'Duplicate'` to `'Reviewed'`.
   - *Why:* Legitimate duplicate transactions exist (two identical charges on the same day). The operator, not the system, makes this call. (2026-08-08)
 
 
@@ -198,7 +198,7 @@ The classification step runs the vendor classification rules engine against stag
 - **REQ-STG-9.4** For each staged line, the system must resolve the line's account_code to an account ID via the chart of accounts and construct a journal entry line with the line's amount, line_type, resolved account ID, and memo. A null account_code at posting time is a loud failure — it indicates a broken upstream invariant (classification or review allowed an uncoded line through). Invalid non-null codes cannot occur: the chart of accounts is FK-constrained.
 - **REQ-STG-9.5** The system must construct one external reference on each journal entry: financial_institution from the staged entry's source name, reference from fi_reference.
 - **REQ-STG-9.6** Stricken.
-- **REQ-STG-9.7** On successful posting, each staged entry's status is set to `'posted'` and an audit record is created.
+- **REQ-STG-9.7** On successful posting, each staged entry's status is set to `'Posted'` and an audit record is created.
 - **REQ-STG-9.8** Batch posting is atomic: either all postable staged entries are posted successfully or none are. If any entry fails domain validation, the entire batch rolls back.
   - *Why:* All-or-nothing prevents a half-posted run that requires manual reconciliation to determine what went in and what did not. (2026-08-08)
 - **REQ-STG-9.9** The system must produce one journal entry per staged entry. Staged entries are not combined into aggregate journal entries.

@@ -7,7 +7,8 @@ Applies to command line, importing, reporting, API, etc. Any use case where an e
 - **REQ-NGUI-1.1** All interface use cases must be triggered by the actor providing a domain, a verb, and a payload. Ex: Account Create {...}
 - **REQ-NGUI-1.2** Some use cases may require additional inputs beyond domain, verb, and payload and the system must support extending the input.
 - **REQ-NGUI-1.3** The system will respond to all interface triggers with a code denoting failure / success and a payload. Ex: 0 {...}
-- **REQ-NGUI-1.3.1** In the event of an error, the payload will comprise the error message and, in cases of system exceptions, the full stack trace.
+- **REQ-NGUI-1.3.1** In the event of an error, the payload will comprise the error message.
+- **REQ-NGUI-1.3.2** In the event of a system exception, the error payload will additionally include the full stack trace.
 - **REQ-NGUI-1.4** The user interface must never force the actor to interact with Account UUIDs. All interface capabilities must present an option for the actor to reference accounts by code and all return payloads must include account codes when identifying an account.
 - **REQ-NGUI-1.5** When a UI-facing operation references an Account entity by code and that code does not correspond to an existing Account entity, the operation must fail with an error.
 - **REQ-NGUI-1.6** All interface return payloads that identify an account must include the account name alongside the account code.
@@ -62,6 +63,7 @@ construction pattern) but deliberately not verified by tests.
 | REQ-NGUI-3.3   | It's too broadly scoped | Dan, 2026-06-18  |
 | REQ-NGUI-3.4   | It's too broadly scoped | Dan, 2026-06-18  |
 | REQ-NGUI-3.5   | It's too broadly scoped | Dan, 2026-06-18  |
+| REQ-NGUI-1.3.2 | Cannot force a .NET system exception through command routes in a test; stack-trace inclusion is verified by code review | Dan, 2026-08-20 |
 | REQ-NGUI-1.6   | Negative existence claim — cannot prove every payload includes account name; enforced by code review and periodic audit | Dan, 2026-08-07 |
 | REQ-NGUI-3.10  | CLI binary invocation — verified by code review and manual testing | Dan, 2026-08-07 |
 | REQ-NGUI-4.1   | Architectural constraint — verified by the existence of the Reports project | Dan, 2026-08-07 |

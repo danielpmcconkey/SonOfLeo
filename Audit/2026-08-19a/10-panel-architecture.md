@@ -1,0 +1,14 @@
+# corner-painting-auditor
+
+## DB-STAGE-1 — contradiction
+- **Location:** DbMigrations/202608081415-CreateStageSchemaAndTables.sql (ingestion.staged_entry, ingestion.staged_entry_line); REQ-SYS-3.1; Specs/Definitions.md (Entity)
+- **Summary:** The ingestion.staged_entry and ingestion.staged_entry_line tables are persisted entities that lack the created_at and modified_at columns required by REQ-SYS-3.1.
+- **Resolution:** fix-code
+
+REQ-SYS-3.1 states: 'Every persisted entity must carry a created at and a modified at timestamp.' Definitions.md defines Entity as 'A record type the system creates or mutates at runtime on behalf of the user.' Both staged_entry and staged_entry_line satisfy this definition — user actions insert rows (via IngestRawFileToStage) and update them (via UpdateStageEntry). Yet neither table has created_at or modified_at columns. Every other entity table in the system has them: ledger.account, ledger.fiscal_period, ledger.journal_entry, ledger.journal_entry_line, ledger.journal_entry_ext_reference, ledger.journal_entry_comment, ingestion.source, and ingestion.classification_rule all carry both columns. The F# model types (StageEntryHeader at Src/Model/DataIngestion/StageEntryHeader.fs and StageEntryLine at Src/Model/DataIngestion/StageEntryLine.fs) have no fields for these timestamps, and the create, insertNewToDb, reconstitute, and mapRawForDbRead code paths have no plumbing for them. The staged_entry_audit table tracks status transitions with a modified_at timestamp, but that covers only status changes — field-level edits to description, amount, account code, or memo via UpdateStageEntry leave no timestamp on the entity. The resolved finding GAP-JE-2 reinforces this: its ruling confirmed REQ-SYS-3.1 applies to all persisted entities and overruled a finding about external references precisely because those columns already existed in the schema.
+
+**Action:** Add created_at (timestamptz NOT NULL) and modified_at (timestamptz NOT NULL) columns to ingestion.staged_entry and ingestion.staged_entry_line via a new migration, then extend StageEntryHeader and StageEntryLine types, their create/insertNewToDb/reconstitute/mapRawForDbRead functions, their FieldUpdates types, and the boundary converters to carry and persist these values. The earlier this happens, the fewer records need backfilling.
+
+**Why:** Every record created now has no timestamp — that provenance data is permanently lost. The code has no plumbing for these fields, so the fix touches type definitions, smart constructors, persistence functions, field update types, boundary converters, and contracts. The longer data accumulates without these columns, the larger the backfill and the more code paths that have calcified around the incomplete shape. When reconciliation or analytics needs to answer 'when was this entry staged' or 'when was this line last edited,' the data will not exist for any record created before the fix.
+
+---

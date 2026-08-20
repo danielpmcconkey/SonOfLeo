@@ -162,6 +162,30 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 - **Scope:** Whether JE composite checks (min 2 lines, debit=credit balance) must run before any DB write per REQ-SYS-2.1.1
 - **Ruling:** It is impossible to validate that we have 2+ *valid* lines until each line has been constructed and persisted — a line's validity depends on DB state (account existence, period state). Pre-write validation would mean either (a) validating twice, or (b) validating against unvalidated input, both of which are worse than the current design. The transaction bracket ensures atomicity; a failed composite check rolls back everything. REQ-SYS-2.1.1 ("determinable from the entity's own properties") does not apply because line validity is not determinable from properties alone. Vetoed repeatedly. Do not re-flag.
 
+## DAL-EFFICACY: DAL Has No Behavioral Spec — Test Efficacy Not Applicable
+- **Status:** overruled
+- **Date:** 2026-08-20
+- **Scope:** Whether the DAL needs a test-efficacy audit pass
+- **Ruling:** The DAL has no behavioral spec of its own — it is infrastructure. Its correctness is validated transitively through the domain tests that exercise it (every account/JE/staging operation hits the DAL). A test-efficacy auditor scoped to the DAL will always return "no findings" because there are no REQ IDs to audit against. This is by design, not a gap. Do not flag the absence of DAL-specific efficacy findings.
+
+## IDIOM-JE-1: REQ-JE-3.6.1 Net Balance Sign Test
+- **Status:** overruled
+- **Date:** 2026-08-20
+- **Scope:** Whether the REQ-JE-3.6.1 net-balance test's `> zero` assertion is a cowardly inequality
+- **Ruling:** The rest of the 3.6 suite asserts correct amounts; this specific test is about sign direction (net balance is positive when debits exceed credits). The `> zero` assertion is appropriate for a sign-direction test. Do not re-flag.
+
+## NGUI-AQ-1: CLI stderr Assert.Contains vs Assert.Equal
+- **Status:** overruled
+- **Date:** 2026-08-20
+- **Scope:** Whether SonOfLeoCli's stderr test should use Assert.Equal instead of Assert.Contains
+- **Ruling:** The stderr output includes a trailing line break. The Reports CLI handles this by appending a newline to the expected message and using Assert.Equal; the main CLI uses Assert.Contains to check the error message is present within the response. Both approaches are equally safe — the Contains check verifies the entire expected error message is present. Changing either to match the other adds no safety. Do not re-flag.
+
+## DB-STAGE-1: Staging Entities Missing created_at/modified_at
+- **Status:** overruled
+- **Date:** 2026-08-20
+- **Scope:** Whether ingestion.staged_entry and ingestion.staged_entry_line need REQ-SYS-3.1 timestamp columns
+- **Ruling:** Staged entries and staged lines are not entities per Definitions.md. They are transient pipeline artifacts with a full audit trail (ingestion.staged_entry_audit) that records every status transition with timestamps. Entity-level policies like REQ-SYS-3.1 do not apply. Do not re-flag.
+
 ## WAIVE-1: REQ-NGUI-3.1-3.5 Waiver Reason Soundness
 - **Status:** overruled
 - **Date:** 2026-07-06

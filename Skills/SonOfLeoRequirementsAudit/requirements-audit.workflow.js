@@ -44,7 +44,6 @@ const REPORT_SCHEMA = {
         required: ['id', 'category', 'location', 'summary', 'detail', 'suggestedAction', 'why', 'resolutionOwner'],
       },
     },
-  },
     noFindingsReasoning: { type: 'string', description: 'Required when findings is empty. What you checked, what you considered, and why nothing rose to finding level. "No findings" with no explanation is indistinguishable from a shallow run.' },
   },
   required: ['agentName', 'findings'],
@@ -290,11 +289,16 @@ ${DAN_BLOCK}
 ${STATE_BLOCK}
 
 Go claim by claim. Verify each against the repo at ${REPO} yourself — do not take the
-scout's summary on faith for anything load-bearing. Also check the reverse: significant
-repo truths absent from Dan's statement.
+scout's summary on faith for anything load-bearing.
 
-Every disagreement is a finding (category: statement-delta). Confirmations are not
-findings, but list them briefly in a summary finding so Dan sees what checked out.
+A finding is a FACTUAL CONTRADICTION: Dan said X, the repo says not-X. Things Dan
+did not mention are NOT findings — his statement is a summary, not an inventory.
+Do not infer gaps from omissions or stretch-read a claim into something it doesn't say.
+If you have to argue that a statement "could be interpreted as" something problematic,
+it is not a finding.
+
+Every factual contradiction is a finding (category: statement-delta). Confirmations are
+not findings, but list them briefly in a summary finding so Dan sees what checked out.
 ${CONDUCT_RULES}
 ${HYGIENE}`,
 })
@@ -454,8 +458,8 @@ double-entry ledger.
 ${CONTEXT}
 
 READ: Specs/Behavioral/ (JournalEntryCrud.md, AccountCrud.md, FiscalPeriodCrud.md,
-SystemWide.md, Money.md), Specs/Definitions.md, and corresponding code in
-Src/Model/Ledger/ and Src/ModelOrchestrator/.
+SystemWide.md, Money.md, DataIngestion.md), Specs/Definitions.md, and corresponding
+code in Src/Model/Ledger/, Src/Model/DataIngestion/, and Src/ModelOrchestrator/.
 
 EVALUATE:
 1. JOURNAL MODEL: entry/line/reference/comment design, balanced-entry invariant,
@@ -466,6 +470,9 @@ EVALUATE:
 4. FORWARD READINESS: trial balance and period close are next. Does the current model
    give closure everything it needs? Flag anything that requires RESHAPING, not adding.
 5. CHART OF ACCOUNTS: types/hierarchy/activation rules.
+6. DATA INGESTION: staging-to-ledger posting path, balanced-entry enforcement at
+   ingestion, account code resolution at posting time, external reference construction.
+   Anything that touches the ledger is within your mandate.
 
 Cash-basis simplifications Dan chose deliberately are decisions, not findings.`,
 })
