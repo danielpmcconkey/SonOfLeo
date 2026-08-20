@@ -17,10 +17,6 @@ module FieldMatchChain =
         (candidate: MatchCandidate)
         (fieldMatchChain: FieldMatchChain) 
         : bool =
-        let failureCount =
-            fieldMatchChain.chain
-            |> List.map (fun fieldMatch ->
+        fieldMatchChain.chain
+        |> List.forall(fun fieldMatch ->
                 fieldMatch |> FieldMatch.doesMatch candidate)
-            |> List.filter(fun x -> x = false)
-            |> List.length
-        failureCount = 0

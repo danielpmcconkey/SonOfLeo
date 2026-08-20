@@ -1,6 +1,5 @@
 module ModelOrchestrator.FetchFilters
 
-open System
 open Model
 open Model.DataIngestion.Classification
 open Model.Ledger.Accounts.AccountComponent

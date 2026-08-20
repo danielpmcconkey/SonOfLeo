@@ -300,11 +300,7 @@ let doesMatch
     (candidate: MatchCandidate)
     (classificationRule: ClassificationRule)
     : bool =
-    let failureCount =
-        classificationRule.ruleGroups
-        |> List.map (fun ruleGroup ->
+    classificationRule.ruleGroups
+    |> List.forall(fun ruleGroup ->
             ruleGroup |> ClassificationRuleGroup.doesMatch candidate)
-        |> List.filter(fun x -> x = false)
-        |> List.length
-    failureCount = 0
         
