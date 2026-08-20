@@ -138,7 +138,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let explicitlyEmpty = []
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! _ = // the test helper resolves to constructNewAndSaveToDb
+                let! je, _ = // the test helper resolves to constructNewAndSaveToDb
                     createTestJournalEntryFromPrimitives
                         context
                         "JE create happy"
@@ -148,6 +148,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                           (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
                         explicitlyEmpty
                         []
+                Assert.Empty(je |> externalReferences)
                 return ()
             })
         |> railroadWrapper
@@ -158,7 +159,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let explicitlyMultiple = [ ("TestBank", "F-SHARED-001"); ("TestBank", "TXN-001") ]
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! _ = // the test helper resolves to constructNewAndSaveToDb
+                let! je, _ = // the test helper resolves to constructNewAndSaveToDb
                     createTestJournalEntryFromPrimitives
                         context
                         "JE create happy"
@@ -168,6 +169,14 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                           (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
                         explicitlyMultiple
                         []
+                let actualReferences =
+                    je
+                    |> externalReferences
+                    |> List.map(fun r ->
+                        (r |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value),
+                        (r |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value))
+                    |> List.sort
+                Assert.Equal<(string * string) list>(explicitlyMultiple |> List.sort, actualReferences)
                 return ()
             })
         |> railroadWrapper
@@ -178,7 +187,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let explicitlyEmpty = []
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! _ = // the test helper resolves to constructNewAndSaveToDb
+                let! je, _ = // the test helper resolves to constructNewAndSaveToDb
                     createTestJournalEntryFromPrimitives
                         context
                         "JE create happy"
@@ -188,6 +197,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                           (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
                         []
                         explicitlyEmpty
+                Assert.Empty(je |> comments)
                 return ()
             })
         |> railroadWrapper
@@ -200,7 +210,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
               (None, "Fixture comment for testing 2") ]
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! _ = // the test helper resolves to constructNewAndSaveToDb
+                let! je, _ = // the test helper resolves to constructNewAndSaveToDb
                     createTestJournalEntryFromPrimitives
                         context
                         "JE create happy"
@@ -210,6 +220,12 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                           (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
                         []
                         explicitlyMultiple
+                let actualCommentTexts =
+                    je
+                    |> comments
+                    |> List.map(fun c -> c |> JournalEntryComment.commentText |> CommentText.value)
+                    |> List.sort
+                Assert.Equal<string list>(explicitlyMultiple |> List.map snd |> List.sort, actualCommentTexts)
                 return ()
             })
         |> railroadWrapper
@@ -220,7 +236,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let explicitlyNone = None
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! _ = // the test helper resolves to constructNewAndSaveToDb
+                let! je, _ = // the test helper resolves to constructNewAndSaveToDb
                     createTestJournalEntryFromPrimitives
                         context
                         "JE create happy"
@@ -230,6 +246,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                           (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
                         []
                         []
+                Assert.Equal<JournalEntrySource option>(None, je |> header |> JournalEntryHeader.source)
                 return ()
             })
         |> railroadWrapper
@@ -240,7 +257,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let explicitlyNone = None
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! _ = // the test helper resolves to constructNewAndSaveToDb
+                let! je, _ = // the test helper resolves to constructNewAndSaveToDb
                     createTestJournalEntryFromPrimitives
                         context
                         "JE create happy"
@@ -250,6 +267,9 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                           (fixture.Data.creditCard2220Id, 86.04M, "Credit", explicitlyNone) ]
                         []
                         []
+                let actualMemos = je |> lines |> List.map JournalEntryLine.memo
+                Assert.Equal(2, actualMemos |> List.length)
+                Assert.Equal<JournalEntryLineMemo option list>([ None; None ], actualMemos)
                 return ()
             })
         |> railroadWrapper

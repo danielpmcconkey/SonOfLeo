@@ -11,6 +11,7 @@ open Utilities.AppError
 [<Fact>]
 let ``REQ-FP-1.4 REQ-FP-1.5 REQ-FP-2.3 Fiscal period start and end date are derived from the key`` () =
     let keyString = "1974-06"
+    let expectedYear = 1974
     let expectedMonth = 6
     let expectedStartDay = 1
     let expectedEndDay = 30
@@ -25,8 +26,11 @@ let ``REQ-FP-1.4 REQ-FP-1.5 REQ-FP-2.3 Fiscal period start and end date are deri
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         let startDate = FiscalPeriod.startDate fp
         let endDate = FiscalPeriod.endDate fp
+        Assert.Equal(expectedYear, startDate.Year)
         Assert.Equal(expectedMonth, startDate.Month)
         Assert.Equal(expectedStartDay, startDate.Day)
+        Assert.Equal(expectedYear, endDate.Year)
+        Assert.Equal(expectedMonth, endDate.Month)
         Assert.Equal(expectedEndDay, endDate.Day)
         Ok())
     |> railroadWrapper

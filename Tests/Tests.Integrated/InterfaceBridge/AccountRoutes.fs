@@ -79,13 +79,25 @@ type AccountRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-3.4 Account FetchByCode happy path``() =
+        let expectedCode = "F-1270"
+        let expectedAccount =
+            fixture.Data.accounts
+            |> List.find(fun a -> a |> Account.code |> AccountCode.value = expectedCode)
+        let expectedName = expectedAccount |> Account.accountName |> AccountName.value
+        let expectedType = expectedAccount |> Account.accountType |> AccountType.toString
         let payload =
-            { code = "F-1270" }
+            { code = expectedCode }
             |> toJson<AccountFetchByCodeInput>
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        match routeUiCommandForTesting "Account" "FetchByCode" [] payload with
-        | Ok _ -> ()
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        result {
+            let! resultPayload = routeUiCommandForTesting "Account" "FetchByCode" [] payload
+            let! returned = fromJson<AccountReturn> resultPayload
+            Assert.Equal(expectedCode, returned.code)
+            Assert.Equal(expectedName, returned.name)
+            Assert.Equal(expectedType, returned.accountTypeSt)
+            ()
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-AC-3.10 Account FetchByParentCode happy path``() =

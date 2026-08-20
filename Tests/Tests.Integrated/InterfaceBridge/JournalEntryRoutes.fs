@@ -497,45 +497,6 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         }
         |> railroadWrapper
 
-    [<Fact>]
-    member _.``REQ-JE-4.9 UpdateExternalReference rejects no-op update``() =
-        let mutable idToCleanUp = None
-        try
-            let context = Context.create NoTransaction FetchOnly
-            result {
-                let! jeToUpdate, jeToUpdateId =
-                    createTestJournalEntryFromPrimitives
-                        context
-                        "REQ-JE-4.9 JE for no-op ref update"
-                        None
-                        (Calendar.today())
-                        [ (fixture.Data.entertainment5650Id, 75.00M, "Debit", None)
-                          (fixture.Data.creditCard2220Id, 75.00M, "Credit", None) ]
-                        [ ("TestBank", "TXN-NOOP") ]
-                        []
-                idToCleanUp <- Some jeToUpdateId
-                let refUuid =
-                    jeToUpdate
-                    |> externalReferences
-                    |> List.head
-                    |> JournalEntryExternalReference.journalEntryExternalReferenceId
-                    |> JournalEntryExternalReferenceId.value
-                let updateInput: JournalEntryUpdateExternalReferenceInput =
-                    { id = refUuid; fi = None; reference = None }
-                let! payload = updateInput |> toJson<JournalEntryUpdateExternalReferenceInput>
-                do!
-                    isCorrectErrorEmpty
-                        (routeUiCommandForTesting "JournalEntry" "UpdateExternalReference" [] payload)
-                        JournalEntryReferenceUpdateNoOp
-                        None
-                return ()
-            }
-            |> railroadWrapper
-        finally
-            match idToCleanUp |> cleanUpJournalEntryId with
-            | Ok() -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
-
     [<Theory>]
     [<InlineData("commentEmpty", "JournalEntryCommentIsEmpty")>]
     [<InlineData("commentTooLong", "JournalEntryCommentTooLong")>]

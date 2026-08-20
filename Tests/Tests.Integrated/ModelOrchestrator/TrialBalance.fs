@@ -106,13 +106,20 @@ type TrialBalanceTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-RPT-1.6 result list is sorted by account code``() =
-        // todo: this rules is wrong and this test needs to be revisited. The parent child hierarchy is primary. Account code is secondary
+    member _.``REQ-RPT-1.6 each parent row is immediately followed by its children in code order``() =
+        let codeOf (a: Account) = a |> Account.code |> AccountCode.value
+        let childrenOf (parent: Account option) =
+            fixture.Data.accounts
+            |> List.filter(fun a -> (a |> Account.parentId) = (parent |> Option.map Account.accountId))
+            |> List.sortBy codeOf
+        let rec walk (account: Account) : string list =
+            codeOf account :: (childrenOf (Some account) |> List.collect walk)
+        let expectedCodes = childrenOf None |> List.collect walk
         result {
             let! rows = prefetchedTb
-            let codes = rows |> List.map(fun r -> r.accountCode |> AccountCode.value)
-            let sorted = codes |> List.sort
-            Assert.Equal<string list>(sorted, codes)
+            let actualCodes = rows |> List.map(fun r -> r.accountCode |> AccountCode.value)
+            Assert.NotEmpty(expectedCodes)
+            Assert.Equal<string list>(expectedCodes, actualCodes)
             return ()
         }
         |> railroadWrapper

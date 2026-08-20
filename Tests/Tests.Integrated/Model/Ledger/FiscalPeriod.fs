@@ -49,6 +49,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
             "2050-10"
             |> FiscalPeriodKey.fromString
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+        let expectedYear = 2050
         let expectedStartMonth = 10
         let expectedStartDay = 1
         let expectedEndMonth = 10
@@ -62,8 +63,10 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
                 let uuid = FiscalPeriod.fiscalPeriodId fp |> FiscalPeriodId.value
                 Assert.NotEqual(uuid, Guid.Empty)
                 Assert.Equal(expectedKey, FiscalPeriod.periodKey fp)
+                Assert.Equal(expectedYear, startDate.Year)
                 Assert.Equal(expectedStartMonth, startDate.Month)
                 Assert.Equal(expectedStartDay, startDate.Day)
+                Assert.Equal(expectedYear, endDate.Year)
                 Assert.Equal(expectedEndMonth, endDate.Month)
                 Assert.Equal(expectedEndDay, endDate.Day)
                 Assert.Equal(expectedIsOpen, FiscalPeriod.isOpen fp)

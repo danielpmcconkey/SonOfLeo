@@ -89,10 +89,15 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-FP-3.4 FiscalPeriod FetchAll happy path``() =
         let payload = createFiscalPeriodFetchAllInputPayload false
+        let expectedKeys =
+            fixture.Data.fiscalPeriods
+            |> List.map(periodKey >> FiscalPeriodKey.value)
+            |> List.sort
         result {
             let! resultPayload = routeUiCommandForTesting "FiscalPeriod" "FetchAll" [] payload
             let! returned = fromJson<FiscalPeriodReturn list> resultPayload
-            Assert.True(returned |> List.length >= 9)
+            let actualKeys = returned |> List.map(fun fp -> fp.periodKey) |> List.sort
+            Assert.Equal<string list>(expectedKeys, actualKeys)
             ()
         }
         |> railroadWrapper

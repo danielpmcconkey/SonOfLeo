@@ -4,6 +4,7 @@ open System
 open DataAccessLayer.DbTransaction
 open InterfaceBridge.CommandRoute
 open Logger.Audit
+open Model
 open ModelOrchestrator
 open Tests.Helpers
 open Tests.Helpers.GenericTestProperties
@@ -62,24 +63,39 @@ type AccountTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let code = "AC-2.14"
             let name = "Create account and fetch by ID returns identical record"
+            let reference = "AC-2.14 external reference"
             result {
                 let! accountCode = code |> AccountCode.create
                 let! accountName = name |> AccountName.create
+                // Asset, so that the non-null Cash subtype and the F-1000 Assets parent are both legal
+                let! accountType = "Asset" |> AccountType.fromString
+                let! externalReference = reference |> AccountExternalReference.create
+                let subType = Some genericAccountSubtypeNonNull
+                let parentId = Some fixture.Data.assets1000Id
                 let! created =
                     AccountCreation.constructNewAndSaveToDb
                         context
                         accountCode
                         accountName
-                        genericAccountType
+                        accountType
                         genericAccountActivityPeriod
-                        genericAccountSubtype
-                        genericAccountParentId
-                        genericAccountReference
+                        subType
+                        parentId
+                        (Some externalReference)
                 let! fetched = created |> Account.accountId |> Account.fetchById context
-                let fetchedCode = fetched |> Account.code
-                let fetchedName = fetched |> Account.accountName
-                Assert.Equal(accountCode, fetchedCode)
-                Assert.Equal(accountName, fetchedName)
+                Assert.Equal(created |> Account.accountId, fetched |> Account.accountId)
+                Assert.Equal(accountCode, fetched |> Account.code)
+                Assert.Equal(accountName, fetched |> Account.accountName)
+                Assert.Equal(accountType, fetched |> Account.accountType)
+                Assert.Equal(genericAccountActivityPeriod, fetched |> Account.activityPeriod)
+                Assert.Equal<AccountSubtype option>(subType, fetched |> Account.accountSubType)
+                Assert.Equal<AccountId option>(parentId, fetched |> Account.parentId)
+                Assert.Equal<AccountExternalReference option>(
+                    Some externalReference,
+                    fetched |> Account.externalReference
+                )
+                Assert.Equal(created |> Account.createdAt, fetched |> Account.createdAt)
+                Assert.Equal(created |> Account.modifiedAt, fetched |> Account.modifiedAt)
                 return ()
             })
         |> railroadWrapper
@@ -301,6 +317,23 @@ type AccountTests(fixture: TestDataFixture) =
         result {
             let! account = Account.fetchById context expectedId
             Assert.Equal(expectedId, account |> Account.accountId)
+            return ()
+        }
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-AC-3.4 fetching by account code returns the account carrying that code``() =
+        let context = Context.create NoTransaction FetchOnly
+        let expectedAccount =
+            fixture.Data.accounts
+            |> List.find(fun a -> a |> Account.accountId = fixture.Data.mortgage2210Id)
+        let expectedCode = expectedAccount |> Account.code
+        result {
+            let! id = expectedCode |> AccountCode.value |> LookupCache.accountCodeToId.fetch context
+            let! account = id |> AccountId.fromGuid |> Account.fetchById context
+            Assert.Equal(expectedCode, account |> Account.code)
+            Assert.Equal(expectedAccount |> Account.accountId, account |> Account.accountId)
+            Assert.Equal(expectedAccount |> Account.accountName, account |> Account.accountName)
             return ()
         }
         |> railroadWrapper
