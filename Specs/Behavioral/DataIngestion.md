@@ -118,7 +118,7 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-4.5** `'Ignored'` marks an entry that should not be posted due to data problems at the source. The deduplication pass must treat `'Ignored'` entries as matches — re-importing a transaction that was deliberately ignored must flag the new entry as duplicate, not silently re-admit it.
   - *Why:* Without this, voiding a bad JE and ignoring its staged source would cause the next overlapping file import to re-ingest the same bad data. (2026-08-09)
 
-Valid transitions:
+- **REQ-STG-4.6** The following are the only permitted status transitions. Any transition not listed must be rejected.
 
 ```
 Ingested   → Classified  (all lines have account_codes after classification)
