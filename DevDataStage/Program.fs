@@ -1,4 +1,4 @@
-﻿
+
 
 open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteScalar
@@ -26,3 +26,6 @@ let fixture = TestDataFixture()
 let data = fixture.Data
 printfn $"Staged %d{data.totalAccounts} accounts, %d{data.totalFiscalPeriods} fiscal periods,
 %d{data.totalJournalEntryHeaders} journal entries."
+
+let devStageCount = DevDataStage.DevFixtures.stageDevData context data
+printfn $"Staged %d{devStageCount} dev-only staged entries."
