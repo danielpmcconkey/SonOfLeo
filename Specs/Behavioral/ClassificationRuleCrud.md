@@ -81,7 +81,8 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 - **REQ-CR-4.1** The system must provide a means to create a new classification rule.
 - **REQ-CR-4.2** When creating a classification rule, the system must generate a unique UUID for the ID (new UUIDs may not be passed in).
 - **REQ-CR-4.3** When creating a classification rule, the system must validate that the `codeAtMatch` value resolves to an existing account in the chart of accounts. If it does not, the creation must fail.
-- **REQ-CR-4.4** New classification rules are always created as active (`isActive = true`). There is no mechanism to create an inactive rule.
+- **REQ-CR-4.4** New classification rules are always created as active (`isActive = true`).
+- **REQ-CR-4.8** The system must not provide a mechanism to create a classification rule in an inactive state.
 - **REQ-CR-4.5** On successful creation, the system must persist the rule and return the fully constructed classification rule with its generated ID and timestamps.
 - **REQ-CR-4.6** When creating a classification rule, the system must validate that the rule groups list is not empty. If it is, the creation must fail.
 - **REQ-CR-4.7** When creating a classification rule, the system must validate that every field match chain within every rule group is not empty. If any chain is empty, the creation must fail.
@@ -120,4 +121,5 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 | REQ-CR-1.13 | FieldMatch is a five-case DU — exactly-one targeting is the DU's structural exclusivity. | Dan, 2026-08-21 |
 | REQ-CR-1.21 | The field is typed Money, which is validated at construction — an invalid value cannot reach the pattern. | Dan, 2026-08-21 |
 | REQ-CR-4.2 | UUID generation via Guid.NewGuid() in create; uniqueness enforced by PK constraint. Same rationale as REQ-CR-1.1. | Dan, 2026-08-21 |
+| REQ-CR-4.8 | A negative existence claim over the entire API surface cannot be proven by a unit test; enforced by code review and periodic adversarial audit. Same rationale as REQ-CR-7.1. | Dan, 2026-08-21 |
 | REQ-CR-7.1 | A negative existence claim over the entire API surface cannot be proven by a unit test; enforced by code review and periodic adversarial audit. Same rationale as REQ-AC-5.1. | Dan, 2026-08-21 |
