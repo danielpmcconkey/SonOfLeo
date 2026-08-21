@@ -4,7 +4,7 @@ Drafted from `Specs/Behavioral/ClassificationRuleCrud.md` and `DataIngestion.md`
 `Src/ModelOrchestrator/ClassificationOrchestration.fs` has not been opened.
 Graded once by an independent agent; every finding below 88 was worked.
 
-**33 names covering 19 requirements.** Function names are placeholders where I don't know the
+**32 names covering 19 requirements.** Function names are placeholders where I don't know the
 real one — the only orchestrator name I have is `fetchRulesFiltered`, which Dan gave me. At step 8
 I may correct a subject to the actual function name. That changes how a test reaches the
 behavior, never what it claims.
@@ -15,11 +15,11 @@ behavior, never what it claims.
 
 `FieldMatchChainEvaluation.fs`
 
-1. `REQ-CR-2.8 an empty field match chain evaluates to false rather than vacuously true`
+1. `REQ-CR-2.8 an empty field match chain evaluates to false`
 
 `ClassificationRuleMatching.fs`
 
-2. `REQ-CR-2.9 a rule with an empty rule groups list evaluates to false rather than vacuously true`
+2. `REQ-CR-2.9 a rule with an empty rule groups list evaluates to false`
 
 ---
 
@@ -30,7 +30,7 @@ behavior, never what it claims.
 3. `REQ-CR-4.1 REQ-CR-4.5 create returns the new rule bearing an id, a created_at and modified_at that are populated and equal, and the name, code, priority, and rule groups it was given`
 4. `REQ-CR-4.5 a created rule fetched back from the database carries the same rule groups, field matches, and amount patterns it was created with`
 5. `REQ-CR-4.4 a newly created rule is active, both in the value create returns and in the row fetched back`
-6. `REQ-CR-4.3 REQ-CR-1.5 create returns an account-not-found error when codeAtMatch names no account in the chart of accounts`
+6. `REQ-CR-4.3 REQ-CR-1.5 create returns an account-not-found error when codeAtMatch doesn't match an account code in the ledger`
 7. `REQ-CR-4.6 REQ-CR-1.7 create returns a validation error when the rule groups list is empty`
 8. `REQ-CR-4.7 REQ-CR-1.12 create returns a validation error when a field match chain is empty` — Theory: empty chainOne in the only group, empty chainOne in the second of two groups, empty chainTwo
 
@@ -58,15 +58,20 @@ behavior, never what it claims.
 25. `REQ-CR-6.1 updating isActive with SetTo false deactivates the rule and leaves name, code, priority, and rule groups as they were`
 26. `REQ-CR-6.1 updating isActive with SetTo true reactivates the inactive rule and leaves name, code, priority, and rule groups as they were`
 27. `REQ-CR-6.2 an update with all five fields NoChange is rejected and leaves the stored rule, modified_at included, untouched`
-28. `REQ-CR-6.3 REQ-CR-1.5 update returns an account-not-found error when the new codeAtMatch names no account in the chart of accounts`
+28. `REQ-CR-6.3 REQ-CR-1.5 update returns an account-not-found error when the new codeAtMatch doesn't match an account code in the ledger`
 29. `REQ-CR-6.4 update returns a validation error when the new rule groups list is empty`
 30. `REQ-CR-6.4 update returns a validation error when a chain within the new rule groups is empty` — Theory: the only group's chainOne, the second group's chainOne, chainTwo
 31. `REQ-CR-6.5 a successful update leaves modified_at later than the value it held before the update`
+    - **Do not fight the clock.** `modified_at` comes from the context's initiation instant, not from
+      the wall clock, so two operations in one context stamp identically and the test cannot pass by
+      waiting. Advance it with `Src/Context/Context.fs` `updateInitiationInstant` between the create
+      and the update. Dan flagged this at step 7; rediscovering it costs a lot of tokens.
 
 ### Pipeline — `Tests.Integrated/ModelOrchestrator/StageEntryClassification.fs`
 
-32. `REQ-STG-5.2 an entry with two null-code lines has both lines classified, not only the first`
-33. `REQ-STG-5.2 a line is classified by the rule matching its own entry's description, not by one matching a sibling entry's`
+32. `REQ-STG-5.2 an entry with two null-code lines matching different rules has each line assigned its own rule's code`
+    - Needs a new **staged** archetype: every fixture entry today is one null Debit plus a
+      parser-assigned Credit (`F-1270`), so no entry has ever had two null lines.
 
 ---
 
@@ -139,6 +144,21 @@ Required by 4, and it pays for itself twice:
   `reconstitute` rebuilds it through `Money.create` or straight off the JSON. This archetype puts a
   real amount through the round trip and #4 asserts it survives.
 
+### C. A staged entry with two null-code lines matching two different rules
+
+Required by #32, added at step 7. Every staged group in the fixture is one null Debit plus a
+Credit the parser assigned to `F-1270`, so `REQ-STG-5.2`'s "**each** staged line whose account_code
+is null" has never had more than one such line to be each of. A classifier that evaluated only the
+first null line per entry would pass the entire existing suite.
+
+Shape: one group whose Debit and Credit both arrive null and match different rules — one landing on
+`F-5350`, the other on `F-5650`. Two different codes is the point; two lines both landing on the
+same code would leave a whole-entry assignment indistinguishable from per-line assignment.
+
+**Risk I'll check before writing:** `REQ-STG-5.8` sets an entry to `Classified` only when every line
+has a code, so this entry becomes a second `Classified` one. Any existing test counting entries by
+status will move.
+
 ### Not requested: a rule pointing at a closed account
 
 `REQ-CR-4.3` and `6.3` require the code to resolve to an **existing** account. Neither says anything
@@ -163,6 +183,25 @@ request.
    **`4.8` must never appear in a test name.** It is waived, and an ID under `Tests/` is a citation
    whether or not it annotates a test — naming it there would report the waived clause as covered
    and go stale. #5 cites `4.4` alone.
+
+## Step 7 dispositions (Dan, 2026-08-21)
+
+- **#1, #2** — "rather than vacuously true" cut. It is the reason the requirement exists, not part
+  of the claim, and the spec's *Why* block already carries it.
+- **#6, #28** — "names no account" read as the account *name*. `codeAtMatch` is a code. Reworded to
+  Dan's phrasing.
+- **#31** — clock warning recorded inline.
+- **#32 rewritten.** Dan was right and the old name was wrong twice over. It said "classified" where
+  the requirement says *evaluated*, and those differ: a line can be evaluated and match nothing.
+  Entry-level "classified" is `REQ-STG-5.8`'s claim and depends on *every* line having a code, so
+  the old name asserted something `5.2` does not promise. The clause `5.2` actually adds over `5.4`
+  is the word **each** — every null line gets evaluated, not just the first — and the way to observe
+  that is two null lines matching two different rules ending up with two different codes.
+- **#33 dropped.** It was guarding cross-entry contamination — a line picking up the rule that
+  matched a *neighbouring* entry's description. The existing pipeline tests already close that as a
+  side effect: they run the whole batch and then select entries by description, so DoorDash landing
+  on `F-5350` while Allstate goes to `Conflict` and TestSavings to `NoMatch` cannot all hold if the
+  loop is reading the wrong entry's description. A dedicated test adds nothing.
 
 ## Still open
 
