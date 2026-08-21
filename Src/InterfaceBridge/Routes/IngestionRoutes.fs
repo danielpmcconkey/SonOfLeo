@@ -180,6 +180,18 @@ let private post payload _ =
                     return! fullResult |> Json.toJson<PostStageEntriesFullResult>
                 })
     }
+    
+let private fetchStageEntryFiltered payload _ =
+    let context = Context.create NoTransaction FetchOnly
+    result {
+        let! input = Json.fromJson<StageEntryFetchFilteredInput> payload
+        let! filter = input.filter |> ``convert [StageEntryFetchFilterInput] to [StageEntryFetchFilter]`` context
+        let sort = input.sort
+        let! fetched = filter |> StageEntryOrchestration.fetchFiltered context sort
+        let converted =
+            fetched
+            |> List.map ``convert [StageEntry] to [StageEntryReturn]``
+        return! converted |> Json.toJson<StageEntryReturn list> }
 
 let ingestionDomainCommandRoutes: CommandRoute list =
     [
@@ -237,6 +249,13 @@ let ingestionDomainCommandRoutes: CommandRoute list =
         description = "Writes all Classified and Reviewed stage entry rows to the ledger, updates their status, and returns both before and after trial balance data. If the shadow flag is set, that entire process is rolled back in the database."
         inputContract = typeof<PostStageEntriesInput>.Name
         outputContract = typeof<PostStageEntriesFullResult>.Name
+        handler = post }
+      
+      { domain = "Ingestion"
+        verb = "FetchStageEntryFiltered"
+        description = "Fetch a list of full stage entries records matching the filter."
+        inputContract = typeof<StageEntryFetchFilteredInput>.Name
+        outputContract = typeof<StageEntryReturn list>.Name
         handler = post }
       
     ]

@@ -2,6 +2,7 @@ module InterfaceBridge.InterfaceContracts.IngestionContracts
 
 open System
 open InterfaceBridge.InterfaceContracts.ReportsContracts
+open InterfaceBridge.InterfaceContracts.SharedContracts
 open ModelOrchestrator.FetchFilters
 open NodaTime
 open Utilities.FieldUpdate
@@ -193,3 +194,20 @@ type BaseStageRawRowInput = {
     accountCode: string option
     memo: string option
 }
+
+type StageEntryFetchFilterInput =
+    { stageEntryHeaderId : Guid option
+      sourceFile: string option
+      temporalFilter: TemporalFilterInput option
+      description: string option
+      ingestionSource: string option
+      fiReference: string option
+      status: string option
+      stageEntryLineId: Guid option
+      amount: decimal option
+      lineType: string option
+      accountCode: string option
+      memo: string option
+      classificationRuleId: Guid option }
+    
+type StageEntryFetchFilteredInput = { filter: StageEntryFetchFilterInput; sort: FetchStageEntrySort option }

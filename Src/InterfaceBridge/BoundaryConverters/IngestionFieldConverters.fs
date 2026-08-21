@@ -1,5 +1,6 @@
 module InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 
+open InterfaceBridge.BoundaryConverters.OrchestrationConverters
 open InterfaceBridge.InterfaceContracts.IngestionContracts
 open Model
 open Model.DataIngestion
@@ -11,6 +12,7 @@ open Model.DataIngestion.StageEntryLine
 open Model.DataIngestion.StageEntryStatusTransition
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
+open ModelOrchestrator.FetchFilters
 open ModelOrchestrator.StageEntryOrchestration
 open Utilities.AppError
 open Utilities.FieldUpdate.FieldUpdate
@@ -362,3 +364,43 @@ let ``convert [BaseStageRawRowInput list] to [BaseStageRawRow list]``
     rawInputRows
     |> List.map ``convert [BaseStageRawRowInput] to [BaseStageRawRow]``
     |> convertListOfResultsToResultsList
+
+let ``convert [StageEntryFetchFilterInput] to [StageEntryFetchFilter]``
+    (context: Context.Context)
+    (filterInput: StageEntryFetchFilterInput)
+    : Result<StageEntryFetchFilter, AppError> = result {
+        let stageEntryHeaderId = filterInput.stageEntryHeaderId |> Option.map StageEntryHeaderId.fromGuid
+        let! sourceFile = filterInput.sourceFile |> convertOptionToDesiredTypeWithFallibleConverter SourceFile.create
+        let! temporalFilter =
+            filterInput.temporalFilter
+            |> ``convert TemporalFilterInput Option To TemporalFilter Option`` context
+        let! description =
+            filterInput.description |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryDescription.create
+        let! ingestionSource =
+            filterInput.ingestionSource
+            |> convertOptionToDesiredTypeWithFallibleConverter JournalRefFinancialInstitution.create
+        let! fiReference =
+            filterInput.fiReference
+            |> convertOptionToDesiredTypeWithFallibleConverter JournalExternalReferenceText.create
+        let! status = filterInput.status |> convertOptionToDesiredTypeWithFallibleConverter StagedEntryStatus.fromString
+        let stageEntryLineId = filterInput.stageEntryLineId |> Option.map StageEntryLineId.fromGuid
+        let! amount = filterInput.amount |> convertOptionToDesiredTypeWithFallibleConverter Money.fromDecimal
+        let! lineType = filterInput.lineType |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineType.fromString
+        let! accountCode = filterInput.accountCode |> convertOptionToDesiredTypeWithFallibleConverter AccountCode.create
+        let! memo = filterInput.memo |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
+        let classificationRuleId = filterInput.classificationRuleId |> Option.map ClassificationRuleId.fromGuid
+        return {
+            stageEntryHeaderId = stageEntryHeaderId
+            sourceFile = sourceFile
+            temporalFilter = temporalFilter
+            description = description
+            ingestionSource = ingestionSource
+            fiReference = fiReference
+            status = status
+            stageEntryLineId = stageEntryLineId
+            amount = amount
+            lineType = lineType
+            accountCode = accountCode
+            memo = memo
+            classificationRuleId = classificationRuleId
+        } }
