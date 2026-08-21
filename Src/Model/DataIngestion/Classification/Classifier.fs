@@ -8,6 +8,7 @@ let classifyCandidate
     : ClassificationResult =
     let matches =
         rules
+        |> List.filter(isActive)
         |> List.filter(fun r -> r |> doesMatch candidate)
         |> List.map(fun x -> {
             code = x |> codeAtMatch
