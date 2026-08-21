@@ -2,15 +2,29 @@ module ModelOrchestrator.ClassificationOrchestration
 
 open System
 
+open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
+open Model
 open Model.DataIngestion.Classification
 open Model.DataIngestion.StageEntryLine
 open Model.Ledger.Accounts.AccountComponent
 open ModelOrchestrator.FetchFilters
 open Utilities.AppError
+open Utilities.Json
 open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
 open Utilities.FieldUpdate
+
+let private confirmAccountCode
+    (context: Context.Context)
+    (accountCode: AccountCode)
+    : Result<unit, AppError> =
+    let codeStr = accountCode |> AccountCode.value
+    let confirmed = codeStr |> LookupCache.accountCodeToId.fetch context
+    match confirmed with
+    | Ok _ -> Ok ()
+    | Error (DalResultantRowsDidntMatchExpectation _) -> Error (AccountCodeDoesntMatchAccountId codeStr)
+    | Error e -> Error e
 
 let private confirmFieldMatchChain
     (fieldMatchChain: FieldMatchChain)
@@ -28,7 +42,6 @@ let private confirmRuleGroup
         return ()
     }
     
-// todo: there is no classification rule edit orchestration. We should add one and make sure it calls confirmRuleGroups
 let private confirmRuleGroups
     (ruleGroups: ClassificationRuleGroup list)
     : Result<unit, AppError> = 
@@ -38,7 +51,6 @@ let private confirmRuleGroups
         |> List.map(confirmRuleGroup)
         |> convertListOfResultsToResultsList
         |> Result.map ignore
-    
 
 let createNewClassificationRule
     (context: Context.Context)
@@ -61,7 +73,8 @@ let createNewClassificationRule
             instant
             instant
     result {
-        do! ruleGroups |> confirmRuleGroups
+        do! ruleGroups |> confirmRuleGroups // todo: Hobson, make sure there's a spec that requires the rule groups to be validated
+        do! codeAtMatch |> confirmAccountCode context // todo: Hobson, make sure there's a spec that requires the code to be validated
         do! newRule |> ClassificationRule.insertNewToDb context
         return newRule
     }
@@ -198,4 +211,71 @@ let classifyMatchCandidatesAndUpdateLines
         let classificationResults = Classifier.classify rules candidates
         do! classificationResults |> updateDbLinesFromResultsList context
         return classificationResults
+    }
+    
+let updateClassificationRule
+    (context: Context.Context)
+    (classificationRuleNameUpdate: FieldUpdate<ClassificationRuleName>)
+    (codeAtMatchUpdate: FieldUpdate<AccountCode>)
+    (priorityUpdate: FieldUpdate<int>)
+    (ruleGroupsUpdate: FieldUpdate<ClassificationRuleGroup list>)
+    (isActiveUpdate: FieldUpdate<bool>)
+    (classificationRuleId: ClassificationRuleId)
+    : Result<ClassificationRule.ClassificationRule, AppError> =
+    let uuid = classificationRuleId |> ClassificationRuleId.value
+    let baseParams =
+        [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
+          { name = "@unique_id"; value = UniqueId uuid } ]
+    result {
+        do! match codeAtMatchUpdate with // todo: Hobson, make sure there's a spec that requires the code to be validated
+            | NoChange -> Ok ()
+            | SetTo x -> x |> confirmAccountCode context
+        do! match ruleGroupsUpdate with // todo: Hobson, make sure there's a spec that requires the rule groups to be validated
+            | NoChange -> Ok ()
+            | SetTo x -> x |> confirmRuleGroups
+        let! groupStr = // do this up here because it's a pain in the ass to do it down in the updates block
+            match ruleGroupsUpdate with
+            | NoChange -> Ok ""
+            | SetTo x -> x |> Json.toJson<ClassificationRuleGroup list> 
+        let updates =
+            [
+                  classificationRuleNameUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                      ("rule_name = @rule_name",
+                       { name = "@rule_name"; value = CharString(n |> ClassificationRuleName.value) }))
+                  
+                  codeAtMatchUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                      ("code_at_match = @code_at_match",
+                       { name = "@code_at_match"; value = CharString(n |> AccountCode.value) }))
+                  
+                  priorityUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                      ("priority = @priority",
+                       { name = "@priority"; value = Integer(n) }))
+                  
+                  ruleGroupsUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun _ ->
+                      ("rule_groups = @rule_groups",
+                       { name = "@rule_groups"; value = Jsonb(groupStr) }))
+                  
+                  isActiveUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                      ("is_active = @is_active",
+                       { name = "@is_active"; value = Boolean(n) }))
+            ]
+            |> List.choose id
+        let setClauses = updates |> List.map fst |> String.concat ", "
+        let parameters = baseParams @ (updates |> List.map snd)
+        let query =
+            $"""
+            UPDATE ingestion.classification_rule
+            set
+                {setClauses},
+                modified_at = @modified
+            WHERE unique_id = @unique_id;
+        """
+        do! if updates.IsEmpty then Error(IngestionClassificationRuleUpdateNoOp) else Ok()
+        let! () = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        return! classificationRuleId |> ClassificationRule.fetchById context
     }

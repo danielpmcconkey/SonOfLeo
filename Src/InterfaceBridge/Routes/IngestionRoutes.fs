@@ -1,12 +1,10 @@
 module InterfaceBridge.Routes.IngestionRoutes
 
-
 open DataAccessLayer.DbTransaction
 open InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 open InterfaceBridge.BoundaryConverters.ReportConverters
 open InterfaceBridge.InterfaceContracts.IngestionContracts
 open Logger.Audit
-open Model
 open Model.DataIngestion
 open Model.DataIngestion.Classification
 open Model.DataIngestion.StageEntryHeader
@@ -57,7 +55,6 @@ let private newClassificationRule payload _ =
         let! name = input.classificationRuleName |> ClassificationRuleName.create
         let codeAtMatchStr = input.codeAtMatch
         let! codeAtMatch = codeAtMatchStr |> AccountCode.create
-        let! _ = codeAtMatchStr |> LookupCache.accountCodeToId.fetch context // check that it's a real code
         let priority = input.priority
         let! ruleGroups = input.ruleGroups |> ``convert [ClassificationRuleGroupContract list] to [ClassificationRuleGroup list]``
         let isActive = true // no new rules that are already inactive
@@ -69,6 +66,29 @@ let private newClassificationRule payload _ =
                 priority
                 ruleGroups
                 isActive
+        let returnVal = model |> ``convert [ClassificationRule] to [ClassificationRuleReturn]``
+        return! Json.toJson<ClassificationRuleReturn> returnVal
+    }
+
+let private updateClassificationRule payload _ =
+    let context = Context.create NoTransaction IngestUpdateClassificationRule
+    result {
+        let! input = Json.fromJson<UpdateClassificationRuleInput> payload
+        let classificationRuleId = input.classificationRuleId |> ClassificationRuleId.fromGuid
+        let! classificationRuleNameUpdate =
+            input.classificationRuleNameUpdate |> convertFieldUpdateToNewTypeFallible ClassificationRuleName.create
+        let! codeAtMatchUpdate =
+            input.codeAtMatchUpdate |> convertFieldUpdateToNewTypeFallible AccountCode.create
+        let priorityUpdate = input.priorityUpdate
+        let! ruleGroupsUpdate =
+            input.ruleGroupsUpdate
+            |> convertFieldUpdateToNewTypeFallible
+                ``convert [ClassificationRuleGroupContract list] to [ClassificationRuleGroup list]``
+        let isActiveUpdate = input.isActiveUpdate
+        let! model =
+            classificationRuleId
+            |> updateClassificationRule context classificationRuleNameUpdate codeAtMatchUpdate
+                   priorityUpdate ruleGroupsUpdate isActiveUpdate
         let returnVal = model |> ``convert [ClassificationRule] to [ClassificationRuleReturn]``
         return! Json.toJson<ClassificationRuleReturn> returnVal
     }
@@ -229,6 +249,13 @@ let ingestionDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<FetchClassificationRuleFilteredInput>.Name
         outputContract = typeof<ClassificationRuleReturn list>.Name
         handler = fetchClassificationRuleFiltered }
+      
+      { domain = "Ingestion"
+        verb = "UpdateClassificationRule"
+        description = "Update any of a ClassificationRule's fields."
+        inputContract = typeof<UpdateClassificationRuleInput>.Name
+        outputContract = typeof<ClassificationRuleReturn>.Name
+        handler = updateClassificationRule }
       
       { domain = "Ingestion"
         verb = "CreateIngestionSource"

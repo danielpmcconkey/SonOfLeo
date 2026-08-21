@@ -152,6 +152,15 @@ type NewClassificationRuleInput = {
         ruleGroups: ClassificationRuleGroupContract list
     }
 
+type UpdateClassificationRuleInput = {
+        classificationRuleId: Guid
+        classificationRuleNameUpdate: FieldUpdate<string>
+        codeAtMatchUpdate: FieldUpdate<string>
+        priorityUpdate: FieldUpdate<int> 
+        ruleGroupsUpdate: FieldUpdate<ClassificationRuleGroupContract list>
+        isActiveUpdate: FieldUpdate<bool>
+    }
+
 type FetchClassificationRuleFilteredInput = {
     filter: ClassificationRuleFilter
     sort: FetchSortClassificationRule option
