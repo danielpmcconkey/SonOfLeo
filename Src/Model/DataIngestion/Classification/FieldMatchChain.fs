@@ -17,6 +17,9 @@ module FieldMatchChain =
         (candidate: MatchCandidate)
         (fieldMatchChain: FieldMatchChain) 
         : bool =
-        fieldMatchChain.chain
-        |> List.forall(fun fieldMatch ->
-                fieldMatch |> FieldMatch.doesMatch candidate)
+        // empty lists would match everything. we have validation at construction. the empty check is a backstop
+        if fieldMatchChain.chain |> List.isEmpty then false
+        else
+            fieldMatchChain.chain
+            |> List.forall(fun fieldMatch ->
+                    fieldMatch |> FieldMatch.doesMatch candidate)

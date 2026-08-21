@@ -12,6 +12,34 @@ open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
 open Utilities.FieldUpdate
 
+let private confirmFieldMatchChain
+    (fieldMatchChain: FieldMatchChain)
+    : Result<unit, AppError> =
+    let chain = fieldMatchChain |> FieldMatchChain.chain
+    if chain |> List.isEmpty then Error IngestionFieldMatchChainEmpty else Ok ()
+    
+let private confirmRuleGroup
+    (ruleGroup: ClassificationRuleGroup)
+    : Result<unit, AppError> = result {
+        do! ruleGroup |> ClassificationRuleGroup.chainOne |> confirmFieldMatchChain
+        do! match ruleGroup |> ClassificationRuleGroup.chainTwo with
+            | None -> Ok ()
+            | Some x -> x |> confirmFieldMatchChain
+        return ()
+    }
+    
+// todo: there is no classification rule edit orchestration. We should add one and make sure it calls confirmRuleGroups
+let private confirmRuleGroups
+    (ruleGroups: ClassificationRuleGroup list)
+    : Result<unit, AppError> = 
+    if ruleGroups |> List.isEmpty then Error IngestionClassificationRuleGroupsEmpty
+    else
+        ruleGroups
+        |> List.map(confirmRuleGroup)
+        |> convertListOfResultsToResultsList
+        |> Result.map ignore
+    
+
 let createNewClassificationRule
     (context: Context.Context)
     (classificationRuleName: ClassificationRuleName)
@@ -33,6 +61,7 @@ let createNewClassificationRule
             instant
             instant
     result {
+        do! ruleGroups |> confirmRuleGroups
         do! newRule |> ClassificationRule.insertNewToDb context
         return newRule
     }

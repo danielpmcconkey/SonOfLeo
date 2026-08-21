@@ -1,6 +1,5 @@
 module Model.DataIngestion.Classification.ClassificationRule
 
-open Context
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
@@ -54,7 +53,6 @@ let create
         modifiedAt = modifiedAt
     }
     
-// todo: don't forget to create a CLI route for making new rules 
 let insertNewToDb (context: Context.Context) (classificationRule: ClassificationRule) : Result<unit, AppError> =
     let query =
         """
@@ -300,7 +298,10 @@ let doesMatch
     (candidate: MatchCandidate)
     (classificationRule: ClassificationRule)
     : bool =
-    classificationRule.ruleGroups
-    |> List.forall(fun ruleGroup ->
-            ruleGroup |> ClassificationRuleGroup.doesMatch candidate)
+    // empty lists would match everything. we have validation at construction. the empty check is a backstop
+    if classificationRule.ruleGroups |> List.isEmpty then false
+    else
+        classificationRule.ruleGroups
+        |> List.forall(fun ruleGroup ->
+                ruleGroup |> ClassificationRuleGroup.doesMatch candidate)
         
