@@ -83,7 +83,7 @@ let ``REQ-STG-4.2 validTransitions from Posted returns empty list`` () =
 
 
 // =============================================================================
-// REQ-STG-4.2 — validTransitions covers the full state machine
+// REQ-STG-4.6 — validTransitions covers the full state machine
 // =============================================================================
 
 [<Theory>]
@@ -159,7 +159,7 @@ let ``REQ-STG-4.2 validTransitions from Posted returns empty list`` () =
 [<InlineData("Ignored", "Duplicate", false)>]
 [<InlineData("Ignored", "Posted", false)>]
 [<InlineData("Ignored", "Ignored", false)>]
-let ``REQ-STG-4.2 validTransitions permits exactly the pairs the spec's transition table lists`` (fromStr: string, toStr: string, expectedPermitted: bool) =
+let ``REQ-STG-4.6 validTransitions permits exactly the pairs the spec's transition table lists`` (fromStr: string, toStr: string, expectedPermitted: bool) =
     let parse s =
         s
         |> StagedEntryStatus.fromString
@@ -175,7 +175,7 @@ let ``REQ-STG-4.2 validTransitions permits exactly the pairs the spec's transiti
 
 
 [<Fact>]
-let ``REQ-STG-4.2 validTransitions from None returns only Ingested`` () =
+let ``REQ-STG-4.6 validTransitions from None returns only Ingested`` () =
     let transitions = validTransitions None
     Assert.Equal(1, transitions |> List.length)
     Assert.Equal(Ingested, transitions |> List.head)
