@@ -12,12 +12,9 @@ open Utilities.ResultHelper
 open Xunit
 open Tests.Helpers
 open Model
-open Model.Ledger.Journaling.JournalEntryComponent
-open ModelOrchestrator.AccountActivity
+open ModelOrchestrator
 open System
 open ModelOrchestrator.FetchFilters
-open Context
-open NodaTime
 open Tests.Helpers.Railroad
 
 [<Collection("SharedTestData")>]
@@ -27,7 +24,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
     member _.``REQ-JE-3.9 fetchFiltered by account returns all activity with no filters set``() =
         let expectedCountDetails = fixture.Data.totalJournalEntryLines
         let expectedCountTotal = expectedCountDetails + fixture.Data.totalAccountsWithNoLines
-        let filter =
+        let filter:AccountActivityFilter =
             { accountId = None
               temporalFilter = None
               source = None
@@ -39,7 +36,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
               description = None
               unVoidedOnly = false }
         let context = Context.create NoTransaction FetchOnly
-        let result = fetchFiltered context filter None
+        let result = AccountActivity.fetchFiltered context filter None
         match result with
         | Ok activities ->
             Assert.Equal(expectedCountTotal, activities |> List.length)
@@ -66,7 +63,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
                     |> List.filter(fun line -> line |> JournalEntryLine.accountId = (account |> Account.accountId))
                     |> List.length
                 max 1 lineCount) // this picks up the "naked" account with no lines
-        let filter =
+        let filter:AccountActivityFilter =
             { accountId = None
               temporalFilter = None
               source = None
@@ -78,7 +75,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
               description = None
               unVoidedOnly = true }
         let context = Context.create NoTransaction FetchOnly
-        let result = fetchFiltered context filter None
+        let result = AccountActivity.fetchFiltered context filter None
         match result with
         | Ok activities -> Assert.Equal(expectedCountTotal, activities |> List.length)
         | Error e -> Assert.Fail(AppError.toMessage e)
@@ -90,7 +87,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
             fixture.Data.journalEntryLines
             |> List.filter(fun jel -> jel |> JournalEntryLine.accountId = accountId)
         Assert.True(linesAtAccount |> List.isEmpty) // make sure you picked an empty account
-        let filter =
+        let filter:AccountActivityFilter =
             { accountId = Some accountId
               temporalFilter = None
               source = None
@@ -102,7 +99,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
               description = None
               unVoidedOnly = false }
         let context = Context.create NoTransaction FetchOnly
-        let result = fetchFiltered context filter None
+        let result = AccountActivity.fetchFiltered context filter None
         match result with
         | Ok activities ->
             Assert.Equal(1, activities |> List.length)
@@ -128,7 +125,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
             |> List.length
         let targetAmount =
             targetAmountDecimal |> Money.fromDecimal |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        let filter =
+        let filter:AccountActivityFilter =
             { accountId = None
               temporalFilter = None
               source = None
@@ -140,7 +137,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
               description = None
               unVoidedOnly = false }
         let context = Context.create NoTransaction FetchOnly
-        let result = fetchFiltered context filter None
+        let result = AccountActivity.fetchFiltered context filter None
         match result with
         | Ok activities ->
             let withDetail = activities |> List.filter(fun a -> a.activityDetail |> Option.isSome)
@@ -152,7 +149,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.9.3 fetchFiltered sort by entry date — ascending and descending are mutual reverses``() =
-        let filter =
+        let filter:AccountActivityFilter =
             { accountId = None
               temporalFilter = None
               source = None
@@ -164,13 +161,13 @@ type AccountActivityTests(fixture: TestDataFixture) =
               description = None
               unVoidedOnly = false }
         let context = Context.create NoTransaction FetchOnly
-        let extractDates activities =
+        let extractDates (activities:AccountActivity.AccountActivity list) =
             activities
             |> List.filter (fun a -> a.activityDetail |> Option.isSome)
             |> List.map (fun a -> (a.activityDetail |> Option.get).entryDate)
         result {
-            let! activitiesAsc = fetchFiltered context filter (Some EntryDateAsc)
-            let! activitiesDesc = fetchFiltered context filter (Some EntryDateDesc)
+            let! activitiesAsc = AccountActivity.fetchFiltered context filter (Some FetchSort.EntryDateAsc)
+            let! activitiesDesc = AccountActivity.fetchFiltered context filter (Some FetchSort.EntryDateDesc)
             let datesAsc = extractDates activitiesAsc
             let datesDesc = extractDates activitiesDesc
             Assert.True(
@@ -184,7 +181,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.9.3 fetchFiltered sort by account code — ascending and descending are mutual reverses``() =
-        let filter =
+        let filter:AccountActivityFilter =
             { accountId = None
               temporalFilter = None
               source = None
@@ -196,11 +193,11 @@ type AccountActivityTests(fixture: TestDataFixture) =
               description = None
               unVoidedOnly = false }
         let context = Context.create NoTransaction FetchOnly
-        let extractCodes activities =
+        let extractCodes (activities:AccountActivity.AccountActivity list) =
             activities |> List.map (fun a -> a.accountCode |> AccountCode.value)
         result {
-            let! activitiesAsc = fetchFiltered context filter (Some FetchSort.AccountCodeAsc)
-            let! activitiesDesc = fetchFiltered context filter (Some FetchSort.AccountCodeDesc)
+            let! activitiesAsc = AccountActivity.fetchFiltered context filter (Some FetchSort.AccountCodeAsc)
+            let! activitiesDesc = AccountActivity.fetchFiltered context filter (Some FetchSort.AccountCodeDesc)
             let codesAsc = extractCodes activitiesAsc
             let codesDesc = extractCodes activitiesDesc
             Assert.True(
@@ -214,7 +211,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.9.3 fetchFiltered sort by amount — ascending and descending are mutual reverses``() =
-        let filter =
+        let filter:AccountActivityFilter =
             { accountId = None
               temporalFilter = None
               source = None
@@ -226,13 +223,13 @@ type AccountActivityTests(fixture: TestDataFixture) =
               description = None
               unVoidedOnly = false }
         let context = Context.create NoTransaction FetchOnly
-        let extractAmounts activities =
+        let extractAmounts (activities:AccountActivity.AccountActivity list) =
             activities
             |> List.filter (fun a -> a.activityDetail |> Option.isSome)
             |> List.map (fun a -> (a.activityDetail |> Option.get).amount |> Money.amount)
         result {
-            let! activitiesAsc = fetchFiltered context filter (Some AmountAsc)
-            let! activitiesDesc = fetchFiltered context filter (Some AmountDesc)
+            let! activitiesAsc = AccountActivity.fetchFiltered context filter (Some AmountAsc)
+            let! activitiesDesc = AccountActivity.fetchFiltered context filter (Some AmountDesc)
             let amountsAsc = extractAmounts activitiesAsc
             let amountsDesc = extractAmounts activitiesDesc
             Assert.True(
@@ -266,7 +263,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
             targetDescriptionString
             |> JournalEntryDescription.create
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        let filter =
+        let filter:AccountActivityFilter =
             { accountId = None
               temporalFilter = None
               source = None
@@ -278,7 +275,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
               description = Some targetDescription
               unVoidedOnly = false }
         let context = Context.create NoTransaction FetchOnly
-        let result = fetchFiltered context filter None
+        let result = AccountActivity.fetchFiltered context filter None
         match result with
         | Ok activities ->
             let withDetail = activities |> List.filter(fun a -> a.activityDetail |> Option.isSome)
@@ -289,14 +286,14 @@ type AccountActivityTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]
-    member _.``REQ-JE-3.9 fetchFiltered by journalEntryId returns only lines for that entry``() =
+    member _.``REQ-JE-3.9 AccountActivity.fetchFiltered by journalEntryId returns only lines for that entry``() =
         let targetId = fixture.Data.basicJeId
         let expectedLineCount =
             fixture.Data.journalEntryLines
             |> List.filter(fun l -> l |> JournalEntryLine.journalEntryHeaderId = targetId)
             |> List.length
         Assert.True(expectedLineCount > 0, "Fixture basicJe should have lines")
-        let filter =
+        let filter:AccountActivityFilter =
             { accountId = None
               temporalFilter = None
               source = None
@@ -308,7 +305,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
               description = None
               unVoidedOnly = false }
         let context = Context.create NoTransaction FetchOnly
-        let result = fetchFiltered context filter None
+        let result = AccountActivity.fetchFiltered context filter None
         match result with
         | Ok activities ->
             let withDetail = activities |> List.filter(fun a -> a.activityDetail |> Option.isSome)
@@ -321,7 +318,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.9 fetchFiltered by journalEntryId with nonexistent id returns no activity rows``() =
         let bogusId = Guid.NewGuid() |> JournalEntryHeaderId.fromGuid
-        let filter =
+        let filter:AccountActivityFilter =
             { accountId = None
               temporalFilter = None
               source = None
@@ -333,7 +330,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
               description = None
               unVoidedOnly = false }
         let context = Context.create NoTransaction FetchOnly
-        let result = fetchFiltered context filter None
+        let result = AccountActivity.fetchFiltered context filter None
         match result with
         | Ok activities -> Assert.Empty(activities)
         | Error e -> Assert.Fail(AppError.toMessage e)

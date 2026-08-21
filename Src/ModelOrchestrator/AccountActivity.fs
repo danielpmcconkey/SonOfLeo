@@ -155,8 +155,8 @@ let fetchFiltered
             | None -> ""
             | Some FetchSort.AccountCodeAsc -> "order by a.code asc"
             | Some FetchSort.AccountCodeDesc -> "order by a.code desc"
-            | Some EntryDateAsc -> "order by je.entry_date asc"
-            | Some EntryDateDesc -> "order by je.entry_date desc"
+            | Some FetchSort.EntryDateAsc -> "order by je.entry_date asc"
+            | Some FetchSort.EntryDateDesc -> "order by je.entry_date desc"
             | Some AmountAsc -> "order by jel.amount asc"
             | Some AmountDesc -> "order by jel.amount desc"
         let whereClausesAndParams =
