@@ -109,8 +109,8 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 
 | ID | Reason testing is waived | Approved |
 |---|---|---|
-| REQ-CR-1.1 | UUID is a value type; uniqueness enforced by PK constraint. Same rationale as REQ-AC-1.21/1.22. | |
-| REQ-CR-1.2 | Solution won't build if you try to pass a null value to ClassificationRuleName.create. | |
-| REQ-CR-1.17 | Solution won't build if you try to pass a null value to StringSearchPattern.create. | |
-| REQ-CR-4.2 | UUID generation via Guid.NewGuid() in create; uniqueness enforced by PK constraint. Same rationale as REQ-CR-1.1. | |
-| REQ-CR-7.1 | A negative existence claim over the entire API surface cannot be proven by a unit test; enforced by code review and periodic adversarial audit. Same rationale as REQ-AC-5.1. | |
+| REQ-CR-1.1 | UUID is a value type; uniqueness enforced by PK constraint. Same rationale as REQ-AC-1.21/1.22. | Dan, 2026-08-21 |
+| REQ-CR-1.2 | Solution won't build if you try to pass a null value to ClassificationRuleName.create. | Dan, 2026-08-21 |
+| REQ-CR-1.17 | Solution won't build if you try to pass a null value to StringSearchPattern.create. | Dan, 2026-08-21 |
+| REQ-CR-4.2 | UUID generation via Guid.NewGuid() in create; uniqueness enforced by PK constraint. Same rationale as REQ-CR-1.1. | Dan, 2026-08-21 |
+| REQ-CR-7.1 | A negative existence claim over the entire API surface cannot be proven by a unit test; enforced by code review and periodic adversarial audit. Same rationale as REQ-AC-5.1. | Dan, 2026-08-21 |
