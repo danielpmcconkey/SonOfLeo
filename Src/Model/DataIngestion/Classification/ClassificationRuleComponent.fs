@@ -66,13 +66,16 @@ module StringSearchPattern =
     let maxLength = 500
     let value (StringSearchPattern reference) = reference 
     let create (raw: string) : Result<StringSearchPattern, AppError> =
-        let trimmed = raw.Trim()
-        if trimmed = String.Empty then
+        (*
+         Note, every other string-to-type create function trims the inbound string. Here, we should not. We use
+         StringSearchPattern in a regex string comparison and white space is probably meaningful in that context. 
+        *)
+        if raw = String.Empty then
             Error(IngestionSearchPatternIsEmpty raw)
-        elif trimmed.Length > maxLength then
+        elif raw.Length > maxLength then
             Error(IngestionSearchPatternTooLong(raw, maxLength))
         else
-            Ok(StringSearchPattern trimmed)
+            Ok(StringSearchPattern raw)
 
     
 type ClassificationGroupConnector =
