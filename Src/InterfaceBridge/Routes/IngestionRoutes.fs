@@ -256,6 +256,6 @@ let ingestionDomainCommandRoutes: CommandRoute list =
         description = "Fetch a list of full stage entries records matching the filter."
         inputContract = typeof<StageEntryFetchFilteredInput>.Name
         outputContract = typeof<StageEntryReturn list>.Name
-        handler = post }
+        handler = fetchStageEntryFiltered }
       
     ]
