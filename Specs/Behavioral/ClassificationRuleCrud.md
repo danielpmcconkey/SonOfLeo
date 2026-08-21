@@ -61,6 +61,10 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 - **REQ-CR-2.5** When a rule group's connector is `'And'`, the group evaluates to true only when both `chainOne` and `chainTwo` evaluate to true.
 - **REQ-CR-2.6** When a rule group's connector is `'Or'`, the group evaluates to true when either `chainOne` or `chainTwo` (or both) evaluates to true.
 - **REQ-CR-2.7** A classification rule evaluates to true only when every rule group in its `ruleGroups` list evaluates to true (AND-connected across groups).
+- **REQ-CR-2.8** A field match chain with no field matches evaluates to false. An empty chain matches nothing rather than everything.
+  - *Why:* `List.forall` on an empty list returns true (vacuous truth). Without an explicit guard, an empty chain would silently match every candidate. Construction-time validation (REQ-CR-4.7, REQ-CR-6.4) prevents empty chains from being persisted; this requirement governs the evaluation backstop. (2026-08-21)
+- **REQ-CR-2.9** A classification rule with an empty rule groups list evaluates to false. An empty groups list matches nothing rather than everything.
+  - *Why:* Same vacuous-truth hazard as REQ-CR-2.8. Construction-time validation (REQ-CR-4.6, REQ-CR-6.4) prevents empty groups from being persisted; this requirement governs the evaluation backstop. (2026-08-21)
 
 ## 3. Classifier behaviors
 
