@@ -69,3 +69,13 @@ type StageEntryFetchFilter =
       accountCode: AccountCode option
       memo: JournalEntryLineMemo option
       classificationRuleId: ClassificationRuleId option }
+
+type FetchStageEntrySort =
+    | EntryDateAsc
+    | EntryDateDesc
+    | FiAsc
+    | FiDesc
+    | StatusAsc
+    | StatusDesc
+    | DescriptionAsc
+    | DescriptionDesc

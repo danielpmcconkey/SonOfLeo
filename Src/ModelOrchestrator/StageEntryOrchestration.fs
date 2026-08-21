@@ -609,7 +609,7 @@ let post
     
 let fetchFiltered
     (context: Context.Context)
-    (sort: FetchSort option)
+    (sort: FetchStageEntrySort option)
     (filter: StageEntryFetchFilter)
     : Result<StageEntry list, AppError> = result {
     let! dateRange =
@@ -623,12 +623,14 @@ let fetchFiltered
     let sortClause =
         match sort with
         | None -> ""
-        | Some FetchSort.AccountCodeAsc -> "order by code asc"
-        | Some FetchSort.AccountCodeDesc -> "order by code desc"
-        | Some EntryDateAsc -> "order by entry_date asc"
-        | Some EntryDateDesc -> "order by entry_date desc"
-        | Some AmountAsc -> "order by amount asc"
-        | Some AmountDesc -> "order by amount desc"
+        | Some EntryDateAsc -> "order by e.entry_date asc"
+        | Some EntryDateDesc -> "order by e.entry_date desc"
+        | Some FiAsc -> "order by s.source_name asc"
+        | Some FiDesc -> "order by s.source_name desc"
+        | Some StatusAsc -> "order by e.status asc"
+        | Some StatusDesc -> "order by e.status desc"
+        | Some DescriptionAsc -> "order by e.description asc"
+        | Some DescriptionDesc -> "order by e.description desc"
     let whereClausesAndParams =
         [
           filter.stageEntryHeaderId
@@ -697,7 +699,12 @@ let fetchFiltered
               ("classification_rule_id = @classification_rule_id",
                { name = "@classification_rule_id"; value = UniqueId(x |> ClassificationRuleId.value) })) ]
         |> List.choose id
-    let whereClauses = whereClausesAndParams |> List.map fst |> String.concat $" and{Environment.NewLine}"
+    let whereClauses =
+        if whereClausesAndParams |> List.isEmpty then ""
+        else
+            let catClauses = whereClausesAndParams |> List.map fst |> String.concat $" and{Environment.NewLine}"
+            $"where {catClauses}"
+        
     let parameters = whereClausesAndParams |> List.map snd
     let query =
         $"""
@@ -732,9 +739,7 @@ let fetchFiltered
             select distinct 
                 ais.stage_entry_id
             from all_in_stage ais
-            where 
             {whereClauses}
-            {sortClause}
         )
         select 
             e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, e.status,
@@ -742,6 +747,7 @@ let fetchFiltered
         from ingestion.staged_entry e
         join header_ids h on e.unique_id = h.stage_entry_id
         join ingestion.source s on e.source_id = s.unique_id
+        {sortClause}
         """
     let! headers = query |> StageEntryHeader.fetchByQuery context parameters AnyQuantityIsAcceptable
     let headerIds = 
