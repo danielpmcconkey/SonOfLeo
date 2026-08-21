@@ -51,74 +51,78 @@ let private makeRule codeStr priority patternStr isActive =
 
 
 // =============================================================================
-// REQ-STG-5.2 — Classifier evaluates candidates against rules
+// One result per candidate
 // =============================================================================
 
 [<Fact>]
-let ``REQ-STG-5.2 classify returns result for each candidate`` () =
+let ``REQ-CR-3.1 classify returns one classification result per candidate, each carrying its own candidate's line id`` () =
     let rule = makeRule "F-5350" 100 "^DoorDash" true
     let c1 = makeCandidate "DoorDash Order" "TestBank" 25.00M "Debit"
     let c2 = makeCandidate "Amazon Purchase" "TestBank" 50.00M "Debit"
     let results = classify [ rule ] [ c1; c2 ]
     Assert.Equal(2, results |> List.length)
+    // Pairing, not just arity: two copies of one candidate's result would
+    // satisfy a count assertion on its own.
+    let returnedLineIds = results |> List.map (fun r -> r.candidate.lineIdOfCandidate)
+    Assert.Equal<StageEntryLineId list>([ c1.lineIdOfCandidate; c2.lineIdOfCandidate ], returnedLineIds)
 
 
 // =============================================================================
-// REQ-STG-5.4 — Single rule match assigns code
+// Single rule match
 // =============================================================================
 
 [<Fact>]
-let ``REQ-STG-5.4 classifyCandidate with one matching rule returns OneMatch`` () =
+let ``REQ-CR-3.4 when exactly one active rule matches, classifyCandidate returns OneMatch carrying that rule's account code, rule id, and priority`` () =
     let rule = makeRule "F-5350" 100 "^DoorDash" true
     let candidate = makeCandidate "DoorDash Order 2024-12-15" "TestBank" 45.00M "Debit"
     let result = classifyCandidate [ rule ] candidate
     match result.outcome with
     | OneMatch pm ->
-        let codeVal = pm.code |> AccountCode.value
-        Assert.Equal("F-5350", codeVal)
+        Assert.Equal("F-5350", pm.code |> AccountCode.value)
+        Assert.Equal(rule |> ClassificationRule.classificationRuleId, pm.ruleId)
+        Assert.Equal(100, pm.priority)
     | other -> Assert.Fail $"Expected OneMatch but got {other}"
 
 
 // =============================================================================
-// REQ-STG-5.5 — Multiple matches, clear priority winner
+// Multiple matches, clear priority winner
 // =============================================================================
 
 [<Fact>]
-let ``REQ-STG-5.5 classifyCandidate with multiple rules and clear priority winner returns ManyMatchesClearWinner`` () =
+let ``REQ-CR-3.5 REQ-CR-1.6 classifyCandidate returns ManyMatchesClearWinner naming the lowest-priority-value rule as winner`` () =
     let broadRule = makeRule "F-5300" 1000 "^DoorDash" true
     let specificRule = makeRule "F-5350" 100 "^DoorDash" true
     let candidate = makeCandidate "DoorDash Order 2024-12-15" "TestBank" 45.00M "Debit"
     let result = classifyCandidate [ broadRule; specificRule ] candidate
     match result.outcome with
     | ManyMatchesClearWinner (winner, _) ->
-        let codeVal = winner.code |> AccountCode.value
-        Assert.Equal("F-5350", codeVal)
+        Assert.Equal(specificRule |> ClassificationRule.classificationRuleId, winner.ruleId)
+        Assert.Equal("F-5350", winner.code |> AccountCode.value)
         Assert.Equal(100, winner.priority)
     | other -> Assert.Fail $"Expected ManyMatchesClearWinner but got {other}"
 
 
 // =============================================================================
-// REQ-STG-5.6 — Multiple matches, tied priority
+// Multiple matches, tied priority
 // =============================================================================
 
 [<Fact>]
-let ``REQ-STG-5.6 classifyCandidate with tied priority rules returns ManyMatchesTied`` () =
+let ``REQ-CR-3.6 classifyCandidate returns ManyMatchesTied when two or more active rules share the lowest priority value`` () =
     let rule1 = makeRule "F-5350" 100 "^DoorDash" true
     let rule2 = makeRule "F-5300" 100 "^DoorDash" true
     let candidate = makeCandidate "DoorDash Order 2024-12-15" "TestBank" 45.00M "Debit"
     let result = classifyCandidate [ rule1; rule2 ] candidate
     match result.outcome with
-    | ManyMatchesTied matches ->
-        Assert.Equal(2, matches |> List.length)
+    | ManyMatchesTied _ -> ()
     | other -> Assert.Fail $"Expected ManyMatchesTied but got {other}"
 
 
 // =============================================================================
-// REQ-STG-5.7 — No match
+// No match
 // =============================================================================
 
 [<Fact>]
-let ``REQ-STG-5.7 classifyCandidate with no matching rules returns NoMatch`` () =
+let ``REQ-CR-3.3 classifyCandidate returns NoMatch when no active rule matches the candidate`` () =
     let rule = makeRule "F-5350" 100 "^DoorDash" true
     let candidate = makeCandidate "Amazon Purchase" "TestBank" 50.00M "Debit"
     let result = classifyCandidate [ rule ] candidate
@@ -128,11 +132,11 @@ let ``REQ-STG-5.7 classifyCandidate with no matching rules returns NoMatch`` () 
 
 
 // =============================================================================
-// REQ-STG-5.3 — Classifier does not act on inactive rules
+// Classifier does not act on inactive rules
 // =============================================================================
 
 [<Fact>]
-let ``REQ-STG-5.3 classify filters out inactive rules before matching`` () =
+let ``REQ-CR-3.2 REQ-CR-1.8 classify returns OneMatch on the active rule when an inactive rule has a lower priority value`` () =
     let activeRule = makeRule "F-5350" 100 "^DoorDash" true
     let inactiveRule = makeRule "F-5300" 50 "^DoorDash" false
     let candidate = makeCandidate "DoorDash Order" "TestBank" 45.00M "Debit"
@@ -143,3 +147,75 @@ let ``REQ-STG-5.3 classify filters out inactive rules before matching`` () =
         let codeVal = pm.code |> AccountCode.value
         Assert.Equal("F-5350", codeVal)
     | other -> Assert.Fail $"Expected OneMatch (inactive rule filtered out) but got {other}"
+
+
+// =============================================================================
+// Inactive rules, remaining vectors
+// =============================================================================
+
+[<Fact>]
+let ``REQ-CR-3.2 classify returns NoMatch when every rule that matches the candidate is inactive`` () =
+    let inactiveMatching = makeRule "F-5350" 100 "^DoorDash" false
+    let activeNonMatching = makeRule "F-5400" 50 "^Amazon" true
+    let candidate = makeCandidate "DoorDash Order" "TestBank" 45.00M "Debit"
+    // The inactive rule would match on its own terms; only its active flag
+    // keeps it out. Without this the NoMatch below proves nothing.
+    Assert.True(inactiveMatching |> ClassificationRule.doesMatch candidate)
+    Assert.False(activeNonMatching |> ClassificationRule.doesMatch candidate)
+    let results = classify [ inactiveMatching; activeNonMatching ] [ candidate ]
+    match (results |> List.head).outcome with
+    | ClassifierOutcome.NoMatch -> ()
+    | other -> Assert.Fail $"Expected NoMatch but got {other}"
+
+[<Fact>]
+let ``REQ-CR-3.2 classifyCandidate returns NoMatch for an inactive rule that would have matched the candidate`` () =
+    let inactiveRule = makeRule "F-5350" 100 "^DoorDash" false
+    let candidate = makeCandidate "DoorDash Order" "TestBank" 45.00M "Debit"
+    Assert.True(inactiveRule |> ClassificationRule.doesMatch candidate)
+    match (classifyCandidate [ inactiveRule ] candidate).outcome with
+    | ClassifierOutcome.NoMatch -> ()
+    | other -> Assert.Fail $"Expected NoMatch but got {other}"
+
+
+// =============================================================================
+// Payload completeness
+// =============================================================================
+
+[<Fact>]
+let ``REQ-CR-3.5 ManyMatchesClearWinner carries every matching rule and no non-matching rule`` () =
+    let broadRule = makeRule "F-5300" 1000 "^DoorDash" true
+    let specificRule = makeRule "F-5350" 100 "^DoorDash" true
+    // Lowest priority value in the list, but it does not match -- so its
+    // absence from the payload cannot be explained by priority.
+    let nonMatching = makeRule "F-5400" 10 "^Amazon" true
+    let candidate = makeCandidate "DoorDash Order 2024-12-15" "TestBank" 45.00M "Debit"
+    let result = classifyCandidate [ broadRule; specificRule; nonMatching ] candidate
+    match result.outcome with
+    | ManyMatchesClearWinner (_, allMatches) ->
+        let expected =
+            [ broadRule; specificRule ]
+            |> List.map ClassificationRule.classificationRuleId
+            |> Set.ofList
+        let actual = allMatches |> List.map (fun m -> m.ruleId) |> Set.ofList
+        Assert.Equal<Set<ClassificationRuleId>>(expected, actual)
+    | other -> Assert.Fail $"Expected ManyMatchesClearWinner but got {other}"
+
+[<Fact>]
+let ``REQ-CR-3.6 ManyMatchesTied carries every matching rule and no non-matching rule, including one that matched at a higher priority value than the tied pair`` () =
+    let tiedOne = makeRule "F-5350" 100 "^DoorDash" true
+    let tiedTwo = makeRule "F-5300" 100 "^DoorDash" true
+    // Matches, but at a higher priority value than the tied pair. The payload
+    // is every match, not only the ones at the lowest value.
+    let alsoMatching = makeRule "F-5200" 500 "^DoorDash" true
+    let nonMatching = makeRule "F-5400" 10 "^Amazon" true
+    let candidate = makeCandidate "DoorDash Order 2024-12-15" "TestBank" 45.00M "Debit"
+    let result = classifyCandidate [ tiedOne; tiedTwo; alsoMatching; nonMatching ] candidate
+    match result.outcome with
+    | ManyMatchesTied allMatches ->
+        let expected =
+            [ tiedOne; tiedTwo; alsoMatching ]
+            |> List.map ClassificationRule.classificationRuleId
+            |> Set.ofList
+        let actual = allMatches |> List.map (fun m -> m.ruleId) |> Set.ofList
+        Assert.Equal<Set<ClassificationRuleId>>(expected, actual)
+    | other -> Assert.Fail $"Expected ManyMatchesTied but got {other}"

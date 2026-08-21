@@ -27,6 +27,11 @@
     <Compile Include="Model\Ledger\JournalEntryExternalReference.fs" />
     <Compile Include="Model\Money.fs" />
     <Compile Include="Model\DataIngestion\StageEntryStatusTransition.fs" />
+    <Compile Include="Model\DataIngestion\ClassificationRuleComponent.fs" />
+    <Compile Include="Model\DataIngestion\FieldMatchEvaluation.fs" />
+    <Compile Include="Model\DataIngestion\FieldMatchChainEvaluation.fs" />
+    <Compile Include="Model\DataIngestion\ClassificationRuleGroupEvaluation.fs" />
+    <Compile Include="Model\DataIngestion\ClassificationRuleMatching.fs" />
     <Compile Include="Model\DataIngestion\Classifier.fs" />
   </ItemGroup>
 

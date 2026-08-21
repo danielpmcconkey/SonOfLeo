@@ -26,8 +26,10 @@ and has no stake in the names being good.
 
 Exactly two things. Adding more is not helpful — it is the failure mode.
 
-1. The **verbatim text** of the behavioral requirements the names claim to cover. Not your
-   summary of them.
+1. The **verbatim text** of the behavioral requirements the names claim to cover, *and the
+   spec's waived table*. Not your summary of either. The waived table is not extra context —
+   without it the grader reports every waived requirement as uncovered, and you spend your
+   attention discounting false positives instead of reading findings.
 2. The **draft names**, as a plain list, with no commentary, no ordering by confidence, and
    no note about which ones you are sure of.
 
@@ -38,6 +40,22 @@ suspect. Any of those turns an independent read into an agreeing one.
 
 Spawn one general-purpose agent with the prompt in `references/grader-prompt.md`, with the
 two inputs appended. One pass. It is cheap; run it on every batch.
+
+### When no report comes back
+
+**Read the agent's transcript before you respawn it.** A finished agent whose report never
+arrives looks identical to an agent that died producing nothing, and the difference costs a
+whole grading run to guess wrong.
+
+The transcripts live in `~/.claude/projects/-workspace/<session-id>/subagents/*.jsonl`, one
+file per agent, named for the agent. The last `assistant` row holds the report; if its
+`stop_reason` is `end_turn` the agent finished and the delivery is what failed. Pull the text
+out with a few lines of Python rather than `cat` — the file is the full conversation and will
+bury your context.
+
+On 2026-08-21 this cost three grading runs to deliver zero reports: one lost by the harness,
+then two more spent re-asking and respawning against a symptom that a thirty-second look at
+the transcript would have explained. All three reports were on disk the entire time.
 
 ## What to do with the result
 
