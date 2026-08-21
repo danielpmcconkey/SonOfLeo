@@ -40,7 +40,7 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 ### StringSearchPattern
 
 - **REQ-CR-1.17** String search pattern cannot be null.
-- **REQ-CR-1.18** String search pattern cannot be whitespace only (post-trim per REQ-SYS-1.1).
+- **REQ-CR-1.18** String search pattern cannot be empty. Whitespace is not trimmed — REQ-SYS-1.1 does not apply because whitespace is meaningful in regex patterns.
 - **REQ-CR-1.19** String search pattern length cannot exceed 500 characters.
 
 ### NumericSearchOperator
