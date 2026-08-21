@@ -73,8 +73,8 @@ let createNewClassificationRule
             instant
             instant
     result {
-        do! ruleGroups |> confirmRuleGroups // todo: Hobson, make sure there's a spec that requires the rule groups to be validated
-        do! codeAtMatch |> confirmAccountCode context // todo: Hobson, make sure there's a spec that requires the code to be validated
+        do! ruleGroups |> confirmRuleGroups
+        do! codeAtMatch |> confirmAccountCode context
         do! newRule |> ClassificationRule.insertNewToDb context
         return newRule
     }
@@ -227,10 +227,10 @@ let updateClassificationRule
         [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
           { name = "@unique_id"; value = UniqueId uuid } ]
     result {
-        do! match codeAtMatchUpdate with // todo: Hobson, make sure there's a spec that requires the code to be validated
+        do! match codeAtMatchUpdate with
             | NoChange -> Ok ()
             | SetTo x -> x |> confirmAccountCode context
-        do! match ruleGroupsUpdate with // todo: Hobson, make sure there's a spec that requires the rule groups to be validated
+        do! match ruleGroupsUpdate with
             | NoChange -> Ok ()
             | SetTo x -> x |> confirmRuleGroups
         let! groupStr = // do this up here because it's a pain in the ass to do it down in the updates block
