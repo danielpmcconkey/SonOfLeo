@@ -45,7 +45,7 @@ contradicts a requirement is wrong and gets fixed.
 
 `REQ-<DOMAIN>-<section>.<n>` — e.g., `REQ-AC-1.5`. The domain is an all-caps identifier of
 no more than five characters: `AC` (Account), `JE` (Journal Entry), `DAL` (data access),
-`MON` (Money), `SYS` (system-wide), more as entities arrive.
+`MON` (Money), `SYS` (system-wide), `CR` (Classification Rule), more as entities arrive.
 
 Numbers increment like software versions — the one after `2.9` is `2.10`, not `3.0`. A
 sub-dot number applies only within the context of its parent:

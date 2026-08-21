@@ -79,7 +79,7 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-2.13** Staged line line_type must be `'Debit'` or `'Credit'`.
 - **REQ-STG-2.14** Staged line account_code is nullable. When set, holds the account code string identifying the target account.
 - **REQ-STG-2.15** Staged line memo is optional (nullable). When provided, cannot be whitespace only (post-trim per REQ-SYS-1.1). Maximum 1000 characters.
-- **REQ-STG-2.16** Staged line classification_rule_id is nullable. When set, identifies the classification rule that assigned the account_code. The vendor classification rules entity is specified separately.
+- **REQ-STG-2.16** Staged line classification_rule_id is nullable. When set, identifies the classification rule that assigned the account_code. The classification rules entity is specified in `ClassificationRuleCrud.md`.
 - **REQ-STG-2.17** Within a staged entry, the sum of all line amounts where line_type is `'Debit'` must equal the sum of all line amounts where line_type is `'Credit'`.
 
 ### Staged entry audit (`ingestion.staged_entry_audit`)
@@ -146,7 +146,7 @@ Reviewed   → Posted      (batch post)
 
 ## 5. Classification behaviors
 
-The classification step runs the vendor classification rules engine against staged entries. The rules entity (pattern, priority, FI scoping, account mapping) is specified separately. These requirements govern how the staging pipeline interacts with the rules engine.
+The classification step runs the vendor classification rules engine against staged entries. The rules entity (pattern, priority, FI scoping, account mapping) is specified in `ClassificationRuleCrud.md`. These requirements govern how the staging pipeline interacts with the rules engine.
 
 - **REQ-STG-5.1** The system must provide a means to run automated classification against staged entries with status `'Ingested'`.
 - **REQ-STG-5.2** Classification evaluates each staged line whose account_code is null against the vendor classification rules, matching on the staged entry's description.
