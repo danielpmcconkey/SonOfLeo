@@ -93,7 +93,6 @@ type AppError =
     | IngestionClassificationRuleNameIsEmpty of string 
     | IngestionClassificationRuleNameTooLong of string * int 
     | IngestionClassificationRuleUpdateNoOp
-    | IngestionClassificationRuleToggleOpenNoOp
     | IngestionFieldMatchChainEmpty
     | IngestionInvalidClassificationGroupConnector of string
     | IngestionInvalidNumericSearchOperator of string
@@ -253,7 +252,6 @@ module AppError =
         | IngestionClassificationRuleNameIsEmpty str -> $"ClassificationRuleName cannot be empty. Provided value is {str}."
         | IngestionClassificationRuleNameTooLong (str, max) -> $"ClassificationRuleName cannot exceed {max} characters. Provided value is {str}."
         | IngestionClassificationRuleUpdateNoOp -> "Updating the ClassificationRule record failed because at least one updatable parameter must be set."
-        | IngestionClassificationRuleToggleOpenNoOp -> "Activating or deactivating this rule would've had no result. Likely because it was already in the desired state."
         | IngestionFieldMatchChainEmpty -> "A FieldMatchChain's chain cannot be empty."
         | IngestionInvalidClassificationGroupConnector str -> $"Invalid ClassificationConnector of \"{str}\"."
         | IngestionInvalidNumericSearchOperator str -> $"Invalid NumericSearchOperator of \"{str}\"."
