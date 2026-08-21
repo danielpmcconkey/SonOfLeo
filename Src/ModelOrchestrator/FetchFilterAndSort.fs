@@ -1,6 +1,7 @@
 module ModelOrchestrator.FetchFilters
 
 open Model
+open Model.DataIngestion
 open Model.DataIngestion.Classification
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.FiscalPeriods
@@ -53,3 +54,18 @@ type FetchSortClassificationRule =
     | AccountCodeDesc
     | PriorityAsc
     | PriorityDesc
+
+type StageEntryFetchFilter =
+    { stageEntryHeaderId : StageEntryHeaderId option
+      sourceFile: SourceFile option
+      temporalFilter: TemporalFilter option
+      description: JournalEntryDescription option
+      ingestionSource: JournalRefFinancialInstitution option
+      fiReference: JournalExternalReferenceText option
+      status: StagedEntryStatus option
+      stageEntryLineId: StageEntryLineId option
+      amount: Money option
+      lineType: JournalEntryLineType option
+      accountCode: AccountCode option
+      memo: JournalEntryLineMemo option
+      classificationRuleId: ClassificationRuleId option }

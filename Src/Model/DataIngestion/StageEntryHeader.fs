@@ -308,6 +308,20 @@ let updateDb
         return! headerId |> fetchById context
     }
 
+let fetchByQuery
+    (context: Context.Context)
+    (parameters: QueryParameter list)
+    (expectedRows: AcceptableExpectedRows)
+    (query: string)
+    : Result<StageEntryHeader list, AppError> =
+    executeReaderQuery
+        (context |> Context.getDatabaseTransaction)
+        query
+        parameters
+        mapRawForDbRead
+        reconstitute
+        expectedRows
+
 /// updateStatus assumes the orchestrator is validating the status change and adding a record to the audit table 
 let updateStatus
     (context: Context.Context)

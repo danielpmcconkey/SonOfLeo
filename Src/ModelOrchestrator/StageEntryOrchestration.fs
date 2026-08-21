@@ -1,12 +1,16 @@
 module ModelOrchestrator.StageEntryOrchestration
 
-
+open System
+open DataAccessLayer.ExecuteReader
+open DataAccessLayer.QueryParameters
 open Model
 open Model.DataIngestion
 open Model.DataIngestion.BaseStageRaw
 open Model.DataIngestion.Classification
 open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling.JournalEntryComponent
+open ModelOrchestrator.FetchFilters
 open ModelOrchestrator.JournalEntries
 open Utilities.AppError
 open Utilities.FieldUpdate
@@ -601,4 +605,149 @@ let post
             |> convertListOfResultsToResultsList
             |> Result.map ignore
         return ()
+    }
+    
+let fetchFiltered
+    (context: Context.Context)
+    (sort: FetchSort option)
+    (filter: StageEntryFetchFilter)
+    : Result<StageEntry list, AppError> = result {
+    let! dateRange =
+        match filter.temporalFilter with
+        | None -> Ok None
+        | Some(DateRange dr) -> Ok(Some(dr.beginDate, dr.endInclusive))
+        | Some(FiscalPeriodIdentifier fpId) ->
+            fpId
+            |> FiscalPeriod.fetchById context
+            |> Result.map(fun fp -> Some(fp |> FiscalPeriod.startDate, fp |> FiscalPeriod.endDate))
+    let sortClause =
+        match sort with
+        | None -> ""
+        | Some FetchSort.AccountCodeAsc -> "order by code asc"
+        | Some FetchSort.AccountCodeDesc -> "order by code desc"
+        | Some EntryDateAsc -> "order by entry_date asc"
+        | Some EntryDateDesc -> "order by entry_date desc"
+        | Some AmountAsc -> "order by amount asc"
+        | Some AmountDesc -> "order by amount desc"
+    let whereClausesAndParams =
+        [
+          filter.stageEntryHeaderId
+          |> Option.map(fun x ->
+              ("stage_entry_id = @stage_entry_id", { name = "@stage_entry_id"; value = UniqueId(x |> StageEntryHeaderId.value) }))
+
+          filter.sourceFile
+          |> Option.map(fun x ->
+              ("source_file = @source_file",
+               { name = "@source_file"; value = CharString(x |> SourceFile.value) }))
+
+          dateRange
+          |> Option.map(fun (x, _) ->
+              ("entry_date >= @begin_date", { name = "@begin_date"; value = DbLocalDate x }))
+
+          dateRange
+          |> Option.map(fun (_, x) ->
+              ("entry_date <= @end_date", { name = "@end_date"; value = DbLocalDate x }))
+          
+          filter.description
+          |> Option.map(fun x ->
+              ("stage_entry_description = @stage_entry_description",
+               { name = "@stage_entry_description"; value = CharString(x |> JournalEntryDescription.value) }))
+
+          filter.ingestionSource
+          |> Option.map(fun x ->
+              ("source_name = @source_name",
+               { name = "@source_name"; value = CharString(x |> JournalRefFinancialInstitution.value) }))
+
+          filter.fiReference
+          |> Option.map(fun x ->
+              ("fi_reference = @fi_reference",
+               { name = "@fi_reference"; value = CharString(x |> JournalExternalReferenceText.value) }))
+
+          filter.status
+          |> Option.map(fun x ->
+              ("stage_entry_status = @stage_entry_status",
+               { name = "@stage_entry_status"; value = CharString (x |> StagedEntryStatus.toString) }))
+
+          filter.stageEntryLineId
+          |> Option.map(fun x ->
+              ("stage_line_entry_id = @stage_line_entry_id",
+               { name = "@stage_line_entry_id"; value = UniqueId(x |> StageEntryLineId.value) }))
+
+          filter.amount
+          |> Option.map(fun x ->
+              ("amount = @amount", { name = "@amount"; value = Numeric(x |> Money.amount) }))
+          
+          filter.lineType
+          |> Option.map(fun x ->
+              ("line_type = @line_type",
+               { name = "@line_type"; value = CharString(x |> JournalEntryLineType.toString) }))
+          
+          filter.accountCode
+          |> Option.map(fun x ->
+              ("code = @code",
+               { name = "@code"; value = CharString(x |> AccountCode.value) }))
+          
+          filter.memo
+          |> Option.map(fun x ->
+              ("memo = @memo",
+               { name = "@memo"; value = CharString(x |> JournalEntryLineMemo.value) }))
+          
+          filter.classificationRuleId
+          |> Option.map(fun x ->
+              ("classification_rule_id = @classification_rule_id",
+               { name = "@classification_rule_id"; value = UniqueId(x |> ClassificationRuleId.value) })) ]
+        |> List.choose id
+    let whereClauses = whereClausesAndParams |> List.map fst |> String.concat $" and{Environment.NewLine}"
+    let parameters = whereClausesAndParams |> List.map snd
+    let query =
+        $"""
+        with all_statuses as (
+            select 
+                entry_id,
+                modified_at,
+                to_status,
+                row_number() over (partition by entry_id order by modified_at desc) as ordinal        
+            from ingestion.staged_entry_audit
+        ), all_in_stage as (
+            select 
+                se.unique_id as stage_entry_id,
+                se.entry_date,
+                se.description as stage_entry_description,
+                s.source_name,
+                se.fi_reference,
+                se.source_file,
+                sel.unique_id as stage_line_entry_id,
+                sel.amount,
+                sel.line_type,
+                sel.code,
+                sel.memo,
+                sel.classification_rule_id,
+                all_statuses.to_status as stage_entry_status,
+                all_statuses.modified_at as latest_status_time_stamp
+            from ingestion.staged_entry se
+            join ingestion.source s on se.source_id = s.unique_id
+            left join all_statuses on se.unique_id = all_statuses.entry_id and all_statuses.ordinal = 1
+            left join ingestion.staged_entry_line sel on se.unique_id = sel.entry_id
+        ), header_ids as (
+            select distinct 
+                ais.stage_entry_id
+            from all_in_stage ais
+            where 
+            {whereClauses}
+            {sortClause}
+        )
+        select 
+            e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, e.status,
+            s.source_name, s.created_at as source_created, s.modified_at as source_modified
+        from ingestion.staged_entry e
+        join header_ids h on e.unique_id = h.stage_entry_id
+        join ingestion.source s on e.source_id = s.unique_id
+        """
+    let! headers = query |> StageEntryHeader.fetchByQuery context parameters AnyQuantityIsAcceptable
+    let headerIds = 
+        headers
+        |> List.map (fun x -> x|> StageEntryHeader.stageEntryHeaderId)
+    let! lines = headerIds |> StageEntryLine.fetchByHeaderIdList context
+    let! statusTransitions = headerIds |> StageEntryStatusTransition.fetchByHeaderIdList context
+    return compileFromSubLists headers lines statusTransitions
     }
