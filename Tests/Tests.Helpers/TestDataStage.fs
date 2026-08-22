@@ -405,6 +405,16 @@ type TestDataFixture() =
                 let! voidedEntryBankSource = voidedEntryBankStr |> createIngestionSourceForTest context
                 ingestionSources <- voidedEntryBankSource :: ingestionSources
                 
+                // No classification rule matches this source. That is its whole purpose: it is
+                // what the NoMatch tests ingest against.
+                let testSavingsStr = "TestSavings"
+                let! testSavingsSource = testSavingsStr |> createIngestionSourceForTest context
+                ingestionSources <- testSavingsSource :: ingestionSources
+                
+                let testSplitBankStr = "TestSplitBank"
+                let! testSplitBankSource = testSplitBankStr |> createIngestionSourceForTest context
+                ingestionSources <- testSplitBankSource :: ingestionSources
+                
                 let mixedOutcomeBankStr = "MixedOutcomeBank"
                 let! mixedOutcomeBankSource = mixedOutcomeBankStr |> createIngestionSourceForTest context
                 ingestionSources <- mixedOutcomeBankSource :: ingestionSources
@@ -731,11 +741,6 @@ type TestDataFixture() =
                         allstateRuleGroup
                 classificationRules <- allstate5650Rule :: classificationRules
 
-                // TestSavings source — no classification rules, used for NoMatch testing
-                let testSavingsStr = "TestSavings"
-                let! testSavingsSource = testSavingsStr |> createIngestionSourceForTest context
-                ingestionSources <- testSavingsSource :: ingestionSources
-
                 // Archetype A — the only inactive rule in the fixture.
                 // Created active and then deactivated, because the spec's negative-existence
                 // requirement leaves no way to create one inactive. Pointed at TestSavings deliberately: that source exists
@@ -791,9 +796,6 @@ type TestDataFixture() =
                 // rules like these there is no way to stage an entry whose two null-code lines
                 // resolve to two different accounts, and REQ-STG-5.2's "each line" clause cannot
                 // be observed at all.
-                let testSplitBankStr = "TestSplitBank"
-                let! testSplitBankSource = testSplitBankStr |> createIngestionSourceForTest context
-                ingestionSources <- testSplitBankSource :: ingestionSources
                 let! splitSourcePattern = StringSearchPattern.create testSplitBankStr
                 let splitSourceMatch = FieldMatch.Source(splitSourcePattern)
                 let! splitDebitRule =

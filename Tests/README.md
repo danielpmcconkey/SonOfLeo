@@ -201,11 +201,24 @@ module-level `let` bindings.
 
 **A requirement ID in a comment counts as a citation.** `traceability-audit.sh` greps whole
 files under `Tests/` for the ID pattern; it does not parse F# and cannot tell a test
-annotation from prose. A comment saying that some requirement *has no test at this layer*
-tells the audit the opposite — that it is tested right here — and a waived requirement
-mentioned in passing becomes a stale waiver. Name requirements in prose instead: "the
-all-or-nothing requirement of spec section 9". Put the ID only where you mean it, which in
-`Tests/` is the name of a test and nowhere else.
+annotation from prose.
+
+The rule is about truth, not location. An ID may appear anywhere in a test file **provided a
+test in that same file genuinely covers it**. Section-header comments qualify and are welcome
+— they are how you navigate a six-hundred-line file, and the audit counting the requirement
+twice costs nothing.
+
+What is forbidden is an ID no test in the file backs, because the audit reads it as coverage:
+
+- a note that a requirement *has no test at this layer* — which tells the audit the exact
+  opposite of what it says;
+- a waived requirement mentioned in passing, which becomes a stale waiver;
+- a comment explaining a fixture or helper by naming the requirement it exists to serve.
+
+That last one is not hypothetical. A fixture comment naming a waived requirement tripped the
+stale-waiver invariant in August 2026, two turns after its author had warned someone else
+about this exact trap. When you need to point at a requirement no test here covers, name it in
+prose instead: "the all-or-nothing requirement of spec section 9".
 
 That applies to this file and every README under `Tests/` too, which is why the examples
 above use the non-matching `REQ-XX-N.N` placeholder and drop the `REQ-` prefix when pointing

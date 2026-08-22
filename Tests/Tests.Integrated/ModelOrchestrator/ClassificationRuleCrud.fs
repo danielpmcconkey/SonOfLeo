@@ -59,6 +59,12 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
     // from a second call to the thing under test.
     let fixtureRules () = fixture.Data.classificationRules
 
+    (* The fixture carries exactly one inactive rule. exactlyOne rather than find so that a
+       second one added later fails here loudly instead of silently changing what these
+       tests are about. *)
+    let inactiveFixtureRule () =
+        fixtureRules () |> List.filter (fun r -> r |> ClassificationRule.isActive |> not) |> List.exactlyOne
+
     // =========================================================================
     // Create
     // =========================================================================
@@ -288,14 +294,21 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
     member _.``REQ-CR-5.3 fetchRulesFiltered by source pattern fragment returns the rules whose rule group bodies carry that pattern and no others`` () =
         runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
             result {
+                let sourceFragment = "TestSplitBank"
+                (* The filter searches the rule group bodies; the expectation is derived from
+                   rule names, which the filter never reads. The two agree only if the filter
+                   found the right rules for the right reason. *)
+                let expected =
+                    fixtureRules ()
+                    |> List.filter (fun r -> (r |> nameOf).Contains sourceFragment)
+                    |> namesOf
                 let! found =
                     ClassificationOrchestration.fetchRulesFiltered
                         context
-                        { noFilter with sourceLike = Some "TestSplitBank" }
+                        { noFilter with sourceLike = Some sourceFragment }
                         None
-                let expected =
-                    [ "Source = TestSplitBank && Credit then 5650"
-                      "Source = TestSplitBank && Debit then 5350" ]
+                Assert.NotEmpty(expected)
+                Assert.NotEqual<string list>(fixtureRules () |> namesOf, expected)
                 Assert.Equal<string list>(expected, found |> namesOf)
             })
         |> railroadWrapper
@@ -304,7 +317,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
     member _.``REQ-CR-5.3 fetchRulesFiltered with activeOnly true omits the inactive rule that its other filters would otherwise have returned`` () =
         runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
             result {
-                let inactiveName = "INACTIVE Source = TestSavings then 5300"
+                let inactiveName = inactiveFixtureRule () |> nameOf
                 let! withInactive =
                     ClassificationOrchestration.fetchRulesFiltered
                         context
@@ -556,9 +569,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
     member this.``REQ-CR-6.1 updating isActive with SetTo true reactivates the inactive rule and leaves name, account, priority, and rule groups as they were``() =
         runCommandRouteAndAutoRollback IngestUpdateClassificationRule (fun context ->
             result {
-                let original =
-                    fixture.Data.classificationRules
-                    |> List.find (fun r -> r |> nameOf = "INACTIVE Source = TestSavings then 5300")
+                let original = inactiveFixtureRule ()
                 Assert.False(original |> ClassificationRule.isActive)
                 let! updated =
                     ClassificationOrchestration.updateClassificationRule
