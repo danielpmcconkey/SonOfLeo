@@ -229,6 +229,18 @@ let ``REQ-MON-2.5.1 add returns Error when sum exceeds max`` () =
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
+let ``REQ-MON-2.5.1 add returns Error when sum falls below min`` () =
+    let d1 = minMoney
+    let d2 = -0.01M
+    let m1 = fromDecimal d1 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+    let m2 = fromDecimal d2 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+    let result = add m1 m2
+    match result with
+    | Error(MoneyFailedToConvertBelowMin _) -> ()
+    | Error e -> Assert.Fail $"Wrong error. {AppError.toMessage e}"
+    | Ok _ -> Assert.Fail "Expected failure; got success"
+
+[<Fact>]
 let ``REQ-MON-2.6 subtract happy path`` () =
     let decimal1 = -874.12M
     let decimal2 = 145877.43M
@@ -239,6 +251,19 @@ let ``REQ-MON-2.6 subtract happy path`` () =
     match result with
     | Error e -> Assert.Fail(AppError.toMessage e)
     | Ok sumTotal -> Assert.Equal(expected, amount sumTotal)
+
+[<Fact>]
+let ``REQ-MON-2.6.1 subtract returns Error when difference exceeds max`` () =
+    // subtractVal1FromVal2 computes val2 - val1, so a negative val1 drives the result upward
+    let decimal2 = maxMoney
+    let decimal1 = -0.01M
+    let val2 = fromDecimal decimal2 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+    let val1 = fromDecimal decimal1 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+    let result = subtractVal1FromVal2 val1 val2
+    match result with
+    | Error(MoneyFailedToConvertExceededMax _) -> ()
+    | Error e -> Assert.Fail $"Wrong error. {AppError.toMessage e}"
+    | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
 let ``REQ-MON-2.6.1 subtract returns Error when difference falls below min`` () =

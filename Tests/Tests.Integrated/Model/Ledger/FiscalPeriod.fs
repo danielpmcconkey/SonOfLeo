@@ -86,14 +86,28 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-FP-3.1 fetchById happy path``() =
+    member _.``REQ-FP-3.1 fetchById returns a period carrying every property the fixture created it with, not just its id and open flag``() =
         let expectedId = fixture.Data.openFiscalPeriodIds |> List.head
+        (* Expectations come from the period the fixture built in memory, never from a second
+           read, so a read path that dropped or garbled a column cannot agree with itself.
+           Dates and timestamps were previously asserted only on the in-memory value returned
+           by creation -- never on a period that had made the round trip through the database. *)
+        let expected =
+            fixture.Data.fiscalPeriods
+            |> List.find (fun fp -> fp |> FiscalPeriod.fiscalPeriodId = expectedId)
         let context = Context.create NoTransaction FetchOnly
         result {
             let! fetched = FiscalPeriod.fetchById context expectedId
-            Assert.Equal(expectedId, FiscalPeriod.fiscalPeriodId fetched)
-            Assert.True(FiscalPeriod.isOpen fetched)
-            ()
+            Assert.Equal(expectedId, fetched |> FiscalPeriod.fiscalPeriodId)
+            Assert.Equal(expected |> FiscalPeriod.periodKey, fetched |> FiscalPeriod.periodKey)
+            Assert.Equal(expected |> FiscalPeriod.startDate, fetched |> FiscalPeriod.startDate)
+            Assert.Equal(expected |> FiscalPeriod.endDate, fetched |> FiscalPeriod.endDate)
+            Assert.Equal(expected |> FiscalPeriod.createdAt, fetched |> FiscalPeriod.createdAt)
+            Assert.Equal(expected |> FiscalPeriod.modifiedAt, fetched |> FiscalPeriod.modifiedAt)
+            Assert.Equal(expected |> FiscalPeriod.isOpen, fetched |> FiscalPeriod.isOpen)
+            // the period drawn from openFiscalPeriodIds really is open, or the line above is a
+            // pair of matching falses
+            Assert.True(fetched |> FiscalPeriod.isOpen)
         }
         |> railroadWrapper
 

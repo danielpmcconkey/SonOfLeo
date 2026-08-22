@@ -23,6 +23,19 @@ open Tests.Helpers.SadPath
 [<Collection("SharedTestData")>]
 type JournalEntryFetchingTests(fixture: TestDataFixture) =
 
+    (* fetchByReference returns distinct journal entries, so an expectation has to count
+       entries and not the reference rows pointing at them. One entry can carry several
+       matching references. The fixture currently gives each entry at most one per
+       institution-and-text pair, which made the two quantities agree by luck rather than by
+       construction -- add a second matching reference to any entry and a row count starts
+       expecting an entry that fetchByReference is right not to return twice. *)
+    let distinctEntryCountMatching predicate =
+        fixture.Data.journalEntryExternalReferences
+        |> List.filter predicate
+        |> List.map JournalEntryExternalReference.journalEntryHeaderId
+        |> List.distinct
+        |> List.length
+
     [<Fact>]
     member _.``REQ-JE-3.2 fetchById returns the correct journal entry``() =
         let context = Context.create NoTransaction FetchOnly
@@ -49,18 +62,31 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-3.1 fetchById returns header, lines, external references, and comments``() =
+    member _.``REQ-JE-3.1 fetchById returns the entry's own lines, external references, and comments, identified individually and not merely counted``() =
         let context = Context.create NoTransaction FetchOnly
-        let expectedLinesCount = fixture.Data.jeWithLinesRefsAndComments |> lines |> List.length
-        let expectedRefsCount = fixture.Data.jeWithLinesRefsAndComments |> externalReferences |> List.length
-        let expectedCommentsCount = fixture.Data.jeWithLinesRefsAndComments |> comments |> List.length
+        (* Counting alone cannot tell the right children from the wrong ones: an entry returned
+           with the right number of lines, every one of them belonging to some other entry,
+           would satisfy a count. Identity is what the requirement is actually claiming. *)
+        let expectedEntry = fixture.Data.jeWithLinesRefsAndComments
+        let lineIdsOf je = je |> lines |> List.map JournalEntryLine.journalEntryLineId |> List.sort
+        let refTextsOf je =
+            je |> externalReferences
+            |> List.map (JournalEntryExternalReference.referenceText >> JournalExternalReferenceText.value)
+            |> List.sort
+        let commentTextsOf je =
+            je |> comments
+            |> List.map (JournalEntryComment.commentText >> CommentText.value)
+            |> List.sort
         let result = fixture.Data.jeWithLinesRefsAndCommentsId |> fetchById context
         match result with
         | Ok je ->
             Assert.NotNull(je |> header)
-            Assert.Equal(expectedLinesCount, je |> lines |> List.length)
-            Assert.Equal(expectedRefsCount, je |> externalReferences |> List.length)
-            Assert.Equal(expectedCommentsCount, je |> comments |> List.length)
+            Assert.NotEmpty(expectedEntry |> lineIdsOf)
+            Assert.NotEmpty(expectedEntry |> refTextsOf)
+            Assert.NotEmpty(expectedEntry |> commentTextsOf)
+            Assert.Equal<JournalEntryLineId list>(expectedEntry |> lineIdsOf, je |> lineIdsOf)
+            Assert.Equal<string list>(expectedEntry |> refTextsOf, je |> refTextsOf)
+            Assert.Equal<string list>(expectedEntry |> commentTextsOf, je |> commentTextsOf)
         | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]
@@ -109,11 +135,9 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
             let! fi = fiStr |> JournalRefFinancialInstitution.create
             let! refText = refStr |> JournalExternalReferenceText.create
             let expected =
-                fixture.Data.journalEntryExternalReferences
-                |> List.filter(fun jer ->
+                distinctEntryCountMatching (fun jer ->
                     jer |> JournalEntryExternalReference.financialInstitution = fi
                     && jer |> JournalEntryExternalReference.referenceText = refText)
-                |> List.length
             let! fetched = fetchByReference context (Some fi) (Some refText)
             Assert.Equal(expected, fetched |> List.length)
             Assert.True(
@@ -138,11 +162,9 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
             let! fi = fiStr |> JournalRefFinancialInstitution.create
             let! refText = refStr |> JournalExternalReferenceText.create
             let expected =
-                fixture.Data.journalEntryExternalReferences
-                |> List.filter(fun jer ->
+                distinctEntryCountMatching (fun jer ->
                     jer |> JournalEntryExternalReference.financialInstitution = fi
                     && jer |> JournalEntryExternalReference.referenceText = refText)
-                |> List.length
             let! fetched = fetchByReference context (Some fi) (Some refText)
             Assert.Equal(expected, fetched |> List.length)
             return ()
@@ -171,9 +193,8 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         result {
             let! fi = fiStr |> JournalRefFinancialInstitution.create
             let expected =
-                fixture.Data.journalEntryExternalReferences
-                |> List.filter(fun jer -> jer |> JournalEntryExternalReference.financialInstitution = fi)
-                |> List.length
+                distinctEntryCountMatching (fun jer ->
+                    jer |> JournalEntryExternalReference.financialInstitution = fi)
             let! fetched = fetchByReference context (Some fi) None
             Assert.Equal(expected, fetched |> List.length)
             return ()
@@ -187,9 +208,8 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         result {
             let! refText = refStr |> JournalExternalReferenceText.create
             let expected =
-                fixture.Data.journalEntryExternalReferences
-                |> List.filter(fun jer -> jer |> JournalEntryExternalReference.referenceText = refText)
-                |> List.length
+                distinctEntryCountMatching (fun jer ->
+                    jer |> JournalEntryExternalReference.referenceText = refText)
             let! fetched = fetchByReference context None (Some refText)
             Assert.Equal(expected, fetched |> List.length)
             return ()
