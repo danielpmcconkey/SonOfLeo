@@ -354,9 +354,6 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                    other in account, amount, and memo all at once, so a mapping that crosses
                    two lines cannot survive it. *)
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "PAYROLL DEPOSIT ACME CORP"
-                (* The account ID is resolved from the fixture's own chart of accounts rather
-                   than from the lookup the poster uses, so a broken resolution cannot agree
-                   with itself. *)
                 let expected =
                     entry
                     |> lines

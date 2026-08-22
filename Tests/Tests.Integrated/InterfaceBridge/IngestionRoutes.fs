@@ -223,6 +223,17 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                   None ]
         assertRouteRejects $"ingestion-route-{expectedError}.jsonl" rows expectedError
 
+    (* The empty-string case in the theory above is a format failure. This is an existence
+       failure: a well-formed code that names no account. It can only be reached from the
+       route, because the boundary converter resolves the code to an account ID and every
+       layer below it receives the ID. *)
+    [<Fact>]
+    member _.``REQ-STG-3.7 IngestRawFileToStage rejects the file when an account code does not resolve to an existing account`` () =
+        let rows =
+            [ rawRow "grp-route-badcode" today "Route bad account code" "TestBank" "REF-ROUTE-BADCODE" "100.00" "Debit" (Some "BOGUS-9999") None
+              rawRow "grp-route-badcode" today "Route bad account code" "TestBank" "REF-ROUTE-BADCODE" "100.00" "Credit" (Some "F-1270") None ]
+        assertRouteRejects "ingestion-route-bad-account-code.jsonl" rows "AccountCodeDoesntMatchAccountId"
+
     [<Fact>]
     member _.``REQ-STG-6.1 REQ-STG-6.2 UpdateStageEntry route happy path`` () =
         let fileName = "ingestion-route-update.jsonl"

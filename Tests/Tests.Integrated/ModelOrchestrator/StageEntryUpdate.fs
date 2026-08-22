@@ -67,7 +67,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-6.1 operator can override account_code on a parser-assigned line`` () =
+    member _.``REQ-STG-6.1 updateStageEntry sets the account on a parser-assigned line to the one the caller supplies`` () =
         runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
             result {
                 let newAccountId = fixture.Data.entertainment5650Id
@@ -87,7 +87,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-STG-6.1 operator can override account_code on a classifier-assigned line`` () =
+    member _.``REQ-STG-6.1 updateStageEntry sets the account on a classifier-assigned line to the one the caller supplies`` () =
         runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
             result {
                 let newAccountId = fixture.Data.entertainment5650Id
@@ -154,7 +154,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let firstLine = entry |> lines |> List.head
                 let lineId = firstLine |> StageEntryLine.stageEntryLineId
-                let bogusAccountId = System.Guid.NewGuid() |> AccountId.fromGuid
+                let bogusAccountId = AccountId.create()
                 let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some bogusAccountId) } ]
                 return!

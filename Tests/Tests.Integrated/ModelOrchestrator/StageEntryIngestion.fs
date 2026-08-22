@@ -350,29 +350,6 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
 
 
     // =========================================================================
-    // REQ-STG-3.7 — Non-null account_code that doesn't exist rejects file
-    // =========================================================================
-
-    [<Fact>]
-    member _.``REQ-STG-3.7 ingestRaw rejects file when account_code does not resolve to existing account`` () =
-        // Note to BD:
-        // This test won't pass as Dan made BaseStageRawRow take an AccountId instead of a code. This test now needs to
-        // move up into the routes tests and use the BaseStageRawRowInput type
-        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
-            result {
-                let! sourceFile = "/tmp/test-bad-code.jsonl" |> SourceFile.create
-                let! row1 = StageTestData.makeRawRow context "grp-code" today "Bad code" "TestBank" "REF-CODE-001" 100.00M "Debit" (Some "BOGUS-9999") None
-                let! row2 = StageTestData.makeRawRow context "grp-code" today "Bad code" "TestBank" "REF-CODE-001" 100.00M "Credit" (Some "F-1270") None
-                return!
-                    match [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
-                    | Error (AccountCodeDoesntMatchAccountId _) -> Ok ()
-                    | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
-                    | Ok _ -> Error (TestingError "Expected failure; got success")
-            })
-        |> railroadWrapper
-
-
-    // =========================================================================
     // REQ-STG-3.2 — Validation rejects with typed error
     // =========================================================================
 

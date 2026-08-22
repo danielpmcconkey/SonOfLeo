@@ -37,47 +37,52 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
 
 
     // =========================================================================
-    // REQ-STG-5.3 — Non-null account_code lines not modified
+    // REQ-STG-5.3 — A parser-assigned account is not overridden
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-5.3 classification does not modify lines with non-null account_code`` () =
+    member _.``REQ-STG-5.3 a parser-assigned account survives classification even though the rule that classified its sibling line matches the same entry description`` () =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
-                // grp-001 has a parser-assigned credit line (F-1270) — should not be touched
+                // grp-001 arrives with a parser-assigned credit line and a null debit line
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "DD DoorDash Order 8431927"
-                let creditLine =
-                    entry |> lines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
-                let! codeStr =
-                    creditLine
-                    |> StageEntryLine.accountId
-                    |> ``convert AccountId Option to AccountCodeString Option`` context
-                Assert.Equal(Some "F-1270", codeStr)
-                Assert.True(creditLine |> StageEntryLine.classificationRuleId |> Option.isNone)
+                let lineOfType lt = entry |> lines |> List.find (fun l -> l |> StageEntryLine.lineType = lt)
+                (* Classification matches on the entry's description, which both lines share.
+                   The debit sibling carrying a rule id is what proves a rule was available to
+                   this entry -- without it, an untouched credit line is equally well explained
+                   by the classifier having found nothing to match. *)
+                Assert.True(lineOfType Debit |> StageEntryLine.classificationRuleId |> Option.isSome)
+                Assert.Equal(Some fixture.Data.moneyMarket1270Id, lineOfType Credit |> StageEntryLine.accountId)
+                Assert.True(lineOfType Credit |> StageEntryLine.classificationRuleId |> Option.isNone)
             })
         |> railroadWrapper
 
 
     // =========================================================================
-    // REQ-STG-5.4 — Single match assigns code and records rule ID
+    // REQ-STG-5.4 — Single match assigns the account and records which rule did it
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-5.4 single rule match assigns account code and classification_rule_id to line`` () =
+    member _.``REQ-STG-5.4 a line that arrives with no account takes the account of the single rule that matched it, and records that rule's id`` () =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
-                // grp-001 DoorDash: debit line should be classified to F-5350 with a rule ID
+                // grp-001 DoorDash: the debit line arrives null and only the DoorDash rule matches it
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "DD DoorDash Order 8431927"
                 let debitLine =
                     entry |> lines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
-                let! codeStr =
-                    debitLine
-                    |> StageEntryLine.accountId
-                    |> ``convert AccountId Option to AccountCodeString Option`` context
-                Assert.Equal(Some "F-5350", codeStr)
-                Assert.True(debitLine |> StageEntryLine.classificationRuleId |> Option.isSome)
+                (* Naming the rule is the point: a classifier that lands the right account while
+                   stamping some other rule's id breaks the provenance link and nothing else
+                   in the suite would notice. *)
+                let ruleNameOf r = r |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value
+                let doorDashRule =
+                    fixture.Data.classificationRules
+                    |> List.find (fun r -> ruleNameOf r = "Source = TestBank && Desc = DoorDash then 5350")
+                Assert.Equal(Some fixture.Data.food5350Id, debitLine |> StageEntryLine.accountId)
+                Assert.Equal(
+                    Some (doorDashRule |> ClassificationRule.classificationRuleId),
+                    debitLine |> StageEntryLine.classificationRuleId)
             })
         |> railroadWrapper
 
@@ -167,10 +172,8 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-5.2 an entry with two null-code lines matching different rules has each line assigned its own rule's code`` () =
+    member _.``REQ-STG-5.2 an entry whose two lines both arrive with no account and match different rules has each line assigned its own rule's account`` () =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
-            let food5350Id = fixture.Data.food5350Id
-            let entertainment5650Id = fixture.Data.entertainment5650Id
             result {
                 let! fullResult = StageTestData.runPipeline context
                 // grp-011 is the only staged group whose lines both arrive null. The TestSplitBank
@@ -185,7 +188,7 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                     |> lines
                     |> List.find (fun l -> l |> StageEntryLine.lineType = lt)
                     |> StageEntryLine.accountId
-                Assert.Equal(Some food5350Id, idOfLineType Debit)
-                Assert.Equal(Some entertainment5650Id, idOfLineType Credit)
+                Assert.Equal(Some fixture.Data.food5350Id, idOfLineType Debit)
+                Assert.Equal(Some fixture.Data.entertainment5650Id, idOfLineType Credit)
             })
         |> railroadWrapper
