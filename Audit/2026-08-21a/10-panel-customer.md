@@ -1,0 +1,14 @@
+# customer-gap
+
+## CUST-ACCTNAME-1 — customer-gap
+- **Location:** Src/InterfaceBridge/InterfaceContracts/IngestionContracts.fs (StageEntryLineReturn line 51, ClassificationRuleReturn line 108, PrioritizedMatchReturn line 85); REQ-NGUI-1.6
+- **Summary:** The data-ingestion slice's return types identify accounts by code without including the account name, violating REQ-NGUI-1.6 and degrading the customer's review surface.
+- **Resolution:** fix-code
+
+REQ-NGUI-1.6: 'All interface return payloads that identify an account must include the account name alongside the account code.' The ledger-side return types comply (JournalEntryLineReturn has accountCode + accountName, TrialBalanceReturnRow has both, AccountBalanceReturn has both). But three ingestion return types carry account codes with no corresponding name: (1) StageEntryLineReturn.accountCode is string option with no accountName field; (2) ClassificationRuleReturn.codeAtMatch is string with no account name field; (3) PrioritizedMatchReturn.code is string with no account name field. The converters in IngestionFieldConverters.fs (lines 64-80, 213-232, 259-264) confirm this is structural — they are pure mapping functions that extract AccountCode.value without resolving the name. Phase 2 of the Saturday routine is reviewing staged entries (NoMatch, Conflict status) and manually assigning or confirming account codes. The customer sees '5650' but not 'Dining Out.' For classification rule management, the customer sees 'rule Amazon maps to code 5650' but not what account 5650 is. In practice, the customer (an LLM agent) would need to make a separate Account FetchAll call and build a lookup table, or call Account FetchByCode per unique code. This is not blocking but is friction the spec was designed to eliminate. The requirement is waived from testing (periodic audit enforcement), making this audit the designed enforcement mechanism.
+
+**Action:** Add account name fields to StageEntryLineReturn (accountName: string option, resolved when accountCode is Some), ClassificationRuleReturn (alongside codeAtMatch), and PrioritizedMatchReturn (alongside code). The converters will need a Context to resolve codes via the chart of accounts at read time, mirroring how JournalEntryFieldConverters resolves account IDs to codes and names for JournalEntryLineReturn.
+
+**Why:** The Saturday review surface is where the customer spends the most judgment time — categorizing unknowns, verifying classifier decisions, managing rules. Every operation on that surface references accounts. Seeing raw codes without names forces a mental-map lookup or extra CLI calls per review item. REQ-NGUI-1.6 exists precisely to prevent this friction. The ledger-side contracts already comply; the ingestion-side contracts, being newer, appear to have missed this requirement during the data-ingestion slice build.
+
+---
