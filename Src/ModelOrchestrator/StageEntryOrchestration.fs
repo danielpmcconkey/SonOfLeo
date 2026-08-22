@@ -753,7 +753,9 @@ let fetchFiltered
     let headerIds = 
         headers
         |> List.map (fun x -> x|> StageEntryHeader.stageEntryHeaderId)
-    let! lines = headerIds |> StageEntryLine.fetchByHeaderIdList context
-    let! statusTransitions = headerIds |> StageEntryStatusTransition.fetchByHeaderIdList context
-    return compileFromSubLists headers lines statusTransitions
+    if headers |> List.isEmpty then return []
+    else
+        let! lines = headerIds |> StageEntryLine.fetchByHeaderIdList context
+        let! statusTransitions = headerIds |> StageEntryStatusTransition.fetchByHeaderIdList context
+        return compileFromSubLists headers lines statusTransitions
     }
