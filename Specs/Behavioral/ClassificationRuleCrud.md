@@ -80,7 +80,7 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 
 - **REQ-CR-4.1** The system must provide a means to create a new classification rule.
 - **REQ-CR-4.2** When creating a classification rule, the system must generate a unique UUID for the ID (new UUIDs may not be passed in).
-- **REQ-CR-4.3** When creating a classification rule, the system must validate that the `accountIdAtMatch` value resolves to an existing account in the chart of accounts. If it does not, the creation must fail.
+- **REQ-CR-4.3** When creating a classification rule, the system must validate that the account at match resolves to an existing account in the chart of accounts. If it does not, the creation must fail.
 - **REQ-CR-4.4** New classification rules are always created as active (`isActive = true`).
 - **REQ-CR-4.8** The system must not provide a mechanism to create a classification rule in an inactive state.
 - **REQ-CR-4.5** On successful creation, the system must persist the rule and return the fully constructed classification rule with its generated ID and timestamps.
@@ -100,7 +100,7 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 
 - **REQ-CR-6.1** The system must provide a means to update a classification rule's name, account-at-match, priority, rule groups, and isActive flag. Each field is independently updatable via a FieldUpdate (NoChange or SetTo).
 - **REQ-CR-6.2** When updating a classification rule, if all fields are NoChange, the update must fail (no-op rejection).
-- **REQ-CR-6.3** When updating `accountIdAtMatch`, the system must validate that the new value resolves to an existing account in the chart of accounts. If it does not, the update must fail.
+- **REQ-CR-6.3** When updating the account at match, the system must validate that the new value resolves to an existing account in the chart of accounts. If it does not, the update must fail.
 - **REQ-CR-6.4** When updating `ruleGroups`, the system must validate that the new list is not empty and that every field match chain within every rule group is not empty. If either condition fails, the update must fail.
 - **REQ-CR-6.5** On successful update, the system must update the `modified_at` timestamp and return the updated rule.
 
