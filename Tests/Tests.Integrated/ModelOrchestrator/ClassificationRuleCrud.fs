@@ -371,6 +371,65 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
             })
         |> railroadWrapper
 
+    // Ascending and descending are asserted against each other rather than against a
+    // hand-written order: the reverse of one must be the other, which a query that ignored the
+    // direction could not satisfy.
+    [<Theory>]
+    [<InlineData("code")>]
+    [<InlineData("priority")>]
+    member _.``REQ-CR-5.4 fetchRulesFiltered sorted ascending returns rules in increasing order of the named key, and sorted descending returns the exact reverse``(key: string) =
+        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+            result {
+                let asc, desc =
+                    match key with
+                    | "code" -> AccountCodeAsc, AccountCodeDesc
+                    | _ -> PriorityAsc, PriorityDesc
+                let! ascending = ClassificationOrchestration.fetchRulesFiltered context noFilter (Some asc)
+                let! descending = ClassificationOrchestration.fetchRulesFiltered context noFilter (Some desc)
+                // Both directions must still return the whole table, or an ordering assertion
+                // over a truncated list would pass on nothing.
+                Assert.Equal(fixtureRules () |> List.length, ascending |> List.length)
+                Assert.Equal(fixtureRules () |> List.length, descending |> List.length)
+                // Priority is compared as int and code as string: stringifying priority would
+                // sort 1000 before 500 and the test would be asserting the wrong order.
+                match key with
+                | "code" ->
+                    let ascKeys = ascending |> List.map codeStrOf
+                    Assert.Equal<string list>(ascKeys |> List.sort, ascKeys)
+                    Assert.Equal<string list>(ascKeys |> List.rev, descending |> List.map codeStrOf)
+                | _ ->
+                    let ascKeys = ascending |> List.map ClassificationRule.priority
+                    Assert.Equal<int list>(ascKeys |> List.sort, ascKeys)
+                    Assert.Equal<int list>(ascKeys |> List.rev, descending |> List.map ClassificationRule.priority)
+            })
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-CR-5.4 fetchRulesFiltered sorted by priority ascending places no rule before one of lower priority, and places rules tied at the same priority adjacent to each other``() =
+        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+            result {
+                let! sorted = ClassificationOrchestration.fetchRulesFiltered context noFilter (Some PriorityAsc)
+                let priorities = sorted |> List.map ClassificationRule.priority
+                Assert.Equal<int list>(priorities |> List.sort, priorities)
+                // A tie exists in the fixture, so the adjacency claim below is about real data.
+                let tied =
+                    priorities
+                    |> List.countBy id
+                    |> List.filter (fun (_, n) -> n > 1)
+                Assert.NotEmpty(tied)
+                // Every priority occupies one unbroken run: the number of distinct values equals
+                // the number of runs. A stable sort that scattered a tie would break this.
+                let runs =
+                    priorities
+                    |> List.fold (fun acc p ->
+                        match acc with
+                        | (prev: int) :: _ when prev = p -> acc
+                        | _ -> p :: acc) []
+                    |> List.length
+                Assert.Equal(priorities |> List.distinct |> List.length, runs)
+            })
+        |> railroadWrapper
+
     // =========================================================================
     // Update
     //

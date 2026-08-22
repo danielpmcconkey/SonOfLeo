@@ -733,8 +733,8 @@ type TestDataFixture() =
                 ingestionSources <- testSavingsSource :: ingestionSources
 
                 // Archetype A — the only inactive rule in the fixture.
-                // Created active and then deactivated, because REQ-CR-4.8 says there is no way to
-                // create one inactive. Pointed at TestSavings deliberately: that source exists
+                // Created active and then deactivated, because the spec's negative-existence
+                // requirement leaves no way to create one inactive. Pointed at TestSavings deliberately: that source exists
                 // because nothing matches it, so if the classifier's active-rule filter ever
                 // regresses, the NoMatch test goes red on its own rather than waiting for a
                 // dedicated test to notice.
