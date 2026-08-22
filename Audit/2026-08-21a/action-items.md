@@ -22,13 +22,13 @@
 | 18 | IDIOM-CR-1 | reconstitute and mapRawForDbRead were public, leaking persistence internals | — | done |
 | 19 | AMB-STG-1 | No precedence rule when classification produces both NoMatch and Conflict on different lines. Fix spec to give Conflict priority. Write a test asserting that behavior | Hobson (spec) / Dan+BD (test) | accepted |
 | 20 | IE-STG-1 | REQ-STG-5.5 omits recording classification_rule_id on the staged line. Fix spec | Hobson | accepted |
-| 21 | CON-STG-1 | REQ-STG-9.4 claims FK constraint that intentionally doesn't exist. Fix spec per finding guidance | Hobson | accepted |
+| 21 | CON-STG-1 | REQ-STG-9.4 claims FK constraint that intentionally doesn't exist. Fix spec per finding guidance | Hobson | accepted — superseded by the code-to-ID migration (2026-08-22): staged_entry_line.account_id now has a real FK to ledger.account. Spec updated to state the FK truthfully. |
 | 22 | AMB-JE-3.6.2 | REQ-JE-3.6.2 uses "should" instead of "must" | Hobson | accepted |
 | 23 | AMB-NGUI-1 | REQ-NGUI-3.9 says "appropriate error", REQ-NGUI-4.5 says "typed error". Standardize to "typed error" | Hobson | accepted |
 | 24 | AMB-RPT-1 | REQ-RPT-2.2 uses "level" instead of "generation". Fix spec — use one term or add equivalency statement | Hobson | accepted |
 | 25 | SD-AUDIT-1 | Dan says all action items finished but #5 (CON-NGUI-1) is open | — | overruled — explicitly deferred; Dan knows |
 | 26 | STALE-README-JSON | Src/README.md says Json is InterfaceBridge.Json; it moved to Utilities.Json. Fix both readme files | Hobson | accepted |
-| 27 | NGUI-1.6-INGESTION | Ingestion return types carry account codes without names. Partially accepted — StageEntryLine excluded (no FK). ClassificationRuleReturn and PrioritizedMatchReturn accepted | Dan | accepted |
+| 27 | NGUI-1.6-INGESTION | Ingestion return types carry account codes without names. Originally partially accepted — StageEntryLine excluded (no FK). Exclusion reversed (2026-08-22): the code-to-ID migration gave staged_entry_line a real FK to ledger.account, so name resolution is now safe. All four return types updated: StageEntryLineReturn, ClassificationRuleReturn, PrioritizedMatchReturn, and StageEntryReturn (via its lines) | Dan | accepted |
 | 27a | NGUI-1.6-INGESTION | Dan: change ClassificationRule codeAtMatch reference to use account ID instead of code | Dan | accepted |
 | 27b | NGUI-1.6-INGESTION | Dan: add a lookup cache on account ID → name (one way) | Dan | accepted |
 | 27c | NGUI-1.6-INGESTION | Dan: add account name to ClassificationRuleReturn | Dan | accepted |

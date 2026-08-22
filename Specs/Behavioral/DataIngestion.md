@@ -14,9 +14,9 @@ Behavioral specs for the staging and ingestion pipeline — the mechanism by whi
 
 **Design note — staging schema.** Staged data is stored in normalized tables within the `ingestion` schema: `ingestion.staged_entry` (one row per economic event, carrying entry-level fields), `ingestion.staged_entry_line` (one row per journal entry leg, carrying amount, direction, and account assignment), `ingestion.staged_entry_audit` (one row per status transition, providing a complete audit trail), and `ingestion.source` (a lookup entity identifying financial institution sources). This mirrors the journal entry's header/line structure because a staged entry is a draft journal entry held in a review area.
 
-**Design note — account codes, not IDs.** Staged lines reference accounts by code, not by UUID. Classification rules map description patterns to account codes. The Saturday review surface shows account codes. Account code to account ID resolution happens at posting time, when the staged entry crosses into the ledger domain.
+**Design note — account IDs in the model, codes at the boundary.** Staged lines and classification rules reference accounts by UUID internally. The boundary layer resolves account codes (provided by parsers, operators, and CLI input) to account IDs at ingestion time. The Saturday review surface shows account codes, but these are looked up from the stored ID. This design gives staged lines and classification rules a proper FK to `ledger.account`, preventing stale references when account codes change. (2026-08-22)
 
-**Design note — classification authority hierarchy.** Three layers assign account codes to staged lines, in descending order of authority: (1) the bespoke parser, which assigns codes only when it knows the answer with certainty (payroll splits, tenant payment decompositions, mortgage allocations); (2) the classification rules engine, which fills null account_codes by pattern matching against the description; (3) the operator, who manually assigns or overrides during review. Each layer acts only where no higher-authority layer has already assigned a code. A parser that cannot determine the account leaves account_code null — it does not guess. This hierarchy is why the classifier cannot override parser assignments (REQ-STG-5.3) and why fully parser-assigned entries skip classification and transition directly to `'Classified'` (REQ-STG-5.8). (2026-08-15)
+**Design note — classification authority hierarchy.** Three layers assign accounts to staged lines, in descending order of authority: (1) the bespoke parser, which assigns accounts only when it knows the answer with certainty (payroll splits, tenant payment decompositions, mortgage allocations); (2) the classification rules engine, which fills null account assignments by pattern matching against the description; (3) the operator, who manually assigns or overrides during review. Each layer acts only where no higher-authority layer has already assigned an account. A parser that cannot determine the account leaves the account null — it does not guess. This hierarchy is why the classifier cannot override parser assignments (REQ-STG-5.3) and why fully parser-assigned entries skip classification and transition directly to `'Classified'` (REQ-STG-5.8). (2026-08-15, updated 2026-08-22)
 
 **Design note — fi_reference is required.** Every parser must produce an fi_reference — the dedup key. For sources without a natural transaction ID (e.g., paystubs), the parser derives a deterministic reference (e.g., the check date). This ensures the dedup pass has universal coverage; no class of transaction is invisible to duplicate detection.
 
@@ -28,7 +28,7 @@ Behavioral specs for the staging and ingestion pipeline — the mechanism by whi
 4. **Obligation instance linking.** The staging pipeline has no mechanism for linking journal entries to obligation instances. Obligation linking requires knowledge of the instance ID, which comes from the obligation domain, not the FI data. Link after posting via the CLI.
 5. **Voids, adjustments, and corrections.** Staging handles incoming financial data only. Voids and corrections operate on existing ledger state via dedicated CLI commands (JournalEntryCrud §4).
 6. **Period close entries.** Closing and reversing entries are domain operations, not imported data.
-7. **Classifier override of parser-assigned accounts.** The classification rules engine can only assign an account where the staged line's account_code is null. It cannot override a value assigned by the parser. Manual override is available via the review step (§6). This ensures that a parser's deterministic decomposition is authoritative within its domain.
+7. **Classifier override of parser-assigned accounts.** The classification rules engine can only assign an account where the staged line's account is null. It cannot override a value assigned by the parser. Manual override is available via the review step (§6). This ensures that a parser's deterministic decomposition is authoritative within its domain.
 
 
 ## 1. Base staging file format
@@ -77,9 +77,9 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-2.11** Staged line must belong to exactly one staged entry (entry_id foreign key, not null).
 - **REQ-STG-2.12** Staged line amount is a positive decimal(12,2) value (greater than zero).
 - **REQ-STG-2.13** Staged line line_type must be `'Debit'` or `'Credit'`.
-- **REQ-STG-2.14** Staged line account_code is nullable. When set, holds the account code string identifying the target account.
+- **REQ-STG-2.14** Staged line account is nullable (account_id foreign key to `ledger.account`). When set, identifies the target account by UUID.
 - **REQ-STG-2.15** Staged line memo is optional (nullable). When provided, cannot be whitespace only (post-trim per REQ-SYS-1.1). Maximum 1000 characters.
-- **REQ-STG-2.16** Staged line classification_rule_id is nullable. When set, identifies the classification rule that assigned the account_code. The classification rules entity is specified in `ClassificationRuleCrud.md`.
+- **REQ-STG-2.16** Staged line classification_rule_id is nullable. When set, identifies the classification rule that assigned the account. The classification rules entity is specified in `ClassificationRuleCrud.md`.
 - **REQ-STG-2.17** Within a staged entry, the sum of all line amounts where line_type is `'Debit'` must equal the sum of all line amounts where line_type is `'Credit'`.
 
 ### Staged entry audit (`ingestion.staged_entry_audit`)
@@ -102,9 +102,9 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-3.5** The system must generate a UUID for each staged entry and each staged line.
 - **REQ-STG-3.6** When a record's fi_source does not resolve to an existing source in `ingestion.source`, the system must reject the file.
   - *Why:* An unrecognized source indicates a parser misconfiguration, not a classification concern. (2026-08-08)
-- **REQ-STG-3.7** When a record's account_code is non-null, the system must validate it resolves to an existing account in the chart of accounts. If it does not, the system must reject the file. The staged line stores the account code (not the resolved account ID); code-to-ID resolution occurs at posting time.
-  - *Why:* A parser-assigned account code that does not exist is a parser defect. Fail fast. Account codes (not IDs) are stored because the review surface and classification rules operate on codes. (2026-08-09)
-- **REQ-STG-3.8** When a record's account_code is null, the staged line's account_code is set to null.
+- **REQ-STG-3.7** When a record's account_code is non-null, the system must validate it resolves to an existing account in the chart of accounts. If it does not, the system must reject the file. The resolved account ID is stored on the staged line.
+  - *Why:* A parser-assigned account code that does not exist is a parser defect. Fail fast. Code-to-ID resolution at ingestion time (not posting time) ensures the staged line carries a FK-backed account reference from the moment it is created. (2026-08-22)
+- **REQ-STG-3.8** When a record's account_code is null, the staged line's account is set to null.
 - **REQ-STG-3.9** On successful ingestion, every staged entry's status is set to `'Ingested'` and an audit record is created (from_status null, to_status `'Ingested'`).
 - **REQ-STG-3.10** Ingestion is atomic: either the entire file is ingested (all entries and lines persisted) or no rows are created.
 
@@ -114,14 +114,14 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-4.1** A staged entry's status must be one of: `'Ingested'`, `'Classified'`, `'NoMatch'`, `'Conflict'`, `'Reviewed'`, `'Duplicate'`, `'Posted'`, `'Ignored'`.
 - **REQ-STG-4.2** `'Posted'` is a terminal status. No transitions out of `'Posted'` are permitted.
 - **REQ-STG-4.3** Every status transition must create an audit record in `ingestion.staged_entry_audit`.
-- **REQ-STG-4.4** A staged entry is postable when its status is `'Classified'` or `'Reviewed'`. No additional filtering (e.g. line-level account_code presence) is applied — if the upstream invariants are sound, all lines are coded by the time an entry reaches these statuses. If they are not, posting fails loudly at account_code resolution (REQ-STG-9.4) rather than silently excluding the entry.
+- **REQ-STG-4.4** A staged entry is postable when its status is `'Classified'` or `'Reviewed'`. No additional filtering (e.g. line-level account presence) is applied — if the upstream invariants are sound, all lines have an account by the time an entry reaches these statuses. If they do not, posting fails loudly (REQ-STG-9.4) rather than silently excluding the entry.
 - **REQ-STG-4.5** `'Ignored'` marks an entry that should not be posted due to data problems at the source. The deduplication pass must treat `'Ignored'` entries as matches — re-importing a transaction that was deliberately ignored must flag the new entry as duplicate, not silently re-admit it.
   - *Why:* Without this, voiding a bad JE and ignoring its staged source would cause the next overlapping file import to re-ingest the same bad data. (2026-08-09)
 
 - **REQ-STG-4.6** The following are the only permitted status transitions. Any transition not listed must be rejected.
 
 ```
-Ingested   → Classified  (all lines have account_codes after classification)
+Ingested   → Classified  (all lines have accounts after classification)
 Ingested   → NoMatch     (at least one line has no rule match after classification)
 Ingested   → Conflict    (at least one line has multiple rule matches at equal priority)
 Ingested   → Duplicate   (dedup identifies this entry as a duplicate)
@@ -149,21 +149,21 @@ Reviewed   → Posted      (batch post)
 The classification step runs the vendor classification rules engine against staged entries. The rules entity (pattern, priority, FI scoping, account mapping) is specified in `ClassificationRuleCrud.md`. These requirements govern how the staging pipeline interacts with the rules engine.
 
 - **REQ-STG-5.1** The system must provide a means to run automated classification against staged entries with status `'Ingested'`.
-- **REQ-STG-5.2** Classification evaluates each staged line whose account_code is null against the vendor classification rules, matching on the staged entry's description.
-- **REQ-STG-5.3** Classification must not modify a staged line whose account_code is already non-null.
+- **REQ-STG-5.2** Classification evaluates each staged line whose account is null against the vendor classification rules, matching on the staged entry's description.
+- **REQ-STG-5.3** Classification must not modify a staged line whose account is already non-null.
   - *Why:* Parser-assigned accounts are authoritative. The classifier fills gaps; it does not override. (2026-08-08)
-- **REQ-STG-5.4** When exactly one rule matches and the line's account_code is null, the classifier assigns the rule's account code to the line and records the classification_rule_id on the staged line.
-- **REQ-STG-5.5** When multiple rules match and one has strictly higher priority, the classifier assigns the highest-priority rule's account code to the line and records the classification_rule_id on the staged line.
-- **REQ-STG-5.6** When multiple rules match with equal priority for a line with null account_code, the staged entry's status is set to `'Conflict'`.
-- **REQ-STG-5.7** When no rule matches a line with null account_code, the staged entry's status is set to `'NoMatch'`.
+- **REQ-STG-5.4** When exactly one rule matches and the line's account is null, the classifier assigns the matching rule's account ID to the line and records the classification_rule_id on the staged line.
+- **REQ-STG-5.5** When multiple rules match and one has strictly higher priority, the classifier assigns the highest-priority rule's account ID to the line and records the classification_rule_id on the staged line.
+- **REQ-STG-5.6** When multiple rules match with equal priority for a line with null account, the staged entry's status is set to `'Conflict'`.
+- **REQ-STG-5.7** When no rule matches a line with null account, the staged entry's status is set to `'NoMatch'`.
   - *Why:* `'NoMatch'` means the classifier ran and found nothing — it is distinct from "not yet classified." The name was chosen over "unclassified" to avoid ambiguity. (2026-08-09)
-- **REQ-STG-5.8** When classification completes and every line in the staged entry has a non-null account_code, the entry's status is set to `'Classified'`.
+- **REQ-STG-5.8** When classification completes and every line in the staged entry has a non-null account, the entry's status is set to `'Classified'`.
 - **REQ-STG-5.9** When classification of a single entry produces both Conflict and NoMatch outcomes on different lines, Conflict takes precedence.
 
 
 ## 6. Manual review behaviors
 
-- **REQ-STG-6.1** The system must provide a means for an operator to assign or override the account_code on a staged line, regardless of whether the account was previously set by a parser or the classifier.
+- **REQ-STG-6.1** The system must provide a means for an operator to assign or override the account on a staged line, regardless of whether the account was previously set by a parser or the classifier.
 - **REQ-STG-6.2** The manual update mechanism allows the operator to set any field on the staged entry and its lines, including status. The system validates the result (balanced entry, valid account codes, legal status transition) but does not infer or auto-assign status from the operator's changes.
   - *Why:* Original spec auto-transitioned to `'Reviewed'` on any line modification. Overruled — manual intervention is the highest authority tier, and the operator knows the intended status. Inferring it revokes that authority. (2026-08-16)
 - **REQ-STG-6.3** The operator may override a duplicate flag, transitioning the entry's status from `'Duplicate'` to `'Reviewed'`.
@@ -196,7 +196,7 @@ The classification step runs the vendor classification rules engine against stag
 - **REQ-STG-9.1** The system must provide a means to batch-post all postable staged entries to the ledger.
 - **REQ-STG-9.2** For each postable staged entry, the system must construct a journal entry through the domain model (JournalEntryCrud §2), applying all existing JE validations.
 - **REQ-STG-9.3** The journal entry header fields are mapped from the staged entry: description from the staged entry's description, entry_date from the staged entry's entry_date. Source is a fixed provenance label (e.g. "Data ingestion import") describing *how* the entry was created, not which FI it came from — the FI identity lives on the external reference (REQ-STG-9.5).
-- **REQ-STG-9.4** For each staged line, the system must resolve the line's account_code to an account ID via the chart of accounts and construct a journal entry line with the line's amount, line_type, resolved account ID, and memo. A null account_code at posting time is a loud failure — it indicates a broken upstream invariant (classification or review allowed an uncoded line through). Invalid non-null codes are prevented by ingestion-time validation (REQ-STG-3.7) for parser-assigned codes and by the classification rule's FK constraint for classifier-assigned codes. An account code that becomes invalid between ingestion and posting would fail resolution at this step.
+- **REQ-STG-9.4** For each staged line, the system must construct a journal entry line with the line's account ID, amount, line_type, and memo. A null account at posting time is a loud failure — it indicates a broken upstream invariant (classification or review allowed an unassigned line through). Invalid non-null account IDs cannot occur: the staged line's account_id is FK-constrained against `ledger.account`.
 - **REQ-STG-9.5** The system must construct one external reference on each journal entry: financial_institution from the staged entry's source name, reference from fi_reference.
 - **REQ-STG-9.6** Stricken.
 - **REQ-STG-9.7** On successful posting, each staged entry's status is set to `'Posted'` and an audit record is created.
@@ -216,7 +216,7 @@ The classification step runs the vendor classification rules engine against stag
 | REQ-STG-2.11 | Non-nullable FK; structurally enforced. Same rationale as REQ-JE-1.29. | Dan 2026-08-16 |
 | REQ-STG-2.19 | Same as REQ-STG-2.11. | Dan 2026-08-16 |
 | REQ-STG-3.5 | UUID generation via Guid.NewGuid() in create functions; uniqueness enforced by PK constraint. Same rationale as REQ-STG-2.1. | Dan 2026-08-16 |
-| REQ-STG-3.8 | AccountCode is an option type. Null input maps to None by construction; no code path transforms null into a value. | Dan 2026-08-16 |
+| REQ-STG-3.8 | AccountId is an option type. Null input maps to None by construction; no code path transforms null into a value. | Dan 2026-08-16 |
 | REQ-STG-1.1 | Definitional — states the file format (JSONL), not a testable behaviour. The parser reads newline-delimited JSON by construction. | Dan 2026-08-18 |
 | REQ-STG-1.2 | Definitional — states what a record represents, not a testable behaviour. The record-to-line mapping is structural (one JSON object → one StagedEntryLine). | Dan 2026-08-18 |
 | REQ-STG-1.4 | Structural — group_id is a required string field on BaseStageRawRow. Visible by inspection. | Dan 2026-08-18 |
