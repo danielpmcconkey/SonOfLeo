@@ -89,7 +89,7 @@ let insertNewToDb (context: Context.Context) (classificationRule: Classification
         return! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
     }
     
-let reconstitute raw =
+let private reconstitute raw =
     result {
         let (uuid,
              nameStr,
@@ -116,7 +116,7 @@ let reconstitute raw =
                 modifiedAt
     }
     
-let mapRawForDbRead (row: RowReader) =
+let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getUuid "unique_id"),
     (row |> RowReader.getString "rule_name"),
     (row |> RowReader.getString "code_at_match"),
@@ -126,7 +126,7 @@ let mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
-let private readRowsFromDb
+let readRowsFromDb
     (context: Context.Context)
     (predicate: string option)
     (limit: int option)

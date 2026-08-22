@@ -14,7 +14,7 @@ open Tests.Helpers.SadPath
 open Tests.Helpers.GenericTestProperties
 
 [<Fact>]
-let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew generates UUID`` () =
+let ``REQ-AC-2.13 constructNew generates UUID`` () =
     runCommandRouteAndAutoRollback AccountCreate (fun context ->
         let code = "abc1" |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         AccountCreation.constructNewAndSaveToDb

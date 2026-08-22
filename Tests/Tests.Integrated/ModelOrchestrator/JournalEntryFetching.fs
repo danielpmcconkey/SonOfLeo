@@ -116,15 +116,15 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
                 |> List.length
             let! fetched = fetchByReference context (Some fi) (Some refText)
             Assert.Equal(expected, fetched |> List.length)
-            let firstEntry = fetched |> List.head
-            let fetchedReferences = firstEntry |> externalReferences
-            let matchedCount =
-                fetchedReferences
-                |> List.filter(fun jer ->
+            Assert.True(
+                fetched
+                |> List.forall(fun fetchedEntry ->
+                    fetchedEntry
+                    |> externalReferences
+                    |> List.exists(fun jer ->
                     jer |> JournalEntryExternalReference.financialInstitution = fi
                     && jer |> JournalEntryExternalReference.referenceText = refText)
-                |> List.length
-            Assert.True(matchedCount > 0)
+                    ), "Every fetched entry must carry a reference matching the search criteria")
             return ()
         }
         |> railroadWrapper

@@ -85,7 +85,7 @@ let fetchRulesFiltered
     : Result<ClassificationRule.ClassificationRule list, AppError> =
     result {
         let sourcePredicate = """
-            and EXISTS (
+            EXISTS (
                 SELECT 1
                 FROM jsonb_array_elements(cr.rule_groups) AS rg,
                      jsonb_array_elements(
@@ -106,28 +106,28 @@ let fetchRulesFiltered
             | true -> "and cr.is_active = true"
             | false -> ""
             
-        let sortClause =
+        let orderBy =
             match sort with
-            | None -> ""
-            | Some AccountCodeAsc -> "order by cr.code_at_match asc"
-            | Some AccountCodeDesc -> "order by cr.code_at_match desc"
-            | Some PriorityAsc -> "order by cr.priority asc"
-            | Some PriorityDesc -> "order by cr.priority desc"
+            | None -> None
+            | Some AccountCodeAsc -> Some "cr.code_at_match asc"
+            | Some AccountCodeDesc -> Some "cr.code_at_match desc"
+            | Some PriorityAsc -> Some "cr.priority asc"
+            | Some PriorityDesc -> Some "cr.priority desc"
             
         let whereClausesAndParams =
             [ filter.ruleId
               |> Option.map(fun x ->
-                  ("and cr.unique_id = @rule_id", { name = "@rule_id"; value = UniqueId(x |> ClassificationRuleId.value) }))
+                  ("cr.unique_id = @rule_id", { name = "@rule_id"; value = UniqueId(x |> ClassificationRuleId.value) }))
         
               filter.nameLike
               |> Option.map(fun x ->
                   let ruleName = x |> ClassificationRuleName.value
-                  ("and cr.rule_name like @rule_name",
+                  ("cr.rule_name like @rule_name",
                    { name = "@rule_name"; value = CharString $"%%{ruleName}%%"}))
         
               filter.codeAtMatch
               |> Option.map(fun x ->
-                  ("and cr.code_at_match = @code_at_match",
+                  ("cr.code_at_match = @code_at_match",
                    { name = "@code_at_match"; value = CharString(x |> AccountCode.value) }))
         
               filter.sourceLike
@@ -135,27 +135,15 @@ let fetchRulesFiltered
                   (sourcePredicate, { name = "@source_like"; value = CharString $"%%{x}%%" }))
             ]
             |> List.choose id
-        let whereClauses = whereClausesAndParams |> List.map fst |> String.concat Environment.NewLine
-        let parameters = whereClausesAndParams |> List.map snd
-        let query =
-            $"""
-            select
-                cr.unique_id, cr.rule_name, cr.code_at_match, cr.priority,
-                cr.rule_groups, cr.is_active, cr.created_at, cr.modified_at
-            from ingestion.classification_rule cr
-            where 1 = 1
-            {whereClauses}
+        let whereClauses = whereClausesAndParams |> List.map fst |> String.concat $" and {Environment.NewLine}"        
+        let predicate = Some $"""
+            {if whereClausesAndParams |> List.isEmpty then "1 = 1" else whereClauses}
             {activeClause}
-            {sortClause}
-            """
+        """
+        let limit = None
+        let parameters = whereClausesAndParams |> List.map snd
         return!
-            executeReaderQuery
-                (context |> Context.getDatabaseTransaction)
-                query
-                parameters
-                ClassificationRule.mapRawForDbRead
-                ClassificationRule.reconstitute
-                AnyQuantityIsAcceptable
+            ClassificationRule.readRowsFromDb context predicate limit parameters orderBy AnyQuantityIsAcceptable
     }
 
 let updateLineWithMatch
