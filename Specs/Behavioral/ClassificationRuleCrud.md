@@ -119,7 +119,7 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 | REQ-CR-1.17 | Solution won't build if you try to pass a null value to StringSearchPattern.create. | Dan, 2026-08-21 |
 | REQ-CR-1.10 | chainOne is a non-optional record field — a group cannot be constructed without one. | Dan, 2026-08-21 |
 | REQ-CR-1.13 | FieldMatch is a five-case DU — exactly-one targeting is the DU's structural exclusivity. | Dan, 2026-08-21 |
-| REQ-CR-1.21 | The field is typed Money, which is validated at construction — an invalid value cannot reach the pattern. | Dan, 2026-08-21 |
+| REQ-CR-1.21 | The only code path that writes this column validates through `Money.fromDecimal`; read-path validation is not performed by design (see Journaling slice precedent). | Dan, 2026-08-21 |
 | REQ-CR-4.2 | UUID generation via Guid.NewGuid() in create; uniqueness enforced by PK constraint. Same rationale as REQ-CR-1.1. | Dan, 2026-08-21 |
 | REQ-CR-4.8 | A negative existence claim over the entire API surface cannot be proven by a unit test; enforced by code review and periodic adversarial audit. Same rationale as REQ-CR-7.1. | Dan, 2026-08-21 |
 | REQ-CR-7.1 | A negative existence claim over the entire API surface cannot be proven by a unit test; enforced by code review and periodic adversarial audit. Same rationale as REQ-AC-5.1. | Dan, 2026-08-21 |
