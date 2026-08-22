@@ -36,7 +36,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
         { lineIdToUpdate = lineId
           amountUpdate = NoChange
           entryTypeUpdate = NoChange
-          accountCodeUpdate = NoChange
+          accountIdUpdate = NoChange
           memoUpdate = NoChange
           classificationRuleIdUpdate = NoChange }
 
@@ -79,12 +79,12 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let firstLine = entry |> lines |> List.head
                 let lineId = firstLine |> StageEntryLine.stageEntryLineId
-                let lineUpdates = [ { (noChangeLineUpdates lineId) with accountCodeUpdate = SetTo (Some newCode) } ]
+                let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some newCode) } ]
                 let! updated = updateStageEntry context (noChangeHeaderUpdates headerId) lineUpdates
                 let updatedLine =
                     updated |> lines
                     |> List.find (fun l -> l |> StageEntryLine.stageEntryLineId = lineId)
-                Assert.Equal(Some "F-5650", updatedLine |> StageEntryLine.accountCode |> Option.map AccountCode.value)
+                Assert.Equal(Some "F-5650", updatedLine |> StageEntryLine.accountId |> Option.map AccountCode.value)
             })
         |> railroadWrapper
 
@@ -101,12 +101,12 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let debitLine = entry |> lines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
                 let lineId = debitLine |> StageEntryLine.stageEntryLineId
-                let lineUpdates = [ { (noChangeLineUpdates lineId) with accountCodeUpdate = SetTo (Some newCode) } ]
+                let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some newCode) } ]
                 let! updated = updateStageEntry context (noChangeHeaderUpdates headerId) lineUpdates
                 let updatedLine =
                     updated |> lines
                     |> List.find (fun l -> l |> StageEntryLine.stageEntryLineId = lineId)
-                Assert.Equal(Some "F-5650", updatedLine |> StageEntryLine.accountCode |> Option.map AccountCode.value)
+                Assert.Equal(Some "F-5650", updatedLine |> StageEntryLine.accountId |> Option.map AccountCode.value)
             })
         |> railroadWrapper
 
@@ -160,7 +160,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let lineId = firstLine |> StageEntryLine.stageEntryLineId
                 let! badCode = "BOGUS-9999" |> AccountCode.create
                 let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
-                let lineUpdates = [ { (noChangeLineUpdates lineId) with accountCodeUpdate = SetTo (Some badCode) } ]
+                let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some badCode) } ]
                 return!
                     match updateStageEntry context headerUpdates lineUpdates with
                     | Error (AccountCodeDoesntMatchAccountId _) -> Ok ()

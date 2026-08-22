@@ -32,7 +32,7 @@ Applies to command line, importing, reporting, API, etc. Any use case where an e
 - **REQ-NGUI-3.6** Upon successful execution, the system will return the payload via stdout and exit with code 0.
 - **REQ-NGUI-3.7** Upon unsuccessful execution, the system will return the error via stderr and exit with a non-0 code.
 - **REQ-NGUI-3.8** The domain and verb command line arguments must be treated as case sensitive
-- **REQ-NGUI-3.9** If the actor provides an incorrect or otherwise unsupported domain and verb combination, the CLI application must exit with an appropriate error 
+- **REQ-NGUI-3.9** If the actor provides an incorrect or otherwise unsupported domain and verb combination, the CLI application must exit with a typed error 
 - **REQ-NGUI-3.10** The actor may provide the payload component of the trigger via a `--file` argument followed by a file path, as an alternative to stdin (REQ-NGUI-3.3). The contents of the specified file replace the stdin payload. This mechanism applies to both the main CLI (this section) and the Reports CLI (section 4).
 
 ## 4. Reports CLI

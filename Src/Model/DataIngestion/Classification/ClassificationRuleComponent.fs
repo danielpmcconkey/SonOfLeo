@@ -106,7 +106,7 @@ type MatchCandidate = {
 }
 
 type PrioritizedMatch = {
-    code: AccountCode
+    accountId: AccountId
     ruleId: ClassificationRuleId
     priority: int
 }

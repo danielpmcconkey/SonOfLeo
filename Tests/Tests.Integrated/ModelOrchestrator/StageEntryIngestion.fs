@@ -1,5 +1,6 @@
 namespace Tests.Integrated.ModelOrchestrator
 
+open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model
@@ -19,7 +20,7 @@ open Model.Ledger.Journaling.JournalEntryComponent
 
 module StageTestData =
 
-    let makeRawRow groupIdStr (date: NodaTime.LocalDate) descStr sourceStr refStr amount lineTypeStr codeStr memoStr =
+    let makeRawRow context groupIdStr (date: NodaTime.LocalDate) descStr sourceStr refStr amount lineTypeStr codeStr memoStr =
         result {
             let! groupId = groupIdStr |> BaseStageEntryGroupId.create
             let! desc = descStr |> JournalEntryDescription.create
@@ -27,7 +28,7 @@ module StageTestData =
             let! ref = refStr |> JournalExternalReferenceText.create
             let! money = amount |> Money.fromDecimal
             let! lt = lineTypeStr |> JournalEntryLineType.fromString
-            let! code = codeStr |> convertOptionToDesiredTypeWithFallibleConverter AccountCode.create
+            let! accountId = codeStr |> ``convert AccountCodeString Option to AccountId Option`` context
             let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
             return {
                 baseStageEntryGroupId = groupId
@@ -37,48 +38,48 @@ module StageTestData =
                 fiReference = ref
                 amount = money
                 entryType = lt
-                accountCode = code
+                accountId = accountId
                 memo = memo }
         }
 
-    let buildTestRows () =
+    let buildTestRows (context: Context.Context) =
         let today = Calendar.today()
         [
-            makeRawRow "grp-001" (today.PlusDays(-3)) "DD DoorDash Order 8431927" "TestBank" "REF-DD-001" 32.47M "Debit" None None
-            makeRawRow "grp-001" (today.PlusDays(-3)) "DD DoorDash Order 8431927" "TestBank" "REF-DD-001" 32.47M "Credit" (Some "F-1270") None
-            makeRawRow "grp-002" (today.PlusDays(-2)) "MARATHON PETRO 7218 ANYTOWN US" "TestBank" "REF-GAS-001" 48.12M "Debit" None None
-            makeRawRow "grp-002" (today.PlusDays(-2)) "MARATHON PETRO 7218 ANYTOWN US" "TestBank" "REF-GAS-001" 48.12M "Credit" (Some "F-1270") None
-            makeRawRow "grp-003" (today.PlusDays(-2)) "HARRIS TEETER 0381 ANYTOWN US" "TestBank" "REF-GROC-001" 127.83M "Debit" None None
-            makeRawRow "grp-003" (today.PlusDays(-2)) "HARRIS TEETER 0381 ANYTOWN US" "TestBank" "REF-GROC-001" 127.83M "Credit" (Some "F-1270") None
-            makeRawRow "grp-004" (today.PlusDays(-1)) "SPECTRUM SOUTHEAST 800-892-2253" "TestBank" "REF-CABLE-001" 79.99M "Debit" None None
-            makeRawRow "grp-004" (today.PlusDays(-1)) "SPECTRUM SOUTHEAST 800-892-2253" "TestBank" "REF-CABLE-001" 79.99M "Credit" (Some "F-1270") None
-            makeRawRow "grp-005" (today.PlusDays(-1)) "TOTALLY UNKNOWN MERCHANT NOWHERE" "TestSavings" "REF-UNK-001" 15.00M "Debit" None None
-            makeRawRow "grp-005" (today.PlusDays(-1)) "TOTALLY UNKNOWN MERCHANT NOWHERE" "TestSavings" "REF-UNK-001" 15.00M "Credit" (Some "F-1270") None
-            makeRawRow "grp-006" today "ALLSTATE INS AUTOPAY" "TestBank" "REF-INS-001" 142.50M "Debit" None None
-            makeRawRow "grp-006" today "ALLSTATE INS AUTOPAY" "TestBank" "REF-INS-001" 142.50M "Credit" (Some "F-1270") None
-            makeRawRow "grp-007" (today.PlusDays(-3)) "PAYROLL DEPOSIT ACME CORP" "TestBank" "REF-PAY-001" 800.00M "Debit" (Some "F-1270") (Some "Net pay to checking")
-            makeRawRow "grp-007" (today.PlusDays(-3)) "PAYROLL DEPOSIT ACME CORP" "TestBank" "REF-PAY-001" 312.50M "Credit" (Some "F-5300") (Some "Federal withholding")
-            makeRawRow "grp-007" (today.PlusDays(-3)) "PAYROLL DEPOSIT ACME CORP" "TestBank" "REF-PAY-001" 187.50M "Credit" (Some "F-5350") (Some "State withholding")
-            makeRawRow "grp-007" (today.PlusDays(-3)) "PAYROLL DEPOSIT ACME CORP" "TestBank" "REF-PAY-001" 300.00M "Credit" (Some "F-5650") (Some "401k contribution")
-            makeRawRow "grp-008" (today.PlusDays(-2)) "Fixture JE with reference" "TestBank" "TXN-001" 65.00M "Debit" None None
-            makeRawRow "grp-008" (today.PlusDays(-2)) "Fixture JE with reference" "TestBank" "TXN-001" 65.00M "Credit" (Some "F-1270") None
-            makeRawRow "grp-009" (today.PlusDays(-2)) "DD DoorDash Order 9917223" "TestBank" "REF-DD-002" 28.93M "Debit" None None
-            makeRawRow "grp-009" (today.PlusDays(-2)) "DD DoorDash Order 9917223" "TestBank" "REF-DD-002" 28.93M "Credit" (Some "F-1270") None
-            makeRawRow "grp-010" today "DD DoorDash Order 9917223" "TestBank" "REF-DD-002" 28.93M "Debit" None None
-            makeRawRow "grp-010" today "DD DoorDash Order 9917223" "TestBank" "REF-DD-002" 28.93M "Credit" (Some "F-1270") None
+            makeRawRow context "grp-001" (today.PlusDays(-3)) "DD DoorDash Order 8431927" "TestBank" "REF-DD-001" 32.47M "Debit" None None
+            makeRawRow context "grp-001" (today.PlusDays(-3)) "DD DoorDash Order 8431927" "TestBank" "REF-DD-001" 32.47M "Credit" (Some "F-1270") None
+            makeRawRow context "grp-002" (today.PlusDays(-2)) "MARATHON PETRO 7218 ANYTOWN US" "TestBank" "REF-GAS-001" 48.12M "Debit" None None
+            makeRawRow context "grp-002" (today.PlusDays(-2)) "MARATHON PETRO 7218 ANYTOWN US" "TestBank" "REF-GAS-001" 48.12M "Credit" (Some "F-1270") None
+            makeRawRow context "grp-003" (today.PlusDays(-2)) "HARRIS TEETER 0381 ANYTOWN US" "TestBank" "REF-GROC-001" 127.83M "Debit" None None
+            makeRawRow context "grp-003" (today.PlusDays(-2)) "HARRIS TEETER 0381 ANYTOWN US" "TestBank" "REF-GROC-001" 127.83M "Credit" (Some "F-1270") None
+            makeRawRow context "grp-004" (today.PlusDays(-1)) "SPECTRUM SOUTHEAST 800-892-2253" "TestBank" "REF-CABLE-001" 79.99M "Debit" None None
+            makeRawRow context "grp-004" (today.PlusDays(-1)) "SPECTRUM SOUTHEAST 800-892-2253" "TestBank" "REF-CABLE-001" 79.99M "Credit" (Some "F-1270") None
+            makeRawRow context "grp-005" (today.PlusDays(-1)) "TOTALLY UNKNOWN MERCHANT NOWHERE" "TestSavings" "REF-UNK-001" 15.00M "Debit" None None
+            makeRawRow context "grp-005" (today.PlusDays(-1)) "TOTALLY UNKNOWN MERCHANT NOWHERE" "TestSavings" "REF-UNK-001" 15.00M "Credit" (Some "F-1270") None
+            makeRawRow context "grp-006" today "ALLSTATE INS AUTOPAY" "TestBank" "REF-INS-001" 142.50M "Debit" None None
+            makeRawRow context "grp-006" today "ALLSTATE INS AUTOPAY" "TestBank" "REF-INS-001" 142.50M "Credit" (Some "F-1270") None
+            makeRawRow context "grp-007" (today.PlusDays(-3)) "PAYROLL DEPOSIT ACME CORP" "TestBank" "REF-PAY-001" 800.00M "Debit" (Some "F-1270") (Some "Net pay to checking")
+            makeRawRow context "grp-007" (today.PlusDays(-3)) "PAYROLL DEPOSIT ACME CORP" "TestBank" "REF-PAY-001" 312.50M "Credit" (Some "F-5300") (Some "Federal withholding")
+            makeRawRow context "grp-007" (today.PlusDays(-3)) "PAYROLL DEPOSIT ACME CORP" "TestBank" "REF-PAY-001" 187.50M "Credit" (Some "F-5350") (Some "State withholding")
+            makeRawRow context "grp-007" (today.PlusDays(-3)) "PAYROLL DEPOSIT ACME CORP" "TestBank" "REF-PAY-001" 300.00M "Credit" (Some "F-5650") (Some "401k contribution")
+            makeRawRow context "grp-008" (today.PlusDays(-2)) "Fixture JE with reference" "TestBank" "TXN-001" 65.00M "Debit" None None
+            makeRawRow context "grp-008" (today.PlusDays(-2)) "Fixture JE with reference" "TestBank" "TXN-001" 65.00M "Credit" (Some "F-1270") None
+            makeRawRow context "grp-009" (today.PlusDays(-2)) "DD DoorDash Order 9917223" "TestBank" "REF-DD-002" 28.93M "Debit" None None
+            makeRawRow context "grp-009" (today.PlusDays(-2)) "DD DoorDash Order 9917223" "TestBank" "REF-DD-002" 28.93M "Credit" (Some "F-1270") None
+            makeRawRow context "grp-010" today "DD DoorDash Order 9917223" "TestBank" "REF-DD-002" 28.93M "Debit" None None
+            makeRawRow context "grp-010" today "DD DoorDash Order 9917223" "TestBank" "REF-DD-002" 28.93M "Credit" (Some "F-1270") None
             // grp-011 — the only group whose lines both arrive with a null account code. The
             // TestSplitBank rules discriminate on line type, so the two lines resolve to two
             // different accounts. Both halves matter: a classifier that stopped after the first
             // null line leaves the Credit null, and one that assigned per entry rather than per
             // line puts the same code on both.
-            makeRawRow "grp-011" (today.PlusDays(-1)) "SPLIT TRANSFER UNKNOWN BOTH SIDES" "TestSplitBank" "REF-SPLIT-001" 75.00M "Debit" None None
-            makeRawRow "grp-011" (today.PlusDays(-1)) "SPLIT TRANSFER UNKNOWN BOTH SIDES" "TestSplitBank" "REF-SPLIT-001" 75.00M "Credit" None None
+            makeRawRow context "grp-011" (today.PlusDays(-1)) "SPLIT TRANSFER UNKNOWN BOTH SIDES" "TestSplitBank" "REF-SPLIT-001" 75.00M "Debit" None None
+            makeRawRow context "grp-011" (today.PlusDays(-1)) "SPLIT TRANSFER UNKNOWN BOTH SIDES" "TestSplitBank" "REF-SPLIT-001" 75.00M "Credit" None None
         ] |> convertListOfResultsToResultsList
 
     let runPipeline context =
         result {
             let! sourceFile = "/tmp/stg-test-checking.jsonl" |> SourceFile.create
-            let! rows = buildTestRows ()
+            let! rows = buildTestRows context
             return! rows |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
         }
 
@@ -155,7 +156,11 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                     entry |> lines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
                 Assert.Equal(800.00M, debitLine |> StageEntryLine.amount |> Money.amount)
                 Assert.Equal(Debit, debitLine |> StageEntryLine.lineType)
-                Assert.Equal(Some "F-1270", debitLine |> StageEntryLine.accountCode |> Option.map AccountCode.value)
+                let! codeStr =
+                    debitLine
+                    |> StageEntryLine.accountId
+                    |> ``convert AccountId Option to AccountCodeString Option`` context
+                Assert.Equal(Some "F-1270", codeStr)
                 Assert.Equal(Some "Net pay to checking", debitLine |> StageEntryLine.memo |> Option.map JournalEntryLineMemo.value)
                 // parser-assigned lines have no classification_rule_id
                 Assert.True(debitLine |> StageEntryLine.classificationRuleId |> Option.isNone)
@@ -203,12 +208,12 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! sourceFile = "/tmp/test-grouping.jsonl" |> SourceFile.create
-                let! multiRow1 = StageTestData.makeRawRow "grp-multi" today "Multi leg event" "TestBank" "REF-MULTI-001" 800.00M "Debit" (Some "F-1270") (Some "Net pay to checking")
-                let! multiRow2 = StageTestData.makeRawRow "grp-multi" today "Multi leg event" "TestBank" "REF-MULTI-001" 312.50M "Credit" (Some "F-5300") (Some "Federal withholding")
-                let! multiRow3 = StageTestData.makeRawRow "grp-multi" today "Multi leg event" "TestBank" "REF-MULTI-001" 187.50M "Credit" (Some "F-5350") (Some "State withholding")
-                let! multiRow4 = StageTestData.makeRawRow "grp-multi" today "Multi leg event" "TestBank" "REF-MULTI-001" 300.00M "Credit" (Some "F-5650") (Some "401k contribution")
-                let! otherRow1 = StageTestData.makeRawRow "grp-other" today "Separate event" "TestBank" "REF-OTHER-001" 40.00M "Debit" (Some "F-5350") None
-                let! otherRow2 = StageTestData.makeRawRow "grp-other" today "Separate event" "TestBank" "REF-OTHER-001" 40.00M "Credit" (Some "F-1270") None
+                let! multiRow1 = StageTestData.makeRawRow context "grp-multi" today "Multi leg event" "TestBank" "REF-MULTI-001" 800.00M "Debit" (Some "F-1270") (Some "Net pay to checking")
+                let! multiRow2 = StageTestData.makeRawRow context "grp-multi" today "Multi leg event" "TestBank" "REF-MULTI-001" 312.50M "Credit" (Some "F-5300") (Some "Federal withholding")
+                let! multiRow3 = StageTestData.makeRawRow context "grp-multi" today "Multi leg event" "TestBank" "REF-MULTI-001" 187.50M "Credit" (Some "F-5350") (Some "State withholding")
+                let! multiRow4 = StageTestData.makeRawRow context "grp-multi" today "Multi leg event" "TestBank" "REF-MULTI-001" 300.00M "Credit" (Some "F-5650") (Some "401k contribution")
+                let! otherRow1 = StageTestData.makeRawRow context "grp-other" today "Separate event" "TestBank" "REF-OTHER-001" 40.00M "Debit" (Some "F-5350") None
+                let! otherRow2 = StageTestData.makeRawRow context "grp-other" today "Separate event" "TestBank" "REF-OTHER-001" 40.00M "Credit" (Some "F-1270") None
                 let! fullResult =
                     [ multiRow1; multiRow2; multiRow3; multiRow4; otherRow1; otherRow2 ]
                     |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
@@ -228,13 +233,13 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! firstFile = "/tmp/test-grouping-file-one.jsonl" |> SourceFile.create
-                let! firstRow1 = StageTestData.makeRawRow "grp-reused" today "First file event" "TestBank" "REF-REUSED-001" 25.00M "Debit" (Some "F-5350") None
-                let! firstRow2 = StageTestData.makeRawRow "grp-reused" today "First file event" "TestBank" "REF-REUSED-001" 25.00M "Credit" (Some "F-1270") None
+                let! firstRow1 = StageTestData.makeRawRow context "grp-reused" today "First file event" "TestBank" "REF-REUSED-001" 25.00M "Debit" (Some "F-5350") None
+                let! firstRow2 = StageTestData.makeRawRow context "grp-reused" today "First file event" "TestBank" "REF-REUSED-001" 25.00M "Credit" (Some "F-1270") None
                 let! firstResult = [ firstRow1; firstRow2 ] |> ingestRawToStageThenDeduplicateAndClassify context firstFile
                 let contextForSecondFile = context |> Context.updateInitiationInstant
                 let! secondFile = "/tmp/test-grouping-file-two.jsonl" |> SourceFile.create
-                let! secondRow1 = StageTestData.makeRawRow "grp-reused" today "Second file event" "TestBank" "REF-REUSED-002" 61.00M "Debit" (Some "F-5350") None
-                let! secondRow2 = StageTestData.makeRawRow "grp-reused" today "Second file event" "TestBank" "REF-REUSED-002" 61.00M "Credit" (Some "F-1270") None
+                let! secondRow1 = StageTestData.makeRawRow context "grp-reused" today "Second file event" "TestBank" "REF-REUSED-002" 61.00M "Debit" (Some "F-5350") None
+                let! secondRow2 = StageTestData.makeRawRow context "grp-reused" today "Second file event" "TestBank" "REF-REUSED-002" 61.00M "Credit" (Some "F-1270") None
                 let! secondResult =
                     [ secondRow1; secondRow2 ] |> ingestRawToStageThenDeduplicateAndClassify contextForSecondFile secondFile
                 let firstId = firstResult.stagedEntries |> List.exactlyOne |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
@@ -253,8 +258,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! sourceFile = "/tmp/test-inconsistent.jsonl" |> SourceFile.create
-                let! row1 = StageTestData.makeRawRow "grp-inc" today "Inconsistent" "TestBank" "REF-INC-001" 100.00M "Debit" (Some "F-5350") None
-                let! row2 = StageTestData.makeRawRow "grp-inc" (today.PlusDays(1)) "Inconsistent" "TestBank" "REF-INC-001" 100.00M "Credit" (Some "F-1270") None
+                let! row1 = StageTestData.makeRawRow context "grp-inc" today "Inconsistent" "TestBank" "REF-INC-001" 100.00M "Debit" (Some "F-5350") None
+                let! row2 = StageTestData.makeRawRow context "grp-inc" (today.PlusDays(1)) "Inconsistent" "TestBank" "REF-INC-001" 100.00M "Credit" (Some "F-1270") None
                 return!
                     match [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
                     | Error (IngestionBaseStageGroupIdDistinctDataViolation _) -> Ok ()
@@ -273,7 +278,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! sourceFile = "/tmp/test-single.jsonl" |> SourceFile.create
-                let! row = StageTestData.makeRawRow "grp-one" today "Single record" "TestBank" "REF-ONE-001" 100.00M "Debit" (Some "F-5350") None
+                let! row = StageTestData.makeRawRow context "grp-one" today "Single record" "TestBank" "REF-ONE-001" 100.00M "Debit" (Some "F-5350") None
                 return!
                     match [ row ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
                     | Error (IngestionStageEntryInsufficientLines _) -> Ok ()
@@ -292,8 +297,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! sourceFile = "/tmp/test-imbalanced.jsonl" |> SourceFile.create
-                let! row1 = StageTestData.makeRawRow "grp-imb" today "Imbalanced" "TestBank" "REF-IMB-001" 100.00M "Debit" (Some "F-5350") None
-                let! row2 = StageTestData.makeRawRow "grp-imb" today "Imbalanced" "TestBank" "REF-IMB-001" 99.99M "Credit" (Some "F-1270") None
+                let! row1 = StageTestData.makeRawRow context "grp-imb" today "Imbalanced" "TestBank" "REF-IMB-001" 100.00M "Debit" (Some "F-5350") None
+                let! row2 = StageTestData.makeRawRow context "grp-imb" today "Imbalanced" "TestBank" "REF-IMB-001" 99.99M "Credit" (Some "F-1270") None
                 return!
                     match [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
                     | Error (IngestionStageEntryDebitCreditMismatch _) -> Ok ()
@@ -312,9 +317,9 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! sourceFile = "/tmp/test-all-or-nothing.jsonl" |> SourceFile.create
-                let! validRow1 = StageTestData.makeRawRow "grp-ok" today "Valid group" "TestBank" "REF-OK-001" 100.00M "Debit" (Some "F-5350") None
-                let! validRow2 = StageTestData.makeRawRow "grp-ok" today "Valid group" "TestBank" "REF-OK-001" 100.00M "Credit" (Some "F-1270") None
-                let! badRow = StageTestData.makeRawRow "grp-bad" today "Bad group" "TestBank" "REF-BAD-001" 50.00M "Debit" (Some "F-5350") None
+                let! validRow1 = StageTestData.makeRawRow context "grp-ok" today "Valid group" "TestBank" "REF-OK-001" 100.00M "Debit" (Some "F-5350") None
+                let! validRow2 = StageTestData.makeRawRow context "grp-ok" today "Valid group" "TestBank" "REF-OK-001" 100.00M "Credit" (Some "F-1270") None
+                let! badRow = StageTestData.makeRawRow context "grp-bad" today "Bad group" "TestBank" "REF-BAD-001" 50.00M "Debit" (Some "F-5350") None
                 return!
                     match [ validRow1; validRow2; badRow ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
                     | Error (IngestionStageEntryInsufficientLines _) -> Ok ()
@@ -333,8 +338,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! sourceFile = "/tmp/test-bad-source.jsonl" |> SourceFile.create
-                let! row1 = StageTestData.makeRawRow "grp-src" today "Bad source" "NonExistentBank" "REF-SRC-001" 100.00M "Debit" (Some "F-5350") None
-                let! row2 = StageTestData.makeRawRow "grp-src" today "Bad source" "NonExistentBank" "REF-SRC-001" 100.00M "Credit" (Some "F-1270") None
+                let! row1 = StageTestData.makeRawRow context "grp-src" today "Bad source" "NonExistentBank" "REF-SRC-001" 100.00M "Debit" (Some "F-5350") None
+                let! row2 = StageTestData.makeRawRow context "grp-src" today "Bad source" "NonExistentBank" "REF-SRC-001" 100.00M "Credit" (Some "F-1270") None
                 return!
                     match [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
                     | Error (IngestionSourceNameNotFound _) -> Ok ()
@@ -353,8 +358,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! sourceFile = "/tmp/test-bad-code.jsonl" |> SourceFile.create
-                let! row1 = StageTestData.makeRawRow "grp-code" today "Bad code" "TestBank" "REF-CODE-001" 100.00M "Debit" (Some "BOGUS-9999") None
-                let! row2 = StageTestData.makeRawRow "grp-code" today "Bad code" "TestBank" "REF-CODE-001" 100.00M "Credit" (Some "F-1270") None
+                let! row1 = StageTestData.makeRawRow context "grp-code" today "Bad code" "TestBank" "REF-CODE-001" 100.00M "Debit" (Some "BOGUS-9999") None
+                let! row2 = StageTestData.makeRawRow context "grp-code" today "Bad code" "TestBank" "REF-CODE-001" 100.00M "Credit" (Some "F-1270") None
                 return!
                     match [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
                     | Error (AccountCodeDoesntMatchAccountId _) -> Ok ()
@@ -373,8 +378,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! sourceFile = "/tmp/test-typed-error.jsonl" |> SourceFile.create
-                let! row1 = StageTestData.makeRawRow "grp-err" today "Typed error" "TestBank" "REF-ERR-001" 100.00M "Debit" (Some "F-5350") None
-                let! row2 = StageTestData.makeRawRow "grp-err" today "Typed error" "TestBank" "REF-ERR-001" 50.00M "Credit" (Some "F-1270") None
+                let! row1 = StageTestData.makeRawRow context "grp-err" today "Typed error" "TestBank" "REF-ERR-001" 100.00M "Debit" (Some "F-5350") None
+                let! row2 = StageTestData.makeRawRow context "grp-err" today "Typed error" "TestBank" "REF-ERR-001" 50.00M "Credit" (Some "F-1270") None
                 return!
                     match [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
                     | Error (IngestionStageEntryDebitCreditMismatch (d, c)) ->
@@ -429,8 +434,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! sourceFile = "/tmp/test-voided-ref.jsonl" |> SourceFile.create
-                let! row1 = StageTestData.makeRawRow "grp-vd" today "Voided ref test" "VoidedEntryBank" "VOIDED-REF-001" 75.00M "Debit" (Some "F-5650") None
-                let! row2 = StageTestData.makeRawRow "grp-vd" today "Voided ref test" "VoidedEntryBank" "VOIDED-REF-001" 75.00M "Credit" (Some "F-1270") None
+                let! row1 = StageTestData.makeRawRow context "grp-vd" today "Voided ref test" "VoidedEntryBank" "VOIDED-REF-001" 75.00M "Debit" (Some "F-5650") None
+                let! row2 = StageTestData.makeRawRow context "grp-vd" today "Voided ref test" "VoidedEntryBank" "VOIDED-REF-001" 75.00M "Credit" (Some "F-1270") None
                 let! fullResult = [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
                 let entry = fullResult.stagedEntries |> List.head
                 Assert.NotEqual(Duplicate, StageTestData.latestStatus entry)
@@ -452,7 +457,11 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 Assert.Equal(Duplicate, StageTestData.latestStatus dupEntry)
                 let creditLine =
                     dupEntry |> lines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
-                Assert.Equal(Some "F-1270", creditLine |> StageEntryLine.accountCode |> Option.map AccountCode.value)
+                let! codeStr =
+                    creditLine
+                    |> StageEntryLine.accountId
+                    |> ``convert AccountId Option to AccountCodeString Option`` context
+                Assert.Equal(Some "F-1270", codeStr)
             })
         |> railroadWrapper
 
@@ -473,8 +482,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! sourceFile1 = "/tmp/test-ignored-setup.jsonl" |> SourceFile.create
-                let! row1 = StageTestData.makeRawRow "grp-ign" today "Ignored entry" "TestBank" "REF-IGNORED-001" 30.00M "Debit" (Some "F-5350") None
-                let! row2 = StageTestData.makeRawRow "grp-ign" today "Ignored entry" "TestBank" "REF-IGNORED-001" 30.00M "Credit" (Some "F-1270") None
+                let! row1 = StageTestData.makeRawRow context "grp-ign" today "Ignored entry" "TestBank" "REF-IGNORED-001" 30.00M "Debit" (Some "F-5350") None
+                let! row2 = StageTestData.makeRawRow context "grp-ign" today "Ignored entry" "TestBank" "REF-IGNORED-001" 30.00M "Credit" (Some "F-1270") None
                 let! firstResult = [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile1
                 let firstEntry = firstResult.stagedEntries |> List.head
                 let headerId = firstEntry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
@@ -482,8 +491,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! _ = headerId |> Model.DataIngestion.StageEntryHeader.updateStatus contextForIgnore Ignored
                 let contextForReimport = contextForIgnore |> Context.updateInitiationInstant
                 let! sourceFile2 = "/tmp/test-ignored-reimport.jsonl" |> SourceFile.create
-                let! row3 = StageTestData.makeRawRow "grp-ign2" today "Reimport of ignored" "TestBank" "REF-IGNORED-001" 30.00M "Debit" (Some "F-5350") None
-                let! row4 = StageTestData.makeRawRow "grp-ign2" today "Reimport of ignored" "TestBank" "REF-IGNORED-001" 30.00M "Credit" (Some "F-1270") None
+                let! row3 = StageTestData.makeRawRow context "grp-ign2" today "Reimport of ignored" "TestBank" "REF-IGNORED-001" 30.00M "Debit" (Some "F-5350") None
+                let! row4 = StageTestData.makeRawRow context "grp-ign2" today "Reimport of ignored" "TestBank" "REF-IGNORED-001" 30.00M "Credit" (Some "F-1270") None
                 let! secondResult = [ row3; row4 ] |> ingestRawToStageThenDeduplicateAndClassify contextForReimport sourceFile2
                 Assert.NotEmpty(secondResult.newDuplicates)
             })

@@ -153,11 +153,12 @@ The classification step runs the vendor classification rules engine against stag
 - **REQ-STG-5.3** Classification must not modify a staged line whose account_code is already non-null.
   - *Why:* Parser-assigned accounts are authoritative. The classifier fills gaps; it does not override. (2026-08-08)
 - **REQ-STG-5.4** When exactly one rule matches and the line's account_code is null, the classifier assigns the rule's account code to the line and records the classification_rule_id on the staged line.
-- **REQ-STG-5.5** When multiple rules match and one has strictly higher priority, the classifier assigns the highest-priority rule's account code.
+- **REQ-STG-5.5** When multiple rules match and one has strictly higher priority, the classifier assigns the highest-priority rule's account code to the line and records the classification_rule_id on the staged line.
 - **REQ-STG-5.6** When multiple rules match with equal priority for a line with null account_code, the staged entry's status is set to `'Conflict'`.
 - **REQ-STG-5.7** When no rule matches a line with null account_code, the staged entry's status is set to `'NoMatch'`.
   - *Why:* `'NoMatch'` means the classifier ran and found nothing — it is distinct from "not yet classified." The name was chosen over "unclassified" to avoid ambiguity. (2026-08-09)
 - **REQ-STG-5.8** When classification completes and every line in the staged entry has a non-null account_code, the entry's status is set to `'Classified'`.
+- **REQ-STG-5.9** When classification of a single entry produces both Conflict and NoMatch outcomes on different lines, Conflict takes precedence.
 
 
 ## 6. Manual review behaviors
@@ -195,7 +196,7 @@ The classification step runs the vendor classification rules engine against stag
 - **REQ-STG-9.1** The system must provide a means to batch-post all postable staged entries to the ledger.
 - **REQ-STG-9.2** For each postable staged entry, the system must construct a journal entry through the domain model (JournalEntryCrud §2), applying all existing JE validations.
 - **REQ-STG-9.3** The journal entry header fields are mapped from the staged entry: description from the staged entry's description, entry_date from the staged entry's entry_date. Source is a fixed provenance label (e.g. "Data ingestion import") describing *how* the entry was created, not which FI it came from — the FI identity lives on the external reference (REQ-STG-9.5).
-- **REQ-STG-9.4** For each staged line, the system must resolve the line's account_code to an account ID via the chart of accounts and construct a journal entry line with the line's amount, line_type, resolved account ID, and memo. A null account_code at posting time is a loud failure — it indicates a broken upstream invariant (classification or review allowed an uncoded line through). Invalid non-null codes cannot occur: the chart of accounts is FK-constrained.
+- **REQ-STG-9.4** For each staged line, the system must resolve the line's account_code to an account ID via the chart of accounts and construct a journal entry line with the line's amount, line_type, resolved account ID, and memo. A null account_code at posting time is a loud failure — it indicates a broken upstream invariant (classification or review allowed an uncoded line through). Invalid non-null codes are prevented by ingestion-time validation (REQ-STG-3.7) for parser-assigned codes and by the classification rule's FK constraint for classifier-assigned codes. An account code that becomes invalid between ingestion and posting would fail resolution at this step.
 - **REQ-STG-9.5** The system must construct one external reference on each journal entry: financial_institution from the staged entry's source name, reference from fi_reference.
 - **REQ-STG-9.6** Stricken.
 - **REQ-STG-9.7** On successful posting, each staged entry's status is set to `'Posted'` and an audit record is created.

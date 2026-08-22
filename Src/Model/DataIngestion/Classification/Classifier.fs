@@ -11,7 +11,7 @@ let classifyCandidate
         |> List.filter(isActive)
         |> List.filter(fun r -> r |> doesMatch candidate)
         |> List.map(fun x -> {
-            code = x |> codeAtMatch
+            accountId = x |> accountIdAtMatch
             ruleId = x |> classificationRuleId
             priority = x |> priority
         })

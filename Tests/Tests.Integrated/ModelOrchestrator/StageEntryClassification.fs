@@ -1,5 +1,6 @@
 namespace Tests.Integrated.ModelOrchestrator
 
+open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model
@@ -48,7 +49,11 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "DD DoorDash Order 8431927"
                 let creditLine =
                     entry |> lines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
-                Assert.Equal(Some "F-1270", creditLine |> StageEntryLine.accountCode |> Option.map AccountCode.value)
+                let! codeStr =
+                    creditLine
+                    |> StageEntryLine.accountId
+                    |> ``convert AccountId Option to AccountCodeString Option`` context
+                Assert.Equal(Some "F-1270", codeStr)
                 Assert.True(creditLine |> StageEntryLine.classificationRuleId |> Option.isNone)
             })
         |> railroadWrapper
@@ -67,7 +72,11 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "DD DoorDash Order 8431927"
                 let debitLine =
                     entry |> lines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
-                Assert.Equal(Some "F-5350", debitLine |> StageEntryLine.accountCode |> Option.map AccountCode.value)
+                let! codeStr =
+                    debitLine
+                    |> StageEntryLine.accountId
+                    |> ``convert AccountId Option to AccountCodeString Option`` context
+                Assert.Equal(Some "F-5350", codeStr)
                 Assert.True(debitLine |> StageEntryLine.classificationRuleId |> Option.isSome)
             })
         |> railroadWrapper
@@ -91,7 +100,10 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                 Assert.NotEmpty(debitResults)
                 match (debitResults |> List.head).outcome with
                 | ManyMatchesClearWinner (winner, _) ->
-                    Assert.Equal("F-5350", winner.code |> AccountCode.value)
+                    let! codeStr =
+                        winner.accountId
+                        |> ``convert AccountId to AccountCodeString`` context
+                    Assert.Equal("F-5350", codeStr)
                 | other -> Assert.Fail $"Expected ManyMatchesClearWinner but got {other}"
             })
         |> railroadWrapper
@@ -157,6 +169,8 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-STG-5.2 an entry with two null-code lines matching different rules has each line assigned its own rule's code`` () =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            let food5350Id = fixture.Data.food5350Id
+            let entertainment5650Id = fixture.Data.entertainment5650Id
             result {
                 let! fullResult = StageTestData.runPipeline context
                 // grp-011 is the only staged group whose lines both arrive null. The TestSplitBank
@@ -166,13 +180,12 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                 let entry =
                     fullResult.stagedEntries
                     |> StageTestData.findByDescription "SPLIT TRANSFER UNKNOWN BOTH SIDES"
-                let codeOfLineType lt =
+                let idOfLineType lt =
                     entry
                     |> lines
                     |> List.find (fun l -> l |> StageEntryLine.lineType = lt)
-                    |> StageEntryLine.accountCode
-                    |> Option.map AccountCode.value
-                Assert.Equal(Some "F-5350", codeOfLineType Debit)
-                Assert.Equal(Some "F-5650", codeOfLineType Credit)
+                    |> StageEntryLine.accountId
+                Assert.Equal(Some food5350Id, idOfLineType Debit)
+                Assert.Equal(Some entertainment5650Id, idOfLineType Credit)
             })
         |> railroadWrapper

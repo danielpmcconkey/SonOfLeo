@@ -294,7 +294,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                     |> lines
                     |> List.find (fun line ->
                         line |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value = debitLine.stageEntryLineId)
-                    |> StageEntryLine.accountCode
+                    |> StageEntryLine.accountId
                     |> Option.map AccountCode.value
                 Assert.Equal(Some "F-5350", refetchedCode)
                 return ()

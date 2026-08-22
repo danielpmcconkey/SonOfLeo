@@ -1,14 +1,13 @@
 module InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 
+open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.BoundaryConverters.OrchestrationConverters
 open InterfaceBridge.InterfaceContracts.IngestionContracts
 open Model
 open Model.DataIngestion
 open Model.DataIngestion.BaseStageRaw
 open Model.DataIngestion.Classification
-open Model.DataIngestion.Classification.ClassificationRule
 open Model.DataIngestion.StageEntryHeader
-open Model.DataIngestion.StageEntryLine
 open Model.DataIngestion.StageEntryStatusTransition
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.Journaling.JournalEntryComponent
@@ -62,36 +61,43 @@ let ``convert [StageEntryHeader] to [StageEntryHeaderReturn]``
         status = status }
 
 let ``convert [StageEntryLine] to [StageEntryLineReturn]``
-    (model: StageEntryLine)
-    : StageEntryLineReturn =
+    (context: Context.Context)
+    (model: StageEntryLine.StageEntryLine)
+    : Result<StageEntryLineReturn, AppError> = result {
     let stageEntryLineId = model |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value
     let stageEntryHeaderId = model |> StageEntryLine.stageEntryHeaderId |> StageEntryHeaderId.value
     let amount = model |> StageEntryLine.amount |> Money.amount
     let lineType = model |> StageEntryLine.lineType |> JournalEntryLineType.toString
-    let accountCode = model |> StageEntryLine.accountCode |> Option.map AccountCode.value
+    let! accountCode =
+        model
+        |> StageEntryLine.accountId
+        |> ``convert AccountId Option to AccountCodeString Option`` context
     let memo = model |> StageEntryLine.memo |> Option.map JournalEntryLineMemo.value
     let classificationRuleId = model |> StageEntryLine.classificationRuleId |> Option.map ClassificationRuleId.value
-    {   stageEntryLineId = stageEntryLineId
-        stageEntryHeaderId = stageEntryHeaderId
-        amount = amount
-        lineType = lineType
-        accountCode = accountCode
-        memo = memo 
-        classificationRuleId = classificationRuleId }
+    return {    stageEntryLineId = stageEntryLineId
+                stageEntryHeaderId = stageEntryHeaderId
+                amount = amount
+                lineType = lineType
+                accountCode = accountCode
+                memo = memo 
+                classificationRuleId = classificationRuleId } }
 
 let ``convert [StageEntryLine list] to [StageEntryLineReturn list]``
-    (input: StageEntryLine list)
-    : StageEntryLineReturn list =
+    (context: Context.Context)
+    (input: StageEntryLine.StageEntryLine list)
+    : Result<StageEntryLineReturn list, AppError> =
     input
-    |> List.map(fun x -> x |> ``convert [StageEntryLine] to [StageEntryLineReturn]``)
+    |> List.map(fun x -> x |> ``convert [StageEntryLine] to [StageEntryLineReturn]`` context)
+    |> convertListOfResultsToResultsList
 
 let ``convert [StageEntry] to [StageEntryReturn]``
+    (context: Context.Context)
     (stageEntry: StageEntry)
-    : StageEntryReturn =
-    let lines =
+    : Result<StageEntryReturn, AppError> = result {
+    let! lines =
         stageEntry
         |> lines
-        |> ``convert [StageEntryLine list] to [StageEntryLineReturn list]``
+        |> ``convert [StageEntryLine list] to [StageEntryLineReturn list]`` context
     let stageEntryHeader =
         stageEntry
         |> stageEntryHeader
@@ -100,15 +106,17 @@ let ``convert [StageEntry] to [StageEntryReturn]``
         stageEntry
         |> statusTransitions
         |> ``convert [StageEntryStatusTransition list] to [StageEntryStatusTransitionReturn list]``
-    {   stageEntryHeader = stageEntryHeader
-        lines = lines
-        statusTransitions = statusTransitions }
+    return {    stageEntryHeader = stageEntryHeader
+                lines = lines
+                statusTransitions = statusTransitions } }
 
 let ``convert [StageEntry list] to [StageEntryReturn list]``
+    (context: Context.Context)
     (stageEntries: StageEntry list)
-    : StageEntryReturn list =
+    : Result<StageEntryReturn list, AppError> =
     stageEntries
-    |> List.map(fun x -> x |> ``convert [StageEntry] to [StageEntryReturn]``)
+    |> List.map(fun x -> x |> ``convert [StageEntry] to [StageEntryReturn]`` context)
+    |> convertListOfResultsToResultsList
 
 let ``convert [FieldMatch] to [FieldMatchContract]``
     (fieldMatch: FieldMatch)
@@ -211,30 +219,39 @@ let ``convert [ClassificationRuleGroupContract list] to [ClassificationRuleGroup
     |> convertListOfResultsToResultsList
 
 let ``convert [ClassificationRule] to [ClassificationRuleReturn]``
-    (rule: ClassificationRule)
-    : ClassificationRuleReturn =
+    (context: Context.Context)
+    (rule: ClassificationRule.ClassificationRule)
+    : Result<ClassificationRuleReturn, AppError> = result {
     let classificationRuleId = rule |> ClassificationRule.classificationRuleId |> ClassificationRuleId.value
     let classificationRuleName = rule |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value
-    let codeAtMatch = rule |> ClassificationRule.codeAtMatch |> AccountCode.value
+    let! codeAtMatch =
+        rule |> ClassificationRule.accountIdAtMatch |> ``convert AccountId to AccountNameString`` context
+    let! accountNameAtMach =
+        rule
+        |> ClassificationRule.accountIdAtMatch
+        |> ``convert AccountId to AccountNameString`` context
     let priority = rule |> ClassificationRule.priority
     let ruleGroups = rule |> ClassificationRule.ruleGroups |> ``convert [ClassificationRuleGroup list] to [ClassificationRuleGroupContract list]``
     let isActive = rule |> ClassificationRule.isActive
     let createdAt = rule |> ClassificationRule.createdAt
     let modifiedAt = rule |> ClassificationRule.modifiedAt
-    {   classificationRuleId = classificationRuleId
-        classificationRuleName = classificationRuleName
-        codeAtMatch = codeAtMatch
-        priority = priority
-        ruleGroups = ruleGroups
-        isActive = isActive
-        createdAt = createdAt
-        modifiedAt = modifiedAt
-    }
+    return {    classificationRuleId = classificationRuleId
+                classificationRuleName = classificationRuleName
+                codeAtMatch = codeAtMatch
+                accountNameAtMatch = accountNameAtMach
+                priority = priority
+                ruleGroups = ruleGroups
+                isActive = isActive
+                createdAt = createdAt
+                modifiedAt = modifiedAt } }
 
 let ``convert [ClassificationRule list] to [ClassificationRuleReturn list]``
-    (rules: ClassificationRule list)
-    : ClassificationRuleReturn list =
-    rules |> List.map ``convert [ClassificationRule] to [ClassificationRuleReturn]``
+    (context: Context.Context)
+    (rules: ClassificationRule.ClassificationRule list)
+    : Result<ClassificationRuleReturn list, AppError> =
+    rules
+    |> List.map (``convert [ClassificationRule] to [ClassificationRuleReturn]`` context)
+    |> convertListOfResultsToResultsList
 
 let ``convert [IngestionSource] to [IngestionSourceReturn]``
     (source: IngestionSource.IngestionSource)
@@ -257,64 +274,85 @@ let ``convert [MatchCandidate] to [MatchCandidateReturn]``
         memo = candidate.memo |> Option.map JournalEntryLineMemo.value }
 
 let ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]``
+    (context: Context.Context)
     (prioritizedMatch: PrioritizedMatch)
-    : PrioritizedMatchReturn = {
-    code = prioritizedMatch.code |> AccountCode.value
-    ruleId = prioritizedMatch.ruleId |> ClassificationRuleId.value
-    priority = prioritizedMatch.priority }
+    : Result<PrioritizedMatchReturn, AppError> = result {
+    let! code = prioritizedMatch.accountId |> ``convert AccountId to AccountCodeString`` context
+    let! accountName = prioritizedMatch.accountId |> ``convert AccountId to AccountNameString`` context
+    return {    code = code
+                accountName = accountName
+                ruleId = prioritizedMatch.ruleId |> ClassificationRuleId.value
+                priority = prioritizedMatch.priority } }
 
 let ``convert [ClassifierOutcome] to [ClassifierOutcomeReturn]``
+    (context: Context.Context)
     (outcome: ClassifierOutcome)
-    : ClassifierOutcomeReturn =
+    : Result<ClassifierOutcomeReturn, AppError> = 
     match outcome with
-    | ClassifierOutcome.NoMatch -> ClassifierOutcomeReturn.NoMatch
-    | ClassifierOutcome.OneMatch pm ->
-        ClassifierOutcomeReturn.OneMatch (pm |> ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]``)
-    | ClassifierOutcome.ManyMatchesClearWinner (pm, pml) ->
-        let returnMatch = pm |> ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]``
-        let returnList = pml |> List.map ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]``
-        ClassifierOutcomeReturn.ManyMatchesClearWinner (returnMatch, returnList)
-    | ClassifierOutcome.ManyMatchesTied pml ->
-        let returnList = pml |> List.map ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]``
-        ClassifierOutcomeReturn.ManyMatchesTied returnList
+    | ClassifierOutcome.NoMatch -> Ok ClassifierOutcomeReturn.NoMatch
+    | ClassifierOutcome.OneMatch pm -> result {
+        let! matchReturn = pm |> ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]`` context
+        return ClassifierOutcomeReturn.OneMatch matchReturn }
+    | ClassifierOutcome.ManyMatchesClearWinner (pm, pml) -> result {
+        let! returnMatch = pm |> ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]`` context
+        let! returnList =
+            pml
+            |> List.map (``convert [PrioritizedMatch] to [PrioritizedMatchReturn]`` context)
+            |> convertListOfResultsToResultsList
+        return ClassifierOutcomeReturn.ManyMatchesClearWinner (returnMatch, returnList) }
+    | ClassifierOutcome.ManyMatchesTied pml -> result {
+        let! returnList =
+            pml
+            |> List.map (``convert [PrioritizedMatch] to [PrioritizedMatchReturn]`` context)
+            |> convertListOfResultsToResultsList
+        return ClassifierOutcomeReturn.ManyMatchesTied returnList }
 
 let ``convert [ClassificationResult] to [ClassificationResultReturn]``
+    (context: Context.Context)
     (classificationResults: ClassificationResult)
-    : ClassificationResultReturn =
+    : Result<ClassificationResultReturn, AppError> = result {
     let candidate = classificationResults.candidate |>  ``convert [MatchCandidate] to [MatchCandidateReturn]``
-    let outcome = classificationResults.outcome |> ``convert [ClassifierOutcome] to [ClassifierOutcomeReturn]``
-    { candidate = candidate
-      outcome = outcome }
+    let! outcome = classificationResults.outcome |> ``convert [ClassifierOutcome] to [ClassifierOutcomeReturn]`` context
+    return {    candidate = candidate
+                outcome = outcome } }
 
 let ``convert [ClassificationResult list] to [ClassificationResultReturn list]``
+    (context: Context.Context)
     (classificationResults: ClassificationResult list)
-    : ClassificationResultReturn list =
+    : Result<ClassificationResultReturn list, AppError> =
     classificationResults
-    |> List.map ``convert [ClassificationResult] to [ClassificationResultReturn]``
+    |> List.map (``convert [ClassificationResult] to [ClassificationResultReturn]`` context)
+    |> convertListOfResultsToResultsList
 
 let ``convert [IngestionFullResult] to [IngestionFullResultReturn]``
+    (context: Context.Context)
     (fullResult: IngestionFullResult)
-    : IngestionFullResultReturn =
-    let stageEntryReturn =
+    : Result<IngestionFullResultReturn, AppError> = result {
+    let! stageEntryReturn =
         fullResult.stagedEntries
-        |> List.map ``convert [StageEntry] to [StageEntryReturn]``
+        |> List.map (``convert [StageEntry] to [StageEntryReturn]`` context)
+        |> convertListOfResultsToResultsList
     let newDuplicatesReturn =
         fullResult.newDuplicates
         |> List.map ``convert [StageEntryHeader] to [StageEntryHeaderReturn]``
-    let classificationResultsReturn =
-        fullResult.classificationResults |> ``convert [ClassificationResult list] to [ClassificationResultReturn list]``
-    { stagedEntries = stageEntryReturn
-      newDuplicates = newDuplicatesReturn
-      classificationResults = classificationResultsReturn }
+    let! classificationResultsReturn =
+        fullResult.classificationResults
+        |> ``convert [ClassificationResult list] to [ClassificationResultReturn list]`` context
+    return {  stagedEntries = stageEntryReturn
+              newDuplicates = newDuplicatesReturn
+              classificationResults = classificationResultsReturn } }
 
 let ``convert [UpdateStageEntryLineInput] to [StageEntryLineFieldUpdates]``
+    (context: Context.Context)
     (line: UpdateStageEntryLineInput)
-    : Result<StageEntryLineFieldUpdates, AppError> =
+    : Result<StageEntryLine.StageEntryLineFieldUpdates, AppError> =
     result {
         let lineIdToUpdate = line.stageEntryLineId |> StageEntryLineId.fromGuid
         let! amountUpdate = line.amount |> convertFieldUpdateToNewTypeFallible Money.fromDecimal
         let! entryTypeUpdate = line.lineType |> convertFieldUpdateToNewTypeFallible JournalEntryLineType.fromString
-        let! accountCodeUpdate = line.accountCode |> convertFieldUpdateOptionToNewTypeOptionFallible AccountCode.create
+        let! accountIdUpdate =
+            line.accountCode
+            |> convertFieldUpdateToNewTypeFallible (``convert AccountCodeString Option to AccountId Option`` context) 
         let! memoUpdate = line.memo |> convertFieldUpdateOptionToNewTypeOptionFallible JournalEntryLineMemo.create
         let classificationRuleIdUpdate =
             line.classificationRuleId
@@ -323,18 +361,20 @@ let ``convert [UpdateStageEntryLineInput] to [StageEntryLineFieldUpdates]``
           lineIdToUpdate = lineIdToUpdate
           amountUpdate = amountUpdate
           entryTypeUpdate = entryTypeUpdate
-          accountCodeUpdate = accountCodeUpdate
+          accountIdUpdate = accountIdUpdate
           memoUpdate = memoUpdate
           classificationRuleIdUpdate = classificationRuleIdUpdate } }
 
 let ``convert [UpdateStageEntryLineInput list] to [StageEntryLineFieldUpdates list]``
+    (context: Context.Context)
     (lines: UpdateStageEntryLineInput list)
-    : Result<StageEntryLineFieldUpdates list, AppError> =
+    : Result<StageEntryLine.StageEntryLineFieldUpdates list, AppError> =
     lines
-    |> List.map ``convert [UpdateStageEntryLineInput] to [StageEntryLineFieldUpdates]``
+    |> List.map (``convert [UpdateStageEntryLineInput] to [StageEntryLineFieldUpdates]`` context)
     |> convertListOfResultsToResultsList
 
 let ``convert [BaseStageRawRowInput] to [BaseStageRawRow]``
+    (context: Context.Context)
     (rawInputRow: BaseStageRawRowInput)
     : Result<BaseStageRawRow, AppError> =
     result {
@@ -345,7 +385,7 @@ let ``convert [BaseStageRawRowInput] to [BaseStageRawRow]``
         let! fiReference = rawInputRow.fiReference |> JournalExternalReferenceText.create
         let! amount = rawInputRow.amount |> Money.fromDecimal
         let! entryType = rawInputRow.entryType |> JournalEntryLineType.fromString
-        let! accountCode = rawInputRow.accountCode |> convertOptionToDesiredTypeWithFallibleConverter AccountCode.create
+        let! accountId = rawInputRow.accountCode |> ``convert AccountCodeString Option to AccountId Option`` context
         let! memo = rawInputRow.memo |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
         return {
             baseStageEntryGroupId = baseStageEntryGroupId
@@ -355,14 +395,15 @@ let ``convert [BaseStageRawRowInput] to [BaseStageRawRow]``
             fiReference = fiReference
             amount = amount
             entryType = entryType
-            accountCode = accountCode
+            accountId = accountId
             memo = memo } }
     
 let ``convert [BaseStageRawRowInput list] to [BaseStageRawRow list]``
+    (context: Context.Context)
     (rawInputRows: BaseStageRawRowInput list)
     : Result<BaseStageRawRow list, AppError> =
     rawInputRows
-    |> List.map ``convert [BaseStageRawRowInput] to [BaseStageRawRow]``
+    |> List.map (``convert [BaseStageRawRowInput] to [BaseStageRawRow]`` context)
     |> convertListOfResultsToResultsList
 
 let ``convert [StageEntryFetchFilterInput] to [StageEntryFetchFilter]``

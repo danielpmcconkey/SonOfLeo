@@ -15,15 +15,15 @@ open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
 open Utilities.FieldUpdate
 
-let private confirmAccountCode
+let private confirmAccount
     (context: Context.Context)
-    (accountCode: AccountCode)
+    (accountId: AccountId)
     : Result<unit, AppError> =
-    let codeStr = accountCode |> AccountCode.value
-    let confirmed = codeStr |> LookupCache.accountCodeToId.fetch context
+    let uuid = accountId |> AccountId.value
+    let confirmed = uuid |> LookupCache.accountIdToCode.fetch context // we don't need the code. we just want to know that the accountId exists
     match confirmed with
     | Ok _ -> Ok ()
-    | Error (DalResultantRowsDidntMatchExpectation _) -> Error (AccountCodeDoesntMatchAccountId codeStr)
+    | Error (DalResultantRowsDidntMatchExpectation _) -> Error (AccountIdDoesntMatch uuid)
     | Error e -> Error e
 
 let private confirmFieldMatchChain
@@ -55,7 +55,7 @@ let private confirmRuleGroups
 let createNewClassificationRule
     (context: Context.Context)
     (classificationRuleName: ClassificationRuleName)
-    (codeAtMatch: AccountCode)
+    (accountAtMatch: AccountId)
     (priority: int)
     (ruleGroups: ClassificationRuleGroup list)
     : Result<ClassificationRule.ClassificationRule, AppError> = 
@@ -65,7 +65,7 @@ let createNewClassificationRule
         ClassificationRule.create
             classificationRuleId
             classificationRuleName
-            codeAtMatch
+            accountAtMatch
             priority
             ruleGroups
             true // no new rules that are already inactive
@@ -73,7 +73,7 @@ let createNewClassificationRule
             instant
     result {
         do! ruleGroups |> confirmRuleGroups
-        do! codeAtMatch |> confirmAccountCode context
+        do! accountAtMatch |> confirmAccount context
         do! newRule |> ClassificationRule.insertNewToDb context
         return newRule
     }
@@ -151,11 +151,11 @@ let updateLineWithMatch
     (prioritizedMatch: PrioritizedMatch)
     (candidate: MatchCandidate)
     : Result<unit, AppError> =
-    let code = Some prioritizedMatch.code // we can trust this because the DB has a foreign key constraint between ingestion.classification_rule and ledger.account 
+    let code = Some prioritizedMatch.accountId // we can trust this because the DB has a foreign key constraint between ingestion.classification_rule and ledger.account 
     let codeUpdate = FieldUpdate.SetTo code
     let ruleId = Some prioritizedMatch.ruleId
     let ruleUpdate = FieldUpdate.SetTo ruleId
-    match updateCodeAndRuleId context codeUpdate ruleUpdate candidate.lineIdOfCandidate with
+    match updateAccountAndRuleId context codeUpdate ruleUpdate candidate.lineIdOfCandidate with
     | Ok _ -> Ok ()
     | Error e -> Error e
 
@@ -203,7 +203,7 @@ let classifyMatchCandidatesAndUpdateLines
 let updateClassificationRule
     (context: Context.Context)
     (classificationRuleNameUpdate: FieldUpdate<ClassificationRuleName>)
-    (codeAtMatchUpdate: FieldUpdate<AccountCode>)
+    (accountAtMatchUpdate: FieldUpdate<AccountId>)
     (priorityUpdate: FieldUpdate<int>)
     (ruleGroupsUpdate: FieldUpdate<ClassificationRuleGroup list>)
     (isActiveUpdate: FieldUpdate<bool>)
@@ -214,9 +214,9 @@ let updateClassificationRule
         [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
           { name = "@unique_id"; value = UniqueId uuid } ]
     result {
-        do! match codeAtMatchUpdate with
+        do! match accountAtMatchUpdate with
             | NoChange -> Ok ()
-            | SetTo x -> x |> confirmAccountCode context
+            | SetTo x -> x |> confirmAccount context
         do! match ruleGroupsUpdate with
             | NoChange -> Ok ()
             | SetTo x -> x |> confirmRuleGroups
@@ -231,10 +231,10 @@ let updateClassificationRule
                       ("rule_name = @rule_name",
                        { name = "@rule_name"; value = CharString(n |> ClassificationRuleName.value) }))
                   
-                  codeAtMatchUpdate
+                  accountAtMatchUpdate
                   |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
                       ("code_at_match = @code_at_match",
-                       { name = "@code_at_match"; value = CharString(n |> AccountCode.value) }))
+                       { name = "@code_at_match"; value = UniqueId(n |> AccountId.value) }))
                   
                   priorityUpdate
                   |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->

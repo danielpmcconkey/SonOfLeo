@@ -1,6 +1,7 @@
 module InterfaceBridge.Routes.IngestionRoutes
 
 open DataAccessLayer.DbTransaction
+open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 open InterfaceBridge.BoundaryConverters.ReportConverters
 open InterfaceBridge.InterfaceContracts.IngestionContracts
@@ -38,14 +39,14 @@ let private ingestRawEntries payload _ =
                 |> convertListOfResultsToResultsList
             let! baseStageRawRows =
                 baseStageRawRowInputs
-                |> ``convert [BaseStageRawRowInput list] to [BaseStageRawRow list]``
+                |> ``convert [BaseStageRawRowInput list] to [BaseStageRawRow list]`` context
             let! fullResult =
                 baseStageRawRows
                 |> StageEntryOrchestration.ingestRawToStageThenDeduplicateAndClassify context sourceFile
             let timeStamp = Clock.now() |> Clock.instantToString "yyyy-MM-dd.HHmmss.fff"
             let! moveToPath = createFullPath processedDir $"{timeStamp}-{input.fileName}"
             do! moveFile toBeProcessedPath moveToPath
-            let fullReturn = fullResult |> ``convert [IngestionFullResult] to [IngestionFullResultReturn]``
+            let! fullReturn = fullResult |> ``convert [IngestionFullResult] to [IngestionFullResultReturn]`` context
             return! Json.toJson<IngestionFullResultReturn> fullReturn })
 
 let private newClassificationRule payload _ =
@@ -54,17 +55,17 @@ let private newClassificationRule payload _ =
         let! input = Json.fromJson<NewClassificationRuleInput> payload
         let! name = input.classificationRuleName |> ClassificationRuleName.create
         let codeAtMatchStr = input.codeAtMatch
-        let! codeAtMatch = codeAtMatchStr |> AccountCode.create
+        let! accountAtMatch = codeAtMatchStr |> ``convert AccountCodeString to Id`` context
         let priority = input.priority
         let! ruleGroups = input.ruleGroups |> ``convert [ClassificationRuleGroupContract list] to [ClassificationRuleGroup list]``
         let! model =
             createNewClassificationRule
                 context
                 name
-                codeAtMatch
+                accountAtMatch
                 priority
                 ruleGroups
-        let returnVal = model |> ``convert [ClassificationRule] to [ClassificationRuleReturn]``
+        let! returnVal = model |> ``convert [ClassificationRule] to [ClassificationRuleReturn]`` context
         return! Json.toJson<ClassificationRuleReturn> returnVal
     }
 
@@ -75,8 +76,8 @@ let private updateClassificationRule payload _ =
         let classificationRuleId = input.classificationRuleId |> ClassificationRuleId.fromGuid
         let! classificationRuleNameUpdate =
             input.classificationRuleNameUpdate |> convertFieldUpdateToNewTypeFallible ClassificationRuleName.create
-        let! codeAtMatchUpdate =
-            input.codeAtMatchUpdate |> convertFieldUpdateToNewTypeFallible AccountCode.create
+        let! accountAtMatchUpdate =
+            input.codeAtMatchUpdate |> convertFieldUpdateToNewTypeFallible (``convert AccountCodeString to Id`` context)
         let priorityUpdate = input.priorityUpdate
         let! ruleGroupsUpdate =
             input.ruleGroupsUpdate
@@ -85,9 +86,9 @@ let private updateClassificationRule payload _ =
         let isActiveUpdate = input.isActiveUpdate
         let! model =
             classificationRuleId
-            |> updateClassificationRule context classificationRuleNameUpdate codeAtMatchUpdate
+            |> updateClassificationRule context classificationRuleNameUpdate accountAtMatchUpdate
                    priorityUpdate ruleGroupsUpdate isActiveUpdate
-        let returnVal = model |> ``convert [ClassificationRule] to [ClassificationRuleReturn]``
+        let! returnVal = model |> ``convert [ClassificationRule] to [ClassificationRuleReturn]`` context
         return! Json.toJson<ClassificationRuleReturn> returnVal
     }
 
@@ -97,7 +98,7 @@ let private fetchClassificationRuleById payload _ =
         let! input = Json.fromJson<FetchClassificationRuleByIdInput> payload
         let classificationRuleId = input.classificationRuleId |> ClassificationRuleId.fromGuid
         let! model = classificationRuleId |> ClassificationRule.fetchById context
-        let returnVal = model |> ``convert [ClassificationRule] to [ClassificationRuleReturn]``
+        let! returnVal = model |> ``convert [ClassificationRule] to [ClassificationRuleReturn]`` context
         return! Json.toJson<ClassificationRuleReturn> returnVal
     }
 
@@ -107,7 +108,7 @@ let private fetchClassificationRuleByName payload _ =
         let! input = Json.fromJson<FetchClassificationRuleByNameInput> payload
         let! name = input.classificationRuleName |> ClassificationRuleName.create
         let! model = name |> ClassificationRule.fetchByName context
-        let returnVal = model |> ``convert [ClassificationRule] to [ClassificationRuleReturn]``
+        let! returnVal = model |> ``convert [ClassificationRule] to [ClassificationRuleReturn]`` context
         return! Json.toJson<ClassificationRuleReturn> returnVal
     }
 
@@ -116,7 +117,7 @@ let private fetchClassificationRuleFiltered payload _ =
     result {
         let! input = Json.fromJson<FetchClassificationRuleFilteredInput> payload
         let! model = fetchRulesFiltered context input.filter input.sort
-        let returnVal = model |> ``convert [ClassificationRule list] to [ClassificationRuleReturn list]``
+        let! returnVal = model |> ``convert [ClassificationRule list] to [ClassificationRuleReturn list]`` context
         return! Json.toJson<ClassificationRuleReturn list> returnVal
     }
 
@@ -154,9 +155,11 @@ let private updateStageEntry payload _ =
                 ingestionSourceUpdate = ingestionSourceUpdate
                 fiReferenceUpdate = fiReferenceUpdate
                 statusUpdate = statusUpdate }
-            let! lineUpdates = input.lines |> ``convert [UpdateStageEntryLineInput list] to [StageEntryLineFieldUpdates list]``
+            let! lineUpdates =
+                input.lines
+                |> ``convert [UpdateStageEntryLineInput list] to [StageEntryLineFieldUpdates list]`` context
             let! model = StageEntryOrchestration.updateStageEntry context headerUpdates lineUpdates
-            let returnVal = model |> ``convert [StageEntry] to [StageEntryReturn]``
+            let! returnVal = model |> ``convert [StageEntry] to [StageEntryReturn]`` context
             return! Json.toJson<StageEntryReturn> returnVal })
     
 let private postWithExternallyManagedTransaction
@@ -206,9 +209,10 @@ let private fetchStageEntryFiltered payload _ =
         let! filter = input.filter |> ``convert [StageEntryFetchFilterInput] to [StageEntryFetchFilter]`` context
         let sort = input.sort
         let! fetched = filter |> StageEntryOrchestration.fetchFiltered context sort
-        let converted =
+        let! converted =
             fetched
-            |> List.map ``convert [StageEntry] to [StageEntryReturn]``
+            |> List.map (``convert [StageEntry] to [StageEntryReturn]`` context)
+            |> convertListOfResultsToResultsList
         return! converted |> Json.toJson<StageEntryReturn list> }
 
 let ingestionDomainCommandRoutes: CommandRoute list =

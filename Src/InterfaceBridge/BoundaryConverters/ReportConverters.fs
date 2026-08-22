@@ -17,7 +17,7 @@ let ``convert [TrialBalanceRowFlattened] to [TrialBalanceReturnRow]``
     : TrialBalanceReturnRow = {
         accountCode = flattenedRow.accountCode |> AccountCode.value
         accountName = flattenedRow.accountName |> AccountName.value
-        level = flattenedRow.generation
+        generation = flattenedRow.generation
         totalCredits = flattenedRow.totalCredits |> Money.amount
         totalDebits = flattenedRow.totalDebits |> Money.amount
         netBalance = flattenedRow.netBalance |> Money.amount

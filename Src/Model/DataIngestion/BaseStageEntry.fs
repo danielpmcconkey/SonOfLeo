@@ -30,6 +30,6 @@ module BaseStageRaw =
         fiReference: JournalExternalReferenceText
         amount : Money
         entryType : JournalEntryLineType
-        accountCode: AccountCode option
+        accountId: AccountId option
         memo: JournalEntryLineMemo option
     }

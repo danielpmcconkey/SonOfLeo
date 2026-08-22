@@ -25,7 +25,7 @@ in each `.fsproj` — a new file goes at its correct position, never appended bl
 | `Model.LookupCache` | Account code ↔ ID and fiscal period key ↔ ID | Hand-writing a code-to-ID lookup query. It exists. |
 | `Model.Money` | All money arithmetic — `add`, `subtractVal1FromVal2`, `sumList`, `splitByN` | Arithmetic on raw `decimal` money values. |
 | `Logger.Audit` (`AuditEnvelope`) | One instant per user action, created at the route handler and threaded down | A fresh `Clock.now()` inside a mutating operation. |
-| `InterfaceBridge.Json` | `Json.fromJson<'T>` / `Json.toJson<'T>` | Constructing your own `JsonSerializerOptions`. |
+| `Utilities.Json` | `Json.fromJson<'T>` / `Json.toJson<'T>` | Constructing your own `JsonSerializerOptions`. |
 
 ## Two conventions the code follows silently
 

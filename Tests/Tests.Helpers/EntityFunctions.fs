@@ -1,12 +1,11 @@
 module Tests.Helpers.EntityFunctions
 
+open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.InterfaceContracts.AccountContracts
 open Model
 open Model.DataIngestion
 open Model.DataIngestion.Classification
 open Model.DataIngestion.Classification.ClassificationRule
-open Model.DataIngestion.IngestionSource
-open Model.DataIngestion.StageEntryLine
 open Model.Ledger.Accounts
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.FiscalPeriods
@@ -198,13 +197,13 @@ let createClassificationRuleForTest
     : Result<ClassificationRule, AppError> =
     result {
         let! classificationRuleName = classificationRuleNameStr |> ClassificationRuleName.create
-        let! codeAtMatch = codeAtMatchStr |> AccountCode.create
+        let! accountAtMatch = codeAtMatchStr |> ``convert AccountCodeString to Id`` context
         let! ruleGroups = ruleGroupPrimitives |> createClassificationRuleGroupListForTest
         return!
             ClassificationOrchestration.createNewClassificationRule
                 context
                 classificationRuleName
-                codeAtMatch
+                accountAtMatch
                 priority
                 ruleGroups
     }
@@ -212,7 +211,7 @@ let createClassificationRuleForTest
 let createIngestionSourceForTest
     (context: Context.Context)
     (nameStr: string)
-    : Result<IngestionSource, AppError> =
+    : Result<IngestionSource.IngestionSource, AppError> =
     result {
         let instant = context |> Context.getInitiationInstant
         let uuid = IngestionSourceId.create()
@@ -227,7 +226,7 @@ let createStageEntryHeaderForTest
     (sourceFileStr: string)
     (descriptionStr: string)
     (fiReferenceStr: string)
-    (ingestionSource: IngestionSource)
+    (ingestionSource: IngestionSource.IngestionSource)
     (entryDate: LocalDate)
     : Result<StageEntryHeader.StageEntryHeader, AppError> =
     result {
@@ -251,15 +250,15 @@ let createStageEntryLineForTest
     (accountCodeStr: string option)
     (memoStr: string option)
     (classificationRuleId: ClassificationRuleId option)
-    : Result<StageEntryLine, AppError> =
+    : Result<StageEntryLine.StageEntryLine, AppError> =
     result {
         let uuid = StageEntryLineId.create()
         let! amount = amountDec |> Money.fromDecimal
         let! entryType = entryTypeStr |> JournalEntryLineType.fromString
-        let! accountCode = accountCodeStr |> convertOptionToDesiredTypeWithFallibleConverter AccountCode.create
+        let! accountId = accountCodeStr |> ``convert AccountCodeString Option to AccountId Option`` context
         let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
         let line =
-            StageEntryLine.create uuid stageEntryHeaderId amount entryType accountCode memo classificationRuleId
+            StageEntryLine.create uuid stageEntryHeaderId amount entryType accountId memo classificationRuleId
         do! line |> StageEntryLine.insertNewToDb context
         return line
         }
@@ -268,7 +267,7 @@ let createStageEntryLineListForTest
     (context: Context.Context)
     (stageEntryHeaderId: StageEntryHeaderId)
     (lines: (decimal * string * string option * string option * ClassificationRuleId option) list)
-    : Result<StageEntryLine list, AppError> =
+    : Result<StageEntryLine.StageEntryLine list, AppError> =
     lines
     |> List.map (fun (amountDec, entryTypeStr, accountCodeStr, memoStr, classificationRuleId) ->
         createStageEntryLineForTest context stageEntryHeaderId amountDec entryTypeStr
@@ -311,7 +310,7 @@ let createStageEntryForTest
     (sourceFileStr: string)
     (descriptionStr: string)
     (fiReferenceStr: string)
-    (ingestionSource: IngestionSource)
+    (ingestionSource: IngestionSource.IngestionSource)
     (entryDate: LocalDate)
     (linePrimitives: (decimal * string * string option * string option * ClassificationRuleId option) list)
     (transitionPrimitives: (string option * string * Instant * string) list)

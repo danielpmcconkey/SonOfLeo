@@ -162,11 +162,11 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 - **Scope:** Whether JE composite checks (min 2 lines, debit=credit balance) must run before any DB write per REQ-SYS-2.1.1
 - **Ruling:** It is impossible to validate that we have 2+ *valid* lines until each line has been constructed and persisted — a line's validity depends on DB state (account existence, period state). Pre-write validation would mean either (a) validating twice, or (b) validating against unvalidated input, both of which are worse than the current design. The transaction bracket ensures atomicity; a failed composite check rolls back everything. REQ-SYS-2.1.1 ("determinable from the entity's own properties") does not apply because line validity is not determinable from properties alone. Vetoed repeatedly. Do not re-flag.
 
-## DAL-EFFICACY: DAL Has No Behavioral Spec — Test Efficacy Not Applicable
+## DAL-EFFICACY: DAL Test Efficacy Not Applicable
 - **Status:** overruled
-- **Date:** 2026-08-20
+- **Date:** 2026-08-20 (verbiage corrected 2026-08-22)
 - **Scope:** Whether the DAL needs a test-efficacy audit pass
-- **Ruling:** The DAL has no behavioral spec of its own — it is infrastructure. Its correctness is validated transitively through the domain tests that exercise it (every account/JE/staging operation hits the DAL). A test-efficacy auditor scoped to the DAL will always return "no findings" because there are no REQ IDs to audit against. This is by design, not a gap. Do not flag the absence of DAL-specific efficacy findings.
+- **Ruling:** The DAL has a behavioral spec (DataAccessLayer.md, 19 active REQ-DAL requirements), but all 19 are either waived from testing or classified as unenforceable. Its correctness is validated transitively through the domain tests that exercise it (every account/JE/staging operation hits the DAL). A test-efficacy auditor scoped to the DAL will always return "no findings" because there are no tested REQ IDs to audit against. This is by design, not a gap. Do not flag the absence of DAL-specific efficacy findings. This ruling covers test-efficacy only — it does not suppress spec-quality, ambiguity, or contradiction audits against DataAccessLayer.md.
 
 ## IDIOM-JE-1: REQ-JE-3.6.1 Net Balance Sign Test
 - **Status:** overruled

@@ -15,7 +15,7 @@ type ClassificationRule =
     private {
         classificationRuleId: ClassificationRuleId
         classificationRuleName: ClassificationRuleName
-        codeAtMatch: AccountCode
+        accountIdAtMatch: AccountId
         priority: int // lower number wins when multiple rules match
         ruleGroups: ClassificationRuleGroup list
         isActive: bool
@@ -25,7 +25,7 @@ type ClassificationRule =
         
 let classificationRuleId (a: ClassificationRule) = a.classificationRuleId
 let classificationRuleName (a: ClassificationRule) = a.classificationRuleName
-let codeAtMatch (a: ClassificationRule) = a.codeAtMatch
+let accountIdAtMatch (a: ClassificationRule) = a.accountIdAtMatch
 let priority (a: ClassificationRule) = a.priority
 let ruleGroups (a: ClassificationRule) = a.ruleGroups
 let isActive (a: ClassificationRule) = a.isActive
@@ -35,7 +35,7 @@ let modifiedAt (a: ClassificationRule) = a.modifiedAt
 let create
     (classificationRuleId: ClassificationRuleId)
     (classificationRuleName: ClassificationRuleName)
-    (codeAtMatch: AccountCode)
+    (accountIdAtMatch: AccountId)
     (priority: int)
     (ruleGroups: ClassificationRuleGroup list)
     (isActive: bool)
@@ -44,7 +44,7 @@ let create
     : ClassificationRule = {
         classificationRuleId = classificationRuleId
         classificationRuleName = classificationRuleName
-        codeAtMatch = codeAtMatch
+        accountIdAtMatch = accountIdAtMatch
         priority = priority
         ruleGroups = ruleGroups
         isActive = isActive
@@ -56,11 +56,11 @@ let insertNewToDb (context: Context.Context) (classificationRule: Classification
     let query =
         """
         insert into ingestion.classification_rule(
-	        unique_id, rule_name, code_at_match, priority, rule_groups, is_active, created_at, modified_at)
+	        unique_id, rule_name, account_at_match, priority, rule_groups, is_active, created_at, modified_at)
         values (
 	        @unique_id, 
             @rule_name, 
-            @code_at_match, 
+            @account_at_match, 
             @priority, 
             @rule_groups, 
             @is_active, 
@@ -68,7 +68,7 @@ let insertNewToDb (context: Context.Context) (classificationRule: Classification
             @modified_at);"""
     let uuid = classificationRule.classificationRuleId |> ClassificationRuleId.value
     let ruleName = classificationRule.classificationRuleName |> ClassificationRuleName.value
-    let code = classificationRule.codeAtMatch |> AccountCode.value
+    let code = classificationRule.accountIdAtMatch |> AccountId.value
     let priority = classificationRule.priority
     let isActive = classificationRule.isActive
     let createdAt = classificationRule.createdAt
@@ -79,7 +79,7 @@ let insertNewToDb (context: Context.Context) (classificationRule: Classification
             [
               { name = "@unique_id"; value = UniqueId(uuid) }
               { name = "@rule_name"; value = CharString(ruleName) }
-              { name = "@code_at_match"; value = CharString(code) }
+              { name = "@account_at_match"; value = UniqueId(code) }
               { name = "@priority"; value = Integer(priority) }
               { name = "@rule_groups"; value = Jsonb(ruleGroups) }
               { name = "@is_active"; value = Boolean(isActive) }
@@ -93,7 +93,7 @@ let private reconstitute raw =
     result {
         let (uuid,
              nameStr,
-             codeStr,
+             accountUuid,
              priority,
              ruleGroupsStr,
              isActive,
@@ -102,13 +102,13 @@ let private reconstitute raw =
             raw
         let classificationRuleId = uuid |> ClassificationRuleId.fromGuid
         let! name = nameStr |> ClassificationRuleName.create
-        let! codeAtMatch = codeStr |> AccountCode.create
+        let accountId = accountUuid |> AccountId.fromGuid
         let! ruleGroups = ruleGroupsStr |> fromJson<ClassificationRuleGroup list>
         return
             create
                 classificationRuleId
                 name
-                codeAtMatch
+                accountId
                 priority
                 ruleGroups
                 isActive
@@ -119,7 +119,7 @@ let private reconstitute raw =
 let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getUuid "unique_id"),
     (row |> RowReader.getString "rule_name"),
-    (row |> RowReader.getString "code_at_match"),
+    (row |> RowReader.getUuid "account_at_match"),
     (row |> RowReader.getInt "priority"),
     (row |> RowReader.getString "rule_groups"),
     (row |> RowReader.getBool "is_active"),
@@ -136,7 +136,7 @@ let readRowsFromDb
     : Result<ClassificationRule list, AppError> =
     let select =
         """
-        cr.unique_id, cr.rule_name, cr.code_at_match, cr.priority,
+        cr.unique_id, cr.rule_name, cr.account_at_match, cr.priority,
         cr.rule_groups, cr.is_active, cr.created_at, cr.modified_at
         """
     let from = "ingestion.classification_rule cr"

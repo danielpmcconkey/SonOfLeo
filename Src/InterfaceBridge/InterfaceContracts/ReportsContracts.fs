@@ -20,7 +20,7 @@ type TrialBalanceInput = { asOf: ReportAsOf; reportOutput: OutputSpecifier }
 type TrialBalanceReturnRow =
     { accountCode: string
       accountName: string
-      level: int
+      generation: int
       totalCredits: decimal
       totalDebits: decimal
       netBalance: decimal }

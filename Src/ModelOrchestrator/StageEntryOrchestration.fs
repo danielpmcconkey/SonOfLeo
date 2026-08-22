@@ -29,7 +29,7 @@ type IngestionFullResult = {
     classificationResults: ClassificationResult list
 }
 
-type AccountCodeValidationType =
+type AccountValidationType =
     | AllowNone
     | DisallowNone
     
@@ -78,25 +78,25 @@ let private confirmLinesAreAllPositive (lines: StageEntryLine.StageEntryLine lis
 
 let private confirmLinesAccountCodes
     (context: Context.Context)
-    (accountCodeValidationType: AccountCodeValidationType)
+    (accountValidationType: AccountValidationType)
     (lines: StageEntryLine.StageEntryLine list)
     : Result<unit, AppError> =
     let checkedLines =
         lines
         |> List.map(fun x ->
-            let codeOption = x |> StageEntryLine.accountCode
-            match accountCodeValidationType, codeOption with
+            let accountIdOption = x |> StageEntryLine.accountId
+            match accountValidationType, accountIdOption with
             | AllowNone, None -> Ok ()
             | DisallowNone, None ->
-                Error (IngestionNoneAccountCode (x |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value))
-            | _, Some code ->
-                let codeStr = code |> AccountCode.value
+                Error (IngestionNoneAccount (x |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value))
+            | _, Some accountId ->
+                let accountUuid = accountId |> AccountId.value
                 let lookupResult =
-                    codeStr |> LookupCache.accountCodeToId.fetch context 
+                    accountUuid |> LookupCache.accountIdToCode.fetch context // we don't need the code; we just check that the ID is in the DB this way 
                 match lookupResult with
                 | Ok _ -> Ok ()
                 | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                    Error (AccountCodeDoesntMatchAccountId codeStr)
+                    Error (AccountIdDoesntMatch accountUuid)
                 | Error e -> Error e
             )
         |> convertListOfResultsToResultsList
@@ -106,7 +106,7 @@ let private confirmLinesAccountCodes
 
 let private confirmLines
     (context: Context.Context)
-    (accountCodeValidationType: AccountCodeValidationType)
+    (accountCodeValidationType: AccountValidationType)
     (lines: StageEntryLine.StageEntryLine list)
     : Result<unit, AppError> =
     result {
@@ -136,7 +136,7 @@ let private confirmValidTransitions transitions =
 
 let private confirmStageEntryCompositeIsValid
     (context: Context.Context)
-    (accountCodeValidationType: AccountCodeValidationType)
+    (accountCodeValidationType: AccountValidationType)
     (stageEntry: StageEntry)
     : Result<unit, AppError> =
     result {
@@ -184,7 +184,7 @@ let private constructSetFromRaw
                     |> List.map (fun row -> 
                         let lineId = StageEntryLineId.create ()
                         StageEntryLine.create
-                            lineId stageEntryId row.amount row.entryType row.accountCode row.memo None
+                            lineId stageEntryId row.amount row.entryType row.accountId row.memo None
                         )
                 let! ingestionSource = fiSource |> IngestionSource.fetchByName context
                 let header =
@@ -364,7 +364,7 @@ let classifyStagedEntries
             |> List.filter(fun entry ->
                     entry
                     |> lines
-                    |> List.forall(fun l -> l |> StageEntryLine.accountCode |> Option.isSome)
+                    |> List.forall(fun l -> l |> StageEntryLine.accountId |> Option.isSome)
                 )
             |> List.map(fun entry ->
                 let headerId = entry.stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
@@ -381,7 +381,7 @@ let classifyStagedEntries
                 let header = entry.stageEntryHeader
                 entry
                 |> lines
-                |> List.filter (fun line -> line |> StageEntryLine.accountCode |> Option.isNone)
+                |> List.filter (fun line -> line |> StageEntryLine.accountId |> Option.isNone)
                 |> List.map (fun line -> {
                     headerIdOfCandidate = header |> StageEntryHeader.stageEntryHeaderId
                     lineIdOfCandidate = line |> StageEntryLine.stageEntryLineId
@@ -484,7 +484,7 @@ let isThereALineUpdate
     |> List.map (fun lu ->
         lu.amountUpdate <> FieldUpdate.NoChange
         || lu.entryTypeUpdate <> FieldUpdate.NoChange
-        || lu.accountCodeUpdate <> FieldUpdate.NoChange
+        || lu.accountIdUpdate <> FieldUpdate.NoChange
         || lu.memoUpdate <> FieldUpdate.NoChange
         || lu.classificationRuleIdUpdate <> FieldUpdate.NoChange
         )
@@ -544,16 +544,11 @@ let postStageEntry
             stageEntry.lines
             |> List.map (fun line ->
                 result {
-                    let accountCodeOption = line |> StageEntryLine.accountCode
                     let! accountId =
-                        match accountCodeOption with
-                        | None -> Error (IngestionNoneAccountCode (
+                        match line |> StageEntryLine.accountId with
+                        | None -> Error (IngestionNoneAccount (
                                 line |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value))
-                        | Some accountCode -> 
-                            accountCode
-                            |> AccountCode.value
-                            |> LookupCache.accountCodeToId.fetch context
-                            |> Result.map AccountId.fromGuid
+                        | Some x -> Ok x
                     let amount = line |> StageEntryLine.amount
                     let lineType = line |> StageEntryLine.lineType
                     let memo = line |> StageEntryLine.memo

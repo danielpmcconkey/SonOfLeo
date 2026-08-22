@@ -21,6 +21,7 @@ type AppError =
     | AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate of Guid
     | AccountExternalReferenceIsEmpty of string
     | AccountExternalReferenceTooLong of string * int
+    | AccountIdDoesntMatch of Guid
     | AccountInvalidTypeSubtypeCombo of string * string option
     | AccountNameIsEmpty of string
     | AccountNameTooLong of string * int
@@ -111,7 +112,7 @@ type AppError =
     | IngestionSourceFileTooLong of string * int
     | IngestionStatusTransitionList
     | IngestionUpdateStageEntryLinesMustMatchHeader of Guid * Guid
-    | IngestionNoneAccountCode of Guid
+    | IngestionNoneAccount of Guid
     | IngestionUpdateStageEntryNoOp
     | IngestionSourceNameNotFound of string
     
@@ -180,6 +181,7 @@ module AppError =
         | AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate uuid -> $"Account {uuid} cannot be deactivated as it has one or more Journal Entries dated after the deactivation date."
         | AccountExternalReferenceIsEmpty externalReference -> $"Account external reference cannot be empty. Provided external reference is {externalReference}."
         | AccountExternalReferenceTooLong(externalReference, max) -> $"Account external reference cannot exceed {max} characters. Provided external reference is {externalReference}."
+        | AccountIdDoesntMatch uuid -> $"There is no account in the database with ID {uuid}."
         | AccountInvalidTypeSubtypeCombo(accountType, subtype) -> $"Invalid AccountType / AccountSubType combo: {accountType} / {subtype}"
         | AccountNameIsEmpty name -> $"Account name cannot be empty. Provided name is {name}."
         | AccountNameTooLong(name, max) -> $"Account name cannot exceed {max} characters. Provided name is {name}."
@@ -270,7 +272,7 @@ module AppError =
         | IngestionSourceFileTooLong (str, max) -> $"Ingestion source file cannot exceed {max} characters. Provided value is {str}."
         | IngestionStatusTransitionList -> "StageEntryStatusTransition list cannot be empty."
         | IngestionUpdateStageEntryLinesMustMatchHeader (headerId, lineId) -> $"Error updating StageEntry {headerId}. Line {lineId} is for a different header."
-        | IngestionNoneAccountCode uuid -> $"Stage Entry Line with an account code of None is not allowed at this phase of the ingestion pipeline. Line ID: {uuid}"
+        | IngestionNoneAccount uuid -> $"Stage Entry Line with an account of None is not allowed at this phase of the ingestion pipeline. Line ID: {uuid}"
         | IngestionUpdateStageEntryNoOp -> "updateStageEntry failed because at least one updatable parameter must be set."
         | IngestionSourceNameNotFound str -> $"No ingestion source of {str} could be found."
         

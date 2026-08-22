@@ -84,6 +84,7 @@ type MatchCandidateReturn = {
 
 type PrioritizedMatchReturn = {
     code: string
+    accountName: string
     ruleId: Guid
     priority: int
 }
@@ -109,6 +110,7 @@ type ClassificationRuleReturn = {
         classificationRuleId: Guid
         classificationRuleName: string
         codeAtMatch: string
+        accountNameAtMatch: string
         priority: int
         ruleGroups: ClassificationRuleGroupContract list
         isActive: bool

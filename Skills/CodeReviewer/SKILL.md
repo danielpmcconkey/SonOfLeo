@@ -56,7 +56,7 @@ of it is a review rejection. Symptoms to hunt in your diff:
 | A query looking up an account code or period key by string | `LookupCache` boundary converters |
 | A fresh `Clock.now()` inside a mutating operation | The route handler's `AuditEnvelope` instant |
 | Arithmetic on raw `decimal` money values | `Model.Money` |
-| A `JsonSerializerOptions` or a direct serializer call | `InterfaceBridge.Json` |
+| A `JsonSerializerOptions` or a direct serializer call | `Utilities.Json` |
 
 ## Pass 2 — altitude and layering
 

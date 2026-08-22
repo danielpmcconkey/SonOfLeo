@@ -66,7 +66,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
         { lineIdToUpdate = lineId
           amountUpdate = NoChange
           entryTypeUpdate = NoChange
-          accountCodeUpdate = NoChange
+          accountIdUpdate = NoChange
           memoUpdate = NoChange
           classificationRuleIdUpdate = NoChange }
 
@@ -82,7 +82,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
         updateStageEntry
             context
             (entry |> stageEntryHeaderIdOf |> noChangeHeaderUpdates)
-            [ { noChangeLineUpdates lineId with accountCodeUpdate = SetTo None } ]
+            [ { noChangeLineUpdates lineId with accountIdUpdate = SetTo None } ]
 
     static let postStagedEntry context entry =
         result {
@@ -168,7 +168,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                         (status = Classified || status = Reviewed)
                         && entry
                            |> lines
-                           |> List.forall (fun line -> line |> StageEntryLine.accountCode |> Option.isSome))
+                           |> List.forall (fun line -> line |> StageEntryLine.accountId |> Option.isSome))
                     |> List.collect lines
                 (* A trial balance rolls child balances up into their parents, so only a leaf
                    account's movement equals its own postings. *)
@@ -182,12 +182,12 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 let stagedAmountFor lineType accountCode =
                     postableLines
                     |> List.filter (fun line ->
-                        line |> StageEntryLine.accountCode = Some accountCode
+                        line |> StageEntryLine.accountId = Some accountCode
                         && line |> StageEntryLine.lineType = lineType)
                     |> List.sumBy (fun line -> line |> StageEntryLine.amount |> Money.amount)
                 let accountCodesReceivingPostings =
                     postableLines
-                    |> List.choose (fun line -> line |> StageEntryLine.accountCode)
+                    |> List.choose (fun line -> line |> StageEntryLine.accountId)
                     |> List.distinct
                     |> List.filter isLeaf
                 Assert.NotEmpty(accountCodesReceivingPostings)
@@ -365,7 +365,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                     entry
                     |> lines
                     |> List.map (fun line ->
-                        line |> StageEntryLine.accountCode |> Option.get |> accountIdOfCode,
+                        line |> StageEntryLine.accountId |> Option.get |> accountIdOfCode,
                         line |> StageEntryLine.amount |> Money.amount,
                         line |> StageEntryLine.lineType,
                         line |> StageEntryLine.memo |> Option.map JournalEntryLineMemo.value)
@@ -400,11 +400,11 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 // the entry has to still be postable, or the post below would prove nothing
                 Assert.Equal(Classified, StageTestData.latestStatus uncoded)
                 Assert.True(
-                    uncoded |> lines |> List.exists (fun line -> line |> StageEntryLine.accountCode |> Option.isNone),
+                    uncoded |> lines |> List.exists (fun line -> line |> StageEntryLine.accountId |> Option.isNone),
                     "The line under test must be uncoded for this test to mean anything.")
                 return!
                     match ModelOrchestrator.StageEntryOrchestration.post context with
-                    | Error (IngestionNoneAccountCode _) -> Ok ()
+                    | Error (IngestionNoneAccount _) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
@@ -519,7 +519,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 let stripped =
                     postables |> List.find (fun entry -> entry |> stageEntryHeaderIdOf = strippedHeaderId)
                 Assert.True(
-                    stripped |> lines |> List.exists (fun line -> line |> StageEntryLine.accountCode |> Option.isNone),
+                    stripped |> lines |> List.exists (fun line -> line |> StageEntryLine.accountId |> Option.isNone),
                     "The stripped line must still be uncoded for this test to mean anything.")
             })
         |> railroadWrapper
