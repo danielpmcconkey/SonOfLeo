@@ -208,3 +208,91 @@ request.
 **Layer for the read tests (11–20).** If `fetchRulesFiltered` turns out to be a DAL function rather
 than an orchestrator one, those move to `Tests.Integrated/DataAccessLayer`. I'll know at step 8;
 flagging so the move isn't a surprise.
+
+---
+
+# Step 8 — first read of the Src
+
+Read `ClassificationOrchestration.fs`, `ClassificationRule.fs`, `QueryParameters.fs`. Three findings,
+then the housekeeping.
+
+## 1. `REQ-CR-4.8` is violated, and name #5 is aimed at a behavior that doesn't exist
+
+`createNewClassificationRule` takes `(isActive: bool)` as its last parameter and hands it straight to
+`ClassificationRule.create`. So `createNewClassificationRule ctx name code prio groups false`
+persists an inactive rule.
+
+`REQ-CR-4.4` says new rules are always active. `REQ-CR-4.8` — split out and waived yesterday — says
+the system must provide no mechanism to create one inactive. The mechanism is the fifth argument.
+
+This guts name #5, `a newly created rule is active, both in the value create returns and in the row
+fetched back`. To exercise create at all I must pass `isActive`, so the test asserts that the `true`
+I passed came back as `true`. That is a hollow test under a good name — the exact specimen the
+TestWriter references warn about. I will not write it as it stands.
+
+**Dan's call, two routes:**
+
+- **Src:** drop the parameter and hardcode `true` inside `createNewClassificationRule`. `4.4` and
+  `4.8` both become true, #5 becomes a real test, and `updateClassificationRule` remains the only
+  way to deactivate — which is what §6 and §7 already describe. The fixture helper
+  `createClassificationRuleForTest` passes `true` at every call site today, so the blast radius is
+  small. **This is my recommendation.**
+- **Spec:** `4.4`/`4.8` are wrong and creating inactive rules is intended. Then #5 is deleted, not
+  rewritten, and `4.4` needs rewording rather than a test.
+
+I have not touched `Src/`.
+
+## 2. The `codeAtMatch` filter looks broken, and #13 is the test that will find out
+
+`fetchRulesFiltered` binds its account-code parameter as `@cr.code_at_match` — **the only parameter
+name containing a dot anywhere in `Src/`.** Npgsql's placeholder parser stops an identifier at the
+dot, so the query text reads a placeholder called `@cr` while the supplied parameter is named
+`@cr.code_at_match`. Nothing matches.
+
+That vector has never had a test, which is why it has survived. Expect #13 to go red on first run.
+**When it does, it is a Src bug, not a test bug** — recording that here so step 10 doesn't relitigate it.
+
+Exact diff, `Src/ModelOrchestrator/ClassificationOrchestration.fs` lines 131–132:
+
+```
+-                  ("and cr.code_at_match = @cr.code_at_match",
+-                   { name = "@cr.code_at_match"; value = CharString(x |> AccountCode.value) }))
++                  ("and cr.code_at_match = @code_at_match",
++                   { name = "@code_at_match"; value = CharString(x |> AccountCode.value) }))
+```
+
+## 3. The `REQ-CR-1.21` waiver is right for the wrong reason
+
+The waiver reads: *"The field is typed Money, which is validated at construction — an invalid value
+cannot reach the pattern."*
+
+`ClassificationRule.reconstitute` builds the rule body with
+`ruleGroupsStr |> fromJson<ClassificationRuleGroup list>`. That materialises the whole tree —
+`Money` included — by deserialisation. `Money` is `private { amount: decimal }`, and a private
+constructor is no obstacle to a reflection-based deserialiser. **`Money.create` is never called on
+the read path.** Being typed `Money` guarantees nothing about a value that arrives from JSONB.
+
+The conclusion still holds, but on a different footing: the only writer of that column is
+`Json.toJson` over a value that already came through `Money.create`, so nothing invalid gets in.
+That is a guarantee about the *write path*, not about the type — and it is weaker, because it breaks
+the moment a migration, a manual fix, or a future importer writes that column.
+
+Recommend rewording the waiver to say what actually protects it. Not a test: a test that inserted
+a sub-cent amount into the JSONB and asserted a failure would fail, because reconstitution accepts
+it. That is a defect report, not a requirement.
+
+## Housekeeping — approved names confirmed against the code
+
+- **#32 stays dropped, confirmed.** `updateClassificationRule` runs `confirmAccountCode` and
+  `confirmRuleGroups` before it builds the SET clause, and create validates before
+  `insertNewToDb`. Nothing writes ahead of validation. Dan's step-7 call was right.
+- **#3 is exactly right.** Create takes one `instant` from the context and passes it as both
+  `createdAt` and `modifiedAt`, so "populated and equal" is the true claim.
+- **#27 is provable.** The no-op check sits before `executeNonQuery`, so `modified_at` genuinely
+  does not move.
+- **#16 is right.** `activeOnly = false` emits no clause at all, so active and inactive both return.
+- **Layer question closed.** The DAL is generic plumbing — no per-entity fetches — so
+  `fetchRulesFiltered` is orchestrator-level and names 11–20 stay in
+  `Tests.Integrated/ModelOrchestrator`.
+- **Ordering note for #6:** `confirmRuleGroups` runs before `confirmAccountCode`, so the
+  bad-code test must supply valid rule groups or it gets the wrong error.
