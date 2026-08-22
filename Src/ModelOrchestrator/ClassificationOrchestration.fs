@@ -128,7 +128,7 @@ let fetchRulesFiltered
               filter.codeAtMatch
               |> Option.map(fun x ->
                   ("and cr.code_at_match = @cr.code_at_match",
-                   { name = "@cr.code_at_match"; value = CharString(x |> AccountCode.value) }))
+                   { name = "@code_at_match"; value = CharString(x |> AccountCode.value) }))
         
               filter.sourceLike
               |> Option.map(fun x ->
