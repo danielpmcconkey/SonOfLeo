@@ -3,7 +3,6 @@ module Model.LookupCache
 open System
 open DataAccessLayer.ExecuteReader
 open Utilities.AppError
-open Utilities.ResultHelper
 open DataAccessLayer.DbTransaction
 open DataAccessLayer.QueryParameters
 
@@ -18,6 +17,9 @@ need to triage before proceeding. This is deliberate.
 
 Any future usages for this application that will carry longer life cycles will need to re-design this cache if it plans
 to also involve any CRUD operations of core module entities.
+
+Additional note: we have 3 separate fetch all functions on the ledger.account table. This is intentional as we do not
+want to couple these together.
 *)
 
 type Cache<'K, 'V when 'K: comparison>
@@ -35,172 +37,39 @@ type Cache<'K, 'V when 'K: comparison>
 
 type idAndString = { id: Guid; key: string }
 
-let mapRawForDbRead (fieldNameId: string) (fieldNameKey: string) (row: RowReader) =
-    let id = row |> RowReader.getUuid fieldNameId
-    let key = row |> RowReader.getString fieldNameKey
-    id, key
-
-let constructFromRawForDbRead (raw: Guid * string) : Result<idAndString, AppError> =
+let private constructFromRawForDbRead (raw: Guid * string) : Result<idAndString, AppError> =
     let id, key = raw
     Ok { id = id; key = key }
 
+let private mapRawForDbRead (fieldNameId: string) (fieldNameKey: string) (row: RowReader) =
+    let id = row |> RowReader.getUuid fieldNameId
+    let key = row |> RowReader.getString fieldNameKey
+    id, key
+    
+let private fetchAll table keyColumn =
+  let tran = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+  executeReaderQuery tran $"select unique_id, {keyColumn} from {table}" []
+      (mapRawForDbRead "unique_id" keyColumn) constructFromRawForDbRead AnyQuantityIsAcceptable
 
-let accountCodeToId =
-    Cache<string, Guid>(
-        (fun _ ->
-            let tran = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-            let query = "select unique_id, code from ledger.account"
-            result {
-                let! rows =
-                    executeReaderQuery
-                        tran
-                        query
-                        []
-                        (mapRawForDbRead "unique_id" "code")
-                        constructFromRawForDbRead
-                        AnyQuantityIsAcceptable
-                return rows |> List.map(fun x -> x.key, x.id) |> Map.ofList
-            }),
-        (fun context code ->
-            let query = "select unique_id, code from ledger.account where code = @code"
-            let parameters = [ { name = "@code"; value = CharString code } ]
-            result {
-                let! rows =
-                    executeReaderQuery
-                        (context |> Context.getDatabaseTransaction)
-                        query
-                        parameters
-                        (mapRawForDbRead "unique_id" "code")
-                        constructFromRawForDbRead
-                        ExactlyOne
-                return (rows |> List.head).id
-            })
-    )
+let private fetchOne table keyColumn whereColumn paramValue context =
+  executeReaderQuery (context |> Context.getDatabaseTransaction)
+      $"select unique_id, {keyColumn} from {table} where {whereColumn} = @key"
+      [ { name = "@key"; value = paramValue } ]
+      (mapRawForDbRead "unique_id" keyColumn) constructFromRawForDbRead ExactlyOne
+  |> Result.map List.head
 
-let accountIdToCode =
-    Cache<Guid, string>(
-        (fun _ ->
-            let tran = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-            let query = "select unique_id, code from ledger.account"
-            result {
-                let! rows =
-                    executeReaderQuery
-                        tran
-                        query
-                        []
-                        (mapRawForDbRead "unique_id" "code")
-                        constructFromRawForDbRead
-                        AnyQuantityIsAcceptable
-                return rows |> List.map(fun x -> x.id, x.key) |> Map.ofList
-            }),
-        (fun context id ->
-            let query = "select unique_id, code from ledger.account where unique_id = @unique_id"
-            let parameters = [ { name = "@unique_id"; value = UniqueId id } ]
-            result {
-                let! rows =
-                    executeReaderQuery
-                        (context |> Context.getDatabaseTransaction)
-                        query
-                        parameters
-                        (mapRawForDbRead "unique_id" "code")
-                        constructFromRawForDbRead
-                        ExactlyOne
-                return (rows |> List.head).key
-            })
-    )
+let private stringToIdCache table keyColumn =
+  Cache<string, Guid>(
+      (fun _ -> fetchAll table keyColumn |> Result.map (List.map (fun x -> x.key, x.id) >> Map.ofList)),
+      (fun context key -> fetchOne table keyColumn keyColumn (CharString key) context |> Result.map (fun r -> r.id)))
 
-let fiscalPeriodKeyToId =
-    Cache<string, Guid>(
-        (fun _ ->
-            let tran = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-            let query = "select unique_id, period_key from ledger.fiscal_period"
-            result { //     executeReaderQuery query parameters mapRawForDbRead reconstitute expectedRows transaction
-                let! rows =
-                    executeReaderQuery
-                        tran
-                        query
-                        []
-                        (mapRawForDbRead "unique_id" "period_key")
-                        constructFromRawForDbRead
-                        AnyQuantityIsAcceptable
-                return rows |> List.map(fun x -> x.key, x.id) |> Map.ofList
-            }),
-        (fun context periodKey ->
-            let query = "select unique_id, period_key from ledger.fiscal_period where period_key = @period_key"
-            let parameters = [ { name = "@period_key"; value = CharString periodKey } ]
-            result {
-                let! rows =
-                    executeReaderQuery
-                        (context |> Context.getDatabaseTransaction)
-                        query
-                        parameters
-                        (mapRawForDbRead "unique_id" "period_key")
-                        constructFromRawForDbRead
-                        ExactlyOne
-                return (rows |> List.head).id
-            })
-    )
+let private idToStringCache table keyColumn =
+  Cache<Guid, string>(
+      (fun _ -> fetchAll table keyColumn |> Result.map (List.map (fun x -> x.id, x.key) >> Map.ofList)),
+      (fun context id -> fetchOne table keyColumn "unique_id" (UniqueId id) context |> Result.map (fun r -> r.key)))
 
-let fiscalPeriodIdToKey =
-    Cache<Guid, string>(
-        (fun _ ->
-            let tran = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-            let query = "select unique_id, period_key from ledger.fiscal_period"
-            result {
-                let! rows =
-                    executeReaderQuery
-                        tran
-                        query
-                        []
-                        (mapRawForDbRead "unique_id" "period_key")
-                        constructFromRawForDbRead
-                        AnyQuantityIsAcceptable
-                return rows |> List.map(fun x -> x.id, x.key) |> Map.ofList
-            }),
-        (fun context id ->
-            let query = "select unique_id, period_key from ledger.fiscal_period where unique_id = @unique_id"
-            let parameters = [ { name = "@unique_id"; value = UniqueId id } ]
-            result {
-                let! rows =
-                    executeReaderQuery
-                        (context |> Context.getDatabaseTransaction)
-                        query
-                        parameters
-                        (mapRawForDbRead "unique_id" "period_key")
-                        constructFromRawForDbRead
-                        ExactlyOne
-                return (rows |> List.head).key
-            })
-    )
-
-let accountIdToName =
-    Cache<Guid, string>(
-        (fun _ ->
-            let tran = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-            let query = "select unique_id, account_name from ledger.account"
-            result {
-                let! rows =
-                    executeReaderQuery
-                        tran
-                        query
-                        []
-                        (mapRawForDbRead "unique_id" "account_name")
-                        constructFromRawForDbRead
-                        AnyQuantityIsAcceptable
-                return rows |> List.map(fun x -> x.id, x.key) |> Map.ofList
-            }),
-        (fun context id ->
-            let query = "select unique_id, account_name from ledger.account where unique_id = @unique_id"
-            let parameters = [ { name = "@unique_id"; value = UniqueId id } ]
-            result {
-                let! rows =
-                    executeReaderQuery
-                        (context |> Context.getDatabaseTransaction)
-                        query
-                        parameters
-                        (mapRawForDbRead "unique_id" "account_name")
-                        constructFromRawForDbRead
-                        ExactlyOne
-                return (rows |> List.head).key
-            })
-    )
+let accountCodeToId = stringToIdCache "ledger.account" "code"
+let accountIdToCode = idToStringCache "ledger.account" "code"
+let accountIdToName = idToStringCache "ledger.account" "account_name"
+let fiscalPeriodKeyToId = stringToIdCache "ledger.fiscal_period" "period_key"
+let fiscalPeriodIdToKey = idToStringCache "ledger.fiscal_period" "period_key"
