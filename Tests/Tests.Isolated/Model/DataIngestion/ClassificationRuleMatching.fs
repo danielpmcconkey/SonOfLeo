@@ -73,3 +73,10 @@ let ``REQ-CR-2.7 a classification rule is false regardless of which of its rule 
         [ 0 .. 2 ] |> List.map (fun i -> if i = failingIndex then failingGroup else matchingGroup)
     Assert.Equal(1, groups |> List.filter (fun g -> g = failingGroup) |> List.length)
     Assert.False(ruleOf groups)
+
+
+// Same vacuous-truth hazard as the empty chain: List.forall over no rule groups returns true,
+// so without the guard a rule with an empty groups list would match every candidate.
+[<Fact>]
+let ``REQ-CR-2.9 a rule with an empty rule groups list evaluates to false`` () =
+    Assert.False(ruleOf [])

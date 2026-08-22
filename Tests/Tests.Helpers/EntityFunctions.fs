@@ -195,7 +195,6 @@ let createClassificationRuleForTest
     (codeAtMatchStr: string)
     (priority: int)
     (ruleGroupPrimitives: (string * FieldMatch list * FieldMatch list option) list)
-    (isActive: bool)
     : Result<ClassificationRule, AppError> =
     result {
         let! classificationRuleName = classificationRuleNameStr |> ClassificationRuleName.create

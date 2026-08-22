@@ -58,3 +58,10 @@ let ``REQ-CR-2.3 a field match chain is false regardless of which position the f
         [ 0 .. 2 ] |> List.map (fun i -> if i = failingIndex then failing else matching)
     Assert.Equal(1, matches |> List.filter (fun m -> m = failing) |> List.length)
     Assert.False(chainOf matches)
+
+
+// List.forall returns true on an empty list. Without the explicit guard, a chain with no
+// field matches would match every candidate instead of none.
+[<Fact>]
+let ``REQ-CR-2.8 an empty field match chain evaluates to false`` () =
+    Assert.False(chainOf [])

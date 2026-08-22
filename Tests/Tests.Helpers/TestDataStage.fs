@@ -673,7 +673,6 @@ type TestDataFixture() =
                         (personalExpenses5300 |> Account.code |> AccountCode.value)
                         1000
                         sourceCheckingAccountRuleGroup
-                        true
                 classificationRules <- sourceCheckingAccount5300Rule :: classificationRules
                 
                 // override the source = checking 5300 rule
@@ -688,7 +687,6 @@ type TestDataFixture() =
                         (food5350 |> Account.code |> AccountCode.value)
                         100
                         sourceCheckingDescDoorDashRuleGroup
-                        true
                 classificationRules <- sourceCheckingDescDoorDash5350Rule :: classificationRules
                 
                 let! sourceVisaMatchPattern = StringSearchPattern.create testCreditCardStr
@@ -704,7 +702,6 @@ type TestDataFixture() =
                         (entertainment5650 |> Account.code |> AccountCode.value)
                         10
                         sourceVisaDescReiRuleGroup
-                        true
                 classificationRules <- sourceVisaDescRei5650Rule :: classificationRules
 
                 // Allstate conflict rules — two rules at same priority for grp-006 conflict testing
@@ -719,7 +716,6 @@ type TestDataFixture() =
                         (personalExpenses5300 |> Account.code |> AccountCode.value)
                         500
                         allstateRuleGroup
-                        true
                 classificationRules <- allstate5300Rule :: classificationRules
 
                 let! allstate5650Rule =
@@ -729,14 +725,90 @@ type TestDataFixture() =
                         (entertainment5650 |> Account.code |> AccountCode.value)
                         500
                         allstateRuleGroup
-                        true
                 classificationRules <- allstate5650Rule :: classificationRules
 
                 // TestSavings source — no classification rules, used for NoMatch testing
                 let testSavingsStr = "TestSavings"
                 let! testSavingsSource = testSavingsStr |> createIngestionSourceForTest context
                 ingestionSources <- testSavingsSource :: ingestionSources
-                
+
+                // Archetype A — the only inactive rule in the fixture.
+                // Created active and then deactivated, because REQ-CR-4.8 says there is no way to
+                // create one inactive. Pointed at TestSavings deliberately: that source exists
+                // because nothing matches it, so if the classifier's active-rule filter ever
+                // regresses, the NoMatch test goes red on its own rather than waiting for a
+                // dedicated test to notice.
+                let! testSavingsPattern = StringSearchPattern.create testSavingsStr
+                let testSavingsMatch = FieldMatch.Source(testSavingsPattern)
+                let! inactiveRuleAsCreated =
+                    createClassificationRuleForTest
+                        context
+                        "INACTIVE Source = TestSavings then 5300"
+                        (personalExpenses5300 |> Account.code |> AccountCode.value)
+                        2000
+                        [("And", [testSavingsMatch], None)]
+                let! inactiveRule =
+                    ClassificationOrchestration.updateClassificationRule
+                        context
+                        FieldUpdate.NoChange
+                        FieldUpdate.NoChange
+                        FieldUpdate.NoChange
+                        FieldUpdate.NoChange
+                        (FieldUpdate.SetTo false)
+                        (inactiveRuleAsCreated |> ClassificationRule.classificationRuleId)
+                classificationRules <- inactiveRule :: classificationRules
+
+                // Archetype B — the only rule with two groups, a chainTwo, and an Amount match.
+                // Every other fixture rule is one group, one chain, Source/Description only, which
+                // means no test has ever put a Money value out to JSONB and back. Its source
+                // pattern matches no staged data on purpose: it exists to be read, not to fire.
+                let! archiveSourcePattern = StringSearchPattern.create "TestArchiveBank"
+                let archiveSourceMatch = FieldMatch.Source(archiveSourcePattern)
+                let! archiveDescPattern = StringSearchPattern.create "^ARCHIVE"
+                let archiveDescMatch = FieldMatch.Description(archiveDescPattern)
+                let! archiveAmount = Model.Money.fromDecimal 250.00M
+                let archiveAmountMatch =
+                    FieldMatch.Amount({ numericSearchOperator = GreaterThanOrEqualTo; amount = archiveAmount })
+                let (archiveRuleGroups: (string * FieldMatch list * FieldMatch list option) list) =
+                    [ ("And", [archiveSourceMatch], None)
+                      ("Or", [archiveDescMatch], Some [archiveAmountMatch]) ]
+                let! twoGroupRule =
+                    createClassificationRuleForTest
+                        context
+                        "TestArchiveBank two-group rule then 5650"
+                        (entertainment5650 |> Account.code |> AccountCode.value)
+                        3000
+                        archiveRuleGroups
+                classificationRules <- twoGroupRule :: classificationRules
+
+                // Archetype C — a source whose rules discriminate by line type.
+                // Two lines of one staged entry share a description and a source, so the only
+                // fields that can tell them apart are LineType, Amount and Memo. Without a pair of
+                // rules like these there is no way to stage an entry whose two null-code lines
+                // resolve to two different accounts, and REQ-STG-5.2's "each line" clause cannot
+                // be observed at all.
+                let testSplitBankStr = "TestSplitBank"
+                let! testSplitBankSource = testSplitBankStr |> createIngestionSourceForTest context
+                ingestionSources <- testSplitBankSource :: ingestionSources
+                let! splitSourcePattern = StringSearchPattern.create testSplitBankStr
+                let splitSourceMatch = FieldMatch.Source(splitSourcePattern)
+                let! splitDebitRule =
+                    createClassificationRuleForTest
+                        context
+                        "Source = TestSplitBank && Debit then 5350"
+                        (food5350 |> Account.code |> AccountCode.value)
+                        50
+                        [("And", [splitSourceMatch; FieldMatch.LineType(JournalEntryLineType.Debit)], None)]
+                classificationRules <- splitDebitRule :: classificationRules
+                let! splitCreditRule =
+                    createClassificationRuleForTest
+                        context
+                        "Source = TestSplitBank && Credit then 5650"
+                        (entertainment5650 |> Account.code |> AccountCode.value)
+                        50
+                        [("And", [splitSourceMatch; FieldMatch.LineType(JournalEntryLineType.Credit)], None)]
+                classificationRules <- splitCreditRule :: classificationRules
+
                 // =============================================================================
                 // Calculate aggregate totals for fetch tests
                 // =============================================================================

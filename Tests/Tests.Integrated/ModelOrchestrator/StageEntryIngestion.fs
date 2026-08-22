@@ -66,6 +66,13 @@ module StageTestData =
             makeRawRow "grp-009" (today.PlusDays(-2)) "DD DoorDash Order 9917223" "TestBank" "REF-DD-002" 28.93M "Credit" (Some "F-1270") None
             makeRawRow "grp-010" today "DD DoorDash Order 9917223" "TestBank" "REF-DD-002" 28.93M "Debit" None None
             makeRawRow "grp-010" today "DD DoorDash Order 9917223" "TestBank" "REF-DD-002" 28.93M "Credit" (Some "F-1270") None
+            // grp-011 — the only group whose lines both arrive with a null account code. The
+            // TestSplitBank rules discriminate on line type, so the two lines resolve to two
+            // different accounts. Both halves matter: a classifier that stopped after the first
+            // null line leaves the Credit null, and one that assigned per entry rather than per
+            // line puts the same code on both.
+            makeRawRow "grp-011" (today.PlusDays(-1)) "SPLIT TRANSFER UNKNOWN BOTH SIDES" "TestSplitBank" "REF-SPLIT-001" 75.00M "Debit" None None
+            makeRawRow "grp-011" (today.PlusDays(-1)) "SPLIT TRANSFER UNKNOWN BOTH SIDES" "TestSplitBank" "REF-SPLIT-001" 75.00M "Credit" None None
         ] |> convertListOfResultsToResultsList
 
     let runPipeline context =
@@ -101,7 +108,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
-                Assert.Equal(10, fullResult.stagedEntries |> List.length)
+                Assert.Equal(11, fullResult.stagedEntries |> List.length)
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "DD DoorDash Order 8431927"
                 let transitions = entry |> statusTransitions
                 Assert.NotEmpty(transitions)
