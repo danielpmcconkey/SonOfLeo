@@ -208,7 +208,6 @@ let createClassificationRuleForTest
                 codeAtMatch
                 priority
                 ruleGroups
-                isActive
     }
 
 let createIngestionSourceForTest

@@ -58,7 +58,6 @@ let createNewClassificationRule
     (codeAtMatch: AccountCode)
     (priority: int)
     (ruleGroups: ClassificationRuleGroup list)
-    (isActive: bool)
     : Result<ClassificationRule.ClassificationRule, AppError> = 
     let classificationRuleId = ClassificationRuleId.create()
     let instant = context |> Context.getInitiationInstant
@@ -69,7 +68,7 @@ let createNewClassificationRule
             codeAtMatch
             priority
             ruleGroups
-            isActive
+            true // no new rules that are already inactive
             instant
             instant
     result {

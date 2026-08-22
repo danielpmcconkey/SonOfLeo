@@ -57,7 +57,6 @@ let private newClassificationRule payload _ =
         let! codeAtMatch = codeAtMatchStr |> AccountCode.create
         let priority = input.priority
         let! ruleGroups = input.ruleGroups |> ``convert [ClassificationRuleGroupContract list] to [ClassificationRuleGroup list]``
-        let isActive = true // no new rules that are already inactive
         let! model =
             createNewClassificationRule
                 context
@@ -65,7 +64,6 @@ let private newClassificationRule payload _ =
                 codeAtMatch
                 priority
                 ruleGroups
-                isActive
         let returnVal = model |> ``convert [ClassificationRule] to [ClassificationRuleReturn]``
         return! Json.toJson<ClassificationRuleReturn> returnVal
     }
