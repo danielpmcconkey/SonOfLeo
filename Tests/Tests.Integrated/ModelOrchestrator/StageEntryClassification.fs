@@ -68,21 +68,39 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
-                // grp-001 DoorDash: the debit line arrives null and only the DoorDash rule matches it
-                let entry = fullResult.stagedEntries |> StageTestData.findByDescription "DD DoorDash Order 8431927"
-                let debitLine =
-                    entry |> lines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
-                (* Naming the rule is the point: a classifier that lands the right account while
-                   stamping some other rule's id breaks the provenance link and nothing else
-                   in the suite would notice. *)
+                (* grp-011 is the only entry whose debit line draws exactly one rule. TestSplitBank
+                   carries one Debit-only rule and one Credit-only rule, and no other source's
+                   rules reach it -- so this is the single-match case the requirement is about.
+                   grp-001's DoorDash debit line is not: two rules match it, which is what the
+                   REQ-STG-5.5 test below asserts. *)
+                let description = "SPLIT TRANSFER UNKNOWN BOTH SIDES"
+                let debitResult =
+                    fullResult.classificationResults
+                    |> List.find (fun cr ->
+                        cr.candidate.lineType = Debit
+                        && cr.candidate.description |> JournalEntryDescription.value = description)
                 let ruleNameOf r = r |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value
-                let doorDashRule =
+                let splitDebitRule =
                     fixture.Data.classificationRules
-                    |> List.find (fun r -> ruleNameOf r = "Source = TestBank && Desc = DoorDash then 5350")
-                Assert.Equal(Some fixture.Data.food5350Id, debitLine |> StageEntryLine.accountId)
-                Assert.Equal(
-                    Some (doorDashRule |> ClassificationRule.classificationRuleId),
-                    debitLine |> StageEntryLine.classificationRuleId)
+                    |> List.find (fun r -> ruleNameOf r = "Source = TestSplitBank && Debit then 5350")
+                let debitLine =
+                    fullResult.stagedEntries
+                    |> StageTestData.findByDescription description
+                    |> lines
+                    |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
+                (* The outcome case is what pins the scenario; without it the name's "single rule"
+                   claim rests on the fixture staying as it is. Naming the rule is the other half:
+                   a classifier that lands the right account while stamping some other rule's id
+                   breaks the provenance link and nothing else in the suite would notice. *)
+                return!
+                    match debitResult.outcome with
+                    | OneMatch _ ->
+                        Assert.Equal(Some fixture.Data.food5350Id, debitLine |> StageEntryLine.accountId)
+                        Assert.Equal(
+                            Some (splitDebitRule |> ClassificationRule.classificationRuleId),
+                            debitLine |> StageEntryLine.classificationRuleId)
+                        Ok ()
+                    | other -> Error (TestingError $"Expected OneMatch but got {other}")
             })
         |> railroadWrapper
 
@@ -142,6 +160,38 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                 // grp-005: TestSavings source has no rules → NoMatch
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "TOTALLY UNKNOWN MERCHANT NOWHERE"
                 Assert.Equal(StagedEntryStatus.NoMatch, StageTestData.latestStatus entry)
+            })
+        |> railroadWrapper
+
+
+    // =========================================================================
+    // REQ-STG-5.9 — Conflict outranks NoMatch within one entry
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-STG-5.9 an entry whose debit line ties and whose credit line matches nothing lands in Conflict rather than NoMatch`` () =
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                let! fullResult = StageTestData.runPipeline context
+                let description = "MIXED OUTCOME BOTH SIDES NULL"
+                let outcomeOfLineType lt =
+                    fullResult.classificationResults
+                    |> List.find (fun cr ->
+                        cr.candidate.lineType = lt
+                        && cr.candidate.description |> JournalEntryDescription.value = description)
+                    |> fun cr -> cr.outcome
+                let entry = fullResult.stagedEntries |> StageTestData.findByDescription description
+                (* Both outcomes have to be present before the precedence claim means anything.
+                   Assert Conflict alone and the result is equally well explained by there being
+                   no NoMatch line for it to have outranked. *)
+                return!
+                    match outcomeOfLineType Debit, outcomeOfLineType Credit with
+                    | ManyMatchesTied _, ClassifierOutcome.NoMatch ->
+                        Assert.Equal(Conflict, StageTestData.latestStatus entry)
+                        Ok ()
+                    | debitOutcome, creditOutcome ->
+                        Error (TestingError
+                            $"Expected a tie on the debit line and no match on the credit line; got {debitOutcome} and {creditOutcome}")
             })
         |> railroadWrapper
 

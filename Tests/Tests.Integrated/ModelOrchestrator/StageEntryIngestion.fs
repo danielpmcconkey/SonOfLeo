@@ -74,6 +74,12 @@ module StageTestData =
             // line puts the same code on both.
             makeRawRow context "grp-011" (today.PlusDays(-1)) "SPLIT TRANSFER UNKNOWN BOTH SIDES" "TestSplitBank" "REF-SPLIT-001" 75.00M "Debit" None None
             makeRawRow context "grp-011" (today.PlusDays(-1)) "SPLIT TRANSFER UNKNOWN BOTH SIDES" "TestSplitBank" "REF-SPLIT-001" 75.00M "Credit" None None
+            // grp-012 — both lines arrive null against MixedOutcomeBank, whose rules are two
+            // tied Debit-only rules and nothing for Credit. The debit line conflicts and the
+            // credit line matches nothing, which is the only place in the fixture where one
+            // entry produces both outcomes.
+            makeRawRow context "grp-012" (today.PlusDays(-1)) "MIXED OUTCOME BOTH SIDES NULL" "MixedOutcomeBank" "REF-MIXED-001" 60.00M "Debit" None None
+            makeRawRow context "grp-012" (today.PlusDays(-1)) "MIXED OUTCOME BOTH SIDES NULL" "MixedOutcomeBank" "REF-MIXED-001" 60.00M "Credit" None None
         ] |> convertListOfResultsToResultsList
 
     let runPipeline context =
@@ -109,7 +115,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
-                Assert.Equal(11, fullResult.stagedEntries |> List.length)
+                Assert.Equal(12, fullResult.stagedEntries |> List.length)
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "DD DoorDash Order 8431927"
                 let transitions = entry |> statusTransitions
                 Assert.NotEmpty(transitions)

@@ -405,6 +405,10 @@ type TestDataFixture() =
                 let! voidedEntryBankSource = voidedEntryBankStr |> createIngestionSourceForTest context
                 ingestionSources <- voidedEntryBankSource :: ingestionSources
                 
+                let mixedOutcomeBankStr = "MixedOutcomeBank"
+                let! mixedOutcomeBankSource = mixedOutcomeBankStr |> createIngestionSourceForTest context
+                ingestionSources <- mixedOutcomeBankSource :: ingestionSources
+                
 
                 // =============================================================================
                 // Create journal entries
@@ -808,6 +812,34 @@ type TestDataFixture() =
                         50
                         [("And", [splitSourceMatch; FieldMatch.LineType(JournalEntryLineType.Credit)], None)]
                 classificationRules <- splitCreditRule :: classificationRules
+
+                // MixedOutcomeBank — two rules tied at the same priority, both Debit-only, and
+                // nothing at all for Credit. One entry arriving with both lines null therefore
+                // produces a Conflict line and a NoMatch line at once, which is the only way to
+                // observe the precedence rule. TestSplitBank cannot serve: giving it a tied Debit
+                // rule turns grp-011 into a Conflict and REQ-STG-5.2's test with it. The Allstate
+                // pair cannot either: they match on description, which both lines of an entry
+                // share, so both lines would conflict and no line would be left to no-match.
+                let! mixedSourcePattern = StringSearchPattern.create mixedOutcomeBankStr
+                let mixedSourceMatch = FieldMatch.Source(mixedSourcePattern)
+                let (mixedDebitRuleGroup: (string * FieldMatch list * FieldMatch list option) list) =
+                    [("And", [mixedSourceMatch; FieldMatch.LineType(JournalEntryLineType.Debit)], None)]
+                let! mixedDebit5350Rule =
+                    createClassificationRuleForTest
+                        context
+                        "Source = MixedOutcomeBank && Debit then 5350"
+                        (food5350 |> Account.code |> AccountCode.value)
+                        60
+                        mixedDebitRuleGroup
+                classificationRules <- mixedDebit5350Rule :: classificationRules
+                let! mixedDebit5650Rule =
+                    createClassificationRuleForTest
+                        context
+                        "Source = MixedOutcomeBank && Debit then 5650"
+                        (entertainment5650 |> Account.code |> AccountCode.value)
+                        60
+                        mixedDebitRuleGroup
+                classificationRules <- mixedDebit5650Rule :: classificationRules
 
                 // =============================================================================
                 // Calculate aggregate totals for fetch tests
