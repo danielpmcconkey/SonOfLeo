@@ -110,7 +110,7 @@ let fetchRulesFiltered
             match sort with
             | None -> None
             | Some AccountCodeAsc -> Some "a.code asc"
-            | Some AccountCodeDesc -> Some "a.code"
+            | Some AccountCodeDesc -> Some "a.code desc"
             | Some PriorityAsc -> Some "cr.priority asc"
             | Some PriorityDesc -> Some "cr.priority desc"
         
