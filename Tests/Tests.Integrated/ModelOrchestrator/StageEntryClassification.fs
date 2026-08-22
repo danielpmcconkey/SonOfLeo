@@ -148,3 +148,31 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                 Assert.Empty(classResultsForEntry)
             })
         |> railroadWrapper
+
+
+    // =========================================================================
+    // Every line whose account code is null gets evaluated, not just the first
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-STG-5.2 an entry with two null-code lines matching different rules has each line assigned its own rule's code`` () =
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                let! fullResult = StageTestData.runPipeline context
+                // grp-011 is the only staged group whose lines both arrive null. The TestSplitBank
+                // rules discriminate on line type, so the two lines must resolve differently: a
+                // classifier that stopped after the first null line leaves the Credit null, and one
+                // that assigned per entry rather than per line puts F-5350 on both.
+                let entry =
+                    fullResult.stagedEntries
+                    |> StageTestData.findByDescription "SPLIT TRANSFER UNKNOWN BOTH SIDES"
+                let codeOfLineType lt =
+                    entry
+                    |> lines
+                    |> List.find (fun l -> l |> StageEntryLine.lineType = lt)
+                    |> StageEntryLine.accountCode
+                    |> Option.map AccountCode.value
+                Assert.Equal(Some "F-5350", codeOfLineType Debit)
+                Assert.Equal(Some "F-5650", codeOfLineType Credit)
+            })
+        |> railroadWrapper

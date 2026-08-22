@@ -49,6 +49,7 @@
     <Compile Include="ModelOrchestrator\TrialBalance.fs" />
     <Compile Include="ModelOrchestrator\StageEntryIngestion.fs" />
     <Compile Include="ModelOrchestrator\StageEntryClassification.fs" />
+    <Compile Include="ModelOrchestrator\ClassificationRuleCrud.fs" />
     <Compile Include="ModelOrchestrator\StageEntryUpdate.fs" />
     <Compile Include="ModelOrchestrator\StageEntryPosting.fs" />
     <Compile Include="Model\Ledger\JournalEntryHeader.fs" />
