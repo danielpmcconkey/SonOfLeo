@@ -135,8 +135,8 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 let closedPeriodDate =
                     (fixture.Data.closedFiscalPeriod |> FiscalPeriod.startDate).PlusDays(14)
                 let! sourceFile = "/tmp/test-closed-period.jsonl" |> SourceFile.create
-                let! row1 = StageTestData.makeRawRow "grp-cp" closedPeriodDate "Closed period entry" "TestBank" "REF-CP-001" 50.00M "Debit" (Some "F-5350") None
-                let! row2 = StageTestData.makeRawRow "grp-cp" closedPeriodDate "Closed period entry" "TestBank" "REF-CP-001" 50.00M "Credit" (Some "F-1270") None
+                let! row1 = StageTestData.makeRawRow context "grp-cp" closedPeriodDate "Closed period entry" "TestBank" "REF-CP-001" 50.00M "Debit" (Some "F-5350") None
+                let! row2 = StageTestData.makeRawRow context "grp-cp" closedPeriodDate "Closed period entry" "TestBank" "REF-CP-001" 50.00M "Credit" (Some "F-1270") None
                 let! _ = [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
                 // the entry is now Classified; post should fail because the period is closed
                 return!
@@ -172,35 +172,36 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                     |> List.collect lines
                 (* A trial balance rolls child balances up into their parents, so only a leaf
                    account's movement equals its own postings. *)
-                let isLeaf accountCode =
-                    let accountId =
-                        fixture.Data.accounts
-                        |> List.find (fun account -> account |> Account.code = accountCode)
-                        |> Account.accountId
+                let accountCodeOf accountId =
+                    fixture.Data.accounts
+                    |> List.find (fun account -> account |> Account.accountId = accountId)
+                    |> Account.code
+                let isLeaf accountId =
                     fixture.Data.accounts
                     |> List.forall (fun account -> account |> Account.parentId <> Some accountId)
-                let stagedAmountFor lineType accountCode =
+                let stagedAmountFor lineType accountId =
                     postableLines
                     |> List.filter (fun line ->
-                        line |> StageEntryLine.accountId = Some accountCode
+                        line |> StageEntryLine.accountId = Some accountId
                         && line |> StageEntryLine.lineType = lineType)
                     |> List.sumBy (fun line -> line |> StageEntryLine.amount |> Money.amount)
-                let accountCodesReceivingPostings =
+                let accountIdsReceivingPostings =
                     postableLines
                     |> List.choose (fun line -> line |> StageEntryLine.accountId)
                     |> List.distinct
                     |> List.filter isLeaf
-                Assert.NotEmpty(accountCodesReceivingPostings)
+                Assert.NotEmpty(accountIdsReceivingPostings)
                 let asOf = Calendar.today()
                 let! trialBalanceBefore = fetchTrialBalanceData context asOf
                 do! ModelOrchestrator.StageEntryOrchestration.post context
                 let! trialBalanceAfter = fetchTrialBalanceData context asOf
                 let rowFor accountCode (rows: TrialBalanceRowFlattened list) =
                     rows |> List.find (fun row -> row.accountCode = accountCode)
-                accountCodesReceivingPostings
-                |> List.iter (fun accountCode ->
-                    let expectedDebits = accountCode |> stagedAmountFor Debit
-                    let expectedCredits = accountCode |> stagedAmountFor Credit
+                accountIdsReceivingPostings
+                |> List.iter (fun accountId ->
+                    let expectedDebits = accountId |> stagedAmountFor Debit
+                    let expectedCredits = accountId |> stagedAmountFor Credit
+                    let accountCode = accountId |> accountCodeOf
                     (* A zero here would make the two assertions below hold for a shadow post
                        that moved nothing at all. *)
                     Assert.True(
@@ -228,10 +229,10 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
             result {
                 let today = Calendar.today()
                 let! sourceFile = "/tmp/test-one-je-per-group.jsonl" |> SourceFile.create
-                let! row1 = StageTestData.makeRawRow "grp-1je" today "One JE per group" "TestBank" "REF-1JE-001" 800.00M "Debit" (Some "F-1270") (Some "Net pay to checking")
-                let! row2 = StageTestData.makeRawRow "grp-1je" today "One JE per group" "TestBank" "REF-1JE-001" 312.50M "Credit" (Some "F-5300") (Some "Federal withholding")
-                let! row3 = StageTestData.makeRawRow "grp-1je" today "One JE per group" "TestBank" "REF-1JE-001" 187.50M "Credit" (Some "F-5350") (Some "State withholding")
-                let! row4 = StageTestData.makeRawRow "grp-1je" today "One JE per group" "TestBank" "REF-1JE-001" 300.00M "Credit" (Some "F-5650") (Some "401k contribution")
+                let! row1 = StageTestData.makeRawRow context "grp-1je" today "One JE per group" "TestBank" "REF-1JE-001" 800.00M "Debit" (Some "F-1270") (Some "Net pay to checking")
+                let! row2 = StageTestData.makeRawRow context "grp-1je" today "One JE per group" "TestBank" "REF-1JE-001" 312.50M "Credit" (Some "F-5300") (Some "Federal withholding")
+                let! row3 = StageTestData.makeRawRow context "grp-1je" today "One JE per group" "TestBank" "REF-1JE-001" 187.50M "Credit" (Some "F-5350") (Some "State withholding")
+                let! row4 = StageTestData.makeRawRow context "grp-1je" today "One JE per group" "TestBank" "REF-1JE-001" 300.00M "Credit" (Some "F-5650") (Some "401k contribution")
                 let! _ =
                     [ row1; row2; row3; row4 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
                 let contextForPost = context |> Context.updateInitiationInstant
@@ -297,10 +298,10 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                    both journal entries have to carry the same one -- were it derived from the
                    staged entry at all, these two would disagree. The label itself is not
                    asserted: the requirement calls it fixed, not any particular string. *)
-                let! bankDebit = StageTestData.makeRawRow "grp-prov-a" today "Provenance from the bank" "TestBank" "REF-PROV-001" 25.00M "Debit" (Some "F-5300") None
-                let! bankCredit = StageTestData.makeRawRow "grp-prov-a" today "Provenance from the bank" "TestBank" "REF-PROV-001" 25.00M "Credit" (Some "F-1270") None
-                let! savingsDebit = StageTestData.makeRawRow "grp-prov-b" today "Provenance from the savings" "TestSavings" "REF-PROV-002" 31.00M "Debit" (Some "F-5300") None
-                let! savingsCredit = StageTestData.makeRawRow "grp-prov-b" today "Provenance from the savings" "TestSavings" "REF-PROV-002" 31.00M "Credit" (Some "F-1270") None
+                let! bankDebit = StageTestData.makeRawRow context "grp-prov-a" today "Provenance from the bank" "TestBank" "REF-PROV-001" 25.00M "Debit" (Some "F-5300") None
+                let! bankCredit = StageTestData.makeRawRow context "grp-prov-a" today "Provenance from the bank" "TestBank" "REF-PROV-001" 25.00M "Credit" (Some "F-1270") None
+                let! savingsDebit = StageTestData.makeRawRow context "grp-prov-b" today "Provenance from the savings" "TestSavings" "REF-PROV-002" 31.00M "Debit" (Some "F-5300") None
+                let! savingsCredit = StageTestData.makeRawRow context "grp-prov-b" today "Provenance from the savings" "TestSavings" "REF-PROV-002" 31.00M "Credit" (Some "F-1270") None
                 let! staged =
                     [ bankDebit; bankCredit; savingsDebit; savingsCredit ]
                     |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
@@ -356,16 +357,11 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 (* The account ID is resolved from the fixture's own chart of accounts rather
                    than from the lookup the poster uses, so a broken resolution cannot agree
                    with itself. *)
-                let accountIdOfCode code =
-                    fixture.Data.accounts
-                    |> List.find (fun account -> account |> Account.code = code)
-                    |> Account.accountId
-                    |> AccountId.value
                 let expected =
                     entry
                     |> lines
                     |> List.map (fun line ->
-                        line |> StageEntryLine.accountId |> Option.get |> accountIdOfCode,
+                        line |> StageEntryLine.accountId |> Option.get |> AccountId.value,
                         line |> StageEntryLine.amount |> Money.amount,
                         line |> StageEntryLine.lineType,
                         line |> StageEntryLine.memo |> Option.map JournalEntryLineMemo.value)

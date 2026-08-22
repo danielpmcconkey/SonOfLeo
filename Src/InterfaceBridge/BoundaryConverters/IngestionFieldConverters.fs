@@ -445,3 +445,19 @@ let ``convert [StageEntryFetchFilterInput] to [StageEntryFetchFilter]``
             memo = memo
             classificationRuleId = classificationRuleId
         } }
+let ``convert [ClassificationRuleFilterInput] to [ClassificationRuleFilter]``
+    (context: Context.Context)
+    (filterInput: ClassificationRuleFilterInput)
+    : Result<ClassificationRuleFilter, AppError> = result {
+    let ruleId = filterInput.ruleId |> Option.map ClassificationRuleId.fromGuid
+    let! nameLike =
+        filterInput.nameLike |> convertOptionToDesiredTypeWithFallibleConverter ClassificationRuleName.create
+    let! accountAtMatch =
+        filterInput.accountCodeAtMatch |> ``convert AccountCodeString Option to AccountId Option`` context
+    return {
+        ruleId = ruleId
+        nameLike = nameLike
+        accountAtMatch = accountAtMatch
+        sourceLike = filterInput.sourceLike
+        activeOnly = filterInput.activeOnly
+    } }

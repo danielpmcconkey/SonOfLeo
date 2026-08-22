@@ -128,6 +128,7 @@ let private mapRawForDbRead (row: RowReader) =
 
 let readRowsFromDb
     (context: Context.Context)
+    (join: string option)
     (predicate: string option)
     (limit: int option)
     (parameters: QueryParameter list)
@@ -140,7 +141,7 @@ let readRowsFromDb
         cr.rule_groups, cr.is_active, cr.created_at, cr.modified_at
         """
     let from = "ingestion.classification_rule cr"
-    let query = buildReadQuery select from None predicate limit None orderBy
+    let query = buildReadQuery select from join predicate limit None orderBy
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
         query
@@ -153,13 +154,13 @@ let fetchById (context: Context.Context) (ruleId: ClassificationRuleId) : Result
     let predicate = "cr.unique_id = @unique_id"
     let nameStr = ruleId |> ClassificationRuleId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId(nameStr) } ]
-    readRowsFromDb context (Some predicate) None parameters None ExactlyOne |> Result.map List.head
+    readRowsFromDb context None (Some predicate) None parameters None ExactlyOne |> Result.map List.head
 
 let fetchByName (context: Context.Context) (name: ClassificationRuleName) : Result<ClassificationRule, AppError> =
     let predicate = "cr.rule_name = @rule_name"
     let nameStr = name |> ClassificationRuleName.value
     let parameters = [ { name = "@rule_name"; value = CharString(nameStr) } ]
-    readRowsFromDb context (Some predicate) None parameters None ExactlyOne |> Result.map List.head
+    readRowsFromDb context None (Some predicate) None parameters None ExactlyOne |> Result.map List.head
 
 let doesMatch
     (candidate: MatchCandidate)

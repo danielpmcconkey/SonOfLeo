@@ -109,10 +109,12 @@ let fetchRulesFiltered
         let orderBy =
             match sort with
             | None -> None
-            | Some AccountCodeAsc -> Some "cr.code_at_match asc"
-            | Some AccountCodeDesc -> Some "cr.code_at_match desc"
+            | Some AccountCodeAsc -> Some "a.code asc"
+            | Some AccountCodeDesc -> Some "a.code"
             | Some PriorityAsc -> Some "cr.priority asc"
             | Some PriorityDesc -> Some "cr.priority desc"
+        
+        let join = Some "join ledger.account a on cr.account_at_match = a.unique_id"
             
         let whereClausesAndParams =
             [ filter.ruleId
@@ -125,10 +127,10 @@ let fetchRulesFiltered
                   ("cr.rule_name like @rule_name",
                    { name = "@rule_name"; value = CharString $"%%{ruleName}%%"}))
         
-              filter.codeAtMatch
+              filter.accountAtMatch
               |> Option.map(fun x ->
-                  ("cr.code_at_match = @code_at_match",
-                   { name = "@code_at_match"; value = CharString(x |> AccountCode.value) }))
+                  ("cr.account_at_match = @account_at_match",
+                   { name = "@account_at_match"; value = UniqueId(x |> AccountId.value) }))
         
               filter.sourceLike
               |> Option.map(fun x ->
@@ -143,7 +145,7 @@ let fetchRulesFiltered
         let limit = None
         let parameters = whereClausesAndParams |> List.map snd
         return!
-            ClassificationRule.readRowsFromDb context predicate limit parameters orderBy AnyQuantityIsAcceptable
+            ClassificationRule.readRowsFromDb context join predicate limit parameters orderBy AnyQuantityIsAcceptable
     }
 
 let updateLineWithMatch
@@ -191,7 +193,7 @@ let classifyMatchCandidatesAndUpdateLines
         let ruleFilter =  {
             ruleId = None
             nameLike = None
-            codeAtMatch = None
+            accountAtMatch = None
             sourceLike = None
             activeOnly = true }
         let! rules = fetchRulesFiltered context ruleFilter None
@@ -233,8 +235,8 @@ let updateClassificationRule
                   
                   accountAtMatchUpdate
                   |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                      ("code_at_match = @code_at_match",
-                       { name = "@code_at_match"; value = UniqueId(n |> AccountId.value) }))
+                      ("account_at_match = @account_at_match",
+                       { name = "@account_at_match"; value = UniqueId(n |> AccountId.value) }))
                   
                   priorityUpdate
                   |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->

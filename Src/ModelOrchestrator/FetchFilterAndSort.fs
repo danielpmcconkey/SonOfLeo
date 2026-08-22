@@ -45,7 +45,7 @@ type JournalEntryFetchFilter =
 type ClassificationRuleFilter =
     { ruleId: ClassificationRuleId option
       nameLike: ClassificationRuleName option
-      codeAtMatch: AccountCode option
+      accountAtMatch: AccountId option
       sourceLike: string option
       activeOnly: bool }
 

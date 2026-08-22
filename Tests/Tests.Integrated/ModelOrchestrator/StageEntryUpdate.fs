@@ -68,45 +68,41 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-STG-6.1 operator can override account_code on a parser-assigned line`` () =
-        let newCode =
-            "F-5650" |> AccountCode.create
-            |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
         runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
             result {
+                let newAccountId = fixture.Data.entertainment5650Id
                 let! fullResult = StageTestData.runPipeline context
                 // grp-007 payroll has parser-assigned lines
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "PAYROLL DEPOSIT ACME CORP"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let firstLine = entry |> lines |> List.head
                 let lineId = firstLine |> StageEntryLine.stageEntryLineId
-                let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some newCode) } ]
+                let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some newAccountId) } ]
                 let! updated = updateStageEntry context (noChangeHeaderUpdates headerId) lineUpdates
                 let updatedLine =
                     updated |> lines
                     |> List.find (fun l -> l |> StageEntryLine.stageEntryLineId = lineId)
-                Assert.Equal(Some "F-5650", updatedLine |> StageEntryLine.accountId |> Option.map AccountCode.value)
+                Assert.Equal(Some newAccountId, updatedLine |> StageEntryLine.accountId)
             })
         |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-STG-6.1 operator can override account_code on a classifier-assigned line`` () =
-        let newCode =
-            "F-5650" |> AccountCode.create
-            |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
         runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
             result {
+                let newAccountId = fixture.Data.entertainment5650Id
                 let! fullResult = StageTestData.runPipeline context
                 // grp-002 gas station: debit line was classified to F-5300 by generic rule
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "MARATHON PETRO 7218 ANYTOWN US"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let debitLine = entry |> lines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
                 let lineId = debitLine |> StageEntryLine.stageEntryLineId
-                let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some newCode) } ]
+                let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some newAccountId) } ]
                 let! updated = updateStageEntry context (noChangeHeaderUpdates headerId) lineUpdates
                 let updatedLine =
                     updated |> lines
                     |> List.find (fun l -> l |> StageEntryLine.stageEntryLineId = lineId)
-                Assert.Equal(Some "F-5650", updatedLine |> StageEntryLine.accountId |> Option.map AccountCode.value)
+                Assert.Equal(Some newAccountId, updatedLine |> StageEntryLine.accountId)
             })
         |> railroadWrapper
 
@@ -158,12 +154,12 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let firstLine = entry |> lines |> List.head
                 let lineId = firstLine |> StageEntryLine.stageEntryLineId
-                let! badCode = "BOGUS-9999" |> AccountCode.create
+                let bogusAccountId = System.Guid.NewGuid() |> AccountId.fromGuid
                 let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
-                let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some badCode) } ]
+                let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some bogusAccountId) } ]
                 return!
                     match updateStageEntry context headerUpdates lineUpdates with
-                    | Error (AccountCodeDoesntMatchAccountId _) -> Ok ()
+                    | Error (AccountIdDoesntMatch _) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })

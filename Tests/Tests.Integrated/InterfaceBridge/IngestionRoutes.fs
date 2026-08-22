@@ -289,14 +289,13 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                 // both edits are durable outside the transaction the route managed
                 let! refetched = refetchStageEntry headerId
                 Assert.Equal(Reviewed, refetched |> latestStatusOf)
-                let refetchedCode =
+                let refetchedAccountId =
                     refetched
                     |> lines
                     |> List.find (fun line ->
                         line |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value = debitLine.stageEntryLineId)
                     |> StageEntryLine.accountId
-                    |> Option.map AccountCode.value
-                Assert.Equal(Some "F-5350", refetchedCode)
+                Assert.Equal(Some fixture.Data.food5350Id, refetchedAccountId)
                 return ()
             }
             |> railroadWrapper

@@ -31,7 +31,7 @@ let private groupOf matches = ClassificationRuleGroup.create And (chainOf matche
 let private noFilter =
     { ruleId = None
       nameLike = None
-      codeAtMatch = None
+      accountAtMatch = None
       sourceLike = None
       activeOnly = false }
 
@@ -148,7 +148,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 (System.Guid.NewGuid() |> AccountId.fromGuid)
                 780
                 [ groupOf [ Source(patternOf "TestBogusCode") ] ]
-            |> fun r -> isCorrectError r AccountCodeDoesntMatchAccountId None)
+            |> fun r -> isCorrectError r AccountIdDoesntMatch None)
         |> railroadWrapper
 
     [<Fact>]
@@ -285,7 +285,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 let! found =
                     ClassificationOrchestration.fetchRulesFiltered
                         context
-                        { noFilter with codeAtMatch = Some(codeOf "F-5650") }
+                        { noFilter with accountAtMatch = Some(entertainment5650Id) }
                         None
                 Assert.NotEmpty(expected)
                 Assert.NotEqual<string list>(fixtureRules () |> namesOf, expected)
@@ -314,11 +314,12 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
     member _.``REQ-CR-5.3 fetchRulesFiltered with activeOnly true omits the inactive rule that its other filters would otherwise have returned`` () =
         runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
             result {
+                let personalExpenses5300Id = fixture.Data.personalExpenses5300Id
                 let inactiveName = "INACTIVE Source = TestSavings then 5300"
                 let! withInactive =
                     ClassificationOrchestration.fetchRulesFiltered
                         context
-                        { noFilter with codeAtMatch = Some(codeOf "F-5300") }
+                        { noFilter with accountAtMatch = Some(personalExpenses5300Id) }
                         None
                 // The filter really does select it when activeOnly is off, so the omission below
                 // is the active filter working rather than the code filter missing it.
@@ -326,7 +327,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 let! activeOnly =
                     ClassificationOrchestration.fetchRulesFiltered
                         context
-                        { noFilter with codeAtMatch = Some(codeOf "F-5300"); activeOnly = true }
+                        { noFilter with accountAtMatch = Some(personalExpenses5300Id); activeOnly = true }
                         None
                 Assert.DoesNotContain(inactiveName, activeOnly |> namesOf)
                 Assert.Equal((withInactive |> List.length) - 1, activeOnly |> List.length)
@@ -345,7 +346,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 let! found =
                     ClassificationOrchestration.fetchRulesFiltered
                         context
-                        { noFilter with codeAtMatch = Some(codeOf "F-5300") }
+                        { noFilter with accountAtMatch = Some(personalExpenses5300Id) }
                         None
                 Assert.NotEmpty(expected)
                 Assert.NotEqual<string list>(fixtureRules () |> namesOf, expected)
@@ -373,7 +374,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 let! found =
                     ClassificationOrchestration.fetchRulesFiltered
                         context
-                        { noFilter with nameLike = Some(ruleNameOf fragment); codeAtMatch = Some(codeOf code) }
+                        { noFilter with nameLike = Some(ruleNameOf fragment); accountAtMatch = Some(entertainment5650Id) }
                         None
                 Assert.NotEmpty(both)
                 Assert.Equal<string list>(both, found |> namesOf)
@@ -610,7 +611,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 context
                 NoChange (SetTo(AccountId.create())) NoChange NoChange NoChange
                 (this.TwoGroupRule() |> idOf)
-            |> fun r -> isCorrectError r AccountCodeDoesntMatchAccountId None)
+            |> fun r -> isCorrectError r AccountIdDoesntMatch None)
         |> railroadWrapper
 
     [<Fact>]

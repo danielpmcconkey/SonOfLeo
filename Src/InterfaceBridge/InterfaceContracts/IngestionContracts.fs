@@ -163,8 +163,15 @@ type UpdateClassificationRuleInput = {
         isActiveUpdate: FieldUpdate<bool>
     }
 
+type ClassificationRuleFilterInput =  {
+      ruleId: Guid option
+      nameLike: string option
+      accountCodeAtMatch: string option
+      sourceLike: string option
+      activeOnly: bool }
+
 type FetchClassificationRuleFilteredInput = {
-    filter: ClassificationRuleFilter
+    filter: ClassificationRuleFilterInput
     sort: FetchSortClassificationRule option
 }
 
