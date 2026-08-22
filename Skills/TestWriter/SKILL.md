@@ -122,6 +122,13 @@ An August 2026 review of a green suite found three tests with no assertion at al
 asserted the opposite of its requirement, and six hiding an unhandled error leak — all of
 them written to this skill, all of them passing, none of them ever mutated.
 
+Then ask the second question mutation cannot answer: **does the setup actually produce the
+scenario the name claims?** A test aimed at the wrong fixture entity mutates red exactly like
+a correct one. When the name states a branch — "exactly one rule matched", "the period was
+already closed" — assert the branch itself, and grep for sibling tests using the same fixture
+data that claim a different outcome for it. See
+`CompoundedLearnings/articles/testing/mutation-proves-liveness-not-aim.md`.
+
 Report the mutation and its output when you hand off. `Expected: 1600.00 / Actual: 800.00`
 is evidence. "The test is correct" is not.
 
