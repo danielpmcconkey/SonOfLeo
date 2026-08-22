@@ -72,6 +72,10 @@ let ``convert [StageEntryLine] to [StageEntryLineReturn]``
         model
         |> StageEntryLine.accountId
         |> ``convert AccountId Option to AccountCodeString Option`` context
+    let! accountName =
+        model
+        |> StageEntryLine.accountId
+        |> ``convert [AccountId option] to [AccountName string option]`` context
     let memo = model |> StageEntryLine.memo |> Option.map JournalEntryLineMemo.value
     let classificationRuleId = model |> StageEntryLine.classificationRuleId |> Option.map ClassificationRuleId.value
     return {    stageEntryLineId = stageEntryLineId
@@ -79,6 +83,7 @@ let ``convert [StageEntryLine] to [StageEntryLineReturn]``
                 amount = amount
                 lineType = lineType
                 accountCode = accountCode
+                accountName = accountName
                 memo = memo 
                 classificationRuleId = classificationRuleId } }
 

@@ -355,6 +355,9 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-STG-3.7 ingestRaw rejects file when account_code does not resolve to existing account`` () =
+        // Note to BD:
+        // This test won't pass as Dan made BaseStageRawRow take an AccountId instead of a code. This test now needs to
+        // move up into the routes tests and use the BaseStageRawRowInput type
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! sourceFile = "/tmp/test-bad-code.jsonl" |> SourceFile.create

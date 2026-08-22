@@ -53,6 +53,7 @@ type StageEntryLineReturn =  {
         amount: decimal
         lineType: string
         accountCode: string option
+        accountName: string option
         memo: string option
         classificationRuleId: Guid option
     }

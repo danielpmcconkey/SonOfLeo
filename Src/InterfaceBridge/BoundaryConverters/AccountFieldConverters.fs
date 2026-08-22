@@ -62,6 +62,26 @@ let ``convert AccountId Option to AccountCodeString Option``
         let childError = e |> AppError.toMessage
         Error(InterfaceBridgeConversionFailure(originalType, originalValue, desiredType, childError))
     | Ok x -> Ok(x |> Option.map(AccountCode.value))
+    
+let ``convert [AccountId option] to [AccountName option]``
+    (context: Context.Context)
+    (idOption: AccountId option)
+    : Result<AccountName option, AppError> =
+    match idOption with
+    | None -> Ok None
+    | Some accountId ->
+        match accountId |> Account.fetchById context with
+        | Error e -> Error e
+        | Ok a -> a |> Account.accountName |> Some |> Ok
+    
+let ``convert [AccountId option] to [AccountName string option]``
+    (context: Context.Context)
+    (idOption: AccountId option)
+    : Result<string option, AppError> =
+    match idOption with
+    | None -> Ok None
+    | Some accountId -> accountId |> ``convert AccountId to AccountNameString`` context |> Result.map Some
+        
 
 let ``convert AccountCodeString Option to AccountUuidOption``
     (context: Context.Context)
