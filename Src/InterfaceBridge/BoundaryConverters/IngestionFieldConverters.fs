@@ -230,7 +230,7 @@ let ``convert [ClassificationRule] to [ClassificationRuleReturn]``
     let classificationRuleId = rule |> ClassificationRule.classificationRuleId |> ClassificationRuleId.value
     let classificationRuleName = rule |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value
     let! codeAtMatch =
-        rule |> ClassificationRule.accountIdAtMatch |> ``convert AccountId to AccountNameString`` context
+        rule |> ClassificationRule.accountIdAtMatch |> ``convert AccountId to AccountCodeString`` context
     let! accountNameAtMach =
         rule
         |> ClassificationRule.accountIdAtMatch
