@@ -66,7 +66,7 @@ type StageEntryFetchFilter =
       stageEntryLineId: StageEntryLineId option
       amount: Money option
       lineType: JournalEntryLineType option
-      accountCode: AccountCode option
+      accountId: AccountId option
       memo: JournalEntryLineMemo option
       classificationRuleId: ClassificationRuleId option }
 

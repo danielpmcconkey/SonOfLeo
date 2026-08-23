@@ -679,10 +679,10 @@ let fetchFiltered
               ("line_type = @line_type",
                { name = "@line_type"; value = CharString(x |> JournalEntryLineType.toString) }))
           
-          filter.accountCode
+          filter.accountId
           |> Option.map(fun x ->
-              ("code = @code",
-               { name = "@code"; value = CharString(x |> AccountCode.value) }))
+              ("account_id = @account_id",
+               { name = "@account_id"; value = UniqueId(x |> AccountId.value) }))
           
           filter.memo
           |> Option.map(fun x ->
@@ -721,7 +721,7 @@ let fetchFiltered
                 sel.unique_id as stage_line_entry_id,
                 sel.amount,
                 sel.line_type,
-                sel.code,
+                sel.account_id,
                 sel.memo,
                 sel.classification_rule_id,
                 all_statuses.to_status as stage_entry_status,

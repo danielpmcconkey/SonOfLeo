@@ -432,7 +432,7 @@ let ``convert [StageEntryFetchFilterInput] to [StageEntryFetchFilter]``
         let stageEntryLineId = filterInput.stageEntryLineId |> Option.map StageEntryLineId.fromGuid
         let! amount = filterInput.amount |> convertOptionToDesiredTypeWithFallibleConverter Money.fromDecimal
         let! lineType = filterInput.lineType |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineType.fromString
-        let! accountCode = filterInput.accountCode |> convertOptionToDesiredTypeWithFallibleConverter AccountCode.create
+        let! accountId = filterInput.accountCode |> ``convert AccountCodeString Option to AccountId Option`` context
         let! memo = filterInput.memo |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
         let classificationRuleId = filterInput.classificationRuleId |> Option.map ClassificationRuleId.fromGuid
         return {
@@ -446,7 +446,7 @@ let ``convert [StageEntryFetchFilterInput] to [StageEntryFetchFilter]``
             stageEntryLineId = stageEntryLineId
             amount = amount
             lineType = lineType
-            accountCode = accountCode
+            accountId = accountId
             memo = memo
             classificationRuleId = classificationRuleId
         } }
