@@ -18,7 +18,9 @@ type StageEntryHeader =
         description: JournalEntryDescription
         ingestionSource: IngestionSource
         fiReference: JournalExternalReferenceText
-        status: StagedEntryStatus 
+        /// currentStatus is not a column in the database. it is a read-time cache of the latest status. The source of
+        /// truth is the table of status transitions. This field is here for read convenience.
+        currentStatus: StagedEntryStatus option
     }
 
 type StageEntryHeaderFieldUpdates = {
@@ -28,7 +30,7 @@ type StageEntryHeaderFieldUpdates = {
     descriptionUpdate: FieldUpdate<JournalEntryDescription>
     ingestionSourceUpdate: FieldUpdate<IngestionSource>
     fiReferenceUpdate: FieldUpdate<JournalExternalReferenceText>
-    statusUpdate: FieldUpdate<StagedEntryStatus> }
+    statusUpdate: FieldUpdate<StagedEntryStatus * StageStatusChangeMechanism> }
 
 let sourceFile g = g.sourceFile
 let stageEntryHeaderId g = g.stageEntryHeaderId
@@ -36,7 +38,7 @@ let entryDate g = g.entryDate
 let description g = g.description
 let ingestionSource g = g.ingestionSource
 let fiReference g = g.fiReference
-let status g = g.status
+let currentStatus g = g.currentStatus
     
 let create
     (sourceFile: SourceFile)
@@ -45,7 +47,7 @@ let create
     (description: JournalEntryDescription)
     (ingestionSource: IngestionSource)
     (fiReference: JournalExternalReferenceText)
-    (status: StagedEntryStatus)
+    (currentStatus: StagedEntryStatus option)
     : StageEntryHeader = {
         sourceFile = sourceFile
         stageEntryHeaderId = stageEntryHeaderId
@@ -53,38 +55,117 @@ let create
         description = description
         ingestionSource = ingestionSource
         fiReference = fiReference
-        status = status }
+        currentStatus = currentStatus }
 
-let insertNewToDb (context: Context.Context) (stageEntryHeader: StageEntryHeader) : Result<unit, AppError> =
+let insertNewStatusTransitionToDb
+    (context: Context.Context)
+    (stageEntryStatusTransition: StageEntryStatusTransition.StageEntryStatusTransition)
+    : Result<unit, AppError> =
     let query =
         """
-        insert into ingestion.staged_entry(
-	        unique_id, entry_date, description, source_id, fi_reference, source_file, status)
+        insert into ingestion.staged_entry_audit(
+	        unique_id, entry_id, from_status, to_status, modified_at, change_mechanism)
         values (
 	        @unique_id, 
-            @entry_date, 
-            @description, 
-            @source_id, 
-            @fi_reference,
-            @source_file,
-            @status);"""
-    let uuid = stageEntryHeader.stageEntryHeaderId |> StageEntryHeaderId.value
-    let description = stageEntryHeader.description |> JournalEntryDescription.value
-    let sourceUuid = stageEntryHeader.ingestionSource |> ingestionSourceId |> IngestionSourceId.value
-    let fiReference = stageEntryHeader.fiReference |> JournalExternalReferenceText.value
-    let sourceFile = stageEntryHeader.sourceFile |> SourceFile.value
-    let status = stageEntryHeader.status |> StagedEntryStatus.toString
+            @entry_id, 
+            @from_status, 
+            @to_status, 
+            @modified_at,
+            @change_mechanism);"""
+    let uuid = stageEntryStatusTransition
+               |> StageEntryStatusTransition.stageEntryStatusTransitionId
+               |> StageEntryStatusTransitionId.value
+    let headerUuid =
+               stageEntryStatusTransition
+               |> StageEntryStatusTransition.stageEntryHeaderId 
+               |> StageEntryHeaderId.value
+    let fromStatus =
+               stageEntryStatusTransition
+               |> StageEntryStatusTransition.fromStatus
+               |> Option.map StagedEntryStatus.toString
+    let toStatus =
+               stageEntryStatusTransition
+               |> StageEntryStatusTransition.toStatus
+               |> StagedEntryStatus.toString
+    let stageStatusChangeMechanism =
+               stageEntryStatusTransition
+               |> StageEntryStatusTransition.stageStatusChangeMechanism
+               |> StageStatusChangeMechanism.toString
+    let instant =
+               stageEntryStatusTransition
+               |> StageEntryStatusTransition.instant
     let parameters =
         [
           { name = "@unique_id"; value = UniqueId(uuid) }
-          { name = "@entry_date"; value = DbLocalDate(stageEntryHeader.entryDate) }
-          { name = "@description"; value = CharString(description) }
-          { name = "@source_id"; value = UniqueId(sourceUuid) }
-          { name = "@fi_reference"; value = CharString(fiReference) }
-          { name = "@source_file"; value = CharString(sourceFile) }
-          { name = "@status"; value = CharString(status) }
+          { name = "@entry_id"; value = UniqueId(headerUuid) }
+          { name = "@from_status"; value = NullableCharString(fromStatus) }
+          { name = "@to_status"; value = CharString(toStatus) }
+          { name = "@modified_at"; value = DbInstant(instant) }
+          { name = "@change_mechanism"; value = CharString(stageStatusChangeMechanism) }
         ]
     executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        
+let updateHeaderStatus
+    (context: Context.Context)
+    (newStatus: StagedEntryStatus)
+    (mechanism: StageStatusChangeMechanism)
+    (headerId: StageEntryHeaderId)
+    : Result<unit, AppError> =
+    result {
+        let! statusTransitions = headerId |> StageEntryStatusTransition.fetchByHeaderId context
+        let fromStatus =
+            if statusTransitions |> List.isEmpty then None
+            else 
+            statusTransitions
+            |> List.sortByDescending(fun s -> s |> StageEntryStatusTransition.instant)
+            |> List.head
+            |> StageEntryStatusTransition.toStatus
+            |> Some
+        let newTransitionId = StageEntryStatusTransitionId.create()
+        let instant = context |> Context.getInitiationInstant
+        let newTransition =
+            StageEntryStatusTransition.create newTransitionId headerId
+                fromStatus newStatus instant mechanism
+        do! newTransition |> StageEntryStatusTransition.confirmValidTransition
+        return! newTransition |> insertNewStatusTransitionToDb context
+    }
+
+let insertNewToDb
+    (context: Context.Context)
+    (initialStatus: StagedEntryStatus)
+    (statusChangeMechanism: StageStatusChangeMechanism)
+    (stageEntryHeader: StageEntryHeader)
+    : Result<unit, AppError> =
+    result {
+        do! stageEntryHeader.stageEntryHeaderId
+            |> updateHeaderStatus context initialStatus statusChangeMechanism
+        let query =
+            """
+            insert into ingestion.staged_entry(
+	            unique_id, entry_date, description, source_id, fi_reference, source_file)
+            values (
+	            @unique_id, 
+                @entry_date, 
+                @description, 
+                @source_id, 
+                @fi_reference,
+                @source_file);"""
+        let uuid = stageEntryHeader.stageEntryHeaderId |> StageEntryHeaderId.value
+        let description = stageEntryHeader.description |> JournalEntryDescription.value
+        let sourceUuid = stageEntryHeader.ingestionSource |> ingestionSourceId |> IngestionSourceId.value
+        let fiReference = stageEntryHeader.fiReference |> JournalExternalReferenceText.value
+        let sourceFile = stageEntryHeader.sourceFile |> SourceFile.value
+        let parameters =
+            [
+              { name = "@unique_id"; value = UniqueId(uuid) }
+              { name = "@entry_date"; value = DbLocalDate(stageEntryHeader.entryDate) }
+              { name = "@description"; value = CharString(description) }
+              { name = "@source_id"; value = UniqueId(sourceUuid) }
+              { name = "@fi_reference"; value = CharString(fiReference) }
+              { name = "@source_file"; value = CharString(sourceFile) }
+            ]
+        return! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+    }
         
 let private reconstitute raw =
     result {
@@ -106,7 +187,7 @@ let private reconstitute raw =
         let! sourceName = sourceNameStr |> JournalRefFinancialInstitution.create
         let ingestionSource = IngestionSource.create ingestionSourceId sourceName sourceCreated sourceModified
         let! fiReference = fiReferenceStr |> JournalExternalReferenceText.create
-        let! status = statusStr |> StagedEntryStatus.fromString
+        let! status = statusStr |> convertOptionToDesiredTypeWithFallibleConverter StagedEntryStatus.fromString
         return
             create
                 sourceFile
@@ -128,23 +209,29 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "source_created"),
     (row |> RowReader.getInstant "source_modified"),
     (row |> RowReader.getString "fi_reference"),
-    (row |> RowReader.getString "status")
-    
+    (row |> RowReader.getStringOption "current_status")
+
 let private readRowsFromDb
     (context: Context.Context)
     (predicate: string option)
     (limit: int option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<StageEntryHeader list, AppError> =
+    : Result<StageEntryHeader list, AppError> =   
+    let sortOrder = StageEntryStatusTransition.StageEntryStatusTransitionSortOrder.Desc
+    let allStatuses = StageEntryStatusTransition.formAllStatusesCteForReadQueries sortOrder
     let select =
         """
-        e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, e.status,
-        s.source_name, s.created_at as source_created, s.modified_at as source_modified
+        e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, 
+        all_statuses.to_status as current_status, s.source_name, s.created_at as source_created,
+        s.modified_at as source_modified
         """
     let from = "ingestion.staged_entry e"
-    let join = "left join ingestion.source s on e.source_id = s.unique_id"
-    let query = buildReadQuery select from (Some join) predicate limit None None
+    let join = """
+        left join ingestion.source s on e.source_id = s.unique_id
+        left join all_statuses on e.unique_id = all_statuses.entry_id where all_statuses.ordinal = 1
+        """
+    let query = buildReadQuery (Some allStatuses) select from (Some join) predicate limit None None
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
         query
@@ -160,12 +247,12 @@ let fetchById (context: Context.Context) (headerId: StageEntryHeaderId) : Result
     readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
 let fetchByStatus (context: Context.Context) (status: StagedEntryStatus) : Result<StageEntryHeader list, AppError> =
-    let predicate = "e.status = @status"
+    let predicate = "all_statuses.to_status = @status"
     let statusStr = status |> StagedEntryStatus.toString
     let parameters = [ { name = "@status"; value = CharString statusStr } ]
     readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-let fetchBySourceFile
+let fetchBySourceFile // todo: determine if we shouldn't just fold all fetch functions into the orchestrator's fetchFiltered 
     (context: Context.Context)
     (statusFilter: StagedEntryStatus list option)
     (sourceFile: SourceFile)
@@ -178,7 +265,7 @@ let fetchBySourceFile
                 l
                 |> List.map(fun x -> $"'{x |> StagedEntryStatus.toString}'") // direct interpolation is okay since this is directly pulled from the DU
                 |> String.concat ","
-            $"and e.status in ({strings})"
+            $"and all_statuses.to_status in ({strings})"
     let predicate = $"""
         e.source_file = @source_file
         {statusListClause}
@@ -188,14 +275,11 @@ let fetchBySourceFile
     readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
 
 let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, AppError> =    
-    let query = """
-        with all_statuses as (
-            select 
-                entry_id,
-                modified_at,
-                row_number() over (partition by entry_id order by modified_at asc) as ordinal        
-            from ingestion.staged_entry_audit
-        ), all_in_ledger as (
+    let sortOrder = StageEntryStatusTransition.StageEntryStatusTransitionSortOrder.Asc
+    let allStatuses = StageEntryStatusTransition.formAllStatusesCteForReadQueries sortOrder
+    let query = $"""
+        {allStatuses}
+        , all_in_ledger as (
             select 
                 jex.journal_entry_id,
                 jex.financial_institution,
@@ -228,7 +312,7 @@ let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, A
             and (ais.ordinal > 1 or ail.journal_entry_id is not null)
         )
         select 
-            e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, e.status,
+            e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, all_statuses.to_status,
             s.source_name, s.created_at as source_created, s.modified_at as source_modified
         from ingestion.staged_entry e
         join duplicates d on e.unique_id = d.stage_entry_id
@@ -286,11 +370,6 @@ let updateDb
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
                   ("fi_reference = @fi_reference",
                    { name = "@fi_reference"; value = CharString(JournalExternalReferenceText.value n) }))
-              
-              statusUpdate // note: you still need to add an entry to the audit table
-              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  ("status = @status",
-                   { name = "@status"; value = CharString(StagedEntryStatus.toString n) }))
         ]
         |> List.choose id
     let setClauses = updates |> List.map fst |> String.concat ", "
@@ -304,6 +383,10 @@ let updateDb
     """
     result {
         do! if updates.IsEmpty then Error(IngestionStageEntryHeaderNoOp) else Ok()
+        do! match statusUpdate with
+            | NoChange -> Ok ()
+            | SetTo (newStatus, mechanism) ->
+                headerId |> updateHeaderStatus context newStatus mechanism
         let! () = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
         return! headerId |> fetchById context
     }
@@ -321,21 +404,4 @@ let fetchByQuery
         mapRawForDbRead
         reconstitute
         expectedRows
-
-/// updateStatus assumes the orchestrator is validating the status change and adding a record to the audit table 
-let updateStatus
-    (context: Context.Context)
-    (newStatus: StagedEntryStatus)
-    (stageEntryHeaderId : StageEntryHeaderId)
-    : Result<StageEntryHeader, AppError> =
-    let fieldUpdates = {
-        headerIdToUpdate = stageEntryHeaderId
-        sourceFileUpdate = NoChange
-        entryDateUpdate = NoChange
-        descriptionUpdate = NoChange
-        ingestionSourceUpdate = NoChange
-        fiReferenceUpdate = NoChange
-        statusUpdate = (SetTo newStatus)
-    }
-    updateDb context fieldUpdates
     

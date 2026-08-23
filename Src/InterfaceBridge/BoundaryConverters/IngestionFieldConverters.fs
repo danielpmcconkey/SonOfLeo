@@ -51,7 +51,7 @@ let ``convert [StageEntryHeader] to [StageEntryHeaderReturn]``
     let description = model |> StageEntryHeader.description |> JournalEntryDescription.value
     let ingestionSource = model |> StageEntryHeader.ingestionSource |> IngestionSource.name |> JournalRefFinancialInstitution.value
     let fiReference = model |> StageEntryHeader.fiReference |> JournalExternalReferenceText.value
-    let status = model |> StageEntryHeader.status |> StagedEntryStatus.toString
+    let status = model |> StageEntryHeader.currentStatus |> Option.map StagedEntryStatus.toString
     {   sourceFile = sourceFile
         stageEntryHeaderId = stageEntryHeaderId
         entryDate = entryDate

@@ -140,7 +140,7 @@ module Account =
             a.account_subtype, a.parent_id, a.external_ref, a.created_at, a.modified_at
             """
         let from = "ledger.account a"
-        let query = buildReadQuery select from None predicate limit None None
+        let query = buildReadQuery None select from None predicate limit None None
         executeReaderQuery
             (context |> Context.getDatabaseTransaction)
             query

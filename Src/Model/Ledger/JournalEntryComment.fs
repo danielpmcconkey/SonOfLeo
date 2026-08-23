@@ -108,7 +108,7 @@ module JournalEntryComment =
                 jec.comment_text, jec.created_at, jec.modified_at
             """
         let from = "ledger.journal_entry_comment jec"
-        let query = buildReadQuery select from None predicate limit None orderBy
+        let query = buildReadQuery None select from None predicate limit None orderBy
         executeReaderQuery
             (context |> Context.getDatabaseTransaction)
             query

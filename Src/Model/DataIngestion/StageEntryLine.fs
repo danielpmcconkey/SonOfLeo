@@ -150,7 +150,7 @@ let private readRowsFromDb
         l.unique_id, l.entry_id, l.amount, l.line_type, l.account_id, l.memo, l.classification_rule_id
         """
     let from = "ingestion.staged_entry_line l"
-    let query = buildReadQuery select from None predicate limit None None
+    let query = buildReadQuery None select from None predicate limit None None
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
         query

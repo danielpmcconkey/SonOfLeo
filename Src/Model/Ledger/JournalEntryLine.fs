@@ -124,7 +124,7 @@ module JournalEntryLine =
             jel.line_type, jel.memo, jel.created_at, jel.modified_at
         """
         let from = "ledger.journal_entry_line jel"
-        let query = buildReadQuery select from join predicate limit None orderBy
+        let query = buildReadQuery None select from join predicate limit None orderBy
         executeReaderQuery
             (context |> Context.getDatabaseTransaction)
             query

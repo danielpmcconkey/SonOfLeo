@@ -101,6 +101,7 @@ let rec private readRawRows
 /// buildReadQuery is designed to produce a flexible read query that can
 /// satisfy diverse use cases
 let buildReadQuery
+    (cte: string option)
     (selectColumns: string)
     (from: string)
     (join: string option)
@@ -109,6 +110,10 @@ let buildReadQuery
     (groupBy: string option)
     (orderBy: string option)
     : string =
+    let cteString =
+        match cte with
+        | Some x -> x
+        | None -> String.Empty
     let joinString =
         match join with
         | Some x -> x
@@ -130,6 +135,7 @@ let buildReadQuery
         | Some x -> $"order by {x}"
         | None -> String.Empty
     $"""
+        {cteString}
         select {selectColumns}
         from {from}
         {joinString}

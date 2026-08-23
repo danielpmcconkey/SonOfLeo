@@ -89,7 +89,7 @@ let private readRowsFromDb
         s.unique_id, s.source_name, s.created_at, s.modified_at
         """
     let from = "ingestion.source s"
-    let query = buildReadQuery select from None predicate limit None None
+    let query = buildReadQuery None select from None predicate limit None None
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
         query

@@ -116,7 +116,7 @@ module JournalEntryExternalReference =
             jer.created_at, jer.modified_at
             """
         let from = "ledger.journal_entry_ext_reference jer"
-        let query = buildReadQuery select from None predicate limit None orderBy
+        let query = buildReadQuery None select from None predicate limit None orderBy
         executeReaderQuery
             (context |> Context.getDatabaseTransaction)
             query

@@ -147,7 +147,15 @@ let private updateStageEntry payload _ =
                         let! source = name |> IngestionSource.fetchByName context
                         return SetTo source }
             let! fiReferenceUpdate = input.fiReference |> convertFieldUpdateToNewTypeFallible JournalExternalReferenceText.create
-            let! statusUpdate = input.status |> convertFieldUpdateToNewTypeFallible StagedEntryStatus.fromString
+            let! statusUpdate =
+                match input.status with
+                | NoChange -> Ok NoChange
+                | SetTo statusUpdateInput -> result {
+                    let! newStatus = statusUpdateInput.newStatus
+                                     |> StagedEntryStatus.fromString
+                    let! mechanism = statusUpdateInput.stageStatusChangeMechanism
+                                     |> StageStatusChangeMechanism.fromString
+                    return SetTo(newStatus, mechanism) }
             let (headerUpdates:StageEntryHeaderFieldUpdates) = {
                 headerIdToUpdate = input.stageEntryHeaderId |> StageEntryHeaderId.fromGuid
                 sourceFileUpdate = sourceFileUpdate

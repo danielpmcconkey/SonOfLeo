@@ -113,7 +113,7 @@ module JournalEntryHeader =
             je.fiscal_period_id, je.voided_at, je.created_at, je.modified_at
         """
         let from = "ledger.journal_entry je"
-        let query = buildReadQuery selectColumns from join predicate limit None orderBy
+        let query = buildReadQuery None selectColumns from join predicate limit None orderBy
         executeReaderQuery
             (context |> Context.getDatabaseTransaction)
             query

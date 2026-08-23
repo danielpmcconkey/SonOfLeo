@@ -116,19 +116,10 @@ let private confirmLines
         do! lines |> confirmLinesAccountCodes context accountCodeValidationType // do the expensive one last
     }
 
-let private confirmValidTransition transition =
-    let fromType = transition |> StageEntryStatusTransition.fromStatus
-    let toType = transition |> StageEntryStatusTransition.toStatus
-    if fromType |> StageEntryStatusTransition.validTransitions |> List.contains toType then Ok ()
-    else
-        let fromStr = fromType |> Option.map StagedEntryStatus.toString
-        let toStr = toType |> StagedEntryStatus.toString
-        Error (IngestionInvalidStageStatusTransition (fromStr, toStr))
-
 let private confirmValidTransitions transitions =
     let check =
         transitions
-        |> List.map confirmValidTransition
+        |> List.map StageEntryStatusTransition.confirmValidTransition
         |> convertListOfResultsToResultsList
     match check with
     | Error e -> Error e
@@ -189,7 +180,7 @@ let private constructSetFromRaw
                 let! ingestionSource = fiSource |> IngestionSource.fetchByName context
                 let header =
                     StageEntryHeader.create
-                        sourceFile stageEntryId entryDate description ingestionSource fiReference Ingested
+                        sourceFile stageEntryId entryDate description ingestionSource fiReference (Some Ingested)
                 let transitionId = StageEntryStatusTransitionId.create ()
                 let transition = StageEntryStatusTransition.create transitionId stageEntryId
                                       None Ingested (context |> Context.getInitiationInstant) StageIngestion
@@ -284,31 +275,6 @@ let createNewSource
         do! newSource |> IngestionSource.insertNewToDb context
         return newSource }
 
-let private updateHeaderStatusAndAddAuditRecord
-    (context: Context.Context)
-    (toStatus: StagedEntryStatus)
-    (mechanism: StageStatusChangeMechanism)
-    (headerId: StageEntryHeaderId)
-    : Result<unit, AppError> =
-    result {
-        // update the status on the header record first
-        let! _ = headerId |> StageEntryHeader.updateStatus context toStatus
-        // now add an audit row entry
-        let! statusTransitions = headerId |> StageEntryStatusTransition.fetchByHeaderId context
-        let latestTran =
-            statusTransitions
-            |> List.sortByDescending(fun s -> s |> StageEntryStatusTransition.instant)
-            |> List.head // this is safe unless someone directly manipulated the DB thanks to validation in the create function
-        let fromStatus = latestTran |> StageEntryStatusTransition.toStatus |> Some
-        let newTransitionId = StageEntryStatusTransitionId.create()
-        let instant = context |> Context.getInitiationInstant
-        let newTransition =
-            StageEntryStatusTransition.create newTransitionId headerId
-                fromStatus toStatus instant mechanism
-        do! newTransition |> confirmValidTransition
-        return! newTransition |> StageEntryStatusTransition.insertNewToDb context
-    }
-
 let updateHeaderFromClassificationResults
     (context: Context.Context)
     (resultsAtHeader: ClassificationResult list)
@@ -332,7 +298,7 @@ let updateHeaderFromClassificationResults
         if resultsAtHeader |> List.forall isMatch then Classified
         elif resultsAtHeader |> List.exists isTied then Conflict
         else StagedEntryStatus.NoMatch
-    headerId |> updateHeaderStatusAndAddAuditRecord context newStatus mechanism
+    headerId |> StageEntryHeader.updateHeaderStatus context newStatus mechanism
     
 let deduplicateStagedEntries
     (context: Context.Context)
@@ -345,7 +311,7 @@ let deduplicateStagedEntries
                  |> List.map(fun dup ->
                      dup
                      |> StageEntryHeader.stageEntryHeaderId
-                     |> updateHeaderStatusAndAddAuditRecord context toStatus mechanism
+                     |> StageEntryHeader.updateHeaderStatus context toStatus mechanism
                      )
                  |> convertListOfResultsToResultsList
         return duplicateHeaders
@@ -370,7 +336,7 @@ let classifyStagedEntries
                 let headerId = entry.stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let toStatus = StagedEntryStatus.Classified
                 let mechanism = StageStatusChangeMechanism.Classifier
-                headerId |> updateHeaderStatusAndAddAuditRecord context toStatus mechanism
+                headerId |> StageEntryHeader.updateHeaderStatus context toStatus mechanism
                 )
             |> convertListOfResultsToResultsList
         
@@ -414,17 +380,15 @@ let ingestRawToStageThenDeduplicateAndClassify
         let! entries = rawRows |> constructSetFromRaw context sourceFile
         let! _ =
             entries
-            |> List.map(fun e -> e |> stageEntryHeader  |> StageEntryHeader.insertNewToDb context )
+            |> List.map(fun e ->
+                e
+                |> stageEntryHeader
+                |> StageEntryHeader.insertNewToDb context Ingested StageIngestion )
             |> convertListOfResultsToResultsList
         let! _ =
             entries
             |> List.collect lines
             |> List.map(fun l -> l |> StageEntryLine.insertNewToDb context )
-            |> convertListOfResultsToResultsList
-        let! _ =
-            entries
-            |> List.collect statusTransitions
-            |> List.map(fun l -> l |> StageEntryStatusTransition.insertNewToDb context )
             |> convertListOfResultsToResultsList
         // update the context's audit date between major operations
         let contextAfterLoad = context |> Context.updateInitiationInstant 
@@ -516,9 +480,9 @@ let updateStageEntry
         do!
             match headerUpdates.statusUpdate with
             | NoChange -> Ok ()
-            | SetTo newStatus ->
+            | SetTo (newStatus, mechanism) ->
                 let headerId = headerUpdates.headerIdToUpdate
-                headerId |> updateHeaderStatusAndAddAuditRecord context newStatus StageStatusChangeMechanism.Operator
+                headerId |> StageEntryHeader.updateHeaderStatus context newStatus mechanism
         // now that we updated everything, we should read it back and ensure it still meets composite requirements
         let! fetched = headerUpdates.headerIdToUpdate |> fetchByStageEntryHeaderId context
         do! fetched |> confirmStageEntryCompositeIsValid context AllowNone
@@ -595,7 +559,7 @@ let post
                 let headerId = stageEntry.stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let newStatus = StagedEntryStatus.Posted
                 let mechanism = StageStatusChangeMechanism.LedgerPoster
-                headerId |> updateHeaderStatusAndAddAuditRecord context newStatus mechanism
+                headerId |> StageEntryHeader.updateHeaderStatus context newStatus mechanism
                 )
             |> convertListOfResultsToResultsList
             |> Result.map ignore
@@ -622,8 +586,8 @@ let fetchFiltered
         | Some EntryDateDesc -> "order by e.entry_date desc"
         | Some FiAsc -> "order by s.source_name asc"
         | Some FiDesc -> "order by s.source_name desc"
-        | Some StatusAsc -> "order by e.status asc"
-        | Some StatusDesc -> "order by e.status desc"
+        | Some StatusAsc -> "order by all_statuses.to_status asc"
+        | Some StatusDesc -> "order by all_statuses.to_status desc"
         | Some DescriptionAsc -> "order by e.description asc"
         | Some DescriptionDesc -> "order by e.description desc"
     let whereClausesAndParams =
@@ -701,16 +665,12 @@ let fetchFiltered
             $"where {catClauses}"
         
     let parameters = whereClausesAndParams |> List.map snd
+    let sortOrder = StageEntryStatusTransition.StageEntryStatusTransitionSortOrder.Desc
+    let allStatuses = StageEntryStatusTransition.formAllStatusesCteForReadQueries sortOrder
     let query =
         $"""
-        with all_statuses as (
-            select 
-                entry_id,
-                modified_at,
-                to_status,
-                row_number() over (partition by entry_id order by modified_at desc) as ordinal        
-            from ingestion.staged_entry_audit
-        ), all_in_stage as (
+        {allStatuses}
+        , all_in_stage as (
             select 
                 se.unique_id as stage_entry_id,
                 se.entry_date,
@@ -737,11 +697,13 @@ let fetchFiltered
             {whereClauses}
         )
         select 
-            e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, e.status,
-            s.source_name, s.created_at as source_created, s.modified_at as source_modified
+            e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, 
+            all_statuses.to_status as current_status, s.source_name, s.created_at as source_created,
+            s.modified_at as source_modified
         from ingestion.staged_entry e
         join header_ids h on e.unique_id = h.stage_entry_id
         join ingestion.source s on e.source_id = s.unique_id
+        left join all_statuses on e.unique_id = all_statuses.entry_id where all_statuses.ordinal = 1
         {sortClause}
         """
     let! headers = query |> StageEntryHeader.fetchByQuery context parameters AnyQuantityIsAcceptable

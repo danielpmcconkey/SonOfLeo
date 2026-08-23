@@ -409,7 +409,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 Assert.Equal(2, ddEntries |> List.length)
                 let dupCount =
                     ddEntries
-                    |> List.filter (fun se -> se |> stageEntryHeader |> StageEntryHeader.status = Duplicate)
+                    |> List.filter (fun se -> se |> stageEntryHeader |> StageEntryHeader.statusCache = Duplicate)
                     |> List.length
                 Assert.Equal(1, dupCount)
             })

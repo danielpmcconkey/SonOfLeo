@@ -17,6 +17,10 @@ type StageEntryStatusTransition =
         stageStatusChangeMechanism: StageStatusChangeMechanism
     }
 
+type StageEntryStatusTransitionSortOrder =
+    | Asc
+    | Desc
+
 let stageEntryStatusTransitionId v = v.stageEntryStatusTransitionId
 let stageEntryHeaderId v = v.stageEntryHeaderId
 let fromStatus v = v.fromStatus
@@ -51,35 +55,6 @@ let create
         toStatus = toStatus
         instant = instant
         stageStatusChangeMechanism = stageStatusChangeMechanism } 
-
-let insertNewToDb (context: Context.Context) (stageEntryStatusTransition: StageEntryStatusTransition) : Result<unit, AppError> =
-    let query =
-        """
-        insert into ingestion.staged_entry_audit(
-	        unique_id, entry_id, from_status, to_status, modified_at, change_mechanism)
-        values (
-	        @unique_id, 
-            @entry_id, 
-            @from_status, 
-            @to_status, 
-            @modified_at,
-            @change_mechanism);"""
-    let uuid = stageEntryStatusTransition.stageEntryStatusTransitionId |> StageEntryStatusTransitionId.value
-    let headerUuid = stageEntryStatusTransition.stageEntryHeaderId |> StageEntryHeaderId.value
-    let fromStatus = stageEntryStatusTransition.fromStatus |> Option.map StagedEntryStatus.toString
-    let toStatus = stageEntryStatusTransition.toStatus |> StagedEntryStatus.toString
-    let stageStatusChangeMechanism =
-        stageEntryStatusTransition.stageStatusChangeMechanism |> StageStatusChangeMechanism.toString
-    let parameters =
-        [
-          { name = "@unique_id"; value = UniqueId(uuid) }
-          { name = "@entry_id"; value = UniqueId(headerUuid) }
-          { name = "@from_status"; value = NullableCharString(fromStatus) }
-          { name = "@to_status"; value = CharString(toStatus) }
-          { name = "@modified_at"; value = DbInstant(stageEntryStatusTransition.instant) }
-          { name = "@change_mechanism"; value = CharString(stageStatusChangeMechanism) }
-        ]
-    executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
         
 let private reconstitute raw =
     result {
@@ -125,7 +100,7 @@ let private readRowsFromDb
         sea.unique_id, sea.entry_id, sea.from_status, sea.to_status, sea.modified_at, sea.change_mechanism
         """
     let from = "ingestion.staged_entry_audit sea"
-    let query = buildReadQuery select from None predicate limit None None
+    let query = buildReadQuery None select from None predicate limit None None
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
         query
@@ -133,15 +108,6 @@ let private readRowsFromDb
         mapRawForDbRead
         reconstitute
         expectedRows
-
-let fetchById
-    (context: Context.Context)
-    (transitionId: StageEntryStatusTransitionId)
-    : Result<StageEntryStatusTransition, AppError> =
-    let predicate = "sea.unique_id = @unique_id"
-    let uuid = transitionId |> StageEntryStatusTransitionId.value
-    let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
 let fetchByHeaderId (context: Context.Context) (headerId: StageEntryHeaderId) : Result<StageEntryStatusTransition list, AppError> =
     let predicate = "sea.entry_id = @unique_id"
@@ -167,3 +133,30 @@ let fetchByHeaderIdList
     let parameters = namesAndParameters |> List.map snd
     let predicate = $"sea.entry_id in ({names})"
     readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
+
+let confirmValidTransition transition =
+    let fromType = transition |> fromStatus
+    let toType = transition |> toStatus
+    if fromType |> validTransitions |> List.contains toType then Ok ()
+    else
+        let fromStr = fromType |> Option.map StagedEntryStatus.toString
+        let toStr = toType |> StagedEntryStatus.toString
+        Error (IngestionInvalidStageStatusTransition (fromStr, toStr))
+
+let formAllStatusesCteForReadQueries sortOrder =
+    let orderby =
+        match sortOrder with
+        | Asc -> "asc" // ordinal 1 is the earliest
+        | Desc -> "desc" // ordinal 1 is the latest
+    $"""
+        with all_statuses as (
+            select
+                entry_id,
+                modified_at,
+                from_status,
+                to_status,
+                row_number() over (partition by entry_id order by modified_at {orderby}) as ordinal        
+            from ingestion.staged_entry_audit
+        )
+    """
+    

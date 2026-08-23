@@ -44,7 +44,7 @@ type StageEntryHeaderReturn = {
         description: string
         ingestionSource: string
         fiReference: string
-        status: string 
+        status: string option
     }
                 
 type StageEntryLineReturn =  {
@@ -189,6 +189,11 @@ type UpdateStageEntryLineInput = {
     classificationRuleId: FieldUpdate<Guid option>
 }
 
+type StageEntryStatusUpdateInput = {
+    newStatus: string
+    stageStatusChangeMechanism: string
+}
+
 type UpdateStageEntryInput = {
     stageEntryHeaderId: Guid
     sourceFileUpdate: FieldUpdate<string>
@@ -196,7 +201,7 @@ type UpdateStageEntryInput = {
     description: FieldUpdate<string>
     ingestionSource: FieldUpdate<string>
     fiReference: FieldUpdate<string>
-    status: FieldUpdate<string>
+    status: FieldUpdate<StageEntryStatusUpdateInput>
     lines: UpdateStageEntryLineInput list
 }
 

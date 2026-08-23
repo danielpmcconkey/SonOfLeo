@@ -103,7 +103,7 @@ module FiscalPeriod =
         let select =
             "fp.unique_id, fp.period_key, fp.start_date, fp.end_date, fp.is_open, fp.created_at, fp.modified_at"
         let from = "ledger.fiscal_period fp"
-        let query = buildReadQuery select from None predicate limit None None
+        let query = buildReadQuery None select from None predicate limit None None
         executeReaderQuery
             (context |> Context.getDatabaseTransaction)
             query

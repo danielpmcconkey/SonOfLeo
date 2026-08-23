@@ -90,7 +90,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
         entry |> stageEntryHeader |> StageEntryHeader.sourceFile |> SourceFile.value
     static let fiReferenceOf entry =
         entry |> stageEntryHeader |> StageEntryHeader.fiReference |> JournalExternalReferenceText.value
-    static let statusOf entry = entry |> stageEntryHeader |> StageEntryHeader.status
+    static let statusOf entry = entry |> stageEntryHeader |> StageEntryHeader.statusCache
 
     /// The where clause keys off the latest row in staged_entry_audit, not the status column
     /// on the header, so the status filter's expected set is derived the same way.
