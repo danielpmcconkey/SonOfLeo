@@ -52,6 +52,7 @@
     <Compile Include="ModelOrchestrator\ClassificationRuleCrud.fs" />
     <Compile Include="ModelOrchestrator\StageEntryUpdate.fs" />
     <Compile Include="ModelOrchestrator\StageEntryPosting.fs" />
+    <Compile Include="ModelOrchestrator\StageEntryFetching.fs" />
     <Compile Include="Model\Ledger\JournalEntryHeader.fs" />
     <Compile Include="Model\Ledger\JournalEntryExternalReference.fs" />
     <Compile Include="Model\Ledger\JournalEntryComment.fs" />

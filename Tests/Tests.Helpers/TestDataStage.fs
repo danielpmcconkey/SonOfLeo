@@ -11,7 +11,6 @@ open Model.Ledger.Accounts
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator
 open ModelOrchestrator.JournalEntries
-open ModelOrchestrator.StageEntryOrchestration
 open Tests.Helpers.EntityFunctions
 open Utilities.ResultHelper
 open Xunit
@@ -85,7 +84,6 @@ type FixtureData =
       journalEntryExternalReferences: JournalEntryExternalReference list
       journalEntryComments: JournalEntryComment list
       ingestionSources: IngestionSource.IngestionSource list
-      stageEntries: StageEntry list
       classificationRules: ClassificationRule.ClassificationRule list }
 
 type TestDataFixture() =
@@ -132,7 +130,6 @@ type TestDataFixture() =
                 let mutable fiscalPeriods: FiscalPeriod list = []
                 let mutable journalEntries: JournalEntry list = []
                 let mutable ingestionSources: IngestionSource.IngestionSource list = []
-                let mutable stageEntries: StageEntry list = []
                 let mutable classificationRules: ClassificationRule.ClassificationRule list = []
 
                 // =============================================================================
@@ -934,7 +931,6 @@ type TestDataFixture() =
                       journalEntryExternalReferences = journalEntryExternalReferences
                       journalEntryComments = journalEntryComments
                       ingestionSources = ingestionSources
-                      stageEntries = stageEntries
                       classificationRules = classificationRules }
             }
         stageResult |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))

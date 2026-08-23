@@ -154,7 +154,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
             | Error e -> failwith(AppError.toMessage e)
 
     [<Fact>]
-    member _.``REQ-FP-3.2 FetchByKey rejects non-existent period key``() =
+    member _.``REQ-FP-3.6 REQ-FP-3.2 FetchByKey rejects non-existent period key``() =
         let payload = createFiscalPeriodFetchByKeyInputPayload "1850-01"
         result {
             do!
@@ -167,7 +167,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-FP-4.1 Close rejects non-existent period key``() =
+    member _.``REQ-FP-3.6 REQ-FP-4.1 Close rejects non-existent period key``() =
         let payload = createFiscalPeriodCloseInputPayload "1850-01"
         result {
             do!
@@ -180,7 +180,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-FP-4.2 Reopen rejects non-existent period key``() =
+    member _.``REQ-FP-3.6 REQ-FP-4.2 Reopen rejects non-existent period key``() =
         let payload = createFiscalPeriodReopenInputPayload "1850-01"
         result {
             do!

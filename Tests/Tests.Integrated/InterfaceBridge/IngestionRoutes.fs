@@ -138,6 +138,45 @@ type IngestionRouteTests(fixture: TestDataFixture) =
           rawRow "grp-route-b" today "Route ingest second group" "TestBank" referenceTwo "18.00" "Debit" (Some "F-5300") None
           rawRow "grp-route-b" today "Route ingest second group" "TestBank" referenceTwo "18.00" "Credit" (Some "F-1270") None ]
 
+    (* ---------------------------------------------------------------------
+       FetchStageEntryFiltered — the route that carried a dead column reference
+       through two audits because nothing ever called it.
+       --------------------------------------------------------------------- *)
+
+    static let noFilterInput: StageEntryFetchFilterInput =
+        { stageEntryHeaderId = None
+          sourceFile = None
+          temporalFilter = None
+          description = None
+          ingestionSource = None
+          fiReference = None
+          status = None
+          stageEntryLineId = None
+          amount = None
+          lineType = None
+          accountCode = None
+          memo = None
+          classificationRuleId = None }
+
+    static let fetchFilteredThroughRoute filter =
+        result {
+            let! payload =
+                { StageEntryFetchFilteredInput.filter = filter; sort = None }
+                |> toJson<StageEntryFetchFilteredInput>
+            let! resultPayload = routeUiCommandForTesting "Ingestion" "FetchStageEntryFiltered" [] payload
+            return! fromJson<StageEntryReturn list> resultPayload
+        }
+
+    /// Two groups whose every line names its account outright, so the accounts a filter has to
+    /// resolve are the ones these rows were written with rather than whatever the classifier
+    /// would have picked.
+    static let twoAccountedGroups =
+        [ rawRow "grp-route-fetch-a" today "Route fetch first group" "TestBank" "REF-ROUTE-FETCH-001" "18.00" "Debit" (Some "F-5300") None
+          rawRow "grp-route-fetch-a" today "Route fetch first group" "TestBank" "REF-ROUTE-FETCH-001" "18.00" "Credit" (Some "F-1270") None
+          rawRow "grp-route-fetch-b" today "Route fetch second group" "TestBank" "REF-ROUTE-FETCH-002" "25.00" "Debit" (Some "F-5650") None
+          rawRow "grp-route-fetch-b" today "Route fetch second group" "TestBank" "REF-ROUTE-FETCH-002" "25.00" "Credit" (Some "F-1270") None ]
+
+
 
     [<Fact>]
     member _.``REQ-STG-3.1 IngestRawFileToStage route ingests valid file and returns result`` () =
@@ -488,3 +527,115 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             match cleanUpIngestionSourceId idToCleanUp with
             | Ok () -> ()
             | Error e -> failwith (AppError.toMessage e)
+    [<Fact>]
+    member _.``REQ-STG-10.1 REQ-STG-10.6 FetchStageEntryFiltered route returns the staged entry with its lines and status transitions intact`` () =
+        let fileName = "fetch-filtered-composition.jsonl"
+        let mutable idsToCleanUp = []
+        try
+            result {
+                let! ingested = twoAccountedGroups |> ingestThroughRoute fileName
+                idsToCleanUp <- ingested |> headerIdsToCleanUp
+                let staged =
+                    ingested.stagedEntries
+                    |> List.find (fun entry -> entry.stageEntryHeader.fiReference = "REF-ROUTE-FETCH-001")
+
+                let! fetched =
+                    fetchFilteredThroughRoute { noFilterInput with fiReference = Some "REF-ROUTE-FETCH-001" }
+                Assert.Equal(1, fetched |> List.length)
+                let returned = fetched |> List.head
+
+                Assert.Equal(staged.stageEntryHeader.stageEntryHeaderId, returned.stageEntryHeader.stageEntryHeaderId)
+                Assert.Equal("Route fetch first group", returned.stageEntryHeader.description)
+                Assert.Equal("TestBank", returned.stageEntryHeader.ingestionSource)
+                Assert.Equal(staged.stageEntryHeader.entryDate, returned.stageEntryHeader.entryDate)
+                Assert.Equal(staged.stageEntryHeader.status, returned.stageEntryHeader.status)
+
+                Assert.Equal(2, returned.lines |> List.length)
+                Assert.Equal<decimal list>(
+                    staged.lines |> List.map (fun line -> line.amount) |> List.sort,
+                    returned.lines |> List.map (fun line -> line.amount) |> List.sort)
+                Assert.Equal<string list>(
+                    [ "Credit"; "Debit" ],
+                    returned.lines |> List.map (fun line -> line.lineType) |> List.sort)
+
+                (* The transition history is what REQ-STG-10.6 exists for: without it the caller
+                   has to make a second round trip to learn how the entry reached its status. *)
+                Assert.NotEmpty returned.statusTransitions
+                Assert.Equal<Guid list>(
+                    staged.statusTransitions
+                    |> List.map (fun transition -> transition.stageEntryStatusTransitionId)
+                    |> List.sort,
+                    returned.statusTransitions
+                    |> List.map (fun transition -> transition.stageEntryStatusTransitionId)
+                    |> List.sort)
+                Assert.Contains(
+                    returned.stageEntryHeader.status,
+                    returned.statusTransitions |> List.map (fun transition -> transition.toStatus))
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            deleteImportFile fileName
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (AppError.toMessage e)
+
+    [<Fact>]
+    member _.``REQ-STG-10.2 FetchStageEntryFiltered route resolves an account code to the account whose lines it returns`` () =
+        (* The account filter arrives at the route as a code string and reaches the query as an
+           id, so this is the only layer where that conversion is exercised at all. Filtering by
+           each group's own expense account in turn is what separates a working conversion from
+           one that resolves every code to the same account, or ignores the filter outright. *)
+        let fileName = "fetch-filtered-account-code.jsonl"
+        let mutable idsToCleanUp = []
+        try
+            result {
+                let! ingested = twoAccountedGroups |> ingestThroughRoute fileName
+                idsToCleanUp <- ingested |> headerIdsToCleanUp
+                let idFor reference =
+                    ingested.stagedEntries
+                    |> List.find (fun entry -> entry.stageEntryHeader.fiReference = reference)
+                    |> fun entry -> entry.stageEntryHeader.stageEntryHeaderId
+                let firstGroupId = idFor "REF-ROUTE-FETCH-001"
+                let secondGroupId = idFor "REF-ROUTE-FETCH-002"
+
+                let! byFirstAccount = fetchFilteredThroughRoute { noFilterInput with accountCode = Some "F-5300" }
+                Assert.Equal(1, byFirstAccount |> List.length)
+                Assert.Equal(firstGroupId, (byFirstAccount |> List.head).stageEntryHeader.stageEntryHeaderId)
+
+                let! bySecondAccount = fetchFilteredThroughRoute { noFilterInput with accountCode = Some "F-5650" }
+                Assert.Equal(1, bySecondAccount |> List.length)
+                Assert.Equal(secondGroupId, (bySecondAccount |> List.head).stageEntryHeader.stageEntryHeaderId)
+
+                (* Both groups credit F-1270, so the shared account has to bring back both — a
+                   conversion that quietly resolved to a single row would fail here. *)
+                let! bySharedAccount = fetchFilteredThroughRoute { noFilterInput with accountCode = Some "F-1270" }
+                Assert.Equal<Guid list>(
+                    [ firstGroupId; secondGroupId ] |> List.sort,
+                    bySharedAccount
+                    |> List.map (fun entry -> entry.stageEntryHeader.stageEntryHeaderId)
+                    |> List.sort)
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            deleteImportFile fileName
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (AppError.toMessage e)
+
+    [<Fact>]
+    member _.``REQ-STG-10.7 FetchStageEntryFiltered route rejects an account code matching no ledger account rather than returning an empty list`` () =
+        (* The conversion fails at the boundary, before the query is built, so there is nothing
+           to stage and nothing to clean up. The point of the requirement is the distinction
+           this asserts: a code naming no account is a caller error, and reporting it as an
+           empty result would be indistinguishable from a filter that simply matched nothing. *)
+        result {
+            do!
+                isCorrectError
+                    (fetchFilteredThroughRoute { noFilterInput with accountCode = Some "BOGUS-9999" })
+                    AccountCodeDoesntMatchAccountId
+                    (Some "An unresolvable account code was reported as matching nothing instead of as an error.")
+            return ()
+        }
+        |> railroadWrapper
