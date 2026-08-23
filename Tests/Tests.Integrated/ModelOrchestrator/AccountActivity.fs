@@ -74,10 +74,25 @@ type AccountActivityTests(fixture: TestDataFixture) =
               amount = None
               description = None
               unVoidedOnly = true }
+        let voidedLineIds =
+            fixture.Data.journalEntries
+            |> List.filter(fun je -> je |> JournalEntry.header |> JournalEntryHeader.voidedAt |> Option.isSome)
+            |> List.collect(fun je -> je |> JournalEntry.lines)
+            |> List.map JournalEntryLine.journalEntryLineId
         let context = Context.create NoTransaction FetchOnly
         let result = AccountActivity.fetchFiltered context filter None
         match result with
-        | Ok activities -> Assert.Equal(expectedCountTotal, activities |> List.length)
+        | Ok activities ->
+            Assert.Equal(expectedCountTotal, activities |> List.length)
+            (* A filter that let one voided entry through while dropping one live entry keeps the
+               count intact, so the count alone cannot see it. Void exclusion is a ledger
+               invariant; assert it on the rows themselves. *)
+            Assert.NotEmpty voidedLineIds
+            let returnedDetails = activities |> List.choose(fun activity -> activity.activityDetail)
+            Assert.All(returnedDetails, fun detail -> Assert.True(detail.journalEntryVoidedAt |> Option.isNone))
+            Assert.Empty(
+                returnedDetails
+                |> List.filter(fun detail -> voidedLineIds |> List.contains detail.lineId))
         | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]

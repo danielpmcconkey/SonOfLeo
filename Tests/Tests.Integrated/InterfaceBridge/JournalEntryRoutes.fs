@@ -216,18 +216,33 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         let exRef =
             JournalExternalReferenceText.create refStr
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        let expected =
+        (* The route returns distinct journal entries, so the expectation has to count entries
+           and not the reference rows pointing at them — one entry can carry several matching
+           references. The orchestrator test already derives it this way; this one counted rows
+           and agreed with the route only because the fixture happens to give each entry at most
+           one reference per institution-and-text pair. *)
+        let expectedEntryIds =
             fixture.Data.journalEntryExternalReferences
             |> List.filter(fun jer ->
                 jer |> JournalEntryExternalReference.financialInstitution = fi
                 && jer |> JournalEntryExternalReference.referenceText = exRef)
-            |> List.length
+            |> List.map JournalEntryExternalReference.journalEntryHeaderId
+            |> List.distinct
         result {
             let! payload =
                 { fi = fiOptionStr; reference = refOptionStr } |> toJson<JournalEntryFetchByExternalReferenceInput>
             let! returnPayload = routeUiCommandForTesting "JournalEntry" "FetchByExternalReference" [] payload
             let! returned = fromJson<JournalEntryReturn list> returnPayload
-            Assert.Equal(expected, returned |> List.length)
+            Assert.Equal(expectedEntryIds |> List.length, returned |> List.length)
+            Assert.Equal<Guid list>(
+                expectedEntryIds |> List.map JournalEntryHeaderId.value |> List.sort,
+                returned |> List.map(fun je -> je.header.id) |> List.sort)
+            Assert.All(
+                returned,
+                fun je ->
+                    Assert.Contains(
+                        (fiStr, refStr),
+                        je.externalReferences |> List.map(fun r -> r.financialInstitution, r.referenceText)))
             return ()
         }
         |> railroadWrapper

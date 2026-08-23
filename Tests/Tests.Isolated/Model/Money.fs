@@ -57,10 +57,17 @@ let ``REQ-MON-2.2.1 REQ-MON-1.3 fromDecimal rejects amount below minMoney`` () =
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
-let ``REQ-MON-2.3 fromDecimal list happy path`` () =
+let ``REQ-MON-2.3 fromDecimalList converts every element and returns as many Money values as it was given`` () =
+    (* Assert.True(result.IsOk) is satisfied by Ok [] and by Ok [ garbage ] alike — the function
+       is never asked to prove it converted anything. *)
     let list_d = [ -3.99M; 12.24M; 27194338M ]
-    let result = fromDecimalList list_d
-    Assert.True(result.IsOk)
+    result {
+        let! list_m = fromDecimalList list_d
+        Assert.Equal(list_d |> List.length, list_m |> List.length)
+        Assert.Equal<decimal list>(list_d, list_m |> List.map amount)
+        return ()
+    }
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-MON-2.3.1 fromDecimal list must check rounding precision`` () =
@@ -103,11 +110,14 @@ let ``REQ-MON-2.3.2 fromDecimal list preserves sort order`` () =
 // =============================================================================
 
 [<Fact>]
-let ``REQ-MON-2.4 splitByN happy path`` () =
+let ``REQ-MON-2.4 splitByN returns exactly n shares that sum back to the amount it was given`` () =
+    (* Ok [] and Ok [ source ] — no split at all — both satisfied the old Assert.True. *)
+    let expected = 111.17M
     result {
-        let! source = fromDecimal 111.17M
-        let result = splitByN source 3
-        Assert.True(result.IsOk)
+        let! source = fromDecimal expected
+        let! shares = splitByN source 3
+        Assert.Equal(3, shares |> List.length)
+        Assert.Equal(expected, shares |> List.sumBy amount)
         return ()
     }
     |> railroadWrapper

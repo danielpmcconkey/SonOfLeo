@@ -600,6 +600,29 @@ type TestDataFixture() =
                         []
                 journalEntries <- sharedRefJe2 :: journalEntries
 
+                (* One entry carrying the same (fi, reference) pair twice. REQ-JE-4.10 appends a
+                   reference to an existing entry with no uniqueness check, so this is the state a
+                   re-run import or a double-entered reference leaves behind — REQ-JE-1.48 only
+                   speaks to duplicates across entries, not within one.
+
+                   It exists to separate two quantities that the rest of the fixture keeps
+                   accidentally equal: the number of reference rows matching a search, and the
+                   number of journal entries those rows point at. fetchByReference returns the
+                   latter. Without this entry an expectation derived by counting rows agrees with
+                   one derived by counting entries, and a test that counts the wrong thing passes
+                   anyway — which is exactly what audit item 007 caught. *)
+                let! duplicateRefJe, _ =
+                    createTestJournalEntryFromPrimitives
+                        context
+                        "Fixture JE carrying one reference twice"
+                        (Some "Test")
+                        today
+                        [ (mortgage2210Id, 30.00M, "Debit", None)
+                          (food5350Id, 30.00M, "Credit", None) ]
+                        [ (testBankStr, "F-SHARED-001"); (testBankStr, "F-SHARED-001") ]
+                        []
+                journalEntries <- duplicateRefJe :: journalEntries
+
                 // =============================================================================
                 // Create shared-comment JE pair (two entries, one with a comment referencing the other)
                 // =============================================================================

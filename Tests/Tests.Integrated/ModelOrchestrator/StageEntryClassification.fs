@@ -110,24 +110,44 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-5.5 multiple rule matches with clear priority winner assigns winner`` () =
+    member _.``REQ-STG-5.5 a line drawing two rules of unequal priority is written back with the winning rule's account and the winning rule's id`` () =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
                 // grp-001 DoorDash matches both generic TestBank (1000→F-5300) and DoorDash (100→F-5350)
+                let description = "DD DoorDash Order 8431927"
                 let debitResults =
                     fullResult.classificationResults
                     |> List.filter (fun cr ->
                         cr.candidate.lineType = Debit
-                        && cr.candidate.description |> JournalEntryDescription.value = "DD DoorDash Order 8431927")
+                        && cr.candidate.description |> JournalEntryDescription.value = description)
                 Assert.NotEmpty(debitResults)
-                match (debitResults |> List.head).outcome with
-                | ManyMatchesClearWinner (winner, _) ->
-                    let! codeStr =
-                        winner.accountId
-                        |> ``convert AccountId to AccountCodeString`` context
-                    Assert.Equal("F-5350", codeStr)
-                | other -> Assert.Fail $"Expected ManyMatchesClearWinner but got {other}"
+                let ruleNameOf r = r |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value
+                let doorDashRule =
+                    fixture.Data.classificationRules
+                    |> List.find (fun r -> ruleNameOf r = "Source = TestBank && Desc = DoorDash then 5350")
+                let debitLine =
+                    fullResult.stagedEntries
+                    |> StageTestData.findByDescription description
+                    |> lines
+                    |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
+                (* The classification result is the engine's recommendation; the staged line is
+                   what everything downstream reads. Asserting only the recommendation leaves a
+                   write-back that stored the loser's account invisible — and the single-match
+                   path proving the write works says nothing about the multi-match path. *)
+                return!
+                    match (debitResults |> List.head).outcome with
+                    | ManyMatchesClearWinner (winner, _) ->
+                        result {
+                            let! codeStr = winner.accountId |> ``convert AccountId to AccountCodeString`` context
+                            Assert.Equal("F-5350", codeStr)
+                            Assert.Equal(Some fixture.Data.food5350Id, debitLine |> StageEntryLine.accountId)
+                            Assert.Equal(
+                                Some (doorDashRule |> ClassificationRule.classificationRuleId),
+                                debitLine |> StageEntryLine.classificationRuleId)
+                            return ()
+                        }
+                    | other -> Error (TestingError $"Expected ManyMatchesClearWinner but got {other}")
             })
         |> railroadWrapper
 

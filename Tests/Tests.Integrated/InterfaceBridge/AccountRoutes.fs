@@ -105,15 +105,18 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let parentAccount =
             fixture.Data.accounts |> List.filter(fun a -> a |> Account.accountId = parentId) |> List.head
         let parentCode = parentAccount |> Account.code |> AccountCode.value
-        let expected =
-            fixture.Data.accounts
-            |> List.filter(fun a -> a |> Account.parentId = (Some parentId))
-            |> List.length
+        let expectedChildren =
+            fixture.Data.accounts |> List.filter(fun a -> a |> Account.parentId = (Some parentId))
+        let expectedCodes =
+            expectedChildren |> List.map(fun a -> a |> Account.code |> AccountCode.value) |> List.sort
         result {
             let! payload = { parentCode = parentCode } |> toJson<AccountFetchByParentCodeInput>
             let! returnPayload = routeUiCommandForTesting "Account" "FetchByParentCode" [] payload
             let! fetchedChildren = fromJson<AccountReturn list> returnPayload
-            Assert.Equal(expected, fetchedChildren |> List.length)
+            Assert.Equal(expectedChildren |> List.length, fetchedChildren |> List.length)
+            (* The right number of the wrong accounts satisfies a count. Name them. *)
+            Assert.Equal<string list>(expectedCodes, fetchedChildren |> List.map(fun a -> a.code) |> List.sort)
+            Assert.All(fetchedChildren, fun child -> Assert.Equal(Some parentCode, child.parentCode))
             return ()
         }
         |> railroadWrapper

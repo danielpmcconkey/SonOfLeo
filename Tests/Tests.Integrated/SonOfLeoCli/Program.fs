@@ -1,6 +1,8 @@
 namespace Tests.Integrated.SonOfLeoCli
 
 open InterfaceBridge.InterfaceContracts.AccountContracts
+open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.Accounts
 open Utilities.Json.Json
 open Tests.Helpers
 open Tests.Helpers.CliExecutor
@@ -43,8 +45,17 @@ type ProgramTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-NGUI-3.6 System responds with the payload via stdout upon success``() =
         let args = [ "Account"; "FetchByCode" ]
+        let targetCode = "F-1270"
+        (* The name was hard-wired, so a renamed fixture account broke this test for a reason
+           that has nothing to do with stdout. The code is the stable identifier; the name is
+           looked up from the same fixture the CLI is reading. *)
+        let expectedName =
+            fixture.Data.accounts
+            |> List.find(fun a -> a |> Account.code |> AccountCode.value = targetCode)
+            |> Account.accountName
+            |> AccountName.value
         let payload =
-            { code = "F-1270" }
+            { code = targetCode }
             |> toJson<AccountFetchByCodeInput>
             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
         let exitCode, p, _ = runCli SonOfLeoCli args payload
@@ -52,7 +63,8 @@ type ProgramTests(fixture: TestDataFixture) =
         let railroad =
             result {
                 let! fetched = fromJson<AccountReturn> p
-                Assert.Equal("Money Market", fetched.name)
+                Assert.Equal(expectedName, fetched.name)
+                Assert.Equal(targetCode, fetched.code)
                 return ()
             }
         match railroad with

@@ -73,15 +73,24 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
             | Error e -> failwith(AppError.toMessage e)
 
     [<Fact>]
-    member _.``REQ-FP-3.2 FiscalPeriod FetchByKey happy path``() =
-        let context = Context.create NoTransaction FetchOnly
+    member _.``REQ-FP-3.2 FiscalPeriod FetchByKey returns the period's dates and open state, not just the key it was looked up by``() =
+        (* The key is the locator, so asserting it proves only that the where clause filtered on
+           the column it filtered on. A fabricated return carrying the requested key and garbage
+           everywhere else would satisfy that. The dates and the open flag are what the caller
+           actually came for, and the fixture already holds them. *)
+        let targetId = fixture.Data.openFiscalPeriodIds |> List.head
+        let expectedPeriod =
+            fixture.Data.fiscalPeriods |> List.find(fun fp -> fp |> FiscalPeriod.fiscalPeriodId = targetId)
+        let existingKey = expectedPeriod |> periodKey |> FiscalPeriodKey.value
         result {
-            let! existingPeriod = fetchById context (fixture.Data.openFiscalPeriodIds |> List.head)
-            let existingKey = existingPeriod |> periodKey |> FiscalPeriodKey.value
             let payload = createFiscalPeriodFetchByKeyInputPayload existingKey
             let! resultPayload = routeUiCommandForTesting "FiscalPeriod" "FetchByKey" [] payload
             let! returned = fromJson<FiscalPeriodReturn> resultPayload
             Assert.Equal(existingKey, returned.periodKey)
+            Assert.Equal(expectedPeriod |> FiscalPeriod.startDate, returned.startDate)
+            Assert.Equal(expectedPeriod |> FiscalPeriod.endDate, returned.endDate)
+            Assert.Equal(expectedPeriod |> FiscalPeriod.isOpen, returned.isOpen)
+            Assert.True(returned.isOpen)
             ()
         }
         |> railroadWrapper

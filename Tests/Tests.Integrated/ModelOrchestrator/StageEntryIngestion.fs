@@ -259,18 +259,34 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
     // REQ-STG-1.13 — Group with inconsistent header fields
     // =========================================================================
 
-    [<Fact>]
-    member _.``REQ-STG-1.13 ingestRaw rejects group with inconsistent entry_date across records`` () =
+    (* The requirement names four fields a group must agree on. Testing one of them leaves the
+       other three free to drift: a parser emitting two descriptions under one group_id is a
+       different defect from one emitting two dates, and only the date case was covered. Each
+       row below differs from the first record in exactly one field, and the alternate fi_source
+       is a source that really exists so the failure cannot be a source-resolution error wearing
+       the right name. *)
+    [<Theory>]
+    [<InlineData("entryDate")>]
+    [<InlineData("description")>]
+    [<InlineData("fiSource")>]
+    [<InlineData("fiReference")>]
+    member _.``REQ-STG-1.13 ingestRaw rejects a group whose records disagree on any one of the four fields the group must share``
+        (field: string)
+        =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! sourceFile = "/tmp/test-inconsistent.jsonl" |> SourceFile.create
+                let secondDate = if field = "entryDate" then today.PlusDays(1) else today
+                let secondDescription = if field = "description" then "Inconsistent the second" else "Inconsistent"
+                let secondSource = if field = "fiSource" then "TestSavings" else "TestBank"
+                let secondReference = if field = "fiReference" then "REF-INC-002" else "REF-INC-001"
                 let! row1 = StageTestData.makeRawRow context "grp-inc" today "Inconsistent" "TestBank" "REF-INC-001" 100.00M "Debit" (Some "F-5350") None
-                let! row2 = StageTestData.makeRawRow context "grp-inc" (today.PlusDays(1)) "Inconsistent" "TestBank" "REF-INC-001" 100.00M "Credit" (Some "F-1270") None
+                let! row2 = StageTestData.makeRawRow context "grp-inc" secondDate secondDescription secondSource secondReference 100.00M "Credit" (Some "F-1270") None
                 return!
                     match [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
                     | Error (IngestionBaseStageGroupIdDistinctDataViolation _) -> Ok ()
-                    | Error e -> Error (TestingError $"Wrong error: {AppError.toMessage e}")
-                    | Ok _ -> Error (TestingError "Expected failure; got success")
+                    | Error e -> Error (TestingError $"Wrong error when {field} differed within the group: {AppError.toMessage e}")
+                    | Ok _ -> Error (TestingError $"Expected failure; got success when {field} differed within the group")
             })
         |> railroadWrapper
 

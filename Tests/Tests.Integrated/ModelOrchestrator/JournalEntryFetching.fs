@@ -101,11 +101,16 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
             let expected =
                 fixture.Data.journalEntries
                 |> List.filter(fun x -> x |> header |> JournalEntryHeader.entryDate |> EntryDate.fiscalPeriodId = fpId)
-                |> List.length
             let! fp = fpId |> FiscalPeriod.fetchById context
             let! fetchList = fp |> fetchByPeriod context
-            let actual = fetchList |> List.length
-            Assert.Equal(expected, actual)
+            Assert.Equal(expected |> List.length, fetchList |> List.length)
+            (* Entries from the wrong period in the right quantity satisfy a count. *)
+            Assert.Equal<JournalEntryHeaderId list>(
+                expected |> List.map(header >> JournalEntryHeader.journalEntryHeaderId) |> List.sort,
+                fetchList |> List.map(header >> JournalEntryHeader.journalEntryHeaderId) |> List.sort)
+            Assert.All(
+                fetchList,
+                fun je -> Assert.Equal(fpId, je |> header |> JournalEntryHeader.entryDate |> EntryDate.fiscalPeriodId))
             return ()
         }
         |> railroadWrapper
@@ -197,6 +202,14 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
                     jer |> JournalEntryExternalReference.financialInstitution = fi)
             let! fetched = fetchByReference context (Some fi) None
             Assert.Equal(expected, fetched |> List.length)
+            Assert.All(
+                fetched,
+                fun fetchedEntry ->
+                    Assert.Contains(
+                        fi,
+                        fetchedEntry
+                        |> externalReferences
+                        |> List.map JournalEntryExternalReference.financialInstitution))
             return ()
         }
         |> railroadWrapper
@@ -212,6 +225,14 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
                     jer |> JournalEntryExternalReference.referenceText = refText)
             let! fetched = fetchByReference context None (Some refText)
             Assert.Equal(expected, fetched |> List.length)
+            Assert.All(
+                fetched,
+                fun fetchedEntry ->
+                    Assert.Contains(
+                        refText,
+                        fetchedEntry
+                        |> externalReferences
+                        |> List.map JournalEntryExternalReference.referenceText))
             return ()
         }
         |> railroadWrapper
@@ -233,10 +254,18 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
             |> List.filter(fun je ->
                 let entryDate = je |> header |> JournalEntryHeader.entryDate |> EntryDate.entryDate
                 entryDate >= today && entryDate <= today)
-            |> List.length
         let result = fetchByDateRange context today today
         match result with
-        | Ok entries -> Assert.Equal(expected, entries |> List.length)
+        | Ok entries ->
+            Assert.Equal(expected |> List.length, entries |> List.length)
+            (* Entries dated outside the range, in the right quantity, satisfy a count. The
+               range is a single day here, so every returned entry must sit exactly on it. *)
+            Assert.Equal<JournalEntryHeaderId list>(
+                expected |> List.map(header >> JournalEntryHeader.journalEntryHeaderId) |> List.sort,
+                entries |> List.map(header >> JournalEntryHeader.journalEntryHeaderId) |> List.sort)
+            Assert.All(
+                entries,
+                fun je -> Assert.Equal(today, je |> header |> JournalEntryHeader.entryDate |> EntryDate.entryDate))
         | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]
