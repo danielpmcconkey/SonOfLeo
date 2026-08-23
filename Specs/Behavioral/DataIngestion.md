@@ -98,7 +98,7 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-3.2** The system must validate every record in the file against the format requirements in §1. A record that fails validation must be rejected with a typed error identifying the record and the violation.
 - **REQ-STG-3.3** If any record in the file fails validation, the entire file is rejected. No staged entries or lines are created. Partial ingestion is not permitted.
   - *Why:* A group that loses a record to validation cannot produce a balanced entry. All-or-nothing prevents orphaned legs. (2026-08-08)
-- **REQ-STG-3.4** For each group in the file, the system must create one staged entry and one staged line per record. The staged entry's entry_date, description, and fi_reference are populated from the group's shared values. The source_id is resolved from the group's fi_source. The source_file is the filename of the ingested file.
+- **REQ-STG-3.4** For each group in the file, the system must create one staged entry and one staged line per record. The staged entry's entry_date, description, and fi_reference are populated from the group's shared values. The source_id is resolved from the group's fi_source. The source_file is the full file path of the ingested file.
 - **REQ-STG-3.5** The system must generate a UUID for each staged entry and each staged line.
 - **REQ-STG-3.6** When a record's fi_source does not resolve to an existing source in `ingestion.source`, the system must reject the file.
   - *Why:* An unrecognized source indicates a parser misconfiguration, not a classification concern. (2026-08-08)
@@ -215,6 +215,8 @@ The classification step runs the vendor classification rules engine against stag
   - *Why:* A staged entry is the unit of work. Returning partial entries would break downstream operations that expect balanced entries with all legs present. (2026-08-23)
 - **REQ-STG-10.4** The query must support sorting. Supported sort options: entry date (ascending/descending), ingestion source (ascending/descending), status (ascending/descending), description (ascending/descending).
 - **REQ-STG-10.5** When no filter matches any staged entry, the query returns an empty list, not an error.
+- **REQ-STG-10.7** When the account filter names an account code that does not resolve to any existing account in the ledger, the system must produce a typed error.
+  - *Why:* The account filter accepts a code at the boundary and resolves it to an internal ID. A code that matches nothing is a caller error, not an empty-result condition — silently returning no results would be indistinguishable from "no staged entries match." This is the same pattern as REQ-CR-4.3 (create rejects unknown account) and REQ-FP-3.6 (operations reject unknown period key). (2026-08-23)
 - **REQ-STG-10.6** Each returned staged entry must include its full composition: header, all lines, and all status transitions.
   - *Why:* The status transition history is the audit trail. A query result without it forces a second round-trip to understand how an entry reached its current state. (2026-08-23)
 
