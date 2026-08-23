@@ -100,7 +100,7 @@ module JournalEntryHeader =
 
     let readRowsFromDb
         (context: Context.Context)
-        (join: string option)
+        (joinList: string list option)
         (predicate: string option)
         (limit: int option)
         (orderBy: string option)
@@ -113,7 +113,7 @@ module JournalEntryHeader =
             je.fiscal_period_id, je.voided_at, je.created_at, je.modified_at
         """
         let from = "ledger.journal_entry je"
-        let query = buildReadQuery None selectColumns from join predicate limit None orderBy
+        let query = buildReadQuery None selectColumns from joinList predicate limit None orderBy
         executeReaderQuery
             (context |> Context.getDatabaseTransaction)
             query

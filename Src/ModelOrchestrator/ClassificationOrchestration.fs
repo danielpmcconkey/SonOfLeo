@@ -114,7 +114,7 @@ let fetchRulesFiltered
             | Some PriorityAsc -> Some "cr.priority asc"
             | Some PriorityDesc -> Some "cr.priority desc"
         
-        let join = Some "join ledger.account a on cr.account_at_match = a.unique_id"
+        let join = Some ["join ledger.account a on cr.account_at_match = a.unique_id"]
             
         let whereClausesAndParams =
             [ filter.ruleId

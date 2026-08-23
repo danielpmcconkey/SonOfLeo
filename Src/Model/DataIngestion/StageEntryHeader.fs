@@ -137,8 +137,6 @@ let insertNewToDb
     (stageEntryHeader: StageEntryHeader)
     : Result<unit, AppError> =
     result {
-        do! stageEntryHeader.stageEntryHeaderId
-            |> updateHeaderStatus context initialStatus statusChangeMechanism
         let query =
             """
             insert into ingestion.staged_entry(
@@ -164,7 +162,9 @@ let insertNewToDb
               { name = "@fi_reference"; value = CharString(fiReference) }
               { name = "@source_file"; value = CharString(sourceFile) }
             ]
-        return! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        do! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        return! stageEntryHeader.stageEntryHeaderId
+            |> updateHeaderStatus context initialStatus statusChangeMechanism
     }
         
 let private reconstitute raw =
@@ -211,27 +211,21 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getString "fi_reference"),
     (row |> RowReader.getStringOption "current_status")
 
-let private readRowsFromDb
+let readRowsFromDb
     (context: Context.Context)
+    (cteList: string list option)
+    (select: string)
+    (joinList: string list option)
     (predicate: string option)
     (limit: int option)
+    (groupBy: string option)
+    (orderBy: string option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
     : Result<StageEntryHeader list, AppError> =   
-    let sortOrder = StageEntryStatusTransition.StageEntryStatusTransitionSortOrder.Desc
-    let allStatuses = StageEntryStatusTransition.formAllStatusesCteForReadQueries sortOrder
-    let select =
-        """
-        e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, 
-        all_statuses.to_status as current_status, s.source_name, s.created_at as source_created,
-        s.modified_at as source_modified
-        """
+    // let allStatuses = StageEntryStatusTransition.formLatestStatusCte
     let from = "ingestion.staged_entry e"
-    let join = """
-        left join ingestion.source s on e.source_id = s.unique_id
-        left join all_statuses on e.unique_id = all_statuses.entry_id where all_statuses.ordinal = 1
-        """
-    let query = buildReadQuery (Some allStatuses) select from (Some join) predicate limit None None
+    let query = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
         query
@@ -240,17 +234,37 @@ let private readRowsFromDb
         reconstitute
         expectedRows
 
+let private fetchGenericRead
+    (context: Context.Context)
+    (predicate: string option)
+    (limit: int option)
+    (parameters: QueryParameter list)
+    (expectedRows: AcceptableExpectedRows)
+      : Result<StageEntryHeader list, AppError> =    
+    let latestStatusCtes = StageEntryStatusTransition.formLatestStatusCte
+    let select = """
+        e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, 
+        latest_statuses.to_status as current_status, s.source_name, s.created_at as source_created,
+        s.modified_at as source_modified
+        """
+    let joinList =
+        [
+            "left join ingestion.source s on e.source_id = s.unique_id"
+            "left join latest_statuses on e.unique_id = latest_statuses.entry_id"
+        ]
+    readRowsFromDb context (Some latestStatusCtes) select (Some joinList) predicate limit None None parameters expectedRows
+
 let fetchById (context: Context.Context) (headerId: StageEntryHeaderId) : Result<StageEntryHeader, AppError> =
     let predicate = "e.unique_id = @unique_id"
     let uuid = headerId |> StageEntryHeaderId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+    fetchGenericRead context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
 let fetchByStatus (context: Context.Context) (status: StagedEntryStatus) : Result<StageEntryHeader list, AppError> =
-    let predicate = "all_statuses.to_status = @status"
+    let predicate = "latest_statuses.to_status = @status"
     let statusStr = status |> StagedEntryStatus.toString
     let parameters = [ { name = "@status"; value = CharString statusStr } ]
-    readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
+    fetchGenericRead context (Some predicate) None parameters AnyQuantityIsAcceptable
 
 let fetchBySourceFile // todo: determine if we shouldn't just fold all fetch functions into the orchestrator's fetchFiltered 
     (context: Context.Context)
@@ -265,66 +279,68 @@ let fetchBySourceFile // todo: determine if we shouldn't just fold all fetch fun
                 l
                 |> List.map(fun x -> $"'{x |> StagedEntryStatus.toString}'") // direct interpolation is okay since this is directly pulled from the DU
                 |> String.concat ","
-            $"and all_statuses.to_status in ({strings})"
+            $"and latest_statuses.to_status in ({strings})"
     let predicate = $"""
         e.source_file = @source_file
         {statusListClause}
     """
     let fileStr = sourceFile |> SourceFile.value
     let parameters = [ { name = "@source_file"; value = CharString fileStr } ]
-    readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
+    fetchGenericRead context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, AppError> =    
-    let sortOrder = StageEntryStatusTransition.StageEntryStatusTransitionSortOrder.Asc
-    let allStatuses = StageEntryStatusTransition.formAllStatusesCteForReadQueries sortOrder
-    let query = $"""
-        {allStatuses}
-        , all_in_ledger as (
-            select 
+let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, AppError> =
+    let latestStatusCtes = StageEntryStatusTransition.formLatestStatusCte
+    let earliestStatusCtes = StageEntryStatusTransition.formEarliestStatusCte
+    let dedupCtes =
+        [
+            """all_in_ledger as (
+            select
                 jex.journal_entry_id,
                 jex.financial_institution,
                 jex.reference
             from ledger.journal_entry_ext_reference jex
             left join ledger.journal_entry je on jex.journal_entry_id = je.unique_id
             where je.voided_at is null
-        ), all_in_stage as (
-            select 
+            )"""
+            """all_in_stage as (
+            select
                 se.unique_id as stage_entry_id,
                 s.source_name,
                 se.fi_reference,
                 se.description as stage_entry_description,
-                se.status as stage_entry_status,
-                all_statuses.modified_at as earliest_status_time_stamp,
+                latest_statuses.to_status as current_status,
+                earliest_statuses.modified_at as earliest_status_time_stamp,
                 row_number() 
                     over (partition by s.unique_id, se.fi_reference 
-                    order by all_statuses.modified_at nulls first, se.unique_id) as ordinal
+                    order by earliest_statuses.modified_at nulls first, se.unique_id) as ordinal
             from ingestion.staged_entry se
             join ingestion.source s on se.source_id = s.unique_id
-            left join all_statuses on se.unique_id = all_statuses.entry_id and all_statuses.ordinal = 1
-        ), duplicates as (
-            select  distinct 
+            left join earliest_statuses on se.unique_id = earliest_statuses.entry_id
+            left join latest_statuses on se.unique_id = latest_statuses.entry_id
+            )"""
+            """duplicates as (
+            select distinct
                 ais.stage_entry_id
             from all_in_stage ais
             left join all_in_ledger ail -- note this join creates duplicates because 2 JEs can share the same FI and reference
                 on ais.source_name = ail.financial_institution
                 and ais.fi_reference = ail.reference
-            where ais.stage_entry_status not in ('Duplicate', 'Posted', 'Ignored')
+            where ais.current_status not in ('Duplicate', 'Posted', 'Ignored')
             and (ais.ordinal > 1 or ail.journal_entry_id is not null)
-        )
-        select 
-            e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, all_statuses.to_status,
+            )"""
+        ]
+    let cteList = latestStatusCtes@earliestStatusCtes@dedupCtes
+    let select = """
+            e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, latest_statuses.to_status,
             s.source_name, s.created_at as source_created, s.modified_at as source_modified
-        from ingestion.staged_entry e
-        join duplicates d on e.unique_id = d.stage_entry_id
-        join ingestion.source s on e.source_id = s.unique_id
-        """
-    executeReaderQuery
-        (context |> Context.getDatabaseTransaction)
-        query
-        []
-        mapRawForDbRead
-        reconstitute
-        AnyQuantityIsAcceptable
+            """
+    let joinList =
+        [
+            "join duplicates d on e.unique_id = d.stage_entry_id"
+            "join ingestion.source s on e.source_id = s.unique_id"
+            "left join latest_statuses on e.unique_id = latest_statuses.entry_id"
+        ]
+    readRowsFromDb context (Some cteList) select (Some joinList) None None None None [] AnyQuantityIsAcceptable
 
 /// updateDb is incredibly powerful and should only be used very deliberately. It will let you update your database in a
 /// type-unsafe manner. Only use it with controlled database transactions and with certainty that you are validating
@@ -391,17 +407,17 @@ let updateDb
         return! headerId |> fetchById context
     }
 
-let fetchByQuery
-    (context: Context.Context)
-    (parameters: QueryParameter list)
-    (expectedRows: AcceptableExpectedRows)
-    (query: string)
-    : Result<StageEntryHeader list, AppError> =
-    executeReaderQuery
-        (context |> Context.getDatabaseTransaction)
-        query
-        parameters
-        mapRawForDbRead
-        reconstitute
-        expectedRows
+// let fetchByQuery
+//     (context: Context.Context)
+//     (parameters: QueryParameter list)
+//     (expectedRows: AcceptableExpectedRows)
+//     (query: string)
+//     : Result<StageEntryHeader list, AppError> =
+//     executeReaderQuery
+//         (context |> Context.getDatabaseTransaction)
+//         query
+//         parameters
+//         mapRawForDbRead
+//         reconstitute
+//         expectedRows
     

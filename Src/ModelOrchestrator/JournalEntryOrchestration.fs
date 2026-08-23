@@ -266,13 +266,13 @@ module JournalEntry =
                   if filter.referenceText = None && filter.financialInstitution = None then
                       None
                   else
-                      Some "left join ledger.journal_entry_ext_reference jer on je.unique_id = jer.journal_entry_id" ]
+                      Some "left join ledger.journal_entry_ext_reference jer on je.unique_id = jer.journal_entry_id"
+                ]
                 |> List.choose id
-                |> String.concat Environment.NewLine
-            let joinClause = if joins = "" then None else Some joins
+            let joinOption = if joins |> List.isEmpty then None else Some joins
             let sort = Some "je.entry_date asc"
             let! headersDuplicates =
-                JournalEntryHeader.readRowsFromDb context joinClause predicate None sort parameters AnyQuantityIsAcceptable
+                JournalEntryHeader.readRowsFromDb context joinOption predicate None sort parameters AnyQuantityIsAcceptable
             let deduped = headersDuplicates |> List.distinctBy(fun h -> h |> JournalEntryHeader.journalEntryHeaderId)
             let dedupedCount = deduped |> List.length
             do! match expectedRows with

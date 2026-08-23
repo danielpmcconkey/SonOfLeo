@@ -101,22 +101,27 @@ let rec private readRawRows
 /// buildReadQuery is designed to produce a flexible read query that can
 /// satisfy diverse use cases
 let buildReadQuery
-    (cte: string option)
+    (cteList: string list option)
     (selectColumns: string)
     (from: string)
-    (join: string option)
+    (joinList: string list option)
     (predicate: string option)
     (limit: int option)
     (groupBy: string option)
     (orderBy: string option)
     : string =
     let cteString =
-        match cte with
-        | Some x -> x
+        match cteList with
+        | Some x ->
+            if x |> List.isEmpty then "" else
+            let catted = x |> String.concat ", "
+            $"with {catted}"
         | None -> String.Empty
     let joinString =
-        match join with
-        | Some x -> x
+        match joinList with
+        | Some x ->
+            if x |> List.isEmpty then "" else
+            x |> String.concat Environment.NewLine
         | None -> String.Empty
     let predicateString =
         match predicate with

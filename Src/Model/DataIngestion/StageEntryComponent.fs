@@ -1,5 +1,4 @@
 namespace Model.DataIngestion
-open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
 open System
 

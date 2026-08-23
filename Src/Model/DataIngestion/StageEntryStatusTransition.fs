@@ -143,20 +143,52 @@ let confirmValidTransition transition =
         let toStr = toType |> StagedEntryStatus.toString
         Error (IngestionInvalidStageStatusTransition (fromStr, toStr))
 
-let formAllStatusesCteForReadQueries sortOrder =
-    let orderby =
+let formAllStatusesCte sortOrder =
+    let orderBy =
         match sortOrder with
         | Asc -> "asc" // ordinal 1 is the earliest
         | Desc -> "desc" // ordinal 1 is the latest
     $"""
-        with all_statuses as (
+        all_statuses_{orderBy} as (
             select
                 entry_id,
                 modified_at,
                 from_status,
                 to_status,
-                row_number() over (partition by entry_id order by modified_at {orderby}) as ordinal        
+                row_number() over (partition by entry_id order by modified_at {orderBy}) as ordinal
             from ingestion.staged_entry_audit
         )
     """
+
+let formLatestStatusCte : string list  =
+    [
+        formAllStatusesCte Desc
+        $"""
+            latest_statuses as (
+                select
+                    entry_id,
+                    modified_at,
+                    from_status,
+                    to_status,
+                    ordinal
+                from all_statuses_desc where ordinal = 1
+            )
+        """
+    ]
+
+let formEarliestStatusCte : string list  =
+    [
+        formAllStatusesCte Asc
+        $"""
+            earliest_statuses as (
+                select
+                    entry_id,
+                    modified_at,
+                    from_status,
+                    to_status,
+                    ordinal
+                from all_statuses_asc where ordinal = 1
+            )
+        """
+    ]
     

@@ -111,7 +111,7 @@ module JournalEntryLine =
 
     let private readRowsFromDb
         (context: Context.Context)
-        (join: string option)
+        (joinList: string list option)
         (predicate: string option)
         (limit: int option)
         (orderBy: string option)
@@ -124,7 +124,7 @@ module JournalEntryLine =
             jel.line_type, jel.memo, jel.created_at, jel.modified_at
         """
         let from = "ledger.journal_entry_line jel"
-        let query = buildReadQuery None select from join predicate limit None orderBy
+        let query = buildReadQuery None select from joinList predicate limit None orderBy
         executeReaderQuery
             (context |> Context.getDatabaseTransaction)
             query
@@ -173,7 +173,7 @@ module JournalEntryLine =
         (nonVoidedOnly: bool)
         (accountId: AccountId)
         : Result<JournalEntryLine list, AppError> =
-        let join = Some "left join ledger.journal_entry je on jel.journal_entry_id = je.unique_id"
+        let joinList = Some ["left join ledger.journal_entry je on jel.journal_entry_id = je.unique_id"]
         let voidCheck =
             match nonVoidedOnly with
             | true -> $"{Environment.NewLine}and je.voided_at is null"
@@ -182,7 +182,7 @@ module JournalEntryLine =
         let predicate = Some $"jel.account_id = @account_id {voidCheck}"
         let parameters = [ { name = "@account_id"; value = UniqueId accountIdGuid } ]
         let orderBy = Some "jel.created_at"
-        readRowsFromDb context join predicate None orderBy parameters AnyQuantityIsAcceptable
+        readRowsFromDb context joinList predicate None orderBy parameters AnyQuantityIsAcceptable
 
     let sumLinesByType (debitOrCredit: JournalEntryLineType) (lines: JournalEntryLine list) : Result<Money, AppError> =
         lines |> List.filter(fun x -> lineType x = debitOrCredit) |> List.map(amount) |> Money.sumList

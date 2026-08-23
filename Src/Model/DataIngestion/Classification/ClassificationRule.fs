@@ -128,7 +128,7 @@ let private mapRawForDbRead (row: RowReader) =
 
 let readRowsFromDb
     (context: Context.Context)
-    (join: string option)
+    (joinList: string list option)
     (predicate: string option)
     (limit: int option)
     (parameters: QueryParameter list)
@@ -141,7 +141,7 @@ let readRowsFromDb
         cr.rule_groups, cr.is_active, cr.created_at, cr.modified_at
         """
     let from = "ingestion.classification_rule cr"
-    let query = buildReadQuery None select from join predicate limit None orderBy
+    let query = buildReadQuery None select from joinList predicate limit None orderBy
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
         query

@@ -664,13 +664,11 @@ let fetchFiltered
             let catClauses = whereClausesAndParams |> List.map fst |> String.concat $" and{Environment.NewLine}"
             $"where {catClauses}"
         
-    let parameters = whereClausesAndParams |> List.map snd
-    let sortOrder = StageEntryStatusTransition.StageEntryStatusTransitionSortOrder.Desc
-    let allStatuses = StageEntryStatusTransition.formAllStatusesCteForReadQueries sortOrder
-    let query =
-        $"""
-        {allStatuses}
-        , all_in_stage as (
+    let parameters = whereClausesAndParams |> List.map snd  
+    let latestStatusCtes = StageEntryStatusTransition.formLatestStatusCte
+    let multiFetchCtes =
+        [
+            """all_in_stage as (
             select 
                 se.unique_id as stage_entry_id,
                 se.entry_date,
@@ -684,29 +682,34 @@ let fetchFiltered
                 sel.account_id,
                 sel.memo,
                 sel.classification_rule_id,
-                all_statuses.to_status as stage_entry_status,
+                latest_statuses.to_status as stage_entry_status,
                 all_statuses.modified_at as latest_status_time_stamp
             from ingestion.staged_entry se
             join ingestion.source s on se.source_id = s.unique_id
-            left join all_statuses on se.unique_id = all_statuses.entry_id and all_statuses.ordinal = 1
+            left join latest_statuses on se.unique_id = all_latest_statuses.entry_id
             left join ingestion.staged_entry_line sel on se.unique_id = sel.entry_id
-        ), header_ids as (
+            )"""
+            $"""header_ids as (
             select distinct 
                 ais.stage_entry_id
             from all_in_stage ais
             {whereClauses}
-        )
-        select 
+            )"""
+        ]
+    let select = """ 
             e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, 
             all_statuses.to_status as current_status, s.source_name, s.created_at as source_created,
-            s.modified_at as source_modified
-        from ingestion.staged_entry e
-        join header_ids h on e.unique_id = h.stage_entry_id
-        join ingestion.source s on e.source_id = s.unique_id
-        left join all_statuses on e.unique_id = all_statuses.entry_id where all_statuses.ordinal = 1
-        {sortClause}
-        """
-    let! headers = query |> StageEntryHeader.fetchByQuery context parameters AnyQuantityIsAcceptable
+            s.modified_at as source_modified"""
+    let joinList =
+        [
+            "join header_ids h on e.unique_id = h.stage_entry_id"
+            "left join ingestion.source s on e.source_id = s.unique_id"
+            "left join latest_statuses on e.unique_id = latest_statuses.entry_id"
+        ]
+    let cteList = latestStatusCtes@multiFetchCtes
+    let! headers =
+        StageEntryHeader.readRowsFromDb context (Some cteList) select (Some joinList)
+            None None None (Some sortClause) parameters AnyQuantityIsAcceptable
     let headerIds = 
         headers
         |> List.map (fun x -> x|> StageEntryHeader.stageEntryHeaderId)
