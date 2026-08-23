@@ -43,10 +43,10 @@ The frequency of a regular event, expressed only in terms of years, days, months
 A record in `ingestion.staged_entry` representing one economic event held in the staging area. A staged entry is a draft journal entry: it carries the same header-level fields (date, description, source) and is composed of staged lines that mirror journal entry lines. A staged entry becomes a journal entry only when batch-posted through the domain model. Until then it exists outside the ledger and does not affect balances. A staged entry is **not an entity** per this document's Entity definition — it is a transient pipeline artifact with a full audit trail (`ingestion.staged_entry_audit`) that records every status transition. Entity-level policies (e.g. REQ-SYS-3.1 timestamps) do not apply.
 
 ## Staged line
-A record in `ingestion.staged_entry_line` representing one future journal entry line. A staged line belongs to exactly one staged entry and carries an amount, direction (line_type), and an account code that may be null until classification or manual review fills it in. Like its parent staged entry, a staged line is **not an entity** — entity-level policies do not apply.
+A record in `ingestion.staged_entry_line` representing one future journal entry line. A staged line belongs to exactly one staged entry and carries an amount, direction (line_type), and an account that may be null until classification or manual review fills it in. Like its parent staged entry, a staged line is **not an entity** — entity-level policies do not apply.
 
 ## Postable (staged entry)
-A staged entry whose status is `'Classified'` or `'Reviewed'`. Only postable entries are eligible for shadow post or batch post. The posting process validates that every staged line has a non-null account_code that resolves to an account in the chart of accounts; a postable entry that fails this validation is a broken upstream invariant, surfaced loudly at posting time (REQ-STG-9.4), not silently excluded.
+A staged entry whose status is `'Classified'` or `'Reviewed'`. Only postable entries are eligible for shadow post or batch post. The posting process validates that every staged line has a non-null account; a postable entry that fails this validation is a broken upstream invariant, surfaced loudly at posting time (REQ-STG-9.4), not silently excluded.
 
 ## Interface
 The set of features, functions, services, windows, or reports that actors outside the system will trigger or consume.

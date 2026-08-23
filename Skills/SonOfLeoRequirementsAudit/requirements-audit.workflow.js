@@ -1,6 +1,6 @@
 export const meta = {
   name: 'sonofleo-audit',
-  description: 'SonOfLeo audit in batches: traceability + spec quality + code truthfulness + expert panel',
+  description: 'SonOfLeo audit in batches: traceability + spec quality + code truthfulness + code-outward coverage + expert panel',
   phases: [
     { title: 'Baseline', detail: 'Scout repo state (batch 1) or load cached baseline (batch 2+)' },
     { title: 'Auditors', detail: 'Run this batch of auditors — reports written as they complete' },
@@ -546,6 +546,54 @@ EVALUATE:
 
 Ranked by how badly BD could hurt the books before anyone noticed.`,
 })
+
+// --- Code-outward coverage: every observable behavior must have a REQ and a test ---
+for (const [area, files] of Object.entries(areas)) {
+  auditors.push({
+    label: `coverage:${area}`,
+    filename: `10-coverage-${area}.md`,
+    prompt: `You are a code-outward coverage auditor for SonOfLeo. The other auditors work
+SPEC-OUTWARD: for each REQ, is there code and a test? You work CODE-INWARD: for each
+observable behavior in the source code, is there a REQ that describes it, and is there a
+test that exercises THIS SPECIFIC CODE PATH?
+
+YOUR SCOPE — these source files:
+${files.map(f => `- ${REPO}/${f}`).join('\n')}
+
+${CONTEXT}
+
+METHOD:
+1. Read every file in your scope. Identify every OBSERVABLE BEHAVIOR — route handlers,
+   public functions, CLI verbs, query paths, validation branches, error-producing code
+   paths. An observable behavior is anything a caller can trigger and receive a result
+   from.
+2. For each behavior, answer two questions:
+   a. REQ EXISTS? — Is there a requirement in Specs/Behavioral/ that describes what this
+      behavior must do? Search by function name, domain concept, and route verb. A REQ
+      that covers the general domain is not enough — the specific behavior must be
+      described.
+   b. TEST EXISTS? — Is there a test in Tests/ that exercises THIS code path? Grep Tests/
+      for function names, route verbs, and related REQ IDs. Two functions may cite the
+      same REQ — only one having a test means the other is uncovered. The question is not
+      "does the REQ have a test" but "does THIS function have a test."
+
+3. A finding is either:
+   - UNSPECCED BEHAVIOR (category: missing-requirement): code exists, no REQ describes it.
+     The behavior works (or would work), but nothing in Specs/ says it should exist.
+   - UNTESTED CODE PATH (category: test-gap): code exists, maybe a REQ exists, but no
+     test exercises this specific function/route/query. Distinguish from the efficacy
+     auditor's gap: that auditor checks whether a REQ's test is meaningful. You check
+     whether a code path has ANY test at all.
+
+DO NOT flag: internal helper functions that are only reachable through a tested public
+API. Private implementation details are covered transitively. Focus on the observable
+surface: routes, orchestration entry points, and public module functions.
+DO NOT flag: code whose behavior is described by a REQ and tested — that is the happy
+path.
+${CONDUCT_RULES}
+${HYGIENE}`,
+  })
+}
 
 // --- Slice for this batch ---
 const batchStart = (BATCH - 1) * BATCH_SIZE

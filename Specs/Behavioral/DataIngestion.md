@@ -66,7 +66,7 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-2.3** Staged entry description cannot be null and cannot be whitespace only (post-trim per REQ-SYS-1.1). Maximum 1000 characters.
 - **REQ-STG-2.4** Staged entry must reference a source in `ingestion.source` (source_id foreign key, not null).
 - **REQ-STG-2.5** Staged entry fi_reference cannot be null. Maximum 100 characters.
-- **REQ-STG-2.6** Staged entry source_file cannot be null. Records the filename (not path) of the base staging format file that produced this entry.
+- **REQ-STG-2.6** Staged entry source_file cannot be null. Records the full file path of the base staging format file that produced this entry.
 - **REQ-STG-2.7** Staged entry status cannot be null. Must be one of the values defined in §4.
 - **REQ-STG-2.8** Stricken.
 - **REQ-STG-2.9** A staged entry must have at least two staged lines.
@@ -149,7 +149,7 @@ Reviewed   → Posted      (batch post)
 The classification step runs the vendor classification rules engine against staged entries. The rules entity (pattern, priority, FI scoping, account mapping) is specified in `ClassificationRuleCrud.md`. These requirements govern how the staging pipeline interacts with the rules engine.
 
 - **REQ-STG-5.1** The system must provide a means to run automated classification against staged entries with status `'Ingested'`.
-- **REQ-STG-5.2** Classification evaluates each staged line whose account is null against the vendor classification rules, matching on the staged entry's description.
+- **REQ-STG-5.2** Classification evaluates each staged line whose account is null against the vendor classification rules. A rule matches when its field match conditions are satisfied by the staged entry and line properties (description, source, amount, line type, and their combinations per ClassificationRuleCrud.md §1).
 - **REQ-STG-5.3** Classification must not modify a staged line whose account is already non-null.
   - *Why:* Parser-assigned accounts are authoritative. The classifier fills gaps; it does not override. (2026-08-08)
 - **REQ-STG-5.4** When exactly one rule matches and the line's account is null, the classifier assigns the matching rule's account ID to the line and records the classification_rule_id on the staged line.
@@ -204,6 +204,19 @@ The classification step runs the vendor classification rules engine against stag
   - *Why:* All-or-nothing prevents a half-posted run that requires manual reconciliation to determine what went in and what did not. (2026-08-08)
 - **REQ-STG-9.9** The system must produce one journal entry per staged entry. Staged entries are not combined into aggregate journal entries.
   - *Why:* One-to-one mapping preserves auditability. (2026-08-08)
+
+
+## 10. Staged entry query behaviors
+
+- **REQ-STG-10.1** The system must provide a means to retrieve staged entries matching a combination of filter criteria. All filters are optional; when none are provided, the query returns all staged entries.
+- **REQ-STG-10.2** The following filter criteria are supported, applied as a conjunction (AND): staged entry ID, source file, date range (begin and end inclusive), fiscal period (resolved to a date range), description, ingestion source, FI reference, status, staged line ID, amount, line type, account, memo, and classification rule ID.
+  - *Why:* The operator's primary tool for reviewing staged data. Filters that span both header-level and line-level properties allow queries like "show me all Classified entries from TestBank with amount > $50." (2026-08-23)
+- **REQ-STG-10.3** When any line-level filter is applied (line ID, amount, line type, account, memo, classification rule ID), the query identifies matching staged entries by their lines, then returns the complete staged entry with all its lines — not just the matching lines.
+  - *Why:* A staged entry is the unit of work. Returning partial entries would break downstream operations that expect balanced entries with all legs present. (2026-08-23)
+- **REQ-STG-10.4** The query must support sorting. Supported sort options: entry date (ascending/descending), ingestion source (ascending/descending), status (ascending/descending), description (ascending/descending).
+- **REQ-STG-10.5** When no filter matches any staged entry, the query returns an empty list, not an error.
+- **REQ-STG-10.6** Each returned staged entry must include its full composition: header, all lines, and all status transitions.
+  - *Why:* The status transition history is the audit trail. A query result without it forces a second round-trip to understand how an entry reached its current state. (2026-08-23)
 
 
 ## Waived from testing

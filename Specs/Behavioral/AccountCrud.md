@@ -1,6 +1,6 @@
 # Account CRUD
 
-Service-level behavioral specs for creating, updating, and deactivating chart-of-accounts entries. All scenarios exercise the service layer. Structural constraints (FK, unique index) are covered separately in structural specs; these scenarios verify the service rejects invalid inputs with meaningful error messages before any DB round-trip where possible. Cross-cutting policies (string trimming, data-state enforcement at every operation, audit timestamps, deletion) live in SystemWide.md and apply to everything below.
+Service-level behavioral specs for creating, updating, and deactivating chart-of-accounts entries. All scenarios exercise the service layer and verify the service rejects invalid inputs with meaningful error messages before any DB round-trip where possible. Cross-cutting policies (string trimming, data-state enforcement at every operation, audit timestamps, deletion) live in SystemWide.md and apply to everything below.
 
 ## 1. Valid and invalid data states for the Account type and related types
 

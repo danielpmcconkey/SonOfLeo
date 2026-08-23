@@ -33,6 +33,7 @@ Service-level behavioral specs for creating, reading, and updating fiscal period
 
 - **REQ-FP-3.1** When retrieving a fiscal period record from the persistence layer, the system must return a FiscalPeriod type with all fiscal period properties.
 - **REQ-FP-3.2** The system must be able to retrieve a fiscal period by the caller providing that record's period key string.
+- **REQ-FP-3.6** When the caller provides a period key that does not match any existing fiscal period, the system must produce a typed error. This applies to any operation that resolves a period by key (retrieve, close, reopen).
 - **REQ-FP-3.3** stricken
 - **REQ-FP-3.4** The system must be able to retrieve all fiscal period records without filter.
 - **REQ-FP-3.5** The system must be able to retrieve all open fiscal period records.
