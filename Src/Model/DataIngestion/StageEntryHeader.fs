@@ -222,8 +222,7 @@ let readRowsFromDb
     (orderBy: string option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<StageEntryHeader list, AppError> =   
-    // let allStatuses = StageEntryStatusTransition.formLatestStatusCte
+    : Result<StageEntryHeader list, AppError> =
     let from = "ingestion.staged_entry e"
     let query = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
     executeReaderQuery
@@ -331,7 +330,7 @@ let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, A
         ]
     let cteList = latestStatusCtes@earliestStatusCtes@dedupCtes
     let select = """
-            e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, latest_statuses.to_status,
+            e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, latest_statuses.to_status as current_status,
             s.source_name, s.created_at as source_created, s.modified_at as source_modified
             """
     let joinList =
@@ -398,7 +397,7 @@ let updateDb
         WHERE unique_id = @unique_id;
     """
     result {
-        do! if updates.IsEmpty then Error(IngestionStageEntryHeaderNoOp) else Ok()
+        do! if updates.IsEmpty && statusUpdate = NoChange then Error(IngestionStageEntryHeaderNoOp) else Ok()
         do! match statusUpdate with
             | NoChange -> Ok ()
             | SetTo (newStatus, mechanism) ->
@@ -406,18 +405,4 @@ let updateDb
         let! () = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
         return! headerId |> fetchById context
     }
-
-// let fetchByQuery
-//     (context: Context.Context)
-//     (parameters: QueryParameter list)
-//     (expectedRows: AcceptableExpectedRows)
-//     (query: string)
-//     : Result<StageEntryHeader list, AppError> =
-//     executeReaderQuery
-//         (context |> Context.getDatabaseTransaction)
-//         query
-//         parameters
-//         mapRawForDbRead
-//         reconstitute
-//         expectedRows
     

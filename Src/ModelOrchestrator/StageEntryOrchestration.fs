@@ -475,14 +475,6 @@ let updateStageEntry
             else Ok ()
         do! if shouldUpdateHeader then headerUpdates |> StageEntryHeader.updateDb context |> Result.map ignore
             else Ok ()
-        // that may have updated the status, but it didn't do it completely. we could've taken the status update out of
-        // the first pass but the effort isn't worth it. You arrive at the same data state regardless.
-        do!
-            match headerUpdates.statusUpdate with
-            | NoChange -> Ok ()
-            | SetTo (newStatus, mechanism) ->
-                let headerId = headerUpdates.headerIdToUpdate
-                headerId |> StageEntryHeader.updateHeaderStatus context newStatus mechanism
         // now that we updated everything, we should read it back and ensure it still meets composite requirements
         let! fetched = headerUpdates.headerIdToUpdate |> fetchByStageEntryHeaderId context
         do! fetched |> confirmStageEntryCompositeIsValid context AllowNone
@@ -582,14 +574,14 @@ let fetchFiltered
     let sortClause =
         match sort with
         | None -> ""
-        | Some EntryDateAsc -> "order by e.entry_date asc"
-        | Some EntryDateDesc -> "order by e.entry_date desc"
-        | Some FiAsc -> "order by s.source_name asc"
-        | Some FiDesc -> "order by s.source_name desc"
-        | Some StatusAsc -> "order by all_statuses.to_status asc"
-        | Some StatusDesc -> "order by all_statuses.to_status desc"
-        | Some DescriptionAsc -> "order by e.description asc"
-        | Some DescriptionDesc -> "order by e.description desc"
+        | Some EntryDateAsc -> "e.entry_date asc"
+        | Some EntryDateDesc -> "e.entry_date desc"
+        | Some FiAsc -> "s.source_name asc"
+        | Some FiDesc -> "s.source_name desc"
+        | Some StatusAsc -> "latest_statuses.to_status asc"
+        | Some StatusDesc -> "latest_statuses.to_status desc"
+        | Some DescriptionAsc -> "e.description asc"
+        | Some DescriptionDesc -> "e.description desc"
     let whereClausesAndParams =
         [
           filter.stageEntryHeaderId
@@ -683,10 +675,10 @@ let fetchFiltered
                 sel.memo,
                 sel.classification_rule_id,
                 latest_statuses.to_status as stage_entry_status,
-                all_statuses.modified_at as latest_status_time_stamp
+                latest_statuses.modified_at as latest_status_time_stamp
             from ingestion.staged_entry se
             join ingestion.source s on se.source_id = s.unique_id
-            left join latest_statuses on se.unique_id = all_latest_statuses.entry_id
+            left join latest_statuses on se.unique_id = latest_statuses.entry_id
             left join ingestion.staged_entry_line sel on se.unique_id = sel.entry_id
             )"""
             $"""header_ids as (
@@ -698,7 +690,7 @@ let fetchFiltered
         ]
     let select = """ 
             e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, 
-            all_statuses.to_status as current_status, s.source_name, s.created_at as source_created,
+            latest_statuses.to_status as current_status, s.source_name, s.created_at as source_created,
             s.modified_at as source_modified"""
     let joinList =
         [
