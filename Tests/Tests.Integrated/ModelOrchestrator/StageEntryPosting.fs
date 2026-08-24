@@ -257,8 +257,13 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestPostStageEntries (fun context ->
             result {
                 let! _ = StageTestData.runPipeline context
-                do! ModelOrchestrator.StageEntryOrchestration.post context
-                let! postablesAfter = fetchAllForPosting context
+                (* The pipeline advances the context's instant as it goes, so posting has to
+                   run on a later one. Status is derived from the latest audit row by
+                   modified_at, and a Posted row stamped behind the pipeline's own Classified
+                   row would leave the entry looking unposted. *)
+                let contextForPost = context |> Context.updateInitiationInstant
+                do! ModelOrchestrator.StageEntryOrchestration.post contextForPost
+                let! postablesAfter = fetchAllForPosting contextForPost
                 Assert.Equal(0, postablesAfter |> List.length)
             })
         |> railroadWrapper

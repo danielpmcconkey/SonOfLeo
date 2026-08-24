@@ -119,7 +119,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let contextForUpdate = context |> Context.updateInitiationInstant
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "HARRIS TEETER 0381 ANYTOWN US"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
+                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo (Reviewed, Operator) }
                 let! updated = updateStageEntry contextForUpdate headerUpdates []
                 Assert.Equal(Reviewed, StageTestData.latestStatus updated)
             })
@@ -135,7 +135,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let firstLine = entry |> lines |> List.head
                 let lineId = firstLine |> StageEntryLine.stageEntryLineId
                 let! badAmount = 999.99M |> Money.fromDecimal
-                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
+                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo (Reviewed, Operator) }
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with amountUpdate = SetTo badAmount } ]
                 return!
                     match updateStageEntry context headerUpdates lineUpdates with
@@ -155,7 +155,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let firstLine = entry |> lines |> List.head
                 let lineId = firstLine |> StageEntryLine.stageEntryLineId
                 let bogusAccountId = AccountId.create()
-                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
+                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo (Reviewed, Operator) }
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some bogusAccountId) } ]
                 return!
                     match updateStageEntry context headerUpdates lineUpdates with
@@ -173,7 +173,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "HARRIS TEETER 0381 ANYTOWN US"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 // Classified → Ingested is not a valid transition
-                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Ingested }
+                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo (Ingested, Operator) }
                 return!
                     match updateStageEntry context headerUpdates [] with
                     | Error (IngestionInvalidStageStatusTransition _) -> Ok ()
@@ -197,7 +197,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let dupEntry = fullResult.stagedEntries |> StageTestData.findByDescription "Fixture JE with reference"
                 Assert.Equal(Duplicate, StageTestData.latestStatus dupEntry)
                 let headerId = dupEntry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
+                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo (Reviewed, Operator) }
                 let! updated = updateStageEntry contextForUpdate headerUpdates []
                 Assert.Equal(Reviewed, StageTestData.latestStatus updated)
             })
@@ -217,7 +217,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "HARRIS TEETER 0381 ANYTOWN US"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let transitionCountBefore = entry |> statusTransitions |> List.length
-                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
+                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo (Reviewed, Operator) }
                 let! updated = updateStageEntry contextForUpdate headerUpdates []
                 let transitionCountAfter = updated |> statusTransitions |> List.length
                 Assert.Equal(transitionCountBefore + 1, transitionCountAfter)

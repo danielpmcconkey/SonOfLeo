@@ -409,7 +409,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 Assert.Equal(2, ddEntries |> List.length)
                 let dupCount =
                     ddEntries
-                    |> List.filter (fun se -> se |> stageEntryHeader |> StageEntryHeader.statusCache = Duplicate)
+                    |> List.filter (fun se -> se |> stageEntryHeader |> StageEntryHeader.currentStatus = Some Duplicate)
                     |> List.length
                 Assert.Equal(1, dupCount)
             })
@@ -490,7 +490,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let firstEntry = firstResult.stagedEntries |> List.head
                 let headerId = firstEntry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let contextForIgnore = context |> Context.updateInitiationInstant
-                let! _ = headerId |> Model.DataIngestion.StageEntryHeader.updateStatus contextForIgnore Ignored
+                do! headerId |> Model.DataIngestion.StageEntryHeader.updateHeaderStatus contextForIgnore Ignored Operator
                 let contextForReimport = contextForIgnore |> Context.updateInitiationInstant
                 let! sourceFile2 = "/tmp/test-ignored-reimport.jsonl" |> SourceFile.create
                 let! row3 = StageTestData.makeRawRow context "grp-ign2" today "Reimport of ignored" "TestBank" "REF-IGNORED-001" 30.00M "Debit" (Some "F-5350") None

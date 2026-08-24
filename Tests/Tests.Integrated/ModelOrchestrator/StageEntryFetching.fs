@@ -90,7 +90,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
         entry |> stageEntryHeader |> StageEntryHeader.sourceFile |> SourceFile.value
     static let fiReferenceOf entry =
         entry |> stageEntryHeader |> StageEntryHeader.fiReference |> JournalExternalReferenceText.value
-    static let statusOf entry = entry |> stageEntryHeader |> StageEntryHeader.statusCache
+    static let statusOf entry = entry |> stageEntryHeader |> StageEntryHeader.currentStatus
 
     /// The where clause keys off the latest row in staged_entry_audit, not the status column
     /// on the header, so the status filter's expected set is derived the same way.
@@ -510,7 +510,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                     | "entryDate" ->
                         EntryDateAsc, EntryDateDesc, (fun e -> (e |> entryDateOf).ToString("yyyy-MM-dd", null))
                     | "ingestionSource" -> FiAsc, FiDesc, sourceNameOf
-                    | "status" -> StatusAsc, StatusDesc, (fun e -> e |> statusOf |> StagedEntryStatus.toString)
+                    | "status" -> StatusAsc, StatusDesc, (fun e -> e |> latestTransitionStatusOf |> StagedEntryStatus.toString)
                     | "description" -> DescriptionAsc, DescriptionDesc, descriptionOf
                     | other -> failwith $"Unhandled sort key {other}"
                 let! ascending = noFilter |> fetchFiltered context (Some ascSort)
@@ -582,7 +582,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                 Assert.Equal(payroll |> descriptionOf, returned |> descriptionOf)
                 Assert.Equal(payroll |> entryDateOf, returned |> entryDateOf)
                 Assert.Equal(payroll |> sourceNameOf, returned |> sourceNameOf)
-                Assert.Equal(payroll |> statusOf, returned |> statusOf)
+                Assert.Equal<StagedEntryStatus option>(payroll |> statusOf, returned |> statusOf)
                 Assert.Equal(payroll |> fiReferenceOf, returned |> fiReferenceOf)
                 Assert.Equal(payroll |> sourceFileOf, returned |> sourceFileOf)
 

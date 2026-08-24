@@ -195,7 +195,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                 Assert.Equal("TestBank", firstGroup.stageEntryHeader.ingestionSource)
                 Assert.Equal("REF-ROUTE-INGEST-001", firstGroup.stageEntryHeader.fiReference)
                 Assert.Equal(2, firstGroup.lines |> List.length)
-                Assert.Equal("Classified", firstGroup.stageEntryHeader.status)
+                Assert.Equal(Some "Classified", firstGroup.stageEntryHeader.status)
                 (* The route's contract includes relocating the file it consumed, so a caller
                    can tell an ingested file from one still waiting. *)
                 Assert.False(File.Exists(Path.Combine(importDir, fileName)))
@@ -317,10 +317,10 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                           description = NoChange
                           ingestionSource = NoChange
                           fiReference = NoChange
-                          status = SetTo "Reviewed"
+                          status = SetTo { newStatus = "Reviewed"; stageStatusChangeMechanism = "Operator" }
                           lines = [ overrideCodeWith "F-5650" ] }
                 Assert.Equal(Some "F-5650", afterReview |> codeOf)
-                Assert.Equal("Reviewed", afterReview.stageEntryHeader.status)
+                Assert.Equal(Some "Reviewed", afterReview.stageEntryHeader.status)
                 (* REQ-STG-6.2: the system validates the result but does not infer status from
                    the operator's changes. A line-only override must leave the entry where the
                    operator put it. *)
@@ -335,7 +335,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                           status = NoChange
                           lines = [ overrideCodeWith "F-5350" ] }
                 Assert.Equal(Some "F-5350", afterSecondOverride |> codeOf)
-                Assert.Equal("Reviewed", afterSecondOverride.stageEntryHeader.status)
+                Assert.Equal(Some "Reviewed", afterSecondOverride.stageEntryHeader.status)
                 // both edits are durable outside the transaction the route managed
                 let! refetched = refetchStageEntry headerId
                 Assert.Equal(Reviewed, refetched |> latestStatusOf)
@@ -568,8 +568,12 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                     returned.statusTransitions
                     |> List.map (fun transition -> transition.stageEntryStatusTransitionId)
                     |> List.sort)
+                let returnedStatus = returned.stageEntryHeader.status
+                Assert.True(
+                    returnedStatus.IsSome,
+                    "the returned entry carries no current status, so REQ-STG-10.6's trail cannot be checked against it")
                 Assert.Contains(
-                    returned.stageEntryHeader.status,
+                    returnedStatus.Value,
                     returned.statusTransitions |> List.map (fun transition -> transition.toStatus))
                 return ()
             }

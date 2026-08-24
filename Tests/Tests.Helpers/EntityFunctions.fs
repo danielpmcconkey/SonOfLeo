@@ -237,8 +237,8 @@ let createStageEntryHeaderForTest
         let! fiReference = fiReferenceStr |> JournalExternalReferenceText.create
         let header =
             StageEntryHeader.create sourceFile stageEntryHeaderId
-                entryDate description ingestionSource fiReference Ingested
-        do! header |> StageEntryHeader.insertNewToDb context
+                entryDate description ingestionSource fiReference (Some Ingested)
+        do! header |> StageEntryHeader.insertNewToDb context Ingested StageIngestion
         return header
         }
 
@@ -289,7 +289,7 @@ let createStageEntryStatusTransitionForTest
         let! stageStatusChangeMechanism = stageStatusChangeMechanismStr |> StageStatusChangeMechanism.fromString
         let transition = StageEntryStatusTransition.create uuid stageEntryHeaderId fromStatus
                              toStatus instant stageStatusChangeMechanism
-        do! transition |> StageEntryStatusTransition.insertNewToDb context
+        do! transition |> StageEntryHeader.insertNewStatusTransitionToDb context
         return transition
     }
 
