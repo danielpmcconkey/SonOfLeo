@@ -397,12 +397,15 @@ let updateDb
         WHERE unique_id = @unique_id;
     """
     result {
-        do! if updates.IsEmpty && statusUpdate = NoChange then Error(IngestionStageEntryHeaderNoOp) else Ok()
+        do! if updates |> List.isEmpty && statusUpdate = NoChange then Error(IngestionStageEntryHeaderNoOp) else Ok()
         do! match statusUpdate with
             | NoChange -> Ok ()
             | SetTo (newStatus, mechanism) ->
                 headerId |> updateHeaderStatus context newStatus mechanism
-        let! () = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        let! _ =
+            if updates |> List.isEmpty = false
+            then executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+            else Ok()
         return! headerId |> fetchById context
     }
     

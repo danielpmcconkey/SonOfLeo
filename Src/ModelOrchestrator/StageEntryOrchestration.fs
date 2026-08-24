@@ -573,15 +573,15 @@ let fetchFiltered
             |> Result.map(fun fp -> Some(fp |> FiscalPeriod.startDate, fp |> FiscalPeriod.endDate))
     let sortClause =
         match sort with
-        | None -> ""
-        | Some EntryDateAsc -> "e.entry_date asc"
-        | Some EntryDateDesc -> "e.entry_date desc"
-        | Some FiAsc -> "s.source_name asc"
-        | Some FiDesc -> "s.source_name desc"
-        | Some StatusAsc -> "latest_statuses.to_status asc"
-        | Some StatusDesc -> "latest_statuses.to_status desc"
-        | Some DescriptionAsc -> "e.description asc"
-        | Some DescriptionDesc -> "e.description desc"
+        | None -> None
+        | Some EntryDateAsc -> Some "e.entry_date asc"
+        | Some EntryDateDesc -> Some "e.entry_date desc"
+        | Some FiAsc -> Some "s.source_name asc"
+        | Some FiDesc -> Some "s.source_name desc"
+        | Some StatusAsc -> Some "latest_statuses.to_status asc"
+        | Some StatusDesc -> Some "latest_statuses.to_status desc"
+        | Some DescriptionAsc -> Some "e.description asc"
+        | Some DescriptionDesc -> Some "e.description desc"
     let whereClausesAndParams =
         [
           filter.stageEntryHeaderId
@@ -701,7 +701,7 @@ let fetchFiltered
     let cteList = latestStatusCtes@multiFetchCtes
     let! headers =
         StageEntryHeader.readRowsFromDb context (Some cteList) select (Some joinList)
-            None None None (Some sortClause) parameters AnyQuantityIsAcceptable
+            None None None sortClause parameters AnyQuantityIsAcceptable
     let headerIds = 
         headers
         |> List.map (fun x -> x|> StageEntryHeader.stageEntryHeaderId)
