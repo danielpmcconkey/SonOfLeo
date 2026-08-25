@@ -9,7 +9,7 @@
 {
   "name": "quality-JE",
   "description": "JournalEntry spec quality review",
-  "prompt": "You are a requirements-quality auditor for SonOfLeo, a personal-finance double-entry ledger in F#.\n\nYOUR SCOPE: /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Specs/Behavioral/JournalEntryCrud.md\n\nAUTHORITY HIERARCHY (highest to lowest):\n1. Dan's explicit decisions — anything in Specs/Decisions.md or stated verbally\n2. Specs/Definitions.md — terms whose meaning changes which requirements apply\n3. Specs/Conventions/ — developer-facing rules enforced by review\n4. Specs/Behavioral/ — testable requirement statements with REQ- IDs\n5. Actual code and config\n\nPRODUCT VISION: SonOfLeo replaces LeoBloom. Imports move INTO the codebase as a first-class staging domain. Long term, the data feeds an ML-adjacent retirement engine. Cash-basis GAAP, USD-only, F# on .NET 10, PostgreSQL, NodaTime, xUnit.\n\nPRECEDENT LEDGER: /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/resolved-findings.md\nRead it before reporting. Suppress a finding ONLY when it matches a prior ruling exactly. If matching takes any squinting, RE-RAISE it.\n\nCROSS-REFERENCE: Specs/Definitions.md, Specs/Decisions.md, Specs/Behavioral/SystemWide.md, and any spec your scope document cites by REQ ID.\n\nCHECK:\n1. Terms used consistently with Definitions.md?\n2. Internal contradictions within the spec?\n3. Contradictions with SystemWide.md, Decisions.md, or other behavioral specs it references?\n4. Requirements ambiguous enough that two reasonable developers would implement them differently?\n5. Requirements insufficiently elaborated — WHAT is clear but not enough to implement or verify?\n6. Withdrawn table: are withdrawal reasons sound? Did any withdrawal leave an uncovered gap?\n7. Waived-from-testing table: are waiver reasons sound? Does the two-state rule hold (every active requirement either tested or waived)?\n\nDO NOT flag: missing requirements (the panel owns gaps), style preferences.\n\nRULES OF ENGAGEMENT:\n- Read-only. You change NOTHING in the repo. Findings only.\n- BdsNotes/ is an archaeological record — never scan it, never cite it as current.\n- Evidence over vibes: every finding cites file paths / REQ IDs / line-level specifics.\n\nFormat your answer as a JSON object:\n- \"agentName\": \"quality:JournalEntryCrud\"\n- \"findings\": array of objects with: id, category, severity, location, summary, detail, suggestedAction, why, resolutionOwner\n\nReturn ONLY the JSON object."
+  "prompt": "You are a requirements-quality auditor for SonOfLeo, a personal-finance double-entry ledger in F#.\n\nYOUR SCOPE: Specs/Behavioral/JournalEntryCrud.md\n\nAUTHORITY HIERARCHY (highest to lowest):\n1. Dan's explicit decisions — anything in Specs/Decisions.md or stated verbally\n2. Specs/Definitions.md — terms whose meaning changes which requirements apply\n3. Specs/Conventions/ — developer-facing rules enforced by review\n4. Specs/Behavioral/ — testable requirement statements with REQ- IDs\n5. Actual code and config\n\nPRODUCT VISION: SonOfLeo replaces LeoBloom. Imports move INTO the codebase as a first-class staging domain. Long term, the data feeds an ML-adjacent retirement engine. Cash-basis GAAP, USD-only, F# on .NET 10, PostgreSQL, NodaTime, xUnit.\n\nPRECEDENT LEDGER: Skills/SonOfLeoRequirementsAudit/resolved-findings.md\nRead it before reporting. Suppress a finding ONLY when it matches a prior ruling exactly. If matching takes any squinting, RE-RAISE it.\n\nCROSS-REFERENCE: Specs/Definitions.md, Specs/Decisions.md, Specs/Behavioral/SystemWide.md, and any spec your scope document cites by REQ ID.\n\nCHECK:\n1. Terms used consistently with Definitions.md?\n2. Internal contradictions within the spec?\n3. Contradictions with SystemWide.md, Decisions.md, or other behavioral specs it references?\n4. Requirements ambiguous enough that two reasonable developers would implement them differently?\n5. Requirements insufficiently elaborated — WHAT is clear but not enough to implement or verify?\n6. Withdrawn table: are withdrawal reasons sound? Did any withdrawal leave an uncovered gap?\n7. Waived-from-testing table: are waiver reasons sound? Does the two-state rule hold (every active requirement either tested or waived)?\n\nDO NOT flag: missing requirements (the panel owns gaps), style preferences.\n\nRULES OF ENGAGEMENT:\n- Read-only. You change NOTHING in the repo. Findings only.\n- BdsNotes/ is an archaeological record — never scan it, never cite it as current.\n- Evidence over vibes: every finding cites file paths / REQ IDs / line-level specifics.\n\nFormat your answer as a JSON object:\n- \"agentName\": \"quality:JournalEntryCrud\"\n- \"findings\": array of objects with: id, category, severity, location, summary, detail, suggestedAction, why, resolutionOwner\n\nReturn ONLY the JSON object."
 }
 ```
 
@@ -158,7 +158,7 @@ Overrule?
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/resolved-findings.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/resolved-findings.md",
   "old_string": "- **Ruling:** The implementation satisfies 2.2 for reads via AcceptableExpectedRows.AnyQuantityIsAcceptable — the caller declares its expectation, and the system validates against that declaration. \"Verify against expected rows\" does not mean \"assert a specific count\"; it means the caller must state what it expects. \"Any quantity\" is a valid expectation. No conflict exists.",
   "new_string": "- **Ruling:** The implementation satisfies 2.2 for reads via AcceptableExpectedRows.AnyQuantityIsAcceptable — the caller declares its expectation, and the system validates against that declaration. \"Verify against expected rows\" does not mean \"assert a specific count\"; it means the caller must state what it expects. \"Any quantity\" is a valid expectation. No conflict exists.\n\n## AMB-JE-1: REQ-JE-1.11 Vacuous Guard\n- **Status:** overruled\n- **Date:** 2026-07-06\n- **Scope:** Whether REQ-JE-1.11 is redundant with REQ-JE-2.5 and whether \"assigned to\" implies a missing FK\n- **Ruling:** The period IS persisted — fiscal_period_id is a real FK on journal_entry. \"Assigned to\" is accurate. The requirement states the invariant the derivation must uphold: the entry date falls within the derived period's date range. That the derivation guarantees it by construction today does not make the invariant vacuous — it is the contract the derivation is built to satisfy. The auditor's premises were wrong on both counts."
 }
@@ -170,7 +170,7 @@ Overrule?
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 15 | AMB-JE-1 | REQ-JE-1.11 is vacuous (always true by construction) | | |",
   "new_string": "| 15 | AMB-JE-1 | REQ-JE-1.11 is vacuous (always true by construction) | Added to resolved-findings.md — auditor's premises were wrong | OVERRULED |"
 }
@@ -224,7 +224,7 @@ It's noise. I don't need to restate a general requirement in every domain
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/resolved-findings.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/resolved-findings.md",
   "old_string": "- **Ruling:** The period IS persisted — fiscal_period_id is a real FK on journal_entry. \"Assigned to\" is accurate. The requirement states the invariant the derivation must uphold: the entry date falls within the derived period's date range. That the derivation guarantees it by construction today does not make the invariant vacuous — it is the contract the derivation is built to satisfy. The auditor's premises were wrong on both counts.",
   "new_string": "- **Ruling:** The period IS persisted — fiscal_period_id is a real FK on journal_entry. \"Assigned to\" is accurate. The requirement states the invariant the derivation must uphold: the entry date falls within the derived period's date range. That the derivation guarantees it by construction today does not make the invariant vacuous — it is the contract the derivation is built to satisfy. The auditor's premises were wrong on both counts.\n\n## GAP-JE-2: External References Missing Audit Timestamps\n- **Status:** overruled\n- **Date:** 2026-07-06\n- **Scope:** Whether external references need domain-specific timestamp REQs beyond REQ-SYS-3.1/3.3\n- **Ruling:** REQ-SYS-3.1 and 3.3 are system-wide requirements that apply to all persisted entities. They do not need to be restated in every domain spec. The schema has created_at and modified_at. The code implements them. The spec coverage is REQ-SYS-3.1."
 }
@@ -236,7 +236,7 @@ It's noise. I don't need to restate a general requirement in every domain
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 16 | GAP-JE-2 | External references missing audit timestamps (violates REQ-SYS-3.1) | | |",
   "new_string": "| 16 | GAP-JE-2 | External references missing audit timestamps (violates REQ-SYS-3.1) | Added to resolved-findings.md — SYS-3.1 covers it | OVERRULED |"
 }
@@ -268,7 +268,7 @@ Next, on the update after void, I'd say "no, it shouldn't be allowed". The reaso
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/resolved-findings.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/resolved-findings.md",
   "old_string": "- **Ruling:** REQ-SYS-3.1 and 3.3 are system-wide requirements that apply to all persisted entities. They do not need to be restated in every domain spec. The schema has created_at and modified_at. The code implements them. The spec coverage is REQ-SYS-3.1.",
   "new_string": "- **Ruling:** REQ-SYS-3.1 and 3.3 are system-wide requirements that apply to all persisted entities. They do not need to be restated in every domain spec. The schema has created_at and modified_at. The code implements them. The spec coverage is REQ-SYS-3.1.\n\n## AMB-JE-3a: REQ-JE-4.9 Target Reference Identification\n- **Status:** overruled\n- **Date:** 2026-07-06\n- **Scope:** Whether REQ-JE-4.9 must specify how the target reference is identified\n- **Ruling:** The external reference has a UUID primary key (REQ-JE-1.40). The value field is an intentionally unstructured string (REQ-JE-1.44, 1.45). The identifying key is obvious — the entity's own UUID. The spec does not need to spell out that you identify a record by its primary key."
 }
@@ -280,7 +280,7 @@ Next, on the update after void, I'd say "no, it shouldn't be allowed". The reaso
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 17 | AMB-JE-3 | REQ-JE-4.9 under-elaborated (no identifying key, no void/close posture) | | |",
   "new_string": "| 17a | AMB-JE-3a | REQ-JE-4.9 target reference identification unspecified | Added to resolved-findings.md — identifying by PK is obvious | OVERRULED |\n| 17b | AMB-JE-3b | REQ-JE-4.9 void/closed-period posture unspecified | Should NOT be allowed after void. Review in a future session with LeoBloom context and Saturday routine to confirm, then spec it | CONFIRMED |\n| 17c | — | Audit skill prompts produce findings that ask for obvious inferences | Update prompts: do not flag entity identification by primary key as under-elaborated | CONFIRMED |"
 }

@@ -191,3 +191,9 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 - **Date:** 2026-07-06
 - **Scope:** Whether the "too broadly scoped" waiver reason is sound for REQ-NGUI-3.1-3.5
 - **Ruling:** "Too broadly scoped" means the requirement describes something so general that no single test can specifically satisfy it. These requirements describe structural input-format truths (first arg is domain, second is verb, payload via stdin) that are exercised implicitly by every CLI test but cannot be meaningfully isolated into a dedicated test. The waiver reason is appropriate. Do not re-flag waiver reasons without understanding Dan's usage of the phrase.
+
+## MAINT-TZ-1: Clock.fs / Calendar.fs Duplicate Time Zone Binding
+- **Status:** overruled
+- **Date:** 2026-08-25
+- **Scope:** Whether the localized time zone binding duplicated between Clock.fs and Calendar.fs is a maintainability defect
+- **Ruling:** Deliberate design. Clock and Calendar are independent modules with distinct responsibilities — Clock provides instants, Calendar provides local dates. Each reads the configured time zone independently. This is not accidental duplication; it is intentional module independence. Coupling them to share a single binding would create a dependency between modules that currently have none. Overruled repeatedly across multiple audit rounds (2026-07-06a, 2026-08-22a, 2026-08-24a). Do not re-flag.

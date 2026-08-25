@@ -10,7 +10,7 @@
 {
   "name": "traceability",
   "description": "SonOfLeo traceability script",
-  "prompt": "Run the mechanical traceability audit for SonOfLeo.\n\nExecute this command:\nbash /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/traceability-audit.sh /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo\n\nThe script may exit 1 (phantom references) — that is a report, not a failure; capture the output either way. Return the complete raw stdout. Do not summarize or interpret."
+  "prompt": "Run the mechanical traceability audit for SonOfLeo.\n\nExecute this command:\nbash Skills/SonOfLeoRequirementsAudit/traceability-audit.sh SonOfLeo\n\nThe script may exit 1 (phantom references) — that is a report, not a failure; capture the output either way. Return the complete raw stdout. Do not summarize or interpret."
 }
 ```
 
@@ -27,7 +27,7 @@ Waiting on the three agents to send back their results.
 Another Claude session sent a message:
 <teammate-message teammate_id="traceability" color="green" summary="Traceability audit raw output">
 Command run:
-bash /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/traceability-audit.sh /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo
+bash Skills/SonOfLeoRequirementsAudit/traceability-audit.sh SonOfLeo
 
 Exit code: 0. Complete raw stdout below.
 

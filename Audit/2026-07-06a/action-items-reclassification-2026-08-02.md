@@ -329,7 +329,7 @@ Two properties, both deliberate:
 
 **Ruling (Dan, 2026-08-02, a repeat veto):** no CLAUDE.md at the repo root. The
 mechanical reason: Hobson launches from `/home/dan/penthouse-pete/`, BD from
-`/media/dan/fdrive/ai-sandbox/workspace/` — a repo-root CLAUDE.md sits outside both
+`` — a repo-root CLAUDE.md sits outside both
 launch chains and **would never be read**.
 
 **Re-examining AIM-5's premise:** the "cold-entering agent with no entry point" does not

@@ -9,7 +9,7 @@
 {
   "name": "quality-Money",
   "description": "Money spec quality review",
-  "prompt": "You are a requirements-quality auditor for SonOfLeo, a personal-finance double-entry ledger in F#.\n\nYOUR SCOPE: /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Specs/Behavioral/Money.md\n\nAUTHORITY HIERARCHY (highest to lowest):\n1. Dan's explicit decisions — anything in Specs/Decisions.md or stated verbally\n2. Specs/Definitions.md — terms whose meaning changes which requirements apply\n3. Specs/Conventions/ — developer-facing rules enforced by review\n4. Specs/Behavioral/ — testable requirement statements with REQ- IDs\n5. Actual code and config\n\nPRODUCT VISION: SonOfLeo replaces LeoBloom. Imports move INTO the codebase as a first-class staging domain. Long term, the data feeds an ML-adjacent retirement engine. Cash-basis GAAP, USD-only, F# on .NET 10, PostgreSQL, NodaTime, xUnit.\n\nPRECEDENT LEDGER: /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/resolved-findings.md\nRead it before reporting. Suppress a finding ONLY when it matches a prior ruling exactly. If matching takes any squinting, RE-RAISE it.\n\nCROSS-REFERENCE: Specs/Definitions.md, Specs/Decisions.md, Specs/Behavioral/SystemWide.md, and any spec your scope document cites by REQ ID.\n\nCHECK:\n1. Terms used consistently with Definitions.md?\n2. Internal contradictions within the spec?\n3. Contradictions with SystemWide.md, Decisions.md, or other behavioral specs it references?\n4. Requirements ambiguous enough that two reasonable developers would implement them differently?\n5. Requirements insufficiently elaborated — WHAT is clear but not enough to implement or verify?\n6. Withdrawn table: are withdrawal reasons sound? Did any withdrawal leave an uncovered gap?\n7. Waived-from-testing table: are waiver reasons sound? Does the two-state rule hold (every active requirement either tested or waived)?\n\nDO NOT flag: missing requirements (the panel owns gaps), style preferences.\n\nRULES OF ENGAGEMENT:\n- Read-only. You change NOTHING in the repo. Findings only.\n- BdsNotes/ is an archaeological record — never scan it, never cite it as current.\n- Evidence over vibes: every finding cites file paths / REQ IDs / line-level specifics.\n\nFormat your answer as a JSON object:\n- \"agentName\": \"quality:Money\"\n- \"findings\": array of objects with: id, category, severity, location, summary, detail, suggestedAction, why, resolutionOwner\n\nReturn ONLY the JSON object."
+  "prompt": "You are a requirements-quality auditor for SonOfLeo, a personal-finance double-entry ledger in F#.\n\nYOUR SCOPE: Specs/Behavioral/Money.md\n\nAUTHORITY HIERARCHY (highest to lowest):\n1. Dan's explicit decisions — anything in Specs/Decisions.md or stated verbally\n2. Specs/Definitions.md — terms whose meaning changes which requirements apply\n3. Specs/Conventions/ — developer-facing rules enforced by review\n4. Specs/Behavioral/ — testable requirement statements with REQ- IDs\n5. Actual code and config\n\nPRODUCT VISION: SonOfLeo replaces LeoBloom. Imports move INTO the codebase as a first-class staging domain. Long term, the data feeds an ML-adjacent retirement engine. Cash-basis GAAP, USD-only, F# on .NET 10, PostgreSQL, NodaTime, xUnit.\n\nPRECEDENT LEDGER: Skills/SonOfLeoRequirementsAudit/resolved-findings.md\nRead it before reporting. Suppress a finding ONLY when it matches a prior ruling exactly. If matching takes any squinting, RE-RAISE it.\n\nCROSS-REFERENCE: Specs/Definitions.md, Specs/Decisions.md, Specs/Behavioral/SystemWide.md, and any spec your scope document cites by REQ ID.\n\nCHECK:\n1. Terms used consistently with Definitions.md?\n2. Internal contradictions within the spec?\n3. Contradictions with SystemWide.md, Decisions.md, or other behavioral specs it references?\n4. Requirements ambiguous enough that two reasonable developers would implement them differently?\n5. Requirements insufficiently elaborated — WHAT is clear but not enough to implement or verify?\n6. Withdrawn table: are withdrawal reasons sound? Did any withdrawal leave an uncovered gap?\n7. Waived-from-testing table: are waiver reasons sound? Does the two-state rule hold (every active requirement either tested or waived)?\n\nDO NOT flag: missing requirements (the panel owns gaps), style preferences.\n\nRULES OF ENGAGEMENT:\n- Read-only. You change NOTHING in the repo. Findings only.\n- BdsNotes/ is an archaeological record — never scan it, never cite it as current.\n- Evidence over vibes: every finding cites file paths / REQ IDs / line-level specifics.\n\nFormat your answer as a JSON object:\n- \"agentName\": \"quality:Money\"\n- \"findings\": array of objects with: id, category, severity, location, summary, detail, suggestedAction, why, resolutionOwner\n\nReturn ONLY the JSON object."
 }
 ```
 
@@ -87,7 +87,7 @@ There are several problems here:
 **[09:52:16 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "grep -A 5 \"Quantity\\|Rate\" /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Specs/Definitions.md | head -30",
+  "command": "grep -A 5 \"Quantity\\|Rate\" Specs/Definitions.md | head -30",
   "description": "Check Quantity and Rate definitions"
 }
 ```
@@ -105,7 +105,7 @@ The only case I can think of would be something like a discount rate on a quanti
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 18 | MON-1 | Definitions Rate \"scales a Money value\" contradicts MON-2.7 prohibition | | |",
   "new_string": "| 18 | MON-1 | Definitions Rate \"scales a Money value\" contradicts MON-2.7 prohibition | Three sub-issues: (a) Rate def says \"scales Quantity\" — probably wrong, Rate*Quantity is nonsensical in this domain; (b) design session needed on how Rate*Money will work for future projections (loan balance in N months); (c) Rate definition wording blocked on outcome of (b) | CONFIRMED |"
 }
@@ -148,7 +148,7 @@ add an action item to put somethnig into the skill that tells the requirements a
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 19 | MON-2 | Sum intermediate-overflow behavior undefined | | |",
   "new_string": "| 19 | MON-2 | Sum intermediate-overflow behavior undefined | Auditor assumed a bad implementation (fold over add) instead of checking the code (List.sumBy) | OVERRULED |\n| 19a | — | Audit skill: auditors assume implementation details without verifying | Update prompts: spec quality auditors must not assume implementation details. Either verify against the code or confine the finding to the spec text as written | CONFIRMED |"
 }
@@ -160,7 +160,7 @@ add an action item to put somethnig into the skill that tells the requirements a
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/resolved-findings.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/resolved-findings.md",
   "old_string": "- **Ruling:** The external reference has a UUID primary key (REQ-JE-1.40). The value field is an intentionally unstructured string (REQ-JE-1.44, 1.45). The identifying key is obvious — the entity's own UUID. The spec does not need to spell out that you identify a record by its primary key.",
   "new_string": "- **Ruling:** The external reference has a UUID primary key (REQ-JE-1.40). The value field is an intentionally unstructured string (REQ-JE-1.44, 1.45). The identifying key is obvious — the entity's own UUID. The spec does not need to spell out that you identify a record by its primary key.\n\n## MON-2: Sum Intermediate Overflow\n- **Status:** overruled\n- **Date:** 2026-07-06\n- **Scope:** Whether REQ-MON-2.9/2.9.1 is ambiguous about intermediate overflow during summation\n- **Ruling:** The auditor assumed summation was implemented as a fold over the add function (which validates intermediates). It isn't — the implementation uses List.sumBy on the decimal projection and validates once via fromDecimal. The ambiguity exists only in the invented implementation. Auditors must verify implementation details against the code or confine findings to the spec text as written."
 }
@@ -191,7 +191,7 @@ Overrule. Splitting N ways means N is a positive integer >= 2. It's not ambiguou
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/resolved-findings.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/resolved-findings.md",
   "old_string": "- **Ruling:** The auditor assumed summation was implemented as a fold over the add function (which validates intermediates). It isn't — the implementation uses List.sumBy on the decimal projection and validates once via fromDecimal. The ambiguity exists only in the invented implementation. Auditors must verify implementation details against the code or confine findings to the spec text as written.",
   "new_string": "- **Ruling:** The auditor assumed summation was implemented as a fold over the add function (which validates intermediates). It isn't — the implementation uses List.sumBy on the decimal projection and validates once via fromDecimal. The ambiguity exists only in the invented implementation. Auditors must verify implementation details against the code or confine findings to the spec text as written.\n\n## MON-3: Split Count N Type and Integrality\n- **Status:** overruled\n- **Date:** 2026-07-06\n- **Scope:** Whether REQ-MON-2.4's split count N needs its type and integrality specified\n- **Ruling:** \"Split N ways\" means N is a positive integer. This is not ambiguous. The sub-requirements (reject 0, reject 1, reject negative) make it obvious. Do not flag domain-obvious semantics as under-elaborated."
 }
@@ -203,7 +203,7 @@ Overrule. Splitting N ways means N is a positive integer >= 2. It's not ambiguou
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 20 | MON-3 | Split count N type/integrality unspecified | | |",
   "new_string": "| 20 | MON-3 | Split count N type/integrality unspecified | Added to resolved-findings.md | OVERRULED |"
 }
@@ -220,7 +220,7 @@ on that last one, (MON-3?) we need a skill update. These guys shouldn't be expec
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 19a | — | Audit skill: auditors assume implementation details without verifying | Update prompts: spec quality auditors must not assume implementation details. Either verify against the code or confine the finding to the spec text as written | CONFIRMED |",
   "new_string": "| 19a | — | Audit skill: auditors assume implementation details without verifying | Update prompts: spec quality auditors must not assume implementation details. Either verify against the code or confine the finding to the spec text as written | CONFIRMED |\n| 20a | — | Audit skill: ambiguity bar is too low — auditors flag any theoretical divergence | Update prompts: apply a reasonable-person standard. A requirement is ambiguous only if a competent developer with domain knowledge would genuinely implement it differently, not if a pathological reading could be constructed. These are specs, not legal briefs | CONFIRMED |"
 }

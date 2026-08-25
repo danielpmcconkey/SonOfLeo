@@ -1,7 +1,7 @@
 # code-truthfulness
 
 ## CT-STG-1 — enforcement-gap
-- **Location:** /media/dan/fdrive/codeprojects/SonOfLeo/Src/ModelOrchestrator/StageEntryOrchestration.fs, lines 752-758
+- **Location:** Src/ModelOrchestrator/StageEntryOrchestration.fs, lines 752-758
 - **Summary:** StageEntryOrchestration.fetchFiltered errors instead of returning an empty list when the filter matches zero staged entries.
 - **Resolution:** fix-code
 
@@ -20,7 +20,7 @@ fetchFiltered is missing the same guard.
 ---
 
 ## CT-STG-2 — contradiction
-- **Location:** /media/dan/fdrive/codeprojects/SonOfLeo/Src/Model/DataIngestion/StageEntryHeader.fs, line 205; REQ-STG-7.3
+- **Location:** Src/Model/DataIngestion/StageEntryHeader.fs, line 205; REQ-STG-7.3
 - **Summary:** The fetchDuplicates query excludes voided journal entries from the ledger dedup check, narrowing REQ-STG-7.3 beyond what the spec permits.
 - **Resolution:** dan-decides
 

@@ -1,7 +1,7 @@
 # code-truthfulness-auditor
 
 ## CONTRADICTION-COMMENT-NOOP-1 — contradiction
-- **Location:** /media/dan/fdrive/codeprojects/SonOfLeo/Src/ModelOrchestrator/JournalEntryCommentOrchestration.fs, lines 90-111; REQ-SYS-6.1
+- **Location:** Src/ModelOrchestrator/JournalEntryCommentOrchestration.fs, lines 90-111; REQ-SYS-6.1
 - **Summary:** JournalEntryCommentOrchestration.updateComment lacks the empty-update no-op guard that Account.updateDb and ExtRef.updateFiAndReferenceText both enforce, allowing a vacuous update to silently mutate modified_at without changing any business field.
 - **Resolution:** fix-code
 
@@ -13,7 +13,7 @@ Account.updateDb (Account.fs line 269) guards `if updates.IsEmpty then Error(Acc
 
 
 ## CONTRADICTION-JE-COMPOSITE-ORDER-1 — contradiction
-- **Location:** /media/dan/fdrive/codeprojects/SonOfLeo/Src/ModelOrchestrator/JournalEntryOrchestration.fs, lines 163-169; REQ-SYS-2.1.1
+- **Location:** Src/ModelOrchestrator/JournalEntryOrchestration.fs, lines 163-169; REQ-SYS-2.1.1
 - **Summary:** JournalEntry composite validation (minimum 2 lines, debit/credit balance) runs after all component DB writes, contradicting REQ-SYS-2.1.1 which requires property-determinable rejections before any database write.
 - **Resolution:** fix-code
 

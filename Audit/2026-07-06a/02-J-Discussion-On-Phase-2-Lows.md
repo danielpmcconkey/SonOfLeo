@@ -119,7 +119,7 @@ That's a lot. Let me update the overruled/actioned items first, then work throug
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 31 | SD-07 | REQ-NGUI-1.4 has no annotation, test, or waiver | | |",
   "new_string": "| 31 | SD-07 | REQ-NGUI-1.4 has no annotation, test, or waiver | Dan added waiver | RESOLVED |"
 }
@@ -131,7 +131,7 @@ That's a lot. Let me update the overruled/actioned items first, then work throug
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 33 | AMB-DAL-04 | Asymmetric empty vs whitespace wording (DAL-1.15 vs 1.18) | | |",
   "new_string": "| 33 | AMB-DAL-04 | Asymmetric empty vs whitespace wording (DAL-1.15 vs 1.18) | Reasonable person knows the intent | OVERRULED |"
 }
@@ -143,7 +143,7 @@ That's a lot. Let me update the overruled/actioned items first, then work throug
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 36 | CLR-JE-6 | REQ-JE-1.29 mis-subjected (\"entry ID\" should say \"line\") | | |",
   "new_string": "| 36 | CLR-JE-6 | REQ-JE-1.29 mis-subjected (\"entry ID\" should say \"line\") | Dan fixed | RESOLVED |"
 }
@@ -155,7 +155,7 @@ That's a lot. Let me update the overruled/actioned items first, then work throug
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 37 | AMB-JE-7 | REQ-JE-3.9 ordering direction unspecified | | |",
   "new_string": "| 37 | AMB-JE-7 | REQ-JE-3.9 ordering direction unspecified | Databases default to ascending. Reasonable person call | OVERRULED |"
 }
@@ -167,7 +167,7 @@ That's a lot. Let me update the overruled/actioned items first, then work throug
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 39 | REF-AC-1 | REQ-AC-2.20.1 dangling reference (copy-paste artifact) | | |",
   "new_string": "| 39 | REF-AC-1 | REQ-AC-2.20.1 dangling reference (copy-paste artifact) | Dan deleted 2.20.1 | RESOLVED |"
 }
@@ -179,7 +179,7 @@ That's a lot. Let me update the overruled/actioned items first, then work throug
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 42 | MON-5 | \"Sort order\" should say \"positional order\" | | |",
   "new_string": "| 42 | MON-5 | \"Sort order\" should say \"positional order\" | Dan updated to \"sort / positional order\" | RESOLVED |"
 }
@@ -191,7 +191,7 @@ That's a lot. Let me update the overruled/actioned items first, then work throug
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 44 | WAV-FP-1 | Period key null waiver uses value-type reasoning for a string | | |",
   "new_string": "| 44 | WAV-FP-1 | Period key null waiver uses value-type reasoning for a string | DB column is NOT NULL — auditor didn't check the migration | OVERRULED |"
 }
@@ -203,7 +203,7 @@ That's a lot. Let me update the overruled/actioned items first, then work throug
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 48 | CQ-8 | Money.md split residual looser than REQ-MON-2.4.5 | | |",
   "new_string": "| 48 | CQ-8 | Money.md split residual looser than REQ-MON-2.4.5 | Requirements are allowed to be stricter than conventions | OVERRULED |"
 }
@@ -222,7 +222,7 @@ Skill action items for the overrules:
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 27a | — | Audit skill: conventions flagged for missing REQ IDs when no domain exists to receive them | Update prompts: conventions can exist as prose without REQ IDs when the business domain they apply to hasn't been specced yet. REQ extraction happens when the domain is built, not before | CONFIRMED |",
   "new_string": "| 27a | — | Audit skill: conventions flagged for missing REQ IDs when no domain exists to receive them | Update prompts: conventions can exist as prose without REQ IDs when the business domain they apply to hasn't been specced yet. REQ extraction happens when the domain is built, not before | CONFIRMED |\n| 33a | — | Audit skill: auditors must check migrations/schema before questioning waiver soundness | Update prompts: before flagging a waiver as unsound, verify against the DB schema (NOT NULL constraints, types) and the F# type system — not just the prose | CONFIRMED |\n| 48a | — | Audit skill: requirements may be stricter than conventions | Update prompts: a behavioral requirement that is narrower than its underlying convention is not a contradiction — requirements elaborate conventions for specific domains | CONFIRMED |"
 }
@@ -330,7 +330,7 @@ CQ-7 same as CQ-6
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 30 | SD-06 | Balance/activity reporting primitives exist despite \"no real reporting\" | | |",
   "new_string": "| 30 | SD-06 | Balance/activity reporting primitives exist despite \"no real reporting\" | Dan's statement already covered this (\"quality of life functions\") | OVERRULED |"
 }
@@ -342,7 +342,7 @@ CQ-7 same as CQ-6
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 32 | SS-DAL-03 | No waived-from-testing table in DAL.md | | |",
   "new_string": "| 32 | SS-DAL-03 | No waived-from-testing table in DAL.md | Valid at audit time — Dan added the table this session when REQ-DAL-3.7 was extracted | RESOLVED |"
 }
@@ -354,7 +354,7 @@ CQ-7 same as CQ-6
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 34 | GAP-JE-4 | REQ-JE-5.4 withdrawal left secondary link effectively fixed | | |",
   "new_string": "| 34 | GAP-JE-4 | REQ-JE-5.4 withdrawal left secondary link effectively fixed | Dan added REQ-JE-1.56 — secondary link is now explicitly repointable | RESOLVED |"
 }
@@ -366,7 +366,7 @@ CQ-7 same as CQ-6
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 35 | AMB-JE-5 | Void atomicity unspecified | | |",
   "new_string": "| 35 | AMB-JE-5 | Void atomicity unspecified | Code already wraps void in a transaction with rollback on Error | OVERRULED |"
 }
@@ -378,7 +378,7 @@ CQ-7 same as CQ-6
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 38 | RED-AC-1 | REQ-AC-1.19 / 1.19.1 duplicate | | |",
   "new_string": "| 38 | RED-AC-1 | REQ-AC-1.19 / 1.19.1 duplicate | Determine least damaging way to consolidate | CONFIRMED |"
 }
@@ -390,7 +390,7 @@ CQ-7 same as CQ-6
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 40 | AMB-AC-3 | \"inactive\" synonym creates tri-state ambiguity | | |",
   "new_string": "| 40 | AMB-AC-3 | \"inactive\" synonym creates tri-state ambiguity | Real issue is 1.48 and 1.50 fighting. 1.50 is correct, 1.48 may need to go. Discuss in clean context | CONFIRMED |"
 }
@@ -402,7 +402,7 @@ CQ-7 same as CQ-6
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 41 | MON-4 | Conversion \"validate all section 1\" includes unvalidatable MON-1.1 | | |",
   "new_string": "| 41 | MON-4 | Conversion \"validate all section 1\" includes unvalidatable MON-1.1 | Dan edited 2.2.1 to except 1.1. MON-1.1 is genuinely unenforceable — add to an unenforceable table when those are created (see CQ-5) | CONFIRMED |"
 }
@@ -414,7 +414,7 @@ CQ-7 same as CQ-6
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 43 | MON-6 | Batch conversion atomicity unspecified | | |",
   "new_string": "| 43 | MON-6 | Batch conversion atomicity unspecified | Not a persistence operation — behavior is obvious from the code | OVERRULED |"
 }
@@ -426,7 +426,7 @@ CQ-7 same as CQ-6
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 45 | TERM-1 | \"UI domain types\" terminology inconsistent with Definitions.md | | |",
   "new_string": "| 45 | TERM-1 | \"UI domain types\" terminology inconsistent with Definitions.md | NGUI is a subset of UI. Document clearly scopes itself at line 3 | OVERRULED |"
 }
@@ -438,7 +438,7 @@ CQ-7 same as CQ-6
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 46 | CQ-6 | Doctrines validateThenConstruct vs value-object create naming gap | | |\n| 47 | CQ-7 | Doctrines says \"create\" is anti-pattern, Naming says use \"create\" | | |",
   "new_string": "| 46 | CQ-6 | Doctrines validateThenConstruct vs value-object create naming gap | Doctrines says \"entity\" which Definitions.md defines. Doctrines needs reframing eventually but not today | DEFERRED |\n| 47 | CQ-7 | Doctrines says \"create\" is anti-pattern, Naming says use \"create\" | Same as CQ-6 — Doctrines reframing | DEFERRED |"
 }

@@ -15,6 +15,8 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 - **REQ-CR-1.2** Classification rule name cannot be null.
 - **REQ-CR-1.3** Classification rule name cannot be whitespace only (post-trim per REQ-SYS-1.1).
 - **REQ-CR-1.4** Classification rule name length cannot exceed 250 characters.
+- **REQ-CR-1.22** Classification rule name must be unique across all classification rules.
+  - *Why:* Rules are fetched by name (REQ-CR-5.2). Duplicate names would make the single-result fetch ambiguous. Enforced by a unique constraint in the database. (2026-08-25)
 - **REQ-CR-1.5** Classification rule must reference a valid account (`accountIdAtMatch`, foreign key to `ledger.account`). The account must exist in the chart of accounts at creation time and at update time.
 - **REQ-CR-1.6** Classification rule priority is an integer. Lower values represent higher priority — when multiple rules match a candidate, the rule with the lowest priority value wins.
 - **REQ-CR-1.7** Classification rule must contain at least one rule group.

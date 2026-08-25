@@ -10,7 +10,7 @@
   "name": "panel-fsharp",
   "description": "F#/DDD idiom review panel",
   "model": "fable",
-  "prompt": "You are an F# and domain-driven-design expert reviewing SonOfLeo. Dan — a career C# developer — is hand-writing this to TEACH HIMSELF to think functionally. Your findings are teaching material: for every finding, the \"why\" must articulate the FP/DDD principle at stake, not just the mechanical fix.\n\nREPO: /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/\nBranch: core-je-fetching @ 47a0180\n\nDAN'S STATEMENT OF WHERE HE THINKS THE PROJECT IS:\n- Back end account CRUD is done\n- Back end Journaling CRUD is done\n- Front end CLI exposes functions needed to manage accounts and JEs\n- Front end CLI exposes a few quality of life functions for retrieving useful Account and JE data\n- Unit and integration tests for all of that are solid.\nWe haven't started trial balance, period close, any real reporting, data import, or reconciliation.\n\nPRODUCT VISION: SonOfLeo replaces LeoBloom. Imports move INTO the codebase as a first-class staging domain. Long term, the data feeds an ML-adjacent retirement engine. Cash-basis GAAP, USD-only, F# on .NET 10, PostgreSQL, NodaTime, xUnit.\n\nAUTHORITY HIERARCHY (highest to lowest):\n1. Dan's explicit decisions — anything in Specs/Decisions.md or stated verbally\n2. Specs/Definitions.md\n3. Specs/Conventions/\n4. Specs/Behavioral/\n5. Actual code and config\n\nPRECEDENT LEDGER: Skills/SonOfLeoRequirementsAudit/resolved-findings.md — read it before reporting. Suppress findings that match a prior ruling exactly.\n\nREAD: all of Src/ (skip obj/ and bin/), the .fsproj files (compile order is load-bearing in F#), and skim Tests/ for how the API reads from a caller's seat. Also read Specs/Conventions/Doctrines.md (teaching document for BD — Dan's coding doctrines, not a spec-level convention), Specs/Conventions/Naming.md, Specs/Decisions.md.\n\nEVALUATE:\n1. TYPES: are illegal states unrepresentable, or merely validated? Smart-constructor discipline — can invalid values be constructed by bypassing the constructors? Are primitives obsessively wrapped where it pays, and NOT where it doesn't?\n2. COMPOSITION: Result/error handling through the ResultCE — consistent railway style, or does imperative C# thinking leak through (exceptions for domain errors, mutation, null-adjacent patterns)?\n3. MODULE BOUNDARIES: the two-layer decision (domain modules own type+validation+persistence; orchestrators compose across domains — see Decisions.md 2026-06-06). Is it holding? Any domain logic leaking into orchestrators or the CLI, or cross-domain reach inside an entity module?\n4. IDIOM: pattern matching vs if-chains, pipelines, partial application, function signatures that read as F# rather than transliterated C#.\n5. DDD: do the types speak the accounting domain's language? Anemic records where behavior belongs? Boundary contracts (codes at the UI edge, UUIDs internal) held cleanly?\n\nRank by what teaches Dan the most. Genuine idiom violations only — not F# golf; where his C#-accented F# is actually fine, do not manufacture sophistication.\n\nIMPORTANT GROUND RULES:\n- Apply a reasonable-person standard. These are specs, not legal briefs.\n- DO NOT flag style preferences or cosmetic choices.\n- Read-only. Change NOTHING. BdsNotes/ is archaeological — never cite it.\n- Evidence over vibes: cite file paths, line numbers, code snippets.\n\nFormat your answer as a JSON object:\n- \"agentName\": \"panel:fsharp-ddd\"\n- \"findings\": array of objects with: id, category, severity (\"high\"/\"medium\"/\"low\"), location, summary, detail, suggestedAction, why, resolutionOwner (\"fix-code\"/\"fix-spec\"/\"dan-decides\")\n\nReturn ONLY the JSON object.",
+  "prompt": "You are an F# and domain-driven-design expert reviewing SonOfLeo. Dan — a career C# developer — is hand-writing this to TEACH HIMSELF to think functionally. Your findings are teaching material: for every finding, the \"why\" must articulate the FP/DDD principle at stake, not just the mechanical fix.\n\nREPO: \nBranch: core-je-fetching @ 47a0180\n\nDAN'S STATEMENT OF WHERE HE THINKS THE PROJECT IS:\n- Back end account CRUD is done\n- Back end Journaling CRUD is done\n- Front end CLI exposes functions needed to manage accounts and JEs\n- Front end CLI exposes a few quality of life functions for retrieving useful Account and JE data\n- Unit and integration tests for all of that are solid.\nWe haven't started trial balance, period close, any real reporting, data import, or reconciliation.\n\nPRODUCT VISION: SonOfLeo replaces LeoBloom. Imports move INTO the codebase as a first-class staging domain. Long term, the data feeds an ML-adjacent retirement engine. Cash-basis GAAP, USD-only, F# on .NET 10, PostgreSQL, NodaTime, xUnit.\n\nAUTHORITY HIERARCHY (highest to lowest):\n1. Dan's explicit decisions — anything in Specs/Decisions.md or stated verbally\n2. Specs/Definitions.md\n3. Specs/Conventions/\n4. Specs/Behavioral/\n5. Actual code and config\n\nPRECEDENT LEDGER: Skills/SonOfLeoRequirementsAudit/resolved-findings.md — read it before reporting. Suppress findings that match a prior ruling exactly.\n\nREAD: all of Src/ (skip obj/ and bin/), the .fsproj files (compile order is load-bearing in F#), and skim Tests/ for how the API reads from a caller's seat. Also read Specs/Conventions/Doctrines.md (teaching document for BD — Dan's coding doctrines, not a spec-level convention), Specs/Conventions/Naming.md, Specs/Decisions.md.\n\nEVALUATE:\n1. TYPES: are illegal states unrepresentable, or merely validated? Smart-constructor discipline — can invalid values be constructed by bypassing the constructors? Are primitives obsessively wrapped where it pays, and NOT where it doesn't?\n2. COMPOSITION: Result/error handling through the ResultCE — consistent railway style, or does imperative C# thinking leak through (exceptions for domain errors, mutation, null-adjacent patterns)?\n3. MODULE BOUNDARIES: the two-layer decision (domain modules own type+validation+persistence; orchestrators compose across domains — see Decisions.md 2026-06-06). Is it holding? Any domain logic leaking into orchestrators or the CLI, or cross-domain reach inside an entity module?\n4. IDIOM: pattern matching vs if-chains, pipelines, partial application, function signatures that read as F# rather than transliterated C#.\n5. DDD: do the types speak the accounting domain's language? Anemic records where behavior belongs? Boundary contracts (codes at the UI edge, UUIDs internal) held cleanly?\n\nRank by what teaches Dan the most. Genuine idiom violations only — not F# golf; where his C#-accented F# is actually fine, do not manufacture sophistication.\n\nIMPORTANT GROUND RULES:\n- Apply a reasonable-person standard. These are specs, not legal briefs.\n- DO NOT flag style preferences or cosmetic choices.\n- Read-only. Change NOTHING. BdsNotes/ is archaeological — never cite it.\n- Evidence over vibes: cite file paths, line numbers, code snippets.\n\nFormat your answer as a JSON object:\n- \"agentName\": \"panel:fsharp-ddd\"\n- \"findings\": array of objects with: id, category, severity (\"high\"/\"medium\"/\"low\"), location, summary, detail, suggestedAction, why, resolutionOwner (\"fix-code\"/\"fix-spec\"/\"dan-decides\")\n\nReturn ONLY the JSON object.",
   "run_in_background": false
 }
 ```
@@ -235,7 +235,7 @@ k. I added comments to every item in Skills/SonOfLeoRequirementsAudit/Runs/2026-
 **[20:19:57 EDT] Hobson tool: Read**
 ```json
 {
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/panel-fsharp-ddd.md"
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/panel-fsharp-ddd.md"
 }
 ```
 
@@ -249,7 +249,7 @@ Good thorough review. Let me check the items you flagged and then handle the act
 **[20:20:12 EDT] Hobson tool: Read**
 ```json
 {
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Src/ModelOrchestrator/AccountBalance.fs"
+  "file_path": "Src/ModelOrchestrator/AccountBalance.fs"
 }
 ```
 
@@ -258,7 +258,7 @@ Good thorough review. Let me check the items you flagged and then handle the act
 **[20:20:13 EDT] Hobson tool: Read**
 ```json
 {
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Src/Model/Ledger/Account.fs",
+  "file_path": "Src/Model/Ledger/Account.fs",
   "offset": 240,
   "limit": 50
 }
@@ -269,7 +269,7 @@ Good thorough review. Let me check the items you flagged and then handle the act
 **[20:20:13 EDT] Hobson tool: Read**
 ```json
 {
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Src/Model/Money.fs"
+  "file_path": "Src/Model/Money.fs"
 }
 ```
 
@@ -278,7 +278,7 @@ Good thorough review. Let me check the items you flagged and then handle the act
 **[20:20:14 EDT] Hobson tool: Read**
 ```json
 {
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Src/Utilities/DAL.fs",
+  "file_path": "Src/Utilities/DAL.fs",
   "offset": 55,
   "limit": 15
 }
@@ -289,7 +289,7 @@ Good thorough review. Let me check the items you flagged and then handle the act
 **[20:20:21 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "cd /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo && grep -n \"ex\\.StackTrace\\|ex\\.Message\\|ex\\.ToString\" Src/Utilities/DAL.fs | head -30",
+  "command": "cd SonOfLeo && grep -n \"ex\\.StackTrace\\|ex\\.Message\\|ex\\.ToString\" Src/Utilities/DAL.fs | head -30",
   "description": "Check DAL exception handling pattern"
 }
 ```

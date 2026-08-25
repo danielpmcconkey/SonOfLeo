@@ -1,7 +1,7 @@
 # interface-bridge-auditor
 
 ## CORR-IB-1 — contradiction
-- **Location:** /media/dan/fdrive/codeprojects/SonOfLeo/Src/InterfaceBridge/BoundaryConverters/IngestionFieldConverters.fs, lines 232-233; REQ-NGUI-1.4
+- **Location:** Src/InterfaceBridge/BoundaryConverters/IngestionFieldConverters.fs, lines 232-233; REQ-NGUI-1.4
 - **Summary:** ClassificationRuleReturn.codeAtMatch is populated with the account name instead of the account code.
 - **Resolution:** fix-code
 

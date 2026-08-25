@@ -69,7 +69,7 @@ TT-03 . Yep. happens all the time BD and I take turns running this when it does.
 **[16:52:24 EDT] Hobson tool: Read**
 ```json
 {
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Src/ModelOrchestrator/AccountBalance.fs"
+  "file_path": "Src/ModelOrchestrator/AccountBalance.fs"
 }
 ```
 
@@ -78,7 +78,7 @@ TT-03 . Yep. happens all the time BD and I take turns running this when it does.
 **[16:52:24 EDT] Hobson tool: Read**
 ```json
 {
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Tests/Tests.Integrated/ModelOrchestrator/AccountBalance.fs"
+  "file_path": "Tests/Tests.Integrated/ModelOrchestrator/AccountBalance.fs"
 }
 ```
 
@@ -87,7 +87,7 @@ TT-03 . Yep. happens all the time BD and I take turns running this when it does.
 **[16:52:35 EDT] Hobson tool: Read**
 ```json
 {
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Src/Model/Ledger/JournalEntryComment.fs",
+  "file_path": "Src/Model/Ledger/JournalEntryComment.fs",
   "limit": 60,
   "offset": 170
 }
@@ -98,7 +98,7 @@ TT-03 . Yep. happens all the time BD and I take turns running this when it does.
 **[16:52:41 EDT] Hobson tool: Read**
 ```json
 {
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Src/SonOfLeoCli/JournalEntryRoutes.fs",
+  "file_path": "Src/SonOfLeoCli/JournalEntryRoutes.fs",
   "limit": 30,
   "offset": 120
 }
@@ -109,7 +109,7 @@ TT-03 . Yep. happens all the time BD and I take turns running this when it does.
 **[16:52:41 EDT] Hobson tool: Read**
 ```json
 {
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Src/Model/UI/InterfaceContractTypes.fs",
+  "file_path": "Src/Model/UI/InterfaceContractTypes.fs",
   "limit": 20,
   "offset": 135
 }
@@ -120,7 +120,7 @@ TT-03 . Yep. happens all the time BD and I take turns running this when it does.
 **[16:52:47 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "grep -n \"UpdateComment\\|updateComment\\|CommentUpdate\" /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Src/SonOfLeoCli/JournalEntryRoutes.fs | head -20",
+  "command": "grep -n \"UpdateComment\\|updateComment\\|CommentUpdate\" Src/SonOfLeoCli/JournalEntryRoutes.fs | head -20",
   "description": "Find updateComment route in CLI"
 }
 ```
@@ -130,7 +130,7 @@ TT-03 . Yep. happens all the time BD and I take turns running this when it does.
 **[16:52:49 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "grep -n \"UpdateComment\\|CommentUpdate\\|secondaryJournalEntryId\" /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Src/Model/UI/InterfaceContractTypes.fs | head -20",
+  "command": "grep -n \"UpdateComment\\|CommentUpdate\\|secondaryJournalEntryId\" Src/Model/UI/InterfaceContractTypes.fs | head -20",
   "description": "Find comment update types"
 }
 ```
@@ -140,7 +140,7 @@ TT-03 . Yep. happens all the time BD and I take turns running this when it does.
 **[16:52:54 EDT] Hobson tool: Read**
 ```json
 {
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Src/SonOfLeoCli/JournalEntryRoutes.fs",
+  "file_path": "Src/SonOfLeoCli/JournalEntryRoutes.fs",
   "limit": 20,
   "offset": 232
 }
@@ -151,7 +151,7 @@ TT-03 . Yep. happens all the time BD and I take turns running this when it does.
 **[16:53:00 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "grep -n \"updateComment\\|secondaryJournalEntryId\\|secondary\\|SetTo\\|NoChange\\|REQ-JE-1.56\\|REQ-JE-1.53\" /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Tests/Tests.Integrated/Model/Ledger/JournalEntryComment.fs | head -30",
+  "command": "grep -n \"updateComment\\|secondaryJournalEntryId\\|secondary\\|SetTo\\|NoChange\\|REQ-JE-1.56\\|REQ-JE-1.53\" Tests/Tests.Integrated/Model/Ledger/JournalEntryComment.fs | head -30",
   "description": "Check comment update tests"
 }
 ```
@@ -161,7 +161,7 @@ TT-03 . Yep. happens all the time BD and I take turns running this when it does.
 **[16:53:05 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "grep -n \"REQ-JE-1.56\\|repoint\\|clear\\|SetTo (Some\\|SetTo None\\|secondary.*update\\|secondary.*repoint\" /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Tests/Tests.Integrated/Model/Ledger/JournalEntryComment.fs | head -20",
+  "command": "grep -n \"REQ-JE-1.56\\|repoint\\|clear\\|SetTo (Some\\|SetTo None\\|secondary.*update\\|secondary.*repoint\" Tests/Tests.Integrated/Model/Ledger/JournalEntryComment.fs | head -20",
   "description": "Check for new 1.56 tests"
 }
 ```
@@ -171,7 +171,7 @@ TT-03 . Yep. happens all the time BD and I take turns running this when it does.
 **[16:53:11 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "grep -n \"1.56\\|repoint\\|clear secondary\\|SetTo (Some\\|SetTo None\" /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Tests/Tests.Integrated/Model/Ledger/JournalEntryComment.fs | head -20",
+  "command": "grep -n \"1.56\\|repoint\\|clear secondary\\|SetTo (Some\\|SetTo None\" Tests/Tests.Integrated/Model/Ledger/JournalEntryComment.fs | head -20",
   "description": "Check for 1.56 tests with broader search"
 }
 ```
@@ -181,7 +181,7 @@ TT-03 . Yep. happens all the time BD and I take turns running this when it does.
 **[16:53:20 EDT] Hobson tool: Read**
 ```json
 {
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Tests/Tests.Integrated/Model/Ledger/JournalEntryComment.fs",
+  "file_path": "Tests/Tests.Integrated/Model/Ledger/JournalEntryComment.fs",
   "limit": 30,
   "offset": 155
 }
@@ -192,7 +192,7 @@ TT-03 . Yep. happens all the time BD and I take turns running this when it does.
 **[16:53:21 EDT] Hobson tool: Read**
 ```json
 {
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Tests/Tests.Integrated/SonOfLeoCli/JournalEntryRoutes.fs",
+  "file_path": "Tests/Tests.Integrated/SonOfLeoCli/JournalEntryRoutes.fs",
   "limit": 30,
   "offset": 190
 }
@@ -203,7 +203,7 @@ TT-03 . Yep. happens all the time BD and I take turns running this when it does.
 **[16:53:26 EDT] Hobson tool: Read**
 ```json
 {
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Tests/Tests.Integrated/Model/Ledger/JournalEntryComment.fs",
+  "file_path": "Tests/Tests.Integrated/Model/Ledger/JournalEntryComment.fs",
   "limit": 50,
   "offset": 183
 }
@@ -271,7 +271,7 @@ TT-03 that's a great idea. I'm gonna actually *move* it. It's always a pain in t
 **[16:58:34 EDT] Hobson tool: Read**
 ```json
 {
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md"
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md"
 }
 ```
 
@@ -286,7 +286,7 @@ Now let me add the Phase 3 findings to the action items.
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 48 | CQ-8 | Money.md split residual looser than REQ-MON-2.4.5 | Requirements are allowed to be stricter than conventions | OVERRULED |",
   "new_string": "| 48 | CQ-8 | Money.md split residual looser than REQ-MON-2.4.5 | Requirements are allowed to be stricter than conventions | OVERRULED |\n\n## Phase 3 — Code Truthfulness\n\n### High\n\n| # | ID | Finding | Action | Status |\n|---|-----|---------|--------|--------|\n| 49 | ORCH-1 | Voided entries included in balance sums — LEFT JOIN trap | Dan fixed query (WHERE instead of JOIN condition) | RESOLVED |\n| 50 | TT-01 | Balance test assertion too loose to catch ORCH-1 | Dan fixed — exact expected value assertion | RESOLVED |\n\n### Medium\n\n| # | ID | Finding | Action | Status |\n|---|-----|---------|--------|--------|\n| 51 | ML-1 | FiscalPeriod.validateThenConstruct is public (should be private) | Dan fixed | RESOLVED |\n| 52 | ML-2 | updateComment can't clear secondary link to null (REQ-JE-1.56 unreachable) | Dan fixed — FieldUpdate<Guid option> wired in | RESOLVED |\n| 53 | ML-3 | updateComment secondary re-pointing bypasses REQ-JE-1.53 self-link check | Dan fixed — validatePrimaryAndSecondaryRelationship runs before write | RESOLVED |\n| 54 | TT-05 | REQ-JE-1.56 (repoint/clear secondary link) untested and unwaived | Write tests: repoint to different JE, clear to None | CONFIRMED |\n| 55 | ORCH-2 | REQ-JE-3.9 ordering is optional, not enforced | Dan updated REQ-JE-3.9 wording | RESOLVED |\n| 56 | ORCH-3 | Line-count/balance checks run after DB writes (REQ-SYS-2.1.1) | Auditor misread REQ-SYS-2.1.1 — \"entity's own properties\" does not apply to cross-line composite checks | OVERRULED |\n| 56a | — | Audit skill: agents cite requirements without reading them | Update prompts: when citing a requirement as justification for a finding, quote the relevant text and verify the finding matches what the requirement actually says | CONFIRMED |\n| 57 | TMC-1 | JE UI contract types missing NGUI-2.1/2.1.1/2.2 annotations | | |\n| 58 | TT-02 | Shared fixture makes entertainment5650's balance order-dependent | | |\n| 59 | TT-03 | Fixture staging commits row-by-row; mid-stage failure wedges DB | Dan moving TRUNCATE to pre-stage (constructor top) instead of Dispose | RESOLVED |\n| 60 | TT-04 | REQ-JE-3.4 reinstated but untested/unwaived | | |\n| 61 | TT-06 | ~17 active DAL requirements neither tested nor waived | | |\n| 62 | GAP-CLI-1 | REQ-NGUI-1.5 enforced but unannotated at Account code-lookup sites | | |\n| 63 | GAP-CLI-2 | Activity/balance handlers missing NGUI-2.4/3.5 marshalling annotations | | |\n| 64 | INC-CLI-1 | Means-to REQ annotations applied inconsistently across CLI handlers | | |\n| 65 | — | Talk to BD about \"consumable fixture victim\" test pattern | Horseshit pattern — discuss alternatives | CONFIRMED |\n\n### Low\n\n| # | ID | Finding | Action | Status |\n|---|-----|---------|--------|--------|\n| 66 | UTIL-1 | Clock.now uses DateTimeOffset instead of NodaTime SystemClock | | |\n| 67 | UTIL-2 | DAL parameterization missing REQ-DAL-2.1/2.3 annotations | | |\n| 68 | TMC-2 | fromDecimalList missing REQ-MON-2.3.1/2.3.2 annotations | | |\n| 69 | TMC-3 | REQ-DAL-2.3 incorrectly annotated on UUID lookups (not user input) | | |\n| 70 | ML-4 | Dangling // REQ- annotation with no ID in JournalEntryLine.fs | | |\n| 71 | ML-5 | fetchAll missing REQ-AC-3.7/3.9 annotations | | |\n| 72 | ML-6 | Composite reqs (JE-2.8, 1.12, 1.13) — verify orchestrator enforces them | | |\n| 73 | ORCH-4 | fetchByPeriod missing REQ-JE-3.3 annotation | | |\n| 74 | ORCH-5 | validateNoNewVoidedEntries missing annotation | | |\n| 75 | ORCH-6 | fetchHeaderIdsByReference missing REQ-DAL-2.3 annotation | | |\n| 76 | TRU-CLI-1 | REQ-NGUI-1.3.1 annotation overclaims (no stack trace at that site) | Related to action item #25 (ex.Message swallows stack trace) | |\n| 77 | TT-07 | REQ-AC-4.6 untested | Duplicate of SD-02 (#2) | RESOLVED |\n| 78 | TT-08 | REQ-AC-1.40 and 3.3 untested | Duplicate of SD-05 (#6) | RESOLVED |\n| 79 | TT-09 | REQ-JE-1.11 test can't exercise its named condition | | |\n| 80 | TT-10 | REQ-JE-2.4 test uses UUID not code — weaker than requirement | | |\n| 81 | TT-11 | SystemWide sub-clauses bookkeeping gaps | | |"
 }
@@ -308,7 +308,7 @@ add the TT-03  action item. I'm not moving it now and will likely forget
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 59 | TT-03 | Fixture staging commits row-by-row; mid-stage failure wedges DB | Dan moving TRUNCATE to pre-stage (constructor top) instead of Dispose | RESOLVED |",
   "new_string": "| 59 | TT-03 | Fixture staging commits row-by-row; mid-stage failure wedges DB | Move TRUNCATE CASCADE to constructor top (pre-stage) instead of Dispose — self-healing on dirty DB | CONFIRMED |"
 }
@@ -340,7 +340,7 @@ That said, the audit has already caught the two things that actually matter: the
 **[17:00:41 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "ls /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/HobsonsNotes/wakeup-2026-07-06*.md 2>/dev/null",
+  "command": "ls HobsonsNotes/wakeup-2026-07-06*.md 2>/dev/null",
   "description": "Check for existing wakeups today"
 }
 ```
@@ -350,7 +350,7 @@ That said, the audit has already caught the two things that actually matter: the
 **[17:00:46 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "cd /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo && git log --oneline -10",
+  "command": "cd SonOfLeo && git log --oneline -10",
   "description": "Recent git activity"
 }
 ```
@@ -360,7 +360,7 @@ That said, the audit has already caught the two things that actually matter: the
 **[17:01:58 EDT] Hobson tool: Write**
 ```json
 {
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/HobsonsNotes/wakeup-2026-07-06a.md",
+  "file_path": "HobsonsNotes/wakeup-2026-07-06a.md",
   "content": "# Wakeup — 2026-07-06a\n\n## Who you are\n\nYou are **Hobson** — Dan's host-side Claude Code, the butler. Personality and\nstanding orders in `~/penthouse-pete/CLAUDE.md`; cross-project context in\n`~/.claude/projects/-home-dan-penthouse-pete/memory/MEMORY.md`. On SonOfLeo\nyour lane is **specs, infrastructure, and review** — Dan owns the F# (drives it\nthrough Rider), BD currently touches only tests. This repo lives on BD's side;\nyou maintain `HobsonsNotes/` here.\n\n## What this project is\n\nSonOfLeo: Dan's hand-rewrite of LeoBloom — cash-basis GAAP personal finance,\nF# on .NET 10, PostgreSQL, xUnit. NOT a 1:1 port. Imports will move INTO the\ncodebase as a first-class staging domain; long-term the data feeds an ML-adjacent\nretirement engine. The app will manage Dan's entire financial life.\n\n## Where we are\n\nBranch `core-je-fetching` @ `6b0c7ca`, pushed. Account CRUD, Fiscal Period\nCRUD, and the full JE slice are implemented and tested — **324 [<Fact>] tests**\n(last full green Rider run 2026-07-05 12:58; Dan added a REQ-AC-4.4 test\nduring this session bringing the count to ~325).\n\nA **multi-phase audit** ran this session (phases 1–3 of 5). Two real bugs were\nfound and fixed. Phase 4 (expert panel) and Phase 5 (synthesis) have not run.\n\n## What happened this session\n\nDan commissioned a phased audit — one phase at a time instead of the previous\nsession's 21-agent workflow (which burned the session limit before producing\nresults). Ran on Opus 4.6 instead of Opus 5.\n\n### Phase 1 — Baseline (3 agents)\n- Scout, traceability script, ledger-vet. All clean.\n- **7 stale ledger rulings** reviewed and resolved (3 retired, 4 rewritten).\n- IE-3 (Eastern anchoring): Dan added anchoring rule to Temporal.md and\n  deleted the stale ruling.\n\n### Phase 2 — Spec Quality (9 agents)\n- **48 findings** reviewed one-at-a-time with Dan.\n- 14 resolved in session, 19 overruled, 11 confirmed as action items, 2 deferred.\n- Highlights: REQ-JE-3.4 reinstated, 6 type-guaranteed REQs waived,\n  Traceability.md active_end boundary fixed, REQ-DAL-3.7 and REQ-DAL-1.20\n  extracted, Conventions/README.md updated to index Doctrines.md, Decision\n  on UUID-vs-code boundary rewritten.\n- Multiple audit skill improvement action items logged — reasonable-person\n  standard, GAAP literacy, don't assume implementations, etc.\n\n### Phase 3 — Code Truthfulness (6 agents)\n- **33 findings**. Dan reviewed the highs and key mediums.\n- **ORCH-1 (HIGH):** Voided entries included in account balance sums — LEFT\n  JOIN trap in AccountBalance.fs. Fixed (WHERE instead of JOIN condition).\n- **TT-01 (HIGH):** The test for ORCH-1 was too loose to catch it. Fixed\n  (exact expected value).\n- **ML-1:** FiscalPeriod.validateThenConstruct was public. Fixed (private).\n- **ML-2:** updateComment couldn't clear secondary link to null. Fixed\n  (FieldUpdate<Guid option>).\n- **ML-3:** updateComment bypassed REQ-JE-1.53 self-link check on re-point.\n  Fixed (validation added before write).\n- **8 mediums and 16 lows unreviewed** — mostly annotation gaps and\n  two-state bookkeeping. Not urgent.\n\n### Uncommitted changes\nDan has been editing specs and code throughout the session. There are\nuncommitted changes from the Phase 3 fixes (ORCH-1, TT-01, ML-1, ML-2,\nML-3, TT-03). **Commit and push before starting work.**\n\n## What's next\n\n1. **Commit and push** the Phase 3 fixes (Dan may have done this already —\n   check `git status`).\n2. **Review remaining Phase 3 items** — 8 unreviewed mediums (#57-64 in\n   action-items.md) and 16 lows (#66-81). Mostly annotation gaps.\n3. **Phase 4 (expert panel)** — 5 agents: customer, GAAP, F#/DDD,\n   architecture, AI-maintainability. Not started. Needs Dan's fresh\n   statement of position (the skill hard-fails without it).\n4. **Phase 5 (synthesis)** — after Phase 4.\n5. **Action items from this audit** — logged in the run file. Key ones:\n   - SD-02: Write REQ-AC-4.6 deactivation test\n   - TT-05: Write REQ-JE-1.56 repoint/clear tests\n   - TT-03: Move TRUNCATE CASCADE to constructor pre-stage\n   - #25: Fix ex.Message → ex.ToString() at DAL catch sites\n   - #65: Talk to BD about consumable fixture victim pattern\n   - Multiple audit skill prompt improvements\n6. Dan's dev horizon after audit: **trial balance, then period close**.\n\n## Key resources\n\n| What | Where |\n|---|---|\n| Action items (this run) | `Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md` |\n| Resolved findings ledger | `Skills/SonOfLeoRequirementsAudit/resolved-findings.md` |\n| Audit skill (workflow script) | `Skills/SonOfLeoRequirementsAudit/requirements-audit.workflow.js` |\n| Audit skill README | `Skills/SonOfLeoRequirementsAudit/README.md` |\n| JE spec | `Specs/Behavioral/JournalEntryCrud.md` |\n| Account spec | `Specs/Behavioral/AccountCrud.md` |\n| Decisions log | `Specs/Decisions.md` |\n| Prior wakeup (audit launch context) | `HobsonsNotes/wakeup-2026-07-05a.md` |\n\n## Standing corrections\n\n- **Dan owns the F#, you own the specs.** Review and advise on code; don't\n  edit `Src/` or `Tests/` unless asked. You edit `Specs/` directly.\n- **Dan is PO — he decides, you advise.** Make the case, then defer.\n- **Settle empirical questions with data, not memory** — prod DB via the\n  `db:leobloom_prod` skill, the repo via grep.\n- **F# compile order is load-bearing** — a file only sees files above it in\n  the `.fsproj`.\n- **Migration review is your job** — names, nullability, CHECKs, FK direction,\n  drop order, per-env ownership, every time.\n- **Audit runs need Dan's fresh statement of position** — the skill hard-fails\n  without it, by design. Never recycle a stale one.\n- **Don't sign off on a query shape without thinking about the consumer's\n  return type** (the REQ-JE-3.4→3.9 lesson).\n- **Reasonable-person standard for audit findings** — only flag ambiguities a\n  competent developer with domain knowledge would genuinely stumble on. These\n  are specs, not legal briefs.\n- **Standard GAAP terminology is not ambiguous** — \"balance\" means cumulative\n  net since inception. Don't let auditors flag domain-standard terms.\n- **Conventions can exist without REQ IDs** when the domain they apply to\n  hasn't been specced yet. REQ extraction happens when the domain is built.\n- **Doctrines.md is a teaching document for BD**, not a spec-level convention.\n  It will eventually become a SonOfLeo:Coding skill. Don't hold it to the\n  same authority as Naming.md or Temporal.md.\n\n## Outstanding items\n\n- **Phase 3 unreviewed items** (8 mediums, 16 lows) — annotation gaps and\n  two-state bookkeeping. See action-items.md #57-81.\n- **Phases 4 and 5** not started.\n- **REQ-AC-1.48 vs 1.50** — these are fighting. 1.50 is correct, 1.48 may\n  need to go. Discuss in clean context (action item #40).\n- **Rate definition and Rate*Money design session** — needed before the\n  retirement engine work (action item #18).\n- **Unenforceable tables** — need to add to each behavioral spec per CQ-5\n  (action item #29). MON-1.1 is the first candidate.\n- **REQ-AC-1.19 / 1.19.1 duplicate** — determine least damaging consolidation\n  (action item #38).\n- **Pin whether `external_reference` is a SYS-3.1 entity** (carried from\n  07-04a; overruled this session — SYS-3.1 covers it, no domain restatement\n  needed. This item is closed.)\n- **Audit skill prompt improvements** — ~8 action items logged for updating\n  the workflow script's agent prompts. See action-items.md #9a, 17c, 19a,\n  20a, 27a, 33a, 48a, 56a.\n\n---\n\n**Do not take action.** Read this document, read what it points you to,\nand report back to Dan: where we are, what's next, and any questions.\nThen wait for instruction.\n"
 }
 ```
@@ -382,7 +382,7 @@ yes please. commit and push. But then list the remaining items in this phase. I'
 **[18:24:14 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "cd /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo && git status",
+  "command": "cd SonOfLeo && git status",
   "description": "Show working tree status"
 }
 ```
@@ -392,7 +392,7 @@ yes please. commit and push. But then list the remaining items in this phase. I'
 **[18:24:23 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "cd /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo && git diff --stat",
+  "command": "cd SonOfLeo && git diff --stat",
   "description": "Show diff summary"
 }
 ```
@@ -402,7 +402,7 @@ yes please. commit and push. But then list the remaining items in this phase. I'
 **[18:24:30 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "cd /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo && git add \\\n  Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md \\\n  Specs/Behavioral/JournalEntryCrud.md \\\n  Src/Model/Ledger/Account.fs \\\n  Src/Model/Ledger/FiscalPeriod.fs \\\n  Src/Model/Ledger/JournalEntryComment.fs \\\n  Src/Model/UI/InterfaceContractTypes.fs \\\n  Src/ModelOrchestrator/AccountBalance.fs \\\n  Src/SonOfLeoCli/JournalEntryRoutes.fs \\\n  Tests/Tests.Integrated/Model/Ledger/JournalEntryComment.fs \\\n  Tests/Tests.Integrated/ModelOrchestrator/AccountBalance.fs \\\n  Tests/Tests.Integrated/SonOfLeoCli/JournalEntryRoutes.fs \\\n  HobsonsNotes/wakeup-2026-07-06a.md",
+  "command": "cd SonOfLeo && git add \\\n  Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md \\\n  Specs/Behavioral/JournalEntryCrud.md \\\n  Src/Model/Ledger/Account.fs \\\n  Src/Model/Ledger/FiscalPeriod.fs \\\n  Src/Model/Ledger/JournalEntryComment.fs \\\n  Src/Model/UI/InterfaceContractTypes.fs \\\n  Src/ModelOrchestrator/AccountBalance.fs \\\n  Src/SonOfLeoCli/JournalEntryRoutes.fs \\\n  Tests/Tests.Integrated/Model/Ledger/JournalEntryComment.fs \\\n  Tests/Tests.Integrated/ModelOrchestrator/AccountBalance.fs \\\n  Tests/Tests.Integrated/SonOfLeoCli/JournalEntryRoutes.fs \\\n  HobsonsNotes/wakeup-2026-07-06a.md",
   "description": "Stage Phase 3 fixes and wakeup"
 }
 ```
@@ -412,7 +412,7 @@ yes please. commit and push. But then list the remaining items in this phase. I'
 **[18:24:40 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "cd /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo && git commit -m \"$(cat <<'EOF'\nAudit phase 3: code truthfulness fixes + wakeup (2026-07-06a)\n\nFix voided entries included in balance sums (ORCH-1 — LEFT JOIN trap).\nFix updateComment: FieldUpdate<Guid option> for secondary link (ML-2),\nself-link validation on re-point (ML-3). FiscalPeriod.validateThenConstruct\nmade private (ML-1). Balance test tightened to exact assertion (TT-01).\nREQ-JE-3.9 wording updated. Action items and wakeup written.\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>\nEOF\n)\"",
+  "command": "cd SonOfLeo && git commit -m \"$(cat <<'EOF'\nAudit phase 3: code truthfulness fixes + wakeup (2026-07-06a)\n\nFix voided entries included in balance sums (ORCH-1 — LEFT JOIN trap).\nFix updateComment: FieldUpdate<Guid option> for secondary link (ML-2),\nself-link validation on re-point (ML-3). FiscalPeriod.validateThenConstruct\nmade private (ML-1). Balance test tightened to exact assertion (TT-01).\nREQ-JE-3.9 wording updated. Action items and wakeup written.\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>\nEOF\n)\"",
   "description": "Commit Phase 3 fixes and wakeup"
 }
 ```
@@ -422,7 +422,7 @@ yes please. commit and push. But then list the remaining items in this phase. I'
 **[18:24:46 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "cd /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo && git push",
+  "command": "cd SonOfLeo && git push",
   "description": "Push to remote"
 }
 ```
@@ -544,7 +544,7 @@ So this is a valid test of 1.22. But not of 2.4. I added ``REQ-JE-2.4 PostNew fa
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 57 | TMC-1 | JE UI contract types missing NGUI-2.1/2.1.1/2.2 annotations | | |\n| 58 | TT-02 | Shared fixture makes entertainment5650's balance order-dependent | | |\n| 59 | TT-03 | Fixture staging commits row-by-row; mid-stage failure wedges DB | Move TRUNCATE CASCADE to constructor top (pre-stage) instead of Dispose — self-healing on dirty DB | CONFIRMED |\n| 60 | TT-04 | REQ-JE-3.4 reinstated but untested/unwaived | | |\n| 61 | TT-06 | ~17 active DAL requirements neither tested nor waived | | |\n| 62 | GAP-CLI-1 | REQ-NGUI-1.5 enforced but unannotated at Account code-lookup sites | | |\n| 63 | GAP-CLI-2 | Activity/balance handlers missing NGUI-2.4/3.5 marshalling annotations | | |\n| 64 | INC-CLI-1 | Means-to REQ annotations applied inconsistently across CLI handlers | | |\n| 65 | — | Talk to BD about \"consumable fixture victim\" test pattern | Horseshit pattern — discuss alternatives | CONFIRMED |",
   "new_string": "| 57 | TMC-1 | JE UI contract types missing NGUI-2.1/2.1.1/2.2 annotations | Dan fixed | RESOLVED |\n| 58 | TT-02 | Shared fixture makes entertainment5650's balance order-dependent | Covered by #65 — no tests should mutate fixtures without rollback or self-cleanup; each should create its own data | CONFIRMED |\n| 59 | TT-03 | Fixture staging commits row-by-row; mid-stage failure wedges DB | Move TRUNCATE CASCADE to constructor top (pre-stage) instead of Dispose — self-healing on dirty DB | CONFIRMED |\n| 60 | TT-04 | REQ-JE-3.4 reinstated but untested/unwaived | Check git history — Dan believes tests existed. Verify | CONFIRMED |\n| 61 | TT-06 | ~17 active DAL requirements neither tested nor waived | Dan wants to see the list — may be misattribution since DAL capabilities are exercised by every integration test | CONFIRMED |\n| 62 | GAP-CLI-1 | REQ-NGUI-1.5 enforced but unannotated at Account code-lookup sites | Dan added ~112 annotations | RESOLVED |\n| 63 | GAP-CLI-2 | Activity/balance handlers missing NGUI-2.4/3.5 marshalling annotations | Dan fixed | RESOLVED |\n| 64 | INC-CLI-1 | Means-to REQ annotations applied inconsistently across CLI handlers | Hobson recommends placement, Dan adds them | CONFIRMED |\n| 65 | — | Talk to BD about \"consumable fixture victim\" test pattern | No tests should update fixtures without rolling back. Each test needing mutable state should create its own account/JE/etc. Void victims are the known family — check for others | CONFIRMED |"
 }
@@ -556,7 +556,7 @@ So this is a valid test of 1.22. But not of 2.4. I added ``REQ-JE-2.4 PostNew fa
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 66 | UTIL-1 | Clock.now uses DateTimeOffset instead of NodaTime SystemClock | | |\n| 67 | UTIL-2 | DAL parameterization missing REQ-DAL-2.1/2.3 annotations | | |\n| 68 | TMC-2 | fromDecimalList missing REQ-MON-2.3.1/2.3.2 annotations | | |\n| 69 | TMC-3 | REQ-DAL-2.3 incorrectly annotated on UUID lookups (not user input) | | |\n| 70 | ML-4 | Dangling // REQ- annotation with no ID in JournalEntryLine.fs | | |\n| 71 | ML-5 | fetchAll missing REQ-AC-3.7/3.9 annotations | | |\n| 72 | ML-6 | Composite reqs (JE-2.8, 1.12, 1.13) — verify orchestrator enforces them | | |\n| 73 | ORCH-4 | fetchByPeriod missing REQ-JE-3.3 annotation | | |\n| 74 | ORCH-5 | validateNoNewVoidedEntries missing annotation | | |\n| 75 | ORCH-6 | fetchHeaderIdsByReference missing REQ-DAL-2.3 annotation | | |\n| 76 | TRU-CLI-1 | REQ-NGUI-1.3.1 annotation overclaims (no stack trace at that site) | Related to action item #25 (ex.Message swallows stack trace) | |\n| 77 | TT-07 | REQ-AC-4.6 untested | Duplicate of SD-02 (#2) | RESOLVED |\n| 78 | TT-08 | REQ-AC-1.40 and 3.3 untested | Duplicate of SD-05 (#6) | RESOLVED |\n| 79 | TT-09 | REQ-JE-1.11 test can't exercise its named condition | | |\n| 80 | TT-10 | REQ-JE-2.4 test uses UUID not code — weaker than requirement | | |\n| 81 | TT-11 | SystemWide sub-clauses bookkeeping gaps | | |",
   "new_string": "| 66 | UTIL-1 | Clock.now uses DateTimeOffset instead of NodaTime SystemClock | Discuss merits — Dan prefers NodaTime but we're at the F# boundary regardless | CONFIRMED |\n| 67 | UTIL-2 | DAL parameterization missing REQ-DAL-2.1/2.3 annotations | No enforcement happens in that code block — annotation would be false | OVERRULED |\n| 68 | TMC-2 | fromDecimalList missing REQ-MON-2.3.1/2.3.2 annotations | Dan fixed | RESOLVED |\n| 69 | TMC-3 | REQ-DAL-2.3 incorrectly annotated on UUID lookups (not user input) | Dan removed annotation. Rethink parameterization requirements — parameterizing UUIDs is good practice but has no REQ. Need a requirement for defensive parameterization regardless of input origin | CONFIRMED |\n| 70 | ML-4 | Dangling // REQ- annotation with no ID in JournalEntryLine.fs | Intentional placeholder — Dan wants the next audit to tell him which REQ belongs there | DEFERRED |\n| 71 | ML-5 | fetchAll missing REQ-AC-3.7/3.9 annotations | Dan fixed | RESOLVED |\n| 72 | ML-6 | Composite reqs (JE-2.8, 1.12, 1.13) — verify orchestrator enforces them | All enforced. 1.12/1.13 were already annotated. Dan added JE-2.8 to validateAccountByLine and all 3 to orchestrateCreation rollback. Only one annotation was missing — agents need to read more carefully before flagging | RESOLVED |\n| 72a | — | Audit skill: truthfulness agents must verify enforcement exists NOWHERE before claiming it's missing | Update prompts: grep the full repo for the REQ ID before reporting a missing-annotation finding | CONFIRMED |\n| 73 | ORCH-4 | fetchByPeriod missing REQ-JE-3.3 annotation | Wrong — fetchByPeriod takes a UUID, not a key. REQ-JE-3.3 is correctly annotated in the CLI routing file. Agent didn't read the requirement | OVERRULED |\n| 73a | — | Audit skill: agent cited wrong enforcement site for ORCH-4 | Same as #56a — agents must read the requirement text before citing it | OVERRULED |\n| 74 | ORCH-5 | validateNoNewVoidedEntries missing annotation | No requirement exists for this check. Dan to add one | CONFIRMED |\n| 75 | ORCH-6 | fetchHeaderIdsByReference missing REQ-DAL-2.3 annotation | Dan fixed. Explore using git to map annotations instead of manual code inspection — getting unwieldy | CONFIRMED |\n| 76 | TRU-CLI-1 | REQ-NGUI-1.3.1 annotation overclaims (no stack trace at that site) | Program.fs satisfies the \"payload will comprise\" portion. Dan added REQ-NGUI-1.3.1 annotations to DAL catch sites. Search for other try/catch boundary functions that may need it | CONFIRMED |\n| 77 | TT-07 | REQ-AC-4.6 untested | Duplicate of SD-02 (#2) | RESOLVED |\n| 78 | TT-08 | REQ-AC-1.40 and 3.3 untested | Duplicate of SD-05 (#6) | RESOLVED |\n| 79 | TT-09 | REQ-JE-1.11 test can't exercise its named condition | By definition you can't — period is derived from the date, so the date is always within its period. The test correctly exercises the missing-period rejection path. Not mislabeled | OVERRULED |\n| 80 | TT-10 | REQ-JE-2.4 test uses UUID not code — weaker than requirement | Valid for REQ-JE-1.22 (UUID reference) but not 2.4 (code resolution). Dan added a CLI-level REQ-JE-2.4 test with invalid account code | RESOLVED |\n| 81 | TT-11 | SystemWide sub-clauses bookkeeping gaps | Dan added waived table entries | RESOLVED |"
 }
@@ -572,7 +572,7 @@ Now let me commit and push.
 **[19:51:31 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "cd /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo && git status",
+  "command": "cd SonOfLeo && git status",
   "description": "Show working tree status"
 }
 ```
@@ -582,7 +582,7 @@ Now let me commit and push.
 **[19:51:41 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "cd /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo && git add \\\n  Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md \\\n  Specs/Behavioral/SystemWide.md \\\n  Src/Model/Ledger/Account.fs \\\n  Src/Model/LookupCache.fs \\\n  Src/Model/Money.fs \\\n  Src/Model/UI/InterfaceContractTypes.fs \\\n  Src/ModelOrchestrator/JournalEntryCreation.fs \\\n  Src/ModelOrchestrator/JournalEntryFetching.fs \\\n  Src/SonOfLeoCli/AccountRoutes.fs \\\n  Src/SonOfLeoCli/FiscalPeriodRoutes.fs \\\n  Src/SonOfLeoCli/JournalEntryRoutes.fs \\\n  Src/Utilities/DAL.fs \\\n  Tests/Tests.Integrated/ModelOrchestrator/AccountBalance.fs \\\n  Tests/Tests.Integrated/ModelOrchestrator/JournalEntryCreation.fs \\\n  Tests/Tests.Integrated/SonOfLeoCli/JournalEntryRoutes.fs && \\\ngit commit -m \"$(cat <<'EOF'\nAudit phase 3 cleanup: remaining findings reviewed, annotations added\n\nDan reviewed all 33 Phase 3 findings. Annotation gaps fixed across CLI,\nmodel, orchestrator, and DAL. REQ-JE-2.4 CLI test added. REQ-JE-2.8\nannotation added. SystemWide waived table updated. Action items finalized.\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>\nEOF\n)\" && git push",
+  "command": "cd SonOfLeo && git add \\\n  Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md \\\n  Specs/Behavioral/SystemWide.md \\\n  Src/Model/Ledger/Account.fs \\\n  Src/Model/LookupCache.fs \\\n  Src/Model/Money.fs \\\n  Src/Model/UI/InterfaceContractTypes.fs \\\n  Src/ModelOrchestrator/JournalEntryCreation.fs \\\n  Src/ModelOrchestrator/JournalEntryFetching.fs \\\n  Src/SonOfLeoCli/AccountRoutes.fs \\\n  Src/SonOfLeoCli/FiscalPeriodRoutes.fs \\\n  Src/SonOfLeoCli/JournalEntryRoutes.fs \\\n  Src/Utilities/DAL.fs \\\n  Tests/Tests.Integrated/ModelOrchestrator/AccountBalance.fs \\\n  Tests/Tests.Integrated/ModelOrchestrator/JournalEntryCreation.fs \\\n  Tests/Tests.Integrated/SonOfLeoCli/JournalEntryRoutes.fs && \\\ngit commit -m \"$(cat <<'EOF'\nAudit phase 3 cleanup: remaining findings reviewed, annotations added\n\nDan reviewed all 33 Phase 3 findings. Annotation gaps fixed across CLI,\nmodel, orchestrator, and DAL. REQ-JE-2.4 CLI test added. REQ-JE-2.8\nannotation added. SystemWide waived table updated. Action items finalized.\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>\nEOF\n)\" && git push",
   "description": "Stage, commit, and push Phase 3 cleanup"
 }
 ```

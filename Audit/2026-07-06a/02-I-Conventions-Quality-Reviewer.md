@@ -9,7 +9,7 @@
 {
   "name": "quality-SysWide",
   "description": "SystemWide spec quality review",
-  "prompt": "You are a requirements-quality auditor for SonOfLeo, a personal-finance double-entry ledger in F#.\n\nYOUR SCOPE: /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Specs/Behavioral/SystemWide.md\n\nAUTHORITY HIERARCHY (highest to lowest):\n1. Dan's explicit decisions — anything in Specs/Decisions.md or stated verbally\n2. Specs/Definitions.md — terms whose meaning changes which requirements apply\n3. Specs/Conventions/ — developer-facing rules enforced by review\n4. Specs/Behavioral/ — testable requirement statements with REQ- IDs\n5. Actual code and config\n\nPRODUCT VISION: SonOfLeo replaces LeoBloom. Imports move INTO the codebase as a first-class staging domain. Long term, the data feeds an ML-adjacent retirement engine. Cash-basis GAAP, USD-only, F# on .NET 10, PostgreSQL, NodaTime, xUnit.\n\nPRECEDENT LEDGER: /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/resolved-findings.md\nRead it before reporting. Suppress a finding ONLY when it matches a prior ruling exactly. If matching takes any squinting, RE-RAISE it.\n\nCROSS-REFERENCE: Specs/Definitions.md, Specs/Decisions.md, and any behavioral spec that cites SystemWide REQ IDs.\n\nCHECK:\n1. Terms used consistently with Definitions.md?\n2. Internal contradictions within the spec?\n3. Contradictions with Decisions.md or other behavioral specs that reference SystemWide?\n4. Requirements ambiguous enough that two reasonable developers would implement them differently?\n5. Requirements insufficiently elaborated — WHAT is clear but not enough to implement or verify?\n6. Withdrawn table: are withdrawal reasons sound? Did any withdrawal leave an uncovered gap?\n7. Waived-from-testing table: are waiver reasons sound? Does the two-state rule hold (every active requirement either tested or waived)?\n\nDO NOT flag: missing requirements (the panel owns gaps), style preferences.\n\nRULES OF ENGAGEMENT:\n- Read-only. You change NOTHING in the repo. Findings only.\n- BdsNotes/ is an archaeological record — never scan it, never cite it as current.\n- Evidence over vibes: every finding cites file paths / REQ IDs / line-level specifics.\n\nFormat your answer as a JSON object:\n- \"agentName\": \"quality:SystemWide\"\n- \"findings\": array of objects with: id, category, severity, location, summary, detail, suggestedAction, why, resolutionOwner\n\nReturn ONLY the JSON object."
+  "prompt": "You are a requirements-quality auditor for SonOfLeo, a personal-finance double-entry ledger in F#.\n\nYOUR SCOPE: Specs/Behavioral/SystemWide.md\n\nAUTHORITY HIERARCHY (highest to lowest):\n1. Dan's explicit decisions — anything in Specs/Decisions.md or stated verbally\n2. Specs/Definitions.md — terms whose meaning changes which requirements apply\n3. Specs/Conventions/ — developer-facing rules enforced by review\n4. Specs/Behavioral/ — testable requirement statements with REQ- IDs\n5. Actual code and config\n\nPRODUCT VISION: SonOfLeo replaces LeoBloom. Imports move INTO the codebase as a first-class staging domain. Long term, the data feeds an ML-adjacent retirement engine. Cash-basis GAAP, USD-only, F# on .NET 10, PostgreSQL, NodaTime, xUnit.\n\nPRECEDENT LEDGER: Skills/SonOfLeoRequirementsAudit/resolved-findings.md\nRead it before reporting. Suppress a finding ONLY when it matches a prior ruling exactly. If matching takes any squinting, RE-RAISE it.\n\nCROSS-REFERENCE: Specs/Definitions.md, Specs/Decisions.md, and any behavioral spec that cites SystemWide REQ IDs.\n\nCHECK:\n1. Terms used consistently with Definitions.md?\n2. Internal contradictions within the spec?\n3. Contradictions with Decisions.md or other behavioral specs that reference SystemWide?\n4. Requirements ambiguous enough that two reasonable developers would implement them differently?\n5. Requirements insufficiently elaborated — WHAT is clear but not enough to implement or verify?\n6. Withdrawn table: are withdrawal reasons sound? Did any withdrawal leave an uncovered gap?\n7. Waived-from-testing table: are waiver reasons sound? Does the two-state rule hold (every active requirement either tested or waived)?\n\nDO NOT flag: missing requirements (the panel owns gaps), style preferences.\n\nRULES OF ENGAGEMENT:\n- Read-only. You change NOTHING in the repo. Findings only.\n- BdsNotes/ is an archaeological record — never scan it, never cite it as current.\n- Evidence over vibes: every finding cites file paths / REQ IDs / line-level specifics.\n\nFormat your answer as a JSON object:\n- \"agentName\": \"quality:SystemWide\"\n- \"findings\": array of objects with: id, category, severity, location, summary, detail, suggestedAction, why, resolutionOwner\n\nReturn ONLY the JSON object."
 }
 ```
 
@@ -168,7 +168,7 @@ In Temporal.md — you added it earlier this session when we resolved the IE-3 E
 **[10:32:41 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "grep -n \"rare\" /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Specs/Conventions/Temporal.md",
+  "command": "grep -n \"rare\" Specs/Conventions/Temporal.md",
   "description": "Find the \"rare\" line"
 }
 ```
@@ -202,7 +202,7 @@ That's precise and unambiguous. The note explains exactly what "rare" means (few
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 26 | CQ-2 | Temporal.md calls instant-to-date \"rare\" — it's routine now | | |",
   "new_string": "| 26 | CQ-2 | Temporal.md calls instant-to-date \"rare\" — it's routine now | Dan clarified \"rare\" in Temporal.md — means few call sites, not few invocations | RESOLVED |"
 }
@@ -271,7 +271,7 @@ That's a clean principle. The DEC-1 ruling says "testable convention rules get R
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 27 | CQ-3 | Temporal.md has testable rules with no REQ IDs | | |",
   "new_string": "| 27 | CQ-3 | Temporal.md has testable rules with no REQ IDs | DB-origination extracted to REQ-DAL-3.7 (waived). Other two are convention prose for domains that don't exist yet — conventions can exist without REQs until the domain is built | RESOLVED |"
 }
@@ -295,7 +295,7 @@ add an action item to build that last idea into the skill.
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 20a | — | Audit skill: ambiguity bar is too low — auditors flag any theoretical divergence | Update prompts: apply a reasonable-person standard. A requirement is ambiguous only if a competent developer with domain knowledge would genuinely implement it differently, not if a pathological reading could be constructed. These are specs, not legal briefs | CONFIRMED |",
   "new_string": "| 20a | — | Audit skill: ambiguity bar is too low — auditors flag any theoretical divergence | Update prompts: apply a reasonable-person standard. A requirement is ambiguous only if a competent developer with domain knowledge would genuinely implement it differently, not if a pathological reading could be constructed. These are specs, not legal briefs | CONFIRMED |\n| 27a | — | Audit skill: conventions flagged for missing REQ IDs when no domain exists to receive them | Update prompts: conventions can exist as prose without REQ IDs when the business domain they apply to hasn't been specced yet. REQ extraction happens when the domain is built, not before | CONFIRMED |"
 }
@@ -335,7 +335,7 @@ On #1 — let me check the project file.
 **[11:02:51 EDT] Hobson tool: Bash**
 ```json
 {
-  "command": "grep -A 2 -i \"appsettings\\|Content\\|None.*json\\|CopyToOutput\" /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Src/SonOfLeoCli/SonOfLeoCli.fsproj",
+  "command": "grep -A 2 -i \"appsettings\\|Content\\|None.*json\\|CopyToOutput\" Src/SonOfLeoCli/SonOfLeoCli.fsproj",
   "description": "Check how appsettings are copied to output"
 }
 ```
@@ -377,7 +377,7 @@ and
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 28 | CQ-4 | BuildAndEnvironment.md safety rules (debug-never-prod) have no REQ IDs | | |",
   "new_string": "| 28 | CQ-4 | BuildAndEnvironment.md safety rules (debug-never-prod) have no REQ IDs | Dan extracted REQ-DAL-1.20 (unique ConnectionStringEnvVar per build config), waived as build-config fact. Remaining B&E rules stay as convention prose — operational domain not yet specced | RESOLVED |"
 }
@@ -445,7 +445,7 @@ Bottom line, the auditor is correct, IMO
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 29 | CQ-5 | Traceability.md names tables that don't exist (\"unenforceable\"/\"untestable\") | | |",
   "new_string": "| 29 | CQ-5 | Traceability.md names tables that don't exist (\"unenforceable\"/\"untestable\") | Valid. (a) Evaluate if any existing requirements are unenforceable and belong in a separate table; (b) Add an \"Unenforceable\" table to each behavioral spec (can be empty — signals we didn't forget); (c) Traceability.md vocabulary is correct in principle — two distinct concepts (unenforceable vs untestable) that were clubbed into \"Waived from testing\" | CONFIRMED |"
 }

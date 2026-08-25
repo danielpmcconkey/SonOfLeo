@@ -9,7 +9,7 @@
 {
   "name": "quality-NGUI",
   "description": "NGUI spec quality review",
-  "prompt": "You are a requirements-quality auditor for SonOfLeo, a personal-finance double-entry ledger in F#.\n\nYOUR SCOPE: /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Specs/Behavioral/NonGraphicalInterface.md\n\nAUTHORITY HIERARCHY (highest to lowest):\n1. Dan's explicit decisions — anything in Specs/Decisions.md or stated verbally\n2. Specs/Definitions.md — terms whose meaning changes which requirements apply\n3. Specs/Conventions/ — developer-facing rules enforced by review\n4. Specs/Behavioral/ — testable requirement statements with REQ- IDs\n5. Actual code and config\n\nPRODUCT VISION: SonOfLeo replaces LeoBloom. Imports move INTO the codebase as a first-class staging domain. Long term, the data feeds an ML-adjacent retirement engine. Cash-basis GAAP, USD-only, F# on .NET 10, PostgreSQL, NodaTime, xUnit.\n\nPRECEDENT LEDGER: /media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/resolved-findings.md\nRead it before reporting. Suppress a finding ONLY when it matches a prior ruling exactly. If matching takes any squinting, RE-RAISE it.\n\nCROSS-REFERENCE: Specs/Definitions.md, Specs/Decisions.md, Specs/Behavioral/SystemWide.md, and any spec your scope document cites by REQ ID.\n\nCHECK:\n1. Terms used consistently with Definitions.md?\n2. Internal contradictions within the spec?\n3. Contradictions with SystemWide.md, Decisions.md, or other behavioral specs it references?\n4. Requirements ambiguous enough that two reasonable developers would implement them differently?\n5. Requirements insufficiently elaborated — WHAT is clear but not enough to implement or verify?\n6. Withdrawn table: are withdrawal reasons sound? Did any withdrawal leave an uncovered gap?\n7. Waived-from-testing table: are waiver reasons sound? Does the two-state rule hold (every active requirement either tested or waived)?\n\nDO NOT flag: missing requirements (the panel owns gaps), style preferences.\n\nRULES OF ENGAGEMENT:\n- Read-only. You change NOTHING in the repo. Findings only.\n- BdsNotes/ is an archaeological record — never scan it, never cite it as current.\n- Evidence over vibes: every finding cites file paths / REQ IDs / line-level specifics.\n\nFormat your answer as a JSON object:\n- \"agentName\": \"quality:NonGraphicalInterface\"\n- \"findings\": array of objects with: id, category, severity, location, summary, detail, suggestedAction, why, resolutionOwner\n\nReturn ONLY the JSON object."
+  "prompt": "You are a requirements-quality auditor for SonOfLeo, a personal-finance double-entry ledger in F#.\n\nYOUR SCOPE: Specs/Behavioral/NonGraphicalInterface.md\n\nAUTHORITY HIERARCHY (highest to lowest):\n1. Dan's explicit decisions — anything in Specs/Decisions.md or stated verbally\n2. Specs/Definitions.md — terms whose meaning changes which requirements apply\n3. Specs/Conventions/ — developer-facing rules enforced by review\n4. Specs/Behavioral/ — testable requirement statements with REQ- IDs\n5. Actual code and config\n\nPRODUCT VISION: SonOfLeo replaces LeoBloom. Imports move INTO the codebase as a first-class staging domain. Long term, the data feeds an ML-adjacent retirement engine. Cash-basis GAAP, USD-only, F# on .NET 10, PostgreSQL, NodaTime, xUnit.\n\nPRECEDENT LEDGER: Skills/SonOfLeoRequirementsAudit/resolved-findings.md\nRead it before reporting. Suppress a finding ONLY when it matches a prior ruling exactly. If matching takes any squinting, RE-RAISE it.\n\nCROSS-REFERENCE: Specs/Definitions.md, Specs/Decisions.md, Specs/Behavioral/SystemWide.md, and any spec your scope document cites by REQ ID.\n\nCHECK:\n1. Terms used consistently with Definitions.md?\n2. Internal contradictions within the spec?\n3. Contradictions with SystemWide.md, Decisions.md, or other behavioral specs it references?\n4. Requirements ambiguous enough that two reasonable developers would implement them differently?\n5. Requirements insufficiently elaborated — WHAT is clear but not enough to implement or verify?\n6. Withdrawn table: are withdrawal reasons sound? Did any withdrawal leave an uncovered gap?\n7. Waived-from-testing table: are waiver reasons sound? Does the two-state rule hold (every active requirement either tested or waived)?\n\nDO NOT flag: missing requirements (the panel owns gaps), style preferences.\n\nRULES OF ENGAGEMENT:\n- Read-only. You change NOTHING in the repo. Findings only.\n- BdsNotes/ is an archaeological record — never scan it, never cite it as current.\n- Evidence over vibes: every finding cites file paths / REQ IDs / line-level specifics.\n\nFormat your answer as a JSON object:\n- \"agentName\": \"quality:NonGraphicalInterface\"\n- \"findings\": array of objects with: id, category, severity, location, summary, detail, suggestedAction, why, resolutionOwner\n\nReturn ONLY the JSON object."
 }
 ```
 
@@ -87,7 +87,7 @@ Fair enough — the cross-reference is to "interface layer," not to "marshalling
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 22 | XREF-1 | REQ-NGUI-2.4 cites Definitions for terms that don't exist there | | |",
   "new_string": "| 22 | XREF-1 | REQ-NGUI-2.4 cites Definitions for terms that don't exist there | \"(See Definitions)\" references \"interface layer\", which IS defined — auditor misread the pointer | OVERRULED |"
 }
@@ -139,7 +139,7 @@ Clean. That resolves the contradiction — the REQ and the Decision now agree in
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 23 | CONTRA-1 | REQ-NGUI-1.4 \"option for code\" is looser than Decision \"codes exclusively\" | | |",
   "new_string": "| 23 | CONTRA-1 | REQ-NGUI-1.4 \"option for code\" is looser than Decision \"codes exclusively\" | Dan updated the Decision to match intent — no contradiction | OVERRULED |"
 }
@@ -236,7 +236,7 @@ Add it to resolved-findings so it doesn't come back.
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/resolved-findings.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/resolved-findings.md",
   "old_string": "- **Ruling:** \"Split N ways\" means N is a positive integer. This is not ambiguous. The sub-requirements (reject 0, reject 1, reject negative) make it obvious. Do not flag domain-obvious semantics as under-elaborated.",
   "new_string": "- **Ruling:** \"Split N ways\" means N is a positive integer. This is not ambiguous. The sub-requirements (reject 0, reject 1, reject negative) make it obvious. Do not flag domain-obvious semantics as under-elaborated.\n\n## WAIVE-1: REQ-NGUI-3.1-3.5 Waiver Reason Soundness\n- **Status:** overruled\n- **Date:** 2026-07-06\n- **Scope:** Whether the \"too broadly scoped\" waiver reason is sound for REQ-NGUI-3.1-3.5\n- **Ruling:** \"Too broadly scoped\" means the requirement describes something so general that no single test can specifically satisfy it. These requirements describe structural input-format truths (first arg is domain, second is verb, payload via stdin) that are exercised implicitly by every CLI test but cannot be meaningfully isolated into a dedicated test. The waiver reason is appropriate. Do not re-flag waiver reasons without understanding Dan's usage of the phrase."
 }
@@ -248,7 +248,7 @@ Add it to resolved-findings so it doesn't come back.
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 24 | WAIVE-1 | REQ-NGUI-3.1-3.5 waiver reason unsound for narrow testable reqs | | |",
   "new_string": "| 24 | WAIVE-1 | REQ-NGUI-3.1-3.5 waiver reason unsound for narrow testable reqs | Added to resolved-findings.md — waiver reason is fine | OVERRULED |"
 }
@@ -358,7 +358,7 @@ Action item: change `ex.Message` to `ex.ToString()` (or `ex.Message}\n{ex.StackT
 ```json
 {
   "replace_all": false,
-  "file_path": "/media/dan/fdrive/ai-sandbox/workspace/SonOfLeo/Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
+  "file_path": "Skills/SonOfLeoRequirementsAudit/Runs/2026-07-06a/action-items.md",
   "old_string": "| 25 | AMB-1 | REQ-NGUI-1.3.1 \"system exceptions\" for stack trace undefined | | |",
   "new_string": "| 25 | AMB-1 | REQ-NGUI-1.3.1 \"system exceptions\" for stack trace undefined | Spec is correct, implementation is wrong. DAL catch sites use ex.Message which swallows the stack trace. Change to ex.ToString() so stack trace survives through the Result railway | CONFIRMED |"
 }

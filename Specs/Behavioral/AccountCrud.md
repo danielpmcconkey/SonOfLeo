@@ -141,12 +141,12 @@ construction pattern) but deliberately not verified by tests.
 |---|---|---|
 | REQ-AC-1.1  | Solution won't build if you try to pass a null value to AccountCode.create                                                                                                                                                                | Dan, 2026-06-14 |
 | REQ-AC-1.6  | Solution won't build if you try to pass a null value to AccountName.create                                                                                                                                                                | Dan, 2026-06-14 |
-| REQ-AC-1.9  | It is impossible to test all strings other than "Debit" and "Credit" and it's quite obviously enforced in the type definition |
-| REQ-AC-1.16 | It's quite obviously enforced in the type definition |
-| REQ-AC-1.17 | It's quite obviously enforced in the type definition |
-| REQ-AC-1.39 | It is impossible to try. You can't set the account ID manually so you can't set the parent to its own ID |
+| REQ-AC-1.9  | It is impossible to test all strings other than "Debit" and "Credit" and it's quite obviously enforced in the type definition | Dan, 2026-08-25 |
+| REQ-AC-1.16 | It's quite obviously enforced in the type definition | Dan, 2026-08-25 |
+| REQ-AC-1.17 | It's quite obviously enforced in the type definition | Dan, 2026-08-25 |
+| REQ-AC-1.39 | It is impossible to try. You can't set the account ID manually so you can't set the parent to its own ID | Dan, 2026-08-25 |
 | REQ-AC-1.47 | This is an impossible state if done through the code. The ID of the account is generated at creation time and therefore there can be no children of it. Only possible through direct DB editing                                           | Dan, 2026-06-13 |
-| REQ-AC-2.16 | This is an impossible state if done through the code. See rationale for REQ-AC-1.47 |
+| REQ-AC-2.16 | This is an impossible state if done through the code. See rationale for REQ-AC-1.47 | Dan, 2026-08-25 |
 | REQ-AC-4.22 | A negative existence claim over the entire API surface ("no function exposes an update path for these fields") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-06-11 |
 | REQ-AC-5.1  | A negative existence claim over the entire API surface ("no function exposes a hard delete") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface.                  | Dan, 2026-06-11 |
 | REQ-AC-1.21 | Account ID is a Guid (value type) — cannot be null | Dan, 2026-07-06 |

@@ -68,8 +68,7 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-2.5** Staged entry fi_reference cannot be null. Maximum 100 characters.
 - **REQ-STG-2.6** Staged entry source_file cannot be null. Records the full file path of the base staging format file that produced this entry.
 - **REQ-STG-2.7** Staged entry status cannot be null. Must be one of the values defined in §4.
-- **REQ-STG-2.24** The status column on a staged entry must always reflect the `to_status` of the entry's most recent audit record. The audit trail is the source of truth; the column is a denormalization for read performance. Any divergence between the two is a defect.
-  - *Why:* Querying the latest audit row on every read is expensive. The column avoids that join. But two sources of truth for the same value invite drift — this requirement makes the relationship explicit so tests can enforce it. (2026-08-23)
+- **REQ-STG-2.24** Stricken.
 - **REQ-STG-2.8** Stricken.
 - **REQ-STG-2.9** A staged entry must have at least two staged lines.
 
@@ -175,10 +174,10 @@ The classification step runs the vendor classification rules engine against stag
 ## 7. Deduplication behaviors
 
 - **REQ-STG-7.1** The system must provide a means to run deduplication against staged entries.
-- **REQ-STG-7.2** A staged entry is flagged as duplicate when another staged entry shares the same source_id and fi_reference values. This includes `'Ignored'` entries (per REQ-STG-4.5).
-  - *Why:* The original parenthetical excluded `'Posted'` entries on the assumption that REQ-STG-7.3 covered them via the ledger. Removed — each requirement should stand alone, and a Posted staged entry with the same key is evidence of a duplicate regardless of whether 7.3 exists. (2026-08-15)
-- **REQ-STG-7.3** A staged entry is flagged as duplicate when a posted journal entry in the ledger carries an external reference whose financial_institution and reference values match the staged entry's source and fi_reference.
-  - *Why:* Prevents re-importing transactions that were posted in a prior cycle. (2026-08-08)
+- **REQ-STG-7.2** A staged entry is flagged as duplicate when another staged entry shares the same source_id and fi_reference values. This includes `'Ignored'` entries (per REQ-STG-4.5). Entries with status `'Duplicate'`, `'Posted'`, or `'Reviewed'` are excluded from duplicate detection — they have already been dispositioned.
+  - *Why:* The original parenthetical excluded `'Posted'` entries on the assumption that REQ-STG-7.3 covered them via the ledger. Removed — each requirement should stand alone, and a Posted staged entry with the same key is evidence of a duplicate regardless of whether 7.3 exists. `'Reviewed'` is excluded because the operator is a higher authority than the dedup engine (see classification authority hierarchy in the preamble); if an operator reviewed it, the dedup pass must not override that judgment. (2026-08-15, Reviewed exclusion added 2026-08-25)
+- **REQ-STG-7.3** A staged entry is flagged as duplicate when a non-voided journal entry in the ledger carries an external reference whose financial_institution and reference values match the staged entry's source and fi_reference. Voided journal entries are not considered present in the ledger for dedup purposes.
+  - *Why:* Prevents re-importing transactions that were posted in a prior cycle. Voided entries are excluded because voiding is a soft delete — the economic event the entry recorded has been reversed, so its external reference should not block re-import of the same transaction. (2026-08-08, voided exclusion clarified 2026-08-25)
 - **REQ-STG-7.4** Stricken.
 - **REQ-STG-7.5** Flagging a staged entry as duplicate must not alter its lines or their account assignments.
 
@@ -211,8 +210,8 @@ The classification step runs the vendor classification rules engine against stag
 ## 10. Staged entry query behaviors
 
 - **REQ-STG-10.1** The system must provide a means to retrieve staged entries matching a combination of filter criteria. All filters are optional; when none are provided, the query returns all staged entries.
-- **REQ-STG-10.2** The following filter criteria are supported, applied as a conjunction (AND): staged entry ID, source file, date range (begin and end inclusive), fiscal period (resolved to a date range), description, ingestion source, FI reference, status, staged line ID, amount, line type, account, memo, and classification rule ID.
-  - *Why:* The operator's primary tool for reviewing staged data. Filters that span both header-level and line-level properties allow queries like "show me all Classified entries from TestBank where amount is $50.00." (2026-08-23)
+- **REQ-STG-10.2** The following filter criteria are supported, applied as a conjunction (AND): staged entry ID, source file, date range (begin and end inclusive), fiscal period (resolved to a date range), description (case-sensitive partial match), ingestion source, FI reference, status, staged line ID, amount, line type, account, memo, and classification rule ID.
+  - *Why:* The operator's primary tool for reviewing staged data. Filters that span both header-level and line-level properties allow queries like "show me all Classified entries from TestBank where amount is $50.00." Description uses partial match because FI descriptions are long institution-specific strings; the operator needs to search by merchant name fragments, not exact strings. (2026-08-23, match semantics added 2026-08-25)
 - **REQ-STG-10.3** When any line-level filter is applied (line ID, amount, line type, account, memo, classification rule ID), the query identifies matching staged entries by their lines, then returns the complete staged entry with all its lines — not just the matching lines.
   - *Why:* A staged entry is the unit of work. Returning partial entries would break downstream operations that expect balanced entries with all legs present. (2026-08-23)
 - **REQ-STG-10.4** The query must support sorting. Supported sort options: entry date (ascending/descending), ingestion source (ascending/descending), status (ascending/descending), description (ascending/descending).
@@ -250,5 +249,6 @@ The classification step runs the vendor classification rules engine against stag
 | ID | Original Requirement | Reason |
 |---|---|---|
 | REQ-STG-2.8 | Staged entry journal_entry_id is nullable; set after posting to reference the resulting journal entry header. | Back-trace from staging to ledger is not a system concern. The JE's external reference (constructed from fi_source + fi_reference at posting) provides the link back to source data. (2026-08-08) |
+| REQ-STG-2.24 | The status column on a staged entry must always reflect the `to_status` of the entry's most recent audit record. The audit trail is the source of truth; the column is a denormalization for read performance. | Status column removed (Option 4). Status is now derived from the audit trail at read time. The drift risk this requirement guarded against is eliminated by construction. (2026-08-24) |
 | REQ-STG-7.4 | Staged entries with null fi_reference are never flagged as duplicate by the automated dedup pass. | fi_reference is now required (REQ-STG-1.11, REQ-STG-2.5). Parsers must produce a deterministic reference for every source, ensuring universal dedup coverage. (2026-08-08) |
 | REQ-STG-9.6 | When the staged entry's fi_reference is null, no external reference is created on the journal entry. | fi_reference is now required; an external reference is always created (REQ-STG-9.5). (2026-08-08) |
