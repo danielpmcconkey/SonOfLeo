@@ -1,6 +1,7 @@
 module Tests.Integrated.ModelOrchestrator.ClassificationRuleCrud
 
 open InterfaceBridge.BoundaryConverters.AccountFieldConverters
+open DataAccessLayer.DbTransaction
 open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model
@@ -9,6 +10,7 @@ open Model.Ledger.Accounts.AccountComponent
 open ModelOrchestrator
 open ModelOrchestrator.FetchFilters
 open Tests.Helpers
+open Tests.Helpers.Cleanup
 open Tests.Helpers.Railroad
 open Tests.Helpers.SadPath
 open Utilities.AppError
@@ -152,38 +154,94 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
             |> fun r -> isCorrectError r AccountIdDoesntMatch None)
         |> railroadWrapper
 
-    [<Fact>]
-    member _.``REQ-CR-1.22 create refuses a rule bearing a name an existing rule already holds`` () =
-        (* Uniqueness lives in a database constraint, not a validation function, so the only
-           observable is the refused insert. DalErrorDuringNonQueryExecution is the case the
-           DAL raises at the impure boundary; matching anything narrower would be inventing an
-           error the system does not produce. Same shape and same ruling as REQ-AC-1.4. *)
-        let takenName = fixtureRules () |> List.head |> nameOf
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
-            ClassificationOrchestration.createNewClassificationRule
-                context
-                (ruleNameOf takenName)
-                fixture.Data.food5350Id
-                783
-                [ groupOf [ Source(patternOf "CR122Duplicate") ] ]
-            |> fun r -> isCorrectError r DalErrorDuringNonQueryExecution None)
-        |> railroadWrapper
+    (* Both REQ-CR-1.22 tests run on a NoTransaction context rather than inside the usual
+       rollback. A failed statement aborts an open transaction, so nothing can be read back
+       afterwards to see what the refusal left behind — which is the whole point of these two.
+       Each cleans up in a finally, and each only ever adds a row: the incumbent is a fixture
+       rule and no code path here rewrites it. *)
 
     [<Fact>]
-    member this.``REQ-CR-1.22 update refuses to rename a rule onto a name another rule already holds`` () =
-        (* Uniqueness is "across all classification rules", and REQ-CR-6.1 makes the name
-           settable, so create is only half the surface. Same DAL error as the create case and
-           as REQ-AC-1.4. *)
-        runCommandRouteAndAutoRollback IngestUpdateClassificationRule (fun context ->
-            let takenName = fixtureRules () |> List.head |> nameOf
-            let subject = this.TwoGroupRule()
-            ClassificationOrchestration.updateClassificationRule
-                context
-                (SetTo(ruleNameOf takenName))
-                NoChange NoChange NoChange NoChange
-                (subject |> idOf)
-            |> fun r -> isCorrectError r DalErrorDuringNonQueryExecution None)
-        |> railroadWrapper
+    member _.``REQ-CR-1.22 create refuses a rule bearing a name an existing rule already holds and leaves that rule the only holder of it`` () =
+        let mutable idToCleanUp = None
+        let incumbent = fixtureRules () |> List.head
+        let takenName = incumbent |> nameOf
+        let context = Context.create NoTransaction IngestNewClassificationRule
+        try
+            result {
+                do!
+                    ClassificationOrchestration.createNewClassificationRule
+                        context
+                        (ruleNameOf takenName)
+                        fixture.Data.food5350Id
+                        783
+                        [ groupOf [ Source(patternOf "CR122Duplicate") ] ]
+                    |> fun r ->
+                        (match r with
+                         | Ok created -> idToCleanUp <- Some(created |> idOf)
+                         | Error _ -> ())
+                        isCorrectError r DalErrorDuringNonQueryExecution None
+                (* The error alone would also be satisfied by an implementation that resolved
+                   the collision by overwriting the rule already holding the name. *)
+                let! holders =
+                    ClassificationOrchestration.fetchRulesFiltered
+                        context
+                        { noFilter with nameLike = Some(ruleNameOf takenName) }
+                        None
+                let exact = holders |> List.filter (fun r -> r |> nameOf = takenName)
+                Assert.Equal(1, exact |> List.length)
+                let survivor = exact |> List.exactlyOne
+                Assert.Equal(incumbent |> idOf, survivor |> idOf)
+                Assert.Equal(incumbent |> ClassificationRule.priority, survivor |> ClassificationRule.priority)
+                Assert.Equal(
+                    incumbent |> ClassificationRule.accountIdAtMatch,
+                    survivor |> ClassificationRule.accountIdAtMatch)
+            }
+            |> railroadWrapper
+        finally
+            cleanUpClassificationRuleId idToCleanUp |> ignore
+
+    [<Fact>]
+    member _.``REQ-CR-1.22 update refuses to rename a rule onto a name another rule already holds and leaves both rules with the names they had`` () =
+        let mutable idToCleanUp = None
+        let incumbent = fixtureRules () |> List.head
+        let takenName = incumbent |> nameOf
+        let subjectName = "CR-1.22 rename subject"
+        let context = Context.create NoTransaction IngestUpdateClassificationRule
+        try
+            result {
+                (* The subject has to be committed for the rename to be attempted against real
+                   state, so the test creates it and deletes it again. A fixture rule cannot be
+                   the subject: the update path commits, and a wrongly-successful rename would
+                   leave fixture data renamed for every later test. *)
+                let! subject =
+                    ClassificationOrchestration.createNewClassificationRule
+                        context
+                        (ruleNameOf subjectName)
+                        fixture.Data.food5350Id
+                        784
+                        [ groupOf [ Source(patternOf "CR122Rename") ] ]
+                idToCleanUp <- Some(subject |> idOf)
+                do!
+                    ClassificationOrchestration.updateClassificationRule
+                        context
+                        (SetTo(ruleNameOf takenName))
+                        NoChange NoChange NoChange NoChange
+                        (subject |> idOf)
+                    |> fun r -> isCorrectError r DalErrorDuringNonQueryExecution None
+                let! holders =
+                    ClassificationOrchestration.fetchRulesFiltered
+                        context
+                        { noFilter with nameLike = Some(ruleNameOf takenName) }
+                        None
+                let exact = holders |> List.filter (fun r -> r |> nameOf = takenName)
+                Assert.Equal(1, exact |> List.length)
+                Assert.Equal(incumbent |> idOf, exact |> List.exactlyOne |> idOf)
+                let! subjectAfter = subject |> idOf |> ClassificationRule.fetchById context
+                Assert.Equal(subjectName, subjectAfter |> nameOf)
+            }
+            |> railroadWrapper
+        finally
+            cleanUpClassificationRuleId idToCleanUp |> ignore
 
     [<Fact>]
     member _.``REQ-CR-4.6 REQ-CR-1.7 create returns a validation error when the rule groups list is empty`` () =

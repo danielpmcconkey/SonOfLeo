@@ -7,6 +7,7 @@ open Logger.Audit
 open Model
 open ModelOrchestrator
 open Tests.Helpers
+open Tests.Helpers.Cleanup
 open Tests.Helpers.GenericTestProperties
 open Utilities
 open Utilities.ResultHelper
@@ -22,21 +23,49 @@ open Tests.Helpers.Railroad
 type AccountTests(fixture: TestDataFixture) =
 
     [<Fact>]
-    member _.``REQ-AC-1.4 REQ-AC-2.9 AccountCode must be unique``() =
-        runCommandRouteAndAutoRollback AccountCreate (fun context ->
-            let duplicateCode = "F-1250"
-            let duplicateResult =
-                AccountCreation.constructNewAndSaveToDb
-                    context
-                    (duplicateCode |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
-                    genericAccountName
-                    genericAccountType
-                    genericAccountActivityPeriod
-                    genericAccountSubtype
-                    genericAccountParentId
-                    genericAccountReference
-            isCorrectError duplicateResult DalErrorDuringNonQueryExecution None)
-        |> railroadWrapper
+    member _.``REQ-AC-1.4 REQ-AC-2.9 creating over an account code already in use is refused and leaves that account the only holder of the code``() =
+        (* NoTransaction rather than the usual rollback: a failed statement aborts an open
+           transaction, so what the refusal left behind could not be read back afterwards.
+           This test only ever adds a row, and deletes it in the finally if the create wrongly
+           succeeds. *)
+        let mutable idToCleanUp = None
+        let duplicateCode = "F-1250"
+        let incumbent =
+            fixture.Data.accounts
+            |> List.find(fun a -> a |> Account.code |> AccountCode.value = duplicateCode)
+        let context = Context.create NoTransaction AccountCreate
+        try
+            result {
+                do!
+                    AccountCreation.constructNewAndSaveToDb
+                        context
+                        (duplicateCode |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
+                        genericAccountName
+                        genericAccountType
+                        genericAccountActivityPeriod
+                        genericAccountSubtype
+                        genericAccountParentId
+                        genericAccountReference
+                    |> fun r ->
+                        (match r with
+                         | Ok created -> idToCleanUp <- Some(created |> Account.accountId)
+                         | Error _ -> ())
+                        isCorrectError r DalErrorDuringNonQueryExecution None
+                (* The error alone would also be satisfied by an implementation that resolved
+                   the collision by overwriting the account already holding the code. *)
+                let! all = Account.fetchAll context false
+                let holders = all |> List.filter(fun a -> a |> Account.code |> AccountCode.value = duplicateCode)
+                Assert.Equal(1, holders |> List.length)
+                let survivor = holders |> List.exactlyOne
+                Assert.Equal(incumbent |> Account.accountId, survivor |> Account.accountId)
+                Assert.Equal(
+                    incumbent |> Account.accountName |> AccountName.value,
+                    survivor |> Account.accountName |> AccountName.value)
+                Assert.Equal(incumbent |> Account.accountType, survivor |> Account.accountType)
+            }
+            |> railroadWrapper
+        finally
+            cleanUpAccountId idToCleanUp |> ignore
 
     [<Fact>]
     member _.``REQ-AC-1.5 Account code is case sensitive.``() =
