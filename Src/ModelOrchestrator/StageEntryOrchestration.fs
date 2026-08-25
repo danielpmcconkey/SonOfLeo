@@ -603,8 +603,9 @@ let fetchFiltered
           
           filter.description
           |> Option.map(fun x ->
-              ("stage_entry_description = @stage_entry_description",
-               { name = "@stage_entry_description"; value = CharString(x |> JournalEntryDescription.value) }))
+              let likeStr = $"%%{x |> JournalEntryDescription.value}%%"
+              ("stage_entry_description like @stage_entry_description",
+               { name = "@stage_entry_description"; value = CharString(likeStr) }))
 
           filter.ingestionSource
           |> Option.map(fun x ->
