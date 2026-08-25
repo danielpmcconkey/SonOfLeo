@@ -6,6 +6,7 @@ open Xunit
 open Model.Ledger.Journaling.JournalEntryComponent
 open Tests.Helpers.SadPath
 open Tests.Helpers.Railroad
+open Utilities.ResultHelper
 
 
 // =============================================================================
@@ -119,11 +120,19 @@ let ``REQ-SYS-1.1 Source.create trims leading and trailing whitespace`` () =
 
 [<Fact>]
 let ``REQ-JE-1.25 JournalEntryLineType.fromString accepts Debit`` () =
-    Assert.True(Result.isOk(JournalEntryLineType.fromString "Debit"))
+    result {
+        let! parsed = JournalEntryLineType.fromString "Debit"
+        Assert.Equal(Debit, parsed)
+    }
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.25 JournalEntryLineType.fromString accepts Credit`` () =
-    Assert.True(Result.isOk(JournalEntryLineType.fromString "Credit"))
+    result {
+        let! parsed = JournalEntryLineType.fromString "Credit"
+        Assert.Equal(Credit, parsed)
+    }
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-JE-1.25 JournalEntryLineType.fromString rejects invalid string`` () =
@@ -150,12 +159,12 @@ let ``REQ-JE-1.25 JournalEntryLineType.toString round-trips with fromString`` ()
 // =============================================================================
 
 [<Fact>]
-let ``REQ-JE-1.27 REQ-SYS-1.2 LineMemo.create rejects empty string`` () =
+let ``REQ-JE-1.27 REQ-SYS-1.3 LineMemo.create rejects empty string`` () =
     isCorrectError (JournalEntryLineMemo.create String.Empty) JournalEntryLineMemoIsEmpty None
     |> railroadWrapper
 
 [<Fact>]
-let ``REQ-JE-1.27 REQ-SYS-1.2 LineMemo.create rejects whitespace-only string`` () =
+let ``REQ-JE-1.27 REQ-SYS-1.3 LineMemo.create rejects whitespace-only string`` () =
     isCorrectError (JournalEntryLineMemo.create "     ") JournalEntryLineMemoIsEmpty None
     |> railroadWrapper
 

@@ -6,6 +6,7 @@ open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open Logger.Audit
 open Model.DataIngestion
+open Model.DataIngestion.Classification
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling.JournalEntryComponent
@@ -265,6 +266,27 @@ let cleanUpIngestionSourceId (sourceId: IngestionSourceId option) : Result<unit,
         let query =
             $"""
                 delete from ingestion.source
+                WHERE unique_id = @unique_id;
+            """
+        executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+
+//=================================================
+// Classification rule clean up
+//=================================================
+
+(* No child rows are deleted here. A rule a test created has never classified anything, so
+   nothing in staged_entry_line points at it — and if something does, ExactlyOne surfacing
+   the FK violation is the right outcome rather than quietly widening the delete. *)
+let cleanUpClassificationRuleId (ruleId: ClassificationRuleId option) : Result<unit, AppError> =
+    let context = Context.create NoTransaction FetchOnly
+    match ruleId with
+    | None -> Ok()
+    | Some x ->
+        let uuid = x |> ClassificationRuleId.value
+        let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
+        let query =
+            $"""
+                delete from ingestion.classification_rule
                 WHERE unique_id = @unique_id;
             """
         executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne

@@ -49,6 +49,54 @@ type AccountActivityTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]
+    member _.``REQ-JE-3.9 activity detail carries its parent entry's date, description, source, and voided-at``() =
+        (* "Fixture JE with reference" is the one fixture entry created with a source, so it
+           is the only one that can prove the source enrichment is populated rather than
+           merely present as a null. *)
+        let expectedEntry =
+            fixture.Data.journalEntries
+            |> List.find(fun je ->
+                je
+                |> JournalEntry.header
+                |> JournalEntryHeader.description
+                |> JournalEntryDescription.value = "Fixture JE with reference")
+        let expectedHeader = expectedEntry |> JournalEntry.header
+        let expectedLineId =
+            expectedEntry |> JournalEntry.lines |> List.head |> JournalEntryLine.journalEntryLineId
+        let filter: AccountActivityFilter =
+            { accountId = None
+              temporalFilter = None
+              source = None
+              accountType = None
+              accountSubtype = None
+              accountParentId = None
+              journalEntryId = None
+              amount = None
+              description = None
+              unVoidedOnly = false }
+        let context = Context.create NoTransaction FetchOnly
+        result {
+            let! activities = AccountActivity.fetchFiltered context filter None
+            let detail =
+                activities
+                |> List.choose(fun a -> a.activityDetail)
+                |> List.find(fun d -> d.lineId = expectedLineId)
+            Assert.Equal(
+                expectedHeader |> JournalEntryHeader.entryDate |> EntryDate.entryDate,
+                detail.entryDate)
+            Assert.Equal(
+                expectedHeader |> JournalEntryHeader.description |> JournalEntryDescription.value,
+                detail.journalEntryDescription |> JournalEntryDescription.value)
+            Assert.Equal<string option>(
+                expectedHeader |> JournalEntryHeader.source |> Option.map JournalEntrySource.value,
+                detail.journalEntrySource |> Option.map JournalEntrySource.value)
+            Assert.Equal<NodaTime.Instant option>(
+                expectedHeader |> JournalEntryHeader.voidedAt,
+                detail.journalEntryVoidedAt)
+        }
+        |> railroadWrapper
+
+    [<Fact>]
     member _.``REQ-JE-3.9.1 fetchFiltered with unVoidedOnly excludes voided entries``() =
         let unVoidedJournalEntries =
             fixture.Data.journalEntries

@@ -28,6 +28,11 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
 
                 Assert.Equal(fixture.Data.moneyMarket1270Id, Account.accountId deactivated)
                 Assert.False(deactivated |> Account.activityPeriod |> AccountActivityPeriod.isActive(Calendar.today()))
+                (* isActive would still be false for any past date, so the name's first claim
+                   needs the date itself. *)
+                Assert.Equal<NodaTime.LocalDate option>(
+                    explicitDeactivationDate,
+                    deactivated |> Account.activityPeriod |> AccountActivityPeriod.activeEnd)
                 return ()
             })
         |> railroadWrapper

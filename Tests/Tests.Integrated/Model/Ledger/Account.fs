@@ -314,9 +314,21 @@ type AccountTests(fixture: TestDataFixture) =
     member _.``REQ-AC-3.3 fetchById returns account matching provided ID``() =
         let context = Context.create NoTransaction FetchOnly
         let expectedId = fixture.Data.mortgage2210Id
+        (* The ID is the locator, so asserting it back proves only that the query returned a
+           row. The account's own properties are what prove it returned the right one. *)
+        let expectedAccount =
+            fixture.Data.accounts
+            |> List.find(fun a -> a |> Account.accountId = expectedId)
         result {
             let! account = Account.fetchById context expectedId
             Assert.Equal(expectedId, account |> Account.accountId)
+            Assert.Equal(
+                expectedAccount |> Account.code |> AccountCode.value,
+                account |> Account.code |> AccountCode.value)
+            Assert.Equal(
+                expectedAccount |> Account.accountName |> AccountName.value,
+                account |> Account.accountName |> AccountName.value)
+            Assert.Equal(expectedAccount |> Account.accountType, account |> Account.accountType)
             return ()
         }
         |> railroadWrapper

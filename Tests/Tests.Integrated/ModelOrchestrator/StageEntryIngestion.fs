@@ -143,7 +143,16 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 Assert.Equal("TestBank", header |> StageEntryHeader.ingestionSource |> IngestionSource.name |> JournalRefFinancialInstitution.value)
                 Assert.Equal("REF-DD-001", header |> StageEntryHeader.fiReference |> JournalExternalReferenceText.value)
                 Assert.Equal("/tmp/stg-test-checking.jsonl", header |> StageEntryHeader.sourceFile |> SourceFile.value)
-                Assert.True((entry |> lines |> List.length) >= 2)
+                (* grp-001 is built from exactly two raw rows, so it owes exactly two lines.
+                   A floor would tolerate the line duplication it is meant to catch. *)
+                Assert.Equal(2, entry |> lines |> List.length)
+                (* REQ-STG-2.7: status is no longer a column, so "cannot be null" means the
+                   derived value is present and agrees with the entry's own latest transition.
+                   The header reads it through the audit CTE and the transition list is
+                   fetched separately, so the two only agree if the derivation is right. *)
+                Assert.Equal<StagedEntryStatus option>(
+                    Some(entry |> StageTestData.latestStatus),
+                    header |> StageEntryHeader.currentStatus)
             })
         |> railroadWrapper
 
@@ -412,6 +421,41 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                     |> List.filter (fun se -> se |> stageEntryHeader |> StageEntryHeader.currentStatus = Some Duplicate)
                     |> List.length
                 Assert.Equal(1, dupCount)
+            })
+        |> railroadWrapper
+
+
+    [<Fact>]
+    member _.``REQ-STG-7.2 dedup leaves a Reviewed entry Reviewed while flagging the Ingested entry that shares its source and fi reference`` () =
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                (* Asserting only that the Reviewed entry survives would be satisfied by a
+                   dedup pass that flags nothing at all, so the same run has to flag the
+                   entry that is still Ingested. *)
+                let! sourceFile1 = "/tmp/test-reviewed-first.jsonl" |> SourceFile.create
+                let! row1 = StageTestData.makeRawRow context "grp-rev" today "Reviewed dedup subject" "TestBank" "REF-REVIEWED-001" 61.00M "Debit" (Some "F-5650") None
+                let! row2 = StageTestData.makeRawRow context "grp-rev" today "Reviewed dedup subject" "TestBank" "REF-REVIEWED-001" 61.00M "Credit" (Some "F-1270") None
+                let! firstResult = [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile1
+                let firstEntry = firstResult.stagedEntries |> List.exactlyOne
+                let firstHeaderId = firstEntry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+
+                (* The operator reviews it. Classified -> Reviewed is the transition that puts
+                   it beyond the dedup engine's authority. *)
+                let contextForReview = context |> Context.updateInitiationInstant
+                do! firstHeaderId
+                    |> StageEntryHeader.updateHeaderStatus contextForReview Reviewed Operator
+
+                let contextForReimport = contextForReview |> Context.updateInitiationInstant
+                let! sourceFile2 = "/tmp/test-reviewed-second.jsonl" |> SourceFile.create
+                let! row3 = StageTestData.makeRawRow context "grp-rev2" today "Reviewed dedup rerun" "TestBank" "REF-REVIEWED-001" 61.00M "Debit" (Some "F-5650") None
+                let! row4 = StageTestData.makeRawRow context "grp-rev2" today "Reviewed dedup rerun" "TestBank" "REF-REVIEWED-001" 61.00M "Credit" (Some "F-1270") None
+                let! secondResult = [ row3; row4 ] |> ingestRawToStageThenDeduplicateAndClassify contextForReimport sourceFile2
+
+                let secondEntry = secondResult.stagedEntries |> List.exactlyOne
+                Assert.Equal(Duplicate, StageTestData.latestStatus secondEntry)
+
+                let! reviewedAfter = firstHeaderId |> fetchByStageEntryHeaderId contextForReimport
+                Assert.Equal(Reviewed, StageTestData.latestStatus reviewedAfter)
             })
         |> railroadWrapper
 

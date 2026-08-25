@@ -98,6 +98,8 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             { asOf = { asOf = nextMonth }
               reportOutput = OutputSpecifier.Report { baseDir = testOutputDir; interpolateAsOf = true; fileName = "rpt-2-4-test" } }
         let expectedDateStr = nextMonth |> Calendar.localDateToString "yyyy-MM-dd"
+        let expectedPath =
+            System.IO.Path.Combine(testOutputDir, $"rpt-2-4-test-{expectedDateStr}.html")
         result {
             let! payload = input |> toJson<TrialBalanceInput>
             let! returnPayload = routeReportingCommandForTesting "TrialBalance" [] payload
@@ -105,7 +107,10 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             return!
                 match returned with
                 | TrialBalanceReturn.Report pathReturn ->
-                    Assert.Contains($"-{expectedDateStr}", pathReturn.fullyQualifiedPath)
+                    (* Containment proves the date is somewhere in the path. The requirement
+                       is about where: base dir, then the file name, then a hyphen and the
+                       date, then the extension. Only the whole path asserts that. *)
+                    Assert.Equal(expectedPath, pathReturn.fullyQualifiedPath)
                     System.IO.File.Delete pathReturn.fullyQualifiedPath
                     Ok ()
                 | TrialBalanceReturn.DataOnly _ ->

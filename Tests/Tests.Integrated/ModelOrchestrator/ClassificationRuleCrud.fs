@@ -153,6 +153,38 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
+    member _.``REQ-CR-1.22 create refuses a second rule bearing a name an existing rule already holds`` () =
+        (* The uniqueness rule lives in a database constraint rather than in a validation
+           function, so the only way to observe it is to have the second insert refused. The
+           DAL turns the constraint violation into a typed error at the impure boundary; there
+           is no narrower case to match on, and asserting a narrower one would be inventing an
+           error the system does not raise. *)
+        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+            result {
+                let sharedName = "CR-1.22 name taken twice"
+                let! _ =
+                    ClassificationOrchestration.createNewClassificationRule
+                        context
+                        (ruleNameOf sharedName)
+                        fixture.Data.food5350Id
+                        783
+                        [ groupOf [ Source(patternOf "CR122First") ] ]
+                return!
+                    match
+                        ClassificationOrchestration.createNewClassificationRule
+                            context
+                            (ruleNameOf sharedName)
+                            fixture.Data.food5350Id
+                            784
+                            [ groupOf [ Source(patternOf "CR122Second") ] ]
+                        with
+                    | Error (DalErrorDuringNonQueryExecution _) -> Ok ()
+                    | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
+                    | Ok _ -> Error (TestingError "Expected failure; got success")
+            })
+        |> railroadWrapper
+
+    [<Fact>]
     member _.``REQ-CR-4.6 REQ-CR-1.7 create returns a validation error when the rule groups list is empty`` () =
         runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
             ClassificationOrchestration.createNewClassificationRule

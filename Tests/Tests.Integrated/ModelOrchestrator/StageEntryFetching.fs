@@ -235,6 +235,49 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
+    member _.``REQ-STG-10.2 fetchFiltered by a description fragment returns every entry whose description contains it and no entry that does not``
+        ()
+        =
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                let! staged = stageAll context
+                (* "ANYTOWN" sits inside two different full descriptions, so a filter still
+                   doing exact match returns nothing and a filter ignoring the fragment
+                   returns everything. Only partial match returns these two. *)
+                let fragment = "ANYTOWN"
+                let expected = staged |> List.filter(fun e -> (e |> descriptionOf).Contains fragment)
+                Assert.Equal(2, expected |> List.length)
+                Assert.Equal(2, expected |> List.map descriptionOf |> List.distinct |> List.length)
+                let! description = fragment |> JournalEntryDescription.create
+                let! fetched = { noFilter with description = Some description } |> fetchFiltered context None
+                Assert.Equal<StageEntryHeaderId list>(expected |> idsOf, fetched |> idsOf)
+                Assert.All(fetched, fun e -> Assert.Contains(fragment, e |> descriptionOf))
+            })
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-STG-10.2 the description filter is case sensitive, so a fragment returns entries in its own case and none when lower-cased``
+        ()
+        =
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                let! staged = stageAll context
+                let fragment = "ANYTOWN"
+                (* Asserting only that the lower-cased fragment returns nothing would be
+                   satisfied by a filter that always returns nothing, so the same fragment in
+                   its own case has to come back populated in the same test. *)
+                let! matching = fragment |> JournalEntryDescription.create
+                let! fetchedMatching = { noFilter with description = Some matching } |> fetchFiltered context None
+                let expected = staged |> List.filter(fun e -> (e |> descriptionOf).Contains fragment)
+                Assert.Equal<StageEntryHeaderId list>(expected |> idsOf, fetchedMatching |> idsOf)
+                Assert.NotEmpty fetchedMatching
+                let! lowered = fragment.ToLowerInvariant() |> JournalEntryDescription.create
+                let! fetchedLowered = { noFilter with description = Some lowered } |> fetchFiltered context None
+                Assert.Empty fetchedLowered
+            })
+        |> railroadWrapper
+
+    [<Fact>]
     member _.``REQ-STG-10.2 fetchFiltered by ingestion source returns every entry from that institution and no entry from another``
         ()
         =
