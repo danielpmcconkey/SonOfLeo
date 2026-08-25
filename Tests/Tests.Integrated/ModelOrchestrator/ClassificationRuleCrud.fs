@@ -153,35 +153,20 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-CR-1.22 create refuses a second rule bearing a name an existing rule already holds`` () =
-        (* The uniqueness rule lives in a database constraint rather than in a validation
-           function, so the only way to observe it is to have the second insert refused. The
-           DAL turns the constraint violation into a typed error at the impure boundary; there
-           is no narrower case to match on, and asserting a narrower one would be inventing an
-           error the system does not raise. *)
+    member _.``REQ-CR-1.22 create refuses a rule bearing a name an existing rule already holds`` () =
+        (* Uniqueness lives in a database constraint, not a validation function, so the only
+           observable is the refused insert. DalErrorDuringNonQueryExecution is the case the
+           DAL raises at the impure boundary; matching anything narrower would be inventing an
+           error the system does not produce. Same shape and same ruling as REQ-AC-1.4. *)
+        let takenName = fixtureRules () |> List.head |> nameOf
         runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
-            result {
-                let sharedName = "CR-1.22 name taken twice"
-                let! _ =
-                    ClassificationOrchestration.createNewClassificationRule
-                        context
-                        (ruleNameOf sharedName)
-                        fixture.Data.food5350Id
-                        783
-                        [ groupOf [ Source(patternOf "CR122First") ] ]
-                return!
-                    match
-                        ClassificationOrchestration.createNewClassificationRule
-                            context
-                            (ruleNameOf sharedName)
-                            fixture.Data.food5350Id
-                            784
-                            [ groupOf [ Source(patternOf "CR122Second") ] ]
-                        with
-                    | Error (DalErrorDuringNonQueryExecution _) -> Ok ()
-                    | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
-                    | Ok _ -> Error (TestingError "Expected failure; got success")
-            })
+            ClassificationOrchestration.createNewClassificationRule
+                context
+                (ruleNameOf takenName)
+                fixture.Data.food5350Id
+                783
+                [ groupOf [ Source(patternOf "CR122Duplicate") ] ]
+            |> fun r -> isCorrectError r DalErrorDuringNonQueryExecution None)
         |> railroadWrapper
 
     [<Fact>]
