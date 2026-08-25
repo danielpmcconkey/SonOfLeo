@@ -324,7 +324,7 @@ let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, A
             left join all_in_ledger ail -- note this join creates duplicates because 2 JEs can share the same FI and reference
                 on ais.source_name = ail.financial_institution
                 and ais.fi_reference = ail.reference
-            where ais.current_status not in ('Duplicate', 'Posted', 'Ignored')
+            where ais.current_status not in ('Duplicate', 'Posted', 'Ignored', 'Reviewed')
             and (ais.ordinal > 1 or ail.journal_entry_id is not null)
             )"""
         ]
