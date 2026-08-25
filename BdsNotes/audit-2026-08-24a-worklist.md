@@ -43,9 +43,65 @@ REQ-CR-1.22 (rule name uniqueness) landed in this audit cycle from item #026 —
 constraint, Hobson added the requirement, nobody was assigned the test. It was the only
 invariant-2 violation on this branch. Covered at the orchestrator layer.
 
-## Not done
+## Name grading — ran after all
 
-The name-quality check (loop step 6) is meant to run as an independent grader agent. This
-session could not spawn one, so the nine draft names were graded against the rubric by their
-own author — the exact failure mode that skill exists to prevent. Four names were revised as
-a result; the grading still wants an independent pass.
+Dan authorised the grader agent, so step 6 got its independent pass after the names were
+already written. Read the transcript, not the notification: it returned an idle notification
+with no report, `stop_reason: end_turn`, and the full report on disk at
+`~/.claude/projects/-workspace/<session>/subagents/agent-*.jsonl`. Second time this has
+happened; the harness note on it is right.
+
+Acted on three findings:
+
+- **REQ-CR-5.1 scored 72.** Its name never denied returning the wrong rule. The test always
+  did, but the name licensed a weaker body and read as deliberately asymmetric beside
+  REQ-CR-5.2, which closes exactly that hole. Renamed.
+- **REQ-CR-4.1 scored 82** — enumerated three of the five fields the create route stores
+  while the test asserted all five. Renamed.
+- **REQ-STG-10.2 case name scored 80** — "when lower-cased" is satisfied vacuously by a
+  fragment with no upper case. Renamed.
+
+And one real gap: **REQ-CR-1.22 covered only create.** Uniqueness is "across all
+classification rules" and REQ-CR-6.1 makes the name settable, so rename-onto-a-taken-name was
+untested. Added.
+
+Most of the grader's "Uncovered" section is answered by tests it could not see — it grades the
+batch, not the suite. REQ-CR-5.4, REQ-CR-6.2, REQ-CR-6.1's independence clause, all five
+REQ-CR-5.3 criteria and REQ-STG-10.3 all have dedicated orchestrator tests. Check before
+acting on that section next time; its parallelism note is the part worth keeping.
+
+## Uniqueness tests, second pass
+
+The grader wanted "and stores no second rule" on REQ-CR-1.22. Not assertable where those
+tests lived — a failed statement aborts the open transaction, so nothing can be read back
+after the refusal (`current transaction is aborted, commands ignored until end of transaction
+block`; proven in psql, not assumed). Near-vacuous anyway: these are single-row inserts and
+cannot half-land.
+
+The claim with teeth is that the row already holding the key is untouched. An implementation
+that errored *and* clobbered the incumbent passed every earlier version of these tests.
+REQ-CR-1.22 create, REQ-CR-1.22 update, and REQ-AC-1.4 now run on a NoTransaction context so
+the post-refusal state is readable, and each asserts exactly one row holds the key, that it is
+the fixture row, and that its other fields survived.
+
+**REQ-AC-1.4 changed form 3 to form 4 as a result.** It is the only account test that writes
+outside a transaction. Its safety is the `finally`; if that ever fails to run it leaves a
+duplicate `F-1250` and the account suite stays red until someone deletes it.
+
+## Open for Dan — flagged, not ruled on
+
+- **REQ-STG-7.2 has three gaps beyond the one assigned.** Nothing covers the `Duplicate` or
+  `Posted` exclusions, and nothing covers the AND: sharing only source id, or only fi
+  reference, must not flag. Item 031 was scoped to `Reviewed`, so BD stopped there. Three
+  cheap tests when he wants them.
+- **`accountNameAtMatch` has no requirement behind it.** The create and fetch classification
+  rule routes return the resolved account *name* beside the code; REQ-CR-4.1 does not mention
+  it and the new route test asserts it. Hobson's call: missing REQ, or a return field nobody
+  meant to promise.
+
+## State at hand-off
+
+Branch `audit-2026-08-24a-tests`, four commits, pushed. 324 isolated / 457 integrated green.
+`Checks/run-all.sh` 9 passed 0 failed. `traceability-audit.sh .` invariants 1 and 2 clean.
+Database checked after a full run: no duplicate rule names, no duplicate account codes, no
+rows left behind. Not merged — that is Dan's.
