@@ -96,6 +96,8 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 - **REQ-CR-5.2** The system must be able to retrieve a classification rule by its name (exact match).
 - **REQ-CR-5.3** The system must be able to retrieve classification rules by a combination of optional filter criteria: rule ID, name (partial match), account-at-match (exact), source pattern (partial match against rule group JSONB), and active-only flag.
 - **REQ-CR-5.4** Filtered retrieval must support optional sort ordering by account code (ascending or descending, resolved via the account table) or priority (ascending or descending).
+- **REQ-CR-5.5** The returned classification rule must include the resolved account name corresponding to the account at match.
+  - *Why:* The CLI display layer needs the human-readable account name without a second round-trip. The rule stores an account ID internally; the boundary layer resolves the name at read time. (2026-08-25)
 
 
 ## 6. Update behaviors
