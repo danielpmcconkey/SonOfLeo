@@ -99,6 +99,14 @@ module StageTestData =
         |> List.head
         |> StageEntryStatusTransition.toStatus
 
+    /// How many times the dedup pass has flagged this entry. Latest status cannot answer
+    /// that on its own — an entry already sitting at Duplicate looks identical whether the
+    /// next pass skipped it or flagged it a second time.
+    let duplicateTransitionCount (entry: StageEntry) =
+        entry |> statusTransitions
+        |> List.filter (fun t -> t |> StageEntryStatusTransition.toStatus = StagedEntryStatus.Duplicate)
+        |> List.length
+
 
 [<Collection("SharedTestData")>]
 type StageEntryIngestionTests(fixture: TestDataFixture) =
@@ -426,7 +434,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
 
 
     [<Fact>]
-    member _.``REQ-STG-7.2 dedup leaves a Reviewed entry Reviewed while flagging the Ingested entry that shares its source and fi reference`` () =
+    member _.``REQ-STG-7.2 a dedup pass leaves a Reviewed entry with no Duplicate transition while flagging the Ingested entry that shares its source and fi reference`` () =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 (* Asserting only that the Reviewed entry survives would be satisfied by a
@@ -455,7 +463,152 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 Assert.Equal(Duplicate, StageTestData.latestStatus secondEntry)
 
                 let! reviewedAfter = firstHeaderId |> fetchByStageEntryHeaderId contextForReimport
+                (* Status alone would still read Reviewed if the pass had flagged it and the
+                   status write had then failed. The audit trail is what rules that out. *)
+                Assert.Equal(0, StageTestData.duplicateTransitionCount reviewedAfter)
                 Assert.Equal(Reviewed, StageTestData.latestStatus reviewedAfter)
+            })
+        |> railroadWrapper
+
+
+
+    [<Fact>]
+    member _.``REQ-STG-7.2 a dedup pass leaves a Posted entry with no Duplicate transition while flagging the Ingested entry that shares its source and fi reference`` () =
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                (* Asserting only that the Posted entry survives would be satisfied by a dedup
+                   pass that flags nothing at all, so the same run has to flag the entry that
+                   is still Ingested.
+
+                   The entry is posted for real rather than moved to Posted by hand, and that
+                   is load-bearing. A hand-forced Posted entry that arrived first sits at
+                   ordinal 1 of its source-and-reference partition, and the dedup query passes
+                   over ordinal 1 on that ground alone — the status exclusion never gets a
+                   chance to matter, so the test would stay green with the exclusion deleted.
+                   Posting writes a journal entry carrying this entry's own source and
+                   fi_reference, which makes the ledger arm of the match true for it. From
+                   that point the status exclusion is the only thing standing between it and
+                   being re-flagged on every pass that follows. *)
+                let! sourceFile1 = "/tmp/test-posted-first.jsonl" |> SourceFile.create
+                let! row1 = StageTestData.makeRawRow context "grp-post" today "Posted dedup subject" "TestBank" "REF-POSTED-001" 63.00M "Debit" (Some "F-5650") None
+                let! row2 = StageTestData.makeRawRow context "grp-post" today "Posted dedup subject" "TestBank" "REF-POSTED-001" 63.00M "Credit" (Some "F-1270") None
+                let! firstResult = [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile1
+                let firstEntry = firstResult.stagedEntries |> List.exactlyOne
+                let firstHeaderId = firstEntry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+
+                (* Both lines arrived coded, so classification left it Classified — the only
+                   status the entry can legally reach Posted from, per the permitted
+                   transition table in spec section 4. *)
+                Assert.Equal(Classified, StageTestData.latestStatus firstEntry)
+                Assert.Equal(0, StageTestData.duplicateTransitionCount firstEntry)
+                System.Threading.Thread.Sleep(10)
+                let contextForPost = context |> Context.updateInitiationInstant
+                (* Batch post rather than postStageEntry: postStageEntry writes the journal
+                   entry but leaves the status alone, and this test needs both halves — the
+                   ledger row that makes the entry matchable and the Posted status that is
+                   supposed to protect it. The entry ingested above is the only postable one
+                   in this rolled-back transaction. *)
+                do! ModelOrchestrator.StageEntryOrchestration.post contextForPost
+
+                System.Threading.Thread.Sleep(10)
+                let contextForReimport = contextForPost |> Context.updateInitiationInstant
+                let! sourceFile2 = "/tmp/test-posted-second.jsonl" |> SourceFile.create
+                let! row3 = StageTestData.makeRawRow context "grp-post2" today "Posted dedup rerun" "TestBank" "REF-POSTED-001" 63.00M "Debit" (Some "F-5650") None
+                let! row4 = StageTestData.makeRawRow context "grp-post2" today "Posted dedup rerun" "TestBank" "REF-POSTED-001" 63.00M "Credit" (Some "F-1270") None
+                let! secondResult = [ row3; row4 ] |> ingestRawToStageThenDeduplicateAndClassify contextForReimport sourceFile2
+
+                let secondEntry = secondResult.stagedEntries |> List.exactlyOne
+                Assert.Equal(Duplicate, StageTestData.latestStatus secondEntry)
+
+                let! postedAfter = firstHeaderId |> fetchByStageEntryHeaderId contextForReimport
+                Assert.Equal(0, StageTestData.duplicateTransitionCount postedAfter)
+                Assert.Equal(Posted, StageTestData.latestStatus postedAfter)
+            })
+        |> railroadWrapper
+
+
+    [<Fact>]
+    member _.``REQ-STG-7.2 a second dedup pass over an entry already flagged Duplicate leaves it holding exactly one Duplicate transition and still flags the newly arrived entry sharing its key`` () =
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                (* Three separate ingests rather than one batch of three. Inside a single batch
+                   every entry earns its Ingested transition at the same instant, so the dedup
+                   query's ordinal falls through to a uuid tiebreak and which member of a pair
+                   gets flagged is not deterministic. Separate passes make arrival order decide
+                   it, which is what lets this test name the entry it is talking about. *)
+                let ingestOne label groupId ctx =
+                    result {
+                        let! sourceFile = $"/tmp/test-redup-{label}.jsonl" |> SourceFile.create
+                        let! debit = StageTestData.makeRawRow ctx groupId today $"Duplicate dedup {label}" "TestBank" "REF-REDUP-001" 44.00M "Debit" (Some "F-5650") None
+                        let! credit = StageTestData.makeRawRow ctx groupId today $"Duplicate dedup {label}" "TestBank" "REF-REDUP-001" 44.00M "Credit" (Some "F-1270") None
+                        let! ingested = [ debit; credit ] |> ingestRawToStageThenDeduplicateAndClassify ctx sourceFile
+                        return ingested.stagedEntries |> List.exactlyOne
+                    }
+
+                let! first = ingestOne "first" "grp-redup1" context
+                Assert.Equal(0, StageTestData.duplicateTransitionCount first)
+
+                System.Threading.Thread.Sleep(10)
+                let contextSecond = context |> Context.updateInitiationInstant
+                let! second = ingestOne "second" "grp-redup2" contextSecond
+                Assert.Equal(Duplicate, StageTestData.latestStatus second)
+                let secondHeaderId = second |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+
+                System.Threading.Thread.Sleep(10)
+                let contextThird = contextSecond |> Context.updateInitiationInstant
+                let! third = ingestOne "third" "grp-redup3" contextThird
+                Assert.Equal(Duplicate, StageTestData.latestStatus third)
+
+                (* Duplicate -> Duplicate is absent from the permitted transition table in
+                   spec section 4, so a pass
+                   that failed to exclude the already-flagged entry would either abort the run
+                   or grow its audit trail. The run reaching this line rules out the first; the
+                   count rules out the second. *)
+                let! secondAfter = secondHeaderId |> fetchByStageEntryHeaderId contextThird
+                Assert.Equal(1, StageTestData.duplicateTransitionCount secondAfter)
+            })
+        |> railroadWrapper
+
+
+    [<Fact>]
+    member _.``REQ-STG-7.2 entries sharing only source or only fi reference gain no Duplicate transition in a pass that flags the pair sharing both`` () =
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                (* The pair sharing both keys rides along in the same batch so that "the pass
+                   flagged nothing" cannot be what makes the four half-match assertions pass.
+                   Every fi_reference here is unique to this test, so nothing matches a ledger
+                   external reference and REQ-STG-7.3 stays out of it. *)
+                let! sourceFile = "/tmp/test-partial-key.jsonl" |> SourceFile.create
+                let makeEntry groupId desc source fiRef =
+                    [ StageTestData.makeRawRow context groupId today desc source fiRef 21.00M "Debit" (Some "F-5650") None
+                      StageTestData.makeRawRow context groupId today desc source fiRef 21.00M "Credit" (Some "F-1270") None ]
+                let! rows =
+                    [ makeEntry "grp-pk1" "Partial key same source one" "TestBank" "REF-PARTIAL-A1"
+                      makeEntry "grp-pk2" "Partial key same source two" "TestBank" "REF-PARTIAL-A2"
+                      makeEntry "grp-pk3" "Partial key same reference one" "TestBank" "REF-PARTIAL-B"
+                      makeEntry "grp-pk4" "Partial key same reference two" "TestSavings" "REF-PARTIAL-B"
+                      makeEntry "grp-pk5" "Partial key both shared one" "TestBank" "REF-PARTIAL-C"
+                      makeEntry "grp-pk6" "Partial key both shared two" "TestBank" "REF-PARTIAL-C" ]
+                    |> List.concat
+                    |> convertListOfResultsToResultsList
+                let! fullResult = rows |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
+
+                let entryNamed desc = fullResult.stagedEntries |> StageTestData.findByDescription desc
+                [ "Partial key same source one"
+                  "Partial key same source two"
+                  "Partial key same reference one"
+                  "Partial key same reference two" ]
+                |> List.iter (fun desc ->
+                    Assert.Equal(0, entryNamed desc |> StageTestData.duplicateTransitionCount))
+
+                (* Which member of the shared pair gets flagged is decided by a uuid tiebreak
+                   within the batch, so the claim is that exactly one of the two was. *)
+                let flaggedInSharedPair =
+                    [ "Partial key both shared one"; "Partial key both shared two" ]
+                    |> List.map entryNamed
+                    |> List.filter (fun e -> e |> StageTestData.duplicateTransitionCount = 1)
+                    |> List.length
+                Assert.Equal(1, flaggedInSharedPair)
             })
         |> railroadWrapper
 
@@ -485,6 +638,36 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! fullResult = [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
                 let entry = fullResult.stagedEntries |> List.head
                 Assert.NotEqual(Duplicate, StageTestData.latestStatus entry)
+            })
+        |> railroadWrapper
+
+
+
+    [<Fact>]
+    member _.``REQ-STG-7.3 a staged entry matching a non-voided JE's external reference on financial_institution alone, or on reference alone, gains no Duplicate transition in a pass that flags the entry matching both`` () =
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                (* The fixture's non-voided "Fixture JE with reference" carries the external
+                   reference TestBank / TXN-001. Each of the three entries below sits alone in
+                   its own source-and-reference partition, so nothing here can be flagged by
+                   the stage-vs-stage rule and anything flagged was flagged by the ledger
+                   comparison. *)
+                let! sourceFile = "/tmp/test-ledger-partial.jsonl" |> SourceFile.create
+                let makeEntry groupId desc source fiRef =
+                    [ StageTestData.makeRawRow context groupId today desc source fiRef 37.00M "Debit" (Some "F-5650") None
+                      StageTestData.makeRawRow context groupId today desc source fiRef 37.00M "Credit" (Some "F-1270") None ]
+                let! rows =
+                    [ makeEntry "grp-lp1" "Ledger partial source only" "TestBank" "REF-LEDGER-NOT-TXN-001"
+                      makeEntry "grp-lp2" "Ledger partial reference only" "TestSavings" "TXN-001"
+                      makeEntry "grp-lp3" "Ledger partial both" "TestBank" "TXN-001" ]
+                    |> List.concat
+                    |> convertListOfResultsToResultsList
+                let! fullResult = rows |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
+
+                let entryNamed desc = fullResult.stagedEntries |> StageTestData.findByDescription desc
+                Assert.Equal(0, entryNamed "Ledger partial source only" |> StageTestData.duplicateTransitionCount)
+                Assert.Equal(0, entryNamed "Ledger partial reference only" |> StageTestData.duplicateTransitionCount)
+                Assert.Equal(1, entryNamed "Ledger partial both" |> StageTestData.duplicateTransitionCount)
             })
         |> railroadWrapper
 

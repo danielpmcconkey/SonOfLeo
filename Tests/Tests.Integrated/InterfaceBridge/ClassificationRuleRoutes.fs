@@ -240,3 +240,47 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
             Assert.All(returned, fun r -> Assert.Equal(code, r.codeAtMatch))
         }
         |> railroadWrapper
+
+
+    // =========================================================================
+    // REQ-CR-5.5 — resolved account name on the returned rule
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-CR-5.5 the fetch by id route resolves each of the two Allstate rules to the name of its own account at match, not to a shared or first-found account name``() =
+        (* Two fixture rules whose names differ only in their last four characters and which
+           point at two different accounts. A resolver returning a constant, or the first
+           account it found, or anything derived from the rule name satisfies one of these and
+           fails the other. One rule could not tell those apart. *)
+        let allstateRules =
+            fixture.Data.classificationRules
+            |> List.filter(fun r -> (r |> ruleNameOf).StartsWith "Allstate Insurance to ")
+        let expectedNameFor (rule: ClassificationRule.ClassificationRule) =
+            fixture.Data.accounts
+            |> List.find(fun a -> a |> Account.accountId = (rule |> ClassificationRule.accountIdAtMatch))
+            |> Account.accountName
+            |> AccountName.value
+        result {
+            Assert.Equal(2, allstateRules |> List.length)
+            (* If the fixture ever pointed both rules at one account the assertions below would
+               still pass while proving nothing. *)
+            Assert.Equal(2, allstateRules |> List.map expectedNameFor |> List.distinct |> List.length)
+            let! fetched =
+                allstateRules
+                |> List.map(fun rule ->
+                    result {
+                        let! payload =
+                            { FetchClassificationRuleByIdInput.classificationRuleId =
+                                rule |> ClassificationRule.classificationRuleId |> ClassificationRuleId.value }
+                            |> toJson<FetchClassificationRuleByIdInput>
+                        let! returnPayload =
+                            routeUiCommandForTesting "Ingestion" "FetchClassificationRuleById" [] payload
+                        let! returned = fromJson<ClassificationRuleReturn> returnPayload
+                        return (rule, returned)
+                    })
+                |> convertListOfResultsToResultsList
+            fetched
+            |> List.iter(fun (rule, returned) ->
+                Assert.Equal(expectedNameFor rule, returned.accountNameAtMatch))
+        }
+        |> railroadWrapper
