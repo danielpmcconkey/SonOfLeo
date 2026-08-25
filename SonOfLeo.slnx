@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/DbMigration/">
+    <Project Path="DbMigration/Migrator/Migrator.fsproj" />
+  </Folder>
   <Folder Name="/Src/">
     <Project Path="Src/Context/Context.fsproj" />
     <Project Path="Src/DataAccessLayer/DataAccessLayer.fsproj" />
