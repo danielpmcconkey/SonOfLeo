@@ -60,7 +60,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-CR-4.1 the new classification rule route stores the name, priority, and rule groups it was given and returns the rule with its account code resolved to that account's name``() =
+    member _.``REQ-CR-4.1 the new classification rule route stores the name, account at match, priority, rule groups, and isActive it was given and returns all five, with the account code it was handed resolved to that account``() =
         let mutable idToCleanUp = None
         let expectedAccount = accountByCode accountCodeForNewRules
         let ruleName = "CR-4.1 route create"
@@ -143,7 +143,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-CR-5.1 the fetch by id route returns that rule's name, account code, and priority``() =
+    member _.``REQ-CR-5.1 the fetch by id route returns the rule bearing that id — its name, account code, and priority — and not a sibling rule stored alongside it``() =
         let expected = fixture.Data.classificationRules |> List.head
         let expectedAccount =
             fixture.Data.accounts

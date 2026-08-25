@@ -256,7 +256,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-STG-10.2 the description filter is case sensitive, so a fragment returns entries in its own case and none when lower-cased``
+    member _.``REQ-STG-10.2 the description filter matches case-exactly: an upper-case fragment returns the entries carrying it in that case and returns nothing once its case is altered``
         ()
         =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->

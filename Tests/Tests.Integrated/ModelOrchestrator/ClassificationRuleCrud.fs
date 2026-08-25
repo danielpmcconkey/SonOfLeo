@@ -170,6 +170,22 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
+    member this.``REQ-CR-1.22 update refuses to rename a rule onto a name another rule already holds`` () =
+        (* Uniqueness is "across all classification rules", and REQ-CR-6.1 makes the name
+           settable, so create is only half the surface. Same DAL error as the create case and
+           as REQ-AC-1.4. *)
+        runCommandRouteAndAutoRollback IngestUpdateClassificationRule (fun context ->
+            let takenName = fixtureRules () |> List.head |> nameOf
+            let subject = this.TwoGroupRule()
+            ClassificationOrchestration.updateClassificationRule
+                context
+                (SetTo(ruleNameOf takenName))
+                NoChange NoChange NoChange NoChange
+                (subject |> idOf)
+            |> fun r -> isCorrectError r DalErrorDuringNonQueryExecution None)
+        |> railroadWrapper
+
+    [<Fact>]
     member _.``REQ-CR-4.6 REQ-CR-1.7 create returns a validation error when the rule groups list is empty`` () =
         runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
             ClassificationOrchestration.createNewClassificationRule
