@@ -36,6 +36,20 @@ type AppError =
     | AccountTypeInvalid of string
     | AccountUpdateNoOp
     
+    | CashflowAgreementMemoIsEmpty of string
+    | CashflowAgreementMemoTooLong of string * int
+    | CashflowAgreementNameIsEmpty of string
+    | CashflowAgreementNameTooLong of string * int
+    | CashflowCounterpartyIsEmpty of string
+    | CashflowCounterpartyTooLong of string * int
+    | CashflowInvalidDateInMonthNumber of int
+    | CashflowInvalidFlowDirection of string
+    | CashflowInvalidMonth of string
+    | CashflowInvalidWeekDay of string
+    | CashflowInvalidWeekInMonthNumber of int
+    | CashflowTransactionMemoIsEmpty of string
+    | CashflowTransactionMemoTooLong of string * int
+    
     | CliUnknownCommand of string * string
     
     | ConfigReadError of string * exn
@@ -195,6 +209,20 @@ module AppError =
         | AccountSubtypeInvalid subtype -> $"Provided string of '{subtype}' is not a valid account subtype."
         | AccountTypeInvalid typeString -> $"Provided string of '{typeString}' is not a valid account type."
         | AccountUpdateNoOp -> "Updating the account record failed because at least one updatable parameter must be set."
+        
+        | CashflowAgreementMemoIsEmpty memo -> $"AgreementMemo cannot be empty. Provided Memo is {memo}."
+        | CashflowAgreementMemoTooLong(memo, max) -> $"AgreementMemo cannot exceed {max} characters. Provided Memo is {memo}."
+        | CashflowAgreementNameIsEmpty name -> $"AgreementName cannot be empty. Provided name is {name}."
+        | CashflowAgreementNameTooLong(name, max) -> $"AgreementName cannot exceed {max} characters. Provided name is {name}."
+        | CashflowCounterpartyIsEmpty name -> $"Counterparty cannot be empty. Provided name is {name}."
+        | CashflowCounterpartyTooLong(name, max) -> $"Counterparty cannot exceed {max} characters. Provided name is {name}."
+        | CashflowInvalidDateInMonthNumber i -> $"Invalid DateInMonthNumber of \"{i}\"."
+        | CashflowInvalidFlowDirection str -> $"Invalid FlowDirection of \"{str}\"."
+        | CashflowInvalidMonth str -> $"Invalid Month of \"{str}\"."
+        | CashflowInvalidWeekDay str -> $"Invalid WeekDay of \"{str}\"."
+        | CashflowInvalidWeekInMonthNumber i -> $"Invalid WeekInMonthNumber of \"{i}\"."
+        | CashflowTransactionMemoIsEmpty memo -> $"TransactionMemo cannot be empty. Provided Memo is {memo}."
+        | CashflowTransactionMemoTooLong(memo, max) -> $"TransactionMemo cannot exceed {max} characters. Provided Memo is {memo}."
         
         | CliUnknownCommand(domain, verb) -> $"Unknown command: {domain} {verb}"
         

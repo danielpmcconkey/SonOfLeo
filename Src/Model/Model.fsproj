@@ -29,6 +29,8 @@
     <Compile Include="DataIngestion\Classification\ClassificationRuleGroup.fs" />
     <Compile Include="DataIngestion\Classification\ClassificationRule.fs" />
     <Compile Include="DataIngestion\Classification\Classifier.fs" />
+    <Compile Include="CashFlow\CashFlowComponent.fs" />
+    <Compile Include="CashFlow\Agreement.fs" />
   </ItemGroup>
 
   <ItemGroup>
