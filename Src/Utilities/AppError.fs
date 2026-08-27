@@ -40,6 +40,8 @@ type AppError =
     | CashflowAgreementMemoTooLong of string * int
     | CashflowAgreementNameIsEmpty of string
     | CashflowAgreementNameTooLong of string * int
+    | CashflowBlockerNoteIsEmpty of string
+    | CashflowBlockerNoteTooLong of string * int
     | CashflowCounterpartyIsEmpty of string
     | CashflowCounterpartyTooLong of string * int
     | CashflowInvalidDateInMonthNumber of int
@@ -214,6 +216,8 @@ module AppError =
         | CashflowAgreementMemoTooLong(memo, max) -> $"AgreementMemo cannot exceed {max} characters. Provided Memo is {memo}."
         | CashflowAgreementNameIsEmpty name -> $"AgreementName cannot be empty. Provided name is {name}."
         | CashflowAgreementNameTooLong(name, max) -> $"AgreementName cannot exceed {max} characters. Provided name is {name}."
+        | CashflowBlockerNoteIsEmpty note -> $"AgreementMemo cannot be empty. Provided Memo is {note}."
+        | CashflowBlockerNoteTooLong(note, max) -> $"BlockerNote cannot exceed {max} characters. Provided Memo is {note}."
         | CashflowCounterpartyIsEmpty name -> $"Counterparty cannot be empty. Provided name is {name}."
         | CashflowCounterpartyTooLong(name, max) -> $"Counterparty cannot exceed {max} characters. Provided name is {name}."
         | CashflowInvalidDateInMonthNumber i -> $"Invalid DateInMonthNumber of \"{i}\"."

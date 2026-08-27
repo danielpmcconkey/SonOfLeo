@@ -1,15 +1,38 @@
 module Model.CashFlow.CashFlowComponent
 
 open System
-open Model
 open Model.Ledger.Accounts.AccountComponent
 open Utilities.AppError
 
-type AgreementId = private AgreementId of Guid
-module AgreementId =
-    let create () : AgreementId = AgreementId(Guid.NewGuid())
-    let fromGuid g = AgreementId g
-    let value (AgreementId g) : Guid = g
+type MasterAgreementId = private MasterAgreementId of Guid
+module MasterAgreementId =
+    let create () : MasterAgreementId = MasterAgreementId(Guid.NewGuid())
+    let fromGuid g = MasterAgreementId g
+    let value (MasterAgreementId g) : Guid = g
+
+type InstanceId = private InstanceId of Guid
+module InstanceId =
+    let create () : InstanceId = InstanceId(Guid.NewGuid())
+    let fromGuid g = InstanceId g
+    let value (InstanceId g) : Guid = g
+
+type PaymentId = private PaymentId of Guid
+module PaymentId =
+    let create () : PaymentId = PaymentId(Guid.NewGuid())
+    let fromGuid g = PaymentId g
+    let value (PaymentId g) : Guid = g
+
+type PaymentAgreementId = private PaymentAgreementId of Guid
+module PaymentAgreementId =
+    let create () : PaymentAgreementId = PaymentAgreementId(Guid.NewGuid())
+    let fromGuid g = PaymentAgreementId g
+    let value (PaymentAgreementId g) : Guid = g
+
+type InvoiceId = private InvoiceId of Guid
+module InvoiceId =
+    let create () : InvoiceId = InvoiceId(Guid.NewGuid())
+    let fromGuid g = InvoiceId g
+    let value (InvoiceId g) : Guid = g
 
 type DebitAccount = DebitAccount of AccountId
 type CreditAccount = CreditAccount of AccountId
@@ -32,7 +55,7 @@ module FlowDirection =
 type TransactionMemo = private TransactionMemo of string
 
 module TransactionMemo =
-    let maxLength = 250
+    let maxLength = 2000
     let value (TransactionMemo cp) = cp
     let create (raw: string) : Result<TransactionMemo, AppError> =
         let trimmed = raw.Trim()
@@ -43,16 +66,58 @@ module TransactionMemo =
         else
             Ok(TransactionMemo trimmed)
 
-type ExpectedTransaction = {
-    debitAccount: DebitAccount
-    creditAccount: CreditAccount
-    expectedAmount: Money option
-    memo: TransactionMemo option
-}
+type InvoiceState =
+    | InvoiceGenerated
+    | InvoiceSent
+    | InvoiceExpected
+    | InvoiceReceived
 
-type Flow = {
-    direction: FlowDirection
-    expectedTransactions: ExpectedTransaction list
+module InvoiceState =
+    let isValidFlowDirectionInvoiceStateCombination
+        (flowDirection: FlowDirection)
+        (invoiceState: InvoiceState)
+        : bool =
+        let validWith =
+            match flowDirection with
+            | Income -> [InvoiceGenerated; InvoiceSent]
+            | Outgo -> [InvoiceExpected; InvoiceReceived]
+        validWith |> List.contains invoiceState
+
+type PaymentState =
+    | NotYetPaid
+    | PartiallyPaid
+    | FullyPaid
+
+type PostedState =
+    | NotHandled
+    | IngestedToStage
+    | PostedToLedger
+
+type BlockerNote = private BlockerNote of string
+
+module BlockerNote =
+    let maxLength = 500
+    let value (BlockerNote an) = an // required because BlockerNote is a private string
+    let create (raw: string) : Result<BlockerNote, AppError> =
+        let trimmed = raw.Trim()
+        if String.IsNullOrWhiteSpace trimmed then
+            Error(CashflowBlockerNoteIsEmpty raw)
+        elif trimmed.Length > maxLength then
+            Error(CashflowBlockerNoteTooLong(raw, maxLength))
+        else
+            Ok(BlockerNote trimmed)
+
+type Blocker =
+    | NoFunds
+    | Irresponsible
+    | NeedsDecision of BlockerNote
+    | Other of BlockerNote
+    
+type InvoiceLifeCycleState = {
+    invoiceState: InvoiceState
+    paymentState: PaymentState
+    postedState: PostedState
+    blocker: Blocker option
 }
 
 type AgreementName = private AgreementName of string
@@ -213,7 +278,7 @@ module Counterparty =
 type AgreementMemo = private AgreementMemo of string
 
 module AgreementMemo =
-    let maxLength = 250
+    let maxLength = 2000
     let value (AgreementMemo cp) = cp
     let create (raw: string) : Result<AgreementMemo, AppError> =
         let trimmed = raw.Trim()

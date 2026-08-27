@@ -30,7 +30,11 @@
     <Compile Include="DataIngestion\Classification\ClassificationRule.fs" />
     <Compile Include="DataIngestion\Classification\Classifier.fs" />
     <Compile Include="CashFlow\CashFlowComponent.fs" />
-    <Compile Include="CashFlow\Agreement.fs" />
+    <Compile Include="CashFlow\PaymentAgreement.fs" />
+    <Compile Include="CashFlow\MasterAgreement.fs" />
+    <Compile Include="CashFlow\Instance.fs" />
+    <Compile Include="CashFlow\Payment.fs" />
+    <Compile Include="CashFlow\Invoice.fs" />
   </ItemGroup>
 
   <ItemGroup>
