@@ -1,7 +1,9 @@
 module Model.CashFlow.CashFlowComponent
 
 open System
+open Model.DataIngestion
 open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.Journaling.JournalEntryComponent
 open Utilities.AppError
 
 type MasterAgreementId = private MasterAgreementId of Guid
@@ -240,12 +242,14 @@ module Month =
 type DateInMonthNumber = private DateInMonthNumber of int
 
 module DateInMonthNumber =
+    let value (DateInMonthNumber i) = i
     let fromInt i =
         if i > 0 && i < 32 then Ok (DateInMonthNumber i) else Error (CashflowInvalidDateInMonthNumber i)
-        
+
 type WeekInMonthNumber = private WeekInMonthNumber of int
 
 module WeekInMonthNumber =
+    let value (WeekInMonthNumber i) = i
     let fromInt i =
         if i > 0 && i < 6 then Ok (WeekInMonthNumber i) else Error (CashflowInvalidWeekInMonthNumber i)
 
@@ -288,3 +292,7 @@ module AgreementMemo =
             Error(CashflowAgreementMemoTooLong(raw, maxLength))
         else
             Ok(AgreementMemo trimmed)
+
+type TransactionPointer =
+    | Posted of JournalEntryHeaderId
+    | Staged of StageEntryHeaderId
