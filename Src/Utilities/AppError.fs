@@ -45,16 +45,22 @@ type AppError =
     | CashflowCounterpartyIsEmpty of string
     | CashflowCounterpartyTooLong of string * int
     | CashflowInstanceUpdateNoOp
+    | CashflowInvalidBlocker of string
+    | CashflowInvalidBlockerRow of string
     | CashflowInvalidCadenceRow of string
     | CashflowInvalidDateInMonthNumber of int
     | CashflowInvalidFlowDirection of string
+    | CashflowInvalidInvoiceState of string
     | CashflowInvalidMonth of string
     | CashflowInvalidPaymentAmountRow of string
+    | CashflowInvalidPaymentState of string
     | CashflowInvalidPaymentTransactionPointerRow of string
+    | CashflowInvalidPostedState of string
     | CashflowInvalidWeekDay of string
     | CashflowInvalidWeekInMonthNumber of int
     | CashflowInvoiceMemoIsEmpty of string
     | CashflowInvoiceMemoTooLong of string * int
+    | CashflowInvoiceUpdateNoOp
     | CashflowMasterAgreementUpdateNoOp
     | CashflowPaymentAgreementMemoIsEmpty of string
     | CashflowPaymentAgreementMemoTooLong of string * int
@@ -232,16 +238,22 @@ module AppError =
         | CashflowCounterpartyIsEmpty name -> $"Counterparty cannot be empty. Provided name is {name}."
         | CashflowCounterpartyTooLong(name, max) -> $"Counterparty cannot exceed {max} characters. Provided name is {name}."
         | CashflowInstanceUpdateNoOp -> "Updating the Instance record failed because at least one updatable parameter must be set."
+        | CashflowInvalidBlocker str -> $"Invalid Blocker of \"{str}\"."
+        | CashflowInvalidBlockerRow reason -> $"Invalid Blocker row: {reason}."
         | CashflowInvalidCadenceRow reason -> $"Invalid Cadence row: {reason}."
         | CashflowInvalidDateInMonthNumber i -> $"Invalid DateInMonthNumber of \"{i}\"."
         | CashflowInvalidFlowDirection str -> $"Invalid FlowDirection of \"{str}\"."
+        | CashflowInvalidInvoiceState str -> $"Invalid InvoiceState of \"{str}\"."
         | CashflowInvalidMonth str -> $"Invalid Month of \"{str}\"."
         | CashflowInvalidPaymentAmountRow reason -> $"Invalid Payment amount row: {reason}."
+        | CashflowInvalidPaymentState str -> $"Invalid PaymentState of \"{str}\"."
         | CashflowInvalidPaymentTransactionPointerRow reason -> $"Invalid Payment transactionPointer row: {reason}."
+        | CashflowInvalidPostedState str -> $"Invalid PostedState of \"{str}\"."
         | CashflowInvalidWeekDay str -> $"Invalid WeekDay of \"{str}\"."
         | CashflowInvalidWeekInMonthNumber i -> $"Invalid WeekInMonthNumber of \"{i}\"."
         | CashflowInvoiceMemoIsEmpty memo -> $"InvoiceMemo cannot be empty. Provided Memo is {memo}."
         | CashflowInvoiceMemoTooLong(memo, max) -> $"InvoiceMemo cannot exceed {max} characters. Provided Memo is {memo}."
+        | CashflowInvoiceUpdateNoOp -> "Updating the Invoice record failed because at least one updatable parameter must be set."
         | CashflowMasterAgreementUpdateNoOp -> "Updating the MasterAgreement record failed because at least one updatable parameter must be set."
         | CashflowPaymentAgreementMemoIsEmpty memo -> $"PaymentAgreementMemo cannot be empty. Provided Memo is {memo}."
         | CashflowPaymentAgreementMemoTooLong(memo, max) -> $"PaymentAgreementMemo cannot exceed {max} characters. Provided Memo is {memo}."

@@ -70,16 +70,55 @@ module InvoiceState =
             | Income -> [InvoiceGenerated; InvoiceSent]
             | Outgo -> [InvoiceExpected; InvoiceReceived]
         validWith |> List.contains invoiceState
+    let fromString str =
+        match str with
+        | "InvoiceGenerated" -> Ok InvoiceGenerated
+        | "InvoiceSent" -> Ok InvoiceSent
+        | "InvoiceExpected" -> Ok InvoiceExpected
+        | "InvoiceReceived" -> Ok InvoiceReceived
+        | _ -> Error (CashflowInvalidInvoiceState str)
+    let toString state =
+        match state with
+        | InvoiceGenerated -> "InvoiceGenerated"
+        | InvoiceSent -> "InvoiceSent"
+        | InvoiceExpected -> "InvoiceExpected"
+        | InvoiceReceived -> "InvoiceReceived"
 
 type PaymentState =
     | NotYetPaid
     | PartiallyPaid
     | FullyPaid
 
+module PaymentState =
+    let fromString str =
+        match str with
+        | "NotYetPaid" -> Ok NotYetPaid
+        | "PartiallyPaid" -> Ok PartiallyPaid
+        | "FullyPaid" -> Ok FullyPaid
+        | _ -> Error (CashflowInvalidPaymentState str)
+    let toString state =
+        match state with
+        | NotYetPaid -> "NotYetPaid"
+        | PartiallyPaid -> "PartiallyPaid"
+        | FullyPaid -> "FullyPaid"
+
 type PostedState =
     | NotHandled
     | IngestedToStage
     | PostedToLedger
+
+module PostedState =
+    let fromString str =
+        match str with
+        | "NotHandled" -> Ok NotHandled
+        | "IngestedToStage" -> Ok IngestedToStage
+        | "PostedToLedger" -> Ok PostedToLedger
+        | _ -> Error (CashflowInvalidPostedState str)
+    let toString state =
+        match state with
+        | NotHandled -> "NotHandled"
+        | IngestedToStage -> "IngestedToStage"
+        | PostedToLedger -> "PostedToLedger"
 
 type BlockerNote = private BlockerNote of string
 
