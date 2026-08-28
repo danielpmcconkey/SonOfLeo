@@ -87,7 +87,8 @@ create table cashflow.payment
 (
     unique_id uuid NOT NULL primary key,
     invoice_id uuid not null references cashflow.invoice(unique_id) match simple on update no action on delete restrict,
-    journal_entry_header_id uuid not null references ledger.journal_entry(unique_id) match simple on update no action on delete restrict,
+    journal_entry_header_id uuid references ledger.journal_entry(unique_id) match simple on update no action on delete restrict,
+    stage_entry_header_id uuid references ingestion.staged_entry(unique_id) match simple on update no action on delete restrict,
     posted_to_fi_date date,
     memo varchar(2000) COLLATE pg_catalog."default",
     created_at timestamp with time zone NOT NULL,

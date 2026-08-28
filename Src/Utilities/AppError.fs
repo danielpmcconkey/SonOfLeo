@@ -44,6 +44,7 @@ type AppError =
     | CashflowBlockerNoteTooLong of string * int
     | CashflowCounterpartyIsEmpty of string
     | CashflowCounterpartyTooLong of string * int
+    | CashflowInvalidCadenceRow of string
     | CashflowInvalidDateInMonthNumber of int
     | CashflowInvalidFlowDirection of string
     | CashflowInvalidMonth of string
@@ -220,6 +221,7 @@ module AppError =
         | CashflowBlockerNoteTooLong(note, max) -> $"BlockerNote cannot exceed {max} characters. Provided Memo is {note}."
         | CashflowCounterpartyIsEmpty name -> $"Counterparty cannot be empty. Provided name is {name}."
         | CashflowCounterpartyTooLong(name, max) -> $"Counterparty cannot exceed {max} characters. Provided name is {name}."
+        | CashflowInvalidCadenceRow reason -> $"Invalid Cadence row: {reason}."
         | CashflowInvalidDateInMonthNumber i -> $"Invalid DateInMonthNumber of \"{i}\"."
         | CashflowInvalidFlowDirection str -> $"Invalid FlowDirection of \"{str}\"."
         | CashflowInvalidMonth str -> $"Invalid Month of \"{str}\"."
