@@ -233,3 +233,45 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
+let readRowsFromDb
+    (context: Context.Context)
+    (cteList: string list option)
+    (select: string)
+    (joinList: string list option)
+    (predicate: string option)
+    (limit: int option)
+    (groupBy: string option)
+    (orderBy: string option)
+    (parameters: QueryParameter list)
+    (expectedRows: AcceptableExpectedRows)
+    : Result<MasterAgreement list, AppError> =
+    let from = "cashflow.master_agreement ma"
+    let query = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
+    executeReaderQuery
+        (context |> Context.getDatabaseTransaction)
+        query
+        parameters
+        mapRawForDbRead
+        reconstitute
+        expectedRows
+
+let private fetchGenericRead
+    (context: Context.Context)
+    (predicate: string option)
+    (limit: int option)
+    (parameters: QueryParameter list)
+    (expectedRows: AcceptableExpectedRows)
+    : Result<MasterAgreement list, AppError> =
+    let select = """
+        ma.unique_id, ma.agreement_name, ma.flow_direction, ma.cadence, ma.cadence_week_day,
+        ma.cadence_date_in_month, ma.cadence_week_in_month, ma.cadence_month, ma.counterparty,
+        ma.start_date, ma.end_date, ma.memo, ma.created_at, ma.modified_at
+        """
+    readRowsFromDb context None select None predicate limit None None parameters expectedRows
+
+let fetchById (context: Context.Context) (agreementID: MasterAgreementId) : Result<MasterAgreement, AppError> =
+    let predicate = "ma.unique_id = @unique_id"
+    let uuid = agreementID |> MasterAgreementId.value
+    let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
+    fetchGenericRead context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+
