@@ -49,6 +49,8 @@ type AppError =
     | CashflowInvalidDateInMonthNumber of int
     | CashflowInvalidFlowDirection of string
     | CashflowInvalidMonth of string
+    | CashflowInvalidPaymentAmountRow of string
+    | CashflowInvalidPaymentTransactionPointerRow of string
     | CashflowInvalidWeekDay of string
     | CashflowInvalidWeekInMonthNumber of int
     | CashflowInvoiceMemoIsEmpty of string
@@ -233,6 +235,8 @@ module AppError =
         | CashflowInvalidDateInMonthNumber i -> $"Invalid DateInMonthNumber of \"{i}\"."
         | CashflowInvalidFlowDirection str -> $"Invalid FlowDirection of \"{str}\"."
         | CashflowInvalidMonth str -> $"Invalid Month of \"{str}\"."
+        | CashflowInvalidPaymentAmountRow reason -> $"Invalid Payment amount row: {reason}."
+        | CashflowInvalidPaymentTransactionPointerRow reason -> $"Invalid Payment transactionPointer row: {reason}."
         | CashflowInvalidWeekDay str -> $"Invalid WeekDay of \"{str}\"."
         | CashflowInvalidWeekInMonthNumber i -> $"Invalid WeekInMonthNumber of \"{i}\"."
         | CashflowInvoiceMemoIsEmpty memo -> $"InvoiceMemo cannot be empty. Provided Memo is {memo}."
