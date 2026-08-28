@@ -55,6 +55,7 @@ type AppError =
     | CashflowMasterAgreementUpdateNoOp
     | CashflowPaymentAgreementMemoIsEmpty of string
     | CashflowPaymentAgreementMemoTooLong of string * int
+    | CashflowPaymentAgreementUpdateNoOp
     | CashflowPaymentMemoIsEmpty of string
     | CashflowPaymentMemoTooLong of string * int
     
@@ -237,6 +238,7 @@ module AppError =
         | CashflowMasterAgreementUpdateNoOp -> "Updating the MasterAgreement record failed because at least one updatable parameter must be set."
         | CashflowPaymentAgreementMemoIsEmpty memo -> $"PaymentAgreementMemo cannot be empty. Provided Memo is {memo}."
         | CashflowPaymentAgreementMemoTooLong(memo, max) -> $"PaymentAgreementMemo cannot exceed {max} characters. Provided Memo is {memo}."
+        | CashflowPaymentAgreementUpdateNoOp -> "Updating the PaymentAgreement record failed because at least one updatable parameter must be set."
         | CashflowPaymentMemoIsEmpty memo -> $"PaymentMemo cannot be empty. Provided Memo is {memo}."
         | CashflowPaymentMemoTooLong(memo, max) -> $"PaymentMemo cannot exceed {max} characters. Provided Memo is {memo}."
         
