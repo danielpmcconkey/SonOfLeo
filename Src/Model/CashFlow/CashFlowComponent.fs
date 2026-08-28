@@ -54,20 +54,6 @@ module FlowDirection =
         | Income -> "Income"
         | Outgo -> "Outgo"
 
-type PaymentAgreementMemo = private PaymentAgreementMemo of string
-
-module PaymentAgreementMemo =
-    let maxLength = 2000
-    let value (PaymentAgreementMemo cp) = cp
-    let create (raw: string) : Result<PaymentAgreementMemo, AppError> =
-        let trimmed = raw.Trim()
-        if String.IsNullOrWhiteSpace trimmed then
-            Error(CashflowPaymentAgreementMemoIsEmpty raw)
-        elif trimmed.Length > maxLength then
-            Error(CashflowPaymentAgreementMemoTooLong(raw, maxLength))
-        else
-            Ok(PaymentAgreementMemo trimmed)
-
 type InvoiceState =
     | InvoiceGenerated
     | InvoiceSent
@@ -292,6 +278,20 @@ module AgreementMemo =
             Error(CashflowAgreementMemoTooLong(raw, maxLength))
         else
             Ok(AgreementMemo trimmed)
+
+type PaymentAgreementMemo = private PaymentAgreementMemo of string
+
+module PaymentAgreementMemo =
+    let maxLength = 2000
+    let value (PaymentAgreementMemo cp) = cp
+    let create (raw: string) : Result<PaymentAgreementMemo, AppError> =
+        let trimmed = raw.Trim()
+        if String.IsNullOrWhiteSpace trimmed then
+            Error(CashflowPaymentAgreementMemoIsEmpty raw)
+        elif trimmed.Length > maxLength then
+            Error(CashflowPaymentAgreementMemoTooLong(raw, maxLength))
+        else
+            Ok(PaymentAgreementMemo trimmed)
 
 type InvoiceMemo = private InvoiceMemo of string
 
