@@ -50,6 +50,7 @@ type AppError =
     | CashflowInvalidMonth of string
     | CashflowInvalidWeekDay of string
     | CashflowInvalidWeekInMonthNumber of int
+    | CashflowMasterAgreementUpdateNoOp
     | CashflowTransactionMemoIsEmpty of string
     | CashflowTransactionMemoTooLong of string * int
     
@@ -227,6 +228,7 @@ module AppError =
         | CashflowInvalidMonth str -> $"Invalid Month of \"{str}\"."
         | CashflowInvalidWeekDay str -> $"Invalid WeekDay of \"{str}\"."
         | CashflowInvalidWeekInMonthNumber i -> $"Invalid WeekInMonthNumber of \"{i}\"."
+        | CashflowMasterAgreementUpdateNoOp -> "Updating the MasterAgreement record failed because at least one updatable parameter must be set."
         | CashflowTransactionMemoIsEmpty memo -> $"TransactionMemo cannot be empty. Provided Memo is {memo}."
         | CashflowTransactionMemoTooLong(memo, max) -> $"TransactionMemo cannot exceed {max} characters. Provided Memo is {memo}."
         

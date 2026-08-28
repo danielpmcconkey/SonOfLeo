@@ -5,7 +5,6 @@ open NodaTime
 open Utilities.AppError
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
-open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
@@ -274,4 +273,75 @@ let fetchById (context: Context.Context) (agreementID: MasterAgreementId) : Resu
     let uuid = agreementID |> MasterAgreementId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     fetchGenericRead context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+
+/// updateDb is incredibly powerful and should only be used very deliberately. It will let you update your database in a
+/// type-unsafe manner. Only use it with controlled database transactions and with certainty that you are validating
+/// your resultant data state appropriately.
+let updateDb
+    (context: Context.Context)
+    (fieldUpdates: MasterAgreementFieldUpdates)
+    : Result<MasterAgreement, AppError> =
+    let agreementID = fieldUpdates.agreementIDToUpdate
+    let uuid = agreementID |> MasterAgreementId.value
+    let baseParams =
+        [ { name = "@unique_id"; value = UniqueId uuid } ]
+    let updates =
+        [
+              fieldUpdates.agreementNameUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("agreement_name = @agreement_name",
+                     { name = "@agreement_name"; value = CharString(AgreementName.value n) }) ])
+
+              fieldUpdates.directionUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("flow_direction = @flow_direction",
+                     { name = "@flow_direction"; value = CharString(FlowDirection.toString n) }) ])
+
+              fieldUpdates.cadenceUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  let cadenceName, cadenceDateInMonth, cadenceWeekInMonth, cadenceWeekDay, cadenceMonth =
+                      n |> cadenceToColumns
+                  [ ("cadence = @cadence", { name = "@cadence"; value = CharString(cadenceName) })
+                    ("cadence_week_day = @cadence_week_day",
+                     { name = "@cadence_week_day"; value = NullableCharString(cadenceWeekDay) })
+                    ("cadence_date_in_month = @cadence_date_in_month",
+                     { name = "@cadence_date_in_month"; value = NullableInteger(cadenceDateInMonth) })
+                    ("cadence_week_in_month = @cadence_week_in_month",
+                     { name = "@cadence_week_in_month"; value = NullableInteger(cadenceWeekInMonth) })
+                    ("cadence_month = @cadence_month",
+                     { name = "@cadence_month"; value = NullableCharString(cadenceMonth) }) ])
+
+              fieldUpdates.counterpartyUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("counterparty = @counterparty",
+                     { name = "@counterparty"; value = CharString(Counterparty.value n) }) ])
+
+              fieldUpdates.startDateUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("start_date = @start_date", { name = "@start_date"; value = DbLocalDate(n) }) ])
+
+              fieldUpdates.endDateUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("end_date = @end_date", { name = "@end_date"; value = NullableDbLocalDate(n) }) ])
+
+              fieldUpdates.memoUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("memo = @memo", { name = "@memo"; value = NullableCharString(n |> Option.map AgreementMemo.value) }) ])
+        ]
+        |> List.choose id
+        |> List.collect id
+    let setClauses = updates |> List.map fst |> String.concat ", "
+    let parameters = baseParams @ (updates |> List.map snd)
+    let query =
+        $"""
+        UPDATE cashflow.master_agreement
+        set
+            {setClauses}
+        WHERE unique_id = @unique_id;
+    """
+    result {
+        do! if updates |> List.isEmpty then Error(CashflowMasterAgreementUpdateNoOp) else Ok()
+        do! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        return! agreementID |> fetchById context
+    }
 
