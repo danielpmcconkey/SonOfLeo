@@ -147,9 +147,9 @@ let private readRowsFromDb
     : Result<StageEntryLine list, AppError> =
     let select =
         """
-        l.unique_id, l.entry_id, l.amount, l.line_type, l.account_id, l.memo, l.classification_rule_id
+        sel.unique_id, sel.entry_id, sel.amount, sel.line_type, sel.account_id, sel.memo, sel.classification_rule_id
         """
-    let from = "ingestion.staged_entry_line l"
+    let from = "ingestion.staged_entry_line sel"
     let query = buildReadQuery None select from None predicate limit None None
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
@@ -160,13 +160,13 @@ let private readRowsFromDb
         expectedRows
 
 let fetchById (context: Context.Context) (lineId: StageEntryLineId) : Result<StageEntryLine, AppError> =
-    let predicate = "l.unique_id = @unique_id"
+    let predicate = "sel.unique_id = @unique_id"
     let uuid = lineId |> StageEntryLineId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
 let fetchByHeaderId (context: Context.Context) (lineId: StageEntryHeaderId) : Result<StageEntryLine list, AppError> =
-    let predicate = "l.entry_id = @unique_id"
+    let predicate = "sel.entry_id = @unique_id"
     let accountIdGuid = lineId |> StageEntryHeaderId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId accountIdGuid } ]
     readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
@@ -187,7 +187,7 @@ let fetchByHeaderIdList
             name, parameter)
     let names = namesAndParameters |> List.map fst |> String.concat ", "
     let parameters = namesAndParameters |> List.map snd
-    let predicate = $"l.entry_id in ({names})"
+    let predicate = $"sel.entry_id in ({names})"
     readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
     
 /// updateDb is incredibly powerful and should only be used very deliberately. It will let you update your database in a

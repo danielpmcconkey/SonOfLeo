@@ -574,14 +574,14 @@ let fetchFiltered
     let sortClause =
         match sort with
         | None -> None
-        | Some EntryDateAsc -> Some "e.entry_date asc"
-        | Some EntryDateDesc -> Some "e.entry_date desc"
-        | Some FiAsc -> Some "s.source_name asc"
-        | Some FiDesc -> Some "s.source_name desc"
+        | Some EntryDateAsc -> Some "se.entry_date asc"
+        | Some EntryDateDesc -> Some "se.entry_date desc"
+        | Some FiAsc -> Some "src.source_name asc"
+        | Some FiDesc -> Some "src.source_name desc"
         | Some StatusAsc -> Some "latest_statuses.to_status asc"
         | Some StatusDesc -> Some "latest_statuses.to_status desc"
-        | Some DescriptionAsc -> Some "e.description asc"
-        | Some DescriptionDesc -> Some "e.description desc"
+        | Some DescriptionAsc -> Some "se.description asc"
+        | Some DescriptionDesc -> Some "se.description desc"
     let whereClausesAndParams =
         [
           filter.stageEntryHeaderId
@@ -662,11 +662,11 @@ let fetchFiltered
     let multiFetchCtes =
         [
             """all_in_stage as (
-            select 
+            select
                 se.unique_id as stage_entry_id,
                 se.entry_date,
                 se.description as stage_entry_description,
-                s.source_name,
+                src.source_name,
                 se.fi_reference,
                 se.source_file,
                 sel.unique_id as stage_line_entry_id,
@@ -678,7 +678,7 @@ let fetchFiltered
                 latest_statuses.to_status as stage_entry_status,
                 latest_statuses.modified_at as latest_status_time_stamp
             from ingestion.staged_entry se
-            join ingestion.source s on se.source_id = s.unique_id
+            join ingestion.source src on se.source_id = src.unique_id
             left join latest_statuses on se.unique_id = latest_statuses.entry_id
             left join ingestion.staged_entry_line sel on se.unique_id = sel.entry_id
             )"""
@@ -689,15 +689,15 @@ let fetchFiltered
             {whereClauses}
             )"""
         ]
-    let select = """ 
-            e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, 
-            latest_statuses.to_status as current_status, s.source_name, s.created_at as source_created,
-            s.modified_at as source_modified"""
+    let select = """
+            se.unique_id, se.entry_date, se.description, se.source_id, se.fi_reference, se.source_file,
+            latest_statuses.to_status as current_status, src.source_name, src.created_at as source_created,
+            src.modified_at as source_modified"""
     let joinList =
         [
-            "join header_ids h on e.unique_id = h.stage_entry_id"
-            "left join ingestion.source s on e.source_id = s.unique_id"
-            "left join latest_statuses on e.unique_id = latest_statuses.entry_id"
+            "join header_ids h on se.unique_id = h.stage_entry_id"
+            "left join ingestion.source src on se.source_id = src.unique_id"
+            "left join latest_statuses on se.unique_id = latest_statuses.entry_id"
         ]
     let cteList = latestStatusCtes@multiFetchCtes
     let! headers =

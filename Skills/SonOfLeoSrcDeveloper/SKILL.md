@@ -164,6 +164,36 @@ the three `MonthDay` columns) should decode unambiguously from "all relevant col
 if two DU cases would produce the same all-null combination, that's a sign the schema is
 underspecified, not a case to paper over.
 
+## Table aliases
+
+Dan wants every table to own one unique alias, usable in any query anywhere in the codebase
+without risk of collision when copy-pasting across `from`/`join` clauses — not just unique
+within one file. Before picking one for a new entity, check this list and
+`grep -rn 'let from = "' Src` for anything added since:
+
+| Table | Alias |
+|---|---|
+| `cashflow.master_agreement` | `ma` |
+| `cashflow.payment_agreement` | `pa` |
+| `cashflow.instance` | `ins` |
+| `cashflow.invoice` | `inv` |
+| `cashflow.payment` | `pmt` |
+| `ingestion.classification_rule` | `cr` |
+| `ingestion.source` | `src` |
+| `ingestion.staged_entry` | `se` |
+| `ingestion.staged_entry_line` | `sel` |
+| `ingestion.staged_entry_audit` | `sea` |
+| `ledger.account` | `a` |
+| `ledger.fiscal_period` | `fp` |
+| `ledger.journal_entry` | `je` |
+| `ledger.journal_entry_line` | `jel` |
+| `ledger.journal_entry_comment` | `jec` |
+| `ledger.journal_entry_ext_reference` | `jer` |
+
+Pick something short, mnemonic, and not an SQL reserved word (`in`, `on`, `as` — avoid these
+even though most are technically usable quoted; it isn't worth the risk). Add the new row to
+this table in the same change that adds the entity file.
+
 ## AppError — the one error DU
 
 `Src/Utilities/AppError.fs` is the only place error strings live

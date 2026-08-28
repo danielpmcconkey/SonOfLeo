@@ -86,9 +86,9 @@ let private readRowsFromDb
     : Result<IngestionSource list, AppError> =
     let select =
         """
-        s.unique_id, s.source_name, s.created_at, s.modified_at
+        src.unique_id, src.source_name, src.created_at, src.modified_at
         """
-    let from = "ingestion.source s"
+    let from = "ingestion.source src"
     let query = buildReadQuery None select from None predicate limit None None
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
@@ -99,7 +99,7 @@ let private readRowsFromDb
         expectedRows
 
 let fetchByName (context: Context.Context) (name: JournalRefFinancialInstitution) : Result<IngestionSource, AppError> =
-    let predicate = "s.source_name = @source_name"
+    let predicate = "src.source_name = @source_name"
     let nameStr = name |> JournalRefFinancialInstitution.value
     let parameters = [ { name = "@source_name"; value = CharString(nameStr) } ]
     match readRowsFromDb context (Some predicate) None parameters ExactlyOne with

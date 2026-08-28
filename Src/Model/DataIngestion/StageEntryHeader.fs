@@ -223,7 +223,7 @@ let readRowsFromDb
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
     : Result<StageEntryHeader list, AppError> =
-    let from = "ingestion.staged_entry e"
+    let from = "ingestion.staged_entry se"
     let query = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
@@ -242,19 +242,19 @@ let private fetchGenericRead
       : Result<StageEntryHeader list, AppError> =    
     let latestStatusCtes = StageEntryStatusTransition.formLatestStatusCte
     let select = """
-        e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, 
-        latest_statuses.to_status as current_status, s.source_name, s.created_at as source_created,
-        s.modified_at as source_modified
+        se.unique_id, se.entry_date, se.description, se.source_id, se.fi_reference, se.source_file,
+        latest_statuses.to_status as current_status, src.source_name, src.created_at as source_created,
+        src.modified_at as source_modified
         """
     let joinList =
         [
-            "left join ingestion.source s on e.source_id = s.unique_id"
-            "left join latest_statuses on e.unique_id = latest_statuses.entry_id"
+            "left join ingestion.source src on se.source_id = src.unique_id"
+            "left join latest_statuses on se.unique_id = latest_statuses.entry_id"
         ]
     readRowsFromDb context (Some latestStatusCtes) select (Some joinList) predicate limit None None parameters expectedRows
 
 let fetchById (context: Context.Context) (headerId: StageEntryHeaderId) : Result<StageEntryHeader, AppError> =
-    let predicate = "e.unique_id = @unique_id"
+    let predicate = "se.unique_id = @unique_id"
     let uuid = headerId |> StageEntryHeaderId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     fetchGenericRead context (Some predicate) None parameters ExactlyOne |> Result.map List.head
@@ -280,7 +280,7 @@ let fetchBySourceFile // todo: determine if we shouldn't just fold all fetch fun
                 |> String.concat ","
             $"and latest_statuses.to_status in ({strings})"
     let predicate = $"""
-        e.source_file = @source_file
+        se.source_file = @source_file
         {statusListClause}
     """
     let fileStr = sourceFile |> SourceFile.value
@@ -304,16 +304,16 @@ let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, A
             """all_in_stage as (
             select
                 se.unique_id as stage_entry_id,
-                s.source_name,
+                src.source_name,
                 se.fi_reference,
                 se.description as stage_entry_description,
                 latest_statuses.to_status as current_status,
                 earliest_statuses.modified_at as earliest_status_time_stamp,
-                row_number() 
-                    over (partition by s.unique_id, se.fi_reference 
+                row_number()
+                    over (partition by src.unique_id, se.fi_reference
                     order by earliest_statuses.modified_at nulls first, se.unique_id) as ordinal
             from ingestion.staged_entry se
-            join ingestion.source s on se.source_id = s.unique_id
+            join ingestion.source src on se.source_id = src.unique_id
             left join earliest_statuses on se.unique_id = earliest_statuses.entry_id
             left join latest_statuses on se.unique_id = latest_statuses.entry_id
             )"""
@@ -330,14 +330,14 @@ let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, A
         ]
     let cteList = latestStatusCtes@earliestStatusCtes@dedupCtes
     let select = """
-            e.unique_id, e.entry_date, e.description, e.source_id, e.fi_reference, e.source_file, latest_statuses.to_status as current_status,
-            s.source_name, s.created_at as source_created, s.modified_at as source_modified
+            se.unique_id, se.entry_date, se.description, se.source_id, se.fi_reference, se.source_file, latest_statuses.to_status as current_status,
+            src.source_name, src.created_at as source_created, src.modified_at as source_modified
             """
     let joinList =
         [
-            "join duplicates d on e.unique_id = d.stage_entry_id"
-            "join ingestion.source s on e.source_id = s.unique_id"
-            "left join latest_statuses on e.unique_id = latest_statuses.entry_id"
+            "join duplicates d on se.unique_id = d.stage_entry_id"
+            "join ingestion.source src on se.source_id = src.unique_id"
+            "left join latest_statuses on se.unique_id = latest_statuses.entry_id"
         ]
     readRowsFromDb context (Some cteList) select (Some joinList) None None None None [] AnyQuantityIsAcceptable
 
