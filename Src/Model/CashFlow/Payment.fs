@@ -27,7 +27,8 @@ type Payment = private {
 
 type PaymentFieldUpdates = {
     paymentIdToUpdate: PaymentId
-    transactionPointerUpdate: FieldUpdate<TransactionPointer>
+    journalEntryHeaderIdUpdate: FieldUpdate<JournalEntryHeaderId option>
+    stageEntryHeaderIdUpdate: FieldUpdate<StageEntryHeaderId option>
     postedToFiDateUpdate: FieldUpdate<LocalDate option>
     memoUpdate: FieldUpdate<PaymentMemo option>
 }
@@ -103,9 +104,6 @@ let private transactionPointerFromColumns
     (journalEntryHeaderUuid: Guid option)
     (stageEntryHeaderUuid: Guid option)
     : Result<TransactionPointer, AppError> =
-    // Once a payment is posted to the ledger, it carries both ids (the stage_entry_header_id it originated
-    // from is preserved, not cleared) — journal_entry_header_id wins whenever it's present. Only "neither
-    // id is set" is an error.
     match journalEntryHeaderUuid, stageEntryHeaderUuid with
     | Some journalEntryHeaderUuid, _ ->
         journalEntryHeaderUuid |> JournalEntryHeaderId.fromGuid |> CashFlowComponent.Posted |> Ok
@@ -116,13 +114,6 @@ let private transactionPointerFromColumns
             CashflowInvalidPaymentTransactionPointerRow
                 "neither journal_entry_header_id nor stage_entry_header_id was set; at least one must be set.")
 
-(*
-Payment.amount and Payment.postedToLedgerDate are not columns on cashflow.payment; they're derived at read time via a
-select that joins to the journal_entry/journal_entry_line and staged_entry/staged_entry_line tables, pinned by
-payment_agreement's debit/credit account and master_agreement's flow_direction so exactly one line matches per payment
-(no aggregation — see CompoundedLearnings for why summing was deliberately rejected). fetchGenericRead below owns that
-join; reconstitute only ever sees the already-computed "amount" and "posted_to_ledger_date" columns.
-*)
 let private reconstitute raw =
     result {
         let (uuid,
@@ -233,3 +224,61 @@ let private fetchGenericRead
             """
         ]
     readRowsFromDb context None select (Some join) predicate limit None None parameters expectedRows
+
+let fetchById (context: Context.Context) (paymentId: PaymentId) : Result<Payment, AppError> =
+    let predicate = "pmt.unique_id = @unique_id"
+    let uuid = paymentId |> PaymentId.value
+    let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
+    fetchGenericRead context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+
+/// updateDb is incredibly powerful and should only be used very deliberately. It will let you update your database in a
+/// type-unsafe manner. Only use it with controlled database transactions and with certainty that you are validating
+/// your resultant data state appropriately.
+let updateDb
+    (context: Context.Context)
+    (fieldUpdates: PaymentFieldUpdates)
+    : Result<Payment, AppError> =
+    let paymentId = fieldUpdates.paymentIdToUpdate
+    let uuid = paymentId |> PaymentId.value
+    let baseParams =
+        [ { name = "@unique_id"; value = UniqueId uuid } ]
+    let updates =
+        [
+              fieldUpdates.journalEntryHeaderIdUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("journal_entry_header_id = @journal_entry_header_id",
+                     { name = "@journal_entry_header_id"
+                       value = NullableUniqueId(n |> Option.map JournalEntryHeaderId.value) }) ])
+
+              fieldUpdates.stageEntryHeaderIdUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("stage_entry_header_id = @stage_entry_header_id",
+                     { name = "@stage_entry_header_id"
+                       value = NullableUniqueId(n |> Option.map StageEntryHeaderId.value) }) ])
+
+              fieldUpdates.postedToFiDateUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("posted_to_fi_date = @posted_to_fi_date",
+                     { name = "@posted_to_fi_date"; value = NullableDbLocalDate(n) }) ])
+
+              fieldUpdates.memoUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("memo = @memo",
+                     { name = "@memo"; value = NullableCharString(n |> Option.map PaymentMemo.value) }) ])
+        ]
+        |> List.choose id
+        |> List.collect id
+    let setClauses = updates |> List.map fst |> String.concat ", "
+    let parameters = baseParams @ (updates |> List.map snd)
+    let query =
+        $"""
+        UPDATE cashflow.payment
+        set
+            {setClauses}
+        WHERE unique_id = @unique_id;
+    """
+    result {
+        do! if updates |> List.isEmpty then Error(CashflowPaymentUpdateNoOp) else Ok()
+        do! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        return! paymentId |> fetchById context
+    }

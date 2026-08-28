@@ -61,6 +61,7 @@ type AppError =
     | CashflowPaymentAgreementUpdateNoOp
     | CashflowPaymentMemoIsEmpty of string
     | CashflowPaymentMemoTooLong of string * int
+    | CashflowPaymentUpdateNoOp
     
     | CliUnknownCommand of string * string
     
@@ -247,6 +248,7 @@ module AppError =
         | CashflowPaymentAgreementUpdateNoOp -> "Updating the PaymentAgreement record failed because at least one updatable parameter must be set."
         | CashflowPaymentMemoIsEmpty memo -> $"PaymentMemo cannot be empty. Provided Memo is {memo}."
         | CashflowPaymentMemoTooLong(memo, max) -> $"PaymentMemo cannot exceed {max} characters. Provided Memo is {memo}."
+        | CashflowPaymentUpdateNoOp -> "Updating the Payment record failed because at least one updatable parameter must be set."
         
         | CliUnknownCommand(domain, verb) -> $"Unknown command: {domain} {verb}"
         
