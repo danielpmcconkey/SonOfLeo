@@ -54,19 +54,19 @@ module FlowDirection =
         | Income -> "Income"
         | Outgo -> "Outgo"
 
-type TransactionMemo = private TransactionMemo of string
+type PaymentAgreementMemo = private PaymentAgreementMemo of string
 
-module TransactionMemo =
+module PaymentAgreementMemo =
     let maxLength = 2000
-    let value (TransactionMemo cp) = cp
-    let create (raw: string) : Result<TransactionMemo, AppError> =
+    let value (PaymentAgreementMemo cp) = cp
+    let create (raw: string) : Result<PaymentAgreementMemo, AppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
-            Error(CashflowTransactionMemoIsEmpty raw)
+            Error(CashflowPaymentAgreementMemoIsEmpty raw)
         elif trimmed.Length > maxLength then
-            Error(CashflowTransactionMemoTooLong(raw, maxLength))
+            Error(CashflowPaymentAgreementMemoTooLong(raw, maxLength))
         else
-            Ok(TransactionMemo trimmed)
+            Ok(PaymentAgreementMemo trimmed)
 
 type InvoiceState =
     | InvoiceGenerated
@@ -292,6 +292,34 @@ module AgreementMemo =
             Error(CashflowAgreementMemoTooLong(raw, maxLength))
         else
             Ok(AgreementMemo trimmed)
+
+type InvoiceMemo = private InvoiceMemo of string
+
+module InvoiceMemo =
+    let maxLength = 2000
+    let value (InvoiceMemo cp) = cp
+    let create (raw: string) : Result<InvoiceMemo, AppError> =
+        let trimmed = raw.Trim()
+        if String.IsNullOrWhiteSpace trimmed then
+            Error(CashflowInvoiceMemoIsEmpty raw)
+        elif trimmed.Length > maxLength then
+            Error(CashflowInvoiceMemoTooLong(raw, maxLength))
+        else
+            Ok(InvoiceMemo trimmed)
+
+type PaymentMemo = private PaymentMemo of string
+
+module PaymentMemo =
+    let maxLength = 2000
+    let value (PaymentMemo cp) = cp
+    let create (raw: string) : Result<PaymentMemo, AppError> =
+        let trimmed = raw.Trim()
+        if String.IsNullOrWhiteSpace trimmed then
+            Error(CashflowPaymentMemoIsEmpty raw)
+        elif trimmed.Length > maxLength then
+            Error(CashflowPaymentMemoTooLong(raw, maxLength))
+        else
+            Ok(PaymentMemo trimmed)
 
 type TransactionPointer =
     | Posted of JournalEntryHeaderId

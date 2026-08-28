@@ -11,7 +11,7 @@ type Payment = {
     amount: Money // not separately tracked in the database; here for read convenience
     postedToFiDate: LocalDate option // the date the payment hit the actual external account
     postedToLedgerDate: LocalDate option // not separately tracked in the database; here for read convenience
-    memo: TransactionMemo option
+    memo: PaymentMemo option
     createdAt: Instant
     modifiedAt: Instant
 }

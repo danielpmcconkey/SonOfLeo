@@ -12,7 +12,7 @@ type Invoice = {
     dueDate: LocalDate
     amount: Money
     invoiceLifeCycleState: InvoiceLifeCycleState
-    memo: TransactionMemo option
+    memo: InvoiceMemo option
     createdAt: Instant
     modifiedAt: Instant
 }

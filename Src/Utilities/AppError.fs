@@ -50,9 +50,13 @@ type AppError =
     | CashflowInvalidMonth of string
     | CashflowInvalidWeekDay of string
     | CashflowInvalidWeekInMonthNumber of int
+    | CashflowInvoiceMemoIsEmpty of string
+    | CashflowInvoiceMemoTooLong of string * int
     | CashflowMasterAgreementUpdateNoOp
-    | CashflowTransactionMemoIsEmpty of string
-    | CashflowTransactionMemoTooLong of string * int
+    | CashflowPaymentAgreementMemoIsEmpty of string
+    | CashflowPaymentAgreementMemoTooLong of string * int
+    | CashflowPaymentMemoIsEmpty of string
+    | CashflowPaymentMemoTooLong of string * int
     
     | CliUnknownCommand of string * string
     
@@ -228,9 +232,13 @@ module AppError =
         | CashflowInvalidMonth str -> $"Invalid Month of \"{str}\"."
         | CashflowInvalidWeekDay str -> $"Invalid WeekDay of \"{str}\"."
         | CashflowInvalidWeekInMonthNumber i -> $"Invalid WeekInMonthNumber of \"{i}\"."
+        | CashflowInvoiceMemoIsEmpty memo -> $"InvoiceMemo cannot be empty. Provided Memo is {memo}."
+        | CashflowInvoiceMemoTooLong(memo, max) -> $"InvoiceMemo cannot exceed {max} characters. Provided Memo is {memo}."
         | CashflowMasterAgreementUpdateNoOp -> "Updating the MasterAgreement record failed because at least one updatable parameter must be set."
-        | CashflowTransactionMemoIsEmpty memo -> $"TransactionMemo cannot be empty. Provided Memo is {memo}."
-        | CashflowTransactionMemoTooLong(memo, max) -> $"TransactionMemo cannot exceed {max} characters. Provided Memo is {memo}."
+        | CashflowPaymentAgreementMemoIsEmpty memo -> $"PaymentAgreementMemo cannot be empty. Provided Memo is {memo}."
+        | CashflowPaymentAgreementMemoTooLong(memo, max) -> $"PaymentAgreementMemo cannot exceed {max} characters. Provided Memo is {memo}."
+        | CashflowPaymentMemoIsEmpty memo -> $"PaymentMemo cannot be empty. Provided Memo is {memo}."
+        | CashflowPaymentMemoTooLong(memo, max) -> $"PaymentMemo cannot exceed {max} characters. Provided Memo is {memo}."
         
         | CliUnknownCommand(domain, verb) -> $"Unknown command: {domain} {verb}"
         
