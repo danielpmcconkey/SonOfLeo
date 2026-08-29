@@ -70,7 +70,7 @@ type AppError =
     | CashflowInvoiceIdListCannotBeEmpty
     | CashflowInvoiceMemoIsEmpty of string
     | CashflowInvoiceMemoTooLong of string * int
-    | CashflowInvoiceNegativeAmount of Guid * decimal
+    | CashflowInvoiceNonPositiveAmount of Guid * decimal
     | CashflowInvoiceNotUnderMasterAgreement of Guid * Guid
     | CashflowInvoiceUpdateNoOp
     | CashflowMasterAgreementIdDoesntExist of Guid
@@ -287,7 +287,7 @@ module AppError =
         | CashflowInvoiceIdListCannotBeEmpty -> "The invoiceIds list must contain at least 1 ID."
         | CashflowInvoiceMemoIsEmpty memo -> $"InvoiceMemo cannot be empty. Provided Memo is {memo}."
         | CashflowInvoiceMemoTooLong(memo, max) -> $"InvoiceMemo cannot exceed {max} characters. Provided Memo is {memo}."
-        | CashflowInvoiceNegativeAmount(invoiceId, amount) -> $"Invoice {invoiceId} amount ({amount}) cannot be negative."
+        | CashflowInvoiceNonPositiveAmount(invoiceId, amount) -> $"Invoice {invoiceId} amount ({amount}) must be greater than 0."
         | CashflowInvoiceNotUnderMasterAgreement(invoiceId, agreementId) -> $"Invoice {invoiceId} does not belong to MasterAgreement {agreementId}."
         | CashflowInvoiceUpdateNoOp -> "Updating the Invoice record failed because at least one updatable parameter must be set."
         | CashflowMasterAgreementIdDoesntExist uuid -> $"Could not locate a MasterAgreement with the id of {uuid}."

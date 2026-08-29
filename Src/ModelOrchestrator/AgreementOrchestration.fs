@@ -207,10 +207,10 @@ let private confirmInvoice
             | Error e -> Error e
         let invoiceAmount = invoice |> Invoice.amount |> Money.amount
         return!
-            if invoiceAmount >= 0M then Ok ()
+            if invoiceAmount > 0M then Ok ()
             else
                 let uuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
-                Error(CashflowInvoiceNegativeAmount(uuid, invoiceAmount))
+                Error(CashflowInvoiceNonPositiveAmount(uuid, invoiceAmount))
     }
 
 let private confirmInvoices
