@@ -5,6 +5,7 @@ Settled structural decisions for SonOfLeo — what was decided, why, and what no
 | Concept | Article | Read when... |
 |---|---|---|
 | Orchestration layer | `articles/architecture/orchestration-layer.md` | Deciding whether a function belongs in a domain module or in orchestration |
+| DAL errors are backstops | `articles/architecture/dal-errors-are-backstops.md` | Writing an orchestrator function that calls `fetchById`/`fetchByX` and needs to decide what error the operator should see on failure |
 | Environment separation | `articles/architecture/environment-separation.md` | Working with database connections, environment config, or secrets |
 | Debug/release access | `articles/architecture/debug-release-access.md` | Configuring build modes or database connection strings |
 | Type taxonomy | `articles/architecture/type-taxonomy.md` | Creating a new type and deciding what category it belongs to |

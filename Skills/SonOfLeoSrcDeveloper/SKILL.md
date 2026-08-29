@@ -2,13 +2,16 @@
 name: SonOfLeo:SrcDeveloper
 description: >
   This skill should be used when writing or modifying F# source under SonOfLeo's Src/
-  directory — new entity CRUD, new domain primitives, AppError cases, or any Src
+  directory — new entity CRUD, new domain primitives, AppError cases, ModelOrchestrator
+  functions (constructNewAndSaveToDb, composite create/read, orchestrated updates), or any Src
   implementation task Dan hands off. Covers the entity/component/composite type taxonomy,
-  the CRUD function shape (insertNewToDb / reconstitute / mapRawForDbRead / readRowsFromDb /
-  fetchGenericRead / fetchById / updateDb), AppError and FieldUpdate conventions, the
-  mechanical checks in Checks/, and the working relationship with Dan. Triggers on
+  the Model/ CRUD function shape (insertNewToDb / reconstitute / mapRawForDbRead /
+  readRowsFromDb / fetchGenericRead / fetchById / updateDb), the ModelOrchestrator function
+  shape and the five reasons a function belongs there, AppError and FieldUpdate conventions,
+  the mechanical checks in Checks/, and the working relationship with Dan. Triggers on
   "build out X's CRUD", "write the Src for", "add a domain type", "finish insertNewToDb",
-  or any task that edits a `.fs` file under `Src/`.
+  "build the orchestrator for", "write an orchestration function", or any task that edits a
+  `.fs` file under `Src/`.
 ---
 
 # SonOfLeo SrcDeveloper
@@ -37,6 +40,17 @@ explicit invitation, one task at a time.
   outside the file you were pointed at (a missing accessor, a missing `AppError` case, a type
   that can't represent what the DB row needs), stop and say exactly what's missing and why,
   propose the minimal fix, and wait — unless it falls under a standing permission below.
+- **Comment only what would otherwise get flagged as a bug.** The test isn't "is this
+  non-obvious" — it's "would a reasonable reader, or an auditor agent with no session context,
+  look at this code cold and suspect it's wrong." `Payment.transactionPointerFromColumns`'s
+  `Some journalEntryHeaderUuid, _ ->` arm ignores whether `stageEntryHeaderUuid` is also set —
+  that looks like a missed validation case unless you know a posted payment is *supposed* to
+  carry both ids as its normal terminal state, not a corrupted one. That gets a comment
+  explaining the lifecycle. Most other rationale (a design tradeoff, why one approach was
+  chosen over another) belongs in the hand-off message, not the file — Dan reads that for the
+  "why," and it doesn't need to live in both places. Never restate what a type definition's own
+  comment already says (e.g. `Payment.amount`'s `// not separately tracked in the database`
+  covers that field everywhere it's used).
 
 ## Standing permissions (act, then report — don't ask first)
 
@@ -90,6 +104,14 @@ huge, not because the component file was. Splitting is worth reconsidering only 
 component file roughly doubles from a healthy size (~150–350 lines is normal for 1–5 sibling
 entities) or starts accumulating real logic unrelated to value-object construction.
 
+**Watch for DU case-name collisions when a file opens more than one component module.** `open`
+resolves a bare case name to whichever module was opened *last* — silently, with no compiler
+warning — so two unrelated DUs that happen to share a case name (`Posted`, `Staged`, `Active`)
+will shadow each other, and the resulting type error won't mention the DU you actually meant.
+Fully qualify (`CashFlowComponent.Posted`) whenever the case name is a short/generic word and
+more than one component module is open. Full writeup:
+`CompoundedLearnings/articles/coding/du-case-collision-across-opens.md`.
+
 ## Entity shape
 
 ```fsharp
@@ -137,7 +159,14 @@ status-transition side table):
    future one) calls into.
 5. **`fetchGenericRead`** (private) — fixes the `select` column list (table-aliased, e.g.
    `ma.unique_id, ...`), calls `readRowsFromDb` with `None` for whatever this slice doesn't
-   need yet.
+   need yet. If a field is marked "not separately tracked in the database" (a scalar derived
+   from another domain's tables — see `Payment.amount`), it's fine for `fetchGenericRead` to
+   bake in the `joinList` that computes it, even when that means joining across schemas — that's
+   still one read, not orchestration. See "A read-only join across domains is not, by itself,
+   orchestration" in `CompoundedLearnings/articles/architecture/orchestration-layer.md`.
+   `reconstitute` then just reads the already-computed column like any other. This is different
+   from a *child list*, which genuinely can't be reconstituted honestly from one query — see
+   Component type below.
 6. **`fetchById`** (public) — the one predicate every entity gets for free:
    `alias.unique_id = @unique_id`, `ExactlyOne`, `|> Result.map List.head`. Add more
    `fetchByX` functions the same way as the task calls for them.
@@ -152,6 +181,17 @@ status-transition side table):
    Only include fields in `<Entity>FieldUpdates` that should actually be settable after
    creation; an entity's own identity/FK-to-parent field is typically excluded the same way
    `headerIdToUpdate`/`agreementIDToUpdate` themselves aren't update targets.
+
+   **When a value spans multiple columns, decide deliberately whether `<Entity>FieldUpdates`
+   bundles it as one `FieldUpdate<TheWholeThing>` or splits it into independent
+   `FieldUpdate<...>` fields per sub-part** — the read shape and the update shape don't have to
+   match (`Payment.transactionPointer` is one field for reading, but
+   `journalEntryHeaderIdUpdate`/`stageEntryHeaderIdUpdate` are two independent update targets).
+   Split when the sub-parts get set or cleared at different times for different reasons in
+   actual use (`Payment`'s two ids; `Invoice`'s `invoiceState`/`paymentState`/`postedState`/
+   `blocker`). Keep it bundled when the sub-parts are only meaningful together (`Cadence`;
+   `Invoice.Blocker`'s state+note pair). Full writeup and more examples:
+   `CompoundedLearnings/articles/coding/field-update-pattern.md`.
 
 **Encode/decode symmetry for a DU that spans several columns.** When one field decomposes into
 multiple DB columns (`Cadence` → `cadence`, `cadence_week_day`, `cadence_date_in_month`,
@@ -276,17 +316,119 @@ call site beats brevity at the definition. Variables are never single-letter or 
 outside a short, fully-graspable lambda (`fun x -> x + 1` is fine; `let ca = ...` for
 `creditAccount` is not).
 
-## Orchestration — when a function leaves `Model/`
+## Orchestration — what `ModelOrchestrator/` is for and how it's shaped
 
-(`CompoundedLearnings/articles/architecture/orchestration-layer.md`)
+(`CompoundedLearnings/articles/architecture/orchestration-layer.md` has the full reasoning and
+examples behind every point below — read it before building a new composite or orchestrated
+function, not just when something feels ambiguous.)
 
-A function belongs in `ModelOrchestrator/`, not a domain module, when it needs data from more
-than one domain module, or when it coordinates more than one distinct step even within a
-single domain (construct + persist is two activities). F# compile order makes this structural,
-not stylistic — a module can't reference one that compiles after it, so genuinely cross-domain
-composition has nowhere else to live. This is where `Obligation` (the composite that will
-assemble a `MasterAgreement` with its `PaymentAgreement` children, once `PaymentAgreement`
-fetch-by-parent exists) belongs when it's built — not as a field on `MasterAgreement` itself.
+**Five reasons a function lives here, not in `Model/`** (Dan's own framing):
+1. Cross-domain composition in the direction `Model/` can't take without a circular reference
+   — `JournalEntryLine` depends on `Account` (intrinsic, one-way), but closing an account needs
+   to check `JournalEntry` balances, which would be the reverse dependency. That check lives in
+   `AccountDeactivation.fs`, not `Account.fs`.
+2. Composite validation — a composite invariant (JE needs ≥2 lines, debits = credits) can't be
+   checked in `Model/` because the components need something (a header id) that doesn't exist
+   until DB insertion. This is the one place a non-negotiable rule is *forced* up a layer —
+   Model-level type constraints must always resolve to true/no-error, no exceptions, and this
+   is the deliberate escape hatch for the one case where that's structurally impossible. It is
+   not a general license to move validation up because it's more convenient there.
+3. Orchestrated events — a multi-step process triggered by one UI action that succeeds or fails
+   as a group (JE creation: header + lines + comments + references; stage ingestion: read raw →
+   transform → deduplicate → classify).
+4. "Fetch++" — complex or cross-domain fetch/reporting (`FetchFilterAndSort.fs`,
+   `TrialBalance.fs`). Whether a new domain's filter/sort types (e.g. a `CashFlow` fetch filter)
+   go into the existing shared `FetchFilterAndSort.fs` or get their own file is genuinely
+   unsettled — Dan hasn't landed on a pattern. Default to the shared file; ask before deviating.
+5. The "odd sock drawer" — a function that does three things (validate, create, persist) and
+   therefore gets routed here by convention, even when nothing structurally forces it up (e.g.
+   `AccountCreation.constructNewAndSaveToDb` could live nearer `Account.fs`, but doesn't).
+
+**File granularity has no settled pattern yet.** Some orchestrator files own an entire domain's
+worth of functions (`StageEntryOrchestration.fs`); others are single-purpose
+(`AccountDeactivation.fs`, `JournalEntryVoiding.fs`). Dan: "I've not yet landed on a pattern.
+Start by assuming one orchestrator will work. Pivot as needed." For a new domain, start with one
+file and split later if it gets unwieldy — same size-based judgment as the Component-file
+convention, not a naming taxonomy to reverse-engineer.
+
+**`constructNewAndSaveToDb`** — the orchestrator's validate+create+persist verb (`Model/`'s
+equivalent is `insertNewToDb`, persistence only). Always fallible, returning `Result` up to
+`InterfaceBridge`, which commits or rolls back the transaction based on the outcome. The
+standard doc comment, reused near-verbatim across the codebase — use it on the "route everything
+through here" constructor for any new entity/composite:
+```fsharp
+/// constructNewAndSaveToDb validates that the components work together to
+/// form a valid whole before adding it to the persistence layer. All new
+/// <Entity> creation should route through here before being sent to the
+/// persistence layer. Internal model functions may construct through other
+/// means if they're operating on known good data.
+```
+
+**Composite create pattern**: construct + persist each child through *that child's own*
+orchestration function (never inline SQL for a child), collect with
+`List.map(...) |> convertListOfResultsToResultsList`, then run the composite-level invariant
+check as the final step — after every child is already individually valid and persisted, not
+before.
+
+**Composite read pattern**: fetch parents first; if empty, `return []` before touching a child
+table; bulk-fetch children by an id list (`headerIds |> Entity.fetchByXIdList`, never N+1); a
+pure compose function groups children by parent id and zips them together. Composite validation
+helpers (line count, balance) are duplicated per composite rather than factored into a shared
+generic — each composite owns its own copy.
+
+**DAL errors are backstops, not operator-facing errors — and translating one is a matter of
+which layer first has enough use-case context, not always the orchestrator's job specifically.**
+`Model/` < `ModelOrchestrator/` < `InterfaceBridge` in how much use-case context each has;
+translate at whichever layer first knows what the error should actually mean, and it's fine to
+pass a DAL error through untranslated if this layer genuinely doesn't have that context yet —
+that's `InterfaceBridge`'s job then, not a bug here. When you do translate here: only
+`actual = 0` becomes a domain "doesn't exist" error, any other mismatch re-raises unchanged
+(that's corruption, not absence). Full reasoning:
+`CompoundedLearnings/articles/architecture/dal-errors-are-backstops.md`.
+
+**`Context.getInitiationInstant` is the only source of "now" here — never create a timestamp
+any other way.** `Context.updateInitiationInstant` exists for re-stamping between major phases
+of a multi-step pipeline, but treat calling it as an always-ask, never standing-permission
+decision: Dan's words, "you better be prepared with a bulletproof rationale... I will revert
+that change on sight."
+
+**Multi-phase pipelines stay one flat `result { }` block with inline phase comments**, not
+split into named helper functions per phase, and not built to aggregate every failure across a
+batch — "fix what broke, try again" is the deliberate policy (Hobson is the only user; this
+isn't a consumer app). Contrast with a create function that has a few cleanly-named
+sub-concerns (header, lines, references, comments), which *does* get split into named private
+helpers — both shapes coexist on purpose; don't force one pipeline's shape onto the other.
+
+**Reusing an `AppError` case across orchestrator functions is a judgment call, not a mechanical
+one** — fine when two call sites truly mean the same thing to the operator, but whether to
+collapse several similar no-op errors into one shared case or keep them granular (so it's clear
+exactly which orchestrated sub-update failed) is Dan's call.
+`StageEntryOrchestration.updateStageEntry`'s two-flag no-op guard
+(`isThereAHeaderUpdate`/`isThereALineUpdate`) is the example: composing two independently-guarded
+child updates needs its own composite-level guard, or the header-only/line-only cases produce
+invalid SQL.
+
+**Naming: update functions aren't called `updateDb` here.** `Model/`'s update verb is always
+`updateDb`; the orchestrator layer names an update for what it updates
+(`updateComment`, `updateFiAndReferenceText`, `updateClassificationRule`, `updateStageEntry`),
+since an orchestrator update is often composing more than one `Model/`-level update.
+
+**Comment voice**: the "comment only what would otherwise get flagged as a bug" rule (Operating
+rules, above) exists specifically for the post-slice audit gauntlet Dan and Hobson run (~35
+agents). Matching Dan's own blunt, direct register in these comments is fine and expected — the
+point is telling an auditor agent "this was deliberate, move on" efficiently, not being polite
+about it.
+
+**`///` triple-slash comments are caller-facing API notes**, not general explanation —
+`ModelOrchestrator.fsproj` has `GenerateDocumentationFile=true`, so they compile into
+IDE-visible XML docs. Reserve them for a caveat about safely calling the function (a transaction
+risk, a "this isn't set-based" warning), not a restatement of what it does. This isn't strict
+correct XML-doc usage by .NET convention, but it's the established pattern here — follow it
+rather than "fixing" it.
+
+This is where `Obligation` (the composite that will assemble a `MasterAgreement` with its
+`PaymentAgreement` children, once `PaymentAgreement` fetch-by-parent exists) belongs when it's
+built — not as a field on `MasterAgreement` itself.
 
 ## No REQ annotations in source
 

@@ -12,4 +12,5 @@ F# idioms, naming, temporal handling, constructor discipline, and conventions fo
 | Temporal arithmetic | `articles/coding/temporal-arithmetic.md` | Performing arithmetic on instants or dates, or converting between them |
 | Money type enforcement | `articles/coding/money-type-enforcement.md` | Creating, persisting, or accepting a monetary value |
 | Money arithmetic boundaries | `articles/coding/money-arithmetic-boundaries.md` | Performing any arithmetic on money — especially multiplication, division, splitting, or rounding |
-| Field update pattern | `articles/coding/field-update-pattern.md` | Writing an update function that needs to distinguish "no change" from "set to value" |
+| Field update pattern | `articles/coding/field-update-pattern.md` | Writing an update function that needs to distinguish "no change" from "set to value", or deciding whether a multi-column value gets one bundled `FieldUpdate` or several independent ones |
+| DU case collision across opens | `articles/coding/du-case-collision-across-opens.md` | Writing a `match` on a DU case with a short/generic name (`Posted`, `Staged`, `Active`) in a file that opens more than one component module |
