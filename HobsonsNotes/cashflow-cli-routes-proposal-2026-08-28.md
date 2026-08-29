@@ -34,8 +34,28 @@ follow-up query.
 | Route | Tag | What it does |
 |---|---|---|
 | `CashFlow StagedEntryMatchCandidates` | [DET] | Given an invoice or agreement, returns unlinked staged entries matching the PA's account pattern within the instance's date window. Candidates only — Hobson decides. |
-| `CashFlow GenerateTenantInvoices` | [DET] | Takes month + utility amounts. Creates Invoices for each Income agreement using PA expected amounts (rent) + provided utility figures. |
 | `CashFlow AgreementSummary` | [DET] | Full tree view: master → PAs → recent instances → invoices → payments. |
+
+**Dropped:** `GenerateTenantInvoices` — belongs in LeoBloomOps, not
+SonOfLeo. Tenant details (names, addresses) need to be data-driven
+before this can move into the app. Future design work.
+
+## Orchestrator-level validation (not routes)
+
+CreatePayment, CreateInvoice, and UpdateInvoice go straight to Model
+CRUD from their routes — no CashFlowOps orchestration function needed.
+The orchestrator provides:
+
+- **confirmInvoiceComposite** — the lifecycle gauntlet (§9 of the
+  spec). Runs after any Invoice create or update: persist, fetch the
+  composite (Invoice + Payments), validate, rollback on failure.
+- **confirmPayment** — validates transaction pointer references,
+  posted-to-FI date consistency.
+- Diamond-relation check (REQ-CF-5.5) — part of confirmInvoiceComposite.
+
+**ObligationStatus** is not a separate orchestration function — it's
+`fetchFiltered` with a specific filter (active agreements, current
+period). The route picks the filter; the route formats the output.
 
 ## What stays Hobson (irreducible [JUDGE] work)
 

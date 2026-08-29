@@ -16,7 +16,7 @@ The template/event split is the organizing principle. Template entities own the 
 
 **Design note — diamond relation.** Invoice references both Instance (an event) and Payment Agreement (a template). Instance and Payment Agreement each independently reference Master Agreement. This creates a diamond in the entity graph. The implicit constraint — that an Invoice's Instance and Payment Agreement must belong to the same Master Agreement — is validated by the orchestrator at creation time, consistent with the infallible-create pattern used throughout SonOfLeo. The schema does not enforce this constraint.
 
-**Design note — partial payments.** A single Invoice may have more than one Payment. When an obligation is partially fulfilled (e.g. $70 paid against a $120 invoice), a second Payment record is created for the remainder. The business rule is: the sum of all Payment amounts for a given Invoice must equal the Invoice's amount. This is an application-layer constraint, not a schema constraint, consistent with the project's philosophy of structural integrity in the schema and business rules in the app layer.
+**Design note — partial payments.** A single Invoice may have more than one Payment. When an obligation is partially fulfilled (e.g. $70 paid against a $120 invoice), a second Payment record is created for the remainder. The business rule is: the Invoice's payment state cannot transition to 'FullyPaid' unless the sum of all derived Payment amounts equals the Invoice's amount (§9). This is an Invoice lifecycle constraint, not a Payment creation constraint — Payments record facts about cash movement and are not validated against the Invoice amount at creation time. Consistent with the project's philosophy of structural integrity in the schema and business rules in the app layer.
 
 
 ## 1. Entity model
@@ -55,9 +55,9 @@ References: Instance, Payment Agreement.
 
 ### Payment (Event)
 
-A receipt record. A Payment is created when cash has been identified as having moved — either in the staging area (linked to a staged entry) or in the ledger (linked to a journal entry). A Payment always has a transaction pointer: a discriminated union of either a Staged Entry Header ID or a Journal Entry Header ID. Exactly one is present at any time. A Payment progresses from Staged to Posted as the underlying data moves through the ingestion pipeline.
+A receipt record. A Payment is created when cash has been identified as having moved — either in the staging area (linked to a staged entry) or in the ledger (linked to a journal entry). A Payment always has a transaction pointer: at least one of a Staged Entry Header ID or a Journal Entry Header ID must be present. Both may be present — the staged entry link is provenance, the journal entry link is current truth. In the F# model, the pointer resolves to one value (Posted takes precedence). A Payment progresses from Staged to Posted as the underlying data moves through the ingestion pipeline.
 
-Payment amount is stored, not derived. The amount must be known at creation time (from the staged entry) and does not change when the payment transitions from Staged to Posted.
+Payment amount is derived, not stored. The amount is computed from the journal entry line or staged entry line that the Payment's transaction pointer references, using the parent Master Agreement's flow direction and the parent Payment Agreement's accounts to identify the correct line. When both pointers are present, the journal entry line is authoritative. One line per leg per entry is a documented assumption.
 
 Every Invoice has zero or more Payments. An Invoice with no Payments is an unfulfilled obligation. Partial payments produce additional Payment records against the same Invoice.
 
@@ -127,7 +127,7 @@ References: Invoice, Transaction Pointer (Staged Entry Header or Journal Entry H
 - **REQ-CF-5.10** Invoice state is constrained by the parent Master Agreement's flow direction. When flow direction is 'Income', invoice state must be 'InvoiceGenerated' or 'InvoiceSent'. When flow direction is 'Outgo', invoice state must be 'InvoiceExpected' or 'InvoiceReceived'.
   - *Why:* Income invoices are generated and sent by the operator. Outgo invoices are expected and received from the counterparty. The two lifecycles are disjoint. (2026-08-27)
 - **REQ-CF-5.11** Payment state must be one of 'NotYetPaid', 'PartiallyPaid', 'FullyPaid'
-- **REQ-CF-5.12** Posted state must be one of 'NotHandled', 'IngestedToStage', 'PostedToLedger'
+- **REQ-CF-5.12** Posted state must be one of 'NotHandled', 'PartiallyPosted', 'PostedToLedger'
 - **REQ-CF-5.13** Blocker state may be null. When non-null, must be one of 'NoFunds', 'Irresponsible', 'NeedsDecision', 'Other'
 - **REQ-CF-5.14** Blocker note may be null. When blocker state is 'NeedsDecision' or 'Other', blocker note is required and cannot exceed 500 characters. When blocker state is 'NoFunds' or 'Irresponsible' or null, blocker note must be null.
 - **REQ-CF-5.15** Invoice memo may be null. When non-null, memo length cannot exceed 2000 characters and cannot be whitespace only (post-trim, per REQ-SYS-1.1).
@@ -140,13 +140,13 @@ References: Invoice, Transaction Pointer (Staged Entry Header or Journal Entry H
 - **REQ-CF-6.1** Payment ID cannot be null
 - **REQ-CF-6.2** Payment ID must be unique
 - **REQ-CF-6.3** Payment must reference a valid Invoice ID
-- **REQ-CF-6.4** Payment must have a transaction pointer. The transaction pointer is a discriminated union: either a valid Staged Entry Header ID or a valid Journal Entry Header ID. Exactly one must be present.
-  - *Why:* A Payment is created when cash movement is identified in staging (step 4.b of the Saturday routine). It initially points to the staged entry. After posting (step 6), it transitions to point to the journal entry. The DU ensures the provenance link is always present at the type level. In the database, this is represented as two nullable columns (`stage_entry_header_id` and `journal_entry_header_id`), with an application-layer constraint that exactly one is non-null. (2026-08-28)
-- **REQ-CF-6.5** Payment amount cannot be null. Payment amount must be a valid positive Money value. Amount is stored, not derived — it must be known at creation time and does not change when the transaction pointer transitions from Staged to Posted.
+- **REQ-CF-6.4** Payment must have a transaction pointer. At least one of Staged Entry Header ID or Journal Entry Header ID must be present. Both may be present: a Payment is created pointing to a staged entry, and after posting, the journal entry header ID is added while the staged entry header ID is retained as provenance. In the F# model, the transaction pointer is a discriminated union that resolves to one value — when both are present, the journal entry header (Posted) takes precedence. In the database, this is represented as two nullable columns (`stage_entry_header_id` and `journal_entry_header_id`), with an application-layer constraint that at least one is non-null.
+  - *Why:* The staged entry link is provenance (the FI export that proved cash moved). The journal entry link is current truth (the ledger record). Both are worth keeping. (2026-08-28, revised 2026-08-29)
+- **REQ-CF-6.5** Payment amount is derived, not stored. The amount is computed by joining through the Payment's transaction pointer to the journal entry line (when Posted) or staged entry line (when Staged), filtered by the parent Master Agreement's flow direction and the parent Payment Agreement's accounts. For Income: the credit account's Credit line amount. For Outgo: the debit account's Debit line amount. When both pointers are present, the journal entry line is authoritative. One line per leg per entry is a documented assumption — the derivation expects exactly one matching line per pointer.
+  - *Why:* The cash amount lives in the ledger/stage data, not duplicated on the Payment record. The Payment is a link, not a copy. (2026-08-29)
 - **REQ-CF-6.6** Posted-to-FI date may be null. When non-null, it is a Calendar Date representing when the financial institution processed the payment.
 - **REQ-CF-6.7** Payment memo may be null. When non-null, memo length cannot exceed 2000 characters and cannot be whitespace only (post-trim, per REQ-SYS-1.1).
-- **REQ-CF-6.8** The sum of all Payment amounts for a given Invoice must not exceed the Invoice's amount
-  - *Why:* Overpayment against a single Invoice is not modeled. If more was paid than owed, the excess is a separate economic event. (2026-08-27)
+- **REQ-CF-6.8** *(Withdrawn 2026-08-29 — replaced by REQ-CF-9.1. The sum constraint is an Invoice lifecycle check, not a Payment creation constraint.)*
 
 
 ## 7. Projection sweep
@@ -182,11 +182,57 @@ The cash-flow projection is a read-only, deterministic operation that computes t
 - **REQ-CF-8.5** The projection is a deterministic `[DET]` operation. It performs arithmetic only and makes no judgment calls.
 
 
+## 9. Invoice lifecycle constraints
+
+The Invoice owns three independent lifecycle dimensions — invoice state, payment state, and posted state — plus an optional blocker. These dimensions are not a state machine with mandatory transitions: any valid value may be set directly (e.g. an Outgo invoice may be created as 'InvoiceReceived' without passing through 'InvoiceExpected'). However, certain combinations are invalid given the Invoice's current Payments.
+
+These constraints are validated by the orchestrator after any Invoice creation or update: persist the new state, fetch the resulting composite (Invoice + its Payments), validate the composite, rollback on failure. The diamond-relation constraint (REQ-CF-5.5) is also validated as part of this composite check.
+
+- **REQ-CF-9.1** Payment state cannot be 'FullyPaid' unless the sum of all derived Payment amounts for the Invoice equals the Invoice's amount.
+  - *Why:* "Fully paid" is an assertion that the obligation is satisfied. The arithmetic must confirm it. (2026-08-29)
+- **REQ-CF-9.2** Posted state cannot be 'PostedToLedger' unless payment state is 'FullyPaid'.
+  - *Why:* The obligation cannot be fully posted to the ledger if it hasn't been fully paid. (2026-08-29)
+- **REQ-CF-9.3** Payment state cannot be 'FullyPaid' while blocker state is non-null.
+  - *Why:* A blocker records an unresolved obstruction. If the obligation is fully paid, the obstruction is resolved — clear the blocker first. (2026-08-29)
+- **REQ-CF-9.4** Blocker state cannot be set to a non-null value while payment state is 'FullyPaid'.
+  - *Why:* The reverse of REQ-CF-9.3. If it's fully paid, there is nothing to block. (2026-08-29)
+- **REQ-CF-9.5** Payment state cannot be 'PartiallyPaid' unless at least one Payment exists for the Invoice.
+  - *Why:* "Partially paid" requires evidence of at least one cash movement. (2026-08-29)
+- **REQ-CF-9.6** Posted state cannot be 'PostedToLedger' unless all Payments for the Invoice have a journal entry header ID (i.e. all transaction pointers resolve to Posted).
+  - *Why:* Full ledger posting means every Payment has been promoted from staging to the ledger. A Payment still pointing only at a staged entry is not posted. (2026-08-29)
+- **REQ-CF-9.7** Posted state cannot be 'PartiallyPosted' unless at least one Payment for the Invoice has a journal entry header ID.
+  - *Why:* "Partially posted" requires evidence that at least one Payment has reached the ledger. (2026-08-29)
+
+
+## 10. Payment-to-posted transition
+
+A deterministic batch operation that runs after staged entries have been posted to the ledger (Phase 7 of the Saturday routine). It ensures that Payments tracking cash movement through staging are updated to reflect the corresponding journal entries, and that Invoice posted states are updated accordingly.
+
+- **REQ-CF-10.1** The transition identifies all Payments whose transaction pointer resolves to Staged (staged entry header ID present, journal entry header ID absent).
+- **REQ-CF-10.2** For each such Payment, the transition checks whether a journal entry has been created from the Payment's staged entry.
+- **REQ-CF-10.3** When a corresponding journal entry is found, the transition sets the Payment's journal entry header ID. The staged entry header ID is retained as provenance.
+- **REQ-CF-10.4** After updating Payments, the transition updates each affected Invoice's posted state as appropriate, subject to the lifecycle constraints in §9.
+- **REQ-CF-10.5** The transition is idempotent. Running it multiple times produces the same result.
+- **REQ-CF-10.6** The transition is a deterministic `[DET]` operation.
+- **REQ-CF-10.7** The transition returns the list of updated Payments with their agreement name, invoice amount, and journal entry header ID.
+  - *Why:* The caller (Hobson) needs this for the Saturday summary's review stack without re-querying. (2026-08-29)
+
+
+## 11. Staged entry match candidates
+
+A read-only, deterministic query that surfaces staged entries which may correspond to a given obligation. This is a decision-support operation — it returns candidates for the operator to evaluate during the obligation routine (Phase 4 of the Saturday routine). The operator makes the final matching decision.
+
+- **REQ-CF-11.1** The query accepts a Master Agreement ID or an Invoice ID as input.
+- **REQ-CF-11.2** A staged entry is a candidate if: (a) it is not already linked to any Payment, (b) at least one of its line accounts matches a debit or credit account on a Payment Agreement belonging to the target Master Agreement, and (c) its entry date falls within a configurable window around the target Instance's date.
+- **REQ-CF-11.3** The query returns candidates only. It does not create Payments, modify Invoices, or alter any state.
+- **REQ-CF-11.4** The query is a deterministic `[DET]` operation.
+
+
 ## Withdrawn
 
 | ID | Reason | Date |
 |---|---|---|
-| *(none yet)* | | |
+| REQ-CF-6.8 | Replaced by REQ-CF-9.1. The sum constraint is an Invoice lifecycle check, not a Payment creation constraint. | 2026-08-29 |
 
 ## Waived from testing
 
