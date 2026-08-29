@@ -123,7 +123,7 @@ with payments_enriched as (
     from cashflow.invoice inv
     left join cashflow.instance ins on inv.instance_id = ins.unique_id
     left join cashflow.master_agreement ma on ins.master_agreement_id = ma.unique_id    
-    left join cashflow.payment_agreement pa on ma.unique_id = pa.master_agreement_id    
+    left join cashflow.payment_agreement pa on inv.payment_agreement_id = pa.unique_id    
     left join payments_enriched pmt on inv.unique_id = pmt.invoice_id
     where 
     1=1
