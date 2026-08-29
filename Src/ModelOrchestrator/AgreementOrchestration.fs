@@ -57,7 +57,7 @@ let private confirmPayment
     (payment: Payment.Payment)
     : Result<unit, AppError> =
     result {
-        // confirm instanceId is real
+        // confirm invoiceId is real
         // confirm JE and SE links in transactionPointer are real
         // confirm if postedToLedgerDate is some then so is transactionPointer's JE header ID
         // confirm postedToLedgerDate (if some) matches the JE entry date 
@@ -234,7 +234,7 @@ let updateAgreement
         // if any invoices need updating
             // send each invoiceUpdate to Invoice.updateDb; discard
         // if any payments need updating
-            // send each invoiceUpdate to Invoice.updateDb; discard
+            // send each paymentUpdate to Payment.updateDb; discard
         // call fetchByMasterAgreementId
         // call confirmComposite to make sure you didn't fuck up my database
         // return fetched

@@ -50,7 +50,7 @@ let fetchFiltered
         let fetchFunc = Invoice.readRowsFromDb
         let! masterAgreements =
             filter
-            |> fetchCompositeFiltered context fetchFunc TargetComposite.Agreement
+            |> fetchCompositeFiltered context fetchFunc TargetComposite.Invoice
         // fetch the rest of the composite parts
         // assemble. see compileFromSubLists in StageEntryOrchestration for the pattern
         // trust the DB and return
@@ -83,7 +83,7 @@ let updateInvoiceComposite
         // if invoice needs updating
             // call Invoice.updateDb; discard the returned agreement
         // if any payments need updating
-            // send each invoiceUpdate to Invoice.updateDb; discard
+            // send each paymentUpdate to Payment.updateDb; discard
         // call fetchCompositeByInvoiceId
         // call confirmInvoiceComposite to make sure you didn't fuck up my database
         // return fetched
