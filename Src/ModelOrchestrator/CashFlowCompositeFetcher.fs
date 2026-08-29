@@ -168,9 +168,11 @@ let distinctCte targetComposite predicates =
         match targetComposite with
         | Agreement -> "distinct_agreements", agreementsSelectAndJoinInsideDistinct
         | Invoice -> "distinct_invoices", invoicesSelectAndJoinInsideDistinct
+    let whereClause =
+        if predicates = "" then "" else $"where {predicates} "
     $"""{name} as (
     {selectAndJoin}
-    where {predicates} 
+    {whereClause}
     )"""
 
 let fetchCompositeFiltered
