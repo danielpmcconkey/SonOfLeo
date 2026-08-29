@@ -104,6 +104,13 @@ let private transactionPointerFromColumns
     (journalEntryHeaderUuid: Guid option)
     (stageEntryHeaderUuid: Guid option)
     : Result<TransactionPointer, AppError> =
+    // Note: it is not an illegal state for the database to have both a stage reference and a ledger reference. Both
+    // being populated is the normal end state, not corruption. The standard lifecycle is for the data ingestion to load
+    // the FI transaction into stage and run the classifier. Then the operator will review obligations to see if any of
+    // the staged transactions represent a new payment. At which point, the operator will add a new payment record into
+    // the database with the link to stage. The operator will use this knowledge to update the account code in stage
+    // before posting to the ledger. Once posted, the ledger's JournalEntryHeaderId will be known and the operator will
+    // close the loop by updating the payment record. Terminal state on happy path includes both values.
     match journalEntryHeaderUuid, stageEntryHeaderUuid with
     | Some journalEntryHeaderUuid, _ ->
         journalEntryHeaderUuid |> JournalEntryHeaderId.fromGuid |> CashFlowComponent.Posted |> Ok
