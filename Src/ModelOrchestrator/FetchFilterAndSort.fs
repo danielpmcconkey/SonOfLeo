@@ -1,11 +1,13 @@
 module ModelOrchestrator.FetchFilters
 
 open Model
+open Model.CashFlow.CashFlowComponent
 open Model.DataIngestion
 open Model.DataIngestion.Classification
 open Model.Ledger.Accounts.AccountComponent
 open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling.JournalEntryComponent
+open Model.CashFlow
 open NodaTime
 
 type FetchSort =
@@ -21,6 +23,11 @@ type FilterDateRange = { beginDate: LocalDate; endInclusive: LocalDate }
 type TemporalFilter =
     | FiscalPeriodIdentifier of FiscalPeriodId
     | DateRange of FilterDateRange
+
+type AmountRange = { inclusiveFloor: Money; inclusiveCeiling: Money }
+type AmountFilter =
+    | ExactAmount of Money
+    | AmountRange of AmountRange
 
 type AccountActivityFilter =
     { accountId: AccountId option
@@ -79,3 +86,25 @@ type FetchStageEntrySort =
     | StatusDesc
     | DescriptionAsc
     | DescriptionDesc
+
+type AgreementFilter = {
+    agreementIds: MasterAgreementId list option
+    agreementNames: AgreementName list option
+    direction: FlowDirection option
+    activeAgreementsOnly: bool // show only those whose end dates are >= today
+    accountIds: AccountId list option // either payment agreement debit or payment agreement credit
+    paymentAgreementExpectedAmount: AmountFilter option
+    instanceTemporalFilter: TemporalFilter option
+    externalInvoiceId: ExternalInvoiceId option
+    invoiceDateTemporalFilter: TemporalFilter option
+    invoiceDueTemporalFilter: TemporalFilter option
+    invoiceAmount: AmountFilter option
+    invoiceState: InvoiceState option
+    invoicePaymentState: PaymentState option
+    invoicePostedState: PostedState option
+    invoiceBlocker: Blocker option
+    journalEntryHeaderId: JournalEntryHeaderId option
+    stageEntryHeaderId: StageEntryHeaderId option
+    paymentAmount: AmountFilter option
+    paymentPostedToLedgerTemporalFilter: TemporalFilter option
+}

@@ -10,7 +10,7 @@ open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
 
 type MasterAgreement = private {
-    agreementID: MasterAgreementId
+    agreementId: MasterAgreementId
     agreementName: AgreementName
     direction: FlowDirection
     cadence: Cadence
@@ -23,7 +23,7 @@ type MasterAgreement = private {
 }
 
 type MasterAgreementFieldUpdates = {
-    agreementIDToUpdate: MasterAgreementId
+    agreementIdToUpdate: MasterAgreementId
     agreementNameUpdate: FieldUpdate<AgreementName>
     directionUpdate: FieldUpdate<FlowDirection>
     cadenceUpdate: FieldUpdate<Cadence>
@@ -33,7 +33,7 @@ type MasterAgreementFieldUpdates = {
     memoUpdate: FieldUpdate<AgreementMemo option>
 }
         
-let agreementID m = m.agreementID
+let agreementID m = m.agreementId
 let agreementName m = m.agreementName
 let direction m = m.direction
 let cadence m = m.cadence
@@ -56,7 +56,7 @@ let create
     (createdAt: Instant)
     (modifiedAt: Instant)
     : MasterAgreement =
-    {  agreementID = agreementID
+    {  agreementId = agreementID
        agreementName = agreementName
        direction = direction
        cadence = cadence
@@ -152,7 +152,7 @@ let insertNewToDb
 	            @unique_id, @agreement_name, @flow_direction, @cadence, @cadence_week_day, @cadence_date_in_month,
                 @cadence_week_in_month, @cadence_month, @counterparty, @start_date, @end_date, @memo, @created_at,
                 @modified_at);"""
-        let uuid = masterAgreement.agreementID |> MasterAgreementId.value
+        let uuid = masterAgreement.agreementId |> MasterAgreementId.value
         let agreementName = masterAgreement.agreementName |> AgreementName.value
         let direction = masterAgreement.direction |> FlowDirection.toString
         let cadenceName, cadenceDateInMonth, cadenceWeekInMonth, cadenceWeekDay, cadenceMonth =
@@ -281,7 +281,7 @@ let updateDb
     (context: Context.Context)
     (fieldUpdates: MasterAgreementFieldUpdates)
     : Result<MasterAgreement, AppError> =
-    let agreementID = fieldUpdates.agreementIDToUpdate
+    let agreementID = fieldUpdates.agreementIdToUpdate
     let uuid = agreementID |> MasterAgreementId.value
     let baseParams =
         [ { name = "@unique_id"; value = UniqueId uuid } ]
