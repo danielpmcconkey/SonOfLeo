@@ -36,16 +36,22 @@ type AppError =
     | AccountTypeInvalid of string
     | AccountUpdateNoOp
     
+    | CashflowAgreementEndDateBeforeStartDate of LocalDate * LocalDate
+    | CashflowAgreementEndDateInPast of LocalDate
     | CashflowAgreementMemoIsEmpty of string
     | CashflowAgreementMemoTooLong of string * int
     | CashflowAgreementNameIsEmpty of string
     | CashflowAgreementNameTooLong of string * int
+    | CashflowAgreementUpdateNoOp
     | CashflowBlockerNoteIsEmpty of string
     | CashflowBlockerNoteTooLong of string * int
     | CashflowCounterpartyIsEmpty of string
     | CashflowCounterpartyTooLong of string * int
     | CashflowExternalInvoiceIdIsEmpty of string
     | CashflowExternalInvoiceIdTooLong of string * int
+    | CashflowInstanceIdDoesntExist of Guid
+    | CashflowInstanceIdListCannotBeEmpty
+    | CashflowInstanceNotUnderMasterAgreement of Guid * Guid
     | CashflowInstanceUpdateNoOp
     | CashflowInvalidBlocker of string
     | CashflowInvalidBlockerRow of string
@@ -60,15 +66,30 @@ type AppError =
     | CashflowInvalidPostedState of string
     | CashflowInvalidWeekDay of string
     | CashflowInvalidWeekInMonthNumber of int
+    | CashflowInvoiceIdDoesntExist of Guid
+    | CashflowInvoiceIdListCannotBeEmpty
     | CashflowInvoiceMemoIsEmpty of string
     | CashflowInvoiceMemoTooLong of string * int
+    | CashflowInvoiceNegativeAmount of Guid * decimal
+    | CashflowInvoiceNotUnderMasterAgreement of Guid * Guid
     | CashflowInvoiceUpdateNoOp
+    | CashflowMasterAgreementIdDoesntExist of Guid
+    | CashflowMasterAgreementIdListCannotBeEmpty
     | CashflowMasterAgreementUpdateNoOp
+    | CashflowPaymentAgreementCreditAccountInvalid of Guid
+    | CashflowPaymentAgreementDebitAccountInvalid of Guid
+    | CashflowPaymentAgreementIdDoesntExist of Guid
     | CashflowPaymentAgreementMemoIsEmpty of string
     | CashflowPaymentAgreementMemoTooLong of string * int
+    | CashflowPaymentAgreementNonPositiveExpectedAmount of Guid * decimal
+    | CashflowPaymentAgreementNotUnderMasterAgreement of Guid * Guid
     | CashflowPaymentAgreementUpdateNoOp
+    | CashflowPaymentAgreementsListCannotBeEmpty
     | CashflowPaymentMemoIsEmpty of string
     | CashflowPaymentMemoTooLong of string * int
+    | CashflowPaymentNotUnderMasterAgreement of Guid * Guid
+    | CashflowPaymentPostedToLedgerDateMismatch of Guid * LocalDate * LocalDate
+    | CashflowPaymentPostedToLedgerDateWithoutJournalEntry of Guid
     | CashflowPaymentUpdateNoOp
     
     | CliUnknownCommand of string * string
@@ -140,6 +161,7 @@ type AppError =
     | IngestionStageLineNonPositiveAmount of decimal
     | IngestionStageEntryDebitCreditMismatch of decimal * decimal
     | IngestionStageEntryInsufficientLines of int
+    | IngestionStageEntryHeaderIdDoesntExist of Guid
     | IngestionStageEntryHeaderNoOp
     | IngestionStageEntryLineNoOp
     | IngestionStageHeaderIdListCannotBeEmpty
@@ -231,16 +253,22 @@ module AppError =
         | AccountTypeInvalid typeString -> $"Provided string of '{typeString}' is not a valid account type."
         | AccountUpdateNoOp -> "Updating the account record failed because at least one updatable parameter must be set."
         
+        | CashflowAgreementEndDateBeforeStartDate(startDate, endDate) -> $"Agreement end date ({endDate}) cannot be before its start date ({startDate})."
+        | CashflowAgreementEndDateInPast endDate -> $"Agreement end date ({endDate}) cannot be in the past."
         | CashflowAgreementMemoIsEmpty memo -> $"AgreementMemo cannot be empty. Provided Memo is {memo}."
         | CashflowAgreementMemoTooLong(memo, max) -> $"AgreementMemo cannot exceed {max} characters. Provided Memo is {memo}."
         | CashflowAgreementNameIsEmpty name -> $"AgreementName cannot be empty. Provided name is {name}."
         | CashflowAgreementNameTooLong(name, max) -> $"AgreementName cannot exceed {max} characters. Provided name is {name}."
+        | CashflowAgreementUpdateNoOp -> "Updating the Agreement composite failed because at least one updatable parameter must be set."
         | CashflowBlockerNoteIsEmpty note -> $"AgreementMemo cannot be empty. Provided Memo is {note}."
         | CashflowBlockerNoteTooLong(note, max) -> $"BlockerNote cannot exceed {max} characters. Provided Memo is {note}."
         | CashflowCounterpartyIsEmpty name -> $"Counterparty cannot be empty. Provided name is {name}."
         | CashflowCounterpartyTooLong(name, max) -> $"Counterparty cannot exceed {max} characters. Provided name is {name}."
         | CashflowExternalInvoiceIdIsEmpty eid -> $"ExternalInvoiceId cannot be empty. Provided ExternalInvoiceId is {eid}."
         | CashflowExternalInvoiceIdTooLong(eid, max) -> $"ExternalInvoiceId cannot exceed {max} characters. Provided ExternalInvoiceId is {eid}."
+        | CashflowInstanceIdDoesntExist uuid -> $"Could not locate an Instance with the id of {uuid}."
+        | CashflowInstanceIdListCannotBeEmpty -> "The instanceIds list must contain at least 1 ID."
+        | CashflowInstanceNotUnderMasterAgreement(instanceId, agreementId) -> $"Instance {instanceId} does not belong to MasterAgreement {agreementId}."
         | CashflowInstanceUpdateNoOp -> "Updating the Instance record failed because at least one updatable parameter must be set."
         | CashflowInvalidBlocker str -> $"Invalid Blocker of \"{str}\"."
         | CashflowInvalidBlockerRow reason -> $"Invalid Blocker row: {reason}."
@@ -255,15 +283,30 @@ module AppError =
         | CashflowInvalidPostedState str -> $"Invalid PostedState of \"{str}\"."
         | CashflowInvalidWeekDay str -> $"Invalid WeekDay of \"{str}\"."
         | CashflowInvalidWeekInMonthNumber i -> $"Invalid WeekInMonthNumber of \"{i}\"."
+        | CashflowInvoiceIdDoesntExist uuid -> $"Could not locate an Invoice with the id of {uuid}."
+        | CashflowInvoiceIdListCannotBeEmpty -> "The invoiceIds list must contain at least 1 ID."
         | CashflowInvoiceMemoIsEmpty memo -> $"InvoiceMemo cannot be empty. Provided Memo is {memo}."
         | CashflowInvoiceMemoTooLong(memo, max) -> $"InvoiceMemo cannot exceed {max} characters. Provided Memo is {memo}."
+        | CashflowInvoiceNegativeAmount(invoiceId, amount) -> $"Invoice {invoiceId} amount ({amount}) cannot be negative."
+        | CashflowInvoiceNotUnderMasterAgreement(invoiceId, agreementId) -> $"Invoice {invoiceId} does not belong to MasterAgreement {agreementId}."
         | CashflowInvoiceUpdateNoOp -> "Updating the Invoice record failed because at least one updatable parameter must be set."
+        | CashflowMasterAgreementIdDoesntExist uuid -> $"Could not locate a MasterAgreement with the id of {uuid}."
+        | CashflowMasterAgreementIdListCannotBeEmpty -> "The masterAgreementIds list must contain at least 1 ID."
         | CashflowMasterAgreementUpdateNoOp -> "Updating the MasterAgreement record failed because at least one updatable parameter must be set."
+        | CashflowPaymentAgreementCreditAccountInvalid uuid -> $"PaymentAgreement's credit account ({uuid}) does not match an Account in the database."
+        | CashflowPaymentAgreementDebitAccountInvalid uuid -> $"PaymentAgreement's debit account ({uuid}) does not match an Account in the database."
+        | CashflowPaymentAgreementIdDoesntExist uuid -> $"Could not locate a PaymentAgreement with the id of {uuid}."
         | CashflowPaymentAgreementMemoIsEmpty memo -> $"PaymentAgreementMemo cannot be empty. Provided Memo is {memo}."
         | CashflowPaymentAgreementMemoTooLong(memo, max) -> $"PaymentAgreementMemo cannot exceed {max} characters. Provided Memo is {memo}."
+        | CashflowPaymentAgreementNonPositiveExpectedAmount(paymentAgreementId, amount) -> $"PaymentAgreement {paymentAgreementId} expected amount ({amount}) cannot be less than or equal to 0.00."
+        | CashflowPaymentAgreementNotUnderMasterAgreement(paymentAgreementId, agreementId) -> $"PaymentAgreement {paymentAgreementId} does not belong to MasterAgreement {agreementId}."
         | CashflowPaymentAgreementUpdateNoOp -> "Updating the PaymentAgreement record failed because at least one updatable parameter must be set."
+        | CashflowPaymentAgreementsListCannotBeEmpty -> "A MasterAgreement must have at least one PaymentAgreement."
         | CashflowPaymentMemoIsEmpty memo -> $"PaymentMemo cannot be empty. Provided Memo is {memo}."
         | CashflowPaymentMemoTooLong(memo, max) -> $"PaymentMemo cannot exceed {max} characters. Provided Memo is {memo}."
+        | CashflowPaymentNotUnderMasterAgreement(paymentId, agreementId) -> $"Payment {paymentId} does not belong to MasterAgreement {agreementId}."
+        | CashflowPaymentPostedToLedgerDateMismatch(paymentId, provided, actual) -> $"Payment {paymentId}'s postedToLedgerDate ({provided}) does not match its journal entry's entry date ({actual})."
+        | CashflowPaymentPostedToLedgerDateWithoutJournalEntry paymentId -> $"Payment {paymentId} has a postedToLedgerDate set but its transactionPointer is not Posted to a journal entry."
         | CashflowPaymentUpdateNoOp -> "Updating the Payment record failed because at least one updatable parameter must be set."
         
         | CliUnknownCommand(domain, verb) -> $"Unknown command: {domain} {verb}"
@@ -332,6 +375,7 @@ module AppError =
         | IngestionInvalidStageStatusTransition (fromStr, toStr) -> $"Invalid stage status transition. Cannot move from {fromStr} to {toStr}."
         | IngestionSearchPatternIsEmpty str -> $"SearchPattern cannot be empty. Provided value is {str}."
         | IngestionSearchPatternTooLong (str, max) -> $"SearchPattern cannot exceed {max} characters. Provided value is {str}."
+        | IngestionStageEntryHeaderIdDoesntExist uuid -> $"Could not locate a stage entry header with the id of {uuid}."
         | IngestionStageEntryHeaderNoOp -> "Updating the StageEntryHeader record failed because at least one updatable parameter must be set."
         | IngestionStageEntryLineNoOp -> "Updating the StageEntryLine record failed because at least one updatable parameter must be set."
         | IngestionStageHeaderIdListCannotBeEmpty -> "The stageEntryHeaderIds list must contain at least 1 Header ID."

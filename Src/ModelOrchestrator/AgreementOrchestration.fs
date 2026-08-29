@@ -46,10 +46,9 @@ let private confirmPaymentAgreementBelongsToAgreement
         return!
             if paymentAgreement |> PaymentAgreement.masterAgreementID = agreementId then Ok ()
             else
-                Error(
-                    CashflowPaymentAgreementNotUnderMasterAgreement(
-                        fieldUpdates.paymentAgreementIdToUpdate |> CashFlowComponent.PaymentAgreementId.value,
-                        agreementId |> CashFlowComponent.MasterAgreementId.value))
+                let paymentAgreementUuid = fieldUpdates.paymentAgreementIdToUpdate |> CashFlowComponent.PaymentAgreementId.value
+                let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
+                Error(CashflowPaymentAgreementNotUnderMasterAgreement(paymentAgreementUuid, agreementUuid))
     }
 
 let private confirmInstanceBelongsToAgreement
@@ -62,10 +61,9 @@ let private confirmInstanceBelongsToAgreement
         return!
             if instance |> Instance.masterAgreementID = agreementId then Ok ()
             else
-                Error(
-                    CashflowInstanceNotUnderMasterAgreement(
-                        fieldUpdates.instanceIdToUpdate |> CashFlowComponent.InstanceId.value,
-                        agreementId |> CashFlowComponent.MasterAgreementId.value))
+                let instanceUuid = fieldUpdates.instanceIdToUpdate |> CashFlowComponent.InstanceId.value
+                let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
+                Error(CashflowInstanceNotUnderMasterAgreement(instanceUuid, agreementUuid))
     }
 
 let private confirmInvoiceBelongsToAgreement
@@ -79,10 +77,9 @@ let private confirmInvoiceBelongsToAgreement
         return!
             if instance |> Instance.masterAgreementID = agreementId then Ok ()
             else
-                Error(
-                    CashflowInvoiceNotUnderMasterAgreement(
-                        fieldUpdates.invoiceIdToUpdate |> CashFlowComponent.InvoiceId.value,
-                        agreementId |> CashFlowComponent.MasterAgreementId.value))
+                let invoiceUuid = fieldUpdates.invoiceIdToUpdate |> CashFlowComponent.InvoiceId.value
+                let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
+                Error(CashflowInvoiceNotUnderMasterAgreement(invoiceUuid, agreementUuid))
     }
 
 let private confirmPaymentBelongsToAgreement
@@ -97,10 +94,9 @@ let private confirmPaymentBelongsToAgreement
         return!
             if instance |> Instance.masterAgreementID = agreementId then Ok ()
             else
-                Error(
-                    CashflowPaymentNotUnderMasterAgreement(
-                        fieldUpdates.paymentIdToUpdate |> CashFlowComponent.PaymentId.value,
-                        agreementId |> CashFlowComponent.MasterAgreementId.value))
+                let paymentUuid = fieldUpdates.paymentIdToUpdate |> CashFlowComponent.PaymentId.value
+                let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
+                Error(CashflowPaymentNotUnderMasterAgreement(paymentUuid, agreementUuid))
     }
 
 let private confirmAuthorityAndCohesion
@@ -146,7 +142,8 @@ let private confirmPayment
             match payment |> Payment.invoiceId |> Invoice.fetchById context with
             | Ok _ -> Ok ()
             | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                Error(CashflowInvoiceIdDoesntExist(payment |> Payment.invoiceId |> CashFlowComponent.InvoiceId.value))
+                let invoiceUuid = payment |> Payment.invoiceId |> CashFlowComponent.InvoiceId.value
+                Error(CashflowInvoiceIdDoesntExist invoiceUuid)
             | Error e -> Error e
         // JE and SE existence is checked below via whichever half of the transactionPointer is actually populated;
         // the other half isn't reachable off a reconstituted Payment (see transactionPointerFromColumns).
@@ -156,29 +153,28 @@ let private confirmPayment
                 match journalEntryHeaderId |> JournalEntryHeader.fetchById context with
                 | Ok header -> Ok(Some header)
                 | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                    Error(JournalEntryHeaderIdDoesntExist(journalEntryHeaderId |> JournalEntryHeaderId.value))
+                    let journalEntryHeaderUuid = journalEntryHeaderId |> JournalEntryHeaderId.value
+                    Error(JournalEntryHeaderIdDoesntExist journalEntryHeaderUuid)
                 | Error e -> Error e
             | CashFlowComponent.Staged stageEntryHeaderId ->
                 match stageEntryHeaderId |> StageEntryHeader.fetchById context with
                 | Ok _ -> Ok None
                 | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                    Error(IngestionStageEntryHeaderIdDoesntExist(stageEntryHeaderId |> StageEntryHeaderId.value))
+                    let stageEntryHeaderUuid = stageEntryHeaderId |> StageEntryHeaderId.value
+                    Error(IngestionStageEntryHeaderIdDoesntExist stageEntryHeaderUuid)
                 | Error e -> Error e
         return!
             match payment |> Payment.postedToLedgerDate, journalEntryHeader with
             | None, _ -> Ok ()
             | Some _, None ->
-                Error(CashflowPaymentPostedToLedgerDateWithoutJournalEntry(
-                    payment |> Payment.paymentId |> CashFlowComponent.PaymentId.value))
+                let paymentUuid = payment |> Payment.paymentId |> CashFlowComponent.PaymentId.value
+                Error(CashflowPaymentPostedToLedgerDateWithoutJournalEntry paymentUuid)
             | Some providedDate, Some header ->
                 let actualDate = header |> JournalEntryHeader.entryDate |> EntryDate.entryDate
                 if providedDate = actualDate then Ok ()
                 else
-                    Error(
-                        CashflowPaymentPostedToLedgerDateMismatch(
-                            payment
-                            |> Payment.paymentId
-                            |> CashFlowComponent.PaymentId.value, providedDate, actualDate))
+                    let paymentUuid = payment |> Payment.paymentId |> CashFlowComponent.PaymentId.value
+                    Error(CashflowPaymentPostedToLedgerDateMismatch(paymentUuid, providedDate, actualDate))
     }
 
 let private confirmPayments
@@ -199,15 +195,15 @@ let private confirmInvoice
             match invoice |> Invoice.instanceId |> Instance.fetchById context with
             | Ok _ -> Ok ()
             | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                Error(CashflowInstanceIdDoesntExist(
-                    invoice |> Invoice.instanceId |> CashFlowComponent.InstanceId.value))
+                let instanceUuid = invoice |> Invoice.instanceId |> CashFlowComponent.InstanceId.value
+                Error(CashflowInstanceIdDoesntExist instanceUuid)
             | Error e -> Error e
         do!
             match invoice |> Invoice.paymentAgreementId |> PaymentAgreement.fetchById context with
             | Ok _ -> Ok ()
             | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                Error(CashflowPaymentAgreementIdDoesntExist(
-                    invoice |> Invoice.paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value))
+                let paymentAgreementUuid = invoice |> Invoice.paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
+                Error(CashflowPaymentAgreementIdDoesntExist paymentAgreementUuid)
             | Error e -> Error e
         let invoiceAmount = invoice |> Invoice.amount |> Money.amount
         return!
@@ -257,10 +253,9 @@ let private confirmPaymentAgreement
         do!
             if paymentAgreement |> PaymentAgreement.masterAgreementID = agreementId then Ok ()
             else
-                Error(
-                    CashflowPaymentAgreementNotUnderMasterAgreement(
-                        paymentAgreement |> PaymentAgreement.paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value,
-                        agreementId |> CashFlowComponent.MasterAgreementId.value))
+                let paymentAgreementUuid = paymentAgreement |> PaymentAgreement.paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
+                let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
+                Error(CashflowPaymentAgreementNotUnderMasterAgreement(paymentAgreementUuid, agreementUuid))
         let (CashFlowComponent.DebitAccount debitAccountId) = paymentAgreement |> PaymentAgreement.debitAccount
         do!
             match debitAccountId |> confirmValidAccountId context with
@@ -276,10 +271,9 @@ let private confirmPaymentAgreement
             | None -> Ok ()
             | Some money when money |> Money.amount > 0M -> Ok ()
             | Some money ->
-                Error(
-                    CashflowPaymentAgreementNonPositiveExpectedAmount(
-                        paymentAgreement |> PaymentAgreement.paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value,
-                        money |> Money.amount))
+                let paymentAgreementUuid = paymentAgreement |> PaymentAgreement.paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
+                let amount = money |> Money.amount
+                Error(CashflowPaymentAgreementNonPositiveExpectedAmount(paymentAgreementUuid, amount))
     }
 
 let private confirmPaymentAgreements
@@ -425,12 +419,13 @@ let fetchByMasterAgreementId
               stageEntryHeaderId = None
               paymentAmount = None
               paymentPostedToLedgerTemporalFilter = None }
-        let agreementsResult = filter |> fetchFiltered context AnyQuantityIsAcceptable
+        let agreementsResult = filter |> fetchFiltered context ExactlyOne
         return!
             match agreementsResult with
-            | Ok x -> Ok (x |> List.head)
+            | Ok agreements -> Ok (agreements |> List.head)
             | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                Error(CashflowMasterAgreementIdDoesntExist(agreementId |> CashFlowComponent.MasterAgreementId.value))
+                let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
+                Error(CashflowMasterAgreementIdDoesntExist agreementUuid)
             | Error e -> Error e
     }
 

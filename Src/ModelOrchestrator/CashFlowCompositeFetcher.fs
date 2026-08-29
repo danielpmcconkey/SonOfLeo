@@ -177,6 +177,7 @@ let distinctCte targetComposite predicates =
 
 let fetchCompositeFiltered
     (context: Context.Context)
+    (expectedRows: AcceptableExpectedRows)
     (fetchFunc:
         Context.Context -> string list option -> string -> string list option -> string option ->                          
         int option -> string option -> string option -> QueryParameter list -> AcceptableExpectedRows ->               
@@ -198,6 +199,6 @@ let fetchCompositeFiltered
         let limit = None
         let groupBy = None
         let orderBy = None
-        let expectedRows = AnyQuantityIsAcceptable
+        let expectedRows = expectedRows
         return! fetchFunc context cteList select joinList predicate limit groupBy orderBy parameters expectedRows
     }

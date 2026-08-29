@@ -104,12 +104,15 @@ huge, not because the component file was. Splitting is worth reconsidering only 
 component file roughly doubles from a healthy size (~150–350 lines is normal for 1–5 sibling
 entities) or starts accumulating real logic unrelated to value-object construction.
 
-**Watch for DU case-name collisions when a file opens more than one component module.** `open`
-resolves a bare case name to whichever module was opened *last* — silently, with no compiler
-warning — so two unrelated DUs that happen to share a case name (`Posted`, `Staged`, `Active`)
-will shadow each other, and the resulting type error won't mention the DU you actually meant.
-Fully qualify (`CashFlowComponent.Posted`) whenever the case name is a short/generic word and
-more than one component module is open. Full writeup:
+**In a file that spans multiple domains, prefer not opening a component module at all — fully
+qualify every reference.** `open` resolves a bare case name to whichever module was opened
+*last* — silently, with no compiler warning — so two unrelated DUs that happen to share a case
+name (`Posted`, `Staged`, `Active`) will shadow each other, and the resulting type error won't
+mention the DU you actually meant. The fix isn't "open it and remember which names collide" —
+it's "don't open it." Rider flags unnecessary qualifiers as a warning; that warning is
+*signal*, not noise — it tells you the module is open and collision is possible. Qualify
+everything (`CashFlowComponent.MasterAgreementId`, `CashFlowComponent.Posted`,
+`CashFlowComponent.DebitAccount`) and the collision class disappears entirely. Full writeup:
 `CompoundedLearnings/articles/coding/du-case-collision-across-opens.md`.
 
 ## Entity shape
@@ -258,6 +261,26 @@ Adding a case (standing permission, see above):
   <Concept> of \"{x}\"."` for parse failures.
 - Report what you added in the hand-off, every time — this is the one rule that has no
   exception, per Dan's explicit instruction.
+
+**AppError instantiation style: bind first, construct second.** Never inline pipeline chains
+as constructor arguments. Extract every derived value into a named `let` binding, then pass
+plain names to the `Error(...)` call. The constructor should read as a list of names, not a
+list of computations.
+
+```fsharp
+// correct — bind first, construct second
+let uuid = instance |> Instance.instanceId |> InstanceId.value
+let agreementUuid = agreementId |> MasterAgreementId.value
+Error (CashflowInstanceNotUnderMasterAgreement(uuid, agreementUuid))
+
+// wrong — inlined derivation as constructor arguments
+Error (CashflowInstanceNotUnderMasterAgreement(
+    instance |> Instance.instanceId |> InstanceId.value,
+    agreementId |> MasterAgreementId.value))
+```
+
+The inlined form may be more idiomatic F#, but Dan finds it ugly to read — and readability at
+the error site is the priority, not concision.
 
 ## Infrastructure inventory — read before you write a helper
 

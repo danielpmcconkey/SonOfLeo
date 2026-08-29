@@ -238,6 +238,21 @@ let fetchById (context: Context.Context) (paymentId: PaymentId) : Result<Payment
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     fetchGenericRead context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
+let fetchByInvoiceIdList
+    (context: Context.Context)
+    (invoiceIds: InvoiceId list)
+    : Result<Payment list, AppError> =
+    if invoiceIds |> List.isEmpty then Error CashflowInvoiceIdListCannotBeEmpty else
+    let namesAndParameters =
+        List.zip [ 1 .. invoiceIds.Length ] invoiceIds
+        |> List.map (fun (ordinal, id) ->
+            let name = $"@invoiceId{ordinal}"
+            name, { name = name; value = UniqueId(id |> InvoiceId.value) })
+    let names = namesAndParameters |> List.map fst |> String.concat ", "
+    let parameters = namesAndParameters |> List.map snd
+    let predicate = $"pmt.invoice_id in ({names})"
+    fetchGenericRead context (Some predicate) None parameters AnyQuantityIsAcceptable
+
 /// updateDb is incredibly powerful and should only be used very deliberately. It will let you update your database in a
 /// type-unsafe manner. Only use it with controlled database transactions and with certainty that you are validating
 /// your resultant data state appropriately.
