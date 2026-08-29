@@ -65,6 +65,7 @@ create table cashflow.invoice
     unique_id uuid NOT NULL primary key,
     instance_id uuid not null references cashflow.instance(unique_id) match simple on update no action on delete restrict,
     payment_agreement_id uuid not null references cashflow.payment_agreement(unique_id) match simple on update no action on delete restrict,
+    external_invoice_id varchar(100),
     invoice_date date not null,
     due_date date not null,
     amount numeric(12,2) not null,

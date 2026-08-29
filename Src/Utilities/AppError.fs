@@ -44,6 +44,8 @@ type AppError =
     | CashflowBlockerNoteTooLong of string * int
     | CashflowCounterpartyIsEmpty of string
     | CashflowCounterpartyTooLong of string * int
+    | CashflowExternalInvoiceIdIsEmpty of string
+    | CashflowExternalInvoiceIdTooLong of string * int
     | CashflowInstanceUpdateNoOp
     | CashflowInvalidBlocker of string
     | CashflowInvalidBlockerRow of string
@@ -237,6 +239,8 @@ module AppError =
         | CashflowBlockerNoteTooLong(note, max) -> $"BlockerNote cannot exceed {max} characters. Provided Memo is {note}."
         | CashflowCounterpartyIsEmpty name -> $"Counterparty cannot be empty. Provided name is {name}."
         | CashflowCounterpartyTooLong(name, max) -> $"Counterparty cannot exceed {max} characters. Provided name is {name}."
+        | CashflowExternalInvoiceIdIsEmpty eid -> $"ExternalInvoiceId cannot be empty. Provided ExternalInvoiceId is {eid}."
+        | CashflowExternalInvoiceIdTooLong(eid, max) -> $"ExternalInvoiceId cannot exceed {max} characters. Provided ExternalInvoiceId is {eid}."
         | CashflowInstanceUpdateNoOp -> "Updating the Instance record failed because at least one updatable parameter must be set."
         | CashflowInvalidBlocker str -> $"Invalid Blocker of \"{str}\"."
         | CashflowInvalidBlockerRow reason -> $"Invalid Blocker row: {reason}."

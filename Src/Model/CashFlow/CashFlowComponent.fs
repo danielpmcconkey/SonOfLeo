@@ -304,6 +304,20 @@ module Counterparty =
         else
             Ok(Counterparty trimmed)
 
+type ExternalInvoiceId = private ExternalInvoiceId of string
+
+module ExternalInvoiceId =
+    let maxLength = 100
+    let value (ExternalInvoiceId eid) = eid
+    let create (raw: string) : Result<ExternalInvoiceId, AppError> =
+        let trimmed = raw.Trim()
+        if String.IsNullOrWhiteSpace trimmed then
+            Error(CashflowExternalInvoiceIdIsEmpty raw)
+        elif trimmed.Length > maxLength then
+            Error(CashflowExternalInvoiceIdTooLong(raw, maxLength))
+        else
+            Ok(ExternalInvoiceId trimmed)
+
 type AgreementMemo = private AgreementMemo of string
 
 module AgreementMemo =

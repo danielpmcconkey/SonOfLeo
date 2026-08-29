@@ -14,6 +14,7 @@ type Invoice = private {
     invoiceId: InvoiceId
     instanceId: InstanceId
     paymentAgreementId: PaymentAgreementId
+    externalInvoiceId: ExternalInvoiceId option
     invoiceDate: LocalDate
     dueDate: LocalDate
     amount: Money
@@ -25,6 +26,7 @@ type Invoice = private {
 
 type InvoiceFieldUpdates = {
     invoiceIdToUpdate: InvoiceId
+    externalInvoiceIdUpdate: FieldUpdate<ExternalInvoiceId option>
     invoiceDateUpdate: FieldUpdate<LocalDate>
     dueDateUpdate: FieldUpdate<LocalDate>
     amountUpdate: FieldUpdate<Money>
@@ -38,6 +40,7 @@ type InvoiceFieldUpdates = {
 let invoiceId i = i.invoiceId
 let instanceId i = i.instanceId
 let paymentAgreementId i = i.paymentAgreementId
+let externalInvoiceId i = i.externalInvoiceId
 let invoiceDate i = i.invoiceDate
 let dueDate i = i.dueDate
 let amount i = i.amount
@@ -50,6 +53,7 @@ let create
     (invoiceId: InvoiceId)
     (instanceId: InstanceId)
     (paymentAgreementId: PaymentAgreementId)
+    (externalInvoiceId: ExternalInvoiceId option)
     (invoiceDate: LocalDate)
     (dueDate: LocalDate)
     (amount: Money)
@@ -61,6 +65,7 @@ let create
     { invoiceId = invoiceId
       instanceId = instanceId
       paymentAgreementId = paymentAgreementId
+      externalInvoiceId = externalInvoiceId
       invoiceDate = invoiceDate
       dueDate = dueDate
       amount = amount
@@ -112,14 +117,16 @@ let insertNewToDb
         let query =
             """
             insert into cashflow.invoice(
-	            unique_id, instance_id, payment_agreement_id, invoice_date, due_date, amount, invoice_state,
-                payment_state, posted_state, blocker_state, blocker_note, memo, created_at, modified_at)
+	            unique_id, instance_id, payment_agreement_id, external_invoice_id, invoice_date, due_date, amount,
+                invoice_state, payment_state, posted_state, blocker_state, blocker_note, memo, created_at, modified_at)
             values (
-	            @unique_id, @instance_id, @payment_agreement_id, @invoice_date, @due_date, @amount, @invoice_state,
-                @payment_state, @posted_state, @blocker_state, @blocker_note, @memo, @created_at, @modified_at);"""
+	            @unique_id, @instance_id, @payment_agreement_id, @external_invoice_id, @invoice_date, @due_date, @amount,
+                @invoice_state, @payment_state, @posted_state, @blocker_state, @blocker_note, @memo, @created_at,
+                @modified_at);"""
         let uuid = invoice.invoiceId |> InvoiceId.value
         let instanceUuid = invoice.instanceId |> InstanceId.value
         let paymentAgreementUuid = invoice.paymentAgreementId |> PaymentAgreementId.value
+        let externalInvoiceId = invoice.externalInvoiceId |> Option.map ExternalInvoiceId.value
         let amount = invoice.amount |> Money.amount
         let invoiceState = invoice.invoiceLifeCycleState.invoiceState |> InvoiceState.toString
         let paymentState = invoice.invoiceLifeCycleState.paymentState |> PaymentState.toString
@@ -131,6 +138,7 @@ let insertNewToDb
               { name = "@unique_id"; value = UniqueId(uuid) }
               { name = "@instance_id"; value = UniqueId(instanceUuid) }
               { name = "@payment_agreement_id"; value = UniqueId(paymentAgreementUuid) }
+              { name = "@external_invoice_id"; value = NullableCharString(externalInvoiceId) }
               { name = "@invoice_date"; value = DbLocalDate(invoice.invoiceDate) }
               { name = "@due_date"; value = DbLocalDate(invoice.dueDate) }
               { name = "@amount"; value = Numeric(amount) }
@@ -151,6 +159,7 @@ let private reconstitute raw =
         let (uuid,
              instanceUuid,
              paymentAgreementUuid,
+             externalInvoiceIdStr,
              invoiceDate,
              dueDate,
              amountDec,
@@ -166,6 +175,8 @@ let private reconstitute raw =
         let invoiceId = uuid |> InvoiceId.fromGuid
         let instanceId = instanceUuid |> InstanceId.fromGuid
         let paymentAgreementId = paymentAgreementUuid |> PaymentAgreementId.fromGuid
+        let! externalInvoiceId =
+            externalInvoiceIdStr |> convertOptionToDesiredTypeWithFallibleConverter ExternalInvoiceId.create
         let! amount = amountDec |> Money.fromDecimal
         let! invoiceState = invoiceStateStr |> InvoiceState.fromString
         let! paymentState = paymentStateStr |> PaymentState.fromString
@@ -182,6 +193,7 @@ let private reconstitute raw =
                 invoiceId
                 instanceId
                 paymentAgreementId
+                externalInvoiceId
                 invoiceDate
                 dueDate
                 amount
@@ -195,6 +207,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getUuid "unique_id"),
     (row |> RowReader.getUuid "instance_id"),
     (row |> RowReader.getUuid "payment_agreement_id"),
+    (row |> RowReader.getStringOption "external_invoice_id"),
     (row |> RowReader.getDate "invoice_date"),
     (row |> RowReader.getDate "due_date"),
     (row |> RowReader.getNumeric "amount"),
@@ -237,9 +250,9 @@ let private fetchGenericRead
     (expectedRows: AcceptableExpectedRows)
     : Result<Invoice list, AppError> =
     let select = """
-        inv.unique_id, inv.instance_id, inv.payment_agreement_id, inv.invoice_date, inv.due_date, inv.amount,
-        inv.invoice_state, inv.payment_state, inv.posted_state, inv.blocker_state, inv.blocker_note, inv.memo,
-        inv.created_at, inv.modified_at
+        inv.unique_id, inv.instance_id, inv.payment_agreement_id, inv.external_invoice_id, inv.invoice_date,
+        inv.due_date, inv.amount, inv.invoice_state, inv.payment_state, inv.posted_state, inv.blocker_state,
+        inv.blocker_note, inv.memo, inv.created_at, inv.modified_at
         """
     readRowsFromDb context None select None predicate limit None None parameters expectedRows
 
@@ -262,6 +275,11 @@ let updateDb
         [ { name = "@unique_id"; value = UniqueId uuid } ]
     let updates =
         [
+              fieldUpdates.externalInvoiceIdUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("external_invoice_id = @external_invoice_id",
+                     { name = "@external_invoice_id"; value = NullableCharString(n |> Option.map ExternalInvoiceId.value) }) ])
+
               fieldUpdates.invoiceDateUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
                   [ ("invoice_date = @invoice_date", { name = "@invoice_date"; value = DbLocalDate(n) }) ])
