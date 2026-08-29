@@ -5,6 +5,7 @@ open Model
 open Model.CashFlow
 open Model.CashFlow.CashFlowComponent
 open Model.Ledger.Accounts.AccountComponent
+open ModelOrchestrator.CashFlowCompositeFetcher
 open ModelOrchestrator.FetchFilters
 open NodaTime
 open Utilities.AppError
@@ -189,8 +190,13 @@ let fetchFiltered
     (filter: AgreementFilter)
     : Result<Agreement list, AppError> =
     result {
-        // fetch based on filter (this query will be a monster)
-        // trust the DB and return without validation
+        let fetchFunc = MasterAgreement.readRowsFromDb
+        let! masterAgreements =
+            filter
+            |> fetchCompositeFiltered context fetchFunc TargetComposite.Agreement
+        // fetch the rest of the composite parts
+        // assemble. see compileFromSubLists in StageEntryOrchestration for the pattern
+        // trust the DB and return
         raise(NotImplementedException())
     }
 
@@ -230,7 +236,7 @@ let updateStageEntry
         // if any payments need updating
             // send each invoiceUpdate to Invoice.updateDb; discard
         // call fetchByMasterAgreementId
-        // call confirmComposite
+        // call confirmComposite to make sure you didn't fuck up my database
         // return fetched
         raise(NotImplementedException())
     }

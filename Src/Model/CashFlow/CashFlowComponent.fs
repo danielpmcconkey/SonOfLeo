@@ -104,20 +104,20 @@ module PaymentState =
 
 type PostedState =
     | NotHandled
-    | IngestedToStage
+    | PartiallyPosted
     | PostedToLedger
 
 module PostedState =
     let fromString str =
         match str with
         | "NotHandled" -> Ok NotHandled
-        | "IngestedToStage" -> Ok IngestedToStage
+        | "PartiallyPosted" -> Ok PartiallyPosted
         | "PostedToLedger" -> Ok PostedToLedger
         | _ -> Error (CashflowInvalidPostedState str)
     let toString state =
         match state with
         | NotHandled -> "NotHandled"
-        | IngestedToStage -> "IngestedToStage"
+        | PartiallyPosted -> "PartiallyPosted"
         | PostedToLedger -> "PostedToLedger"
 
 type BlockerNote = private BlockerNote of string
@@ -139,6 +139,14 @@ type Blocker =
     | Irresponsible
     | NeedsDecision of BlockerNote
     | Other of BlockerNote
+
+module Blocker =
+    let toString b =
+        match b with
+        | NoFunds -> "NoFunds"
+        | Irresponsible -> "Irresponsible"
+        | NeedsDecision note -> $"NeedsDecision: {note}"
+        | Other note -> $"Other: {note}"
     
 type InvoiceLifeCycleState = {
     invoiceState: InvoiceState
