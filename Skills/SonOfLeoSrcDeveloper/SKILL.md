@@ -173,6 +173,17 @@ status-transition side table):
 6. **`fetchById`** (public) — the one predicate every entity gets for free:
    `alias.unique_id = @unique_id`, `ExactlyOne`, `|> Result.map List.head`. Add more
    `fetchByX` functions the same way as the task calls for them.
+
+   **`fetchByXIdList`** — the bulk-fetch-by-parent-id variant, needed by the composite read
+   pattern (never N+1). Shape: empty-list guard up front (`if ids |> List.isEmpty then
+   Error ...`) because `in ()` is invalid SQL; ordinal-numbered params (`@xId1, @xId2, ...`)
+   zipped against the list, joined into an `in (...)` predicate; built on top of the entity's
+   own `fetchGenericRead`, same as `fetchById`. The empty-list `AppError` case is keyed to
+   the *id type being listed*, not the target table — e.g.
+   `CashflowMasterAgreementIdListCannotBeEmpty` is shared by both
+   `PaymentAgreement.fetchByMasterAgreementIdList` and
+   `Instance.fetchByMasterAgreementIdList`, since both are listing the same parent id type.
+   Precedent: `StageEntryLine.fetchByHeaderIdList`, `Instance.fetchByMasterAgreementIdList`.
 7. **`updateDb`** (public) — takes an `<Entity>FieldUpdates` record (see FieldUpdate below),
    builds `(setClause, QueryParameter) list option` per field via
    `FieldUpdate.mapNoChangeToOptionWithConversion`, flattens with
