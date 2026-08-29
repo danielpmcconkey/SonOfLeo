@@ -39,7 +39,7 @@ let private confirmAuthorityAndCohesion
     (invoiceUpdates: Invoice.InvoiceFieldUpdates list)
     (paymentUpdates: Payment.PaymentFieldUpdates list)
     (masterAgreementUpdates: MasterAgreement.MasterAgreementFieldUpdates)
-    : Result<Agreement, AppError> =
+    : Result<unit, AppError> =
     result {
         // note: this runs super slow. It's not a common activity so that's likely okay. Start with this flow. If we
         // notice that it takes forever, we can implement some memoization down the line
@@ -213,7 +213,7 @@ let fetchByMasterAgreementId
     
 /// Note to caller, many of the updates are sent to the DB *before* true aggregate validation. Make sure you wrap this
 /// in a transaction you can roll back
-let updateStageEntry
+let updateAgreement
     (context: Context.Context)
     (paymentAgreementUpdates: PaymentAgreement.PaymentAgreementFieldUpdates list)
     (instanceUpdates: Instance.InstanceFieldUpdates list)
