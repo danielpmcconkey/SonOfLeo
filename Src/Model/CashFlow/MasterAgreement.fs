@@ -9,6 +9,12 @@ open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
 
+let masterAgreementSelectFields = """
+    ma.unique_id, ma.agreement_name, ma.flow_direction, ma.cadence, ma.cadence_week_day,
+    ma.cadence_date_in_month, ma.cadence_week_in_month, ma.cadence_month, ma.counterparty,
+    ma.start_date, ma.end_date, ma.memo, ma.created_at, ma.modified_at
+    """
+
 type MasterAgreement = private {
     agreementId: MasterAgreementId
     agreementName: AgreementName
@@ -261,12 +267,7 @@ let private fetchGenericRead
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
     : Result<MasterAgreement list, AppError> =
-    let select = """
-        ma.unique_id, ma.agreement_name, ma.flow_direction, ma.cadence, ma.cadence_week_day,
-        ma.cadence_date_in_month, ma.cadence_week_in_month, ma.cadence_month, ma.counterparty,
-        ma.start_date, ma.end_date, ma.memo, ma.created_at, ma.modified_at
-        """
-    readRowsFromDb context None select None predicate limit None None parameters expectedRows
+    readRowsFromDb context None masterAgreementSelectFields None predicate limit None None parameters expectedRows
 
 let fetchById (context: Context.Context) (agreementID: MasterAgreementId) : Result<MasterAgreement, AppError> =
     let predicate = "ma.unique_id = @unique_id"

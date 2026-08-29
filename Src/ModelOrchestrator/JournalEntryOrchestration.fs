@@ -205,14 +205,10 @@ module JournalEntry =
         (expectedRows: AcceptableExpectedRows)
         : Result<JournalEntryHeader list, AppError> =
         result {
-            let! dateRange =
-                match filter.temporalFilter with
-                | None -> Ok None
-                | Some(DateRange dr) -> Ok(Some(dr.beginDate, dr.endInclusive))
-                | Some(FiscalPeriodIdentifier fpId) ->
-                    fpId
-                    |> FiscalPeriod.fetchById context
-                    |> Result.map(fun fp -> Some(fp |> FiscalPeriod.startDate, fp |> FiscalPeriod.endDate))
+            let! filterDateRangeOption =
+                filter.temporalFilter
+                |> convertOptionToDesiredTypeWithFallibleConverter (getDateRangeFromTemporalFilter context)
+            let dateRange = filterDateRangeOption |> Option.map (fun x -> x.beginDate, x.endInclusive)
             let voidClause =
                 if filter.unVoidedOnly then
                     "and je.voided_at is null"

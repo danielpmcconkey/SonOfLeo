@@ -28,8 +28,10 @@
     <Compile Include="TrialBalance.fs" />
     <Compile Include="ClassificationOrchestration.fs" />
     <Compile Include="StageEntryOrchestration.fs" />
+    <Compile Include="CashFlowCompositeFetcher.fs" />
     <Compile Include="CashFlowOps.fs" />
     <Compile Include="AgreementOrchestration.fs" />
+    <Compile Include="InvoiceOrchestration.fs" />
   </ItemGroup>
 
 </Project>

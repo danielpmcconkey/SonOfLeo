@@ -8,7 +8,6 @@ open Model.DataIngestion
 open Model.DataIngestion.BaseStageRaw
 open Model.DataIngestion.Classification
 open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.FiscalPeriods
 open Model.Ledger.Journaling.JournalEntryComponent
 open ModelOrchestrator.FetchFilters
 open ModelOrchestrator.JournalEntries
@@ -563,14 +562,10 @@ let fetchFiltered
     (sort: FetchStageEntrySort option)
     (filter: StageEntryFetchFilter)
     : Result<StageEntry list, AppError> = result {
-    let! dateRange =
-        match filter.temporalFilter with
-        | None -> Ok None
-        | Some(DateRange dr) -> Ok(Some(dr.beginDate, dr.endInclusive))
-        | Some(FiscalPeriodIdentifier fpId) ->
-            fpId
-            |> FiscalPeriod.fetchById context
-            |> Result.map(fun fp -> Some(fp |> FiscalPeriod.startDate, fp |> FiscalPeriod.endDate))
+    let! filterDateRangeOption =
+        filter.temporalFilter
+        |> convertOptionToDesiredTypeWithFallibleConverter (getDateRangeFromTemporalFilter context)
+    let dateRange = filterDateRangeOption |> Option.map (fun x -> x.beginDate, x.endInclusive)
     let sortClause =
         match sort with
         | None -> None

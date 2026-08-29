@@ -10,6 +10,12 @@ open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
 
+let invoiceSelectFields = """
+    inv.unique_id, inv.instance_id, inv.payment_agreement_id, inv.external_invoice_id, inv.invoice_date,
+    inv.due_date, inv.amount, inv.invoice_state, inv.payment_state, inv.posted_state, inv.blocker_state,
+    inv.blocker_note, inv.memo, inv.created_at, inv.modified_at
+    """
+
 type Invoice = private {
     invoiceId: InvoiceId
     instanceId: InstanceId
@@ -249,12 +255,7 @@ let private fetchGenericRead
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
     : Result<Invoice list, AppError> =
-    let select = """
-        inv.unique_id, inv.instance_id, inv.payment_agreement_id, inv.external_invoice_id, inv.invoice_date,
-        inv.due_date, inv.amount, inv.invoice_state, inv.payment_state, inv.posted_state, inv.blocker_state,
-        inv.blocker_note, inv.memo, inv.created_at, inv.modified_at
-        """
-    readRowsFromDb context None select None predicate limit None None parameters expectedRows
+    readRowsFromDb context None invoiceSelectFields None predicate limit None None parameters expectedRows
 
 let fetchById (context: Context.Context) (invoiceId: InvoiceId) : Result<Invoice, AppError> =
     let predicate = "inv.unique_id = @unique_id"
