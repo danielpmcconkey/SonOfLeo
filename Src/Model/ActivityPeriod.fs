@@ -15,7 +15,7 @@ let create (rawBegin: LocalDate) (rawEnd: LocalDate option) : Result<ActivityPer
     | None -> Ok { activeBegin = rawBegin; activeEnd = None }
     | Some x ->
         if x < rawBegin then
-            Error(AccountActiveEndBeforeBegin(rawBegin, rawEnd))
+            Error(ActiveEndBeforeBegin(rawBegin, rawEnd))
         else
             Ok { activeBegin = rawBegin; activeEnd = rawEnd }
 let isActive

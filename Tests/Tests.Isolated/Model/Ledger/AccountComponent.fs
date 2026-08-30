@@ -547,7 +547,7 @@ let ``REQ-SYS-1.1 AccountExternalReference trims leading and trailing whitespace
 let ``REQ-AC-1.46 ActivityPeriod rejects activeEnd earlier than activeBegin`` () =
     let ab = Calendar.today()
     let ae = Some(ab.PlusDays(-1))
-    isCorrectError (ActivityPeriod.create ab ae) AccountActiveEndBeforeBegin None
+    isCorrectError (ActivityPeriod.create ab ae) ActiveEndBeforeBegin None
     |> railroadWrapper
 
 [<Fact>]
