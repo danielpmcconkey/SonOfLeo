@@ -10,7 +10,6 @@ type AppError =
     | TestingError of string
     
     | AccountActiveChildrenBeforeDeactivation of Guid
-    | AccountActiveEndBeforeBegin of LocalDate * LocalDate option
     | AccountAlreadyInactive of Guid * LocalDate
     | AccountBalanceFetchInvalidArguments
     | AccountCodeDoesntMatchAccountId of string
@@ -35,7 +34,9 @@ type AppError =
     | AccountSubtypeInvalid of string
     | AccountTypeInvalid of string
     | AccountUpdateNoOp
-    
+
+    | ActiveEndBeforeBegin of LocalDate * LocalDate option
+
     | CashflowAgreementEndDateBeforeStartDate of LocalDate * LocalDate
     | CashflowAgreementEndDateInPast of LocalDate
     | CashflowAgreementMemoIsEmpty of string
@@ -236,7 +237,6 @@ module AppError =
         | TestingError message -> message
         
         | AccountActiveChildrenBeforeDeactivation uuid -> $"Account {uuid} deactivation failed because one or more child account records is active."
-        | AccountActiveEndBeforeBegin(activeBegin, activeEnd) -> $"Active end ({activeEnd}) cannot be before active begin ({activeBegin})"
         | AccountAlreadyInactive(uuid, endDate) -> $"Account {uuid} deactivation failed because active end is already set to {endDate}."
         | AccountBalanceFetchInvalidArguments -> "fetchByAccountIdList requires at least one account ID"
         | AccountCodeDoesntMatchAccountId code -> $"Account code of {code} doesn't match an Account ID in the database."
@@ -261,7 +261,9 @@ module AppError =
         | AccountSubtypeInvalid subtype -> $"Provided string of '{subtype}' is not a valid account subtype."
         | AccountTypeInvalid typeString -> $"Provided string of '{typeString}' is not a valid account type."
         | AccountUpdateNoOp -> "Updating the account record failed because at least one updatable parameter must be set."
-        
+
+        | ActiveEndBeforeBegin(activeBegin, activeEnd) -> $"An activity period's active end ({activeEnd}) cannot be before its active begin ({activeBegin})."
+
         | CashflowAgreementEndDateBeforeStartDate(startDate, endDate) -> $"Agreement end date ({endDate}) cannot be before its start date ({startDate})."
         | CashflowAgreementEndDateInPast endDate -> $"Agreement end date ({endDate}) cannot be in the past."
         | CashflowAgreementMemoIsEmpty memo -> $"AgreementMemo cannot be empty. Provided Memo is {memo}."
