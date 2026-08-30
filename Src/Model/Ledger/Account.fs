@@ -1,6 +1,6 @@
 module Model.Ledger.Account
 
-open Model.ActivityPeriod
+open Model
 open Utilities
 open Utilities.AppError
 open Utilities.FieldUpdate
@@ -17,7 +17,7 @@ type Account =
           code: AccountCode
           accountName: AccountName
           accountType: AccountType
-          activityPeriod: ActivityPeriod
+          activityPeriod: ActivityPeriod.ActivityPeriod
           accountSubType: AccountSubtype option
           parentId: AccountId option
           externalReference: AccountExternalReference option
@@ -42,7 +42,7 @@ module Account =
         (code: AccountCode)
         (accountName: AccountName)
         (accountType: AccountType)
-        (accountActivityPeriod: ActivityPeriod)
+        (accountActivityPeriod: ActivityPeriod.ActivityPeriod)
         (subType: AccountSubtype option)
         (parentId: AccountId option)
         (reference: AccountExternalReference option)
@@ -84,7 +84,7 @@ module Account =
             let! accountCode = codeString |> AccountCode.create
             let! accountName = nameString |> AccountName.create
             let! accountType = accountTypeString |> AccountType.fromString
-            let! activityPeriod = Model.ActivityPeriod.create activeBegin activeEnd
+            let! activityPeriod = ActivityPeriod.create activeBegin activeEnd
             let! subtype =
                 subtypeString
                 |> Option.map(fun x -> x |> AccountSubtype.fromString |> Result.map Some)
@@ -189,9 +189,9 @@ module Account =
               { name = "@code"; value = CharString(AccountCode.value account.code) }
               { name = "@account_name"; value = CharString(AccountName.value account.accountName) }
               { name = "@account_type"; value = CharString(AccountType.toString account.accountType) }
-              { name = "@active_begin"; value = DbLocalDate(activeBegin account.activityPeriod) }
+              { name = "@active_begin"; value = DbLocalDate(ActivityPeriod.activeBegin account.activityPeriod) }
               { name = "@active_end"
-                value = NullableDbLocalDate(activeEnd account.activityPeriod) }
+                value = NullableDbLocalDate(ActivityPeriod.activeEnd account.activityPeriod) }
               { name = "@created_at"; value = DbInstant account.createdAt }
               { name = "@modified_at"; value = DbInstant account.modifiedAt }
               { name = "@account_subtype"; value = NullableCharString subTypeString }
@@ -228,7 +228,7 @@ module Account =
         | Ok allRows ->
             if activeOnly then
                 allRows
-                |> List.filter(fun x -> x.activityPeriod |> isActive activeReference)
+                |> List.filter(fun x -> x.activityPeriod |> ActivityPeriod.isActive activeReference)
                 |> Ok
             else
                 Ok allRows
