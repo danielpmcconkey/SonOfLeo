@@ -59,12 +59,13 @@ let create
     (createdAt: Instant)
     (modifiedAt: Instant)
     : MasterAgreement =
+    let rebuiltActivityPeriod = agreementActivityPeriod |> ActivityPeriod.insistActiveBeforeBeginFlag true
     {  agreementId = agreementID
        agreementName = agreementName
        direction = direction
        cadence = cadence
        counterparty = counterparty
-       activityPeriod = agreementActivityPeriod
+       activityPeriod = rebuiltActivityPeriod
        memo = memo
        createdAt = createdAt
        modifiedAt = modifiedAt }
@@ -205,7 +206,7 @@ let private reconstitute raw =
         let! direction = flowDirectionStr |> FlowDirection.fromString
         let! cadence = cadenceFromColumns cadenceName cadenceWeekDay cadenceDateInMonth cadenceWeekInMonth cadenceMonth
         let! counterparty = counterpartyStr |> Counterparty.create
-        let! agreementActivityPeriod = ActivityPeriod.create startDate endDate
+        let! agreementActivityPeriod = ActivityPeriod.create startDate endDate true
         let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter AgreementMemo.create
         return
             create

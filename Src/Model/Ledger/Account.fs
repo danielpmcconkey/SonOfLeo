@@ -49,11 +49,12 @@ module Account =
         (createdAt: Instant)
         (modifiedAt: Instant)
         : Account =
+        let rebuiltActivityPeriod = accountActivityPeriod |> ActivityPeriod.insistActiveBeforeBeginFlag false
         { accountId = accountId
           code = code
           accountName = accountName
           accountType = accountType
-          activityPeriod = accountActivityPeriod
+          activityPeriod = rebuiltActivityPeriod
           accountSubType = subType
           parentId = parentId
           externalReference = reference
@@ -84,7 +85,7 @@ module Account =
             let! accountCode = codeString |> AccountCode.create
             let! accountName = nameString |> AccountName.create
             let! accountType = accountTypeString |> AccountType.fromString
-            let! activityPeriod = ActivityPeriod.create activeBegin activeEnd
+            let! activityPeriod = ActivityPeriod.create activeBegin activeEnd false
             let! subtype =
                 subtypeString
                 |> Option.map(fun x -> x |> AccountSubtype.fromString |> Result.map Some)
