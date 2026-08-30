@@ -37,8 +37,6 @@ type AppError =
 
     | ActiveEndBeforeBegin of LocalDate * LocalDate option
 
-    | CashflowAgreementEndDateBeforeStartDate of LocalDate * LocalDate
-    | CashflowAgreementEndDateInPast of LocalDate
     | CashflowAgreementMemoIsEmpty of string
     | CashflowAgreementMemoTooLong of string * int
     | CashflowAgreementNameIsEmpty of string
@@ -84,6 +82,7 @@ type AppError =
     | CashflowInvoiceUpdateNoOp
     | CashflowMasterAgreementIdDoesntExist of Guid
     | CashflowMasterAgreementIdListCannotBeEmpty
+    | CashflowMasterAgreementInactive of Guid * LocalDate * LocalDate * LocalDate option
     | CashflowMasterAgreementUpdateNoOp
     | CashflowPaymentAgreementCreditAccountInvalid of Guid
     | CashflowPaymentAgreementDebitAccountInvalid of Guid
@@ -264,8 +263,6 @@ module AppError =
 
         | ActiveEndBeforeBegin(activeBegin, activeEnd) -> $"An activity period's active end ({activeEnd}) cannot be before its active begin ({activeBegin})."
 
-        | CashflowAgreementEndDateBeforeStartDate(startDate, endDate) -> $"Agreement end date ({endDate}) cannot be before its start date ({startDate})."
-        | CashflowAgreementEndDateInPast endDate -> $"Agreement end date ({endDate}) cannot be in the past."
         | CashflowAgreementMemoIsEmpty memo -> $"AgreementMemo cannot be empty. Provided Memo is {memo}."
         | CashflowAgreementMemoTooLong(memo, max) -> $"AgreementMemo cannot exceed {max} characters. Provided Memo is {memo}."
         | CashflowAgreementNameIsEmpty name -> $"AgreementName cannot be empty. Provided name is {name}."
@@ -311,6 +308,11 @@ module AppError =
         | CashflowInvoiceUpdateNoOp -> "Updating the Invoice record failed because at least one updatable parameter must be set."
         | CashflowMasterAgreementIdDoesntExist uuid -> $"Could not locate a MasterAgreement with the id of {uuid}."
         | CashflowMasterAgreementIdListCannotBeEmpty -> "The masterAgreementIds list must contain at least 1 ID."
+        | CashflowMasterAgreementInactive(uuid, referenceDate, beginDate, endDate) ->
+            let endDateStr = match endDate with
+                                | Some x -> x.ToString()
+                                | None -> "None"
+            $"Master Agreement ({uuid}) is not active (begin {beginDate}; end {endDateStr}) as of {referenceDate}."
         | CashflowMasterAgreementUpdateNoOp -> "Updating the MasterAgreement record failed because at least one updatable parameter must be set."
         | CashflowPaymentAgreementCreditAccountInvalid uuid -> $"PaymentAgreement's credit account ({uuid}) does not match an Account in the database."
         | CashflowPaymentAgreementDebitAccountInvalid uuid -> $"PaymentAgreement's debit account ({uuid}) does not match an Account in the database."

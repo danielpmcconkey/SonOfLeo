@@ -10,7 +10,6 @@ open Model.Ledger
 open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.CashFlowCompositeFetcher
 open ModelOrchestrator.FetchFilters
-open NodaTime
 open Utilities.AppError
 open Utilities.Calendar
 open Utilities.FieldUpdate
@@ -292,19 +291,24 @@ let private confirmPaymentAgreements
     }
 
 let private confirmAgreementDates
-    (startDate: LocalDate)
-    (endDate: LocalDate option)
+    (agreementId: CashFlowComponent.MasterAgreementId)
+    (agreementActivityPeriod: ActivityPeriod.ActivityPeriod)
     : Result<unit, AppError> =
-    if endDate |> Option.isNone then Ok () else
-    let endDateValue = endDate |> Option.get
-    if endDateValue < startDate then Error(CashflowAgreementEndDateBeforeStartDate(startDate, endDateValue))
-    elif endDateValue < today() then Error(CashflowAgreementEndDateInPast endDateValue)
-    else Ok ()
+    let referenceDate = today()
+    match agreementActivityPeriod |> ActivityPeriod.isActive referenceDate with
+    | true -> Ok ()
+    | false ->
+        let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
+        let beginDate = agreementActivityPeriod |> ActivityPeriod.activeBegin
+        let endDate = agreementActivityPeriod |> ActivityPeriod.activeEnd
+        Error(CashflowMasterAgreementInactive(agreementUuid, referenceDate, beginDate, endDate))
 
 let private confirmMasterAgreement
     (masterAgreement: MasterAgreement.MasterAgreement)
     : Result<unit, AppError> =
-    confirmAgreementDates (masterAgreement |> MasterAgreement.startDate) (masterAgreement |> MasterAgreement.endDate)
+    let agreementId = masterAgreement |> MasterAgreement.agreementID
+    let agreementActivityPeriod = masterAgreement |> MasterAgreement.activityPeriod
+    confirmAgreementDates agreementId agreementActivityPeriod
 
 let private confirmComposite
     (context: Context.Context)
@@ -437,8 +441,7 @@ let private isThereAMasterAgreementUpdate
     || masterAgreementUpdates.directionUpdate <> FieldUpdate.NoChange
     || masterAgreementUpdates.cadenceUpdate <> FieldUpdate.NoChange
     || masterAgreementUpdates.counterpartyUpdate <> FieldUpdate.NoChange
-    || masterAgreementUpdates.startDateUpdate <> FieldUpdate.NoChange
-    || masterAgreementUpdates.endDateUpdate <> FieldUpdate.NoChange
+    || masterAgreementUpdates.activityPeriodUpdate <> FieldUpdate.NoChange
     || masterAgreementUpdates.memoUpdate <> FieldUpdate.NoChange
 
 let private isThereAPaymentAgreementUpdate

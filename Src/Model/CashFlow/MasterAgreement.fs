@@ -1,5 +1,6 @@
 module Model.CashFlow.MasterAgreement
 
+open Model
 open Model.CashFlow.CashFlowComponent
 open NodaTime
 open Utilities.AppError
@@ -21,8 +22,7 @@ type MasterAgreement = private {
     direction: FlowDirection
     cadence: Cadence
     counterparty: Counterparty
-    startDate: LocalDate
-    endDate: LocalDate option
+    activityPeriod: ActivityPeriod.ActivityPeriod
     memo: AgreementMemo option
     createdAt: Instant
     modifiedAt: Instant
@@ -34,8 +34,7 @@ type MasterAgreementFieldUpdates = {
     directionUpdate: FieldUpdate<FlowDirection>
     cadenceUpdate: FieldUpdate<Cadence>
     counterpartyUpdate: FieldUpdate<Counterparty>
-    startDateUpdate: FieldUpdate<LocalDate>
-    endDateUpdate: FieldUpdate<LocalDate option>
+    activityPeriodUpdate: FieldUpdate<ActivityPeriod.ActivityPeriod>
     memoUpdate: FieldUpdate<AgreementMemo option>
 }
         
@@ -44,8 +43,7 @@ let agreementName m = m.agreementName
 let direction m = m.direction
 let cadence m = m.cadence
 let counterparty m = m.counterparty
-let startDate m = m.startDate
-let endDate m = m.endDate
+let activityPeriod m = m.activityPeriod
 let memo m = m.memo
 let createdAt m = m.createdAt
 let modifiedAt m = m.modifiedAt
@@ -56,8 +54,7 @@ let create
     (direction: FlowDirection)
     (cadence: Cadence)
     (counterparty: Counterparty)
-    (startDate: LocalDate)
-    (endDate: LocalDate option)
+    (agreementActivityPeriod: ActivityPeriod.ActivityPeriod)
     (memo: AgreementMemo option)
     (createdAt: Instant)
     (modifiedAt: Instant)
@@ -67,8 +64,7 @@ let create
        direction = direction
        cadence = cadence
        counterparty = counterparty
-       startDate = startDate
-       endDate = endDate
+       activityPeriod = agreementActivityPeriod
        memo = memo
        createdAt = createdAt
        modifiedAt = modifiedAt }
@@ -164,6 +160,8 @@ let insertNewToDb
         let cadenceName, cadenceDateInMonth, cadenceWeekInMonth, cadenceWeekDay, cadenceMonth =
             masterAgreement.cadence |> cadenceToColumns
         let counterparty = masterAgreement.counterparty |> Counterparty.value
+        let activeBegin = masterAgreement.activityPeriod |> ActivityPeriod.activeBegin
+        let activeEnd = masterAgreement.activityPeriod |> ActivityPeriod.activeEnd
         let memo = masterAgreement.memo |> Option.map AgreementMemo.value
         let parameters =
             [
@@ -176,8 +174,8 @@ let insertNewToDb
               { name = "@cadence_week_in_month"; value = NullableInteger(cadenceWeekInMonth) }
               { name = "@cadence_month"; value = NullableCharString(cadenceMonth) }
               { name = "@counterparty"; value = CharString(counterparty) }
-              { name = "@start_date"; value = DbLocalDate(masterAgreement.startDate) }
-              { name = "@end_date"; value = NullableDbLocalDate(masterAgreement.endDate) }
+              { name = "@start_date"; value = DbLocalDate(activeBegin) }
+              { name = "@end_date"; value = NullableDbLocalDate(activeEnd) }
               { name = "@memo"; value = NullableCharString(memo) }
               { name = "@created_at"; value = DbInstant(masterAgreement.createdAt) }
               { name = "@modified_at"; value = DbInstant(masterAgreement.modifiedAt) }
@@ -207,6 +205,7 @@ let private reconstitute raw =
         let! direction = flowDirectionStr |> FlowDirection.fromString
         let! cadence = cadenceFromColumns cadenceName cadenceWeekDay cadenceDateInMonth cadenceWeekInMonth cadenceMonth
         let! counterparty = counterpartyStr |> Counterparty.create
+        let! agreementActivityPeriod = ActivityPeriod.create startDate endDate
         let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter AgreementMemo.create
         return
             create
@@ -215,8 +214,7 @@ let private reconstitute raw =
                 direction
                 cadence
                 counterparty
-                startDate
-                endDate
+                agreementActivityPeriod
                 memo
                 createdAt
                 modifiedAt
@@ -317,13 +315,12 @@ let updateDb
                   [ ("counterparty = @counterparty",
                      { name = "@counterparty"; value = CharString(Counterparty.value n) }) ])
 
-              fieldUpdates.startDateUpdate
+              fieldUpdates.activityPeriodUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  [ ("start_date = @start_date", { name = "@start_date"; value = DbLocalDate(n) }) ])
-
-              fieldUpdates.endDateUpdate
-              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  [ ("end_date = @end_date", { name = "@end_date"; value = NullableDbLocalDate(n) }) ])
+                  let activeBegin = n |> ActivityPeriod.activeBegin
+                  let activeEnd = n |> ActivityPeriod.activeEnd
+                  [ ("start_date = @start_date", { name = "@start_date"; value = DbLocalDate(activeBegin) })
+                    ("end_date = @end_date", { name = "@end_date"; value = NullableDbLocalDate(activeEnd) }) ])
 
               fieldUpdates.memoUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
