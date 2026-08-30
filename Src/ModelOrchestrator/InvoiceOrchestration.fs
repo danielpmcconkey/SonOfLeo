@@ -3,8 +3,6 @@ module ModelOrchestrator.InvoiceOrchestration
 open DataAccessLayer.ExecuteReader
 open Model
 open Model.CashFlow
-open Model.CashFlow.CashFlowComponent
-open Model.CashFlow.Invoice
 open ModelOrchestrator.CashFlowCompositeFetcher
 open ModelOrchestrator.FetchFilters
 open Utilities.AppError
@@ -33,7 +31,7 @@ let private confirmPaymentBelongsToInvoice
 
 let private confirmAuthorityAndCohesion
     (context: Context.Context)
-    (invoiceUpdate: InvoiceFieldUpdates)
+    (invoiceUpdate: Invoice.InvoiceFieldUpdates)
     (paymentUpdates: Payment.PaymentFieldUpdates list)
     : Result<unit, AppError> =
     let invoiceId = invoiceUpdate.invoiceIdToUpdate
@@ -174,7 +172,6 @@ let fetchFiltered
         return compileFromSubLists invoices payments
     }
 
-// fetches directly rather than through fetchFiltered/AgreementFilter, which has no predicate for an invoice's own id
 let fetchCompositeByInvoiceId
     (context: Context.Context)
     (invoiceId: CashFlowComponent.InvoiceId)
@@ -186,7 +183,7 @@ let fetchCompositeByInvoiceId
     }
 
 let private isThereAnInvoiceUpdate
-    (invoiceUpdates: InvoiceFieldUpdates)
+    (invoiceUpdates: Invoice.InvoiceFieldUpdates)
     : bool =
     invoiceUpdates.externalInvoiceIdUpdate <> FieldUpdate.NoChange
     || invoiceUpdates.invoiceDateUpdate <> FieldUpdate.NoChange
@@ -214,7 +211,7 @@ let private isThereAPaymentUpdate
 let updateInvoiceComposite
     (context: Context.Context)
     (paymentUpdates: Payment.PaymentFieldUpdates list)
-    (invoiceUpdates: InvoiceFieldUpdates)
+    (invoiceUpdates: Invoice.InvoiceFieldUpdates)
     : Result<InvoiceComposite, AppError> =
     result {
         let shouldUpdateInvoice = invoiceUpdates |> isThereAnInvoiceUpdate
