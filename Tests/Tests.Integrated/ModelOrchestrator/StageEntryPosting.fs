@@ -35,10 +35,10 @@ module PostedJournalEntry =
     let fetchOnDate context (date: NodaTime.LocalDate) = fetchByDateRange context date date
 
     let headerOf journalEntry = journalEntry |> header
-    let linesOf journalEntry = journalEntry |> lines
+    let linesOf journalEntry = journalEntry |> jeLines
     let externalReferencesOf journalEntry = journalEntry |> externalReferences
 
-    let lineCount journalEntry = journalEntry |> lines |> List.length
+    let lineCount journalEntry = journalEntry |> jeLines |> List.length
 
 
 [<Collection("SharedTestData")>]
@@ -77,7 +77,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
     /// REQ-STG-9.4 both turn on, and the only way to reach it without a fixture archetype
     /// that would then be postable in every other test in this file.
     static let stripAccountCodeFromFirstLine context entry =
-        let lineId = entry |> lines |> List.head |> StageEntryLine.stageEntryLineId
+        let lineId = entry |> seLines |> List.head |> StageEntryLine.stageEntryLineId
         updateStageEntry
             context
             (entry |> stageEntryHeaderIdOf |> noChangeHeaderUpdates)
@@ -166,9 +166,9 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                         let status = StageTestData.latestStatus entry
                         (status = Classified || status = Reviewed)
                         && entry
-                           |> lines
+                           |> seLines
                            |> List.forall (fun line -> line |> StageEntryLine.accountId |> Option.isSome))
-                    |> List.collect lines
+                    |> List.collect seLines
                 (* A trial balance rolls child balances up into their parents, so only a leaf
                    account's movement equals its own postings. *)
                 let accountCodeOf accountId =
@@ -360,7 +360,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "PAYROLL DEPOSIT ACME CORP"
                 let expected =
                     entry
-                    |> lines
+                    |> seLines
                     |> List.map (fun line ->
                         line |> StageEntryLine.accountId |> Option.get |> AccountId.value,
                         line |> StageEntryLine.amount |> Money.amount,
@@ -397,7 +397,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 // the entry has to still be postable, or the post below would prove nothing
                 Assert.Equal(Classified, StageTestData.latestStatus uncoded)
                 Assert.True(
-                    uncoded |> lines |> List.exists (fun line -> line |> StageEntryLine.accountId |> Option.isNone),
+                    uncoded |> seLines |> List.exists (fun line -> line |> StageEntryLine.accountId |> Option.isNone),
                     "The line under test must be uncoded for this test to mean anything.")
                 return!
                     match ModelOrchestrator.StageEntryOrchestration.post context with
@@ -516,7 +516,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 let stripped =
                     postables |> List.find (fun entry -> entry |> stageEntryHeaderIdOf = strippedHeaderId)
                 Assert.True(
-                    stripped |> lines |> List.exists (fun line -> line |> StageEntryLine.accountId |> Option.isNone),
+                    stripped |> seLines |> List.exists (fun line -> line |> StageEntryLine.accountId |> Option.isNone),
                     "The stripped line must still be uncoded for this test to mean anything.")
             })
         |> railroadWrapper

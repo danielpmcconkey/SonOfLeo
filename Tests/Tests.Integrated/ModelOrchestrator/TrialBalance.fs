@@ -27,7 +27,7 @@ type TrialBalanceTests(fixture: TestDataFixture) =
         fixture.Data.journalEntries
         |> List.filter(fun je ->
             je |> header |> JournalEntryHeader.voidedAt |> Option.isNone)
-        |> List.collect lines
+        |> List.collect jeLines
 
     let sumLinesForAccount accountId lineType =
         unvoidedLines
@@ -152,7 +152,7 @@ type TrialBalanceTests(fixture: TestDataFixture) =
                 let h = je |> header
                 h |> JournalEntryHeader.voidedAt |> Option.isNone
                 && h |> JournalEntryHeader.entryDate |> EntryDate.entryDate <= asOfDate)
-            |> List.collect lines
+            |> List.collect jeLines
             |> List.filter(fun l -> l |> JournalEntryLine.accountId = expenseId)
         let expectedDebits =
             linesBeforeCutoff

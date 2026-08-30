@@ -50,7 +50,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let! fullResult = StageTestData.runPipeline context
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "MARATHON PETRO 7218 ANYTOWN US"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-                let lineId = entry |> lines |> List.head |> StageEntryLine.stageEntryLineId
+                let lineId = entry |> seLines |> List.head |> StageEntryLine.stageEntryLineId
                 return!
                     match updateStageEntry context (noChangeHeaderUpdates headerId) [ noChangeLineUpdates lineId ] with
                     | Error IngestionUpdateStageEntryNoOp -> Ok ()
@@ -73,12 +73,12 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 // grp-007 payroll has parser-assigned lines
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "PAYROLL DEPOSIT ACME CORP"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-                let firstLine = entry |> lines |> List.head
+                let firstLine = entry |> seLines |> List.head
                 let lineId = firstLine |> StageEntryLine.stageEntryLineId
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some newAccountId) } ]
                 let! updated = updateStageEntry context (noChangeHeaderUpdates headerId) lineUpdates
                 let updatedLine =
-                    updated |> lines
+                    updated |> seLines
                     |> List.find (fun l -> l |> StageEntryLine.stageEntryLineId = lineId)
                 Assert.Equal(Some newAccountId, updatedLine |> StageEntryLine.accountId)
             })
@@ -93,12 +93,12 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 // grp-002 gas station: debit line was classified to F-5300 by generic rule
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "MARATHON PETRO 7218 ANYTOWN US"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-                let debitLine = entry |> lines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
+                let debitLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
                 let lineId = debitLine |> StageEntryLine.stageEntryLineId
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some newAccountId) } ]
                 let! updated = updateStageEntry context (noChangeHeaderUpdates headerId) lineUpdates
                 let updatedLine =
-                    updated |> lines
+                    updated |> seLines
                     |> List.find (fun l -> l |> StageEntryLine.stageEntryLineId = lineId)
                 Assert.Equal(Some newAccountId, updatedLine |> StageEntryLine.accountId)
             })
@@ -130,7 +130,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let! fullResult = StageTestData.runPipeline context
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "HARRIS TEETER 0381 ANYTOWN US"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-                let firstLine = entry |> lines |> List.head
+                let firstLine = entry |> seLines |> List.head
                 let lineId = firstLine |> StageEntryLine.stageEntryLineId
                 let! badAmount = 999.99M |> Money.fromDecimal
                 let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo (Reviewed, Operator) }
@@ -150,7 +150,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let! fullResult = StageTestData.runPipeline context
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "HARRIS TEETER 0381 ANYTOWN US"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-                let firstLine = entry |> lines |> List.head
+                let firstLine = entry |> seLines |> List.head
                 let lineId = firstLine |> StageEntryLine.stageEntryLineId
                 let bogusAccountId = AccountId.create()
                 let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo (Reviewed, Operator) }

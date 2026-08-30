@@ -39,7 +39,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                         []
                 let actual = jeHappy |> header |> JournalEntryHeader.description |> JournalEntryDescription.value
                 Assert.Equal(expected, actual)
-                Assert.Equal(2, jeHappy |> lines |> List.length)
+                Assert.Equal(2, jeHappy |> jeLines |> List.length)
                 return ()
             })
         |> railroadWrapper
@@ -80,7 +80,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                         []
                         []
                 jeHappy
-                |> lines
+                |> jeLines
                 |> List.map(fun x -> x |> JournalEntryLine.journalEntryLineId)
                 |> List.iter(fun x -> Assert.NotEqual(Guid.Empty, x |> JournalEntryLineId.value))
                 return ()
@@ -267,7 +267,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                           (fixture.Data.creditCard2220Id, 86.04M, "Credit", explicitlyNone) ]
                         []
                         []
-                let actualMemos = je |> lines |> List.map JournalEntryLine.memo
+                let actualMemos = je |> jeLines |> List.map JournalEntryLine.memo
                 Assert.Equal(2, actualMemos |> List.length)
                 Assert.Equal<JournalEntryLineMemo option list>([ None; None ], actualMemos)
                 return ()

@@ -884,10 +884,10 @@ type TestDataFixture() =
                     |> List.filter(fun x -> x |> JournalEntry.header |> JournalEntryHeader.voidedAt |> Option.isSome)
                 let totalVoidedJournalEntryHeaders = voidedEntries |> List.length
                 let totalJournalEntryLines =
-                    journalEntries |> List.sumBy(fun x -> x |> JournalEntry.lines |> List.length)
+                    journalEntries |> List.sumBy(fun x -> x |> JournalEntry.jeLines |> List.length)
                 let totalVoidedJournalEntryLines =
-                    voidedEntries |> List.sumBy(fun x -> x |> JournalEntry.lines |> List.length)
-                let journalEntryLines = journalEntries |> List.collect JournalEntry.lines
+                    voidedEntries |> List.sumBy(fun x -> x |> JournalEntry.jeLines |> List.length)
+                let journalEntryLines = journalEntries |> List.collect JournalEntry.jeLines
                 let totalAccountsWithLines =
                     journalEntryLines |> List.map JournalEntryLine.accountId |> List.distinct |> List.length
                 let totalAccountsWithNoLines = totalAccounts - totalAccountsWithLines

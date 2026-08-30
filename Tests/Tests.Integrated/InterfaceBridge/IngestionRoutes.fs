@@ -340,7 +340,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                 Assert.Equal(Reviewed, refetched |> latestStatusOf)
                 let refetchedAccountId =
                     refetched
-                    |> lines
+                    |> seLines
                     |> List.find (fun line ->
                         line |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value = debitLine.stageEntryLineId)
                     |> StageEntryLine.accountId

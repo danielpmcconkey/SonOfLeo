@@ -20,7 +20,7 @@ type JournalEntryLineOrchestrationTests(fixture: TestDataFixture) =
         let accountId = fixture.Data.food5350Id
         let expectedLines =
             fixture.Data.journalEntries
-            |> List.collect JournalEntry.lines
+            |> List.collect JournalEntry.jeLines
             |> List.filter(fun l -> l |> JournalEntryLine.accountId = accountId)
         let expectedIds =
             expectedLines

@@ -153,7 +153,7 @@ let ``convert JournalEntry to JournalEntryReturn``
     result {
         let! lines =
             journalEntry
-            |> JournalEntry.lines
+            |> JournalEntry.jeLines
             |> ``convert JournalEntryLine list to JournalEntryLineReturn list`` context
         return
             { header = journalEntry |> JournalEntry.header |> ``convert JournalEntryHeader to JournalEntryHeaderReturn``

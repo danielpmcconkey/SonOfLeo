@@ -18,13 +18,13 @@ open DataAccessLayer.QueryParameters
 type JournalEntry =
     private
         { header: JournalEntryHeader.JournalEntryHeader
-          lines: JournalEntryLine.JournalEntryLine list
+          jeLines: JournalEntryLine.JournalEntryLine list
           externalReferences: JournalEntryExternalReference.JournalEntryExternalReference list
           comments: JournalEntryComment.JournalEntryComment list }
 
 module JournalEntry =
     let header je = je.header
-    let lines je = je.lines
+    let jeLines je = je.jeLines
     let externalReferences je = je.externalReferences
     let comments je = je.comments
 
@@ -168,7 +168,7 @@ module JournalEntry =
             do! confirmLineList validLines
             return
                 { header = validHeader
-                  lines = validLines
+                  jeLines = validLines
                   externalReferences = validReferences
                   comments = validComments }
         }
@@ -194,7 +194,7 @@ module JournalEntry =
             let commentsForHeader =
                 comments |> List.filter(fun x -> x |> JournalEntryComment.primaryJournalEntryId = headerId)
             { header = header
-              lines = linesForHeader
+              jeLines = linesForHeader
               externalReferences = referencesForHeader
               comments = commentsForHeader })
 

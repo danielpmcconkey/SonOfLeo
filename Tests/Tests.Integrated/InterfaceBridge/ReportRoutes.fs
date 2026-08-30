@@ -43,7 +43,7 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             fixture.Data.journalEntries
             |> List.filter(fun je ->
                 je |> header |> JournalEntryHeader.voidedAt |> Option.isNone)
-            |> List.collect lines
+            |> List.collect jeLines
         let expectedDebits =
             unvoidedLines
             |> List.filter(fun l -> l |> JournalEntryLine.accountId = leafId && l |> JournalEntryLine.lineType = Debit)

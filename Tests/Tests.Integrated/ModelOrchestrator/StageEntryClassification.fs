@@ -45,7 +45,7 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                 let! fullResult = StageTestData.runPipeline context
                 // grp-001 arrives with a parser-assigned credit line and a null debit line
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "DD DoorDash Order 8431927"
-                let lineOfType lt = entry |> lines |> List.find (fun l -> l |> StageEntryLine.lineType = lt)
+                let lineOfType lt = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = lt)
                 (* Classification matches on the entry's description, which both lines share.
                    The debit sibling carrying a rule id is what proves a rule was available to
                    this entry -- without it, an untouched credit line is equally well explained
@@ -84,7 +84,7 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                 let debitLine =
                     fullResult.stagedEntries
                     |> StageTestData.findByDescription description
-                    |> lines
+                    |> seLines
                     |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
                 (* The outcome case is what pins the scenario; without it the name's "single rule"
                    claim rests on the fixture staying as it is. Naming the rule is the other half:
@@ -127,7 +127,7 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                 let debitLine =
                     fullResult.stagedEntries
                     |> StageTestData.findByDescription description
-                    |> lines
+                    |> seLines
                     |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
                 (* The classification result is the engine's recommendation; the staged line is
                    what everything downstream reads. Asserting only the recommendation leaves a
@@ -253,7 +253,7 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                     |> StageTestData.findByDescription "SPLIT TRANSFER UNKNOWN BOTH SIDES"
                 let idOfLineType lt =
                     entry
-                    |> lines
+                    |> seLines
                     |> List.find (fun l -> l |> StageEntryLine.lineType = lt)
                     |> StageEntryLine.accountId
                 Assert.Equal(Some fixture.Data.food5350Id, idOfLineType Debit)

@@ -19,7 +19,7 @@ open Model.DataIngestion.StageEntryComponent
 type StageEntry =
     private {
         stageEntryHeader: StageEntryHeader.StageEntryHeader
-        lines: StageEntryLine.StageEntryLine list
+        seLines: StageEntryLine.StageEntryLine list
         statusTransitions: StageEntryStatusTransition.StageEntryStatusTransition list
     }
 
@@ -35,7 +35,7 @@ type AccountValidationType =
     
 
 let stageEntryHeader se = se.stageEntryHeader
-let lines se = se.lines
+let seLines se = se.seLines
 let statusTransitions se = se.statusTransitions
 
 let private sumLinesByType
@@ -131,7 +131,7 @@ let private confirmStageEntryCompositeIsValid
     (stageEntry: StageEntry)
     : Result<unit, AppError> =
     result {
-        do! stageEntry.lines |> confirmLines context accountCodeValidationType
+        do! stageEntry.seLines |> confirmLines context accountCodeValidationType
         do! stageEntry.statusTransitions |> confirmValidTransitions
         do! if stageEntry.statusTransitions |> List.isEmpty then Error IngestionStatusTransitionList else Ok ()
     }
@@ -145,7 +145,7 @@ let createStageEntry
     result {
         let stageEntry = {
             stageEntryHeader = header
-            lines = lines
+            seLines = lines
             statusTransitions = transitions }
         do! stageEntry |> confirmStageEntryCompositeIsValid context AllowNone
         return stageEntry
@@ -218,7 +218,7 @@ let private compileFromSubLists
             statusTransitions
             |> List.filter(fun l -> l |> StageEntryStatusTransition.stageEntryHeaderId = headerId)
         { stageEntryHeader = h
-          lines = linesAtH
+          seLines = linesAtH
           statusTransitions = transitionsAtH } )
     
 let fetchAllByFile
@@ -260,7 +260,7 @@ let fetchByStageEntryHeaderId
         let! lines = headerId |> StageEntryLine.fetchByHeaderId context
         let! statusTransitions = headerId |> StageEntryStatusTransition.fetchByHeaderId context
         return { stageEntryHeader = header
-                 lines = lines
+                 seLines = lines
                  statusTransitions = statusTransitions }
     }
 
@@ -329,7 +329,7 @@ let classifyStagedEntries
             entries
             |> List.filter(fun entry ->
                     entry
-                    |> lines
+                    |> seLines
                     |> List.forall(fun l -> l |> StageEntryLine.accountId |> Option.isSome)
                 )
             |> List.map(fun entry ->
@@ -346,7 +346,7 @@ let classifyStagedEntries
             |> List.collect(fun entry ->
                 let header = entry.stageEntryHeader
                 entry
-                |> lines
+                |> seLines
                 |> List.filter (fun line -> line |> StageEntryLine.accountId |> Option.isNone)
                 |> List.map (fun line -> {
                     headerIdOfCandidate = header |> StageEntryHeader.stageEntryHeaderId
@@ -387,7 +387,7 @@ let ingestRawToStageThenDeduplicateAndClassify
             |> convertListOfResultsToResultsList
         let! _ =
             entries
-            |> List.collect lines
+            |> List.collect seLines
             |> List.map(fun l -> l |> StageEntryLine.insertNewToDb context )
             |> convertListOfResultsToResultsList
         // update the context's audit date between major operations
@@ -497,7 +497,7 @@ let postStageEntry
         let references = [(fi, fiReference)]
         let comments = []
         let! lines =
-            stageEntry.lines
+            stageEntry.seLines
             |> List.map (fun line ->
                 result {
                     let! accountId =
@@ -536,7 +536,7 @@ let post
         // check the lines one last time just to be sure we're not trying to post any records whose accounts aren't set
         do! stageEntries
             |> List.map(fun stageEntry ->
-                stageEntry.lines |> confirmLinesAccountCodes context DisallowNone
+                stageEntry.seLines |> confirmLinesAccountCodes context DisallowNone
                 )
             |> convertListOfResultsToResultsList
             |> Result.map ignore

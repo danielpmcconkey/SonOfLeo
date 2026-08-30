@@ -152,7 +152,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 Assert.Equal("/tmp/stg-test-checking.jsonl", header |> StageEntryHeader.sourceFile |> SourceFile.value)
                 (* grp-001 is built from exactly two raw rows, so it owes exactly two lines.
                    A floor would tolerate the line duplication it is meant to catch. *)
-                Assert.Equal(2, entry |> lines |> List.length)
+                Assert.Equal(2, entry |> seLines |> List.length)
                 (* REQ-STG-2.7: status is no longer a column, so "cannot be null" means the
                    derived value is present and agrees with the entry's own latest transition.
                    The header reads it through the audit CTE and the transition list is
@@ -175,7 +175,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! fullResult = StageTestData.runPipeline context
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "PAYROLL DEPOSIT ACME CORP"
                 let debitLine =
-                    entry |> lines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
+                    entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
                 Assert.Equal(800.00M, debitLine |> StageEntryLine.amount |> Money.amount)
                 Assert.Equal(Debit, debitLine |> StageEntryLine.lineType)
                 let! codeStr =
@@ -188,11 +188,11 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 Assert.True(debitLine |> StageEntryLine.classificationRuleId |> Option.isNone)
                 // 2.17 — balanced
                 let totalDebits =
-                    entry |> lines
+                    entry |> seLines
                     |> List.filter (fun l -> l |> StageEntryLine.lineType = Debit)
                     |> List.sumBy (fun l -> l |> StageEntryLine.amount |> Money.amount)
                 let totalCredits =
-                    entry |> lines
+                    entry |> seLines
                     |> List.filter (fun l -> l |> StageEntryLine.lineType = Credit)
                     |> List.sumBy (fun l -> l |> StageEntryLine.amount |> Money.amount)
                 Assert.Equal(totalDebits, totalCredits)
@@ -241,9 +241,9 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                     |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
                 Assert.Equal(2, fullResult.stagedEntries |> List.length)
                 let multi = fullResult.stagedEntries |> StageTestData.findByDescription "Multi leg event"
-                Assert.Equal(4, multi |> lines |> List.length)
+                Assert.Equal(4, multi |> seLines |> List.length)
                 let other = fullResult.stagedEntries |> StageTestData.findByDescription "Separate event"
-                Assert.Equal(2, other |> lines |> List.length)
+                Assert.Equal(2, other |> seLines |> List.length)
             })
         |> railroadWrapper
 
@@ -684,7 +684,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let dupEntry = fullResult.stagedEntries |> StageTestData.findByDescription "Fixture JE with reference"
                 Assert.Equal(Duplicate, StageTestData.latestStatus dupEntry)
                 let creditLine =
-                    dupEntry |> lines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
+                    dupEntry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
                 let! codeStr =
                     creditLine
                     |> StageEntryLine.accountId

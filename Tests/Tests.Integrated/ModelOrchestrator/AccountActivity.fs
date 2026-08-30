@@ -62,7 +62,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
                 |> JournalEntryDescription.value = "Fixture JE with reference")
         let expectedHeader = expectedEntry |> JournalEntry.header
         let expectedLineId =
-            expectedEntry |> JournalEntry.lines |> List.head |> JournalEntryLine.journalEntryLineId
+            expectedEntry |> JournalEntry.jeLines |> List.head |> JournalEntryLine.journalEntryLineId
         let filter: AccountActivityFilter =
             { accountId = None
               temporalFilter = None
@@ -101,7 +101,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
         let unVoidedJournalEntries =
             fixture.Data.journalEntries
             |> List.filter(fun je -> je |> JournalEntry.header |> JournalEntryHeader.voidedAt |> Option.isNone)
-        let unVoidedLines = unVoidedJournalEntries |> List.collect(fun je -> je |> JournalEntry.lines)
+        let unVoidedLines = unVoidedJournalEntries |> List.collect(fun je -> je |> JournalEntry.jeLines)
         let accounts = fixture.Data.accounts
         let expectedCountTotal =
             accounts
@@ -125,7 +125,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
         let voidedLineIds =
             fixture.Data.journalEntries
             |> List.filter(fun je -> je |> JournalEntry.header |> JournalEntryHeader.voidedAt |> Option.isSome)
-            |> List.collect(fun je -> je |> JournalEntry.lines)
+            |> List.collect(fun je -> je |> JournalEntry.jeLines)
             |> List.map JournalEntryLine.journalEntryLineId
         let context = Context.create NoTransaction FetchOnly
         let result = AccountActivity.fetchFiltered context filter None
@@ -176,7 +176,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
             fixture.Data.journalEntries
             |> List.filter(fun je ->
                 je |> JournalEntry.header |> JournalEntryHeader.voidedAt |> Option.isNone)
-            |> List.collect JournalEntry.lines
+            |> List.collect JournalEntry.jeLines
         let targetAmountDecimal =
             nonVoidedLines
             |> List.countBy(fun l -> l |> JournalEntryLine.amount |> Money.amount)
@@ -314,7 +314,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
         // the description is a like match, so we want to take a substring
         let targetDescriptionLength = targetDescriptionStringFull |> String.length
         let targetDescriptionString = targetDescriptionStringFull.Substring(2, targetDescriptionLength - 4)
-        let numLines = fixture.Data.jeWithUniqueDescription |> JournalEntry.lines |> List.length
+        let numLines = fixture.Data.jeWithUniqueDescription |> JournalEntry.jeLines |> List.length
         let numMatchingEntries =
             fixture.Data.journalEntries
             |> List.filter(fun je ->

@@ -101,7 +101,7 @@ let ``convert [StageEntry] to [StageEntryReturn]``
     : Result<StageEntryReturn, AppError> = result {
     let! lines =
         stageEntry
-        |> lines
+        |> seLines
         |> ``convert [StageEntryLine list] to [StageEntryLineReturn list]`` context
     let stageEntryHeader =
         stageEntry

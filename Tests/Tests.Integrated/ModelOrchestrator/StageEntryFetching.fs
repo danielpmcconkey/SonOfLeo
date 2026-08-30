@@ -342,7 +342,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
             result {
                 let! staged = stageAll context
                 let target = staged |> findByDescription "PAYROLL DEPOSIT ACME CORP"
-                let targetLine = target |> lines |> List.head
+                let targetLine = target |> seLines |> List.head
                 let! fetched =
                     { noFilter with stageEntryLineId = Some(targetLine |> StageEntryLine.stageEntryLineId) }
                     |> fetchFiltered context None
@@ -361,7 +361,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                 let! targetAmount = 312.50M |> Money.fromDecimal
                 let expected =
                     staged
-                    |> List.filter(fun e -> e |> lines |> List.exists(fun l -> l |> StageEntryLine.amount = targetAmount))
+                    |> List.filter(fun e -> e |> seLines |> List.exists(fun l -> l |> StageEntryLine.amount = targetAmount))
                 let! fetched = { noFilter with amount = Some targetAmount } |> fetchFiltered context None
                 Assert.Equal(1, expected |> List.length)
                 Assert.Equal<StageEntryHeaderId list>(expected |> idsOf, fetched |> idsOf)
@@ -384,7 +384,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                 let! targetAmount = 312.50M |> Money.fromDecimal
                 let expected =
                     staged
-                    |> List.filter(fun e -> e |> lines |> List.exists(fun l -> l |> StageEntryLine.amount = targetAmount))
+                    |> List.filter(fun e -> e |> seLines |> List.exists(fun l -> l |> StageEntryLine.amount = targetAmount))
                 let! creditMatches =
                     { noFilter with amount = Some targetAmount; lineType = Some Credit } |> fetchFiltered context None
                 let! debitMatches =
@@ -405,7 +405,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                 let expected =
                     staged
                     |> List.filter(fun e ->
-                        e |> lines |> List.exists(fun l -> l |> StageEntryLine.accountId = Some targetAccountId))
+                        e |> seLines |> List.exists(fun l -> l |> StageEntryLine.accountId = Some targetAccountId))
                 let! fetched = { noFilter with accountId = Some targetAccountId } |> fetchFiltered context None
                 Assert.NotEmpty expected
                 Assert.Equal<StageEntryHeaderId list>(expected |> idsOf, fetched |> idsOf)
@@ -425,7 +425,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                     staged
                     |> List.filter(fun e ->
                         e
-                        |> lines
+                        |> seLines
                         |> List.exists(fun l ->
                             l
                             |> StageEntryLine.memo
@@ -450,14 +450,14 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                    has something to exclude. *)
                 let targetRuleId =
                     staged
-                    |> List.collect(fun e -> e |> lines |> List.choose StageEntryLine.classificationRuleId)
+                    |> List.collect(fun e -> e |> seLines |> List.choose StageEntryLine.classificationRuleId)
                     |> List.distinct
                     |> List.head
                 let expected =
                     staged
                     |> List.filter(fun e ->
                         e
-                        |> lines
+                        |> seLines
                         |> List.exists(fun l -> l |> StageEntryLine.classificationRuleId = Some targetRuleId))
                 let! fetched = { noFilter with classificationRuleId = Some targetRuleId } |> fetchFiltered context None
                 Assert.NotEmpty expected
@@ -514,15 +514,15 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                 (* Exactly one of the payroll entry's four legs carries this amount. *)
                 Assert.Equal(
                     1,
-                    payroll |> lines |> List.filter(fun l -> l |> StageEntryLine.amount = targetAmount) |> List.length)
+                    payroll |> seLines |> List.filter(fun l -> l |> StageEntryLine.amount = targetAmount) |> List.length)
                 let! fetched = { noFilter with amount = Some targetAmount } |> fetchFiltered context None
                 Assert.Equal(1, fetched |> List.length)
                 let returned = fetched |> List.head
                 Assert.Equal(payroll |> idOf, returned |> idOf)
-                Assert.Equal(4, returned |> lines |> List.length)
+                Assert.Equal(4, returned |> seLines |> List.length)
                 Assert.Equal<Money list>(
-                    payroll |> lines |> List.map StageEntryLine.amount |> List.sort,
-                    returned |> lines |> List.map StageEntryLine.amount |> List.sort)
+                    payroll |> seLines |> List.map StageEntryLine.amount |> List.sort,
+                    returned |> seLines |> List.map StageEntryLine.amount |> List.sort)
             })
         |> railroadWrapper
 
@@ -628,11 +628,11 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                 Assert.Equal(payroll |> sourceFileOf, returned |> sourceFileOf)
 
                 Assert.Equal<StageEntryLineId list>(
-                    payroll |> lines |> List.map StageEntryLine.stageEntryLineId |> List.sort,
-                    returned |> lines |> List.map StageEntryLine.stageEntryLineId |> List.sort)
+                    payroll |> seLines |> List.map StageEntryLine.stageEntryLineId |> List.sort,
+                    returned |> seLines |> List.map StageEntryLine.stageEntryLineId |> List.sort)
                 Assert.Equal<Money list>(
-                    payroll |> lines |> List.map StageEntryLine.amount |> List.sort,
-                    returned |> lines |> List.map StageEntryLine.amount |> List.sort)
+                    payroll |> seLines |> List.map StageEntryLine.amount |> List.sort,
+                    returned |> seLines |> List.map StageEntryLine.amount |> List.sort)
 
                 Assert.NotEmpty(returned |> statusTransitions)
                 Assert.Equal<StageEntryStatusTransitionId list>(

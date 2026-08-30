@@ -68,7 +68,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
            with the right number of lines, every one of them belonging to some other entry,
            would satisfy a count. Identity is what the requirement is actually claiming. *)
         let expectedEntry = fixture.Data.jeWithLinesRefsAndComments
-        let lineIdsOf je = je |> lines |> List.map JournalEntryLine.journalEntryLineId |> List.sort
+        let lineIdsOf je = je |> jeLines |> List.map JournalEntryLine.journalEntryLineId |> List.sort
         let refTextsOf je =
             je |> externalReferences
             |> List.map (JournalEntryExternalReference.referenceText >> JournalExternalReferenceText.value)
