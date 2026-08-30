@@ -1,15 +1,16 @@
 module Model.DataIngestion.StageEntryLine
 
 open Model
-open Model.DataIngestion.Classification
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.AccountComponent
+open Model.Ledger.JournalEntryComponent
 open Utilities.AppError
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
+open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Model.DataIngestion.StageEntryComponent
                 
 type StageEntryLine = private {
     stageEntryLineId: StageEntryLineId

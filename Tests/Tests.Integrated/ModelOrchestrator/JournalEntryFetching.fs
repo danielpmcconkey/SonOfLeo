@@ -10,9 +10,9 @@ open Tests.Helpers.Railroad
 open Utilities.ResultHelper
 open Xunit
 open Tests.Helpers
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
-open Model.Ledger.FiscalPeriods
+open Model.Ledger
+open Model.Ledger.JournalEntryComponent
+open Model.Ledger.FiscalPeriodComponent
 open Model.LookupCache
 open ModelOrchestrator.JournalEntries.JournalEntry
 open Utilities

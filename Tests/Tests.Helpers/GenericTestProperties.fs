@@ -1,7 +1,8 @@
 module Tests.Helpers.GenericTestProperties
 
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.FiscalPeriods
+open Model
+open Model.Ledger.AccountComponent
+open Model.Ledger.FiscalPeriodComponent
 open Utilities
 open Utilities.AppError
 
@@ -20,10 +21,10 @@ let genericAccountTypeString = "Revenue"
 let genericAccountType =
     AccountType.fromString genericAccountTypeString
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-let genericAccountActiveBegin = Calendar.today().PlusYears(-1)
-let genericAccountActiveEnd = None
-let genericAccountActivityPeriod =
-    AccountActivityPeriod.create genericAccountActiveBegin genericAccountActiveEnd
+let genericActiveBegin = Calendar.today().PlusYears(-1)
+let genericActiveEnd = None
+let genericActivityPeriod =
+    ActivityPeriod.create genericActiveBegin genericActiveEnd
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
 let genericAccountSubtype = None
 let genericAccountSubtypeString = "Cash"

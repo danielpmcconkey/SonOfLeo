@@ -7,10 +7,10 @@ open InterfaceBridge.BoundaryConverters.ReportConverters
 open InterfaceBridge.InterfaceContracts.IngestionContracts
 open Logger.Audit
 open Model.DataIngestion
+open Model.DataIngestion.StageEntryComponent
 open Model.DataIngestion.Classification
 open Model.DataIngestion.StageEntryHeader
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator
 open ModelOrchestrator.ClassificationOrchestration
 open ModelOrchestrator.TrialBalanceReport
@@ -22,6 +22,7 @@ open Utilities.FileIO
 open Utilities.Json
 open InterfaceBridge.CommandRoute
 open Utilities.ResultHelper
+open Model.DataIngestion.Classification.ClassificationRuleComponent
 
 let private ingestRawEntries payload _ =
     runCommandRouteAndAutoCompleteTransaction IngestRawEntries (fun context ->

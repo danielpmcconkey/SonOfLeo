@@ -1,10 +1,9 @@
 module Tests.Integrated.InterfaceBridge.ClassificationRuleRoutes
 
-open System
 open InterfaceBridge.InterfaceContracts.IngestionContracts
 open Model.DataIngestion.Classification
-open Model.Ledger.Accounts
-open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.Account
+open Model.Ledger.AccountComponent
 open Tests.Helpers
 open Tests.Helpers.Cleanup
 open Tests.Helpers.Railroad
@@ -13,6 +12,7 @@ open Utilities.FieldUpdate
 open Utilities.Json.Json
 open Utilities.ResultHelper
 open Xunit
+open Model.DataIngestion.Classification.ClassificationRuleComponent
 
 
 (* Every route below reaches the same orchestrator functions ClassificationRuleCrud.fs

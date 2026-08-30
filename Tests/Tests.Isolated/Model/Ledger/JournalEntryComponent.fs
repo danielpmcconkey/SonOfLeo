@@ -3,7 +3,7 @@ module Tests.Isolated.Model.Ledger.JournalEntryComponent
 open System
 open Utilities.AppError
 open Xunit
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.JournalEntryComponent
 open Tests.Helpers.SadPath
 open Tests.Helpers.Railroad
 open Utilities.ResultHelper

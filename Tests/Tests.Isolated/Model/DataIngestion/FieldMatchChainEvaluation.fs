@@ -1,12 +1,13 @@
 module Tests.Isolated.Model.DataIngestion.FieldMatchChainEvaluation
 
 open Model
-open Model.DataIngestion
+open Model.DataIngestion.StageEntryComponent
 open Model.DataIngestion.Classification
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.JournalEntryComponent
 open Utilities.AppError
 open Xunit
-
+open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Model.DataIngestion.Classification.FieldMatch
 
 let private unwrap result =
     result |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))

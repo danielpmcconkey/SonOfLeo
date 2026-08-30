@@ -7,8 +7,8 @@ open InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
 open InterfaceBridge.BoundaryConverters.JournalEntryFieldConverters
 open InterfaceBridge.InterfaceContracts.JournalContracts
 open Utilities.Json
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator
 open ModelOrchestrator.JournalEntries
 open ModelOrchestrator.JournalEntryVoiding

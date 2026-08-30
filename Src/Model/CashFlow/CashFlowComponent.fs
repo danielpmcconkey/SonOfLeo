@@ -1,10 +1,10 @@
 module Model.CashFlow.CashFlowComponent
 
 open System
-open Model.DataIngestion
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.AccountComponent
+open Model.Ledger.JournalEntryComponent
 open Utilities.AppError
+open Model.DataIngestion.StageEntryComponent
 
 type MasterAgreementId = private MasterAgreementId of Guid
 module MasterAgreementId =

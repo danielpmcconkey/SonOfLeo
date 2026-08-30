@@ -1,10 +1,11 @@
 module ModelOrchestrator.JournalEntryLineOrchestration
 
 open Model
-open Model.Ledger.Accounts
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.Account
+open Model.Ledger.AccountComponent
+open Model.Ledger
+open Model.Ledger.JournalEntryLine
+open Model.Ledger.JournalEntryComponent
 open Utilities.AppError
 open Utilities.ResultHelper
 
@@ -39,7 +40,7 @@ let constructNewAndSaveToDb
         do! amount |> confirmAmountIsPositive
         do! accountId |> confirmAccountExists context
         let line =
-            JournalEntryLine.create
+            create
                 journalEntryLineId
                 journalEntryId
                 accountId
@@ -48,7 +49,7 @@ let constructNewAndSaveToDb
                 memo
                 createdAt
                 modifiedAt
-        let! () = line |> JournalEntryLine.insertNewToDb context
+        let! () = line |> insertNewToDb context
         return line
     }
 

@@ -4,9 +4,9 @@ module InterfaceBridge.BoundaryConverters.JournalEntryFieldConverters
 open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.InterfaceContracts.JournalContracts
 open Model
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger
+open Model.Ledger.AccountComponent
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.JournalEntries
 open Utilities.AppError
 open Utilities.ResultHelper
@@ -45,7 +45,7 @@ let ``convert [JournalEntryLineInput list] to [JournalEntryLinePrimitives list]`
 
 let ``convert JournalEntryLine to JournalEntryLineReturn``
     (context: Context.Context)
-    (model: JournalEntryLine)
+    (model: JournalEntryLine.JournalEntryLine)
     : Result<JournalEntryLineReturn, AppError> =
     result {
         let! accountCode = model |> JournalEntryLine.accountId |> ``convert AccountId to AccountCodeString`` context
@@ -63,7 +63,7 @@ let ``convert JournalEntryLine to JournalEntryLineReturn``
 
 let ``convert JournalEntryLine list to JournalEntryLineReturn list``
     (context: Context.Context)
-    (input: JournalEntryLine list)
+    (input: JournalEntryLine.JournalEntryLine list)
     : Result<JournalEntryLineReturn list, AppError> =
     input
     |> List.map(fun x -> x |> ``convert JournalEntryLine to JournalEntryLineReturn`` context)
@@ -102,7 +102,7 @@ let ``convert [JournalEntryCommentInput list] to [JournalEntryCommentPrimitives 
     |> List.map(fun x -> x |> ``convert [JournalEntryCommentInput] to [JournalEntryCommentPrimitives]``)
     |> convertListOfResultsToResultsList
 
-let ``convert JournalEntryHeader to JournalEntryHeaderReturn`` (model: JournalEntryHeader) : JournalEntryHeaderReturn =
+let ``convert JournalEntryHeader to JournalEntryHeaderReturn`` (model: JournalEntryHeader.JournalEntryHeader) : JournalEntryHeaderReturn =
     { id = model |> JournalEntryHeader.journalEntryHeaderId |> JournalEntryHeaderId.value
       description = model |> JournalEntryHeader.description |> JournalEntryDescription.value
       source = model |> JournalEntryHeader.source |> Option.map(fun x -> x |> JournalEntrySource.value)
@@ -112,7 +112,7 @@ let ``convert JournalEntryHeader to JournalEntryHeaderReturn`` (model: JournalEn
       modifiedAt = model |> JournalEntryHeader.modifiedAt }
 
 let ``convert JournalEntryExternalReference to JournalEntryExternalReferenceReturn``
-    (model: JournalEntryExternalReference)
+    (model: JournalEntryExternalReference.JournalEntryExternalReference)
     : JournalEntryExternalReferenceReturn =
     { id =
         model
@@ -125,13 +125,13 @@ let ``convert JournalEntryExternalReference to JournalEntryExternalReferenceRetu
       modifiedAt = model |> JournalEntryExternalReference.modifiedAt }
 
 let ``convert JournalEntryExternalReference list to JournalEntryExternalReferenceReturn list``
-    (model: JournalEntryExternalReference list)
+    (model: JournalEntryExternalReference.JournalEntryExternalReference list)
     : JournalEntryExternalReferenceReturn list =
     model
     |> List.map(fun x -> x |> ``convert JournalEntryExternalReference to JournalEntryExternalReferenceReturn``)
 
 let ``convert JournalEntryComment to JournalEntryCommentReturn``
-    (model: JournalEntryComment)
+    (model: JournalEntryComment.JournalEntryComment)
     : JournalEntryCommentReturn =
     { id = model |> JournalEntryComment.journalEntryCommentId |> JournalEntryCommentId.value
       primaryJournalEntryId = model |> JournalEntryComment.primaryJournalEntryId |> JournalEntryHeaderId.value
@@ -142,7 +142,7 @@ let ``convert JournalEntryComment to JournalEntryCommentReturn``
       modifiedAt = model |> JournalEntryComment.modifiedAt }
 
 let ``convert JournalEntryComment list to JournalEntryCommentReturn list``
-    (model: JournalEntryComment list)
+    (model: JournalEntryComment.JournalEntryComment list)
     : JournalEntryCommentReturn list =
     model |> List.map(fun x -> x |> ``convert JournalEntryComment to JournalEntryCommentReturn``)
 

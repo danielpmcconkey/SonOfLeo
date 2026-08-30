@@ -3,8 +3,7 @@ module Model.CashFlow.Payment
 open System
 open Model
 open Model.CashFlow.CashFlowComponent
-open Model.DataIngestion
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.JournalEntryComponent
 open NodaTime
 open Utilities.AppError
 open Utilities.FieldUpdate
@@ -12,6 +11,7 @@ open Utilities.ResultHelper
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
+open Model.DataIngestion.StageEntryComponent
 
 type Payment = private {
     paymentId: PaymentId

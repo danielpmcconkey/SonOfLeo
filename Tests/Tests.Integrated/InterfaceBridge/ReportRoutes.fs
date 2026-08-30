@@ -2,11 +2,11 @@ namespace Tests.Integrated.InterfaceBridge
 
 open InterfaceBridge.InterfaceContracts.ReportsContracts
 open Utilities.Json.Json
-open Model.Ledger.Accounts
-open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger
+open Model.Ledger.Account
+open Model.Ledger.AccountComponent
 open Model
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.JournalEntries.JournalEntry
 open Tests.Helpers
 open Tests.Helpers.Railroad

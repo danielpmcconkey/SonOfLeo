@@ -4,8 +4,9 @@ open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.BoundaryConverters.OrchestrationConverters
 open InterfaceBridge.InterfaceContracts.AccountContracts
 open Logger.Audit
-open Model.Ledger.Accounts.Account
-open Model.Ledger.Accounts.AccountComponent
+open Model
+open Model.Ledger.Account
+open Model.Ledger.AccountComponent
 open ModelOrchestrator
 open ModelOrchestrator.AccountActivity
 open Utilities.Json
@@ -13,7 +14,6 @@ open InterfaceBridge.CommandRoute
 open DataAccessLayer.DbTransaction
 open Utilities.AppError
 open Utilities.ResultHelper
-open Context
 
 let private accountCreate payload _ =
     let context = Context.create NoTransaction AccountCreate
@@ -23,7 +23,7 @@ let private accountCreate payload _ =
         let! name = accountCreateInput.name |> AccountName.create
         let! accountType = accountCreateInput.accountTypeSt |> AccountType.fromString
         let! accountActivityPeriod =
-            AccountActivityPeriod.create accountCreateInput.activeBegin accountCreateInput.activeEnd
+            ActivityPeriod.create accountCreateInput.activeBegin accountCreateInput.activeEnd
         let! subtype = accountCreateInput.subType |> ``convert AccountSubtypeString Option to AccountSubtype Option``
         let! parentId =
             accountCreateInput.parentCode
@@ -66,7 +66,7 @@ let private accountUpdateName payload _ =
     result {
         let! accountUpdate = Json.fromJson<AccountUpdateNameInput> payload
         let! id = accountUpdate.code |> ``convert AccountCodeString to Id`` context
-        let! updatedAccount = updateAccountNameById context id accountUpdate.newName
+        let! updatedAccount = Account.updateAccountNameById context id accountUpdate.newName
         let! returnAccount = ``convert Account to AccountReturn`` context updatedAccount
         return! Json.toJson<AccountReturn> returnAccount
     }
@@ -76,7 +76,7 @@ let private accountUpdateExternalReference payload _ =
     result {
         let! accountUpdate = Json.fromJson<AccountUpdateExternalReferenceInput> payload
         let! id = accountUpdate.code |> ``convert AccountCodeString to Id`` context
-        let! updatedAccount = updateExternalReferenceById context id accountUpdate.newReference
+        let! updatedAccount = Account.updateExternalReferenceById context id accountUpdate.newReference
         let! returnAccount = ``convert Account to AccountReturn`` context updatedAccount
         return! Json.toJson<AccountReturn> returnAccount
     }
@@ -86,7 +86,7 @@ let private accountFetchByCode payload _ =
     result {
         let! accountFetch = Json.fromJson<AccountFetchByCodeInput> payload
         let! id = accountFetch.code |> ``convert AccountCodeString to Id`` context
-        let! account = fetchById context id
+        let! account = Account.fetchById context id
         let! returnAccount = ``convert Account to AccountReturn`` context account
         return! Json.toJson<AccountReturn> returnAccount
     }
@@ -96,7 +96,7 @@ let private accountFetchByParentCode payload _ =
     result {
         let! accountFetch = Json.fromJson<AccountFetchByParentCodeInput> payload
         let! parentId = accountFetch.parentCode |> ``convert AccountCodeString to Id`` context
-        let! accounts = parentId |> fetchByParentId context
+        let! accounts = parentId |> Account.fetchByParentId context
         let! returnAccounts =
             accounts
             |> List.map(``convert Account to AccountReturn`` context)
@@ -109,7 +109,7 @@ let private accountFetchByAccountType payload _ =
     result {
         let! accountFetch = Json.fromJson<AccountFetchByAccountTypeInput> payload
         let! validType = AccountType.fromString accountFetch.accountTypeSt
-        let! accounts = fetchByAccountType context validType
+        let! accounts = Account.fetchByAccountType context validType
         let! returnAccounts =
             accounts
             |> List.map(``convert Account to AccountReturn`` context)
@@ -121,7 +121,7 @@ let private accountFetchAll payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
         let! accountFetch = Json.fromJson<AccountFetchAllInput> payload
-        let! accounts = fetchAll context accountFetch.activeOnly
+        let! accounts = Account.fetchAll context accountFetch.activeOnly
         let! returnAccounts =
             accounts
             |> List.map(``convert Account to AccountReturn`` context)

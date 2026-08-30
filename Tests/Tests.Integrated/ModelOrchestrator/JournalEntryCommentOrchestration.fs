@@ -2,7 +2,7 @@ namespace Tests.Integrated.ModelOrchestrator
 
 open InterfaceBridge.CommandRoute
 open Logger.Audit
-open Model.Ledger.Journaling
+open Model.Ledger
 open ModelOrchestrator
 open ModelOrchestrator.JournalEntries
 open Tests.Helpers

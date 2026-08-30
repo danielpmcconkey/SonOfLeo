@@ -1,8 +1,8 @@
 module ModelOrchestrator.AccountCreation
 
-open Model.Ledger.Accounts
-open Model.Ledger.Accounts.Account
-open Model.Ledger.Accounts.AccountComponent
+open Model
+open Model.Ledger.Account
+open Model.Ledger.AccountComponent
 open NodaTime
 open Utilities
 open Utilities.AppError
@@ -10,9 +10,9 @@ open Utilities.ResultHelper
 
 
 let private confirmParentAccountIsActive (parentAccount: Account) (referenceDate: LocalDate) : Result<unit, AppError> =
-    match parentAccount |> activityPeriod |> AccountActivityPeriod.isActive referenceDate with
+    match parentAccount |> Account.activityPeriod |> ActivityPeriod.isActive referenceDate with
     | true -> Ok()
-    | false -> Error(AccountParentIsInactive(parentAccount |> accountId |> AccountId.value))
+    | false -> Error(AccountParentIsInactive(parentAccount |> Account.accountId |> AccountId.value))
 
 let private confirmParentAndChildAccountTypesMatch
     (parentAccountType: AccountType)
@@ -57,8 +57,8 @@ let private confirmParentChildRelationship
     | None -> Ok()
     | Some someParentId ->
         result {
-            let! validParent = someParentId |> fetchById context
-            let parentType = validParent |> accountType
+            let! validParent = someParentId |> Account.fetchById context
+            let parentType = validParent |> Account.accountType
             do! confirmParentAccountIsActive validParent referenceDate
             do! confirmParentAndChildAccountTypesMatch parentType childType
             do! confirmParentAndChildAreDistinct parentId childId
@@ -86,7 +86,7 @@ let constructNewAndSaveToDb
     (code: AccountCode)
     (accountName: AccountName)
     (accountType: AccountType)
-    (accountActivityPeriod: AccountActivityPeriod)
+    (accountActivityPeriod: ActivityPeriod.ActivityPeriod)
     (subType: AccountSubtype option)
     (parentId: AccountId option)
     (reference: AccountExternalReference option)
@@ -111,6 +111,6 @@ let constructNewAndSaveToDb
         let referenceDate = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
         do! confirmParentChildRelationship context parentId accountId accountType referenceDate
         do! confirmTypeAndSubtypeAreValid accountType subType
-        do! validAccount |> insertNewToDb context
+        do! validAccount |> Account.insertNewToDb context
         return validAccount
     }

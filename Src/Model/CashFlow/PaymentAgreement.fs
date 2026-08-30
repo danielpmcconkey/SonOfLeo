@@ -2,7 +2,7 @@ module Model.CashFlow.PaymentAgreement
 
 open Model
 open Model.CashFlow.CashFlowComponent
-open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.AccountComponent
 open NodaTime
 open Utilities.AppError
 open Utilities.FieldUpdate

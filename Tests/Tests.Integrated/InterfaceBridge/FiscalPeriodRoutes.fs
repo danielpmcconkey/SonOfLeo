@@ -12,8 +12,8 @@ open Utilities.AppError
 open Tests.Helpers.SadPath
 open Utilities.ResultHelper
 open Xunit
-open Model.Ledger.FiscalPeriods
-open Model.Ledger.FiscalPeriods.FiscalPeriod
+open Model.Ledger.FiscalPeriodComponent
+open Model.Ledger
 open Tests.Integrated
 open Tests.Helpers.Cleanup
 open InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
@@ -62,8 +62,8 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
                 let id = uuid |> FiscalPeriodId.fromGuid
                 keyToCleanUp <- Some returnedKey
                 Assert.Equal(expected, returnedKey)
-                let! fetched = id |> fetchById context
-                Assert.Equal(expected, FiscalPeriodKey.value(periodKey fetched))
+                let! fetched = id |> FiscalPeriod.fetchById context
+                Assert.Equal(expected, FiscalPeriodKey.value(FiscalPeriod.periodKey fetched))
                 ()
             }
             |> railroadWrapper
@@ -81,7 +81,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         let targetId = fixture.Data.openFiscalPeriodIds |> List.head
         let expectedPeriod =
             fixture.Data.fiscalPeriods |> List.find(fun fp -> fp |> FiscalPeriod.fiscalPeriodId = targetId)
-        let existingKey = expectedPeriod |> periodKey |> FiscalPeriodKey.value
+        let existingKey = expectedPeriod |> FiscalPeriod.periodKey |> FiscalPeriodKey.value
         result {
             let payload = createFiscalPeriodFetchByKeyInputPayload existingKey
             let! resultPayload = routeUiCommandForTesting "FiscalPeriod" "FetchByKey" [] payload
@@ -100,7 +100,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         let payload = createFiscalPeriodFetchAllInputPayload false
         let expectedKeys =
             fixture.Data.fiscalPeriods
-            |> List.map(periodKey >> FiscalPeriodKey.value)
+            |> List.map(FiscalPeriod.periodKey >> FiscalPeriodKey.value)
             |> List.sort
         result {
             let! resultPayload = routeUiCommandForTesting "FiscalPeriod" "FetchAll" [] payload
@@ -120,7 +120,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
             let context = Context.create NoTransaction FetchOnly
             result {
                 let! created = createTestFiscalPeriodFromPrimitives context expected
-                let keyString = periodKey created |> FiscalPeriodKey.value
+                let keyString = FiscalPeriod.periodKey created |> FiscalPeriodKey.value
                 keyToCleanUp <- Some keyString
                 let! resultPayload = routeUiCommandForTesting "FiscalPeriod" "Close" [] payload
                 let! returned = fromJson<FiscalPeriodReturn> resultPayload
@@ -144,11 +144,11 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
             let context = Context.create NoTransaction FetchOnly
             result {
                 let! created = createTestFiscalPeriodFromPrimitives context expected
-                let id = created |> fiscalPeriodId
-                let keyString = periodKey created |> FiscalPeriodKey.value
+                let id = created |> FiscalPeriod.fiscalPeriodId
+                let keyString = FiscalPeriod.periodKey created |> FiscalPeriodKey.value
                 keyToCleanUp <- Some keyString
-                let! closed = id |> closeFiscalPeriod context
-                Assert.False(isOpen closed)
+                let! closed = id |> FiscalPeriod.closeFiscalPeriod context
+                Assert.False(FiscalPeriod.isOpen closed)
                 let! resultPayload = routeUiCommandForTesting "FiscalPeriod" "Reopen" [] payload
                 let! returned = fromJson<FiscalPeriodReturn> resultPayload
                 let returnedKey = returned.periodKey

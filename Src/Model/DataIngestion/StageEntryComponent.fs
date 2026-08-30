@@ -1,4 +1,4 @@
-namespace Model.DataIngestion
+module Model.DataIngestion.StageEntryComponent
 open Utilities.AppError
 open System
 

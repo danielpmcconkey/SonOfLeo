@@ -1,15 +1,15 @@
 module Tests.Isolated.Model.DataIngestion.Classifier
 
 open Model
-open Model.DataIngestion
+open Model.DataIngestion.StageEntryComponent
 open Model.DataIngestion.Classification
-open Model.DataIngestion.Classification.ClassificationRule
 open Model.DataIngestion.Classification.Classifier
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.AccountComponent
+open Model.Ledger.JournalEntryComponent
 open Utilities
 open Utilities.AppError
 open Xunit
+open Model.DataIngestion.Classification.ClassificationRuleComponent
 
 let private makeCandidate descriptionStr sourceStr amount lineType =
     let description =

@@ -1,9 +1,9 @@
 module ModelOrchestrator.AccountDeactivation
 
-open Model.Ledger.Accounts
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.Account
+open Model.Ledger.AccountComponent
+open Model.Ledger
+open Model.Ledger.JournalEntryComponent
 open Model
 open NodaTime
 open Utilities
@@ -40,7 +40,7 @@ let private confirmProposedDeactivationDateIsValid
     (proposedDate: LocalDate)
     (account: Account)
     : Result<unit, AppError> =
-    let ab = account |> Account.activityPeriod |> AccountActivityPeriod.activeBegin
+    let ab = account |> Account.activityPeriod |> ActivityPeriod.activeBegin
     if proposedDate < ab then
         Error(
             AccountDeactivationProposedDateIsInvalid(account |> Account.accountId |> AccountId.value, proposedDate, ab)
@@ -56,7 +56,7 @@ let private confirmNoActiveChildrenBeforeDeactivation (context: Context.Context)
             let referenceDate = (context |> Context.getInitiationInstant) |> Calendar.dateFromInstant
             if
                 children
-                |> List.exists(fun x -> x |> Account.activityPeriod |> AccountActivityPeriod.isActive referenceDate)
+                |> List.exists(fun x -> x |> Account.activityPeriod |> ActivityPeriod.isActive referenceDate)
             then
                 Error(AccountActiveChildrenBeforeDeactivation(account |> Account.accountId |> AccountId.value))
             else
@@ -134,7 +134,7 @@ let deactivateAccount
         | Some m -> m
         | None -> Calendar.dateFromInstant(context |> Context.getInitiationInstant)
     result {
-        let activeEnd = account |> Account.activityPeriod |> AccountActivityPeriod.activeEnd
+        let activeEnd = account |> Account.activityPeriod |> ActivityPeriod.activeEnd
         do!
             match activeEnd with
             | None -> Ok()

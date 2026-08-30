@@ -4,7 +4,7 @@ open System
 
 open InterfaceBridge.CommandRoute
 open Logger.Audit
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger
 open ModelOrchestrator
 open Tests.Helpers.Railroad
 open Utilities.AppError
@@ -13,7 +13,7 @@ open Utilities.FieldUpdate
 open Utilities.ResultHelper
 open Xunit
 open Tests.Helpers
-open Model.Ledger.Journaling
+open Model.Ledger.JournalEntryComponent
 
 [<Collection("SharedTestData")>]
 type JournalEntryCommentTests(fixture: TestDataFixture) =

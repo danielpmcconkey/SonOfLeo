@@ -4,13 +4,12 @@ open InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
 open InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
 open Utilities.Json
 open Logger.Audit
-open Model.Ledger.FiscalPeriods
-open Model.Ledger.FiscalPeriods.FiscalPeriod
+open Model.Ledger
+open Model.Ledger.FiscalPeriodComponent
 open InterfaceBridge.CommandRoute
 open Utilities.ResultHelper
 open ModelOrchestrator.FiscalPeriodCreation
 open DataAccessLayer.DbTransaction
-open Context
 
 let private create payload _ =
     let context = Context.create NoTransaction FiscalPeriodCreate
@@ -27,7 +26,7 @@ let private fetch payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodFetchByKeyInput> payload
         let! id = input.periodKey |> ``convert FiscalPeriodKeyString to FiscalPeriodId`` context
-        let! model = id |> fetchById context
+        let! model = id |> FiscalPeriod.fetchById context
         let returnVal = ``convert FiscalPeriod to FiscalPeriodReturn`` model
         return! Json.toJson<FiscalPeriodReturn> returnVal
     }
@@ -36,7 +35,7 @@ let private fetchAll payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
         let! input = Json.fromJson<FiscalPeriodFetchAllInput> payload
-        let! models = fetchAll context input.openOnly
+        let! models = FiscalPeriod.fetchAll context input.openOnly
         let returnVal = models |> List.map ``convert FiscalPeriod to FiscalPeriodReturn``
         return! Json.toJson<FiscalPeriodReturn list> returnVal
     }
@@ -46,7 +45,7 @@ let private close payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodCloseInput> payload
         let! id = input.periodKey |> ``convert FiscalPeriodKeyString to FiscalPeriodId`` context
-        let! model = id |> closeFiscalPeriod context
+        let! model = id |> FiscalPeriod.closeFiscalPeriod context
         let returnVal = ``convert FiscalPeriod to FiscalPeriodReturn`` model
         return! Json.toJson<FiscalPeriodReturn> returnVal
     }
@@ -56,7 +55,7 @@ let private reopen payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodReopenInput> payload
         let! id = input.periodKey |> ``convert FiscalPeriodKeyString to FiscalPeriodId`` context
-        let! model = id |> reopenFiscalPeriod context
+        let! model = id |> FiscalPeriod.reopenFiscalPeriod context
         let returnVal = ``convert FiscalPeriod to FiscalPeriodReturn`` model
         return! Json.toJson<FiscalPeriodReturn> returnVal
     }

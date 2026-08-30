@@ -1,4 +1,4 @@
-namespace Model.Ledger.FiscalPeriods
+module Model.Ledger.FiscalPeriodComponent
 
 open System
 open System.Text.RegularExpressions

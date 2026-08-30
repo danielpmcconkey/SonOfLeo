@@ -4,8 +4,8 @@ open DataAccessLayer.DbTransaction
 open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.JournalEntries.JournalEntry
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad

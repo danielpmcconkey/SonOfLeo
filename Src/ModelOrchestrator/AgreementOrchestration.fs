@@ -4,9 +4,10 @@ open DataAccessLayer.ExecuteReader
 open Model
 open Model.CashFlow
 open Model.DataIngestion
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.DataIngestion.StageEntryComponent
+open Model.Ledger.AccountComponent
+open Model.Ledger
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.CashFlowCompositeFetcher
 open ModelOrchestrator.FetchFilters
 open NodaTime

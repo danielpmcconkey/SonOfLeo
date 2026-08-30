@@ -1,8 +1,8 @@
-namespace Model.DataIngestion
+module Model.DataIngestion.BaseStageEntry
 
 open Model
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.AccountComponent
+open Model.Ledger.JournalEntryComponent
 open NodaTime
 open Utilities.AppError
 open System
@@ -21,15 +21,14 @@ module BaseStageEntryGroupId =
         else
             Ok(BaseStageEntryGroupId trimmed)
             
-module BaseStageRaw = 
-    type BaseStageRawRow = {
-        baseStageEntryGroupId : BaseStageEntryGroupId
-        entryDate : LocalDate
-        description: JournalEntryDescription
-        fiSource: JournalRefFinancialInstitution
-        fiReference: JournalExternalReferenceText
-        amount : Money
-        entryType : JournalEntryLineType
-        accountId: AccountId option
-        memo: JournalEntryLineMemo option
-    }
+type BaseStageRawRow = {
+    baseStageEntryGroupId : BaseStageEntryGroupId
+    entryDate : LocalDate
+    description: JournalEntryDescription
+    fiSource: JournalRefFinancialInstitution
+    fiReference: JournalExternalReferenceText
+    amount : Money
+    entryType : JournalEntryLineType
+    accountId: AccountId option
+    memo: JournalEntryLineMemo option
+}

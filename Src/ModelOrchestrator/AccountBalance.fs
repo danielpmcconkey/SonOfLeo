@@ -2,8 +2,8 @@ module ModelOrchestrator.AccountBalance
 
 open System
 open Model
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.AccountComponent
+open Model.Ledger.JournalEntryComponent
 open NodaTime
 open Utilities.AppError
 open DataAccessLayer.QueryParameters

@@ -1,7 +1,8 @@
 module ModelOrchestrator.JournalEntryExternalReferenceOrchestration
 
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.JournalEntryExternalReference
+open Model.Ledger
+open Model.Ledger.JournalEntryComponent
 open Utilities.AppError
 open DataAccessLayer.QueryParameters
 open DataAccessLayer.ExecuteReader
@@ -31,14 +32,14 @@ let constructNewAndSaveToDb
     result {
         do! journalEntryHeaderId |> confirmJournalEntryHeader context
         let journalExternalReference =
-            JournalEntryExternalReference.create
+            create
                 journalEntryExternalReferenceId
                 journalEntryHeaderId
                 financialInstitution
                 referenceText
                 createdAt
                 modifiedAt
-        do! journalExternalReference |> JournalEntryExternalReference.insertNewToDb context
+        do! journalExternalReference |> insertNewToDb context
         return journalExternalReference
     }
 
@@ -81,5 +82,5 @@ let updateFiAndReferenceText
             else
                 Ok()
         let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
-        return! journalEntryExternalReferenceId |> JournalEntryExternalReference.fetchById context
+        return! journalEntryExternalReferenceId |> fetchById context
     }

@@ -6,7 +6,7 @@ open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model
 open Model.DataIngestion.Classification
-open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.AccountComponent
 open ModelOrchestrator
 open ModelOrchestrator.FetchFilters
 open Tests.Helpers
@@ -17,7 +17,9 @@ open Utilities.AppError
 open Utilities.ResultHelper
 open Utilities.FieldUpdate
 open Xunit
-
+open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Model.DataIngestion.Classification.ClassificationRuleGroup
+open Model.DataIngestion.Classification.FieldMatch
 
 let private unwrap result =
     result |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
@@ -105,7 +107,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 let groups =
                     [ ClassificationRuleGroup.create
                         And
-                        (chainOf [ Source(patternOf "TestRoundTrip"); LineType(Model.Ledger.Journaling.JournalEntryComponent.JournalEntryLineType.Debit) ])
+                        (chainOf [ Source(patternOf "TestRoundTrip"); LineType(Model.Ledger.JournalEntryComponent.JournalEntryLineType.Debit) ])
                         None
                       ClassificationRuleGroup.create
                         Or

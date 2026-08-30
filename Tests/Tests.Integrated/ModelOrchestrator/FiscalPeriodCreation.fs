@@ -2,7 +2,8 @@ module Tests.Integrated.ModelOrchestrator.FiscalPeriodCreation
 
 open InterfaceBridge.CommandRoute
 open Logger.Audit
-open Model.Ledger.FiscalPeriods
+open Model.Ledger
+open Model.Ledger.FiscalPeriodComponent
 open ModelOrchestrator
 open Tests.Helpers.Railroad
 open Xunit

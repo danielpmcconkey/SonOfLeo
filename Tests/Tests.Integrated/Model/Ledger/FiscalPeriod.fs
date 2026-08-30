@@ -4,7 +4,8 @@ open System
 open DataAccessLayer.DbTransaction
 open InterfaceBridge.CommandRoute
 open Logger.Audit
-open Model.Ledger.FiscalPeriods
+open Model.Ledger
+open Model.Ledger.FiscalPeriodComponent
 open ModelOrchestrator
 open Tests.Helpers
 open Tests.Helpers.GenericTestProperties

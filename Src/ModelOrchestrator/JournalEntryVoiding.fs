@@ -1,15 +1,14 @@
 module ModelOrchestrator.JournalEntryVoiding
 
-open Model.Ledger.FiscalPeriods
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger
+open Model.Ledger.FiscalPeriodComponent
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.JournalEntries
 open Utilities.AppError
 open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.ExecuteNonQuery
-
 
 let private confirmJournalEntryIdIsReal
     (context: Context.Context)
@@ -24,7 +23,7 @@ let private confirmJournalEntryIdIsReal
 
 let private confirmFiscalPeriodIsStillOpenBeforeVoiding
     (context: Context.Context)
-    (journalEntryHeader: JournalEntryHeader)
+    (journalEntryHeader: JournalEntryHeader.JournalEntryHeader)
     : Result<unit, AppError> =
     let entryDate = journalEntryHeader |> JournalEntryHeader.entryDate
     let fiscalPeriodId = entryDate |> EntryDate.fiscalPeriodId

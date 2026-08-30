@@ -5,14 +5,14 @@ open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open Logger.Audit
-open Model.DataIngestion
-open Model.DataIngestion.Classification
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.FiscalPeriods
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.DataIngestion.StageEntryComponent
+open Model.Ledger.AccountComponent
+open Model.Ledger.FiscalPeriodComponent
+open Model.Ledger.JournalEntryComponent
 open Utilities.AppError
 open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
+open Model.DataIngestion.Classification.ClassificationRuleComponent
 
 
 (*

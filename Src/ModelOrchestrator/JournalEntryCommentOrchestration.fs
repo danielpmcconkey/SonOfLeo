@@ -1,7 +1,8 @@
 module ModelOrchestrator.JournalEntryCommentOrchestration
 
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger
+open Model.Ledger.JournalEntryComponent
+open Model.Ledger.JournalEntryComment
 open Utilities.AppError
 open DataAccessLayer.QueryParameters
 open DataAccessLayer.ExecuteReader
@@ -54,14 +55,14 @@ let constructNewAndSaveToDb
             | Error e -> Error e
         do! confirmPrimaryAndSecondaryRelationship primaryJournalEntryId secondaryJournalEntryId
         let journalEntryComment =
-            JournalEntryComment.create
+            create
                 journalEntryCommentId
                 primaryJournalEntryId
                 secondaryJournalEntryId
                 commentText
                 createdAt
                 modifiedAt
-        do! journalEntryComment |> JournalEntryComment.insertNewToDb context
+        do! journalEntryComment |> insertNewToDb context
         return journalEntryComment
     }
 
@@ -81,8 +82,8 @@ let updateComment
             | NoChange -> Ok NoChange
             | SetTo x ->
                 result {
-                    let! existing = journalEntryCommentId |> (JournalEntryComment.fetchById context)
-                    let primaryJournalEntryId = existing |> JournalEntryComment.primaryJournalEntryId
+                    let! existing = journalEntryCommentId |> (fetchById context)
+                    let primaryJournalEntryId = existing |> primaryJournalEntryId
                     do! confirmPrimaryAndSecondaryRelationship primaryJournalEntryId x
                     return (SetTo x)
                 }
@@ -113,5 +114,5 @@ let updateComment
                                 {setClauses}
                             WHERE unique_id = @unique_id; """
         let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
-        return! journalEntryCommentId |> JournalEntryComment.fetchById context
+        return! journalEntryCommentId |> fetchById context
     }

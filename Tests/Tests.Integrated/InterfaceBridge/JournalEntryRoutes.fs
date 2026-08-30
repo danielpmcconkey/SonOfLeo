@@ -5,9 +5,9 @@ open DataAccessLayer.DbTransaction
 open InterfaceBridge.InterfaceContracts.JournalContracts
 open Utilities.Json.Json
 open Logger.Audit
-open Model.Ledger.FiscalPeriods
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger
+open Model.Ledger.FiscalPeriodComponent
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.JournalEntries.JournalEntry
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers

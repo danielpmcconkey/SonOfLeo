@@ -2,8 +2,8 @@ module ModelOrchestrator.AccountActivity
 
 open System
 open Model
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.AccountComponent
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.FetchFilters
 open NodaTime
 open Utilities.AppError

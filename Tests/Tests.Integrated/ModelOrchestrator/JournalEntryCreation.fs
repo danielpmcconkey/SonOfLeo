@@ -4,17 +4,17 @@ open System
 
 open InterfaceBridge.CommandRoute
 open Logger.Audit
-open Model.Ledger.Accounts
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.FiscalPeriods
+open Model
+open Model.Ledger.Account
+open Model.Ledger.AccountComponent
+open Model.Ledger
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
 open Utilities.ResultHelper
 open Xunit
 open Tests.Helpers
 open ModelOrchestrator.JournalEntries.JournalEntry
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.JournalEntryComponent
 open Utilities
 open Utilities.AppError
 
@@ -426,7 +426,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         let badAccount = fixture.Data.closedAccount
         let badId = badAccount |> Account.accountId
         let badDate =
-            (badAccount |> Account.activityPeriod |> AccountActivityPeriod.activeEnd |> Option.get).PlusMonths(1)
+            (badAccount |> Account.activityPeriod |> ActivityPeriod.activeEnd |> Option.get).PlusMonths(1)
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             let result =
                 createTestJournalEntryFromPrimitives

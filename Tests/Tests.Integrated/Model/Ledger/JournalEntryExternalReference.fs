@@ -4,13 +4,13 @@ open System
 
 open InterfaceBridge.CommandRoute
 open Logger.Audit
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
 open Xunit
 open Tests.Helpers
-open Model.Ledger.Journaling
+open Model.Ledger.JournalEntryExternalReference
 open Utilities.AppError
 
 [<Collection("SharedTestData")>]
@@ -32,8 +32,8 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
             match result with
             | Ok r ->
                 let actualFi =
-                    r |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value
-                let actualRef = r |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value
+                    r |> financialInstitution |> JournalRefFinancialInstitution.value
+                let actualRef = r |> referenceText |> JournalExternalReferenceText.value
                 Assert.Equal(expectedFi, actualFi)
                 Assert.Equal(expectedRef, actualRef)
                 Ok()
@@ -54,7 +54,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
                     fixture.Data.jeWithRefExtRefId
             match result with
             | Ok r ->
-                Assert.Equal(expectedInstant, r |> JournalEntryExternalReference.modifiedAt)
+                Assert.Equal(expectedInstant, r |> modifiedAt)
                 Ok()
             | Error e -> Error e)
         |> railroadWrapper
@@ -74,10 +74,10 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
                     refAdd
             match result with
             | Ok r ->
-                Assert.Equal(fixture.Data.basicJeId, r |> JournalEntryExternalReference.journalEntryHeaderId)
+                Assert.Equal(fixture.Data.basicJeId, r |> journalEntryHeaderId)
                 let actual1 =
-                    r |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value
-                let actual2 = r |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value
+                    r |> financialInstitution |> JournalRefFinancialInstitution.value
+                let actual2 = r |> referenceText |> JournalExternalReferenceText.value
                 Assert.Equal(expected1, actual1)
                 Assert.Equal(expected2, actual2)
                 Ok()
@@ -100,7 +100,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
                 Assert.NotEqual(
                     Guid.Empty,
                     r
-                    |> JournalEntryExternalReference.journalEntryExternalReferenceId
+                    |> journalEntryExternalReferenceId
                     |> JournalEntryExternalReferenceId.value
                 )
                 Ok()
@@ -120,7 +120,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
                     refAdd
             match result with
             | Ok r ->
-                Assert.Equal(fixture.Data.voidedJeId, r |> JournalEntryExternalReference.journalEntryHeaderId)
+                Assert.Equal(fixture.Data.voidedJeId, r |> journalEntryHeaderId)
                 Ok()
             | Error e -> Error e)
         |> railroadWrapper
@@ -141,8 +141,8 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
             match result with
             | Ok r ->
                 let actualFi =
-                    r |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value
-                let actualRef = r |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value
+                    r |> financialInstitution |> JournalRefFinancialInstitution.value
+                let actualRef = r |> referenceText |> JournalExternalReferenceText.value
                 Assert.Equal(expectedFi, actualFi)
                 Assert.Equal(expectedRef, actualRef)
                 Ok()
@@ -165,8 +165,8 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
             match result with
             | Ok r ->
                 let actualFi =
-                    r |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value
-                let actualRef = r |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value
+                    r |> financialInstitution |> JournalRefFinancialInstitution.value
+                let actualRef = r |> referenceText |> JournalExternalReferenceText.value
                 Assert.Equal(expectedFi, actualFi)
                 Assert.Equal(expectedRef, actualRef)
                 Ok()
@@ -186,7 +186,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
                     refAdd
             match result with
             | Ok r ->
-                Assert.Equal(fixture.Data.jeInClosedPeriodId, r |> JournalEntryExternalReference.journalEntryHeaderId)
+                Assert.Equal(fixture.Data.jeInClosedPeriodId, r |> journalEntryHeaderId)
                 Ok()
             | Error e -> Error e)
         |> railroadWrapper
@@ -208,38 +208,38 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
                 // fetch inside the same contextsaction — the create is never committed
                 let fetchResult =
                     created
-                    |> JournalEntryExternalReference.journalEntryExternalReferenceId
-                    |> JournalEntryExternalReference.fetchById context
+                    |> journalEntryExternalReferenceId
+                    |> fetchById context
                 match fetchResult with
                 | Error e -> Error(TestingError $"Fetch after creation failed: {e}")
                 | Ok fetched ->
                     Assert.Equal(
-                        created |> JournalEntryExternalReference.journalEntryExternalReferenceId,
-                        fetched |> JournalEntryExternalReference.journalEntryExternalReferenceId
+                        created |> journalEntryExternalReferenceId,
+                        fetched |> journalEntryExternalReferenceId
                     )
                     Assert.Equal(
-                        created |> JournalEntryExternalReference.journalEntryHeaderId,
-                        fetched |> JournalEntryExternalReference.journalEntryHeaderId
+                        created |> journalEntryHeaderId,
+                        fetched |> journalEntryHeaderId
                     )
                     Assert.Equal(
                         created
-                        |> JournalEntryExternalReference.financialInstitution
+                        |> financialInstitution
                         |> JournalRefFinancialInstitution.value,
                         fetched
-                        |> JournalEntryExternalReference.financialInstitution
+                        |> financialInstitution
                         |> JournalRefFinancialInstitution.value
                     )
                     Assert.Equal(
-                        created |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value,
-                        fetched |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value
+                        created |> referenceText |> JournalExternalReferenceText.value,
+                        fetched |> referenceText |> JournalExternalReferenceText.value
                     )
                     Assert.Equal(
-                        created |> JournalEntryExternalReference.createdAt,
-                        fetched |> JournalEntryExternalReference.createdAt
+                        created |> createdAt,
+                        fetched |> createdAt
                     )
                     Assert.Equal(
-                        created |> JournalEntryExternalReference.modifiedAt,
-                        fetched |> JournalEntryExternalReference.modifiedAt
+                        created |> modifiedAt,
+                        fetched |> modifiedAt
                     )
                     Ok())
         |> railroadWrapper

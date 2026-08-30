@@ -1,13 +1,11 @@
-namespace Model.DataIngestion.Classification
+module Model.DataIngestion.Classification.ClassificationRuleComponent
 
 open System
 open Model
-open Model.DataIngestion
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.AccountComponent
+open Model.Ledger.JournalEntryComponent
 open Utilities.AppError
-
-
+open Model.DataIngestion.StageEntryComponent
 
 type ClassificationRuleId = private ClassificationRuleId of Guid
 

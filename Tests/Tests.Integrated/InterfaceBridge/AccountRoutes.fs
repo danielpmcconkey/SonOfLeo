@@ -6,9 +6,9 @@ open InterfaceBridge.InterfaceContracts.SharedContracts
 open Utilities.Json.Json
 open Logger.Audit
 open Model
-open Model.Ledger.Accounts
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling
+open Model.Ledger
+open Model.Ledger.Account
+open Model.Ledger.AccountComponent
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers
 open Tests.Helpers.GenericTestProperties
@@ -22,7 +22,7 @@ open Tests.Helpers.Cleanup
 open InterfaceBridge.InterfaceContracts.AccountContracts
 open Utilities.AppError
 
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.JournalEntryComponent
 
 [<Collection("SharedTestData")>]
 type AccountRouteTests(fixture: TestDataFixture) =
@@ -58,8 +58,8 @@ type AccountRouteTests(fixture: TestDataFixture) =
                     { code = genericAccountCodeString
                       name = genericAccountNameString
                       accountTypeSt = genericAccountTypeString
-                      activeBegin = genericAccountActiveBegin
-                      activeEnd = genericAccountActiveEnd
+                      activeBegin = genericActiveBegin
+                      activeEnd = genericActiveEnd
                       subType = genericAccountSubtype
                       parentCode = badAccountCode
                       reference = genericAccountReference }
@@ -354,8 +354,8 @@ type AccountRouteTests(fixture: TestDataFixture) =
             { code = codeToUse
               name = nameToUse
               accountTypeSt = typeToUse
-              activeBegin = genericAccountActiveBegin
-              activeEnd = genericAccountActiveEnd
+              activeBegin = genericActiveBegin
+              activeEnd = genericActiveEnd
               subType = subTypeToUse
               parentCode = parentCodeToUse
               reference = referenceToUse }

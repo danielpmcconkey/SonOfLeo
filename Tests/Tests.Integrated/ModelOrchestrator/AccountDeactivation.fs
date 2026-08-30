@@ -2,12 +2,13 @@ namespace Tests.Integrated.ModelOrchestrator
 
 open InterfaceBridge.CommandRoute
 open Logger.Audit
+open Model
+open Model.ActivityPeriod
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Utilities.ResultHelper
 open Xunit
-open Model.Ledger.Accounts
-open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.Account
 open ModelOrchestrator.AccountDeactivation
 open Utilities
 open Utilities.AppError
@@ -22,17 +23,17 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback AccountDeactivate (fun context ->
             result {
                 let! original = Account.fetchById context fixture.Data.moneyMarket1270Id
-                Assert.True(original |> Account.activityPeriod |> AccountActivityPeriod.isActive(Calendar.today()))
+                Assert.True(original |> Account.activityPeriod |> isActive(Calendar.today()))
                 let! account = fixture.Data.moneyMarket1270Id |> Account.fetchById context
                 let! deactivated = account |> deactivateAccount context explicitDeactivationDate
 
                 Assert.Equal(fixture.Data.moneyMarket1270Id, Account.accountId deactivated)
-                Assert.False(deactivated |> Account.activityPeriod |> AccountActivityPeriod.isActive(Calendar.today()))
+                Assert.False(deactivated |> Account.activityPeriod |> isActive(Calendar.today()))
                 (* isActive would still be false for any past date, so the name's first claim
                    needs the date itself. *)
                 Assert.Equal<NodaTime.LocalDate option>(
                     explicitDeactivationDate,
-                    deactivated |> Account.activityPeriod |> AccountActivityPeriod.activeEnd)
+                    deactivated |> Account.activityPeriod |> activeEnd)
                 return ()
             })
         |> railroadWrapper
@@ -43,7 +44,7 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
             result {
                 let! original = Account.fetchById context fixture.Data.moneyMarket1270Id
                 let badActiveEnd =
-                    (original |> Account.activityPeriod |> AccountActivityPeriod.activeBegin).PlusDays(-1)
+                    (original |> Account.activityPeriod |> activeBegin).PlusDays(-1)
                 let! account = fixture.Data.moneyMarket1270Id |> Account.fetchById context
                 do!
                     isCorrectError
@@ -59,7 +60,7 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback AccountDeactivate (fun context ->
             result {
                 let! original = Account.fetchById context fixture.Data.moneyMarket1270Id
-                let equalEnd = Some(original |> Account.activityPeriod |> AccountActivityPeriod.activeBegin)
+                let equalEnd = Some(original |> Account.activityPeriod |> activeBegin)
                 let! account = fixture.Data.moneyMarket1270Id |> Account.fetchById context
                 let! _ = account |> deactivateAccount context equalEnd
                 return ()

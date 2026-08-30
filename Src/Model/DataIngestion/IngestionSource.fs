@@ -3,10 +3,11 @@ module Model.DataIngestion.IngestionSource
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.JournalEntryComponent
 open NodaTime
 open Utilities.AppError
 open Utilities.ResultHelper
+open Model.DataIngestion.StageEntryComponent
 
 type IngestionSource =
     private {

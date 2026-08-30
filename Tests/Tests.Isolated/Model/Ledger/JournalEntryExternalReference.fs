@@ -1,7 +1,7 @@
 module Tests.Isolated.Model.Ledger.JournalEntryExternalReference
 
 open System
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.JournalEntryComponent
 open Utilities.AppError
 open Xunit
 open Tests.Helpers.SadPath

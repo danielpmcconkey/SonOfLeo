@@ -7,7 +7,7 @@ open InterfaceBridge.ReportVisualizationAssets.ReportBody
 open InterfaceBridge.ReportVisualizationAssets.ReportFooter
 open InterfaceBridge.ReportVisualizationAssets.ReportHeader
 open Model
-open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.AccountComponent
 open ModelOrchestrator.TrialBalanceReport
 open NodaTime
 open Utilities.AppError

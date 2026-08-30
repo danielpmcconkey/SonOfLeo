@@ -5,8 +5,8 @@ open Logger.Audit
 open Utilities.AppError
 open Xunit
 open Tests.Helpers
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger
+open Model.Ledger.JournalEntryComponent
 
 
 [<Collection("SharedTestData")>]

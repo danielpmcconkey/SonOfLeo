@@ -2,10 +2,10 @@ namespace Tests.Integrated.ModelOrchestrator
 
 open DataAccessLayer.DbTransaction
 open Logger.Audit
-open Model.Ledger.Accounts
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger
+open Model.Ledger.Account
+open Model.Ledger.AccountComponent
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.JournalEntries
 open Utilities.AppError
 open Utilities.ResultHelper

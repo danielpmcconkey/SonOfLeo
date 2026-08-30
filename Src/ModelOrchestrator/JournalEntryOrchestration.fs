@@ -4,11 +4,10 @@ open System
 
 open DataAccessLayer.ExecuteReader
 open Model
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.FiscalPeriods
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
-open Model.Ledger.Accounts
+open Model.Ledger.AccountComponent
+open Model.Ledger
+open Model.Ledger.JournalEntryComponent
+open Model.Ledger.Account
 open ModelOrchestrator
 open ModelOrchestrator.FetchFilters
 open NodaTime
@@ -18,10 +17,10 @@ open DataAccessLayer.QueryParameters
 
 type JournalEntry =
     private
-        { header: JournalEntryHeader
-          lines: JournalEntryLine list
-          externalReferences: JournalEntryExternalReference list
-          comments: JournalEntryComment list }
+        { header: JournalEntryHeader.JournalEntryHeader
+          lines: JournalEntryLine.JournalEntryLine list
+          externalReferences: JournalEntryExternalReference.JournalEntryExternalReference list
+          comments: JournalEntryComment.JournalEntryComment list }
 
 module JournalEntry =
     let header je = je.header
@@ -33,7 +32,7 @@ module JournalEntry =
     // validating JE as a collection
     // =============================================================================
 
-    let private confirmAmountEquality (lines: JournalEntryLine list) : Result<unit, AppError> =
+    let private confirmAmountEquality (lines: JournalEntryLine.JournalEntryLine list) : Result<unit, AppError> =
         result {
             let! totalDebits = lines |> JournalEntryLine.sumLinesByType Debit
             let! totalCredits = lines |> JournalEntryLine.sumLinesByType Credit
@@ -44,13 +43,13 @@ module JournalEntry =
                     Error(JournalEntryDebitCreditMismatch(totalDebits |> Money.amount, totalCredits |> Money.amount))
         }
 
-    let private confirmLineCount (lines: JournalEntryLine list) : Result<unit, AppError> =
+    let private confirmLineCount (lines: JournalEntryLine.JournalEntryLine list) : Result<unit, AppError> =
         if lines |> List.length < 2 then
             Error(JournalEntryInsufficientLines(lines |> List.length))
         else
             Ok()
 
-    let confirmLineList (lines: JournalEntryLine list) : Result<unit, AppError> =
+    let confirmLineList (lines: JournalEntryLine.JournalEntryLine list) : Result<unit, AppError> =
         result {
             let! _ = confirmLineCount lines
             let! _ = confirmAmountEquality lines
@@ -66,7 +65,7 @@ module JournalEntry =
         (description: JournalEntryDescription)
         (source: JournalEntrySource option)
         (entryDate: EntryDate)
-        : Result<JournalEntryHeader, AppError> =
+        : Result<JournalEntryHeader.JournalEntryHeader, AppError> =
         JournalEntryHeaderOrchestration.constructNewAndSaveToDb context description source entryDate
 
     let private confirmAccountIsActiveAtEntryDate
@@ -84,13 +83,13 @@ module JournalEntry =
             let referenceDate = entryDate |> EntryDate.entryDate
             let activityPeriod = account |> Account.activityPeriod
             return!
-                match activityPeriod |> AccountActivityPeriod.isActive referenceDate with
+                match activityPeriod |> ActivityPeriod.isActive referenceDate with
                 | true -> Ok()
                 | false ->
                     let accountUuid = accountId |> AccountId.value
                     let entryDateLd = entryDate |> EntryDate.entryDate
-                    let beginDate = activityPeriod |> AccountActivityPeriod.activeBegin
-                    let endDate = activityPeriod |> AccountActivityPeriod.activeEnd
+                    let beginDate = activityPeriod |> ActivityPeriod.activeBegin
+                    let endDate = activityPeriod |> ActivityPeriod.activeEnd
                     Error(JournalEntryLineAccountInactive(accountUuid, entryDateLd, beginDate, endDate))
         }
 
@@ -99,7 +98,7 @@ module JournalEntry =
         (journalEntryId: JournalEntryHeaderId)
         (entryDate: EntryDate)
         (lines: (AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option) list)
-        : Result<JournalEntryLine list, AppError> =
+        : Result<JournalEntryLine.JournalEntryLine list, AppError> =
         lines
         |> List.map(fun line ->
             let accountId, amount, lineType, memo = line
@@ -120,7 +119,7 @@ module JournalEntry =
         (context: Context.Context)
         (journalEntryHeaderId: JournalEntryHeaderId)
         (references: (JournalRefFinancialInstitution * JournalExternalReferenceText) list)
-        : Result<JournalEntryExternalReference list, AppError> =
+        : Result<JournalEntryExternalReference.JournalEntryExternalReference list, AppError> =
         references
         |> List.map(fun reference ->
             let financialInstitution, referenceText = reference
@@ -135,7 +134,7 @@ module JournalEntry =
         (context: Context.Context)
         (primaryJournalEntryId: JournalEntryHeaderId)
         (comments: (JournalEntryHeaderId option * CommentText) list)
-        : Result<JournalEntryComment list, AppError> =
+        : Result<JournalEntryComment.JournalEntryComment list, AppError> =
         comments
         |> List.map(fun comment ->
             let secondaryJournalEntryId, commentText = comment
@@ -179,10 +178,10 @@ module JournalEntry =
     // =============================================================================
 
     let private composeFromFetchedLists
-        (headers: JournalEntryHeader list)
-        (lines: JournalEntryLine list)
-        (references: JournalEntryExternalReference list)
-        (comments: JournalEntryComment list)
+        (headers: JournalEntryHeader.JournalEntryHeader list)
+        (lines: JournalEntryLine.JournalEntryLine list)
+        (references: JournalEntryExternalReference.JournalEntryExternalReference list)
+        (comments: JournalEntryComment.JournalEntryComment list)
         : JournalEntry list =
         headers
         |> List.map(fun header ->
@@ -203,7 +202,7 @@ module JournalEntry =
         (context: Context.Context)
         (filter: JournalEntryFetchFilter)
         (expectedRows: AcceptableExpectedRows)
-        : Result<JournalEntryHeader list, AppError> =
+        : Result<JournalEntryHeader.JournalEntryHeader list, AppError> =
         result {
             let! filterDateRangeOption =
                 filter.temporalFilter
@@ -328,7 +327,7 @@ module JournalEntry =
 
     let fetchByPeriod
         (context: Context.Context)
-        (fiscalPeriod: FiscalPeriod)
+        (fiscalPeriod: FiscalPeriod.FiscalPeriod)
         : Result<JournalEntry list, AppError> =
         let filter =
             { journalEntryHeaderId = None

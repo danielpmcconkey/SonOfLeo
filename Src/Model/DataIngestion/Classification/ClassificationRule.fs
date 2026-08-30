@@ -3,11 +3,13 @@ module Model.DataIngestion.Classification.ClassificationRule
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
-open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.AccountComponent
 open NodaTime
 open Utilities.AppError
 open Utilities.Json.Json
 open Utilities.ResultHelper
+open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Model.DataIngestion.Classification.ClassificationRuleGroup
 
 /// ClassificationRule: The top-level classification rule. All groups must resolve to true for the rule to resolve to
 /// true.
@@ -171,5 +173,5 @@ let doesMatch
     else
         classificationRule.ruleGroups
         |> List.forall(fun ruleGroup ->
-                ruleGroup |> ClassificationRuleGroup.doesMatch candidate)
+                ruleGroup |> doesMatch candidate)
         

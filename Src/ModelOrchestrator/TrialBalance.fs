@@ -2,8 +2,8 @@ module ModelOrchestrator.TrialBalanceReport
 
 
 open Model
-open Model.Ledger.Accounts
-open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.Account
+open Model.Ledger.AccountComponent
 open ModelOrchestrator
 open NodaTime
 open Utilities.AppError

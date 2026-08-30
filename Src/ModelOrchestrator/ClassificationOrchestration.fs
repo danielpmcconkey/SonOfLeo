@@ -7,13 +7,16 @@ open DataAccessLayer.ExecuteReader
 open Model
 open Model.DataIngestion.Classification
 open Model.DataIngestion.StageEntryLine
-open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.AccountComponent
 open ModelOrchestrator.FetchFilters
 open Utilities.AppError
 open Utilities.Json
 open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
 open Utilities.FieldUpdate
+open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Model.DataIngestion.Classification.ClassificationRuleGroup
+open Model.DataIngestion.Classification.FieldMatchChain
 
 let private confirmAccount
     (context: Context.Context)
@@ -35,8 +38,8 @@ let private confirmFieldMatchChain
 let private confirmRuleGroup
     (ruleGroup: ClassificationRuleGroup)
     : Result<unit, AppError> = result {
-        do! ruleGroup |> ClassificationRuleGroup.chainOne |> confirmFieldMatchChain
-        do! match ruleGroup |> ClassificationRuleGroup.chainTwo with
+        do! ruleGroup |> chainOne |> confirmFieldMatchChain
+        do! match ruleGroup |> chainTwo with
             | None -> Ok ()
             | Some x -> x |> confirmFieldMatchChain
         return ()

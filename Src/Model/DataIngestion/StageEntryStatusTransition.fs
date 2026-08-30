@@ -2,10 +2,10 @@ module Model.DataIngestion.StageEntryStatusTransition
 
 open NodaTime
 open Utilities.AppError
-open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
 open Utilities.ResultHelper
+open Model.DataIngestion.StageEntryComponent
 
 type StageEntryStatusTransition =
     private {

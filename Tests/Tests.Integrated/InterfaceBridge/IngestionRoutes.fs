@@ -7,10 +7,9 @@ open InterfaceBridge.InterfaceContracts.IngestionContracts
 open InterfaceBridge.InterfaceContracts.ReportsContracts
 open Logger.Audit
 open Model.DataIngestion
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.FiscalPeriods
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.DataIngestion.StageEntryComponent
+open Model.Ledger
+open Model.Ledger.JournalEntryComponent
 (* JournalEntry first, StageEntryOrchestration second: both expose `lines`, and the staged
    side is what the bulk of this file reads. The ledger-side name used here is
    `fetchByReference`, which only the JournalEntry module defines. *)

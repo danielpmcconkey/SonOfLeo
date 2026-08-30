@@ -3,14 +3,15 @@ module Tests.Helpers.EntityFunctions
 open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.InterfaceContracts.AccountContracts
 open Model
+open Model.Ledger
 open Model.DataIngestion
+open Model.DataIngestion.StageEntryComponent
 open Model.DataIngestion.Classification
 open Model.DataIngestion.Classification.ClassificationRule
-open Model.Ledger.Accounts
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.FiscalPeriods
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.Account
+open Model.Ledger.AccountComponent
+open Model.Ledger.FiscalPeriodComponent
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator
 open ModelOrchestrator.JournalEntries
 open ModelOrchestrator.StageEntryOrchestration
@@ -19,8 +20,11 @@ open Tests.Helpers.GenericTestProperties
 open Utilities.AppError
 open Utilities.ResultHelper
 open Utilities.FieldUpdate
+open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Model.DataIngestion.Classification.ClassificationRuleGroup
+open Model.DataIngestion.Classification.FieldMatch
 
-let createTestFiscalPeriodFromPrimitives context keyStr : Result<FiscalPeriod, AppError> =
+let createTestFiscalPeriodFromPrimitives context keyStr : Result<FiscalPeriod.FiscalPeriod, AppError> =
     result {
         let! key = keyStr |> FiscalPeriodKey.fromString
         return! key |> FiscalPeriodCreation.constructNewAndSaveToDb context
@@ -44,7 +48,7 @@ let createTestAccountFromPrimitives
                 (code |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
                 (name |> AccountName.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
                 (actType |> AccountType.fromString |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
-                (AccountActivityPeriod.create activeBegin activeEnd
+                (ActivityPeriod.create activeBegin activeEnd
                  |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
                 (subtype
                  |> convertOptionToDesiredTypeWithFallibleConverter AccountSubtype.fromString
@@ -62,8 +66,8 @@ let createTestAccountFromCodeString context codeToUse =
         codeToUse
         genericAccountNameString
         genericAccountTypeString
-        genericAccountActiveBegin
-        genericAccountActiveEnd
+        genericActiveBegin
+        genericActiveEnd
         genericAccountSubtype
         genericAccountParentId
         genericAccountReference
@@ -72,8 +76,8 @@ let createAccountInput codeToUse : AccountCreateInput =
     { code = codeToUse
       name = genericAccountNameString
       accountTypeSt = genericAccountTypeString
-      activeBegin = genericAccountActiveBegin
-      activeEnd = genericAccountActiveEnd
+      activeBegin = genericActiveBegin
+      activeEnd = genericActiveEnd
       subType = genericAccountSubtype
       parentCode = genericAccountParentCode
       reference = genericAccountReference }

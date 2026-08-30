@@ -6,12 +6,12 @@ open InterfaceBridge.BoundaryConverters.MoneyFieldConverters
 open InterfaceBridge.InterfaceContracts.AccountContracts
 open InterfaceBridge.InterfaceContracts.SharedContracts
 open Model
-open Model.Ledger.FiscalPeriods
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.FiscalPeriodComponent
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.AccountActivity
 open ModelOrchestrator.FetchFilters
 open Utilities.AppError
-open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.AccountComponent
 open Utilities.ResultHelper
 
 

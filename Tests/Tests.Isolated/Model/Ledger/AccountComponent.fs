@@ -1,8 +1,9 @@
 module Tests.Isolated.Model.Ledger.AccountComponent
 
 open System
+open Model
 open Xunit
-open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.AccountComponent
 open Utilities
 open Utilities.AppError
 open Tests.Helpers.SadPath
@@ -539,42 +540,42 @@ let ``REQ-SYS-1.1 AccountExternalReference trims leading and trailing whitespace
     | Ok a -> Assert.Equal(trimmed, (AccountExternalReference.value a))
 
 // =============================================================================
-// AccountActivityPeriod
+// ActivityPeriod
 // =============================================================================
 
 [<Fact>]
-let ``REQ-AC-1.46 AccountActivityPeriod rejects activeEnd earlier than activeBegin`` () =
+let ``REQ-AC-1.46 ActivityPeriod rejects activeEnd earlier than activeBegin`` () =
     let ab = Calendar.today()
     let ae = Some(ab.PlusDays(-1))
-    isCorrectError (AccountActivityPeriod.create ab ae) AccountActiveEndBeforeBegin None
+    isCorrectError (ActivityPeriod.create ab ae) AccountActiveEndBeforeBegin None
     |> railroadWrapper
 
 [<Fact>]
-let ``REQ-AC-1.46 AccountActivityPeriod accepts activeEnd equal to activeBegin`` () =
+let ``REQ-AC-1.46 ActivityPeriod accepts activeEnd equal to activeBegin`` () =
     let ab = Calendar.today()
     let ae = Some ab
-    AccountActivityPeriod.create ab ae |> Result.isOk |> Assert.True
+    ActivityPeriod.create ab ae |> Result.isOk |> Assert.True
 
 [<Fact>]
-let ``REQ-AC-1.45 AccountActivityPeriod accepts null activeEnd`` () =
+let ``REQ-AC-1.45 ActivityPeriod accepts null activeEnd`` () =
     let ab = Calendar.today()
     let ae = None
-    AccountActivityPeriod.create ab ae |> Result.isOk |> Assert.True
+    ActivityPeriod.create ab ae |> Result.isOk |> Assert.True
 
 [<Fact>]
-let ``REQ-AC-1.42 REQ-AC-1.43 AccountActivityPeriod accepts valid begin and end`` () =
+let ``REQ-AC-1.42 REQ-AC-1.43 ActivityPeriod accepts valid begin and end`` () =
     let ab = Calendar.today()
     let ae = Some(ab.PlusDays(1))
-    AccountActivityPeriod.create ab ae |> Result.isOk |> Assert.True
+    ActivityPeriod.create ab ae |> Result.isOk |> Assert.True
 
 [<Fact>]
 let ``REQ-AC-1.50 isActive returns true when begin <= ref and no end`` () =
     let ab = Calendar.today().PlusDays(-1)
     let ae = None
     let now = Calendar.today()
-    AccountActivityPeriod.create ab ae
+    ActivityPeriod.create ab ae
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    |> AccountActivityPeriod.isActive now
+    |> ActivityPeriod.isActive now
     |> Assert.True
 
 [<Fact>]
@@ -582,9 +583,9 @@ let ``REQ-AC-1.50 isActive returns true when begin <= ref and end > ref`` () =
     let ab = Calendar.today().PlusDays(-1)
     let ae = Some(Calendar.today().PlusDays(1))
     let now = Calendar.today()
-    AccountActivityPeriod.create ab ae
+    ActivityPeriod.create ab ae
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    |> AccountActivityPeriod.isActive now
+    |> ActivityPeriod.isActive now
     |> Assert.True
 
 [<Fact>]
@@ -593,9 +594,9 @@ let ``REQ-AC-1.48 isActive returns false when end < ref (deactivated)`` () =
     let ab = Calendar.today().PlusDays(-2)
     let ae = Some(Calendar.today().PlusDays(-1))
     let now = Calendar.today()
-    AccountActivityPeriod.create ab ae
+    ActivityPeriod.create ab ae
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    |> AccountActivityPeriod.isActive now
+    |> ActivityPeriod.isActive now
     |> Assert.False
 
 [<Fact>]
@@ -603,9 +604,9 @@ let ``REQ-AC-1.50 isActive returns false when ref precedes begin (not yet starte
     let ab = Calendar.today().PlusDays(1)
     let ae = None
     let now = Calendar.today()
-    AccountActivityPeriod.create ab ae
+    ActivityPeriod.create ab ae
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    |> AccountActivityPeriod.isActive now
+    |> ActivityPeriod.isActive now
     |> Assert.False
 
 [<Fact>]
@@ -613,9 +614,9 @@ let ``REQ-AC-1.50 isActive returns true when the reference point exactly equals 
     let ab = Calendar.today()
     let ae = None
     let now = ab
-    AccountActivityPeriod.create ab ae
+    ActivityPeriod.create ab ae
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    |> AccountActivityPeriod.isActive now
+    |> ActivityPeriod.isActive now
     |> Assert.True
 
 [<Fact>]
@@ -623,7 +624,7 @@ let ``REQ-AC-1.48 isActive returns true when the reference point exactly equals 
     let ab = Calendar.today().PlusDays(-1)
     let now = Calendar.today()
     let ae = Some now
-    AccountActivityPeriod.create ab ae
+    ActivityPeriod.create ab ae
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    |> AccountActivityPeriod.isActive now
+    |> ActivityPeriod.isActive now
     |> Assert.True

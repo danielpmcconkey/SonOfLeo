@@ -3,9 +3,8 @@ module InterfaceBridge.BoundaryConverters.AccountFieldConverters
 
 open InterfaceBridge.InterfaceContracts.AccountContracts
 open Model
-open Model.Ledger.Accounts
-open Model.Ledger.Accounts.Account
-open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.Account
+open Model.Ledger.AccountComponent
 open ModelOrchestrator.AccountBalance
 open Utilities.AppError
 open Utilities.ResultHelper
@@ -105,21 +104,21 @@ let ``convert AccountCodeString Option to AccountUuidOption``
 
 let ``convert Account to AccountReturn`` (context: Context.Context) (a: Account) : Result<AccountReturn, AppError> =
     result {
-        let! parentCode = a |> parentId |> ``convert AccountId Option to AccountCodeString Option`` context
+        let! parentCode = a |> Account.parentId |> ``convert AccountId Option to AccountCodeString Option`` context
         let activityPeriod = a |> Account.activityPeriod
-        let activeBegin = activityPeriod |> AccountActivityPeriod.activeBegin
-        let activeEnd = activityPeriod |> AccountActivityPeriod.activeEnd
+        let activeBegin = activityPeriod |> ActivityPeriod.activeBegin
+        let activeEnd = activityPeriod |> ActivityPeriod.activeEnd
         return
-            { code = AccountCode.value(code a)
-              name = AccountName.value(accountName a)
-              accountTypeSt = AccountType.toString(accountType a)
+            { code = AccountCode.value(Account.code a)
+              name = AccountName.value(Account.accountName a)
+              accountTypeSt = AccountType.toString(Account.accountType a)
               activeBegin = activeBegin
               activeEnd = activeEnd
-              subType = accountSubType a |> Option.map AccountSubtype.toString
+              subType = Account.accountSubType a |> Option.map AccountSubtype.toString
               parentCode = parentCode
-              reference = externalReference a |> Option.map AccountExternalReference.value
-              createdAt = createdAt a
-              modifiedAt = modifiedAt a }
+              reference = Account.externalReference a |> Option.map AccountExternalReference.value
+              createdAt = Account.createdAt a
+              modifiedAt = Account.modifiedAt a }
     }
 
 let ``convert AccountCodeString to Id`` (context: Context.Context) (codeString: string) : Result<AccountId, AppError> =
@@ -128,7 +127,7 @@ let ``convert AccountCodeString to Id`` (context: Context.Context) (codeString: 
 let ``convert AccountCodeString to Account`` (context: Context.Context) (codeString: string) : Result<Account, AppError> =
     result {
         let! accountId = codeString |> fallibleConverterAccountCodeToAccountId context
-        return! accountId |> fetchById context
+        return! accountId |> Account.fetchById context
     }
 
 let ``convert AccountCodeString Option to AccountId Option``

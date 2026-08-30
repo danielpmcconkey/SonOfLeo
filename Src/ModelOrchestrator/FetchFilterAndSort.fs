@@ -1,16 +1,17 @@
 module ModelOrchestrator.FetchFilters
 
 open Model
+open Model.Ledger
 open Model.CashFlow.CashFlowComponent
-open Model.DataIngestion
-open Model.DataIngestion.Classification
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.FiscalPeriods
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.AccountComponent
+open Model.Ledger.FiscalPeriodComponent
+open Model.Ledger.JournalEntryComponent
 open NodaTime
 open Utilities.AppError
 open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
+open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Model.DataIngestion.StageEntryComponent
 
 type FetchSort =
     | AccountCodeAsc

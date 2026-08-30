@@ -1,11 +1,11 @@
-module Model.Ledger.Journaling.JournalEntryComponent
+module Model.Ledger.JournalEntryComponent
 
 open System
-open Model.Ledger.FiscalPeriods
+open Model.Ledger
+open Model.Ledger.FiscalPeriodComponent
 open Utilities.AppError
 open NodaTime
 open Utilities.ResultHelper
-
 
 type JournalEntryHeaderId = private JournalEntryHeaderId of Guid
 module JournalEntryHeaderId =

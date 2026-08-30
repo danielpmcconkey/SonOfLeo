@@ -3,8 +3,8 @@ namespace Tests.Integrated.ModelOrchestrator
 open System
 open InterfaceBridge.CommandRoute
 open Logger.Audit
-open Model.Ledger.FiscalPeriods
-open Model.Ledger.FiscalPeriods.FiscalPeriod
+open Model.Ledger.FiscalPeriodComponent
+open Model.Ledger
 open ModelOrchestrator
 open ModelOrchestrator.JournalEntries.JournalEntry
 open Tests.Helpers.EntityFunctions
@@ -12,8 +12,7 @@ open Tests.Helpers.Railroad
 open Utilities.ResultHelper
 open Xunit
 open Tests.Helpers
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.JournalEntryVoiding
 open Utilities
 open Utilities.AppError
@@ -86,7 +85,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
                 // create Fiscal Period as open so you can add an entry into it
                 let! periodKey = periodKeyStr |> FiscalPeriodKey.fromString
                 let! fp = periodKey |> FiscalPeriodCreation.constructNewAndSaveToDb context
-                let fpId = fp |> fiscalPeriodId
+                let fpId = fp |> FiscalPeriod.fiscalPeriodId
                 // add the JE into that FP
                 let! _, jeId =
                     createTestJournalEntryFromPrimitives
@@ -99,7 +98,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
                         []
                         []
                 // close the FP
-                let! _ = fpId |> closeFiscalPeriod context
+                let! _ = fpId |> FiscalPeriod.closeFiscalPeriod context
                 // try to void
                 let voidedResult = jeId |> voidJournalEntry context None commentText
                 do!

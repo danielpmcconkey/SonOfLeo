@@ -5,15 +5,16 @@ open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
 open Model
 open Model.DataIngestion
-open Model.DataIngestion.BaseStageRaw
-open Model.DataIngestion.Classification
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.DataIngestion.BaseStageEntry
+open Model.Ledger.AccountComponent
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.FetchFilters
 open ModelOrchestrator.JournalEntries
 open Utilities.AppError
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
+open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Model.DataIngestion.StageEntryComponent
 
 type StageEntry =
     private {
@@ -286,10 +287,10 @@ let updateHeaderFromClassificationResults
       - Otherwise, you know that you either have all unmatched or some matched / some unmatched. That result should be
         statused as NoMatch
     *)
-    let isMatch result =
+    let isMatch (result:ClassificationResult) : bool =
         match result.outcome with
         | OneMatch _ | ManyMatchesClearWinner _ -> true
-        | NoMatch | ManyMatchesTied _ -> false
+        | ClassifierOutcome.NoMatch | ManyMatchesTied _ -> false
     let isTied result =
         match result.outcome with | ManyMatchesTied _ -> true | _ -> false
     let mechanism = StageStatusChangeMechanism.Classifier

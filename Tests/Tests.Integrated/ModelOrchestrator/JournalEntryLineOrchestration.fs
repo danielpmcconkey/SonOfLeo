@@ -4,8 +4,8 @@ open System
 open DataAccessLayer.DbTransaction
 open Logger.Audit
 open Model
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.JournalEntries
 open Tests.Helpers
 open Tests.Helpers.Railroad

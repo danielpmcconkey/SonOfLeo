@@ -2,8 +2,8 @@ module InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
 
 open InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
 open Model
-open Model.Ledger.FiscalPeriods
-open Model.Ledger.FiscalPeriods.FiscalPeriod
+open Model.Ledger
+open Model.Ledger.FiscalPeriodComponent
 open Utilities.AppError
 open Utilities.ResultHelper
 
@@ -20,16 +20,16 @@ let ``convert FiscalPeriodKeyString to FiscalPeriodId``
 let ``convert [FiscalPeriodKeyString] to FiscalPeriod``
     (context: Context.Context)
     (key: string)
-    : Result<FiscalPeriod, AppError> =
+    : Result<FiscalPeriod.FiscalPeriod, AppError> =
     result {
         let! fiscalPeriodId = key |> ``convert FiscalPeriodKeyString to FiscalPeriodId`` context
-        return! fiscalPeriodId |> fetchById context
+        return! fiscalPeriodId |> FiscalPeriod.fetchById context
     }
 
 let ``convert FiscalPeriod to FiscalPeriodReturn`` fp : FiscalPeriodReturn =
-    { periodKey = FiscalPeriodKey.value(periodKey fp)
-      startDate = startDate fp
-      endDate = endDate fp
-      isOpen = isOpen fp
-      createdAt = createdAt fp
-      modifiedAt = modifiedAt fp }
+    { periodKey = FiscalPeriodKey.value(FiscalPeriod.periodKey fp)
+      startDate = FiscalPeriod.startDate fp
+      endDate = FiscalPeriod.endDate fp
+      isOpen = FiscalPeriod.isOpen fp
+      createdAt = FiscalPeriod.createdAt fp
+      modifiedAt = FiscalPeriod.modifiedAt fp }

@@ -1,8 +1,8 @@
 module Tests.Isolated.Model.DataIngestion.ClassificationRuleComponent
 
-open Model.DataIngestion.Classification
 open Utilities.AppError
 open Xunit
+open Model.DataIngestion.Classification.ClassificationRuleComponent
 
 
 // =============================================================================

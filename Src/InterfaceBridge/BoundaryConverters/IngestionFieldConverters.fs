@@ -5,17 +5,17 @@ open InterfaceBridge.BoundaryConverters.OrchestrationConverters
 open InterfaceBridge.InterfaceContracts.IngestionContracts
 open Model
 open Model.DataIngestion
-open Model.DataIngestion.BaseStageRaw
+open Model.DataIngestion.StageEntryComponent
+open Model.DataIngestion.BaseStageEntry
 open Model.DataIngestion.Classification
-open Model.DataIngestion.StageEntryHeader
 open Model.DataIngestion.StageEntryStatusTransition
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.FetchFilters
 open ModelOrchestrator.StageEntryOrchestration
 open Utilities.AppError
 open Utilities.FieldUpdate.FieldUpdate
 open Utilities.ResultHelper
+open Model.DataIngestion.Classification.ClassificationRuleComponent
 
 let ``convert [StageEntryStatusTransition] to [StageEntryStatusTransitionReturn]``
     (model: StageEntryStatusTransition)
@@ -43,7 +43,7 @@ let ``convert [StageEntryStatusTransition list] to [StageEntryStatusTransitionRe
     |> List.map(fun x -> x |> ``convert [StageEntryStatusTransition] to [StageEntryStatusTransitionReturn]``)
 
 let ``convert [StageEntryHeader] to [StageEntryHeaderReturn]``
-    (model: StageEntryHeader)
+    (model: StageEntryHeader.StageEntryHeader)
     : StageEntryHeaderReturn =
     let sourceFile = model |> StageEntryHeader.sourceFile |> SourceFile.value
     let stageEntryHeaderId = model |> StageEntryHeader.stageEntryHeaderId |> StageEntryHeaderId.value
@@ -124,14 +124,14 @@ let ``convert [StageEntry list] to [StageEntryReturn list]``
     |> convertListOfResultsToResultsList
 
 let ``convert [FieldMatch] to [FieldMatchContract]``
-    (fieldMatch: FieldMatch)
+    (fieldMatch: FieldMatch.FieldMatch)
     : FieldMatchContract =
     match fieldMatch with
-    | Source pattern -> FieldMatchContract.Source (pattern |> StringSearchPattern.value)
-    | Description pattern -> FieldMatchContract.Description (pattern |> StringSearchPattern.value)
-    | Memo pattern -> FieldMatchContract.Memo (pattern |> StringSearchPattern.value)
-    | LineType pattern -> FieldMatchContract.LineType (pattern |> JournalEntryLineType.toString)
-    | Amount pattern ->
+    | FieldMatch.Source pattern -> FieldMatchContract.Source (pattern |> StringSearchPattern.value)
+    | FieldMatch.Description pattern -> FieldMatchContract.Description (pattern |> StringSearchPattern.value)
+    | FieldMatch.Memo pattern -> FieldMatchContract.Memo (pattern |> StringSearchPattern.value)
+    | FieldMatch.LineType pattern -> FieldMatchContract.LineType (pattern |> JournalEntryLineType.toString)
+    | FieldMatch.Amount pattern ->
         //let moneySearchPattern = FieldMatchContract.Amount
         let numericSearchOperator = pattern.numericSearchOperator |> NumericSearchOperator.toString
         let amount = pattern.amount |> Money.amount
@@ -141,7 +141,7 @@ let ``convert [FieldMatch] to [FieldMatchContract]``
         }
 
 let ``convert [FieldMatchChain] to [FieldMatchChainContract]``
-    (fieldMatchChain: FieldMatchChain)
+    (fieldMatchChain: FieldMatchChain.FieldMatchChain)
     : FieldMatchChainContract =
     let chain =
         fieldMatchChain |> FieldMatchChain.chain
@@ -149,7 +149,7 @@ let ``convert [FieldMatchChain] to [FieldMatchChainContract]``
     { chain = chain }
 
 let ``convert [ClassificationRuleGroup] to [ClassificationRuleGroupContract]``
-    (ruleGroup: ClassificationRuleGroup)
+    (ruleGroup: ClassificationRuleGroup.ClassificationRuleGroup)
     : ClassificationRuleGroupContract  =
     let connector = ruleGroup |> ClassificationRuleGroup.connector |> ClassificationGroupConnector.toString
     let chainOne =
@@ -163,14 +163,14 @@ let ``convert [ClassificationRuleGroup] to [ClassificationRuleGroupContract]``
         chainTwo = chainTwo }
     
 let ``convert [ClassificationRuleGroup list] to [ClassificationRuleGroupContract list]``
-    (ruleGroups: ClassificationRuleGroup list)
+    (ruleGroups: ClassificationRuleGroup.ClassificationRuleGroup list)
     : ClassificationRuleGroupContract list =
     ruleGroups
     |> List.map(fun x -> x |> ``convert [ClassificationRuleGroup] to [ClassificationRuleGroupContract]``)
 
 let ``convert [FieldMatchContract] to [FieldMatch]``
     (fieldMatch: FieldMatchContract)
-    : Result<FieldMatch, AppError> =
+    : Result<FieldMatch.FieldMatch, AppError> =
         match fieldMatch with
         | FieldMatchContract.Source patternStr ->
             match patternStr |> StringSearchPattern.create with
@@ -197,7 +197,7 @@ let ``convert [FieldMatchContract] to [FieldMatch]``
 
 let ``convert [FieldMatchChainContract] to [FieldMatchChain]``
     (fieldMatchChainContract: FieldMatchChainContract)
-    : Result<FieldMatchChain, AppError> =
+    : Result<FieldMatchChain.FieldMatchChain, AppError> =
     result {
         let! chain =
             fieldMatchChainContract.chain
@@ -207,7 +207,7 @@ let ``convert [FieldMatchChainContract] to [FieldMatchChain]``
 
 let ``convert [ClassificationRuleGroupContract] to [ClassificationRuleGroup]``
     (ruleGroup: ClassificationRuleGroupContract)
-    : Result<ClassificationRuleGroup, AppError> =
+    : Result<ClassificationRuleGroup.ClassificationRuleGroup, AppError> =
     result {
         let! connector = ruleGroup.connector |> ClassificationGroupConnector.fromString
         let! chainOne = ruleGroup.chainOne |> ``convert [FieldMatchChainContract] to [FieldMatchChain]``
@@ -218,7 +218,7 @@ let ``convert [ClassificationRuleGroupContract] to [ClassificationRuleGroup]``
 
 let ``convert [ClassificationRuleGroupContract list] to [ClassificationRuleGroup list]``
     (ruleGroups: ClassificationRuleGroupContract list)
-    : Result<ClassificationRuleGroup list, AppError> =
+    : Result<ClassificationRuleGroup.ClassificationRuleGroup list, AppError> =
     ruleGroups
     |> List.map(fun x -> x |> ``convert [ClassificationRuleGroupContract] to [ClassificationRuleGroup]``)
     |> convertListOfResultsToResultsList

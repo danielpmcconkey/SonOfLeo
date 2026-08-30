@@ -1,8 +1,7 @@
 module ModelOrchestrator.JournalEntryHeaderOrchestration
 
-open Model.Ledger.FiscalPeriods
-open Model.Ledger.Journaling
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger
+open Model.Ledger.JournalEntryComponent
 open Utilities.AppError
 open Utilities.ResultHelper
 
@@ -20,7 +19,7 @@ let constructNewAndSaveToDb
     (description: JournalEntryDescription)
     (source: JournalEntrySource option)
     (entryDate: EntryDate)
-    : Result<JournalEntryHeader, AppError> =
+    : Result<JournalEntryHeader.JournalEntryHeader, AppError> =
     let journalEntryId = JournalEntryHeaderId.create()
     let now = context |> Context.getInitiationInstant
     let createdAt = now

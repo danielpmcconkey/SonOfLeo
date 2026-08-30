@@ -5,9 +5,9 @@ open DataAccessLayer.ExecuteReader
 open Model.CashFlow.CashFlowComponent
 open Model.CashFlow.Invoice
 open Model.CashFlow.MasterAgreement
-open Model.DataIngestion
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.DataIngestion.StageEntryComponent
+open Model.Ledger.AccountComponent
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.FetchFilters
 open DataAccessLayer.QueryParameters
 open Utilities

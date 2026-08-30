@@ -5,8 +5,8 @@ open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model
 open Model.DataIngestion
-open Model.DataIngestion.BaseStageRaw
-open Model.DataIngestion.StageEntryStatusTransition
+open Model.DataIngestion.StageEntryComponent
+open Model.DataIngestion.BaseStageEntry
 open ModelOrchestrator.StageEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Railroad
@@ -14,8 +14,7 @@ open Utilities
 open Utilities.AppError
 open Utilities.ResultHelper
 open Xunit
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.JournalEntryComponent
 
 
 module StageTestData =

@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="LookupCache.fs" />
     <Compile Include="Money.fs" />
+    <Compile Include="ActivityPeriod.fs" />
     <Compile Include="Ledger\AccountComponent.fs" />
     <Compile Include="Ledger\Account.fs" />
     <Compile Include="Ledger\FiscalPeriodComponent.fs" />

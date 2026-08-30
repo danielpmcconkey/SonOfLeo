@@ -5,20 +5,23 @@ open DataAccessLayer.DbTransaction
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open Logger.Audit
+open Model
 open Model.DataIngestion
 open Model.DataIngestion.Classification
-open Model.Ledger.Accounts
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.Ledger.Account
+open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator
 open ModelOrchestrator.JournalEntries
 open Tests.Helpers.EntityFunctions
 open Utilities.ResultHelper
 open Xunit
-open Model.Ledger.FiscalPeriods
+open Model.Ledger
+open Model.Ledger.FiscalPeriodComponent
 open Utilities
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling
+open Model.Ledger.AccountComponent
 open Utilities.AppError
+open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Model.DataIngestion.Classification.FieldMatch
 
 /// This data represents a known data state to stage at the beginning of test
 /// runs. It should be used to test any read functions in the system. It can be
@@ -50,7 +53,7 @@ type FixtureData =
       closedAccount: Account
       openFiscalPeriodIds: FiscalPeriodId list
       closedFiscalPeriodId: FiscalPeriodId
-      closedFiscalPeriod: FiscalPeriod
+      closedFiscalPeriod: FiscalPeriod.FiscalPeriod
       basicJeId: JournalEntryHeaderId
       jeWithRefId: JournalEntryHeaderId
       jeWithRefExtRefId: JournalEntryExternalReferenceId
@@ -78,11 +81,11 @@ type FixtureData =
       totalAccountsWithLines: int
       totalAccountsWithNoLines: int
       accounts: Account list
-      fiscalPeriods: FiscalPeriod list
+      fiscalPeriods: FiscalPeriod.FiscalPeriod list
       journalEntries: JournalEntry list
-      journalEntryLines: JournalEntryLine list
-      journalEntryExternalReferences: JournalEntryExternalReference list
-      journalEntryComments: JournalEntryComment list
+      journalEntryLines: JournalEntryLine.JournalEntryLine list
+      journalEntryExternalReferences: JournalEntryExternalReference.JournalEntryExternalReference list
+      journalEntryComments: JournalEntryComment.JournalEntryComment list
       ingestionSources: IngestionSource.IngestionSource list
       classificationRules: ClassificationRule.ClassificationRule list }
 
@@ -127,7 +130,7 @@ type TestDataFixture() =
 
                 // note: these are mutable for practical reasons and this is just a test harness
                 let mutable accounts: Account list = []
-                let mutable fiscalPeriods: FiscalPeriod list = []
+                let mutable fiscalPeriods: FiscalPeriod.FiscalPeriod list = []
                 let mutable journalEntries: JournalEntry list = []
                 let mutable ingestionSources: IngestionSource.IngestionSource list = []
                 let mutable classificationRules: ClassificationRule.ClassificationRule list = []
@@ -795,7 +798,7 @@ type TestDataFixture() =
                 let archiveSourceMatch = FieldMatch.Source(archiveSourcePattern)
                 let! archiveDescPattern = StringSearchPattern.create "^ARCHIVE"
                 let archiveDescMatch = FieldMatch.Description(archiveDescPattern)
-                let! archiveAmount = Model.Money.fromDecimal 250.00M
+                let! archiveAmount = Money.fromDecimal 250.00M
                 let archiveAmountMatch =
                     FieldMatch.Amount({ numericSearchOperator = GreaterThanOrEqualTo; amount = archiveAmount })
                 let (archiveRuleGroups: (string * FieldMatch list * FieldMatch list option) list) =
@@ -871,7 +874,7 @@ type TestDataFixture() =
                 let totalFiscalPeriods = fiscalPeriods |> List.length
                 let totalClosedAccounts =
                     accounts
-                    |> List.filter(fun l -> l |> Account.activityPeriod |> AccountActivityPeriod.isActive today |> not)
+                    |> List.filter(fun l -> l |> Account.activityPeriod |> ActivityPeriod.isActive today |> not)
                     |> List.length
                 let totalClosedFiscalPeriods =
                     fiscalPeriods |> List.filter(fun fp -> fp |> FiscalPeriod.isOpen = false) |> List.length

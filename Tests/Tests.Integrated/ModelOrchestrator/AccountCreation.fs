@@ -7,8 +7,8 @@ open Logger.Audit
 open ModelOrchestrator
 open Tests.Helpers.Railroad
 open Xunit
-open Model.Ledger.Accounts
-open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.Account
+open Model.Ledger.AccountComponent
 open Utilities.AppError
 open Tests.Helpers.SadPath
 open Tests.Helpers.GenericTestProperties
@@ -22,7 +22,7 @@ let ``REQ-AC-2.13 constructNew generates UUID`` () =
             code
             genericAccountName
             genericAccountType
-            genericAccountActivityPeriod
+            genericActivityPeriod
             genericAccountSubtype
             genericAccountParentId
             genericAccountReference
@@ -44,7 +44,7 @@ let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` 
                 code
                 genericAccountName
                 genericAccountType
-                genericAccountActivityPeriod
+                genericActivityPeriod
                 genericAccountSubtype
                 genericAccountParentId
                 genericAccountReference
@@ -65,7 +65,7 @@ let ``REQ-AC-1.40 constructNew rejects non-existent parent ID`` () =
                 code
                 genericAccountName
                 genericAccountType
-                genericAccountActivityPeriod
+                genericActivityPeriod
                 genericAccountSubtype
                 bogusParentId
                 genericAccountReference

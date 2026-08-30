@@ -12,8 +12,8 @@ open Tests.Helpers.GenericTestProperties
 open Utilities
 open Utilities.ResultHelper
 open Xunit
-open Model.Ledger.Accounts
-open Model.Ledger.Accounts.AccountComponent
+open Model.Ledger.Account
+open Model.Ledger.AccountComponent
 open Utilities.AppError
 open Tests.Helpers.SadPath
 
@@ -42,7 +42,7 @@ type AccountTests(fixture: TestDataFixture) =
                         (duplicateCode |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
                         genericAccountName
                         genericAccountType
-                        genericAccountActivityPeriod
+                        genericActivityPeriod
                         genericAccountSubtype
                         genericAccountParentId
                         genericAccountReference
@@ -78,7 +78,7 @@ type AccountTests(fixture: TestDataFixture) =
                         (code |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
                         genericAccountName
                         genericAccountType
-                        genericAccountActivityPeriod
+                        genericActivityPeriod
                         genericAccountSubtype
                         genericAccountParentId
                         genericAccountReference
@@ -107,7 +107,7 @@ type AccountTests(fixture: TestDataFixture) =
                         accountCode
                         accountName
                         accountType
-                        genericAccountActivityPeriod
+                        genericActivityPeriod
                         subType
                         parentId
                         (Some externalReference)
@@ -116,7 +116,7 @@ type AccountTests(fixture: TestDataFixture) =
                 Assert.Equal(accountCode, fetched |> Account.code)
                 Assert.Equal(accountName, fetched |> Account.accountName)
                 Assert.Equal(accountType, fetched |> Account.accountType)
-                Assert.Equal(genericAccountActivityPeriod, fetched |> Account.activityPeriod)
+                Assert.Equal(genericActivityPeriod, fetched |> Account.activityPeriod)
                 Assert.Equal<AccountSubtype option>(subType, fetched |> Account.accountSubType)
                 Assert.Equal<AccountId option>(parentId, fetched |> Account.parentId)
                 Assert.Equal<AccountExternalReference option>(
@@ -179,7 +179,7 @@ type AccountTests(fixture: TestDataFixture) =
         let today = Calendar.today()
         let activeAccounts =
             fixture.Data.accounts
-            |> List.filter(fun a -> a |> Account.activityPeriod |> AccountActivityPeriod.isActive today)
+            |> List.filter(fun a -> a |> Account.activityPeriod |> ActivityPeriod.isActive today)
         let expectedCount = activeAccounts |> List.length
         let context = Context.create NoTransaction FetchOnly
         result {
@@ -204,7 +204,7 @@ type AccountTests(fixture: TestDataFixture) =
                     (code |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
                     genericAccountName
                     genericAccountType
-                    genericAccountActivityPeriod
+                    genericActivityPeriod
                     genericAccountSubtype
                     parentAccountId
                     genericAccountReference
@@ -224,7 +224,7 @@ type AccountTests(fixture: TestDataFixture) =
                 (code |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
                 genericAccountName
                 genericAccountType
-                genericAccountActivityPeriod
+                genericActivityPeriod
                 genericAccountSubtype
                 parentAccountId
                 genericAccountReference)
@@ -241,7 +241,7 @@ type AccountTests(fixture: TestDataFixture) =
                     (code |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
                     genericAccountName
                     genericAccountType
-                    genericAccountActivityPeriod
+                    genericActivityPeriod
                     genericAccountSubtype
                     parentAccountId
                     genericAccountReference
@@ -266,7 +266,7 @@ type AccountTests(fixture: TestDataFixture) =
                     (code |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
                     genericAccountName
                     accountType
-                    genericAccountActivityPeriod
+                    genericActivityPeriod
                     genericAccountSubtype
                     parentAccountId
                     genericAccountReference
@@ -331,7 +331,7 @@ type AccountTests(fixture: TestDataFixture) =
             let newName = "Blah blah blah"
             result {
                 let! original = Account.fetchById context fixture.Data.closedBank1290Id
-                let isActive = original |> Account.activityPeriod |> AccountActivityPeriod.isActive(Calendar.today())
+                let isActive = original |> Account.activityPeriod |> ActivityPeriod.isActive(Calendar.today())
                 Assert.False(isActive) // just confirming that you indeed start with an inactive account
                 let! updatedAccount = Account.updateAccountNameById context fixture.Data.closedBank1290Id newName
                 Assert.Equal(newName, AccountName.value(Account.accountName updatedAccount))

@@ -1,6 +1,6 @@
 module Tests.Isolated.Model.Ledger.FiscalPeriod
 
-open Model.Ledger.FiscalPeriods
+open Model.Ledger.FiscalPeriodComponent
 open Utilities.AppError
 open Xunit
 let genericKey = "2026-06"

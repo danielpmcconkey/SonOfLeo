@@ -1,8 +1,8 @@
 module ModelOrchestrator.FiscalPeriodCreation
 
 open System
-open Model.Ledger.FiscalPeriods
-open Model.Ledger.FiscalPeriods.FiscalPeriod
+open Model.Ledger
+open Model.Ledger.FiscalPeriodComponent
 open NodaTime
 open Utilities.AppError
 open Utilities.ResultHelper
@@ -13,7 +13,7 @@ open Utilities.ResultHelper
 /// account creation should route through here before being sent to the
 /// persistence layer. Internal model functions may construct through other
 /// means if they're operating on known good data.
-let constructNewAndSaveToDb (context: Context.Context) (periodKey: FiscalPeriodKey) : Result<FiscalPeriod, AppError> =
+let constructNewAndSaveToDb (context: Context.Context) (periodKey: FiscalPeriodKey) : Result<FiscalPeriod.FiscalPeriod, AppError> =
     let fiscalPeriodId = FiscalPeriodId.create()
     let keyString = periodKey |> FiscalPeriodKey.value
     let year = keyString[0..3]
@@ -29,6 +29,6 @@ let constructNewAndSaveToDb (context: Context.Context) (periodKey: FiscalPeriodK
     let fiscalPeriod =
         FiscalPeriod.create fiscalPeriodId periodKey startDate endDate isOpen createdAt modifiedAt
     result {
-        do! fiscalPeriod |> insertNewToDb context
+        do! fiscalPeriod |> FiscalPeriod.insertNewToDb context
         return fiscalPeriod
     }

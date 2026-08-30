@@ -1,10 +1,10 @@
 module DevDataStage.DevFixtures
 
 open Model.DataIngestion
-open Model.DataIngestion.Classification
-open Model.Ledger.Accounts
-open Model.Ledger.Accounts.AccountComponent
-open Model.Ledger.Journaling.JournalEntryComponent
+open Model.DataIngestion.StageEntryComponent
+open Model.Ledger.Account
+open Model.Ledger.AccountComponent
+open Model.Ledger.JournalEntryComponent
 open Tests.Helpers
 open Tests.Helpers.EntityFunctions
 open Utilities

@@ -1,6 +1,6 @@
 module Tests.Isolated.Model.DataIngestion.StageEntryStatusTransition
 
-open Model.DataIngestion
+open Model.DataIngestion.StageEntryComponent
 open Model.DataIngestion.StageEntryStatusTransition
 open Utilities.AppError
 open Xunit
