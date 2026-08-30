@@ -66,12 +66,20 @@ type AppError =
     | CashflowInvalidPostedState of string
     | CashflowInvalidWeekDay of string
     | CashflowInvalidWeekInMonthNumber of int
+    | CashflowInvoiceCompositeUpdateNoOp
+    | CashflowInvoiceDiamondMismatch of Guid * Guid * Guid
+    | CashflowInvoiceFullyPaidAmountMismatch of Guid * decimal * decimal
+    | CashflowInvoiceFullyPaidWithBlocker of Guid
     | CashflowInvoiceIdDoesntExist of Guid
     | CashflowInvoiceIdListCannotBeEmpty
     | CashflowInvoiceMemoIsEmpty of string
     | CashflowInvoiceMemoTooLong of string * int
     | CashflowInvoiceNonPositiveAmount of Guid * decimal
     | CashflowInvoiceNotUnderMasterAgreement of Guid * Guid
+    | CashflowInvoicePartiallyPaidWithNoPayments of Guid
+    | CashflowInvoicePartiallyPostedWithNoPostedPayment of Guid
+    | CashflowInvoicePostedToLedgerRequiresFullyPaid of Guid
+    | CashflowInvoicePostedToLedgerWithUnpostedPayment of Guid
     | CashflowInvoiceUpdateNoOp
     | CashflowMasterAgreementIdDoesntExist of Guid
     | CashflowMasterAgreementIdListCannotBeEmpty
@@ -87,6 +95,7 @@ type AppError =
     | CashflowPaymentAgreementsListCannotBeEmpty
     | CashflowPaymentMemoIsEmpty of string
     | CashflowPaymentMemoTooLong of string * int
+    | CashflowPaymentNotUnderInvoice of Guid * Guid
     | CashflowPaymentNotUnderMasterAgreement of Guid * Guid
     | CashflowPaymentPostedToLedgerDateMismatch of Guid * LocalDate * LocalDate
     | CashflowPaymentPostedToLedgerDateWithoutJournalEntry of Guid
@@ -283,12 +292,20 @@ module AppError =
         | CashflowInvalidPostedState str -> $"Invalid PostedState of \"{str}\"."
         | CashflowInvalidWeekDay str -> $"Invalid WeekDay of \"{str}\"."
         | CashflowInvalidWeekInMonthNumber i -> $"Invalid WeekInMonthNumber of \"{i}\"."
+        | CashflowInvoiceCompositeUpdateNoOp -> "Updating the Invoice composite failed because at least one updatable parameter must be set."
+        | CashflowInvoiceDiamondMismatch(invoiceId, instanceAgreementId, paymentAgreementAgreementId) -> $"Invoice {invoiceId}'s Instance traces to MasterAgreement {instanceAgreementId} but its PaymentAgreement traces to MasterAgreement {paymentAgreementAgreementId}; both must trace to the same MasterAgreement."
+        | CashflowInvoiceFullyPaidAmountMismatch(invoiceId, paidTotal, invoiceAmount) -> $"Invoice {invoiceId} is FullyPaid but its Payments sum to {paidTotal}, not its amount of {invoiceAmount}."
+        | CashflowInvoiceFullyPaidWithBlocker invoiceId -> $"Invoice {invoiceId} cannot be FullyPaid while a Blocker is set."
         | CashflowInvoiceIdDoesntExist uuid -> $"Could not locate an Invoice with the id of {uuid}."
         | CashflowInvoiceIdListCannotBeEmpty -> "The invoiceIds list must contain at least 1 ID."
         | CashflowInvoiceMemoIsEmpty memo -> $"InvoiceMemo cannot be empty. Provided Memo is {memo}."
         | CashflowInvoiceMemoTooLong(memo, max) -> $"InvoiceMemo cannot exceed {max} characters. Provided Memo is {memo}."
         | CashflowInvoiceNonPositiveAmount(invoiceId, amount) -> $"Invoice {invoiceId} amount ({amount}) must be greater than 0."
         | CashflowInvoiceNotUnderMasterAgreement(invoiceId, agreementId) -> $"Invoice {invoiceId} does not belong to MasterAgreement {agreementId}."
+        | CashflowInvoicePartiallyPaidWithNoPayments invoiceId -> $"Invoice {invoiceId} is PartiallyPaid but has no Payments."
+        | CashflowInvoicePartiallyPostedWithNoPostedPayment invoiceId -> $"Invoice {invoiceId} is PartiallyPosted but none of its Payments are posted to a journal entry."
+        | CashflowInvoicePostedToLedgerRequiresFullyPaid invoiceId -> $"Invoice {invoiceId} cannot be PostedToLedger unless its PaymentState is FullyPaid."
+        | CashflowInvoicePostedToLedgerWithUnpostedPayment invoiceId -> $"Invoice {invoiceId} is PostedToLedger but at least one of its Payments is still staged, not posted to a journal entry."
         | CashflowInvoiceUpdateNoOp -> "Updating the Invoice record failed because at least one updatable parameter must be set."
         | CashflowMasterAgreementIdDoesntExist uuid -> $"Could not locate a MasterAgreement with the id of {uuid}."
         | CashflowMasterAgreementIdListCannotBeEmpty -> "The masterAgreementIds list must contain at least 1 ID."
@@ -304,6 +321,7 @@ module AppError =
         | CashflowPaymentAgreementsListCannotBeEmpty -> "A MasterAgreement must have at least one PaymentAgreement."
         | CashflowPaymentMemoIsEmpty memo -> $"PaymentMemo cannot be empty. Provided Memo is {memo}."
         | CashflowPaymentMemoTooLong(memo, max) -> $"PaymentMemo cannot exceed {max} characters. Provided Memo is {memo}."
+        | CashflowPaymentNotUnderInvoice(paymentId, invoiceId) -> $"Payment {paymentId} does not belong to Invoice {invoiceId}."
         | CashflowPaymentNotUnderMasterAgreement(paymentId, agreementId) -> $"Payment {paymentId} does not belong to MasterAgreement {agreementId}."
         | CashflowPaymentPostedToLedgerDateMismatch(paymentId, provided, actual) -> $"Payment {paymentId}'s postedToLedgerDate ({provided}) does not match its journal entry's entry date ({actual})."
         | CashflowPaymentPostedToLedgerDateWithoutJournalEntry paymentId -> $"Payment {paymentId} has a postedToLedgerDate set but its transactionPointer is not Posted to a journal entry."
