@@ -10,6 +10,7 @@ open Model.Ledger
 open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.CashFlowCompositeFetcher
 open ModelOrchestrator.FetchFilters
+open NodaTime
 open Utilities.AppError
 open Utilities.Calendar
 open Utilities.FieldUpdate
@@ -22,6 +23,15 @@ type Agreement = private {
     invoices: Invoice.Invoice list
     payments: Payment.Payment list
 }
+
+let masterAgreement (agreement:Agreement) = agreement.masterAgreement
+
+// let latestInstance (agreement:Agreement) : Instance.Instance option =
+//     if agreement.instances |> List.isEmpty then None else
+//     agreement.instances
+//     |> List.sortByDescending(fun instant -> instant |> Instance.instanceDate)
+//     |> List.head
+//     |> Some
 
 let private confirmValidAccountId
     (context: Context.Context)
@@ -295,20 +305,22 @@ let private confirmAgreementDates
     (agreementActivityPeriod: ActivityPeriod.ActivityPeriod)
     : Result<unit, AppError> =
     let referenceDate = today()
-    match agreementActivityPeriod |> ActivityPeriod.isActive referenceDate with
+    match agreementActivityPeriod |> ActivityPeriod.isAvailable referenceDate with
     | true -> Ok ()
     | false ->
         let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
         let beginDate = agreementActivityPeriod |> ActivityPeriod.activeBegin
         let endDate = agreementActivityPeriod |> ActivityPeriod.activeEnd
-        Error(CashflowMasterAgreementInactive(agreementUuid, referenceDate, beginDate, endDate))
+        Error(CashflowMasterAgreementUnavailable(agreementUuid, referenceDate, beginDate, endDate))
 
 let private confirmMasterAgreement
     (masterAgreement: MasterAgreement.MasterAgreement)
     : Result<unit, AppError> =
-    let agreementId = masterAgreement |> MasterAgreement.agreementID
-    let agreementActivityPeriod = masterAgreement |> MasterAgreement.activityPeriod
-    confirmAgreementDates agreementId agreementActivityPeriod
+    result {
+        let agreementId = masterAgreement |> MasterAgreement.agreementID
+        let agreementActivityPeriod = masterAgreement |> MasterAgreement.activityPeriod
+        return! confirmAgreementDates agreementId agreementActivityPeriod
+    }
 
 let private confirmComposite
     (context: Context.Context)
@@ -326,22 +338,35 @@ let private confirmComposite
         do! agreement.payments |> confirmPayments context
     }
 
-/// Note to caller, master agreement and payment agreements are persisted into the DB *before* composite validation.
-/// Make sure you wrap this in a transaction you can roll back
 let constructNewAndSaveToDb
     (context: Context.Context)
-    (paymentAgreements: PaymentAgreement.PaymentAgreement list)
-    (masterAgreement: MasterAgreement.MasterAgreement)
+    (agreementName: CashFlowComponent.AgreementName)
+    (direction: CashFlowComponent.FlowDirection)
+    (cadenceType: Cadence.CadenceType)
+    (firstInstance: Cadence.CadenceNextInstance)
+    (counterparty: CashFlowComponent.Counterparty)
+    (agreementActivityPeriod: ActivityPeriod.ActivityPeriod)
+    (memo: CashFlowComponent.AgreementMemo option)
+    (paymentAgreementComponentsList:
+        (CashFlowComponent.DebitAccount *
+         CashFlowComponent.CreditAccount *
+         Money option *
+         CashFlowComponent.PaymentAgreementMemo option) list)
     : Result<Agreement, AppError> =
     result {
+        let now = context |> Context.getInitiationInstant
+        let agreementId = CashFlowComponent.MasterAgreementId.create()
+        let! cadence = Cadence.create cadenceType firstInstance
+        let masterAgreement =
+            MasterAgreement.create agreementId agreementName direction cadence counterparty
+                agreementActivityPeriod memo now now
         do! masterAgreement |> confirmMasterAgreement
+        let paymentAgreements =
+            paymentAgreementComponentsList |> List.map(fun (debitAccount, creditAccount, expectedAmount, memo) ->
+                let paymentAgreementId = CashFlowComponent.PaymentAgreementId.create()
+                PaymentAgreement.create paymentAgreementId agreementId debitAccount
+                    creditAccount expectedAmount memo now now )
         do! paymentAgreements |> confirmPaymentAgreements context (masterAgreement |> MasterAgreement.agreementID)
-        do! masterAgreement |> MasterAgreement.insertNewToDb context
-        do!
-            paymentAgreements
-            |> List.map (PaymentAgreement.insertNewToDb context)
-            |> convertListOfResultsToResultsList
-            |> Result.map ignore
         let agreement =
             { masterAgreement = masterAgreement
               paymentAgreements = paymentAgreements
@@ -349,6 +374,12 @@ let constructNewAndSaveToDb
               invoices = []
               payments = [] }
         do! agreement |> confirmComposite context
+        do! masterAgreement |> MasterAgreement.insertNewToDb context
+        do!
+            paymentAgreements
+            |> List.map (PaymentAgreement.insertNewToDb context)
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
         return agreement
     }
 
@@ -433,6 +464,30 @@ let fetchByMasterAgreementId
                 Error(CashflowMasterAgreementIdDoesntExist agreementUuid)
             | Error e -> Error e
     }
+    
+let fetchAllActiveAgreements
+    (context: Context.Context) =
+    let filter : AgreementFilter =
+        { agreementIds = None
+          agreementNames = None
+          direction = None
+          activeAgreementsOnly = true
+          accountIds = None
+          paymentAgreementExpectedAmount = None
+          instanceTemporalFilter = None
+          externalInvoiceId = None
+          invoiceDateTemporalFilter = None
+          invoiceDueTemporalFilter = None
+          invoiceAmount = None
+          invoiceState = None
+          invoicePaymentState = None
+          invoicePostedState = None
+          invoiceBlocker = None
+          journalEntryHeaderId = None
+          stageEntryHeaderId = None
+          paymentAmount = None
+          paymentPostedToLedgerTemporalFilter = None }
+    filter |> fetchFiltered context AnyQuantityIsAcceptable
 
 let private isThereAMasterAgreementUpdate
     (masterAgreementUpdates: MasterAgreement.MasterAgreementFieldUpdates)

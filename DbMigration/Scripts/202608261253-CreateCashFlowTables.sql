@@ -18,6 +18,7 @@ create table cashflow.master_agreement
     counterparty varchar(250) COLLATE pg_catalog."default" not null,
     start_date date NOT NULL,
     end_date date,
+    next_instance date not null,
     memo varchar(2000) COLLATE pg_catalog."default",
     created_at timestamp with time zone NOT NULL,
     modified_at timestamp with time zone NOT NULL

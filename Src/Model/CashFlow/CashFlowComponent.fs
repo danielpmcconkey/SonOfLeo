@@ -3,6 +3,7 @@ module Model.CashFlow.CashFlowComponent
 open System
 open Model.Ledger.AccountComponent
 open Model.Ledger.JournalEntryComponent
+open NodaTime
 open Utilities.AppError
 open Model.DataIngestion.StageEntryComponent
 
@@ -169,135 +170,6 @@ module AgreementName =
         else
             Ok(AgreementName trimmed)
 
-type WeekDay =
-    | Sunday
-    | Monday
-    | Tuesday
-    | Wednesday
-    | Thursday
-    | Friday
-    | Saturday
-
-module WeekDay =
-    let fromString str =
-        match str with
-        | "Sunday" -> Ok Sunday
-        | "Monday" -> Ok Monday
-        | "Tuesday" -> Ok Tuesday
-        | "Wednesday" -> Ok Wednesday
-        | "Thursday" -> Ok Thursday
-        | "Friday" -> Ok Friday
-        | "Saturday" -> Ok Saturday
-        | _ -> Error (CashflowInvalidWeekDay str)
-    let toString str =
-        match str with
-        | Sunday -> "Sunday"
-        | Monday -> "Monday"
-        | Tuesday -> "Tuesday"
-        | Wednesday -> "Wednesday"
-        | Thursday -> "Thursday"
-        | Friday -> "Friday"
-        | Saturday -> "Saturday"
-
-type Month =
-    | January
-    | February
-    | March
-    | April
-    | May
-    | June
-    | July
-    | August
-    | September
-    | October
-    | November
-    | December
-
-module Month =
-    let toString m =
-        match m with
-        | January -> "January"
-        | February -> "February"
-        | March -> "March"
-        | April -> "April"
-        | May -> "May"
-        | June -> "June"
-        | July -> "July"
-        | August -> "August"
-        | September -> "September"
-        | October -> "October"
-        | November -> "November"
-        | December -> "December"
-    let fromString str =
-        match str with
-        | "January" -> Ok January
-        | "February" -> Ok February
-        | "March" -> Ok March
-        | "April" -> Ok April
-        | "May" -> Ok May
-        | "June" -> Ok June
-        | "July" -> Ok July
-        | "August" -> Ok August
-        | "September" -> Ok September
-        | "October" -> Ok October
-        | "November" -> Ok November
-        | "December" -> Ok December
-        | _ -> Error (CashflowInvalidMonth str)
-    let toMonthNum m =        
-        match m with
-        | January -> 1
-        | February -> 2
-        | March -> 3
-        | April -> 4
-        | May -> 5
-        | June -> 6
-        | July -> 7
-        | August -> 8
-        | September -> 9
-        | October -> 10
-        | November -> 11
-        | December -> 12
-    let toAbbreviation m =
-        match m with
-        | January -> "Jan"
-        | February -> "Feb"
-        | March -> "Mar"
-        | April -> "Apr"
-        | May -> "May"
-        | June -> "Jun"
-        | July -> "Jul"
-        | August -> "Aug"
-        | September -> "Sep"
-        | October -> "Oct"
-        | November -> "Nov"
-        | December -> "Dec"
-
-type DateInMonthNumber = private DateInMonthNumber of int
-
-module DateInMonthNumber =
-    let value (DateInMonthNumber i) = i
-    let fromInt i =
-        if i > 0 && i < 32 then Ok (DateInMonthNumber i) else Error (CashflowInvalidDateInMonthNumber i)
-
-type WeekInMonthNumber = private WeekInMonthNumber of int
-
-module WeekInMonthNumber =
-    let value (WeekInMonthNumber i) = i
-    let fromInt i =
-        if i > 0 && i < 6 then Ok (WeekInMonthNumber i) else Error (CashflowInvalidWeekInMonthNumber i)
-
-type MonthDay =
-    | DateInMonth of DateInMonthNumber
-    | NthWeekDay of WeekInMonthNumber * WeekDay
-    | Last
-
-type Cadence =
-    | Daily
-    | Weekly of WeekDay
-    | EveryOtherWeek of WeekDay
-    | Monthly of MonthDay
-    | Annually of Month * MonthDay
-
 type Counterparty = private Counterparty of string
 
 module Counterparty =
@@ -385,3 +257,17 @@ module PaymentMemo =
 type TransactionPointer =
     | Posted of JournalEntryHeaderId
     | Staged of StageEntryHeaderId
+
+type ProjectionHorizonInDays = private {days: int}
+
+module ProjectionHorizonInDays =
+    let min = 1
+    let max = 365
+    let value (h: ProjectionHorizonInDays) : int = h.days
+    let create (raw: int) : Result<ProjectionHorizonInDays, AppError> =
+        match raw with
+        // todo: Simian create the right app errors 
+        | x when x > max -> Error(MoneyFailedToConvertExceededMax(raw, max))
+        | x when x < min -> Error(MoneyFailedToConvertBelowMin(raw, min))
+        | _ -> Ok({days = raw})
+        

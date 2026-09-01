@@ -1,6 +1,7 @@
 module Model.CashFlow.MasterAgreement
 
 open Model
+open Model.ActivityPeriod
 open Model.CashFlow.CashFlowComponent
 open NodaTime
 open Utilities.AppError
@@ -13,14 +14,14 @@ open DataAccessLayer.QueryParameters
 let masterAgreementSelectFields = """
     ma.unique_id, ma.agreement_name, ma.flow_direction, ma.cadence, ma.cadence_week_day,
     ma.cadence_date_in_month, ma.cadence_week_in_month, ma.cadence_month, ma.counterparty,
-    ma.start_date, ma.end_date, ma.memo, ma.created_at, ma.modified_at
+    ma.start_date, ma.end_date, ma.next_instance, ma.memo, ma.created_at, ma.modified_at
     """
 
 type MasterAgreement = private {
     agreementId: MasterAgreementId
     agreementName: AgreementName
     direction: FlowDirection
-    cadence: Cadence
+    cadence: Cadence.Cadence
     counterparty: Counterparty
     activityPeriod: ActivityPeriod.ActivityPeriod
     memo: AgreementMemo option
@@ -32,7 +33,7 @@ type MasterAgreementFieldUpdates = {
     agreementIdToUpdate: MasterAgreementId
     agreementNameUpdate: FieldUpdate<AgreementName>
     directionUpdate: FieldUpdate<FlowDirection>
-    cadenceUpdate: FieldUpdate<Cadence>
+    cadenceUpdate: FieldUpdate<Cadence.Cadence>
     counterpartyUpdate: FieldUpdate<Counterparty>
     activityPeriodUpdate: FieldUpdate<ActivityPeriod.ActivityPeriod>
     memoUpdate: FieldUpdate<AgreementMemo option>
@@ -52,14 +53,16 @@ let create
     (agreementID: MasterAgreementId)
     (agreementName: AgreementName)
     (direction: FlowDirection)
-    (cadence: Cadence)
+    (cadence: Cadence.Cadence)
     (counterparty: Counterparty)
     (agreementActivityPeriod: ActivityPeriod.ActivityPeriod)
     (memo: AgreementMemo option)
     (createdAt: Instant)
     (modifiedAt: Instant)
     : MasterAgreement =
-    let rebuiltActivityPeriod = agreementActivityPeriod |> ActivityPeriod.insistActiveBeforeBeginFlag true
+    let rebuiltActivityPeriod =
+        agreementActivityPeriod
+        |> insistBeginValidationBehavior ConsideredAvailableBeforeBeginDate
     {  agreementId = agreementID
        agreementName = agreementName
        direction = direction
@@ -69,76 +72,8 @@ let create
        memo = memo
        createdAt = createdAt
        modifiedAt = modifiedAt }
-
-let private monthDayToColumns md =
-    match md with
-    | DateInMonth d -> Some(d |> DateInMonthNumber.value), None, None
-    | NthWeekDay(w, wd) -> None, Some(w |> WeekInMonthNumber.value), Some(wd |> WeekDay.toString)
-    | Last -> None, None, None
-
-/// cadenceToColumns returns (cadenceName, cadenceDateInMonth, cadenceWeekInMonth, cadenceWeekDay, cadenceMonth),
-/// matching the shape of the cadence_* columns on cashflow.master_agreement.
-let private cadenceToColumns cadence =
-    match cadence with
-    | Daily -> "Daily", None, None, None, None
-    | Weekly wd -> "Weekly", None, None, Some(wd |> WeekDay.toString), None
-    | EveryOtherWeek wd -> "EveryOtherWeek", None, None, Some(wd |> WeekDay.toString), None
-    | Monthly md ->
-        let dateInMonth, weekInMonth, weekDay = md |> monthDayToColumns
-        "Monthly", dateInMonth, weekInMonth, weekDay, None
-    | Annually(month, md) ->
-        let dateInMonth, weekInMonth, weekDay = md |> monthDayToColumns
-        "Annually", dateInMonth, weekInMonth, weekDay, Some(month |> Month.toString)
-
-let private monthDayFromColumns
-    (cadenceDateInMonth: int option)
-    (cadenceWeekInMonth: int option)
-    (cadenceWeekDay: string option)
-    : Result<MonthDay, AppError> =
-    match cadenceDateInMonth, cadenceWeekInMonth, cadenceWeekDay with
-    | Some d, None, None -> d |> DateInMonthNumber.fromInt |> Result.map DateInMonth
-    | None, Some w, Some wd ->
-        result {
-            let! weekInMonth = w |> WeekInMonthNumber.fromInt
-            let! weekDay = wd |> WeekDay.fromString
-            return NthWeekDay(weekInMonth, weekDay)
-        }
-    | None, None, None -> Ok Last
-    | _ ->
-        Error(CashflowInvalidCadenceRow
-            $"inconsistent MonthDay columns: cadence_date_in_month={cadenceDateInMonth}, cadence_week_in_month={cadenceWeekInMonth}, cadence_week_day={cadenceWeekDay}")
-
-let private cadenceFromColumns
-    (cadenceName: string)
-    (cadenceWeekDay: string option)
-    (cadenceDateInMonth: int option)
-    (cadenceWeekInMonth: int option)
-    (cadenceMonth: string option)
-    : Result<Cadence, AppError> =
-    match cadenceName with
-    | "Daily" -> Ok Daily
-    | "Weekly" ->
-        match cadenceWeekDay with
-        | Some wd -> wd |> WeekDay.fromString |> Result.map Weekly
-        | None -> Error(CashflowInvalidCadenceRow "Weekly cadence requires cadence_week_day")
-    | "EveryOtherWeek" ->
-        match cadenceWeekDay with
-        | Some wd -> wd |> WeekDay.fromString |> Result.map EveryOtherWeek
-        | None -> Error(CashflowInvalidCadenceRow "EveryOtherWeek cadence requires cadence_week_day")
-    | "Monthly" ->
-        monthDayFromColumns cadenceDateInMonth cadenceWeekInMonth cadenceWeekDay
-        |> Result.map Monthly
-    | "Annually" ->
-        result {
-            let! cadenceMonth =
-                match cadenceMonth with
-                | Some m -> Ok m
-                | None -> Error(CashflowInvalidCadenceRow "Annually cadence requires cadence_month")
-            let! month = cadenceMonth |> Month.fromString
-            let! monthDay = monthDayFromColumns cadenceDateInMonth cadenceWeekInMonth cadenceWeekDay
-            return Annually(month, monthDay)
-        }
-    | other -> Error(CashflowInvalidCadenceRow $"unrecognized cadence \"{other}\"")
+        
+    
 
 let insertNewToDb
     (context: Context.Context)
@@ -149,17 +84,17 @@ let insertNewToDb
             """
             insert into cashflow.master_agreement(
 	            unique_id, agreement_name, flow_direction, cadence, cadence_week_day, cadence_date_in_month,
-                cadence_week_in_month, cadence_month, counterparty, start_date, end_date, memo, created_at,
-                modified_at)
+                cadence_week_in_month, cadence_month, counterparty, start_date, next_instance, end_date, memo,
+                created_at, modified_at)
             values (
 	            @unique_id, @agreement_name, @flow_direction, @cadence, @cadence_week_day, @cadence_date_in_month,
-                @cadence_week_in_month, @cadence_month, @counterparty, @start_date, @end_date, @memo, @created_at,
-                @modified_at);"""
+                @cadence_week_in_month, @cadence_month, @counterparty, @start_date, @end_date, @memo, @next_instance,
+                @created_at, @modified_at);"""
         let uuid = masterAgreement.agreementId |> MasterAgreementId.value
         let agreementName = masterAgreement.agreementName |> AgreementName.value
         let direction = masterAgreement.direction |> FlowDirection.toString
-        let cadenceName, cadenceDateInMonth, cadenceWeekInMonth, cadenceWeekDay, cadenceMonth =
-            masterAgreement.cadence |> cadenceToColumns
+        let cadenceName, cadenceDateInMonth, cadenceWeekInMonth, cadenceWeekDay, cadenceMonth, nextInstance =
+            masterAgreement.cadence |> Cadence.cadenceToColumns
         let counterparty = masterAgreement.counterparty |> Counterparty.value
         let activeBegin = masterAgreement.activityPeriod |> ActivityPeriod.activeBegin
         let activeEnd = masterAgreement.activityPeriod |> ActivityPeriod.activeEnd
@@ -176,6 +111,7 @@ let insertNewToDb
               { name = "@cadence_month"; value = NullableCharString(cadenceMonth) }
               { name = "@counterparty"; value = CharString(counterparty) }
               { name = "@start_date"; value = DbLocalDate(activeBegin) }
+              { name = "@next_instance"; value = DbLocalDate(nextInstance) }
               { name = "@end_date"; value = NullableDbLocalDate(activeEnd) }
               { name = "@memo"; value = NullableCharString(memo) }
               { name = "@created_at"; value = DbInstant(masterAgreement.createdAt) }
@@ -197,6 +133,7 @@ let private reconstitute raw =
              counterpartyStr,
              startDate,
              endDate,
+             nextInstance,
              memoStr,
              createdAt,
              modifiedAt) =
@@ -204,11 +141,12 @@ let private reconstitute raw =
         let agreementID = uuid |> MasterAgreementId.fromGuid
         let! agreementName = agreementNameStr |> AgreementName.create
         let! direction = flowDirectionStr |> FlowDirection.fromString
-        let! cadence = cadenceFromColumns cadenceName cadenceWeekDay cadenceDateInMonth cadenceWeekInMonth cadenceMonth
+        let! cadence = Cadence.reconstitute
+                           cadenceName cadenceWeekDay cadenceDateInMonth cadenceWeekInMonth cadenceMonth nextInstance
         let! counterparty = counterpartyStr |> Counterparty.create
-        let! agreementActivityPeriod = ActivityPeriod.create startDate endDate true
+        let! agreementActivityPeriod = ActivityPeriod.create startDate endDate ConsideredAvailableBeforeBeginDate
         let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter AgreementMemo.create
-        return
+        return  
             create
                 agreementID
                 agreementName
@@ -233,6 +171,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getString "counterparty"),
     (row |> RowReader.getDate "start_date"),
     (row |> RowReader.getDateOption "end_date"),
+    (row |> RowReader.getDate "next_instance"),
     (row |> RowReader.getStringOption "memo"),
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
@@ -299,8 +238,8 @@ let updateDb
 
               fieldUpdates.cadenceUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  let cadenceName, cadenceDateInMonth, cadenceWeekInMonth, cadenceWeekDay, cadenceMonth =
-                      n |> cadenceToColumns
+                  let cadenceName, cadenceDateInMonth, cadenceWeekInMonth, cadenceWeekDay, cadenceMonth, nextInstance =
+                      n |> Cadence.cadenceToColumns
                   [ ("cadence = @cadence", { name = "@cadence"; value = CharString(cadenceName) })
                     ("cadence_week_day = @cadence_week_day",
                      { name = "@cadence_week_day"; value = NullableCharString(cadenceWeekDay) })
@@ -309,7 +248,9 @@ let updateDb
                     ("cadence_week_in_month = @cadence_week_in_month",
                      { name = "@cadence_week_in_month"; value = NullableInteger(cadenceWeekInMonth) })
                     ("cadence_month = @cadence_month",
-                     { name = "@cadence_month"; value = NullableCharString(cadenceMonth) }) ])
+                     { name = "@cadence_month"; value = NullableCharString(cadenceMonth) })
+                    ("next_instance = @next_instance",
+                     { name = "@next_instance"; value = DbLocalDate(nextInstance) }) ])
 
               fieldUpdates.counterpartyUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->

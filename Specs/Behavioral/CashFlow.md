@@ -75,13 +75,16 @@ References: Invoice, Transaction Pointer (Staged Entry Header or Journal Entry H
 - **REQ-CF-2.7** Flow direction must be one of 'Income' or 'Outgo'
 - **REQ-CF-2.8** Cadence must be one of: 'Daily', 'Weekly', 'EveryOtherWeek', 'Monthly', 'Annually'
 - **REQ-CF-2.9** When cadence is 'Weekly' or 'EveryOtherWeek', a week day value is required
-- **REQ-CF-2.10** When cadence is 'Monthly', a month day specification is required. Month day is one of: a date-in-month number (1–31), an nth-weekday-in-month (week number 1–5 paired with a week day), or 'Last' (the last day of the month).
+- **REQ-CF-2.10** When cadence is 'Monthly', a month day specification is required. Month day is one of: a date-in-month number (1–28), an nth-weekday-in-month (week number 1–4 paired with a week day), or 'Last' (the last day of the month).
+  - *Why:* Date-in-month is capped at 28 because every month has at least 28 days — no clamping logic needed. For "always the last day" semantics, use 'Last'. Week-in-month is capped at 4 because the 5th occurrence of a weekday does not exist in every month. (2026-08-31)
 - **REQ-CF-2.11** When cadence is 'Annually', a month and a month day specification are required
 - **REQ-CF-2.12** When cadence is 'Daily', no additional cadence fields are required
 - **REQ-CF-2.13** Week day must be one of 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 - **REQ-CF-2.14** Month must be one of 'January' through 'December'
-- **REQ-CF-2.15** Date-in-month number must be between 1 and 31 inclusive
-- **REQ-CF-2.16** Week-in-month number must be between 1 and 5 inclusive
+- **REQ-CF-2.15** Date-in-month number must be between 1 and 28 inclusive
+  - *Why:* Every month has at least 28 days, so no clamping is needed. Use 'Last' for end-of-month semantics. (2026-08-31, narrowed from 1–31)
+- **REQ-CF-2.16** Week-in-month number must be between 1 and 4 inclusive
+  - *Why:* Not every month has a 5th occurrence of a given weekday. (2026-08-31, narrowed from 1–5)
 - **REQ-CF-2.17** Counterparty cannot be null
 - **REQ-CF-2.18** Counterparty cannot be whitespace only (post-trim, per REQ-SYS-1.1)
 - **REQ-CF-2.19** Counterparty length cannot exceed 250 characters
@@ -155,10 +158,10 @@ The projection sweep is a deterministic operation that ensures the event side of
 
 - **REQ-CF-7.1** The projection sweep accepts a horizon parameter expressed as a number of days. The sweep considers all Calendar Dates from the current date through the current date plus the horizon, inclusive.
 - **REQ-CF-7.2** A Master Agreement is considered active for the purpose of the sweep when the current date is on or after its start date AND (its end date is null OR its end date is on or after the current date).
+  - *Why:* The sweep's active check uses strict temporal gating — both start and end date matter. A future-start agreement is not active for sweeping even though it is available for creation and editing. This is distinct from availability, which allows working with an agreement before its start date. (2026-08-30, reverted from an earlier change that dropped the start-date gate)
 - **REQ-CF-7.3** For each active Master Agreement, the sweep must enumerate all cadence dates that fall within the horizon window by walking the agreement's cadence rule forward from the start date.
 - **REQ-CF-7.4** When cadence is 'EveryOtherWeek', the sweep derives on-cycle weeks by counting from the start date (the phase anchor, per REQ-CF-2.23).
-- **REQ-CF-7.5** When a cadence date specifies a date-in-month number that exceeds the actual number of days in the target month (e.g. the 31st in a 30-day month), the sweep must clamp to the last day of that month.
-  - *Why:* An agreement with cadence "Monthly on the 31st" should fire on the 30th in April, the 28th/29th in February, etc. Skipping the month would leave a gap in the projection. (2026-08-28)
+- **REQ-CF-7.5** *(Withdrawn 2026-08-31 — the clamping scenario is now impossible. DateInMonthNumber is capped at 28 (REQ-CF-2.15) and WeekInMonthNumber at 4 (REQ-CF-2.16), so every cadence date is valid in every month. Use the 'Last' MonthDay variant for end-of-month semantics.)*
 - **REQ-CF-7.6** For each cadence date in the horizon window, if no Instance exists for that Master Agreement with a matching instance date, the sweep must create one.
 - **REQ-CF-7.7** The sweep must not create duplicate Instances. If an Instance already exists for a given (Master Agreement, instance date) pair, it is skipped.
 - **REQ-CF-7.8** For each Instance created or found by the sweep, and for each Payment Agreement belonging to the Instance's Master Agreement: if the Payment Agreement has a non-null expected amount and no Invoice exists for that (Instance, Payment Agreement) pair, the sweep must create an Invoice with the expected amount.
@@ -233,6 +236,7 @@ A read-only, deterministic query that surfaces staged entries which may correspo
 | ID | Reason | Date |
 |---|---|---|
 | REQ-CF-6.8 | Replaced by REQ-CF-9.1. The sum constraint is an Invoice lifecycle check, not a Payment creation constraint. | 2026-08-29 |
+| REQ-CF-7.5 | Clamping scenario eliminated by type constraints. DateInMonthNumber capped at 28 (REQ-CF-2.15), WeekInMonthNumber capped at 4 (REQ-CF-2.16). 'Last' handles end-of-month. | 2026-08-31 |
 
 ## Waived from testing
 
