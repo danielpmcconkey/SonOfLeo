@@ -2,10 +2,8 @@ module ModelOrchestrator.CashFlowOps
 
 open System
 open Model.CashFlow
-open Model.CashFlow.Cadence
 open Model.CashFlow.CashFlowComponent
 open ModelOrchestrator
-open ModelOrchestrator.AgreementOrchestration
 open NodaTime
 open Utilities
 open Utilities.AppError
@@ -22,13 +20,11 @@ let private incrementDaily
     priorDate.PlusDays(1)
 
 let private incrementWeekly
-    (weekday: Cadence.WeekDay)
     (priorDate: LocalDate)
     : LocalDate =
     priorDate.PlusDays(7)
 
 let private incrementBiWeekly
-    (weekday: Cadence.WeekDay)
     (priorDate: LocalDate)
     : LocalDate =
     priorDate.PlusDays(14)
@@ -83,7 +79,6 @@ let private incrementMonthly
     | Cadence.Last -> incrementLastDayOfMonth priorDate
 
 let private incrementAnnually
-    (month: Cadence.Month)
     (monthDay: Cadence.MonthDay)
     (priorDate: LocalDate)
     : LocalDate =
@@ -103,15 +98,14 @@ let private incrementAnnually
     
 let private determineNextDateFromPrior
     (priorDate: LocalDate)
-    (cutOffDate: LocalDate)
     (cadenceType: Cadence.CadenceType)
     : LocalDate =
     match cadenceType with
     | Cadence.Daily -> priorDate |> incrementDaily
-    | Cadence.Weekly weekDay -> priorDate |> incrementWeekly weekDay
-    | Cadence.EveryOtherWeek weekDay -> priorDate |> incrementBiWeekly weekDay
+    | Cadence.Weekly _ -> priorDate |> incrementWeekly
+    | Cadence.EveryOtherWeek _ -> priorDate |> incrementBiWeekly
     | Cadence.Monthly monthDay -> priorDate |> incrementMonthly monthDay
-    | Cadence.Annually (month, monthDay) -> priorDate |> incrementAnnually month monthDay
+    | Cadence.Annually (_, monthDay) -> priorDate |> incrementAnnually monthDay
     
 let rec private fillInstanceDatesToCutOff
     (nextDate: LocalDate)
@@ -121,14 +115,14 @@ let rec private fillInstanceDatesToCutOff
     : LocalDate list =
     if nextDate > cutOffDate then accumulator // break out of the recursion
     else 
-    let nextNextDate = determineNextDateFromPrior nextDate cutOffDate cadenceType
+    let nextNextDate = determineNextDateFromPrior nextDate cadenceType
     fillInstanceDatesToCutOff nextNextDate cutOffDate cadenceType (nextDate::accumulator)
 
 let private spawnInstancesFromAgreement
     (context: Context.Context)
     (daysOut: ProjectionHorizonInDays)
-    (agreement: Agreement)
-    : Result<Agreement, AppError> =
+    (agreement: AgreementOrchestration.Agreement)
+    : Result<AgreementOrchestration.Agreement, AppError> =
     result {
         let cutOffDate = Calendar.today().PlusDays(daysOut |> ProjectionHorizonInDays.value)
         let master = agreement |> AgreementOrchestration.masterAgreement

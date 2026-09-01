@@ -10,7 +10,6 @@ open Model.Ledger
 open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.CashFlowCompositeFetcher
 open ModelOrchestrator.FetchFilters
-open NodaTime
 open Utilities.AppError
 open Utilities.Calendar
 open Utilities.FieldUpdate
@@ -25,13 +24,6 @@ type Agreement = private {
 }
 
 let masterAgreement (agreement:Agreement) = agreement.masterAgreement
-
-// let latestInstance (agreement:Agreement) : Instance.Instance option =
-//     if agreement.instances |> List.isEmpty then None else
-//     agreement.instances
-//     |> List.sortByDescending(fun instant -> instant |> Instance.instanceDate)
-//     |> List.head
-//     |> Some
 
 let private confirmValidAccountId
     (context: Context.Context)
