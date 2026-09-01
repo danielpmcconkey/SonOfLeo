@@ -48,6 +48,8 @@ type AppError =
     | CashflowCounterpartyTooLong of string * int
     | CashflowExternalInvoiceIdIsEmpty of string
     | CashflowExternalInvoiceIdTooLong of string * int
+    | CashflowInstanceFulfilledWithNoInvoices of Guid
+    | CashflowInstanceFulfilledWithUnpaidInvoice of Guid * Guid
     | CashflowInstanceIdDoesntExist of Guid
     | CashflowInstanceIdListCannotBeEmpty
     | CashflowInstanceNotUnderMasterAgreement of Guid * Guid
@@ -74,6 +76,7 @@ type AppError =
     | CashflowInvoiceMemoIsEmpty of string
     | CashflowInvoiceMemoTooLong of string * int
     | CashflowInvoiceNonPositiveAmount of Guid * decimal
+    | CashflowInvoiceNotUnderInstance of Guid * Guid
     | CashflowInvoiceNotUnderMasterAgreement of Guid * Guid
     | CashflowInvoicePartiallyPaidWithNoPayments of Guid
     | CashflowInvoicePartiallyPostedWithNoPostedPayment of Guid
@@ -82,7 +85,7 @@ type AppError =
     | CashflowInvoiceUpdateNoOp
     | CashflowMasterAgreementIdDoesntExist of Guid
     | CashflowMasterAgreementIdListCannotBeEmpty
-    | CashflowMasterAgreementInactive of Guid * LocalDate * LocalDate * LocalDate option
+    | CashflowMasterAgreementUnavailable of Guid * LocalDate * LocalDate * LocalDate option
     | CashflowMasterAgreementUpdateNoOp
     | CashflowPaymentAgreementCreditAccountInvalid of Guid
     | CashflowPaymentAgreementDebitAccountInvalid of Guid
@@ -274,6 +277,8 @@ module AppError =
         | CashflowCounterpartyTooLong(name, max) -> $"Counterparty cannot exceed {max} characters. Provided name is {name}."
         | CashflowExternalInvoiceIdIsEmpty eid -> $"ExternalInvoiceId cannot be empty. Provided ExternalInvoiceId is {eid}."
         | CashflowExternalInvoiceIdTooLong(eid, max) -> $"ExternalInvoiceId cannot exceed {max} characters. Provided ExternalInvoiceId is {eid}."
+        | CashflowInstanceFulfilledWithNoInvoices instanceId -> $"Instance {instanceId} is marked fulfilled but has no Invoices."
+        | CashflowInstanceFulfilledWithUnpaidInvoice(instanceId, invoiceId) -> $"Instance {instanceId} is marked fulfilled but Invoice {invoiceId} is not FullyPaid."
         | CashflowInstanceIdDoesntExist uuid -> $"Could not locate an Instance with the id of {uuid}."
         | CashflowInstanceIdListCannotBeEmpty -> "The instanceIds list must contain at least 1 ID."
         | CashflowInstanceNotUnderMasterAgreement(instanceId, agreementId) -> $"Instance {instanceId} does not belong to MasterAgreement {agreementId}."
@@ -300,6 +305,7 @@ module AppError =
         | CashflowInvoiceMemoIsEmpty memo -> $"InvoiceMemo cannot be empty. Provided Memo is {memo}."
         | CashflowInvoiceMemoTooLong(memo, max) -> $"InvoiceMemo cannot exceed {max} characters. Provided Memo is {memo}."
         | CashflowInvoiceNonPositiveAmount(invoiceId, amount) -> $"Invoice {invoiceId} amount ({amount}) must be greater than 0."
+        | CashflowInvoiceNotUnderInstance(invoiceId, instanceId) -> $"Invoice {invoiceId} does not belong to Instance {instanceId}."
         | CashflowInvoiceNotUnderMasterAgreement(invoiceId, agreementId) -> $"Invoice {invoiceId} does not belong to MasterAgreement {agreementId}."
         | CashflowInvoicePartiallyPaidWithNoPayments invoiceId -> $"Invoice {invoiceId} is PartiallyPaid but has no Payments."
         | CashflowInvoicePartiallyPostedWithNoPostedPayment invoiceId -> $"Invoice {invoiceId} is PartiallyPosted but none of its Payments are posted to a journal entry."
@@ -308,11 +314,11 @@ module AppError =
         | CashflowInvoiceUpdateNoOp -> "Updating the Invoice record failed because at least one updatable parameter must be set."
         | CashflowMasterAgreementIdDoesntExist uuid -> $"Could not locate a MasterAgreement with the id of {uuid}."
         | CashflowMasterAgreementIdListCannotBeEmpty -> "The masterAgreementIds list must contain at least 1 ID."
-        | CashflowMasterAgreementInactive(uuid, referenceDate, beginDate, endDate) ->
+        | CashflowMasterAgreementUnavailable(uuid, referenceDate, beginDate, endDate) ->
             let endDateStr = match endDate with
                                 | Some x -> x.ToString()
                                 | None -> "None"
-            $"Master Agreement ({uuid}) is not active (begin {beginDate}; end {endDateStr}) as of {referenceDate}."
+            $"Master Agreement ({uuid}) is not available (begin {beginDate}; end {endDateStr}) as of {referenceDate}."
         | CashflowMasterAgreementUpdateNoOp -> "Updating the MasterAgreement record failed because at least one updatable parameter must be set."
         | CashflowPaymentAgreementCreditAccountInvalid uuid -> $"PaymentAgreement's credit account ({uuid}) does not match an Account in the database."
         | CashflowPaymentAgreementDebitAccountInvalid uuid -> $"PaymentAgreement's debit account ({uuid}) does not match an Account in the database."
