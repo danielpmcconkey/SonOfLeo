@@ -322,3 +322,96 @@ let reconstitute
             | other -> Error(CashflowInvalidCadenceRow $"unrecognized cadence \"{other}\"")
         return { cadenceType = cadenceType; nextInstance = {nextInstance = nextInstance} }
     }
+
+let private incrementDaily
+    (priorDate: LocalDate)
+    : LocalDate =
+    priorDate.PlusDays(1)
+
+let private incrementWeekly
+    (priorDate: LocalDate)
+    : LocalDate =
+    priorDate.PlusDays(7)
+
+let private incrementBiWeekly
+    (priorDate: LocalDate)
+    : LocalDate =
+    priorDate.PlusDays(14)
+
+let private incrementDateInMonthNumber
+    (priorDate: LocalDate)
+    (dateInMonthNumber: DateInMonthNumber)
+    : LocalDate =
+    let dateInMonthInt = dateInMonthNumber |> DateInMonthNumber.value
+    let priorMonthInt = priorDate.Month
+    let priorYearInt = priorDate.Year
+    let newYear, newMonth =
+        if priorMonthInt = 12
+        then (priorYearInt + 1), 1
+        else priorYearInt, priorMonthInt + 1
+    LocalDate(newYear, newMonth, dateInMonthInt)
+
+let private incrementNthWeekday
+    (priorDate: LocalDate)
+    (weekInMonthNumber: WeekInMonthNumber)
+    (weekday: WeekDay)
+    : LocalDate =
+    let priorMonthInt = priorDate.Month
+    let priorYearInt = priorDate.Year
+    let isoWeekDay = weekday |> WeekDay.toIsoDayOfWeek
+    let n = weekInMonthNumber |> WeekInMonthNumber.value
+    let newYear, newMonth =
+        if priorMonthInt = 12
+        then (priorYearInt + 1), 1
+        else priorYearInt, priorMonthInt + 1
+    LocalDate.FromYearMonthWeekAndDay(newYear, newMonth, n, isoWeekDay)
+
+let private incrementLastDayOfMonth
+    (agreementStart: LocalDate)
+    : LocalDate =
+    let priorMonthInt = agreementStart.Month
+    let priorYearInt = agreementStart.Year
+    let newYear, newMonth =
+        if priorMonthInt = 12
+        then (priorYearInt + 1), 1
+        else priorYearInt, priorMonthInt + 1
+    let daysInMonth = CalendarSystem.Iso.GetDaysInMonth(newYear, newMonth)
+    LocalDate(newYear, newMonth, daysInMonth)
+
+let private incrementMonthly
+    (monthDay: MonthDay)
+    (priorDate: LocalDate)
+    : LocalDate =
+    match monthDay with
+    | DateInMonth dateInMonthNumber -> incrementDateInMonthNumber priorDate dateInMonthNumber
+    | NthWeekDay (weekInMonthNumber, weekday) -> incrementNthWeekday priorDate weekInMonthNumber weekday
+    | Last -> incrementLastDayOfMonth priorDate
+
+let private incrementAnnually
+    (monthDay: MonthDay)
+    (priorDate: LocalDate)
+    : LocalDate =
+    match monthDay with
+    | DateInMonth _ -> priorDate.PlusYears(1)
+    | NthWeekDay (weekInMonthNumber, weekday) ->
+        let newYear = priorDate.Year + 1
+        let newMonth = priorDate.Month
+        let isoWeekDay = weekday |> WeekDay.toIsoDayOfWeek
+        let n = weekInMonthNumber |> WeekInMonthNumber.value
+        LocalDate.FromYearMonthWeekAndDay(newYear, newMonth, n, isoWeekDay)
+    | Last -> 
+        let newYear = priorDate.Year + 1
+        let newMonth = priorDate.Month
+        let daysInMonth = CalendarSystem.Iso.GetDaysInMonth(newYear, newMonth)
+        LocalDate(newYear, newMonth, daysInMonth)
+    
+let determineNextDateFromPrior
+    (priorDate: LocalDate)
+    (cadenceType: CadenceType)
+    : LocalDate =
+    match cadenceType with
+    | Daily -> priorDate |> incrementDaily
+    | Weekly _ -> priorDate |> incrementWeekly
+    | EveryOtherWeek _ -> priorDate |> incrementBiWeekly
+    | Monthly monthDay -> priorDate |> incrementMonthly monthDay
+    | Annually (_, monthDay) -> priorDate |> incrementAnnually monthDay

@@ -13,99 +13,6 @@ open Utilities.ResultHelper
     CashFlowOps represents the activities that the operator will perform every time we run finances (the saturday
     routine)
 *)
-
-let private incrementDaily
-    (priorDate: LocalDate)
-    : LocalDate =
-    priorDate.PlusDays(1)
-
-let private incrementWeekly
-    (priorDate: LocalDate)
-    : LocalDate =
-    priorDate.PlusDays(7)
-
-let private incrementBiWeekly
-    (priorDate: LocalDate)
-    : LocalDate =
-    priorDate.PlusDays(14)
-
-let private incrementDateInMonthNumber
-    (priorDate: LocalDate)
-    (dateInMonthNumber: Cadence.DateInMonthNumber)
-    : LocalDate =
-    let dateInMonthInt = dateInMonthNumber |> Cadence.DateInMonthNumber.value
-    let priorMonthInt = priorDate.Month
-    let priorYearInt = priorDate.Year
-    let newYear, newMonth =
-        if priorMonthInt = 12
-        then (priorYearInt + 1), 1
-        else priorYearInt, priorMonthInt + 1
-    LocalDate(newYear, newMonth, dateInMonthInt)
-
-let private incrementNthWeekday
-    (priorDate: LocalDate)
-    (weekInMonthNumber: Cadence.WeekInMonthNumber)
-    (weekday: Cadence.WeekDay)
-    : LocalDate =
-    let priorMonthInt = priorDate.Month
-    let priorYearInt = priorDate.Year
-    let isoWeekDay = weekday |> Cadence.WeekDay.toIsoDayOfWeek
-    let n = weekInMonthNumber |> Cadence.WeekInMonthNumber.value
-    let newYear, newMonth =
-        if priorMonthInt = 12
-        then (priorYearInt + 1), 1
-        else priorYearInt, priorMonthInt + 1
-    LocalDate.FromYearMonthWeekAndDay(newYear, newMonth, n, isoWeekDay)
-
-let private incrementLastDayOfMonth
-    (agreementStart: LocalDate)
-    : LocalDate =
-    let priorMonthInt = agreementStart.Month
-    let priorYearInt = agreementStart.Year
-    let newYear, newMonth =
-        if priorMonthInt = 12
-        then (priorYearInt + 1), 1
-        else priorYearInt, priorMonthInt + 1
-    let daysInMonth = CalendarSystem.Iso.GetDaysInMonth(newYear, newMonth)
-    LocalDate(newYear, newMonth, daysInMonth)
-
-let private incrementMonthly
-    (monthDay: Cadence.MonthDay)
-    (priorDate: LocalDate)
-    : LocalDate =
-    match monthDay with
-    | Cadence.DateInMonth dateInMonthNumber -> incrementDateInMonthNumber priorDate dateInMonthNumber
-    | Cadence.NthWeekDay (weekInMonthNumber, weekday) -> incrementNthWeekday priorDate weekInMonthNumber weekday
-    | Cadence.Last -> incrementLastDayOfMonth priorDate
-
-let private incrementAnnually
-    (monthDay: Cadence.MonthDay)
-    (priorDate: LocalDate)
-    : LocalDate =
-    match monthDay with
-    | Cadence.DateInMonth _ -> priorDate.PlusYears(1)
-    | Cadence.NthWeekDay (weekInMonthNumber, weekday) ->
-        let newYear = priorDate.Year + 1
-        let newMonth = priorDate.Month
-        let isoWeekDay = weekday |> Cadence.WeekDay.toIsoDayOfWeek
-        let n = weekInMonthNumber |> Cadence.WeekInMonthNumber.value
-        LocalDate.FromYearMonthWeekAndDay(newYear, newMonth, n, isoWeekDay)
-    | Cadence.Last -> 
-        let newYear = priorDate.Year + 1
-        let newMonth = priorDate.Month
-        let daysInMonth = CalendarSystem.Iso.GetDaysInMonth(newYear, newMonth)
-        LocalDate(newYear, newMonth, daysInMonth)
-    
-let private determineNextDateFromPrior
-    (priorDate: LocalDate)
-    (cadenceType: Cadence.CadenceType)
-    : LocalDate =
-    match cadenceType with
-    | Cadence.Daily -> priorDate |> incrementDaily
-    | Cadence.Weekly _ -> priorDate |> incrementWeekly
-    | Cadence.EveryOtherWeek _ -> priorDate |> incrementBiWeekly
-    | Cadence.Monthly monthDay -> priorDate |> incrementMonthly monthDay
-    | Cadence.Annually (_, monthDay) -> priorDate |> incrementAnnually monthDay
     
 let rec private fillInstanceDatesToCutOff
     (nextDate: LocalDate)
@@ -115,7 +22,7 @@ let rec private fillInstanceDatesToCutOff
     : LocalDate list =
     if nextDate > cutOffDate then accumulator // break out of the recursion
     else 
-    let nextNextDate = determineNextDateFromPrior nextDate cadenceType
+    let nextNextDate = Cadence.determineNextDateFromPrior nextDate cadenceType
     fillInstanceDatesToCutOff nextNextDate cutOffDate cadenceType (nextDate::accumulator)
 
 let private spawnInstancesFromAgreement
@@ -131,7 +38,10 @@ let private spawnInstancesFromAgreement
         let cadenceType = cadence |> Cadence.cadenceType
         let nextInstance = cadence |> Cadence.nextInstance
         let nextInstanceDate = nextInstance.nextInstance
-        let neededDates = fillInstanceDatesToCutOff nextInstanceDate cutOffDate cadenceType []
+        let neededDates =
+            fillInstanceDatesToCutOff nextInstanceDate cutOffDate cadenceType []
+            |> List.sortByDescending id
+        if neededDates |> List.isEmpty then return agreement else
         do! neededDates
             |> List.map(fun neededDate ->
                 let instanceId = InstanceId.create()
@@ -141,10 +51,11 @@ let private spawnInstancesFromAgreement
                 )
             |> convertListOfResultsToResultsList
             |> Result.map ignore
-        // you are here. Up next you need to find the latest date you just added, then derive the next date after that
-        // so you can update the MasterAgreement's cadence's next date 
-        raise(NotImplementedException())
-        return agreement
+        let latestAdded = neededDates |> List.head
+        let newNextInstance = Cadence.determineNextDateFromPrior latestAdded cadenceType
+        let! newCadence = Cadence.create cadenceType { nextInstance = newNextInstance }
+        do! master |> MasterAgreement.updateCadence context newCadence |> Result.map ignore
+        return! AgreementOrchestration.fetchByMasterAgreementId context agreementId
     }
 
 let private spawnInstancesFromAgreements

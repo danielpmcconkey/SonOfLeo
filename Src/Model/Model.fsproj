@@ -31,7 +31,6 @@
     <Compile Include="DataIngestion\Classification\ClassificationRule.fs" />
     <Compile Include="DataIngestion\Classification\Classifier.fs" />
     <Compile Include="CashFlow\CashFlowComponent.fs" />
-    <Compile Include="CashFlow\Cadence.fs" />
     <Compile Include="CashFlow\PaymentAgreement.fs" />
     <Compile Include="CashFlow\MasterAgreement.fs" />
     <Compile Include="CashFlow\Instance.fs" />

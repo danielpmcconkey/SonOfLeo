@@ -14,6 +14,7 @@
     <Compile Include="FieldUpdate.fs" />
     <Compile Include="FileIO.fs" />
     <Compile Include="Json.fs" />
+    <Compile Include="Cadence.fs" />
   </ItemGroup>
 
   <ItemGroup>

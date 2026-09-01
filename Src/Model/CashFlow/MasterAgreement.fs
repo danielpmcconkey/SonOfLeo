@@ -285,3 +285,15 @@ let updateDb
         return! agreementID |> fetchById context
     }
 
+let updateCadence context newCadence masterAgreement =
+    let fieldUpdates = {
+        agreementIdToUpdate = masterAgreement.agreementId
+        agreementNameUpdate = NoChange
+        directionUpdate = NoChange
+        cadenceUpdate = SetTo newCadence
+        counterpartyUpdate = NoChange
+        activityPeriodUpdate = NoChange
+        memoUpdate = NoChange
+    }
+    fieldUpdates |> updateDb context
+
