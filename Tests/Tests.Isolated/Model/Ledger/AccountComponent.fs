@@ -547,33 +547,34 @@ let ``REQ-SYS-1.1 AccountExternalReference trims leading and trailing whitespace
 let ``REQ-AC-1.46 ActivityPeriod rejects activeEnd earlier than activeBegin`` () =
     let ab = Calendar.today()
     let ae = Some(ab.PlusDays(-1))
-    isCorrectError (ActivityPeriod.create ab ae) ActiveEndBeforeBegin None
+    isCorrectError (ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate)
+        ActiveEndBeforeBegin None 
     |> railroadWrapper
 
 [<Fact>]
 let ``REQ-AC-1.46 ActivityPeriod accepts activeEnd equal to activeBegin`` () =
     let ab = Calendar.today()
     let ae = Some ab
-    ActivityPeriod.create ab ae |> Result.isOk |> Assert.True
+    ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate |> Result.isOk |> Assert.True
 
 [<Fact>]
 let ``REQ-AC-1.45 ActivityPeriod accepts null activeEnd`` () =
     let ab = Calendar.today()
     let ae = None
-    ActivityPeriod.create ab ae |> Result.isOk |> Assert.True
+    ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate |> Result.isOk |> Assert.True
 
 [<Fact>]
 let ``REQ-AC-1.42 REQ-AC-1.43 ActivityPeriod accepts valid begin and end`` () =
     let ab = Calendar.today()
     let ae = Some(ab.PlusDays(1))
-    ActivityPeriod.create ab ae |> Result.isOk |> Assert.True
+    ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate |> Result.isOk |> Assert.True
 
 [<Fact>]
 let ``REQ-AC-1.50 isActive returns true when begin <= ref and no end`` () =
     let ab = Calendar.today().PlusDays(-1)
     let ae = None
     let now = Calendar.today()
-    ActivityPeriod.create ab ae
+    ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
     |> ActivityPeriod.isActive now
     |> Assert.True
@@ -583,7 +584,7 @@ let ``REQ-AC-1.50 isActive returns true when begin <= ref and end > ref`` () =
     let ab = Calendar.today().PlusDays(-1)
     let ae = Some(Calendar.today().PlusDays(1))
     let now = Calendar.today()
-    ActivityPeriod.create ab ae
+    ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
     |> ActivityPeriod.isActive now
     |> Assert.True
@@ -594,7 +595,7 @@ let ``REQ-AC-1.48 isActive returns false when end < ref (deactivated)`` () =
     let ab = Calendar.today().PlusDays(-2)
     let ae = Some(Calendar.today().PlusDays(-1))
     let now = Calendar.today()
-    ActivityPeriod.create ab ae
+    ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
     |> ActivityPeriod.isActive now
     |> Assert.False
@@ -604,7 +605,7 @@ let ``REQ-AC-1.50 isActive returns false when ref precedes begin (not yet starte
     let ab = Calendar.today().PlusDays(1)
     let ae = None
     let now = Calendar.today()
-    ActivityPeriod.create ab ae
+    ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
     |> ActivityPeriod.isActive now
     |> Assert.False
@@ -614,7 +615,7 @@ let ``REQ-AC-1.50 isActive returns true when the reference point exactly equals 
     let ab = Calendar.today()
     let ae = None
     let now = ab
-    ActivityPeriod.create ab ae
+    ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
     |> ActivityPeriod.isActive now
     |> Assert.True
@@ -624,7 +625,7 @@ let ``REQ-AC-1.48 isActive returns true when the reference point exactly equals 
     let ab = Calendar.today().PlusDays(-1)
     let now = Calendar.today()
     let ae = Some now
-    ActivityPeriod.create ab ae
+    ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
     |> ActivityPeriod.isActive now
     |> Assert.True

@@ -48,7 +48,7 @@ let createTestAccountFromPrimitives
                 (code |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
                 (name |> AccountName.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
                 (actType |> AccountType.fromString |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
-                (ActivityPeriod.create activeBegin activeEnd
+                (ActivityPeriod.create activeBegin activeEnd ActivityPeriod.NotConsideredAvailableBeforeBeginDate
                  |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
                 (subtype
                  |> convertOptionToDesiredTypeWithFallibleConverter AccountSubtype.fromString

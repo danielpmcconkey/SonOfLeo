@@ -23,7 +23,8 @@ let private accountCreate payload _ =
         let! name = accountCreateInput.name |> AccountName.create
         let! accountType = accountCreateInput.accountTypeSt |> AccountType.fromString
         let! accountActivityPeriod =
-            ActivityPeriod.create accountCreateInput.activeBegin accountCreateInput.activeEnd
+            ActivityPeriod.create accountCreateInput.activeBegin
+                accountCreateInput.activeEnd ActivityPeriod.NotConsideredAvailableBeforeBeginDate
         let! subtype = accountCreateInput.subType |> ``convert AccountSubtypeString Option to AccountSubtype Option``
         let! parentId =
             accountCreateInput.parentCode

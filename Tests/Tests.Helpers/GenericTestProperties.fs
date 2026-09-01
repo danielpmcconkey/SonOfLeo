@@ -24,7 +24,7 @@ let genericAccountType =
 let genericActiveBegin = Calendar.today().PlusYears(-1)
 let genericActiveEnd = None
 let genericActivityPeriod =
-    ActivityPeriod.create genericActiveBegin genericActiveEnd
+    ActivityPeriod.create genericActiveBegin genericActiveEnd ActivityPeriod.NotConsideredAvailableBeforeBeginDate
     |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
 let genericAccountSubtype = None
 let genericAccountSubtypeString = "Cash"

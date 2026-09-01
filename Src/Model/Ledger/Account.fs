@@ -1,6 +1,7 @@
 module Model.Ledger.Account
 
 open Model
+open Model.ActivityPeriod
 open Utilities
 open Utilities.AppError
 open Utilities.FieldUpdate
@@ -49,7 +50,9 @@ module Account =
         (createdAt: Instant)
         (modifiedAt: Instant)
         : Account =
-        let rebuiltActivityPeriod = accountActivityPeriod |> ActivityPeriod.insistActiveBeforeBeginFlag false
+        let rebuiltActivityPeriod =
+            accountActivityPeriod
+            |> insistBeginValidationBehavior NotConsideredAvailableBeforeBeginDate
         { accountId = accountId
           code = code
           accountName = accountName
@@ -85,7 +88,7 @@ module Account =
             let! accountCode = codeString |> AccountCode.create
             let! accountName = nameString |> AccountName.create
             let! accountType = accountTypeString |> AccountType.fromString
-            let! activityPeriod = ActivityPeriod.create activeBegin activeEnd false
+            let! activityPeriod = ActivityPeriod.create activeBegin activeEnd NotConsideredAvailableBeforeBeginDate
             let! subtype =
                 subtypeString
                 |> Option.map(fun x -> x |> AccountSubtype.fromString |> Result.map Some)
@@ -190,9 +193,9 @@ module Account =
               { name = "@code"; value = CharString(AccountCode.value account.code) }
               { name = "@account_name"; value = CharString(AccountName.value account.accountName) }
               { name = "@account_type"; value = CharString(AccountType.toString account.accountType) }
-              { name = "@active_begin"; value = DbLocalDate(ActivityPeriod.activeBegin account.activityPeriod) }
+              { name = "@active_begin"; value = DbLocalDate(activeBegin account.activityPeriod) }
               { name = "@active_end"
-                value = NullableDbLocalDate(ActivityPeriod.activeEnd account.activityPeriod) }
+                value = NullableDbLocalDate(activeEnd account.activityPeriod) }
               { name = "@created_at"; value = DbInstant account.createdAt }
               { name = "@modified_at"; value = DbInstant account.modifiedAt }
               { name = "@account_subtype"; value = NullableCharString subTypeString }
@@ -229,7 +232,7 @@ module Account =
         | Ok allRows ->
             if activeOnly then
                 allRows
-                |> List.filter(fun x -> x.activityPeriod |> ActivityPeriod.isActive activeReference)
+                |> List.filter(fun x -> x.activityPeriod |> isActive activeReference)
                 |> Ok
             else
                 Ok allRows
