@@ -24,6 +24,10 @@ type Agreement = private {
 }
 
 let masterAgreement (agreement:Agreement) = agreement.masterAgreement
+let paymentAgreements (agreement:Agreement) = agreement.paymentAgreements
+let instances (agreement:Agreement) = agreement.instances
+let invoices (agreement:Agreement) = agreement.invoices
+let payments (agreement:Agreement) = agreement.payments
 
 let private confirmValidAccountId
     (context: Context.Context)

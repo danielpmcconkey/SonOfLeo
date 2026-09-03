@@ -21,9 +21,9 @@ type Invoice = private {
     instanceId: InstanceId
     paymentAgreementId: PaymentAgreementId
     externalInvoiceId: ExternalInvoiceId option
-    invoiceDate: LocalDate
-    dueDate: LocalDate
-    amount: Money
+    invoiceDate: InvoiceDate
+    dueDate: DueDate
+    amount: InvoiceAmount
     invoiceLifeCycleState: InvoiceLifeCycleState
     memo: InvoiceMemo option
     createdAt: Instant
@@ -33,9 +33,9 @@ type Invoice = private {
 type InvoiceFieldUpdates = {
     invoiceIdToUpdate: InvoiceId
     externalInvoiceIdUpdate: FieldUpdate<ExternalInvoiceId option>
-    invoiceDateUpdate: FieldUpdate<LocalDate>
-    dueDateUpdate: FieldUpdate<LocalDate>
-    amountUpdate: FieldUpdate<Money>
+    invoiceDateUpdate: FieldUpdate<InvoiceDate>
+    dueDateUpdate: FieldUpdate<DueDate>
+    amountUpdate: FieldUpdate<InvoiceAmount>
     invoiceStateUpdate: FieldUpdate<InvoiceState>
     paymentStateUpdate: FieldUpdate<PaymentState>
     postedStateUpdate: FieldUpdate<PostedState>
@@ -60,9 +60,9 @@ let create
     (instanceId: InstanceId)
     (paymentAgreementId: PaymentAgreementId)
     (externalInvoiceId: ExternalInvoiceId option)
-    (invoiceDate: LocalDate)
-    (dueDate: LocalDate)
-    (amount: Money)
+    (invoiceDate: InvoiceDate)
+    (dueDate: DueDate)
+    (amount: InvoiceAmount)
     (invoiceLifeCycleState: InvoiceLifeCycleState)
     (memo: InvoiceMemo option)
     (createdAt: Instant)
@@ -133,7 +133,7 @@ let insertNewToDb
         let instanceUuid = invoice.instanceId |> InstanceId.value
         let paymentAgreementUuid = invoice.paymentAgreementId |> PaymentAgreementId.value
         let externalInvoiceId = invoice.externalInvoiceId |> Option.map ExternalInvoiceId.value
-        let amount = invoice.amount |> Money.amount
+        let amount = invoice.amount.money |> Money.amount
         let invoiceState = invoice.invoiceLifeCycleState.invoiceState |> InvoiceState.toString
         let paymentState = invoice.invoiceLifeCycleState.paymentState |> PaymentState.toString
         let postedState = invoice.invoiceLifeCycleState.postedState |> PostedState.toString
@@ -145,8 +145,8 @@ let insertNewToDb
               { name = "@instance_id"; value = UniqueId(instanceUuid) }
               { name = "@payment_agreement_id"; value = UniqueId(paymentAgreementUuid) }
               { name = "@external_invoice_id"; value = NullableCharString(externalInvoiceId) }
-              { name = "@invoice_date"; value = DbLocalDate(invoice.invoiceDate) }
-              { name = "@due_date"; value = DbLocalDate(invoice.dueDate) }
+              { name = "@invoice_date"; value = DbLocalDate(invoice.invoiceDate.localDate) }
+              { name = "@due_date"; value = DbLocalDate(invoice.dueDate.localDate) }
               { name = "@amount"; value = Numeric(amount) }
               { name = "@invoice_state"; value = CharString(invoiceState) }
               { name = "@payment_state"; value = CharString(paymentState) }
@@ -200,9 +200,9 @@ let private reconstitute raw =
                 instanceId
                 paymentAgreementId
                 externalInvoiceId
-                invoiceDate
-                dueDate
-                amount
+                { localDate = invoiceDate }
+                { localDate = dueDate }
+                { money = amount }
                 invoiceLifeCycleState
                 memo
                 createdAt
@@ -298,15 +298,15 @@ let updateDb
 
               fieldUpdates.invoiceDateUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  [ ("invoice_date = @invoice_date", { name = "@invoice_date"; value = DbLocalDate(n) }) ])
+                  [ ("invoice_date = @invoice_date", { name = "@invoice_date"; value = DbLocalDate(n.localDate) }) ])
 
               fieldUpdates.dueDateUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  [ ("due_date = @due_date", { name = "@due_date"; value = DbLocalDate(n) }) ])
+                  [ ("due_date = @due_date", { name = "@due_date"; value = DbLocalDate(n.localDate) }) ])
 
               fieldUpdates.amountUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  [ ("amount = @amount", { name = "@amount"; value = Numeric(n |> Money.amount) }) ])
+                  [ ("amount = @amount", { name = "@amount"; value = Numeric(n.money |> Money.amount) }) ])
 
               fieldUpdates.invoiceStateUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->

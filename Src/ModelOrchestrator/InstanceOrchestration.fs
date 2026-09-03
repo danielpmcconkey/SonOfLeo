@@ -9,6 +9,7 @@ open Model.Ledger
 open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.CashFlowCompositeFetcher
 open ModelOrchestrator.FetchFilters
+open NodaTime
 open Utilities.AppError
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
@@ -69,20 +70,21 @@ let private confirmPayment
                 Error(CashflowPaymentPostedToLedgerDateWithoutJournalEntry paymentUuid)
             | Some providedDate, Some header ->
                 let actualDate = header |> JournalEntryHeader.entryDate |> EntryDate.entryDate
-                if providedDate = actualDate then Ok ()
+                if providedDate.localDate = actualDate then Ok ()
                 else
                     let paymentUuid = payment |> Payment.paymentId |> CashFlowComponent.PaymentId.value
-                    Error(CashflowPaymentPostedToLedgerDateMismatch(paymentUuid, providedDate, actualDate))
+                    Error(CashflowPaymentPostedToLedgerDateMismatch(paymentUuid, providedDate.localDate, actualDate))
     }
 
 let private confirmInvoiceAmountIsPositive
     (invoice: Invoice.Invoice)
     : Result<unit, AppError> =
-    let invoiceAmount = invoice |> Invoice.amount |> Money.amount
-    if invoiceAmount > 0M then Ok ()
+    let invoiceAmount = invoice |> Invoice.amount
+    let invoiceAmountDecimal = invoiceAmount.money |> Money.amount
+    if invoiceAmountDecimal > 0M then Ok ()
     else
         let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
-        Error(CashflowInvoiceNonPositiveAmount(invoiceUuid, invoiceAmount))
+        Error(CashflowInvoiceNonPositiveAmount(invoiceUuid, invoiceAmountDecimal))
 
 let private confirmFullyPaidAmountMatches
     (invoice: Invoice.Invoice)
@@ -91,14 +93,14 @@ let private confirmFullyPaidAmountMatches
     let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
     if lifeCycleState.paymentState <> CashFlowComponent.FullyPaid then Ok () else
     result {
-        let! paidTotal = payments |> List.map Payment.amount |> Money.sumList
+        let! paidTotal = payments |> List.map Payment.amount |> List.map _.money |> Money.sumList
         let invoiceAmount = invoice |> Invoice.amount
         return!
-            if paidTotal = invoiceAmount then Ok ()
+            if paidTotal = invoiceAmount.money then Ok ()
             else
                 let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
                 let paidDec = paidTotal |> Money.amount
-                let invoiceDec = invoiceAmount |> Money.amount
+                let invoiceDec = invoiceAmount.money |> Money.amount
                 Error(CashflowInvoiceFullyPaidAmountMismatch(invoiceUuid, paidDec, invoiceDec))
     }
 
@@ -411,3 +413,64 @@ let updateInvoiceComposite
         do! fetched |> confirmInstanceComposite context
         return fetched
     }
+    
+let createInstanceCompositeAndSaveToDb
+    (context: Context.Context)
+    (masterAgreementID: CashFlowComponent.MasterAgreementId)
+    (instanceDate: LocalDate)
+    (isFulfilled: bool)
+    (invoiceCompositeFieldsList: (
+        // invoice fields
+        CashFlowComponent.PaymentAgreementId *
+        CashFlowComponent.ExternalInvoiceId option *
+        CashFlowComponent.InvoiceDate *
+        CashFlowComponent.DueDate *
+        CashFlowComponent.InvoiceAmount *
+        CashFlowComponent.InvoiceLifeCycleState *
+        CashFlowComponent.InvoiceMemo option *
+        ( // payments
+            CashFlowComponent.TransactionPointer *
+            CashFlowComponent.PaymentAmount *
+            CashFlowComponent.PostedToFiDate option *
+            CashFlowComponent.PostedToLedgerDate option *
+            CashFlowComponent.PaymentMemo option) list
+        ) list)
+    : Result<InstanceComposite, AppError> =
+    result {
+        let instanceId = CashFlowComponent.InstanceId.create()
+        let now = context |> Context.getInitiationInstant
+        let newInstance = Instance.create instanceId masterAgreementID instanceDate isFulfilled now now
+        let invoiceComposites =
+            invoiceCompositeFieldsList |> List.map(fun invFields ->
+                let paId, externalInvoiceId, invoiceDate, dueDate,
+                    invAmount, lifecycle, invMemo, paymentsFieldsList = invFields
+                let invoiceId = CashFlowComponent.InvoiceId.create()
+                let invoice = Invoice.create invoiceId instanceId paId externalInvoiceId
+                                  invoiceDate dueDate invAmount lifecycle invMemo now now
+                let payments = paymentsFieldsList |> List.map(fun pmtFields ->
+                    let paymentId = CashFlowComponent.PaymentId.create()
+                    let transactionPointer, pmtAmount, postedToFi, postedToLedger, pmtMemo = pmtFields
+                    Payment.create paymentId invoiceId transactionPointer pmtAmount
+                        postedToFi postedToLedger pmtMemo now now
+                    )
+                { invoice = invoice; payments = payments }
+                )
+        let instanceComposite = { instance = newInstance; invoiceComposites = invoiceComposites }
+        do! instanceComposite |> confirmInstanceComposite context // todo: this probably does reads on the database and none of this is in the db yet. rethink
+        do! newInstance |> Instance.insertNewToDb context
+        do! invoiceComposites
+            |> List.map(fun invoiceComposite -> result {
+                do! invoiceComposite.invoice |> Invoice.insertNewToDb context
+                do! invoiceComposite.payments
+                    |> List.map(fun payment -> payment |> Payment.insertNewToDb context)
+                    |> convertListOfResultsToResultsList
+                    |> Result.map ignore
+                return () }
+                )
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
+        return instanceComposite
+    }
+    
+
+

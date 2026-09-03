@@ -17,9 +17,9 @@ type Payment = private {
     paymentId: PaymentId
     invoiceId: InvoiceId
     transactionPointer: TransactionPointer
-    amount: Money // not separately tracked in the database; here for read convenience
-    postedToFiDate: LocalDate option // the date the payment hit the actual external account
-    postedToLedgerDate: LocalDate option // not separately tracked in the database; here for read convenience
+    amount: PaymentAmount // not separately tracked in the database; here for read convenience
+    postedToFiDate: PostedToFiDate option // the date the payment hit the actual external account
+    postedToLedgerDate: PostedToLedgerDate option // not separately tracked in the database; here for read convenience
     memo: PaymentMemo option
     createdAt: Instant
     modifiedAt: Instant
@@ -47,9 +47,9 @@ let create
     (paymentId: PaymentId)
     (invoiceId: InvoiceId)
     (transactionPointer: TransactionPointer)
-    (amount: Money)
-    (postedToFiDate: LocalDate option)
-    (postedToLedgerDate: LocalDate option)
+    (amount: PaymentAmount)
+    (postedToFiDate: PostedToFiDate option)
+    (postedToLedgerDate: PostedToLedgerDate option)
     (memo: PaymentMemo option)
     (createdAt: Instant)
     (modifiedAt: Instant)
@@ -86,13 +86,14 @@ let insertNewToDb
         let invoiceUuid = payment.invoiceId |> InvoiceId.value
         let journalEntryHeaderUuid, stageEntryHeaderUuid = payment.transactionPointer |> transactionPointerToColumns
         let memo = payment.memo |> Option.map PaymentMemo.value
+        let postedToFiDate = payment.postedToFiDate |> Option.map _.localDate
         let parameters =
             [
               { name = "@unique_id"; value = UniqueId(uuid) }
               { name = "@invoice_id"; value = UniqueId(invoiceUuid) }
               { name = "@journal_entry_header_id"; value = NullableUniqueId(journalEntryHeaderUuid) }
               { name = "@stage_entry_header_id"; value = NullableUniqueId(stageEntryHeaderUuid) }
-              { name = "@posted_to_fi_date"; value = NullableDbLocalDate(payment.postedToFiDate) }
+              { name = "@posted_to_fi_date"; value = NullableDbLocalDate(postedToFiDate) }
               { name = "@memo"; value = NullableCharString(memo) }
               { name = "@created_at"; value = DbInstant(payment.createdAt) }
               { name = "@modified_at"; value = DbInstant(payment.modifiedAt) }
@@ -128,8 +129,8 @@ let private reconstitute raw =
              journalEntryHeaderUuid,
              stageEntryHeaderUuid,
              amountDec,
-             postedToFiDate,
-             postedToLedgerDate,
+             postedToFiLocalDateOpt,
+             postedToLedgerLocalDateOpt,
              memoStr,
              createdAt,
              modifiedAt) =
@@ -146,12 +147,14 @@ let private reconstitute raw =
                         "the computed amount column was null; no matching journal_entry_line/staged_entry_line was \
                          found for this payment's flow direction and account.")
         let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter PaymentMemo.create
+        let postedToFiDate = postedToFiLocalDateOpt |> Option.map(fun x ->{ PostedToFiDate.localDate = x })
+        let postedToLedgerDate = postedToLedgerLocalDateOpt |> Option.map(fun x -> { PostedToLedgerDate.localDate = x })
         return
             create
                 paymentId
                 invoiceId
                 transactionPointer
-                amount
+                { money = amount }
                 postedToFiDate
                 postedToLedgerDate
                 memo

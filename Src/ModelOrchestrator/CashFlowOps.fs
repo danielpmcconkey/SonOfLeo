@@ -44,11 +44,26 @@ let private spawnInstancesFromAgreement
         if neededDates |> List.isEmpty then return agreement else
         do! neededDates
             |> List.map(fun neededDate ->
-                let instanceId = InstanceId.create()
-                let now = context |> Context.getInitiationInstant
-                let newInstance = Instance.create instanceId agreementId neededDate false now now
-                newInstance |> Instance.insertNewToDb context
-                )
+                // check if we have any fixed-amount payment agreemets and add invoices for those with our instance
+                let paymentAgreements = agreement |> AgreementOrchestration.paymentAgreements
+                let fixedPaymentAgreements =
+                    paymentAgreements
+                    |> List.filter(fun x -> x |> PaymentAgreement.expectedAmount |> Option.isSome)
+                let invoiceCompositeFieldsList = fixedPaymentAgreements |> List.map(fun paymentAgreement ->
+                    let paId = paymentAgreement |> PaymentAgreement.paymentAgreementId
+                    let extInvoiceId = None
+                    let invoiceDate = {InvoiceDate.localDate = neededDate}
+                    let dueDate = {DueDate.localDate = neededDate.PlusDays(14)} // todo: discuss with Hobson about how to derive due date
+                    let amount = { InvoiceAmount.money = paymentAgreement |> PaymentAgreement.expectedAmount |> Option.get }
+                    let direction = master |> MasterAgreement.direction
+                    let invoiceState = if direction = Income then InvoiceGenerated else InvoiceReceived
+                    let lifecycle = { invoiceState = invoiceState; paymentState = NotYetPaid
+                                      postedState = NotHandled; blocker = None }
+                    let invMemo = None
+                    (paId, extInvoiceId, invoiceDate, dueDate, amount, lifecycle, invMemo, [])
+                    )
+                InstanceOrchestration.createInstanceCompositeAndSaveToDb
+                        context agreementId neededDate false invoiceCompositeFieldsList)
             |> convertListOfResultsToResultsList
             |> Result.map ignore
         let latestAdded = neededDates |> List.head

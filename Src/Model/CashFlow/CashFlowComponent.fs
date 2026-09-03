@@ -270,4 +270,10 @@ module ProjectionHorizonInDays =
         | x when x > max -> Error(MoneyFailedToConvertExceededMax(raw, max))
         | x when x < min -> Error(MoneyFailedToConvertBelowMin(raw, min))
         | _ -> Ok({days = raw})
-        
+
+type InvoiceDate = { localDate: LocalDate }
+type DueDate = { localDate: LocalDate }
+type PostedToFiDate = { localDate: LocalDate }
+type PostedToLedgerDate = { localDate: LocalDate }
+type InvoiceAmount = { money: Model.Money }
+type PaymentAmount = { money: Model.Money }

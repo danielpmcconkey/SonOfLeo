@@ -19,7 +19,7 @@ used verbatim; descriptive naming governs everything the canon does not already 
 
 These apply to value types and wrapper types — not entities (see `Specs/Definitions.md`, Entity). Entity types have their own construction naming rules (still being refined).
 
-Does the type *wrap* the input? Use `create` (e.g., `AccountName.create`, `AccountActivityPeriod.create`). Does the input merely *name* one of a fixed set of cases? Use `fromString` (e.g., `AccountType.fromString`, `AccountSubtype.fromString` — parsing an enumeration's label to a DU case). `create` scales to multi-arg constructors; `fromString` is the honest name for parsing an enumeration label. Don't unify them.
+Does the type *wrap* the input? Use `create` (e.g., `AccountName.create`, `ActivityPeriod.create`). Does the input merely *name* one of a fixed set of cases? Use `fromString` (e.g., `AccountType.fromString`, `AccountSubtype.fromString` — parsing an enumeration's label to a DU case). `create` scales to multi-arg constructors; `fromString` is the honest name for parsing an enumeration label. Don't unify them.
 
 ## Variables
 
