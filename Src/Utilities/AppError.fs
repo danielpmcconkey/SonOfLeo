@@ -103,7 +103,9 @@ type AppError =
     | CashflowPaymentPostedToLedgerDateMismatch of Guid * LocalDate * LocalDate
     | CashflowPaymentPostedToLedgerDateWithoutJournalEntry of Guid
     | CashflowPaymentUpdateNoOp
-    
+    | CashflowProjectionHorizonInDaysBelowMin of int * int
+    | CashflowProjectionHorizonInDaysExceededMax of int * int
+
     | CliUnknownCommand of string * string
     
     | ConfigReadError of string * exn
@@ -336,6 +338,8 @@ module AppError =
         | CashflowPaymentPostedToLedgerDateMismatch(paymentId, provided, actual) -> $"Payment {paymentId}'s postedToLedgerDate ({provided}) does not match its journal entry's entry date ({actual})."
         | CashflowPaymentPostedToLedgerDateWithoutJournalEntry paymentId -> $"Payment {paymentId} has a postedToLedgerDate set but its transactionPointer is not Posted to a journal entry."
         | CashflowPaymentUpdateNoOp -> "Updating the Payment record failed because at least one updatable parameter must be set."
+        | CashflowProjectionHorizonInDaysBelowMin(raw, min) -> $"Failed to convert {raw} to a ProjectionHorizonInDays as value falls below the minimum allowable value of {min}."
+        | CashflowProjectionHorizonInDaysExceededMax(raw, max) -> $"Failed to convert {raw} to a ProjectionHorizonInDays as value exceeds the maximum allowable value of {max}."
         
         | CliUnknownCommand(domain, verb) -> $"Unknown command: {domain} {verb}"
         

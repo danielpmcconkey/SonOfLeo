@@ -266,9 +266,8 @@ module ProjectionHorizonInDays =
     let value (h: ProjectionHorizonInDays) : int = h.days
     let create (raw: int) : Result<ProjectionHorizonInDays, AppError> =
         match raw with
-        // todo: Simian create the right app errors 
-        | x when x > max -> Error(MoneyFailedToConvertExceededMax(raw, max))
-        | x when x < min -> Error(MoneyFailedToConvertBelowMin(raw, min))
+        | x when x > max -> Error(CashflowProjectionHorizonInDaysExceededMax(raw, max))
+        | x when x < min -> Error(CashflowProjectionHorizonInDaysBelowMin(raw, min))
         | _ -> Ok({days = raw})
 
 type InvoiceDate = { localDate: LocalDate }
