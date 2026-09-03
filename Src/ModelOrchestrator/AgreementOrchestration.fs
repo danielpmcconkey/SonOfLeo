@@ -177,10 +177,10 @@ let private confirmPayment
                 Error(CashflowPaymentPostedToLedgerDateWithoutJournalEntry paymentUuid)
             | Some providedDate, Some header ->
                 let actualDate = header |> JournalEntryHeader.entryDate |> EntryDate.entryDate
-                if providedDate = actualDate then Ok ()
+                if providedDate.localDate = actualDate then Ok ()
                 else
                     let paymentUuid = payment |> Payment.paymentId |> CashFlowComponent.PaymentId.value
-                    Error(CashflowPaymentPostedToLedgerDateMismatch(paymentUuid, providedDate, actualDate))
+                    Error(CashflowPaymentPostedToLedgerDateMismatch(paymentUuid, providedDate.localDate, actualDate))
     }
 
 let private confirmPayments
@@ -211,12 +211,13 @@ let private confirmInvoice
                 let paymentAgreementUuid = invoice |> Invoice.paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
                 Error(CashflowPaymentAgreementIdDoesntExist paymentAgreementUuid)
             | Error e -> Error e
-        let invoiceAmount = invoice |> Invoice.amount |> Money.amount
+        let invoiceAmount = invoice |> Invoice.amount
+        let invoiceAmountDecimal = invoiceAmount.money |> Money.amount
         return!
-            if invoiceAmount > 0M then Ok ()
+            if invoiceAmountDecimal > 0M then Ok ()
             else
                 let uuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
-                Error(CashflowInvoiceNonPositiveAmount(uuid, invoiceAmount))
+                Error(CashflowInvoiceNonPositiveAmount(uuid, invoiceAmountDecimal))
     }
 
 let private confirmInvoices
