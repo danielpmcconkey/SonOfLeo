@@ -47,7 +47,7 @@ let private codeStrOf
     (r: ClassificationRule.ClassificationRule)
     : Result<string, AppError> =
     r
-    |> ClassificationRule.accountIdAtMatch
+    |> ClassificationRule.classificationClaimant
     |> ``convert AccountId to AccountCodeString`` context
 
 let private idOf (r: ClassificationRule.ClassificationRule) =
@@ -86,7 +86,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                         777
                         groups
                 Assert.Equal("CR-4.1 return shape", created |> nameOf)
-                Assert.Equal(fixture.Data.food5350Id, created |> ClassificationRule.accountIdAtMatch )
+                Assert.Equal(fixture.Data.food5350Id, created |> ClassificationRule.classificationClaimant )
                 Assert.Equal(777, created |> ClassificationRule.priority)
                 Assert.Equal<ClassificationRuleGroup list>(groups, created |> ClassificationRule.ruleGroups)
                 Assert.NotEqual(System.Guid.Empty, created |> idOf |> ClassificationRuleId.value)
@@ -195,8 +195,8 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 Assert.Equal(incumbent |> idOf, survivor |> idOf)
                 Assert.Equal(incumbent |> ClassificationRule.priority, survivor |> ClassificationRule.priority)
                 Assert.Equal(
-                    incumbent |> ClassificationRule.accountIdAtMatch,
-                    survivor |> ClassificationRule.accountIdAtMatch)
+                    incumbent |> ClassificationRule.classificationClaimant,
+                    survivor |> ClassificationRule.classificationClaimant)
             }
             |> railroadWrapper
         finally
@@ -369,7 +369,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
             result {
                 let expected =
                     fixtureRules ()
-                    |> List.filter (fun r -> r |> ClassificationRule.accountIdAtMatch = fixture.Data.entertainment5650Id)
+                    |> List.filter (fun r -> r |> ClassificationRule.classificationClaimant = fixture.Data.entertainment5650Id)
                     |> namesOf
                 let! found =
                     ClassificationOrchestration.fetchRulesFiltered
@@ -379,7 +379,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 Assert.NotEmpty(expected)
                 Assert.NotEqual<string list>(fixtureRules () |> namesOf, expected)
                 Assert.Equal<string list>(expected, found |> namesOf)
-                Assert.DoesNotContain(fixture.Data.food5350Id, found |> List.map ClassificationRule.accountIdAtMatch)
+                Assert.DoesNotContain(fixture.Data.food5350Id, found |> List.map ClassificationRule.classificationClaimant)
             })
         |> railroadWrapper
 
@@ -435,7 +435,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
             result {
                 let expected =
                     fixtureRules ()
-                    |> List.filter (fun r -> r |> ClassificationRule.accountIdAtMatch = fixture.Data.personalExpenses5300Id)
+                    |> List.filter (fun r -> r |> ClassificationRule.classificationClaimant = fixture.Data.personalExpenses5300Id)
                     |> namesOf
                 let! found =
                     ClassificationOrchestration.fetchRulesFiltered
@@ -456,11 +456,11 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 let code = "F-5650"
                 let both =
                     fixtureRules ()
-                    |> List.filter (fun r -> (r |> nameOf).Contains fragment && r |> ClassificationRule.accountIdAtMatch = fixture.Data.entertainment5650Id)
+                    |> List.filter (fun r -> (r |> nameOf).Contains fragment && r |> ClassificationRule.classificationClaimant = fixture.Data.entertainment5650Id)
                     |> namesOf
                 let union =
                     fixtureRules ()
-                    |> List.filter (fun r -> (r |> nameOf).Contains fragment || r |> ClassificationRule.accountIdAtMatch = fixture.Data.entertainment5650Id)
+                    |> List.filter (fun r -> (r |> nameOf).Contains fragment || r |> ClassificationRule.classificationClaimant = fixture.Data.entertainment5650Id)
                     |> namesOf
                 // The two sets must differ or the assertion below proves nothing.
                 Assert.NotEqual<string list>(both, union)
@@ -562,7 +562,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
         =
         if changed <> "name" then Assert.Equal(original |> nameOf, updated |> nameOf)
         if changed <> "account" then Assert.Equal(
-            original |> ClassificationRule.accountIdAtMatch, updated |> ClassificationRule.accountIdAtMatch)
+            original |> ClassificationRule.classificationClaimant, updated |> ClassificationRule.classificationClaimant)
         if changed <> "priority" then
             Assert.Equal(original |> ClassificationRule.priority, updated |> ClassificationRule.priority)
         if changed <> "groups" then
@@ -599,9 +599,9 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                         context
                         NoChange (SetTo(fixture.Data.food5350Id)) NoChange NoChange NoChange
                         (original |> idOf)
-                Assert.Equal(fixture.Data.food5350Id, updated |> ClassificationRule.accountIdAtMatch)
+                Assert.Equal(fixture.Data.food5350Id, updated |> ClassificationRule.classificationClaimant)
                 Assert.NotEqual<AccountId>(
-                    original |> ClassificationRule.accountIdAtMatch, updated |> ClassificationRule.accountIdAtMatch)
+                    original |> ClassificationRule.classificationClaimant, updated |> ClassificationRule.classificationClaimant)
                 this.AssertOnlyChangedField updated original "account"
             })
         |> railroadWrapper
@@ -686,7 +686,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                     |> fun r -> isCorrectErrorEmpty r IngestionClassificationRuleUpdateNoOp None
                 let! after = ruleId |> ClassificationRule.fetchById context
                 Assert.Equal(before |> nameOf, after |> nameOf)
-                Assert.Equal(before |> ClassificationRule.accountIdAtMatch, after |> ClassificationRule.accountIdAtMatch)
+                Assert.Equal(before |> ClassificationRule.classificationClaimant, after |> ClassificationRule.classificationClaimant)
                 Assert.Equal(before |> ClassificationRule.priority, after |> ClassificationRule.priority)
                 Assert.Equal(before |> ClassificationRule.isActive, after |> ClassificationRule.isActive)
                 // The timestamp is the half a bare rejection would still get wrong.

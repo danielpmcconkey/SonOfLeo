@@ -5,6 +5,8 @@ open System
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open Model
+open Model.CashFlow
+open Model.CashFlow.CashFlowComponent
 open Model.DataIngestion.Classification
 open Model.DataIngestion.StageEntryLine
 open Model.Ledger.AccountComponent
@@ -28,6 +30,26 @@ let private confirmAccount
     | Ok _ -> Ok ()
     | Error (DalResultantRowsDidntMatchExpectation _) -> Error (AccountIdDoesntMatch uuid)
     | Error e -> Error e
+
+let private confirmPaymentAgreement
+    (context: Context.Context)
+    (paymentAgreementId: CashFlowComponent.PaymentAgreementId)
+    : Result<unit, AppError> =
+    let confirmed = paymentAgreementId |> PaymentAgreement.fetchById context
+    match confirmed with
+    | Ok _ -> Ok ()
+    | Error (DalResultantRowsDidntMatchExpectation _) ->
+        let uuid = paymentAgreementId |> PaymentAgreementId.value
+        Error (AccountIdDoesntMatch uuid) // todo: Simian to write a new error message
+    | Error e -> Error e
+
+let private confirmClassificationClaimant
+    (context: Context.Context)
+    (classificationClaimant: ClassificationClaimant)
+    : Result<unit, AppError> =
+    match classificationClaimant with
+    | Account accountId -> accountId |> confirmAccount context
+    | PaymentAgreement paymentAgreementId -> paymentAgreementId |> confirmPaymentAgreement context
 
 let private confirmFieldMatchChain
     (fieldMatchChain: FieldMatchChain)
@@ -58,7 +80,7 @@ let private confirmRuleGroups
 let createNewClassificationRule
     (context: Context.Context)
     (classificationRuleName: ClassificationRuleName)
-    (accountAtMatch: AccountId)
+    (classificationClaimant: ClassificationClaimant)
     (priority: int)
     (ruleGroups: ClassificationRuleGroup list)
     : Result<ClassificationRule.ClassificationRule, AppError> = 
@@ -68,7 +90,7 @@ let createNewClassificationRule
         ClassificationRule.create
             classificationRuleId
             classificationRuleName
-            accountAtMatch
+            classificationClaimant
             priority
             ruleGroups
             true // no new rules that are already inactive
@@ -76,7 +98,7 @@ let createNewClassificationRule
             instant
     result {
         do! ruleGroups |> confirmRuleGroups
-        do! accountAtMatch |> confirmAccount context
+        do! classificationClaimant |> confirmClassificationClaimant context
         do! newRule |> ClassificationRule.insertNewToDb context
         return newRule
     }
@@ -151,18 +173,43 @@ let fetchRulesFiltered
             ClassificationRule.readRowsFromDb context join predicate limit parameters orderBy AnyQuantityIsAcceptable
     }
 
+let updateLineWithAccountMatch
+    (context: Context.Context)
+    (accountId: AccountId)
+    (ruleId: ClassificationRuleId)
+    (candidate: MatchCandidate)
+    : Result<unit, AppError> =
+    let idOption = Some accountId // we can trust this because the DB has a foreign key constraint between ingestion.classification_rule and ledger.account 
+    let idUpdate = FieldUpdate.SetTo idOption
+    let ruleId = Some ruleId
+    let ruleUpdate = FieldUpdate.SetTo ruleId
+    candidate.lineIdOfCandidate
+    |> updateAccountAndRuleId context idUpdate ruleUpdate 
+    |> Result.map ignore
+
+let updateLineWithPaymentMatch
+    (context: Context.Context)
+    (paymentAgreementId: PaymentAgreementId)
+    (ruleId: ClassificationRuleId)
+    (candidate: MatchCandidate)
+    : Result<unit, AppError> =
+    let idOption = Some paymentAgreementId // we can trust this because the DB has a foreign key constraint between ingestion.classification_rule and ledger.account 
+    let idUpdate = FieldUpdate.SetTo idOption
+    let ruleId = Some ruleId
+    let ruleUpdate = FieldUpdate.SetTo ruleId
+    candidate.lineIdOfCandidate
+    |> updatePaymentAgreementAndRuleId context idUpdate ruleUpdate 
+    |> Result.map ignore
+
 let updateLineWithMatch
     (context: Context.Context)
     (prioritizedMatch: PrioritizedMatch)
     (candidate: MatchCandidate)
     : Result<unit, AppError> =
-    let code = Some prioritizedMatch.accountId // we can trust this because the DB has a foreign key constraint between ingestion.classification_rule and ledger.account 
-    let codeUpdate = FieldUpdate.SetTo code
-    let ruleId = Some prioritizedMatch.ruleId
-    let ruleUpdate = FieldUpdate.SetTo ruleId
-    match updateAccountAndRuleId context codeUpdate ruleUpdate candidate.lineIdOfCandidate with
-    | Ok _ -> Ok ()
-    | Error e -> Error e
+    match prioritizedMatch.accountId, prioritizedMatch.paymentAgreementId with
+    | Some x, None -> candidate |> updateLineWithAccountMatch context x prioritizedMatch.ruleId
+    | None, Some x -> candidate |> updateLineWithPaymentMatch context x prioritizedMatch.ruleId
+    | _ -> Error (CashflowInvalidPaymentAmountRow "burp") // todo: simian to create a better error
 
 let updateDbLinesFromResultsList
     (context: Context.Context)
@@ -209,6 +256,7 @@ let updateClassificationRule
     (context: Context.Context)
     (classificationRuleNameUpdate: FieldUpdate<ClassificationRuleName>)
     (accountAtMatchUpdate: FieldUpdate<AccountId>)
+    (paymentAtMatchUpdate: FieldUpdate<PaymentAgreementId>)
     (priorityUpdate: FieldUpdate<int>)
     (ruleGroupsUpdate: FieldUpdate<ClassificationRuleGroup list>)
     (isActiveUpdate: FieldUpdate<bool>)
@@ -240,6 +288,11 @@ let updateClassificationRule
                   |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
                       ("account_at_match = @account_at_match",
                        { name = "@account_at_match"; value = UniqueId(n |> AccountId.value) }))
+                  
+                  paymentAtMatchUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                      ("payment_agreement_id = @payment_agreement_id",
+                       { name = "@payment_agreement_id"; value = UniqueId(n |> PaymentAgreementId.value) }))
                   
                   priorityUpdate
                   |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->

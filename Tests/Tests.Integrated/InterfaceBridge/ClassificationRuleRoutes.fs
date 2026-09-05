@@ -147,7 +147,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
         let expected = fixture.Data.classificationRules |> List.head
         let expectedAccount =
             fixture.Data.accounts
-            |> List.find(fun a -> a |> Account.accountId = (expected |> ClassificationRule.accountIdAtMatch))
+            |> List.find(fun a -> a |> Account.accountId = (expected |> ClassificationRule.classificationClaimant))
         result {
             let! payload =
                 { FetchClassificationRuleByIdInput.classificationRuleId =
@@ -224,7 +224,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
         let account = accountByCode code
         let expected =
             fixture.Data.classificationRules
-            |> List.filter(fun r -> (r |> ClassificationRule.accountIdAtMatch) = (account |> Account.accountId))
+            |> List.filter(fun r -> (r |> ClassificationRule.classificationClaimant) = (account |> Account.accountId))
         result {
             Assert.NotEmpty expected
             (* The caller never sends an AccountId. If the route stopped resolving the code,
@@ -257,7 +257,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
             |> List.filter(fun r -> (r |> ruleNameOf).StartsWith "Allstate Insurance to ")
         let expectedNameFor (rule: ClassificationRule.ClassificationRule) =
             fixture.Data.accounts
-            |> List.find(fun a -> a |> Account.accountId = (rule |> ClassificationRule.accountIdAtMatch))
+            |> List.find(fun a -> a |> Account.accountId = (rule |> ClassificationRule.classificationClaimant))
             |> Account.accountName
             |> AccountName.value
         result {

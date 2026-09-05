@@ -20,22 +20,22 @@
     <Compile Include="Ledger\JournalEntryComment.fs" />
     <Compile Include="DataIngestion\StageEntryComponent.fs" />
     <Compile Include="DataIngestion\StageEntryStatusTransition.fs" />
+    <Compile Include="CashFlow\CashFlowComponent.fs" />
     <Compile Include="DataIngestion\Classification\ClassificationRuleComponent.fs" />
     <Compile Include="DataIngestion\Classification\FieldMatch.fs" />
     <Compile Include="DataIngestion\IngestionSource.fs" />
     <Compile Include="DataIngestion\StageEntryHeader.fs" />
+    <Compile Include="CashFlow\PaymentAgreement.fs" />
     <Compile Include="DataIngestion\StageEntryLine.fs" />
     <Compile Include="DataIngestion\BaseStageEntry.fs" />
-    <Compile Include="DataIngestion\Classification\FieldMatchChain.fs" />
-    <Compile Include="DataIngestion\Classification\ClassificationRuleGroup.fs" />
-    <Compile Include="DataIngestion\Classification\ClassificationRule.fs" />
-    <Compile Include="DataIngestion\Classification\Classifier.fs" />
-    <Compile Include="CashFlow\CashFlowComponent.fs" />
-    <Compile Include="CashFlow\PaymentAgreement.fs" />
     <Compile Include="CashFlow\MasterAgreement.fs" />
     <Compile Include="CashFlow\Instance.fs" />
     <Compile Include="CashFlow\Payment.fs" />
     <Compile Include="CashFlow\Invoice.fs" />
+    <Compile Include="DataIngestion\Classification\FieldMatchChain.fs" />
+    <Compile Include="DataIngestion\Classification\ClassificationRuleGroup.fs" />
+    <Compile Include="DataIngestion\Classification\ClassificationRule.fs" />
+    <Compile Include="DataIngestion\Classification\Classifier.fs" />
   </ItemGroup>
 
   <ItemGroup>

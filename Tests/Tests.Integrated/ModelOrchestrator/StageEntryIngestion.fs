@@ -185,7 +185,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 Assert.Equal(Some "F-1270", codeStr)
                 Assert.Equal(Some "Net pay to checking", debitLine |> StageEntryLine.memo |> Option.map JournalEntryLineMemo.value)
                 // parser-assigned lines have no classification_rule_id
-                Assert.True(debitLine |> StageEntryLine.classificationRuleId |> Option.isNone)
+                Assert.True(debitLine |> StageEntryLine.accountClassificationRuleId |> Option.isNone)
                 // 2.17 — balanced
                 let totalDebits =
                     entry |> seLines

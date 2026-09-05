@@ -36,7 +36,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
           entryTypeUpdate = NoChange
           accountIdUpdate = NoChange
           memoUpdate = NoChange
-          classificationRuleIdUpdate = NoChange }
+          accountClassificationRuleIdUpdate = NoChange }
 
 
     // =========================================================================

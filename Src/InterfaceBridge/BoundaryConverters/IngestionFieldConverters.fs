@@ -77,7 +77,7 @@ let ``convert [StageEntryLine] to [StageEntryLineReturn]``
         |> StageEntryLine.accountId
         |> ``convert [AccountId option] to [AccountName string option]`` context
     let memo = model |> StageEntryLine.memo |> Option.map JournalEntryLineMemo.value
-    let classificationRuleId = model |> StageEntryLine.classificationRuleId |> Option.map ClassificationRuleId.value
+    let classificationRuleId = model |> StageEntryLine.accountClassificationRuleId |> Option.map ClassificationRuleId.value
     return {    stageEntryLineId = stageEntryLineId
                 stageEntryHeaderId = stageEntryHeaderId
                 amount = amount
@@ -230,10 +230,10 @@ let ``convert [ClassificationRule] to [ClassificationRuleReturn]``
     let classificationRuleId = rule |> ClassificationRule.classificationRuleId |> ClassificationRuleId.value
     let classificationRuleName = rule |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value
     let! codeAtMatch =
-        rule |> ClassificationRule.accountIdAtMatch |> ``convert AccountId to AccountCodeString`` context
+        rule |> ClassificationRule.classificationClaimant |> ``convert AccountId to AccountCodeString`` context
     let! accountNameAtMach =
         rule
-        |> ClassificationRule.accountIdAtMatch
+        |> ClassificationRule.classificationClaimant
         |> ``convert AccountId to AccountNameString`` context
     let priority = rule |> ClassificationRule.priority
     let ruleGroups = rule |> ClassificationRule.ruleGroups |> ``convert [ClassificationRuleGroup list] to [ClassificationRuleGroupContract list]``
@@ -368,7 +368,7 @@ let ``convert [UpdateStageEntryLineInput] to [StageEntryLineFieldUpdates]``
           entryTypeUpdate = entryTypeUpdate
           accountIdUpdate = accountIdUpdate
           memoUpdate = memoUpdate
-          classificationRuleIdUpdate = classificationRuleIdUpdate } }
+          accountClassificationRuleIdUpdate = classificationRuleIdUpdate } }
 
 let ``convert [UpdateStageEntryLineInput list] to [StageEntryLineFieldUpdates list]``
     (context: Context.Context)

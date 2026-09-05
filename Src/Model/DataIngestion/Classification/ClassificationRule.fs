@@ -3,6 +3,7 @@ module Model.DataIngestion.Classification.ClassificationRule
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
+open Model.CashFlow
 open Model.Ledger.AccountComponent
 open NodaTime
 open Utilities.AppError
@@ -17,7 +18,7 @@ type ClassificationRule =
     private {
         classificationRuleId: ClassificationRuleId
         classificationRuleName: ClassificationRuleName
-        accountIdAtMatch: AccountId
+        classificationClaimant: ClassificationClaimant 
         priority: int // lower number wins when multiple rules match
         ruleGroups: ClassificationRuleGroup list
         isActive: bool
@@ -27,7 +28,7 @@ type ClassificationRule =
         
 let classificationRuleId (a: ClassificationRule) = a.classificationRuleId
 let classificationRuleName (a: ClassificationRule) = a.classificationRuleName
-let accountIdAtMatch (a: ClassificationRule) = a.accountIdAtMatch
+let classificationClaimant (a: ClassificationRule) = a.classificationClaimant
 let priority (a: ClassificationRule) = a.priority
 let ruleGroups (a: ClassificationRule) = a.ruleGroups
 let isActive (a: ClassificationRule) = a.isActive
@@ -37,7 +38,7 @@ let modifiedAt (a: ClassificationRule) = a.modifiedAt
 let create
     (classificationRuleId: ClassificationRuleId)
     (classificationRuleName: ClassificationRuleName)
-    (accountIdAtMatch: AccountId)
+    (classificationClaimant: ClassificationClaimant)
     (priority: int)
     (ruleGroups: ClassificationRuleGroup list)
     (isActive: bool)
@@ -46,7 +47,7 @@ let create
     : ClassificationRule = {
         classificationRuleId = classificationRuleId
         classificationRuleName = classificationRuleName
-        accountIdAtMatch = accountIdAtMatch
+        classificationClaimant = classificationClaimant
         priority = priority
         ruleGroups = ruleGroups
         isActive = isActive
@@ -63,6 +64,7 @@ let insertNewToDb (context: Context.Context) (classificationRule: Classification
 	        @unique_id, 
             @rule_name, 
             @account_at_match, 
+            @payment_agreement_at_match, 
             @priority, 
             @rule_groups, 
             @is_active, 
@@ -70,7 +72,10 @@ let insertNewToDb (context: Context.Context) (classificationRule: Classification
             @modified_at);"""
     let uuid = classificationRule.classificationRuleId |> ClassificationRuleId.value
     let ruleName = classificationRule.classificationRuleName |> ClassificationRuleName.value
-    let code = classificationRule.accountIdAtMatch |> AccountId.value
+    let accountId, paymentAgreementId =
+        match classificationRule.classificationClaimant with
+        | Account accountId -> accountId |> AccountId.value |> Some, None
+        | PaymentAgreement paymentAgreementId -> None, paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value |> Some
     let priority = classificationRule.priority
     let isActive = classificationRule.isActive
     let createdAt = classificationRule.createdAt
@@ -81,7 +86,8 @@ let insertNewToDb (context: Context.Context) (classificationRule: Classification
             [
               { name = "@unique_id"; value = UniqueId(uuid) }
               { name = "@rule_name"; value = CharString(ruleName) }
-              { name = "@account_at_match"; value = UniqueId(code) }
+              { name = "@account_at_match"; value = NullableUniqueId(accountId) }
+              { name = "@payment_agreement_at_match"; value = NullableUniqueId(paymentAgreementId) }
               { name = "@priority"; value = Integer(priority) }
               { name = "@rule_groups"; value = Jsonb(ruleGroups) }
               { name = "@is_active"; value = Boolean(isActive) }
@@ -95,7 +101,8 @@ let private reconstitute raw =
     result {
         let (uuid,
              nameStr,
-             accountUuid,
+             accountUuidOpt,
+             paymentAgreementUuidOpt,
              priority,
              ruleGroupsStr,
              isActive,
@@ -104,13 +111,20 @@ let private reconstitute raw =
             raw
         let classificationRuleId = uuid |> ClassificationRuleId.fromGuid
         let! name = nameStr |> ClassificationRuleName.create
-        let accountId = accountUuid |> AccountId.fromGuid
+        let! classificationClaimant =
+            match accountUuidOpt, paymentAgreementUuidOpt with
+            | Some accountUuid, None -> Ok (ClassificationClaimant.Account (accountUuid |> AccountId.fromGuid))
+            | None, Some paymentAgreementUuid ->
+                let pmtId:CashFlowComponent.PaymentAgreementId =
+                    paymentAgreementUuid |> CashFlowComponent.PaymentAgreementId.fromGuid
+                Ok (ClassificationClaimant.PaymentAgreement pmtId)
+            | _ -> Error CashflowInvoiceIdListCannotBeEmpty // todo: create a new error message here. invalid claimant combo. display the rule ID and the 2 values that we're matching on here
         let! ruleGroups = ruleGroupsStr |> fromJson<ClassificationRuleGroup list>
         return
             create
                 classificationRuleId
                 name
-                accountId
+                classificationClaimant
                 priority
                 ruleGroups
                 isActive
@@ -121,7 +135,8 @@ let private reconstitute raw =
 let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getUuid "unique_id"),
     (row |> RowReader.getString "rule_name"),
-    (row |> RowReader.getUuid "account_at_match"),
+    (row |> RowReader.getUuidOption "account_at_match"),
+    (row |> RowReader.getUuidOption "payment_agreement_at_match"),
     (row |> RowReader.getInt "priority"),
     (row |> RowReader.getString "rule_groups"),
     (row |> RowReader.getBool "is_active"),
@@ -139,7 +154,7 @@ let readRowsFromDb
     : Result<ClassificationRule list, AppError> =
     let select =
         """
-        cr.unique_id, cr.rule_name, cr.account_at_match, cr.priority,
+        cr.unique_id, cr.rule_name, cr.account_at_match, cr.payment_agreement_at_match, cr.priority,
         cr.rule_groups, cr.is_active, cr.created_at, cr.modified_at
         """
     let from = "ingestion.classification_rule cr"

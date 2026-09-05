@@ -1,6 +1,7 @@
 module Model.DataIngestion.BaseStageEntry
 
 open Model
+open Model.CashFlow
 open Model.Ledger.AccountComponent
 open Model.Ledger.JournalEntryComponent
 open NodaTime
@@ -30,5 +31,6 @@ type BaseStageRawRow = {
     amount : Money
     entryType : JournalEntryLineType
     accountId: AccountId option
+    paymentAgreementId: CashFlowComponent.PaymentAgreementId option
     memo: JournalEntryLineMemo option
 }

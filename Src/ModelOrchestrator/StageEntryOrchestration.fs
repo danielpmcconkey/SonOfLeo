@@ -175,7 +175,8 @@ let private constructSetFromRaw
                     |> List.map (fun row -> 
                         let lineId = StageEntryLineId.create ()
                         StageEntryLine.create
-                            lineId stageEntryId row.amount row.entryType row.accountId row.memo None
+                            lineId stageEntryId row.amount row.entryType row.accountId
+                            row.paymentAgreementId row.memo None None
                         )
                 let! ingestionSource = fiSource |> IngestionSource.fetchByName context
                 let header =
@@ -450,7 +451,7 @@ let isThereALineUpdate
         || lu.entryTypeUpdate <> FieldUpdate.NoChange
         || lu.accountIdUpdate <> FieldUpdate.NoChange
         || lu.memoUpdate <> FieldUpdate.NoChange
-        || lu.classificationRuleIdUpdate <> FieldUpdate.NoChange
+        || lu.accountClassificationRuleIdUpdate <> FieldUpdate.NoChange
         )
     |> List.exists id
     

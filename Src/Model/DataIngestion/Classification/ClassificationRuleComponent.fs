@@ -2,6 +2,7 @@ module Model.DataIngestion.Classification.ClassificationRuleComponent
 
 open System
 open Model
+open Model.CashFlow
 open Model.Ledger.AccountComponent
 open Model.Ledger.JournalEntryComponent
 open Utilities.AppError
@@ -104,7 +105,8 @@ type MatchCandidate = {
 }
 
 type PrioritizedMatch = {
-    accountId: AccountId
+    accountId: AccountId option
+    paymentAgreementId: CashFlowComponent.PaymentAgreementId option
     ruleId: ClassificationRuleId
     priority: int
 }
@@ -119,3 +121,7 @@ type ClassificationResult = {
         candidate: MatchCandidate
         outcome: ClassifierOutcome
     }
+
+type ClassificationClaimant = // what entity gets to "claim" the Staged Entry at match
+    | Account of AccountId // used for classifying staged entities into their appropriate JE line accounts
+    | PaymentAgreement of CashFlowComponent.PaymentAgreementId // used for classifying staged entities to identify invoice matches

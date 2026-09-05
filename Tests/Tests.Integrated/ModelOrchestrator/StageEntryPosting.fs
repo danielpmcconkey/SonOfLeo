@@ -67,7 +67,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
           entryTypeUpdate = NoChange
           accountIdUpdate = NoChange
           memoUpdate = NoChange
-          classificationRuleIdUpdate = NoChange }
+          accountClassificationRuleIdUpdate = NoChange }
 
     static let stageEntryHeaderIdOf entry =
         entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId

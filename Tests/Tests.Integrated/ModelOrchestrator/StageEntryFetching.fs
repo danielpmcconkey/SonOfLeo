@@ -450,7 +450,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                    has something to exclude. *)
                 let targetRuleId =
                     staged
-                    |> List.collect(fun e -> e |> seLines |> List.choose StageEntryLine.classificationRuleId)
+                    |> List.collect(fun e -> e |> seLines |> List.choose StageEntryLine.accountClassificationRuleId)
                     |> List.distinct
                     |> List.head
                 let expected =
@@ -458,7 +458,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                     |> List.filter(fun e ->
                         e
                         |> seLines
-                        |> List.exists(fun l -> l |> StageEntryLine.classificationRuleId = Some targetRuleId))
+                        |> List.exists(fun l -> l |> StageEntryLine.accountClassificationRuleId = Some targetRuleId))
                 let! fetched = { noFilter with classificationRuleId = Some targetRuleId } |> fetchFiltered context None
                 Assert.NotEmpty expected
                 Assert.Equal<StageEntryHeaderId list>(expected |> idsOf, fetched |> idsOf)

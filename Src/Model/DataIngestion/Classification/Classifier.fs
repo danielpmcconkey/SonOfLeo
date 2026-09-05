@@ -11,11 +11,15 @@ let classifyCandidate
         rules
         |> List.filter(isActive)
         |> List.filter(fun r -> r |> doesMatch candidate)
-        |> List.map(fun x -> {
-            accountId = x |> accountIdAtMatch
-            ruleId = x |> classificationRuleId
-            priority = x |> priority
-        })
+        |> List.map(fun matchCandidate ->
+            let accountIdOption, paymentAgreementIdOption =
+                match matchCandidate |> classificationClaimant with
+                | Account x -> Some x, None
+                | PaymentAgreement x -> None, Some x
+            { accountId = accountIdOption
+              paymentAgreementId = paymentAgreementIdOption
+              ruleId = matchCandidate |> classificationRuleId
+              priority = matchCandidate |> priority })
     match matches |> List.length with
     | 0 -> { candidate = candidate; outcome = NoMatch; }
     | 1 -> { candidate = candidate; outcome = OneMatch (matches |> List.head); }

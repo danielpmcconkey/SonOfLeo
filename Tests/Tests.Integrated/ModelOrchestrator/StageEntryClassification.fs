@@ -50,9 +50,9 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                    The debit sibling carrying a rule id is what proves a rule was available to
                    this entry -- without it, an untouched credit line is equally well explained
                    by the classifier having found nothing to match. *)
-                Assert.True(lineOfType Debit |> StageEntryLine.classificationRuleId |> Option.isSome)
+                Assert.True(lineOfType Debit |> StageEntryLine.accountClassificationRuleId |> Option.isSome)
                 Assert.Equal(Some fixture.Data.moneyMarket1270Id, lineOfType Credit |> StageEntryLine.accountId)
-                Assert.True(lineOfType Credit |> StageEntryLine.classificationRuleId |> Option.isNone)
+                Assert.True(lineOfType Credit |> StageEntryLine.accountClassificationRuleId |> Option.isNone)
             })
         |> railroadWrapper
 
@@ -96,7 +96,7 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                         Assert.Equal(Some fixture.Data.food5350Id, debitLine |> StageEntryLine.accountId)
                         Assert.Equal(
                             Some (splitDebitRule |> ClassificationRule.classificationRuleId),
-                            debitLine |> StageEntryLine.classificationRuleId)
+                            debitLine |> StageEntryLine.accountClassificationRuleId)
                         Ok ()
                     | other -> Error (TestingError $"Expected OneMatch but got {other}")
             })
@@ -142,7 +142,7 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                             Assert.Equal(Some fixture.Data.food5350Id, debitLine |> StageEntryLine.accountId)
                             Assert.Equal(
                                 Some (doorDashRule |> ClassificationRule.classificationRuleId),
-                                debitLine |> StageEntryLine.classificationRuleId)
+                                debitLine |> StageEntryLine.accountClassificationRuleId)
                             return ()
                         }
                     | other -> Error (TestingError $"Expected ManyMatchesClearWinner but got {other}")
