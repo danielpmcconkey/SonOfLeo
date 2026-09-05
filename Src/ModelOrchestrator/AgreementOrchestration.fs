@@ -345,7 +345,8 @@ let constructNewAndSaveToDb
     (agreementActivityPeriod: ActivityPeriod.ActivityPeriod)
     (memo: CashFlowComponent.AgreementMemo option)
     (paymentAgreementComponentsList:
-        (CashFlowComponent.DebitAccount *
+        (CashFlowComponent.PaymentAgreementName *
+         CashFlowComponent.DebitAccount *
          CashFlowComponent.CreditAccount *
          Money option *
          CashFlowComponent.PaymentAgreementMemo option) list)
@@ -359,9 +360,10 @@ let constructNewAndSaveToDb
                 agreementActivityPeriod memo now now
         do! masterAgreement |> confirmMasterAgreement
         let paymentAgreements =
-            paymentAgreementComponentsList |> List.map(fun (debitAccount, creditAccount, expectedAmount, memo) ->
+            paymentAgreementComponentsList
+            |> List.map(fun (paymentAgreementName, debitAccount, creditAccount, expectedAmount, memo) ->
                 let paymentAgreementId = CashFlowComponent.PaymentAgreementId.create()
-                PaymentAgreement.create paymentAgreementId agreementId debitAccount
+                PaymentAgreement.create paymentAgreementId agreementId paymentAgreementName debitAccount
                     creditAccount expectedAmount memo now now )
         do! paymentAgreements |> confirmPaymentAgreements context (masterAgreement |> MasterAgreement.agreementID)
         let agreement =

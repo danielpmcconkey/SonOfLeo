@@ -39,10 +39,10 @@ let stageEntryHeaderId l = l.stageEntryHeaderId
 let amount l = l.amount 
 let lineType l = l.lineType 
 let accountId l = l.accountId 
-let paymentAgreementIdUpdate l = l.paymentAgreementIdUpdate 
-let memo l = l.memo 
+let paymentAgreementId l = l.paymentAgreementId
+let memo l = l.memo
 let accountClassificationRuleId l = l.accountClassificationRuleId
-let paymentClassificationRuleIdUpdate l = l.paymentClassificationRuleIdUpdate
+let paymentAgreementClassificationRuleId l = l.paymentAgreementClassificationRuleId
 
 let create
     (stageEntryLineId: StageEntryLineId)
@@ -89,7 +89,7 @@ let confirmPaymentAgreementId
         | Ok _ -> Ok ()
         | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
             let uuid = paymentAgreementId |> PaymentAgreementId.value
-            Error (AccountIdDoesntMatch uuid) // todo: simian to create a better error
+            Error (CashflowPaymentAgreementIdDoesntExist uuid)
         | Error e -> Error e
 
 let insertNewToDb (context: Context.Context) (stageEntryLine: StageEntryLine) : Result<unit, AppError> =

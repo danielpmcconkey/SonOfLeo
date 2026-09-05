@@ -59,7 +59,8 @@ let insertNewToDb (context: Context.Context) (classificationRule: Classification
     let query =
         """
         insert into ingestion.classification_rule(
-	        unique_id, rule_name, account_at_match, priority, rule_groups, is_active, created_at, modified_at)
+	        unique_id, rule_name, account_at_match, payment_agreement_at_match, 
+            priority, rule_groups, is_active, created_at, modified_at)
         values (
 	        @unique_id, 
             @rule_name, 
@@ -118,7 +119,7 @@ let private reconstitute raw =
                 let pmtId:CashFlowComponent.PaymentAgreementId =
                     paymentAgreementUuid |> CashFlowComponent.PaymentAgreementId.fromGuid
                 Ok (ClassificationClaimant.PaymentAgreement pmtId)
-            | _ -> Error CashflowInvoiceIdListCannotBeEmpty // todo: create a new error message here. invalid claimant combo. display the rule ID and the 2 values that we're matching on here
+            | _ -> Error (IngestionClassificationRuleInvalidClaimant(uuid, accountUuidOpt, paymentAgreementUuidOpt))
         let! ruleGroups = ruleGroupsStr |> fromJson<ClassificationRuleGroup list>
         return
             create

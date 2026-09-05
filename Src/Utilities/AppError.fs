@@ -92,6 +92,9 @@ type AppError =
     | CashflowPaymentAgreementIdDoesntExist of Guid
     | CashflowPaymentAgreementMemoIsEmpty of string
     | CashflowPaymentAgreementMemoTooLong of string * int
+    | CashflowPaymentAgreementNameDoesntMatchId of string
+    | CashflowPaymentAgreementNameIsEmpty of string
+    | CashflowPaymentAgreementNameTooLong of string * int
     | CashflowPaymentAgreementNonPositiveExpectedAmount of Guid * decimal
     | CashflowPaymentAgreementNotUnderMasterAgreement of Guid * Guid
     | CashflowPaymentAgreementUpdateNoOp
@@ -161,7 +164,8 @@ type AppError =
     | IngestionBaseStageEntryGroupIdTooLong of string * int
     | IngestionBaseStageGroupIdDistinctDataViolation of string
     | IngestionClassificationRuleGroupsEmpty
-    | IngestionClassificationRuleNameIsEmpty of string 
+    | IngestionClassificationRuleInvalidClaimant of Guid * Guid option * Guid option
+    | IngestionClassificationRuleNameIsEmpty of string
     | IngestionClassificationRuleNameTooLong of string * int 
     | IngestionClassificationRuleUpdateNoOp
     | IngestionFieldMatchChainEmpty
@@ -327,6 +331,9 @@ module AppError =
         | CashflowPaymentAgreementIdDoesntExist uuid -> $"Could not locate a PaymentAgreement with the id of {uuid}."
         | CashflowPaymentAgreementMemoIsEmpty memo -> $"PaymentAgreementMemo cannot be empty. Provided Memo is {memo}."
         | CashflowPaymentAgreementMemoTooLong(memo, max) -> $"PaymentAgreementMemo cannot exceed {max} characters. Provided Memo is {memo}."
+        | CashflowPaymentAgreementNameDoesntMatchId name -> $"PaymentAgreementName of {name} doesn't match a PaymentAgreement ID in the database."
+        | CashflowPaymentAgreementNameIsEmpty name -> $"PaymentAgreementName cannot be empty. Provided name is {name}."
+        | CashflowPaymentAgreementNameTooLong(name, max) -> $"PaymentAgreementName cannot exceed {max} characters. Provided name is {name}."
         | CashflowPaymentAgreementNonPositiveExpectedAmount(paymentAgreementId, amount) -> $"PaymentAgreement {paymentAgreementId} expected amount ({amount}) cannot be less than or equal to 0.00."
         | CashflowPaymentAgreementNotUnderMasterAgreement(paymentAgreementId, agreementId) -> $"PaymentAgreement {paymentAgreementId} does not belong to MasterAgreement {agreementId}."
         | CashflowPaymentAgreementUpdateNoOp -> "Updating the PaymentAgreement record failed because at least one updatable parameter must be set."
@@ -396,6 +403,14 @@ module AppError =
         | IngestionBaseStageEntryGroupIdTooLong (str, max) -> $"BaseStageEntryGroupId cannot exceed {max} characters. Provided value is {str}."
         | IngestionBaseStageGroupIdDistinctDataViolation str -> $"More than one combination of \"header\" data found for BaseStageEntryGroupId {str}"
         | IngestionClassificationRuleGroupsEmpty -> "A ClassificationRule's ClassificationRuleGroup list cannot be empty."
+        | IngestionClassificationRuleInvalidClaimant(ruleUuid, accountUuid, paymentAgreementUuid) ->
+            let accountStr = match accountUuid with
+                                | Some x -> x.ToString()
+                                | None -> "None"
+            let paymentAgreementStr = match paymentAgreementUuid with
+                                        | Some x -> x.ToString()
+                                        | None -> "None"
+            $"ClassificationRule ({ruleUuid}) must claim exactly one of an account or a payment agreement. Account at match is {accountStr}; payment agreement at match is {paymentAgreementStr}."
         | IngestionClassificationRuleNameIsEmpty str -> $"ClassificationRuleName cannot be empty. Provided value is {str}."
         | IngestionClassificationRuleNameTooLong (str, max) -> $"ClassificationRuleName cannot exceed {max} characters. Provided value is {str}."
         | IngestionClassificationRuleUpdateNoOp -> "Updating the ClassificationRule record failed because at least one updatable parameter must be set."

@@ -638,15 +638,26 @@ let fetchFiltered
               ("account_id = @account_id",
                { name = "@account_id"; value = UniqueId(x |> AccountId.value) }))
           
+          filter.paymentAgreementId
+          |> Option.map(fun x ->
+              ("payment_agreement_id = @payment_agreement_id",
+               { name = "@payment_agreement_id"
+                 value = UniqueId(x |> Model.CashFlow.CashFlowComponent.PaymentAgreementId.value) }))
+
           filter.memo
           |> Option.map(fun x ->
               ("memo = @memo",
                { name = "@memo"; value = CharString(x |> JournalEntryLineMemo.value) }))
-          
-          filter.classificationRuleId
+
+          filter.accountClassificationRuleId
           |> Option.map(fun x ->
-              ("classification_rule_id = @classification_rule_id",
-               { name = "@classification_rule_id"; value = UniqueId(x |> ClassificationRuleId.value) })) ]
+              ("account_classification_rule_id = @account_classification_rule_id",
+               { name = "@account_classification_rule_id"; value = UniqueId(x |> ClassificationRuleId.value) }))
+
+          filter.paymentClassificationRuleId
+          |> Option.map(fun x ->
+              ("payment_classification_rule_id = @payment_classification_rule_id",
+               { name = "@payment_classification_rule_id"; value = UniqueId(x |> ClassificationRuleId.value) })) ]
         |> List.choose id
     let whereClauses =
         if whereClausesAndParams |> List.isEmpty then ""
@@ -670,8 +681,10 @@ let fetchFiltered
                 sel.amount,
                 sel.line_type,
                 sel.account_id,
+                sel.payment_agreement_id,
                 sel.memo,
-                sel.classification_rule_id,
+                sel.account_classification_rule_id,
+                sel.payment_classification_rule_id,
                 latest_statuses.to_status as stage_entry_status,
                 latest_statuses.modified_at as latest_status_time_stamp
             from ingestion.staged_entry se

@@ -170,6 +170,21 @@ module AgreementName =
         else
             Ok(AgreementName trimmed)
 
+// unique across the whole table, so a name typically carries its MasterAgreement's name for context
+type PaymentAgreementName = private PaymentAgreementName of string
+
+module PaymentAgreementName =
+    let maxLength = 250
+    let value (PaymentAgreementName pan) = pan
+    let create (raw: string) : Result<PaymentAgreementName, AppError> =
+        let trimmed = raw.Trim()
+        if String.IsNullOrWhiteSpace trimmed then
+            Error(CashflowPaymentAgreementNameIsEmpty raw)
+        elif trimmed.Length > maxLength then
+            Error(CashflowPaymentAgreementNameTooLong(raw, maxLength))
+        else
+            Ok(PaymentAgreementName trimmed)
+
 type Counterparty = private Counterparty of string
 
 module Counterparty =

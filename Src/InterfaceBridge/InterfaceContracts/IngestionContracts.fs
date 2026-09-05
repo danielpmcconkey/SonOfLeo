@@ -47,6 +47,15 @@ type StageEntryHeaderReturn = {
         status: string option
     }
                 
+type AccountClaimantReturn = {
+        code: string
+        accountName: string
+    }
+
+type ClassificationClaimantReturn =
+    | Account of AccountClaimantReturn
+    | PaymentAgreement of string // the payment agreement's name
+
 type StageEntryLineReturn =  {
         stageEntryLineId: Guid
         stageEntryHeaderId: Guid
@@ -54,8 +63,10 @@ type StageEntryLineReturn =  {
         lineType: string
         accountCode: string option
         accountName: string option
+        paymentAgreementName: string option
         memo: string option
-        classificationRuleId: Guid option
+        accountClassificationRuleId: Guid option
+        paymentClassificationRuleId: Guid option
     }
 
 type StageEntryStatusTransitionReturn = {
@@ -84,8 +95,9 @@ type MatchCandidateReturn = {
 }
 
 type PrioritizedMatchReturn = {
-    code: string
-    accountName: string
+    accountCode: string option
+    accountName: string option
+    paymentAgreementName: string option
     ruleId: Guid
     priority: int
 }
@@ -110,8 +122,7 @@ type IngestionFullResultReturn = {
 type ClassificationRuleReturn = {
         classificationRuleId: Guid
         classificationRuleName: string
-        codeAtMatch: string
-        accountNameAtMatch: string
+        claimantAtMatch: ClassificationClaimantReturn
         priority: int
         ruleGroups: ClassificationRuleGroupContract list
         isActive: bool
@@ -148,18 +159,22 @@ type IngestRawFileToStageInput = {
     processedDir: string // where to put the raw file when done with it
 }
 
+type ClassificationClaimantInput =
+    | Account of string // the account's code
+    | PaymentAgreement of string // the payment agreement's name
+
 type NewClassificationRuleInput = {
         classificationRuleName: string
-        codeAtMatch: string
-        priority: int 
+        claimantAtMatch: ClassificationClaimantInput
+        priority: int
         ruleGroups: ClassificationRuleGroupContract list
     }
 
 type UpdateClassificationRuleInput = {
         classificationRuleId: Guid
         classificationRuleNameUpdate: FieldUpdate<string>
-        codeAtMatchUpdate: FieldUpdate<string>
-        priorityUpdate: FieldUpdate<int> 
+        claimantAtMatchUpdate: FieldUpdate<ClassificationClaimantInput>
+        priorityUpdate: FieldUpdate<int>
         ruleGroupsUpdate: FieldUpdate<ClassificationRuleGroupContract list>
         isActiveUpdate: FieldUpdate<bool>
     }
@@ -168,6 +183,7 @@ type ClassificationRuleFilterInput =  {
       ruleId: Guid option
       nameLike: string option
       accountCodeAtMatch: string option
+      paymentAgreementNameAtMatch: string option
       sourceLike: string option
       activeOnly: bool }
 
@@ -185,8 +201,10 @@ type UpdateStageEntryLineInput = {
     amount: FieldUpdate<decimal>
     lineType: FieldUpdate<string>
     accountCode: FieldUpdate<string option>
+    paymentAgreementName: FieldUpdate<string option>
     memo: FieldUpdate<string option>
-    classificationRuleId: FieldUpdate<Guid option>
+    accountClassificationRuleId: FieldUpdate<Guid option>
+    paymentClassificationRuleId: FieldUpdate<Guid option>
 }
 
 type StageEntryStatusUpdateInput = {
@@ -216,6 +234,7 @@ type BaseStageRawRowInput = {
     amount : decimal
     entryType : string
     accountCode: string option
+    paymentAgreementId: Guid option // a raw row is machine-authored by the import scripts, so it carries the id, not the name
     memo: string option
 }
 
@@ -231,7 +250,9 @@ type StageEntryFetchFilterInput =
       amount: decimal option
       lineType: string option
       accountCode: string option
+      paymentAgreementName: string option
       memo: string option
-      classificationRuleId: Guid option }
+      accountClassificationRuleId: Guid option
+      paymentClassificationRuleId: Guid option }
     
 type StageEntryFetchFilteredInput = { filter: StageEntryFetchFilterInput; sort: FetchStageEntrySort option }

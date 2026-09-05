@@ -40,7 +40,7 @@ let private confirmPaymentAgreement
     | Ok _ -> Ok ()
     | Error (DalResultantRowsDidntMatchExpectation _) ->
         let uuid = paymentAgreementId |> PaymentAgreementId.value
-        Error (AccountIdDoesntMatch uuid) // todo: Simian to write a new error message
+        Error (CashflowPaymentAgreementIdDoesntExist uuid)
     | Error e -> Error e
 
 let private confirmClassificationClaimant
@@ -139,7 +139,10 @@ let fetchRulesFiltered
             | Some PriorityAsc -> Some "cr.priority asc"
             | Some PriorityDesc -> Some "cr.priority desc"
         
-        let join = Some ["join ledger.account a on cr.account_at_match = a.unique_id"]
+        // left joins: a rule claims either an account or a payment agreement, so the other column is always null
+        let join =
+            Some [ "left join ledger.account a on cr.account_at_match = a.unique_id"
+                   "left join cashflow.payment_agreement pa on cr.payment_agreement_at_match = pa.unique_id" ]
             
         let whereClausesAndParams =
             [ filter.ruleId
@@ -156,7 +159,12 @@ let fetchRulesFiltered
               |> Option.map(fun x ->
                   ("cr.account_at_match = @account_at_match",
                    { name = "@account_at_match"; value = UniqueId(x |> AccountId.value) }))
-        
+
+              filter.paymentAgreementAtMatch
+              |> Option.map(fun x ->
+                  ("cr.payment_agreement_at_match = @payment_agreement_at_match",
+                   { name = "@payment_agreement_at_match"; value = UniqueId(x |> PaymentAgreementId.value) }))
+
               filter.sourceLike
               |> Option.map(fun x ->
                   (sourcePredicate, { name = "@source_like"; value = CharString $"%%{x}%%" }))
@@ -209,7 +217,11 @@ let updateLineWithMatch
     match prioritizedMatch.accountId, prioritizedMatch.paymentAgreementId with
     | Some x, None -> candidate |> updateLineWithAccountMatch context x prioritizedMatch.ruleId
     | None, Some x -> candidate |> updateLineWithPaymentMatch context x prioritizedMatch.ruleId
-    | _ -> Error (CashflowInvalidPaymentAmountRow "burp") // todo: simian to create a better error
+    | _ ->
+        let ruleUuid = prioritizedMatch.ruleId |> ClassificationRuleId.value
+        let accountUuid = prioritizedMatch.accountId |> Option.map AccountId.value
+        let paymentAgreementUuid = prioritizedMatch.paymentAgreementId |> Option.map PaymentAgreementId.value
+        Error (IngestionClassificationRuleInvalidClaimant(ruleUuid, accountUuid, paymentAgreementUuid))
 
 let updateDbLinesFromResultsList
     (context: Context.Context)
@@ -244,6 +256,7 @@ let classifyMatchCandidatesAndUpdateLines
             ruleId = None
             nameLike = None
             accountAtMatch = None
+            paymentAgreementAtMatch = None
             sourceLike = None
             activeOnly = true }
         let! rules = fetchRulesFiltered context ruleFilter None
@@ -252,11 +265,29 @@ let classifyMatchCandidatesAndUpdateLines
         return classificationResults
     }
     
+// both claimant columns are written on every change so any update must write a value to both and one must always be
+// null
+let private classificationClaimantToJointUpdates
+    (classificationClaimantUpdate: FieldUpdate<ClassificationClaimant>)
+    : (string * QueryParameter) option * (string * QueryParameter) option =
+    match classificationClaimantUpdate with
+    | NoChange -> None, None
+    | SetTo claimant ->
+        let accountUuid, paymentAgreementUuid =
+            match claimant with
+            | Account accountId ->
+                accountId |> AccountId.value |> Some, None
+            | PaymentAgreement paymentAgreementId ->
+                None, paymentAgreementId |> PaymentAgreementId.value |> Some
+        Some ("account_at_match = @account_at_match",
+                { name = "@account_at_match"; value = NullableUniqueId(accountUuid) }),
+        Some ("payment_agreement_at_match = @payment_agreement_at_match",
+                { name = "@payment_agreement_at_match"; value = NullableUniqueId(paymentAgreementUuid) })
+
 let updateClassificationRule
     (context: Context.Context)
     (classificationRuleNameUpdate: FieldUpdate<ClassificationRuleName>)
-    (accountAtMatchUpdate: FieldUpdate<AccountId>)
-    (paymentAtMatchUpdate: FieldUpdate<PaymentAgreementId>)
+    (classificationClaimantUpdate: FieldUpdate<ClassificationClaimant>)
     (priorityUpdate: FieldUpdate<int>)
     (ruleGroupsUpdate: FieldUpdate<ClassificationRuleGroup list>)
     (isActiveUpdate: FieldUpdate<bool>)
@@ -267,9 +298,9 @@ let updateClassificationRule
         [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
           { name = "@unique_id"; value = UniqueId uuid } ]
     result {
-        do! match accountAtMatchUpdate with
+        do! match classificationClaimantUpdate with
             | NoChange -> Ok ()
-            | SetTo x -> x |> confirmAccount context
+            | SetTo x -> x |> confirmClassificationClaimant context
         do! match ruleGroupsUpdate with
             | NoChange -> Ok ()
             | SetTo x -> x |> confirmRuleGroups
@@ -277,37 +308,32 @@ let updateClassificationRule
             match ruleGroupsUpdate with
             | NoChange -> Ok ""
             | SetTo x -> x |> Json.toJson<ClassificationRuleGroup list> 
+        let accountAtMatchUpdate, paymentAtMatchUpdate =
+            classificationClaimantUpdate |> classificationClaimantToJointUpdates
         let updates =
             [
                   classificationRuleNameUpdate
                   |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
                       ("rule_name = @rule_name",
                        { name = "@rule_name"; value = CharString(n |> ClassificationRuleName.value) }))
-                  
-                  accountAtMatchUpdate
-                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                      ("account_at_match = @account_at_match",
-                       { name = "@account_at_match"; value = UniqueId(n |> AccountId.value) }))
-                  
-                  paymentAtMatchUpdate
-                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                      ("payment_agreement_id = @payment_agreement_id",
-                       { name = "@payment_agreement_id"; value = UniqueId(n |> PaymentAgreementId.value) }))
-                  
+
                   priorityUpdate
                   |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
                       ("priority = @priority",
                        { name = "@priority"; value = Integer(n) }))
-                  
+
                   ruleGroupsUpdate
                   |> FieldUpdate.mapNoChangeToOptionWithConversion(fun _ ->
                       ("rule_groups = @rule_groups",
                        { name = "@rule_groups"; value = Jsonb(groupStr) }))
-                  
+
                   isActiveUpdate
                   |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
                       ("is_active = @is_active",
                        { name = "@is_active"; value = Boolean(n) }))
+                  
+                  accountAtMatchUpdate
+                  paymentAtMatchUpdate
             ]
             |> List.choose id
         let setClauses = updates |> List.map fst |> String.concat ", "

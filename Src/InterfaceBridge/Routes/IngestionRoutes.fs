@@ -55,15 +55,15 @@ let private newClassificationRule payload _ =
     result {
         let! input = Json.fromJson<NewClassificationRuleInput> payload
         let! name = input.classificationRuleName |> ClassificationRuleName.create
-        let codeAtMatchStr = input.codeAtMatch
-        let! accountAtMatch = codeAtMatchStr |> ``convert AccountCodeString to Id`` context
+        let! claimantAtMatch =
+            input.claimantAtMatch |> ``convert [ClassificationClaimantInput] to [ClassificationClaimant]`` context
         let priority = input.priority
         let! ruleGroups = input.ruleGroups |> ``convert [ClassificationRuleGroupContract list] to [ClassificationRuleGroup list]``
         let! model =
             createNewClassificationRule
                 context
                 name
-                accountAtMatch
+                claimantAtMatch
                 priority
                 ruleGroups
         let! returnVal = model |> ``convert [ClassificationRule] to [ClassificationRuleReturn]`` context
@@ -77,8 +77,10 @@ let private updateClassificationRule payload _ =
         let classificationRuleId = input.classificationRuleId |> ClassificationRuleId.fromGuid
         let! classificationRuleNameUpdate =
             input.classificationRuleNameUpdate |> convertFieldUpdateToNewTypeFallible ClassificationRuleName.create
-        let! accountAtMatchUpdate =
-            input.codeAtMatchUpdate |> convertFieldUpdateToNewTypeFallible (``convert AccountCodeString to Id`` context)
+        let! claimantAtMatchUpdate =
+            input.claimantAtMatchUpdate
+            |> convertFieldUpdateToNewTypeFallible
+                (``convert [ClassificationClaimantInput] to [ClassificationClaimant]`` context)
         let priorityUpdate = input.priorityUpdate
         let! ruleGroupsUpdate =
             input.ruleGroupsUpdate
@@ -87,7 +89,7 @@ let private updateClassificationRule payload _ =
         let isActiveUpdate = input.isActiveUpdate
         let! model =
             classificationRuleId
-            |> updateClassificationRule context classificationRuleNameUpdate accountAtMatchUpdate
+            |> updateClassificationRule context classificationRuleNameUpdate claimantAtMatchUpdate
                    priorityUpdate ruleGroupsUpdate isActiveUpdate
         let! returnVal = model |> ``convert [ClassificationRule] to [ClassificationRuleReturn]`` context
         return! Json.toJson<ClassificationRuleReturn> returnVal

@@ -14,6 +14,7 @@ open DataAccessLayer.QueryParameters
 type PaymentAgreement = private {
     paymentAgreementId: PaymentAgreementId
     masterAgreementID: MasterAgreementId
+    paymentAgreementName: PaymentAgreementName
     debitAccount: DebitAccount
     creditAccount: CreditAccount
     expectedAmount: Money option
@@ -24,6 +25,7 @@ type PaymentAgreement = private {
 
 type PaymentAgreementFieldUpdates = {
     paymentAgreementIdToUpdate: PaymentAgreementId
+    paymentAgreementNameUpdate: FieldUpdate<PaymentAgreementName>
     debitAccountUpdate: FieldUpdate<DebitAccount>
     creditAccountUpdate: FieldUpdate<CreditAccount>
     expectedAmountUpdate: FieldUpdate<Money option>
@@ -32,6 +34,7 @@ type PaymentAgreementFieldUpdates = {
 
 let paymentAgreementId p = p.paymentAgreementId
 let masterAgreementID p = p.masterAgreementID
+let paymentAgreementName p = p.paymentAgreementName
 let debitAccount p = p.debitAccount
 let creditAccount p = p.creditAccount
 let expectedAmount p = p.expectedAmount
@@ -42,6 +45,7 @@ let modifiedAt p = p.modifiedAt
 let create
     (paymentAgreementId: PaymentAgreementId)
     (masterAgreementID: MasterAgreementId)
+    (paymentAgreementName: PaymentAgreementName)
     (debitAccount: DebitAccount)
     (creditAccount: CreditAccount)
     (expectedAmount: Money option)
@@ -51,6 +55,7 @@ let create
     : PaymentAgreement =
     { paymentAgreementId = paymentAgreementId
       masterAgreementID = masterAgreementID
+      paymentAgreementName = paymentAgreementName
       debitAccount = debitAccount
       creditAccount = creditAccount
       expectedAmount = expectedAmount
@@ -66,13 +71,14 @@ let insertNewToDb
         let query =
             """
             insert into cashflow.payment_agreement(
-	            unique_id, master_agreement_id, debit_account, credit_account, expected_amount, memo, created_at,
-                modified_at)
+	            unique_id, master_agreement_id, payment_agreement_name, debit_account, credit_account, expected_amount,
+                memo, created_at, modified_at)
             values (
-	            @unique_id, @master_agreement_id, @debit_account, @credit_account, @expected_amount, @memo, @created_at,
-                @modified_at);"""
+	            @unique_id, @master_agreement_id, @payment_agreement_name, @debit_account, @credit_account,
+                @expected_amount, @memo, @created_at, @modified_at);"""
         let uuid = paymentAgreement.paymentAgreementId |> PaymentAgreementId.value
         let masterAgreementUuid = paymentAgreement.masterAgreementID |> MasterAgreementId.value
+        let paymentAgreementName = paymentAgreement.paymentAgreementName |> PaymentAgreementName.value
         let (DebitAccount debitAccountId) = paymentAgreement.debitAccount
         let (CreditAccount creditAccountId) = paymentAgreement.creditAccount
         let debitAccountUuid = debitAccountId |> AccountId.value
@@ -83,6 +89,7 @@ let insertNewToDb
             [
               { name = "@unique_id"; value = UniqueId(uuid) }
               { name = "@master_agreement_id"; value = UniqueId(masterAgreementUuid) }
+              { name = "@payment_agreement_name"; value = CharString(paymentAgreementName) }
               { name = "@debit_account"; value = UniqueId(debitAccountUuid) }
               { name = "@credit_account"; value = UniqueId(creditAccountUuid) }
               { name = "@expected_amount"; value = NullableNumeric(expectedAmount) }
@@ -97,6 +104,7 @@ let private reconstitute raw =
     result {
         let (uuid,
              masterAgreementUuid,
+             paymentAgreementNameStr,
              debitAccountUuid,
              creditAccountUuid,
              expectedAmountDec,
@@ -106,6 +114,7 @@ let private reconstitute raw =
             raw
         let paymentAgreementId = uuid |> PaymentAgreementId.fromGuid
         let masterAgreementID = masterAgreementUuid |> MasterAgreementId.fromGuid
+        let! paymentAgreementName = paymentAgreementNameStr |> PaymentAgreementName.create
         let debitAccount = debitAccountUuid |> AccountId.fromGuid |> DebitAccount
         let creditAccount = creditAccountUuid |> AccountId.fromGuid |> CreditAccount
         let! expectedAmount = expectedAmountDec |> convertOptionToDesiredTypeWithFallibleConverter Money.fromDecimal
@@ -114,6 +123,7 @@ let private reconstitute raw =
             create
                 paymentAgreementId
                 masterAgreementID
+                paymentAgreementName
                 debitAccount
                 creditAccount
                 expectedAmount
@@ -125,6 +135,7 @@ let private reconstitute raw =
 let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getUuid "unique_id"),
     (row |> RowReader.getUuid "master_agreement_id"),
+    (row |> RowReader.getString "payment_agreement_name"),
     (row |> RowReader.getUuid "debit_account"),
     (row |> RowReader.getUuid "credit_account"),
     (row |> RowReader.getNumericOption "expected_amount"),
@@ -162,8 +173,8 @@ let private fetchGenericRead
     (expectedRows: AcceptableExpectedRows)
     : Result<PaymentAgreement list, AppError> =
     let select = """
-        pa.unique_id, pa.master_agreement_id, pa.debit_account, pa.credit_account, pa.expected_amount,
-        pa.memo, pa.created_at, pa.modified_at
+        pa.unique_id, pa.master_agreement_id, pa.payment_agreement_name, pa.debit_account, pa.credit_account,
+        pa.expected_amount, pa.memo, pa.created_at, pa.modified_at
         """
     readRowsFromDb context None select None predicate limit None None parameters expectedRows
 
@@ -171,6 +182,15 @@ let fetchById (context: Context.Context) (paymentAgreementID: PaymentAgreementId
     let predicate = "pa.unique_id = @unique_id"
     let uuid = paymentAgreementID |> PaymentAgreementId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
+    fetchGenericRead context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+
+let fetchByName
+    (context: Context.Context)
+    (paymentAgreementName: PaymentAgreementName)
+    : Result<PaymentAgreement, AppError> =
+    let predicate = "pa.payment_agreement_name = @payment_agreement_name"
+    let nameStr = paymentAgreementName |> PaymentAgreementName.value
+    let parameters = [ { name = "@payment_agreement_name"; value = CharString(nameStr) } ]
     fetchGenericRead context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
 let fetchByMasterAgreementIdList
@@ -201,6 +221,11 @@ let updateDb
         [ { name = "@unique_id"; value = UniqueId uuid } ]
     let updates =
         [
+              fieldUpdates.paymentAgreementNameUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("payment_agreement_name = @payment_agreement_name",
+                     { name = "@payment_agreement_name"; value = CharString(n |> PaymentAgreementName.value) }) ])
+
               fieldUpdates.debitAccountUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
                   let (DebitAccount accountId) = n

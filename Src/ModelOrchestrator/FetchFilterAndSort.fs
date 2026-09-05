@@ -56,6 +56,7 @@ type ClassificationRuleFilter =
     { ruleId: ClassificationRuleId option
       nameLike: ClassificationRuleName option
       accountAtMatch: AccountId option
+      paymentAgreementAtMatch: PaymentAgreementId option
       sourceLike: string option
       activeOnly: bool }
 
@@ -77,8 +78,10 @@ type StageEntryFetchFilter =
       amount: Money option
       lineType: JournalEntryLineType option
       accountId: AccountId option
+      paymentAgreementId: PaymentAgreementId option
       memo: JournalEntryLineMemo option
-      classificationRuleId: ClassificationRuleId option }
+      accountClassificationRuleId: ClassificationRuleId option
+      paymentClassificationRuleId: ClassificationRuleId option }
 
 type FetchStageEntrySort =
     | EntryDateAsc

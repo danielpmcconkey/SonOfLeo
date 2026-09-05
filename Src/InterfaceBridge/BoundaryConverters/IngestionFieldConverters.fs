@@ -1,9 +1,11 @@
 module InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 
 open InterfaceBridge.BoundaryConverters.AccountFieldConverters
+open InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
 open InterfaceBridge.BoundaryConverters.OrchestrationConverters
 open InterfaceBridge.InterfaceContracts.IngestionContracts
 open Model
+open Model.CashFlow
 open Model.DataIngestion
 open Model.DataIngestion.StageEntryComponent
 open Model.DataIngestion.BaseStageEntry
@@ -76,16 +78,25 @@ let ``convert [StageEntryLine] to [StageEntryLineReturn]``
         model
         |> StageEntryLine.accountId
         |> ``convert [AccountId option] to [AccountName string option]`` context
+    let! paymentAgreementName =
+        model
+        |> StageEntryLine.paymentAgreementId
+        |> ``convert [PaymentAgreementId option] to [PaymentAgreementNameString option]`` context
     let memo = model |> StageEntryLine.memo |> Option.map JournalEntryLineMemo.value
-    let classificationRuleId = model |> StageEntryLine.accountClassificationRuleId |> Option.map ClassificationRuleId.value
+    let accountClassificationRuleId =
+        model |> StageEntryLine.accountClassificationRuleId |> Option.map ClassificationRuleId.value
+    let paymentClassificationRuleId =
+        model |> StageEntryLine.paymentAgreementClassificationRuleId |> Option.map ClassificationRuleId.value
     return {    stageEntryLineId = stageEntryLineId
                 stageEntryHeaderId = stageEntryHeaderId
                 amount = amount
                 lineType = lineType
                 accountCode = accountCode
                 accountName = accountName
-                memo = memo 
-                classificationRuleId = classificationRuleId } }
+                paymentAgreementName = paymentAgreementName
+                memo = memo
+                accountClassificationRuleId = accountClassificationRuleId
+                paymentClassificationRuleId = paymentClassificationRuleId } }
 
 let ``convert [StageEntryLine list] to [StageEntryLineReturn list]``
     (context: Context.Context)
@@ -223,18 +234,44 @@ let ``convert [ClassificationRuleGroupContract list] to [ClassificationRuleGroup
     |> List.map(fun x -> x |> ``convert [ClassificationRuleGroupContract] to [ClassificationRuleGroup]``)
     |> convertListOfResultsToResultsList
 
+let ``convert [ClassificationClaimant] to [ClassificationClaimantReturn]``
+    (context: Context.Context)
+    (claimant: ClassificationClaimant)
+    : Result<ClassificationClaimantReturn, AppError> =
+    match claimant with
+    | ClassificationClaimant.Account accountId -> result {
+        let! code = accountId |> ``convert AccountId to AccountCodeString`` context
+        let! accountName = accountId |> ``convert AccountId to AccountNameString`` context
+        return ClassificationClaimantReturn.Account { code = code; accountName = accountName } }
+    | ClassificationClaimant.PaymentAgreement paymentAgreementId ->
+        paymentAgreementId
+        |> ``convert [PaymentAgreementId] to [PaymentAgreementNameString]`` context
+        |> Result.map ClassificationClaimantReturn.PaymentAgreement
+
+let ``convert [ClassificationClaimantInput] to [ClassificationClaimant]``
+    (context: Context.Context)
+    (claimantInput: ClassificationClaimantInput)
+    : Result<ClassificationClaimant, AppError> =
+    match claimantInput with
+    | ClassificationClaimantInput.Account codeString ->
+        codeString
+        |> ``convert AccountCodeString to Id`` context
+        |> Result.map ClassificationClaimant.Account
+    | ClassificationClaimantInput.PaymentAgreement nameString ->
+        nameString
+        |> ``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context
+        |> Result.map ClassificationClaimant.PaymentAgreement
+
 let ``convert [ClassificationRule] to [ClassificationRuleReturn]``
     (context: Context.Context)
     (rule: ClassificationRule.ClassificationRule)
     : Result<ClassificationRuleReturn, AppError> = result {
     let classificationRuleId = rule |> ClassificationRule.classificationRuleId |> ClassificationRuleId.value
     let classificationRuleName = rule |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value
-    let! codeAtMatch =
-        rule |> ClassificationRule.classificationClaimant |> ``convert AccountId to AccountCodeString`` context
-    let! accountNameAtMach =
+    let! claimantAtMatch =
         rule
         |> ClassificationRule.classificationClaimant
-        |> ``convert AccountId to AccountNameString`` context
+        |> ``convert [ClassificationClaimant] to [ClassificationClaimantReturn]`` context
     let priority = rule |> ClassificationRule.priority
     let ruleGroups = rule |> ClassificationRule.ruleGroups |> ``convert [ClassificationRuleGroup list] to [ClassificationRuleGroupContract list]``
     let isActive = rule |> ClassificationRule.isActive
@@ -242,8 +279,7 @@ let ``convert [ClassificationRule] to [ClassificationRuleReturn]``
     let modifiedAt = rule |> ClassificationRule.modifiedAt
     return {    classificationRuleId = classificationRuleId
                 classificationRuleName = classificationRuleName
-                codeAtMatch = codeAtMatch
-                accountNameAtMatch = accountNameAtMach
+                claimantAtMatch = claimantAtMatch
                 priority = priority
                 ruleGroups = ruleGroups
                 isActive = isActive
@@ -282,10 +318,16 @@ let ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]``
     (context: Context.Context)
     (prioritizedMatch: PrioritizedMatch)
     : Result<PrioritizedMatchReturn, AppError> = result {
-    let! code = prioritizedMatch.accountId |> ``convert AccountId to AccountCodeString`` context
-    let! accountName = prioritizedMatch.accountId |> ``convert AccountId to AccountNameString`` context
-    return {    code = code
+    let! accountCode =
+        prioritizedMatch.accountId |> ``convert AccountId Option to AccountCodeString Option`` context
+    let! accountName =
+        prioritizedMatch.accountId |> ``convert [AccountId option] to [AccountName string option]`` context
+    let! paymentAgreementName =
+        prioritizedMatch.paymentAgreementId
+        |> ``convert [PaymentAgreementId option] to [PaymentAgreementNameString option]`` context
+    return {    accountCode = accountCode
                 accountName = accountName
+                paymentAgreementName = paymentAgreementName
                 ruleId = prioritizedMatch.ruleId |> ClassificationRuleId.value
                 priority = prioritizedMatch.priority } }
 
@@ -358,17 +400,26 @@ let ``convert [UpdateStageEntryLineInput] to [StageEntryLineFieldUpdates]``
         let! accountIdUpdate =
             line.accountCode
             |> convertFieldUpdateToNewTypeFallible (``convert AccountCodeString Option to AccountId Option`` context) 
+        let! paymentAgreementIdUpdate =
+            line.paymentAgreementName
+            |> convertFieldUpdateOptionToNewTypeOptionFallible
+                (``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context)
         let! memoUpdate = line.memo |> convertFieldUpdateOptionToNewTypeOptionFallible JournalEntryLineMemo.create
-        let classificationRuleIdUpdate =
-            line.classificationRuleId
+        let accountClassificationRuleIdUpdate =
+            line.accountClassificationRuleId
+            |> convertFieldUpdateOptionToNewTypeOption ClassificationRuleId.fromGuid
+        let paymentClassificationRuleIdUpdate =
+            line.paymentClassificationRuleId
             |> convertFieldUpdateOptionToNewTypeOption ClassificationRuleId.fromGuid
         return {
           lineIdToUpdate = lineIdToUpdate
           amountUpdate = amountUpdate
           entryTypeUpdate = entryTypeUpdate
           accountIdUpdate = accountIdUpdate
+          paymentAgreementIdUpdate = paymentAgreementIdUpdate
           memoUpdate = memoUpdate
-          accountClassificationRuleIdUpdate = classificationRuleIdUpdate } }
+          accountClassificationRuleIdUpdate = accountClassificationRuleIdUpdate
+          paymentClassificationRuleIdUpdate = paymentClassificationRuleIdUpdate } }
 
 let ``convert [UpdateStageEntryLineInput list] to [StageEntryLineFieldUpdates list]``
     (context: Context.Context)
@@ -391,6 +442,8 @@ let ``convert [BaseStageRawRowInput] to [BaseStageRawRow]``
         let! amount = rawInputRow.amount |> Money.fromDecimal
         let! entryType = rawInputRow.entryType |> JournalEntryLineType.fromString
         let! accountId = rawInputRow.accountCode |> ``convert AccountCodeString Option to AccountId Option`` context
+        let paymentAgreementId =
+            rawInputRow.paymentAgreementId |> Option.map CashFlowComponent.PaymentAgreementId.fromGuid
         let! memo = rawInputRow.memo |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
         return {
             baseStageEntryGroupId = baseStageEntryGroupId
@@ -401,6 +454,7 @@ let ``convert [BaseStageRawRowInput] to [BaseStageRawRow]``
             amount = amount
             entryType = entryType
             accountId = accountId
+            paymentAgreementId = paymentAgreementId
             memo = memo } }
     
 let ``convert [BaseStageRawRowInput list] to [BaseStageRawRow list]``
@@ -433,8 +487,14 @@ let ``convert [StageEntryFetchFilterInput] to [StageEntryFetchFilter]``
         let! amount = filterInput.amount |> convertOptionToDesiredTypeWithFallibleConverter Money.fromDecimal
         let! lineType = filterInput.lineType |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineType.fromString
         let! accountId = filterInput.accountCode |> ``convert AccountCodeString Option to AccountId Option`` context
+        let! paymentAgreementId =
+            filterInput.paymentAgreementName
+            |> ``convert [PaymentAgreementNameString option] to [PaymentAgreementId option]`` context
         let! memo = filterInput.memo |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
-        let classificationRuleId = filterInput.classificationRuleId |> Option.map ClassificationRuleId.fromGuid
+        let accountClassificationRuleId =
+            filterInput.accountClassificationRuleId |> Option.map ClassificationRuleId.fromGuid
+        let paymentClassificationRuleId =
+            filterInput.paymentClassificationRuleId |> Option.map ClassificationRuleId.fromGuid
         return {
             stageEntryHeaderId = stageEntryHeaderId
             sourceFile = sourceFile
@@ -447,8 +507,10 @@ let ``convert [StageEntryFetchFilterInput] to [StageEntryFetchFilter]``
             amount = amount
             lineType = lineType
             accountId = accountId
+            paymentAgreementId = paymentAgreementId
             memo = memo
-            classificationRuleId = classificationRuleId
+            accountClassificationRuleId = accountClassificationRuleId
+            paymentClassificationRuleId = paymentClassificationRuleId
         } }
 let ``convert [ClassificationRuleFilterInput] to [ClassificationRuleFilter]``
     (context: Context.Context)
@@ -459,10 +521,14 @@ let ``convert [ClassificationRuleFilterInput] to [ClassificationRuleFilter]``
         filterInput.nameLike |> convertOptionToDesiredTypeWithFallibleConverter ClassificationRuleName.create
     let! accountAtMatch =
         filterInput.accountCodeAtMatch |> ``convert AccountCodeString Option to AccountId Option`` context
+    let! paymentAgreementAtMatch =
+        filterInput.paymentAgreementNameAtMatch
+        |> ``convert [PaymentAgreementNameString option] to [PaymentAgreementId option]`` context
     return {
         ruleId = ruleId
         nameLike = nameLike
         accountAtMatch = accountAtMatch
+        paymentAgreementAtMatch = paymentAgreementAtMatch
         sourceLike = filterInput.sourceLike
         activeOnly = filterInput.activeOnly
     } }
