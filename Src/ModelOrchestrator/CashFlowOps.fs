@@ -17,7 +17,22 @@ open Utilities.ResultHelper
     CashFlowOps represents the activities that the operator will perform every time we run finances (the saturday
     routine)
 *)
-    
+
+type PaymentAgreementClaimCluster = {
+    paymentAgreementId: PaymentAgreementId
+    claimants: ClassificationRuleComponent.ClassificationResult list
+    // a tied claimant had no tag written for it at all, so resolving it means adding the right tag rather than
+    // removing a wrong one. A cluster can hold both kinds of claimant at once.
+    containsUnwrittenTies: bool
+}
+
+type PaymentAgreementTaggingResult = {
+    clean: PaymentAgreementClaimCluster list
+    multiClaimant: PaymentAgreementClaimCluster list
+    unmatched: ClassificationRuleComponent.ClassificationResult list
+}
+
+
 let rec private fillInstanceDatesToCutOff
     (nextDate: LocalDate)
     (cutOffDate: LocalDate)
@@ -102,20 +117,6 @@ let projectionSweep // step 2.2.3.0
         let! agreements = AgreementOrchestration.fetchAllActiveAgreements context
         return! agreements |> spawnInstancesFromAgreements context daysOut
     }
-
-type PaymentAgreementClaimCluster = {
-    paymentAgreementId: PaymentAgreementId
-    claimants: ClassificationRuleComponent.ClassificationResult list
-    // a tied claimant had no tag written for it at all, so resolving it means adding the right tag rather than
-    // removing a wrong one. A cluster can hold both kinds of claimant at once.
-    containsUnwrittenTies: bool
-}
-
-type PaymentAgreementTaggingResult = {
-    clean: PaymentAgreementClaimCluster list
-    multiClaimant: PaymentAgreementClaimCluster list
-    unmatched: ClassificationRuleComponent.ClassificationResult list
-}
 
 let private stageEntryFilterForStatus
     (status: StageEntryComponent.StagedEntryStatus)
