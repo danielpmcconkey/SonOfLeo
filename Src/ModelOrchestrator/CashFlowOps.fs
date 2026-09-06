@@ -46,8 +46,30 @@ let private spawnInstancesFromAgreement
         if neededDates |> List.isEmpty then return agreement else
         do! neededDates
             |> List.map(fun neededDate ->
+                // check if we have any fixed-amount payment agreements and add invoices for those with our instance.
+                // a payment agreement without a daysDueAfterInvoiceDate gives us no way to derive a due date, so we
+                // skip it here and let the invoice get created later, once the real bill is in hand
+                let paymentAgreements = agreement |> AgreementOrchestration.paymentAgreements
+                let invoiceCompositeFieldsList = paymentAgreements |> List.choose(fun paymentAgreement ->
+                    match paymentAgreement |> PaymentAgreement.expectedAmount,
+                          paymentAgreement |> PaymentAgreement.daysDueAfterInvoiceDate with
+                    | Some expectedAmount, Some daysDueAfterInvoiceDate ->
+                        let paId = paymentAgreement |> PaymentAgreement.paymentAgreementId
+                        let extInvoiceId = None
+                        let invoiceDate = {InvoiceDate.localDate = neededDate}
+                        let daysPastInvDateForDueDate = daysDueAfterInvoiceDate |> DaysDueAfterInvoiceDate.value
+                        let dueDate = {DueDate.localDate = neededDate.PlusDays(daysPastInvDateForDueDate)}
+                        let amount = { InvoiceAmount.money = expectedAmount }
+                        let direction = master |> MasterAgreement.direction
+                        let invoiceState = if direction = Income then InvoiceGenerated else InvoiceReceived
+                        let lifecycle = { invoiceState = invoiceState; paymentState = NotYetPaid
+                                          postedState = NotHandled; blocker = None }
+                        let invMemo = None
+                        Some (paId, extInvoiceId, invoiceDate, dueDate, amount, lifecycle, invMemo, [])
+                    | _ -> None
+                    )
                 InstanceOrchestration.createInstanceCompositeAndSaveToDb
-                        context agreementId neededDate false [])
+                        context agreementId neededDate false invoiceCompositeFieldsList)
             |> convertListOfResultsToResultsList
             |> Result.map ignore
         let latestAdded = neededDates |> List.head
@@ -73,7 +95,8 @@ let projectionSweep // step 2.2.3.0
     : Result<AgreementOrchestration.Agreement list, AppError> =
     result {
     // Walk every active agreement's cadence, create missing Instances through the horizon. Advance each cadence's
-    // nextInstance pointer. Return count of instances created per agreement. Invoices are NOT created here.
+    // nextInstance pointer. Return count of instances created per agreement. Invoices are created if the expected
+    // amount and the daysDueAfterInvoiceDate are both Some.
         let! agreements = AgreementOrchestration.fetchAllActiveAgreements context
         return! agreements |> spawnInstancesFromAgreements context daysOut
     }
