@@ -4,6 +4,8 @@ open System
 open DataAccessLayer.ExecuteReader
 open Model.CashFlow
 open Model.CashFlow.CashFlowComponent
+open Model.DataIngestion
+open Model.DataIngestion.Classification
 open Model.Ledger.JournalEntryExternalReference
 open ModelOrchestrator
 open NodaTime
@@ -99,6 +101,118 @@ let projectionSweep // step 2.2.3.0
     // amount and the daysDueAfterInvoiceDate are both Some.
         let! agreements = AgreementOrchestration.fetchAllActiveAgreements context
         return! agreements |> spawnInstancesFromAgreements context daysOut
+    }
+
+type PaymentAgreementClaimCluster = {
+    paymentAgreementId: PaymentAgreementId
+    claimants: ClassificationRuleComponent.ClassificationResult list
+}
+
+type PaymentAgreementTaggingResult = {
+    clean: PaymentAgreementClaimCluster list
+    multiClaimant: PaymentAgreementClaimCluster list
+    unmatched: ClassificationRuleComponent.ClassificationResult list
+}
+
+let private stageEntryFilterForStatus
+    (status: StageEntryComponent.StagedEntryStatus)
+    : FetchFilters.StageEntryFetchFilter = {
+    stageEntryHeaderId = None
+    sourceFile = None
+    temporalFilter = None
+    description = None
+    ingestionSource = None
+    fiReference = None
+    status = Some status
+    stageEntryLineId = None
+    amount = None
+    lineType = None
+    accountId = None
+    paymentAgreementId = None
+    memo = None
+    accountClassificationRuleId = None
+    paymentClassificationRuleId = None }
+
+let private paymentAgreementsClaimedBy
+    (result: ClassificationRuleComponent.ClassificationResult)
+    : PaymentAgreementId list =
+    let idsFromMatches (matches: ClassificationRuleComponent.PrioritizedMatch list) =
+        matches |> List.choose _.paymentAgreementId
+    match result.outcome with
+    | ClassificationRuleComponent.NoMatch -> []
+    | ClassificationRuleComponent.OneMatch prioritizedMatch -> idsFromMatches [ prioritizedMatch ]
+    | ClassificationRuleComponent.ManyMatchesClearWinner (winner, _) -> idsFromMatches [ winner ]
+    | ClassificationRuleComponent.ManyMatchesTied ties -> idsFromMatches ties
+
+/// pivotClassificationResultsByPaymentAgreement flips the classifier's row-focused answer -- "which rules did this row
+/// match" -- onto the rule axis: "which rows claimed this payment agreement". Two staged entries claiming one payment
+/// agreement is the dangerous case, since paying the same bill twice looks like a fulfilled obligation, so a contested
+/// agreement is handed to the operator whole rather than resolved here.
+let pivotClassificationResultsByPaymentAgreement
+    (results: ClassificationRuleComponent.ClassificationResult list)
+    : PaymentAgreementTaggingResult =
+    let isTied (result: ClassificationRuleComponent.ClassificationResult) =
+        match result.outcome with
+        | ClassificationRuleComponent.ManyMatchesTied _ -> true
+        | _ -> false
+    let clusters =
+        results
+        |> List.collect(fun result ->
+            result |> paymentAgreementsClaimedBy |> List.map (fun paymentAgreementId -> paymentAgreementId, result))
+        |> List.groupBy fst
+        |> List.map(fun (paymentAgreementId, pairs) ->
+            { paymentAgreementId = paymentAgreementId
+              claimants = pairs |> List.map snd })
+    // a tied row wrote no tag at all (see ClassificationOrchestration.updateDbLinesFromResultsList) and code is not
+    // allowed to break the tie, so every agreement it touched is contested no matter how many rows claimed it
+    let isContested cluster =
+        cluster.claimants |> List.length > 1 || cluster.claimants |> List.exists isTied
+    { clean = clusters |> List.filter (isContested >> not)
+      multiClaimant = clusters |> List.filter isContested
+      unmatched = results |> List.filter (fun result -> result |> paymentAgreementsClaimedBy |> List.isEmpty) }
+
+/// classifyStagedEntriesToPaymentAgreements is additive tagging only. It never promotes an entry or writes a header
+/// status: a NoMatch here is the normal outcome for the great majority of staged entries, since most of them aren't
+/// obligations at all. That is the opposite of the account pass, where an unmatched line means the entry isn't done.
+let classifyStagedEntriesToPaymentAgreements
+    (context: Context.Context)
+    : Result<PaymentAgreementTaggingResult, AppError> =
+    result {
+        // terminal and already-approved statuses are out of scope; a tag can't help an entry that's posted, ignored,
+        // duplicated, or already signed off for posting
+        let eligibleStatuses =
+            [ StageEntryComponent.Ingested
+              StageEntryComponent.Classified
+              StageEntryComponent.NoMatch
+              StageEntryComponent.Conflict ]
+        let! entriesByStatus =
+            eligibleStatuses
+            |> List.map (fun status ->
+                status
+                |> stageEntryFilterForStatus
+                |> StageEntryOrchestration.fetchFiltered context None)
+            |> convertListOfResultsToResultsList
+        let (matchCandidates: ClassificationRuleComponent.MatchCandidate list) =
+            entriesByStatus
+            |> List.concat
+            |> List.collect(fun entry ->
+                let header = entry |> StageEntryOrchestration.stageEntryHeader
+                entry
+                |> StageEntryOrchestration.seLines
+                |> List.filter (fun line -> line |> StageEntryLine.paymentAgreementId |> Option.isNone)
+                |> List.map (fun line -> {
+                    headerIdOfCandidate = header |> StageEntryHeader.stageEntryHeaderId
+                    lineIdOfCandidate = line |> StageEntryLine.stageEntryLineId
+                    ingestionSource = header |> StageEntryHeader.ingestionSource |> IngestionSource.name
+                    description = header |> StageEntryHeader.description
+                    amount = line |> StageEntryLine.amount
+                    lineType = line |> StageEntryLine.lineType
+                    memo = line |> StageEntryLine.memo }))
+        let! classificationResults =
+            matchCandidates
+            |> ClassificationOrchestration.classifyMatchCandidatesAndUpdateLines
+                context ClassificationRuleComponent.PaymentAgreementClaimant
+        return classificationResults |> pivotClassificationResultsByPaymentAgreement
     }
 
 let private createPaymentsToInvoiceFromLedgerAndStageEntries
