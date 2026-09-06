@@ -1,7 +1,7 @@
-module Model.DataIngestion.Classification.Classifier
+module Model.StageDataClassification.Classifier
 
-open Model.DataIngestion.Classification.ClassificationRule
-open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Model.StageDataClassification.ClassificationRule
+open Model.StageDataClassification.StageDataClassificationComponent
 
 let classifyCandidate
     (rules: ClassificationRule list)

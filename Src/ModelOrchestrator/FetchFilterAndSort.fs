@@ -10,7 +10,7 @@ open NodaTime
 open Utilities.AppError
 open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
-open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Model.StageDataClassification.StageDataClassificationComponent
 open Model.DataIngestion.StageEntryComponent
 
 type FetchSort =

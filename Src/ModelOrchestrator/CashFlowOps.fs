@@ -5,7 +5,7 @@ open DataAccessLayer.ExecuteReader
 open Model.CashFlow
 open Model.CashFlow.CashFlowComponent
 open Model.DataIngestion
-open Model.DataIngestion.Classification
+open Model.StageDataClassification
 open Model.Ledger.JournalEntryExternalReference
 open ModelOrchestrator
 open NodaTime
@@ -17,21 +17,6 @@ open Utilities.ResultHelper
     CashFlowOps represents the activities that the operator will perform every time we run finances (the saturday
     routine)
 *)
-
-type PaymentAgreementClaimCluster = {
-    paymentAgreementId: PaymentAgreementId
-    claimants: ClassificationRuleComponent.ClassificationResult list
-    // a tied claimant had no tag written for it at all, so resolving it means adding the right tag rather than
-    // removing a wrong one. A cluster can hold both kinds of claimant at once.
-    containsUnwrittenTies: bool
-}
-
-type PaymentAgreementTaggingResult = {
-    clean: PaymentAgreementClaimCluster list
-    multiClaimant: PaymentAgreementClaimCluster list
-    unmatched: ClassificationRuleComponent.ClassificationResult list
-}
-
 
 let rec private fillInstanceDatesToCutOff
     (nextDate: LocalDate)
@@ -138,26 +123,26 @@ let private stageEntryFilterForStatus
     paymentClassificationRuleId = None }
 
 let private paymentAgreementsClaimedBy
-    (result: ClassificationRuleComponent.ClassificationResult)
+    (result: StageDataClassificationComponent.ClassificationResult)
     : PaymentAgreementId list =
-    let idsFromMatches (matches: ClassificationRuleComponent.PrioritizedMatch list) =
+    let idsFromMatches (matches: StageDataClassificationComponent.PrioritizedMatch list) =
         matches |> List.choose _.paymentAgreementId
     match result.outcome with
-    | ClassificationRuleComponent.NoMatch -> []
-    | ClassificationRuleComponent.OneMatch prioritizedMatch -> idsFromMatches [ prioritizedMatch ]
-    | ClassificationRuleComponent.ManyMatchesClearWinner (winner, _) -> idsFromMatches [ winner ]
-    | ClassificationRuleComponent.ManyMatchesTied ties -> idsFromMatches ties
+    | StageDataClassificationComponent.NoMatch -> []
+    | StageDataClassificationComponent.OneMatch prioritizedMatch -> idsFromMatches [ prioritizedMatch ]
+    | StageDataClassificationComponent.ManyMatchesClearWinner (winner, _) -> idsFromMatches [ winner ]
+    | StageDataClassificationComponent.ManyMatchesTied ties -> idsFromMatches ties
 
 /// pivotClassificationResultsByPaymentAgreement flips the classifier's row-focused answer -- "which rules did this row
 /// match" -- onto the rule axis: "which rows claimed this payment agreement". Two staged entries claiming one payment
 /// agreement is the dangerous case, since paying the same bill twice looks like a fulfilled obligation, so a contested
 /// agreement is handed to the operator whole rather than resolved here.
 let pivotClassificationResultsByPaymentAgreement
-    (results: ClassificationRuleComponent.ClassificationResult list)
-    : PaymentAgreementTaggingResult =
-    let isTied (result: ClassificationRuleComponent.ClassificationResult) =
+    (results: StageDataClassificationComponent.ClassificationResult list)
+    : StageDataClassificationComponent.PaymentAgreementTaggingResult =
+    let isTied (result: StageDataClassificationComponent.ClassificationResult) =
         match result.outcome with
-        | ClassificationRuleComponent.ManyMatchesTied _ -> true
+        | StageDataClassificationComponent.ManyMatchesTied _ -> true
         | _ -> false
     let clusters =
         results
@@ -166,11 +151,13 @@ let pivotClassificationResultsByPaymentAgreement
         |> List.groupBy fst
         |> List.map(fun (paymentAgreementId, pairs) ->
             let claimants = pairs |> List.map snd
-            { paymentAgreementId = paymentAgreementId
-              claimants = claimants
-              containsUnwrittenTies = claimants |> List.exists isTied })
+            let cluster: StageDataClassificationComponent.PaymentAgreementClaimCluster =
+                { paymentAgreementId = paymentAgreementId
+                  claimants = claimants
+                  containsUnwrittenTies = claimants |> List.exists isTied }
+            cluster)
     // code is not allowed to break a tie, so a tied claimant contests its agreement however few rows claimed it
-    let isContested cluster =
+    let isContested (cluster: StageDataClassificationComponent.PaymentAgreementClaimCluster) =
         cluster.claimants |> List.length > 1 || cluster.containsUnwrittenTies
     { clean = clusters |> List.filter (isContested >> not)
       multiClaimant = clusters |> List.filter isContested
@@ -181,7 +168,7 @@ let pivotClassificationResultsByPaymentAgreement
 /// obligations at all. That is the opposite of the account pass, where an unmatched line means the entry isn't done.
 let classifyStagedEntriesToPaymentAgreements
     (context: Context.Context)
-    : Result<PaymentAgreementTaggingResult, AppError> =
+    : Result<StageDataClassificationComponent.PaymentAgreementTaggingResult, AppError> =
     result {
         // terminal and already-approved statuses are out of scope; a tag can't help an entry that's posted, ignored,
         // duplicated, or already signed off for posting
@@ -197,7 +184,7 @@ let classifyStagedEntriesToPaymentAgreements
                 |> stageEntryFilterForStatus
                 |> StageEntryOrchestration.fetchFiltered context None)
             |> convertListOfResultsToResultsList
-        let (matchCandidates: ClassificationRuleComponent.MatchCandidate list) =
+        let (matchCandidates: StageDataClassificationComponent.MatchCandidate list) =
             entriesByStatus
             |> List.concat
             |> List.collect(fun entry ->
@@ -216,7 +203,7 @@ let classifyStagedEntriesToPaymentAgreements
         let! classificationResults =
             matchCandidates
             |> ClassificationOrchestration.classifyMatchCandidatesAndUpdateLines
-                context ClassificationRuleComponent.PaymentAgreementClaimant
+                context StageDataClassificationComponent.PaymentAgreementClaimant
         return classificationResults |> pivotClassificationResultsByPaymentAgreement
     }
 

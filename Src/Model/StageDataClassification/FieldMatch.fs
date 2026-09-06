@@ -1,9 +1,9 @@
-module Model.DataIngestion.Classification.FieldMatch
+module Model.StageDataClassification.FieldMatch
 
 open System.Text.RegularExpressions
 open Model
 open Model.Ledger.JournalEntryComponent
-open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Model.StageDataClassification.StageDataClassificationComponent
 
 type FieldMatch =
     | Source of StringSearchPattern

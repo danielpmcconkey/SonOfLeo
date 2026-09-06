@@ -7,7 +7,7 @@ open DataAccessLayer.ExecuteReader
 open Model
 open Model.CashFlow
 open Model.CashFlow.CashFlowComponent
-open Model.DataIngestion.Classification
+open Model.StageDataClassification
 open Model.DataIngestion.StageEntryLine
 open Model.Ledger.AccountComponent
 open ModelOrchestrator.FetchFilters
@@ -16,9 +16,9 @@ open Utilities.Json
 open Utilities.ResultHelper
 open DataAccessLayer.QueryParameters
 open Utilities.FieldUpdate
-open Model.DataIngestion.Classification.ClassificationRuleComponent
-open Model.DataIngestion.Classification.ClassificationRuleGroup
-open Model.DataIngestion.Classification.FieldMatchChain
+open Model.StageDataClassification.StageDataClassificationComponent
+open Model.StageDataClassification.ClassificationRuleGroup
+open Model.StageDataClassification.FieldMatchChain
 
 let private confirmAccount
     (context: Context.Context)

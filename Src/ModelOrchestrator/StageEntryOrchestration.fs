@@ -13,7 +13,7 @@ open ModelOrchestrator.JournalEntries
 open Utilities.AppError
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
-open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Model.StageDataClassification.StageDataClassificationComponent
 open Model.DataIngestion.StageEntryComponent
 
 type StageEntry =

@@ -1,4 +1,4 @@
-module Model.DataIngestion.Classification.ClassificationRule
+module Model.StageDataClassification.ClassificationRule
 
 open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteReader
@@ -9,8 +9,8 @@ open NodaTime
 open Utilities.AppError
 open Utilities.Json.Json
 open Utilities.ResultHelper
-open Model.DataIngestion.Classification.ClassificationRuleComponent
-open Model.DataIngestion.Classification.ClassificationRuleGroup
+open Model.StageDataClassification.StageDataClassificationComponent
+open Model.StageDataClassification.ClassificationRuleGroup
 
 /// ClassificationRule: The top-level classification rule. All groups must resolve to true for the rule to resolve to
 /// true.

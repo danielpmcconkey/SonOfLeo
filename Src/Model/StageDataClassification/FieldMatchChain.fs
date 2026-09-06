@@ -1,7 +1,7 @@
-module Model.DataIngestion.Classification.FieldMatchChain
+module Model.StageDataClassification.FieldMatchChain
 
-open Model.DataIngestion.Classification.ClassificationRuleComponent
-open Model.DataIngestion.Classification.FieldMatch
+open Model.StageDataClassification.StageDataClassificationComponent
+open Model.StageDataClassification.FieldMatch
 
 /// FieldMatchChain: chain all FieldMatch elements into a single "and-connected" grouping. Meaning, all FieldMatch
 /// comparisons must be true for the chain to be true 

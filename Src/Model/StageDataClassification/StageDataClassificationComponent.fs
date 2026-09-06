@@ -1,4 +1,4 @@
-module Model.DataIngestion.Classification.ClassificationRuleComponent
+module Model.StageDataClassification.StageDataClassificationComponent
 
 open System
 open Model
@@ -121,6 +121,20 @@ type ClassificationResult = {
         candidate: MatchCandidate
         outcome: ClassifierOutcome
     }
+
+type PaymentAgreementClaimCluster = {
+    paymentAgreementId: CashFlowComponent.PaymentAgreementId
+    claimants: ClassificationResult list
+    // a tied claimant had no tag written for it at all, so resolving it means adding the right tag rather than
+    // removing a wrong one. A cluster can hold both kinds of claimant at once.
+    containsUnwrittenTies: bool
+}
+
+type PaymentAgreementTaggingResult = {
+    clean: PaymentAgreementClaimCluster list
+    multiClaimant: PaymentAgreementClaimCluster list
+    unmatched: ClassificationResult list
+}
 
 type ClassificationClaimant = // what entity gets to "claim" the Staged Entry at match
     | Account of AccountId // used for classifying staged entities into their appropriate JE line accounts

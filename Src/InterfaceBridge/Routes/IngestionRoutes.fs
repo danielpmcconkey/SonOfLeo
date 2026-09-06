@@ -8,7 +8,7 @@ open InterfaceBridge.InterfaceContracts.IngestionContracts
 open Logger.Audit
 open Model.DataIngestion
 open Model.DataIngestion.StageEntryComponent
-open Model.DataIngestion.Classification
+open Model.StageDataClassification
 open Model.DataIngestion.StageEntryHeader
 open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator
@@ -22,7 +22,7 @@ open Utilities.FileIO
 open Utilities.Json
 open InterfaceBridge.CommandRoute
 open Utilities.ResultHelper
-open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Model.StageDataClassification.StageDataClassificationComponent
 
 let private ingestRawEntries payload _ =
     runCommandRouteAndAutoCompleteTransaction IngestRawEntries (fun context ->

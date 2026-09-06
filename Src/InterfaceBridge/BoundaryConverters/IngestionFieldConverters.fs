@@ -9,7 +9,7 @@ open Model.CashFlow
 open Model.DataIngestion
 open Model.DataIngestion.StageEntryComponent
 open Model.DataIngestion.BaseStageEntry
-open Model.DataIngestion.Classification
+open Model.StageDataClassification
 open Model.DataIngestion.StageEntryStatusTransition
 open Model.Ledger.JournalEntryComponent
 open ModelOrchestrator.FetchFilters
@@ -17,7 +17,7 @@ open ModelOrchestrator.StageEntryOrchestration
 open Utilities.AppError
 open Utilities.FieldUpdate.FieldUpdate
 open Utilities.ResultHelper
-open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Model.StageDataClassification.StageDataClassificationComponent
 
 let ``convert [StageEntryStatusTransition] to [StageEntryStatusTransitionReturn]``
     (model: StageEntryStatusTransition)

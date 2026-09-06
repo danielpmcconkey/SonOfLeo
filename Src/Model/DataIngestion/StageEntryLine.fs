@@ -10,7 +10,7 @@ open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
-open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Model.StageDataClassification.StageDataClassificationComponent
 open Model.DataIngestion.StageEntryComponent
                 
 type StageEntryLine = private {
