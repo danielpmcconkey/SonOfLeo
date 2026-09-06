@@ -3,15 +3,18 @@ name: SonOfLeo:SrcDeveloper
 description: >
   This skill should be used when writing or modifying F# source under SonOfLeo's Src/
   directory — new entity CRUD, new domain primitives, AppError cases, ModelOrchestrator
-  functions (constructNewAndSaveToDb, composite create/read, orchestrated updates), or any Src
-  implementation task Dan hands off. Covers the entity/component/composite type taxonomy,
-  the Model/ CRUD function shape (insertNewToDb / reconstitute / mapRawForDbRead /
+  functions (constructNewAndSaveToDb, composite create/read, orchestrated updates),
+  InterfaceBridge work (interface contracts, boundary converters, use case routes), a DbMigration
+  script that a Src change depends on, or any Src implementation task Dan hands off — including
+  reviewing a commit before fixing what it broke. Covers the entity/component/composite type
+  taxonomy, the Model/ CRUD function shape (insertNewToDb / reconstitute / mapRawForDbRead /
   readRowsFromDb / fetchGenericRead / fetchById / updateDb), the ModelOrchestrator function
-  shape and the five reasons a function belongs there, AppError and FieldUpdate conventions,
-  the mechanical checks in Checks/, and the working relationship with Dan. Triggers on
-  "build out X's CRUD", "write the Src for", "add a domain type", "finish insertNewToDb",
-  "build the orchestrator for", "write an orchestration function", or any task that edits a
-  `.fs` file under `Src/`.
+  shape and the five reasons a function belongs there, what InterfaceBridge is for and how its
+  contracts and converters are named, AppError and FieldUpdate conventions, the mechanical checks
+  in Checks/, and the working relationship with Dan. Triggers on "build out X's CRUD", "write the
+  Src for", "add a domain type", "finish insertNewToDb", "build the orchestrator for", "write an
+  orchestration function", "fix the interface bridge", "add a route for", "wire up the contracts",
+  or any task that edits a `.fs` file under `Src/`.
 ---
 
 # SonOfLeo SrcDeveloper
@@ -185,11 +188,9 @@ status-transition side table):
    `Instance.fetchByMasterAgreementIdList`, since both are listing the same parent id type.
    Precedent: `StageEntryLine.fetchByHeaderIdList`, `Instance.fetchByMasterAgreementIdList`.
 7. **`updateDb`** (public) — takes an `<Entity>FieldUpdates` record (see FieldUpdate below),
-   builds `(setClause, QueryParameter) list option` per field via
-   `FieldUpdate.mapNoChangeToOptionWithConversion`, flattens with
-   `List.choose id |> List.collect id` (a field that maps to more than one column — see
-   `Cadence` below — just returns a longer list from its conversion function; the flatten step
-   doesn't care). No-op guard: if the flattened list is empty, `Error(Cashflow<Entity>UpdateNoOp)`
+   builds one `(setClause, QueryParameter) option` per field via
+   `FieldUpdate.mapNoChangeToOptionWithConversion`, and flattens with `List.choose id`.
+   No-op guard: if the flattened list is empty, `Error(Cashflow<Entity>UpdateNoOp)`
    (see AppError below) before touching the DB. On success, write then re-fetch via
    `fetchById` and return the current row — never trust the caller's view of what changed.
    Only include fields in `<Entity>FieldUpdates` that should actually be settable after
@@ -207,6 +208,16 @@ status-transition side table):
    `Invoice.Blocker`'s state+note pair). Full writeup and more examples:
    `CompoundedLearnings/articles/coding/field-update-pattern.md`.
 
+   **A field that writes several columns shouldn't reshape the fields that write one.** Give it
+   a converter that takes the `FieldUpdate` itself, so the `NoChange` case lives next to the
+   column logic rather than in a `match` above the list. Two or three columns: return a tuple of
+   `(setClause, QueryParameter) option`s, destructure above the list, and drop the pieces in
+   beside the single-column entries — `ClassificationOrchestration.classificationClaimantToJointUpdates`
+   is the reference. More than that: return a `(setClause, QueryParameter) list`, empty on
+   `NoChange`, and `List.append` it — `Cadence`'s five columns are the case that earns this.
+   Wrapping every single-column conversion in a list so one `List.collect` can flatten them all
+   makes four fields pay for one; Dan rejected that shape on sight.
+
 **Encode/decode symmetry for a DU that spans several columns.** When one field decomposes into
 multiple DB columns (`Cadence` → `cadence`, `cadence_week_day`, `cadence_date_in_month`,
 `cadence_week_in_month`, `cadence_month`), write the encode direction
@@ -217,6 +228,13 @@ reuse from a second file. A case with no natural column value (`MonthDay.Last` n
 the three `MonthDay` columns) should decode unambiguously from "all relevant columns null" —
 if two DU cases would produce the same all-null combination, that's a sign the schema is
 underspecified, not a case to paper over.
+
+**When the columns are mutually exclusive, every write touches all of them.** A DU whose cases
+map to different nullable columns (`ClassificationClaimant` → `account_at_match` /
+`payment_agreement_at_match`) has to null the column it moved off of, or a row ends up with both
+set and `reconstitute` rejects it on the next read. Encode the whole set every time —
+`NullableUniqueId None` for the ones this case doesn't use — rather than emitting only the
+column being set.
 
 ## Table aliases
 
@@ -398,6 +416,16 @@ through here" constructor for any new entity/composite:
 /// means if they're operating on known good data.
 ```
 
+**Its parameters are primitives and tuples of primitives, deliberately — don't propose replacing
+them with a record.** The construct half of the verb is what builds the model types, so it can't
+take them as input, and a list of children arrives as a tuple list
+(`AgreementOrchestration.constructNewAndSaveToDb`'s payment agreements;
+`JournalEntryOrchestration.constructNewAndSaveToDb`'s lines). Named primitive-collection types
+used to exist for this and were retired: the domain type, the interface contract, and the
+collection type all spelled out the same structure, and only the first two earned their
+maintenance. These signatures aren't meant to be pleasant for a general consumer — exactly one
+`InterfaceBridge` route calls each.
+
 **Composite create pattern**: construct + persist each child through *that child's own*
 orchestration function (never inline SQL for a child), collect with
 `List.map(...) |> convertListOfResultsToResultsList`, then run the composite-level invariant
@@ -464,6 +492,42 @@ This is where `Obligation` (the composite that will assemble a `MasterAgreement`
 `PaymentAgreement` children, once `PaymentAgreement` fetch-by-parent exists) belongs when it's
 built — not as a field on `MasterAgreement` itself.
 
+## `InterfaceBridge/` — where use cases come together
+
+Dan's own list of what this layer does: define the interface contracts; define the use case
+routes; turn user input (primitives) into DDD-valid types; turn model types back into
+primitives; set the context (audit type, database context); manage commit/rollback; and call
+the `Model/` and `ModelOrchestrator/` functions the use case needs. Nothing else belongs here,
+and none of those belong anywhere else.
+
+Three directories, and a change to a model type usually ripples through all three:
+`InterfaceContracts/` (the DTOs), `BoundaryConverters/` (one file per domain —
+`AccountFieldConverters.fs`, `IngestionFieldConverters.fs`, `CashFlowFieldConverters.fs`), and
+`Routes/` (one file per domain, each ending in a `CommandRoute list`).
+
+**Converter names are the index.** They read
+`` convert [SourceType] to [TargetType] ``, brackets on both sides, backtick-quoted. Dan scans
+these to see whether a converter already exists before asking for a new one, so the shape of the
+name matters more than its elegance — match the existing entries rather than inventing a tidier
+scheme. Fallible ones return `Result`; the private lookup-and-validate helpers behind them are
+named `fallibleConverterXToY` instead, since they aren't part of that index.
+
+**An entity crosses the boundary under a human-typed key, not a guid.** Accounts go out and come
+back as codes, fiscal periods as period keys, payment agreements as names — each backed by a
+`LookupCache` pair (`Model.LookupCache`, never a hand-written lookup) and a
+`<Concept>DoesntMatch<Id>` `AppError` for the miss. When a new entity needs to be addressable
+from the CLI, it needs such a key: a validated, DB-unique string column, not its uuid. The
+exception is input a machine authors rather than a person — `BaseStageRawRowInput` carries a raw
+guid because the import scripts produce those rows — and that exception is worth a comment at the
+contract, because it reads as an oversight otherwise.
+
+**Mirror the model's shape in the contract; don't invent invariants it doesn't hold.** A model
+DU becomes a contract DU (`ClassificationClaimant` → `ClassificationClaimantInput` /
+`ClassificationClaimantReturn`), because the either/or is real and the compiler should enforce it
+at the edge too. A model record holding two independent options stays two options in the contract
+(`PrioritizedMatch`'s account and payment agreement ids), even when a DU would look neater —
+tightening there would force an error path for states the model permits.
+
 ## No REQ annotations in source
 
 (`CompoundedLearnings/articles/architecture/no-req-annotations-in-source.md`) — settled,
@@ -495,3 +559,13 @@ across `MasterAgreement`, `PaymentAgreement`, and whatever comes next), moving f
 the mechanical parts is the job — the value this skill adds is in recognizing which parts
 *aren't* mechanical: a schema that doesn't decompose cleanly, a type that can't be built
 honestly from one table, an update field that shouldn't exist.
+
+**Work the lines you were pointed at.** Dan often hands off a task by naming a file and a line
+range, mid-refactor, with plenty of half-finished thinking elsewhere in the tree. Reading around
+for context is fine; treating what you find as settled intent is not. His words: "don't go
+looking too far afield while you're doing it or you'll just confuse yourself." Anything broken
+outside the assigned lines gets reported with file and line number, not fixed.
+
+**A review of a commit is a list, not an essay.** When a hand-off includes findings alongside the
+work, order them by what breaks first at runtime, one or two sentences each, always with file and
+line. Dan decides which ones become tasks.
