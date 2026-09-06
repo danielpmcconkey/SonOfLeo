@@ -106,6 +106,9 @@ let projectionSweep // step 2.2.3.0
 type PaymentAgreementClaimCluster = {
     paymentAgreementId: PaymentAgreementId
     claimants: ClassificationRuleComponent.ClassificationResult list
+    // a tied claimant had no tag written for it at all, so resolving it means adding the right tag rather than
+    // removing a wrong one. A cluster can hold both kinds of claimant at once.
+    containsUnwrittenTies: bool
 }
 
 type PaymentAgreementTaggingResult = {
@@ -161,12 +164,13 @@ let pivotClassificationResultsByPaymentAgreement
             result |> paymentAgreementsClaimedBy |> List.map (fun paymentAgreementId -> paymentAgreementId, result))
         |> List.groupBy fst
         |> List.map(fun (paymentAgreementId, pairs) ->
+            let claimants = pairs |> List.map snd
             { paymentAgreementId = paymentAgreementId
-              claimants = pairs |> List.map snd })
-    // a tied row wrote no tag at all (see ClassificationOrchestration.updateDbLinesFromResultsList) and code is not
-    // allowed to break the tie, so every agreement it touched is contested no matter how many rows claimed it
+              claimants = claimants
+              containsUnwrittenTies = claimants |> List.exists isTied })
+    // code is not allowed to break a tie, so a tied claimant contests its agreement however few rows claimed it
     let isContested cluster =
-        cluster.claimants |> List.length > 1 || cluster.claimants |> List.exists isTied
+        cluster.claimants |> List.length > 1 || cluster.containsUnwrittenTies
     { clean = clusters |> List.filter (isContested >> not)
       multiClaimant = clusters |> List.filter isContested
       unmatched = results |> List.filter (fun result -> result |> paymentAgreementsClaimedBy |> List.isEmpty) }
