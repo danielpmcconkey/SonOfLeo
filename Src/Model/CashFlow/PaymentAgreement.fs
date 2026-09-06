@@ -18,6 +18,7 @@ type PaymentAgreement = private {
     debitAccount: DebitAccount
     creditAccount: CreditAccount
     expectedAmount: Money option
+    daysDueAfterInvoiceDate: DaysDueAfterInvoiceDate option
     memo: PaymentAgreementMemo option
     createdAt: Instant
     modifiedAt: Instant
@@ -29,6 +30,7 @@ type PaymentAgreementFieldUpdates = {
     debitAccountUpdate: FieldUpdate<DebitAccount>
     creditAccountUpdate: FieldUpdate<CreditAccount>
     expectedAmountUpdate: FieldUpdate<Money option>
+    daysDueAfterInvoiceDateUpdate: FieldUpdate<DaysDueAfterInvoiceDate option>
     memoUpdate: FieldUpdate<PaymentAgreementMemo option>
 }
 
@@ -38,6 +40,7 @@ let paymentAgreementName p = p.paymentAgreementName
 let debitAccount p = p.debitAccount
 let creditAccount p = p.creditAccount
 let expectedAmount p = p.expectedAmount
+let daysDueAfterInvoiceDate p = p.daysDueAfterInvoiceDate
 let memo p = p.memo
 let createdAt p = p.createdAt
 let modifiedAt p = p.modifiedAt
@@ -49,6 +52,7 @@ let create
     (debitAccount: DebitAccount)
     (creditAccount: CreditAccount)
     (expectedAmount: Money option)
+    (daysDueAfterInvoiceDate: DaysDueAfterInvoiceDate option)
     (memo: PaymentAgreementMemo option)
     (createdAt: Instant)
     (modifiedAt: Instant)
@@ -59,6 +63,7 @@ let create
       debitAccount = debitAccount
       creditAccount = creditAccount
       expectedAmount = expectedAmount
+      daysDueAfterInvoiceDate = daysDueAfterInvoiceDate
       memo = memo
       createdAt = createdAt
       modifiedAt = modifiedAt }
@@ -72,10 +77,10 @@ let insertNewToDb
             """
             insert into cashflow.payment_agreement(
 	            unique_id, master_agreement_id, payment_agreement_name, debit_account, credit_account, expected_amount,
-                memo, created_at, modified_at)
+                days_due_after_invoice, memo, created_at, modified_at)
             values (
 	            @unique_id, @master_agreement_id, @payment_agreement_name, @debit_account, @credit_account,
-                @expected_amount, @memo, @created_at, @modified_at);"""
+                @expected_amount, @days_due_after_invoice, @memo, @created_at, @modified_at);"""
         let uuid = paymentAgreement.paymentAgreementId |> PaymentAgreementId.value
         let masterAgreementUuid = paymentAgreement.masterAgreementID |> MasterAgreementId.value
         let paymentAgreementName = paymentAgreement.paymentAgreementName |> PaymentAgreementName.value
@@ -84,6 +89,8 @@ let insertNewToDb
         let debitAccountUuid = debitAccountId |> AccountId.value
         let creditAccountUuid = creditAccountId |> AccountId.value
         let expectedAmount = paymentAgreement.expectedAmount |> Option.map Money.amount
+        let daysDueAfterInvoiceDate =
+            paymentAgreement.daysDueAfterInvoiceDate |> Option.map DaysDueAfterInvoiceDate.value
         let memo = paymentAgreement.memo |> Option.map PaymentAgreementMemo.value
         let parameters =
             [
@@ -93,6 +100,7 @@ let insertNewToDb
               { name = "@debit_account"; value = UniqueId(debitAccountUuid) }
               { name = "@credit_account"; value = UniqueId(creditAccountUuid) }
               { name = "@expected_amount"; value = NullableNumeric(expectedAmount) }
+              { name = "@days_due_after_invoice"; value = NullableInteger(daysDueAfterInvoiceDate) }
               { name = "@memo"; value = NullableCharString(memo) }
               { name = "@created_at"; value = DbInstant(paymentAgreement.createdAt) }
               { name = "@modified_at"; value = DbInstant(paymentAgreement.modifiedAt) }
@@ -108,6 +116,7 @@ let private reconstitute raw =
              debitAccountUuid,
              creditAccountUuid,
              expectedAmountDec,
+             daysDueAfterInvoiceDateInt,
              memoStr,
              createdAt,
              modifiedAt) =
@@ -118,6 +127,9 @@ let private reconstitute raw =
         let debitAccount = debitAccountUuid |> AccountId.fromGuid |> DebitAccount
         let creditAccount = creditAccountUuid |> AccountId.fromGuid |> CreditAccount
         let! expectedAmount = expectedAmountDec |> convertOptionToDesiredTypeWithFallibleConverter Money.fromDecimal
+        let! daysDueAfterInvoiceDate =
+            daysDueAfterInvoiceDateInt
+            |> convertOptionToDesiredTypeWithFallibleConverter DaysDueAfterInvoiceDate.create
         let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter PaymentAgreementMemo.create
         return
             create
@@ -127,6 +139,7 @@ let private reconstitute raw =
                 debitAccount
                 creditAccount
                 expectedAmount
+                daysDueAfterInvoiceDate
                 memo
                 createdAt
                 modifiedAt
@@ -139,6 +152,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getUuid "debit_account"),
     (row |> RowReader.getUuid "credit_account"),
     (row |> RowReader.getNumericOption "expected_amount"),
+    (row |> RowReader.getIntOption "days_due_after_invoice"),
     (row |> RowReader.getStringOption "memo"),
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
@@ -174,7 +188,7 @@ let private fetchGenericRead
     : Result<PaymentAgreement list, AppError> =
     let select = """
         pa.unique_id, pa.master_agreement_id, pa.payment_agreement_name, pa.debit_account, pa.credit_account,
-        pa.expected_amount, pa.memo, pa.created_at, pa.modified_at
+        pa.expected_amount, pa.days_due_after_invoice, pa.memo, pa.created_at, pa.modified_at
         """
     readRowsFromDb context None select None predicate limit None None parameters expectedRows
 
@@ -242,6 +256,12 @@ let updateDb
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
                   [ ("expected_amount = @expected_amount",
                      { name = "@expected_amount"; value = NullableNumeric(n |> Option.map Money.amount) }) ])
+
+              fieldUpdates.daysDueAfterInvoiceDateUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("days_due_after_invoice = @days_due_after_invoice",
+                     { name = "@days_due_after_invoice"
+                       value = NullableInteger(n |> Option.map DaysDueAfterInvoiceDate.value) }) ])
 
               fieldUpdates.memoUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->

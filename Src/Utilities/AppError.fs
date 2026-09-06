@@ -46,6 +46,8 @@ type AppError =
     | CashflowBlockerNoteTooLong of string * int
     | CashflowCounterpartyIsEmpty of string
     | CashflowCounterpartyTooLong of string * int
+    | CashflowDaysDueAfterInvoiceDateBelowMin of int * int
+    | CashflowDaysDueAfterInvoiceDateExceededMax of int * int
     | CashflowExternalInvoiceIdIsEmpty of string
     | CashflowExternalInvoiceIdTooLong of string * int
     | CashflowInstanceFulfilledWithNoInvoices of Guid
@@ -281,6 +283,8 @@ module AppError =
         | CashflowBlockerNoteTooLong(note, max) -> $"BlockerNote cannot exceed {max} characters. Provided Memo is {note}."
         | CashflowCounterpartyIsEmpty name -> $"Counterparty cannot be empty. Provided name is {name}."
         | CashflowCounterpartyTooLong(name, max) -> $"Counterparty cannot exceed {max} characters. Provided name is {name}."
+        | CashflowDaysDueAfterInvoiceDateBelowMin(raw, min) -> $"Failed to convert {raw} to a DaysDueAfterInvoiceDate as value falls below the minimum allowable value of {min}."
+        | CashflowDaysDueAfterInvoiceDateExceededMax(raw, max) -> $"Failed to convert {raw} to a DaysDueAfterInvoiceDate as value exceeds the maximum allowable value of {max}."
         | CashflowExternalInvoiceIdIsEmpty eid -> $"ExternalInvoiceId cannot be empty. Provided ExternalInvoiceId is {eid}."
         | CashflowExternalInvoiceIdTooLong(eid, max) -> $"ExternalInvoiceId cannot exceed {max} characters. Provided ExternalInvoiceId is {eid}."
         | CashflowInstanceFulfilledWithNoInvoices instanceId -> $"Instance {instanceId} is marked fulfilled but has no Invoices."

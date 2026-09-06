@@ -285,6 +285,18 @@ module ProjectionHorizonInDays =
         | x when x < min -> Error(CashflowProjectionHorizonInDaysBelowMin(raw, min))
         | _ -> Ok({days = raw})
 
+type DaysDueAfterInvoiceDate = private {daysAfter: int}
+
+module DaysDueAfterInvoiceDate =
+    let min = 0
+    let max = 365
+    let value (d: DaysDueAfterInvoiceDate) : int = d.daysAfter
+    let create (raw: int) : Result<DaysDueAfterInvoiceDate, AppError> =
+        match raw with
+        | x when x > max -> Error(CashflowDaysDueAfterInvoiceDateExceededMax(raw, max))
+        | x when x < min -> Error(CashflowDaysDueAfterInvoiceDateBelowMin(raw, min))
+        | _ -> Ok({daysAfter = raw})
+
 type InvoiceDate = { localDate: LocalDate }
 type DueDate = { localDate: LocalDate }
 type PostedToFiDate = { localDate: LocalDate }

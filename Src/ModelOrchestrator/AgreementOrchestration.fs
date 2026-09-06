@@ -349,6 +349,7 @@ let constructNewAndSaveToDb
          CashFlowComponent.DebitAccount *
          CashFlowComponent.CreditAccount *
          Money option *
+         CashFlowComponent.DaysDueAfterInvoiceDate option *
          CashFlowComponent.PaymentAgreementMemo option) list)
     : Result<Agreement, AppError> =
     result {
@@ -361,10 +362,11 @@ let constructNewAndSaveToDb
         do! masterAgreement |> confirmMasterAgreement
         let paymentAgreements =
             paymentAgreementComponentsList
-            |> List.map(fun (paymentAgreementName, debitAccount, creditAccount, expectedAmount, memo) ->
+            |> List.map(fun (paymentAgreementName, debitAccount, creditAccount, expectedAmount,
+                             daysDueAfterInvoiceDate, memo) ->
                 let paymentAgreementId = CashFlowComponent.PaymentAgreementId.create()
                 PaymentAgreement.create paymentAgreementId agreementId paymentAgreementName debitAccount
-                    creditAccount expectedAmount memo now now )
+                    creditAccount expectedAmount daysDueAfterInvoiceDate memo now now )
         do! paymentAgreements |> confirmPaymentAgreements context (masterAgreement |> MasterAgreement.agreementID)
         let agreement =
             { masterAgreement = masterAgreement
@@ -503,9 +505,11 @@ let private isThereAPaymentAgreementUpdate
     : bool =
     paymentAgreementUpdates
     |> List.map (fun u ->
-        u.debitAccountUpdate <> FieldUpdate.NoChange
+        u.paymentAgreementNameUpdate <> FieldUpdate.NoChange
+        || u.debitAccountUpdate <> FieldUpdate.NoChange
         || u.creditAccountUpdate <> FieldUpdate.NoChange
         || u.expectedAmountUpdate <> FieldUpdate.NoChange
+        || u.daysDueAfterInvoiceDateUpdate <> FieldUpdate.NoChange
         || u.memoUpdate <> FieldUpdate.NoChange)
     |> List.exists id
 
