@@ -524,11 +524,15 @@ let ``convert [ClassificationRuleFilterInput] to [ClassificationRuleFilter]``
     let! paymentAgreementAtMatch =
         filterInput.paymentAgreementNameAtMatch
         |> ``convert [PaymentAgreementNameString option] to [PaymentAgreementId option]`` context
+    let! claimantType =
+        filterInput.claimantType
+        |> convertOptionToDesiredTypeWithFallibleConverter ClassificationClaimantType.fromString
     return {
         ruleId = ruleId
         nameLike = nameLike
         accountAtMatch = accountAtMatch
         paymentAgreementAtMatch = paymentAgreementAtMatch
+        claimantType = claimantType
         sourceLike = filterInput.sourceLike
         activeOnly = filterInput.activeOnly
     } }

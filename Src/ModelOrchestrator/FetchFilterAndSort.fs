@@ -57,6 +57,7 @@ type ClassificationRuleFilter =
       nameLike: ClassificationRuleName option
       accountAtMatch: AccountId option
       paymentAgreementAtMatch: PaymentAgreementId option
+      claimantType: ClassificationClaimantType option
       sourceLike: string option
       activeOnly: bool }
 

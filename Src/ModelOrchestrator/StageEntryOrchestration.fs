@@ -358,7 +358,8 @@ let classifyStagedEntries
                     lineType = line |> StageEntryLine.lineType
                     memo = line |> StageEntryLine.memo }))
         let! classificationResults =
-            ClassificationOrchestration.classifyMatchCandidatesAndUpdateLines context matchCandidates
+            matchCandidates
+            |> ClassificationOrchestration.classifyMatchCandidatesAndUpdateLines context AccountClaimant
         // That only updated the lines. This module owns updating the header and adding an audit trail record
         let! _ =
             classificationResults

@@ -125,3 +125,20 @@ type ClassificationResult = {
 type ClassificationClaimant = // what entity gets to "claim" the Staged Entry at match
     | Account of AccountId // used for classifying staged entities into their appropriate JE line accounts
     | PaymentAgreement of CashFlowComponent.PaymentAgreementId // used for classifying staged entities to identify invoice matches
+
+type ClassificationClaimantType = // ClassificationClaimant without the ID, for asking which kind of rule you want
+    | AccountClaimant
+    | PaymentAgreementClaimant
+
+module ClassificationClaimantType =
+
+    let toString c =
+        match c with
+        | AccountClaimant -> "AccountClaimant"
+        | PaymentAgreementClaimant -> "PaymentAgreementClaimant"
+
+    let fromString str =
+        match str with
+        | "AccountClaimant" -> Ok AccountClaimant
+        | "PaymentAgreementClaimant" -> Ok PaymentAgreementClaimant
+        | _ -> Error (IngestionInvalidClassificationClaimantType str)

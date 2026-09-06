@@ -184,6 +184,7 @@ type ClassificationRuleFilterInput =  {
       nameLike: string option
       accountCodeAtMatch: string option
       paymentAgreementNameAtMatch: string option
+      claimantType: string option
       sourceLike: string option
       activeOnly: bool }
 

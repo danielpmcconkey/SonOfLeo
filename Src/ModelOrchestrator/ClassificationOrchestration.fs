@@ -130,7 +130,14 @@ let fetchRulesFiltered
             match filter.activeOnly with
             | true -> "and cr.is_active = true"
             | false -> ""
-            
+
+        // the claimant columns are mutually exclusive, so "is not null" on one of them is the whole test
+        let claimantTypeClause =
+            match filter.claimantType with
+            | None -> ""
+            | Some AccountClaimant -> "and cr.account_at_match is not null"
+            | Some PaymentAgreementClaimant -> "and cr.payment_agreement_at_match is not null"
+
         let orderBy =
             match sort with
             | None -> None
@@ -174,6 +181,7 @@ let fetchRulesFiltered
         let predicate = Some $"""
             {if whereClausesAndParams |> List.isEmpty then "1 = 1" else whereClauses}
             {activeClause}
+            {claimantTypeClause}
         """
         let limit = None
         let parameters = whereClausesAndParams |> List.map snd
@@ -244,11 +252,12 @@ let updateDbLinesFromResultsList
         return ()
         }
     
-/// classifyMatchCandidatesAndUpdateLines only updates the lines. StageEntryOrchestration owns making sure that status
+/// classifyMatchCandidatesAndUpdateLines only updates the lines. The caller owns making sure that status
 /// transitions are viable. This runs the risk of an "orphan" line update if subsequent updates to the entry or audit
 /// table fail. But this should all be under one transaction. Caveat emptor if you use individual transactions for this.
 let classifyMatchCandidatesAndUpdateLines
     (context: Context.Context)
+    (claimantType: ClassificationClaimantType)
     (candidates: MatchCandidate list)
     : Result<ClassificationResult list, AppError> =
     result {
@@ -257,6 +266,7 @@ let classifyMatchCandidatesAndUpdateLines
             nameLike = None
             accountAtMatch = None
             paymentAgreementAtMatch = None
+            claimantType = Some claimantType
             sourceLike = None
             activeOnly = true }
         let! rules = fetchRulesFiltered context ruleFilter None

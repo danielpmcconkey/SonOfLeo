@@ -171,6 +171,7 @@ type AppError =
     | IngestionClassificationRuleNameTooLong of string * int 
     | IngestionClassificationRuleUpdateNoOp
     | IngestionFieldMatchChainEmpty
+    | IngestionInvalidClassificationClaimantType of string
     | IngestionInvalidClassificationGroupConnector of string
     | IngestionInvalidNumericSearchOperator of string
     | IngestionInvalidStagedEntryStatus of string
@@ -419,6 +420,7 @@ module AppError =
         | IngestionClassificationRuleNameTooLong (str, max) -> $"ClassificationRuleName cannot exceed {max} characters. Provided value is {str}."
         | IngestionClassificationRuleUpdateNoOp -> "Updating the ClassificationRule record failed because at least one updatable parameter must be set."
         | IngestionFieldMatchChainEmpty -> "A FieldMatchChain's chain cannot be empty."
+        | IngestionInvalidClassificationClaimantType str -> $"Invalid ClassificationClaimantType of \"{str}\"."
         | IngestionInvalidClassificationGroupConnector str -> $"Invalid ClassificationConnector of \"{str}\"."
         | IngestionInvalidNumericSearchOperator str -> $"Invalid NumericSearchOperator of \"{str}\"."
         | IngestionInvalidStagedEntryStatus str -> $"Provided string of '{str}' is not a valid StagedEntryStatus."
