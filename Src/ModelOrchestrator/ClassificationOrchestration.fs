@@ -348,7 +348,7 @@ let updateClassificationRule
             |> List.choose id
         let setClauses = updates |> List.map fst |> String.concat ", "
         let parameters = baseParams @ (updates |> List.map snd)
-        let query =
+        let queryStatement =
             $"""
             UPDATE ingestion.classification_rule
             set
@@ -357,6 +357,6 @@ let updateClassificationRule
             WHERE unique_id = @unique_id;
         """
         do! if updates.IsEmpty then Error(IngestionClassificationRuleUpdateNoOp) else Ok()
-        let! () = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        let! () = executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
         return! classificationRuleId |> ClassificationRule.fetchById context
     }

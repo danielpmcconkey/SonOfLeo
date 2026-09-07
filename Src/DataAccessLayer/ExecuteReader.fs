@@ -153,7 +153,7 @@ let buildReadQuery
 
 let executeReaderQuery
     (dbTransaction: DbTransaction)
-    (query: string)
+    (queryStatement: string)
     (parameters: QueryParameter list)
     (mapRaw: RowReader -> 'Tuple)
     (constructFromRaw: 'Tuple -> Result<'T, AppError>)
@@ -173,7 +173,7 @@ let executeReaderQuery
                 | true ->
                     let rawRows =
                         use connection = ds.OpenConnection()
-                        use command = new NpgsqlCommand(query, connection)
+                        use command = new NpgsqlCommand(queryStatement, connection)
                         parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
                         use nReader = command.ExecuteReader()
                         readRawRows nReader mapRaw []
@@ -185,7 +185,7 @@ let executeReaderQuery
                         | Error e -> Error e
                         | Ok(tran, conn) ->
                             let rawRows =
-                                use command = new NpgsqlCommand(query, conn)
+                                use command = new NpgsqlCommand(queryStatement, conn)
                                 command.Transaction <- tran
                                 parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
                                 use nReader = command.ExecuteReader()

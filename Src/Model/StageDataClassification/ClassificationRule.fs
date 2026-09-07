@@ -56,7 +56,7 @@ let create
     }
     
 let persist (context: Context.Context) (classificationRule: ClassificationRule) : Result<unit, AppError> =
-    let query =
+    let queryStatement =
         """
         insert into ingestion.classification_rule(
 	        unique_id, rule_name, account_at_match, payment_agreement_at_match, 
@@ -95,7 +95,7 @@ let persist (context: Context.Context) (classificationRule: ClassificationRule) 
               { name = "@created_at"; value = DbInstant createdAt }
               { name = "@modified_at"; value = DbInstant modifiedAt }
             ]
-        return! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        return! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
     }
     
 let private reconstitute raw =
@@ -159,10 +159,10 @@ let query
         cr.rule_groups, cr.is_active, cr.created_at, cr.modified_at
         """
     let from = "ingestion.classification_rule cr"
-    let query = buildReadQuery None select from joinList predicate limit None orderBy
+    let queryStatement = buildReadQuery None select from joinList predicate limit None orderBy
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
-        query
+        queryStatement
         parameters
         mapRawForDbRead
         reconstitute

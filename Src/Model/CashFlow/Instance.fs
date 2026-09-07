@@ -51,7 +51,7 @@ let persist
     (instance: Instance)
     : Result<unit, AppError> =
     result {
-        let query =
+        let queryStatement =
             """
             insert into cashflow.instance(
 	            unique_id, master_agreement_id, instance_date, is_fulfilled, created_at, modified_at)
@@ -68,7 +68,7 @@ let persist
               { name = "@created_at"; value = DbInstant(instance.createdAt) }
               { name = "@modified_at"; value = DbInstant(instance.modifiedAt) }
             ]
-        return! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        return! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
     }
 
 let private reconstitute raw =
@@ -113,10 +113,10 @@ let query
     (expectedRows: AcceptableExpectedRows)
     : Result<Instance list, AppError> =
     let from = "cashflow.instance ins"
-    let query = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
+    let queryStatement = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
-        query
+        queryStatement
         parameters
         mapRawForDbRead
         reconstitute
@@ -180,7 +180,7 @@ let update
         |> List.collect id
     let setClauses = updates |> List.map fst |> String.concat ", "
     let parameters = baseParams @ (updates |> List.map snd)
-    let query =
+    let queryStatement =
         $"""
         UPDATE cashflow.instance
         set
@@ -189,6 +189,6 @@ let update
     """
     result {
         do! if updates |> List.isEmpty then Error(CashflowInstanceUpdateNoOp) else Ok()
-        do! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
         return! instanceId |> fetchById context
     }

@@ -51,7 +51,7 @@ let fetchByAccountIdList
     let accountIdsInString = accountFilters |> List.map fst |> String.concat ", "
     let accountPredicate = if accountIdFilter |> Option.isNone then "" else $"where a.unique_id in ({accountIdsInString})"
     let parameters = asOfParam @ (accountFilters |> List.map snd)
-    let query =
+    let queryStatement =
         $"""
         with line_types as (
             select '{Credit |> JournalEntryLineType.toString}' as line_type
@@ -89,7 +89,7 @@ let fetchByAccountIdList
         let! components =
             executeReaderQuery
                 (context |> Context.getDatabaseTransaction)
-                query
+                queryStatement
                 parameters
                 mapRawForDbRead
                 reconstitute

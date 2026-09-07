@@ -61,7 +61,7 @@ let private voidById
         [ { name = "@modified"; value = DbInstant(now) }
           { name = "@newValue"; value = DbInstant(now) }
           { name = "@unique_id"; value = UniqueId uuid } ]
-    let query =
+    let queryStatement =
         $"""
         UPDATE ledger.journal_entry
         set
@@ -81,7 +81,7 @@ let private voidById
                 else Error (DalResultantRowsDidntMatchExpectation(expected, actual))
             | Error e -> Error e
         do! je |> confirmFiscalPeriodIsStillOpenBeforeVoiding context
-        do! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
     }
 
 let private insertReason

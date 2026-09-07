@@ -66,7 +66,7 @@ let updateFiAndReferenceText
         |> List.choose id
     let setClauses = updates |> List.map fst |> String.concat ""
     let parameters = baseParams @ (updates |> List.map snd)
-    let query =
+    let queryStatement =
         $"""
         UPDATE ledger.journal_entry_ext_reference
         set
@@ -81,6 +81,6 @@ let updateFiAndReferenceText
                 Error(JournalEntryReferenceUpdateNoOp)
             else
                 Ok()
-        let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
         return! journalEntryExternalReferenceId |> fetchById context
     }

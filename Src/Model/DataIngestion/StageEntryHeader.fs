@@ -62,7 +62,7 @@ let persistStatusTransition
     (context: Context.Context)
     (stageEntryStatusTransition: StageEntryStatusTransition.StageEntryStatusTransition)
     : Result<unit, AppError> =
-    let query =
+    let queryStatement =
         """
         insert into ingestion.staged_entry_audit(
 	        unique_id, entry_id, from_status, to_status, modified_at, change_mechanism)
@@ -104,7 +104,7 @@ let persistStatusTransition
           { name = "@modified_at"; value = DbInstant(instant) }
           { name = "@change_mechanism"; value = CharString(stageStatusChangeMechanism) }
         ]
-    executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+    executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
         
 let updateHeaderStatus
     (context: Context.Context)
@@ -138,7 +138,7 @@ let persist
     (stageEntryHeader: StageEntryHeader)
     : Result<unit, AppError> =
     result {
-        let query =
+        let queryStatement =
             """
             insert into ingestion.staged_entry(
 	            unique_id, entry_date, description, source_id, fi_reference, source_file)
@@ -163,7 +163,7 @@ let persist
               { name = "@fi_reference"; value = CharString(fiReference) }
               { name = "@source_file"; value = CharString(sourceFile) }
             ]
-        do! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
         return! stageEntryHeader.stageEntryHeaderId
             |> updateHeaderStatus context initialStatus statusChangeMechanism
     }
@@ -225,10 +225,10 @@ let query
     (expectedRows: AcceptableExpectedRows)
     : Result<StageEntryHeader list, AppError> =
     let from = "ingestion.staged_entry se"
-    let query = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
+    let queryStatement = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
-        query
+        queryStatement
         parameters
         mapRawForDbRead
         reconstitute
@@ -390,7 +390,7 @@ let update
         |> List.choose id
     let setClauses = updates |> List.map fst |> String.concat ", "
     let parameters = baseParams @ (updates |> List.map snd)
-    let query =
+    let queryStatement =
         $"""
         UPDATE ingestion.staged_entry
         set
@@ -405,7 +405,7 @@ let update
                 headerId |> updateHeaderStatus context newStatus mechanism
         let! _ =
             if updates |> List.isEmpty = false
-            then executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+            then executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
             else Ok()
         return! headerId |> fetchById context
     }

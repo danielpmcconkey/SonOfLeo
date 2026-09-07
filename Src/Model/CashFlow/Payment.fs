@@ -74,7 +74,7 @@ let persist
     (payment: Payment)
     : Result<unit, AppError> =
     result {
-        let query =
+        let queryStatement =
             """
             insert into cashflow.payment(
 	            unique_id, invoice_id, journal_entry_header_id, stage_entry_header_id, posted_to_fi_date, memo,
@@ -98,7 +98,7 @@ let persist
               { name = "@created_at"; value = DbInstant(payment.createdAt) }
               { name = "@modified_at"; value = DbInstant(payment.modifiedAt) }
             ]
-        return! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        return! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
     }
 
 let private transactionPointerFromColumns
@@ -187,10 +187,10 @@ let query
     (expectedRows: AcceptableExpectedRows)
     : Result<Payment list, AppError> =
     let from = "cashflow.payment pmt"
-    let query = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
+    let queryStatement = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
-        query
+        queryStatement
         parameters
         mapRawForDbRead
         reconstitute
@@ -295,7 +295,7 @@ let update
         |> List.collect id
     let setClauses = updates |> List.map fst |> String.concat ", "
     let parameters = baseParams @ (updates |> List.map snd)
-    let query =
+    let queryStatement =
         $"""
         UPDATE cashflow.payment
         set
@@ -304,6 +304,6 @@ let update
     """
     result {
         do! if updates |> List.isEmpty then Error(CashflowPaymentUpdateNoOp) else Ok()
-        do! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
         return! paymentId |> fetchById context
     }

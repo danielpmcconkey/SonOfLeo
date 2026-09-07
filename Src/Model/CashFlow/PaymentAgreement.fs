@@ -73,7 +73,7 @@ let persist
     (paymentAgreement: PaymentAgreement)
     : Result<unit, AppError> =
     result {
-        let query =
+        let queryStatement =
             """
             insert into cashflow.payment_agreement(
 	            unique_id, master_agreement_id, payment_agreement_name, debit_account, credit_account, expected_amount,
@@ -105,7 +105,7 @@ let persist
               { name = "@created_at"; value = DbInstant(paymentAgreement.createdAt) }
               { name = "@modified_at"; value = DbInstant(paymentAgreement.modifiedAt) }
             ]
-        return! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        return! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
     }
 
 let private reconstitute raw =
@@ -170,10 +170,10 @@ let query
     (expectedRows: AcceptableExpectedRows)
     : Result<PaymentAgreement list, AppError> =
     let from = "cashflow.payment_agreement pa"
-    let query = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
+    let queryStatement = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
-        query
+        queryStatement
         parameters
         mapRawForDbRead
         reconstitute
@@ -272,7 +272,7 @@ let update
         |> List.collect id
     let setClauses = updates |> List.map fst |> String.concat ", "
     let parameters = baseParams @ (updates |> List.map snd)
-    let query =
+    let queryStatement =
         $"""
         UPDATE cashflow.payment_agreement
         set
@@ -281,7 +281,7 @@ let update
     """
     result {
         do! if updates |> List.isEmpty then Error(CashflowPaymentAgreementUpdateNoOp) else Ok()
-        do! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
         return! paymentAgreementID |> fetchById context
     }
 

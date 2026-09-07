@@ -107,12 +107,12 @@ let updateComment
                 Ok()
         let setClauses = updates |> List.map fst |> String.concat ""
         let parameters = baseParams @ (updates |> List.map snd)
-        let query =
+        let queryStatement =
             $"""    UPDATE ledger.journal_entry_comment
                             set
                                 modified_at = @modified
                                 {setClauses}
                             WHERE unique_id = @unique_id; """
-        let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
         return! journalEntryCommentId |> fetchById context
     }

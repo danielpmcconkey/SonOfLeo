@@ -201,7 +201,7 @@ let fetchFiltered
             |> List.choose id
         let whereClauses = whereClausesAndParams |> List.map fst |> String.concat Environment.NewLine
         let parameters = whereClausesAndParams |> List.map snd
-        let query =
+        let queryStatement =
             $"""
             select
                 a.unique_id as account_id,
@@ -233,7 +233,7 @@ let fetchFiltered
         return!
             executeReaderQuery
                 (context |> Context.getDatabaseTransaction)
-                query
+                queryStatement
                 parameters
                 mapRawForDbRead
                 reconstitute

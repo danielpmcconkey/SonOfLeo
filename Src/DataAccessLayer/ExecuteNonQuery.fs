@@ -10,7 +10,7 @@ open Utilities.ResultHelper
 
 let executeNonQuery
     (dbTransaction: DbTransaction)
-    (query: string)
+    (queryStatement: string)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
     : Result<unit, AppError> =
@@ -27,7 +27,7 @@ let executeNonQuery
                 match dbTransaction |> isNone with
                 | true ->
                     use connection = ds.OpenConnection()
-                    use command = new NpgsqlCommand(query, connection)
+                    use command = new NpgsqlCommand(queryStatement, connection)
                     parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
                     Ok(command.ExecuteNonQuery())
                 | false ->
@@ -36,7 +36,7 @@ let executeNonQuery
                     |> function
                         | Error e -> Error e
                         | Ok(tran, conn) ->
-                            use command = new NpgsqlCommand(query, conn)
+                            use command = new NpgsqlCommand(queryStatement, conn)
                             command.Transaction <- tran
                             parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
                             Ok(command.ExecuteNonQuery())

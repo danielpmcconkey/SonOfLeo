@@ -80,7 +80,7 @@ let persist
     (masterAgreement: MasterAgreement)
     : Result<unit, AppError> =
     result {
-        let query =
+        let queryStatement =
             """
             insert into cashflow.master_agreement(
 	            unique_id, agreement_name, flow_direction, cadence, cadence_week_day, cadence_date_in_month,
@@ -117,7 +117,7 @@ let persist
               { name = "@created_at"; value = DbInstant(masterAgreement.createdAt) }
               { name = "@modified_at"; value = DbInstant(masterAgreement.modifiedAt) }
             ]
-        return! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        return! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
     }
 
 let private reconstitute raw =
@@ -189,10 +189,10 @@ let query
     (expectedRows: AcceptableExpectedRows)
     : Result<MasterAgreement list, AppError> =
     let from = "cashflow.master_agreement ma"
-    let query = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
+    let queryStatement = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
-        query
+        queryStatement
         parameters
         mapRawForDbRead
         reconstitute
@@ -272,7 +272,7 @@ let update
         |> List.collect id
     let setClauses = updates |> List.map fst |> String.concat ", "
     let parameters = baseParams @ (updates |> List.map snd)
-    let query =
+    let queryStatement =
         $"""
         UPDATE cashflow.master_agreement
         set
@@ -281,7 +281,7 @@ let update
     """
     result {
         do! if updates |> List.isEmpty then Error(CashflowMasterAgreementUpdateNoOp) else Ok()
-        do! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
         return! agreementID |> fetchById context
     }
 

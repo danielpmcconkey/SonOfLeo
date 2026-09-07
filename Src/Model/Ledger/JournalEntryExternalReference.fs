@@ -41,7 +41,7 @@ let create
       modifiedAt = modifiedAt }
 
 let persist (context: Context.Context) (externalReference: JournalEntryExternalReference) : Result<unit, AppError> =
-    let query =
+    let queryStatement =
         """
         INSERT INTO ledger.journal_entry_ext_reference(
            unique_id, journal_entry_id, financial_institution, reference, created_at, modified_at)
@@ -60,7 +60,7 @@ let persist (context: Context.Context) (externalReference: JournalEntryExternalR
             value = CharString(externalReference.referenceText |> JournalExternalReferenceText.value) }
           { name = "@created_at"; value = DbInstant externalReference.createdAt }
           { name = "@modified_at"; value = DbInstant externalReference.modifiedAt } ]
-    executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+    executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
 
 
 /// The mapRow function is used to pass into DAL read functions to let DAL know
@@ -115,10 +115,10 @@ let private query
         jer.created_at, jer.modified_at
         """
     let from = "ledger.journal_entry_ext_reference jer"
-    let query = buildReadQuery None select from None predicate limit None orderBy
+    let queryStatement = buildReadQuery None select from None predicate limit None orderBy
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
-        query
+        queryStatement
         parameters
         mapRawForDbRead
         reconstitute

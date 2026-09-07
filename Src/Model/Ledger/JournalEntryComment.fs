@@ -39,7 +39,7 @@ let create
       modifiedAt = modifiedAt }
 
 let persist (context: Context.Context) (comment: JournalEntryComment) : Result<unit, AppError> =
-    let query =
+    let queryStatement =
         """
         INSERT INTO ledger.journal_entry_comment(
             unique_id, journal_primary_entry_id, journal_secondary_entry_id, comment_text, created_at, modified_at)
@@ -56,7 +56,7 @@ let persist (context: Context.Context) (comment: JournalEntryComment) : Result<u
           { name = "@comment_text"; value = CharString(comment.commentText |> CommentText.value) }
           { name = "@created_at"; value = DbInstant comment.createdAt }
           { name = "@modified_at"; value = DbInstant comment.modifiedAt } ]
-    executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+    executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
 
 /// The mapRow function is used to pass into DAL read functions to let DAL know
 /// how to map our query columns. Thus, we don't need to know anything about the
@@ -107,10 +107,10 @@ let private query
             jec.comment_text, jec.created_at, jec.modified_at
         """
     let from = "ledger.journal_entry_comment jec"
-    let query = buildReadQuery None select from None predicate limit None orderBy
+    let queryStatement = buildReadQuery None select from None predicate limit None orderBy
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
-        query
+        queryStatement
         parameters
         mapRawForDbRead
         reconstitute

@@ -150,7 +150,7 @@ let uuidOptionUnboxing (objRaw: obj) : Result<Guid option, AppError> =
 
 let executeScalar
     (dbTransaction: DbTransaction)
-    (query: string)
+    (queryStatement: string)
     (parameters: QueryParameter list)
     (unboxingFunc: obj -> Result<'T, AppError>)
     : Result<'T, AppError> =
@@ -168,7 +168,7 @@ let executeScalar
                     match dbTransaction |> isNone with
                     | true ->
                         use connection = ds.OpenConnection()
-                        use command = new NpgsqlCommand(query, connection)
+                        use command = new NpgsqlCommand(queryStatement, connection)
                         parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
                         Ok (command.ExecuteScalar())
                     | false ->
@@ -176,7 +176,7 @@ let executeScalar
                             dbTransaction
                             |> transactionAndConnection
                             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)) // we do this because we're already inside the boundary of DB try / catch. Result railroad doesn't really work here.
-                        use command = new NpgsqlCommand(query, conn)
+                        use command = new NpgsqlCommand(queryStatement, conn)
                         command.Transaction <- tran
                         parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
                         Ok (command.ExecuteScalar())

@@ -35,7 +35,7 @@ let create
     }
     
 let persist (context: Context.Context) (ingestionSource: IngestionSource) : Result<unit, AppError> =
-    let query =
+    let queryStatement =
         """
         insert into ingestion.source(
 	        unique_id, source_name, created_at, modified_at)
@@ -53,7 +53,7 @@ let persist (context: Context.Context) (ingestionSource: IngestionSource) : Resu
           { name = "@created_at"; value = DbInstant ingestionSource.createdAt }
           { name = "@modified_at"; value = DbInstant ingestionSource.modifiedAt }
         ]
-    executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+    executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
     
 let private reconstitute raw =
     result {
@@ -90,10 +90,10 @@ let private query
         src.unique_id, src.source_name, src.created_at, src.modified_at
         """
     let from = "ingestion.source src"
-    let query = buildReadQuery None select from None predicate limit None None
+    let queryStatement = buildReadQuery None select from None predicate limit None None
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
-        query
+        queryStatement
         parameters
         mapRawForDbRead
         reconstitute

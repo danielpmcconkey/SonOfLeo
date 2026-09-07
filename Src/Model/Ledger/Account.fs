@@ -144,10 +144,10 @@ module Account =
             a.account_subtype, a.parent_id, a.external_ref, a.created_at, a.modified_at
             """
         let from = "ledger.account a"
-        let query = buildReadQuery None select from None predicate limit None None
+        let queryStatement = buildReadQuery None select from None predicate limit None None
         executeReaderQuery
             (context |> Context.getDatabaseTransaction)
-            query
+            queryStatement
             parameters
             mapRawForDbRead
             reconstitute
@@ -157,7 +157,7 @@ module Account =
     /// assumes that the calling function handled all necessary validations to
     /// ensure only legal data states persist
     let persist (context: Context.Context) (account: Account) : Result<unit, AppError> =
-        let query =
+        let queryStatement =
             """
             insert into ledger.account(
 	            unique_id, 
@@ -201,7 +201,7 @@ module Account =
               { name = "@account_subtype"; value = NullableCharString subTypeString }
               { name = "@parent_id"; value = NullableUniqueId parentId }
               { name = "@external_ref"; value = NullableCharString externalReferenceString } ]
-        executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
 
     let fetchById (context: Context.Context) (accountId: AccountId) : Result<Account, AppError> =
         let predicate = "a.unique_id = @unique_id"
@@ -261,7 +261,7 @@ module Account =
         let setClauses = updates |> List.map fst |> String.concat ""
         let parameters = baseParams @ (updates |> List.map snd)
 
-        let query =
+        let queryStatement =
             $"""
             UPDATE ledger.account
             set
@@ -271,7 +271,7 @@ module Account =
         """
         result {
             do! if updates.IsEmpty then Error(AccountUpdateNoOp) else Ok()
-            let! () = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+            let! () = executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
             return! accountId |> fetchById context
         }
 

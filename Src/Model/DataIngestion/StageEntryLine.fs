@@ -93,7 +93,7 @@ let confirmPaymentAgreementId
         | Error e -> Error e
 
 let persist (context: Context.Context) (stageEntryLine: StageEntryLine) : Result<unit, AppError> =
-    let query =
+    let queryStatement =
         """
         insert into ingestion.staged_entry_line (
 	        unique_id, entry_id, amount, line_type, account_id, payment_agreement_id, memo, 
@@ -131,7 +131,7 @@ let persist (context: Context.Context) (stageEntryLine: StageEntryLine) : Result
               { name = "@account_classification_rule_id"; value = NullableUniqueId(accountRuleUuid) }
               { name = "@payment_classification_rule_id"; value = NullableUniqueId(paymentRuleUuid) }
             ]
-        return! executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        return! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
     }
         
 let private reconstitute raw =
@@ -192,10 +192,10 @@ let private query
         sel.memo, sel.account_classification_rule_id, sel.payment_classification_rule_id
         """
     let from = "ingestion.staged_entry_line sel"
-    let query = buildReadQuery None select from None predicate limit None None
+    let queryStatement = buildReadQuery None select from None predicate limit None None
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
-        query
+        queryStatement
         parameters
         mapRawForDbRead
         reconstitute
@@ -300,7 +300,7 @@ let update
             |> List.choose id
         let setClauses = updates |> List.map fst |> String.concat ", "
         let parameters = baseParams @ (updates |> List.map snd)
-        let query =
+        let queryStatement =
             $"""
             UPDATE ingestion.staged_entry_line
             set
@@ -309,7 +309,7 @@ let update
         """
         do! if updates.IsEmpty then Error(IngestionStageEntryLineNoOp) else Ok()
         
-        let! () = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        let! () = executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
         return! stageEntryLineId |> fetchById context
     }
 

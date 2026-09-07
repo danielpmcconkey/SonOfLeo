@@ -23,7 +23,7 @@ let private updateActiveEnd (context: Context.Context) (activeEndUpdate: LocalDa
           { name = "@unique_id"; value = UniqueId uuid }
           { name = "@active_end"; value = NullableDbLocalDate(Some activeEndUpdate) } ]
 
-    let query =
+    let queryStatement =
         $"""
         UPDATE ledger.account
         set
@@ -32,7 +32,7 @@ let private updateActiveEnd (context: Context.Context) (activeEndUpdate: LocalDa
         WHERE unique_id = @unique_id;
     """
     result {
-        let! () = executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+        let! () = executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
         return! accountId |> Account.fetchById context
     }
 
@@ -89,7 +89,7 @@ let private confirmNoJournalEntriesAfterDeactivationDate
     (account: Account)
     : Result<unit, AppError> =
     let accountId = account |> Account.accountId
-    let query =
+    let queryStatement =
         """
         SELECT count(je.entry_date)
         FROM ledger.journal_entry_line jel
@@ -102,7 +102,7 @@ let private confirmNoJournalEntriesAfterDeactivationDate
     let parameters =
         [ { name = "@account_id"; value = UniqueId uuid }
           { name = "@deactivation_date"; value = DbLocalDate deactivationDate } ]
-    match executeScalar (context |> Context.getDatabaseTransaction) query parameters longUnboxing with
+    match executeScalar (context |> Context.getDatabaseTransaction) queryStatement parameters longUnboxing with
     | Error e -> Error e
     | Ok x when x = 0L -> Ok()
     | Ok x when x > 0L -> Error(AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate uuid)

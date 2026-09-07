@@ -100,10 +100,10 @@ let private query
         sea.unique_id, sea.entry_id, sea.from_status, sea.to_status, sea.modified_at, sea.change_mechanism
         """
     let from = "ingestion.staged_entry_audit sea"
-    let query = buildReadQuery None select from None predicate limit None None
+    let queryStatement = buildReadQuery None select from None predicate limit None None
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
-        query
+        queryStatement
         parameters
         mapRawForDbRead
         reconstitute

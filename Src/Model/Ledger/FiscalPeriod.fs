@@ -49,7 +49,7 @@ let create
 /// assumes that the calling function handled all necessary validations to
 /// ensure only legal data states persist
 let persist (context: Context.Context) (fp: FiscalPeriod) : Result<unit, AppError> =
-    let query =
+    let queryStatement =
         """
         insert into ledger.fiscal_period(
             unique_id, period_key, start_date, end_date, is_open, created_at, modified_at)
@@ -65,7 +65,7 @@ let persist (context: Context.Context) (fp: FiscalPeriod) : Result<unit, AppErro
           { name = "@is_open"; value = Boolean fp.isOpen }
           { name = "@created_at"; value = DbInstant fp.createdAt }
           { name = "@modified_at"; value = DbInstant fp.modifiedAt } ]
-    executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+    executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
 
 /// The mapRow function is used to pass into DAL read functions to let DAL know
 /// how to map our query columns. Thus, we don't need to know anything about the
@@ -103,10 +103,10 @@ let private query
     let select =
         "fp.unique_id, fp.period_key, fp.start_date, fp.end_date, fp.is_open, fp.created_at, fp.modified_at"
     let from = "ledger.fiscal_period fp"
-    let query = buildReadQuery None select from None predicate limit None None
+    let queryStatement = buildReadQuery None select from None predicate limit None None
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
-        query
+        queryStatement
         parameters
         mapRawForDbRead
         reconstitute
@@ -130,11 +130,11 @@ let fetchIdByKey (context: Context.Context) (key: string) : Result<FiscalPeriodI
     let constructFromRaw raw =
         let id, _ = raw
         Ok id
-    let query = "select unique_id from ledger.fiscal_period where period_key = @period_key"
+    let queryStatement = "select unique_id from ledger.fiscal_period where period_key = @period_key"
     let parameters = [ { name = "@period_key"; value = CharString key } ]
 
     match
-        executeReaderQuery (context |> Context.getDatabaseTransaction) query parameters mapRaw constructFromRaw ExactlyOne
+        executeReaderQuery (context |> Context.getDatabaseTransaction) queryStatement parameters mapRaw constructFromRaw ExactlyOne
     with
     | Ok x -> Ok(x |> List.head |> FiscalPeriodId.fromGuid)
     | Error(DalResultantRowsDidntMatchExpectation _) -> Error(FiscalPeriodNoPeriodMatchingKey key)
@@ -160,7 +160,7 @@ let private toggleOpenFlagById
           { name = "@unique_id"; value = UniqueId uuid }
           { name = "@newValue"; value = Boolean newValue }
           { name = "@enforcedCurrentValue"; value = Boolean enforcedCurrentValue } ]
-    let query =
+    let queryStatement =
         $"""
         UPDATE ledger.fiscal_period
         set
@@ -171,7 +171,7 @@ let private toggleOpenFlagById
         ;
     """
     result {
-        do! match executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne with
+        do! match executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne with
             | Ok _ -> Ok ()
             | Error (DalResultantRowsDidntMatchExpectation (expected, actual)) ->
                 if actual = 0
