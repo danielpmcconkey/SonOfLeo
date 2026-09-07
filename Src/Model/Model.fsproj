@@ -36,6 +36,7 @@
     <Compile Include="StageDataClassification\ClassificationRuleGroup.fs" />
     <Compile Include="StageDataClassification\ClassificationRule.fs" />
     <Compile Include="StageDataClassification\Classifier.fs" />
+    <Compile Include="StageDataClassification\RuleMatch.fs" />
   </ItemGroup>
 
   <ItemGroup>

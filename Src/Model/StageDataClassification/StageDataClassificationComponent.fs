@@ -15,6 +15,22 @@ module ClassificationRuleId =
     let fromGuid g = ClassificationRuleId g
     let value (ClassificationRuleId g) : Guid = g
 
+/// ClassificationRunId identifies one invocation of the classification engine. There is no run table -- the id is a
+/// bare reference stamped onto that run's RuleMatch rows, which later steps of the Saturday routine read back by it.
+type ClassificationRunId = private ClassificationRunId of Guid
+
+module ClassificationRunId =
+    let create () : ClassificationRunId = ClassificationRunId(Guid.NewGuid())
+    let fromGuid g = ClassificationRunId g
+    let value (ClassificationRunId g) : Guid = g
+
+type ClassificationMatchId = private ClassificationMatchId of Guid
+
+module ClassificationMatchId =
+    let create () : ClassificationMatchId = ClassificationMatchId(Guid.NewGuid())
+    let fromGuid g = ClassificationMatchId g
+    let value (ClassificationMatchId g) : Guid = g
+
 type NumericSearchOperator =
     | GreaterThan
     | LessThan

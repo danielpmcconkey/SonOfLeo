@@ -218,6 +218,22 @@ status-transition side table):
    Wrapping every single-column conversion in a list so one `List.collect` can flatten them all
    makes four fields pay for one; Dan rejected that shape on sight.
 
+**`query` is the function; `queryStatement` is the SQL string.** Every local binding holding
+SQL text — the insert in `persist`, the update in `update`, the hand-written select in a
+one-off fetch — is named `queryStatement`, and the bare word `query` is never used for anything
+but the generic read function above. This isn't cosmetic: before the rename, every entity file
+had a `let private query` whose own body bound `let query = buildReadQuery ...`, so the
+function shadowed itself inside itself. Nothing recursed, so nothing broke, but it read as a
+bug in fifteen files at once. Same for the DAL: `executeNonQuery`, `executeReaderQuery`, and
+`executeScalar` all take a `queryStatement: string`.
+
+**A one-off fetch may shadow `mapRawForDbRead` and `reconstitute` with a local pair.**
+`FiscalPeriod.fetchIdByKey` is the reference: it reads one column into a bare guid rather than
+the full entity, so it binds its own `mapRawForDbRead`/`reconstitute` inside the function and
+passes those to `executeReaderQuery`. Use the canon names for the local pair rather than
+inventing `mapRaw`/`constructFromRaw` — the shadowing is deliberate and F# takes the innermost,
+so the names staying consistent is what makes the intent readable.
+
 **Encode/decode symmetry for a DU that spans several columns.** When one field decomposes into
 multiple DB columns (`Cadence` → `cadence`, `cadence_week_day`, `cadence_date_in_month`,
 `cadence_week_in_month`, `cadence_month`), write the encode direction
@@ -250,6 +266,7 @@ within one file. Before picking one for a new entity, check this list and
 | `cashflow.instance` | `ins` |
 | `cashflow.invoice` | `inv` |
 | `cashflow.payment` | `pmt` |
+| `classification.rule_match` | `rm` |
 | `ingestion.classification_rule` | `cr` |
 | `ingestion.source` | `src` |
 | `ingestion.staged_entry` | `se` |
