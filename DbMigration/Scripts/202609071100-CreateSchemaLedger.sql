@@ -6,4 +6,4 @@ GRANT ALL ON SCHEMA ledger TO sonofleo_{ENV};
 
 GRANT ALL ON SCHEMA ledger TO sonofleo_migrator;
 
-GRANT USAGE, CREATE ON SCHEMA public, ledger TO sonofleo_migrator;
+GRANT USAGE, CREATE ON SCHEMA ledger TO sonofleo_migrator;

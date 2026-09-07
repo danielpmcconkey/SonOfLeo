@@ -6,4 +6,4 @@ GRANT ALL ON SCHEMA classification TO sonofleo_{ENV};
 
 GRANT ALL ON SCHEMA classification TO sonofleo_migrator;
 
-GRANT USAGE, CREATE ON SCHEMA public, classification TO sonofleo_migrator;
+GRANT USAGE, CREATE ON SCHEMA classification TO sonofleo_migrator;

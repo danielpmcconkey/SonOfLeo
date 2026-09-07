@@ -6,4 +6,4 @@ GRANT ALL ON SCHEMA ingestion TO sonofleo_{ENV};
 
 GRANT ALL ON SCHEMA ingestion TO sonofleo_migrator;
 
-GRANT USAGE, CREATE ON SCHEMA public, ingestion TO sonofleo_migrator;
+GRANT USAGE, CREATE ON SCHEMA ingestion TO sonofleo_migrator;
