@@ -8,7 +8,6 @@ open Model
 open Model.CashFlow
 open Model.CashFlow.CashFlowComponent
 open Model.StageDataClassification
-open Model.DataIngestion.StageEntryLine
 open Model.Ledger.AccountComponent
 open ModelOrchestrator.FetchFilters
 open Utilities.AppError
@@ -234,8 +233,39 @@ let fetchRulesFiltered
 //         return ()
 //         }
 
-let classifyMatchCandidatesAndUpdateLines
+// every rule that matched earns a diagnostic row, not only the one priority resolution picked
+let private matchesToRecord (outcome: ClassifierOutcome) : PrioritizedMatch list =
+    match outcome with
+    | NoMatch -> []
+    | OneMatch prioritizedMatch -> [ prioritizedMatch ]
+    | ManyMatchesClearWinner (winner, alsoMatched) -> winner :: alsoMatched
+    | ManyMatchesTied ties -> ties
+
+let private recordRuleMatches
     (context: Context.Context)
+    (runId: ClassificationRunId)
+    (results: ClassificationResult list)
+    : Result<unit, AppError> =
+    results
+    |> List.collect (fun result ->
+        result.outcome
+        |> matchesToRecord
+        |> List.map (fun prioritizedMatch ->
+            let classificationMatchId = ClassificationMatchId.create ()
+            let createdAt = context |> Context.getInitiationInstant
+            RuleMatch.create
+                classificationMatchId
+                runId
+                result.candidate.lineIdOfCandidate
+                prioritizedMatch.ruleId
+                createdAt
+            |> RuleMatch.persist context))
+    |> convertListOfResultsToResultsList
+    |> Result.map ignore
+
+let classifyMatchCandidatesAndRecordMatches
+    (context: Context.Context)
+    (runId: ClassificationRunId)
     (claimantType: ClassificationClaimantType)
     (candidates: MatchCandidate list)
     : Result<ClassificationResult list, AppError> =
@@ -250,6 +280,7 @@ let classifyMatchCandidatesAndUpdateLines
             activeOnly = true }
         let! rules = fetchRulesFiltered context ruleFilter None
         let classificationResults = Classifier.classify rules candidates
+        do! classificationResults |> recordRuleMatches context runId
         return classificationResults
     }
     

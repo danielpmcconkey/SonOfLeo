@@ -6,7 +6,6 @@ open Model.CashFlow
 open Model.CashFlow.CashFlowComponent
 open Model.DataIngestion
 open Model.StageDataClassification
-open Model.Ledger.JournalEntryExternalReference
 open ModelOrchestrator
 open NodaTime
 open Utilities
@@ -190,10 +189,11 @@ let classifyStagedEntriesToPaymentAgreements
                     amount = line |> StageEntryLine.amount
                     lineType = line |> StageEntryLine.lineType
                     memo = line |> StageEntryLine.memo }))
+        let runId = StageDataClassificationComponent.ClassificationRunId.create ()
         let! classificationResults =
             matchCandidates
-            |> ClassificationOrchestration.classifyMatchCandidatesAndUpdateLines
-                context StageDataClassificationComponent.PaymentAgreementClaimant
+            |> ClassificationOrchestration.classifyMatchCandidatesAndRecordMatches
+                context runId StageDataClassificationComponent.PaymentAgreementClaimant
         return classificationResults |> pivotClassificationResultsByPaymentAgreement
     }
 
