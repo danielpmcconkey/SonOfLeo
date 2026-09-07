@@ -92,6 +92,7 @@ type AppError =
     | CashflowPaymentAgreementCreditAccountInvalid of Guid
     | CashflowPaymentAgreementDebitAccountInvalid of Guid
     | CashflowPaymentAgreementIdDoesntExist of Guid
+    | CashflowPaymentAgreementLinkUpdateNoOp
     | CashflowPaymentAgreementMemoIsEmpty of string
     | CashflowPaymentAgreementMemoTooLong of string * int
     | CashflowPaymentAgreementNameDoesntMatchId of string
@@ -334,6 +335,7 @@ module AppError =
         | CashflowPaymentAgreementCreditAccountInvalid uuid -> $"PaymentAgreement's credit account ({uuid}) does not match an Account in the database."
         | CashflowPaymentAgreementDebitAccountInvalid uuid -> $"PaymentAgreement's debit account ({uuid}) does not match an Account in the database."
         | CashflowPaymentAgreementIdDoesntExist uuid -> $"Could not locate a PaymentAgreement with the id of {uuid}."
+        | CashflowPaymentAgreementLinkUpdateNoOp -> "Updating the PaymentAgreementLink record failed because at least one updatable parameter must be set."
         | CashflowPaymentAgreementMemoIsEmpty memo -> $"PaymentAgreementMemo cannot be empty. Provided Memo is {memo}."
         | CashflowPaymentAgreementMemoTooLong(memo, max) -> $"PaymentAgreementMemo cannot exceed {max} characters. Provided Memo is {memo}."
         | CashflowPaymentAgreementNameDoesntMatchId name -> $"PaymentAgreementName of {name} doesn't match a PaymentAgreement ID in the database."

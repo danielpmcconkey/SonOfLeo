@@ -43,17 +43,9 @@ explicit invitation, one task at a time.
   outside the file you were pointed at (a missing accessor, a missing `AppError` case, a type
   that can't represent what the DB row needs), stop and say exactly what's missing and why,
   propose the minimal fix, and wait — unless it falls under a standing permission below.
-- **Comment only what would otherwise get flagged as a bug.** The test isn't "is this
-  non-obvious" — it's "would a reasonable reader, or an auditor agent with no session context,
-  look at this code cold and suspect it's wrong." `Payment.transactionPointerFromColumns`'s
-  `Some journalEntryHeaderUuid, _ ->` arm ignores whether `stageEntryHeaderUuid` is also set —
-  that looks like a missed validation case unless you know a posted payment is *supposed* to
-  carry both ids as its normal terminal state, not a corrupted one. That gets a comment
-  explaining the lifecycle. Most other rationale (a design tradeoff, why one approach was
-  chosen over another) belongs in the hand-off message, not the file — Dan reads that for the
-  "why," and it doesn't need to live in both places. Never restate what a type definition's own
-  comment already says (e.g. `Payment.amount`'s `// not separately tracked in the database`
-  covers that field everywhere it's used).
+- **Comment only what would otherwise get flagged as a bug.** See the Commenting section
+  below — it is the most-violated rule in this file. Rationale goes in the hand-off, not the
+  code.
 
 ## Standing permissions (act, then report — don't ask first)
 
@@ -71,6 +63,70 @@ Anything that changes a type's shape across files it doesn't own, collapses or i
 abstraction (like retiring the `Flow` bundle type), or resolves a genuine architectural
 ambiguity (how should `Obligation`-style composition work, should a field be updatable) is
 Dan's call. Lay out the options and the tradeoff in a sentence or two; don't pick for him.
+
+## Commenting
+
+The most-violated rule in this file. Dan culled 125 lines of `///` and 85 more of other comment
+across 38 files on 2026-09-07 (`d85166a`), then restored exactly two. Write fewer comments than
+feel right.
+
+**Why the bar is this high — Dan's framing, 2026-09-07.** This codebase is written for a human to
+scan, not an LLM to parse. A comment is the *first* thing he reads, because its presence means
+"this is an important message about something non-obvious that you should know." That signal only
+works while it stays rare. Litter the codebase with comments and a human learns to gloss over all
+of them, and the one that actually mattered gets missed.
+
+So comments are a budget, not a courtesy. Every unnecessary one spends attention that a real
+warning needed. Deleting a redundant comment isn't tidying — it's restoring the signal.
+
+**The test that earns one: would a reasonable reader, scanning cold, look at this code and suspect
+it's wrong when it isn't?** Two survivors show the shape:
+
+- `Payment.transactionPointerFromColumns`'s `Some journalEntryHeaderUuid, _ ->` arm ignores
+  whether `stageEntryHeaderUuid` is also set. Reads as a missed validation case unless you know a
+  posted payment is *supposed* to carry both ids as its normal terminal state.
+- `JournalEntryComment.fetchByJournalEntryHeaderIdList` filters on primary header id only. The
+  comment table has two header columns and this ignores one — that reads as an oversight unless
+  you know secondaries are deliberately out of scope for composite assembly.
+
+Both explain a domain fact that makes suspicious-looking code correct. Neither restates the code.
+
+**Four kinds Dan deletes on sight** — his own categories:
+
+1. **F#-tutorial notes.** This project began as Dan learning F#; comments explaining language
+   mechanics have outlived their purpose. `let value (AccountCode ac) = ac // required because
+   AccountCode is a private string` — gone.
+2. **Explanations of an established convention.** Rich "why" comments were written while a
+   pattern was being invented. Once it repeats across domains it teaches itself. Every
+   `/// reconstitute constructs from primitives...`, `/// The mapRow function...`,
+   `/// persist is a function used as an interface to the DAL...` and the standard
+   `/// constructNewAndPersist validates that the components...` block is deleted. **Do not
+   reintroduce them on a new entity.** An earlier version of this file told you to reuse the
+   `constructNewAndPersist` doc verbatim; that rule is retired.
+3. **Restatements of what the code or the name already says.**
+   `// terminal and already-approved statuses are out of scope` above a binding named
+   `eligibleStatuses`. `/// fetchByJournalEntryId returns all comments associated to a Journal
+   Entry`. `// left joins: a rule claims either an account or...` when nearly every join in the
+   app is a left join.
+4. **Anything that can go stale.** `// now update the header and status` on a function that
+   stopped doing that; `// show only those whose end dates are >= today` after the predicate
+   changed. A wrong comment is worse than none.
+
+**No personal life in `Src/`.** No agent names (Hobson, Simian, BD), no "the Saturday routine,"
+no reference to Dan's own process. The code outlives the working arrangement. Say "the caller" or
+"the operator," or name the spec step, or say nothing.
+
+**Length.** Dan's words, 2026-09-07: "you can't seem to say anything concisely and it's REALLY
+starting to bug me." One or two lines. If it needs a paragraph it belongs in the hand-off message.
+
+**Form.** `//` for ordinary comments — `(* *)` is effectively retired, with one instance left in
+`Src/` (`LookupCache.fs:10`). `///` still means a caller-facing caveat that compiles into XML docs
+(`ModelOrchestrator.fsproj` sets `GenerateDocumentationFile=true`): a transaction risk, a "this
+isn't set-based" warning, a deliberate narrowing like the two survivors above. Never a
+restatement.
+
+**Register.** Match Dan's own blunt voice. The point is telling the next reader "this was
+deliberate, move on," not being polite about it.
 
 ## Type taxonomy — decide what you're building before you write it
 
@@ -266,6 +322,7 @@ within one file. Before picking one for a new entity, check this list and
 | `cashflow.instance` | `ins` |
 | `cashflow.invoice` | `inv` |
 | `cashflow.payment` | `pmt` |
+| `cashflow.payment_agreement_link` | `pal` |
 | `classification.rule_match` | `rm` |
 | `ingestion.classification_rule` | `cr` |
 | `ingestion.source` | `src` |
@@ -426,16 +483,9 @@ convention, not a naming taxonomy to reverse-engineer.
 
 **`constructNewAndPersist`** — the orchestrator's validate+create+persist verb (`Model/`'s
 equivalent is `persist`, persistence only). Always fallible, returning `Result` up to
-`InterfaceBridge`, which commits or rolls back the transaction based on the outcome. The
-standard doc comment, reused near-verbatim across the codebase — use it on the "route everything
-through here" constructor for any new entity/composite:
-```fsharp
-/// constructNewAndPersist validates that the components work together to
-/// form a valid whole before adding it to the persistence layer. All new
-/// <Entity> creation should route through here before being sent to the
-/// persistence layer. Internal model functions may construct through other
-/// means if they're operating on known good data.
-```
+`InterfaceBridge`, which commits or rolls back the transaction based on the outcome. It carried a
+standard doc comment on every entity until 2026-09-07, when Dan deleted all eight — the
+convention is established enough to teach itself. **Write no doc comment on a new one.**
 
 **Its parameters are primitives and tuples of primitives, deliberately — don't propose replacing
 them with a record.** The construct half of the verb is what builds the model types, so it can't
@@ -475,7 +525,7 @@ of a multi-step pipeline, but treat calling it as an always-ask, never standing-
 decision: Dan's words, "you better be prepared with a bulletproof rationale... I will revert
 that change on sight."
 
-**Multi-phase pipelines stay one flat `result { }` block with inline phase comments**, not
+**Multi-phase pipelines stay one flat `result { }` block**, not
 split into named helper functions per phase, and not built to aggregate every failure across a
 batch — "fix what broke, try again" is the deliberate policy (Hobson is the only user; this
 isn't a consumer app). Contrast with a create function that has a few cleanly-named
@@ -498,18 +548,7 @@ always `update`; the orchestrator layer names an update for what it updates
 than one `Model/`-level update. Same rule for the other persistence verbs — a bare `persist`,
 `query`, or `delete` in `ModelOrchestrator/` is a naming bug.
 
-**Comment voice**: the "comment only what would otherwise get flagged as a bug" rule (Operating
-rules, above) exists specifically for the post-slice audit gauntlet Dan and Hobson run (~35
-agents). Matching Dan's own blunt, direct register in these comments is fine and expected — the
-point is telling an auditor agent "this was deliberate, move on" efficiently, not being polite
-about it.
-
-**`///` triple-slash comments are caller-facing API notes**, not general explanation —
-`ModelOrchestrator.fsproj` has `GenerateDocumentationFile=true`, so they compile into
-IDE-visible XML docs. Reserve them for a caveat about safely calling the function (a transaction
-risk, a "this isn't set-based" warning), not a restatement of what it does. This isn't strict
-correct XML-doc usage by .NET convention, but it's the established pattern here — follow it
-rather than "fixing" it.
+Commenting rules for this layer are the same as everywhere else — see the Commenting section.
 
 This is where `Obligation` (the composite that will assemble a `MasterAgreement` with its
 `PaymentAgreement` children, once `PaymentAgreement` fetch-by-parent exists) belongs when it's
@@ -556,10 +595,10 @@ tightening there would force an error path for states the model permits.
 (`CompoundedLearnings/articles/architecture/no-req-annotations-in-source.md`) — settled,
 don't re-litigate. Never add a `// REQ-XX-N.N` traceability tag to `.fs` or `.sql`; nothing
 executes a comment, so it's an unverifiable claim about coverage. Test names carry REQ IDs;
-that's the entire traceability mechanism. The one thing that *is* fine: a `(* *)` rationale
-comment that cites a REQ ID to explain *why* code looks the way it does (a workaround, a
-deliberately-dropped check) — that's an explanation for the next reader, not a coverage claim.
-Don't strip an existing one of these because it superficially matches a REQ-annotation sweep.
+that's the entire traceability mechanism. A rationale comment that happens to cite a REQ ID to
+explain *why* code looks the way it does is not a coverage claim and isn't what this rule bans —
+but it still has to earn its place under the Commenting section, and most don't. Dan deleted the
+`REQ-AC-2.16` block in `AccountCreation.fs` on 2026-09-07 and left it deleted.
 
 ## Mechanical checks
 

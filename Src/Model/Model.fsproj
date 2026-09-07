@@ -32,6 +32,7 @@
     <Compile Include="CashFlow\Instance.fs" />
     <Compile Include="CashFlow\Payment.fs" />
     <Compile Include="CashFlow\Invoice.fs" />
+    <Compile Include="CashFlow\PaymentAgreementLink.fs" />
     <Compile Include="StageDataClassification\FieldMatchChain.fs" />
     <Compile Include="StageDataClassification\ClassificationRuleGroup.fs" />
     <Compile Include="StageDataClassification\ClassificationRule.fs" />

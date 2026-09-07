@@ -31,6 +31,12 @@ module PaymentAgreementId =
     let fromGuid g = PaymentAgreementId g
     let value (PaymentAgreementId g) : Guid = g
 
+type PaymentAgreementLinkId = private PaymentAgreementLinkId of Guid
+module PaymentAgreementLinkId =
+    let create () : PaymentAgreementLinkId = PaymentAgreementLinkId(Guid.NewGuid())
+    let fromGuid g = PaymentAgreementLinkId g
+    let value (PaymentAgreementLinkId g) : Guid = g
+
 type InvoiceId = private InvoiceId of Guid
 module InvoiceId =
     let create () : InvoiceId = InvoiceId(Guid.NewGuid())
