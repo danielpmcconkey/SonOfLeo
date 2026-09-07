@@ -119,10 +119,6 @@ let private confirmJournalEntriesAreInProperState
         return ()
     }
 
-/// deactivateAccountById updates the active_end date in the database and returns a
-/// fully reconstituted (and inactive) account. If the caller provides the
-/// explicitEnd, the system will update the active_end to that explicit time.
-/// Otherwise, the active_end will be the system clock time
 let deactivateAccount
     (context: Context.Context)
     (explicitEnd: LocalDate option)

@@ -145,11 +145,6 @@ module JournalEntry =
                 commentText)
         |> convertListOfResultsToResultsList
 
-    /// constructNewAndPersist validates that the components work together to
-    /// form a valid whole before adding it to the persistence layer. All new
-    /// Journal Entry creation should route through here before being sent to the
-    /// persistence layer. Internal model functions may construct through other
-    /// means if they're operating on known good data.
     let constructNewAndPersist
         (context: Context.Context)
         (description: JournalEntryDescription)

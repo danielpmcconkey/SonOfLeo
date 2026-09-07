@@ -7,12 +7,6 @@ open NodaTime
 open Utilities.AppError
 open Utilities.ResultHelper
 
-
-/// constructNewAndPersist validates that the components work together to
-/// form a valid whole before adding it to the persistence layer. All new
-/// account creation should route through here before being sent to the
-/// persistence layer. Internal model functions may construct through other
-/// means if they're operating on known good data.
 let constructNewAndPersist (context: Context.Context) (periodKey: FiscalPeriodKey) : Result<FiscalPeriod.FiscalPeriod, AppError> =
     let fiscalPeriodId = FiscalPeriodId.create()
     let keyString = periodKey |> FiscalPeriodKey.value

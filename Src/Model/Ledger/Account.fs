@@ -25,7 +25,7 @@ type Account =
           createdAt: Instant
           modifiedAt: Instant }
 
-module Account =
+module Account = // todo: remove this extra module wrapper
 
     let accountId (a: Account) = a.accountId
     let code (a: Account) = a.code
@@ -64,12 +64,6 @@ module Account =
           createdAt = createdAt
           modifiedAt = modifiedAt }
 
-    /// reconstitute constructs from primitives, performing zero validation at
-    /// the collective level. All fields are assumed to have come from a
-    /// trusted source (e.g. the database) where such validation occurred at
-    /// the time of writing the entity. Important: no additional DB lookups can
-    /// be triggered inside this function since it is called within a database
-    /// reader.
     let private reconstitute raw =
         result {
             let (uuid,
@@ -112,10 +106,6 @@ module Account =
                     modifiedAt
         }
 
-    /// The mapRow function is used to pass into DAL read functions to let DAL know
-    /// how to map our query columns. Thus, we don't need to know anything about the
-    /// underlying database architecture in this module and the DAL module doesn't
-    /// need to know anything about our module here
     let private mapRawForDbRead (row: RowReader) =
         (row |> RowReader.getUuid "unique_id"),
         (row |> RowReader.getString "code"),
@@ -129,8 +119,6 @@ module Account =
         (row |> RowReader.getInstant "created_at"),
         (row |> RowReader.getInstant "modified_at")
 
-    /// query is designed to produce a flexible read query that can
-    /// satisfy diverse use cases
     let private query
         (context: Context.Context)
         (predicate: string option)
@@ -153,9 +141,6 @@ module Account =
             reconstitute
             expectedRows
 
-    /// persist is a function used as an interface to the DAL. It
-    /// assumes that the calling function handled all necessary validations to
-    /// ensure only legal data states persist
     let persist (context: Context.Context) (account: Account) : Result<unit, AppError> =
         let queryStatement =
             """
@@ -220,8 +205,6 @@ module Account =
         let parameters = [ { name = "@account_type"; value = CharString(accountType |> AccountType.toString) } ]
         query context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-    /// fetchAll returns all accounts or, if activeOnly is true, fetches all accounts
-    /// that are active with respect to the system runtime
     let fetchAll (context: Context.Context) (activeOnly: bool) : Result<Account list, AppError> =
         let predicate = None
         let parameters = []

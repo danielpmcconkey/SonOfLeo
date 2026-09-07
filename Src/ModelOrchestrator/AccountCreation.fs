@@ -45,14 +45,11 @@ let private confirmParentChildRelationship
     (childType: AccountType)
     (referenceDate: LocalDate)
     : Result<unit, AppError> =
-    (*
-     * REQ-AC-2.16
-     * Note, this function no longer validates against circular ancestry. Since the child
-     * ID is always created at the DB insertion, it is impossible for a newly created child
-     * to already have descendents. And, since requirement REQ-AC-4.22 explicitly forbids
-     * reparenting an account, there is no "legal" vector for a circular ancestry chain to
-     * come into being.  
-    *)
+    // Note, this function no longer validates against circular ancestry. Since the child
+    // ID is always created at the DB insertion, it is impossible for a newly created child
+    // to already have descendents. And, since requirement REQ-AC-4.22 explicitly forbids
+    // reparenting an account, there is no "legal" vector for a circular ancestry chain to
+    // come into being.
     match parentId with
     | None -> Ok()
     | Some someParentId ->
@@ -76,11 +73,6 @@ let private confirmTypeAndSubtypeAreValid (accountType: AccountType) (subType: A
             )
         )
 
-/// constructNewAndPersist validates that the components work together to
-/// form a valid whole before adding it to the persistence layer. All new
-/// account creation should route through here before being sent to the
-/// persistence layer. Internal model functions may construct through other
-/// means if they're operating on known good data.
 let constructNewAndPersist
     (context: Context.Context)
     (code: AccountCode)

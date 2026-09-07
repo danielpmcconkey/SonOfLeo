@@ -53,4 +53,3 @@ let constructNewAndPersist
         return line
     }
 
-// todo find out why we have no edit functions on JE line

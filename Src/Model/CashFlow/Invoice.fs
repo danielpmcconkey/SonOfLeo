@@ -278,9 +278,6 @@ let fetchByInstanceIdList
     let predicate = $"inv.instance_id in ({names})"
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-/// update is incredibly powerful and should only be used very deliberately. It will let you update your database in a
-/// type-unsafe manner. Only use it with controlled database transactions and with certainty that you are validating
-/// your resultant data state appropriately.
 let update
     (context: Context.Context)
     (fieldUpdates: InvoiceFieldUpdates)

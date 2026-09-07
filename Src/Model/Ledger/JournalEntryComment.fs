@@ -58,10 +58,6 @@ let persist (context: Context.Context) (comment: JournalEntryComment) : Result<u
           { name = "@modified_at"; value = DbInstant comment.modifiedAt } ]
     executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
 
-/// The mapRow function is used to pass into DAL read functions to let DAL know
-/// how to map our query columns. Thus, we don't need to know anything about the
-/// underlying database architecture in this module and the DAL module doesn't
-/// need to know anything about our module here
 let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getUuid "unique_id"),
     (row |> RowReader.getUuid "journal_primary_entry_id"),
@@ -70,12 +66,6 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
-/// reconstitute constructs from primitives, performing zero validation at
-/// the collective level. All fields are assumed to have come from a
-/// trusted source (e.g. the database) where such validation occurred at
-/// the time of writing the entity. Important: no additional DB lookups can
-/// be triggered inside this function since it is called within a database
-/// reader.
 let private reconstitute raw : Result<JournalEntryComment, AppError> =
     let id, primaryJeId, secondaryJeId, commentTextStr, createdAt, modifiedAt = raw
     let journalEntryCommentId = id |> JournalEntryCommentId.fromGuid
@@ -125,9 +115,6 @@ let fetchById
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     query context (Some predicate) None None parameters ExactlyOne |> Result.map List.head
 
-/// fetchByJournalEntryId returns all comments associated to a Journal
-/// Entry, whether as the primary or secondary, ordered by comment create
-/// instant
 let fetchByJournalEntryId
     (context: Context.Context)
     (journalEntryId: JournalEntryHeaderId)
@@ -139,10 +126,6 @@ let fetchByJournalEntryId
     let orderBy = "created_at"
     query context (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable
 
-/// fetchByJournalEntryHeaderIdList only pull comments whose primary header ID is in the ID list because its
-/// purpose in this code base is to facilitate rapid assembly of full journal entry composite entities. If a header
-/// ID is referenced in a comment as a secondary, but that comment's primary header ID isn't already in the list of
-/// header IDs to pull for, then that comment isn't needed in the final assembly.
 let fetchByJournalEntryHeaderIdList
     (context: Context.Context)
     (journalEntryHeaderIds: JournalEntryHeaderId list)

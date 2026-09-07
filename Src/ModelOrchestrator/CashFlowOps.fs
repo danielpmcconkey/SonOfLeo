@@ -13,11 +13,6 @@ open Utilities
 open Utilities.AppError
 open Utilities.ResultHelper
 
-(*
-    CashFlowOps represents the activities that the operator will perform every time we run finances (the saturday
-    routine)
-*)
-
 let rec private fillInstanceDatesToCutOff
     (nextDate: LocalDate)
     (cutOffDate: LocalDate)
@@ -163,15 +158,12 @@ let pivotClassificationResultsByPaymentAgreement
       multiClaimant = clusters |> List.filter isContested
       unmatched = results |> List.filter (fun result -> result |> paymentAgreementsClaimedBy |> List.isEmpty) }
 
-/// classifyStagedEntriesToPaymentAgreements is additive tagging only. It never promotes an entry or writes a header
-/// status: a NoMatch here is the normal outcome for the great majority of staged entries, since most of them aren't
-/// obligations at all. That is the opposite of the account pass, where an unmatched line means the entry isn't done.
+/// classifyStagedEntriesToPaymentAgreements does not update a stage entry's status. That belongs to the data ingestion
+/// domain.
 let classifyStagedEntriesToPaymentAgreements
     (context: Context.Context)
     : Result<StageDataClassificationComponent.PaymentAgreementTaggingResult, AppError> =
     result {
-        // terminal and already-approved statuses are out of scope; a tag can't help an entry that's posted, ignored,
-        // duplicated, or already signed off for posting
         let eligibleStatuses =
             [ StageEntryComponent.Ingested
               StageEntryComponent.Classified

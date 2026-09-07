@@ -98,8 +98,8 @@ type AgreementFilter = {
     agreementIds: MasterAgreementId list option
     agreementNames: AgreementName list option
     direction: FlowDirection option
-    activeAgreementsOnly: bool // show only those whose end dates are >= today
-    accountIds: AccountId list option // either payment agreement debit or payment agreement credit
+    activeAgreementsOnly: bool
+    accountIds: AccountId list option // this will fetch payment agreements whose debit OR credit accounts match
     paymentAgreementExpectedAmount: AmountFilter option
     instanceTemporalFilter: TemporalFilter option
     externalInvoiceId: ExternalInvoiceId option

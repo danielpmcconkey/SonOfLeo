@@ -5,7 +5,6 @@ open Model.Ledger.JournalEntryComponent
 open Utilities.AppError
 open Utilities.ResultHelper
 
-
 let private confirmEntryDateIsInOpenFiscalPeriod (context: Context.Context) (entryDate: EntryDate) : Result<unit, AppError> =
     result {
         let! fiscalPeriod = entryDate |> EntryDate.fiscalPeriodId |> FiscalPeriod.fetchById context

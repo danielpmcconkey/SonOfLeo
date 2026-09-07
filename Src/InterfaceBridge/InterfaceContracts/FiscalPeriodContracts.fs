@@ -2,7 +2,6 @@ module InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
 
 open NodaTime
 
-// return
 type FiscalPeriodReturn =
     {
       periodKey: string

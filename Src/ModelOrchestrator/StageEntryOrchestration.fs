@@ -281,13 +281,9 @@ let updateHeaderFromClassificationResults
     (resultsAtHeader: ClassificationResult list)
     (headerId: StageEntryHeaderId)
     : Result<unit, AppError> =
-    (*
-      - All result types resolve to either matched, unmatched, or tied
-      - If all lines are matched then the new status is Classified.
-      - If any one line is tied, then it's Conflict
-      - Otherwise, you know that you either have all unmatched or some matched / some unmatched. That result should be
-        statused as NoMatch
-    *)
+    // All result types resolve to either matched, unmatched, or tied. If all lines are matched then the new status is
+    // Classified. If any one line is tied, then it's Conflict. Otherwise, you know that you either have all unmatched
+    // or some matched / some unmatched. That result should be statused as NoMatch
     let isMatch (result:ClassificationResult) : bool =
         match result.outcome with
         | OneMatch _ | ManyMatchesClearWinner _ -> true

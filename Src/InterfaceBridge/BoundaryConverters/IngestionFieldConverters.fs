@@ -143,7 +143,6 @@ let ``convert [FieldMatch] to [FieldMatchContract]``
     | FieldMatch.Memo pattern -> FieldMatchContract.Memo (pattern |> StringSearchPattern.value)
     | FieldMatch.LineType pattern -> FieldMatchContract.LineType (pattern |> JournalEntryLineType.toString)
     | FieldMatch.Amount pattern ->
-        //let moneySearchPattern = FieldMatchContract.Amount
         let numericSearchOperator = pattern.numericSearchOperator |> NumericSearchOperator.toString
         let amount = pattern.amount |> Money.amount
         FieldMatchContract.Amount {

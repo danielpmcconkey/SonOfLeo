@@ -19,7 +19,7 @@ type FiscalPeriod =
           isOpen: bool
           createdAt: Instant
           modifiedAt: Instant }
-// accessors
+
 let fiscalPeriodId fp = fp.fiscalPeriodId
 let periodKey fp = fp.periodKey
 let startDate fp = fp.startDate
@@ -45,9 +45,6 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
-/// persist is a private function used as an interface to the DAL. It
-/// assumes that the calling function handled all necessary validations to
-/// ensure only legal data states persist
 let persist (context: Context.Context) (fp: FiscalPeriod) : Result<unit, AppError> =
     let queryStatement =
         """
@@ -67,10 +64,6 @@ let persist (context: Context.Context) (fp: FiscalPeriod) : Result<unit, AppErro
           { name = "@modified_at"; value = DbInstant fp.modifiedAt } ]
     executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
 
-/// The mapRow function is used to pass into DAL read functions to let DAL know
-/// how to map our query columns. Thus, we don't need to know anything about the
-/// underlying database architecture in this module and the DAL module doesn't
-/// need to know anything about our module here
 let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getUuid "unique_id"),
     (row |> RowReader.getString "period_key"),
@@ -91,8 +84,6 @@ let private reconstitute raw =
           createdAt = createdAt
           modifiedAt = modifiedAt }
 
-/// query is designed to produce a flexible read query that can
-/// satisfy diverse use cases
 let private query
     (context: Context.Context)
     (predicate: string option)
@@ -121,9 +112,6 @@ let fetchById (context: Context.Context) (id: FiscalPeriodId) : Result<FiscalPer
     | Error (DalResultantRowsDidntMatchExpectation _) -> Error (FiscalPeriodNoPeriodMatchingId uuid)
     | Error e -> Error e
 
-/// fetchIdByKey should only be used sparingly, as it goes against
-/// the doctrine that the model deals in UUIDs while the boundary
-/// does the translation between keys and IDs
 let fetchIdByKey (context: Context.Context) (key: string) : Result<FiscalPeriodId, AppError> =
     let mapRawForDbRead (row: RowReader) =
         (row |> RowReader.getUuid "unique_id"), ()

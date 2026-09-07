@@ -3,11 +3,6 @@ module Model.Ledger.AccountComponent
 open System
 open Utilities.AppError
 
-(*
- * This module defines simple types that are used by the Account type. It really
- * only exists as a separate module because Account was getting huge
- *)
-
 type AccountId = private AccountId of Guid
 module AccountId =
     let create () : AccountId = AccountId(Guid.NewGuid())
@@ -18,7 +13,7 @@ type AccountCode = private AccountCode of string
 
 module AccountCode =
     let maxLength = 10
-    let value (AccountCode ac) = ac // required because AccountCode is a private string
+    let value (AccountCode ac) = ac
     let create (raw: string) : Result<AccountCode, AppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
@@ -32,7 +27,7 @@ type AccountName = private AccountName of string
 
 module AccountName =
     let maxLength = 100
-    let value (AccountName an) = an // required because AccountName is a private string
+    let value (AccountName an) = an
     let create (raw: string) : Result<AccountName, AppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
@@ -144,7 +139,7 @@ type AccountExternalReference = private AccountExternalReference of string
 
 module AccountExternalReference =
     let maxLength = 50
-    let value (AccountExternalReference reference) = reference // required due to private value
+    let value (AccountExternalReference reference) = reference
     let create (raw: string) : Result<AccountExternalReference, AppError> =
         let trimmed = raw.Trim()
         if trimmed = String.Empty then

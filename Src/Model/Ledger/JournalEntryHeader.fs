@@ -66,15 +66,9 @@ let persist (context: Context.Context) (journalEntry: JournalEntryHeader) : Resu
           { name = "@modified_at"; value = DbInstant journalEntry.modifiedAt } ]
     executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
 
-/// The mapRow function is used to pass into DAL read functions to let DAL know
-/// how to map our query columns. Thus, we don't need to know anything about the
-/// underlying database architecture in this module and the DAL module doesn't
-/// need to know anything about our module here
 let private mapRawForDbRead (row: RowReader) =
-    (*
-     * Note, we intentionally don't pull the fiscal period ID because
-     * the FP is embedded into the EntryDate type
-     *)
+    // Note, we intentionally don't pull the fiscal period ID because
+    // the FP is embedded into the EntryDate type
     (row |> RowReader.getUuid "unique_id"),
     (row |> RowReader.getString "description"),
     (row |> RowReader.getStringOption "je_source"),

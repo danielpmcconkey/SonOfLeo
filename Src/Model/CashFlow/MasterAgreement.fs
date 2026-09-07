@@ -213,9 +213,6 @@ let fetchById (context: Context.Context) (agreementID: MasterAgreementId) : Resu
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
-/// update is incredibly powerful and should only be used very deliberately. It will let you update your database in a
-/// type-unsafe manner. Only use it with controlled database transactions and with certainty that you are validating
-/// your resultant data state appropriately.
 let update
     (context: Context.Context)
     (fieldUpdates: MasterAgreementFieldUpdates)

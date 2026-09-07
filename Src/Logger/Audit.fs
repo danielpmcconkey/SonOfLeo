@@ -29,11 +29,10 @@ type AuditableAction =
     | JournalEntryUpdateComment
 
 type AuditEnvelope =
-    private // intentionally private to prevent tampering
+    private
         { uniqueId: Guid
           action: AuditableAction
           instant: Instant
-        // todo: add input params to AuditEnvelope as json
         }
 
 module AuditEnvelope =

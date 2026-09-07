@@ -15,8 +15,6 @@ module ClassificationRuleId =
     let fromGuid g = ClassificationRuleId g
     let value (ClassificationRuleId g) : Guid = g
 
-/// ClassificationRunId identifies one invocation of the classification engine. There is no run table -- the id is a
-/// bare reference stamped onto that run's RuleMatch rows, which later steps of the Saturday routine read back by it.
 type ClassificationRunId = private ClassificationRunId of Guid
 
 module ClassificationRunId =
@@ -81,10 +79,8 @@ module StringSearchPattern =
     let maxLength = 500
     let value (StringSearchPattern reference) = reference 
     let create (raw: string) : Result<StringSearchPattern, AppError> =
-        (*
-         Note, every other string-to-type create function trims the inbound string. Here, we should not. We use
-         StringSearchPattern in a regex string comparison and white space is probably meaningful in that context. 
-        *)
+        // Note, every other string-to-type create function trims the inbound string. Here, we should not. We use
+        // StringSearchPattern in a regex string comparison and white space is probably meaningful in that context.
         if raw = String.Empty then
             Error(IngestionSearchPatternIsEmpty raw)
         elif raw.Length > maxLength then

@@ -146,7 +146,6 @@ let fetchRulesFiltered
             | Some PriorityAsc -> Some "cr.priority asc"
             | Some PriorityDesc -> Some "cr.priority desc"
         
-        // left joins: a rule claims either an account or a payment agreement, so the other column is always null
         let join =
             Some [ "left join ledger.account a on cr.account_at_match = a.unique_id"
                    "left join cashflow.payment_agreement pa on cr.payment_agreement_at_match = pa.unique_id" ]
@@ -236,7 +235,6 @@ let updateDbLinesFromResultsList
     (results: ClassificationResult list)
     : Result<unit, AppError> =
     result {
-        // first update the line
         let! _ =
             results
             |> List.map (fun result ->
@@ -248,7 +246,6 @@ let updateDbLinesFromResultsList
                     | ManyMatchesTied _ -> Ok () // no line update today
                 )
             |> convertListOfResultsToResultsList
-        // now update the header and status
         return ()
         }
     
@@ -314,7 +311,7 @@ let updateClassificationRule
         do! match ruleGroupsUpdate with
             | NoChange -> Ok ()
             | SetTo x -> x |> confirmRuleGroups
-        let! groupStr = // do this up here because it's a pain in the ass to do it down in the updates block
+        let! groupStr =
             match ruleGroupsUpdate with
             | NoChange -> Ok ""
             | SetTo x -> x |> Json.toJson<ClassificationRuleGroup list> 

@@ -125,7 +125,7 @@ type BlockerNote = private BlockerNote of string
 
 module BlockerNote =
     let maxLength = 500
-    let value (BlockerNote an) = an // required because BlockerNote is a private string
+    let value (BlockerNote an) = an
     let create (raw: string) : Result<BlockerNote, AppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
@@ -160,7 +160,7 @@ type AgreementName = private AgreementName of string
 
 module AgreementName =
     let maxLength = 100
-    let value (AgreementName an) = an // required because AgreementName is a private string
+    let value (AgreementName an) = an 
     let create (raw: string) : Result<AgreementName, AppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
@@ -170,7 +170,6 @@ module AgreementName =
         else
             Ok(AgreementName trimmed)
 
-// unique across the whole table, so a name typically carries its MasterAgreement's name for context
 type PaymentAgreementName = private PaymentAgreementName of string
 
 module PaymentAgreementName =

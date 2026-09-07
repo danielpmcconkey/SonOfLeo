@@ -9,10 +9,7 @@ open Utilities.AppError
 open Utilities.ResultHelper
 open Model.StageDataClassification.StageDataClassificationComponent
 
-/// RuleMatch: one classification rule matched one staged entry line during one classification run. Matches only -- a
-/// line that matched nothing gets no row, so the absence of a row says nothing about whether the line was even a
-/// candidate. The classification step returns its full result list for that; this table is the durable diagnostic
-/// Hobson reads when a rule misbehaves. Rows are never updated: a run is a historical fact, so there is deliberately
+/// RuleMatch: is the durable record of a classification run. A run is a historical fact, so there is deliberately
 /// no update function or FieldUpdates record here.
 type RuleMatch = private {
     classificationMatchId: ClassificationMatchId
@@ -116,10 +113,6 @@ let fetchByRunId (context: Context.Context) (runId: ClassificationRunId) : Resul
     let parameters = [ { name = "@run_id"; value = UniqueId runUuid } ]
     query context None (Some predicate) None parameters None AnyQuantityIsAcceptable
 
-/// fetchByRunIdAndClaimantType is the read the Saturday routine actually uses: account resolution wants only the rows
-/// whose rule claimed an account, payment agreement resolution only the rows whose rule claimed a payment agreement.
-/// Claimant type is not stored anywhere -- the two claimant columns on the rule are mutually exclusive, so testing one
-/// for null is the whole test.
 let fetchByRunIdAndClaimantType
     (context: Context.Context)
     (runId: ClassificationRunId)

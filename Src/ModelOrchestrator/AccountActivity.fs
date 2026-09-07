@@ -60,7 +60,6 @@ let private reconstitute raw =
     // in SQL together. If line ID is present, we can assume the entire JE line
     // is a valid JE line type, where certain fields are non-optional. This is
     // here as an exception. Option.get shouldn't be considered part of your everyday carry
-
     let (accountUuid,
          accountCodeString,
          accountNameString,

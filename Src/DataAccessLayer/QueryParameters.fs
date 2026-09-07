@@ -79,7 +79,9 @@ let private convertParamToDbParam (parameter: QueryParameter) : NpgsqlParameter 
             | Some b -> box b
             | None -> box DBNull.Value
     let p = NpgsqlParameter(parameter.name, dbType)
-    p.Value <- value // necessary because NpgsqlParameter doesn't take a value in its constructor
+    // updating the Value property is necessary mutability because NpgsqlParameter doesn't take a value in its
+    // constructor. This is acceptable as it's the boundary where FP and imperative meet in the shared .net framework
+    p.Value <- value
     p
 
 let internal buildParamsList (parameters: QueryParameter list) : NpgsqlParameter list =

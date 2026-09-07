@@ -18,11 +18,9 @@ let executeNonQuery
         let! ds = dataSource.Value
         let parameters = buildParamsList parameters
         let! numRows =
-            (*
-             * standard dotnet I/O libraries throw standard dotnet exceptions
-             * we use a try/with block to convert their results into more
-             * paradigmatic F# Result Ok/Error at the impure boundary
-             *)
+            // standard dotnet I/O libraries throw standard dotnet exceptions
+            // we use a try/with block to convert their results into more
+            // paradigmatic F# Result Ok/Error at the impure boundary
             try
                 match dbTransaction |> isNone with
                 | true ->

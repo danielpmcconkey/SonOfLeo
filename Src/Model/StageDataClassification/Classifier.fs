@@ -34,11 +34,9 @@ let classify
     (rules: ClassificationRule list)
     (candidates: MatchCandidate list)
     : ClassificationResult list =
-    (*
-    At the start, we ensure that the list is active only. We do *not* check that the account code is already None.
-    Presumably, someone sent us this list to classify. We're not overwriting, just letting the caller know which rules
-    matched. We also don't sort here. We let the caller figure out what to do with multiple matches
-     *)
+    // At the start, we ensure that the list is active only. We do *not* check that the account code is already None.
+    // Presumably, someone sent us this list to classify. We're not overwriting, just letting the caller know which
+    // rules matched. We also don't sort here. We let the caller figure out what to do with multiple matches
     let rulesActive =
         rules
         |> List.filter(isActive)

@@ -19,7 +19,6 @@ let private confirmJournalEntryIdIsReal
     | Error (DalResultantRowsDidntMatchExpectation _) ->
         Error (JournalEntryHeaderIdDoesntExist(journalEntryHeaderId |> JournalEntryHeaderId.value))
     | Error e -> Error e
-    
 
 let private confirmFiscalPeriodIsStillOpenBeforeVoiding
     (context: Context.Context)
