@@ -27,8 +27,8 @@ type Payment = private {
 
 type PaymentFieldUpdates = {
     paymentIdToUpdate: PaymentId
-    journalEntryHeaderIdUpdate: FieldUpdate<JournalEntryHeaderId option>
-    stageEntryHeaderIdUpdate: FieldUpdate<StageEntryHeaderId option>
+    journalEntryLineIdUpdate: FieldUpdate<JournalEntryLineId option>
+    stageEntryLineIdUpdate: FieldUpdate<StageEntryLineId option>
     postedToFiDateUpdate: FieldUpdate<LocalDate option>
     memoUpdate: FieldUpdate<PaymentMemo option>
 }
@@ -66,8 +66,8 @@ let create
 
 let private transactionPointerToColumns (transactionPointer: TransactionPointer) : Guid option * Guid option =
     match transactionPointer with
-    | CashFlowComponent.Posted journalEntryHeaderId -> (journalEntryHeaderId |> JournalEntryHeaderId.value |> Some), None
-    | CashFlowComponent.Staged stageEntryHeaderId -> None, (stageEntryHeaderId |> StageEntryHeaderId.value |> Some)
+    | CashFlowComponent.Posted journalEntryLineId -> (journalEntryLineId |> JournalEntryLineId.value |> Some), None
+    | CashFlowComponent.Staged stageEntryLineId -> None, (stageEntryLineId |> StageEntryLineId.value |> Some)
 
 let persist
     (context: Context.Context)
@@ -77,22 +77,22 @@ let persist
         let queryStatement =
             """
             insert into cashflow.payment(
-	            unique_id, invoice_id, journal_entry_header_id, stage_entry_header_id, posted_to_fi_date, memo,
+	            unique_id, invoice_id, journal_entry_line_id, stage_entry_line_id, posted_to_fi_date, memo,
                 created_at, modified_at)
             values (
-	            @unique_id, @invoice_id, @journal_entry_header_id, @stage_entry_header_id, @posted_to_fi_date, @memo,
+	            @unique_id, @invoice_id, @journal_entry_line_id, @stage_entry_line_id, @posted_to_fi_date, @memo,
                 @created_at, @modified_at);"""
         let uuid = payment.paymentId |> PaymentId.value
         let invoiceUuid = payment.invoiceId |> InvoiceId.value
-        let journalEntryHeaderUuid, stageEntryHeaderUuid = payment.transactionPointer |> transactionPointerToColumns
+        let journalEntryLineUuid, stageEntryLineUuid = payment.transactionPointer |> transactionPointerToColumns
         let memo = payment.memo |> Option.map PaymentMemo.value
         let postedToFiDate = payment.postedToFiDate |> Option.map _.localDate
         let parameters =
             [
               { name = "@unique_id"; value = UniqueId(uuid) }
               { name = "@invoice_id"; value = UniqueId(invoiceUuid) }
-              { name = "@journal_entry_header_id"; value = NullableUniqueId(journalEntryHeaderUuid) }
-              { name = "@stage_entry_header_id"; value = NullableUniqueId(stageEntryHeaderUuid) }
+              { name = "@journal_entry_line_id"; value = NullableUniqueId(journalEntryLineUuid) }
+              { name = "@stage_entry_line_id"; value = NullableUniqueId(stageEntryLineUuid) }
               { name = "@posted_to_fi_date"; value = NullableDbLocalDate(postedToFiDate) }
               { name = "@memo"; value = NullableCharString(memo) }
               { name = "@created_at"; value = DbInstant(payment.createdAt) }
@@ -102,32 +102,32 @@ let persist
     }
 
 let private transactionPointerFromColumns
-    (journalEntryHeaderUuid: Guid option)
-    (stageEntryHeaderUuid: Guid option)
+    (journalEntryLineUuid: Guid option)
+    (stageEntryLineUuid: Guid option)
     : Result<TransactionPointer, AppError> =
     // Note: it is not an illegal state for the database to have both a stage reference and a ledger reference. Both
     // being populated is the normal end state, not corruption. The standard lifecycle is for the data ingestion to load
     // the FI transaction into stage and run the classifier. Then the operator will review obligations to see if any of
     // the staged transactions represent a new payment. At which point, the operator will add a new payment record into
     // the database with the link to stage. The operator will use this knowledge to update the account code in stage
-    // before posting to the ledger. Once posted, the ledger's JournalEntryHeaderId will be known and the operator will
+    // before posting to the ledger. Once posted, the ledger's JournalEntryLineId will be known and the operator will
     // close the loop by updating the payment record. Terminal state on happy path includes both values.
-    match journalEntryHeaderUuid, stageEntryHeaderUuid with
-    | Some journalEntryHeaderUuid, _ ->
-        journalEntryHeaderUuid |> JournalEntryHeaderId.fromGuid |> CashFlowComponent.Posted |> Ok
-    | None, Some stageEntryHeaderUuid ->
-        stageEntryHeaderUuid |> StageEntryHeaderId.fromGuid |> CashFlowComponent.Staged |> Ok
+    match journalEntryLineUuid, stageEntryLineUuid with
+    | Some journalEntryLineUuid, _ ->
+        journalEntryLineUuid |> JournalEntryLineId.fromGuid |> CashFlowComponent.Posted |> Ok
+    | None, Some stageEntryLineUuid ->
+        stageEntryLineUuid |> StageEntryLineId.fromGuid |> CashFlowComponent.Staged |> Ok
     | None, None ->
         Error(
             CashflowInvalidPaymentTransactionPointerRow
-                "neither journal_entry_header_id nor stage_entry_header_id was set; at least one must be set.")
+                "neither journal_entry_line_id nor stage_entry_line_id was set; at least one must be set.")
 
 let private reconstitute raw =
     result {
         let (uuid,
              invoiceUuid,
-             journalEntryHeaderUuid,
-             stageEntryHeaderUuid,
+             journalEntryLineUuid,
+             stageEntryLineUuid,
              amountDec,
              postedToFiLocalDateOpt,
              postedToLedgerLocalDateOpt,
@@ -137,7 +137,7 @@ let private reconstitute raw =
             raw
         let paymentId = uuid |> PaymentId.fromGuid
         let invoiceId = invoiceUuid |> InvoiceId.fromGuid
-        let! transactionPointer = transactionPointerFromColumns journalEntryHeaderUuid stageEntryHeaderUuid
+        let! transactionPointer = transactionPointerFromColumns journalEntryLineUuid stageEntryLineUuid
         let! amount =
             match amountDec with
             | Some d -> d |> Money.fromDecimal
@@ -165,8 +165,8 @@ let private reconstitute raw =
 let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getUuid "unique_id"),
     (row |> RowReader.getUuid "invoice_id"),
-    (row |> RowReader.getUuidOption "journal_entry_header_id"),
-    (row |> RowReader.getUuidOption "stage_entry_header_id"),
+    (row |> RowReader.getUuidOption "journal_entry_line_id"),
+    (row |> RowReader.getUuidOption "stage_entry_line_id"),
     (row |> RowReader.getNumericOption "amount"),
     (row |> RowReader.getDateOption "posted_to_fi_date"),
     (row |> RowReader.getDateOption "posted_to_ledger_date"),
@@ -204,34 +204,16 @@ let private fetchAny
     (expectedRows: AcceptableExpectedRows)
     : Result<Payment list, AppError> =
     let select = """
-        pmt.unique_id, pmt.invoice_id, pmt.journal_entry_header_id, pmt.stage_entry_header_id, 
-        case when je.unique_id is not null then jel.amount else sel.amount end as amount,
-        pmt.posted_to_fi_date, je.entry_date as posted_to_ledger_date, pmt.memo, pmt.created_at, 
+        pmt.unique_id, pmt.invoice_id, pmt.journal_entry_line_id, pmt.stage_entry_line_id,
+        case when jel.unique_id is not null then jel.amount else sel.amount end as amount,
+        pmt.posted_to_fi_date, je.entry_date as posted_to_ledger_date, pmt.memo, pmt.created_at,
         pmt.modified_at
         """
     let join =
         [
-            "left join cashflow.invoice inv on pmt.invoice_id = inv.unique_id"
-            "left join cashflow.payment_agreement pa on inv.payment_agreement_id = pa.unique_id"
-            "left join cashflow.master_agreement ma on pa.master_agreement_id = ma.unique_id"
-            "left join ledger.journal_entry je on pmt.journal_entry_header_id = je.unique_id"
-            """
-            left join ledger.journal_entry_line jel
-                on je.unique_id = jel.journal_entry_id
-                and (case 
-                        when ma.flow_direction = 'Income' then jel.account_id = pa.credit_account and jel.line_type = 'Credit'
-                        when ma.flow_direction = 'Outgo' then jel.account_id = pa.debit_account and jel.line_type = 'Debit'
-                    end)
-            """
-            "left join ingestion.staged_entry se on pmt.stage_entry_header_id = se.unique_id"
-            """
-            left join ingestion.staged_entry_line sel 
-                on se.unique_id = sel.entry_id
-                and (case 
-                        when ma.flow_direction = 'Income' then sel.account_id = pa.credit_account and sel.line_type = 'Credit'
-                        when ma.flow_direction = 'Outgo' then sel.account_id = pa.debit_account and sel.line_type = 'Debit'
-                    end)
-            """
+            "left join ledger.journal_entry_line jel on pmt.journal_entry_line_id = jel.unique_id"
+            "left join ledger.journal_entry je on jel.journal_entry_id = je.unique_id"
+            "left join ingestion.staged_entry_line sel on pmt.stage_entry_line_id = sel.unique_id"
         ]
     query context None select (Some join) predicate limit None None parameters expectedRows
 
@@ -266,17 +248,17 @@ let update
         [ { name = "@unique_id"; value = UniqueId uuid } ]
     let updates =
         [
-              fieldUpdates.journalEntryHeaderIdUpdate
+              fieldUpdates.journalEntryLineIdUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  [ ("journal_entry_header_id = @journal_entry_header_id",
-                     { name = "@journal_entry_header_id"
-                       value = NullableUniqueId(n |> Option.map JournalEntryHeaderId.value) }) ])
+                  [ ("journal_entry_line_id = @journal_entry_line_id",
+                     { name = "@journal_entry_line_id"
+                       value = NullableUniqueId(n |> Option.map JournalEntryLineId.value) }) ])
 
-              fieldUpdates.stageEntryHeaderIdUpdate
+              fieldUpdates.stageEntryLineIdUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  [ ("stage_entry_header_id = @stage_entry_header_id",
-                     { name = "@stage_entry_header_id"
-                       value = NullableUniqueId(n |> Option.map StageEntryHeaderId.value) }) ])
+                  [ ("stage_entry_line_id = @stage_entry_line_id",
+                     { name = "@stage_entry_line_id"
+                       value = NullableUniqueId(n |> Option.map StageEntryLineId.value) }) ])
 
               fieldUpdates.postedToFiDateUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->

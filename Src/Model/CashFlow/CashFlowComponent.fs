@@ -275,8 +275,8 @@ module PaymentMemo =
             Ok(PaymentMemo trimmed)
 
 type TransactionPointer =
-    | Posted of JournalEntryHeaderId
-    | Staged of StageEntryHeaderId
+    | Posted of JournalEntryLineId
+    | Staged of StageEntryLineId
 
 type ProjectionHorizonInDays = private {days: int}
 

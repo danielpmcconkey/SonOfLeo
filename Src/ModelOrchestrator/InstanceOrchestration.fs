@@ -48,19 +48,28 @@ let private confirmPayment
         // the other half isn't reachable off a reconstituted Payment (see transactionPointerFromColumns).
         let! journalEntryHeader =
             match payment |> Payment.transactionPointer with
-            | CashFlowComponent.Posted journalEntryHeaderId ->
-                match journalEntryHeaderId |> JournalEntryHeader.fetchById context with
-                | Ok header -> Ok(Some header)
+            | CashFlowComponent.Posted journalEntryLineId ->
+                // the pointer names a line, but the date checked below lives on the header, so this branch resolves
+                // one hop further than the staged branch needs to
+                match journalEntryLineId |> JournalEntryLine.fetchById context with
+                | Ok line ->
+                    let headerId = line |> JournalEntryLine.journalEntryHeaderId
+                    match headerId |> JournalEntryHeader.fetchById context with
+                    | Ok header -> Ok(Some header)
+                    | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
+                        let journalEntryHeaderUuid = headerId |> JournalEntryHeaderId.value
+                        Error(JournalEntryHeaderIdDoesntExist journalEntryHeaderUuid)
+                    | Error e -> Error e
                 | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                    let journalEntryHeaderUuid = journalEntryHeaderId |> JournalEntryHeaderId.value
-                    Error(JournalEntryHeaderIdDoesntExist journalEntryHeaderUuid)
+                    let journalEntryLineUuid = journalEntryLineId |> JournalEntryLineId.value
+                    Error(JournalEntryLineIdDoesntExist journalEntryLineUuid)
                 | Error e -> Error e
-            | CashFlowComponent.Staged stageEntryHeaderId ->
-                match stageEntryHeaderId |> StageEntryHeader.fetchById context with
+            | CashFlowComponent.Staged stageEntryLineId ->
+                match stageEntryLineId |> StageEntryLine.fetchById context with
                 | Ok _ -> Ok None
                 | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                    let stageEntryHeaderUuid = stageEntryHeaderId |> StageEntryHeaderId.value
-                    Error(IngestionStageEntryHeaderIdDoesntExist stageEntryHeaderUuid)
+                    let stageEntryLineUuid = stageEntryLineId |> StageEntryLineId.value
+                    Error(IngestionStageEntryLineIdDoesntExist stageEntryLineUuid)
                 | Error e -> Error e
         return!
             match payment |> Payment.postedToLedgerDate, journalEntryHeader with
@@ -376,8 +385,8 @@ let private isThereAPaymentUpdate
     : bool =
     paymentUpdates
     |> List.map (fun u ->
-        u.journalEntryHeaderIdUpdate <> FieldUpdate.NoChange
-        || u.stageEntryHeaderIdUpdate <> FieldUpdate.NoChange
+        u.journalEntryLineIdUpdate <> FieldUpdate.NoChange
+        || u.stageEntryLineIdUpdate <> FieldUpdate.NoChange
         || u.postedToFiDateUpdate <> FieldUpdate.NoChange
         || u.memoUpdate <> FieldUpdate.NoChange)
     |> List.exists id

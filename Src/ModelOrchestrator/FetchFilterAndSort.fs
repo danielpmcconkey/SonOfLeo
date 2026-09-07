@@ -110,8 +110,8 @@ type AgreementFilter = {
     invoicePaymentState: PaymentState option
     invoicePostedState: PostedState option
     invoiceBlocker: Blocker option
-    journalEntryHeaderId: JournalEntryHeaderId option
-    stageEntryHeaderId: StageEntryHeaderId option
+    journalEntryLineId: JournalEntryLineId option
+    stageEntryLineId: StageEntryLineId option
     paymentAmount: AmountFilter option
     paymentPostedToLedgerTemporalFilter: TemporalFilter option
 }

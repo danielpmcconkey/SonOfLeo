@@ -19,29 +19,15 @@ type TargetComposite =
     | Invoice
 
 let paymentsEnrichedCte = """payments_enriched as (
-    select 
-        pmt.unique_id, pmt.invoice_id, pmt.journal_entry_header_id, pmt.stage_entry_header_id, 
-        case when je.unique_id is not null then jel.amount else sel.amount end as amount,
-        pmt.posted_to_fi_date, je.entry_date as posted_to_ledger_date, pmt.memo, pmt.created_at, 
+    select
+        pmt.unique_id, pmt.invoice_id, pmt.journal_entry_line_id, pmt.stage_entry_line_id,
+        case when jel.unique_id is not null then jel.amount else sel.amount end as amount,
+        pmt.posted_to_fi_date, je.entry_date as posted_to_ledger_date, pmt.memo, pmt.created_at,
         pmt.modified_at
     from cashflow.payment pmt
-    left join cashflow.invoice inv on pmt.invoice_id = inv.unique_id
-    left join cashflow.payment_agreement pa on inv.payment_agreement_id = pa.unique_id
-    left join cashflow.master_agreement ma on pa.master_agreement_id = ma.unique_id
-    left join ledger.journal_entry je on pmt.journal_entry_header_id = je.unique_id    
-    left join ledger.journal_entry_line jel
-        on je.unique_id = jel.journal_entry_id
-        and (case 
-                when ma.flow_direction = 'Income' then jel.account_id = pa.credit_account and jel.line_type = 'Credit'
-                when ma.flow_direction = 'Outgo' then jel.account_id = pa.debit_account and jel.line_type = 'Debit'
-            end)
-    left join ingestion.staged_entry se on pmt.stage_entry_header_id = se.unique_id
-    left join ingestion.staged_entry_line sel 
-        on se.unique_id = sel.entry_id
-        and (case 
-                when ma.flow_direction = 'Income' then sel.account_id = pa.credit_account and sel.line_type = 'Credit'
-                when ma.flow_direction = 'Outgo' then sel.account_id = pa.debit_account and sel.line_type = 'Debit'
-            end)
+    left join ledger.journal_entry_line jel on pmt.journal_entry_line_id = jel.unique_id
+    left join ledger.journal_entry je on jel.journal_entry_id = je.unique_id
+    left join ingestion.staged_entry_line sel on pmt.stage_entry_line_id = sel.unique_id
 )"""
 
 let agreementsSelectAndJoinInsideDistinct = """
@@ -115,14 +101,14 @@ let createPredicateAndParameters
     let invoiceBlockerPredicate, invoiceBlockerParameters =
         filter.invoiceBlocker
         |> createStringLikePredicateAndParameters Blocker.toString "inv_blocker_state" "inv.blocker_state"
-    let journalEntryHeaderIdPredicate, journalEntryHeaderIdParameters =
-        filter.journalEntryHeaderId
+    let journalEntryLineIdPredicate, journalEntryLineIdParameters =
+        filter.journalEntryLineId
         |> createBasicPredicateAndParameters (fun x ->
-            UniqueId(x |> JournalEntryHeaderId.value)) "pmt_journal_entry_header_id" "pmt.journal_entry_header_id"
-    let stageEntryHeaderIdPredicate, stageEntryHeaderIdParameters =
-        filter.stageEntryHeaderId
+            UniqueId(x |> JournalEntryLineId.value)) "pmt_journal_entry_line_id" "pmt.journal_entry_line_id"
+    let stageEntryLineIdPredicate, stageEntryLineIdParameters =
+        filter.stageEntryLineId
         |> createBasicPredicateAndParameters (fun x ->
-            UniqueId(x |> StageEntryHeaderId.value)) "pmt_stage_entry_header_id" "pmt.stage_entry_header_id"
+            UniqueId(x |> StageEntryLineId.value)) "pmt_stage_entry_line_id" "pmt.stage_entry_line_id"
     let paymentAmountPredicate, paymentAmountParameters =
         filter.paymentAmount
         |> createAmountPredicateAndParameters "pmt_amount" "pmt.amount"
@@ -146,8 +132,8 @@ let createPredicateAndParameters
             invoicePaymentStatePredicate
             invoicePostedStatePredicate
             invoiceBlockerPredicate
-            journalEntryHeaderIdPredicate
-            stageEntryHeaderIdPredicate
+            journalEntryLineIdPredicate
+            stageEntryLineIdPredicate
             paymentAmountPredicate
             paymentPostedToLedgerTemporalFilterPredicate
         ]
@@ -158,7 +144,7 @@ let createPredicateAndParameters
          @ paExpectedParameters @ instanceTemporalParameters @ externalInvoiceIdParameters
          @ invoiceDateTemporalParameters @ invoiceDueTemporalParameters @ invoiceAmountParameters
          @ invoiceStateParameters @ invoicePaymentStateParameters @ invoicePostedStateParameters
-         @ invoiceBlockerParameters @ journalEntryHeaderIdParameters @ stageEntryHeaderIdParameters
+         @ invoiceBlockerParameters @ journalEntryLineIdParameters @ stageEntryLineIdParameters
          @ paymentAmountParameters @ paymentPostedToLedgerTemporalFilterParameters
     return allPredicates, allParameters
     }

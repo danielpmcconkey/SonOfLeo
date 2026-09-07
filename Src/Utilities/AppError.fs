@@ -184,6 +184,7 @@ type AppError =
     | IngestionStageEntryDebitCreditMismatch of decimal * decimal
     | IngestionStageEntryInsufficientLines of int
     | IngestionStageEntryHeaderIdDoesntExist of Guid
+    | IngestionStageEntryLineIdDoesntExist of Guid
     | IngestionStageEntryHeaderNoOp
     | IngestionStageEntryLineNoOp
     | IngestionStageHeaderIdListCannotBeEmpty
@@ -219,6 +220,7 @@ type AppError =
     | JournalEntryInsufficientLines of int
     | JournalEntryLineAccountDoesntExist of Guid
     | JournalEntryLineAccountInactive of Guid * LocalDate * LocalDate * LocalDate Option
+    | JournalEntryLineIdDoesntExist of Guid
     | JournalEntryLineMemoIsEmpty of string
     | JournalEntryLineMemoTooLong of string * int
     | JournalEntryLineNonPositiveAmount of decimal
@@ -431,6 +433,7 @@ module AppError =
         | IngestionSearchPatternIsEmpty str -> $"SearchPattern cannot be empty. Provided value is {str}."
         | IngestionSearchPatternTooLong (str, max) -> $"SearchPattern cannot exceed {max} characters. Provided value is {str}."
         | IngestionStageEntryHeaderIdDoesntExist uuid -> $"Could not locate a stage entry header with the id of {uuid}."
+        | IngestionStageEntryLineIdDoesntExist uuid -> $"Could not locate a stage entry line with the id of {uuid}."
         | IngestionStageEntryHeaderNoOp -> "Updating the StageEntryHeader record failed because at least one updatable parameter must be set."
         | IngestionStageEntryLineNoOp -> "Updating the StageEntryLine record failed because at least one updatable parameter must be set."
         | IngestionStageHeaderIdListCannotBeEmpty -> "The stageEntryHeaderIds list must contain at least 1 Header ID."
@@ -473,6 +476,7 @@ module AppError =
                                 | Some x -> x.ToString()
                                 | None -> "None"
             $"Account ({uuid}) is not active (begin {beginDate}; end {endDateStr}) relative to the Journal Entry's entry date ({entryDate})." 
+        | JournalEntryLineIdDoesntExist uuid -> $"Could not locate a journal entry line with the id of {uuid}."
         | JournalEntryLineMemoIsEmpty lineMemo -> $"Journal Entry Line Memo cannot be empty. Provided string is {lineMemo}."
         | JournalEntryLineMemoTooLong(lineMemo, max) -> $"Journal Entry LineMemo cannot exceed {max} characters. Provided string is {lineMemo}."
         | JournalEntryLineNonPositiveAmount amount -> $"Journal Entry Line Amount field ({amount}) cannot be less than or equal to 0.00."
