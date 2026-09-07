@@ -28,7 +28,7 @@ let internal isSome dbTransaction =
 let internal isNone dbTransaction =
     dbTransaction.npgTranAndConn |> Option.isNone
 
-let internal getTranAndConn dbTransaction =
+let internal transactionAndConnection dbTransaction =
     if dbTransaction.npgTranAndConn |> Option.isNone then
         Error DalCantFetchTransactionOfNone
     else

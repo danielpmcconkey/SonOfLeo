@@ -3,16 +3,16 @@ name: SonOfLeo:SrcDeveloper
 description: >
   This skill should be used when writing or modifying F# source under SonOfLeo's Src/
   directory — new entity CRUD, new domain primitives, AppError cases, ModelOrchestrator
-  functions (constructNewAndSaveToDb, composite create/read, orchestrated updates),
+  functions (constructNewAndPersist, composite create/read, orchestrated updates),
   InterfaceBridge work (interface contracts, boundary converters, use case routes), a DbMigration
   script that a Src change depends on, or any Src implementation task Dan hands off — including
   reviewing a commit before fixing what it broke. Covers the entity/component/composite type
-  taxonomy, the Model/ CRUD function shape (insertNewToDb / reconstitute / mapRawForDbRead /
-  readRowsFromDb / fetchGenericRead / fetchById / updateDb), the ModelOrchestrator function
+  taxonomy, the Model/ CRUD function shape (persist / reconstitute / mapRawForDbRead /
+  query / fetchAny / fetchById / update), the ModelOrchestrator function
   shape and the five reasons a function belongs there, what InterfaceBridge is for and how its
   contracts and converters are named, AppError and FieldUpdate conventions, the mechanical checks
   in Checks/, and the working relationship with Dan. Triggers on "build out X's CRUD", "write the
-  Src for", "add a domain type", "finish insertNewToDb", "build the orchestrator for", "write an
+  Src for", "add a domain type", "finish persist", "build the orchestrator for", "write an
   orchestration function", "fix the interface bridge", "add a route for", "wire up the contracts",
   or any task that edits a `.fs` file under `Src/`.
 ---
@@ -145,9 +145,9 @@ One file per entity, mirroring `StageEntryHeader.fs`'s shape (the most complete 
 also read `ClassificationRule.fs` for a simpler single-table example without a
 status-transition side table):
 
-1. **`insertNewToDb (context) (entity) : Result<unit, AppError>`** — parameter order is
+1. **`persist (context) (entity) : Result<unit, AppError>`** — parameter order is
    context first, subject last (`Src/README.md`), so it pipelines:
-   `entity |> insertNewToDb context` at the call site, `entity` as the last positional param
+   `entity |> persist context` at the call site, `entity` as the last positional param
    here. Builds the parameterized insert, never string-interpolates a *value* into SQL
    (structural fragments — table/column names, `SET` clauses — are fine; values are always
    `@param`s via `DataAccessLayer.QueryParameters`).
@@ -158,15 +158,15 @@ status-transition side table):
    composite's child list can't be reconstituted alongside its parent in one query.
 3. **`mapRawForDbRead (row: RowReader)`** (private) — one `RowReader.getX "column"` line per
    column, tupled, in the same order `reconstitute` destructures them.
-4. **`readRowsFromDb`** (public) — the generic query executor: `cteList`/`select`/`joinList`/
+4. **`query`** (public) — the generic query executor: `cteList`/`select`/`joinList`/
    `predicate`/`limit`/`groupBy`/`orderBy`/`parameters`/`expectedRows`, fixed `from`, wired to
    `mapRawForDbRead` and `reconstitute` via `executeReaderQuery`. Keep the full parameter list
    even when nothing today needs CTEs/joins — it's what every sibling fetch function (and any
    future one) calls into.
-5. **`fetchGenericRead`** (private) — fixes the `select` column list (table-aliased, e.g.
-   `ma.unique_id, ...`), calls `readRowsFromDb` with `None` for whatever this slice doesn't
+5. **`fetchAny`** (private) — fixes the `select` column list (table-aliased, e.g.
+   `ma.unique_id, ...`), calls `query` with `None` for whatever this slice doesn't
    need yet. If a field is marked "not separately tracked in the database" (a scalar derived
-   from another domain's tables — see `Payment.amount`), it's fine for `fetchGenericRead` to
+   from another domain's tables — see `Payment.amount`), it's fine for `fetchAny` to
    bake in the `joinList` that computes it, even when that means joining across schemas — that's
    still one read, not orchestration. See "A read-only join across domains is not, by itself,
    orchestration" in `CompoundedLearnings/articles/architecture/orchestration-layer.md`.
@@ -181,13 +181,13 @@ status-transition side table):
    pattern (never N+1). Shape: empty-list guard up front (`if ids |> List.isEmpty then
    Error ...`) because `in ()` is invalid SQL; ordinal-numbered params (`@xId1, @xId2, ...`)
    zipped against the list, joined into an `in (...)` predicate; built on top of the entity's
-   own `fetchGenericRead`, same as `fetchById`. The empty-list `AppError` case is keyed to
+   own `fetchAny`, same as `fetchById`. The empty-list `AppError` case is keyed to
    the *id type being listed*, not the target table — e.g.
    `CashflowMasterAgreementIdListCannotBeEmpty` is shared by both
    `PaymentAgreement.fetchByMasterAgreementIdList` and
    `Instance.fetchByMasterAgreementIdList`, since both are listing the same parent id type.
    Precedent: `StageEntryLine.fetchByHeaderIdList`, `Instance.fetchByMasterAgreementIdList`.
-7. **`updateDb`** (public) — takes an `<Entity>FieldUpdates` record (see FieldUpdate below),
+7. **`update`** (public) — takes an `<Entity>FieldUpdates` record (see FieldUpdate below),
    builds one `(setClause, QueryParameter) option` per field via
    `FieldUpdate.mapNoChangeToOptionWithConversion`, and flattens with `List.choose id`.
    No-op guard: if the flattened list is empty, `Error(Cashflow<Entity>UpdateNoOp)`
@@ -222,8 +222,8 @@ status-transition side table):
 multiple DB columns (`Cadence` → `cadence`, `cadence_week_day`, `cadence_date_in_month`,
 `cadence_week_in_month`, `cadence_month`), write the encode direction
 (`cadenceToColumns`) and decode direction (`cadenceFromColumns`) as private module-level
-functions — not inline in `insertNewToDb`, and not duplicated between `insertNewToDb` and
-`updateDb`. Both directions belong in the entity's own file unless/until the same shape needs
+functions — not inline in `persist`, and not duplicated between `persist` and
+`update`. Both directions belong in the entity's own file unless/until the same shape needs
 reuse from a second file. A case with no natural column value (`MonthDay.Last` needs none of
 the three `MonthDay` columns) should decode unambiguously from "all relevant columns null" —
 if two DU cases would produce the same all-null combination, that's a sign the schema is
@@ -278,7 +278,7 @@ Adding a case (standing permission, see above):
 
 - Name it `<DomainPrefix><Concept><Failure>` — `CashflowInvalidCadenceRow`,
   `CashflowMasterAgreementUpdateNoOp`, `AccountUpdateNoOp`. The no-op-guard convention across
-  every entity's `updateDb` is `<DomainPrefix><Entity>UpdateNoOp`, no payload, message
+  every entity's `update` is `<DomainPrefix><Entity>UpdateNoOp`, no payload, message
   `"Updating the <Entity> record failed because at least one updatable parameter must be
   set."`
 - Slot it alphabetically within its domain-prefix group in both the case list and the
@@ -318,7 +318,7 @@ easy to violate by accident:
 
 - `Utilities.FieldUpdate` — `NoChange | SetTo`. There is no `Clear` case — nullability lives in
   the type parameter, so `SetTo None` clears a nullable field and `SetTo someValue` sets it.
-  Every entity `updateDb` uses this, even for entities with no nullable fields — it's about
+  Every entity `update` uses this, even for entities with no nullable fields — it's about
   explicit caller intent, not just null-disambiguation. Never write update plumbing by hand,
   never use a bare `option` to mean "don't touch this field."
 - `Utilities.ResultHelper` — `result { }`, `convertListOfResultsToResultsList`,
@@ -361,8 +361,12 @@ convention is retired and `Checks/check-confirm-naming.sh` fails on a new `valid
 
 ## Naming canon
 
-`create`, `fetchByX`, `insertNewToDb`, `updateDb`, `reconstitute`, `confirmX` are used
-verbatim — don't invent a synonym. Everything else gets a fully descriptive name; verbosity is
+`create`, `fetchByX`, `persist`, `query`, `update`, `delete`, `reconstitute`, `confirmX` are
+used verbatim — don't invent a synonym. **The persistence verbs say what they mean, not what
+SQL they emit**: `persist` writes a new row, `query` runs the generic read, `update` writes the
+changed columns, `delete` removes a row. None carry a `Db`/`ToDb` suffix — `create` already
+means instantiation, and nothing else collides.
+Everything else gets a fully descriptive name; verbosity is
 a feature (`subtractVal1FromVal2`, `mapNoChangeToOptionWithConversion`) because clarity at the
 call site beats brevity at the definition. Variables are never single-letter or abbreviated
 outside a short, fully-graspable lambda (`fun x -> x + 1` is fine; `let ca = ...` for
@@ -394,7 +398,7 @@ function, not just when something feels ambiguous.)
    unsettled — Dan hasn't landed on a pattern. Default to the shared file; ask before deviating.
 5. The "odd sock drawer" — a function that does three things (validate, create, persist) and
    therefore gets routed here by convention, even when nothing structurally forces it up (e.g.
-   `AccountCreation.constructNewAndSaveToDb` could live nearer `Account.fs`, but doesn't).
+   `AccountCreation.constructNewAndPersist` could live nearer `Account.fs`, but doesn't).
 
 **File granularity has no settled pattern yet.** Some orchestrator files own an entire domain's
 worth of functions (`StageEntryOrchestration.fs`); others are single-purpose
@@ -403,13 +407,13 @@ Start by assuming one orchestrator will work. Pivot as needed." For a new domain
 file and split later if it gets unwieldy — same size-based judgment as the Component-file
 convention, not a naming taxonomy to reverse-engineer.
 
-**`constructNewAndSaveToDb`** — the orchestrator's validate+create+persist verb (`Model/`'s
-equivalent is `insertNewToDb`, persistence only). Always fallible, returning `Result` up to
+**`constructNewAndPersist`** — the orchestrator's validate+create+persist verb (`Model/`'s
+equivalent is `persist`, persistence only). Always fallible, returning `Result` up to
 `InterfaceBridge`, which commits or rolls back the transaction based on the outcome. The
 standard doc comment, reused near-verbatim across the codebase — use it on the "route everything
 through here" constructor for any new entity/composite:
 ```fsharp
-/// constructNewAndSaveToDb validates that the components work together to
+/// constructNewAndPersist validates that the components work together to
 /// form a valid whole before adding it to the persistence layer. All new
 /// <Entity> creation should route through here before being sent to the
 /// persistence layer. Internal model functions may construct through other
@@ -419,8 +423,8 @@ through here" constructor for any new entity/composite:
 **Its parameters are primitives and tuples of primitives, deliberately — don't propose replacing
 them with a record.** The construct half of the verb is what builds the model types, so it can't
 take them as input, and a list of children arrives as a tuple list
-(`AgreementOrchestration.constructNewAndSaveToDb`'s payment agreements;
-`JournalEntryOrchestration.constructNewAndSaveToDb`'s lines). Named primitive-collection types
+(`AgreementOrchestration.constructNewAndPersist`'s payment agreements;
+`JournalEntryOrchestration.constructNewAndPersist`'s lines). Named primitive-collection types
 used to exist for this and were retired: the domain type, the interface contract, and the
 collection type all spelled out the same structure, and only the first two earned their
 maintenance. These signatures aren't meant to be pleasant for a general consumer — exactly one
@@ -470,10 +474,12 @@ exactly which orchestrated sub-update failed) is Dan's call.
 child updates needs its own composite-level guard, or the header-only/line-only cases produce
 invalid SQL.
 
-**Naming: update functions aren't called `updateDb` here.** `Model/`'s update verb is always
-`updateDb`; the orchestrator layer names an update for what it updates
-(`updateComment`, `updateFiAndReferenceText`, `updateClassificationRule`, `updateStageEntry`),
-since an orchestrator update is often composing more than one `Model/`-level update.
+**Naming: an orchestrator update is never called bare `update`.** `Model/`'s update verb is
+always `update`; the orchestrator layer names an update for what it updates
+(`updateComment`, `updateFiAndReferenceText`, `updateClassificationRule`, `updateStageEntry`,
+`AccountDeactivation.updateActiveEnd`), since an orchestrator update is often composing more
+than one `Model/`-level update. Same rule for the other persistence verbs — a bare `persist`,
+`query`, or `delete` in `ModelOrchestrator/` is a naming bug.
 
 **Comment voice**: the "comment only what would otherwise get flagged as a bug" rule (Operating
 rules, above) exists specifically for the post-slice audit gauntlet Dan and Hobson run (~35

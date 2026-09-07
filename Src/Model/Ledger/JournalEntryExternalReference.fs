@@ -40,7 +40,7 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
-let insertNewToDb (context: Context.Context) (externalReference: JournalEntryExternalReference) : Result<unit, AppError> =
+let persist (context: Context.Context) (externalReference: JournalEntryExternalReference) : Result<unit, AppError> =
     let query =
         """
         INSERT INTO ledger.journal_entry_ext_reference(
@@ -99,9 +99,9 @@ let private reconstitute raw : Result<JournalEntryExternalReference, AppError> =
     }
 
 
-/// readRowsFromDb is designed to produce a flexible read query that can
+/// query is designed to produce a flexible read query that can
 /// satisfy diverse use cases
-let private readRowsFromDb
+let private query
     (context: Context.Context)
     (predicate: string option)
     (limit: int option)
@@ -131,7 +131,7 @@ let fetchById
     let uuid = journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
     let predicate = "jer.unique_id = @unique_id"
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    readRowsFromDb context (Some predicate) None None parameters ExactlyOne |> Result.map List.head
+    query context (Some predicate) None None parameters ExactlyOne |> Result.map List.head
 
 let fetchByJournalEntryId
     (context: Context.Context)
@@ -140,7 +140,7 @@ let fetchByJournalEntryId
     let uuid = journalEntryId |> JournalEntryHeaderId.value
     let predicate = "jer.journal_entry_id = @unique_id"
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    readRowsFromDb context (Some predicate) None None parameters AnyQuantityIsAcceptable
+    query context (Some predicate) None None parameters AnyQuantityIsAcceptable
 
 let fetchByJournalEntryHeaderIdList
     (context: Context.Context)
@@ -159,4 +159,4 @@ let fetchByJournalEntryHeaderIdList
     let names = namesAndParameters |> List.map fst |> String.concat ", "
     let parameters = namesAndParameters |> List.map snd
     let predicate = $"jer.journal_entry_id in ({names})"
-    readRowsFromDb context (Some predicate) None None parameters AnyQuantityIsAcceptable
+    query context (Some predicate) None None parameters AnyQuantityIsAcceptable

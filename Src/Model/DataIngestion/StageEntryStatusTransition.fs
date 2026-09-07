@@ -88,7 +88,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "modified_at"),
     (row |> RowReader.getString "change_mechanism")
     
-let private readRowsFromDb
+let private query
     (context: Context.Context)
     (predicate: string option)
     (limit: int option)
@@ -113,7 +113,7 @@ let fetchByHeaderId (context: Context.Context) (headerId: StageEntryHeaderId) : 
     let predicate = "sea.entry_id = @unique_id"
     let uuid = headerId |> StageEntryHeaderId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
+    query context (Some predicate) None parameters AnyQuantityIsAcceptable
 
 let fetchByHeaderIdList
     (context: Context.Context)
@@ -132,7 +132,7 @@ let fetchByHeaderIdList
     let names = namesAndParameters |> List.map fst |> String.concat ", "
     let parameters = namesAndParameters |> List.map snd
     let predicate = $"sea.entry_id in ({names})"
-    readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
+    query context (Some predicate) None parameters AnyQuantityIsAcceptable
 
 let confirmValidTransition transition =
     let fromType = transition |> fromStatus

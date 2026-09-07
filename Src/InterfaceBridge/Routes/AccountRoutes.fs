@@ -38,7 +38,7 @@ let private accountCreate payload _ =
             accountCreateInput.reference
             |> ``convert [Account Reference String Option] to [AccountExternalReference Option]``
         let! account =
-            AccountCreation.constructNewAndSaveToDb
+            AccountCreation.constructNewAndPersist
                 context
                 code
                 name

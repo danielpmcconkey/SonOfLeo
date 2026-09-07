@@ -19,7 +19,7 @@ let private confirmJournalEntryHeader (context: Context.Context) (journalEntryHe
         else Error (DalResultantRowsDidntMatchExpectation(expected, actual))
     | Error e -> Error e
 
-let constructNewAndSaveToDb
+let constructNewAndPersist
     (context: Context.Context)
     (journalEntryHeaderId: JournalEntryHeaderId)
     (financialInstitution: JournalRefFinancialInstitution)
@@ -39,7 +39,7 @@ let constructNewAndSaveToDb
                 referenceText
                 createdAt
                 modifiedAt
-        do! journalExternalReference |> insertNewToDb context
+        do! journalExternalReference |> persist context
         return journalExternalReference
     }
 

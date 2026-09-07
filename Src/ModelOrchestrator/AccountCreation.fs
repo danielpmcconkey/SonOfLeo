@@ -76,12 +76,12 @@ let private confirmTypeAndSubtypeAreValid (accountType: AccountType) (subType: A
             )
         )
 
-/// constructNewAndSaveToDb validates that the components work together to
+/// constructNewAndPersist validates that the components work together to
 /// form a valid whole before adding it to the persistence layer. All new
 /// account creation should route through here before being sent to the
 /// persistence layer. Internal model functions may construct through other
 /// means if they're operating on known good data.
-let constructNewAndSaveToDb
+let constructNewAndPersist
     (context: Context.Context)
     (code: AccountCode)
     (accountName: AccountName)
@@ -111,6 +111,6 @@ let constructNewAndSaveToDb
         let referenceDate = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
         do! confirmParentChildRelationship context parentId accountId accountType referenceDate
         do! confirmTypeAndSubtypeAreValid accountType subType
-        do! validAccount |> Account.insertNewToDb context
+        do! validAccount |> Account.persist context
         return validAccount
     }

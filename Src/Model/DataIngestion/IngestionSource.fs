@@ -34,7 +34,7 @@ let create
         modifiedAt = modifiedAt
     }
     
-let insertNewToDb (context: Context.Context) (ingestionSource: IngestionSource) : Result<unit, AppError> =
+let persist (context: Context.Context) (ingestionSource: IngestionSource) : Result<unit, AppError> =
     let query =
         """
         insert into ingestion.source(
@@ -78,7 +78,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
-let private readRowsFromDb
+let private query
     (context: Context.Context)
     (predicate: string option)
     (limit: int option)
@@ -103,7 +103,7 @@ let fetchByName (context: Context.Context) (name: JournalRefFinancialInstitution
     let predicate = "src.source_name = @source_name"
     let nameStr = name |> JournalRefFinancialInstitution.value
     let parameters = [ { name = "@source_name"; value = CharString(nameStr) } ]
-    match readRowsFromDb context (Some predicate) None parameters ExactlyOne with
+    match query context (Some predicate) None parameters ExactlyOne with
     | Ok x -> x |> List.head |> Ok
     | Error(DalResultantRowsDidntMatchExpectation (_, 0)) -> Error (IngestionSourceNameNotFound nameStr)
     | Error e -> Error e

@@ -66,7 +66,7 @@ module JournalEntry =
         (source: JournalEntrySource option)
         (entryDate: EntryDate)
         : Result<JournalEntryHeader.JournalEntryHeader, AppError> =
-        JournalEntryHeaderOrchestration.constructNewAndSaveToDb context description source entryDate
+        JournalEntryHeaderOrchestration.constructNewAndPersist context description source entryDate
 
     let private confirmAccountIsActiveAtEntryDate
         (context: Context.Context)
@@ -105,7 +105,7 @@ module JournalEntry =
             result {
                 do! accountId |> confirmAccountIsActiveAtEntryDate context entryDate
                 return!
-                    JournalEntryLineOrchestration.constructNewAndSaveToDb
+                    JournalEntryLineOrchestration.constructNewAndPersist
                         context
                         journalEntryId
                         accountId
@@ -123,7 +123,7 @@ module JournalEntry =
         references
         |> List.map(fun reference ->
             let financialInstitution, referenceText = reference
-            JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
+            JournalEntryExternalReferenceOrchestration.constructNewAndPersist
                 context
                 journalEntryHeaderId
                 financialInstitution
@@ -138,19 +138,19 @@ module JournalEntry =
         comments
         |> List.map(fun comment ->
             let secondaryJournalEntryId, commentText = comment
-            JournalEntryCommentOrchestration.constructNewAndSaveToDb
+            JournalEntryCommentOrchestration.constructNewAndPersist
                 context
                 primaryJournalEntryId
                 secondaryJournalEntryId
                 commentText)
         |> convertListOfResultsToResultsList
 
-    /// constructNewAndSaveToDb validates that the components work together to
+    /// constructNewAndPersist validates that the components work together to
     /// form a valid whole before adding it to the persistence layer. All new
     /// Journal Entry creation should route through here before being sent to the
     /// persistence layer. Internal model functions may construct through other
     /// means if they're operating on known good data.
-    let constructNewAndSaveToDb
+    let constructNewAndPersist
         (context: Context.Context)
         (description: JournalEntryDescription)
         (source: JournalEntrySource option)
@@ -267,7 +267,7 @@ module JournalEntry =
             let joinOption = if joins |> List.isEmpty then None else Some joins
             let sort = Some "je.entry_date asc"
             let! headersDuplicates =
-                JournalEntryHeader.readRowsFromDb context joinOption predicate None sort parameters AnyQuantityIsAcceptable
+                JournalEntryHeader.query context joinOption predicate None sort parameters AnyQuantityIsAcceptable
             let deduped = headersDuplicates |> List.distinctBy(fun h -> h |> JournalEntryHeader.journalEntryHeaderId)
             let dedupedCount = deduped |> List.length
             do! match expectedRows with

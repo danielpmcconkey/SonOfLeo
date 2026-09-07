@@ -335,7 +335,7 @@ let private confirmComposite
         do! agreement.payments |> confirmPayments context
     }
 
-let constructNewAndSaveToDb
+let constructNewAndPersist
     (context: Context.Context)
     (agreementName: CashFlowComponent.AgreementName)
     (direction: CashFlowComponent.FlowDirection)
@@ -375,10 +375,10 @@ let constructNewAndSaveToDb
               invoices = []
               payments = [] }
         do! agreement |> confirmComposite context
-        do! masterAgreement |> MasterAgreement.insertNewToDb context
+        do! masterAgreement |> MasterAgreement.persist context
         do!
             paymentAgreements
-            |> List.map (PaymentAgreement.insertNewToDb context)
+            |> List.map (PaymentAgreement.persist context)
             |> convertListOfResultsToResultsList
             |> Result.map ignore
         return agreement
@@ -417,7 +417,7 @@ let fetchFiltered
     : Result<Agreement list, AppError> =
     result {
         let! masterAgreements =
-            filter |> fetchCompositeFiltered context expectedRows MasterAgreement.readRowsFromDb TargetComposite.Agreement
+            filter |> fetchCompositeFiltered context expectedRows MasterAgreement.query TargetComposite.Agreement
         if masterAgreements |> List.isEmpty then return [] else
         let agreementIds = masterAgreements |> List.map MasterAgreement.agreementID
         let! paymentAgreements = agreementIds |> PaymentAgreement.fetchByMasterAgreementIdList context
@@ -575,33 +575,33 @@ let updateAgreement
             confirmAuthorityAndCohesion
                 context paymentAgreementUpdates instanceUpdates invoiceUpdates paymentUpdates masterAgreementUpdates
         do!
-            if shouldUpdateMasterAgreement then masterAgreementUpdates |> MasterAgreement.updateDb context |> Result.map ignore
+            if shouldUpdateMasterAgreement then masterAgreementUpdates |> MasterAgreement.update context |> Result.map ignore
             else Ok ()
         do!
             if shouldUpdatePaymentAgreements then
                 paymentAgreementUpdates
-                |> List.map (PaymentAgreement.updateDb context)
+                |> List.map (PaymentAgreement.update context)
                 |> convertListOfResultsToResultsList
                 |> Result.map ignore
             else Ok ()
         do!
             if shouldUpdateInstances then
                 instanceUpdates
-                |> List.map (Instance.updateDb context)
+                |> List.map (Instance.update context)
                 |> convertListOfResultsToResultsList
                 |> Result.map ignore
             else Ok ()
         do!
             if shouldUpdateInvoices then
                 invoiceUpdates
-                |> List.map (Invoice.updateDb context)
+                |> List.map (Invoice.update context)
                 |> convertListOfResultsToResultsList
                 |> Result.map ignore
             else Ok ()
         do!
             if shouldUpdatePayments then
                 paymentUpdates
-                |> List.map (Payment.updateDb context)
+                |> List.map (Payment.update context)
                 |> convertListOfResultsToResultsList
                 |> Result.map ignore
             else Ok ()

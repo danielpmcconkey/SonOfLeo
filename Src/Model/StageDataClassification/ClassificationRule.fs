@@ -55,7 +55,7 @@ let create
         modifiedAt = modifiedAt
     }
     
-let insertNewToDb (context: Context.Context) (classificationRule: ClassificationRule) : Result<unit, AppError> =
+let persist (context: Context.Context) (classificationRule: ClassificationRule) : Result<unit, AppError> =
     let query =
         """
         insert into ingestion.classification_rule(
@@ -144,7 +144,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
-let readRowsFromDb
+let query
     (context: Context.Context)
     (joinList: string list option)
     (predicate: string option)
@@ -172,13 +172,13 @@ let fetchById (context: Context.Context) (ruleId: ClassificationRuleId) : Result
     let predicate = "cr.unique_id = @unique_id"
     let nameStr = ruleId |> ClassificationRuleId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId(nameStr) } ]
-    readRowsFromDb context None (Some predicate) None parameters None ExactlyOne |> Result.map List.head
+    query context None (Some predicate) None parameters None ExactlyOne |> Result.map List.head
 
 let fetchByName (context: Context.Context) (name: ClassificationRuleName) : Result<ClassificationRule, AppError> =
     let predicate = "cr.rule_name = @rule_name"
     let nameStr = name |> ClassificationRuleName.value
     let parameters = [ { name = "@rule_name"; value = CharString(nameStr) } ]
-    readRowsFromDb context None (Some predicate) None parameters None ExactlyOne |> Result.map List.head
+    query context None (Some predicate) None parameters None ExactlyOne |> Result.map List.head
 
 let doesMatch
     (candidate: MatchCandidate)

@@ -14,7 +14,7 @@ let private confirmEntryDateIsInOpenFiscalPeriod (context: Context.Context) (ent
         | false -> return! Error(JournalEntryHeaderEntryDateInvalid(entryDate |> EntryDate.entryDate))
     }
 
-let constructNewAndSaveToDb
+let constructNewAndPersist
     (context: Context.Context)
     (description: JournalEntryDescription)
     (source: JournalEntrySource option)
@@ -29,6 +29,6 @@ let constructNewAndSaveToDb
         do! entryDate |> confirmEntryDateIsInOpenFiscalPeriod context
         let journalEntryHeader =
             JournalEntryHeader.create journalEntryId description source entryDate voidedAt createdAt modifiedAt
-        let! () = journalEntryHeader |> JournalEntryHeader.insertNewToDb context
+        let! () = journalEntryHeader |> JournalEntryHeader.persist context
         return journalEntryHeader
     }

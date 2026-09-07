@@ -16,7 +16,7 @@ let private create payload _ =
     result {
         let! input = Json.fromJson<FiscalPeriodCreateInput> payload
         let! fiscalPeriodKey = input.periodKey |> FiscalPeriodKey.fromString
-        let! model = constructNewAndSaveToDb context fiscalPeriodKey
+        let! model = constructNewAndPersist context fiscalPeriodKey
         let returnVal = ``convert FiscalPeriod to FiscalPeriodReturn`` model
         return! Json.toJson<FiscalPeriodReturn> returnVal
     }

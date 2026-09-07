@@ -17,9 +17,6 @@ need to triage before proceeding. This is deliberate.
 
 Any future usages for this application that will carry longer life cycles will need to re-design this cache if it plans
 to also involve any CRUD operations of core module entities.
-
-Additional note: we have 3 separate fetch all functions on the ledger.account table. This is intentional as we do not
-want to couple these together.
 *)
 
 type Cache<'K, 'V when 'K: comparison>
@@ -37,7 +34,7 @@ type Cache<'K, 'V when 'K: comparison>
 
 type idAndString = { id: Guid; key: string }
 
-let private constructFromRawForDbRead (raw: Guid * string) : Result<idAndString, AppError> =
+let private reconstitute (raw: Guid * string) : Result<idAndString, AppError> =
     let id, key = raw
     Ok { id = id; key = key }
 
@@ -49,13 +46,13 @@ let private mapRawForDbRead (fieldNameId: string) (fieldNameKey: string) (row: R
 let private fetchAll table keyColumn =
   let tran = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
   executeReaderQuery tran $"select unique_id, {keyColumn} from {table}" []
-      (mapRawForDbRead "unique_id" keyColumn) constructFromRawForDbRead AnyQuantityIsAcceptable
+      (mapRawForDbRead "unique_id" keyColumn) reconstitute AnyQuantityIsAcceptable
 
 let private fetchOne table keyColumn whereColumn paramValue context =
   executeReaderQuery (context |> Context.getDatabaseTransaction)
       $"select unique_id, {keyColumn} from {table} where {whereColumn} = @key"
       [ { name = "@key"; value = paramValue } ]
-      (mapRawForDbRead "unique_id" keyColumn) constructFromRawForDbRead ExactlyOne
+      (mapRawForDbRead "unique_id" keyColumn) reconstitute ExactlyOne
   |> Result.map List.head
 
 let private stringToIdCache table keyColumn =

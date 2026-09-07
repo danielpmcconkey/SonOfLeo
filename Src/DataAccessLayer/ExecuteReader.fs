@@ -180,7 +180,7 @@ let executeReaderQuery
                     rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList
                 | false ->
                     dbTransaction
-                    |> getTranAndConn
+                    |> transactionAndConnection
                     |> function
                         | Error e -> Error e
                         | Ok(tran, conn) ->

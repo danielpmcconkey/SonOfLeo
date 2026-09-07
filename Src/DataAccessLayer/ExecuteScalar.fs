@@ -174,7 +174,7 @@ let executeScalar
                     | false ->
                         let tran, conn =
                             dbTransaction
-                            |> getTranAndConn
+                            |> transactionAndConnection
                             |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)) // we do this because we're already inside the boundary of DB try / catch. Result railroad doesn't really work here.
                         use command = new NpgsqlCommand(query, conn)
                         command.Transaction <- tran

@@ -46,7 +46,7 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
-let insertNewToDb
+let persist
     (context: Context.Context)
     (instance: Instance)
     : Result<unit, AppError> =
@@ -100,7 +100,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
-let readRowsFromDb
+let query
     (context: Context.Context)
     (cteList: string list option)
     (select: string)
@@ -122,7 +122,7 @@ let readRowsFromDb
         reconstitute
         expectedRows
 
-let private fetchGenericRead
+let private fetchAny
     (context: Context.Context)
     (predicate: string option)
     (limit: int option)
@@ -132,13 +132,13 @@ let private fetchGenericRead
     let select = """
         ins.unique_id, ins.master_agreement_id, ins.instance_date, ins.is_fulfilled, ins.created_at, ins.modified_at
         """
-    readRowsFromDb context None select None predicate limit None None parameters expectedRows
+    query context None select None predicate limit None None parameters expectedRows
 
 let fetchById (context: Context.Context) (instanceId: InstanceId) : Result<Instance, AppError> =
     let predicate = "ins.unique_id = @unique_id"
     let uuid = instanceId |> InstanceId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    fetchGenericRead context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+    fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
 let fetchByMasterAgreementIdList
     (context: Context.Context)
@@ -153,12 +153,12 @@ let fetchByMasterAgreementIdList
     let names = namesAndParameters |> List.map fst |> String.concat ", "
     let parameters = namesAndParameters |> List.map snd
     let predicate = $"ins.master_agreement_id in ({names})"
-    fetchGenericRead context (Some predicate) None parameters AnyQuantityIsAcceptable
+    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-/// updateDb is incredibly powerful and should only be used very deliberately. It will let you update your database in a
+/// update is incredibly powerful and should only be used very deliberately. It will let you update your database in a
 /// type-unsafe manner. Only use it with controlled database transactions and with certainty that you are validating
 /// your resultant data state appropriately.
-let updateDb
+let update
     (context: Context.Context)
     (fieldUpdates: InstanceFieldUpdates)
     : Result<Instance, AppError> =

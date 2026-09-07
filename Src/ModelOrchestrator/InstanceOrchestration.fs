@@ -307,7 +307,7 @@ let fetchFiltered
     : Result<InvoiceComposite list, AppError> =
     result {
         let! invoices =
-            filter |> fetchCompositeFiltered context expectedRows Invoice.readRowsFromDb TargetComposite.Invoice
+            filter |> fetchCompositeFiltered context expectedRows Invoice.query TargetComposite.Invoice
         if invoices |> List.isEmpty then return [] else
         let invoiceIds = invoices |> List.map Invoice.invoiceId
         let! payments = invoiceIds |> Payment.fetchByInvoiceIdList context
@@ -399,12 +399,12 @@ let updateInvoiceComposite
             else Ok ()
         do! confirmAuthorityAndCohesion context invoiceUpdates paymentUpdates
         do!
-            if shouldUpdateInvoice then invoiceUpdates |> Invoice.updateDb context |> Result.map ignore
+            if shouldUpdateInvoice then invoiceUpdates |> Invoice.update context |> Result.map ignore
             else Ok ()
         do!
             if shouldUpdatePayments then
                 paymentUpdates
-                |> List.map (Payment.updateDb context)
+                |> List.map (Payment.update context)
                 |> convertListOfResultsToResultsList
                 |> Result.map ignore
             else Ok ()
@@ -457,12 +457,12 @@ let createInstanceCompositeAndSaveToDb
                 )
         let instanceComposite = { instance = newInstance; invoiceComposites = invoiceComposites }
         do! instanceComposite |> confirmInstanceComposite context // todo: this probably does reads on the database and none of this is in the db yet. rethink
-        do! newInstance |> Instance.insertNewToDb context
+        do! newInstance |> Instance.persist context
         do! invoiceComposites
             |> List.map(fun invoiceComposite -> result {
-                do! invoiceComposite.invoice |> Invoice.insertNewToDb context
+                do! invoiceComposite.invoice |> Invoice.persist context
                 do! invoiceComposite.payments
-                    |> List.map(fun payment -> payment |> Payment.insertNewToDb context)
+                    |> List.map(fun payment -> payment |> Payment.persist context)
                     |> convertListOfResultsToResultsList
                     |> Result.map ignore
                 return () }

@@ -99,7 +99,7 @@ let createNewClassificationRule
     result {
         do! ruleGroups |> confirmRuleGroups
         do! classificationClaimant |> confirmClassificationClaimant context
-        do! newRule |> ClassificationRule.insertNewToDb context
+        do! newRule |> ClassificationRule.persist context
         return newRule
     }
 
@@ -186,7 +186,7 @@ let fetchRulesFiltered
         let limit = None
         let parameters = whereClausesAndParams |> List.map snd
         return!
-            ClassificationRule.readRowsFromDb context join predicate limit parameters orderBy AnyQuantityIsAcceptable
+            ClassificationRule.query context join predicate limit parameters orderBy AnyQuantityIsAcceptable
     }
 
 let updateLineWithAccountMatch

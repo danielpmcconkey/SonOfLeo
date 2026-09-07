@@ -273,7 +273,7 @@ let createNewSource
         let instant = context |> Context.getInitiationInstant
         let uuid = IngestionSourceId.create()
         let newSource = IngestionSource.create uuid name instant instant
-        do! newSource |> IngestionSource.insertNewToDb context
+        do! newSource |> IngestionSource.persist context
         return newSource }
 
 let updateHeaderFromClassificationResults
@@ -385,12 +385,12 @@ let ingestRawToStageThenDeduplicateAndClassify
             |> List.map(fun e ->
                 e
                 |> stageEntryHeader
-                |> StageEntryHeader.insertNewToDb context Ingested StageIngestion )
+                |> StageEntryHeader.persist context Ingested StageIngestion )
             |> convertListOfResultsToResultsList
         let! _ =
             entries
             |> List.collect seLines
-            |> List.map(fun l -> l |> StageEntryLine.insertNewToDb context )
+            |> List.map(fun l -> l |> StageEntryLine.persist context )
             |> convertListOfResultsToResultsList
         // update the context's audit date between major operations
         let contextAfterLoad = context |> Context.updateInitiationInstant 
@@ -471,11 +471,11 @@ let updateStageEntry
         do! if shouldUpdateLines
             then
                 lineUpdates
-                |> List.map(fun lineUpdate -> lineUpdate |> StageEntryLine.updateDb context)
+                |> List.map(fun lineUpdate -> lineUpdate |> StageEntryLine.update context)
                 |> convertListOfResultsToResultsList
                 |> Result.map ignore
             else Ok ()
-        do! if shouldUpdateHeader then headerUpdates |> StageEntryHeader.updateDb context |> Result.map ignore
+        do! if shouldUpdateHeader then headerUpdates |> StageEntryHeader.update context |> Result.map ignore
             else Ok ()
         // now that we updated everything, we should read it back and ensure it still meets composite requirements
         let! fetched = headerUpdates.headerIdToUpdate |> fetchByStageEntryHeaderId context
@@ -513,7 +513,7 @@ let postStageEntry
                     return accountId, amount, lineType, memo
                 } )
             |> convertListOfResultsToResultsList
-        do! JournalEntry.constructNewAndSaveToDb
+        do! JournalEntry.constructNewAndPersist
                 context
                 description
                 jeHeaderSource
@@ -712,7 +712,7 @@ let fetchFiltered
         ]
     let cteList = latestStatusCtes@multiFetchCtes
     let! headers =
-        StageEntryHeader.readRowsFromDb context (Some cteList) select (Some joinList)
+        StageEntryHeader.query context (Some cteList) select (Some joinList)
             None None None sortClause parameters AnyQuantityIsAcceptable
     let headerIds = 
         headers

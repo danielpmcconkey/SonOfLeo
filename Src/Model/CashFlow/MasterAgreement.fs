@@ -75,7 +75,7 @@ let create
         
     
 
-let insertNewToDb
+let persist
     (context: Context.Context)
     (masterAgreement: MasterAgreement)
     : Result<unit, AppError> =
@@ -176,7 +176,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
-let readRowsFromDb
+let query
     (context: Context.Context)
     (cteList: string list option)
     (select: string)
@@ -198,25 +198,25 @@ let readRowsFromDb
         reconstitute
         expectedRows
 
-let private fetchGenericRead
+let private fetchAny
     (context: Context.Context)
     (predicate: string option)
     (limit: int option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
     : Result<MasterAgreement list, AppError> =
-    readRowsFromDb context None masterAgreementSelectFields None predicate limit None None parameters expectedRows
+    query context None masterAgreementSelectFields None predicate limit None None parameters expectedRows
 
 let fetchById (context: Context.Context) (agreementID: MasterAgreementId) : Result<MasterAgreement, AppError> =
     let predicate = "ma.unique_id = @unique_id"
     let uuid = agreementID |> MasterAgreementId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    fetchGenericRead context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+    fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
-/// updateDb is incredibly powerful and should only be used very deliberately. It will let you update your database in a
+/// update is incredibly powerful and should only be used very deliberately. It will let you update your database in a
 /// type-unsafe manner. Only use it with controlled database transactions and with certainty that you are validating
 /// your resultant data state appropriately.
-let updateDb
+let update
     (context: Context.Context)
     (fieldUpdates: MasterAgreementFieldUpdates)
     : Result<MasterAgreement, AppError> =
@@ -295,5 +295,5 @@ let updateCadence context newCadence masterAgreement =
         activityPeriodUpdate = NoChange
         memoUpdate = NoChange
     }
-    fieldUpdates |> updateDb context
+    fieldUpdates |> update context
 

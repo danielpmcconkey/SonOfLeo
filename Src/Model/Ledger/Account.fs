@@ -129,9 +129,9 @@ module Account =
         (row |> RowReader.getInstant "created_at"),
         (row |> RowReader.getInstant "modified_at")
 
-    /// readRowsFromDb is designed to produce a flexible read query that can
+    /// query is designed to produce a flexible read query that can
     /// satisfy diverse use cases
-    let private readRowsFromDb
+    let private query
         (context: Context.Context)
         (predicate: string option)
         (limit: int option)
@@ -153,10 +153,10 @@ module Account =
             reconstitute
             expectedRows
 
-    /// insertNewToDb is a function used as an interface to the DAL. It
+    /// persist is a function used as an interface to the DAL. It
     /// assumes that the calling function handled all necessary validations to
     /// ensure only legal data states persist
-    let insertNewToDb (context: Context.Context) (account: Account) : Result<unit, AppError> =
+    let persist (context: Context.Context) (account: Account) : Result<unit, AppError> =
         let query =
             """
             insert into ledger.account(
@@ -207,18 +207,18 @@ module Account =
         let predicate = "a.unique_id = @unique_id"
         let accountIdGuid = accountId |> AccountId.value
         let parameters = [ { name = "@unique_id"; value = UniqueId accountIdGuid } ]
-        readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+        query context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
     let fetchByParentId (context: Context.Context) (parentId: AccountId) : Result<Account list, AppError> =
         let predicate = "a.parent_id = @parent_id"
         let parentIdGuid = parentId |> AccountId.value
         let parameters = [ { name = "@parent_id"; value = UniqueId parentIdGuid } ]
-        readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
+        query context (Some predicate) None parameters AnyQuantityIsAcceptable
 
     let fetchByAccountType (context: Context.Context) (accountType: AccountType) : Result<Account list, AppError> =
         let predicate = "a.account_type = @account_type"
         let parameters = [ { name = "@account_type"; value = CharString(accountType |> AccountType.toString) } ]
-        readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
+        query context (Some predicate) None parameters AnyQuantityIsAcceptable
 
     /// fetchAll returns all accounts or, if activeOnly is true, fetches all accounts
     /// that are active with respect to the system runtime
@@ -227,7 +227,7 @@ module Account =
         let parameters = []
         let activeReference = Calendar.today()
 
-        match readRowsFromDb context predicate None parameters AnyQuantityIsAcceptable with
+        match query context predicate None parameters AnyQuantityIsAcceptable with
         | Error e -> Error e
         | Ok allRows ->
             if activeOnly then
@@ -237,7 +237,7 @@ module Account =
             else
                 Ok allRows
 
-    let private updateDb
+    let private update
         (context: Context.Context)
         (accountId: AccountId)
         (nameUpdate: FieldUpdate<AccountName>)
@@ -278,7 +278,7 @@ module Account =
     let updateAccountNameById (context: Context.Context) (accountId: AccountId) (newName: string) : Result<Account, AppError> =
         result {
             let! validAccountName = AccountName.create newName
-            let! newAccount = updateDb context accountId (SetTo validAccountName) NoChange
+            let! newAccount = update context accountId (SetTo validAccountName) NoChange
             return newAccount
         }
 
@@ -292,6 +292,6 @@ module Account =
                 match newReference with
                 | Some x -> AccountExternalReference.create x |> Result.map Some
                 | None -> Ok None
-            let! newAccount = updateDb context accountId NoChange (SetTo validRef)
+            let! newAccount = update context accountId NoChange (SetTo validRef)
             return newAccount
         }

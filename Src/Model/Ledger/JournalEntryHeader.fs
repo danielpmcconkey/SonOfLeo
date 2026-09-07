@@ -44,7 +44,7 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
-let insertNewToDb (context: Context.Context) (journalEntry: JournalEntryHeader) : Result<unit, AppError> =
+let persist (context: Context.Context) (journalEntry: JournalEntryHeader) : Result<unit, AppError> =
     let query =
         """
         INSERT INTO ledger.journal_entry(
@@ -96,7 +96,7 @@ let private reconstitute raw : Result<JournalEntryHeader, AppError> =
         return create journalEntryId description source entryDate voidedAt createdAt modifiedAt
     }
 
-let readRowsFromDb
+let query
     (context: Context.Context)
     (joinList: string list option)
     (predicate: string option)
@@ -127,7 +127,7 @@ let fetchById
     let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
     let predicate = Some "je.unique_id = @unique_id"
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    readRowsFromDb context None predicate None None parameters ExactlyOne |> Result.map List.head
+    query context None predicate None None parameters ExactlyOne |> Result.map List.head
 
 let fetchByPeriod
     (context: Context.Context)
@@ -138,5 +138,5 @@ let fetchByPeriod
     let orderBy = Some "je.entry_date asc"
     result {
         let parameters = [ { name = "@fiscal_period_id"; value = UniqueId uuid } ]
-        return! readRowsFromDb context None predicate None orderBy parameters AnyQuantityIsAcceptable
+        return! query context None predicate None orderBy parameters AnyQuantityIsAcceptable
     }

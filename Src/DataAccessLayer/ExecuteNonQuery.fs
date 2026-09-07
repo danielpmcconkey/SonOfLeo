@@ -32,7 +32,7 @@ let executeNonQuery
                     Ok(command.ExecuteNonQuery())
                 | false ->
                     dbTransaction
-                    |> getTranAndConn
+                    |> transactionAndConnection
                     |> function
                         | Error e -> Error e
                         | Ok(tran, conn) ->

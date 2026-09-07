@@ -35,7 +35,7 @@ let private postNew payload _ : Result<string, AppError> =
                 input.comments
                 |> ``convert [JournalEntryCommentInput list] to [JournalEntryCommentPrimitives list]``
             let! newJournalEntry =
-                JournalEntry.constructNewAndSaveToDb context description source entryDate lines references comments
+                JournalEntry.constructNewAndPersist context description source entryDate lines references comments
             let! returnVal = ``convert JournalEntry to JournalEntryReturn`` context newJournalEntry
             return! Json.toJson<JournalEntryReturn> returnVal
         })
@@ -91,7 +91,7 @@ let private fetchByDateRange payload _ =
         return! Json.toJson<JournalEntryReturn list> returnVal
     }
 
-let private voidJe payload _ =
+let private voidJournalEntry payload _ =
     runCommandRouteAndAutoCompleteTransaction JournalEntryVoid (fun context ->
         result {
             let! input = Json.fromJson<JournalEntryVoidInput> payload
@@ -137,7 +137,7 @@ let private addExternalReference payload _ =
         let headerId = input.journalEntryId |> JournalEntryHeaderId.fromGuid
         let! fi = input.reference.financialInstitution |> JournalRefFinancialInstitution.create
         let! reference = input.reference.referenceText |> JournalExternalReferenceText.create
-        let! model = JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb context headerId fi reference
+        let! model = JournalEntryExternalReferenceOrchestration.constructNewAndPersist context headerId fi reference
         let returnVal = ``convert JournalEntryExternalReference to JournalEntryExternalReferenceReturn`` model
         return! Json.toJson<JournalEntryExternalReferenceReturn> returnVal
     }
@@ -151,7 +151,7 @@ let private addComment payload _ =
             input.comment.secondaryJournalEntryId |> Option.map JournalEntryHeaderId.fromGuid
         let! commentText = input.comment.commentText |> CommentText.create
         let! model =
-            JournalEntryCommentOrchestration.constructNewAndSaveToDb
+            JournalEntryCommentOrchestration.constructNewAndPersist
                 context
                 headerId
                 secondaryJournalEntryId
@@ -224,7 +224,7 @@ let journalEntryDomainCommandRoutes =
           "Void a Journal Entry by setting its “voided at” Instant to the system run time (requires a reason comment)"
         inputContract = typeof<JournalEntryVoidInput>.Name
         outputContract = typeof<JournalEntryReturn>.Name
-        handler = voidJe }
+        handler = voidJournalEntry }
       { domain = "JournalEntry"
         verb = "UpdateExternalReference"
         description = "Update an existing Journal Entry External Reference"

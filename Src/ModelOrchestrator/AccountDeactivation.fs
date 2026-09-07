@@ -15,7 +15,7 @@ open DataAccessLayer.ExecuteScalar
 open Utilities.ResultHelper
 
 
-let private updateDb (context: Context.Context) (activeEndUpdate: LocalDate) (account: Account) : Result<Account, AppError> =
+let private updateActiveEnd (context: Context.Context) (activeEndUpdate: LocalDate) (account: Account) : Result<Account, AppError> =
     let accountId = account |> Account.accountId
     let uuid = accountId |> AccountId.value
     let parameters =
@@ -142,6 +142,6 @@ let deactivateAccount
         let! () = account |> confirmProposedDeactivationDateIsValid deactivationDate
         let! () = account |> confirmNoActiveChildrenBeforeDeactivation context
         let! () = account |> confirmJournalEntriesAreInProperState context deactivationDate
-        let! newAccount = account |> updateDb context deactivationDate
+        let! newAccount = account |> updateActiveEnd context deactivationDate
         return newAccount
     }

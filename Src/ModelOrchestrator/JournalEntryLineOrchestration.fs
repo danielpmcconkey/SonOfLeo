@@ -24,7 +24,7 @@ let private confirmAccountExists (context: Context.Context) (accountId: AccountI
     | Error e -> Error e
     | Ok _ -> Ok()
 
-let constructNewAndSaveToDb
+let constructNewAndPersist
     (context: Context.Context)
     (journalEntryId: JournalEntryHeaderId)
     (accountId: AccountId)
@@ -49,7 +49,7 @@ let constructNewAndSaveToDb
                 memo
                 createdAt
                 modifiedAt
-        let! () = line |> insertNewToDb context
+        let! () = line |> persist context
         return line
     }
 

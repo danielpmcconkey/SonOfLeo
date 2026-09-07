@@ -92,7 +92,7 @@ let confirmPaymentAgreementId
             Error (CashflowPaymentAgreementIdDoesntExist uuid)
         | Error e -> Error e
 
-let insertNewToDb (context: Context.Context) (stageEntryLine: StageEntryLine) : Result<unit, AppError> =
+let persist (context: Context.Context) (stageEntryLine: StageEntryLine) : Result<unit, AppError> =
     let query =
         """
         insert into ingestion.staged_entry_line (
@@ -179,7 +179,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getUuidOption "account_classification_rule_id"),
     (row |> RowReader.getUuidOption "payment_classification_rule_id")
     
-let private readRowsFromDb
+let private query
     (context: Context.Context)
     (predicate: string option)
     (limit: int option)
@@ -205,13 +205,13 @@ let fetchById (context: Context.Context) (lineId: StageEntryLineId) : Result<Sta
     let predicate = "sel.unique_id = @unique_id"
     let uuid = lineId |> StageEntryLineId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+    query context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
 let fetchByHeaderId (context: Context.Context) (lineId: StageEntryHeaderId) : Result<StageEntryLine list, AppError> =
     let predicate = "sel.entry_id = @unique_id"
     let accountIdGuid = lineId |> StageEntryHeaderId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId accountIdGuid } ]
-    readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
+    query context (Some predicate) None parameters AnyQuantityIsAcceptable
 
 let fetchByHeaderIdList
     (context: Context.Context)
@@ -230,12 +230,12 @@ let fetchByHeaderIdList
     let names = namesAndParameters |> List.map fst |> String.concat ", "
     let parameters = namesAndParameters |> List.map snd
     let predicate = $"sel.entry_id in ({names})"
-    readRowsFromDb context (Some predicate) None parameters AnyQuantityIsAcceptable
+    query context (Some predicate) None parameters AnyQuantityIsAcceptable
     
-/// updateDb is incredibly powerful and should only be used very deliberately. It will let you update your database in a
+/// update is incredibly powerful and should only be used very deliberately. It will let you update your database in a
 /// type-unsafe manner. Only use it with controlled database transactions and with certainty that you are validating
 /// your resultant data state appropriately.
-let updateDb
+let update
     (context: Context.Context)
     (fieldUpdates: StageEntryLineFieldUpdates)
     : Result<StageEntryLine, AppError> =
@@ -328,7 +328,7 @@ let updateAccountAndRuleId
         memoUpdate = NoChange
         accountClassificationRuleIdUpdate = classificationRuleIdUpdate
         paymentClassificationRuleIdUpdate = NoChange }
-    updateDb context fieldUpdates
+    update context fieldUpdates
 
 let updatePaymentAgreementAndRuleId
     (context: Context.Context)
@@ -345,4 +345,4 @@ let updatePaymentAgreementAndRuleId
         memoUpdate = NoChange
         accountClassificationRuleIdUpdate = NoChange
         paymentClassificationRuleIdUpdate = classificationRuleIdUpdate }
-    updateDb context fieldUpdates
+    update context fieldUpdates

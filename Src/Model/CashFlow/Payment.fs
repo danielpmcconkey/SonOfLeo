@@ -69,7 +69,7 @@ let private transactionPointerToColumns (transactionPointer: TransactionPointer)
     | CashFlowComponent.Posted journalEntryHeaderId -> (journalEntryHeaderId |> JournalEntryHeaderId.value |> Some), None
     | CashFlowComponent.Staged stageEntryHeaderId -> None, (stageEntryHeaderId |> StageEntryHeaderId.value |> Some)
 
-let insertNewToDb
+let persist
     (context: Context.Context)
     (payment: Payment)
     : Result<unit, AppError> =
@@ -174,7 +174,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
-let readRowsFromDb
+let query
     (context: Context.Context)
     (cteList: string list option)
     (select: string)
@@ -196,7 +196,7 @@ let readRowsFromDb
         reconstitute
         expectedRows
 
-let private fetchGenericRead
+let private fetchAny
     (context: Context.Context)
     (predicate: string option)
     (limit: int option)
@@ -233,13 +233,13 @@ let private fetchGenericRead
                     end)
             """
         ]
-    readRowsFromDb context None select (Some join) predicate limit None None parameters expectedRows
+    query context None select (Some join) predicate limit None None parameters expectedRows
 
 let fetchById (context: Context.Context) (paymentId: PaymentId) : Result<Payment, AppError> =
     let predicate = "pmt.unique_id = @unique_id"
     let uuid = paymentId |> PaymentId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    fetchGenericRead context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+    fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
 let fetchByInvoiceIdList
     (context: Context.Context)
@@ -254,12 +254,12 @@ let fetchByInvoiceIdList
     let names = namesAndParameters |> List.map fst |> String.concat ", "
     let parameters = namesAndParameters |> List.map snd
     let predicate = $"pmt.invoice_id in ({names})"
-    fetchGenericRead context (Some predicate) None parameters AnyQuantityIsAcceptable
+    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-/// updateDb is incredibly powerful and should only be used very deliberately. It will let you update your database in a
+/// update is incredibly powerful and should only be used very deliberately. It will let you update your database in a
 /// type-unsafe manner. Only use it with controlled database transactions and with certainty that you are validating
 /// your resultant data state appropriately.
-let updateDb
+let update
     (context: Context.Context)
     (fieldUpdates: PaymentFieldUpdates)
     : Result<Payment, AppError> =

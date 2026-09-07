@@ -50,7 +50,7 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
-let insertNewToDb (context: Context.Context) (journalEntryLine: JournalEntryLine) : Result<unit, AppError> =
+let persist (context: Context.Context) (journalEntryLine: JournalEntryLine) : Result<unit, AppError> =
     let query =
         """
         INSERT INTO ledger.journal_entry_line(
@@ -108,7 +108,7 @@ let private reconstitute raw : Result<JournalEntryLine, AppError> =
         return create journalEntryLineId journalEntryId accountId amount lineType memo createdAt modifiedAt
     }
 
-let private readRowsFromDb
+let private query
     (context: Context.Context)
     (joinList: string list option)
     (predicate: string option)
@@ -136,7 +136,7 @@ let fetchById (context: Context.Context) (journalEntryLineId: JournalEntryLineId
     let uuid = journalEntryLineId |> JournalEntryLineId.value
     let predicate = "jel.unique_id = @unique_id"
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    readRowsFromDb context None (Some predicate) None None parameters ExactlyOne |> Result.map List.head
+    query context None (Some predicate) None None parameters ExactlyOne |> Result.map List.head
 
 let fetchByJournalEntryHeaderId
     (context: Context.Context)
@@ -146,7 +146,7 @@ let fetchByJournalEntryHeaderId
     let predicate = "jel.journal_entry_id = @journal_entry_id"
     let parameters = [ { name = "@journal_entry_id"; value = UniqueId uuid } ]
     let orderBy = "jel.created_at"
-    readRowsFromDb context None (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable
+    query context None (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable
 
 let fetchByJournalEntryHeaderIdList
     (context: Context.Context)
@@ -165,7 +165,7 @@ let fetchByJournalEntryHeaderIdList
     let names = namesAndParameters |> List.map fst |> String.concat ", "
     let parameters = namesAndParameters |> List.map snd
     let predicate = $"jel.journal_entry_id in ({names})"
-    readRowsFromDb context None (Some predicate) None None parameters AnyQuantityIsAcceptable
+    query context None (Some predicate) None None parameters AnyQuantityIsAcceptable
 
 let fetchByAccountId
     (context: Context.Context)
@@ -181,7 +181,7 @@ let fetchByAccountId
     let predicate = Some $"jel.account_id = @account_id {voidCheck}"
     let parameters = [ { name = "@account_id"; value = UniqueId accountIdGuid } ]
     let orderBy = Some "jel.created_at"
-    readRowsFromDb context joinList predicate None orderBy parameters AnyQuantityIsAcceptable
+    query context joinList predicate None orderBy parameters AnyQuantityIsAcceptable
 
 let sumLinesByType (debitOrCredit: JournalEntryLineType) (lines: JournalEntryLine list) : Result<Money, AppError> =
     lines |> List.filter(fun x -> lineType x = debitOrCredit) |> List.map(amount) |> Money.sumList

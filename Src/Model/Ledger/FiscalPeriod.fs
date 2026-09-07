@@ -45,10 +45,10 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
-/// insertNewToDb is a private function used as an interface to the DAL. It
+/// persist is a private function used as an interface to the DAL. It
 /// assumes that the calling function handled all necessary validations to
 /// ensure only legal data states persist
-let insertNewToDb (context: Context.Context) (fp: FiscalPeriod) : Result<unit, AppError> =
+let persist (context: Context.Context) (fp: FiscalPeriod) : Result<unit, AppError> =
     let query =
         """
         insert into ledger.fiscal_period(
@@ -91,9 +91,9 @@ let private reconstitute raw =
           createdAt = createdAt
           modifiedAt = modifiedAt }
 
-/// readRowsFromDb is designed to produce a flexible read query that can
+/// query is designed to produce a flexible read query that can
 /// satisfy diverse use cases
-let private readRowsFromDb
+let private query
     (context: Context.Context)
     (predicate: string option)
     (limit: int option)
@@ -116,7 +116,7 @@ let fetchById (context: Context.Context) (id: FiscalPeriodId) : Result<FiscalPer
     let predicate = "fp.unique_id = @unique_id"
     let uuid = id |> FiscalPeriodId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    match readRowsFromDb context (Some predicate) None parameters ExactlyOne |> Result.map List.head with
+    match query context (Some predicate) None parameters ExactlyOne |> Result.map List.head with
     | Ok x -> Ok x
     | Error (DalResultantRowsDidntMatchExpectation _) -> Error (FiscalPeriodNoPeriodMatchingId uuid)
     | Error e -> Error e
@@ -146,7 +146,7 @@ let fetchAll (context: Context.Context) (openOnly: bool) : Result<FiscalPeriod l
         | true -> Some "fp.is_open = true"
         | _ -> None
     let parameters = []
-    readRowsFromDb context predicate None parameters AnyQuantityIsAcceptable
+    query context predicate None parameters AnyQuantityIsAcceptable
 
 let private toggleOpenFlagById
     (context: Context.Context)

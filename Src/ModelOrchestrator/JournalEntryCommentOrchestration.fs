@@ -34,7 +34,7 @@ let private confirmPrimaryAndSecondaryRelationship
         else
             Ok()
 
-let constructNewAndSaveToDb
+let constructNewAndPersist
     (context: Context.Context)
     (primaryJournalEntryId: JournalEntryHeaderId)
     (secondaryJournalEntryId: JournalEntryHeaderId option)
@@ -62,7 +62,7 @@ let constructNewAndSaveToDb
                 commentText
                 createdAt
                 modifiedAt
-        do! journalEntryComment |> insertNewToDb context
+        do! journalEntryComment |> persist context
         return journalEntryComment
     }
 

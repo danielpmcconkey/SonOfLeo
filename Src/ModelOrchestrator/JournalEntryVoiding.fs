@@ -90,7 +90,7 @@ let private insertReason
     (secondaryJournalEntryId: JournalEntryHeaderId option)
     (commentText: CommentText)
     : Result<unit, AppError> =
-    JournalEntryCommentOrchestration.constructNewAndSaveToDb
+    JournalEntryCommentOrchestration.constructNewAndPersist
         context
         primaryJournalEntryId
         secondaryJournalEntryId

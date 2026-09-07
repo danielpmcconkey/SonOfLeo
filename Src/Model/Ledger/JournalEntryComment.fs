@@ -38,7 +38,7 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
-let insertNewToDb (context: Context.Context) (comment: JournalEntryComment) : Result<unit, AppError> =
+let persist (context: Context.Context) (comment: JournalEntryComment) : Result<unit, AppError> =
     let query =
         """
         INSERT INTO ledger.journal_entry_comment(
@@ -93,7 +93,7 @@ let private reconstitute raw : Result<JournalEntryComment, AppError> =
               createdAt = createdAt
               modifiedAt = modifiedAt }
 
-let private readRowsFromDb
+let private query
     (context: Context.Context)
     (predicate: string option)
     (limit: int option)
@@ -123,7 +123,7 @@ let fetchById
     let uuid = journalEntryCommentId |> JournalEntryCommentId.value
     let predicate = "jec.unique_id = @unique_id"
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    readRowsFromDb context (Some predicate) None None parameters ExactlyOne |> Result.map List.head
+    query context (Some predicate) None None parameters ExactlyOne |> Result.map List.head
 
 /// fetchByJournalEntryId returns all comments associated to a Journal
 /// Entry, whether as the primary or secondary, ordered by comment create
@@ -137,7 +137,7 @@ let fetchByJournalEntryId
         "jec.journal_primary_entry_id = @unique_id or jec.journal_secondary_entry_id = @unique_id"
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     let orderBy = "created_at"
-    readRowsFromDb context (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable
+    query context (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable
 
 /// fetchByJournalEntryHeaderIdList only pull comments whose primary header ID is in the ID list because its
 /// purpose in this code base is to facilitate rapid assembly of full journal entry composite entities. If a header
@@ -160,4 +160,4 @@ let fetchByJournalEntryHeaderIdList
     let names = namesAndParameters |> List.map fst |> String.concat ", "
     let parameters = namesAndParameters |> List.map snd
     let predicate = $"jec.journal_primary_entry_id in ({names})"
-    readRowsFromDb context (Some predicate) None None parameters AnyQuantityIsAcceptable
+    query context (Some predicate) None None parameters AnyQuantityIsAcceptable

@@ -68,7 +68,7 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
-let insertNewToDb
+let persist
     (context: Context.Context)
     (paymentAgreement: PaymentAgreement)
     : Result<unit, AppError> =
@@ -157,7 +157,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
-let readRowsFromDb
+let query
     (context: Context.Context)
     (cteList: string list option)
     (select: string)
@@ -179,7 +179,7 @@ let readRowsFromDb
         reconstitute
         expectedRows
 
-let private fetchGenericRead
+let private fetchAny
     (context: Context.Context)
     (predicate: string option)
     (limit: int option)
@@ -190,13 +190,13 @@ let private fetchGenericRead
         pa.unique_id, pa.master_agreement_id, pa.payment_agreement_name, pa.debit_account, pa.credit_account,
         pa.expected_amount, pa.days_due_after_invoice, pa.memo, pa.created_at, pa.modified_at
         """
-    readRowsFromDb context None select None predicate limit None None parameters expectedRows
+    query context None select None predicate limit None None parameters expectedRows
 
 let fetchById (context: Context.Context) (paymentAgreementID: PaymentAgreementId) : Result<PaymentAgreement, AppError> =
     let predicate = "pa.unique_id = @unique_id"
     let uuid = paymentAgreementID |> PaymentAgreementId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    fetchGenericRead context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+    fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
 let fetchByName
     (context: Context.Context)
@@ -205,7 +205,7 @@ let fetchByName
     let predicate = "pa.payment_agreement_name = @payment_agreement_name"
     let nameStr = paymentAgreementName |> PaymentAgreementName.value
     let parameters = [ { name = "@payment_agreement_name"; value = CharString(nameStr) } ]
-    fetchGenericRead context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+    fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
 let fetchByMasterAgreementIdList
     (context: Context.Context)
@@ -220,12 +220,12 @@ let fetchByMasterAgreementIdList
     let names = namesAndParameters |> List.map fst |> String.concat ", "
     let parameters = namesAndParameters |> List.map snd
     let predicate = $"pa.master_agreement_id in ({names})"
-    fetchGenericRead context (Some predicate) None parameters AnyQuantityIsAcceptable
+    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-/// updateDb is incredibly powerful and should only be used very deliberately. It will let you update your database in a
+/// update is incredibly powerful and should only be used very deliberately. It will let you update your database in a
 /// type-unsafe manner. Only use it with controlled database transactions and with certainty that you are validating
 /// your resultant data state appropriately.
-let updateDb
+let update
     (context: Context.Context)
     (fieldUpdates: PaymentAgreementFieldUpdates)
     : Result<PaymentAgreement, AppError> =

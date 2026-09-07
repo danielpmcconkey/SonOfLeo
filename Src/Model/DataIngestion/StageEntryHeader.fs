@@ -58,7 +58,7 @@ let create
         fiReference = fiReference
         currentStatus = currentStatus }
 
-let insertNewStatusTransitionToDb
+let persistStatusTransition
     (context: Context.Context)
     (stageEntryStatusTransition: StageEntryStatusTransition.StageEntryStatusTransition)
     : Result<unit, AppError> =
@@ -128,10 +128,10 @@ let updateHeaderStatus
             StageEntryStatusTransition.create newTransitionId headerId
                 fromStatus newStatus instant mechanism
         do! newTransition |> StageEntryStatusTransition.confirmValidTransition
-        return! newTransition |> insertNewStatusTransitionToDb context
+        return! newTransition |> persistStatusTransition context
     }
 
-let insertNewToDb
+let persist
     (context: Context.Context)
     (initialStatus: StagedEntryStatus)
     (statusChangeMechanism: StageStatusChangeMechanism)
@@ -212,7 +212,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getString "fi_reference"),
     (row |> RowReader.getStringOption "current_status")
 
-let readRowsFromDb
+let query
     (context: Context.Context)
     (cteList: string list option)
     (select: string)
@@ -234,7 +234,7 @@ let readRowsFromDb
         reconstitute
         expectedRows
 
-let private fetchGenericRead
+let private fetchAny
     (context: Context.Context)
     (predicate: string option)
     (limit: int option)
@@ -252,19 +252,19 @@ let private fetchGenericRead
             "left join ingestion.source src on se.source_id = src.unique_id"
             "left join latest_statuses on se.unique_id = latest_statuses.entry_id"
         ]
-    readRowsFromDb context (Some latestStatusCtes) select (Some joinList) predicate limit None None parameters expectedRows
+    query context (Some latestStatusCtes) select (Some joinList) predicate limit None None parameters expectedRows
 
 let fetchById (context: Context.Context) (headerId: StageEntryHeaderId) : Result<StageEntryHeader, AppError> =
     let predicate = "se.unique_id = @unique_id"
     let uuid = headerId |> StageEntryHeaderId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    fetchGenericRead context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+    fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
 let fetchByStatus (context: Context.Context) (status: StagedEntryStatus) : Result<StageEntryHeader list, AppError> =
     let predicate = "latest_statuses.to_status = @status"
     let statusStr = status |> StagedEntryStatus.toString
     let parameters = [ { name = "@status"; value = CharString statusStr } ]
-    fetchGenericRead context (Some predicate) None parameters AnyQuantityIsAcceptable
+    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
 let fetchBySourceFile // todo: determine if we shouldn't just fold all fetch functions into the orchestrator's fetchFiltered 
     (context: Context.Context)
@@ -286,7 +286,7 @@ let fetchBySourceFile // todo: determine if we shouldn't just fold all fetch fun
     """
     let fileStr = sourceFile |> SourceFile.value
     let parameters = [ { name = "@source_file"; value = CharString fileStr } ]
-    fetchGenericRead context (Some predicate) None parameters AnyQuantityIsAcceptable
+    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
 let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, AppError> =
     let latestStatusCtes = StageEntryStatusTransition.formLatestStatusCte
@@ -340,12 +340,12 @@ let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, A
             "join ingestion.source src on se.source_id = src.unique_id"
             "left join latest_statuses on se.unique_id = latest_statuses.entry_id"
         ]
-    readRowsFromDb context (Some cteList) select (Some joinList) None None None None [] AnyQuantityIsAcceptable
+    query context (Some cteList) select (Some joinList) None None None None [] AnyQuantityIsAcceptable
 
-/// updateDb is incredibly powerful and should only be used very deliberately. It will let you update your database in a
+/// update is incredibly powerful and should only be used very deliberately. It will let you update your database in a
 /// type-unsafe manner. Only use it with controlled database transactions and with certainty that you are validating
 /// your resultant data state appropriately.
-let updateDb
+let update
     (context: Context.Context)
     (fieldUpdates: StageEntryHeaderFieldUpdates)
     : Result<StageEntryHeader, AppError> =
