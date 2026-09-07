@@ -175,13 +175,13 @@ let private constructSetFromRaw
                     |> List.map (fun row -> 
                         let lineId = StageEntryLineId.create ()
                         StageEntryLine.create
-                            lineId stageEntryId row.amount row.entryType row.accountId
-                            row.paymentAgreementId row.memo None None
+                            lineId stageEntryId row.amount row.entryType row.accountId row.memo None
                         )
                 let! ingestionSource = fiSource |> IngestionSource.fetchByName context
                 let header =
                     StageEntryHeader.create
-                        sourceFile stageEntryId entryDate description ingestionSource fiReference (Some Ingested)
+                        sourceFile stageEntryId entryDate description ingestionSource fiReference None
+                            (Some Ingested)
                 let transitionId = StageEntryStatusTransitionId.create ()
                 let transition = StageEntryStatusTransition.create transitionId stageEntryId
                                       None Ingested (context |> Context.getInitiationInstant) StageIngestion
@@ -435,6 +435,7 @@ let isThereAHeaderUpdate
     || headerUpdates.descriptionUpdate <> FieldUpdate.NoChange
     || headerUpdates.ingestionSourceUpdate <> FieldUpdate.NoChange
     || headerUpdates.fiReferenceUpdate <> FieldUpdate.NoChange
+    || headerUpdates.journalEntryHeaderIdUpdate <> FieldUpdate.NoChange
     || headerUpdates.statusUpdate <> FieldUpdate.NoChange
     
 // if the updateStageEntry only wants to update the header, this is a way to know that you don't have to try to update the
@@ -448,7 +449,7 @@ let isThereALineUpdate
         || lu.entryTypeUpdate <> FieldUpdate.NoChange
         || lu.accountIdUpdate <> FieldUpdate.NoChange
         || lu.memoUpdate <> FieldUpdate.NoChange
-        || lu.accountClassificationRuleIdUpdate <> FieldUpdate.NoChange
+        || lu.journalEntryLineIdUpdate <> FieldUpdate.NoChange
         )
     |> List.exists id
     
@@ -478,6 +479,41 @@ let updateStageEntry
         do! fetched |> confirmStageEntryCompositeIsValid context AllowNone
         return fetched
     }
+
+let private isSameLine
+    (stageEntryLine: StageEntryLine.StageEntryLine)
+    (journalEntryLine: Model.Ledger.JournalEntryLine.JournalEntryLine)
+    : bool =
+    let stageAccountId = stageEntryLine |> StageEntryLine.accountId
+    let journalAccountId = journalEntryLine |> Model.Ledger.JournalEntryLine.accountId
+    let stageAmount = stageEntryLine |> StageEntryLine.amount |> Money.amount
+    let journalAmount = journalEntryLine |> Model.Ledger.JournalEntryLine.amount |> Money.amount
+    let stageLineType = stageEntryLine |> StageEntryLine.lineType
+    let journalLineType = journalEntryLine |> Model.Ledger.JournalEntryLine.lineType
+    stageAccountId = Some journalAccountId && stageAmount = journalAmount && stageLineType = journalLineType
+
+/// pairStageLinesToJournalEntryLines matches on account, line type, and amount rather than trusting the two lists to
+/// arrive in the same order. A matched journal entry line leaves the pool, so two identical staged lines still pair
+/// one to one.
+let rec private pairStageLinesToJournalEntryLines
+    (pairs: (StageEntryLine.StageEntryLine * Model.Ledger.JournalEntryLine.JournalEntryLine) list)
+    (unpairedJournalEntryLines: Model.Ledger.JournalEntryLine.JournalEntryLine list)
+    (stageEntryLines: StageEntryLine.StageEntryLine list)
+    : Result<(StageEntryLine.StageEntryLine * Model.Ledger.JournalEntryLine.JournalEntryLine) list, AppError> =
+    match stageEntryLines with
+    | [] -> Ok (pairs |> List.rev)
+    | stageEntryLine :: remainingStageEntryLines ->
+        match unpairedJournalEntryLines |> List.tryFind (isSameLine stageEntryLine) with
+        | None ->
+            let uuid = stageEntryLine |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value
+            Error (IngestionStageEntryLineNoMatchingJournalEntryLine uuid)
+        | Some journalEntryLine ->
+            let pairedId = journalEntryLine |> Model.Ledger.JournalEntryLine.journalEntryLineId
+            let stillUnpaired =
+                unpairedJournalEntryLines
+                |> List.filter (fun x -> (x |> Model.Ledger.JournalEntryLine.journalEntryLineId) <> pairedId)
+            remainingStageEntryLines
+            |> pairStageLinesToJournalEntryLines ((stageEntryLine, journalEntryLine) :: pairs) stillUnpaired
 
 let postStageEntry
     (context: Context.Context)
@@ -509,7 +545,8 @@ let postStageEntry
                     return accountId, amount, lineType, memo
                 } )
             |> convertListOfResultsToResultsList
-        do! JournalEntry.constructNewAndPersist
+        let! journalEntry =
+            JournalEntry.constructNewAndPersist
                 context
                 description
                 jeHeaderSource
@@ -517,7 +554,36 @@ let postStageEntry
                 lines
                 references
                 comments
-            |> Result.map ignore
+        let headerUpdates: StageEntryHeader.StageEntryHeaderFieldUpdates = {
+            headerIdToUpdate = stageEntry.stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+            sourceFileUpdate = FieldUpdate.NoChange
+            entryDateUpdate = FieldUpdate.NoChange
+            descriptionUpdate = FieldUpdate.NoChange
+            ingestionSourceUpdate = FieldUpdate.NoChange
+            fiReferenceUpdate = FieldUpdate.NoChange
+            journalEntryHeaderIdUpdate =
+                journalEntry
+                |> JournalEntry.header
+                |> Model.Ledger.JournalEntryHeader.journalEntryHeaderId
+                |> Some
+                |> FieldUpdate.SetTo
+            statusUpdate = FieldUpdate.NoChange }
+        do! headerUpdates |> StageEntryHeader.update context |> Result.map ignore
+        let! pairedLines =
+            stageEntry.seLines
+            |> pairStageLinesToJournalEntryLines [] (journalEntry |> JournalEntry.jeLines)
+        let! _ =
+            pairedLines
+            |> List.map (fun (stageEntryLine, journalEntryLine) ->
+                let journalEntryLineIdUpdate =
+                    journalEntryLine
+                    |> Model.Ledger.JournalEntryLine.journalEntryLineId
+                    |> Some
+                    |> FieldUpdate.SetTo
+                stageEntryLine
+                |> StageEntryLine.stageEntryLineId
+                |> StageEntryLine.updateJournalEntryLineId context journalEntryLineIdUpdate)
+            |> convertListOfResultsToResultsList
         return ()}
     
 /// post writes new journal entries to the ledger tables and updates the status in stage. That's it. This is not a
@@ -635,26 +701,20 @@ let fetchFiltered
               ("account_id = @account_id",
                { name = "@account_id"; value = UniqueId(x |> AccountId.value) }))
           
-          filter.paymentAgreementId
-          |> Option.map(fun x ->
-              ("payment_agreement_id = @payment_agreement_id",
-               { name = "@payment_agreement_id"
-                 value = UniqueId(x |> Model.CashFlow.CashFlowComponent.PaymentAgreementId.value) }))
-
           filter.memo
           |> Option.map(fun x ->
               ("memo = @memo",
                { name = "@memo"; value = CharString(x |> JournalEntryLineMemo.value) }))
 
-          filter.accountClassificationRuleId
+          filter.journalEntryHeaderId
           |> Option.map(fun x ->
-              ("account_classification_rule_id = @account_classification_rule_id",
-               { name = "@account_classification_rule_id"; value = UniqueId(x |> ClassificationRuleId.value) }))
+              ("journal_entry_header_id = @journal_entry_header_id",
+               { name = "@journal_entry_header_id"; value = UniqueId(x |> JournalEntryHeaderId.value) }))
 
-          filter.paymentClassificationRuleId
+          filter.journalEntryLineId
           |> Option.map(fun x ->
-              ("payment_classification_rule_id = @payment_classification_rule_id",
-               { name = "@payment_classification_rule_id"; value = UniqueId(x |> ClassificationRuleId.value) })) ]
+              ("journal_entry_line_id = @journal_entry_line_id",
+               { name = "@journal_entry_line_id"; value = UniqueId(x |> JournalEntryLineId.value) })) ]
         |> List.choose id
     let whereClauses =
         if whereClausesAndParams |> List.isEmpty then ""
@@ -674,14 +734,13 @@ let fetchFiltered
                 src.source_name,
                 se.fi_reference,
                 se.source_file,
+                se.journal_entry_header_id,
                 sel.unique_id as stage_line_entry_id,
                 sel.amount,
                 sel.line_type,
                 sel.account_id,
-                sel.payment_agreement_id,
                 sel.memo,
-                sel.account_classification_rule_id,
-                sel.payment_classification_rule_id,
+                sel.journal_entry_line_id,
                 latest_statuses.to_status as stage_entry_status,
                 latest_statuses.modified_at as latest_status_time_stamp
             from ingestion.staged_entry se
@@ -698,8 +757,8 @@ let fetchFiltered
         ]
     let select = """
             se.unique_id, se.entry_date, se.description, se.source_id, se.fi_reference, se.source_file,
-            latest_statuses.to_status as current_status, src.source_name, src.created_at as source_created,
-            src.modified_at as source_modified"""
+            se.journal_entry_header_id, latest_statuses.to_status as current_status, src.source_name,
+            src.created_at as source_created, src.modified_at as source_modified"""
     let joinList =
         [
             "join header_ids h on se.unique_id = h.stage_entry_id"

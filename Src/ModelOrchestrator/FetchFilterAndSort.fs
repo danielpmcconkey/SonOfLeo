@@ -79,10 +79,9 @@ type StageEntryFetchFilter =
       amount: Money option
       lineType: JournalEntryLineType option
       accountId: AccountId option
-      paymentAgreementId: PaymentAgreementId option
       memo: JournalEntryLineMemo option
-      accountClassificationRuleId: ClassificationRuleId option
-      paymentClassificationRuleId: ClassificationRuleId option }
+      journalEntryHeaderId: JournalEntryHeaderId option
+      journalEntryLineId: JournalEntryLineId option }
 
 type FetchStageEntrySort =
     | EntryDateAsc

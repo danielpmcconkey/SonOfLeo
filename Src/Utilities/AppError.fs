@@ -187,6 +187,7 @@ type AppError =
     | IngestionStageEntryLineIdDoesntExist of Guid
     | IngestionStageEntryHeaderNoOp
     | IngestionStageEntryLineNoOp
+    | IngestionStageEntryLineNoMatchingJournalEntryLine of Guid
     | IngestionStageHeaderIdListCannotBeEmpty
     | IngestionSourceFileIsEmpty of string
     | IngestionSourceFileTooLong of string * int
@@ -436,6 +437,7 @@ module AppError =
         | IngestionStageEntryLineIdDoesntExist uuid -> $"Could not locate a stage entry line with the id of {uuid}."
         | IngestionStageEntryHeaderNoOp -> "Updating the StageEntryHeader record failed because at least one updatable parameter must be set."
         | IngestionStageEntryLineNoOp -> "Updating the StageEntryLine record failed because at least one updatable parameter must be set."
+        | IngestionStageEntryLineNoMatchingJournalEntryLine uuid -> $"Could not locate a journal entry line matching stage entry line {uuid} on account, line type, and amount."
         | IngestionStageHeaderIdListCannotBeEmpty -> "The stageEntryHeaderIds list must contain at least 1 Header ID."
         | IngestionStageLineNonPositiveAmount amount -> $"StageEntry Amount field ({amount}) cannot be less than or equal to 0.00."
         | IngestionStageEntryDebitCreditMismatch(debits, credits) -> $"Error in Base Stage Entry Group. The sum of all debit amounts ({debits}) must exactly equal the sum of all credit amounts ({credits})."

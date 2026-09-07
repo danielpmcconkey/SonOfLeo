@@ -32,6 +32,7 @@ type StageEntryHeaderFieldUpdates = {
     descriptionUpdate: FieldUpdate<JournalEntryDescription>
     ingestionSourceUpdate: FieldUpdate<IngestionSource>
     fiReferenceUpdate: FieldUpdate<JournalExternalReferenceText>
+    journalEntryHeaderIdUpdate: FieldUpdate<JournalEntryHeaderId option>
     statusUpdate: FieldUpdate<StagedEntryStatus * StageStatusChangeMechanism> }
 
 let sourceFile g = g.sourceFile
@@ -40,8 +41,9 @@ let entryDate g = g.entryDate
 let description g = g.description
 let ingestionSource g = g.ingestionSource
 let fiReference g = g.fiReference
+let journalEntryHeaderId g = g.journalEntryHeaderId
 let currentStatus g = g.currentStatus
-    
+
 let create
     (sourceFile: SourceFile)
     (stageEntryHeaderId : StageEntryHeaderId)
@@ -49,6 +51,7 @@ let create
     (description: JournalEntryDescription)
     (ingestionSource: IngestionSource)
     (fiReference: JournalExternalReferenceText)
+    (journalEntryHeaderId: JournalEntryHeaderId option)
     (currentStatus: StagedEntryStatus option)
     : StageEntryHeader = {
         sourceFile = sourceFile
@@ -57,7 +60,7 @@ let create
         description = description
         ingestionSource = ingestionSource
         fiReference = fiReference
-        journalEntryHeaderId = None // None is a placeholder until we build out this logic
+        journalEntryHeaderId = journalEntryHeaderId
         currentStatus = currentStatus }
 
 let persistStatusTransition
@@ -143,19 +146,21 @@ let persist
         let queryStatement =
             """
             insert into ingestion.staged_entry(
-	            unique_id, entry_date, description, source_id, fi_reference, source_file)
+	            unique_id, entry_date, description, source_id, fi_reference, source_file, journal_entry_header_id)
             values (
-	            @unique_id, 
-                @entry_date, 
-                @description, 
-                @source_id, 
+	            @unique_id,
+                @entry_date,
+                @description,
+                @source_id,
                 @fi_reference,
-                @source_file);"""
+                @source_file,
+                @journal_entry_header_id);"""
         let uuid = stageEntryHeader.stageEntryHeaderId |> StageEntryHeaderId.value
         let description = stageEntryHeader.description |> JournalEntryDescription.value
         let sourceUuid = stageEntryHeader.ingestionSource |> ingestionSourceId |> IngestionSourceId.value
         let fiReference = stageEntryHeader.fiReference |> JournalExternalReferenceText.value
         let sourceFile = stageEntryHeader.sourceFile |> SourceFile.value
+        let journalEntryHeaderUuid = stageEntryHeader.journalEntryHeaderId |> Option.map JournalEntryHeaderId.value
         let parameters =
             [
               { name = "@unique_id"; value = UniqueId(uuid) }
@@ -164,6 +169,7 @@ let persist
               { name = "@source_id"; value = UniqueId(sourceUuid) }
               { name = "@fi_reference"; value = CharString(fiReference) }
               { name = "@source_file"; value = CharString(sourceFile) }
+              { name = "@journal_entry_header_id"; value = NullableUniqueId(journalEntryHeaderUuid) }
             ]
         do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
         return! stageEntryHeader.stageEntryHeaderId
@@ -181,6 +187,7 @@ let private reconstitute raw =
              sourceCreated,
              sourceModified,
              fiReferenceStr,
+             journalEntryHeaderUuidOption,
              statusStr) =
             raw
         let! sourceFile = sourceFileStr |> SourceFile.create
@@ -190,6 +197,7 @@ let private reconstitute raw =
         let! sourceName = sourceNameStr |> JournalRefFinancialInstitution.create
         let ingestionSource = IngestionSource.create ingestionSourceId sourceName sourceCreated sourceModified
         let! fiReference = fiReferenceStr |> JournalExternalReferenceText.create
+        let journalEntryHeaderId = journalEntryHeaderUuidOption |> Option.map JournalEntryHeaderId.fromGuid
         let! status = statusStr |> convertOptionToDesiredTypeWithFallibleConverter StagedEntryStatus.fromString
         return
             create
@@ -199,6 +207,7 @@ let private reconstitute raw =
                 description
                 ingestionSource
                 fiReference
+                journalEntryHeaderId
                 status
     }
 
@@ -212,6 +221,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "source_created"),
     (row |> RowReader.getInstant "source_modified"),
     (row |> RowReader.getString "fi_reference"),
+    (row |> RowReader.getUuidOption "journal_entry_header_id"),
     (row |> RowReader.getStringOption "current_status")
 
 let query
@@ -246,8 +256,8 @@ let private fetchAny
     let latestStatusCtes = StageEntryStatusTransition.formLatestStatusCte
     let select = """
         se.unique_id, se.entry_date, se.description, se.source_id, se.fi_reference, se.source_file,
-        latest_statuses.to_status as current_status, src.source_name, src.created_at as source_created,
-        src.modified_at as source_modified
+        se.journal_entry_header_id, latest_statuses.to_status as current_status, src.source_name,
+        src.created_at as source_created, src.modified_at as source_modified
         """
     let joinList =
         [
@@ -333,7 +343,8 @@ let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, A
         ]
     let cteList = latestStatusCtes@earliestStatusCtes@dedupCtes
     let select = """
-            se.unique_id, se.entry_date, se.description, se.source_id, se.fi_reference, se.source_file, latest_statuses.to_status as current_status,
+            se.unique_id, se.entry_date, se.description, se.source_id, se.fi_reference, se.source_file,
+            se.journal_entry_header_id, latest_statuses.to_status as current_status,
             src.source_name, src.created_at as source_created, src.modified_at as source_modified
             """
     let joinList =
@@ -354,6 +365,7 @@ let update
     let descriptionUpdate = fieldUpdates.descriptionUpdate
     let ingestionSourceUpdate = fieldUpdates.ingestionSourceUpdate
     let fiReferenceUpdate = fieldUpdates.fiReferenceUpdate
+    let journalEntryHeaderIdUpdate = fieldUpdates.journalEntryHeaderIdUpdate
     let statusUpdate = fieldUpdates.statusUpdate
     let uuid = headerId |> StageEntryHeaderId.value
     let baseParams =
@@ -385,6 +397,12 @@ let update
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
                   ("fi_reference = @fi_reference",
                    { name = "@fi_reference"; value = CharString(JournalExternalReferenceText.value n) }))
+
+              journalEntryHeaderIdUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  ("journal_entry_header_id = @journal_entry_header_id",
+                   { name = "@journal_entry_header_id"
+                     value = NullableUniqueId(n |> Option.map JournalEntryHeaderId.value) }))
         ]
         |> List.choose id
     let setClauses = updates |> List.map fst |> String.concat ", "

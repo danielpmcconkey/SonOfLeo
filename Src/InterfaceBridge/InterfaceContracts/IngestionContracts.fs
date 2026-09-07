@@ -44,9 +44,10 @@ type StageEntryHeaderReturn = {
         description: string
         ingestionSource: string
         fiReference: string
+        journalEntryHeaderId: Guid option
         status: string option
     }
-                
+
 type AccountClaimantReturn = {
         code: string
         accountName: string
@@ -63,10 +64,8 @@ type StageEntryLineReturn =  {
         lineType: string
         accountCode: string option
         accountName: string option
-        paymentAgreementName: string option
         memo: string option
-        accountClassificationRuleId: Guid option
-        paymentClassificationRuleId: Guid option
+        journalEntryLineId: Guid option
     }
 
 type StageEntryStatusTransitionReturn = {
@@ -202,10 +201,7 @@ type UpdateStageEntryLineInput = {
     amount: FieldUpdate<decimal>
     lineType: FieldUpdate<string>
     accountCode: FieldUpdate<string option>
-    paymentAgreementName: FieldUpdate<string option>
     memo: FieldUpdate<string option>
-    accountClassificationRuleId: FieldUpdate<Guid option>
-    paymentClassificationRuleId: FieldUpdate<Guid option>
 }
 
 type StageEntryStatusUpdateInput = {
@@ -235,7 +231,6 @@ type BaseStageRawRowInput = {
     amount : decimal
     entryType : string
     accountCode: string option
-    paymentAgreementId: Guid option // a raw row is machine-authored by the import scripts, so it carries the id, not the name
     memo: string option
 }
 
@@ -251,9 +246,8 @@ type StageEntryFetchFilterInput =
       amount: decimal option
       lineType: string option
       accountCode: string option
-      paymentAgreementName: string option
       memo: string option
-      accountClassificationRuleId: Guid option
-      paymentClassificationRuleId: Guid option }
+      journalEntryHeaderId: Guid option
+      journalEntryLineId: Guid option }
     
 type StageEntryFetchFilteredInput = { filter: StageEntryFetchFilterInput; sort: FetchStageEntrySort option }

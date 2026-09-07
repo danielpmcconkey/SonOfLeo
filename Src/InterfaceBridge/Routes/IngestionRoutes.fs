@@ -1,7 +1,6 @@
 module InterfaceBridge.Routes.IngestionRoutes
 
 open DataAccessLayer.DbTransaction
-open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 open InterfaceBridge.BoundaryConverters.ReportConverters
 open InterfaceBridge.InterfaceContracts.IngestionContracts
@@ -166,6 +165,7 @@ let private updateStageEntry payload _ =
                 descriptionUpdate = descriptionUpdate
                 ingestionSourceUpdate = ingestionSourceUpdate
                 fiReferenceUpdate = fiReferenceUpdate
+                journalEntryHeaderIdUpdate = NoChange
                 statusUpdate = statusUpdate }
             let! lineUpdates =
                 input.lines

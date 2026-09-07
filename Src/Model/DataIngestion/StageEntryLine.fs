@@ -1,7 +1,6 @@
 module Model.DataIngestion.StageEntryLine
 
 open Model
-open Model.CashFlow.CashFlowComponent
 open Model.Ledger.AccountComponent
 open Model.Ledger.JournalEntryComponent
 open Utilities.AppError
@@ -10,7 +9,6 @@ open DataAccessLayer.ExecuteReader
 open DataAccessLayer.QueryParameters
 open Utilities.FieldUpdate
 open Utilities.ResultHelper
-open Model.StageDataClassification.StageDataClassificationComponent
 open Model.DataIngestion.StageEntryComponent
                 
 type StageEntryLine = private {
@@ -19,10 +17,7 @@ type StageEntryLine = private {
     amount: Money
     lineType: JournalEntryLineType
     accountId: AccountId option
-    paymentAgreementId: PaymentAgreementId option
     memo: JournalEntryLineMemo option
-    accountClassificationRuleId: ClassificationRuleId option
-    paymentAgreementClassificationRuleId: ClassificationRuleId option
     journalEntryLineId: JournalEntryLineId option }
 
 type StageEntryLineFieldUpdates = {
@@ -30,20 +25,16 @@ type StageEntryLineFieldUpdates = {
     amountUpdate: FieldUpdate<Money>
     entryTypeUpdate: FieldUpdate<JournalEntryLineType>
     accountIdUpdate: FieldUpdate<AccountId option>
-    paymentAgreementIdUpdate: FieldUpdate<PaymentAgreementId option>
     memoUpdate: FieldUpdate<JournalEntryLineMemo option>
-    accountClassificationRuleIdUpdate: FieldUpdate<ClassificationRuleId option>
-    paymentClassificationRuleIdUpdate: FieldUpdate<ClassificationRuleId option> }
+    journalEntryLineIdUpdate: FieldUpdate<JournalEntryLineId option> }
 
 let stageEntryLineId l = l.stageEntryLineId
 let stageEntryHeaderId l = l.stageEntryHeaderId
-let amount l = l.amount 
-let lineType l = l.lineType 
-let accountId l = l.accountId 
-let paymentAgreementId l = l.paymentAgreementId
+let amount l = l.amount
+let lineType l = l.lineType
+let accountId l = l.accountId
 let memo l = l.memo
-let accountClassificationRuleId l = l.accountClassificationRuleId
-let paymentAgreementClassificationRuleId l = l.paymentAgreementClassificationRuleId
+let journalEntryLineId l = l.journalEntryLineId
 
 let create
     (stageEntryLineId: StageEntryLineId)
@@ -51,21 +42,16 @@ let create
     (amount : Money)
     (entryType : JournalEntryLineType)
     (accountId: AccountId option)
-    (paymentAgreementId: PaymentAgreementId option)
     (memo: JournalEntryLineMemo option)
-    (accountClassificationRuleId: ClassificationRuleId option)
-    (paymentAgreementClassificationRuleId: ClassificationRuleId option)
+    (journalEntryLineId: JournalEntryLineId option)
     : StageEntryLine = {
                 stageEntryHeaderId = stageEntryHeaderId
                 stageEntryLineId = stageEntryLineId
                 amount = amount
                 lineType = entryType
                 accountId = accountId
-                paymentAgreementId = paymentAgreementId
                 memo = memo
-                accountClassificationRuleId = accountClassificationRuleId
-                paymentAgreementClassificationRuleId = paymentAgreementClassificationRuleId
-                journalEntryLineId = None } // None is a placeholder until we build out this logic
+                journalEntryLineId = journalEntryLineId }
 
 let confirmAccountId
     (context: Context.Context)
@@ -80,36 +66,19 @@ let confirmAccountId
         | Error(DalResultantRowsDidntMatchExpectation (_, 0)) -> Error (AccountIdDoesntMatch uuid)
         | Error e -> Error e
 
-let confirmPaymentAgreementId
-    (context: Context.Context)
-    (paymentAgreementIdOption: PaymentAgreementId option)
-    : Result<unit, AppError> =
-    match paymentAgreementIdOption with
-    | None -> Ok ()
-    | Some paymentAgreementId ->
-        match paymentAgreementId |> Model.CashFlow.PaymentAgreement.fetchById context with
-        | Ok _ -> Ok ()
-        | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-            let uuid = paymentAgreementId |> PaymentAgreementId.value
-            Error (CashflowPaymentAgreementIdDoesntExist uuid)
-        | Error e -> Error e
-
 let persist (context: Context.Context) (stageEntryLine: StageEntryLine) : Result<unit, AppError> =
     let queryStatement =
         """
         insert into ingestion.staged_entry_line (
-	        unique_id, entry_id, amount, line_type, account_id, payment_agreement_id, memo, 
-            account_classification_rule_id, payment_classification_rule_id)
+	        unique_id, entry_id, amount, line_type, account_id, memo, journal_entry_line_id)
         values (
-	        @unique_id, 
-            @entry_id, 
-            @amount, 
-            @line_type, 
+	        @unique_id,
+            @entry_id,
+            @amount,
+            @line_type,
             @account_id,
-            @payment_agreement_id, 
             @memo,
-            @account_classification_rule_id,
-            @payment_classification_rule_id);"""
+            @journal_entry_line_id);"""
     result {
         let uuid = stageEntryLine.stageEntryLineId |> StageEntryLineId.value
         let headerUuid = stageEntryLine.stageEntryHeaderId |> StageEntryHeaderId.value
@@ -117,10 +86,8 @@ let persist (context: Context.Context) (stageEntryLine: StageEntryLine) : Result
         let lineType = stageEntryLine.lineType |> JournalEntryLineType.toString
         do! stageEntryLine.accountId |> confirmAccountId context
         let accountUuid = stageEntryLine.accountId |> Option.map AccountId.value
-        let paymentAgreementUuid = stageEntryLine.paymentAgreementId |> Option.map PaymentAgreementId.value
         let memo = stageEntryLine.memo |> Option.map JournalEntryLineMemo.value
-        let accountRuleUuid = stageEntryLine.accountClassificationRuleId |> Option.map ClassificationRuleId.value
-        let paymentRuleUuid = stageEntryLine.paymentAgreementClassificationRuleId |> Option.map ClassificationRuleId.value
+        let journalEntryLineUuid = stageEntryLine.journalEntryLineId |> Option.map JournalEntryLineId.value
         let parameters =
             [
               { name = "@unique_id"; value = UniqueId(uuid) }
@@ -128,10 +95,8 @@ let persist (context: Context.Context) (stageEntryLine: StageEntryLine) : Result
               { name = "@amount"; value = Numeric(amount) }
               { name = "@line_type"; value = CharString(lineType) }
               { name = "@account_id"; value = NullableUniqueId(accountUuid) }
-              { name = "@payment_agreement_id"; value = NullableUniqueId(paymentAgreementUuid) }
               { name = "@memo"; value = NullableCharString(memo) }
-              { name = "@account_classification_rule_id"; value = NullableUniqueId(accountRuleUuid) }
-              { name = "@payment_classification_rule_id"; value = NullableUniqueId(paymentRuleUuid) }
+              { name = "@journal_entry_line_id"; value = NullableUniqueId(journalEntryLineUuid) }
             ]
         return! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
     }
@@ -143,20 +108,16 @@ let private reconstitute raw =
              amountDec,
              lineTypeStr,
              accountUuidOption,
-             paymentUuidOption,
              memoStrOption,
-             accountRuleUuidOpt,
-             paymentRuleUuidOpt) =
+             journalEntryLineUuidOption) =
             raw
         let stageEntryLineId = uuid |> StageEntryLineId.fromGuid
         let stageEntryHeaderId = headerUuid |> StageEntryHeaderId.fromGuid
         let! amount = amountDec |> Money.fromDecimal
         let! lineType = lineTypeStr |> JournalEntryLineType.fromString
         let accountId = accountUuidOption |> Option.map AccountId.fromGuid
-        let paymentAgreementId = paymentUuidOption |> Option.map PaymentAgreementId.fromGuid
         let! memo = memoStrOption |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
-        let accountRuleOpt = accountRuleUuidOpt |> Option.map ClassificationRuleId.fromGuid
-        let paymentRuleOpt = paymentRuleUuidOpt |> Option.map ClassificationRuleId.fromGuid
+        let journalEntryLineId = journalEntryLineUuidOption |> Option.map JournalEntryLineId.fromGuid
         return
             create
                 stageEntryLineId
@@ -164,10 +125,8 @@ let private reconstitute raw =
                 amount
                 lineType
                 accountId
-                paymentAgreementId
                 memo
-                accountRuleOpt
-                paymentRuleOpt
+                journalEntryLineId
     }
 
 let private mapRawForDbRead (row: RowReader) =
@@ -176,10 +135,8 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getNumeric "amount"),
     (row |> RowReader.getString "line_type"),
     (row |> RowReader.getUuidOption "account_id"),
-    (row |> RowReader.getUuidOption "payment_agreement_id"),
     (row |> RowReader.getStringOption "memo"),
-    (row |> RowReader.getUuidOption "account_classification_rule_id"),
-    (row |> RowReader.getUuidOption "payment_classification_rule_id")
+    (row |> RowReader.getUuidOption "journal_entry_line_id")
     
 let private query
     (context: Context.Context)
@@ -190,8 +147,8 @@ let private query
     : Result<StageEntryLine list, AppError> =
     let select =
         """
-        sel.unique_id, sel.entry_id, sel.amount, sel.line_type, sel.account_id, sel.payment_agreement_id,
-        sel.memo, sel.account_classification_rule_id, sel.payment_classification_rule_id
+        sel.unique_id, sel.entry_id, sel.amount, sel.line_type, sel.account_id, sel.memo,
+        sel.journal_entry_line_id
         """
     let from = "ingestion.staged_entry_line sel"
     let queryStatement = buildReadQuery None select from None predicate limit None None
@@ -246,13 +203,8 @@ let update
         do! match accountIdUpdate with
                 | NoChange -> Ok ()
                 | SetTo x -> x |> confirmAccountId context
-        let paymentAgreementIdUpdate = fieldUpdates.paymentAgreementIdUpdate
-        do! match paymentAgreementIdUpdate with
-                | NoChange -> Ok ()
-                | SetTo x -> x |> confirmPaymentAgreementId context
         let memoUpdate = fieldUpdates.memoUpdate
-        let accountClassificationRuleIdUpdate = fieldUpdates.accountClassificationRuleIdUpdate
-        let paymentClassificationRuleIdUpdate = fieldUpdates.paymentClassificationRuleIdUpdate
+        let journalEntryLineIdUpdate = fieldUpdates.journalEntryLineIdUpdate
         let uuid = stageEntryLineId |> StageEntryLineId.value
         let baseParams =
             [ { name = "@unique_id"; value = UniqueId uuid } ]
@@ -273,28 +225,16 @@ let update
                       ("account_id = @account_id",
                        { name = "@account_id"; value = NullableUniqueId(n |> Option.map AccountId.value) }))
                   
-                  paymentAgreementIdUpdate
-                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                      ("payment_agreement_id = @payment_agreement_id",
-                       { name = "@payment_agreement_id"
-                         value = NullableUniqueId(n |> Option.map PaymentAgreementId.value) }))              
-                  
                   memoUpdate
                   |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
                       ("memo = @memo",
                        { name = "@memo"; value = NullableCharString(n |> Option.map JournalEntryLineMemo.value) }))
-                  
-                  accountClassificationRuleIdUpdate
+
+                  journalEntryLineIdUpdate
                   |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                      ("account_classification_rule_id = @account_classification_rule_id",
-                       { name = "@account_classification_rule_id"
-                         value = NullableUniqueId(n |> Option.map ClassificationRuleId.value) }))
-                  
-                  paymentClassificationRuleIdUpdate
-                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                      ("payment_classification_rule_id = @payment_classification_rule_id",
-                       { name = "@payment_classification_rule_id"
-                         value = NullableUniqueId(n |> Option.map ClassificationRuleId.value) }))
+                      ("journal_entry_line_id = @journal_entry_line_id",
+                       { name = "@journal_entry_line_id"
+                         value = NullableUniqueId(n |> Option.map JournalEntryLineId.value) }))
             ]
             |> List.choose id
         let setClauses = updates |> List.map fst |> String.concat ", "
@@ -312,10 +252,9 @@ let update
         return! stageEntryLineId |> fetchById context
     }
 
-let updateAccountAndRuleId
+let updateAccountId
     (context: Context.Context)
     (accountIdUpdate: FieldUpdate<AccountId option>)
-    (classificationRuleIdUpdate: FieldUpdate<ClassificationRuleId option>)
     (stageEntryLineId : StageEntryLineId)
     : Result<StageEntryLine, AppError> =
     let fieldUpdates = {
@@ -323,16 +262,13 @@ let updateAccountAndRuleId
         amountUpdate = NoChange
         entryTypeUpdate = NoChange
         accountIdUpdate = accountIdUpdate
-        paymentAgreementIdUpdate = NoChange
         memoUpdate = NoChange
-        accountClassificationRuleIdUpdate = classificationRuleIdUpdate
-        paymentClassificationRuleIdUpdate = NoChange }
+        journalEntryLineIdUpdate = NoChange }
     update context fieldUpdates
 
-let updatePaymentAgreementAndRuleId
+let updateJournalEntryLineId
     (context: Context.Context)
-    (paymentAgreementIdUpdate: FieldUpdate<PaymentAgreementId option>)
-    (classificationRuleIdUpdate: FieldUpdate<ClassificationRuleId option>)
+    (journalEntryLineIdUpdate: FieldUpdate<JournalEntryLineId option>)
     (stageEntryLineId : StageEntryLineId)
     : Result<StageEntryLine, AppError> =
     let fieldUpdates = {
@@ -340,8 +276,6 @@ let updatePaymentAgreementAndRuleId
         amountUpdate = NoChange
         entryTypeUpdate = NoChange
         accountIdUpdate = NoChange
-        paymentAgreementIdUpdate = paymentAgreementIdUpdate
         memoUpdate = NoChange
-        accountClassificationRuleIdUpdate = NoChange
-        paymentClassificationRuleIdUpdate = classificationRuleIdUpdate }
+        journalEntryLineIdUpdate = journalEntryLineIdUpdate }
     update context fieldUpdates

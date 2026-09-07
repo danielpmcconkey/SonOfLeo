@@ -188,70 +188,52 @@ let fetchRulesFiltered
             ClassificationRule.query context join predicate limit parameters orderBy AnyQuantityIsAcceptable
     }
 
-let updateLineWithAccountMatch
-    (context: Context.Context)
-    (accountId: AccountId)
-    (ruleId: ClassificationRuleId)
-    (candidate: MatchCandidate)
-    : Result<unit, AppError> =
-    let idOption = Some accountId // we can trust this because the DB has a foreign key constraint between ingestion.classification_rule and ledger.account 
-    let idUpdate = FieldUpdate.SetTo idOption
-    let ruleId = Some ruleId
-    let ruleUpdate = FieldUpdate.SetTo ruleId
-    candidate.lineIdOfCandidate
-    |> updateAccountAndRuleId context idUpdate ruleUpdate 
-    |> Result.map ignore
+// classification records what matched; it does not write the match. Account resolution moves to the data ingestion
+// domain and payment agreement linkage to cash flow. This block is kept only until those two exist, then deleted.
+// let updateLineWithAccountMatch
+//     (context: Context.Context)
+//     (accountId: AccountId)
+//     (candidate: MatchCandidate)
+//     : Result<unit, AppError> =
+//     let idOption = Some accountId // we can trust this because the DB has a foreign key constraint between classification.classification_rule and ledger.account
+//     let idUpdate = FieldUpdate.SetTo idOption
+//     candidate.lineIdOfCandidate
+//     |> updateAccountId context idUpdate
+//     |> Result.map ignore
+//
+// let updateLineWithMatch
+//     (context: Context.Context)
+//     (prioritizedMatch: PrioritizedMatch)
+//     (candidate: MatchCandidate)
+//     : Result<unit, AppError> =
+//     match prioritizedMatch.accountId, prioritizedMatch.paymentAgreementId with
+//     | Some x, None -> candidate |> updateLineWithAccountMatch context x
+//     | None, Some x -> candidate |> updateLineWithPaymentMatch context x
+//     | _ ->
+//         let ruleUuid = prioritizedMatch.ruleId |> ClassificationRuleId.value
+//         let accountUuid = prioritizedMatch.accountId |> Option.map AccountId.value
+//         let paymentAgreementUuid = prioritizedMatch.paymentAgreementId |> Option.map PaymentAgreementId.value
+//         Error (IngestionClassificationRuleInvalidClaimant(ruleUuid, accountUuid, paymentAgreementUuid))
+//
+// let updateDbLinesFromResultsList
+//     (context: Context.Context)
+//     (results: ClassificationResult list)
+//     : Result<unit, AppError> =
+//     result {
+//         let! _ =
+//             results
+//             |> List.map (fun result ->
+//                     let candidate = result.candidate
+//                     match result.outcome with
+//                     | NoMatch -> Ok ()
+//                     | OneMatch prioritizedMatch -> candidate |> updateLineWithMatch context prioritizedMatch
+//                     | ManyMatchesClearWinner (winner, _) -> candidate |> updateLineWithMatch context winner
+//                     | ManyMatchesTied _ -> Ok () // no line update today
+//                 )
+//             |> convertListOfResultsToResultsList
+//         return ()
+//         }
 
-let updateLineWithPaymentMatch
-    (context: Context.Context)
-    (paymentAgreementId: PaymentAgreementId)
-    (ruleId: ClassificationRuleId)
-    (candidate: MatchCandidate)
-    : Result<unit, AppError> =
-    let idOption = Some paymentAgreementId // we can trust this because the DB has a foreign key constraint between ingestion.classification_rule and ledger.account 
-    let idUpdate = FieldUpdate.SetTo idOption
-    let ruleId = Some ruleId
-    let ruleUpdate = FieldUpdate.SetTo ruleId
-    candidate.lineIdOfCandidate
-    |> updatePaymentAgreementAndRuleId context idUpdate ruleUpdate 
-    |> Result.map ignore
-
-let updateLineWithMatch
-    (context: Context.Context)
-    (prioritizedMatch: PrioritizedMatch)
-    (candidate: MatchCandidate)
-    : Result<unit, AppError> =
-    match prioritizedMatch.accountId, prioritizedMatch.paymentAgreementId with
-    | Some x, None -> candidate |> updateLineWithAccountMatch context x prioritizedMatch.ruleId
-    | None, Some x -> candidate |> updateLineWithPaymentMatch context x prioritizedMatch.ruleId
-    | _ ->
-        let ruleUuid = prioritizedMatch.ruleId |> ClassificationRuleId.value
-        let accountUuid = prioritizedMatch.accountId |> Option.map AccountId.value
-        let paymentAgreementUuid = prioritizedMatch.paymentAgreementId |> Option.map PaymentAgreementId.value
-        Error (IngestionClassificationRuleInvalidClaimant(ruleUuid, accountUuid, paymentAgreementUuid))
-
-let updateDbLinesFromResultsList
-    (context: Context.Context)
-    (results: ClassificationResult list)
-    : Result<unit, AppError> =
-    result {
-        let! _ =
-            results
-            |> List.map (fun result ->
-                    let candidate = result.candidate
-                    match result.outcome with
-                    | NoMatch -> Ok ()
-                    | OneMatch prioritizedMatch -> candidate |> updateLineWithMatch context prioritizedMatch
-                    | ManyMatchesClearWinner (winner, _) -> candidate |> updateLineWithMatch context winner
-                    | ManyMatchesTied _ -> Ok () // no line update today
-                )
-            |> convertListOfResultsToResultsList
-        return ()
-        }
-    
-/// classifyMatchCandidatesAndUpdateLines only updates the lines. The caller owns making sure that status
-/// transitions are viable. This runs the risk of an "orphan" line update if subsequent updates to the entry or audit
-/// table fail. But this should all be under one transaction. Caveat emptor if you use individual transactions for this.
 let classifyMatchCandidatesAndUpdateLines
     (context: Context.Context)
     (claimantType: ClassificationClaimantType)
@@ -268,7 +250,6 @@ let classifyMatchCandidatesAndUpdateLines
             activeOnly = true }
         let! rules = fetchRulesFiltered context ruleFilter None
         let classificationResults = Classifier.classify rules candidates
-        do! classificationResults |> updateDbLinesFromResultsList context
         return classificationResults
     }
     

@@ -5,7 +5,6 @@ open InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
 open InterfaceBridge.BoundaryConverters.OrchestrationConverters
 open InterfaceBridge.InterfaceContracts.IngestionContracts
 open Model
-open Model.CashFlow
 open Model.DataIngestion
 open Model.DataIngestion.StageEntryComponent
 open Model.DataIngestion.BaseStageEntry
@@ -54,12 +53,15 @@ let ``convert [StageEntryHeader] to [StageEntryHeaderReturn]``
     let ingestionSource = model |> StageEntryHeader.ingestionSource |> IngestionSource.name |> JournalRefFinancialInstitution.value
     let fiReference = model |> StageEntryHeader.fiReference |> JournalExternalReferenceText.value
     let status = model |> StageEntryHeader.currentStatus |> Option.map StagedEntryStatus.toString
+    let journalEntryHeaderId =
+        model |> StageEntryHeader.journalEntryHeaderId |> Option.map JournalEntryHeaderId.value
     {   sourceFile = sourceFile
         stageEntryHeaderId = stageEntryHeaderId
         entryDate = entryDate
         description = description
         ingestionSource = ingestionSource
         fiReference = fiReference
+        journalEntryHeaderId = journalEntryHeaderId
         status = status }
 
 let ``convert [StageEntryLine] to [StageEntryLineReturn]``
@@ -78,25 +80,16 @@ let ``convert [StageEntryLine] to [StageEntryLineReturn]``
         model
         |> StageEntryLine.accountId
         |> ``convert [AccountId option] to [AccountName string option]`` context
-    let! paymentAgreementName =
-        model
-        |> StageEntryLine.paymentAgreementId
-        |> ``convert [PaymentAgreementId option] to [PaymentAgreementNameString option]`` context
     let memo = model |> StageEntryLine.memo |> Option.map JournalEntryLineMemo.value
-    let accountClassificationRuleId =
-        model |> StageEntryLine.accountClassificationRuleId |> Option.map ClassificationRuleId.value
-    let paymentClassificationRuleId =
-        model |> StageEntryLine.paymentAgreementClassificationRuleId |> Option.map ClassificationRuleId.value
+    let journalEntryLineId = model |> StageEntryLine.journalEntryLineId |> Option.map JournalEntryLineId.value
     return {    stageEntryLineId = stageEntryLineId
                 stageEntryHeaderId = stageEntryHeaderId
                 amount = amount
                 lineType = lineType
                 accountCode = accountCode
                 accountName = accountName
-                paymentAgreementName = paymentAgreementName
                 memo = memo
-                accountClassificationRuleId = accountClassificationRuleId
-                paymentClassificationRuleId = paymentClassificationRuleId } }
+                journalEntryLineId = journalEntryLineId } }
 
 let ``convert [StageEntryLine list] to [StageEntryLineReturn list]``
     (context: Context.Context)
@@ -399,26 +392,14 @@ let ``convert [UpdateStageEntryLineInput] to [StageEntryLineFieldUpdates]``
         let! accountIdUpdate =
             line.accountCode
             |> convertFieldUpdateToNewTypeFallible (``convert AccountCodeString Option to AccountId Option`` context) 
-        let! paymentAgreementIdUpdate =
-            line.paymentAgreementName
-            |> convertFieldUpdateOptionToNewTypeOptionFallible
-                (``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context)
         let! memoUpdate = line.memo |> convertFieldUpdateOptionToNewTypeOptionFallible JournalEntryLineMemo.create
-        let accountClassificationRuleIdUpdate =
-            line.accountClassificationRuleId
-            |> convertFieldUpdateOptionToNewTypeOption ClassificationRuleId.fromGuid
-        let paymentClassificationRuleIdUpdate =
-            line.paymentClassificationRuleId
-            |> convertFieldUpdateOptionToNewTypeOption ClassificationRuleId.fromGuid
         return {
           lineIdToUpdate = lineIdToUpdate
           amountUpdate = amountUpdate
           entryTypeUpdate = entryTypeUpdate
           accountIdUpdate = accountIdUpdate
-          paymentAgreementIdUpdate = paymentAgreementIdUpdate
           memoUpdate = memoUpdate
-          accountClassificationRuleIdUpdate = accountClassificationRuleIdUpdate
-          paymentClassificationRuleIdUpdate = paymentClassificationRuleIdUpdate } }
+          journalEntryLineIdUpdate = Utilities.FieldUpdate.NoChange } }
 
 let ``convert [UpdateStageEntryLineInput list] to [StageEntryLineFieldUpdates list]``
     (context: Context.Context)
@@ -441,8 +422,6 @@ let ``convert [BaseStageRawRowInput] to [BaseStageRawRow]``
         let! amount = rawInputRow.amount |> Money.fromDecimal
         let! entryType = rawInputRow.entryType |> JournalEntryLineType.fromString
         let! accountId = rawInputRow.accountCode |> ``convert AccountCodeString Option to AccountId Option`` context
-        let paymentAgreementId =
-            rawInputRow.paymentAgreementId |> Option.map CashFlowComponent.PaymentAgreementId.fromGuid
         let! memo = rawInputRow.memo |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
         return {
             baseStageEntryGroupId = baseStageEntryGroupId
@@ -453,7 +432,6 @@ let ``convert [BaseStageRawRowInput] to [BaseStageRawRow]``
             amount = amount
             entryType = entryType
             accountId = accountId
-            paymentAgreementId = paymentAgreementId
             memo = memo } }
     
 let ``convert [BaseStageRawRowInput list] to [BaseStageRawRow list]``
@@ -486,14 +464,9 @@ let ``convert [StageEntryFetchFilterInput] to [StageEntryFetchFilter]``
         let! amount = filterInput.amount |> convertOptionToDesiredTypeWithFallibleConverter Money.fromDecimal
         let! lineType = filterInput.lineType |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineType.fromString
         let! accountId = filterInput.accountCode |> ``convert AccountCodeString Option to AccountId Option`` context
-        let! paymentAgreementId =
-            filterInput.paymentAgreementName
-            |> ``convert [PaymentAgreementNameString option] to [PaymentAgreementId option]`` context
         let! memo = filterInput.memo |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
-        let accountClassificationRuleId =
-            filterInput.accountClassificationRuleId |> Option.map ClassificationRuleId.fromGuid
-        let paymentClassificationRuleId =
-            filterInput.paymentClassificationRuleId |> Option.map ClassificationRuleId.fromGuid
+        let journalEntryHeaderId = filterInput.journalEntryHeaderId |> Option.map JournalEntryHeaderId.fromGuid
+        let journalEntryLineId = filterInput.journalEntryLineId |> Option.map JournalEntryLineId.fromGuid
         return {
             stageEntryHeaderId = stageEntryHeaderId
             sourceFile = sourceFile
@@ -506,10 +479,9 @@ let ``convert [StageEntryFetchFilterInput] to [StageEntryFetchFilter]``
             amount = amount
             lineType = lineType
             accountId = accountId
-            paymentAgreementId = paymentAgreementId
             memo = memo
-            accountClassificationRuleId = accountClassificationRuleId
-            paymentClassificationRuleId = paymentClassificationRuleId
+            journalEntryHeaderId = journalEntryHeaderId
+            journalEntryLineId = journalEntryLineId
         } }
 let ``convert [ClassificationRuleFilterInput] to [ClassificationRuleFilter]``
     (context: Context.Context)

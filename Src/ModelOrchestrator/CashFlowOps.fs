@@ -112,10 +112,9 @@ let private stageEntryFilterForStatus
     amount = None
     lineType = None
     accountId = None
-    paymentAgreementId = None
     memo = None
-    accountClassificationRuleId = None
-    paymentClassificationRuleId = None }
+    journalEntryHeaderId = None
+    journalEntryLineId = None }
 
 let private paymentAgreementsClaimedBy
     (result: StageDataClassificationComponent.ClassificationResult)
@@ -183,7 +182,6 @@ let classifyStagedEntriesToPaymentAgreements
                 let header = entry |> StageEntryOrchestration.stageEntryHeader
                 entry
                 |> StageEntryOrchestration.seLines
-                |> List.filter (fun line -> line |> StageEntryLine.paymentAgreementId |> Option.isNone)
                 |> List.map (fun line -> {
                     headerIdOfCandidate = header |> StageEntryHeader.stageEntryHeaderId
                     lineIdOfCandidate = line |> StageEntryLine.stageEntryLineId
