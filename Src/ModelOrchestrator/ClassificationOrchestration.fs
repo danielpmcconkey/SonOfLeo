@@ -347,7 +347,7 @@ let updateClassificationRule
         let parameters = baseParams @ (updates |> List.map snd)
         let queryStatement =
             $"""
-            UPDATE ingestion.classification_rule
+            UPDATE classification.classification_rule
             set
                 {setClauses},
                 modified_at = @modified

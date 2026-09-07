@@ -323,8 +323,8 @@ within one file. Before picking one for a new entity, check this list and
 | `cashflow.invoice` | `inv` |
 | `cashflow.payment` | `pmt` |
 | `cashflow.payment_agreement_link` | `pal` |
+| `classification.classification_rule` | `cr` |
 | `classification.rule_match` | `rm` |
-| `ingestion.classification_rule` | `cr` |
 | `ingestion.source` | `src` |
 | `ingestion.staged_entry` | `se` |
 | `ingestion.staged_entry_line` | `sel` |

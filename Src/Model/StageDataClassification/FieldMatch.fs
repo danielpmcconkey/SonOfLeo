@@ -12,7 +12,6 @@ type FieldMatch =
     | LineType of JournalEntryLineType
     | Amount of MoneySearchPattern
 
-
 let private isRegexMatch (source:string) (pattern:string) : bool =
     let rx = Regex(pattern, RegexOptions.Compiled)
     rx.IsMatch(source)

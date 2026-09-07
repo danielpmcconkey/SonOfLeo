@@ -58,7 +58,7 @@ let create
 let persist (context: Context.Context) (classificationRule: ClassificationRule) : Result<unit, AppError> =
     let queryStatement =
         """
-        insert into ingestion.classification_rule(
+        insert into classification.classification_rule(
 	        unique_id, rule_name, account_at_match, payment_agreement_at_match, 
             priority, rule_groups, is_active, created_at, modified_at)
         values (
@@ -158,7 +158,7 @@ let query
         cr.unique_id, cr.rule_name, cr.account_at_match, cr.payment_agreement_at_match, cr.priority,
         cr.rule_groups, cr.is_active, cr.created_at, cr.modified_at
         """
-    let from = "ingestion.classification_rule cr"
+    let from = "classification.classification_rule cr"
     let queryStatement = buildReadQuery None select from joinList predicate limit None orderBy
     executeReaderQuery
         (context |> Context.getDatabaseTransaction)
