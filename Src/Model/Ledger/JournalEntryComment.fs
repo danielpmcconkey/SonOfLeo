@@ -126,6 +126,10 @@ let fetchByJournalEntryId
     let orderBy = "created_at"
     query context (Some predicate) None (Some orderBy) parameters AnyQuantityIsAcceptable
 
+/// fetchByJournalEntryHeaderIdList only pull comments whose primary header ID is in the ID list because its
+/// purpose in this code base is to facilitate rapid assembly of full journal entry composite entities. If a header
+/// ID is referenced in a comment as a secondary, but that comment's primary header ID isn't already in the list of
+/// header IDs to pull for, then that comment isn't needed in the final assembly.
 let fetchByJournalEntryHeaderIdList
     (context: Context.Context)
     (journalEntryHeaderIds: JournalEntryHeaderId list)

@@ -118,7 +118,9 @@ let private confirmJournalEntriesAreInProperState
         do! account |> confirmNoJournalEntriesAfterDeactivationDate context deactivationDate
         return ()
     }
-
+    
+/// If the caller provides the explicitEnd, the system will update the active_end to that explicit time. Otherwise, it
+/// will use the context's initiation instant to determine the end date
 let deactivateAccount
     (context: Context.Context)
     (explicitEnd: LocalDate option)
