@@ -14,7 +14,6 @@ open DataAccessLayer.ExecuteNonQuery
 open DataAccessLayer.ExecuteScalar
 open Utilities.ResultHelper
 
-
 let private updateActiveEnd (context: Context.Context) (activeEndUpdate: LocalDate) (account: Account) : Result<Account, AppError> =
     let accountId = account |> Account.accountId
     let uuid = accountId |> AccountId.value
