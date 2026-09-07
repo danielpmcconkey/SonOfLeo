@@ -19,6 +19,7 @@ type StageEntryHeader =
         description: JournalEntryDescription
         ingestionSource: IngestionSource
         fiReference: JournalExternalReferenceText
+        journalEntryHeaderId: JournalEntryHeaderId option
         /// currentStatus is not a column in the database. it is a read-time cache of the latest status. The source of
         /// truth is the table of status transitions. This field is here for read convenience.
         currentStatus: StagedEntryStatus option
@@ -56,6 +57,7 @@ let create
         description = description
         ingestionSource = ingestionSource
         fiReference = fiReference
+        journalEntryHeaderId = None // None is a placeholder until we build out this logic
         currentStatus = currentStatus }
 
 let persistStatusTransition

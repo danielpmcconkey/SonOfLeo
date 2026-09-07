@@ -22,7 +22,8 @@ type StageEntryLine = private {
     paymentAgreementId: PaymentAgreementId option
     memo: JournalEntryLineMemo option
     accountClassificationRuleId: ClassificationRuleId option
-    paymentAgreementClassificationRuleId: ClassificationRuleId option }
+    paymentAgreementClassificationRuleId: ClassificationRuleId option
+    journalEntryLineId: JournalEntryLineId option }
 
 type StageEntryLineFieldUpdates = {
     lineIdToUpdate: StageEntryLineId
@@ -63,7 +64,8 @@ let create
                 paymentAgreementId = paymentAgreementId
                 memo = memo
                 accountClassificationRuleId = accountClassificationRuleId
-                paymentAgreementClassificationRuleId = paymentAgreementClassificationRuleId }
+                paymentAgreementClassificationRuleId = paymentAgreementClassificationRuleId
+                journalEntryLineId = None } // None is a placeholder until we build out this logic
 
 let confirmAccountId
     (context: Context.Context)
