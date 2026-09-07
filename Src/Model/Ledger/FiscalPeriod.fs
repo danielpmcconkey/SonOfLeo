@@ -125,16 +125,16 @@ let fetchById (context: Context.Context) (id: FiscalPeriodId) : Result<FiscalPer
 /// the doctrine that the model deals in UUIDs while the boundary
 /// does the translation between keys and IDs
 let fetchIdByKey (context: Context.Context) (key: string) : Result<FiscalPeriodId, AppError> =
-    let mapRaw (row: RowReader) =
+    let mapRawForDbRead (row: RowReader) =
         (row |> RowReader.getUuid "unique_id"), ()
-    let constructFromRaw raw =
+    let reconstitute raw =
         let id, _ = raw
         Ok id
     let queryStatement = "select unique_id from ledger.fiscal_period where period_key = @period_key"
     let parameters = [ { name = "@period_key"; value = CharString key } ]
 
     match
-        executeReaderQuery (context |> Context.getDatabaseTransaction) queryStatement parameters mapRaw constructFromRaw ExactlyOne
+        executeReaderQuery (context |> Context.getDatabaseTransaction) queryStatement parameters mapRawForDbRead reconstitute ExactlyOne
     with
     | Ok x -> Ok(x |> List.head |> FiscalPeriodId.fromGuid)
     | Error(DalResultantRowsDidntMatchExpectation _) -> Error(FiscalPeriodNoPeriodMatchingKey key)
