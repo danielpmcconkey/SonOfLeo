@@ -134,6 +134,11 @@ type ClassificationResult = {
         outcome: ClassifierOutcome
     }
 
+type ClassificationRun = {
+        runId: ClassificationRunId
+        results: ClassificationResult list
+    }
+
 type PaymentAgreementClaimCluster = {
     paymentAgreementId: CashFlowComponent.PaymentAgreementId
     claimants: ClassificationResult list
@@ -146,6 +151,21 @@ type PaymentAgreementTaggingResult = {
     clean: PaymentAgreementClaimCluster list
     multiClaimant: PaymentAgreementClaimCluster list
     unmatched: ClassificationResult list
+}
+
+type PaymentAgreementDecisionOutcome =
+    | Linked
+    | AlreadyLinked
+    | ContestedAgreement
+    | TiedClaimants
+    | NoLineOnAgreementAccounts
+    | ManyLinesOnAgreementAccount
+
+type PaymentAgreementDecision = {
+    stageEntryLineId: StageEntryLineId
+    paymentAgreementId: CashFlowComponent.PaymentAgreementId option
+    ruleIds: ClassificationRuleId list
+    outcome: PaymentAgreementDecisionOutcome
 }
 
 type ClassificationClaimant = // what entity gets to "claim" the Staged Entry at match

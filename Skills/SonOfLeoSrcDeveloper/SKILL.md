@@ -151,6 +151,16 @@ deliberate, move on," not being polite about it.
 - **Interface contract** — DTOs at the CLI boundary, owned by `InterfaceBridge`. Not a `Model/`
   concern.
 
+**Then decide where it lives: the lowest compile tier that can see everything it references**
+(`CompoundedLearnings/articles/architecture/type-placement-by-compile-tier.md`). Walk the
+`<Compile Include>` order and take the first file that already sees every dependency — don't place
+by which domain owns the concept. When a slice's own component file can't see one of them, check
+the tier *below* before concluding `Model/` is closed: `StageDataClassificationComponent.fs` is the
+last component tier and holds `PaymentAgreementClaimCluster` for exactly that reason. Only a type
+referencing a composite is genuinely forced into `ModelOrchestrator/`, and it goes beside that
+composite. A clean build proves nothing here — the top of an orchestrator file sees everything,
+which is how basic types accumulated in `CashFlowOps.fs` in the first place.
+
 ## The Component-file convention
 
 Every domain slice with more than one sibling entity gets exactly one `*Component.fs` file
@@ -173,6 +183,13 @@ it's "don't open it." Rider flags unnecessary qualifiers as a warning; that warn
 everything (`CashFlowComponent.MasterAgreementId`, `CashFlowComponent.Posted`,
 `CashFlowComponent.DebitAccount`) and the collision class disappears entirely. Full writeup:
 `CompoundedLearnings/articles/coding/du-case-collision-across-opens.md`.
+
+**The same "last declaration wins" trap runs on record field labels, and needs no `open` at all.**
+F# infers an unannotated parameter's record type from the labels used on it and takes the last
+record declared in scope carrying them, so a new record with an `outcome`/`status`/`result` field
+silently retargets a helper that compiled yesterday — and the error names the type it picked, not
+the one you meant. Annotate local helpers and lambdas that reach into a record. Full writeup:
+`CompoundedLearnings/articles/coding/record-field-inference-collision.md`.
 
 ## Entity shape
 

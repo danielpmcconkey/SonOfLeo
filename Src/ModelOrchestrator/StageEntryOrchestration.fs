@@ -29,6 +29,12 @@ type IngestionFullResult = {
     classificationResults: ClassificationResult list
 }
 
+type AccountClassificationResult = {
+    runId: ClassificationRunId
+    classificationResults: ClassificationResult list
+    stagedEntries: StageEntry list
+}
+
 type AccountValidationType =
     | AllowNone
     | DisallowNone
@@ -288,7 +294,7 @@ let updateHeaderFromClassificationResults
         match result.outcome with
         | OneMatch _ | ManyMatchesClearWinner _ -> true
         | ClassifierOutcome.NoMatch | ManyMatchesTied _ -> false
-    let isTied result =
+    let isTied (result:ClassificationResult) : bool =
         match result.outcome with | ManyMatchesTied _ -> true | _ -> false
     let mechanism = StageStatusChangeMechanism.Classifier
     let newStatus = 

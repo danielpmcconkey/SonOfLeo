@@ -7,6 +7,7 @@ open Model.DataIngestion
 open Model.DataIngestion.StageEntryComponent
 open Model.Ledger
 open Model.Ledger.JournalEntryComponent
+open Model.StageDataClassification
 open ModelOrchestrator.CashFlowCompositeFetcher
 open ModelOrchestrator.FetchFilters
 open NodaTime
@@ -22,6 +23,14 @@ type InvoiceComposite = private {
 type InstanceComposite = private {
     instance: Instance.Instance
     invoiceComposites: InvoiceComposite list
+}
+
+type PaymentAgreementClassificationResult = {
+    runId: StageDataClassificationComponent.ClassificationRunId
+    classificationResults: StageDataClassificationComponent.ClassificationResult list
+    decisionLog: StageDataClassificationComponent.PaymentAgreementDecision list
+    invoiceDecisionLog: CashFlowComponent.InvoiceDecision list
+    openInstances: InstanceComposite list
 }
 
 let private isPostedPayment (payment: Payment.Payment) : bool =

@@ -308,3 +308,13 @@ type PostedToFiDate = { localDate: LocalDate }
 type PostedToLedgerDate = { localDate: LocalDate }
 type InvoiceAmount = { money: Model.Money }
 type PaymentAmount = { money: Model.Money }
+
+type InvoiceDecisionOutcome =
+    | PaymentCreated of StageEntryLineId
+    | ManyCandidateEntries of StageEntryLineId list
+    | Overpayment
+
+type InvoiceDecision = {
+    invoiceId: InvoiceId
+    outcome: InvoiceDecisionOutcome
+}
