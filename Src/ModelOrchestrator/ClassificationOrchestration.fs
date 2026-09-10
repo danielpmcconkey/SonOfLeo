@@ -265,10 +265,9 @@ let private recordRuleMatches
 
 let classifyMatchCandidatesAndRecordMatches
     (context: Context.Context)
-    (runId: ClassificationRunId)
     (claimantType: ClassificationClaimantType)
     (candidates: MatchCandidate list)
-    : Result<ClassificationResult list, AppError> =
+    : Result<ClassificationRun, AppError> =
     result {
         let ruleFilter =  {
             ruleId = None
@@ -279,9 +278,10 @@ let classifyMatchCandidatesAndRecordMatches
             sourceLike = None
             activeOnly = true }
         let! rules = fetchRulesFiltered context ruleFilter None
+        let runId = ClassificationRunId.create ()
         let classificationResults = Classifier.classify rules candidates
         do! classificationResults |> recordRuleMatches context runId
-        return classificationResults
+        return { runId = runId; results = classificationResults }
     }
     
 // both claimant columns are written on every change so any update must write a value to both and one must always be

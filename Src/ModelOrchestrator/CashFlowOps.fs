@@ -188,12 +188,11 @@ let classifyStagedEntriesToPaymentAgreements
                     amount = line |> StageEntryLine.amount
                     lineType = line |> StageEntryLine.lineType
                     memo = line |> StageEntryLine.memo }))
-        let runId = StageDataClassificationComponent.ClassificationRunId.create ()
-        let! classificationResults =
+        let! classificationRun =
             matchCandidates
             |> ClassificationOrchestration.classifyMatchCandidatesAndRecordMatches
-                context runId StageDataClassificationComponent.PaymentAgreementClaimant
-        return classificationResults |> pivotClassificationResultsByPaymentAgreement
+                context StageDataClassificationComponent.PaymentAgreementClaimant
+        return classificationRun.results |> pivotClassificationResultsByPaymentAgreement
     }
 
 // how many days past an invoice's due date a payment may land and still be considered a match for it

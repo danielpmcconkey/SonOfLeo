@@ -359,10 +359,10 @@ let classifyStagedEntries
                     amount = line |> StageEntryLine.amount
                     lineType = line |> StageEntryLine.lineType
                     memo = line |> StageEntryLine.memo }))
-        let runId = ClassificationRunId.create ()
-        let! classificationResults =
+        let! classificationRun =
             matchCandidates
-            |> ClassificationOrchestration.classifyMatchCandidatesAndRecordMatches context runId AccountClaimant
+            |> ClassificationOrchestration.classifyMatchCandidatesAndRecordMatches context AccountClaimant
+        let classificationResults = classificationRun.results
         // classification only recorded what matched. This module owns updating the header and adding an audit trail
         // record
         let! _ =
