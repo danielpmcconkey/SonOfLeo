@@ -13,6 +13,7 @@
     <Compile Include="InterfaceContracts\JournalContracts.fs" />
     <Compile Include="InterfaceContracts\ReportsContracts.fs" />
     <Compile Include="InterfaceContracts\IngestionContracts.fs" />
+    <Compile Include="InterfaceContracts\CashFlowContracts.fs" />
     <Compile Include="BoundaryConverters\AccountFieldConverters.fs" />
     <Compile Include="BoundaryConverters\CashFlowFieldConverters.fs" />
     <Compile Include="BoundaryConverters\JournalEntryFieldConverters.fs" />
@@ -25,6 +26,7 @@
     <Compile Include="Routes\FiscalPeriodRoutes.fs" />
     <Compile Include="Routes\JournalEntryRoutes.fs" />
     <Compile Include="Routes\IngestionRoutes.fs" />
+    <Compile Include="Routes\CashFlowRoutes.fs" />
     <Compile Include="ReportVisualizationAssets\Css.fs" />
     <Compile Include="ReportVisualizationAssets\HtmlWrapper.fs" />
     <Compile Include="ReportVisualizationAssets\ReportHeader.fs" />

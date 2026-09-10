@@ -227,8 +227,28 @@ let private fetchStageEntryFiltered payload _ =
             |> convertListOfResultsToResultsList
         return! converted |> Json.toJson<StageEntryReturn list> }
 
+let private deduplicateStageEntries _ _ =
+    raise (System.NotImplementedException())
+
+let private classifyAccounts _ _ =
+    raise (System.NotImplementedException())
+
 let ingestionDomainCommandRoutes: CommandRoute list =
     [
+      { domain = "Ingestion"
+        verb = "DeduplicateStageEntries"
+        description = "Mark every staged entry that duplicates one already in the database, and return everything still Ingested."
+        inputContract = typeof<InterfaceBridge.InterfaceContracts.SharedContracts.NoInput>.Name
+        outputContract = typeof<StageEntryReturn list>.Name
+        handler = deduplicateStageEntries }
+
+      { domain = "Ingestion"
+        verb = "ClassifyAccounts"
+        description = "Run the account classification rules over every unresolved staged entry line, write the account where a rule wins outright, and update each entry's status. Returns the run, its results, and the entries an operator may still need to act on."
+        inputContract = typeof<InterfaceBridge.InterfaceContracts.SharedContracts.NoInput>.Name
+        outputContract = typeof<AccountClassificationResultReturn>.Name
+        handler = classifyAccounts }
+
       { domain = "Ingestion"
         verb = "IngestRawFileToStage"
         description = "Read a raw jsonl file and write to the stage database. Automatically runs deduplication and classification. It also moves the file from its current directory to the processed directory."

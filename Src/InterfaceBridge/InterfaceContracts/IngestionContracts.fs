@@ -118,6 +118,12 @@ type IngestionFullResultReturn = {
     classificationResults: ClassificationResultReturn list
 }
 
+type AccountClassificationResultReturn = {
+    runId: Guid
+    classificationResults: ClassificationResultReturn list
+    stagedEntries: StageEntryReturn list
+}
+
 type ClassificationRuleReturn = {
         classificationRuleId: Guid
         classificationRuleName: string

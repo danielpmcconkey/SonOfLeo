@@ -11,9 +11,13 @@ type AuditableAction =
     | AccountUpdateName
     | AccountUpdateExtReference
     | AccountDeactivate
+    | CashFlowClassifyPaymentAgreements
+    | CashFlowCreateUpcomingInstances
     | FiscalPeriodCreate
     | FiscalPeriodClose
     | FiscalPeriodReopen
+    | IngestClassifyAccounts
+    | IngestDeduplicateStageEntries
     | IngestRawEntries
     | IngestNewClassificationRule
     | IngestNewSource
