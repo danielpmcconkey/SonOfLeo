@@ -377,6 +377,11 @@ let classifyStagedEntries
         return classificationResults
     }
 
+let classifyAccounts
+    (context: Context.Context)
+    : Result<AccountClassificationResult, AppError> =
+    raise (NotImplementedException())
+
 let ingestRawToStageThenDeduplicateAndClassify
     (context: Context.Context)
     (sourceFile: SourceFile)
