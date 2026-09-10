@@ -432,6 +432,21 @@ let updateInvoiceComposite
         return fetched
     }
     
+let private confirmInstanceDateIsAfterLatestInstance
+    (context: Context.Context)
+    (masterAgreementID: CashFlowComponent.MasterAgreementId)
+    (instanceDate: LocalDate)
+    : Result<unit, AppError> =
+    result {
+        let! existingInstances = [ masterAgreementID ] |> Instance.fetchByMasterAgreementIdList context
+        let existingDates = existingInstances |> List.map Instance.instanceDate
+        if existingDates |> List.isEmpty then return () else
+        let latestDate = existingDates |> List.max
+        if instanceDate > latestDate then return () else
+        let agreementUuid = masterAgreementID |> CashFlowComponent.MasterAgreementId.value
+        return! Error (CashflowInstanceDateNotAfterLatestInstance(agreementUuid, instanceDate, latestDate))
+    }
+
 let createInstanceCompositeAndSaveToDb
     (context: Context.Context)
     (masterAgreementID: CashFlowComponent.MasterAgreementId)
@@ -455,6 +470,7 @@ let createInstanceCompositeAndSaveToDb
         ) list)
     : Result<InstanceComposite, AppError> =
     result {
+        do! instanceDate |> confirmInstanceDateIsAfterLatestInstance context masterAgreementID
         let instanceId = CashFlowComponent.InstanceId.create()
         let now = context |> Context.getInitiationInstant
         let! masterAgreement = masterAgreementID |> MasterAgreement.fetchById context
@@ -490,6 +506,10 @@ let createInstanceCompositeAndSaveToDb
                 )
             |> convertListOfResultsToResultsList
             |> Result.map ignore
+        let cadenceType = masterAgreement |> MasterAgreement.cadence |> Cadence.cadenceType
+        let newNextInstance = Cadence.determineNextDateFromPrior instanceDate cadenceType
+        let! newCadence = Cadence.create cadenceType { nextInstance = newNextInstance }
+        do! masterAgreement |> MasterAgreement.updateCadence context newCadence |> Result.map ignore
         return instanceComposite
     }
     

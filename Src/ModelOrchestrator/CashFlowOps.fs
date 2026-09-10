@@ -35,9 +35,11 @@ let private spawnInstancesFromAgreement
         let cadenceType = cadence |> Cadence.cadenceType
         let nextInstance = cadence |> Cadence.nextInstance
         let nextInstanceDate = nextInstance.nextInstance
+        // ascending because each create validates against the agreement's latest existing instance and only ever
+        // moves forward
         let neededDates =
             fillInstanceDatesToCutOff nextInstanceDate cutOffDate cadenceType []
-            |> List.sortByDescending id
+            |> List.sortBy id
         if neededDates |> List.isEmpty then return agreement else
         do! neededDates
             |> List.map(fun neededDate ->
@@ -67,10 +69,6 @@ let private spawnInstancesFromAgreement
                         context agreementId neededDate false invoiceCompositeFieldsList)
             |> convertListOfResultsToResultsList
             |> Result.map ignore
-        let latestAdded = neededDates |> List.head
-        let newNextInstance = Cadence.determineNextDateFromPrior latestAdded cadenceType
-        let! newCadence = Cadence.create cadenceType { nextInstance = newNextInstance }
-        do! master |> MasterAgreement.updateCadence context newCadence |> Result.map ignore
         return! AgreementOrchestration.fetchByMasterAgreementId context agreementId
     }
 

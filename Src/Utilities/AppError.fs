@@ -50,6 +50,7 @@ type AppError =
     | CashflowDaysDueAfterInvoiceDateExceededMax of int * int
     | CashflowExternalInvoiceIdIsEmpty of string
     | CashflowExternalInvoiceIdTooLong of string * int
+    | CashflowInstanceDateNotAfterLatestInstance of Guid * LocalDate * LocalDate
     | CashflowInstanceFulfilledWithNoInvoices of Guid
     | CashflowInstanceFulfilledWithUnpaidInvoice of Guid * Guid
     | CashflowInstanceIdDoesntExist of Guid
@@ -292,6 +293,7 @@ module AppError =
         | CashflowDaysDueAfterInvoiceDateExceededMax(raw, max) -> $"Failed to convert {raw} to a DaysDueAfterInvoiceDate as value exceeds the maximum allowable value of {max}."
         | CashflowExternalInvoiceIdIsEmpty eid -> $"ExternalInvoiceId cannot be empty. Provided ExternalInvoiceId is {eid}."
         | CashflowExternalInvoiceIdTooLong(eid, max) -> $"ExternalInvoiceId cannot exceed {max} characters. Provided ExternalInvoiceId is {eid}."
+        | CashflowInstanceDateNotAfterLatestInstance(agreementId, attemptedDate, latestDate) -> $"An Instance for MasterAgreement {agreementId} cannot be created at {attemptedDate} because its latest existing Instance is dated {latestDate}. Instances are only ever created forward; correct the cadence instead."
         | CashflowInstanceFulfilledWithNoInvoices instanceId -> $"Instance {instanceId} is marked fulfilled but has no Invoices."
         | CashflowInstanceFulfilledWithUnpaidInvoice(instanceId, invoiceId) -> $"Instance {instanceId} is marked fulfilled but Invoice {invoiceId} is not FullyPaid."
         | CashflowInstanceIdDoesntExist uuid -> $"Could not locate an Instance with the id of {uuid}."
