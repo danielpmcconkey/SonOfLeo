@@ -10,6 +10,33 @@ let private createUpcomingInstances _ _ =
 let private classifyPaymentAgreements _ _ =
     raise (System.NotImplementedException())
 
+let private createAgreement _ _ =
+    raise (System.NotImplementedException())
+
+let private updateAgreement _ _ =
+    raise (System.NotImplementedException())
+
+let private createInstance _ _ =
+    raise (System.NotImplementedException())
+
+let private createInvoice _ _ =
+    raise (System.NotImplementedException())
+
+let private updateInvoice _ _ =
+    raise (System.NotImplementedException())
+
+let private createPayment _ _ =
+    raise (System.NotImplementedException())
+
+let private createPaymentAgreementLink _ _ =
+    raise (System.NotImplementedException())
+
+let private updatePaymentAgreementLink _ _ =
+    raise (System.NotImplementedException())
+
+let private deletePaymentAgreementLink _ _ =
+    raise (System.NotImplementedException())
+
 let cashFlowDomainCommandRoutes: CommandRoute list =
     [
       { domain = "CashFlow"
@@ -25,4 +52,67 @@ let cashFlowDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<NoInput>.Name
         outputContract = typeof<PaymentAgreementClassificationResultReturn>.Name
         handler = classifyPaymentAgreements }
+
+      { domain = "CashFlow"
+        verb = "CreateAgreement"
+        description = "Create a master agreement and its payment agreements as one unit."
+        inputContract = typeof<CreateAgreementInput>.Name
+        outputContract = typeof<AgreementReturn>.Name
+        handler = createAgreement }
+
+      { domain = "CashFlow"
+        verb = "UpdateAgreement"
+        description = "Update any of a master agreement's fields. Its payment agreements are not touched."
+        inputContract = typeof<UpdateAgreementInput>.Name
+        outputContract = typeof<AgreementReturn>.Name
+        handler = updateAgreement }
+
+      { domain = "CashFlow"
+        verb = "CreateInstance"
+        description = "Create one instance of an agreement's obligation, along with any invoices and payments already known for it."
+        inputContract = typeof<CreateInstanceInput>.Name
+        outputContract = typeof<InstanceCompositeReturn>.Name
+        handler = createInstance }
+
+      { domain = "CashFlow"
+        verb = "CreateInvoice"
+        description = "Add an invoice, and any payments already known for it, to an existing instance."
+        inputContract = typeof<CreateInvoiceInput>.Name
+        outputContract = typeof<InvoiceCompositeReturn>.Name
+        handler = createInvoice }
+
+      { domain = "CashFlow"
+        verb = "UpdateInvoice"
+        description = "Update any of an invoice's fields, including each half of its life cycle state."
+        inputContract = typeof<UpdateInvoiceInput>.Name
+        outputContract = typeof<InvoiceCompositeReturn>.Name
+        handler = updateInvoice }
+
+      { domain = "CashFlow"
+        verb = "CreatePayment"
+        description = "Record a payment against an invoice, pointing at either the staged entry line or the journal entry line that moved the money."
+        inputContract = typeof<CreatePaymentInput>.Name
+        outputContract = typeof<PaymentReturn>.Name
+        handler = createPayment }
+
+      { domain = "CashFlow"
+        verb = "CreatePaymentAgreementLink"
+        description = "Link a staged entry line to the payment agreement it satisfies, where classification left the decision to the operator."
+        inputContract = typeof<CreatePaymentAgreementLinkInput>.Name
+        outputContract = typeof<PaymentAgreementLinkReturn>.Name
+        handler = createPaymentAgreementLink }
+
+      { domain = "CashFlow"
+        verb = "UpdatePaymentAgreementLink"
+        description = "Repoint an existing linkage at a different payment agreement."
+        inputContract = typeof<UpdatePaymentAgreementLinkInput>.Name
+        outputContract = typeof<PaymentAgreementLinkReturn>.Name
+        handler = updatePaymentAgreementLink }
+
+      { domain = "CashFlow"
+        verb = "DeletePaymentAgreementLink"
+        description = "Remove a linkage outright, for a staged entry line that is not an obligation at all. Returns the row as it stood before deletion. This is a hard delete, not a void."
+        inputContract = typeof<DeletePaymentAgreementLinkInput>.Name
+        outputContract = typeof<PaymentAgreementLinkReturn>.Name
+        handler = deletePaymentAgreementLink }
     ]

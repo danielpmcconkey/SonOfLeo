@@ -12,7 +12,16 @@ type AuditableAction =
     | AccountUpdateExtReference
     | AccountDeactivate
     | CashFlowClassifyPaymentAgreements
+    | CashFlowCreateAgreement
+    | CashFlowCreateInstance
+    | CashFlowCreateInvoice
+    | CashFlowCreatePayment
+    | CashFlowCreatePaymentAgreementLink
     | CashFlowCreateUpcomingInstances
+    | CashFlowDeletePaymentAgreementLink
+    | CashFlowUpdateAgreement
+    | CashFlowUpdateInvoice
+    | CashFlowUpdatePaymentAgreementLink
     | FiscalPeriodCreate
     | FiscalPeriodClose
     | FiscalPeriodReopen
