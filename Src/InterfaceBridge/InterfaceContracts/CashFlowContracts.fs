@@ -226,6 +226,8 @@ type UpdatePaymentAgreementLinkInput = {
 
 type DeletePaymentAgreementLinkInput = { paymentAgreementLinkId: Guid }
 
+type FetchAgreementSummaryInput = { agreementName: string }
+
 type CreatePaymentAgreementFieldsInput = {
     paymentAgreementName: string
     debitAccountCode: string

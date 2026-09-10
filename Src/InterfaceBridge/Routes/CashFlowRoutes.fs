@@ -37,6 +37,12 @@ let private updatePaymentAgreementLink _ _ =
 let private deletePaymentAgreementLink _ _ =
     raise (System.NotImplementedException())
 
+let private fetchClassificationRun _ _ =
+    raise (System.NotImplementedException())
+
+let private fetchAgreementSummary _ _ =
+    raise (System.NotImplementedException())
+
 let cashFlowDomainCommandRoutes: CommandRoute list =
     [
       { domain = "CashFlow"
@@ -115,4 +121,18 @@ let cashFlowDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<DeletePaymentAgreementLinkInput>.Name
         outputContract = typeof<PaymentAgreementLinkReturn>.Name
         handler = deletePaymentAgreementLink }
+
+      { domain = "CashFlow"
+        verb = "FetchClassificationRun"
+        description = "Read one classification run's matches with each claimed entity resolved to an account code or a payment agreement name, and each rule to its name and current priority. Serves review of both the account and the payment agreement classification steps."
+        inputContract = typeof<InterfaceBridge.InterfaceContracts.IngestionContracts.FetchClassificationRunInput>.Name
+        outputContract = typeof<InterfaceBridge.InterfaceContracts.IngestionContracts.ClassificationRunReturn>.Name
+        handler = fetchClassificationRun }
+
+      { domain = "CashFlow"
+        verb = "FetchAgreementSummary"
+        description = "Read one master agreement's whole tree: its payment agreements, instances, invoices, and payments."
+        inputContract = typeof<FetchAgreementSummaryInput>.Name
+        outputContract = typeof<AgreementReturn>.Name
+        handler = fetchAgreementSummary }
     ]

@@ -124,6 +124,23 @@ type AccountClassificationResultReturn = {
     stagedEntries: StageEntryReturn list
 }
 
+// priority is read off the live rule rather than the recorded match, so a rule re-prioritized since the run reports its
+// current priority, not the one that decided the match
+type RuleMatchReturn = {
+    ruleMatchId: Guid
+    stageEntryLineId: Guid
+    classificationRuleId: Guid
+    classificationRuleName: string
+    claimantAtMatch: ClassificationClaimantReturn
+    priority: int
+    createdAt: Instant
+}
+
+type ClassificationRunReturn = {
+    runId: Guid
+    matches: RuleMatchReturn list
+}
+
 type ClassificationRuleReturn = {
         classificationRuleId: Guid
         classificationRuleName: string
@@ -198,6 +215,7 @@ type FetchClassificationRuleFilteredInput = {
     sort: FetchSortClassificationRule option
 }
 
+type FetchClassificationRunInput = { runId: Guid }
 type FetchClassificationRuleByIdInput = { classificationRuleId: Guid }
 type FetchClassificationRuleByNameInput = { classificationRuleName: string }
 type CreateNewIngestionSourceInput = { name: string }
