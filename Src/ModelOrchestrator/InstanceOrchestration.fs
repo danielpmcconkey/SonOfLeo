@@ -457,7 +457,10 @@ let createInstanceCompositeAndSaveToDb
     result {
         let instanceId = CashFlowComponent.InstanceId.create()
         let now = context |> Context.getInitiationInstant
-        let newInstance = Instance.create instanceId masterAgreementID instanceDate isFulfilled now now
+        let! masterAgreement = masterAgreementID |> MasterAgreement.fetchById context
+        let masterAgreementName = masterAgreement |> MasterAgreement.agreementName
+        let newInstance =
+            Instance.create instanceId masterAgreementID masterAgreementName instanceDate isFulfilled now now
         let invoiceComposites =
             invoiceCompositeFieldsList |> List.map(fun invFields ->
                 let paId, externalInvoiceId, invoiceDate, dueDate,

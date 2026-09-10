@@ -12,6 +12,7 @@ open DataAccessLayer.QueryParameters
 type Instance = private {
     instanceId: InstanceId
     masterAgreementID: MasterAgreementId
+    masterAgreementName: AgreementName // not separately tracked in the database; here for read convenience
     instanceDate: LocalDate
     isFulfilled: bool
     createdAt: Instant
@@ -26,6 +27,7 @@ type InstanceFieldUpdates = {
 
 let instanceId i = i.instanceId
 let masterAgreementID i = i.masterAgreementID
+let masterAgreementName i = i.masterAgreementName
 let instanceDate i = i.instanceDate
 let isFulfilled i = i.isFulfilled
 let createdAt i = i.createdAt
@@ -34,6 +36,7 @@ let modifiedAt i = i.modifiedAt
 let create
     (instanceId: InstanceId)
     (masterAgreementID: MasterAgreementId)
+    (masterAgreementName: AgreementName)
     (instanceDate: LocalDate)
     (isFulfilled: bool)
     (createdAt: Instant)
@@ -41,6 +44,7 @@ let create
     : Instance =
     { instanceId = instanceId
       masterAgreementID = masterAgreementID
+      masterAgreementName = masterAgreementName
       instanceDate = instanceDate
       isFulfilled = isFulfilled
       createdAt = createdAt
@@ -75,6 +79,7 @@ let private reconstitute raw =
     result {
         let (uuid,
              masterAgreementUuid,
+             masterAgreementNameStr,
              instanceDate,
              isFulfilled,
              createdAt,
@@ -82,10 +87,12 @@ let private reconstitute raw =
             raw
         let instanceId = uuid |> InstanceId.fromGuid
         let masterAgreementID = masterAgreementUuid |> MasterAgreementId.fromGuid
+        let! masterAgreementName = masterAgreementNameStr |> AgreementName.create
         return
             create
                 instanceId
                 masterAgreementID
+                masterAgreementName
                 instanceDate
                 isFulfilled
                 createdAt
@@ -95,6 +102,7 @@ let private reconstitute raw =
 let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getUuid "unique_id"),
     (row |> RowReader.getUuid "master_agreement_id"),
+    (row |> RowReader.getString "agreement_name"),
     (row |> RowReader.getDate "instance_date"),
     (row |> RowReader.getBool "is_fulfilled"),
     (row |> RowReader.getInstant "created_at"),
@@ -130,9 +138,11 @@ let private fetchAny
     (expectedRows: AcceptableExpectedRows)
     : Result<Instance list, AppError> =
     let select = """
-        ins.unique_id, ins.master_agreement_id, ins.instance_date, ins.is_fulfilled, ins.created_at, ins.modified_at
+        ins.unique_id, ins.master_agreement_id, ma.agreement_name, ins.instance_date, ins.is_fulfilled,
+        ins.created_at, ins.modified_at
         """
-    query context None select None predicate limit None None parameters expectedRows
+    let joinList = [ "join cashflow.master_agreement ma on ins.master_agreement_id = ma.unique_id" ]
+    query context None select (Some joinList) predicate limit None None parameters expectedRows
 
 let fetchById (context: Context.Context) (instanceId: InstanceId) : Result<Instance, AppError> =
     let predicate = "ins.unique_id = @unique_id"
