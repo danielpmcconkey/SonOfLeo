@@ -112,12 +112,6 @@ type ClassificationResultReturn = {
         outcome: ClassifierOutcomeReturn
     }
 
-type IngestionFullResultReturn = {
-    stagedEntries: StageEntryReturn list
-    newDuplicates: StageEntryHeaderReturn list
-    classificationResults: ClassificationResultReturn list
-}
-
 type AccountClassificationResultReturn = {
     runId: Guid
     classificationResults: ClassificationResultReturn list

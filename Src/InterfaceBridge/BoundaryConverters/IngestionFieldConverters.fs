@@ -363,24 +363,6 @@ let ``convert [ClassificationResult list] to [ClassificationResultReturn list]``
     |> List.map (``convert [ClassificationResult] to [ClassificationResultReturn]`` context)
     |> convertListOfResultsToResultsList
 
-let ``convert [IngestionFullResult] to [IngestionFullResultReturn]``
-    (context: Context.Context)
-    (fullResult: IngestionFullResult)
-    : Result<IngestionFullResultReturn, AppError> = result {
-    let! stageEntryReturn =
-        fullResult.stagedEntries
-        |> List.map (``convert [StageEntry] to [StageEntryReturn]`` context)
-        |> convertListOfResultsToResultsList
-    let newDuplicatesReturn =
-        fullResult.newDuplicates
-        |> List.map ``convert [StageEntryHeader] to [StageEntryHeaderReturn]``
-    let! classificationResultsReturn =
-        fullResult.classificationResults
-        |> ``convert [ClassificationResult list] to [ClassificationResultReturn list]`` context
-    return {  stagedEntries = stageEntryReturn
-              newDuplicates = newDuplicatesReturn
-              classificationResults = classificationResultsReturn } }
-
 let ``convert [UpdateStageEntryLineInput] to [StageEntryLineFieldUpdates]``
     (context: Context.Context)
     (line: UpdateStageEntryLineInput)

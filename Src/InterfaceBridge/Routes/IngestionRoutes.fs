@@ -40,14 +40,17 @@ let private ingestRawEntries payload _ =
             let! baseStageRawRows =
                 baseStageRawRowInputs
                 |> ``convert [BaseStageRawRowInput list] to [BaseStageRawRow list]`` context
-            let! fullResult =
+            let! staged =
                 baseStageRawRows
-                |> StageEntryOrchestration.ingestRawToStageThenDeduplicateAndClassify context sourceFile
+                |> StageEntryOrchestration.ingestRawToStage context sourceFile
             let timeStamp = Clock.now() |> Clock.instantToString "yyyy-MM-dd.HHmmss.fff"
             let! moveToPath = createFullPath processedDir $"{timeStamp}-{input.fileName}"
             do! moveFile toBeProcessedPath moveToPath
-            let! fullReturn = fullResult |> ``convert [IngestionFullResult] to [IngestionFullResultReturn]`` context
-            return! Json.toJson<IngestionFullResultReturn> fullReturn })
+            let! converted =
+                staged
+                |> List.map (``convert [StageEntry] to [StageEntryReturn]`` context)
+                |> convertListOfResultsToResultsList
+            return! Json.toJson<StageEntryReturn list> converted })
 
 let private newClassificationRule payload _ =
     let context = Context.create NoTransaction IngestNewClassificationRule
@@ -228,7 +231,14 @@ let private fetchStageEntryFiltered payload _ =
         return! converted |> Json.toJson<StageEntryReturn list> }
 
 let private deduplicateStageEntries _ _ =
-    raise (System.NotImplementedException())
+    runCommandRouteAndAutoCompleteTransaction IngestDeduplicateStageEntries (fun context ->
+        result {
+            let! remaining = StageEntryOrchestration.deduplicateStagedEntries context
+            let! converted =
+                remaining
+                |> List.map (``convert [StageEntry] to [StageEntryReturn]`` context)
+                |> convertListOfResultsToResultsList
+            return! Json.toJson<StageEntryReturn list> converted })
 
 let private classifyAccounts _ _ =
     raise (System.NotImplementedException())
@@ -251,9 +261,9 @@ let ingestionDomainCommandRoutes: CommandRoute list =
 
       { domain = "Ingestion"
         verb = "IngestRawFileToStage"
-        description = "Read a raw jsonl file and write to the stage database. Automatically runs deduplication and classification. It also moves the file from its current directory to the processed directory."
+        description = "Read a raw jsonl file and write to the stage database, then move the file from its current directory to the processed directory. Returns the staged entries. Deduplication and classification are separate steps."
         inputContract = typeof<IngestRawFileToStageInput>.Name
-        outputContract = typeof<IngestionFullResultReturn>.Name
+        outputContract = typeof<StageEntryReturn list>.Name
         handler = ingestRawEntries }
       
       { domain = "Ingestion"
