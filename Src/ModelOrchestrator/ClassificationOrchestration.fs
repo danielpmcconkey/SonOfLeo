@@ -233,12 +233,13 @@ let fetchRulesFiltered
 //         return ()
 //         }
 
-// every rule that matched earns a diagnostic row, not only the one priority resolution picked
+// every rule that matched earns a diagnostic row, not only the one priority resolution picked. the winner is dropped on
+// the clear-winner arm because the second element already carries every match, winner included
 let private matchesToRecord (outcome: ClassifierOutcome) : PrioritizedMatch list =
     match outcome with
     | NoMatch -> []
     | OneMatch prioritizedMatch -> [ prioritizedMatch ]
-    | ManyMatchesClearWinner (winner, alsoMatched) -> winner :: alsoMatched
+    | ManyMatchesClearWinner (_, allMatches) -> allMatches
     | ManyMatchesTied ties -> ties
 
 let private recordRuleMatches

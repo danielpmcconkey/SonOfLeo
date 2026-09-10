@@ -34,8 +34,8 @@ let validTransitions fromType = fromType |> function
         match x with
         | Ingested -> [ Duplicate; Classified; NoMatch; Conflict; Ignored ]
         | Classified -> [ Duplicate; Reviewed; Posted; Ignored ]
-        | NoMatch -> [ Duplicate; Reviewed; Ignored ]
-        | Conflict -> [ Duplicate; Reviewed; Ignored ]
+        | NoMatch -> [ Duplicate; Classified; Conflict; Reviewed; Ignored ]
+        | Conflict -> [ Duplicate; Classified; NoMatch; Reviewed; Ignored ]
         | Reviewed -> [ Posted; Ignored ]
         | Duplicate -> [ Reviewed; Ignored ]
         | Posted -> []

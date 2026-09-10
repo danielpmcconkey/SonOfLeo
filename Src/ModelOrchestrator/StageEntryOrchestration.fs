@@ -252,6 +252,23 @@ let fetchAllForPosting
     }
 
 
+let private fetchByStatusList
+    (context: Context.Context)
+    (statuses: StagedEntryStatus list)
+    : Result<StageEntry list, AppError> =
+    result {
+        let! headersByStatus =
+            statuses
+            |> List.map (fun status -> StageEntryHeader.fetchByStatus context status)
+            |> convertListOfResultsToResultsList
+        let headers = headersByStatus |> List.concat
+        if headers |> List.isEmpty then return [] else
+        let headerIds = headers |> List.map (fun x -> x |> StageEntryHeader.stageEntryHeaderId)
+        let! lines = headerIds |> StageEntryLine.fetchByHeaderIdList context
+        let! statusTransitions = headerIds |> StageEntryStatusTransition.fetchByHeaderIdList context
+        return compileFromSubLists headers lines statusTransitions
+    }
+
 let fetchByStageEntryHeaderId
     (context: Context.Context)
     (headerId: StageEntryHeaderId)
@@ -290,93 +307,77 @@ let deduplicateStagedEntries
                      |> StageEntryHeader.updateHeaderStatus context toStatus mechanism
                      )
                  |> convertListOfResultsToResultsList
-        let! survivingHeaders = StageEntryHeader.fetchByStatus context StagedEntryStatus.Ingested
-        if survivingHeaders |> List.isEmpty then return [] else
-        let headerIds =
-            survivingHeaders
-            |> List.map (fun x -> x |> StageEntryHeader.stageEntryHeaderId)
-        let! lines = headerIds |> StageEntryLine.fetchByHeaderIdList context
-        let! statusTransitions = headerIds |> StageEntryStatusTransition.fetchByHeaderIdList context
-        return compileFromSubLists survivingHeaders lines statusTransitions
+        return! [ StagedEntryStatus.Ingested ] |> fetchByStatusList context
     }
 
 let classifyAccounts
     (context: Context.Context)
     : Result<AccountClassificationResult, AppError> =
-    // note to Simian, when you're ready to build classifyAccounts, use as much from the old classifyStagedEntries
-    // (commented below) as you can
-
-    // let updateHeaderFromClassificationResults
-    //     (context: Context.Context)
-    //     (resultsAtHeader: ClassificationResult list)
-    //     (headerId: StageEntryHeaderId)
-    //     : Result<unit, AppError> =
-    //     // All result types resolve to either matched, unmatched, or tied. If all lines are matched then the new status is
-    //     // Classified. If any one line is tied, then it's Conflict. Otherwise, you know that you either have all unmatched
-    //     // or some matched / some unmatched. That result should be statused as NoMatch
-    //     let isMatch (result:ClassificationResult) : bool =
-    //         match result.outcome with
-    //         | OneMatch _ | ManyMatchesClearWinner _ -> true
-    //         | ClassifierOutcome.NoMatch | ManyMatchesTied _ -> false
-    //     let isTied (result:ClassificationResult) : bool =
-    //         match result.outcome with | ManyMatchesTied _ -> true | _ -> false
-    //     let mechanism = StageStatusChangeMechanism.Classifier
-    //     let newStatus =
-    //         if resultsAtHeader |> List.forall isMatch then Classified
-    //         elif resultsAtHeader |> List.exists isTied then Conflict
-    //         else StagedEntryStatus.NoMatch
-    //     headerId |> StageEntryHeader.updateHeaderStatus context newStatus mechanism
-
-    // result {
-    //     // entries with all lines already set to Some don't need to be run through, but should have their statuses updated
-    //     let! _ =
-    //         entries
-    //         |> List.filter(fun entry ->
-    //                 entry
-    //                 |> seLines
-    //                 |> List.forall(fun l -> l |> StageEntryLine.accountId |> Option.isSome)
-    //             )
-    //         |> List.map(fun entry ->
-    //             let headerId = entry.stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-    //             let toStatus = StagedEntryStatus.Classified
-    //             let mechanism = StageStatusChangeMechanism.Classifier
-    //             headerId |> StageEntryHeader.updateHeaderStatus context toStatus mechanism
-    //             )
-    //         |> convertListOfResultsToResultsList
-    //     
-    //     // entries with at least one None for accountCode need to be classified
-    //     let (matchCandidates: MatchCandidate list) =
-    //         entries
-    //         |> List.collect(fun entry ->
-    //             let header = entry.stageEntryHeader
-    //             entry
-    //             |> seLines
-    //             |> List.filter (fun line -> line |> StageEntryLine.accountId |> Option.isNone)
-    //             |> List.map (fun line -> {
-    //                 headerIdOfCandidate = header |> StageEntryHeader.stageEntryHeaderId
-    //                 lineIdOfCandidate = line |> StageEntryLine.stageEntryLineId
-    //                 ingestionSource = header |> StageEntryHeader.ingestionSource |> IngestionSource.name
-    //                 description = header |> StageEntryHeader.description
-    //                 amount = line |> StageEntryLine.amount
-    //                 lineType = line |> StageEntryLine.lineType
-    //                 memo = line |> StageEntryLine.memo }))
-    //     let! classificationRun =
-    //         matchCandidates
-    //         |> ClassificationOrchestration.classifyMatchCandidatesAndRecordMatches context AccountClaimant
-    //     let classificationResults = classificationRun.results
-    //     // classification only recorded what matched. This module owns updating the header and adding an audit trail
-    //     // record
-    //     let! _ =
-    //         classificationResults
-    //         |> List.groupBy _.candidate.headerIdOfCandidate
-    //         |> List.map(fun idAndResult ->
-    //             let headerId = idAndResult |> fst
-    //             let resultsAtHeader = idAndResult |> snd
-    //             headerId |> updateHeaderFromClassificationResults context resultsAtHeader
-    //             )
-    //         |> convertListOfResultsToResultsList
-    // }
-    raise (NotImplementedException())
+    result {
+        let rosterStatuses = [ Ingested; StagedEntryStatus.NoMatch; Conflict ]
+        let! roster = rosterStatuses |> fetchByStatusList context
+        let isFullyAssigned (entry: StageEntry) : bool =
+            entry |> seLines |> List.forall (fun line -> line |> StageEntryLine.accountId |> Option.isSome)
+        let (matchCandidates: MatchCandidate list) =
+            roster
+            |> List.collect (fun entry ->
+                let header = entry.stageEntryHeader
+                entry
+                |> seLines
+                |> List.filter (fun line -> line |> StageEntryLine.accountId |> Option.isNone)
+                |> List.map (fun line -> {
+                    headerIdOfCandidate = header |> StageEntryHeader.stageEntryHeaderId
+                    lineIdOfCandidate = line |> StageEntryLine.stageEntryLineId
+                    ingestionSource = header |> StageEntryHeader.ingestionSource |> IngestionSource.name
+                    description = header |> StageEntryHeader.description
+                    amount = line |> StageEntryLine.amount
+                    lineType = line |> StageEntryLine.lineType
+                    memo = line |> StageEntryLine.memo }))
+        let! classificationRun =
+            matchCandidates
+            |> ClassificationOrchestration.classifyMatchCandidatesAndRecordMatches context AccountClaimant
+        let classificationResults = classificationRun.results
+        let winningAccountId (outcome: ClassifierOutcome) : AccountId option =
+            match outcome with
+            | OneMatch prioritizedMatch -> prioritizedMatch.accountId
+            | ManyMatchesClearWinner (winner, _) -> winner.accountId
+            | ClassifierOutcome.NoMatch | ManyMatchesTied _ -> None
+        let! _ =
+            classificationResults
+            |> List.choose (fun result ->
+                result.outcome
+                |> winningAccountId
+                |> Option.map (fun accountId -> result.candidate.lineIdOfCandidate, accountId))
+            |> List.map (fun (lineId, accountId) ->
+                lineId
+                |> StageEntryLine.updateAccountId context (SetTo (Some accountId))
+                |> Result.map ignore)
+            |> convertListOfResultsToResultsList
+        let headerIdsWithATie =
+            classificationResults
+            |> List.filter (fun result ->
+                match result.outcome with | ManyMatchesTied _ -> true | _ -> false)
+            |> List.map (fun result -> result.candidate.headerIdOfCandidate)
+            |> List.distinct
+        // re-read so the status below is derived from the accounts just written rather than the pre-write roster
+        let! rosterAfterWrites = rosterStatuses |> fetchByStatusList context
+        let! _ =
+            rosterAfterWrites
+            |> List.map (fun entry ->
+                let headerId = entry.stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let mechanism = StageStatusChangeMechanism.Classifier
+                let newStatus =
+                    if entry |> isFullyAssigned then Classified
+                    elif headerIdsWithATie |> List.contains headerId then Conflict
+                    else StagedEntryStatus.NoMatch
+                headerId |> StageEntryHeader.updateHeaderStatus context newStatus mechanism)
+            |> convertListOfResultsToResultsList
+        let! stagedEntries =
+            [ Ingested; Classified; StagedEntryStatus.NoMatch; Conflict; Reviewed ] |> fetchByStatusList context
+        return { runId = classificationRun.runId
+                 classificationResults = classificationResults
+                 stagedEntries = stagedEntries }
+    }
 
 let ingestRawToStage
     (context: Context.Context)

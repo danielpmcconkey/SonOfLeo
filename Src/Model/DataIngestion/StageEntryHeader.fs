@@ -127,6 +127,9 @@ let updateHeaderStatus
             |> List.head
             |> StageEntryStatusTransition.toStatus
             |> Some
+        // a status that hasn't moved writes nothing. Self-transitions are invalid, so this would otherwise error rather
+        // than no-op
+        if fromStatus = Some newStatus then return () else
         let newTransitionId = StageEntryStatusTransitionId.create()
         let instant = context |> Context.getInitiationInstant
         let newTransition =
