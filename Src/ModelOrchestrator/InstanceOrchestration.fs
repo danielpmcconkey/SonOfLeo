@@ -355,6 +355,29 @@ let fetchCompositeByInstanceId
         return { instance = instance; invoiceComposites = compileFromSubLists invoices payments }
     }
 
+let fetchCompositesByIsFulfilled
+    (context: Context.Context)
+    (isFulfilled: bool)
+    : Result<InstanceComposite list, AppError> =
+    result {
+        let! instances = isFulfilled |> Instance.fetchByIsFulfilled context
+        if instances |> List.isEmpty then return [] else
+        let instanceIds = instances |> List.map Instance.instanceId
+        let! invoices = instanceIds |> Invoice.fetchByInstanceIdList context
+        let invoiceIds = invoices |> List.map Invoice.invoiceId
+        let! payments =
+            if invoiceIds |> List.isEmpty then Ok [] else invoiceIds |> Payment.fetchByInvoiceIdList context
+        let invoiceComposites = compileFromSubLists invoices payments
+        return
+            instances
+            |> List.map (fun instance ->
+                let instanceId = instance |> Instance.instanceId
+                let compositesAtInstance =
+                    invoiceComposites
+                    |> List.filter (fun composite -> composite.invoice |> Invoice.instanceId = instanceId)
+                { instance = instance; invoiceComposites = compositesAtInstance })
+    }
+
 let private confirmPaymentBelongsToInvoice
     (context: Context.Context)
     (invoiceId: CashFlowComponent.InvoiceId)

@@ -165,6 +165,14 @@ let fetchByMasterAgreementIdList
     let predicate = $"ins.master_agreement_id in ({names})"
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
+let fetchByIsFulfilled
+    (context: Context.Context)
+    (isFulfilled: bool)
+    : Result<Instance list, AppError> =
+    let predicate = "ins.is_fulfilled = @is_fulfilled"
+    let parameters = [ { name = "@is_fulfilled"; value = Boolean isFulfilled } ]
+    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
+
 let update
     (context: Context.Context)
     (fieldUpdates: InstanceFieldUpdates)

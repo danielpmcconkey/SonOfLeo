@@ -26,9 +26,10 @@ let private spawnInstancesFromAgreement
     (context: Context.Context)
     (daysOut: ProjectionHorizonInDays)
     (agreement: AgreementOrchestration.Agreement)
-    : Result<AgreementOrchestration.Agreement, AppError> =
+    : Result<unit, AppError> =
     result {
-        let cutOffDate = Calendar.today().PlusDays(daysOut |> ProjectionHorizonInDays.value)
+        let today = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
+        let cutOffDate = today.PlusDays(daysOut |> ProjectionHorizonInDays.value)
         let master = agreement |> AgreementOrchestration.masterAgreement
         let agreementId = master |> MasterAgreement.agreementID
         let cadence = master |> MasterAgreement.cadence
@@ -40,7 +41,7 @@ let private spawnInstancesFromAgreement
         let neededDates =
             fillInstanceDatesToCutOff nextInstanceDate cutOffDate cadenceType []
             |> List.sortBy id
-        if neededDates |> List.isEmpty then return agreement else
+        if neededDates |> List.isEmpty then return () else
         do! neededDates
             |> List.map(fun neededDate ->
                 // check if we have any fixed-amount payment agreements and add invoices for those with our instance.
@@ -69,29 +70,27 @@ let private spawnInstancesFromAgreement
                         context agreementId neededDate false invoiceCompositeFieldsList)
             |> convertListOfResultsToResultsList
             |> Result.map ignore
-        return! AgreementOrchestration.fetchByMasterAgreementId context agreementId
     }
 
 let private spawnInstancesFromAgreements
     (context: Context.Context)
     (daysOut: ProjectionHorizonInDays)
     (agreements: AgreementOrchestration.Agreement list)
-    : Result<AgreementOrchestration.Agreement list, AppError> =
+    : Result<unit, AppError> =
     agreements
     |> List.map (spawnInstancesFromAgreement context daysOut)
     |> convertListOfResultsToResultsList
-    
+    |> Result.map ignore
 
-let projectionSweep // step 2.2.3.0
+
+let createUpcomingInstances
     (context: Context.Context)
     (daysOut: ProjectionHorizonInDays)
-    : Result<AgreementOrchestration.Agreement list, AppError> =
+    : Result<InstanceOrchestration.InstanceComposite list, AppError> =
     result {
-    // Walk every active agreement's cadence, create missing Instances through the horizon. Advance each cadence's
-    // nextInstance pointer. Return count of instances created per agreement. Invoices are created if the expected
-    // amount and the daysDueAfterInvoiceDate are both Some.
         let! agreements = AgreementOrchestration.fetchAllActiveAgreements context
-        return! agreements |> spawnInstancesFromAgreements context daysOut
+        do! agreements |> spawnInstancesFromAgreements context daysOut
+        return! false |> InstanceOrchestration.fetchCompositesByIsFulfilled context
     }
 
 let private stageEntryFilterForStatus
