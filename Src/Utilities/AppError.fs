@@ -194,6 +194,7 @@ type AppError =
     | IngestionStageEntryInsufficientLines of int
     | IngestionStageEntryHeaderIdDoesntExist of Guid
     | IngestionStageEntryLineIdDoesntExist of Guid
+    | IngestionStageEntryLineIdListCannotBeEmpty
     | IngestionStageEntryHeaderNoOp
     | IngestionStageEntryLineNoOp
     | IngestionStageEntryLineNoMatchingJournalEntryLine of Guid
@@ -453,6 +454,7 @@ module AppError =
         | IngestionSearchPatternTooLong (str, max) -> $"SearchPattern cannot exceed {max} characters. Provided value is {str}."
         | IngestionStageEntryHeaderIdDoesntExist uuid -> $"Could not locate a stage entry header with the id of {uuid}."
         | IngestionStageEntryLineIdDoesntExist uuid -> $"Could not locate a stage entry line with the id of {uuid}."
+        | IngestionStageEntryLineIdListCannotBeEmpty -> "The stageEntryLineIds list must contain at least 1 ID."
         | IngestionStageEntryHeaderNoOp -> "Updating the StageEntryHeader record failed because at least one updatable parameter must be set."
         | IngestionStageEntryLineNoOp -> "Updating the StageEntryLine record failed because at least one updatable parameter must be set."
         | IngestionStageEntryLineNoMatchingJournalEntryLine uuid -> $"Could not locate a journal entry line matching stage entry line {uuid} on account, line type, and amount."

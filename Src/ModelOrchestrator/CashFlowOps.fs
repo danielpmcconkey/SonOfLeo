@@ -116,35 +116,41 @@ let private matchesClaimingPaymentAgreement
     |> claimingMatches
     |> List.filter (fun prioritizedMatch -> prioritizedMatch.paymentAgreementId = Some paymentAgreementId)
 
-/// pivotClassificationResultsByPaymentAgreement flips the classifier's row-focused answer -- "which rules did this row
-/// match" -- onto the rule axis: "which rows claimed this payment agreement". Two staged entries claiming one payment
-/// agreement is the dangerous case, since paying the same bill twice looks like a fulfilled obligation, so a contested
-/// agreement is handed to the operator whole rather than resolved here.
-let pivotClassificationResultsByPaymentAgreement
-    (results: StageDataClassificationComponent.ClassificationResult list)
-    : StageDataClassificationComponent.PaymentAgreementTaggingResult =
-    let isTied (result: StageDataClassificationComponent.ClassificationResult) =
-        match result.outcome with
-        | StageDataClassificationComponent.ManyMatchesTied _ -> true
-        | _ -> false
-    let clusters =
-        results
-        |> List.collect(fun result ->
-            result |> paymentAgreementsClaimedBy |> List.map (fun paymentAgreementId -> paymentAgreementId, result))
-        |> List.groupBy fst
-        |> List.map(fun (paymentAgreementId, pairs) ->
-            let claimants = pairs |> List.map snd
-            let cluster: StageDataClassificationComponent.PaymentAgreementClaimCluster =
-                { paymentAgreementId = paymentAgreementId
-                  claimants = claimants
-                  containsUnwrittenTies = claimants |> List.exists isTied }
-            cluster)
-    // code is not allowed to break a tie, so a tied claimant contests its agreement however few rows claimed it
-    let isContested (cluster: StageDataClassificationComponent.PaymentAgreementClaimCluster) =
-        cluster.claimants |> List.length > 1 || cluster.containsUnwrittenTies
-    { clean = clusters |> List.filter (isContested >> not)
-      multiClaimant = clusters |> List.filter isContested
-      unmatched = results |> List.filter (fun result -> result |> paymentAgreementsClaimedBy |> List.isEmpty) }
+let private isTiedClaimant (result: StageDataClassificationComponent.ClassificationResult) : bool =
+    match result.outcome with
+    | StageDataClassificationComponent.ManyMatchesTied _ -> true
+    | _ -> false
+
+let private decisionFor
+    (paymentAgreementId: PaymentAgreementId)
+    (outcome: StageDataClassificationComponent.PaymentAgreementDecisionOutcome)
+    (result: StageDataClassificationComponent.ClassificationResult)
+    : StageDataClassificationComponent.PaymentAgreementDecision =
+    let ruleIds =
+        result
+        |> matchesClaimingPaymentAgreement paymentAgreementId
+        |> List.map (fun prioritizedMatch -> prioritizedMatch.ruleId)
+    { stageEntryLineId = result.candidate.lineIdOfCandidate
+      paymentAgreementId = Some paymentAgreementId
+      ruleIds = ruleIds
+      outcome = outcome }
+
+/// pivotClaimsByPaymentAgreement flips the classifier's row-focused answer -- "which rules did this row match" -- onto
+/// the rule axis: "which rows claimed this payment agreement". Two staged entries claiming one payment agreement is the
+/// dangerous case, since paying the same bill twice looks like a fulfilled obligation, so a contested agreement is
+/// handed to the operator whole rather than resolved here.
+let pivotClaimsByPaymentAgreement
+    (claims: (PaymentAgreementId * StageDataClassificationComponent.ClassificationResult) list)
+    : StageDataClassificationComponent.PaymentAgreementClaimCluster list =
+    claims
+    |> List.groupBy fst
+    |> List.map(fun (paymentAgreementId, pairs) ->
+        let claimants = pairs |> List.map snd
+        let cluster: StageDataClassificationComponent.PaymentAgreementClaimCluster =
+            { paymentAgreementId = paymentAgreementId
+              claimants = claimants
+              containsUnwrittenTies = claimants |> List.exists isTiedClaimant }
+        cluster)
 
 let private fetchAgreementsWithDirection
     (context: Context.Context)
@@ -197,19 +203,6 @@ let private selectLegsOfClaimedEntries
         | Outgo ->
             let (DebitAccount accountId) = paymentAgreement |> PaymentAgreement.debitAccount
             accountId
-    let decisionFor
-        (paymentAgreementId: PaymentAgreementId)
-        (outcome: StageDataClassificationComponent.PaymentAgreementDecisionOutcome)
-        (result: StageDataClassificationComponent.ClassificationResult)
-        : StageDataClassificationComponent.PaymentAgreementDecision =
-        let ruleIds =
-            result
-            |> matchesClaimingPaymentAgreement paymentAgreementId
-            |> List.map (fun prioritizedMatch -> prioritizedMatch.ruleId)
-        { stageEntryLineId = result.candidate.lineIdOfCandidate
-          paymentAgreementId = Some paymentAgreementId
-          ruleIds = ruleIds
-          outcome = outcome }
     let doesAnyClaimingRuleConstrainLineType
         (paymentAgreementId: PaymentAgreementId)
         (claims: (PaymentAgreementId * StageDataClassificationComponent.ClassificationResult) list)
@@ -266,6 +259,56 @@ let private selectLegsOfClaimedEntries
         return selections, decisions
     }
 
+let private writeLinkagesForClaimClusters
+    (context: Context.Context)
+    (clusters: StageDataClassificationComponent.PaymentAgreementClaimCluster list)
+    : Result<StageDataClassificationComponent.PaymentAgreementDecision list, AppError> =
+    result {
+        let claimedLineIds =
+            clusters
+            |> List.collect (fun cluster -> cluster.claimants)
+            |> List.map (fun claimant -> claimant.candidate.lineIdOfCandidate)
+            |> List.distinct
+        let! existingLinks =
+            if claimedLineIds |> List.isEmpty then Ok []
+            else claimedLineIds |> PaymentAgreementLink.fetchByStageEntryLineIdList context
+        let alreadyLinkedLineIds =
+            existingLinks |> List.map PaymentAgreementLink.stageEntryLineId |> Set.ofList
+        let! decisionsByCluster =
+            clusters
+            |> List.map (fun cluster -> result {
+                let paymentAgreementId = cluster.paymentAgreementId
+                match cluster.claimants with
+                | [ claimant ] when cluster.containsUnwrittenTies |> not ->
+                    let lineId = claimant.candidate.lineIdOfCandidate
+                    if alreadyLinkedLineIds |> Set.contains lineId then
+                        return [ claimant |> decisionFor paymentAgreementId StageDataClassificationComponent.AlreadyLinked ]
+                    else
+                    let now = context |> Context.getInitiationInstant
+                    let linkId = PaymentAgreementLinkId.create ()
+                    let link = PaymentAgreementLink.create linkId paymentAgreementId lineId now now
+                    do! link |> PaymentAgreementLink.persist context
+                    return [ claimant |> decisionFor paymentAgreementId StageDataClassificationComponent.Linked ]
+                // code is not allowed to break a tie, so a tied claimant contests its agreement however few rows
+                // claimed it
+                | claimants ->
+                    return
+                        claimants
+                        |> List.map (fun claimant ->
+                            let outcome =
+                                if claimant |> isTiedClaimant then StageDataClassificationComponent.TiedClaimants
+                                else StageDataClassificationComponent.ContestedAgreement
+                            claimant |> decisionFor paymentAgreementId outcome) })
+            |> convertListOfResultsToResultsList
+        return decisionsByCluster |> List.concat
+    }
+
+let private matchInvoicesAndCreatePayments
+    (context: Context.Context)
+    (openInstances: InstanceOrchestration.InstanceComposite list)
+    : Result<CashFlowComponent.InvoiceDecision list, AppError> =
+    raise(NotImplementedException())
+
 /// classifyPaymentAgreements does not update a stage entry's status. That belongs to the data ingestion domain.
 let classifyPaymentAgreements
     (context: Context.Context)
@@ -321,7 +364,19 @@ let classifyPaymentAgreements
             |> Map.ofList
         let! selectedClaims, legDecisions =
             classificationResults |> selectLegsOfClaimedEntries agreementsById rulesById linesById
-        return raise(NotImplementedException())
+        let! linkageDecisions =
+            selectedClaims |> pivotClaimsByPaymentAgreement |> writeLinkagesForClaimClusters context
+        let! openInstancesToMatch = false |> InstanceOrchestration.fetchCompositesByIsFulfilled context
+        let! invoiceDecisionLog = openInstancesToMatch |> matchInvoicesAndCreatePayments context
+        // re-read rather than reuse: the invoice phase above creates payments against these instances
+        let! openInstances = false |> InstanceOrchestration.fetchCompositesByIsFulfilled context
+        let classificationResult: InstanceOrchestration.PaymentAgreementClassificationResult =
+            { runId = classificationRun.runId
+              classificationResults = classificationResults
+              decisionLog = legDecisions @ linkageDecisions
+              invoiceDecisionLog = invoiceDecisionLog
+              openInstances = openInstances }
+        return classificationResult
     }
 
 // how many days past an invoice's due date a payment may land and still be considered a match for it

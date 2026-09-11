@@ -142,15 +142,9 @@ type ClassificationRun = {
 type PaymentAgreementClaimCluster = {
     paymentAgreementId: CashFlowComponent.PaymentAgreementId
     claimants: ClassificationResult list
-    // a tied claimant had no tag written for it at all, so resolving it means adding the right tag rather than
+    // a tied claimant had no linkage written for it at all, so resolving it means adding the right link rather than
     // removing a wrong one. A cluster can hold both kinds of claimant at once.
     containsUnwrittenTies: bool
-}
-
-type PaymentAgreementTaggingResult = {
-    clean: PaymentAgreementClaimCluster list
-    multiClaimant: PaymentAgreementClaimCluster list
-    unmatched: ClassificationResult list
 }
 
 type PaymentAgreementDecisionOutcome =
