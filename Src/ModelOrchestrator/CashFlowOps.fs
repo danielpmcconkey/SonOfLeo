@@ -93,16 +93,28 @@ let createUpcomingInstances
         return! false |> InstanceOrchestration.fetchCompositesByIsFulfilled context
     }
 
+// a tie claims every agreement it tied across; a clear winner claims only the winner, since the losers lost
+let private claimingMatches
+    (result: StageDataClassificationComponent.ClassificationResult)
+    : StageDataClassificationComponent.PrioritizedMatch list =
+    match result.outcome with
+    | StageDataClassificationComponent.NoMatch -> []
+    | StageDataClassificationComponent.OneMatch prioritizedMatch -> [ prioritizedMatch ]
+    | StageDataClassificationComponent.ManyMatchesClearWinner (winner, _) -> [ winner ]
+    | StageDataClassificationComponent.ManyMatchesTied ties -> ties
+
 let private paymentAgreementsClaimedBy
     (result: StageDataClassificationComponent.ClassificationResult)
     : PaymentAgreementId list =
-    let idsFromMatches (matches: StageDataClassificationComponent.PrioritizedMatch list) =
-        matches |> List.choose _.paymentAgreementId
-    match result.outcome with
-    | StageDataClassificationComponent.NoMatch -> []
-    | StageDataClassificationComponent.OneMatch prioritizedMatch -> idsFromMatches [ prioritizedMatch ]
-    | StageDataClassificationComponent.ManyMatchesClearWinner (winner, _) -> idsFromMatches [ winner ]
-    | StageDataClassificationComponent.ManyMatchesTied ties -> idsFromMatches ties
+    result |> claimingMatches |> List.choose _.paymentAgreementId
+
+let private matchesClaimingPaymentAgreement
+    (paymentAgreementId: PaymentAgreementId)
+    (result: StageDataClassificationComponent.ClassificationResult)
+    : StageDataClassificationComponent.PrioritizedMatch list =
+    result
+    |> claimingMatches
+    |> List.filter (fun prioritizedMatch -> prioritizedMatch.paymentAgreementId = Some paymentAgreementId)
 
 /// pivotClassificationResultsByPaymentAgreement flips the classifier's row-focused answer -- "which rules did this row
 /// match" -- onto the rule axis: "which rows claimed this payment agreement". Two staged entries claiming one payment
@@ -133,6 +145,126 @@ let pivotClassificationResultsByPaymentAgreement
     { clean = clusters |> List.filter (isContested >> not)
       multiClaimant = clusters |> List.filter isContested
       unmatched = results |> List.filter (fun result -> result |> paymentAgreementsClaimedBy |> List.isEmpty) }
+
+let private fetchAgreementsWithDirection
+    (context: Context.Context)
+    (paymentAgreementIds: PaymentAgreementId list)
+    : Result<Map<PaymentAgreementId, PaymentAgreement.PaymentAgreement * FlowDirection>, AppError> =
+    result {
+        if paymentAgreementIds |> List.isEmpty then return Map.empty else
+        let! paymentAgreements = paymentAgreementIds |> PaymentAgreement.fetchByPaymentAgreementIdList context
+        let masterAgreementIds =
+            paymentAgreements |> List.map PaymentAgreement.masterAgreementID |> List.distinct
+        let! masterAgreements = masterAgreementIds |> MasterAgreement.fetchByMasterAgreementIdList context
+        let directionByMasterAgreementId =
+            masterAgreements
+            |> List.map (fun master -> (master |> MasterAgreement.agreementID), (master |> MasterAgreement.direction))
+            |> Map.ofList
+        return!
+            paymentAgreements
+            |> List.map (fun paymentAgreement ->
+                let masterAgreementId = paymentAgreement |> PaymentAgreement.masterAgreementID
+                match directionByMasterAgreementId |> Map.tryFind masterAgreementId with
+                | Some direction ->
+                    let paymentAgreementId = paymentAgreement |> PaymentAgreement.paymentAgreementId
+                    Ok (paymentAgreementId, (paymentAgreement, direction))
+                | None ->
+                    let agreementUuid = masterAgreementId |> MasterAgreementId.value
+                    Error (CashflowMasterAgreementIdDoesntExist agreementUuid))
+            |> convertListOfResultsToResultsList
+            |> Result.map Map.ofList
+    }
+
+/// selectLegsOfClaimedEntries collapses each (payment agreement, stage entry) claim down to the one line that carries
+/// the obligation. A rule matches on description, amount and source, none of which separate an entry's two lines.
+let private selectLegsOfClaimedEntries
+    (agreementsById: Map<PaymentAgreementId, PaymentAgreement.PaymentAgreement * FlowDirection>)
+    (rulesById: Map<StageDataClassificationComponent.ClassificationRuleId, ClassificationRule.ClassificationRule>)
+    (linesById: Map<StageEntryComponent.StageEntryLineId, StageEntryLine.StageEntryLine>)
+    (results: StageDataClassificationComponent.ClassificationResult list)
+    : Result<
+        (PaymentAgreementId * StageDataClassificationComponent.ClassificationResult) list *
+        StageDataClassificationComponent.PaymentAgreementDecision list, AppError> =
+    let expectedLineType (direction: FlowDirection) =
+        match direction with
+        | Income -> Model.Ledger.JournalEntryComponent.Credit
+        | Outgo -> Model.Ledger.JournalEntryComponent.Debit
+    let expectedAccountId (paymentAgreement: PaymentAgreement.PaymentAgreement) (direction: FlowDirection) =
+        match direction with
+        | Income ->
+            let (CreditAccount accountId) = paymentAgreement |> PaymentAgreement.creditAccount
+            accountId
+        | Outgo ->
+            let (DebitAccount accountId) = paymentAgreement |> PaymentAgreement.debitAccount
+            accountId
+    let decisionFor
+        (paymentAgreementId: PaymentAgreementId)
+        (outcome: StageDataClassificationComponent.PaymentAgreementDecisionOutcome)
+        (result: StageDataClassificationComponent.ClassificationResult)
+        : StageDataClassificationComponent.PaymentAgreementDecision =
+        let ruleIds =
+            result
+            |> matchesClaimingPaymentAgreement paymentAgreementId
+            |> List.map (fun prioritizedMatch -> prioritizedMatch.ruleId)
+        { stageEntryLineId = result.candidate.lineIdOfCandidate
+          paymentAgreementId = Some paymentAgreementId
+          ruleIds = ruleIds
+          outcome = outcome }
+    let doesAnyClaimingRuleConstrainLineType
+        (paymentAgreementId: PaymentAgreementId)
+        (claims: (PaymentAgreementId * StageDataClassificationComponent.ClassificationResult) list)
+        : Result<bool, AppError> =
+        claims
+        |> List.collect (fun (_, result) -> result |> matchesClaimingPaymentAgreement paymentAgreementId)
+        |> List.map (fun prioritizedMatch ->
+            match rulesById |> Map.tryFind prioritizedMatch.ruleId with
+            | Some rule -> Ok (rule |> ClassificationRule.constrainsLineType)
+            | None ->
+                let ruleUuid = prioritizedMatch.ruleId |> StageDataClassificationComponent.ClassificationRuleId.value
+                Error (IngestionClassificationRuleIdDoesntExist ruleUuid))
+        |> convertListOfResultsToResultsList
+        |> Result.map (List.exists id)
+    result {
+        let! selectionsAndDecisions =
+            results
+            |> List.collect (fun result ->
+                result |> paymentAgreementsClaimedBy |> List.map (fun paymentAgreementId -> paymentAgreementId, result))
+            |> List.groupBy (fun (paymentAgreementId, result) ->
+                paymentAgreementId, result.candidate.headerIdOfCandidate)
+            |> List.map (fun ((paymentAgreementId, _), claims) -> result {
+                let! ruleChoseTheLeg = claims |> doesAnyClaimingRuleConstrainLineType paymentAgreementId
+                let! survivors =
+                    // the rule's author knew something the direction default doesn't -- an Outgo agreement taking a
+                    // refund matches a Credit line, which the default would throw away
+                    if ruleChoseTheLeg then Ok claims else
+                    match agreementsById |> Map.tryFind paymentAgreementId with
+                    | None ->
+                        let agreementUuid = paymentAgreementId |> PaymentAgreementId.value
+                        Error (CashflowPaymentAgreementIdDoesntExist agreementUuid)
+                    | Some (paymentAgreement, direction) ->
+                        let accountId = expectedAccountId paymentAgreement direction
+                        let lineType = expectedLineType direction
+                        claims
+                        |> List.filter (fun (_, result) ->
+                            let lineAccountId =
+                                linesById
+                                |> Map.tryFind result.candidate.lineIdOfCandidate
+                                |> Option.bind StageEntryLine.accountId
+                            lineAccountId = Some accountId && result.candidate.lineType = lineType)
+                        |> Ok
+                match survivors with
+                | [ single ] -> return [ single ], []
+                | [] ->
+                    let outcome = StageDataClassificationComponent.NoLineOnAgreementAccounts
+                    return [], claims |> List.map (snd >> decisionFor paymentAgreementId outcome)
+                | many ->
+                    let outcome = StageDataClassificationComponent.ManyLinesOnAgreementAccount
+                    return [], many |> List.map (snd >> decisionFor paymentAgreementId outcome) })
+            |> convertListOfResultsToResultsList
+        let selections = selectionsAndDecisions |> List.collect fst
+        let decisions = selectionsAndDecisions |> List.collect snd
+        return selections, decisions
+    }
 
 /// classifyPaymentAgreements does not update a stage entry's status. That belongs to the data ingestion domain.
 let classifyPaymentAgreements
@@ -165,6 +297,30 @@ let classifyPaymentAgreements
             matchCandidates
             |> ClassificationOrchestration.classifyMatchCandidatesAndRecordMatches
                 context StageDataClassificationComponent.PaymentAgreementClaimant
+        let classificationResults = classificationRun.results
+        let claimedAgreementIds =
+            classificationResults |> List.collect paymentAgreementsClaimedBy |> List.distinct
+        let! agreementsById = claimedAgreementIds |> fetchAgreementsWithDirection context
+        let ruleFilter: FetchFilters.ClassificationRuleFilter = {
+            ruleId = None
+            nameLike = None
+            accountAtMatch = None
+            paymentAgreementAtMatch = None
+            claimantType = Some StageDataClassificationComponent.PaymentAgreementClaimant
+            sourceLike = None
+            activeOnly = true }
+        let! rules = ClassificationOrchestration.fetchRulesFiltered context ruleFilter None
+        let rulesById =
+            rules
+            |> List.map (fun rule -> (rule |> ClassificationRule.classificationRuleId), rule)
+            |> Map.ofList
+        let linesById =
+            roster
+            |> List.collect StageEntryOrchestration.seLines
+            |> List.map (fun line -> (line |> StageEntryLine.stageEntryLineId), line)
+            |> Map.ofList
+        let! selectedClaims, legDecisions =
+            classificationResults |> selectLegsOfClaimedEntries agreementsById rulesById linesById
         return raise(NotImplementedException())
     }
 

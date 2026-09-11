@@ -222,6 +222,21 @@ let fetchByMasterAgreementIdList
     let predicate = $"pa.master_agreement_id in ({names})"
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
+let fetchByPaymentAgreementIdList
+    (context: Context.Context)
+    (paymentAgreementIds: PaymentAgreementId list)
+    : Result<PaymentAgreement list, AppError> =
+    if paymentAgreementIds |> List.isEmpty then Error CashflowPaymentAgreementIdListCannotBeEmpty else
+    let namesAndParameters =
+        List.zip [ 1 .. paymentAgreementIds.Length ] paymentAgreementIds
+        |> List.map (fun (ordinal, id) ->
+            let name = $"@paymentAgreementId{ordinal}"
+            name, { name = name; value = UniqueId(id |> PaymentAgreementId.value) })
+    let names = namesAndParameters |> List.map fst |> String.concat ", "
+    let parameters = namesAndParameters |> List.map snd
+    let predicate = $"pa.unique_id in ({names})"
+    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
+
 let update
     (context: Context.Context)
     (fieldUpdates: PaymentAgreementFieldUpdates)

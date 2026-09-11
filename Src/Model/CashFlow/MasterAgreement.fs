@@ -213,6 +213,21 @@ let fetchById (context: Context.Context) (agreementID: MasterAgreementId) : Resu
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
+let fetchByMasterAgreementIdList
+    (context: Context.Context)
+    (agreementIds: MasterAgreementId list)
+    : Result<MasterAgreement list, AppError> =
+    if agreementIds |> List.isEmpty then Error CashflowMasterAgreementIdListCannotBeEmpty else
+    let namesAndParameters =
+        List.zip [ 1 .. agreementIds.Length ] agreementIds
+        |> List.map (fun (ordinal, id) ->
+            let name = $"@masterAgreementId{ordinal}"
+            name, { name = name; value = UniqueId(id |> MasterAgreementId.value) })
+    let names = namesAndParameters |> List.map fst |> String.concat ", "
+    let parameters = namesAndParameters |> List.map snd
+    let predicate = $"ma.unique_id in ({names})"
+    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
+
 let update
     (context: Context.Context)
     (fieldUpdates: MasterAgreementFieldUpdates)

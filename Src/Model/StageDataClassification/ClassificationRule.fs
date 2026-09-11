@@ -180,6 +180,21 @@ let fetchByName (context: Context.Context) (name: ClassificationRuleName) : Resu
     let parameters = [ { name = "@rule_name"; value = CharString(nameStr) } ]
     query context None (Some predicate) None parameters None ExactlyOne |> Result.map List.head
 
+/// constrainsLineType is true when a line type is pinned anywhere in the rule, not on every path through it. An Or
+/// group with one unconstrained chain still reads as true and can let both lines of an entry through.
+let constrainsLineType (classificationRule: ClassificationRule) : bool =
+    let chainHasLineType (fieldMatchChain: FieldMatchChain.FieldMatchChain) =
+        fieldMatchChain
+        |> FieldMatchChain.chain
+        |> List.exists (fun fieldMatch ->
+            match fieldMatch with
+            | FieldMatch.LineType _ -> true
+            | _ -> false)
+    classificationRule.ruleGroups
+    |> List.exists (fun ruleGroup ->
+        let chains = (ruleGroup |> chainOne) :: (ruleGroup |> chainTwo |> Option.toList)
+        chains |> List.exists chainHasLineType)
+
 let doesMatch
     (candidate: MatchCandidate)
     (classificationRule: ClassificationRule)

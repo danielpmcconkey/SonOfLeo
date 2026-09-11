@@ -99,6 +99,7 @@ type AppError =
     | CashflowPaymentAgreementCreditAccountInvalid of Guid
     | CashflowPaymentAgreementDebitAccountInvalid of Guid
     | CashflowPaymentAgreementIdDoesntExist of Guid
+    | CashflowPaymentAgreementIdListCannotBeEmpty
     | CashflowPaymentAgreementLinkUpdateNoOp
     | CashflowPaymentAgreementMemoIsEmpty of string
     | CashflowPaymentAgreementMemoTooLong of string * int
@@ -174,6 +175,7 @@ type AppError =
     | IngestionBaseStageEntryGroupIdTooLong of string * int
     | IngestionBaseStageGroupIdDistinctDataViolation of string
     | IngestionClassificationRuleGroupsEmpty
+    | IngestionClassificationRuleIdDoesntExist of Guid
     | IngestionClassificationRuleInvalidClaimant of Guid * Guid option * Guid option
     | IngestionClassificationRuleNameIsEmpty of string
     | IngestionClassificationRuleNameTooLong of string * int 
@@ -352,6 +354,7 @@ module AppError =
         | CashflowPaymentAgreementCreditAccountInvalid uuid -> $"PaymentAgreement's credit account ({uuid}) does not match an Account in the database."
         | CashflowPaymentAgreementDebitAccountInvalid uuid -> $"PaymentAgreement's debit account ({uuid}) does not match an Account in the database."
         | CashflowPaymentAgreementIdDoesntExist uuid -> $"Could not locate a PaymentAgreement with the id of {uuid}."
+        | CashflowPaymentAgreementIdListCannotBeEmpty -> "The paymentAgreementIds list must contain at least 1 ID."
         | CashflowPaymentAgreementLinkUpdateNoOp -> "Updating the PaymentAgreementLink record failed because at least one updatable parameter must be set."
         | CashflowPaymentAgreementMemoIsEmpty memo -> $"PaymentAgreementMemo cannot be empty. Provided Memo is {memo}."
         | CashflowPaymentAgreementMemoTooLong(memo, max) -> $"PaymentAgreementMemo cannot exceed {max} characters. Provided Memo is {memo}."
@@ -427,6 +430,7 @@ module AppError =
         | IngestionBaseStageEntryGroupIdTooLong (str, max) -> $"BaseStageEntryGroupId cannot exceed {max} characters. Provided value is {str}."
         | IngestionBaseStageGroupIdDistinctDataViolation str -> $"More than one combination of \"header\" data found for BaseStageEntryGroupId {str}"
         | IngestionClassificationRuleGroupsEmpty -> "A ClassificationRule's ClassificationRuleGroup list cannot be empty."
+        | IngestionClassificationRuleIdDoesntExist uuid -> $"Could not locate a ClassificationRule with the id of {uuid}."
         | IngestionClassificationRuleInvalidClaimant(ruleUuid, accountUuid, paymentAgreementUuid) ->
             let accountStr = match accountUuid with
                                 | Some x -> x.ToString()
