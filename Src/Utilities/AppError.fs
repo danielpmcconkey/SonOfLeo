@@ -44,6 +44,12 @@ type AppError =
     | CashflowAgreementUpdateNoOp
     | CashflowBlockerNoteIsEmpty of string
     | CashflowBlockerNoteTooLong of string * int
+    | CashflowCadenceDateNotLastDayOfMonth of LocalDate
+    | CashflowCadenceDateNotNthWeekDayInMonth of LocalDate * int * string
+    | CashflowCadenceDateNotOnAnnualDate of LocalDate * string * string
+    | CashflowCadenceDateNotOnDateInMonth of LocalDate * int
+    | CashflowCadenceDateNotOnMonth of LocalDate * string
+    | CashflowCadenceDateNotOnWeekDay of LocalDate * string
     | CashflowCounterpartyIsEmpty of string
     | CashflowCounterpartyTooLong of string * int
     | CashflowDaysDueAfterInvoiceDateBelowMin of int * int
@@ -287,6 +293,12 @@ module AppError =
         | CashflowAgreementUpdateNoOp -> "Updating the Agreement composite failed because at least one updatable parameter must be set."
         | CashflowBlockerNoteIsEmpty note -> $"AgreementMemo cannot be empty. Provided Memo is {note}."
         | CashflowBlockerNoteTooLong(note, max) -> $"BlockerNote cannot exceed {max} characters. Provided Memo is {note}."
+        | CashflowCadenceDateNotLastDayOfMonth date -> $"{date} does not fit the cadence, which falls on the last day of the month."
+        | CashflowCadenceDateNotNthWeekDayInMonth(date, weekInMonth, weekDay) -> $"{date} does not fit the cadence, which falls on {weekDay} number {weekInMonth} of the month."
+        | CashflowCadenceDateNotOnAnnualDate(date, monthDay, month) -> $"{date} does not fit the annual cadence, which falls on {monthDay} of {month}."
+        | CashflowCadenceDateNotOnDateInMonth(date, dateInMonth) -> $"{date} does not fit the cadence, which falls on day {dateInMonth} of the month."
+        | CashflowCadenceDateNotOnMonth(date, month) -> $"{date} does not fit the cadence, which falls in {month}."
+        | CashflowCadenceDateNotOnWeekDay(date, weekDay) -> $"{date} does not fit the cadence, which falls on a {weekDay}."
         | CashflowCounterpartyIsEmpty name -> $"Counterparty cannot be empty. Provided name is {name}."
         | CashflowCounterpartyTooLong(name, max) -> $"Counterparty cannot exceed {max} characters. Provided name is {name}."
         | CashflowDaysDueAfterInvoiceDateBelowMin(raw, min) -> $"Failed to convert {raw} to a DaysDueAfterInvoiceDate as value falls below the minimum allowable value of {min}."

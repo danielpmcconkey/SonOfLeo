@@ -169,14 +169,20 @@ let confirmWeekDay
     (nextInstance: CadenceNextInstance)
     : Result<unit, AppError> =
     if weekday |> WeekDay.toIsoDayOfWeek = nextInstance.nextInstance.DayOfWeek then Ok()
-    else Error AccountBalanceFetchInvalidArguments // todo: simian write a real error message here
+    else
+        let date = nextInstance.nextInstance
+        let weekDayStr = weekday |> WeekDay.toString
+        Error (CashflowCadenceDateNotOnWeekDay(date, weekDayStr))
 
 let confirmDateInMonth
     (dateInMonthNumber: DateInMonthNumber)
     (nextInstance: CadenceNextInstance)
     : Result<unit, AppError> =
     if dateInMonthNumber |> DateInMonthNumber.value = nextInstance.nextInstance.Day then Ok()
-    else Error AccountBalanceFetchInvalidArguments // todo: simian write a real error message here
+    else
+        let date = nextInstance.nextInstance
+        let dateInMonth = dateInMonthNumber |> DateInMonthNumber.value
+        Error (CashflowCadenceDateNotOnDateInMonth(date, dateInMonth))
 
 let confirmNthWeekDayInMonth
     (weekInMonthNumber: WeekInMonthNumber)
@@ -189,7 +195,10 @@ let confirmNthWeekDayInMonth
     let n = weekInMonthNumber |> WeekInMonthNumber.value
     let nextInstanceShouldBe = LocalDate.FromYearMonthWeekAndDay(nextInstanceYear, nextInstanceMonth, n, isoWeekDay)
     if nextInstanceShouldBe = nextInstance.nextInstance then Ok()
-    else Error AccountBalanceFetchInvalidArguments // todo: simian write a real error message here
+    else
+        let date = nextInstance.nextInstance
+        let weekDayStr = weekday |> WeekDay.toString
+        Error (CashflowCadenceDateNotNthWeekDayInMonth(date, n, weekDayStr))
 
 let confirmLastDayOfMonth
     (nextInstance: CadenceNextInstance)
@@ -199,7 +208,9 @@ let confirmLastDayOfMonth
     let daysInMonth = CalendarSystem.Iso.GetDaysInMonth(nextInstanceYear, nextInstanceMonth)
     let nextInstanceShouldBe = LocalDate(nextInstanceYear, nextInstanceMonth, daysInMonth)
     if nextInstanceShouldBe = nextInstance.nextInstance then Ok()
-    else Error AccountBalanceFetchInvalidArguments // todo: simian write a real error message here
+    else
+        let date = nextInstance.nextInstance
+        Error (CashflowCadenceDateNotLastDayOfMonth date)
 
 let confirmMonthDay
     (monthDay: MonthDay)
@@ -216,7 +227,17 @@ let confirmMonth
     (nextInstance: CadenceNextInstance)
     : Result<unit, AppError> =
     if nextInstance.nextInstance.Month = (month |> Month.toMonthNum) then Ok ()
-    else Error AccountBalanceFetchInvalidArguments // todo: simian write a real error message here
+    else
+        let date = nextInstance.nextInstance
+        let monthStr = month |> Month.toString
+        Error (CashflowCadenceDateNotOnMonth(date, monthStr))
+
+let private monthDayToDescription (monthDay: MonthDay) : string =
+    match monthDay with
+    | DateInMonth dateInMonthNumber -> $"day {dateInMonthNumber |> DateInMonthNumber.value}"
+    | NthWeekDay (weekInMonthNumber, weekday) ->
+        $"{weekday |> WeekDay.toString} number {weekInMonthNumber |> WeekInMonthNumber.value}"
+    | Last -> "the last day"
 
 let confirmAnnually
     (month: Month)
@@ -227,17 +248,28 @@ let confirmAnnually
     let monthResult = nextInstance |> confirmMonth month
     match monthDayResult, monthResult with
     | Ok _, Ok _ -> Ok()
-    | _ -> Error AccountBalanceFetchInvalidArguments // todo: simian write a real error message here
-    
+    | _ ->
+        let date = nextInstance.nextInstance
+        let monthDayStr = monthDay |> monthDayToDescription
+        let monthStr = month |> Month.toString
+        Error (CashflowCadenceDateNotOnAnnualDate(date, monthDayStr, monthStr))
+
+let confirmDateFitsCadenceType
+    (cadenceType: CadenceType)
+    (date: LocalDate)
+    : Result<unit, AppError> =
+    let asNextInstance = { nextInstance = date }
+    match cadenceType with
+    | Daily -> Ok ()
+    | Weekly weekDay -> asNextInstance |> confirmWeekDay weekDay
+    | EveryOtherWeek weekDay -> asNextInstance |> confirmWeekDay weekDay
+    | Monthly monthDay -> asNextInstance |> confirmMonthDay monthDay
+    | Annually(month, monthDay) -> asNextInstance |> confirmAnnually month monthDay
+
 let confirmNextInstance
     (cadence: Cadence)
     : Result<unit, AppError> =
-    match cadence.cadenceType with
-    | Daily -> Ok ()
-    | Weekly weekDay -> cadence.nextInstance |> confirmWeekDay weekDay
-    | EveryOtherWeek weekDay -> cadence.nextInstance |> confirmWeekDay weekDay
-    | Monthly monthDay -> cadence.nextInstance |> confirmMonthDay monthDay
-    | Annually(month, monthDay) -> cadence.nextInstance |> confirmAnnually month monthDay
+    cadence.nextInstance.nextInstance |> confirmDateFitsCadenceType cadence.cadenceType
 
 let create
     (cadenceType: CadenceType)

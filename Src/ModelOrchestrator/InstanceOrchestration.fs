@@ -470,10 +470,12 @@ let createInstanceCompositeAndSaveToDb
         ) list)
     : Result<InstanceComposite, AppError> =
     result {
+        let! masterAgreement = masterAgreementID |> MasterAgreement.fetchById context
+        let cadenceType = masterAgreement |> MasterAgreement.cadence |> Cadence.cadenceType
+        do! instanceDate |> Cadence.confirmDateFitsCadenceType cadenceType
         do! instanceDate |> confirmInstanceDateIsAfterLatestInstance context masterAgreementID
         let instanceId = CashFlowComponent.InstanceId.create()
         let now = context |> Context.getInitiationInstant
-        let! masterAgreement = masterAgreementID |> MasterAgreement.fetchById context
         let masterAgreementName = masterAgreement |> MasterAgreement.agreementName
         let newInstance =
             Instance.create instanceId masterAgreementID masterAgreementName instanceDate isFulfilled now now
@@ -506,7 +508,6 @@ let createInstanceCompositeAndSaveToDb
                 )
             |> convertListOfResultsToResultsList
             |> Result.map ignore
-        let cadenceType = masterAgreement |> MasterAgreement.cadence |> Cadence.cadenceType
         let newNextInstance = Cadence.determineNextDateFromPrior instanceDate cadenceType
         let! newCadence = Cadence.create cadenceType { nextInstance = newNextInstance }
         do! masterAgreement |> MasterAgreement.updateCadence context newCadence |> Result.map ignore
