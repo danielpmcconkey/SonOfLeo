@@ -93,24 +93,6 @@ let createUpcomingInstances
         return! false |> InstanceOrchestration.fetchCompositesByIsFulfilled context
     }
 
-let private stageEntryFilterForStatus
-    (status: StageEntryComponent.StagedEntryStatus)
-    : FetchFilters.StageEntryFetchFilter = {
-    stageEntryHeaderId = None
-    sourceFile = None
-    temporalFilter = None
-    description = None
-    ingestionSource = None
-    fiReference = None
-    status = Some status
-    stageEntryLineId = None
-    amount = None
-    lineType = None
-    accountId = None
-    memo = None
-    journalEntryHeaderId = None
-    journalEntryLineId = None }
-
 let private paymentAgreementsClaimedBy
     (result: StageDataClassificationComponent.ClassificationResult)
     : PaymentAgreementId list =
@@ -152,27 +134,21 @@ let pivotClassificationResultsByPaymentAgreement
       multiClaimant = clusters |> List.filter isContested
       unmatched = results |> List.filter (fun result -> result |> paymentAgreementsClaimedBy |> List.isEmpty) }
 
-/// classifyStagedEntriesToPaymentAgreements does not update a stage entry's status. That belongs to the data ingestion
-/// domain.
-let classifyStagedEntriesToPaymentAgreements
+/// classifyPaymentAgreements does not update a stage entry's status. That belongs to the data ingestion domain.
+let classifyPaymentAgreements
     (context: Context.Context)
-    : Result<StageDataClassificationComponent.PaymentAgreementTaggingResult, AppError> =
+    : Result<InstanceOrchestration.PaymentAgreementClassificationResult, AppError> =
     result {
-        let eligibleStatuses =
+        let rosterStatuses =
             [ StageEntryComponent.Ingested
               StageEntryComponent.Classified
               StageEntryComponent.NoMatch
               StageEntryComponent.Conflict ]
-        let! entriesByStatus =
-            eligibleStatuses
-            |> List.map (fun status ->
-                status
-                |> stageEntryFilterForStatus
-                |> StageEntryOrchestration.fetchFiltered context None)
-            |> convertListOfResultsToResultsList
+        let! roster = rosterStatuses |> StageEntryOrchestration.fetchByStatusList context
+        // an entry whose lines all carry an account is still a candidate here. account assignment and obligation
+        // linkage are independent questions about the same row
         let (matchCandidates: StageDataClassificationComponent.MatchCandidate list) =
-            entriesByStatus
-            |> List.concat
+            roster
             |> List.collect(fun entry ->
                 let header = entry |> StageEntryOrchestration.stageEntryHeader
                 entry
@@ -189,7 +165,7 @@ let classifyStagedEntriesToPaymentAgreements
             matchCandidates
             |> ClassificationOrchestration.classifyMatchCandidatesAndRecordMatches
                 context StageDataClassificationComponent.PaymentAgreementClaimant
-        return classificationRun.results |> pivotClassificationResultsByPaymentAgreement
+        return raise(NotImplementedException())
     }
 
 // how many days past an invoice's due date a payment may land and still be considered a match for it

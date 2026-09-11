@@ -252,7 +252,7 @@ let fetchAllForPosting
     }
 
 
-let private fetchByStatusList
+let fetchByStatusList
     (context: Context.Context)
     (statuses: StagedEntryStatus list)
     : Result<StageEntry list, AppError> =
