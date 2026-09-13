@@ -1,6 +1,7 @@
 module InterfaceBridge.Routes.IngestionRoutes
 
 open DataAccessLayer.DbTransaction
+open InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
 open InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 open InterfaceBridge.BoundaryConverters.ReportConverters
 open InterfaceBridge.InterfaceContracts.ClassificationContracts
