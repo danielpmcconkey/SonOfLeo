@@ -28,6 +28,7 @@
     <Compile Include="Routes\FiscalPeriodRoutes.fs" />
     <Compile Include="Routes\JournalEntryRoutes.fs" />
     <Compile Include="Routes\IngestionRoutes.fs" />
+    <Compile Include="Routes\ClassificationRoutes.fs" />
     <Compile Include="Routes\CashFlowRoutes.fs" />
     <Compile Include="ReportVisualizationAssets\Css.fs" />
     <Compile Include="ReportVisualizationAssets\HtmlWrapper.fs" />
