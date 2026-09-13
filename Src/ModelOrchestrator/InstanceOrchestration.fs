@@ -457,6 +457,21 @@ type InvoiceCompositeUpdate = {
 type InstanceCompositeUpdate = {
     instanceUpdates: Instance.InstanceFieldUpdates
     invoiceCompositeUpdates: InvoiceCompositeUpdate list
+    newInvoices: (
+        CashFlowComponent.PaymentAgreementId *
+        CashFlowComponent.ExternalInvoiceId option *
+        CashFlowComponent.InvoiceDate *
+        CashFlowComponent.DueDate *
+        CashFlowComponent.InvoiceAmount *
+        CashFlowComponent.InvoiceState *
+        CashFlowComponent.Blocker option *
+        CashFlowComponent.InvoiceMemo option *
+        ( // payments
+            CashFlowComponent.TransactionPointer *
+            CashFlowComponent.PaymentAmount *
+            CashFlowComponent.PostedToFiDate option *
+            CashFlowComponent.PostedToLedgerDate option *
+            CashFlowComponent.PaymentMemo option) list) list
 }
 
 let private isThereACompositeUpdate (compositeUpdate: InstanceCompositeUpdate) : bool =
@@ -466,6 +481,7 @@ let private isThereACompositeUpdate (compositeUpdate: InstanceCompositeUpdate) :
            invoiceCompositeUpdate.invoiceUpdates |> isThereAnInvoiceUpdate
            || invoiceCompositeUpdate.paymentUpdates |> List.exists isThereAPaymentUpdate
            || invoiceCompositeUpdate.newPayments |> List.isEmpty |> not)
+    || compositeUpdate.newInvoices |> List.isEmpty |> not
 
 let private confirmNoDerivedFieldIsSet (compositeUpdate: InstanceCompositeUpdate) : Result<unit, AppError> =
     let setDerivedFields =
@@ -573,6 +589,55 @@ let private preConstructInvoiceComposite
         return { invoice = invoice; payments = payments }, newPayments
     }
 
+let private preConstructNewInvoiceComposite
+    (context: Context.Context)
+    (instanceId: CashFlowComponent.InstanceId)
+    (newInvoice:
+        CashFlowComponent.PaymentAgreementId *
+        CashFlowComponent.ExternalInvoiceId option *
+        CashFlowComponent.InvoiceDate *
+        CashFlowComponent.DueDate *
+        CashFlowComponent.InvoiceAmount *
+        CashFlowComponent.InvoiceState *
+        CashFlowComponent.Blocker option *
+        CashFlowComponent.InvoiceMemo option *
+        ( CashFlowComponent.TransactionPointer *
+          CashFlowComponent.PaymentAmount *
+          CashFlowComponent.PostedToFiDate option *
+          CashFlowComponent.PostedToLedgerDate option *
+          CashFlowComponent.PaymentMemo option) list)
+    : Result<InvoiceComposite, AppError> =
+    let paymentAgreementId, externalInvoiceId, invoiceDate, dueDate, amount, invoiceState, blocker, memo,
+        paymentFieldsList = newInvoice
+    result {
+        let now = context |> Context.getInitiationInstant
+        let invoiceId = CashFlowComponent.InvoiceId.create ()
+        let payments =
+            paymentFieldsList
+            |> List.map (fun (transactionPointer, paymentAmount, postedToFiDate, postedToLedgerDate, paymentMemo) ->
+                let paymentId = CashFlowComponent.PaymentId.create ()
+                Payment.create paymentId invoiceId transactionPointer paymentAmount postedToFiDate postedToLedgerDate
+                    paymentMemo now now)
+        let invoiceWithLifeCycleState (lifeCycleState: CashFlowComponent.InvoiceLifeCycleState) =
+            Invoice.create invoiceId instanceId paymentAgreementId externalInvoiceId invoiceDate dueDate amount
+                lifeCycleState memo now now
+        let preDerivation =
+            invoiceWithLifeCycleState
+                { invoiceState = invoiceState
+                  paymentState = CashFlowComponent.NotYetPaid
+                  postedState = CashFlowComponent.NotHandled
+                  blocker = blocker }
+        let! paymentState = derivePaymentState preDerivation payments
+        let postedState = derivePostedState paymentState payments
+        let invoice =
+            invoiceWithLifeCycleState
+                { invoiceState = invoiceState
+                  paymentState = paymentState
+                  postedState = postedState
+                  blocker = blocker }
+        return { invoice = invoice; payments = payments }
+    }
+
 /// updateInstanceComposite is the single door for editing an Instance and anything hanging off it. It assembles the
 /// composite the package would produce, validates that, and only then writes -- payment state, posted state and
 /// isFulfilled are derived here, so a package that sets them is rejected rather than obeyed.
@@ -599,7 +664,12 @@ let updateInstanceComposite
             current.invoiceComposites
             |> List.filter (fun invoiceComposite ->
                 touchedInvoiceIds |> List.contains (invoiceComposite.invoice |> Invoice.invoiceId) |> not)
-        let invoiceComposites = preConstructedInvoiceComposites @ untouchedInvoiceComposites
+        let! newInvoiceComposites =
+            compositeUpdate.newInvoices
+            |> List.map (preConstructNewInvoiceComposite context instanceId)
+            |> convertListOfResultsToResultsList
+        let invoiceComposites =
+            preConstructedInvoiceComposites @ untouchedInvoiceComposites @ newInvoiceComposites
         let isFulfilled = invoiceComposites |> deriveIsFulfilled
         let instanceUpdates =
             { compositeUpdate.instanceUpdates with isFulfilledUpdate = FieldUpdate.SetTo isFulfilled }
@@ -627,6 +697,17 @@ let updateInstanceComposite
                     |> Result.map ignore
                 return!
                     newPayments
+                    |> List.map (Payment.persist context)
+                    |> convertListOfResultsToResultsList
+                    |> Result.map ignore })
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
+        do!
+            newInvoiceComposites
+            |> List.map (fun newInvoiceComposite -> result {
+                do! newInvoiceComposite.invoice |> Invoice.persist context
+                return!
+                    newInvoiceComposite.payments
                     |> List.map (Payment.persist context)
                     |> convertListOfResultsToResultsList
                     |> Result.map ignore })
