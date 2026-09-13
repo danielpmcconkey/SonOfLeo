@@ -166,6 +166,25 @@ let fetchById (context: Context.Context) (lineId: StageEntryLineId) : Result<Sta
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     query context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
+let fetchByIdList
+    (context: Context.Context)
+    (lineIds: StageEntryLineId list)
+    : Result<StageEntryLine list, AppError> =
+    if lineIds |> List.isEmpty then Error IngestionStageEntryLineIdListCannotBeEmpty else
+    let ordinals = [ 1 .. lineIds.Length ]
+    let zipped = List.zip ordinals lineIds
+    let namesAndParameters =
+        zipped
+        |> List.map(fun (ordinal, id) ->
+            let uuid = id |> StageEntryLineId.value
+            let name = $"@stageEntryLineId{ordinal}"
+            let parameter = { name = name; value = UniqueId uuid }
+            name, parameter)
+    let names = namesAndParameters |> List.map fst |> String.concat ", "
+    let parameters = namesAndParameters |> List.map snd
+    let predicate = $"sel.unique_id in ({names})"
+    query context (Some predicate) None parameters AnyQuantityIsAcceptable
+
 let fetchByHeaderId (context: Context.Context) (lineId: StageEntryHeaderId) : Result<StageEntryLine list, AppError> =
     let predicate = "sel.entry_id = @unique_id"
     let accountIdGuid = lineId |> StageEntryHeaderId.value

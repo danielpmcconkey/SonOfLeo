@@ -132,6 +132,21 @@ let fetchByPaymentAgreementId
     let parameters = [ { name = "@payment_agreement_id"; value = UniqueId uuid } ]
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
+let fetchByPaymentAgreementIdList
+    (context: Context.Context)
+    (agreementIds: PaymentAgreementId list)
+    : Result<PaymentAgreementLink list, AppError> =
+    if agreementIds |> List.isEmpty then Error CashflowPaymentAgreementIdListCannotBeEmpty else
+    let namesAndParameters =
+        List.zip [ 1 .. agreementIds.Length ] agreementIds
+        |> List.map (fun (ordinal, id) ->
+            let name = $"@paymentAgreementId{ordinal}"
+            name, { name = name; value = UniqueId(id |> PaymentAgreementId.value) })
+    let names = namesAndParameters |> List.map fst |> String.concat ", "
+    let parameters = namesAndParameters |> List.map snd
+    let predicate = $"pal.payment_agreement_id in ({names})"
+    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
+
 /// fetchByStageEntryLineId returns a list of at most one -- the table is unique on stage_entry_line_id. An empty list
 /// means the line is unclaimed, which is the normal case and the question automatic resolution asks before linking.
 let fetchByStageEntryLineId

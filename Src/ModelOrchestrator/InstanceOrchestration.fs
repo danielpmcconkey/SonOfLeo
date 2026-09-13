@@ -25,6 +25,11 @@ type InstanceComposite = private {
     invoiceComposites: InvoiceComposite list
 }
 
+let invoice (invoiceComposite: InvoiceComposite) = invoiceComposite.invoice
+let payments (invoiceComposite: InvoiceComposite) = invoiceComposite.payments
+let instance (instanceComposite: InstanceComposite) = instanceComposite.instance
+let invoiceComposites (instanceComposite: InstanceComposite) = instanceComposite.invoiceComposites
+
 type PaymentAgreementClassificationResult = {
     runId: StageDataClassificationComponent.ClassificationRunId
     classificationResults: StageDataClassificationComponent.ClassificationResult list
