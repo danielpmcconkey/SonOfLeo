@@ -28,8 +28,10 @@ explicit invitation, one task at a time.
 
 ## The operating rules
 
-- **Never `git commit`, never `git push`, never stage anything.** Dan reviews and commits
-  everything himself. Hand back a diff, not a commit.
+- **Commit your own work; never `git push`.** Changed 2026-09-13. Dan reviews in bulk now
+  instead of committing each hand-off himself, so the log is what he reads — one logical change
+  per commit, message in his style (single lowercase sentence, em-dash, no trailers). When one
+  task produces two separable changes, it produces two commits. Pushing is still his.
 - **One small, scoped task at a time.** Don't sweep, don't refactor beyond what was asked,
   don't chain unrequested follow-on work. When a task naturally reveals the next one (a CRUD
   function that will obviously need a sibling), say so and stop — don't just keep going.
@@ -619,9 +621,9 @@ but it still has to earn its place under the Commenting section, and most don't.
 
 ## Mechanical checks
 
-`bash Checks/run-all.sh --quick` runs the fast subset of everything above as one command —
-worth running before calling a task done, even though this skill never commits and therefore
-never triggers the pre-commit hook that runs it automatically. The one check with a gotcha for
+`bash Checks/run-all.sh --quick` runs the fast subset of everything above as one command — run it
+before committing rather than discovering it in the pre-commit hook, which runs it automatically
+and will reject the commit. The one check with a gotcha for
 new files rather than edits to existing ones: **`check-compile-order.sh`** verifies every `.fs`
 on disk has a matching hand-maintained `<Compile Include>` entry in its `.fsproj`, in both
 directions. The moment a task creates a brand-new file (not just edits an existing one), it
