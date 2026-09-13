@@ -80,6 +80,25 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
+let applyFieldUpdates (fieldUpdates: InvoiceFieldUpdates) (invoice: Invoice) : Invoice =
+    let currentLifeCycleState = invoice.invoiceLifeCycleState
+    let invoiceLifeCycleState: InvoiceLifeCycleState =
+        { invoiceState =
+            fieldUpdates.invoiceStateUpdate |> FieldUpdate.valueOrCurrent currentLifeCycleState.invoiceState
+          paymentState =
+            fieldUpdates.paymentStateUpdate |> FieldUpdate.valueOrCurrent currentLifeCycleState.paymentState
+          postedState =
+            fieldUpdates.postedStateUpdate |> FieldUpdate.valueOrCurrent currentLifeCycleState.postedState
+          blocker = fieldUpdates.blockerUpdate |> FieldUpdate.valueOrCurrent currentLifeCycleState.blocker }
+    { invoice with
+        externalInvoiceId =
+            fieldUpdates.externalInvoiceIdUpdate |> FieldUpdate.valueOrCurrent invoice.externalInvoiceId
+        invoiceDate = fieldUpdates.invoiceDateUpdate |> FieldUpdate.valueOrCurrent invoice.invoiceDate
+        dueDate = fieldUpdates.dueDateUpdate |> FieldUpdate.valueOrCurrent invoice.dueDate
+        amount = fieldUpdates.amountUpdate |> FieldUpdate.valueOrCurrent invoice.amount
+        invoiceLifeCycleState = invoiceLifeCycleState
+        memo = fieldUpdates.memoUpdate |> FieldUpdate.valueOrCurrent invoice.memo }
+
 let private blockerToColumns (blocker: Blocker option) : string option * string option =
     match blocker with
     | None -> None, None

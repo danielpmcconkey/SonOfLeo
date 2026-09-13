@@ -22,6 +22,13 @@ module FieldUpdate =
             | NoChange -> NoChange
             | SetTo x -> SetTo(x |> typeConverter)
 
+    /// valueOrCurrent resolves an update against the value already held, for assembling the record a package would
+    /// produce before any of it reaches the database.
+    let valueOrCurrent (current: 'A) (original: FieldUpdate<'A>) : 'A =
+        match original with
+        | NoChange -> current
+        | SetTo x -> x
+
     let mapNoChangeToOptionWithConversion conversion original =
         match original with
         | NoChange -> None

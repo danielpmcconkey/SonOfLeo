@@ -57,6 +57,8 @@ type AppError =
     | CashflowExternalInvoiceIdIsEmpty of string
     | CashflowExternalInvoiceIdTooLong of string * int
     | CashflowInstanceDateNotAfterLatestInstance of Guid * LocalDate * LocalDate
+    | CashflowInstanceCompositeDerivedFieldSet of string
+    | CashflowInstanceCompositeUpdateNoOp
     | CashflowInstanceFulfilledWithNoInvoices of Guid
     | CashflowInstanceFulfilledWithUnpaidInvoice of Guid * Guid
     | CashflowInstanceIdDoesntExist of Guid
@@ -310,6 +312,8 @@ module AppError =
         | CashflowExternalInvoiceIdIsEmpty eid -> $"ExternalInvoiceId cannot be empty. Provided ExternalInvoiceId is {eid}."
         | CashflowExternalInvoiceIdTooLong(eid, max) -> $"ExternalInvoiceId cannot exceed {max} characters. Provided ExternalInvoiceId is {eid}."
         | CashflowInstanceDateNotAfterLatestInstance(agreementId, attemptedDate, latestDate) -> $"An Instance for MasterAgreement {agreementId} cannot be created at {attemptedDate} because its latest existing Instance is dated {latestDate}. Instances are only ever created forward; correct the cadence instead."
+        | CashflowInstanceCompositeDerivedFieldSet fieldName -> $"{fieldName} is derived from the Instance's Invoices and Payments and cannot be set directly."
+        | CashflowInstanceCompositeUpdateNoOp -> "Updating the Instance composite failed because at least one updatable parameter must be set."
         | CashflowInstanceFulfilledWithNoInvoices instanceId -> $"Instance {instanceId} is marked fulfilled but has no Invoices."
         | CashflowInstanceFulfilledWithUnpaidInvoice(instanceId, invoiceId) -> $"Instance {instanceId} is marked fulfilled but Invoice {invoiceId} is not FullyPaid."
         | CashflowInstanceIdDoesntExist uuid -> $"Could not locate an Instance with the id of {uuid}."

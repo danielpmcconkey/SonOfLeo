@@ -50,6 +50,11 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
+let applyFieldUpdates (fieldUpdates: InstanceFieldUpdates) (instance: Instance) : Instance =
+    { instance with
+        instanceDate = fieldUpdates.instanceDateUpdate |> FieldUpdate.valueOrCurrent instance.instanceDate
+        isFulfilled = fieldUpdates.isFulfilledUpdate |> FieldUpdate.valueOrCurrent instance.isFulfilled }
+
 let persist
     (context: Context.Context)
     (instance: Instance)

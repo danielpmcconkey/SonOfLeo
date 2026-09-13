@@ -406,27 +406,6 @@ let fetchCompositesByIsFulfilled
                 { instance = instance; invoiceComposites = compositesAtInstance })
     }
 
-let private confirmPaymentBelongsToInvoice
-    (context: Context.Context)
-    (invoiceId: CashFlowComponent.InvoiceId)
-    (fieldUpdates: Payment.PaymentFieldUpdates)
-    : Result<unit, AppError> =
-    result {
-        let! payment = fieldUpdates.paymentIdToUpdate |> Payment.fetchById context
-        return! payment |> confirmPaymentIsUnderInvoice invoiceId
-    }
-
-let private confirmAuthorityAndCohesion
-    (context: Context.Context)
-    (invoiceUpdate: Invoice.InvoiceFieldUpdates)
-    (paymentUpdates: Payment.PaymentFieldUpdates list)
-    : Result<unit, AppError> =
-    let invoiceId = invoiceUpdate.invoiceIdToUpdate
-    paymentUpdates
-    |> List.map (confirmPaymentBelongsToInvoice context invoiceId)
-    |> convertListOfResultsToResultsList
-    |> Result.map ignore
-
 let private isThereAnInvoiceUpdate
     (invoiceUpdates: Invoice.InvoiceFieldUpdates)
     : bool =
@@ -441,44 +420,203 @@ let private isThereAnInvoiceUpdate
     || invoiceUpdates.memoUpdate <> FieldUpdate.NoChange
 
 let private isThereAPaymentUpdate
-    (paymentUpdates: Payment.PaymentFieldUpdates list)
+    (paymentUpdates: Payment.PaymentFieldUpdates)
     : bool =
-    paymentUpdates
-    |> List.map (fun u ->
-        u.journalEntryLineIdUpdate <> FieldUpdate.NoChange
-        || u.stageEntryLineIdUpdate <> FieldUpdate.NoChange
-        || u.postedToFiDateUpdate <> FieldUpdate.NoChange
-        || u.memoUpdate <> FieldUpdate.NoChange)
-    |> List.exists id
+    paymentUpdates.journalEntryLineIdUpdate <> FieldUpdate.NoChange
+    || paymentUpdates.stageEntryLineIdUpdate <> FieldUpdate.NoChange
+    || paymentUpdates.postedToFiDateUpdate <> FieldUpdate.NoChange
+    || paymentUpdates.memoUpdate <> FieldUpdate.NoChange
 
-/// Note to caller, many of the updates are sent to the DB *before* true aggregate validation. Make sure you wrap this
-/// in a transaction you can roll back. The returned composite is the whole Instance the updated Invoice hangs off,
-/// not just that Invoice
-let updateInvoiceComposite
-    (context: Context.Context)
-    (paymentUpdates: Payment.PaymentFieldUpdates list)
+type InvoiceCompositeUpdate = {
+    invoiceUpdates: Invoice.InvoiceFieldUpdates
+    paymentUpdates: Payment.PaymentFieldUpdates list
+    newPayments: (
+        CashFlowComponent.TransactionPointer *
+        CashFlowComponent.PaymentAmount *
+        CashFlowComponent.PostedToFiDate option *
+        CashFlowComponent.PostedToLedgerDate option *
+        CashFlowComponent.PaymentMemo option) list
+}
+
+type InstanceCompositeUpdate = {
+    instanceUpdates: Instance.InstanceFieldUpdates
+    invoiceCompositeUpdates: InvoiceCompositeUpdate list
+}
+
+let private isThereACompositeUpdate (compositeUpdate: InstanceCompositeUpdate) : bool =
+    compositeUpdate.instanceUpdates.instanceDateUpdate <> FieldUpdate.NoChange
+    || compositeUpdate.invoiceCompositeUpdates
+       |> List.exists (fun invoiceCompositeUpdate ->
+           invoiceCompositeUpdate.invoiceUpdates |> isThereAnInvoiceUpdate
+           || invoiceCompositeUpdate.paymentUpdates |> List.exists isThereAPaymentUpdate
+           || invoiceCompositeUpdate.newPayments |> List.isEmpty |> not)
+
+let private confirmNoDerivedFieldIsSet (compositeUpdate: InstanceCompositeUpdate) : Result<unit, AppError> =
+    let setDerivedFields =
+        [ if compositeUpdate.instanceUpdates.isFulfilledUpdate <> FieldUpdate.NoChange then "isFulfilled"
+          for invoiceCompositeUpdate in compositeUpdate.invoiceCompositeUpdates do
+              if invoiceCompositeUpdate.invoiceUpdates.paymentStateUpdate <> FieldUpdate.NoChange then "paymentState"
+              if invoiceCompositeUpdate.invoiceUpdates.postedStateUpdate <> FieldUpdate.NoChange then "postedState" ]
+    match setDerivedFields with
+    | [] -> Ok ()
+    | fieldName :: _ -> Error(CashflowInstanceCompositeDerivedFieldSet fieldName)
+
+let private derivePaymentState
+    (invoice: Invoice.Invoice)
+    (payments: Payment.Payment list)
+    : Result<CashFlowComponent.PaymentState, AppError> =
+    if payments |> List.isEmpty then Ok CashFlowComponent.NotYetPaid else
+    result {
+        let! paidTotal = payments |> List.map Payment.amount |> List.map _.money |> Money.sumList
+        let paidDecimal = paidTotal |> Money.amount
+        let invoiceAmount = invoice |> Invoice.amount
+        let invoiceDecimal = invoiceAmount.money |> Money.amount
+        return
+            if paidDecimal = invoiceDecimal then CashFlowComponent.FullyPaid
+            else CashFlowComponent.PartiallyPaid
+    }
+
+let private derivePostedState
+    (paymentState: CashFlowComponent.PaymentState)
+    (payments: Payment.Payment list)
+    : CashFlowComponent.PostedState =
+    let postedCount = payments |> List.filter isPostedPayment |> List.length
+    if postedCount = 0 then CashFlowComponent.NotHandled
+    elif postedCount = (payments |> List.length) && paymentState = CashFlowComponent.FullyPaid then
+        CashFlowComponent.PostedToLedger
+    else CashFlowComponent.PartiallyPosted
+
+let private deriveIsFulfilled (invoiceComposites: InvoiceComposite list) : bool =
+    if invoiceComposites |> List.isEmpty then false else
+    invoiceComposites
+    |> List.forall (fun invoiceComposite ->
+        let lifeCycleState = invoiceComposite.invoice |> Invoice.invoiceLifeCycleState
+        lifeCycleState.paymentState = CashFlowComponent.FullyPaid)
+
+let private withDerivedStates
+    (paymentState: CashFlowComponent.PaymentState)
+    (postedState: CashFlowComponent.PostedState)
     (invoiceUpdates: Invoice.InvoiceFieldUpdates)
+    : Invoice.InvoiceFieldUpdates =
+    { invoiceUpdates with
+        paymentStateUpdate = FieldUpdate.SetTo paymentState
+        postedStateUpdate = FieldUpdate.SetTo postedState }
+
+let private preConstructInvoiceComposite
+    (context: Context.Context)
+    (invoiceComposites: InvoiceComposite list)
+    (invoiceCompositeUpdate: InvoiceCompositeUpdate)
+    : Result<InvoiceComposite * Payment.Payment list, AppError> =
+    let invoiceId = invoiceCompositeUpdate.invoiceUpdates.invoiceIdToUpdate
+    result {
+        let! current =
+            match
+                invoiceComposites
+                |> List.tryFind (fun candidate -> candidate.invoice |> Invoice.invoiceId = invoiceId)
+            with
+            | Some found -> Ok found
+            | None ->
+                let invoiceUuid = invoiceId |> CashFlowComponent.InvoiceId.value
+                Error(CashflowInvoiceIdDoesntExist invoiceUuid)
+        let! updatedPayments =
+            current.payments
+            |> List.map (fun payment ->
+                let paymentId = payment |> Payment.paymentId
+                match
+                    invoiceCompositeUpdate.paymentUpdates
+                    |> List.tryFind (fun paymentUpdate -> paymentUpdate.paymentIdToUpdate = paymentId)
+                with
+                | Some paymentUpdate -> payment |> Payment.applyFieldUpdates paymentUpdate
+                | None -> Ok payment)
+            |> convertListOfResultsToResultsList
+        do!
+            invoiceCompositeUpdate.paymentUpdates
+            |> List.map (fun paymentUpdate ->
+                let paymentId = paymentUpdate.paymentIdToUpdate
+                if current.payments |> List.exists (fun payment -> payment |> Payment.paymentId = paymentId) then Ok ()
+                else
+                    let paymentUuid = paymentId |> CashFlowComponent.PaymentId.value
+                    let invoiceUuid = invoiceId |> CashFlowComponent.InvoiceId.value
+                    Error(CashflowPaymentNotUnderInvoice(paymentUuid, invoiceUuid)))
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
+        let now = context |> Context.getInitiationInstant
+        let newPayments =
+            invoiceCompositeUpdate.newPayments
+            |> List.map (fun (transactionPointer, amount, postedToFiDate, postedToLedgerDate, memo) ->
+                let paymentId = CashFlowComponent.PaymentId.create ()
+                Payment.create paymentId invoiceId transactionPointer amount postedToFiDate postedToLedgerDate memo
+                    now now)
+        let payments = updatedPayments @ newPayments
+        let updatedInvoice = current.invoice |> Invoice.applyFieldUpdates invoiceCompositeUpdate.invoiceUpdates
+        let! paymentState = derivePaymentState updatedInvoice payments
+        let postedState = derivePostedState paymentState payments
+        let derivedUpdates =
+            invoiceCompositeUpdate.invoiceUpdates |> withDerivedStates paymentState postedState
+        let invoice = current.invoice |> Invoice.applyFieldUpdates derivedUpdates
+        return { invoice = invoice; payments = payments }, newPayments
+    }
+
+/// updateInstanceComposite is the single door for editing an Instance and anything hanging off it. It assembles the
+/// composite the package would produce, validates that, and only then writes -- payment state, posted state and
+/// isFulfilled are derived here, so a package that sets them is rejected rather than obeyed.
+let updateInstanceComposite
+    (context: Context.Context)
+    (compositeUpdate: InstanceCompositeUpdate)
     : Result<InstanceComposite, AppError> =
     result {
-        let shouldUpdateInvoice = invoiceUpdates |> isThereAnInvoiceUpdate
-        let shouldUpdatePayments = paymentUpdates |> isThereAPaymentUpdate
+        do! compositeUpdate |> confirmNoDerivedFieldIsSet
         do!
-            if shouldUpdateInvoice = false && shouldUpdatePayments = false
-            then Error CashflowInvoiceCompositeUpdateNoOp
-            else Ok ()
-        do! confirmAuthorityAndCohesion context invoiceUpdates paymentUpdates
+            if compositeUpdate |> isThereACompositeUpdate then Ok ()
+            else Error CashflowInstanceCompositeUpdateNoOp
+        let instanceId = compositeUpdate.instanceUpdates.instanceIdToUpdate
+        let! current = instanceId |> fetchCompositeByInstanceId context
+        let! preConstructed =
+            compositeUpdate.invoiceCompositeUpdates
+            |> List.map (preConstructInvoiceComposite context current.invoiceComposites)
+            |> convertListOfResultsToResultsList
+        let preConstructedInvoiceComposites = preConstructed |> List.map fst
+        let touchedInvoiceIds =
+            preConstructedInvoiceComposites
+            |> List.map (fun invoiceComposite -> invoiceComposite.invoice |> Invoice.invoiceId)
+        let untouchedInvoiceComposites =
+            current.invoiceComposites
+            |> List.filter (fun invoiceComposite ->
+                touchedInvoiceIds |> List.contains (invoiceComposite.invoice |> Invoice.invoiceId) |> not)
+        let invoiceComposites = preConstructedInvoiceComposites @ untouchedInvoiceComposites
+        let isFulfilled = invoiceComposites |> deriveIsFulfilled
+        let instanceUpdates =
+            { compositeUpdate.instanceUpdates with isFulfilledUpdate = FieldUpdate.SetTo isFulfilled }
+        let instance = current.instance |> Instance.applyFieldUpdates instanceUpdates
+        let preConstructedComposite = { instance = instance; invoiceComposites = invoiceComposites }
+        do! preConstructedComposite |> confirmInstanceComposite context
         do!
-            if shouldUpdateInvoice then invoiceUpdates |> Invoice.update context |> Result.map ignore
+            if instanceUpdates.instanceDateUpdate <> FieldUpdate.NoChange
+               || isFulfilled <> (current.instance |> Instance.isFulfilled)
+            then instanceUpdates |> Instance.update context |> Result.map ignore
             else Ok ()
         do!
-            if shouldUpdatePayments then
-                paymentUpdates
-                |> List.map (Payment.update context)
-                |> convertListOfResultsToResultsList
-                |> Result.map ignore
-            else Ok ()
-        let! updatedInvoice = invoiceUpdates.invoiceIdToUpdate |> Invoice.fetchById context
-        let! fetched = updatedInvoice |> Invoice.instanceId |> fetchCompositeByInstanceId context
+            List.zip compositeUpdate.invoiceCompositeUpdates preConstructed
+            |> List.map (fun (invoiceCompositeUpdate, (preConstructedInvoiceComposite, newPayments)) -> result {
+                let lifeCycleState = preConstructedInvoiceComposite.invoice |> Invoice.invoiceLifeCycleState
+                let invoiceUpdates =
+                    invoiceCompositeUpdate.invoiceUpdates
+                    |> withDerivedStates lifeCycleState.paymentState lifeCycleState.postedState
+                do! invoiceUpdates |> Invoice.update context |> Result.map ignore
+                do!
+                    invoiceCompositeUpdate.paymentUpdates
+                    |> List.filter isThereAPaymentUpdate
+                    |> List.map (fun paymentUpdate -> paymentUpdate |> Payment.update context |> Result.map ignore)
+                    |> convertListOfResultsToResultsList
+                    |> Result.map ignore
+                return!
+                    newPayments
+                    |> List.map (Payment.persist context)
+                    |> convertListOfResultsToResultsList
+                    |> Result.map ignore })
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
+        let! fetched = instanceId |> fetchCompositeByInstanceId context
         do! fetched |> confirmInstanceComposite context
         return fetched
     }

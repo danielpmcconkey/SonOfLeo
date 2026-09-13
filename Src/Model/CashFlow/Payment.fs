@@ -64,6 +64,39 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
+/// applyFieldUpdates folds the two independent id updates back into one pointer on the same Posted-wins rule the row
+/// decode uses, so setting a stage line on an already-posted payment leaves the in-hand pointer Posted even though the
+/// write still sets the column.
+let applyFieldUpdates (fieldUpdates: PaymentFieldUpdates) (payment: Payment) : Result<Payment, AppError> =
+    let currentJournalEntryLineId, currentStageEntryLineId =
+        match payment.transactionPointer with
+        | CashFlowComponent.Posted journalEntryLineId -> Some journalEntryLineId, None
+        | CashFlowComponent.Staged stageEntryLineId -> None, Some stageEntryLineId
+    let journalEntryLineId =
+        fieldUpdates.journalEntryLineIdUpdate |> FieldUpdate.valueOrCurrent currentJournalEntryLineId
+    let stageEntryLineId =
+        fieldUpdates.stageEntryLineIdUpdate |> FieldUpdate.valueOrCurrent currentStageEntryLineId
+    let postedToFiDate =
+        fieldUpdates.postedToFiDateUpdate
+        |> FieldUpdate.convertFieldUpdateOptionToNewTypeOption (fun localDate ->
+            { PostedToFiDate.localDate = localDate })
+        |> FieldUpdate.valueOrCurrent payment.postedToFiDate
+    result {
+        let! transactionPointer =
+            match journalEntryLineId, stageEntryLineId with
+            | Some journalEntryLineId, _ -> Ok(CashFlowComponent.Posted journalEntryLineId)
+            | None, Some stageEntryLineId -> Ok(CashFlowComponent.Staged stageEntryLineId)
+            | None, None ->
+                Error(
+                    CashflowInvalidPaymentTransactionPointerRow
+                        "neither journal_entry_line_id nor stage_entry_line_id was set; at least one must be set.")
+        return
+            { payment with
+                transactionPointer = transactionPointer
+                postedToFiDate = postedToFiDate
+                memo = fieldUpdates.memoUpdate |> FieldUpdate.valueOrCurrent payment.memo }
+    }
+
 let private transactionPointerToColumns (transactionPointer: TransactionPointer) : Guid option * Guid option =
     match transactionPointer with
     | CashFlowComponent.Posted journalEntryLineId -> (journalEntryLineId |> JournalEntryLineId.value |> Some), None
