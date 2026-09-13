@@ -310,6 +310,21 @@ let private confirmFulfilledInstanceInvoicesAreFullyPaid
     |> convertListOfResultsToResultsList
     |> Result.map ignore
 
+let private confirmOneInvoicePerPaymentAgreement
+    (instance: Instance.Instance)
+    (invoices: Invoice.Invoice list)
+    : Result<unit, AppError> =
+    let duplicated =
+        invoices
+        |> List.countBy Invoice.paymentAgreementId
+        |> List.filter (fun (_, count) -> count > 1)
+    match duplicated with
+    | [] -> Ok ()
+    | (paymentAgreementId, count) :: _ ->
+        let instanceUuid = instance |> Instance.instanceId |> CashFlowComponent.InstanceId.value
+        let paymentAgreementUuid = paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
+        Error(CashflowInstanceManyInvoicesForPaymentAgreement(instanceUuid, paymentAgreementUuid, count))
+
 let confirmInstanceComposite
     (context: Context.Context)
     (instanceComposite: InstanceComposite)
@@ -327,6 +342,7 @@ let confirmInstanceComposite
             |> convertListOfResultsToResultsList
             |> Result.map ignore
         do! confirmDiamond context instance invoices
+        do! confirmOneInvoicePerPaymentAgreement instance invoices
         do! confirmFulfilledInstanceHasInvoices instance invoices
         do! confirmFulfilledInstanceInvoicesAreFullyPaid instance invoices
         do!

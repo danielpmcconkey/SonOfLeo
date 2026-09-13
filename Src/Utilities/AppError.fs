@@ -63,6 +63,7 @@ type AppError =
     | CashflowInstanceFulfilledWithUnpaidInvoice of Guid * Guid
     | CashflowInstanceIdDoesntExist of Guid
     | CashflowInstanceIdListCannotBeEmpty
+    | CashflowInstanceManyInvoicesForPaymentAgreement of Guid * Guid * int
     | CashflowInstanceNotUnderMasterAgreement of Guid * Guid
     | CashflowInstanceUpdateNoOp
     | CashflowInvalidBlocker of string
@@ -318,6 +319,7 @@ module AppError =
         | CashflowInstanceFulfilledWithUnpaidInvoice(instanceId, invoiceId) -> $"Instance {instanceId} is marked fulfilled but Invoice {invoiceId} is not FullyPaid."
         | CashflowInstanceIdDoesntExist uuid -> $"Could not locate an Instance with the id of {uuid}."
         | CashflowInstanceIdListCannotBeEmpty -> "The instanceIds list must contain at least 1 ID."
+        | CashflowInstanceManyInvoicesForPaymentAgreement(instanceId, paymentAgreementId, count) -> $"Instance {instanceId} has {count} Invoices for PaymentAgreement {paymentAgreementId}. There may be at most one Invoice per leg per period."
         | CashflowInstanceNotUnderMasterAgreement(instanceId, agreementId) -> $"Instance {instanceId} does not belong to MasterAgreement {agreementId}."
         | CashflowInstanceUpdateNoOp -> "Updating the Instance record failed because at least one updatable parameter must be set."
         | CashflowInvalidBlocker str -> $"Invalid Blocker of \"{str}\"."
