@@ -39,6 +39,7 @@ type AppError =
 
     | CashflowAgreementMemoIsEmpty of string
     | CashflowAgreementMemoTooLong of string * int
+    | CashflowAgreementNameDoesntMatchId of string
     | CashflowAgreementNameIsEmpty of string
     | CashflowAgreementNameTooLong of string * int
     | CashflowAgreementUpdateNoOp
@@ -296,6 +297,7 @@ module AppError =
 
         | CashflowAgreementMemoIsEmpty memo -> $"AgreementMemo cannot be empty. Provided Memo is {memo}."
         | CashflowAgreementMemoTooLong(memo, max) -> $"AgreementMemo cannot exceed {max} characters. Provided Memo is {memo}."
+        | CashflowAgreementNameDoesntMatchId name -> $"AgreementName of {name} doesn't match a MasterAgreement ID in the database."
         | CashflowAgreementNameIsEmpty name -> $"AgreementName cannot be empty. Provided name is {name}."
         | CashflowAgreementNameTooLong(name, max) -> $"AgreementName cannot exceed {max} characters. Provided name is {name}."
         | CashflowAgreementUpdateNoOp -> "Updating the Agreement composite failed because at least one updatable parameter must be set."

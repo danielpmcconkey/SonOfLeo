@@ -6,6 +6,33 @@ open Utilities.AppError
 open Utilities.ResultHelper
 
 
+let private fallibleConverterAgreementNameStringToMasterAgreementUuid context nameString =
+    result {
+        // see if the string represents a valid name first
+        let! _ = nameString |> AgreementName.create
+        // now see if it matches a master agreement ID
+        return!
+            match nameString |> LookupCache.masterAgreementNameToId.fetch context with
+            | Ok x -> Ok x
+            | Error(DalResultantRowsDidntMatchExpectation _) -> Error(CashflowAgreementNameDoesntMatchId nameString)
+            | Error e -> Error e
+    }
+
+let ``convert [AgreementNameString] to [MasterAgreementId]``
+    (context: Context.Context)
+    (nameString: string)
+    : Result<MasterAgreementId, AppError> =
+    result {
+        let! uuid = nameString |> fallibleConverterAgreementNameStringToMasterAgreementUuid context
+        return uuid |> MasterAgreementId.fromGuid
+    }
+
+let ``convert [MasterAgreementId] to [AgreementNameString]``
+    (context: Context.Context)
+    (masterAgreementId: MasterAgreementId)
+    : Result<string, AppError> =
+    masterAgreementId |> MasterAgreementId.value |> LookupCache.masterAgreementIdToName.fetch context
+
 let private fallibleConverterPaymentAgreementNameStringToPaymentAgreementUuid context nameString =
     result {
         // see if the string represents a valid name first

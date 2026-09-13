@@ -6,6 +6,8 @@ open InterfaceBridge.InterfaceContracts.CashFlowContracts
 open InterfaceBridge.InterfaceContracts.SharedContracts
 open InterfaceBridge.CommandRoute
 open Logger.Audit
+open Model
+open Model.CashFlow
 open Model.CashFlow.CashFlowComponent
 open ModelOrchestrator
 open Utilities
@@ -33,11 +35,40 @@ let private classifyPaymentAgreements _ _ =
             return! Json.toJson<PaymentAgreementClassificationResultReturn> converted
         })
 
-let private createAgreement _ _ =
-    raise (System.NotImplementedException())
+let private createAgreement payload _ =
+    runCommandRouteAndAutoCompleteTransaction CashFlowCreateAgreement (fun context ->
+        result {
+            let! input = Json.fromJson<CreateAgreementInput> payload
+            let! agreementName = input.agreementName |> AgreementName.create
+            let! direction = input.direction |> FlowDirection.fromString
+            let! cadenceType = input.cadence.cadenceType |> ``convert [CadenceTypeContract] to [CadenceType]``
+            let firstInstance : Cadence.CadenceNextInstance = { nextInstance = input.cadence.nextInstance }
+            let! counterparty = input.counterparty |> Counterparty.create
+            let! activityPeriod =
+                ActivityPeriod.create input.activeBegin input.activeEnd
+                    ActivityPeriod.ConsideredAvailableBeforeBeginDate
+            let! memo = input.memo |> convertOptionToDesiredTypeWithFallibleConverter AgreementMemo.create
+            let! paymentAgreements =
+                input.paymentAgreements
+                |> ``convert [CreatePaymentAgreementFieldsInput list] to [PaymentAgreementPrimitives list]`` context
+            let! agreement =
+                AgreementOrchestration.constructNewAndPersist
+                    context agreementName direction cadenceType firstInstance counterparty activityPeriod memo
+                    paymentAgreements
+            let! converted = agreement |> ``convert [Agreement] to [AgreementReturn]`` context
+            return! Json.toJson<AgreementReturn> converted
+        })
 
-let private updateAgreement _ _ =
-    raise (System.NotImplementedException())
+let private updateAgreement payload _ =
+    runCommandRouteAndAutoCompleteTransaction CashFlowUpdateAgreement (fun context ->
+        result {
+            let! input = Json.fromJson<UpdateAgreementInput> payload
+            let! masterAgreementUpdates =
+                input |> ``convert [UpdateAgreementInput] to [MasterAgreementFieldUpdates]`` context
+            let! agreement = masterAgreementUpdates |> AgreementOrchestration.updateAgreement context [] [] [] []
+            let! converted = agreement |> ``convert [Agreement] to [AgreementReturn]`` context
+            return! Json.toJson<AgreementReturn> converted
+        })
 
 let private createInstance _ _ =
     raise (System.NotImplementedException())
