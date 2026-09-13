@@ -2,6 +2,7 @@ module InterfaceBridge.Routes.CashFlowRoutes
 
 open DataAccessLayer.DbTransaction
 open InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
+open InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
 open InterfaceBridge.InterfaceContracts.CashFlowContracts
 open InterfaceBridge.InterfaceContracts.SharedContracts
 open InterfaceBridge.CommandRoute
@@ -70,17 +71,50 @@ let private updateAgreement payload _ =
             return! Json.toJson<AgreementReturn> converted
         })
 
-let private createInstance _ _ =
-    raise (System.NotImplementedException())
+let private createInstance payload _ =
+    runCommandRouteAndAutoCompleteTransaction CashFlowCreateInstance (fun context ->
+        result {
+            let! input = Json.fromJson<CreateInstanceInput> payload
+            let! masterAgreementId =
+                input.masterAgreementName |> ``convert [AgreementNameString] to [MasterAgreementId]`` context
+            let! invoices =
+                input.invoices |> ``convert [CreateInvoiceFieldsInput list] to [InvoiceCompositePrimitives list]`` context
+            let! instanceComposite =
+                InstanceOrchestration.createInstanceCompositeAndSaveToDb
+                    context masterAgreementId input.instanceDate input.isFulfilled invoices
+            let! converted = instanceComposite |> ``convert [InstanceComposite] to [InstanceCompositeReturn]`` context
+            return! Json.toJson<InstanceCompositeReturn> converted
+        })
 
-let private createInvoice _ _ =
-    raise (System.NotImplementedException())
+let private createInvoice payload _ =
+    runCommandRouteAndAutoCompleteTransaction CashFlowCreateInvoice (fun context ->
+        result {
+            let! input = Json.fromJson<CreateInvoiceInput> payload
+            let! compositeUpdate = input |> ``convert [CreateInvoiceInput] to [InstanceCompositeUpdate]`` context
+            let! instanceComposite = compositeUpdate |> InstanceOrchestration.updateInstanceComposite context
+            let! converted = instanceComposite |> ``convert [InstanceComposite] to [InstanceCompositeReturn]`` context
+            return! Json.toJson<InstanceCompositeReturn> converted
+        })
 
-let private updateInvoice _ _ =
-    raise (System.NotImplementedException())
+let private updateInvoice payload _ =
+    runCommandRouteAndAutoCompleteTransaction CashFlowUpdateInvoice (fun context ->
+        result {
+            let! input = Json.fromJson<UpdateInvoiceInput> payload
+            let! compositeUpdate = input |> ``convert [UpdateInvoiceInput] to [InstanceCompositeUpdate]`` context
+            let! instanceComposite = compositeUpdate |> InstanceOrchestration.updateInstanceComposite context
+            let! converted = instanceComposite |> ``convert [InstanceComposite] to [InstanceCompositeReturn]`` context
+            return! Json.toJson<InstanceCompositeReturn> converted
+        })
 
-let private createPayment _ _ =
-    raise (System.NotImplementedException())
+let private createPayment payload _ =
+    runCommandRouteAndAutoCompleteTransaction CashFlowCreatePayment (fun context ->
+        result {
+            let! input = Json.fromJson<CreatePaymentInput> payload
+            let! compositeUpdate = input |> ``convert [CreatePaymentInput] to [InstanceCompositeUpdate]`` context
+            let! instanceComposite = compositeUpdate |> InstanceOrchestration.updateInstanceComposite context
+            let! converted = instanceComposite |> ``convert [InstanceComposite] to [InstanceCompositeReturn]`` context
+            return! Json.toJson<InstanceCompositeReturn> converted
+        })
 
 let private createPaymentAgreementLink _ _ =
     raise (System.NotImplementedException())
@@ -133,23 +167,23 @@ let cashFlowDomainCommandRoutes: CommandRoute list =
 
       { domain = "CashFlow"
         verb = "CreateInvoice"
-        description = "Add an invoice, and any payments already known for it, to an existing instance."
+        description = "Add an invoice, and any payments already known for it, to an existing instance. Returns the whole instance, whose fulfillment the new invoice may have changed."
         inputContract = typeof<CreateInvoiceInput>.Name
-        outputContract = typeof<InvoiceCompositeReturn>.Name
+        outputContract = typeof<InstanceCompositeReturn>.Name
         handler = createInvoice }
 
       { domain = "CashFlow"
         verb = "UpdateInvoice"
-        description = "Update any of an invoice's fields, including each half of its life cycle state."
+        description = "Update an invoice's fields and its invoice state or blocker. Payment state and posted state are derived, so a package that sets either is rejected. Returns the whole instance."
         inputContract = typeof<UpdateInvoiceInput>.Name
-        outputContract = typeof<InvoiceCompositeReturn>.Name
+        outputContract = typeof<InstanceCompositeReturn>.Name
         handler = updateInvoice }
 
       { domain = "CashFlow"
         verb = "CreatePayment"
-        description = "Record a payment against an invoice, pointing at either the staged entry line or the journal entry line that moved the money."
+        description = "Record a payment against an invoice, pointing at either the staged entry line or the journal entry line that moved the money. Returns the whole instance, with the invoice's payment and posted states re-derived."
         inputContract = typeof<CreatePaymentInput>.Name
-        outputContract = typeof<PaymentReturn>.Name
+        outputContract = typeof<InstanceCompositeReturn>.Name
         handler = createPayment }
 
       { domain = "CashFlow"

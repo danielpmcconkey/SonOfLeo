@@ -287,6 +287,222 @@ let ``convert [PaymentAgreementClassificationResult] to [PaymentAgreementClassif
                 classificationResult.invoiceDecisionLog |> List.map ``convert [InvoiceDecision] to [InvoiceDecisionReturn]``
             openInstances = openInstances } }
 
+let ``convert [BlockerContract] to [Blocker]`` (blockerContract: BlockerContract) : Result<Blocker, AppError> =
+    match blockerContract with
+    | BlockerContract.NoFunds -> Ok Blocker.NoFunds
+    | BlockerContract.Irresponsible -> Ok Blocker.Irresponsible
+    | BlockerContract.NeedsDecision note -> note |> BlockerNote.create |> Result.map Blocker.NeedsDecision
+    | BlockerContract.Other note -> note |> BlockerNote.create |> Result.map Blocker.Other
+
+let ``convert [InvoiceLifeCycleStateContract] to [InvoiceLifeCycleState]``
+    (lifeCycleStateContract: InvoiceLifeCycleStateContract)
+    : Result<InvoiceLifeCycleState, AppError> =
+    result {
+        let! invoiceState = lifeCycleStateContract.invoiceState |> InvoiceState.fromString
+        let! paymentState = lifeCycleStateContract.paymentState |> PaymentState.fromString
+        let! postedState = lifeCycleStateContract.postedState |> PostedState.fromString
+        let! blocker =
+            lifeCycleStateContract.blocker
+            |> convertOptionToDesiredTypeWithFallibleConverter ``convert [BlockerContract] to [Blocker]``
+        let lifeCycleState : InvoiceLifeCycleState = {
+            invoiceState = invoiceState
+            paymentState = paymentState
+            postedState = postedState
+            blocker = blocker }
+        return lifeCycleState
+    }
+
+let ``convert [TransactionPointerContract] to [TransactionPointer]``
+    (transactionPointerContract: TransactionPointerContract)
+    : TransactionPointer =
+    match transactionPointerContract with
+    | TransactionPointerContract.Posted journalEntryLineUuid ->
+        CashFlowComponent.Posted(journalEntryLineUuid |> JournalEntryLineId.fromGuid)
+    | TransactionPointerContract.Staged stageEntryLineUuid ->
+        CashFlowComponent.Staged(stageEntryLineUuid |> StageEntryLineId.fromGuid)
+
+let ``convert [CreatePaymentFieldsInput] to [PaymentPrimitives]``
+    (input: CreatePaymentFieldsInput)
+    : Result<
+        TransactionPointer * PaymentAmount * PostedToFiDate option * PostedToLedgerDate option * PaymentMemo option,
+        AppError> =
+    result {
+        let transactionPointer =
+            input.transactionPointer |> ``convert [TransactionPointerContract] to [TransactionPointer]``
+        let! money = input.amount |> Money.fromDecimal
+        let amount : PaymentAmount = { money = money }
+        let postedToFiDate =
+            input.postedToFiDate |> Option.map (fun localDate -> ({ localDate = localDate } : PostedToFiDate))
+        let postedToLedgerDate =
+            input.postedToLedgerDate |> Option.map (fun localDate -> ({ localDate = localDate } : PostedToLedgerDate))
+        let! memo = input.memo |> convertOptionToDesiredTypeWithFallibleConverter PaymentMemo.create
+        return transactionPointer, amount, postedToFiDate, postedToLedgerDate, memo
+    }
+
+let ``convert [CreatePaymentFieldsInput list] to [PaymentPrimitives list]``
+    (input: CreatePaymentFieldsInput list)
+    : Result<
+        (TransactionPointer * PaymentAmount * PostedToFiDate option * PostedToLedgerDate option * PaymentMemo option) list,
+        AppError> =
+    input
+    |> List.map ``convert [CreatePaymentFieldsInput] to [PaymentPrimitives]``
+    |> convertListOfResultsToResultsList
+
+let ``convert [CreateInvoiceFieldsInput] to [InvoiceCompositePrimitives]``
+    (context: Context.Context)
+    (input: CreateInvoiceFieldsInput)
+    : Result<
+        PaymentAgreementId * ExternalInvoiceId option * InvoiceDate * DueDate * InvoiceAmount * InvoiceLifeCycleState *
+        InvoiceMemo option *
+        (TransactionPointer * PaymentAmount * PostedToFiDate option * PostedToLedgerDate option * PaymentMemo option) list,
+        AppError> =
+    result {
+        let! paymentAgreementId =
+            input.paymentAgreementName |> ``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context
+        let! externalInvoiceId =
+            input.externalInvoiceId |> convertOptionToDesiredTypeWithFallibleConverter ExternalInvoiceId.create
+        let invoiceDate : InvoiceDate = { localDate = input.invoiceDate }
+        let dueDate : DueDate = { localDate = input.dueDate }
+        let! money = input.amount |> Money.fromDecimal
+        let amount : InvoiceAmount = { money = money }
+        let! lifeCycleState =
+            input.invoiceLifeCycleState |> ``convert [InvoiceLifeCycleStateContract] to [InvoiceLifeCycleState]``
+        let! memo = input.memo |> convertOptionToDesiredTypeWithFallibleConverter InvoiceMemo.create
+        let! payments = input.payments |> ``convert [CreatePaymentFieldsInput list] to [PaymentPrimitives list]``
+        return paymentAgreementId, externalInvoiceId, invoiceDate, dueDate, amount, lifeCycleState, memo, payments
+    }
+
+let ``convert [CreateInvoiceFieldsInput list] to [InvoiceCompositePrimitives list]``
+    (context: Context.Context)
+    (input: CreateInvoiceFieldsInput list)
+    : Result<
+        (PaymentAgreementId * ExternalInvoiceId option * InvoiceDate * DueDate * InvoiceAmount * InvoiceLifeCycleState *
+         InvoiceMemo option *
+         (TransactionPointer * PaymentAmount * PostedToFiDate option * PostedToLedgerDate option * PaymentMemo option) list) list,
+        AppError> =
+    input
+    |> List.map (``convert [CreateInvoiceFieldsInput] to [InvoiceCompositePrimitives]`` context)
+    |> convertListOfResultsToResultsList
+
+let ``convert [NewInvoiceFieldsInput] to [NewInvoicePrimitives]``
+    (context: Context.Context)
+    (input: NewInvoiceFieldsInput)
+    : Result<
+        PaymentAgreementId * ExternalInvoiceId option * InvoiceDate * DueDate * InvoiceAmount * InvoiceState *
+        Blocker option * InvoiceMemo option *
+        (TransactionPointer * PaymentAmount * PostedToFiDate option * PostedToLedgerDate option * PaymentMemo option) list,
+        AppError> =
+    result {
+        let! paymentAgreementId =
+            input.paymentAgreementName |> ``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context
+        let! externalInvoiceId =
+            input.externalInvoiceId |> convertOptionToDesiredTypeWithFallibleConverter ExternalInvoiceId.create
+        let invoiceDate : InvoiceDate = { localDate = input.invoiceDate }
+        let dueDate : DueDate = { localDate = input.dueDate }
+        let! money = input.amount |> Money.fromDecimal
+        let amount : InvoiceAmount = { money = money }
+        let! invoiceState = input.invoiceState |> InvoiceState.fromString
+        let! blocker =
+            input.blocker |> convertOptionToDesiredTypeWithFallibleConverter ``convert [BlockerContract] to [Blocker]``
+        let! memo = input.memo |> convertOptionToDesiredTypeWithFallibleConverter InvoiceMemo.create
+        let! payments = input.payments |> ``convert [CreatePaymentFieldsInput list] to [PaymentPrimitives list]``
+        return
+            paymentAgreementId, externalInvoiceId, invoiceDate, dueDate, amount, invoiceState, blocker, memo, payments
+    }
+
+let private noChangeInvoiceUpdates (invoiceId: InvoiceId) : Invoice.InvoiceFieldUpdates =
+    { invoiceIdToUpdate = invoiceId
+      externalInvoiceIdUpdate = NoChange
+      invoiceDateUpdate = NoChange
+      dueDateUpdate = NoChange
+      amountUpdate = NoChange
+      invoiceStateUpdate = NoChange
+      paymentStateUpdate = NoChange
+      postedStateUpdate = NoChange
+      blockerUpdate = NoChange
+      memoUpdate = NoChange }
+
+let private noChangeInstanceUpdates (instanceId: InstanceId) : Instance.InstanceFieldUpdates =
+    { instanceIdToUpdate = instanceId
+      instanceDateUpdate = NoChange
+      isFulfilledUpdate = NoChange }
+
+let ``convert [CreateInvoiceInput] to [InstanceCompositeUpdate]``
+    (context: Context.Context)
+    (input: CreateInvoiceInput)
+    : Result<InstanceOrchestration.InstanceCompositeUpdate, AppError> =
+    result {
+        let instanceId = input.instanceId |> InstanceId.fromGuid
+        let! newInvoice = input.invoice |> ``convert [NewInvoiceFieldsInput] to [NewInvoicePrimitives]`` context
+        return {
+            instanceUpdates = instanceId |> noChangeInstanceUpdates
+            invoiceCompositeUpdates = []
+            newInvoices = [ newInvoice ] }
+    }
+
+let ``convert [UpdateInvoiceInput] to [InstanceCompositeUpdate]``
+    (context: Context.Context)
+    (input: UpdateInvoiceInput)
+    : Result<InstanceOrchestration.InstanceCompositeUpdate, AppError> =
+    result {
+        let invoiceId = input.invoiceId |> InvoiceId.fromGuid
+        let! invoice = invoiceId |> Invoice.fetchById context
+        let instanceId = invoice |> Invoice.instanceId
+        let! externalInvoiceIdUpdate =
+            input.externalInvoiceIdUpdate |> convertFieldUpdateOptionToNewTypeOptionFallible ExternalInvoiceId.create
+        let invoiceDateUpdate =
+            input.invoiceDateUpdate |> FieldUpdate.map (fun localDate -> ({ localDate = localDate } : InvoiceDate))
+        let dueDateUpdate =
+            input.dueDateUpdate |> FieldUpdate.map (fun localDate -> ({ localDate = localDate } : DueDate))
+        let! amountUpdate =
+            input.amountUpdate
+            |> convertFieldUpdateToNewTypeFallible (fun amount ->
+                amount |> Money.fromDecimal |> Result.map (fun money -> ({ money = money } : InvoiceAmount)))
+        let! invoiceStateUpdate = input.invoiceStateUpdate |> convertFieldUpdateToNewTypeFallible InvoiceState.fromString
+        let! paymentStateUpdate = input.paymentStateUpdate |> convertFieldUpdateToNewTypeFallible PaymentState.fromString
+        let! postedStateUpdate = input.postedStateUpdate |> convertFieldUpdateToNewTypeFallible PostedState.fromString
+        let! blockerUpdate =
+            input.blockerUpdate
+            |> convertFieldUpdateOptionToNewTypeOptionFallible ``convert [BlockerContract] to [Blocker]``
+        let! memoUpdate = input.memoUpdate |> convertFieldUpdateOptionToNewTypeOptionFallible InvoiceMemo.create
+        let invoiceUpdates : Invoice.InvoiceFieldUpdates = {
+            invoiceIdToUpdate = invoiceId
+            externalInvoiceIdUpdate = externalInvoiceIdUpdate
+            invoiceDateUpdate = invoiceDateUpdate
+            dueDateUpdate = dueDateUpdate
+            amountUpdate = amountUpdate
+            invoiceStateUpdate = invoiceStateUpdate
+            paymentStateUpdate = paymentStateUpdate
+            postedStateUpdate = postedStateUpdate
+            blockerUpdate = blockerUpdate
+            memoUpdate = memoUpdate }
+        let invoiceCompositeUpdate : InstanceOrchestration.InvoiceCompositeUpdate =
+            { invoiceUpdates = invoiceUpdates; paymentUpdates = []; newPayments = [] }
+        return {
+            instanceUpdates = instanceId |> noChangeInstanceUpdates
+            invoiceCompositeUpdates = [ invoiceCompositeUpdate ]
+            newInvoices = [] }
+    }
+
+let ``convert [CreatePaymentInput] to [InstanceCompositeUpdate]``
+    (context: Context.Context)
+    (input: CreatePaymentInput)
+    : Result<InstanceOrchestration.InstanceCompositeUpdate, AppError> =
+    result {
+        let invoiceId = input.invoiceId |> InvoiceId.fromGuid
+        let! invoice = invoiceId |> Invoice.fetchById context
+        let instanceId = invoice |> Invoice.instanceId
+        let! newPayment = input.payment |> ``convert [CreatePaymentFieldsInput] to [PaymentPrimitives]``
+        let invoiceCompositeUpdate : InstanceOrchestration.InvoiceCompositeUpdate =
+            { invoiceUpdates = invoiceId |> noChangeInvoiceUpdates
+              paymentUpdates = []
+              newPayments = [ newPayment ] }
+        return {
+            instanceUpdates = instanceId |> noChangeInstanceUpdates
+            invoiceCompositeUpdates = [ invoiceCompositeUpdate ]
+            newInvoices = [] }
+    }
+
 let ``convert [CreatePaymentAgreementFieldsInput] to [PaymentAgreementPrimitives]``
     (context: Context.Context)
     (input: CreatePaymentAgreementFieldsInput)

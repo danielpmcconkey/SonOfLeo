@@ -192,9 +192,23 @@ type CreateInstanceInput = {
     invoices: CreateInvoiceFieldsInput list
 }
 
+// an invoice added to an instance that already exists names only the invoice state and the blocker: the composite door
+// derives payment state and posted state, and rejects a package that sets either
+type NewInvoiceFieldsInput = {
+    paymentAgreementName: string
+    externalInvoiceId: string option
+    invoiceDate: LocalDate
+    dueDate: LocalDate
+    amount: decimal
+    invoiceState: string
+    blocker: BlockerContract option
+    memo: string option
+    payments: CreatePaymentFieldsInput list
+}
+
 type CreateInvoiceInput = {
     instanceId: Guid
-    invoice: CreateInvoiceFieldsInput
+    invoice: NewInvoiceFieldsInput
 }
 
 type UpdateInvoiceInput = {
