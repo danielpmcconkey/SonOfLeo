@@ -162,8 +162,15 @@ let private deletePaymentAgreementLink payload _ =
             return! Json.toJson<PaymentAgreementLinkReturn> converted
         })
 
-let private fetchAgreementSummary _ _ =
-    raise (System.NotImplementedException())
+let private fetchAgreementSummary payload _ =
+    let context = Context.create NoTransaction FetchOnly
+    result {
+        let! input = Json.fromJson<FetchAgreementSummaryInput> payload
+        let! agreementId = input.agreementName |> ``convert [AgreementNameString] to [MasterAgreementId]`` context
+        let! agreement = agreementId |> AgreementOrchestration.fetchByMasterAgreementId context
+        let! converted = agreement |> ``convert [Agreement] to [AgreementReturn]`` context
+        return! Json.toJson<AgreementReturn> converted
+    }
 
 let cashFlowDomainCommandRoutes: CommandRoute list =
     [
