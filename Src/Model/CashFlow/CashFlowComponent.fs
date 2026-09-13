@@ -318,3 +318,10 @@ type InvoiceDecision = {
     invoiceId: InvoiceId
     outcome: InvoiceDecisionOutcome
 }
+
+type PaymentPostingTransition = {
+    paymentId: PaymentId
+    agreementName: AgreementName
+    invoiceAmount: InvoiceAmount
+    journalEntryLineId: JournalEntryLineId
+}

@@ -271,6 +271,10 @@ let fetchByInvoiceIdList
     let predicate = $"pmt.invoice_id in ({names})"
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
+let fetchByStagedTransactionPointer (context: Context.Context) : Result<Payment list, AppError> =
+    let predicate = "pmt.journal_entry_line_id is null"
+    fetchAny context (Some predicate) None [] AnyQuantityIsAcceptable
+
 let fetchByStageEntryLineIdList
     (context: Context.Context)
     (lineIds: StageEntryLineId list)

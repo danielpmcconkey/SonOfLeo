@@ -282,6 +282,21 @@ let fetchById (context: Context.Context) (invoiceId: InvoiceId) : Result<Invoice
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
+let fetchByIdList
+    (context: Context.Context)
+    (invoiceIds: InvoiceId list)
+    : Result<Invoice list, AppError> =
+    if invoiceIds |> List.isEmpty then Error CashflowInvoiceIdListCannotBeEmpty else
+    let namesAndParameters =
+        List.zip [ 1 .. invoiceIds.Length ] invoiceIds
+        |> List.map (fun (ordinal, id) ->
+            let name = $"@invoiceId{ordinal}"
+            name, { name = name; value = UniqueId(id |> InvoiceId.value) })
+    let names = namesAndParameters |> List.map fst |> String.concat ", "
+    let parameters = namesAndParameters |> List.map snd
+    let predicate = $"inv.unique_id in ({names})"
+    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
+
 let fetchByInstanceIdList
     (context: Context.Context)
     (instanceIds: InstanceId list)
