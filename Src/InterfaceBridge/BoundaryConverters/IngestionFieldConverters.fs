@@ -3,6 +3,7 @@ module InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
 open InterfaceBridge.BoundaryConverters.OrchestrationConverters
+open InterfaceBridge.InterfaceContracts.ClassificationContracts
 open InterfaceBridge.InterfaceContracts.IngestionContracts
 open Model
 open Model.DataIngestion

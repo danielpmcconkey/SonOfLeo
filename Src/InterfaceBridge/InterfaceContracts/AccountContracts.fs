@@ -9,6 +9,11 @@ open System
 // RETURN
 // ****************************************
 
+type AccountClaimantReturn = {
+        code: string
+        accountName: string
+    }
+
 type AccountReturn =
     {
       code: string

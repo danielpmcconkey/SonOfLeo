@@ -1,6 +1,7 @@
 module InterfaceBridge.Routes.CashFlowRoutes
 
 open InterfaceBridge.InterfaceContracts.CashFlowContracts
+open InterfaceBridge.InterfaceContracts.ClassificationContracts
 open InterfaceBridge.InterfaceContracts.SharedContracts
 open InterfaceBridge.CommandRoute
 
@@ -125,8 +126,8 @@ let cashFlowDomainCommandRoutes: CommandRoute list =
       { domain = "CashFlow"
         verb = "FetchClassificationRun"
         description = "Read one classification run's matches with each claimed entity resolved to an account code or a payment agreement name, and each rule to its name and current priority. Serves review of both the account and the payment agreement classification steps."
-        inputContract = typeof<InterfaceBridge.InterfaceContracts.IngestionContracts.FetchClassificationRunInput>.Name
-        outputContract = typeof<InterfaceBridge.InterfaceContracts.IngestionContracts.ClassificationRunReturn>.Name
+        inputContract = typeof<InterfaceBridge.InterfaceContracts.ClassificationContracts.FetchClassificationRunInput>.Name
+        outputContract = typeof<InterfaceBridge.InterfaceContracts.ClassificationContracts.ClassificationRunReturn>.Name
         handler = fetchClassificationRun }
 
       { domain = "CashFlow"

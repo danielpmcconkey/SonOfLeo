@@ -1,6 +1,7 @@
 module InterfaceBridge.InterfaceContracts.CashFlowContracts
 
 open System
+open InterfaceBridge.InterfaceContracts.ClassificationContracts
 open InterfaceBridge.InterfaceContracts.IngestionContracts
 open NodaTime
 open Utilities.FieldUpdate
