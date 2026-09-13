@@ -149,7 +149,6 @@ type PaymentAgreementClaimCluster = {
 
 type PaymentAgreementDecisionOutcome =
     | Linked
-    | AlreadyLinked
     | ContestedAgreement
     | TiedClaimants
     | NoLineOnAgreementAccounts

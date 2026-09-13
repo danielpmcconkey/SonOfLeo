@@ -256,16 +256,6 @@ let private writeLinkagesForClaimClusters
     (clusters: StageDataClassificationComponent.PaymentAgreementClaimCluster list)
     : Result<StageDataClassificationComponent.PaymentAgreementDecision list, AppError> =
     result {
-        let claimedLineIds =
-            clusters
-            |> List.collect (fun cluster -> cluster.claimants)
-            |> List.map (fun claimant -> claimant.candidate.lineIdOfCandidate)
-            |> List.distinct
-        let! existingLinks =
-            if claimedLineIds |> List.isEmpty then Ok []
-            else claimedLineIds |> PaymentAgreementLink.fetchByStageEntryLineIdList context
-        let alreadyLinkedLineIds =
-            existingLinks |> List.map PaymentAgreementLink.stageEntryLineId |> Set.ofList
         let! decisionsByCluster =
             clusters
             |> List.map (fun cluster -> result {
@@ -273,9 +263,6 @@ let private writeLinkagesForClaimClusters
                 match cluster.claimants with
                 | [ claimant ] when cluster.containsUnwrittenTies |> not ->
                     let lineId = claimant.candidate.lineIdOfCandidate
-                    if alreadyLinkedLineIds |> Set.contains lineId then
-                        return [ claimant |> decisionFor paymentAgreementId StageDataClassificationComponent.AlreadyLinked ]
-                    else
                     let now = context |> Context.getInitiationInstant
                     let linkId = PaymentAgreementLinkId.create ()
                     let link = PaymentAgreementLink.create linkId paymentAgreementId lineId now now
