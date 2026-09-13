@@ -282,11 +282,204 @@ let private writeLinkagesForClaimClusters
         return decisionsByCluster |> List.concat
     }
 
+// how many days past an invoice's due date a payment may land and still be considered a match for it
+let private gracePeriodInDaysFromCadenceType (cadenceType: Cadence.CadenceType) : int =
+    match cadenceType with
+    | Cadence.Daily -> 0
+    | Cadence.Weekly _ -> 2
+    | Cadence.EveryOtherWeek _ -> 4
+    | Cadence.Monthly _ -> 7
+    | Cadence.Annually _ -> 7
+
+let private noChangeInvoiceUpdates (invoiceId: CashFlowComponent.InvoiceId) : Invoice.InvoiceFieldUpdates =
+    { invoiceIdToUpdate = invoiceId
+      externalInvoiceIdUpdate = FieldUpdate.NoChange
+      invoiceDateUpdate = FieldUpdate.NoChange
+      dueDateUpdate = FieldUpdate.NoChange
+      amountUpdate = FieldUpdate.NoChange
+      invoiceStateUpdate = FieldUpdate.NoChange
+      paymentStateUpdate = FieldUpdate.NoChange
+      postedStateUpdate = FieldUpdate.NoChange
+      blockerUpdate = FieldUpdate.NoChange
+      memoUpdate = FieldUpdate.NoChange }
+
+let private createPaymentForInvoice
+    (context: Context.Context)
+    (instanceId: CashFlowComponent.InstanceId)
+    (invoiceId: CashFlowComponent.InvoiceId)
+    (lineId: StageEntryComponent.StageEntryLineId)
+    (amount: CashFlowComponent.PaymentAmount)
+    (entryDate: LocalDate)
+    : Result<InstanceOrchestration.InstanceComposite, AppError> =
+    let invoiceCompositeUpdate: InstanceOrchestration.InvoiceCompositeUpdate =
+        { invoiceUpdates = invoiceId |> noChangeInvoiceUpdates
+          paymentUpdates = []
+          newPayments =
+            [ CashFlowComponent.Staged lineId, amount, Some { localDate = entryDate }, None, None ] }
+    let compositeUpdate: InstanceOrchestration.InstanceCompositeUpdate =
+        { instanceUpdates =
+            { instanceIdToUpdate = instanceId
+              instanceDateUpdate = FieldUpdate.NoChange
+              isFulfilledUpdate = FieldUpdate.NoChange }
+          invoiceCompositeUpdates = [ invoiceCompositeUpdate ]
+          newInvoices = [] }
+    compositeUpdate |> InstanceOrchestration.updateInstanceComposite context
+
+let private isOverpaid
+    (invoiceId: CashFlowComponent.InvoiceId)
+    (instanceComposite: InstanceOrchestration.InstanceComposite)
+    : Result<bool, AppError> =
+    match
+        instanceComposite
+        |> InstanceOrchestration.invoiceComposites
+        |> List.tryFind (fun invoiceComposite ->
+            invoiceComposite |> InstanceOrchestration.invoice |> Invoice.invoiceId = invoiceId)
+    with
+    | None ->
+        let invoiceUuid = invoiceId |> CashFlowComponent.InvoiceId.value
+        Error(CashflowInvoiceIdDoesntExist invoiceUuid)
+    | Some invoiceComposite ->
+        result {
+            let payments = invoiceComposite |> InstanceOrchestration.payments
+            let! paidTotal = payments |> List.map Payment.amount |> List.map _.money |> Model.Money.sumList
+            let invoiceAmount = invoiceComposite |> InstanceOrchestration.invoice |> Invoice.amount
+            return paidTotal > invoiceAmount.money
+        }
+
 let private matchInvoicesAndCreatePayments
     (context: Context.Context)
     (openInstances: InstanceOrchestration.InstanceComposite list)
     : Result<CashFlowComponent.InvoiceDecision list, AppError> =
-    raise(NotImplementedException())
+    result {
+        // a fully paid invoice has nothing left to match. its instance can still be open, waiting on a sibling leg
+        let unpaidInvoices =
+            openInstances
+            |> List.collect (fun instanceComposite ->
+                let instanceId = instanceComposite |> InstanceOrchestration.instance |> Instance.instanceId
+                let masterAgreementId =
+                    instanceComposite |> InstanceOrchestration.instance |> Instance.masterAgreementID
+                instanceComposite
+                |> InstanceOrchestration.invoiceComposites
+                |> List.map (fun invoiceComposite ->
+                    instanceId, masterAgreementId, (invoiceComposite |> InstanceOrchestration.invoice))
+                |> List.filter (fun (_, _, invoice) ->
+                    let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
+                    lifeCycleState.paymentState <> CashFlowComponent.FullyPaid))
+            // the oldest bill gets first claim on a line two invoices could both take, and fetch order never decides it
+            |> List.sortBy (fun (_, _, invoice) ->
+                (invoice |> Invoice.dueDate).localDate,
+                (invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value))
+        if unpaidInvoices |> List.isEmpty then return [] else
+        let agreementIds =
+            unpaidInvoices |> List.map (fun (_, _, invoice) -> invoice |> Invoice.paymentAgreementId) |> List.distinct
+        let! links = agreementIds |> PaymentAgreementLink.fetchByPaymentAgreementIdList context
+        if links |> List.isEmpty then return [] else
+        let linkedLineIds = links |> List.map PaymentAgreementLink.stageEntryLineId |> List.distinct
+        let! linkedLines = linkedLineIds |> StageEntryLine.fetchByIdList context
+        let headerIds = linkedLines |> List.map StageEntryLine.stageEntryHeaderId |> List.distinct
+        let! headers = headerIds |> StageEntryHeader.fetchByIdList context
+        let entryDateByHeaderId =
+            headers
+            |> List.map (fun header ->
+                (header |> StageEntryHeader.stageEntryHeaderId), (header |> StageEntryHeader.entryDate))
+            |> Map.ofList
+        let lineById =
+            linkedLines |> List.map (fun line -> (line |> StageEntryLine.stageEntryLineId), line) |> Map.ofList
+        let! paymentsOnLinkedLines = linkedLineIds |> Payment.fetchByStageEntryLineIdList context
+        // a payment that has reached the ledger no longer names the staged line it came from, but its invoice is
+        // FullyPaid by then and was filtered out above, so its line cannot be a candidate here either way
+        let paidLineIds =
+            paymentsOnLinkedLines
+            |> List.choose (fun payment ->
+                match payment |> Payment.transactionPointer with
+                | CashFlowComponent.Staged lineId -> Some lineId
+                | CashFlowComponent.Posted _ -> None)
+            |> Set.ofList
+        let masterAgreementIds = unpaidInvoices |> List.map (fun (_, maId, _) -> maId) |> List.distinct
+        let! masterAgreements = masterAgreementIds |> MasterAgreement.fetchByMasterAgreementIdList context
+        let cadenceTypeByAgreementId =
+            masterAgreements
+            |> List.map (fun masterAgreement ->
+                (masterAgreement |> MasterAgreement.agreementID),
+                (masterAgreement |> MasterAgreement.cadence |> Cadence.cadenceType))
+            |> Map.ofList
+        let linesByAgreementId =
+            links
+            |> List.groupBy PaymentAgreementLink.paymentAgreementId
+            |> List.map (fun (agreementId, agreementLinks) ->
+                agreementId, (agreementLinks |> List.map PaymentAgreementLink.stageEntryLineId))
+            |> Map.ofList
+        let candidatesForInvoice
+            (masterAgreementId: CashFlowComponent.MasterAgreementId)
+            (invoice: Invoice.Invoice)
+            (claimedLineIds: Set<StageEntryComponent.StageEntryLineId>)
+            : StageEntryComponent.StageEntryLineId list =
+            let graceInDays =
+                match cadenceTypeByAgreementId |> Map.tryFind masterAgreementId with
+                | Some cadenceType -> cadenceType |> gracePeriodInDaysFromCadenceType
+                | None -> 0
+            let windowStart = (invoice |> Invoice.invoiceDate).localDate.PlusDays(-graceInDays)
+            let windowEnd = (invoice |> Invoice.dueDate).localDate.PlusDays(graceInDays)
+            match linesByAgreementId |> Map.tryFind (invoice |> Invoice.paymentAgreementId) with
+            | None -> []
+            | Some agreementLineIds ->
+                agreementLineIds
+                |> List.filter (fun lineId ->
+                    if paidLineIds |> Set.contains lineId || claimedLineIds |> Set.contains lineId then false else
+                    match lineById |> Map.tryFind lineId with
+                    | None -> false
+                    | Some line ->
+                        match entryDateByHeaderId |> Map.tryFind (line |> StageEntryLine.stageEntryHeaderId) with
+                        | None -> false
+                        | Some entryDate -> entryDate >= windowStart && entryDate <= windowEnd)
+        let! decisions, claimedLineIds, consideredLineIds =
+            unpaidInvoices
+            |> List.fold
+                (fun accumulator (instanceId, masterAgreementId, invoice) -> result {
+                    let! decisionsSoFar, claimedSoFar, consideredSoFar = accumulator
+                    let invoiceId = invoice |> Invoice.invoiceId
+                    let candidates = candidatesForInvoice masterAgreementId invoice claimedSoFar
+                    let consideredSoFar = Set.union consideredSoFar (candidates |> Set.ofList)
+                    match candidates with
+                    | [] -> return decisionsSoFar, claimedSoFar, consideredSoFar
+                    | [ lineId ] ->
+                        let line = lineById |> Map.find lineId
+                        let entryDate = entryDateByHeaderId |> Map.find (line |> StageEntryLine.stageEntryHeaderId)
+                        let amount: CashFlowComponent.PaymentAmount = { money = line |> StageEntryLine.amount }
+                        let! updated =
+                            entryDate |> createPaymentForInvoice context instanceId invoiceId lineId amount
+                        let! overpaid = updated |> isOverpaid invoiceId
+                        let created =
+                            { invoiceId = invoiceId; outcome = CashFlowComponent.PaymentCreated lineId }
+                        let overpayment =
+                            if overpaid then [ { invoiceId = invoiceId; outcome = CashFlowComponent.Overpayment } ]
+                            else []
+                        return
+                            decisionsSoFar @ [ created ] @ overpayment,
+                            claimedSoFar |> Set.add lineId,
+                            consideredSoFar
+                    | manyLineIds ->
+                        let contested =
+                            { invoiceId = invoiceId
+                              outcome = CashFlowComponent.ManyCandidateEntries manyLineIds }
+                        return decisionsSoFar @ [ contested ], claimedSoFar, consideredSoFar })
+                (Ok([], paidLineIds, Set.empty))
+        // a line that was offered to an invoice and lost is the operator's problem, not a data gap -- only a line no
+        // invoice would even consider means the Instance or Invoice it needs is missing
+        let accountedForLineIds = Set.union claimedLineIds consideredLineIds
+        do!
+            links
+            |> List.map (fun link ->
+                let lineId = link |> PaymentAgreementLink.stageEntryLineId
+                if accountedForLineIds |> Set.contains lineId then Ok () else
+                let lineUuid = lineId |> StageEntryComponent.StageEntryLineId.value
+                let agreementUuid =
+                    link |> PaymentAgreementLink.paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
+                Error(CashflowPaymentAgreementLinkNoInvoiceToMatch(lineUuid, agreementUuid)))
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
+        return decisions
+    }
 
 /// classifyPaymentAgreements does not update a stage entry's status. That belongs to the data ingestion domain.
 let classifyPaymentAgreements
@@ -368,15 +561,6 @@ let classifyPaymentAgreements
               openInstances = openInstances }
         return classificationResult
     }
-
-// how many days past an invoice's due date a payment may land and still be considered a match for it
-let private gracePeriodInDaysFromCadenceType (cadenceType: Cadence.CadenceType) : int =
-    match cadenceType with
-    | Cadence.Daily -> 0
-    | Cadence.Weekly _ -> 2
-    | Cadence.EveryOtherWeek _ -> 4
-    | Cadence.Monthly _ -> 7
-    | Cadence.Annually _ -> 7
 
 let Projection() =
     // Takes a horizon. Reads ledger balances + open invoices. Returns per-account `{ currentBalance, knownInflows,

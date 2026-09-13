@@ -271,6 +271,21 @@ let fetchByInvoiceIdList
     let predicate = $"pmt.invoice_id in ({names})"
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
+let fetchByStageEntryLineIdList
+    (context: Context.Context)
+    (lineIds: StageEntryLineId list)
+    : Result<Payment list, AppError> =
+    if lineIds |> List.isEmpty then Error IngestionStageEntryLineIdListCannotBeEmpty else
+    let namesAndParameters =
+        List.zip [ 1 .. lineIds.Length ] lineIds
+        |> List.map (fun (ordinal, id) ->
+            let name = $"@stageEntryLineId{ordinal}"
+            name, { name = name; value = UniqueId(id |> StageEntryLineId.value) })
+    let names = namesAndParameters |> List.map fst |> String.concat ", "
+    let parameters = namesAndParameters |> List.map snd
+    let predicate = $"pmt.stage_entry_line_id in ({names})"
+    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
+
 let update
     (context: Context.Context)
     (fieldUpdates: PaymentFieldUpdates)
