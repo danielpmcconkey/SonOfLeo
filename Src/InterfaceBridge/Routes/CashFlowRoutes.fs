@@ -116,14 +116,41 @@ let private createPayment payload _ =
             return! Json.toJson<InstanceCompositeReturn> converted
         })
 
-let private createPaymentAgreementLink _ _ =
-    raise (System.NotImplementedException())
+let private createPaymentAgreementLink payload _ =
+    runCommandRouteAndAutoCompleteTransaction CashFlowCreatePaymentAgreementLink (fun context ->
+        result {
+            let! input = Json.fromJson<CreatePaymentAgreementLinkInput> payload
+            let! paymentAgreementId =
+                input.paymentAgreementName |> ``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context
+            let stageEntryLineId =
+                input.stageEntryLineId |> DataIngestion.StageEntryComponent.StageEntryLineId.fromGuid
+            let! link =
+                stageEntryLineId |> CashFlowOps.constructNewPaymentAgreementLinkAndPersist context paymentAgreementId
+            let! converted = link |> ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]`` context
+            return! Json.toJson<PaymentAgreementLinkReturn> converted
+        })
 
-let private updatePaymentAgreementLink _ _ =
-    raise (System.NotImplementedException())
+let private updatePaymentAgreementLink payload _ =
+    runCommandRouteAndAutoCompleteTransaction CashFlowUpdatePaymentAgreementLink (fun context ->
+        result {
+            let! input = Json.fromJson<UpdatePaymentAgreementLinkInput> payload
+            let! fieldUpdates =
+                input |> ``convert [UpdatePaymentAgreementLinkInput] to [PaymentAgreementLinkFieldUpdates]`` context
+            let! link = fieldUpdates |> PaymentAgreementLink.update context
+            let! converted = link |> ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]`` context
+            return! Json.toJson<PaymentAgreementLinkReturn> converted
+        })
 
-let private deletePaymentAgreementLink _ _ =
-    raise (System.NotImplementedException())
+let private deletePaymentAgreementLink payload _ =
+    runCommandRouteAndAutoCompleteTransaction CashFlowDeletePaymentAgreementLink (fun context ->
+        result {
+            let! input = Json.fromJson<DeletePaymentAgreementLinkInput> payload
+            let linkId = input.paymentAgreementLinkId |> PaymentAgreementLinkId.fromGuid
+            let! link = linkId |> PaymentAgreementLink.fetchById context
+            do! linkId |> PaymentAgreementLink.delete context
+            let! converted = link |> ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]`` context
+            return! Json.toJson<PaymentAgreementLinkReturn> converted
+        })
 
 let private fetchAgreementSummary _ _ =
     raise (System.NotImplementedException())

@@ -104,6 +104,7 @@ type AppError =
     | CashflowPaymentAgreementDebitAccountInvalid of Guid
     | CashflowPaymentAgreementIdDoesntExist of Guid
     | CashflowPaymentAgreementIdListCannotBeEmpty
+    | CashflowPaymentAgreementLinkLineAlreadyLinked of Guid * Guid
     | CashflowPaymentAgreementLinkNoInvoiceToMatch of Guid * Guid
     | CashflowPaymentAgreementLinkUpdateNoOp
     | CashflowPaymentAgreementMemoIsEmpty of string
@@ -366,6 +367,7 @@ module AppError =
         | CashflowPaymentAgreementDebitAccountInvalid uuid -> $"PaymentAgreement's debit account ({uuid}) does not match an Account in the database."
         | CashflowPaymentAgreementIdDoesntExist uuid -> $"Could not locate a PaymentAgreement with the id of {uuid}."
         | CashflowPaymentAgreementIdListCannotBeEmpty -> "The paymentAgreementIds list must contain at least 1 ID."
+        | CashflowPaymentAgreementLinkLineAlreadyLinked(stageEntryLineId, paymentAgreementId) -> $"Stage entry line {stageEntryLineId} is already linked to PaymentAgreement {paymentAgreementId}. Repoint that linkage or remove it rather than adding a second one."
         | CashflowPaymentAgreementLinkNoInvoiceToMatch(stageEntryLineId, paymentAgreementId) -> $"Stage entry line {stageEntryLineId} is linked to PaymentAgreement {paymentAgreementId} but no open Invoice accepts it. The Instance or Invoice it belongs to is missing, or the cadence that would have created it is wrong."
         | CashflowPaymentAgreementLinkUpdateNoOp -> "Updating the PaymentAgreementLink record failed because at least one updatable parameter must be set."
         | CashflowPaymentAgreementMemoIsEmpty memo -> $"PaymentAgreementMemo cannot be empty. Provided Memo is {memo}."

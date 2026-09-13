@@ -562,6 +562,35 @@ let classifyPaymentAgreements
         return classificationResult
     }
 
+let constructNewPaymentAgreementLinkAndPersist
+    (context: Context.Context)
+    (paymentAgreementId: PaymentAgreementId)
+    (stageEntryLineId: StageEntryComponent.StageEntryLineId)
+    : Result<PaymentAgreementLink.PaymentAgreementLink, AppError> =
+    result {
+        let! _ =
+            match stageEntryLineId |> StageEntryLine.fetchById context with
+            | Ok line -> Ok line
+            | Error(DalResultantRowsDidntMatchExpectation(_, 0)) ->
+                let lineUuid = stageEntryLineId |> StageEntryComponent.StageEntryLineId.value
+                Error(IngestionStageEntryLineIdDoesntExist lineUuid)
+            | Error e -> Error e
+        let! existingLinks = stageEntryLineId |> PaymentAgreementLink.fetchByStageEntryLineId context
+        do!
+            match existingLinks with
+            | [] -> Ok ()
+            | existingLink :: _ ->
+                let lineUuid = stageEntryLineId |> StageEntryComponent.StageEntryLineId.value
+                let agreementUuid =
+                    existingLink |> PaymentAgreementLink.paymentAgreementId |> PaymentAgreementId.value
+                Error(CashflowPaymentAgreementLinkLineAlreadyLinked(lineUuid, agreementUuid))
+        let now = context |> Context.getInitiationInstant
+        let linkId = PaymentAgreementLinkId.create ()
+        let link = PaymentAgreementLink.create linkId paymentAgreementId stageEntryLineId now now
+        do! link |> PaymentAgreementLink.persist context
+        return link
+    }
+
 let Projection() =
     // Takes a horizon. Reads ledger balances + open invoices. Returns per-account `{ currentBalance, knownInflows,
     // knownOutflows, projectedLow }` + `billsToChase` (instances with no invoice).
