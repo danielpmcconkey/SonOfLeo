@@ -229,6 +229,8 @@ type CreatePaymentInput = {
     payment: CreatePaymentFieldsInput
 }
 
+type DeletePaymentInput = { paymentId: Guid }
+
 type CreatePaymentAgreementLinkInput = {
     paymentAgreementName: string
     stageEntryLineId: Guid

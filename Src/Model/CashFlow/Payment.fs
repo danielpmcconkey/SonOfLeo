@@ -286,6 +286,29 @@ let fetchByStageEntryLineIdList
     let predicate = $"pmt.stage_entry_line_id in ({names})"
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
+/// fetchStageEntryLineIdById reads the column rather than the Payment, because a posted payment's TransactionPointer
+/// resolves to the journal entry line and hides the stage line it was created from.
+let fetchStageEntryLineIdById
+    (context: Context.Context)
+    (paymentId: PaymentId)
+    : Result<StageEntryLineId option, AppError> =
+    let mapRawForDbRead (row: RowReader) =
+        (row |> RowReader.getUuidOption "stage_entry_line_id"), ()
+    let reconstitute raw =
+        let stageEntryLineUuid, _ = raw
+        Ok stageEntryLineUuid
+    let queryStatement = "select stage_entry_line_id from cashflow.payment where unique_id = @unique_id"
+    let uuid = paymentId |> PaymentId.value
+    let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
+    match
+        executeReaderQuery
+            (context |> Context.getDatabaseTransaction) queryStatement parameters mapRawForDbRead reconstitute
+            ExactlyOne
+    with
+    | Ok rows -> Ok(rows |> List.head |> Option.map StageEntryLineId.fromGuid)
+    | Error(DalResultantRowsDidntMatchExpectation(_, 0)) -> Error(CashflowPaymentIdDoesntExist uuid)
+    | Error e -> Error e
+
 let update
     (context: Context.Context)
     (fieldUpdates: PaymentFieldUpdates)
@@ -334,3 +357,9 @@ let update
         do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
         return! paymentId |> fetchById context
     }
+
+let delete (context: Context.Context) (paymentId: PaymentId) : Result<unit, AppError> =
+    let queryStatement = "delete from cashflow.payment where unique_id = @unique_id;"
+    let uuid = paymentId |> PaymentId.value
+    let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
+    executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne

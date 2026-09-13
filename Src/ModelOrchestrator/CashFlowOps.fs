@@ -314,6 +314,7 @@ let private createPaymentForInvoice
     let invoiceCompositeUpdate: InstanceOrchestration.InvoiceCompositeUpdate =
         { invoiceUpdates = invoiceId |> noChangeInvoiceUpdates
           paymentUpdates = []
+          paymentIdsToDelete = []
           newPayments =
             [ CashFlowComponent.Staged lineId, amount, Some { localDate = entryDate }, None, None ] }
     let compositeUpdate: InstanceOrchestration.InstanceCompositeUpdate =
@@ -589,6 +590,57 @@ let constructNewPaymentAgreementLinkAndPersist
         let link = PaymentAgreementLink.create linkId paymentAgreementId stageEntryLineId now now
         do! link |> PaymentAgreementLink.persist context
         return link
+    }
+
+/// deletePaymentAndItsLinkage also removes the payment agreement linkage that produced the payment, which hands the
+/// stage entry line back to classification as an unclaimed row. The linkage survives when another payment still points
+/// at the same line.
+let deletePaymentAndItsLinkage
+    (context: Context.Context)
+    (paymentId: PaymentId)
+    : Result<InstanceOrchestration.InstanceComposite, AppError> =
+    result {
+        let! payment =
+            match paymentId |> Payment.fetchById context with
+            | Ok found -> Ok found
+            | Error(DalResultantRowsDidntMatchExpectation(_, 0)) ->
+                let paymentUuid = paymentId |> PaymentId.value
+                Error(CashflowPaymentIdDoesntExist paymentUuid)
+            | Error e -> Error e
+        let invoiceId = payment |> Payment.invoiceId
+        let! invoice = invoiceId |> Invoice.fetchById context
+        let instanceId = invoice |> Invoice.instanceId
+        let! stageEntryLineId = paymentId |> Payment.fetchStageEntryLineIdById context
+        do!
+            match stageEntryLineId with
+            | None -> Ok ()
+            | Some lineId ->
+                result {
+                    let! paymentsOnLine = [ lineId ] |> Payment.fetchByStageEntryLineIdList context
+                    let otherPaymentsOnLine =
+                        paymentsOnLine |> List.filter (fun other -> other |> Payment.paymentId <> paymentId)
+                    if otherPaymentsOnLine |> List.isEmpty |> not then return () else
+                    let! links = lineId |> PaymentAgreementLink.fetchByStageEntryLineId context
+                    return!
+                        links
+                        |> List.map (fun link ->
+                            link |> PaymentAgreementLink.paymentAgreementLinkId |> PaymentAgreementLink.delete context)
+                        |> convertListOfResultsToResultsList
+                        |> Result.map ignore
+                }
+        let invoiceCompositeUpdate: InstanceOrchestration.InvoiceCompositeUpdate =
+            { invoiceUpdates = invoiceId |> noChangeInvoiceUpdates
+              paymentUpdates = []
+              paymentIdsToDelete = [ paymentId ]
+              newPayments = [] }
+        let compositeUpdate: InstanceOrchestration.InstanceCompositeUpdate =
+            { instanceUpdates =
+                { instanceIdToUpdate = instanceId
+                  instanceDateUpdate = FieldUpdate.NoChange
+                  isFulfilledUpdate = FieldUpdate.NoChange }
+              invoiceCompositeUpdates = [ invoiceCompositeUpdate ]
+              newInvoices = [] }
+        return! compositeUpdate |> InstanceOrchestration.updateInstanceComposite context
     }
 
 let Projection() =

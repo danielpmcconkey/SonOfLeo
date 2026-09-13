@@ -18,6 +18,7 @@ type AuditableAction =
     | CashFlowCreatePayment
     | CashFlowCreatePaymentAgreementLink
     | CashFlowCreateUpcomingInstances
+    | CashFlowDeletePayment
     | CashFlowDeletePaymentAgreementLink
     | CashFlowUpdateAgreement
     | CashFlowUpdateInvoice

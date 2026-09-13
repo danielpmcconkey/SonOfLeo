@@ -116,6 +116,16 @@ let private createPayment payload _ =
             return! Json.toJson<InstanceCompositeReturn> converted
         })
 
+let private deletePayment payload _ =
+    runCommandRouteAndAutoCompleteTransaction CashFlowDeletePayment (fun context ->
+        result {
+            let! input = Json.fromJson<DeletePaymentInput> payload
+            let paymentId = input.paymentId |> PaymentId.fromGuid
+            let! instanceComposite = paymentId |> CashFlowOps.deletePaymentAndItsLinkage context
+            let! converted = instanceComposite |> ``convert [InstanceComposite] to [InstanceCompositeReturn]`` context
+            return! Json.toJson<InstanceCompositeReturn> converted
+        })
+
 let private createPaymentAgreementLink payload _ =
     runCommandRouteAndAutoCompleteTransaction CashFlowCreatePaymentAgreementLink (fun context ->
         result {
@@ -212,6 +222,13 @@ let cashFlowDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<CreatePaymentInput>.Name
         outputContract = typeof<InstanceCompositeReturn>.Name
         handler = createPayment }
+
+      { domain = "CashFlow"
+        verb = "DeletePayment"
+        description = "Remove a payment that never should have been recorded, along with the payment agreement linkage that produced it, and return the whole instance with its invoice states and fulfillment re-derived. This is a hard delete, not a void."
+        inputContract = typeof<DeletePaymentInput>.Name
+        outputContract = typeof<InstanceCompositeReturn>.Name
+        handler = deletePayment }
 
       { domain = "CashFlow"
         verb = "CreatePaymentAgreementLink"

@@ -451,6 +451,7 @@ let private isThereAPaymentUpdate
 type InvoiceCompositeUpdate = {
     invoiceUpdates: Invoice.InvoiceFieldUpdates
     paymentUpdates: Payment.PaymentFieldUpdates list
+    paymentIdsToDelete: CashFlowComponent.PaymentId list
     newPayments: (
         CashFlowComponent.TransactionPointer *
         CashFlowComponent.PaymentAmount *
@@ -485,6 +486,7 @@ let private isThereACompositeUpdate (compositeUpdate: InstanceCompositeUpdate) :
        |> List.exists (fun invoiceCompositeUpdate ->
            invoiceCompositeUpdate.invoiceUpdates |> isThereAnInvoiceUpdate
            || invoiceCompositeUpdate.paymentUpdates |> List.exists isThereAPaymentUpdate
+           || invoiceCompositeUpdate.paymentIdsToDelete |> List.isEmpty |> not
            || invoiceCompositeUpdate.newPayments |> List.isEmpty |> not)
     || compositeUpdate.newInvoices |> List.isEmpty |> not
 
@@ -557,6 +559,8 @@ let private preConstructInvoiceComposite
                 Error(CashflowInvoiceIdDoesntExist invoiceUuid)
         let! updatedPayments =
             current.payments
+            |> List.filter (fun payment ->
+                invoiceCompositeUpdate.paymentIdsToDelete |> List.contains (payment |> Payment.paymentId) |> not)
             |> List.map (fun payment ->
                 let paymentId = payment |> Payment.paymentId
                 match
@@ -567,9 +571,9 @@ let private preConstructInvoiceComposite
                 | None -> Ok payment)
             |> convertListOfResultsToResultsList
         do!
-            invoiceCompositeUpdate.paymentUpdates
-            |> List.map (fun paymentUpdate ->
-                let paymentId = paymentUpdate.paymentIdToUpdate
+            (invoiceCompositeUpdate.paymentUpdates |> List.map _.paymentIdToUpdate)
+            @ invoiceCompositeUpdate.paymentIdsToDelete
+            |> List.map (fun paymentId ->
                 if current.payments |> List.exists (fun payment -> payment |> Payment.paymentId = paymentId) then Ok ()
                 else
                     let paymentUuid = paymentId |> CashFlowComponent.PaymentId.value
@@ -698,6 +702,11 @@ let updateInstanceComposite
                     invoiceCompositeUpdate.paymentUpdates
                     |> List.filter isThereAPaymentUpdate
                     |> List.map (fun paymentUpdate -> paymentUpdate |> Payment.update context |> Result.map ignore)
+                    |> convertListOfResultsToResultsList
+                    |> Result.map ignore
+                do!
+                    invoiceCompositeUpdate.paymentIdsToDelete
+                    |> List.map (Payment.delete context)
                     |> convertListOfResultsToResultsList
                     |> Result.map ignore
                 return!

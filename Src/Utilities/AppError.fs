@@ -116,6 +116,7 @@ type AppError =
     | CashflowPaymentAgreementNotUnderMasterAgreement of Guid * Guid
     | CashflowPaymentAgreementUpdateNoOp
     | CashflowPaymentAgreementsListCannotBeEmpty
+    | CashflowPaymentIdDoesntExist of Guid
     | CashflowPaymentLineNotOnAgreementAccount of Guid * Guid option * Guid
     | CashflowPaymentMemoIsEmpty of string
     | CashflowPaymentMemoTooLong of string * int
@@ -379,6 +380,7 @@ module AppError =
         | CashflowPaymentAgreementNotUnderMasterAgreement(paymentAgreementId, agreementId) -> $"PaymentAgreement {paymentAgreementId} does not belong to MasterAgreement {agreementId}."
         | CashflowPaymentAgreementUpdateNoOp -> "Updating the PaymentAgreement record failed because at least one updatable parameter must be set."
         | CashflowPaymentAgreementsListCannotBeEmpty -> "A MasterAgreement must have at least one PaymentAgreement."
+        | CashflowPaymentIdDoesntExist uuid -> $"Could not locate a Payment with the id of {uuid}."
         | CashflowPaymentLineNotOnAgreementAccount(paymentUuid, actualAccountUuid, expectedAccountUuid) ->
             let actualStr =
                 match actualAccountUuid with

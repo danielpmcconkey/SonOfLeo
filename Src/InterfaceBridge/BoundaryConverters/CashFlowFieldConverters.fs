@@ -493,7 +493,7 @@ let ``convert [UpdateInvoiceInput] to [InstanceCompositeUpdate]``
             blockerUpdate = blockerUpdate
             memoUpdate = memoUpdate }
         let invoiceCompositeUpdate : InstanceOrchestration.InvoiceCompositeUpdate =
-            { invoiceUpdates = invoiceUpdates; paymentUpdates = []; newPayments = [] }
+            { invoiceUpdates = invoiceUpdates; paymentUpdates = []; paymentIdsToDelete = []; newPayments = [] }
         return {
             instanceUpdates = instanceId |> noChangeInstanceUpdates
             invoiceCompositeUpdates = [ invoiceCompositeUpdate ]
@@ -512,6 +512,7 @@ let ``convert [CreatePaymentInput] to [InstanceCompositeUpdate]``
         let invoiceCompositeUpdate : InstanceOrchestration.InvoiceCompositeUpdate =
             { invoiceUpdates = invoiceId |> noChangeInvoiceUpdates
               paymentUpdates = []
+              paymentIdsToDelete = []
               newPayments = [ newPayment ] }
         return {
             instanceUpdates = instanceId |> noChangeInstanceUpdates
