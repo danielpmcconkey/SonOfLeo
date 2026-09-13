@@ -1,11 +1,27 @@
 module InterfaceBridge.Routes.CashFlowRoutes
 
+open DataAccessLayer.DbTransaction
+open InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
 open InterfaceBridge.InterfaceContracts.CashFlowContracts
 open InterfaceBridge.InterfaceContracts.SharedContracts
 open InterfaceBridge.CommandRoute
+open Logger.Audit
+open Model.CashFlow.CashFlowComponent
+open ModelOrchestrator
+open Utilities
+open Utilities.Json
+open Utilities.ResultHelper
 
-let private createUpcomingInstances _ _ =
-    raise (System.NotImplementedException())
+let private createUpcomingInstances payload _ =
+    let context = Context.create NoTransaction CashFlowCreateUpcomingInstances
+    result {
+        let! input = Json.fromJson<CreateUpcomingInstancesInput> payload
+        let! horizon = input.projectionHorizonInDays |> ProjectionHorizonInDays.create
+        let! openInstances = horizon |> CashFlowOps.createUpcomingInstances context
+        let! converted =
+            openInstances |> ``convert [InstanceComposite list] to [InstanceCompositeReturn list]`` context
+        return! Json.toJson<InstanceCompositeReturn list> converted
+    }
 
 let private classifyPaymentAgreements _ _ =
     raise (System.NotImplementedException())
