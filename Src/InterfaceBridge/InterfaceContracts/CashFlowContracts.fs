@@ -160,6 +160,13 @@ type PaymentAgreementClassificationResultReturn = {
     openInstances: InstanceCompositeReturn list
 }
 
+type PaymentPostingTransitionReturn = {
+    paymentId: Guid
+    agreementName: string
+    invoiceAmount: decimal
+    journalEntryLineId: Guid
+}
+
 // ****************************************
 // Input
 // ****************************************

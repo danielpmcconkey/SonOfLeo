@@ -36,6 +36,14 @@ let private classifyPaymentAgreements _ _ =
             return! Json.toJson<PaymentAgreementClassificationResultReturn> converted
         })
 
+let private transitionPaymentsToPosted _ _ =
+    runCommandRouteAndAutoCompleteTransaction CashFlowTransitionPaymentsToPosted (fun context ->
+        result {
+            let! transitions = CashFlowOps.transitionPaymentsToPosted context
+            let converted = transitions |> List.map ``convert [PaymentPostingTransition] to [PaymentPostingTransitionReturn]``
+            return! Json.toJson<PaymentPostingTransitionReturn list> converted
+        })
+
 let private createAgreement payload _ =
     runCommandRouteAndAutoCompleteTransaction CashFlowCreateAgreement (fun context ->
         result {
@@ -187,6 +195,13 @@ let cashFlowDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<NoInput>.Name
         outputContract = typeof<PaymentAgreementClassificationResultReturn>.Name
         handler = classifyPaymentAgreements }
+
+      { domain = "CashFlow"
+        verb = "TransitionPaymentsToPosted"
+        description = "Repoint every payment whose staged entry line has since been posted at the journal entry line it became, and re-derive the posted state of each invoice that touches. Returns the payments moved."
+        inputContract = typeof<NoInput>.Name
+        outputContract = typeof<PaymentPostingTransitionReturn list>.Name
+        handler = transitionPaymentsToPosted }
 
       { domain = "CashFlow"
         verb = "CreateAgreement"

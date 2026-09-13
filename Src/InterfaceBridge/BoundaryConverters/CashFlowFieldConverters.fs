@@ -280,6 +280,14 @@ let ``convert [InvoiceDecision] to [InvoiceDecisionReturn]`` (decision: InvoiceD
         | CashFlowComponent.Overpayment -> InvoiceDecisionOutcomeReturn.Overpayment
     { invoiceId = decision.invoiceId |> InvoiceId.value; outcome = outcome }
 
+let ``convert [PaymentPostingTransition] to [PaymentPostingTransitionReturn]``
+    (transition: PaymentPostingTransition)
+    : PaymentPostingTransitionReturn =
+    { paymentId = transition.paymentId |> PaymentId.value
+      agreementName = transition.agreementName |> AgreementName.value
+      invoiceAmount = transition.invoiceAmount.money |> Money.amount
+      journalEntryLineId = transition.journalEntryLineId |> JournalEntryLineId.value }
+
 let ``convert [PaymentAgreementClassificationResult] to [PaymentAgreementClassificationResultReturn]``
     (context: Context.Context)
     (classificationResult: InstanceOrchestration.PaymentAgreementClassificationResult)
