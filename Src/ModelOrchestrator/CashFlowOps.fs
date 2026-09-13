@@ -643,7 +643,7 @@ let deletePaymentAndItsLinkage
         return! compositeUpdate |> InstanceOrchestration.updateInstanceComposite context
     }
 
-let Projection() =
+let projectCashFlowNDaysForward() =
     // Takes a horizon. Reads ledger balances + open invoices. Returns per-account `{ currentBalance, knownInflows,
     // knownOutflows, projectedLow }` + `billsToChase` (instances with no invoice).
     raise(NotImplementedException())
