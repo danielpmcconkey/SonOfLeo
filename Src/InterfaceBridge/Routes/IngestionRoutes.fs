@@ -171,7 +171,13 @@ let private deduplicateStageEntries _ _ =
             return! Json.toJson<StageEntryReturn list> converted })
 
 let private classifyAccounts _ _ =
-    raise (System.NotImplementedException())
+    runCommandRouteAndAutoCompleteTransaction IngestClassifyAccounts (fun context ->
+        result {
+            let! classificationResult = StageEntryOrchestration.classifyAccounts context
+            let! converted =
+                classificationResult
+                |> ``convert [AccountClassificationResult] to [AccountClassificationResultReturn]`` context
+            return! Json.toJson<AccountClassificationResultReturn> converted })
 
 let ingestionDomainCommandRoutes: CommandRoute list =
     [

@@ -129,6 +129,26 @@ let ``convert [StageEntry list] to [StageEntryReturn list]``
     |> List.map(fun x -> x |> ``convert [StageEntry] to [StageEntryReturn]`` context)
     |> convertListOfResultsToResultsList
 
+let ``convert [AccountClassificationResult] to [AccountClassificationResultReturn]``
+    (context: Context.Context)
+    (classificationResult: AccountClassificationResult)
+    : Result<AccountClassificationResultReturn, AppError> = result {
+    let! classificationResults =
+        classificationResult.classificationResults
+        |> ``convert [ClassificationResult list] to [ClassificationResultReturn list]`` context
+    let! stagedEntries =
+        classificationResult.stagedEntries
+        |> ``convert [StageEntry list] to [StageEntryReturn list]`` context
+    let sortedResults =
+        classificationResults
+        |> List.sortBy (fun r -> r.candidate.stageEntryHeaderId, r.candidate.stageEntryLineId)
+    let sortedEntries =
+        stagedEntries
+        |> List.sortBy (fun e -> e.stageEntryHeader.entryDate, e.stageEntryHeader.stageEntryHeaderId)
+    return {    runId = classificationResult.runId |> ClassificationRunId.value
+                classificationResults = sortedResults
+                stagedEntries = sortedEntries } }
+
 let ``convert [IngestionSource] to [IngestionSourceReturn]``
     (source: IngestionSource.IngestionSource)
     : IngestionSourceReturn = {
