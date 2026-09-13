@@ -312,6 +312,15 @@ let classifyPaymentAgreements
               StageEntryComponent.NoMatch
               StageEntryComponent.Conflict ]
         let! roster = rosterStatuses |> StageEntryOrchestration.fetchByStatusList context
+        let rosterLineIds =
+            roster
+            |> List.collect StageEntryOrchestration.seLines
+            |> List.map StageEntryLine.stageEntryLineId
+        let! existingLinks =
+            if rosterLineIds |> List.isEmpty then Ok []
+            else rosterLineIds |> PaymentAgreementLink.fetchByStageEntryLineIdList context
+        let linkedLineIds =
+            existingLinks |> List.map PaymentAgreementLink.stageEntryLineId |> Set.ofList
         // an entry whose lines all carry an account is still a candidate here. account assignment and obligation
         // linkage are independent questions about the same row
         let (matchCandidates: StageDataClassificationComponent.MatchCandidate list) =
@@ -320,6 +329,8 @@ let classifyPaymentAgreements
                 let header = entry |> StageEntryOrchestration.stageEntryHeader
                 entry
                 |> StageEntryOrchestration.seLines
+                |> List.filter (fun line ->
+                    linkedLineIds |> Set.contains (line |> StageEntryLine.stageEntryLineId) |> not)
                 |> List.map (fun line -> {
                     headerIdOfCandidate = header |> StageEntryHeader.stageEntryHeaderId
                     lineIdOfCandidate = line |> StageEntryLine.stageEntryLineId
