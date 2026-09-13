@@ -13,18 +13,25 @@ open Utilities.Json
 open Utilities.ResultHelper
 
 let private createUpcomingInstances payload _ =
-    let context = Context.create NoTransaction CashFlowCreateUpcomingInstances
-    result {
-        let! input = Json.fromJson<CreateUpcomingInstancesInput> payload
-        let! horizon = input.projectionHorizonInDays |> ProjectionHorizonInDays.create
-        let! openInstances = horizon |> CashFlowOps.createUpcomingInstances context
-        let! converted =
-            openInstances |> ``convert [InstanceComposite list] to [InstanceCompositeReturn list]`` context
-        return! Json.toJson<InstanceCompositeReturn list> converted
-    }
+    runCommandRouteAndAutoCompleteTransaction CashFlowCreateUpcomingInstances (fun context ->
+        result {
+            let! input = Json.fromJson<CreateUpcomingInstancesInput> payload
+            let! horizon = input.projectionHorizonInDays |> ProjectionHorizonInDays.create
+            let! openInstances = horizon |> CashFlowOps.createUpcomingInstances context
+            let! converted =
+                openInstances |> ``convert [InstanceComposite list] to [InstanceCompositeReturn list]`` context
+            return! Json.toJson<InstanceCompositeReturn list> converted
+        })
 
 let private classifyPaymentAgreements _ _ =
-    raise (System.NotImplementedException())
+    runCommandRouteAndAutoCompleteTransaction CashFlowClassifyPaymentAgreements (fun context ->
+        result {
+            let! classificationResult = CashFlowOps.classifyPaymentAgreements context
+            let! converted =
+                classificationResult
+                |> ``convert [PaymentAgreementClassificationResult] to [PaymentAgreementClassificationResultReturn]`` context
+            return! Json.toJson<PaymentAgreementClassificationResultReturn> converted
+        })
 
 let private createAgreement _ _ =
     raise (System.NotImplementedException())

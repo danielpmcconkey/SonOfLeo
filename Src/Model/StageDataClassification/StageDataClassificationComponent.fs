@@ -154,6 +154,15 @@ type PaymentAgreementDecisionOutcome =
     | NoLineOnAgreementAccounts
     | ManyLinesOnAgreementAccount
 
+module PaymentAgreementDecisionOutcome =
+    let toString outcome =
+        match outcome with
+        | Linked -> "Linked"
+        | ContestedAgreement -> "ContestedAgreement"
+        | TiedClaimants -> "TiedClaimants"
+        | NoLineOnAgreementAccounts -> "NoLineOnAgreementAccounts"
+        | ManyLinesOnAgreementAccount -> "ManyLinesOnAgreementAccount"
+
 type PaymentAgreementDecision = {
     stageEntryLineId: StageEntryLineId
     paymentAgreementId: CashFlowComponent.PaymentAgreementId option

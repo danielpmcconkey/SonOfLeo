@@ -1,7 +1,7 @@
 module InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
 
 open InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
+open InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
 open InterfaceBridge.InterfaceContracts.ClassificationContracts
 open Model
 open Model.DataIngestion.StageEntryComponent

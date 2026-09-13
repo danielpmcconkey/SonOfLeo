@@ -1,57 +1,17 @@
 module InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
 
+open InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
+open InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
 open InterfaceBridge.InterfaceContracts.CashFlowContracts
 open Model
 open Model.CashFlow
 open Model.CashFlow.CashFlowComponent
 open Model.DataIngestion.StageEntryComponent
 open Model.Ledger.JournalEntryComponent
+open Model.StageDataClassification
 open ModelOrchestrator
 open Utilities.AppError
 open Utilities.ResultHelper
-
-let private fallibleConverterPaymentAgreementNameStringToPaymentAgreementUuid context nameString =
-    result {
-        // see if the string represents a valid name first
-        let! _ = nameString |> PaymentAgreementName.create
-        // now see if it matches a payment agreement ID
-        return!
-            match nameString |> LookupCache.paymentAgreementNameToId.fetch context with
-            | Ok x -> Ok x
-            | Error(DalResultantRowsDidntMatchExpectation _) ->
-                Error(CashflowPaymentAgreementNameDoesntMatchId nameString)
-            | Error e -> Error e
-    }
-
-let ``convert [PaymentAgreementNameString] to [PaymentAgreementId]``
-    (context: Context.Context)
-    (nameString: string)
-    : Result<PaymentAgreementId, AppError> =
-    result {
-        let! uuid = nameString |> fallibleConverterPaymentAgreementNameStringToPaymentAgreementUuid context
-        return uuid |> PaymentAgreementId.fromGuid
-    }
-
-let ``convert [PaymentAgreementNameString option] to [PaymentAgreementId option]``
-    (context: Context.Context)
-    (nameStringOption: string option)
-    : Result<PaymentAgreementId option, AppError> =
-    nameStringOption
-    |> convertOptionToDesiredTypeWithFallibleConverter (``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context)
-
-let ``convert [PaymentAgreementId] to [PaymentAgreementNameString]``
-    (context: Context.Context)
-    (paymentAgreementId: PaymentAgreementId)
-    : Result<string, AppError> =
-    paymentAgreementId |> PaymentAgreementId.value |> LookupCache.paymentAgreementIdToName.fetch context
-
-let ``convert [PaymentAgreementId option] to [PaymentAgreementNameString option]``
-    (context: Context.Context)
-    (paymentAgreementIdOption: PaymentAgreementId option)
-    : Result<string option, AppError> =
-    paymentAgreementIdOption
-    |> convertOptionToDesiredTypeWithFallibleConverter
-        (``convert [PaymentAgreementId] to [PaymentAgreementNameString]`` context)
 
 let ``convert [Blocker] to [BlockerContract]`` (blocker: Blocker) : BlockerContract =
     match blocker with
@@ -146,3 +106,49 @@ let ``convert [InstanceComposite list] to [InstanceCompositeReturn list]``
     instanceComposites
     |> List.map (``convert [InstanceComposite] to [InstanceCompositeReturn]`` context)
     |> convertListOfResultsToResultsList
+
+let ``convert [PaymentAgreementDecision] to [PaymentAgreementDecisionReturn]``
+    (context: Context.Context)
+    (decision: StageDataClassificationComponent.PaymentAgreementDecision)
+    : Result<PaymentAgreementDecisionReturn, AppError> =
+    result {
+        let! paymentAgreementName =
+            decision.paymentAgreementId |> ``convert [PaymentAgreementId option] to [PaymentAgreementNameString option]`` context
+        return {
+            stageEntryLineId = decision.stageEntryLineId |> StageEntryLineId.value
+            paymentAgreementName = paymentAgreementName
+            ruleIds = decision.ruleIds |> List.map StageDataClassificationComponent.ClassificationRuleId.value
+            outcome = decision.outcome |> StageDataClassificationComponent.PaymentAgreementDecisionOutcome.toString } }
+
+let ``convert [InvoiceDecision] to [InvoiceDecisionReturn]`` (decision: InvoiceDecision) : InvoiceDecisionReturn =
+    let outcome =
+        match decision.outcome with
+        | CashFlowComponent.PaymentCreated lineId ->
+            InvoiceDecisionOutcomeReturn.PaymentCreated(lineId |> StageEntryLineId.value)
+        | CashFlowComponent.ManyCandidateEntries lineIds ->
+            InvoiceDecisionOutcomeReturn.ManyCandidateEntries(lineIds |> List.map StageEntryLineId.value)
+        | CashFlowComponent.Overpayment -> InvoiceDecisionOutcomeReturn.Overpayment
+    { invoiceId = decision.invoiceId |> InvoiceId.value; outcome = outcome }
+
+let ``convert [PaymentAgreementClassificationResult] to [PaymentAgreementClassificationResultReturn]``
+    (context: Context.Context)
+    (classificationResult: InstanceOrchestration.PaymentAgreementClassificationResult)
+    : Result<PaymentAgreementClassificationResultReturn, AppError> =
+    result {
+        let! classificationResults =
+            classificationResult.classificationResults
+            |> ``convert [ClassificationResult list] to [ClassificationResultReturn list]`` context
+        let! decisionLog =
+            classificationResult.decisionLog
+            |> List.map (``convert [PaymentAgreementDecision] to [PaymentAgreementDecisionReturn]`` context)
+            |> convertListOfResultsToResultsList
+        let! openInstances =
+            classificationResult.openInstances
+            |> ``convert [InstanceComposite list] to [InstanceCompositeReturn list]`` context
+        return {
+            runId = classificationResult.runId |> StageDataClassificationComponent.ClassificationRunId.value
+            classificationResults = classificationResults
+            decisionLog = decisionLog
+            invoiceDecisionLog =
+                classificationResult.invoiceDecisionLog |> List.map ``convert [InvoiceDecision] to [InvoiceDecisionReturn]``
+            openInstances = openInstances } }
