@@ -648,7 +648,103 @@ let Projection() =
     // knownOutflows, projectedLow }` + `billsToChase` (instances with no invoice).
     raise(NotImplementedException())
 
-let transitionPaymentsToPosted() =
-    // No input. For every Payment pointing at a staged entry that now has a JE, transitions pointer to Posted + updates
-    // invoice posted state. Returns the list.
-    raise(NotImplementedException())
+let private transitionOneInstancesPaymentsToPosted
+    (context: Context.Context)
+    (instanceId: InstanceId)
+    (postings:
+        (Payment.Payment * Model.Ledger.JournalEntryComponent.JournalEntryLineId * Invoice.Invoice) list)
+    : Result<PaymentPostingTransition list, AppError> =
+    result {
+        let invoiceCompositeUpdates =
+            postings
+            |> List.groupBy (fun (_, _, invoice) -> invoice |> Invoice.invoiceId)
+            |> List.map (fun (invoiceId, invoicePostings) ->
+                let paymentUpdates =
+                    invoicePostings
+                    |> List.map (fun (payment, journalEntryLineId, _) ->
+                        let paymentUpdate: Payment.PaymentFieldUpdates =
+                            { paymentIdToUpdate = payment |> Payment.paymentId
+                              journalEntryLineIdUpdate = FieldUpdate.SetTo(Some journalEntryLineId)
+                              stageEntryLineIdUpdate = FieldUpdate.NoChange
+                              postedToFiDateUpdate = FieldUpdate.NoChange
+                              memoUpdate = FieldUpdate.NoChange }
+                        paymentUpdate)
+                let invoiceCompositeUpdate: InstanceOrchestration.InvoiceCompositeUpdate =
+                    { invoiceUpdates = invoiceId |> noChangeInvoiceUpdates
+                      paymentUpdates = paymentUpdates
+                      paymentIdsToDelete = []
+                      newPayments = [] }
+                invoiceCompositeUpdate)
+        let compositeUpdate: InstanceOrchestration.InstanceCompositeUpdate =
+            { instanceUpdates =
+                { instanceIdToUpdate = instanceId
+                  instanceDateUpdate = FieldUpdate.NoChange
+                  isFulfilledUpdate = FieldUpdate.NoChange }
+              invoiceCompositeUpdates = invoiceCompositeUpdates
+              newInvoices = [] }
+        let! composite = compositeUpdate |> InstanceOrchestration.updateInstanceComposite context
+        let agreementName = composite |> InstanceOrchestration.instance |> Instance.masterAgreementName
+        return
+            postings
+            |> List.map (fun (payment, journalEntryLineId, invoice) ->
+                { paymentId = payment |> Payment.paymentId
+                  agreementName = agreementName
+                  invoiceAmount = invoice |> Invoice.amount
+                  journalEntryLineId = journalEntryLineId })
+    }
+
+let transitionPaymentsToPosted (context: Context.Context) : Result<PaymentPostingTransition list, AppError> =
+    result {
+        let! stagedPayments = Payment.fetchByStagedTransactionPointer context
+        let paymentsAndLines =
+            stagedPayments
+            |> List.choose (fun payment ->
+                match payment |> Payment.transactionPointer with
+                | CashFlowComponent.Staged stageEntryLineId -> Some(payment, stageEntryLineId)
+                | CashFlowComponent.Posted _ -> None)
+        if paymentsAndLines |> List.isEmpty then return [] else
+        let! stageEntryLines =
+            paymentsAndLines
+            |> List.map snd
+            |> List.distinct
+            |> StageEntryLine.fetchByIdList context
+        let postedLines =
+            stageEntryLines
+            |> List.choose (fun line ->
+                line
+                |> StageEntryLine.journalEntryLineId
+                |> Option.map (fun journalEntryLineId -> (line |> StageEntryLine.stageEntryLineId), journalEntryLineId))
+        let paymentsAndJournalEntryLines =
+            paymentsAndLines
+            |> List.choose (fun (payment, stageEntryLineId) ->
+                postedLines
+                |> List.tryFind (fun (lineId, _) -> lineId = stageEntryLineId)
+                |> Option.map (fun (_, journalEntryLineId) -> payment, journalEntryLineId))
+        if paymentsAndJournalEntryLines |> List.isEmpty then return [] else
+        let! invoices =
+            paymentsAndJournalEntryLines
+            |> List.map (fun (payment, _) -> payment |> Payment.invoiceId)
+            |> List.distinct
+            |> Invoice.fetchByIdList context
+        let! postings =
+            paymentsAndJournalEntryLines
+            |> List.map (fun (payment, journalEntryLineId) ->
+                let invoiceId = payment |> Payment.invoiceId
+                match invoices |> List.tryFind (fun invoice -> invoice |> Invoice.invoiceId = invoiceId) with
+                | Some invoice -> Ok(payment, journalEntryLineId, invoice)
+                | None ->
+                    let invoiceUuid = invoiceId |> InvoiceId.value
+                    Error(CashflowInvoiceIdDoesntExist invoiceUuid))
+            |> convertListOfResultsToResultsList
+        let! transitions =
+            postings
+            |> List.groupBy (fun (_, _, invoice) -> invoice |> Invoice.instanceId)
+            |> List.map (fun (instanceId, instancePostings) ->
+                instancePostings |> transitionOneInstancesPaymentsToPosted context instanceId)
+            |> convertListOfResultsToResultsList
+        return
+            transitions
+            |> List.concat
+            |> List.sortBy (fun transition ->
+                (transition.agreementName |> AgreementName.value), (transition.paymentId |> PaymentId.value))
+    }
