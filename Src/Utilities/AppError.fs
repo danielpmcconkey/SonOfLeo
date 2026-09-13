@@ -184,6 +184,7 @@ type AppError =
     | IngestionBaseStageGroupIdDistinctDataViolation of string
     | IngestionClassificationRuleGroupsEmpty
     | IngestionClassificationRuleIdDoesntExist of Guid
+    | IngestionClassificationRuleIdListCannotBeEmpty
     | IngestionClassificationRuleInvalidClaimant of Guid * Guid option * Guid option
     | IngestionClassificationRuleNameIsEmpty of string
     | IngestionClassificationRuleNameTooLong of string * int 
@@ -453,6 +454,7 @@ module AppError =
         | IngestionBaseStageGroupIdDistinctDataViolation str -> $"More than one combination of \"header\" data found for BaseStageEntryGroupId {str}"
         | IngestionClassificationRuleGroupsEmpty -> "A ClassificationRule's ClassificationRuleGroup list cannot be empty."
         | IngestionClassificationRuleIdDoesntExist uuid -> $"Could not locate a ClassificationRule with the id of {uuid}."
+        | IngestionClassificationRuleIdListCannotBeEmpty -> "The classificationRuleIds list must contain at least 1 ID."
         | IngestionClassificationRuleInvalidClaimant(ruleUuid, accountUuid, paymentAgreementUuid) ->
             let accountStr = match accountUuid with
                                 | Some x -> x.ToString()

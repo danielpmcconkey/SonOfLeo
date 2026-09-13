@@ -174,6 +174,21 @@ let fetchById (context: Context.Context) (ruleId: ClassificationRuleId) : Result
     let parameters = [ { name = "@unique_id"; value = UniqueId(nameStr) } ]
     query context None (Some predicate) None parameters None ExactlyOne |> Result.map List.head
 
+let fetchByIdList
+    (context: Context.Context)
+    (ruleIds: ClassificationRuleId list)
+    : Result<ClassificationRule list, AppError> =
+    if ruleIds |> List.isEmpty then Error IngestionClassificationRuleIdListCannotBeEmpty else
+    let namesAndParameters =
+        List.zip [ 1 .. ruleIds.Length ] ruleIds
+        |> List.map (fun (ordinal, id) ->
+            let name = $"@classificationRuleId{ordinal}"
+            name, { name = name; value = UniqueId(id |> ClassificationRuleId.value) })
+    let names = namesAndParameters |> List.map fst |> String.concat ", "
+    let parameters = namesAndParameters |> List.map snd
+    let predicate = $"cr.unique_id in ({names})"
+    query context None (Some predicate) None parameters None AnyQuantityIsAcceptable
+
 let fetchByName (context: Context.Context) (name: ClassificationRuleName) : Result<ClassificationRule, AppError> =
     let predicate = "cr.rule_name = @rule_name"
     let nameStr = name |> ClassificationRuleName.value

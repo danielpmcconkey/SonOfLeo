@@ -88,8 +88,24 @@ let private fetchClassificationRuleFiltered payload _ =
         return! Json.toJson<ClassificationRuleReturn list> returnVal
     }
 
-let private fetchClassificationRun _ _ =
-    raise (System.NotImplementedException())
+let private fetchClassificationRun payload _ =
+    let context = Context.create NoTransaction FetchOnly
+    result {
+        let! input = Json.fromJson<FetchClassificationRunInput> payload
+        let runId = input.runId |> ClassificationRunId.fromGuid
+        let! matchesWithRules = runId |> fetchRunMatchesWithRules context
+        let! matches =
+            matchesWithRules
+            |> List.map (fun (ruleMatch, rule) ->
+                ruleMatch |> ``convert [RuleMatch] to [RuleMatchReturn]`` context rule)
+            |> convertListOfResultsToResultsList
+        let sorted =
+            matches
+            |> List.sortBy (fun ruleMatch ->
+                ruleMatch.stageEntryLineId, ruleMatch.priority, ruleMatch.classificationRuleName)
+        let returnVal : ClassificationRunReturn = { runId = input.runId; matches = sorted }
+        return! Json.toJson<ClassificationRunReturn> returnVal
+    }
 
 let classificationDomainCommandRoutes: CommandRoute list =
     [

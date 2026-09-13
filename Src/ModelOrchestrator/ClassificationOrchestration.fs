@@ -218,6 +218,34 @@ let private recordRuleMatches
     |> convertListOfResultsToResultsList
     |> Result.map ignore
 
+/// fetchRunMatchesWithRules pairs each recorded match with the rule as it stands now, not as it stood during the run.
+/// The diagnostic row keeps neither the claimed entity nor the priority, so renaming or re-prioritizing a rule changes
+/// how an old run reads back.
+let fetchRunMatchesWithRules
+    (context: Context.Context)
+    (runId: ClassificationRunId)
+    : Result<(RuleMatch.RuleMatch * ClassificationRule.ClassificationRule) list, AppError> =
+    result {
+        let! matches = runId |> RuleMatch.fetchByRunId context
+        if matches |> List.isEmpty then return [] else
+        let ruleIds = matches |> List.map RuleMatch.classificationRuleId |> List.distinct
+        let! rules = ruleIds |> ClassificationRule.fetchByIdList context
+        let rulesById =
+            rules
+            |> List.map (fun rule -> (rule |> ClassificationRule.classificationRuleId), rule)
+            |> Map.ofList
+        return!
+            matches
+            |> List.map (fun ruleMatch ->
+                let ruleId = ruleMatch |> RuleMatch.classificationRuleId
+                match rulesById |> Map.tryFind ruleId with
+                | Some rule -> Ok(ruleMatch, rule)
+                | None ->
+                    let ruleUuid = ruleId |> ClassificationRuleId.value
+                    Error(IngestionClassificationRuleIdDoesntExist ruleUuid))
+            |> convertListOfResultsToResultsList
+    }
+
 let classifyMatchCandidatesAndRecordMatches
     (context: Context.Context)
     (claimantType: ClassificationClaimantType)

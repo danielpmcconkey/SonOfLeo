@@ -263,3 +263,22 @@ let ``convert [ClassificationRuleFilterInput] to [ClassificationRuleFilter]``
         sourceLike = filterInput.sourceLike
         activeOnly = filterInput.activeOnly
     } }
+
+let ``convert [RuleMatch] to [RuleMatchReturn]``
+    (context: Context.Context)
+    (rule: ClassificationRule.ClassificationRule)
+    (ruleMatch: RuleMatch.RuleMatch)
+    : Result<RuleMatchReturn, AppError> =
+    result {
+        let! claimantAtMatch =
+            rule
+            |> ClassificationRule.classificationClaimant
+            |> ``convert [ClassificationClaimant] to [ClassificationClaimantReturn]`` context
+        return {
+            ruleMatchId = ruleMatch |> RuleMatch.classificationMatchId |> ClassificationMatchId.value
+            stageEntryLineId = ruleMatch |> RuleMatch.stageEntryLineId |> StageEntryLineId.value
+            classificationRuleId = ruleMatch |> RuleMatch.classificationRuleId |> ClassificationRuleId.value
+            classificationRuleName = rule |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value
+            claimantAtMatch = claimantAtMatch
+            priority = rule |> ClassificationRule.priority
+            createdAt = ruleMatch |> RuleMatch.createdAt } }
