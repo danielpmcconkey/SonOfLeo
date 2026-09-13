@@ -195,14 +195,6 @@ let private selectLegsOfClaimedEntries
         match direction with
         | Income -> Model.Ledger.JournalEntryComponent.Credit
         | Outgo -> Model.Ledger.JournalEntryComponent.Debit
-    let expectedAccountId (paymentAgreement: PaymentAgreement.PaymentAgreement) (direction: FlowDirection) =
-        match direction with
-        | Income ->
-            let (CreditAccount accountId) = paymentAgreement |> PaymentAgreement.creditAccount
-            accountId
-        | Outgo ->
-            let (DebitAccount accountId) = paymentAgreement |> PaymentAgreement.debitAccount
-            accountId
     let doesAnyClaimingRuleConstrainLineType
         (paymentAgreementId: PaymentAgreementId)
         (claims: (PaymentAgreementId * StageDataClassificationComponent.ClassificationResult) list)
@@ -235,7 +227,7 @@ let private selectLegsOfClaimedEntries
                         let agreementUuid = paymentAgreementId |> PaymentAgreementId.value
                         Error (CashflowPaymentAgreementIdDoesntExist agreementUuid)
                     | Some (paymentAgreement, direction) ->
-                        let accountId = expectedAccountId paymentAgreement direction
+                        let accountId = paymentAgreement |> PaymentAgreement.accountIdForFlowDirection direction
                         let lineType = expectedLineType direction
                         claims
                         |> List.filter (fun (_, result) ->

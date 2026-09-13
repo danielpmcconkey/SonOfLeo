@@ -68,6 +68,18 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
+/// accountIdForFlowDirection names the account the money lands on for a direction: an Income agreement is satisfied on
+/// its credit account, an Outgo agreement on its debit account. It says nothing about line type, which a rule is
+/// allowed to override.
+let accountIdForFlowDirection (direction: FlowDirection) (paymentAgreement: PaymentAgreement) : AccountId =
+    match direction with
+    | Income ->
+        let (CreditAccount accountId) = paymentAgreement.creditAccount
+        accountId
+    | Outgo ->
+        let (DebitAccount accountId) = paymentAgreement.debitAccount
+        accountId
+
 let persist
     (context: Context.Context)
     (paymentAgreement: PaymentAgreement)

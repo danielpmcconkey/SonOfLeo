@@ -141,63 +141,42 @@ let private confirmAuthorityAndCohesion
 
 let private confirmPayment
     (context: Context.Context)
+    (direction: CashFlowComponent.FlowDirection)
+    (paymentAgreements: PaymentAgreement.PaymentAgreement list)
     (payment: Payment.Payment)
     : Result<unit, AppError> =
     result {
-        do!
-            match payment |> Payment.invoiceId |> Invoice.fetchById context with
-            | Ok _ -> Ok ()
+        let invoiceId = payment |> Payment.invoiceId
+        let! invoice =
+            match invoiceId |> Invoice.fetchById context with
+            | Ok fetched -> Ok fetched
             | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                let invoiceUuid = payment |> Payment.invoiceId |> CashFlowComponent.InvoiceId.value
+                let invoiceUuid = invoiceId |> CashFlowComponent.InvoiceId.value
                 Error(CashflowInvoiceIdDoesntExist invoiceUuid)
             | Error e -> Error e
-        // JE and SE existence is checked below via whichever half of the transactionPointer is actually populated;
-        // the other half isn't reachable off a reconstituted Payment (see transactionPointerFromColumns).
-        let! journalEntryHeader =
-            match payment |> Payment.transactionPointer with
-            | CashFlowComponent.Posted journalEntryLineId ->
-                // the pointer names a line, but the date checked below lives on the header, so this branch resolves
-                // one hop further than the staged branch needs to
-                match journalEntryLineId |> JournalEntryLine.fetchById context with
-                | Ok line ->
-                    let headerId = line |> JournalEntryLine.journalEntryHeaderId
-                    match headerId |> JournalEntryHeader.fetchById context with
-                    | Ok header -> Ok(Some header)
-                    | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                        let journalEntryHeaderUuid = headerId |> JournalEntryHeaderId.value
-                        Error(JournalEntryHeaderIdDoesntExist journalEntryHeaderUuid)
-                    | Error e -> Error e
-                | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                    let journalEntryLineUuid = journalEntryLineId |> JournalEntryLineId.value
-                    Error(JournalEntryLineIdDoesntExist journalEntryLineUuid)
-                | Error e -> Error e
-            | CashFlowComponent.Staged stageEntryLineId ->
-                match stageEntryLineId |> StageEntryLine.fetchById context with
-                | Ok _ -> Ok None
-                | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                    let stageEntryLineUuid = stageEntryLineId |> StageEntryLineId.value
-                    Error(IngestionStageEntryLineIdDoesntExist stageEntryLineUuid)
-                | Error e -> Error e
-        return!
-            match payment |> Payment.postedToLedgerDate, journalEntryHeader with
-            | None, _ -> Ok ()
-            | Some _, None ->
-                let paymentUuid = payment |> Payment.paymentId |> CashFlowComponent.PaymentId.value
-                Error(CashflowPaymentPostedToLedgerDateWithoutJournalEntry paymentUuid)
-            | Some providedDate, Some header ->
-                let actualDate = header |> JournalEntryHeader.entryDate |> EntryDate.entryDate
-                if providedDate.localDate = actualDate then Ok ()
-                else
-                    let paymentUuid = payment |> Payment.paymentId |> CashFlowComponent.PaymentId.value
-                    Error(CashflowPaymentPostedToLedgerDateMismatch(paymentUuid, providedDate.localDate, actualDate))
+        let paymentAgreementId = invoice |> Invoice.paymentAgreementId
+        let! paymentAgreement =
+            match
+                paymentAgreements
+                |> List.tryFind (fun candidate ->
+                    candidate |> PaymentAgreement.paymentAgreementId = paymentAgreementId)
+            with
+            | Some found -> Ok found
+            | None ->
+                let paymentAgreementUuid = paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
+                Error(CashflowPaymentAgreementIdDoesntExist paymentAgreementUuid)
+        let expectedAccountId = paymentAgreement |> PaymentAgreement.accountIdForFlowDirection direction
+        return! payment |> InstanceOrchestration.confirmPayment context expectedAccountId
     }
 
 let private confirmPayments
     (context: Context.Context)
+    (direction: CashFlowComponent.FlowDirection)
+    (paymentAgreements: PaymentAgreement.PaymentAgreement list)
     (payments: Payment.Payment list)
     : Result<unit, AppError> =
     payments
-    |> List.map (confirmPayment context)
+    |> List.map (confirmPayment context direction paymentAgreements)
     |> convertListOfResultsToResultsList
     |> Result.map ignore
 
@@ -341,7 +320,10 @@ let private confirmComposite
             agreement.instances
             |> confirmInstances (agreement.masterAgreement |> MasterAgreement.agreementID)
         do! agreement.invoices |> confirmInvoices context
-        do! agreement.payments |> confirmPayments context
+        do!
+            agreement.payments
+            |> confirmPayments context (agreement.masterAgreement |> MasterAgreement.direction)
+                   agreement.paymentAgreements
     }
 
 let constructNewAndPersist

@@ -110,6 +110,7 @@ type AppError =
     | CashflowPaymentAgreementNotUnderMasterAgreement of Guid * Guid
     | CashflowPaymentAgreementUpdateNoOp
     | CashflowPaymentAgreementsListCannotBeEmpty
+    | CashflowPaymentLineNotOnAgreementAccount of Guid * Guid option * Guid
     | CashflowPaymentMemoIsEmpty of string
     | CashflowPaymentMemoTooLong of string * int
     | CashflowPaymentNotUnderInvoice of Guid * Guid
@@ -366,6 +367,12 @@ module AppError =
         | CashflowPaymentAgreementNotUnderMasterAgreement(paymentAgreementId, agreementId) -> $"PaymentAgreement {paymentAgreementId} does not belong to MasterAgreement {agreementId}."
         | CashflowPaymentAgreementUpdateNoOp -> "Updating the PaymentAgreement record failed because at least one updatable parameter must be set."
         | CashflowPaymentAgreementsListCannotBeEmpty -> "A MasterAgreement must have at least one PaymentAgreement."
+        | CashflowPaymentLineNotOnAgreementAccount(paymentUuid, actualAccountUuid, expectedAccountUuid) ->
+            let actualStr =
+                match actualAccountUuid with
+                | Some uuid -> uuid.ToString()
+                | None -> "unassigned"
+            $"Payment {paymentUuid} points at a line on account {actualStr}, but its PaymentAgreement is satisfied on account {expectedAccountUuid}."
         | CashflowPaymentMemoIsEmpty memo -> $"PaymentMemo cannot be empty. Provided Memo is {memo}."
         | CashflowPaymentMemoTooLong(memo, max) -> $"PaymentMemo cannot exceed {max} characters. Provided Memo is {memo}."
         | CashflowPaymentNotUnderInvoice(paymentId, invoiceId) -> $"Payment {paymentId} does not belong to Invoice {invoiceId}."
