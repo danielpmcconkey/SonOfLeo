@@ -325,3 +325,34 @@ type PaymentPostingTransition = {
     invoiceAmount: InvoiceAmount
     journalEntryLineId: JournalEntryLineId
 }
+
+type ProjectedInvoice = {
+    invoiceId: InvoiceId
+    agreementName: AgreementName
+    direction: FlowDirection
+    dueDate: DueDate
+    amount: InvoiceAmount
+}
+
+type ProjectedAccount = {
+    accountId: AccountId
+    accountCode: AccountCode
+    accountName: AccountName
+    currentBalance: Model.Money
+    knownInflows: Model.Money
+    knownOutflows: Model.Money
+    projectedLow: Model.Money
+    invoices: ProjectedInvoice list
+}
+
+type BillToChase = {
+    instanceId: InstanceId
+    agreementName: AgreementName
+    instanceDate: LocalDate
+    cadenceType: Model.CashFlow.Cadence.CadenceType
+}
+
+type CashFlowProjection = {
+    accounts: ProjectedAccount list
+    billsToChase: BillToChase list
+}

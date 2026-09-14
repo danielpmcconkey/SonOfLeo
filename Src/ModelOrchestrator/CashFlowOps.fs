@@ -4,6 +4,7 @@ open System
 open Model.CashFlow
 open Model.CashFlow.CashFlowComponent
 open Model.DataIngestion
+open Model.Ledger.Account
 open Model.StageDataClassification
 open ModelOrchestrator
 open NodaTime
@@ -638,10 +639,126 @@ let deletePaymentAndItsLinkage
         return! compositeUpdate |> InstanceOrchestration.updateInstanceComposite context
     }
 
-let projectCashFlowNDaysForward() =
-    // Takes a horizon. Reads ledger balances + open invoices. Returns per-account `{ currentBalance, knownInflows,
-    // knownOutflows, projectedLow }` + `billsToChase` (instances with no invoice).
-    raise(NotImplementedException())
+let projectCashFlowNDaysForward
+    (context: Context.Context)
+    (daysOut: ProjectionHorizonInDays)
+    : Result<CashFlowProjection, AppError> =
+    result {
+        let runDate = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
+        let horizonEnd = runDate.PlusDays(daysOut |> ProjectionHorizonInDays.value)
+        let! allAccounts = Account.fetchAll context true
+        let cashAccounts =
+            allAccounts
+            |> List.filter (fun account ->
+                account |> Account.accountSubType = Some Model.Ledger.AccountComponent.Cash)
+        let cashAccountIds = cashAccounts |> List.map Account.accountId
+        let! balances =
+            if cashAccountIds |> List.isEmpty then Ok []
+            else AccountBalance.fetchByAccountIdList context (Some cashAccountIds) (Some runDate)
+        let balanceByAccountId =
+            balances
+            |> List.map (fun (balance: AccountBalance.AccountBalance) -> balance.accountId, balance.netBalance)
+            |> Map.ofList
+        let! openInstances = InstanceOrchestration.fetchCompositesByIsFulfilled context false
+        let masterAgreementIds =
+            openInstances
+            |> List.map (fun composite -> composite |> InstanceOrchestration.instance |> Instance.masterAgreementID)
+            |> List.distinct
+        let! masterAgreements =
+            if masterAgreementIds |> List.isEmpty then Ok []
+            else masterAgreementIds |> MasterAgreement.fetchByMasterAgreementIdList context
+        let masterAgreementById =
+            masterAgreements
+            |> List.map (fun master -> (master |> MasterAgreement.agreementID), master)
+            |> Map.ofList
+        let invoicesWithAgreementId =
+            openInstances
+            |> List.collect (fun composite ->
+                let masterAgreementId = composite |> InstanceOrchestration.instance |> Instance.masterAgreementID
+                composite
+                |> InstanceOrchestration.invoiceComposites
+                |> List.map (fun invoiceComposite ->
+                    masterAgreementId, (invoiceComposite |> InstanceOrchestration.invoice)))
+        let paymentAgreementIds =
+            invoicesWithAgreementId
+            |> List.map (fun (_, invoice) -> invoice |> Invoice.paymentAgreementId)
+            |> List.distinct
+        let! paymentAgreements =
+            if paymentAgreementIds |> List.isEmpty then Ok []
+            else paymentAgreementIds |> PaymentAgreement.fetchByPaymentAgreementIdList context
+        let paymentAgreementById =
+            paymentAgreements
+            |> List.map (fun agreement -> (agreement |> PaymentAgreement.paymentAgreementId), agreement)
+            |> Map.ofList
+        let cashAccountIdSet = cashAccountIds |> Set.ofList
+        // an already-overdue bill is the most urgent money to move, so the window has no lower bound
+        let projectedInvoicesByAccountId =
+            invoicesWithAgreementId
+            |> List.filter (fun (_, invoice) ->
+                let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
+                lifeCycleState.paymentState <> CashFlowComponent.FullyPaid
+                && (invoice |> Invoice.dueDate).localDate <= horizonEnd)
+            |> List.choose (fun (masterAgreementId, invoice) ->
+                let master = masterAgreementById |> Map.find masterAgreementId
+                let paymentAgreement = paymentAgreementById |> Map.find (invoice |> Invoice.paymentAgreementId)
+                let direction = master |> MasterAgreement.direction
+                let accountId = paymentAgreement |> PaymentAgreement.cashAccountIdForFlowDirection direction
+                if cashAccountIdSet |> Set.contains accountId |> not then None else
+                let projected: CashFlowComponent.ProjectedInvoice =
+                    { invoiceId = invoice |> Invoice.invoiceId
+                      agreementName = master |> MasterAgreement.agreementName
+                      direction = direction
+                      dueDate = invoice |> Invoice.dueDate
+                      amount = invoice |> Invoice.amount }
+                Some(accountId, projected))
+            |> List.groupBy fst
+            |> List.map (fun (accountId, pairs) -> accountId, (pairs |> List.map snd))
+            |> Map.ofList
+        let! zero = Model.Money.fromDecimal 0M
+        let! projectedAccounts =
+            cashAccounts
+            |> List.map (fun account ->
+                let accountId = account |> Account.accountId
+                let invoices = projectedInvoicesByAccountId |> Map.tryFind accountId |> Option.defaultValue []
+                let currentBalance = balanceByAccountId |> Map.tryFind accountId |> Option.defaultValue zero
+                let amountsForDirection (direction: FlowDirection) =
+                    invoices
+                    |> List.filter (fun (invoice: CashFlowComponent.ProjectedInvoice) -> invoice.direction = direction)
+                    |> List.map (fun invoice -> invoice.amount.money)
+                result {
+                    let! knownInflows = CashFlowComponent.Income |> amountsForDirection |> Model.Money.sumList
+                    let! knownOutflows = CashFlowComponent.Outgo |> amountsForDirection |> Model.Money.sumList
+                    let! balanceWithInflows = Model.Money.add currentBalance knownInflows
+                    let! projectedLow = Model.Money.subtractVal1FromVal2 knownOutflows balanceWithInflows
+                    let projectedAccount: CashFlowComponent.ProjectedAccount =
+                        { accountId = accountId
+                          accountCode = account |> Account.code
+                          accountName = account |> Account.accountName
+                          currentBalance = currentBalance
+                          knownInflows = knownInflows
+                          knownOutflows = knownOutflows
+                          projectedLow = projectedLow
+                          invoices = invoices }
+                    return projectedAccount
+                })
+            |> convertListOfResultsToResultsList
+        let billsToChase =
+            openInstances
+            |> List.filter (fun composite -> composite |> InstanceOrchestration.invoiceComposites |> List.isEmpty)
+            |> List.choose (fun composite ->
+                let instance = composite |> InstanceOrchestration.instance
+                if (instance |> Instance.instanceDate) > horizonEnd then None else
+                let master = masterAgreementById |> Map.find (instance |> Instance.masterAgreementID)
+                let billToChase: CashFlowComponent.BillToChase =
+                    { instanceId = instance |> Instance.instanceId
+                      agreementName = instance |> Instance.masterAgreementName
+                      instanceDate = instance |> Instance.instanceDate
+                      cadenceType = master |> MasterAgreement.cadence |> Cadence.cadenceType }
+                Some billToChase)
+        let projection: CashFlowComponent.CashFlowProjection =
+            { accounts = projectedAccounts; billsToChase = billsToChase }
+        return projection
+    }
 
 let private transitionOneInstancesPaymentsToPosted
     (context: Context.Context)

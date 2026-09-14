@@ -80,6 +80,18 @@ let accountIdForFlowDirection (direction: FlowDirection) (paymentAgreement: Paym
         let (DebitAccount accountId) = paymentAgreement.debitAccount
         accountId
 
+/// cashAccountIdForFlowDirection is deliberately the opposite leg to accountIdForFlowDirection: money leaving on an
+/// Outgo agreement credits the account it is paid from, and money arriving on an Income agreement debits the account
+/// it lands in.
+let cashAccountIdForFlowDirection (direction: FlowDirection) (paymentAgreement: PaymentAgreement) : AccountId =
+    match direction with
+    | Income ->
+        let (DebitAccount accountId) = paymentAgreement.debitAccount
+        accountId
+    | Outgo ->
+        let (CreditAccount accountId) = paymentAgreement.creditAccount
+        accountId
+
 let persist
     (context: Context.Context)
     (paymentAgreement: PaymentAgreement)
