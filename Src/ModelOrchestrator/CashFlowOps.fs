@@ -330,22 +330,17 @@ let private isOverpaid
     (invoiceId: CashFlowComponent.InvoiceId)
     (instanceComposite: InstanceOrchestration.InstanceComposite)
     : Result<bool, AppError> =
-    match
-        instanceComposite
-        |> InstanceOrchestration.invoiceComposites
-        |> List.tryFind (fun invoiceComposite ->
-            invoiceComposite |> InstanceOrchestration.invoice |> Invoice.invoiceId = invoiceId)
-    with
-    | None ->
-        let invoiceUuid = invoiceId |> CashFlowComponent.InvoiceId.value
-        Error(CashflowInvoiceIdDoesntExist invoiceUuid)
-    | Some invoiceComposite ->
-        result {
-            let payments = invoiceComposite |> InstanceOrchestration.payments
-            let! paidTotal = payments |> List.map Payment.amount |> List.map _.money |> Model.Money.sumList
-            let invoiceAmount = invoiceComposite |> InstanceOrchestration.invoice |> Invoice.amount
-            return paidTotal > invoiceAmount.money
-        }
+    result {
+        let invoiceComposite =
+            instanceComposite
+            |> InstanceOrchestration.invoiceComposites
+            |> List.find (fun invoiceComposite ->
+                invoiceComposite |> InstanceOrchestration.invoice |> Invoice.invoiceId = invoiceId)
+        let payments = invoiceComposite |> InstanceOrchestration.payments
+        let! paidTotal = payments |> List.map Payment.amount |> List.map _.money |> Model.Money.sumList
+        let invoiceAmount = invoiceComposite |> InstanceOrchestration.invoice |> Invoice.amount
+        return paidTotal > invoiceAmount.money
+    }
 
 let private matchInvoicesAndCreatePayments
     (context: Context.Context)
