@@ -24,15 +24,15 @@ type AuditableAction =
     | CashFlowUpdateAgreement
     | CashFlowUpdateInvoice
     | CashFlowUpdatePaymentAgreementLink
+    | ClassificationNewRule
+    | ClassificationUpdateRule
     | FiscalPeriodCreate
     | FiscalPeriodClose
     | FiscalPeriodReopen
     | IngestClassifyAccounts
     | IngestDeduplicateStageEntries
     | IngestRawEntries
-    | IngestNewClassificationRule
     | IngestNewSource
-    | IngestUpdateClassificationRule
     | IngestUpdateStageEntry
     | IngestPostStageEntries
     | IngestShadowPostStageEntries

@@ -14,7 +14,7 @@ open Utilities.Json
 open Utilities.ResultHelper
 
 let private newClassificationRule payload _ =
-    let context = Context.create NoTransaction IngestNewClassificationRule
+    let context = Context.create NoTransaction ClassificationNewRule
     result {
         let! input = Json.fromJson<NewClassificationRuleInput> payload
         let! name = input.classificationRuleName |> ClassificationRuleName.create
@@ -34,7 +34,7 @@ let private newClassificationRule payload _ =
     }
 
 let private updateClassificationRule payload _ =
-    let context = Context.create NoTransaction IngestUpdateClassificationRule
+    let context = Context.create NoTransaction ClassificationUpdateRule
     result {
         let! input = Json.fromJson<UpdateClassificationRuleInput> payload
         let classificationRuleId = input.classificationRuleId |> ClassificationRuleId.fromGuid
