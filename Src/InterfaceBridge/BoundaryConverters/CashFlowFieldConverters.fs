@@ -288,6 +288,45 @@ let ``convert [PaymentPostingTransition] to [PaymentPostingTransitionReturn]``
       invoiceAmount = transition.invoiceAmount.money |> Money.amount
       journalEntryLineId = transition.journalEntryLineId |> JournalEntryLineId.value }
 
+let ``convert [ProjectedInvoice] to [ProjectedInvoiceReturn]`` (invoice: ProjectedInvoice) : ProjectedInvoiceReturn =
+    { invoiceId = invoice.invoiceId |> InvoiceId.value
+      agreementName = invoice.agreementName |> AgreementName.value
+      direction = invoice.direction |> FlowDirection.toString
+      dueDate = invoice.dueDate.localDate
+      amount = invoice.amount.money |> Money.amount }
+
+let ``convert [ProjectedAccount] to [ProjectedAccountReturn]`` (account: ProjectedAccount) : ProjectedAccountReturn =
+    { accountCode = account.accountCode |> Model.Ledger.AccountComponent.AccountCode.value
+      accountName = account.accountName |> Model.Ledger.AccountComponent.AccountName.value
+      currentBalance = account.currentBalance |> Money.amount
+      knownInflows = account.knownInflows |> Money.amount
+      knownOutflows = account.knownOutflows |> Money.amount
+      projectedLow = account.projectedLow |> Money.amount
+      invoices =
+        account.invoices
+        |> List.sortBy (fun (invoice: ProjectedInvoice) ->
+            invoice.dueDate.localDate, (invoice.invoiceId |> InvoiceId.value))
+        |> List.map ``convert [ProjectedInvoice] to [ProjectedInvoiceReturn]`` }
+
+let ``convert [BillToChase] to [BillToChaseReturn]`` (bill: BillToChase) : BillToChaseReturn =
+    { instanceId = bill.instanceId |> InstanceId.value
+      agreementName = bill.agreementName |> AgreementName.value
+      instanceDate = bill.instanceDate
+      cadenceType = bill.cadenceType |> ``convert [CadenceType] to [CadenceTypeContract]`` }
+
+let ``convert [CashFlowProjection] to [CashFlowProjectionReturn]``
+    (projection: CashFlowProjection)
+    : CashFlowProjectionReturn =
+    { accounts =
+        projection.accounts
+        |> List.sortBy (fun (account: ProjectedAccount) ->
+            account.accountCode |> Model.Ledger.AccountComponent.AccountCode.value)
+        |> List.map ``convert [ProjectedAccount] to [ProjectedAccountReturn]``
+      billsToChase =
+        projection.billsToChase
+        |> List.sortBy (fun (bill: BillToChase) -> bill.instanceDate, (bill.instanceId |> InstanceId.value))
+        |> List.map ``convert [BillToChase] to [BillToChaseReturn]`` }
+
 let ``convert [PaymentAgreementClassificationResult] to [PaymentAgreementClassificationResultReturn]``
     (context: Context.Context)
     (classificationResult: InstanceOrchestration.PaymentAgreementClassificationResult)

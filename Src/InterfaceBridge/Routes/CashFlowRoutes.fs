@@ -44,6 +44,16 @@ let private transitionPaymentsToPosted _ _ =
             return! Json.toJson<PaymentPostingTransitionReturn list> converted
         })
 
+let private projectCashFlow payload _ =
+    let context = Context.create NoTransaction FetchOnly
+    result {
+        let! input = Json.fromJson<ProjectCashFlowInput> payload
+        let! horizon = input.projectionHorizonInDays |> ProjectionHorizonInDays.create
+        let! projection = horizon |> CashFlowOps.projectCashFlowNDaysForward context
+        let converted = projection |> ``convert [CashFlowProjection] to [CashFlowProjectionReturn]``
+        return! Json.toJson<CashFlowProjectionReturn> converted
+    }
+
 let private createAgreement payload _ =
     runCommandRouteAndAutoCompleteTransaction CashFlowCreateAgreement (fun context ->
         result {
@@ -202,6 +212,13 @@ let cashFlowDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<NoInput>.Name
         outputContract = typeof<PaymentPostingTransitionReturn list>.Name
         handler = transitionPaymentsToPosted }
+
+      { domain = "CashFlow"
+        verb = "ProjectCashFlow"
+        description = "Compute the projected cash position over the horizon for every managed cash account: its posted balance, the unpaid invoices landing on it, and where that leaves it. Also returns the instances still waiting on a bill, whose amounts no arithmetic can include."
+        inputContract = typeof<ProjectCashFlowInput>.Name
+        outputContract = typeof<CashFlowProjectionReturn>.Name
+        handler = projectCashFlow }
 
       { domain = "CashFlow"
         verb = "CreateAgreement"

@@ -167,11 +167,43 @@ type PaymentPostingTransitionReturn = {
     journalEntryLineId: Guid
 }
 
+type ProjectedInvoiceReturn = {
+    invoiceId: Guid
+    agreementName: string
+    direction: string
+    dueDate: LocalDate
+    amount: decimal
+}
+
+type ProjectedAccountReturn = {
+    accountCode: string
+    accountName: string
+    currentBalance: decimal
+    knownInflows: decimal
+    knownOutflows: decimal
+    projectedLow: decimal
+    invoices: ProjectedInvoiceReturn list
+}
+
+type BillToChaseReturn = {
+    instanceId: Guid
+    agreementName: string
+    instanceDate: LocalDate
+    cadenceType: CadenceTypeContract
+}
+
+type CashFlowProjectionReturn = {
+    accounts: ProjectedAccountReturn list
+    billsToChase: BillToChaseReturn list
+}
+
 // ****************************************
 // Input
 // ****************************************
 
 type CreateUpcomingInstancesInput = { projectionHorizonInDays: int }
+
+type ProjectCashFlowInput = { projectionHorizonInDays: int }
 
 type CreatePaymentFieldsInput = {
     transactionPointer: TransactionPointerContract
