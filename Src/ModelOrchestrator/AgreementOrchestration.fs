@@ -207,10 +207,11 @@ let private confirmPaymentAgreements
     }
 
 let private confirmAgreementDates
+    (context: Context.Context)
     (agreementId: CashFlowComponent.MasterAgreementId)
     (agreementActivityPeriod: ActivityPeriod.ActivityPeriod)
     : Result<unit, AppError> =
-    let referenceDate = today()
+    let referenceDate = context |> Context.getInitiationInstant |> dateFromInstant
     match agreementActivityPeriod |> ActivityPeriod.isAvailable referenceDate with
     | true -> Ok ()
     | false ->
@@ -220,12 +221,13 @@ let private confirmAgreementDates
         Error(CashflowMasterAgreementUnavailable(agreementUuid, referenceDate, beginDate, endDate))
 
 let private confirmMasterAgreement
+    (context: Context.Context)
     (masterAgreement: MasterAgreement.MasterAgreement)
     : Result<unit, AppError> =
     result {
         let agreementId = masterAgreement |> MasterAgreement.agreementID
         let agreementActivityPeriod = masterAgreement |> MasterAgreement.activityPeriod
-        return! confirmAgreementDates agreementId agreementActivityPeriod
+        return! confirmAgreementDates context agreementId agreementActivityPeriod
     }
 
 let private confirmComposite
@@ -233,7 +235,7 @@ let private confirmComposite
     (agreement: Agreement)
     : Result<unit, AppError> =
     result {
-        do! agreement.masterAgreement |> confirmMasterAgreement
+        do! agreement.masterAgreement |> confirmMasterAgreement context
         do!
             agreement.paymentAgreements
             |> confirmPaymentAgreements context (agreement.masterAgreement |> MasterAgreement.agreementID)
@@ -272,7 +274,7 @@ let constructNewAndPersist
         let masterAgreement =
             MasterAgreement.create agreementId agreementName direction cadence counterparty
                 agreementActivityPeriod memo now now
-        do! masterAgreement |> confirmMasterAgreement
+        do! masterAgreement |> confirmMasterAgreement context
         let paymentAgreements =
             paymentAgreementComponentsList
             |> List.map(fun (paymentAgreementName, debitAccount, creditAccount, expectedAmount,
