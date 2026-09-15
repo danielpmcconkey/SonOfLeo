@@ -679,17 +679,15 @@ let projectCashFlowNDaysForward
                 |> InstanceOrchestration.invoiceComposites
                 |> List.map (fun invoiceComposite ->
                     masterAgreementId, (invoiceComposite |> InstanceOrchestration.invoice)))
-        let paymentAgreementIds =
-            invoicesWithAgreementId
-            |> List.map (fun (_, invoice) -> invoice |> Invoice.paymentAgreementId)
-            |> List.distinct
         let! paymentAgreements =
-            if paymentAgreementIds |> List.isEmpty then Ok []
-            else paymentAgreementIds |> PaymentAgreement.fetchByPaymentAgreementIdList context
+            if masterAgreementIds |> List.isEmpty then Ok []
+            else masterAgreementIds |> PaymentAgreement.fetchByMasterAgreementIdList context
         let paymentAgreementById =
             paymentAgreements
             |> List.map (fun agreement -> (agreement |> PaymentAgreement.paymentAgreementId), agreement)
             |> Map.ofList
+        let paymentAgreementsByMasterId =
+            paymentAgreements |> List.groupBy PaymentAgreement.masterAgreementID |> Map.ofList
         let cashAccountIdSet = cashAccountIds |> Set.ofList
         // an already-overdue bill is the most urgent money to move, so the window has no lower bound
         let projectedInvoicesByAccountId =
@@ -744,17 +742,31 @@ let projectCashFlowNDaysForward
             |> convertListOfResultsToResultsList
         let billsToChase =
             openInstances
-            |> List.filter (fun composite -> composite |> InstanceOrchestration.invoiceComposites |> List.isEmpty)
-            |> List.choose (fun composite ->
+            |> List.filter (fun composite ->
+                (composite |> InstanceOrchestration.instance |> Instance.instanceDate) <= horizonEnd)
+            |> List.collect (fun composite ->
                 let instance = composite |> InstanceOrchestration.instance
-                if (instance |> Instance.instanceDate) > horizonEnd then None else
-                let master = masterAgreementById |> Map.find (instance |> Instance.masterAgreementID)
-                let billToChase: CashFlowComponent.BillToChase =
-                    { instanceId = instance |> Instance.instanceId
-                      agreementName = instance |> Instance.masterAgreementName
-                      instanceDate = instance |> Instance.instanceDate
-                      cadenceType = master |> MasterAgreement.cadence |> Cadence.cadenceType }
-                Some billToChase)
+                let masterAgreementId = instance |> Instance.masterAgreementID
+                let master = masterAgreementById |> Map.find masterAgreementId
+                let invoicedAgreementIds =
+                    composite
+                    |> InstanceOrchestration.invoiceComposites
+                    |> List.map (fun invoiceComposite ->
+                        invoiceComposite |> InstanceOrchestration.invoice |> Invoice.paymentAgreementId)
+                    |> Set.ofList
+                paymentAgreementsByMasterId
+                |> Map.tryFind masterAgreementId
+                |> Option.defaultValue []
+                |> List.filter (fun agreement ->
+                    invoicedAgreementIds |> Set.contains (agreement |> PaymentAgreement.paymentAgreementId) |> not)
+                |> List.map (fun agreement ->
+                    let billToChase: CashFlowComponent.BillToChase =
+                        { instanceId = instance |> Instance.instanceId
+                          agreementName = instance |> Instance.masterAgreementName
+                          paymentAgreementName = agreement |> PaymentAgreement.paymentAgreementName
+                          instanceDate = instance |> Instance.instanceDate
+                          cadenceType = master |> MasterAgreement.cadence |> Cadence.cadenceType }
+                    billToChase))
         let projection: CashFlowComponent.CashFlowProjection =
             { accounts = projectedAccounts; billsToChase = billsToChase }
         return projection

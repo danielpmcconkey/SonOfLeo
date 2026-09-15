@@ -348,6 +348,7 @@ type ProjectedAccount = {
 type BillToChase = {
     instanceId: InstanceId
     agreementName: AgreementName
+    paymentAgreementName: PaymentAgreementName
     instanceDate: LocalDate
     cadenceType: Model.CashFlow.Cadence.CadenceType
 }

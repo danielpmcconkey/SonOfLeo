@@ -311,6 +311,7 @@ let ``convert [ProjectedAccount] to [ProjectedAccountReturn]`` (account: Project
 let ``convert [BillToChase] to [BillToChaseReturn]`` (bill: BillToChase) : BillToChaseReturn =
     { instanceId = bill.instanceId |> InstanceId.value
       agreementName = bill.agreementName |> AgreementName.value
+      paymentAgreementName = bill.paymentAgreementName |> PaymentAgreementName.value
       instanceDate = bill.instanceDate
       cadenceType = bill.cadenceType |> ``convert [CadenceType] to [CadenceTypeContract]`` }
 
@@ -324,7 +325,8 @@ let ``convert [CashFlowProjection] to [CashFlowProjectionReturn]``
         |> List.map ``convert [ProjectedAccount] to [ProjectedAccountReturn]``
       billsToChase =
         projection.billsToChase
-        |> List.sortBy (fun (bill: BillToChase) -> bill.instanceDate, (bill.instanceId |> InstanceId.value))
+        |> List.sortBy (fun (bill: BillToChase) ->
+            bill.instanceDate, (bill.paymentAgreementName |> PaymentAgreementName.value))
         |> List.map ``convert [BillToChase] to [BillToChaseReturn]`` }
 
 let ``convert [PaymentAgreementClassificationResult] to [PaymentAgreementClassificationResultReturn]``

@@ -188,6 +188,7 @@ type ProjectedAccountReturn = {
 type BillToChaseReturn = {
     instanceId: Guid
     agreementName: string
+    paymentAgreementName: string
     instanceDate: LocalDate
     cadenceType: CadenceTypeContract
 }
