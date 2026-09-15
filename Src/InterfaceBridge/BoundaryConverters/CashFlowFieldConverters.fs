@@ -149,7 +149,10 @@ let ``convert [InvoiceComposite] to [InvoiceCompositeReturn]``
         let! invoice =
             invoiceComposite |> InstanceOrchestration.invoice |> ``convert [Invoice] to [InvoiceReturn]`` context
         let payments =
-            invoiceComposite |> InstanceOrchestration.payments |> List.map ``convert [Payment] to [PaymentReturn]``
+            invoiceComposite
+            |> InstanceOrchestration.payments
+            |> List.map ``convert [Payment] to [PaymentReturn]``
+            |> List.sortBy (fun (payment: PaymentReturn) -> payment.postedToFiDate, payment.paymentId)
         return { invoice = invoice; payments = payments } }
 
 let ``convert [InstanceComposite] to [InstanceCompositeReturn]``
@@ -163,7 +166,11 @@ let ``convert [InstanceComposite] to [InstanceCompositeReturn]``
             |> InstanceOrchestration.invoiceComposites
             |> List.map (``convert [InvoiceComposite] to [InvoiceCompositeReturn]`` context)
             |> convertListOfResultsToResultsList
-        return { instance = instance; invoiceComposites = invoiceComposites } }
+        let sorted =
+            invoiceComposites
+            |> List.sortBy (fun (invoiceComposite: InvoiceCompositeReturn) ->
+                invoiceComposite.invoice.dueDate, invoiceComposite.invoice.invoiceId)
+        return { instance = instance; invoiceComposites = sorted } }
 
 let ``convert [InstanceComposite list] to [InstanceCompositeReturn list]``
     (context: Context.Context)
@@ -172,6 +179,11 @@ let ``convert [InstanceComposite list] to [InstanceCompositeReturn list]``
     instanceComposites
     |> List.map (``convert [InstanceComposite] to [InstanceCompositeReturn]`` context)
     |> convertListOfResultsToResultsList
+    |> Result.map (
+        List.sortBy (fun (instanceComposite: InstanceCompositeReturn) ->
+            instanceComposite.instance.masterAgreementName,
+            instanceComposite.instance.instanceDate,
+            instanceComposite.instance.instanceId))
 
 let ``convert [MasterAgreement] to [MasterAgreementReturn]``
     (masterAgreement: MasterAgreement.MasterAgreement)
@@ -344,12 +356,22 @@ let ``convert [PaymentAgreementClassificationResult] to [PaymentAgreementClassif
         let! openInstances =
             classificationResult.openInstances
             |> ``convert [InstanceComposite list] to [InstanceCompositeReturn list]`` context
+        let sortedResults =
+            classificationResults
+            |> List.sortBy (fun result -> result.candidate.stageEntryHeaderId, result.candidate.stageEntryLineId)
+        let sortedDecisionLog =
+            decisionLog
+            |> List.sortBy (fun (decision: PaymentAgreementDecisionReturn) ->
+                decision.paymentAgreementName, decision.stageEntryLineId)
+        let sortedInvoiceDecisionLog =
+            classificationResult.invoiceDecisionLog
+            |> List.map ``convert [InvoiceDecision] to [InvoiceDecisionReturn]``
+            |> List.sortBy (fun (decision: InvoiceDecisionReturn) -> decision.invoiceId, decision.outcome)
         return {
             runId = classificationResult.runId |> StageDataClassificationComponent.ClassificationRunId.value
-            classificationResults = classificationResults
-            decisionLog = decisionLog
-            invoiceDecisionLog =
-                classificationResult.invoiceDecisionLog |> List.map ``convert [InvoiceDecision] to [InvoiceDecisionReturn]``
+            classificationResults = sortedResults
+            decisionLog = sortedDecisionLog
+            invoiceDecisionLog = sortedInvoiceDecisionLog
             openInstances = openInstances } }
 
 let ``convert [BlockerContract] to [Blocker]`` (blockerContract: BlockerContract) : Result<Blocker, AppError> =
