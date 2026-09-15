@@ -801,7 +801,7 @@ let createInstanceCompositeAndSaveToDb
                 { invoice = invoice; payments = payments }
                 )
         let instanceComposite = { instance = newInstance; invoiceComposites = invoiceComposites }
-        do! instanceComposite |> confirmInstanceComposite context // todo: this probably does reads on the database and none of this is in the db yet. rethink
+        do! instanceComposite |> confirmInstanceComposite context
         do! newInstance |> Instance.persist context
         do! invoiceComposites
             |> List.map(fun invoiceComposite -> result {
