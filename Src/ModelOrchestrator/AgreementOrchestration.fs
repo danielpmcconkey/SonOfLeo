@@ -139,85 +139,6 @@ let private confirmAuthorityAndCohesion
             |> Result.map ignore
     }
 
-let private confirmPayment
-    (context: Context.Context)
-    (direction: CashFlowComponent.FlowDirection)
-    (paymentAgreements: PaymentAgreement.PaymentAgreement list)
-    (payment: Payment.Payment)
-    : Result<unit, AppError> =
-    result {
-        let invoiceId = payment |> Payment.invoiceId
-        let! invoice =
-            match invoiceId |> Invoice.fetchById context with
-            | Ok fetched -> Ok fetched
-            | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                let invoiceUuid = invoiceId |> CashFlowComponent.InvoiceId.value
-                Error(CashflowInvoiceIdDoesntExist invoiceUuid)
-            | Error e -> Error e
-        let paymentAgreementId = invoice |> Invoice.paymentAgreementId
-        let! paymentAgreement =
-            match
-                paymentAgreements
-                |> List.tryFind (fun candidate ->
-                    candidate |> PaymentAgreement.paymentAgreementId = paymentAgreementId)
-            with
-            | Some found -> Ok found
-            | None ->
-                let paymentAgreementUuid = paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
-                Error(CashflowPaymentAgreementIdDoesntExist paymentAgreementUuid)
-        let expectedAccountId = paymentAgreement |> PaymentAgreement.accountIdForFlowDirection direction
-        return! payment |> InstanceOrchestration.confirmPayment context expectedAccountId
-    }
-
-let private confirmPayments
-    (context: Context.Context)
-    (direction: CashFlowComponent.FlowDirection)
-    (paymentAgreements: PaymentAgreement.PaymentAgreement list)
-    (payments: Payment.Payment list)
-    : Result<unit, AppError> =
-    payments
-    |> List.map (confirmPayment context direction paymentAgreements)
-    |> convertListOfResultsToResultsList
-    |> Result.map ignore
-
-let private confirmInvoice
-    (context: Context.Context)
-    (invoice: Invoice.Invoice)
-    : Result<unit, AppError> =
-    result {
-        do!
-            match invoice |> Invoice.instanceId |> Instance.fetchById context with
-            | Ok _ -> Ok ()
-            | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                let instanceUuid = invoice |> Invoice.instanceId |> CashFlowComponent.InstanceId.value
-                Error(CashflowInstanceIdDoesntExist instanceUuid)
-            | Error e -> Error e
-        do!
-            match invoice |> Invoice.paymentAgreementId |> PaymentAgreement.fetchById context with
-            | Ok _ -> Ok ()
-            | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                let paymentAgreementUuid = invoice |> Invoice.paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
-                Error(CashflowPaymentAgreementIdDoesntExist paymentAgreementUuid)
-            | Error e -> Error e
-        let invoiceAmount = invoice |> Invoice.amount
-        let invoiceAmountDecimal = invoiceAmount.money |> Money.amount
-        return!
-            if invoiceAmountDecimal > 0M then Ok ()
-            else
-                let uuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
-                Error(CashflowInvoiceNonPositiveAmount(uuid, invoiceAmountDecimal))
-    }
-
-let private confirmInvoices
-    (context: Context.Context)
-    (invoices: Invoice.Invoice list)
-    : Result<unit, AppError> =
-    // todo: InvoiceOrchestration has much better invoice validation. We should use it here
-    invoices
-    |> List.map (confirmInvoice context)
-    |> convertListOfResultsToResultsList
-    |> Result.map ignore
-
 let private confirmInstance
     (agreementId: CashFlowComponent.MasterAgreementId)
     (instance: Instance.Instance)
@@ -319,11 +240,12 @@ let private confirmComposite
         do!
             agreement.instances
             |> confirmInstances (agreement.masterAgreement |> MasterAgreement.agreementID)
-        do! agreement.invoices |> confirmInvoices context
-        do!
-            agreement.payments
-            |> confirmPayments context (agreement.masterAgreement |> MasterAgreement.direction)
-                   agreement.paymentAgreements
+        return!
+            InstanceOrchestration.compileInstanceCompositesFromSubLists
+                agreement.instances agreement.invoices agreement.payments
+            |> List.map (InstanceOrchestration.confirmInstanceComposite context)
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
     }
 
 let constructNewAndPersist

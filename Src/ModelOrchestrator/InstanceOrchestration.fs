@@ -357,7 +357,7 @@ let confirmInstanceComposite
             |> Result.map ignore
     }
 
-let private compileFromSubLists
+let private compileInvoiceCompositesFromSubLists
     (invoices: Invoice.Invoice list)
     (payments: Payment.Payment list)
     : InvoiceComposite list =
@@ -366,6 +366,20 @@ let private compileFromSubLists
         let invId = inv |> Invoice.invoiceId
         let paymentsAtInv = payments |> List.filter (fun p -> p |> Payment.invoiceId = invId)
         { invoice = inv; payments = paymentsAtInv })
+
+let compileInstanceCompositesFromSubLists
+    (instances: Instance.Instance list)
+    (invoices: Invoice.Invoice list)
+    (payments: Payment.Payment list)
+    : InstanceComposite list =
+    let invoiceComposites = compileInvoiceCompositesFromSubLists invoices payments
+    instances
+    |> List.map (fun instance ->
+        let instanceId = instance |> Instance.instanceId
+        let compositesAtInstance =
+            invoiceComposites
+            |> List.filter (fun composite -> composite.invoice |> Invoice.instanceId = instanceId)
+        { instance = instance; invoiceComposites = compositesAtInstance })
 
 let fetchFiltered
     (context: Context.Context)
@@ -378,7 +392,7 @@ let fetchFiltered
         if invoices |> List.isEmpty then return [] else
         let invoiceIds = invoices |> List.map Invoice.invoiceId
         let! payments = invoiceIds |> Payment.fetchByInvoiceIdList context
-        return compileFromSubLists invoices payments
+        return compileInvoiceCompositesFromSubLists invoices payments
     }
 
 let fetchCompositeByInvoiceId
@@ -401,7 +415,7 @@ let fetchCompositeByInstanceId
         let invoiceIds = invoices |> List.map Invoice.invoiceId
         let! payments =
             if invoiceIds |> List.isEmpty then Ok [] else invoiceIds |> Payment.fetchByInvoiceIdList context
-        return { instance = instance; invoiceComposites = compileFromSubLists invoices payments }
+        return { instance = instance; invoiceComposites = compileInvoiceCompositesFromSubLists invoices payments }
     }
 
 let fetchCompositesByIsFulfilled
@@ -416,15 +430,7 @@ let fetchCompositesByIsFulfilled
         let invoiceIds = invoices |> List.map Invoice.invoiceId
         let! payments =
             if invoiceIds |> List.isEmpty then Ok [] else invoiceIds |> Payment.fetchByInvoiceIdList context
-        let invoiceComposites = compileFromSubLists invoices payments
-        return
-            instances
-            |> List.map (fun instance ->
-                let instanceId = instance |> Instance.instanceId
-                let compositesAtInstance =
-                    invoiceComposites
-                    |> List.filter (fun composite -> composite.invoice |> Invoice.instanceId = instanceId)
-                { instance = instance; invoiceComposites = compositesAtInstance })
+        return compileInstanceCompositesFromSubLists instances invoices payments
     }
 
 let private isThereAnInvoiceUpdate
