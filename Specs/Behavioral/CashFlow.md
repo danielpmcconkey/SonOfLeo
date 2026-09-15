@@ -181,7 +181,7 @@ The cash-flow projection is a read-only, deterministic operation that computes t
 - **REQ-CF-8.1** The projection computes, per managed cash account, the projected low balance over the horizon window: `projected_low = current_balance + known_inflows − known_outflows`.
 - **REQ-CF-8.2** Known inflows are the amounts from Income Invoices due within the horizon window where payment state is not 'FullyPaid'.
 - **REQ-CF-8.3** Known outflows are the amounts from Outgo Invoices due within the horizon window where payment state is not 'FullyPaid'.
-- **REQ-CF-8.4** Instances with no Invoice (variable obligations where the bill has not arrived) must be surfaced as known upcoming obligations with unknown magnitude. These are the "bills to chase" — obligations the system knows about but cannot include in the arithmetic.
+- **REQ-CF-8.4** Payment agreements on unfulfilled Instances that have no Invoice must be surfaced as known upcoming obligations with unknown magnitude. These are the "bills to chase" — obligations the system knows about but cannot include in the arithmetic. An Instance may carry invoices for some of its payment agreements while others are still missing; each missing agreement is a separate bill to chase.
 - **REQ-CF-8.5** The projection is a deterministic `[DET]` operation. It performs arithmetic only and makes no judgment calls.
 
 
