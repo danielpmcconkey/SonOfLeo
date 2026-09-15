@@ -866,9 +866,5 @@ let transitionPaymentsToPosted (context: Context.Context) : Result<PaymentPostin
             |> List.map (fun (instanceId, instancePostings) ->
                 instancePostings |> transitionOneInstancesPaymentsToPosted context instanceId)
             |> convertListOfResultsToResultsList
-        return
-            transitions
-            |> List.concat
-            |> List.sortBy (fun transition ->
-                (transition.agreementName |> AgreementName.value), (transition.paymentId |> PaymentId.value))
+        return transitions |> List.concat
     }

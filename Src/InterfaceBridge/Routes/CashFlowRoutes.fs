@@ -40,7 +40,8 @@ let private transitionPaymentsToPosted _ _ =
     runCommandRouteAndAutoCompleteTransaction CashFlowTransitionPaymentsToPosted (fun context ->
         result {
             let! transitions = CashFlowOps.transitionPaymentsToPosted context
-            let converted = transitions |> List.map ``convert [PaymentPostingTransition] to [PaymentPostingTransitionReturn]``
+            let converted =
+                transitions |> ``convert [PaymentPostingTransition list] to [PaymentPostingTransitionReturn list]``
             return! Json.toJson<PaymentPostingTransitionReturn list> converted
         })
 

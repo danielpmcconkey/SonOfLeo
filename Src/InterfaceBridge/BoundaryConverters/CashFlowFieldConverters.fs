@@ -300,6 +300,14 @@ let ``convert [PaymentPostingTransition] to [PaymentPostingTransitionReturn]``
       invoiceAmount = transition.invoiceAmount.money |> Money.amount
       journalEntryLineId = transition.journalEntryLineId |> JournalEntryLineId.value }
 
+let ``convert [PaymentPostingTransition list] to [PaymentPostingTransitionReturn list]``
+    (transitions: PaymentPostingTransition list)
+    : PaymentPostingTransitionReturn list =
+    transitions
+    |> List.map ``convert [PaymentPostingTransition] to [PaymentPostingTransitionReturn]``
+    |> List.sortBy (fun (transition: PaymentPostingTransitionReturn) ->
+        transition.agreementName, transition.paymentId)
+
 let ``convert [ProjectedInvoice] to [ProjectedInvoiceReturn]`` (invoice: ProjectedInvoice) : ProjectedInvoiceReturn =
     { invoiceId = invoice.invoiceId |> InvoiceId.value
       agreementName = invoice.agreementName |> AgreementName.value
