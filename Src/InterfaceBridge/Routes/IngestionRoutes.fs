@@ -111,7 +111,7 @@ let private postWithExternallyManagedTransaction
     (context: Context.Context)
     : Result<PostStageEntriesTrialBalancesResult, AppError> =
     result {
-        let asOf = Calendar.today()
+        let asOf = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
         // get the "before" snapshot        
         let! trialBalanceDataBefore = fetchTrialBalanceData context asOf
         let trialBalanceRowsBefore =

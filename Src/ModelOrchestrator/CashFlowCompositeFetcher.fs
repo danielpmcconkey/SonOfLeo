@@ -63,7 +63,8 @@ let createPredicateAndParameters
     let activeAgreementPredicate =
         if filter.activeAgreementsOnly then Some "(ma.end_date is null or ma.end_date >= @today)" else None
     let activeAgreementParameters = 
-        if filter.activeAgreementsOnly then [{ name = "@today"; value = DbLocalDate (Calendar.today()) }] else []
+        let today = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
+        if filter.activeAgreementsOnly then [{ name = "@today"; value = DbLocalDate today }] else []
     let accountPredicate, accountParameters =
         filter.accountIds
         |> createIdPredicateAndParameters<AccountId> AccountId.value "account_id" ["pa.debit_account"; "pa.credit_account"]

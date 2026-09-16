@@ -208,7 +208,7 @@ module Account = // todo: remove this extra module wrapper
     let fetchAll (context: Context.Context) (activeOnly: bool) : Result<Account list, AppError> =
         let predicate = None
         let parameters = []
-        let activeReference = Calendar.today()
+        let activeReference = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
 
         match query context predicate None parameters AnyQuantityIsAcceptable with
         | Error e -> Error e
