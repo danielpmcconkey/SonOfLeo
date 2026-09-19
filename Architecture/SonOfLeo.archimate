@@ -3,95 +3,6 @@
   <folder name="Strategy" id="id-0fec2bd0728c44bd8e8cd9e334bbf654" type="strategy"/>
   <folder name="Business" id="id-7d3aa2f955c34e1f8e8549a372ab1cf5" type="business"/>
   <folder name="Application" id="id-3bc109dcc8a54eae80d3db78cbe5ab6d" type="application">
-    <folder name="Src" id="id-aa1c1c761b094a0f91c782308ec43163">
-      <folder name="Context" id="id-d132565a88a04638b8938d1d7f1ccf62">
-        <element xsi:type="archimate:ApplicationComponent" name="Context" id="id-c9952561e4774c89891b4103fa405ce6"/>
-      </folder>
-      <folder name="DataAccessLayer" id="id-5f50adeda2b1462b941f3d16ca099a15">
-        <folder name="DbConnections" id="id-80b459f4915043c3838cd17b7f876762">
-          <element xsi:type="archimate:ApplicationComponent" name="DbConnections" id="id-bb9d1dd7d6c64ca9b2da2f0bf36e7112"/>
-        </folder>
-        <folder name="DbTransaction" id="id-a876e596ff0b41b9af4d73d9db8bb017">
-          <element xsi:type="archimate:ApplicationComponent" name="DbTransaction" id="id-64533b2e6a634ce0823a21e65b472acd"/>
-        </folder>
-        <folder name="QueryParameters" id="id-d86086d08ef84e33ad5797181db1f4ab">
-          <element xsi:type="archimate:ApplicationComponent" name="QueryParameters" id="id-23ed52a7bb864ed39a75bf4b991dee2e"/>
-        </folder>
-        <folder name="ExecuteReader" id="id-8bc1038ad33349898737767fa1a149f2">
-          <element xsi:type="archimate:ApplicationComponent" name="ExecuteReader" id="id-af06be959cef491c93e88d49e19f8f08"/>
-        </folder>
-        <folder name="ExecuteScalar" id="id-79ae7cfdf43648619eda9682466780ef">
-          <element xsi:type="archimate:ApplicationComponent" name="ExecuteScalar" id="id-71ef16116bfe4856896bc66c96ee35a7"/>
-        </folder>
-        <folder name="ExecuteNonQuery" id="id-9563b031cb8c4e6b882477bb388f941a">
-          <element xsi:type="archimate:ApplicationComponent" name="ExecuteNonQuery" id="id-a134ba2ed9614972bc862c8f246bdb70"/>
-        </folder>
-        <element xsi:type="archimate:ApplicationComponent" name="DataAccessLayer" id="id-93751e3d47d5413d8a215b046bb3ac97"/>
-      </folder>
-      <folder name="InterfaceBridge" id="id-7e03efa19ba34b269a164adec7476273">
-        <element xsi:type="archimate:ApplicationComponent" name="InterfaceBridge" id="id-e327791f33c340e4bcd42c802d9af845"/>
-      </folder>
-      <folder name="Logger" id="id-ae74c4245a074cccb68911dde346fb2a">
-        <folder name="Audit" id="id-fce3a2dd1c1b41a2b3961d43f0964d99">
-          <element xsi:type="archimate:ApplicationComponent" name="Audit" id="id-bc5f1f75563a4e28b8237798cafd391c"/>
-        </folder>
-        <element xsi:type="archimate:ApplicationComponent" name="Logger" id="id-a0e26e9466bb47dc94c14c0064e40bfc"/>
-      </folder>
-      <folder name="Utilities" id="id-0d0bb3234d384aa8aef5a0201b068f65">
-        <folder name="AppError" id="id-80d6da5a4ad54e02bac2efff766c8a2a">
-          <element xsi:type="archimate:ApplicationComponent" name="AppError" id="id-2224f7a8b5e24edc928b88a393ab0882"/>
-        </folder>
-        <folder name="Cadence" id="id-7bc5cca297a748d6b6c6730d45711e09">
-          <element xsi:type="archimate:ApplicationComponent" name="Cadence" id="id-c14ec84175694bd9ab5911eb7e76c79b"/>
-        </folder>
-        <folder name="ResultHelper" id="id-e5569c56688e4f4ba25d82be2b7cee9b">
-          <element xsi:type="archimate:ApplicationComponent" name="ResultHelper" id="id-33f6c476f50e47e79f9d8362a77e9573"/>
-        </folder>
-        <folder name="ConfigManager" id="id-c6b0db8d063b43d387623f8ea1f0b641">
-          <element xsi:type="archimate:ApplicationComponent" name="ConfigManager" id="id-d1a9505473b74308aeba03538e7f7392"/>
-        </folder>
-        <folder name="Clock" id="id-0f3e790ae0d84b208922ccfa3a8ccc74">
-          <element xsi:type="archimate:ApplicationComponent" name="Clock" id="id-7848e00799394ec69a975dbb0504f133"/>
-        </folder>
-        <folder name="Calendar" id="id-6f57b12fe6fa45488ed97cd629f7b28a">
-          <element xsi:type="archimate:ApplicationComponent" name="Calendar" id="id-94733ae1f03d4d31aeb31b5441eb3cb6"/>
-        </folder>
-        <folder name="FieldUpdate" id="id-57522ca86f9e4b70819ae7c517241618">
-          <element xsi:type="archimate:ApplicationComponent" name="FieldUpdate" id="id-dce47c12a92646c9ab1b65c898f9fb84"/>
-        </folder>
-        <folder name="FileIO" id="id-a7977d99a43a46d0b4c92ae401a82b9c">
-          <element xsi:type="archimate:ApplicationComponent" name="FileIO" id="id-040e6ff751e2457ca15eb9f4300fbe63"/>
-        </folder>
-        <folder name="Json" id="id-9324b47f454049e39c5e4a2ead317a9c">
-          <element xsi:type="archimate:ApplicationComponent" name="Json" id="id-e04dafa13d3d44238ed99c9611295944"/>
-        </folder>
-        <element xsi:type="archimate:ApplicationComponent" name="Utilities" id="id-81711318d0f74f4cb002bc5fd843d1ee"/>
-      </folder>
-      <folder name="Model" id="id-d4ea07f0c3234640a0ad0593d30d339c">
-        <folder name="LookupCache" id="id-0442b21f73774b0c8a36ac997408616c">
-          <element xsi:type="archimate:ApplicationComponent" name="LookupCache" id="id-ed34af980b2e486ea5771bf8d2786582"/>
-        </folder>
-        <folder name="Money" id="id-afa3a542b0394397b11bf3e7d8b612ba">
-          <element xsi:type="archimate:ApplicationComponent" name="Money" id="id-8240122486e742a7be9833bce247abb0"/>
-        </folder>
-        <folder name="ActivityPeriod" id="id-e169f2b818ad403ab500f0e00e71e659">
-          <element xsi:type="archimate:ApplicationComponent" name="ActivityPeriod" id="id-6f9e8ef33f654b0494d74734dc3b1feb"/>
-          <element xsi:type="archimate:ApplicationComponent" name="Account" id="id-f49ed1bb242a4977b8fd54d25706c5d4"/>
-        </folder>
-        <folder name="Ledger" id="id-fa7b25ac9a654b58b08de03603cadae5">
-          <folder name="AccountComponent" id="id-0b18ee4265f84c1ca86ae4add344db68">
-            <element xsi:type="archimate:ApplicationComponent" name="AccountComponent" id="id-31eaa383f6c643e5b9045f39f06da5c1"/>
-          </folder>
-          <folder name="Account" id="id-fcacd256684c465b84aca7da7fc731d2"/>
-          <folder name="FiscalPeriodComponent" id="id-db0b995af4b84209a2230987cd6c1160">
-            <element xsi:type="archimate:ApplicationComponent" name="FiscalPeriodComponent" id="id-65fcb2dd45264dcd9220240b97b09548"/>
-          </folder>
-          <element xsi:type="archimate:ApplicationComponent" name="Ledger" id="id-7ea2f88da19d45eabc1db394d44d1d8a"/>
-        </folder>
-        <element xsi:type="archimate:ApplicationComponent" name="Model" id="id-c5828b5514004be8808008b9c0fba843"/>
-      </folder>
-      <element xsi:type="archimate:ApplicationComponent" name="Src" id="id-ea3aecf940014f9aa3b20d9fbf5f5f80"/>
-    </folder>
     <folder name="Capabilities (the &quot;what&quot;)" id="id-7b2b3d6cb06947c28e06842139decdca">
       <folder name="User interface functions" id="id-3d461a5846364b8da9d3629cae1b1cf4">
         <folder name="Marshalling functions" id="id-cc92e0f496af40afa21403604f2143a8">
@@ -225,7 +136,97 @@
         <element xsi:type="archimate:ApplicationFunction" name="Financial services functions" id="id-30a03788e5be455c88954787a3153e59"/>
       </folder>
     </folder>
-    <folder name="Components (the &quot;how&quot;)" id="id-75426be5560948ee905968b8c7160c2e"/>
+    <folder name="Components (the &quot;how&quot;)" id="id-75426be5560948ee905968b8c7160c2e">
+      <folder name="Src" id="id-aa1c1c761b094a0f91c782308ec43163">
+        <folder name="Context" id="id-d132565a88a04638b8938d1d7f1ccf62">
+          <element xsi:type="archimate:ApplicationComponent" name="Context" id="id-c9952561e4774c89891b4103fa405ce6"/>
+        </folder>
+        <folder name="DataAccessLayer" id="id-5f50adeda2b1462b941f3d16ca099a15">
+          <folder name="DbConnections" id="id-80b459f4915043c3838cd17b7f876762">
+            <element xsi:type="archimate:ApplicationComponent" name="DbConnections" id="id-bb9d1dd7d6c64ca9b2da2f0bf36e7112"/>
+          </folder>
+          <folder name="DbTransaction" id="id-a876e596ff0b41b9af4d73d9db8bb017">
+            <element xsi:type="archimate:ApplicationComponent" name="DbTransaction" id="id-64533b2e6a634ce0823a21e65b472acd"/>
+          </folder>
+          <folder name="QueryParameters" id="id-d86086d08ef84e33ad5797181db1f4ab">
+            <element xsi:type="archimate:ApplicationComponent" name="QueryParameters" id="id-23ed52a7bb864ed39a75bf4b991dee2e"/>
+          </folder>
+          <folder name="ExecuteReader" id="id-8bc1038ad33349898737767fa1a149f2">
+            <element xsi:type="archimate:ApplicationComponent" name="ExecuteReader" id="id-af06be959cef491c93e88d49e19f8f08"/>
+          </folder>
+          <folder name="ExecuteScalar" id="id-79ae7cfdf43648619eda9682466780ef">
+            <element xsi:type="archimate:ApplicationComponent" name="ExecuteScalar" id="id-71ef16116bfe4856896bc66c96ee35a7"/>
+          </folder>
+          <folder name="ExecuteNonQuery" id="id-9563b031cb8c4e6b882477bb388f941a">
+            <element xsi:type="archimate:ApplicationComponent" name="ExecuteNonQuery" id="id-a134ba2ed9614972bc862c8f246bdb70"/>
+          </folder>
+          <element xsi:type="archimate:ApplicationComponent" name="DataAccessLayer" id="id-93751e3d47d5413d8a215b046bb3ac97"/>
+        </folder>
+        <folder name="InterfaceBridge" id="id-7e03efa19ba34b269a164adec7476273">
+          <element xsi:type="archimate:ApplicationComponent" name="InterfaceBridge" id="id-e327791f33c340e4bcd42c802d9af845"/>
+        </folder>
+        <folder name="Logger" id="id-ae74c4245a074cccb68911dde346fb2a">
+          <folder name="Audit" id="id-fce3a2dd1c1b41a2b3961d43f0964d99">
+            <element xsi:type="archimate:ApplicationComponent" name="Audit" id="id-bc5f1f75563a4e28b8237798cafd391c"/>
+          </folder>
+          <element xsi:type="archimate:ApplicationComponent" name="Logger" id="id-a0e26e9466bb47dc94c14c0064e40bfc"/>
+        </folder>
+        <folder name="Utilities" id="id-0d0bb3234d384aa8aef5a0201b068f65">
+          <folder name="AppError" id="id-80d6da5a4ad54e02bac2efff766c8a2a">
+            <element xsi:type="archimate:ApplicationComponent" name="AppError" id="id-2224f7a8b5e24edc928b88a393ab0882"/>
+          </folder>
+          <folder name="Cadence" id="id-7bc5cca297a748d6b6c6730d45711e09">
+            <element xsi:type="archimate:ApplicationComponent" name="Cadence" id="id-c14ec84175694bd9ab5911eb7e76c79b"/>
+          </folder>
+          <folder name="ResultHelper" id="id-e5569c56688e4f4ba25d82be2b7cee9b">
+            <element xsi:type="archimate:ApplicationComponent" name="ResultHelper" id="id-33f6c476f50e47e79f9d8362a77e9573"/>
+          </folder>
+          <folder name="ConfigManager" id="id-c6b0db8d063b43d387623f8ea1f0b641">
+            <element xsi:type="archimate:ApplicationComponent" name="ConfigManager" id="id-d1a9505473b74308aeba03538e7f7392"/>
+          </folder>
+          <folder name="Clock" id="id-0f3e790ae0d84b208922ccfa3a8ccc74">
+            <element xsi:type="archimate:ApplicationComponent" name="Clock" id="id-7848e00799394ec69a975dbb0504f133"/>
+          </folder>
+          <folder name="Calendar" id="id-6f57b12fe6fa45488ed97cd629f7b28a">
+            <element xsi:type="archimate:ApplicationComponent" name="Calendar" id="id-94733ae1f03d4d31aeb31b5441eb3cb6"/>
+          </folder>
+          <folder name="FieldUpdate" id="id-57522ca86f9e4b70819ae7c517241618">
+            <element xsi:type="archimate:ApplicationComponent" name="FieldUpdate" id="id-dce47c12a92646c9ab1b65c898f9fb84"/>
+          </folder>
+          <folder name="FileIO" id="id-a7977d99a43a46d0b4c92ae401a82b9c">
+            <element xsi:type="archimate:ApplicationComponent" name="FileIO" id="id-040e6ff751e2457ca15eb9f4300fbe63"/>
+          </folder>
+          <folder name="Json" id="id-9324b47f454049e39c5e4a2ead317a9c">
+            <element xsi:type="archimate:ApplicationComponent" name="Json" id="id-e04dafa13d3d44238ed99c9611295944"/>
+          </folder>
+          <element xsi:type="archimate:ApplicationComponent" name="Utilities" id="id-81711318d0f74f4cb002bc5fd843d1ee"/>
+        </folder>
+        <folder name="Model" id="id-d4ea07f0c3234640a0ad0593d30d339c">
+          <folder name="LookupCache" id="id-0442b21f73774b0c8a36ac997408616c">
+            <element xsi:type="archimate:ApplicationComponent" name="LookupCache" id="id-ed34af980b2e486ea5771bf8d2786582"/>
+          </folder>
+          <folder name="Money" id="id-afa3a542b0394397b11bf3e7d8b612ba">
+            <element xsi:type="archimate:ApplicationComponent" name="Money" id="id-8240122486e742a7be9833bce247abb0"/>
+          </folder>
+          <folder name="ActivityPeriod" id="id-e169f2b818ad403ab500f0e00e71e659">
+            <element xsi:type="archimate:ApplicationComponent" name="ActivityPeriod" id="id-6f9e8ef33f654b0494d74734dc3b1feb"/>
+            <element xsi:type="archimate:ApplicationComponent" name="Account" id="id-f49ed1bb242a4977b8fd54d25706c5d4"/>
+          </folder>
+          <folder name="Ledger" id="id-fa7b25ac9a654b58b08de03603cadae5">
+            <folder name="AccountComponent" id="id-0b18ee4265f84c1ca86ae4add344db68">
+              <element xsi:type="archimate:ApplicationComponent" name="AccountComponent" id="id-31eaa383f6c643e5b9045f39f06da5c1"/>
+            </folder>
+            <folder name="Account" id="id-fcacd256684c465b84aca7da7fc731d2"/>
+            <folder name="FiscalPeriodComponent" id="id-db0b995af4b84209a2230987cd6c1160">
+              <element xsi:type="archimate:ApplicationComponent" name="FiscalPeriodComponent" id="id-65fcb2dd45264dcd9220240b97b09548"/>
+            </folder>
+            <element xsi:type="archimate:ApplicationComponent" name="Ledger" id="id-7ea2f88da19d45eabc1db394d44d1d8a"/>
+          </folder>
+          <element xsi:type="archimate:ApplicationComponent" name="Model" id="id-c5828b5514004be8808008b9c0fba843"/>
+        </folder>
+        <element xsi:type="archimate:ApplicationComponent" name="Src" id="id-ea3aecf940014f9aa3b20d9fbf5f5f80"/>
+      </folder>
+    </folder>
   </folder>
   <folder name="Technology &amp; Physical" id="id-1735724b899e4b9d85a1ca9f8839869a" type="technology">
     <folder name="External libraries" id="id-f39949f73afb4e47a89955ede05e582d">
