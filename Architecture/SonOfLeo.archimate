@@ -112,18 +112,6 @@
           <element xsi:type="archimate:ApplicationFunction" name="Validate dates against cadence" id="id-67e3e795b9c4465ea8f9b684e9c8e87e">
             <documentation>Given a candidate date and a recurrence pattern, determine whether the date is a valid member of that pattern's sequence. Rejects dates that fall on the wrong day, wrong week, or wrong month for the pattern.</documentation>
           </element>
-          <element xsi:type="archimate:ApplicationFunction" name="Define the activity period record type" id="id-5c19efccfa784834a1c708cf97c64ed8">
-            <documentation>Describe the shape of a bounded time range — a begin date, an optional end date, and a rule governing whether the period is considered available before its begin date.</documentation>
-          </element>
-          <element xsi:type="archimate:ApplicationFunction" name="Instantiate an activity period" id="id-57bb6001a06840e89389cc6711716da7">
-            <documentation>Given a begin date, an optional end date, and a begin-availability rule, produce a valid activity period. Fails if the end date precedes the begin date.</documentation>
-          </element>
-          <element xsi:type="archimate:ApplicationFunction" name="Confirm whether a date is active within an activity period" id="id-efcfc82da68c4caabe4765e30a111ae1">
-            <documentation>Given a reference date and an activity period, determine whether the period is active at that date. Active means the begin date is in the past and the end date (if any) is in the future. Strict — no grace period.</documentation>
-          </element>
-          <element xsi:type="archimate:ApplicationFunction" name="Confirm whether a date is available within an activity period" id="id-fd96f7c31ec047e8a891eeef071d901d">
-            <documentation>Given a reference date and an activity period, determine whether the period is available at that date. Availability may differ from activity — an activity period may be considered available before its begin date if its begin-availability rule permits it.</documentation>
-          </element>
         </folder>
         <folder name="Observability functions" id="id-1f97d463d5a34701a2c41514b260da0c">
           <element xsi:type="archimate:ApplicationFunction" name="Observability functions" id="id-40bc347559894f50821d461f2d99157b">
@@ -134,6 +122,9 @@
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Define auditable actions" id="id-5dbf082357b34cff99b082daf5fd4975">
             <documentation>Enumerate every operation the system considers worth tracking. Each action is a named intent — not a log level, not a category, but a specific statement of what the system set out to do.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Record actor" id="id-7017459d3c584ee1a051f17e98e3ffa4">
+            <documentation>Identify which actor or process caused a state change, so that every mutation carries a record of who produced it. The set of actors is enumerated — not a free-text field, not a user ID, but a named category of authority.</documentation>
           </element>
         </folder>
         <folder name="Error management functions" id="id-d42e9fa229284c94a70089ddf7bb8c59">
@@ -245,6 +236,26 @@
             <documentation>Provide fast bidirectional translation between typed identifiers (used in the model layer) and human-readable codes or names (used at the boundary). Known values are loaded eagerly; unknown values are resolved on demand. The set of known values is assumed stable for the process lifetime.</documentation>
           </element>
         </folder>
+        <folder name="Lifecycle functions" id="id-d92d328dfaf7400695116fc225a5bafc">
+          <element xsi:type="archimate:ApplicationFunction" name="Lifecycle functions" id="id-ba605f5711c4469480ea1fa67b74a612">
+            <documentation>Behaviours that define, assess, or transition the temporal status of a domain entity. Members of this clade share a defining characteristic: they answer "where is this entity in its lifespan?" — whether it is operative, what stage it is in, or whether it has crossed a threshold. They provide the lifecycle infrastructure that domain entities realise with domain-specific rules.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Define a bounded operative period" id="id-5c19efccfa784834a1c708cf97c64ed8">
+            <documentation>Describe the shape of a bounded time range — a begin date, an optional end date, and a rule governing whether the period is considered available before its begin date.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Instantiate a bounded operative period" id="id-57bb6001a06840e89389cc6711716da7">
+            <documentation>Given a begin date, an optional end date, and a begin-availability rule, produce a valid operative period. Fails if the end date precedes the begin date.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Determine whether an entity is operative at a point in time" id="id-efcfc82da68c4caabe4765e30a111ae1">
+            <documentation>Given a reference date and a bounded operative period, determine whether the entity is active at that date. Active means the begin date is in the past and the end date (if any) is in the future. Strict — no grace period.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Determine whether an entity is available at a point in time" id="id-fd96f7c31ec047e8a891eeef071d901d">
+            <documentation>Given a reference date and a bounded operative period, determine whether the entity is available at that date. Availability may differ from activity — an entity may be considered available before its operative period begins if its availability rule permits it.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Transition an entity between lifecycle states" id="id-9a2a203f7bba4df2a1b689206dbdc1d5">
+            <documentation>Move an entity from one lifecycle state to another. The transition is guarded — attempting a no-op transition (e.g. closing an already-closed entity) produces a structured error. The set of valid states and transitions is defined by the domain entity, not by this function.</documentation>
+          </element>
+        </folder>
         <element xsi:type="archimate:ApplicationFunction" name="Utility functions" id="id-95843fd1284b4eff9b88dd3e7e4a8220">
           <documentation>Behaviours that serve any domain without belonging to any domain. Members of this clade share a defining characteristic: they provide general-purpose capabilities (time, errors, files, configuration, data access) that the system needs regardless of what business problem it solves.</documentation>
         </element>
@@ -317,9 +328,112 @@
             <element xsi:type="archimate:ApplicationFunction" name="Confirm fiscal period type validity" id="id-d9072b88b506473a9b425d57bf1a7372">
               <documentation>Given a candidate fiscal period classification, determine whether it is a recognised fiscal period type. Rejects values outside the system's defined vocabulary of fiscal period types.</documentation>
             </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Instantiate a fiscal period record" id="id-c7a95f88e94047bc8bd2cb4dfab6946e">
+              <documentation>Given the attributes of a fiscal period, produce a new fiscal period record in memory. The record is not yet persisted.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Persist fiscal period records" id="id-aa5450243a5e452c8ed1a230c4688cb0">
+              <documentation>Given a valid fiscal period record, write it to persistent storage. The fiscal period becomes retrievable by its identifier after persistence.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch fiscal period by ID" id="id-e0a6c84f326d4dafb9adca5ab3213bc8">
+              <documentation>Given a typed fiscal period identifier, retrieve the corresponding fiscal period record from persistent storage.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch fiscal period ID by key" id="id-da2d5ce35601409980716a59c86f8b97">
+              <documentation>Given a fiscal period key, resolve the corresponding typed fiscal period identifier.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch all fiscal periods" id="id-87e63121be064d27b7f82b97d5325e6a">
+              <documentation>Retrieve all fiscal periods, optionally filtered to only those that are open.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Close a fiscal period" id="id-e4a3d669b7474aebad64440ffe305fc7">
+              <documentation>Transition a fiscal period from open to closed, preventing further entries from posting to it. Fails if the fiscal period is already closed.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Reopen a fiscal period" id="id-dacdd861fd2b4ff0801e437957d3c5fa">
+              <documentation>Transition a fiscal period from closed to open, allowing entries to post to it again. Fails if the fiscal period is already open.</documentation>
+            </element>
+          </folder>
+          <folder name="Journal entry functions" id="id-f3be016471754f93abd1fb7f5316332e">
+            <element xsi:type="archimate:ApplicationFunction" name="Journal entry functions" id="id-6cd96ace557e4b49910c011e7bcef02c">
+              <documentation>Behaviours that define, create, retrieve, and annotate journal entries within the ledger. Members of this clade share a defining characteristic: they operate on the journal entry entity — the double-entry record that posts debits and credits to accounts.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Define what &quot;journal entry&quot; means in a ledger" id="id-abdaf4f0a48644138efc28334cd5df91">
+              <documentation>Establish the canonical representation of a journal entry — its identity, composite structure (header, lines, comments, external references), the constraints that govern valid entries, and the classification of line types.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Confirm journal entry field validity" id="id-9799fb1e01884e30807f88b6f3dd463b">
+              <documentation>Given candidate values for journal entry fields (descriptions, sources, memos, comment text, reference identifiers), determine whether each satisfies the constraints that define a valid value — non-empty, within length bounds, properly normalised.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Instantiate a journal entry header" id="id-3479d290c1bf4f789a7eb8a09797660b">
+              <documentation>Given the attributes of a journal entry header (description, source, entry date, void status), produce a new header record in memory. The record is not yet persisted.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Persist journal entry headers" id="id-8239d7d1fa6c4cbb955c754517c5d427">
+              <documentation>Given a valid journal entry header, write it to persistent storage. The header becomes retrievable by its identifier after persistence.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch journal entry header by ID" id="id-f20c38ece3d94cd9858d8bd08fbce02b">
+              <documentation>Given a typed journal entry header identifier, retrieve the corresponding header record from persistent storage.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch journal entry headers by fiscal period" id="id-afb43144f8694657b06ed66ba3083bf8">
+              <documentation>Given a typed fiscal period identifier, retrieve all journal entry headers posted to that period, ordered by entry date.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Instantiate a journal entry line" id="id-f73677f708534a39a8dcdb60c351c26e">
+              <documentation>Given the attributes of a journal entry line (header reference, account, amount, debit/credit classification, optional memo), produce a new line record in memory. The record is not yet persisted.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Persist journal entry lines" id="id-3fa25e2dd70245c999d99ae67d475d04">
+              <documentation>Given a valid journal entry line, write it to persistent storage. The line becomes retrievable by its identifier after persistence.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch journal entry line by ID" id="id-296f5119eaf847dfac4329f1cc24bcb2">
+              <documentation>Given a typed journal entry line identifier, retrieve the corresponding line record from persistent storage.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch journal entry lines by header" id="id-6b4ac71167e444b8b632249c45fee5c4">
+              <documentation>Given a typed journal entry header identifier, retrieve all lines belonging to that journal entry, ordered by creation time.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch journal entry lines by header batch" id="id-5b8aae91f41c4c8c9315996c15a856a1">
+              <documentation>Given a list of typed journal entry header identifiers, retrieve all lines belonging to any of those journal entries in one operation. Fails if the list is empty.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch journal entry lines by account" id="id-085ee5b6885c4692b4872ca9349846d6">
+              <documentation>Given a typed account identifier, retrieve all journal entry lines posted to that account. Optionally excludes lines belonging to voided journal entries.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Instantiate a journal entry external reference" id="id-ad5c57fdff0b483c8987aab3c12b462f">
+              <documentation>Given the attributes of an external reference (header reference, financial institution name, reference text), produce a new external reference record in memory. The record is not yet persisted.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Persist journal entry external references" id="id-b6893811cd7f4151a3351b8785689a83">
+              <documentation>Given a valid external reference record, write it to persistent storage. The reference becomes retrievable by its identifier after persistence.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch journal entry external reference by ID" id="id-d790069c51724473afcf34c49f0ad235">
+              <documentation>Given a typed journal entry external reference identifier, retrieve the corresponding record from persistent storage.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch journal entry external references by header" id="id-7044bad77e114d998efd80f1d7b31518">
+              <documentation>Given a typed journal entry header identifier, retrieve all external references associated with that journal entry.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch journal entry external references by header batch" id="id-a7f9a642c0294e1584eb9efafa30d8f7">
+              <documentation>Given a list of typed journal entry header identifiers, retrieve all external references associated with any of those journal entries in one operation.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Instantiate a journal entry comment" id="id-1ed69683c1e14376b14094e7c79bdf02">
+              <documentation>Given a primary journal entry reference, an optional secondary journal entry reference, and comment text, produce a new comment record in memory. The record is not yet persisted.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Persist journal entry comments" id="id-d248592053344969b857bffc62f95811">
+              <documentation>Given a valid journal entry comment, write it to persistent storage. The comment becomes retrievable by its identifier after persistence.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch journal entry comment by ID" id="id-185bc20f69d44d05935c894a604328ea">
+              <documentation>Given a typed journal entry comment identifier, retrieve the corresponding record from persistent storage.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch journal entry comments by journal entry" id="id-f4d0be97d06b4e3aa425faf08f09255c">
+              <documentation>Given a typed journal entry header identifier, retrieve all comments that reference that journal entry — whether as primary or secondary reference.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch journal entry comments by header batch" id="id-0a51f5fd0adc4470a06201da3aea0c99">
+              <documentation>Given a list of typed journal entry header identifiers, retrieve all comments that reference any of those journal entries as their primary reference. Secondary references to headers outside the batch are not searched.</documentation>
+            </element>
           </folder>
           <element xsi:type="archimate:ApplicationFunction" name="Ledger functions" id="id-02a684e5afd946a8949031f15694a733">
             <documentation>Behaviours that define and maintain the structure and content of the general ledger — accounts, fiscal periods, journal entries, and the rules that govern them. Members of this clade share a defining characteristic: they operate on the permanent record of financial activity.</documentation>
+          </element>
+        </folder>
+        <folder name="Data ingestion functions" id="id-1b3a9b6dd07e4a13bd1ac84a2d8fe065">
+          <element xsi:type="archimate:ApplicationFunction" name="Data ingestion functions" id="id-36ac97d70705433a9598b367a0a37588">
+            <documentation>Behaviours that move external financial data into the system's staging area, classify it, and prepare it for posting to the ledger. Members of this clade share a defining characteristic: they operate on data that has entered the system from an external source but has not yet become a permanent ledger record.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Define what &quot;staged entry&quot; means in data ingestion" id="id-343a12b25bec4a47ac71464fc0d62918">
+            <documentation>Establish the canonical representation of a staged entry — its identity types, the lifecycle statuses it moves through from ingestion to posting, the classification of actors that cause status changes, and the constraints on source file identification.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Confirm staged entry field validity" id="id-4f31ca20439a4cfdbdece9addba6b611">
+            <documentation>Given candidate values for staged entry fields (source file names, lifecycle status values, change mechanism values), determine whether each satisfies its constraints.</documentation>
           </element>
         </folder>
         <element xsi:type="archimate:ApplicationFunction" name="Financial services functions" id="id-30a03788e5be455c88954787a3153e59">
@@ -411,7 +525,30 @@
             <folder name="FiscalPeriodComponent" id="id-db0b995af4b84209a2230987cd6c1160">
               <element xsi:type="archimate:ApplicationComponent" name="FiscalPeriodComponent" id="id-65fcb2dd45264dcd9220240b97b09548"/>
             </folder>
+            <folder name="FiscalPeriod" id="id-434ffa2323d44311be808c701dd8247f">
+              <element xsi:type="archimate:ApplicationComponent" name="FiscalPeriod" id="id-c42e80f3908649d98d25e5909184b1f8"/>
+            </folder>
+            <folder name="JournalEntryComponent" id="id-fbf9035f9ecb4237b24bf40e319a267b">
+              <element xsi:type="archimate:ApplicationComponent" name="JournalEntryComponent" id="id-c9d23b169bc242d485ebd34c9389fe5a"/>
+            </folder>
+            <folder name="JournalEntryHeader" id="id-0fc5195993e14d6bbd05f9290ce523c0">
+              <element xsi:type="archimate:ApplicationComponent" name="JournalEntryHeader" id="id-96ade8c3f0a14d17b41795a2f0699f41"/>
+            </folder>
+            <folder name="JournalEntryLine" id="id-26b5fe14ef6c47729700c5763ca44dd9">
+              <element xsi:type="archimate:ApplicationComponent" name="JournalEntryLine" id="id-7f48c39a5f754019abde0129a8004327"/>
+            </folder>
+            <folder name="JournalEntryExternalReference" id="id-8a6ce80c0c4c49cc978353b44fe13ce7">
+              <element xsi:type="archimate:ApplicationComponent" name="JournalEntryExternalReference" id="id-4bfbb02e89c84a93b67c5e96abf671ee"/>
+            </folder>
+            <folder name="JournalEntryComment" id="id-d78b6f24aca14f37a41aebb6b16c7a30">
+              <element xsi:type="archimate:ApplicationComponent" name="JournalEntryComment" id="id-ec44456c08a8496c9436155a25b44c74"/>
+            </folder>
             <element xsi:type="archimate:ApplicationComponent" name="Ledger" id="id-7ea2f88da19d45eabc1db394d44d1d8a"/>
+          </folder>
+          <folder name="DataIngestion" id="id-e3922b9c803c4331b5f4b6cb35ad5cd6">
+            <folder name="StageEntryComponent" id="id-dcc035abc52040ab9447fde93b03b9f2">
+              <element xsi:type="archimate:ApplicationComponent" name="StageEntryComponent" id="id-bdac21a6973a46b19e272dec204da4dc"/>
+            </folder>
           </folder>
           <element xsi:type="archimate:ApplicationComponent" name="Model" id="id-c5828b5514004be8808008b9c0fba843"/>
         </folder>
@@ -761,6 +898,142 @@
     <element xsi:type="archimate:RealizationRelationship" id="id-6ea7d021da8047afa825a4147fcb65ea" source="id-65fcb2dd45264dcd9220240b97b09548" target="id-d9072b88b506473a9b425d57bf1a7372"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-5c46604ceed84f2cbf6b231a5cf990ac" source="id-65fcb2dd45264dcd9220240b97b09548" target="id-bdaa658644a54f9ebb7dd1827e6f7c06"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-6fe8b9a0fb744159b0eadc8ef807f580" source="id-bb9d1dd7d6c64ca9b2da2f0bf36e7112" target="id-1f544412e4034e77b1430f13045e9e76"/>
+    <!-- FiscalPeriod: composition by Ledger -->
+    <element xsi:type="archimate:CompositionRelationship" id="id-82309eb60c044d05a550fa9d543872bb" source="id-7ea2f88da19d45eabc1db394d44d1d8a" target="id-c42e80f3908649d98d25e5909184b1f8"/>
+    <!-- FiscalPeriod: realization of capabilities -->
+    <element xsi:type="archimate:RealizationRelationship" id="id-f23baa91bd30483fa1521d83c330cb32" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-bdaa658644a54f9ebb7dd1827e6f7c06"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-dbf2740bcd154ec490054df907aebc87" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-d9072b88b506473a9b425d57bf1a7372"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-bd80aeaaebac410fb6e2fee61caffd2e" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-e5e5d3b3a9f84ab39c440b7c537555f8"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-ce3fee39fd1a4418bee26097df0b0d8c" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-f0b69b1153454871a93b049706c0fe42"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-67306dddc37441c9b2e08c5444e0138b" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-c7a95f88e94047bc8bd2cb4dfab6946e"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-0bd3fdfb16c04c0998ad58ac4736766c" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-aa5450243a5e452c8ed1a230c4688cb0"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-898a206687b74feebe1756b1ed76179d" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-e0a6c84f326d4dafb9adca5ab3213bc8"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-2e00060b9fdb44d7b86ced6065b1b923" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-da2d5ce35601409980716a59c86f8b97"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-1cf6786816b2466da797e164fae45272" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-87e63121be064d27b7f82b97d5325e6a"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-31126aaab2a744319344a3317e9ffe63" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-e4a3d669b7474aebad64440ffe305fc7"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-8b277fc821d24c87bdc263d6858d20fd" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-dacdd861fd2b4ff0801e437957d3c5fa"/>
+    <!-- FiscalPeriod: realizes lifecycle transition -->
+    <element xsi:type="archimate:RealizationRelationship" id="id-e900bf6e0f944c7cbd7453dfef94987d" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-9a2a203f7bba4df2a1b689206dbdc1d5"/>
+    <!-- FiscalPeriod: aggregation dependencies -->
+    <element xsi:type="archimate:AggregationRelationship" id="id-7de83524d51b436a91787e87a56f7611" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-2224f7a8b5e24edc928b88a393ab0882"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-ab9d1a40cbaf4c3b81e8f74107dd1243" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-33f6c476f50e47e79f9d8362a77e9573"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-00b21804bc1a4155bc839ea8d496bde0" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-65fcb2dd45264dcd9220240b97b09548"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-fb3d27f7c7574166818a3813a0b987de" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-64533b2e6a634ce0823a21e65b472acd"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-5c460f058b5b441dac497ed6785ced84" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-af06be959cef491c93e88d49e19f8f08"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-0fe92a05a14a4b61b3c73f724732824b" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-23ed52a7bb864ed39a75bf4b991dee2e"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-3fdf1154bdf7439aba56d6c65cf4c8a9" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-bb9d1dd7d6c64ca9b2da2f0bf36e7112"/>
+    <!-- FiscalPeriod: serving from technology -->
+    <element xsi:type="archimate:ServingRelationship" id="id-a80e5cdcfe8f42b9bddb5b4cc307d521" source="id-3db442d9a5464358b9f0aeb9a7d10c13" target="id-c42e80f3908649d98d25e5909184b1f8"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-b44ddbfcea074477b6d2fa0cd34ae89a" source="id-672ddbef9cb047969cd6308183007264" target="id-c42e80f3908649d98d25e5909184b1f8"/>
+    <!-- JournalEntryComponent: composition by Ledger -->
+    <element xsi:type="archimate:CompositionRelationship" id="id-eced31de5d9b49afb41f559553343b83" source="id-7ea2f88da19d45eabc1db394d44d1d8a" target="id-c9d23b169bc242d485ebd34c9389fe5a"/>
+    <!-- JournalEntryComponent: realization of capabilities -->
+    <element xsi:type="archimate:RealizationRelationship" id="id-57e83e452f9b4778a09368e717738e10" source="id-c9d23b169bc242d485ebd34c9389fe5a" target="id-abdaf4f0a48644138efc28334cd5df91"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-2510f18dee394902b04094797e8af161" source="id-c9d23b169bc242d485ebd34c9389fe5a" target="id-9799fb1e01884e30807f88b6f3dd463b"/>
+    <!-- JournalEntryComponent: aggregation dependencies -->
+    <element xsi:type="archimate:AggregationRelationship" id="id-09814df1fe9d44208ae8609592043887" source="id-c9d23b169bc242d485ebd34c9389fe5a" target="id-2224f7a8b5e24edc928b88a393ab0882"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-fa3a737dd13841729a0f3c7a94890a55" source="id-c9d23b169bc242d485ebd34c9389fe5a" target="id-33f6c476f50e47e79f9d8362a77e9573"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-b3a1e72c4d6e4f0a8e5d9c7b2f1a3e8d" source="id-c9d23b169bc242d485ebd34c9389fe5a" target="id-c42e80f3908649d98d25e5909184b1f8"/>
+    <!-- JournalEntryComponent: serving from technology -->
+    <element xsi:type="archimate:ServingRelationship" id="id-d7f2a4b8e1c34d5e9a6b0c3f8e2d7a1b" source="id-3db442d9a5464358b9f0aeb9a7d10c13" target="id-c9d23b169bc242d485ebd34c9389fe5a"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-a4e6c8d2f0b54a7e3c1d9f5b8e2a6c4d" source="id-672ddbef9cb047969cd6308183007264" target="id-c9d23b169bc242d485ebd34c9389fe5a"/>
+    <!-- JournalEntryHeader: composition by Ledger -->
+    <element xsi:type="archimate:CompositionRelationship" id="id-2defbe17fbd8402187d45af4a7ac0438" source="id-7ea2f88da19d45eabc1db394d44d1d8a" target="id-96ade8c3f0a14d17b41795a2f0699f41"/>
+    <!-- JournalEntryHeader: realization of capabilities -->
+    <element xsi:type="archimate:RealizationRelationship" id="id-2763363d813a47ecb8c71bed08134e5b" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-3479d290c1bf4f789a7eb8a09797660b"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-ee87cf3047564ba4912a1327d486d7db" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-8239d7d1fa6c4cbb955c754517c5d427"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-8e691d1fa4b745b190d0033fd051ff55" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-f20c38ece3d94cd9858d8bd08fbce02b"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-2f895bbce06d4561a31b534b805e3808" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-afb43144f8694657b06ed66ba3083bf8"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-598fcac4954045b8b0446c658d8d0e0e" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-e5e5d3b3a9f84ab39c440b7c537555f8"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-924b745279ca4908ad2c385dc5ea0176" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-f0b69b1153454871a93b049706c0fe42"/>
+    <!-- JournalEntryHeader: aggregation dependencies -->
+    <element xsi:type="archimate:AggregationRelationship" id="id-0e01394c986642179656f10e0ce4b2b3" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-2224f7a8b5e24edc928b88a393ab0882"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-b94dfc3a18a84923bfe97aa13f6464d5" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-33f6c476f50e47e79f9d8362a77e9573"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-a1b2c3d4e5f64a7b8c9d0e1f2a3b4c5d" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-c9d23b169bc242d485ebd34c9389fe5a"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-d5e6f7a8b9c04d1e2f3a4b5c6d7e8f9a" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-65fcb2dd45264dcd9220240b97b09548"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-1a2b3c4d5e6f47a8b9c0d1e2f3a4b5c6" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-64533b2e6a634ce0823a21e65b472acd"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-7d8e9f0a1b2c43d5e6f7a8b9c0d1e2f3" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-af06be959cef491c93e88d49e19f8f08"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-4a5b6c7d8e9f40a1b2c3d4e5f6a7b8c9" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-a134ba2ed9614972bc862c8f246bdb70"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-c0d1e2f3a4b546c7d8e9f0a1b2c3d4e5" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-23ed52a7bb864ed39a75bf4b991dee2e"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-e2f3a4b5c6d748e9f0a1b2c3d4e5f6a7" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-bb9d1dd7d6c64ca9b2da2f0bf36e7112"/>
+    <!-- JournalEntryHeader: serving from technology -->
+    <element xsi:type="archimate:ServingRelationship" id="id-f6a7b8c9d0e142f3a4b5c6d7e8f9a0b1" source="id-3db442d9a5464358b9f0aeb9a7d10c13" target="id-96ade8c3f0a14d17b41795a2f0699f41"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-b1c2d3e4f5a647b8c9d0e1f2a3b4c5d6" source="id-672ddbef9cb047969cd6308183007264" target="id-96ade8c3f0a14d17b41795a2f0699f41"/>
+    <!-- JournalEntryLine: composition by Ledger -->
+    <element xsi:type="archimate:CompositionRelationship" id="id-05e858a1aa7d469a97c3929368e4fed4" source="id-7ea2f88da19d45eabc1db394d44d1d8a" target="id-7f48c39a5f754019abde0129a8004327"/>
+    <!-- JournalEntryLine: realization of capabilities -->
+    <element xsi:type="archimate:RealizationRelationship" id="id-f908e29de64642d19eb888ec00c141e1" source="id-7f48c39a5f754019abde0129a8004327" target="id-f73677f708534a39a8dcdb60c351c26e"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-15498218fdba494f839fd0283762d40f" source="id-7f48c39a5f754019abde0129a8004327" target="id-3fa25e2dd70245c999d99ae67d475d04"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-d589f46932604c5d9f7bb77b8fa5486d" source="id-7f48c39a5f754019abde0129a8004327" target="id-296f5119eaf847dfac4329f1cc24bcb2"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-24df8abe7673412cba8756cd22d268b4" source="id-7f48c39a5f754019abde0129a8004327" target="id-6b4ac71167e444b8b632249c45fee5c4"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-ff3ed0bd0db34fd1aa66b2fd975d01ca" source="id-7f48c39a5f754019abde0129a8004327" target="id-5b8aae91f41c4c8c9315996c15a856a1"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-cc9b546b7b65411db06dd67a500afd7f" source="id-7f48c39a5f754019abde0129a8004327" target="id-085ee5b6885c4692b4872ca9349846d6"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-402eaac0aa2741819bd9a9f51f634573" source="id-7f48c39a5f754019abde0129a8004327" target="id-e5e5d3b3a9f84ab39c440b7c537555f8"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-f22bcc50d96f4e28bcde909be04217f2" source="id-7f48c39a5f754019abde0129a8004327" target="id-f0b69b1153454871a93b049706c0fe42"/>
+    <!-- JournalEntryLine: aggregation dependencies -->
+    <element xsi:type="archimate:AggregationRelationship" id="id-db4726d2d5cf4a4d825d9f7d4a25eb37" source="id-7f48c39a5f754019abde0129a8004327" target="id-2224f7a8b5e24edc928b88a393ab0882"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-4236f2b4474a40a383611fdfec87aa08" source="id-7f48c39a5f754019abde0129a8004327" target="id-33f6c476f50e47e79f9d8362a77e9573"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-788cca75b4cb4102b8d02c5c34545a8f" source="id-7f48c39a5f754019abde0129a8004327" target="id-c9d23b169bc242d485ebd34c9389fe5a"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-a3b4c5d6e7f840a1b2c3d4e5f6a7b8c9" source="id-7f48c39a5f754019abde0129a8004327" target="id-8240122486e742a7be9833bce247abb0"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-d4e5f6a7b8c940d1e2f3a4b5c6d7e8f9" source="id-7f48c39a5f754019abde0129a8004327" target="id-64533b2e6a634ce0823a21e65b472acd"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-b8c9d0e1f2a344b5c6d7e8f9a0b1c2d3" source="id-7f48c39a5f754019abde0129a8004327" target="id-af06be959cef491c93e88d49e19f8f08"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-e9f0a1b2c3d445e6f7a8b9c0d1e2f3a4" source="id-7f48c39a5f754019abde0129a8004327" target="id-a134ba2ed9614972bc862c8f246bdb70"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-c6d7e8f9a0b142c3d4e5f6a7b8c9d0e1" source="id-7f48c39a5f754019abde0129a8004327" target="id-23ed52a7bb864ed39a75bf4b991dee2e"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-a0b1c2d3e4f546a7b8c9d0e1f2a3b4c5" source="id-7f48c39a5f754019abde0129a8004327" target="id-bb9d1dd7d6c64ca9b2da2f0bf36e7112"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-f2a3b4c5d6e748f9a0b1c2d3e4e5f6a7" source="id-7f48c39a5f754019abde0129a8004327" target="id-96ade8c3f0a14d17b41795a2f0699f41"/>
+    <!-- JournalEntryLine: serving from technology -->
+    <element xsi:type="archimate:ServingRelationship" id="id-b5c6d7e8f9a041b2c3d4e5f6a7b8c9d0" source="id-3db442d9a5464358b9f0aeb9a7d10c13" target="id-7f48c39a5f754019abde0129a8004327"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-e1f2a3b4c5d647e8f9a0b1c2d3e4f5a6" source="id-672ddbef9cb047969cd6308183007264" target="id-7f48c39a5f754019abde0129a8004327"/>
+    <!-- JournalEntryExternalReference: composition by Ledger -->
+    <element xsi:type="archimate:CompositionRelationship" id="id-d4ba4551b8d341dc9bbbca0ddeb9b0a4" source="id-7ea2f88da19d45eabc1db394d44d1d8a" target="id-4bfbb02e89c84a93b67c5e96abf671ee"/>
+    <!-- JournalEntryExternalReference: realization of capabilities -->
+    <element xsi:type="archimate:RealizationRelationship" id="id-c7d07185d98749a3b926b97dd31341ea" source="id-4bfbb02e89c84a93b67c5e96abf671ee" target="id-ad5c57fdff0b483c8987aab3c12b462f"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-540466b5b4194f9e96b0d7606983734d" source="id-4bfbb02e89c84a93b67c5e96abf671ee" target="id-b6893811cd7f4151a3351b8785689a83"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-7f067bb51175421d89786494669085b6" source="id-4bfbb02e89c84a93b67c5e96abf671ee" target="id-d790069c51724473afcf34c49f0ad235"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-793e95c1a087444a898cd3d79aee5011" source="id-4bfbb02e89c84a93b67c5e96abf671ee" target="id-7044bad77e114d998efd80f1d7b31518"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-30fc78c526174ab0985783b7074ce83c" source="id-4bfbb02e89c84a93b67c5e96abf671ee" target="id-a7f9a642c0294e1584eb9efafa30d8f7"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-6502d9fb836b41bba196250dc83bafba" source="id-4bfbb02e89c84a93b67c5e96abf671ee" target="id-e5e5d3b3a9f84ab39c440b7c537555f8"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-ec101f0b0ec04be486abafecfdbddac0" source="id-4bfbb02e89c84a93b67c5e96abf671ee" target="id-f0b69b1153454871a93b049706c0fe42"/>
+    <!-- JournalEntryExternalReference: aggregation dependencies -->
+    <element xsi:type="archimate:AggregationRelationship" id="id-1a4b5c6d7e8f49a0b1c2d3e4f5a6b7c8" source="id-4bfbb02e89c84a93b67c5e96abf671ee" target="id-2224f7a8b5e24edc928b88a393ab0882"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-9b0c1d2e3f4a45b6c7d8e9f0a1b2c3d4" source="id-4bfbb02e89c84a93b67c5e96abf671ee" target="id-33f6c476f50e47e79f9d8362a77e9573"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-e5f6a7b8c9d041e2f3a4b5c6d7e8f9a0" source="id-4bfbb02e89c84a93b67c5e96abf671ee" target="id-c9d23b169bc242d485ebd34c9389fe5a"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-b2c3d4e5f6a748b9c0d1e2f3a4b5c6d7" source="id-4bfbb02e89c84a93b67c5e96abf671ee" target="id-64533b2e6a634ce0823a21e65b472acd"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-d8e9f0a1b2c344d5e6f7a8b9c0d1e2f3" source="id-4bfbb02e89c84a93b67c5e96abf671ee" target="id-af06be959cef491c93e88d49e19f8f08"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-a4b5c6d7e8f940a1b2c3d4e5f6a7b8c9" source="id-4bfbb02e89c84a93b67c5e96abf671ee" target="id-a134ba2ed9614972bc862c8f246bdb70"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-c0d1e2f3a4b547c6d8e9f0a1b2c3d4e5" source="id-4bfbb02e89c84a93b67c5e96abf671ee" target="id-23ed52a7bb864ed39a75bf4b991dee2e"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-f6a7b8c9d0e143f2a4b5c6d7e8f9a0b1" source="id-4bfbb02e89c84a93b67c5e96abf671ee" target="id-bb9d1dd7d6c64ca9b2da2f0bf36e7112"/>
+    <!-- JournalEntryExternalReference: serving from technology -->
+    <element xsi:type="archimate:ServingRelationship" id="id-a8b9c0d1e2f345a6b7c8d9e0f1a2b3c4" source="id-672ddbef9cb047969cd6308183007264" target="id-4bfbb02e89c84a93b67c5e96abf671ee"/>
+    <!-- JournalEntryComment: composition by Ledger -->
+    <element xsi:type="archimate:CompositionRelationship" id="id-3d0797da129c4544b6bcb9e421a78cd8" source="id-7ea2f88da19d45eabc1db394d44d1d8a" target="id-ec44456c08a8496c9436155a25b44c74"/>
+    <!-- JournalEntryComment: realization of capabilities -->
+    <element xsi:type="archimate:RealizationRelationship" id="id-9cf5d7f546c041de831f8737a2019e3d" source="id-ec44456c08a8496c9436155a25b44c74" target="id-1ed69683c1e14376b14094e7c79bdf02"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-9b20d43f25674f8bb11dce5f3a535068" source="id-ec44456c08a8496c9436155a25b44c74" target="id-d248592053344969b857bffc62f95811"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-84fb47594e5244d0966ac27228affa5c" source="id-ec44456c08a8496c9436155a25b44c74" target="id-185bc20f69d44d05935c894a604328ea"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-9a9e2cd00d584f82b253ed12b11e168a" source="id-ec44456c08a8496c9436155a25b44c74" target="id-f4d0be97d06b4e3aa425faf08f09255c"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-b4a656076a35409bb246f3cbcc859927" source="id-ec44456c08a8496c9436155a25b44c74" target="id-0a51f5fd0adc4470a06201da3aea0c99"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-493b18f2d99441b6a14751a036c89772" source="id-ec44456c08a8496c9436155a25b44c74" target="id-e5e5d3b3a9f84ab39c440b7c537555f8"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-c51ea85aeef44254bc1a2c69d33b7b52" source="id-ec44456c08a8496c9436155a25b44c74" target="id-f0b69b1153454871a93b049706c0fe42"/>
+    <!-- JournalEntryComment: aggregation dependencies -->
+    <element xsi:type="archimate:AggregationRelationship" id="id-2a3b4c5d6e7f48a9b0c1d2e3f4a5b6c7" source="id-ec44456c08a8496c9436155a25b44c74" target="id-2224f7a8b5e24edc928b88a393ab0882"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-8c9d0e1f2a3b44c5d6e7f8a9b0c1d2e3" source="id-ec44456c08a8496c9436155a25b44c74" target="id-33f6c476f50e47e79f9d8362a77e9573"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-4e5f6a7b8c9d40e1f2a3b4c5d6e7f8a9" source="id-ec44456c08a8496c9436155a25b44c74" target="id-c9d23b169bc242d485ebd34c9389fe5a"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-0a1b2c3d4e5f46a7b8c9d0e1f2a3b4c5" source="id-ec44456c08a8496c9436155a25b44c74" target="id-64533b2e6a634ce0823a21e65b472acd"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-6c7d8e9f0a1b42c3d4e5f6a7b8c9d0e1" source="id-ec44456c08a8496c9436155a25b44c74" target="id-af06be959cef491c93e88d49e19f8f08"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-2e3f4a5b6c7d48e9f0a1b2c3d4e5f6a7" source="id-ec44456c08a8496c9436155a25b44c74" target="id-a134ba2ed9614972bc862c8f246bdb70"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-8a9b0c1d2e3f44a5b6c7d8e9f0a1b2c3" source="id-ec44456c08a8496c9436155a25b44c74" target="id-23ed52a7bb864ed39a75bf4b991dee2e"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-4c5d6e7f8a9b40c1d2e3f4a5b6c7d8e9" source="id-ec44456c08a8496c9436155a25b44c74" target="id-bb9d1dd7d6c64ca9b2da2f0bf36e7112"/>
+    <!-- JournalEntryComment: serving from technology -->
+    <element xsi:type="archimate:ServingRelationship" id="id-0e1f2a3b4c5d46e7f8a9b0c1d2e3f4a5" source="id-672ddbef9cb047969cd6308183007264" target="id-ec44456c08a8496c9436155a25b44c74"/>
+    <!-- StageEntryComponent: composition by Model -->
+    <element xsi:type="archimate:CompositionRelationship" id="id-e0170eb3f2ce46b18b0c4e83db2985f5" source="id-c5828b5514004be8808008b9c0fba843" target="id-bdac21a6973a46b19e272dec204da4dc"/>
+    <!-- StageEntryComponent: realization of capabilities -->
+    <element xsi:type="archimate:RealizationRelationship" id="id-ccb06e559ad3484ba762a18aac8a4076" source="id-bdac21a6973a46b19e272dec204da4dc" target="id-343a12b25bec4a47ac71464fc0d62918"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-a4cb29fb40174c96b4ccf498864841d7" source="id-bdac21a6973a46b19e272dec204da4dc" target="id-4f31ca20439a4cfdbdece9addba6b611"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-c7b282d5cca8492cb3a9a48727fcaabf" source="id-bdac21a6973a46b19e272dec204da4dc" target="id-7017459d3c584ee1a051f17e98e3ffa4"/>
+    <!-- StageEntryComponent: aggregation dependencies -->
+    <element xsi:type="archimate:AggregationRelationship" id="id-f2b4d3ecbc4c4fed8547e5c716d0375e" source="id-bdac21a6973a46b19e272dec204da4dc" target="id-2224f7a8b5e24edc928b88a393ab0882"/>
   </folder>
   <folder name="Views" id="id-75e0717f00f244fe89d04a8b9e32fac9" type="diagrams">
     <element xsi:type="archimate:ArchimateDiagramModel" name="Application tiers" id="id-398726ae0f1d4b0a896928395ae87a15">
