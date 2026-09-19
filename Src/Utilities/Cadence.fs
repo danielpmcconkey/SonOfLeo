@@ -1,4 +1,4 @@
-module Model.CashFlow.Cadence
+module Model.CashFlow.Cadence // todo: I think this needs to move into model and have its own cadence tables (though which schema would need to be figured out).
 
 open System
 open NodaTime
@@ -300,7 +300,7 @@ let cadenceToColumns (cadence: Cadence) =
         let dateInMonth, weekInMonth, weekDay = md |> monthDayToColumns
         "Annually", dateInMonth, weekInMonth, weekDay, Some(month |> Month.toString), nextInstance
 
-let private monthDayFromColumns
+let private monthDayFromColumns // todo: monthDayFromColumns doesn't belong in the utilities. different model domains may store cadences using different column names. Either make the column names generic or move this into specific model domains 
     (cadenceDateInMonth: int option)
     (cadenceWeekInMonth: int option)
     (cadenceWeekDay: string option)
