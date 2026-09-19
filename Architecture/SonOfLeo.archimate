@@ -6,134 +6,325 @@
     <folder name="Capabilities (the &quot;what&quot;)" id="id-7b2b3d6cb06947c28e06842139decdca">
       <folder name="User interface functions" id="id-3d461a5846364b8da9d3629cae1b1cf4">
         <folder name="Marshalling functions" id="id-cc92e0f496af40afa21403604f2143a8">
-          <element xsi:type="archimate:ApplicationFunction" name="Marshalling functions" id="id-f1b897e32ea640df958e6d4ae7cb94ab"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert JSON to type" id="id-df4182cf3827423cb4997ac9943c8ece"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert model types to UI types" id="id-7ab29727dd884711ae7ae55418d07364"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert type to JSON" id="id-ebd67762a6f341d68066daf006c59d2c"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Map between field updates of different types" id="id-2d3e601290e443969fed00bf4bf61a12"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert account code to account ID" id="id-70ed622087b248fab04f464db64c9eb8"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert accound ID to account Code" id="id-13db9558afd2425eb3b0ecec2fdaf3dc"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert account ID to account name" id="id-455dc9d54b644a6eb68d20d5f4ca394d"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert fiscal period key to fiscal period ID" id="id-c1f1923bd18f4d46a34b997955f0187f"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert fiscal period ID to fiscal period key" id="id-a5fe08ac5076443aaa01cb01d2bf903d"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert master agreement name to master agreement ID" id="id-8e449d623cda4e4b9defc862e441bb80"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert master agreement ID to master agreement name" id="id-fbf3c4c93517469cadac3780d66ed506"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert payment agreement name to payment agreement ID" id="id-d4a4397da7314482b1f718602d167ff7"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert payment agreement ID to payment agreement name" id="id-819181a73eb242cd8eecc4e521c0ac53"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert between Money and decimal" id="id-d17175e2af754f55b96311c5b7e2798d"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert money to formatted string" id="id-91d05bc1c10645eb9c304786e78ff361"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert date to formatted string" id="id-304f719606244845a5828e494cdc0fa0"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert instant to formatted string" id="id-03be56fa55dc4a2896d4f7945fe8a83b"/>
+          <element xsi:type="archimate:ApplicationFunction" name="Marshalling functions" id="id-f1b897e32ea640df958e6d4ae7cb94ab">
+            <documentation>Behaviours that convert values between the representations used by different system layers or external interfaces. Members of this clade share a defining characteristic: they transform a value's shape or identity system without changing its semantic meaning — the information is preserved, only the representation changes.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert JSON to type" id="id-df4182cf3827423cb4997ac9943c8ece">
+            <documentation>Given a JSON text, produce a typed application value. Fails with a structured error if the text is malformed or does not conform to the expected structure.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert model types to UI types" id="id-7ab29727dd884711ae7ae55418d07364">
+            <documentation>Given an internal model value, produce the corresponding external-facing representation suitable for display or transmission to a caller.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert type to JSON" id="id-ebd67762a6f341d68066daf006c59d2c">
+            <documentation>Given a typed application value, produce its JSON text representation.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Map between field updates of different types" id="id-2d3e601290e443969fed00bf4bf61a12">
+            <documentation>Given an update instruction for a field of one type, produce the equivalent update instruction for a field of another type. Preserves the intent (no-change vs set-to-value) while transforming the value's representation.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert account code to account ID" id="id-70ed622087b248fab04f464db64c9eb8">
+            <documentation>Given a human-readable account code, resolve the corresponding typed account identifier.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert account ID to account Code" id="id-13db9558afd2425eb3b0ecec2fdaf3dc">
+            <documentation>Given a typed account identifier, resolve the corresponding human-readable account code.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert account ID to account name" id="id-455dc9d54b644a6eb68d20d5f4ca394d">
+            <documentation>Given a typed account identifier, resolve the corresponding human-readable account name.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert fiscal period key to fiscal period ID" id="id-c1f1923bd18f4d46a34b997955f0187f">
+            <documentation>Given a human-readable fiscal period key, resolve the corresponding typed fiscal period identifier.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert fiscal period ID to fiscal period key" id="id-a5fe08ac5076443aaa01cb01d2bf903d">
+            <documentation>Given a typed fiscal period identifier, resolve the corresponding human-readable fiscal period key.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert master agreement name to master agreement ID" id="id-8e449d623cda4e4b9defc862e441bb80">
+            <documentation>Given a human-readable master agreement name, resolve the corresponding typed master agreement identifier.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert master agreement ID to master agreement name" id="id-fbf3c4c93517469cadac3780d66ed506">
+            <documentation>Given a typed master agreement identifier, resolve the corresponding human-readable master agreement name.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert payment agreement name to payment agreement ID" id="id-d4a4397da7314482b1f718602d167ff7">
+            <documentation>Given a human-readable payment agreement name, resolve the corresponding typed payment agreement identifier.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert payment agreement ID to payment agreement name" id="id-819181a73eb242cd8eecc4e521c0ac53">
+            <documentation>Given a typed payment agreement identifier, resolve the corresponding human-readable payment agreement name.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert between Money and decimal" id="id-d17175e2af754f55b96311c5b7e2798d">
+            <documentation>Convert between a constrained monetary value and its raw numeric representation. The monetary representation enforces precision and bounds; the numeric representation does not.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert money to formatted string" id="id-91d05bc1c10645eb9c304786e78ff361">
+            <documentation>Given a monetary value, produce a human-readable formatted string (e.g. with currency symbol and decimal places).</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert date to formatted string" id="id-304f719606244845a5828e494cdc0fa0">
+            <documentation>Given a calendar date, produce a human-readable formatted string.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert instant to formatted string" id="id-03be56fa55dc4a2896d4f7945fe8a83b">
+            <documentation>Given a point in absolute time, produce a human-readable formatted string in the system's configured local time zone.</documentation>
+          </element>
         </folder>
-        <element xsi:type="archimate:ApplicationFunction" name="Define interface contracts" id="id-bdf8e1de36cc41cf9328712cefa66068"/>
-        <element xsi:type="archimate:ApplicationFunction" name="Define UI routes" id="id-fbe2da93dcb0477ba25e2c7f896d6249"/>
+        <element xsi:type="archimate:ApplicationFunction" name="Define interface contracts" id="id-bdf8e1de36cc41cf9328712cefa66068">
+          <documentation>Declare the shape of each operation the system exposes to callers — the expected inputs, the possible outputs, and the error conditions. Contracts are the authoritative specification of what the interface promises. They exist independently of any specific caller.</documentation>
+        </element>
+        <element xsi:type="archimate:ApplicationFunction" name="Define UI routes" id="id-fbe2da93dcb0477ba25e2c7f896d6249">
+          <documentation>Map each user-facing command to the interface contract that fulfils it. Routes are the dispatch table — they decide which contract handles which request. They do not contain business logic.</documentation>
+        </element>
+        <element xsi:type="archimate:ApplicationFunction" name="User interface functions" id="id-e18bfee1b44147a3a8798af0b6488db5"/>
       </folder>
       <folder name="Orchestration and choreography functions" id="id-c22ca410e83240aea395e049cd1b7fc3">
-        <element xsi:type="archimate:ApplicationFunction" name="Orchestration and choreography functions" id="id-42c55b135db04cdd891328c22493c26d"/>
-        <element xsi:type="archimate:ApplicationFunction" name="End-to-end use case orchestration" id="id-5d26474bdf7d4dc5be3762bee38db8b1"/>
-        <element xsi:type="archimate:ApplicationFunction" name="Wrap work-flow in an auto-complete runner" id="id-201082f0a3a347a0bd7aa0e7cb1a9619"/>
-        <element xsi:type="archimate:ApplicationFunction" name="Carry database transaction through a full use case" id="id-b014385ee7444b689d2f4fb16ca49c4c"/>
-        <element xsi:type="archimate:ApplicationFunction" name="Carry audit envelope through a full use case" id="id-eba512ac9974487dafe9cb9d946025b5"/>
+        <element xsi:type="archimate:ApplicationFunction" name="Orchestration and choreography functions" id="id-42c55b135db04cdd891328c22493c26d">
+          <documentation>Behaviours that coordinate multiple lower-level operations into a coherent use case. Members of this clade share a defining characteristic: they sequence, scope, and govern the execution of other functions — they do not perform domain work themselves, they ensure domain work happens in the right order with the right context.</documentation>
+        </element>
+        <element xsi:type="archimate:ApplicationFunction" name="End-to-end use case orchestration" id="id-5d26474bdf7d4dc5be3762bee38db8b1">
+          <documentation>Coordinate all steps of a complete user-facing operation from entry to final outcome. The orchestrator decides what happens in what order, delegates each step, and determines the overall success or failure.</documentation>
+        </element>
+        <element xsi:type="archimate:ApplicationFunction" name="Wrap work-flow in an auto-complete runner" id="id-201082f0a3a347a0bd7aa0e7cb1a9619">
+          <documentation>Execute a multi-step workflow within a governed scope that automatically determines final disposition. On success, the scope commits. On failure, the scope rolls back. The caller provides the work; the runner provides the governance.</documentation>
+        </element>
+        <element xsi:type="archimate:ApplicationFunction" name="Carry database transaction through a full use case" id="id-b014385ee7444b689d2f4fb16ca49c4c">
+          <documentation>Ensure that all database operations within a use case participate in a single unit of work. The transaction is opened before the first operation and resolved (committed or rolled back) after the last.</documentation>
+        </element>
+        <element xsi:type="archimate:ApplicationFunction" name="Carry audit envelope through a full use case" id="id-eba512ac9974487dafe9cb9d946025b5">
+          <documentation>Ensure that every auditable operation within a use case is stamped with the same audit identity and intent. The envelope is created at the start of the use case and travels with every operation that participates.</documentation>
+        </element>
       </folder>
       <folder name="Utility functions" id="id-90b3f0b96fa84f909a3d9317e7a8dc54">
         <folder name="Temporal functions" id="id-d722927fb5f94a0aa75549ea9bb78f8c">
-          <element xsi:type="archimate:ApplicationFunction" name="Temporal functions" id="id-d864fc83f7164fff98c47c19a0cbdb7d"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert instant to date in localized time zone" id="id-7bc3c85ebcb641e6ad501cf4e36c7d50"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert instant to localized time" id="id-9b7ded58b8ad4dd7ac9944db8c69e79b"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Fetch current date" id="id-42db1698b7c34f8992c0c923f00f3ea7"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Fetch current instant" id="id-b80b9b02693d4e119da0f2045214154e"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Define valid temporal sequences" id="id-d3f157eefbc3499bb7cf09f0c485ff95"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Determine next expected instance" id="id-0bf183840e7a4e599ec325b88e132b07"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Validate dates against cadence" id="id-67e3e795b9c4465ea8f9b684e9c8e87e"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Define the activity period record type" id="id-5c19efccfa784834a1c708cf97c64ed8"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Instantiate an activity period" id="id-57bb6001a06840e89389cc6711716da7"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Confirm whether a date is active within an activity period" id="id-efcfc82da68c4caabe4765e30a111ae1"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Confirm whether a date is available within an activity period" id="id-fd96f7c31ec047e8a891eeef071d901d"/>
+          <element xsi:type="archimate:ApplicationFunction" name="Temporal functions" id="id-d864fc83f7164fff98c47c19a0cbdb7d">
+            <documentation>Behaviours that reason about time — when things happen, what time it is, how dates relate to each other, and what recurrence patterns mean. Members of this clade share a defining characteristic: they interpret or produce temporal values (instants, dates, periods, cadences) in a time-zone-aware, precision-controlled manner.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert instant to date in localized time zone" id="id-7bc3c85ebcb641e6ad501cf4e36c7d50">
+            <documentation>Given a point in absolute time, produce the calendar date that point falls on in the system's configured local time zone.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert instant to localized time" id="id-9b7ded58b8ad4dd7ac9944db8c69e79b">
+            <documentation>Given a point in absolute time, produce a human-readable date-and-time representation in the system's configured local time zone.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Fetch current date" id="id-42db1698b7c34f8992c0c923f00f3ea7">
+            <documentation>Produce today's calendar date in the system's configured local time zone.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Fetch current instant" id="id-b80b9b02693d4e119da0f2045214154e">
+            <documentation>Produce the current point in absolute time, at a precision that survives a round trip through persistent storage without drift.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Define valid temporal sequences" id="id-d3f157eefbc3499bb7cf09f0c485ff95">
+            <documentation>Enumerate the recurrence patterns the system recognises (daily, weekly, every other week, monthly, annually) and define what each pattern means in terms of date advancement and date-fit validation.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Determine next expected instance" id="id-0bf183840e7a4e599ec325b88e132b07">
+            <documentation>Given a prior date and a recurrence pattern, produce the next date in the sequence.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Validate dates against cadence" id="id-67e3e795b9c4465ea8f9b684e9c8e87e">
+            <documentation>Given a candidate date and a recurrence pattern, determine whether the date is a valid member of that pattern's sequence. Rejects dates that fall on the wrong day, wrong week, or wrong month for the pattern.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Define the activity period record type" id="id-5c19efccfa784834a1c708cf97c64ed8">
+            <documentation>Describe the shape of a bounded time range — a begin date, an optional end date, and a rule governing whether the period is considered available before its begin date.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Instantiate an activity period" id="id-57bb6001a06840e89389cc6711716da7">
+            <documentation>Given a begin date, an optional end date, and a begin-availability rule, produce a valid activity period. Fails if the end date precedes the begin date.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Confirm whether a date is active within an activity period" id="id-efcfc82da68c4caabe4765e30a111ae1">
+            <documentation>Given a reference date and an activity period, determine whether the period is active at that date. Active means the begin date is in the past and the end date (if any) is in the future. Strict — no grace period.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Confirm whether a date is available within an activity period" id="id-fd96f7c31ec047e8a891eeef071d901d">
+            <documentation>Given a reference date and an activity period, determine whether the period is available at that date. Availability may differ from activity — an activity period may be considered available before its begin date if its begin-availability rule permits it.</documentation>
+          </element>
         </folder>
         <folder name="Observability functions" id="id-1f97d463d5a34701a2c41514b260da0c">
-          <element xsi:type="archimate:ApplicationFunction" name="Observability functions" id="id-40bc347559894f50821d461f2d99157b"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Create audit envelope" id="id-a0ab25ee64ea4d80bc14ec83a599df43"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Define auditable actions" id="id-5dbf082357b34cff99b082daf5fd4975"/>
+          <element xsi:type="archimate:ApplicationFunction" name="Observability functions" id="id-40bc347559894f50821d461f2d99157b">
+            <documentation>Behaviours that make the system's actions visible and traceable after the fact. Members of this clade share a defining characteristic: they attach identity, timestamp, and intent metadata to operations so that what happened can be reconstructed later without relying on inference.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Create audit envelope" id="id-a0ab25ee64ea4d80bc14ec83a599df43">
+            <documentation>Produce a stamped audit record — a unique identity, the declared intent of the operation, and the moment it began — that travels with the operation through its full lifecycle.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Define auditable actions" id="id-5dbf082357b34cff99b082daf5fd4975">
+            <documentation>Enumerate every operation the system considers worth tracking. Each action is a named intent — not a log level, not a category, but a specific statement of what the system set out to do.</documentation>
+          </element>
         </folder>
         <folder name="Error management functions" id="id-d42e9fa229284c94a70089ddf7bb8c59">
-          <element xsi:type="archimate:ApplicationFunction" name="Error management functions" id="id-8d46e44f9f5d4751b8cd0c5613fa0653"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Convert list of results to results list" id="id-2f5e36c42fa64b83931ce1a6bab3f102"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Define application errors" id="id-561c1208ca8b4d1986744e1342fad2b7"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Handle fallible option conversions" id="id-fc485aa391cf4dceb8df9cffd5d85936"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Render error message" id="id-f9fcbf5300da46368607ffa214b20d95"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Result binding abstraction" id="id-6426f61aae674b0288d9e3b5e322e0e2"/>
+          <element xsi:type="archimate:ApplicationFunction" name="Error management functions" id="id-8d46e44f9f5d4751b8cd0c5613fa0653">
+            <documentation>Behaviours that define, propagate, and render application failure states. Members of this clade share a defining characteristic: they operate on the boundary between a failed computation and the system's response to that failure. They do not prevent errors or recover from them — they make errors nameable, composable, and reportable.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Convert list of results to results list" id="id-2f5e36c42fa64b83931ce1a6bab3f102">
+            <documentation>Given a collection where each item may have independently succeeded or failed, produce a single success (all items) or a single failure (the first error). Collapses per-item uncertainty into a whole-collection verdict.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Define application errors" id="id-561c1208ca8b4d1986744e1342fad2b7">
+            <documentation>Provide an exhaustive vocabulary of named failure modes. Every failure the system can produce has exactly one name in this vocabulary. The vocabulary is domain-partitioned and extensible only by adding new named entries — never by catch-all or generic categories.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Handle fallible option conversions" id="id-fc485aa391cf4dceb8df9cffd5d85936">
+            <documentation>Apply a fallible conversion to a value that may be absent. If the value is absent, the result is absent — the conversion is never attempted. If the value is present, the conversion runs and its failure propagates.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Render error message" id="id-f9fcbf5300da46368607ffa214b20d95">
+            <documentation>Given a named failure case, produce a human-readable description of what went wrong. This is the only path from a structured error to a display string. The rendering is deterministic — same error, same message.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Result binding abstraction" id="id-6426f61aae674b0288d9e3b5e322e0e2">
+            <documentation>Provide a composable pipeline for sequencing fallible operations. Each step receives the prior step's success value and may produce its own success or failure. On first failure, the pipeline short-circuits — subsequent steps are never executed.</documentation>
+          </element>
         </folder>
         <folder name="File functions" id="id-f225d70d71f44759b3bcbfe21c78af39">
-          <element xsi:type="archimate:ApplicationFunction" name="File functions" id="id-d9889b7e85e1400188600fa55414ca8d"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Assemble paths" id="id-319141f048794a3cadf6961086e13c80"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Confirm directory exists" id="id-081f1b2f5c854aa1a75ab34defde9a70"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Confirm file exists" id="id-d360970404b348e3a0fd8231a7551611"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Move file location" id="id-f6d2bb93dc274e94a4a5bbb5b4ee413f"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Read file contents" id="id-38d32527c70c48a184f137abe80a1dae"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Write file" id="id-3a8f7c2076664c1abda68cfde4eddf93"/>
+          <element xsi:type="archimate:ApplicationFunction" name="File functions" id="id-d9889b7e85e1400188600fa55414ca8d">
+            <documentation>Behaviours that interact with the local filesystem — verifying paths, reading content, writing content, and moving files. Members of this clade share a defining characteristic: they cross the boundary between in-process data and on-disk persistence, and they wrap OS-level failures into structured application errors.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Assemble paths" id="id-319141f048794a3cadf6961086e13c80">
+            <documentation>Given path segments, produce a single well-formed filesystem path. Handles OS-specific separators and segment joining.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Confirm directory exists" id="id-081f1b2f5c854aa1a75ab34defde9a70">
+            <documentation>Given a directory path, verify that it exists on the filesystem. Returns a structured error on absence — does not create the directory.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Confirm file exists" id="id-d360970404b348e3a0fd8231a7551611">
+            <documentation>Given a file path, verify that it exists on the filesystem. Returns a structured error on absence — does not create the file.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Move file location" id="id-f6d2bb93dc274e94a4a5bbb5b4ee413f">
+            <documentation>Given a source path and a destination path, relocate a file from one filesystem location to another. The source ceases to exist at the original path.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Read file contents" id="id-38d32527c70c48a184f137abe80a1dae">
+            <documentation>Given a file path, return the file's content as a sequence of text lines. Fails with a structured error if the file does not exist or cannot be read.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Write file" id="id-3a8f7c2076664c1abda68cfde4eddf93">
+            <documentation>Given a file path and text content, persist the content to the filesystem at that path. Creates or overwrites the file.</documentation>
+          </element>
         </folder>
         <folder name="Config functions" id="id-a710f73454d843d1b14f4c16274f816e">
-          <element xsi:type="archimate:ApplicationFunction" name="Config functions" id="id-ce0004d976024238b4ef2193df8455ec"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Cache application config values" id="id-273b1ef3581e46c5b664cb80ea773008"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Fetch application config values" id="id-7313a1cb7b2f4693ac1370bba842c078"/>
+          <element xsi:type="archimate:ApplicationFunction" name="Config functions" id="id-ce0004d976024238b4ef2193df8455ec">
+            <documentation>Behaviours that resolve externally-defined configuration values as typed application values. Members of this clade share a defining characteristic: they bridge between an external configuration source and the typed values the application operates on.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Cache application config values" id="id-273b1ef3581e46c5b664cb80ea773008">
+            <documentation>Store a resolved configuration value by key so that subsequent requests for the same key return the cached value without re-reading the external source. The cache grows monotonically — values are never invalidated or replaced.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Fetch application config values" id="id-7313a1cb7b2f4693ac1370bba842c078">
+            <documentation>Given a configuration key, return the corresponding typed value. Checks cache first, reads from the external configuration source on miss. Fails with a structured error if the key does not exist or the value cannot be parsed to the requested type.</documentation>
+          </element>
         </folder>
         <folder name="Core computing functions" id="id-673c67f797424025854bb8bc9e0db087">
-          <element xsi:type="archimate:ApplicationFunction" name="Core computing functions" id="id-232e82540349438ab7e38877f5eb1254"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Primitive unboxing" id="id-afac11f3ee9a4e8c963b36402f8f975e"/>
+          <element xsi:type="archimate:ApplicationFunction" name="Core computing functions" id="id-232e82540349438ab7e38877f5eb1254">
+            <documentation>Behaviours that operate on primitive runtime values below the level of any domain concept. Members of this clade share a defining characteristic: they convert between untyped or weakly-typed representations and strongly-typed primitive values.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Primitive unboxing" id="id-afac11f3ee9a4e8c963b36402f8f975e">
+            <documentation>Given an untyped runtime value, produce a typed primitive value. Handles both present values and absent (null) values. Fails with a structured error if the value cannot be interpreted as the requested type.</documentation>
+          </element>
         </folder>
         <folder name="Data access functions" id="id-6f9844722aa043508547c827230c6f14">
-          <element xsi:type="archimate:ApplicationFunction" name="Data access functions" id="id-8b834a97290b40c4b169e60df505d0b0"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Abstract RDBMS-specific architecture" id="id-87e17fdabed043c9898f70cdc86ac167"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Commit DB transactions" id="id-76facdb018594d49b1ebeb9daa4a2f6a"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Connect to the DB" id="id-bec90abb6cca4c15baff6bd5b05c93c0"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Create DB connection" id="id-1f544412e4034e77b1430f13045e9e76"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Create DB transactions" id="id-fb7b9763fa38483789172c4aab7d4a1b"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Fetch connection string" id="id-bd15302203414213a6b226d682bd36d5"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Roll back DB transactions" id="id-055e0d8c2fc14d82afa41343ba61c431"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Spool reader results" id="id-ecf432c0c77f4e81b3281af0d8d8202c"/>
+          <element xsi:type="archimate:ApplicationFunction" name="Data access functions" id="id-8b834a97290b40c4b169e60df505d0b0">
+            <documentation>Behaviours that mediate between the application and a relational database. Members of this clade share a defining characteristic: they cross the boundary between in-process typed data and persistent relational storage, abstracting the database engine's protocol, connection lifecycle, parameterisation, and result materialisation behind structured application types.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Abstract RDBMS-specific architecture" id="id-87e17fdabed043c9898f70cdc86ac167">
+            <documentation>Isolate engine-specific concerns (provider types, connection pooling strategy, parameter binding conventions) behind an engine-neutral interface. Callers operate against the abstraction; only realisers know which database engine is in use.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Commit DB transactions" id="id-76facdb018594d49b1ebeb9daa4a2f6a">
+            <documentation>Make all changes performed within an open transaction permanent. The transaction is consumed — it cannot be reused after commit.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Create DB connection" id="id-1f544412e4034e77b1430f13045e9e76">
+            <documentation>Prepare the database subsystem for accepting connections using resolved credentials. The data source is created once and serves all subsequent connection requests for the process lifetime.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Create DB transactions" id="id-fb7b9763fa38483789172c4aab7d4a1b">
+            <documentation>Begin a new unit of work against the database. All operations within the unit succeed or fail together. The caller chooses final disposition (commit or rollback) or delegates to an auto-complete runner that commits on success and rolls back on failure.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Fetch connection string" id="id-bd15302203414213a6b226d682bd36d5">
+            <documentation>Resolve database credentials from external configuration. Validates that credentials are not stored inline in the configuration file — they must be referenced indirectly. Fails with a structured error if the credentials cannot be resolved.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Roll back DB transactions" id="id-055e0d8c2fc14d82afa41343ba61c431">
+            <documentation>Discard all changes performed within an open transaction. The transaction is consumed — it cannot be reused after rollback.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Spool reader results" id="id-ecf432c0c77f4e81b3281af0d8d8202c">
+            <documentation>Given a database result set and a row-mapping function, produce a list of typed values — one per row. Each row is visited exactly once.</documentation>
+          </element>
           <element xsi:type="archimate:ApplicationFunction" name="Provide explicit instruction for updating fields" id="id-910e9238028f4b7d9af3e26770aaa5cc">
             <documentation>Gives the caller explicit means to distinguish between &quot;don't change&quot; and &quot;set to null&quot;</documentation>
           </element>
-          <element xsi:type="archimate:ApplicationFunction" name="Mitigate SQL injection vulnerability" id="id-f6be381c5cbf4844997436a6f76a689f"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Validate result count" id="id-10bb8d9944b2487a8052c1723340e8d4"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Assemble query string" id="id-95d7fca778e6493aa351a630866081d4"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Reconstitute types" id="id-e5e5d3b3a9f84ab39c440b7c537555f8"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Query execution" id="id-f0b69b1153454871a93b049706c0fe42"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Cache known values" id="id-9a9d5252f1894ba7b5388edc4fc0cb3f"/>
+          <element xsi:type="archimate:ApplicationFunction" name="Mitigate SQL injection vulnerability" id="id-f6be381c5cbf4844997436a6f76a689f">
+            <documentation>Prevent untrusted input from being executed as database commands.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Validate result count" id="id-10bb8d9944b2487a8052c1723340e8d4">
+            <documentation>After a query executes, verify that the number of affected or returned rows matches an expected cardinality constraint (zero, exactly one, one-or-many, or unconstrained). A mismatch produces a structured error — the caller never receives a surprising number of results silently.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Assemble query string" id="id-95d7fca778e6493aa351a630866081d4">
+            <documentation>Compose a SQL query from structured building blocks (CTEs, select clauses, from clauses, joins, predicates, grouping, ordering, limits). The output is a parameterised SQL string — never a string with interpolated values.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Reconstitute types" id="id-e5e5d3b3a9f84ab39c440b7c537555f8">
+            <documentation>Given raw database column values, construct a validated domain type. Each reconstitution is fallible — malformed or semantically invalid data produces a structured error, never a corrupt domain object.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Query execution" id="id-f0b69b1153454871a93b049706c0fe42">
+            <documentation>Send a parameterised command to the database and process the response. Covers reads (result sets), scalar returns (single values), and writes (affected row counts). The command participates in an existing unit of work if one is active. Database-level failures are captured as structured errors.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Cache known values" id="id-9a9d5252f1894ba7b5388edc4fc0cb3f">
+            <documentation>Provide fast bidirectional translation between typed identifiers (used in the model layer) and human-readable codes or names (used at the boundary). Known values are loaded eagerly; unknown values are resolved on demand. The set of known values is assumed stable for the process lifetime.</documentation>
+          </element>
         </folder>
-        <element xsi:type="archimate:ApplicationFunction" name="Utility functions" id="id-95843fd1284b4eff9b88dd3e7e4a8220"/>
+        <element xsi:type="archimate:ApplicationFunction" name="Utility functions" id="id-95843fd1284b4eff9b88dd3e7e4a8220">
+          <documentation>Behaviours that serve any domain without belonging to any domain. Members of this clade share a defining characteristic: they provide general-purpose capabilities (time, errors, files, configuration, data access) that the system needs regardless of what business problem it solves.</documentation>
+        </element>
       </folder>
       <folder name="Financial services functions" id="id-c7eb2bd03f374c34aca4e2924cce732a">
         <folder name="Currency functions" id="id-b2914bb984fc4e9dbd385b71d30f4884">
-          <element xsi:type="archimate:ApplicationFunction" name="Define what &quot;money&quot; means in a ledger" id="id-2b72f6f2d69c431aa4acd26b3530a225"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Split money N ways" id="id-7714b2f0f8aa41af88e39d9dd0cfd18b"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Add two monies" id="id-50c2ccefcf00444bb010776d2ca7dbc7"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Subtract one money from another" id="id-7d0380c08ad844b09724bb5c7fbe2781"/>
-          <element xsi:type="archimate:ApplicationFunction" name="Confirm money type validity" id="id-816e2957e2f24c54891f79f1de183f0b"/>
+          <element xsi:type="archimate:ApplicationFunction" name="Define what &quot;money&quot; means in a ledger" id="id-2b72f6f2d69c431aa4acd26b3530a225">
+            <documentation>Establish the canonical representation of monetary amounts — the precision, bounds, and constraints that distinguish a valid monetary value from a raw number. This definition is the contract that all monetary operations honour.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Split money N ways" id="id-7714b2f0f8aa41af88e39d9dd0cfd18b">
+            <documentation>Given a monetary amount and a count, divide the amount into that many shares such that the shares sum exactly to the original. Remainder pennies are distributed across shares — no value is lost or created.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Add two monies" id="id-50c2ccefcf00444bb010776d2ca7dbc7">
+            <documentation>Given two monetary amounts, produce their sum as a valid monetary amount.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Subtract one money from another" id="id-7d0380c08ad844b09724bb5c7fbe2781">
+            <documentation>Given two monetary amounts, produce their difference as a valid monetary amount.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Confirm money type validity" id="id-816e2957e2f24c54891f79f1de183f0b">
+            <documentation>Given a candidate numeric value, determine whether it satisfies the precision and bounds constraints that define a valid monetary amount. Rejects values with incorrect decimal precision or values outside the permitted range.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Currency functions" id="id-68d71222361949579b69ca91eae22be4"/>
         </folder>
         <folder name="Ledger functions" id="id-c5774940938a4e94b40654b5640c9734">
           <folder name="Account functions" id="id-689a74ee57ea46b4abfe1853fc8956b3">
-            <element xsi:type="archimate:ApplicationFunction" name="Account functions" id="id-a1690119289043169e3e8258590a51f1"/>
-            <element xsi:type="archimate:ApplicationFunction" name="Fetch account by ID" id="id-5dc22e9ffb0f44e8a808797f66768be3"/>
-            <element xsi:type="archimate:ApplicationFunction" name="Define what &quot;account&quot; means in a ledger" id="id-c01a8b6c81ef4b2c8fa81446b2252cee"/>
-            <element xsi:type="archimate:ApplicationFunction" name="Confirm account type validity" id="id-1a964c44e1a54cdfbd6cbf8902f1c2ad"/>
-            <element xsi:type="archimate:ApplicationFunction" name="Instantiate an account record" id="id-112c9d85688f452e86700e88b5c18ed3"/>
-            <element xsi:type="archimate:ApplicationFunction" name="Reconstitute account records" id="id-ab68a7cf900248f2b206d2de5423c879"/>
-            <element xsi:type="archimate:ApplicationFunction" name="Persist account records" id="id-ffb2193dc58443bea74d35e430bc459e"/>
-            <element xsi:type="archimate:ApplicationFunction" name="Fetch account by parent ID" id="id-de70971658894cee98718025e3d21510"/>
-            <element xsi:type="archimate:ApplicationFunction" name="Fetch account by type" id="id-925014b72b3444faa7e4a4dbf0e4175a"/>
-            <element xsi:type="archimate:ApplicationFunction" name="Fetch all accounts" id="id-0ffdc3c04c6147ef8b894ab04ad69a54"/>
-            <element xsi:type="archimate:ApplicationFunction" name="Update account name" id="id-f17d4ecfe32644e89bcfa51e92da22cd"/>
-            <element xsi:type="archimate:ApplicationFunction" name="Update account external reference ID" id="id-7cbec99538d5406b8783c90c8f008374"/>
+            <element xsi:type="archimate:ApplicationFunction" name="Account functions" id="id-a1690119289043169e3e8258590a51f1">
+              <documentation>Behaviours that define, create, retrieve, and modify accounts within the ledger. Members of this clade share a defining characteristic: they operate on the account entity — the named node in the chart of accounts that transactions post to.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch account by ID" id="id-5dc22e9ffb0f44e8a808797f66768be3">
+              <documentation>Given a typed account identifier, retrieve the corresponding account record from persistent storage.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Define what &quot;account&quot; means in a ledger" id="id-c01a8b6c81ef4b2c8fa81446b2252cee">
+              <documentation>Establish the canonical representation of an account — its identity, classification, hierarchical position, and the constraints that distinguish a valid account from arbitrary data.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Confirm account type validity" id="id-1a964c44e1a54cdfbd6cbf8902f1c2ad">
+              <documentation>Given a candidate account classification, determine whether it is a recognised account type. Rejects values outside the system's defined vocabulary of account types.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Instantiate an account record" id="id-112c9d85688f452e86700e88b5c18ed3">
+              <documentation>Given the attributes of an account, produce a new account record. The record is created in memory — it is not yet persisted.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Reconstitute account records" id="id-ab68a7cf900248f2b206d2de5423c879">
+              <documentation>Given raw stored values representing an account, produce a validated account record. Fails if the stored values do not represent a valid account.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Persist account records" id="id-ffb2193dc58443bea74d35e430bc459e">
+              <documentation>Given a valid account record, write it to persistent storage. The account becomes retrievable by its identifier after persistence.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch account by parent ID" id="id-de70971658894cee98718025e3d21510">
+              <documentation>Given a typed account identifier, retrieve all accounts that are direct children of that account in the chart of accounts hierarchy.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch account by type" id="id-925014b72b3444faa7e4a4dbf0e4175a">
+              <documentation>Given an account type classification, retrieve all accounts of that type.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fetch all accounts" id="id-0ffdc3c04c6147ef8b894ab04ad69a54">
+              <documentation>Retrieve every account in the ledger.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Update account name" id="id-f17d4ecfe32644e89bcfa51e92da22cd">
+              <documentation>Given a typed account identifier and a new name, change the account's display name in persistent storage.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Update account external reference ID" id="id-7cbec99538d5406b8783c90c8f008374">
+              <documentation>Given a typed account identifier and a new external reference, update the account's linkage to an external system in persistent storage.</documentation>
+            </element>
           </folder>
           <folder name="Fiscal period functions" id="id-cc987ebf69504969997be12e5c69d612">
-            <element xsi:type="archimate:ApplicationFunction" name="Define what &quot;fiscal period&quot; means in a ledger" id="id-bdaa658644a54f9ebb7dd1827e6f7c06"/>
-            <element xsi:type="archimate:ApplicationFunction" name="Fiscal period functions" id="id-0cc01f9d2691450393e6cca41ce48288"/>
-            <element xsi:type="archimate:ApplicationFunction" name="Confirm fiscal period type validity" id="id-d9072b88b506473a9b425d57bf1a7372"/>
+            <element xsi:type="archimate:ApplicationFunction" name="Define what &quot;fiscal period&quot; means in a ledger" id="id-bdaa658644a54f9ebb7dd1827e6f7c06">
+              <documentation>Establish the canonical representation of a fiscal period — the bounded time span used to partition the ledger's activity for reporting and reconciliation purposes.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Fiscal period functions" id="id-0cc01f9d2691450393e6cca41ce48288">
+              <documentation>Behaviours that define, validate, and retrieve fiscal periods within the ledger. Members of this clade share a defining characteristic: they operate on the fiscal period entity — the time-bounded container that groups ledger activity for reporting.</documentation>
+            </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Confirm fiscal period type validity" id="id-d9072b88b506473a9b425d57bf1a7372">
+              <documentation>Given a candidate fiscal period classification, determine whether it is a recognised fiscal period type. Rejects values outside the system's defined vocabulary of fiscal period types.</documentation>
+            </element>
           </folder>
-          <element xsi:type="archimate:ApplicationFunction" name="Ledger functions" id="id-02a684e5afd946a8949031f15694a733"/>
+          <element xsi:type="archimate:ApplicationFunction" name="Ledger functions" id="id-02a684e5afd946a8949031f15694a733">
+            <documentation>Behaviours that define and maintain the structure and content of the general ledger — accounts, fiscal periods, journal entries, and the rules that govern them. Members of this clade share a defining characteristic: they operate on the permanent record of financial activity.</documentation>
+          </element>
         </folder>
-        <element xsi:type="archimate:ApplicationFunction" name="Financial services functions" id="id-30a03788e5be455c88954787a3153e59"/>
+        <element xsi:type="archimate:ApplicationFunction" name="Financial services functions" id="id-30a03788e5be455c88954787a3153e59">
+          <documentation>Behaviours specific to the financial domain — monetary arithmetic, ledger management, and the rules that govern how money is represented, moved, and recorded. Members of this clade share a defining characteristic: they would not exist in a system that does not manage money.</documentation>
+        </element>
       </folder>
     </folder>
     <folder name="Components (the &quot;how&quot;)" id="id-75426be5560948ee905968b8c7160c2e">
@@ -330,7 +521,6 @@
     <element xsi:type="archimate:CompositionRelationship" id="id-336ae243b8174a7690b841149d0941cd" source="id-ea3aecf940014f9aa3b20d9fbf5f5f80" target="id-93751e3d47d5413d8a215b046bb3ac97"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-b5ff9d3f2a5349b4a677b280d0005fc3" source="id-93751e3d47d5413d8a215b046bb3ac97" target="id-87e17fdabed043c9898f70cdc86ac167"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-35c0f60bb8084044814c6b0cb39a1d98" source="id-93751e3d47d5413d8a215b046bb3ac97" target="id-76facdb018594d49b1ebeb9daa4a2f6a"/>
-    <element xsi:type="archimate:RealizationRelationship" id="id-2f60f21900c44dca8eed248a398408f1" source="id-93751e3d47d5413d8a215b046bb3ac97" target="id-bec90abb6cca4c15baff6bd5b05c93c0"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-0c160683290643e189d3089b1f604f16" source="id-93751e3d47d5413d8a215b046bb3ac97" target="id-fb7b9763fa38483789172c4aab7d4a1b"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-6f6fcd3b4c6a4c9c9bc0413a2d0ae961" source="id-93751e3d47d5413d8a215b046bb3ac97" target="id-055e0d8c2fc14d82afa41343ba61c431"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-1877e9c059974c97b83f3fc190532402" source="id-93751e3d47d5413d8a215b046bb3ac97" target="id-ecf432c0c77f4e81b3281af0d8d8202c"/>
@@ -430,7 +620,6 @@
     <element xsi:type="archimate:AggregationRelationship" id="id-08841e75ff4e4b3d9d6a87f09b5c0ccb" source="id-93751e3d47d5413d8a215b046bb3ac97" target="id-81711318d0f74f4cb002bc5fd843d1ee"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-a2eaeabe55f040299b250cfc97f7dd3f" source="id-59f9eb5d068243f2807247b3ebe0b972" target="id-7a37dfddc2b840aa83b46b8a5a296a43"/>
     <element xsi:type="archimate:ServingRelationship" id="id-acfce4f81de0419ca140637beca27aed" source="id-7a37dfddc2b840aa83b46b8a5a296a43" target="id-bb9d1dd7d6c64ca9b2da2f0bf36e7112"/>
-    <element xsi:type="archimate:RealizationRelationship" id="id-6a3fa0251caa42bebc8d4dad66539029" source="id-bb9d1dd7d6c64ca9b2da2f0bf36e7112" target="id-bec90abb6cca4c15baff6bd5b05c93c0"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-5b578009f8d240a4a05436781708cc86" source="id-bb9d1dd7d6c64ca9b2da2f0bf36e7112" target="id-bd15302203414213a6b226d682bd36d5"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-fb7346029f76404c8d44c9f00613660e" source="id-93751e3d47d5413d8a215b046bb3ac97" target="id-64533b2e6a634ce0823a21e65b472acd"/>
     <element xsi:type="archimate:ServingRelationship" id="id-9b1a2c3919f04e04868293f426e2fc7d" source="id-7a37dfddc2b840aa83b46b8a5a296a43" target="id-64533b2e6a634ce0823a21e65b472acd"/>
@@ -571,6 +760,7 @@
     <element xsi:type="archimate:AggregationRelationship" id="id-f79fdca8b23a4d70881b9608a56b920d" source="id-65fcb2dd45264dcd9220240b97b09548" target="id-2224f7a8b5e24edc928b88a393ab0882"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-6ea7d021da8047afa825a4147fcb65ea" source="id-65fcb2dd45264dcd9220240b97b09548" target="id-d9072b88b506473a9b425d57bf1a7372"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-5c46604ceed84f2cbf6b231a5cf990ac" source="id-65fcb2dd45264dcd9220240b97b09548" target="id-bdaa658644a54f9ebb7dd1827e6f7c06"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-6fe8b9a0fb744159b0eadc8ef807f580" source="id-bb9d1dd7d6c64ca9b2da2f0bf36e7112" target="id-1f544412e4034e77b1430f13045e9e76"/>
   </folder>
   <folder name="Views" id="id-75e0717f00f244fe89d04a8b9e32fac9" type="diagrams">
     <element xsi:type="archimate:ArchimateDiagramModel" name="Application tiers" id="id-398726ae0f1d4b0a896928395ae87a15">
@@ -607,15 +797,15 @@
           <sourceConnection xsi:type="archimate:Connection" id="id-40059f0466834f5088a1950371ace880" source="id-d793aa184b6948c2a33a7e6d41710522" target="id-f1a4a932fe4c4af98b2e296422c02019" archimateRelationship="id-93172f031ed442b0b3ac946e57a116a3"/>
           <child xsi:type="archimate:DiagramObject" id="id-5b244036a0274bea916c48fed88ded78" targetConnections="id-aa4bdbc044834f1aa48de50713c03824 id-60018953bdf246e4ab5a612b479b4258 id-42445db21c3045e383223a8311f85de2 id-33ebd11ddad74d04aa3daf4e3a7d5a5e id-c2404c1425514453a1b630825de07039 id-2b41a26ca9ee4a26a2d1aebab299932c id-37600308452e49b986d30f3441fc28eb" archimateElement="id-bb9d1dd7d6c64ca9b2da2f0bf36e7112">
             <bounds x="12" y="420" width="278" height="97"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-b332154045b24d8199379b63fa4cc58e" source="id-5b244036a0274bea916c48fed88ded78" target="id-d4c3861063a441acb70cf215bc3689d9" archimateRelationship="id-6a3fa0251caa42bebc8d4dad66539029"/>
             <sourceConnection xsi:type="archimate:Connection" id="id-13d882e8b1044038b4e2f9768c4cb47a" source="id-5b244036a0274bea916c48fed88ded78" target="id-387b703586fd46e6adb3900ee694846c" archimateRelationship="id-5b578009f8d240a4a05436781708cc86"/>
             <sourceConnection xsi:type="archimate:Connection" id="id-bfae4b98c6cf42bba3c667194790bbb7" source="id-5b244036a0274bea916c48fed88ded78" target="id-112b7709d0474dcba00da787f95120a4" archimateRelationship="id-2d610252f801443fb8a223ce023e615b"/>
             <sourceConnection xsi:type="archimate:Connection" id="id-7c23c6febd194cd7a989e6e8ddb8aaf2" source="id-5b244036a0274bea916c48fed88ded78" target="id-3441e3829ebc4a2d9593fe4c0eb59d82" archimateRelationship="id-de06fb812e6d4c968c1f3619d1d3cbb4"/>
             <sourceConnection xsi:type="archimate:Connection" id="id-88a27eefc1254d6d9710e9f680e35173" source="id-5b244036a0274bea916c48fed88ded78" target="id-35f5daf34ff0468a9c976ba12cc7d832" archimateRelationship="id-9b018a29eccc416dbbddf4fe032d0cd8"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-2a65d046f2d046c5a12bf25aa89aed01" source="id-5b244036a0274bea916c48fed88ded78" target="id-08bf67c16fcd4158a44b237320caa04f" archimateRelationship="id-6fe8b9a0fb744159b0eadc8ef807f580"/>
             <child xsi:type="archimate:DiagramObject" id="id-387b703586fd46e6adb3900ee694846c" targetConnections="id-13d882e8b1044038b4e2f9768c4cb47a" archimateElement="id-bd15302203414213a6b226d682bd36d5">
               <bounds x="144" y="36" width="120" height="55"/>
             </child>
-            <child xsi:type="archimate:DiagramObject" id="id-d4c3861063a441acb70cf215bc3689d9" targetConnections="id-b332154045b24d8199379b63fa4cc58e" archimateElement="id-bec90abb6cca4c15baff6bd5b05c93c0">
+            <child xsi:type="archimate:DiagramObject" id="id-08bf67c16fcd4158a44b237320caa04f" targetConnections="id-2a65d046f2d046c5a12bf25aa89aed01" archimateElement="id-1f544412e4034e77b1430f13045e9e76">
               <bounds x="12" y="36" width="120" height="55"/>
             </child>
           </child>
