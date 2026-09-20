@@ -3,13 +3,13 @@ module App.Utility.Calendar
 open System.Globalization
 open NodaTime
 open App.Utility
-open App.Utility.AppError
+open App.Utility.UtilityError
 open App.Utility.Config
 
 let timeZoneLocal =
     match getConfigValue<string> "LocalizedTimeZone" with
     Ok x -> DateTimeZoneProviders.Tzdb[x]
-    | Error e -> failwith (e |> AppError.toMessage)
+    | Error e -> failwith (toMessage e)
 
 let dateFromInstant (i: Instant) : LocalDate = i.InZone(timeZoneLocal).Date
 

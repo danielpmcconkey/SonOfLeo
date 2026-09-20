@@ -1,6 +1,7 @@
 module App.Utility.Result
 
-open App.Utility.AppError
+open App.Utility.IAppError
+open App.Utility.UtilityError
 
 /// ResultBuilder is a class that provides computational expressions for
 /// more elegant results binding and mapping
@@ -12,7 +13,7 @@ type ResultBuilder() =
 
 let result = ResultBuilder()
 
-let convertListOfResultsToResultsList<'T> (listOfResults: Result<'T, AppError> list) : Result<'T list, AppError> =
+let convertListOfResultsToResultsList<'T> (listOfResults: Result<'T, IAppError> list) : Result<'T list, IAppError> =
     listOfResults
     |> List.foldBack(fun createResult acc ->
         match createResult, acc with
@@ -35,9 +36,12 @@ let convertListOfResultsToResultsList<'T> (listOfResults: Result<'T, AppError> l
 /// returns:
 ///     a Result of desired type
 let convertOptionToDesiredTypeWithFallibleConverter
-    (fallibleConverter: 'a -> Result<'b, AppError>)
+    (fallibleConverter: 'a -> Result<'b, #IAppError>)
     (sourceOption: 'a option)
-    : Result<'b option, AppError> =
+    : Result<'b option, UtilityError> =
     match sourceOption with
     | None -> Ok None
-    | Some x -> fallibleConverter x |> Result.map Some
+    | Some x ->
+        fallibleConverter x
+        |> Result.mapError (fun e -> FallibleOptionConversionFailure (e.ToMessage()))
+        |> Result.map Some

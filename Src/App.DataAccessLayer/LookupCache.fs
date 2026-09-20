@@ -1,7 +1,7 @@
 module App.DataAccessLayer.LookupCache
 
 open System
-open App.Utility.AppError
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.DbTransaction
 open App.DataAccessLayer.QueryParameter
@@ -20,9 +20,9 @@ to also involve any CRUD operations of core module entities.
 *)
 
 type Cache<'K, 'V when 'K: comparison>
-    (loadAll: unit -> Result<Map<'K, 'V>, AppError>, loadOne: DbTransaction -> 'K -> Result<'V, AppError>) =
-    let mutable cache = loadAll() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    member _.fetch context (key: 'K) : Result<'V, AppError> =
+    (loadAll: unit -> Result<Map<'K, 'V>, DalError>, loadOne: DbTransaction -> 'K -> Result<'V, DalError>) =
+    let mutable cache = loadAll() |> Result.defaultWith(fun e -> failwith(DalError.toMessage e))
+    member _.fetch context (key: 'K) : Result<'V, DalError> =
         match cache |> Map.tryFind key with
         | Some v -> Ok v
         | None ->
@@ -34,7 +34,7 @@ type Cache<'K, 'V when 'K: comparison>
 
 type idAndString = { id: Guid; key: string }
 
-let private reconstitute (raw: Guid * string) : Result<idAndString, AppError> =
+let private reconstitute (raw: Guid * string) : Result<idAndString, DalError> =
     let id, key = raw
     Ok { id = id; key = key }
 
@@ -44,7 +44,7 @@ let private mapRawForDbRead (fieldNameId: string) (fieldNameKey: string) (row: R
     id, key
     
 let private fetchAll table keyColumn =
-  let tran = createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+  let tran = createDbTransaction() |> Result.defaultWith(fun e -> failwith(DalError.toMessage e))
   executeReaderQuery tran $"select unique_id, {keyColumn} from {table}" []
       (mapRawForDbRead "unique_id" keyColumn) reconstitute AnyQuantityIsAcceptable
 

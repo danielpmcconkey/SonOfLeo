@@ -129,49 +129,8 @@ type AppError = // todo: turn AppError into an interface and remove upper level 
 
     | CliUnknownCommand of string * string
     
-    | ConfigReadError of string * exn
-    | ConfigNotFound of string
     
-    | DalCantCompleteTransactionOfNone
-    | DalCantFetchTransactionOfNone
-    | DalCantUseTransactionOfNoneInAutoCommit
-    | DalConnectionStringEnvVarContainsConnectionString
-    | DalConnectionStringEnvVarNotFound
-    | DalConnectionStringIsEmpty
-    | DalDecimalUnboxingReturnedNull
-    | DalEnvVarNotSet of string
-    | DalErrorDuringAutoCompleteTransactionRun of exn
-    | DalErrorDuringDecimalOptionUnboxing of exn
-    | DalErrorDuringDecimalUnboxing of exn
-    | DalErrorDuringInstantOptionUnboxing of exn
-    | DalErrorDuringInstantUnboxing of exn
-    | DalErrorDuringIntOptionUnboxing of exn
-    | DalErrorDuringIntUnboxing of exn
-    | DalErrorDuringLocalDateOptionUnboxing of exn
-    | DalErrorDuringLocalDateUnboxing of exn
-    | DalErrorDuringLongOptionUnboxing of exn
-    | DalErrorDuringLongUnboxing of exn
-    | DalErrorDuringNonQueryExecution of exn
-    | DalErrorDuringReaderQueryExecution of exn
-    | DalErrorDuringScalarExecution of exn
-    | DalErrorDuringStringOptionUnboxing of exn
-    | DalErrorDuringStringUnboxing of exn
-    | DalErrorDuringTransactionCommit of exn
-    | DalErrorDuringTransactionCreation of exn
-    | DalErrorDuringTransactionRollback of exn
-    | DalErrorDuringUuidOptionUnboxing of exn
-    | DalErrorDuringUuidUnboxing of exn
-    | DalInstantUnboxingReturnedNull
-    | DalIntUnboxingReturnedNull
-    | DalLocalDateUnboxingReturnedNull
-    | DalLongUnboxingReturnedNull
-    | DalResultantRowsDidntMatchExpectation of string * int
-    | DalStringUnboxingReturnedNull
-    | DalUuidUnboxingReturnedNull
     
-    | FileIoDirectoryDoesntExist of string
-    | FileIoFileDoesntExist of string
-    | FileIoError of exn
     
     | FiscalPeriodInvalidKeyString of string
     | FiscalPeriodNoPeriodMatchingId of Guid
@@ -216,8 +175,6 @@ type AppError = // todo: turn AppError into an interface and remove upper level 
     | IngestionSourceNameNotFound of string
     
     | InterfaceBridgeConversionFailure of string * string * string * string
-    | InterfaceBridgeFailedJsonDeserialization of string * string * string
-    | InterfaceBridgeFailedJsonSerialization of string * string * string
     
     | JournalEntryCommentIsEmpty of string
     | JournalEntryCommentPrimaryAndSecondaryIdsAreSame of Guid * Guid
@@ -398,49 +355,6 @@ module AppError =
         
         | CliUnknownCommand(domain, verb) -> $"Unknown command: {domain} {verb}"
         
-        | ConfigReadError (keyString, ex) -> $"Cannot resolve config with key {keyString}. It likely cannot be parsed as the requested type. Full error: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | ConfigNotFound keyString -> $"Cannot find config with key {keyString}."
-        
-        | DalCantCompleteTransactionOfNone -> "Error. You cannot commit or rollback with a raw transaction of None."
-        | DalCantFetchTransactionOfNone -> "Error. You cannot fetch a connection with a raw transaction of None."
-        | DalCantUseTransactionOfNoneInAutoCommit -> "Error. You cannot send a transaction of None into the auto-commit pipeline."
-        | DalConnectionStringEnvVarContainsConnectionString -> "ConnectionStringEnvVar contains a connection string, not an env var name."
-        | DalConnectionStringEnvVarNotFound -> "ConnectionStringEnvVar not found in appsettings.json."
-        | DalConnectionStringIsEmpty -> "Connection string is empty."
-        | DalDecimalUnboxingReturnedNull -> "Decimal unboxing returned DB null"
-        | DalEnvVarNotSet envVarName -> $"Environment variable {envVarName} not set or empty."
-        | DalErrorDuringAutoCompleteTransactionRun ex -> $"Database error during runWithAutoCompleteTransaction. {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringDecimalOptionUnboxing ex -> $"Database error decimal option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringDecimalUnboxing ex -> $"Database error during decimal unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringInstantOptionUnboxing ex -> $"Database error during instant option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringInstantUnboxing ex -> $"Database error during instant unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringIntOptionUnboxing ex -> $"Database error during int option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringIntUnboxing ex -> $"Database error during int unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringLocalDateOptionUnboxing ex -> $"Database error during LocalDate option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringLocalDateUnboxing ex -> $"Database error during LocalDate unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringLongOptionUnboxing ex -> $"Database error during long option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringLongUnboxing ex -> $"Database error during long unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringNonQueryExecution ex -> $"Database error during non query execution: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringReaderQueryExecution ex -> $"Database error during reader query execution: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringScalarExecution ex -> $"Database error during scalar execution: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringStringOptionUnboxing ex -> $"Database error during string option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringStringUnboxing ex -> $"Database error during string unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringTransactionCommit ex -> $"Database error during transaction commit. {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringTransactionCreation ex -> $"Database error during transaction creation: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringTransactionRollback ex -> $"Database error during transaction rollback. You probably have corrupted data that you should address immediately. {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringUuidOptionUnboxing ex -> $"Database error during UUID option unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalErrorDuringUuidUnboxing ex -> $"Database error during UUID unboxing: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
-        | DalInstantUnboxingReturnedNull -> "Instant unboxing returned DB null"
-        | DalIntUnboxingReturnedNull -> "Int unboxing returned DB null"
-        | DalLocalDateUnboxingReturnedNull -> "LocalDate unboxing returned DB null"
-        | DalLongUnboxingReturnedNull -> "Long unboxing returned DB null"
-        | DalResultantRowsDidntMatchExpectation(expected, actual) -> $"Resultant rows didn't match expectation. Expected {expected}. Actual {actual}."
-        | DalStringUnboxingReturnedNull -> "String unboxing returned DB null"
-        | DalUuidUnboxingReturnedNull -> "UUID unboxing returned DB null"
-    
-        | FileIoDirectoryDoesntExist str -> $"Directory {str} doesn't exist."
-        | FileIoFileDoesntExist str -> $"No file exists at path \"{str}\"."
-        | FileIoError ex -> $"Error in File I/O operation. Error message: {ex.Message}{Environment.NewLine} {ex.StackTrace}"
         
         | FiscalPeriodInvalidKeyString key -> $"Passed string \"{key}\" is invalid as a Period Key."
         | FiscalPeriodNoPeriodMatchingId uuid -> $"No Fiscal Period matching the id {uuid} could be found in the database."
@@ -492,9 +406,7 @@ module AppError =
         | IngestionSourceNameNotFound str -> $"No ingestion source of {str} could be found."
         
         | InterfaceBridgeConversionFailure(originalType, originalValue, desiredType, childError) -> $"Failed conversion in InterfaceBridge. Original type: {originalType}. Desired type: {desiredType}. Original value: {originalValue}. Additional details: {childError}"
-        | InterfaceBridgeFailedJsonDeserialization(typeName, error, stackTrace) -> $"Failed to deserialize JSON string into type {typeName}. {error}{Environment.NewLine}{stackTrace}"
-        | InterfaceBridgeFailedJsonSerialization(typeName, error, stackTrace) -> $"Failed to serialize JSON string into type {typeName}. {error}{Environment.NewLine}{stackTrace}"
-        
+            
         | JournalEntryCommentIsEmpty comment -> $"Journal Entry Comment cannot be empty. Provided string is {comment}."
         | JournalEntryCommentPrimaryAndSecondaryIdsAreSame(primary, secondary) -> $"Primary ({primary}) and secondary ({secondary}) journal entries cannot be the same."
         | JournalEntryCommentPrimaryJeHeaderIdNotFound uuid -> $"Error looking up primary header ID. Could not locate a journal entry header with the id of {uuid}."

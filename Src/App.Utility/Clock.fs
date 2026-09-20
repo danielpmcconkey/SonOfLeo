@@ -2,14 +2,14 @@ module App.Utility.Clock
 
 open System.Globalization
 open NodaTime
-open App.Utility.AppError
+open App.Utility.UtilityError
 open App.Utility.Config
 
 
 let timeZoneLocal =
-    match getConfigValue<string> "LocalizedTimeZone" with
-    Ok x -> DateTimeZoneProviders.Tzdb[x]
-    | Error e -> failwith (e |> AppError.toMessage)
+    match getConfigValue<string> "LocalizedTimeZone"  with 
+    | Ok x -> DateTimeZoneProviders.Tzdb[x]
+    | Error e -> failwith (toMessage e)
 
 
 /// Clock.Now exists because the app layer creates time at a 1 * 10 ^ -7

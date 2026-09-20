@@ -5,7 +5,7 @@ open System.Data
 open NodaTime
 open Npgsql
 open App.Utility.Result
-open App.Utility.AppError
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.DbTransaction
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.DbConnection
@@ -16,7 +16,7 @@ type AcceptableExpectedRows =
     | OneOrMany
     | AnyQuantityIsAcceptable
 
-let internal confirmNumRows (numRows: int) (expectation: AcceptableExpectedRows) : Result<unit, AppError> =
+let internal confirmNumRows (numRows: int) (expectation: AcceptableExpectedRows) : Result<unit, DalError> =
     match expectation with
     | Zero when numRows = 0 -> Ok()
     | ExactlyOne when numRows = 1 -> Ok()
@@ -156,9 +156,9 @@ let executeReaderQuery
     (queryStatement: string)
     (parameters: QueryParameter list)
     (mapRaw: RowReader -> 'Tuple)
-    (constructFromRaw: 'Tuple -> Result<'T, AppError>)
+    (constructFromRaw: 'Tuple -> Result<'T, DalError>)
     (expectedRows: AcceptableExpectedRows)
-    : Result<'T list, AppError> =
+    : Result<'T list, DalError> =
     result {
         let! ds = dataSource.Value
         let parameters = buildParamsList parameters
@@ -175,7 +175,7 @@ let executeReaderQuery
                         parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
                         use nReader = command.ExecuteReader()
                         readRawRows nReader mapRaw []
-                    rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList
+                    rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList ReaderFailedToConvertRawRows
                 | false ->
                     dbTransaction
                     |> transactionAndConnection
@@ -188,7 +188,7 @@ let executeReaderQuery
                                 parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
                                 use nReader = command.ExecuteReader()
                                 readRawRows nReader mapRaw []
-                            rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList
+                            rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList ReaderFailedToConvertRawRows
             with ex ->
                 Error(DalErrorDuringReaderQueryExecution ex)
         let! () = confirmNumRows rows.Length expectedRows

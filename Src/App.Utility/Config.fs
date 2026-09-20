@@ -2,7 +2,7 @@ module App.Utility.Config
 
 open System
 open Microsoft.Extensions.Configuration
-open App.Utility.AppError
+open App.Utility.UtilityError
 open App.Utility.Result
 
 let private configRoot = // this is intentionally static
@@ -14,7 +14,7 @@ let private configRoot = // this is intentionally static
 
 let mutable private cache: Map<string, obj> = Map.empty
 
-let private readConfigValue<'T> keyString : Result<'T, AppError> =
+let private readConfigValue<'T> keyString : Result<'T, UtilityError> =
     try
         let section = configRoot.GetSection(keyString)
         if section.Exists() then configRoot.GetValue<'T>(keyString) |> Ok
@@ -22,7 +22,7 @@ let private readConfigValue<'T> keyString : Result<'T, AppError> =
     with ex ->
         Error(ConfigReadError (keyString, ex))
 
-let getConfigValue<'T> keyString : Result<'T, AppError> =
+let getConfigValue<'T> keyString : Result<'T, UtilityError> =
     try
         match cache |> Map.tryFind keyString with 
         | Some v -> Ok(v :?> 'T)
