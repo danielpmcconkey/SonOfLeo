@@ -1,8 +1,8 @@
 module Business.FinancialServices.Money
 
 open System
-open App.Utility.AppError
 open App.Utility.Result
+open Business.FinancialServices.BizFinServError
 
 type Money = private { amount: decimal }
 
@@ -17,7 +17,7 @@ let private create (validD: decimal) : Money = { amount = validD }
 let toCurrencyString m = m.amount.ToString("C2", usFormatProvider)
 let toAccountingString m = m.amount.ToString("N2", usFormatProvider)
 
-let fromDecimal (raw: decimal) : Result<Money, AppError> =
+let fromDecimal (raw: decimal) : Result<Money, BizFinServError> =
     let rounded = Math.Round(raw, 2, MidpointRounding.AwayFromZero)
     // note, rounded is only used here as a known good to confirm that raw
     // is correct. Therefore, passing raw to the create function is
@@ -28,17 +28,17 @@ let fromDecimal (raw: decimal) : Result<Money, AppError> =
     | x when x < minMoney -> Error(MoneyFailedToConvertBelowMin(raw, minMoney))
     | _ -> Ok(create raw)
 
-let fromDecimalList (l: decimal list) : Result<Money list, AppError> =
+let fromDecimalList (l: decimal list) : Result<Money list, BizFinServError> =
     l
     |> List.map fromDecimal
-    |> convertListOfResultsToResultsList
+    |> convertListOfResultsToResultsList FromDecimalListFailedConversion
 
 /// splitByN allows the caller to split a Money amount into N mostly-equal parts
 /// and returns a list of valid Money records. It is important to note that, in
 /// instances where the input Money record's amount cannot divide evenly (to the
 /// penny) by N, one record will have the difference added. The higher N is, the
 /// greater the possibility for the residual to grow.
-let splitByN (m: Money) (n: int) : Result<Money list, AppError> =
+let splitByN (m: Money) (n: int) : Result<Money list, BizFinServError> =
     match n with
     | a when a <= 1 -> Error(MoneyImproperSplit a)
     | _ ->
@@ -57,12 +57,12 @@ let splitByN (m: Money) (n: int) : Result<Money list, AppError> =
             return! fromDecimalList dList
         }
 
-let add (m: Money) (n: Money) : Result<Money, AppError> =
+let add (m: Money) (n: Money) : Result<Money, BizFinServError> =
     fromDecimal(m.amount + n.amount)
 
-let subtractVal1FromVal2 (val1: Money) (val2: Money) : Result<Money, AppError> =
+let subtractVal1FromVal2 (val1: Money) (val2: Money) : Result<Money, BizFinServError> =
     fromDecimal(val2.amount - val1.amount)
 
-let sumList (l: Money list) : Result<Money, AppError> =
+let sumList (l: Money list) : Result<Money, BizFinServError> =
     let sum_d = l |> List.sumBy amount
     fromDecimal sum_d

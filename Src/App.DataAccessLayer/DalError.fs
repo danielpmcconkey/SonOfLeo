@@ -83,7 +83,7 @@ type DalError =
             | DalResultantRowsDidntMatchExpectation(expected, actual) -> $"Resultant rows didn't match expectation. Expected {expected}. Actual {actual}."
             | DalStringUnboxingReturnedNull -> "String unboxing returned DB null"
             | DalUuidUnboxingReturnedNull -> "UUID unboxing returned DB null"
-            | ReaderFailedToConvertRawRows appError -> $"{appError.ToMessage()}"
+            | ReaderFailedToConvertRawRows appError -> $"Failure to convert raw rows on DB read. Message: {appError.ToMessage()}"
 
 let toMessage (e: DalError) = (e :> IAppError).ToMessage()
 

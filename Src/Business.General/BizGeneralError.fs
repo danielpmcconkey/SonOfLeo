@@ -19,7 +19,7 @@ type BizGeneralError =
     
     interface IAppError with
         member this.ToMessage() =
-            match this with        
+            match this with
             | ActiveEndBeforeBegin(activeBegin, activeEnd) -> $"An activity period's active end ({activeEnd}) cannot be before its active begin ({activeBegin})."
             | CadenceDateNotLastDayOfMonth date -> $"{date} does not fit the cadence, which falls on the last day of the month."
             | CadenceDateNotNthWeekDayInMonth(date, weekInMonth, weekDay) -> $"{date} does not fit the cadence, which falls on {weekDay} number {weekInMonth} of the month."
@@ -32,7 +32,6 @@ type BizGeneralError =
             | InvalidMonth str -> $"Invalid Month of \"{str}\"."
             | InvalidWeekDay str -> $"Invalid WeekDay of \"{str}\"."
             | InvalidWeekInMonthNumber i -> $"Invalid WeekInMonthNumber of \"{i}\"."
-
 
 let toMessage (e: BizGeneralError) = (e :> IAppError).ToMessage()
 
