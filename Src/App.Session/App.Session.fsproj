@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <RootNamespace>Context</RootNamespace>
+    <RootNamespace>App.Session</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
