@@ -1,7 +1,7 @@
-module Model.StageDataClassification.Classifier
+module Business.FinancialServices.Classification.Classifier
 
-open Model.StageDataClassification.ClassificationRule
-open Model.StageDataClassification.StageDataClassificationComponent
+open Business.FinancialServices.Classification.ClassificationRule
+open Business.FinancialServices.Classification.ClassificationComponent
 
 let classifyCandidate
     (rules: ClassificationRule list)

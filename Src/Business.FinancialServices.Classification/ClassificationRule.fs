@@ -1,16 +1,17 @@
-module Model.StageDataClassification.ClassificationRule
+module Business.FinancialServices.Classification.ClassificationRule
 
-open DataAccessLayer.ExecuteNonQuery
-open DataAccessLayer.ExecuteReader
-open DataAccessLayer.QueryParameters
-open Model.CashFlow
-open Model.Ledger.AccountComponent
 open NodaTime
-open Utilities.AppError
-open Utilities.Json.Json
-open Utilities.ResultHelper
-open Model.StageDataClassification.StageDataClassificationComponent
-open Model.StageDataClassification.ClassificationRuleGroup
+open App.DataAccessLayer.ExecuteNonQuery
+open App.DataAccessLayer.ExecuteReader
+open App.DataAccessLayer.QueryParameter
+open App.Utility.AppError
+open App.Utility.Json.Json
+open App.Utility.Result
+open App.Session
+open Business.FinancialServices.CashFlow
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Classification.ClassificationComponent
+open Business.FinancialServices.Classification.ClassificationRuleGroup
 
 /// ClassificationRule: The top-level classification rule. All groups must resolve to true for the rule to resolve to
 /// true.

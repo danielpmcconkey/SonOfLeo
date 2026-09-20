@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RootNamespace>InterfaceBridge</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -41,11 +42,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Context\Context.fsproj" />
-    <ProjectReference Include="..\DataAccessLayer\DataAccessLayer.fsproj" />
-    <ProjectReference Include="..\ModelOrchestrator\ModelOrchestrator.fsproj" />
+    <ProjectReference Include="..\App.Session\App.Session.fsproj" />
+    <ProjectReference Include="..\App.DataAccessLayer\App.DataAccessLayer.fsproj" />
+    <ProjectReference Include="..\Business.CrossDomainOrchestration\Business.CrossDomainOrchestration.fsproj" />
     <ProjectReference Include="..\Model\Model.fsproj" />
-    <ProjectReference Include="..\Utilities\Utilities.fsproj" />
+    <ProjectReference Include="..\App.Utility\App.Utility.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

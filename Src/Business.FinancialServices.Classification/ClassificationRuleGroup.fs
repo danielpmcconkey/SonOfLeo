@@ -1,7 +1,7 @@
-module Model.StageDataClassification.ClassificationRuleGroup
+module Business.FinancialServices.Classification.ClassificationRuleGroup
 
-open Model.StageDataClassification.StageDataClassificationComponent
-open Model.StageDataClassification.FieldMatchChain
+open Business.FinancialServices.Classification.ClassificationComponent
+open Business.FinancialServices.Classification.FieldMatchChain
 
 /// ClassificationRuleGroup: two chains with an "and" or "or" relationship. If "and" then all FieldMatch comparisons in
 /// both chains must resolve to true for the group to resolve to true. If "or" then all FieldMatch comparisons in one or

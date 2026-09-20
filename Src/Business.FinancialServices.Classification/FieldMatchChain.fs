@@ -1,7 +1,7 @@
-module Model.StageDataClassification.FieldMatchChain
+module Business.FinancialServices.Classification.FieldMatchChain
 
-open Model.StageDataClassification.StageDataClassificationComponent
-open Model.StageDataClassification.FieldMatch
+open Business.FinancialServices.Classification.ClassificationComponent
+open Business.FinancialServices.Classification.FieldMatch
 
 /// FieldMatchChain: chain all FieldMatch elements into a single "and-connected" grouping. Meaning, all FieldMatch
 /// comparisons must be true for the chain to be true 

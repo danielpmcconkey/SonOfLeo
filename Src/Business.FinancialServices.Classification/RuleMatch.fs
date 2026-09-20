@@ -1,13 +1,14 @@
-module Model.StageDataClassification.RuleMatch
+module Business.FinancialServices.Classification.RuleMatch
 
-open DataAccessLayer.ExecuteNonQuery
-open DataAccessLayer.ExecuteReader
-open DataAccessLayer.QueryParameters
-open Model.DataIngestion.StageEntryComponent
 open NodaTime
-open Utilities.AppError
-open Utilities.ResultHelper
-open Model.StageDataClassification.StageDataClassificationComponent
+open App.DataAccessLayer.ExecuteNonQuery
+open App.DataAccessLayer.ExecuteReader
+open App.DataAccessLayer.QueryParameter
+open App.Utility.AppError
+open App.Utility.Result
+open App.Session
+open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.Classification.ClassificationComponent
 
 /// RuleMatch: is the durable record of a classification run. A run is a historical fact, so there is deliberately
 /// no update function or FieldUpdates record here.
@@ -63,7 +64,7 @@ let persist (context: Context.Context) (ruleMatch: RuleMatch) : Result<unit, App
 
 let private reconstitute raw =
     result {
-        let (uuid, runUuid, lineUuid, ruleUuid, createdAt) = raw
+        let uuid, runUuid, lineUuid, ruleUuid, createdAt = raw
         let classificationMatchId = uuid |> ClassificationMatchId.fromGuid
         let runId = runUuid |> ClassificationRunId.fromGuid
         let stageEntryLineId = lineUuid |> StageEntryLineId.fromGuid

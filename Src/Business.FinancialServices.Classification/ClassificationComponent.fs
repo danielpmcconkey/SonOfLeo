@@ -1,12 +1,12 @@
-module Model.StageDataClassification.StageDataClassificationComponent
+module Business.FinancialServices.Classification.ClassificationComponent
 
 open System
-open Model
-open Model.CashFlow
-open Model.Ledger.AccountComponent
-open Model.Ledger.JournalEntryComponent
-open Utilities.AppError
-open Model.DataIngestion.StageEntryComponent
+open Business.FinancialServices
+open Business.FinancialServices.CashFlow
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open App.Utility.AppError
+open Business.FinancialServices.DataIngestion.StageEntryComponent
 
 type ClassificationRuleId = private ClassificationRuleId of Guid
 
@@ -56,7 +56,7 @@ module NumericSearchOperator =
     
 type MoneySearchPattern = {
         numericSearchOperator: NumericSearchOperator
-        amount: Money
+        amount: Money.Money
     }
 
 type ClassificationRuleName = private ClassificationRuleName of string
@@ -111,7 +111,7 @@ type MatchCandidate = {
         lineIdOfCandidate: StageEntryLineId
         ingestionSource: JournalRefFinancialInstitution
         description: JournalEntryDescription
-        amount: Money
+        amount: Money.Money
         lineType: JournalEntryLineType
         memo: JournalEntryLineMemo option
 }

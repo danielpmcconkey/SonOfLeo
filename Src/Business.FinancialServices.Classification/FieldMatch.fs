@@ -1,9 +1,9 @@
-module Model.StageDataClassification.FieldMatch
+module Business.FinancialServices.Classification.FieldMatch
 
 open System.Text.RegularExpressions
-open Model
-open Model.Ledger.JournalEntryComponent
-open Model.StageDataClassification.StageDataClassificationComponent
+open Business.FinancialServices
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.Classification.ClassificationComponent
 
 type FieldMatch =
     | Source of StringSearchPattern
@@ -16,7 +16,7 @@ let private isRegexMatch (source:string) (pattern:string) : bool =
     let rx = Regex(pattern, RegexOptions.Compiled)
     rx.IsMatch(source)
 
-let private isMoneyMatch (source: Money) (pattern: MoneySearchPattern): bool =
+let private isMoneyMatch (source: Money.Money) (pattern: MoneySearchPattern): bool =
     let valueToCompare = source |> Money.amount
     let valueToCompareAgainst = pattern.amount |> Money.amount
     match pattern.numericSearchOperator with
