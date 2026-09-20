@@ -1,10 +1,10 @@
-module Tests.Integrated.ModelOrchestrator.AccountCreation
+module Tests.Integrated.Business.FinancialServices.AccountCreation
 
 open System
 
 open InterfaceBridge.CommandRoute
 open Logger.Audit
-open ModelOrchestrator
+open Business.FinancialServices
 open Tests.Helpers.Railroad
 open Xunit
 open Business.FinancialServices.Ledger.Account

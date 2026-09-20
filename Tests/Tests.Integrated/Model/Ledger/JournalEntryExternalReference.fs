@@ -5,7 +5,7 @@ open System
 open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator
+open Business.FinancialServices
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
 open Xunit

@@ -5,7 +5,7 @@ open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.DataIngestion.Classification
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Utilities
+open App.Utility
 open App.Utility.AppError
 open Xunit
 open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent

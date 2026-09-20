@@ -1,30 +1,29 @@
-module ModelOrchestrator.TrialBalanceReport
+module Business.FinancialServices.TrialBalanceReport
 
-
-open Model
+open Business.FinancialServices
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
-open ModelOrchestrator
 open NodaTime
 open App.Utility.AppError
 open App.Utility.Result
+open App.Session
 
 type TrialBalanceRowNested =
     { accountCode: AccountCode
       accountName: AccountName
       generation: int
-      totalCredits: Money
-      totalDebits: Money
-      netBalance: Money
+      totalCredits: Money.Money
+      totalDebits: Money.Money
+      netBalance: Money.Money
       children:  TrialBalanceRowNested list }
 
 type TrialBalanceRowFlattened =
     { accountCode: AccountCode
       accountName: AccountName
       generation: int
-      totalCredits: Money
-      totalDebits: Money
-      netBalance: Money }
+      totalCredits: Money.Money
+      totalDebits: Money.Money
+      netBalance: Money.Money }
     
 let rec private crawlAndCompile
     (accountToCrawl: Account)

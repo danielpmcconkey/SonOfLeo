@@ -3,7 +3,7 @@ module InterfaceBridge.BoundaryConverters.ReportConverters
 open InterfaceBridge.InterfaceContracts.ReportsContracts
 open Model
 open Business.FinancialServices.Ledger.AccountComponent
-open ModelOrchestrator.TrialBalanceReport
+open Business.FinancialServices.TrialBalanceReport
 
 let ``convert [TrialBalanceRowFlattened] to [TrialBalanceReturnRow]``
     (flattenedRow: TrialBalanceRowFlattened)

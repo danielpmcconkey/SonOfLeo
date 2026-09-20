@@ -1,19 +1,20 @@
-module ModelOrchestrator.InstanceOrchestration
+module Business.FinancialServices.InstanceOrchestration
 
 open App.DataAccessLayer.ExecuteReader
-open Model
+open NodaTime
+open App.Utility.AppError
+open App.Utility.FieldUpdate
+open App.Utility.Result
+open App.Session
+open Business.General
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.Classification
-open ModelOrchestrator.CashFlowCompositeFetcher
-open ModelOrchestrator.FetchFilters
-open NodaTime
-open App.Utility.AppError
-open App.Utility.FieldUpdate
-open App.Utility.Result
+open Business.FinancialServices.CashFlowCompositeFetcher
+open Business.FinancialServices.FetchFilters
 
 type InvoiceComposite = private {
     invoice: Invoice.Invoice
@@ -31,9 +32,9 @@ let instance (instanceComposite: InstanceComposite) = instanceComposite.instance
 let invoiceComposites (instanceComposite: InstanceComposite) = instanceComposite.invoiceComposites
 
 type PaymentAgreementClassificationResult = {
-    runId: StageDataClassificationComponent.ClassificationRunId
-    classificationResults: StageDataClassificationComponent.ClassificationResult list
-    decisionLog: StageDataClassificationComponent.PaymentAgreementDecision list
+    runId: ClassificationComponent.ClassificationRunId
+    classificationResults: ClassificationComponent.ClassificationResult list
+    decisionLog: ClassificationComponent.PaymentAgreementDecision list
     invoiceDecisionLog: CashFlowComponent.InvoiceDecision list
     openInstances: InstanceComposite list
 }

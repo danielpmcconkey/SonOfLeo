@@ -1,4 +1,4 @@
-namespace Tests.Integrated.ModelOrchestrator
+namespace Tests.Integrated.Business.FinancialServices
 
 open InterfaceBridge.CommandRoute
 open Logger.Audit
@@ -7,7 +7,7 @@ open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.DataIngestion.StageEntryHeader
 open Business.FinancialServices.DataIngestion.StageEntryLine
-open ModelOrchestrator.StageEntryOrchestration
+open Business.FinancialServices.StageEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open App.Utility.AppError

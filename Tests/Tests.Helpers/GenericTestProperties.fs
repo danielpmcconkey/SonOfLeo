@@ -3,7 +3,7 @@ module Tests.Helpers.GenericTestProperties
 open Model
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
-open Utilities
+open App.Utility
 open App.Utility.AppError
 
 // account

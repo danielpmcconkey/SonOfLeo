@@ -1,9 +1,10 @@
-module ModelOrchestrator.JournalEntryHeaderOrchestration
+module Business.FinancialServices.JournalEntryHeaderOrchestration
 
-open Business.FinancialServices.Ledger
-open Business.FinancialServices.Ledger.JournalEntryComponent
 open App.Utility.AppError
 open App.Utility.Result
+open App.Session
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.JournalEntryComponent
 
 let private confirmEntryDateIsInOpenFiscalPeriod (context: Context.Context) (entryDate: EntryDate) : Result<unit, AppError> =
     result {

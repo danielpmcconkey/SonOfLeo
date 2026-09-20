@@ -15,7 +15,7 @@ open Tests.Helpers.GenericTestProperties
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
 open Tests.Helpers.SadPath
-open Utilities
+open App.Utility
 open App.Utility.Result
 open Xunit
 open Tests.Helpers.Cleanup

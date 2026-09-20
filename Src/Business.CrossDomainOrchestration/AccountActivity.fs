@@ -1,20 +1,21 @@
-module ModelOrchestrator.AccountActivity
+module Business.FinancialServices.AccountActivity
 
 open System
-open Model
-open Business.FinancialServices.Ledger.AccountComponent
-open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator.FetchFilters
 open NodaTime
 open App.Utility.AppError
 open App.Utility.Result
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
+open App.Session
+open Business.FinancialServices
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.FetchFilters
 
 
 type AccountActivityDetail =
     { lineId: JournalEntryLineId
-      amount: Money
+      amount: Money.Money
       lineType: JournalEntryLineType
       lineMemo: JournalEntryLineMemo option
       lineCreatedAt: Instant

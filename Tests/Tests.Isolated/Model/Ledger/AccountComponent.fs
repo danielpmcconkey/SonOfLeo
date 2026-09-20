@@ -4,7 +4,7 @@ open System
 open Model
 open Xunit
 open Business.FinancialServices.Ledger.AccountComponent
-open Utilities
+open App.Utility
 open App.Utility.AppError
 open Tests.Helpers.SadPath
 open Tests.Helpers.Railroad

@@ -7,7 +7,7 @@ open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Tests.Helpers
 open Tests.Helpers.EntityFunctions
-open Utilities
+open App.Utility
 open App.Utility.AppError
 open App.Utility.Result
 

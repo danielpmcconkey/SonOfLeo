@@ -13,8 +13,8 @@ open Business.FinancialServices.DataIngestion.BaseStageEntry
 open Business.FinancialServices.Classification
 open Business.FinancialServices.DataIngestion.StageEntryStatusTransition
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator.FetchFilters
-open ModelOrchestrator.StageEntryOrchestration
+open Business.FinancialServices.FetchFilters
+open Business.FinancialServices.StageEntryOrchestration
 open App.Utility.AppError
 open App.Utility.FieldUpdate.FieldUpdate
 open App.Utility.Result

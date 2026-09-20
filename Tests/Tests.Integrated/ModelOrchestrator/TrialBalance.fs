@@ -1,4 +1,4 @@
-namespace Tests.Integrated.ModelOrchestrator
+namespace Tests.Integrated.Business.FinancialServices
 
 
 open App.DataAccessLayer.DbTransaction
@@ -8,8 +8,8 @@ open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator.JournalEntries.JournalEntry
-open ModelOrchestrator.TrialBalanceReport
+open Business.FinancialServices.JournalEntries.JournalEntry
+open Business.FinancialServices.TrialBalanceReport
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Utilities

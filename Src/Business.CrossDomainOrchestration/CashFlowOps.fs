@@ -1,16 +1,17 @@
-module ModelOrchestrator.CashFlowOps
+module Business.FinancialServices.CashFlowOps
 
-open System
+open NodaTime
+open App.Utility
+open App.Utility.AppError
+open App.Utility.Result
+open App.Session
+open Business.General
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Classification
-open ModelOrchestrator
-open NodaTime
-open Utilities
-open App.Utility.AppError
-open App.Utility.Result
+open Business.FinancialServices
 
 let rec private fillInstanceDatesToCutOff
     (nextDate: LocalDate)
@@ -96,37 +97,37 @@ let createUpcomingInstances
 
 // a tie claims every agreement it tied across; a clear winner claims only the winner, since the losers lost
 let private claimingMatches
-    (result: StageDataClassificationComponent.ClassificationResult)
-    : StageDataClassificationComponent.PrioritizedMatch list =
+    (result: ClassificationComponent.ClassificationResult)
+    : ClassificationComponent.PrioritizedMatch list =
     match result.outcome with
-    | StageDataClassificationComponent.NoMatch -> []
-    | StageDataClassificationComponent.OneMatch prioritizedMatch -> [ prioritizedMatch ]
-    | StageDataClassificationComponent.ManyMatchesClearWinner (winner, _) -> [ winner ]
-    | StageDataClassificationComponent.ManyMatchesTied ties -> ties
+    | ClassificationComponent.NoMatch -> []
+    | ClassificationComponent.OneMatch prioritizedMatch -> [ prioritizedMatch ]
+    | ClassificationComponent.ManyMatchesClearWinner (winner, _) -> [ winner ]
+    | ClassificationComponent.ManyMatchesTied ties -> ties
 
 let private paymentAgreementsClaimedBy
-    (result: StageDataClassificationComponent.ClassificationResult)
+    (result: ClassificationComponent.ClassificationResult)
     : PaymentAgreementId list =
     result |> claimingMatches |> List.choose _.paymentAgreementId
 
 let private matchesClaimingPaymentAgreement
     (paymentAgreementId: PaymentAgreementId)
-    (result: StageDataClassificationComponent.ClassificationResult)
-    : StageDataClassificationComponent.PrioritizedMatch list =
+    (result: ClassificationComponent.ClassificationResult)
+    : ClassificationComponent.PrioritizedMatch list =
     result
     |> claimingMatches
     |> List.filter (fun prioritizedMatch -> prioritizedMatch.paymentAgreementId = Some paymentAgreementId)
 
-let private isTiedClaimant (result: StageDataClassificationComponent.ClassificationResult) : bool =
+let private isTiedClaimant (result: ClassificationComponent.ClassificationResult) : bool =
     match result.outcome with
-    | StageDataClassificationComponent.ManyMatchesTied _ -> true
+    | ClassificationComponent.ManyMatchesTied _ -> true
     | _ -> false
 
 let private decisionFor
     (paymentAgreementId: PaymentAgreementId)
-    (outcome: StageDataClassificationComponent.PaymentAgreementDecisionOutcome)
-    (result: StageDataClassificationComponent.ClassificationResult)
-    : StageDataClassificationComponent.PaymentAgreementDecision =
+    (outcome: ClassificationComponent.PaymentAgreementDecisionOutcome)
+    (result: ClassificationComponent.ClassificationResult)
+    : ClassificationComponent.PaymentAgreementDecision =
     let ruleIds =
         result
         |> matchesClaimingPaymentAgreement paymentAgreementId
@@ -141,13 +142,13 @@ let private decisionFor
 /// dangerous case, since paying the same bill twice looks like a fulfilled obligation, so a contested agreement is
 /// handed to the operator whole rather than resolved here.
 let pivotClaimsByPaymentAgreement
-    (claims: (PaymentAgreementId * StageDataClassificationComponent.ClassificationResult) list)
-    : StageDataClassificationComponent.PaymentAgreementClaimCluster list =
+    (claims: (PaymentAgreementId * ClassificationComponent.ClassificationResult) list)
+    : ClassificationComponent.PaymentAgreementClaimCluster list =
     claims
     |> List.groupBy fst
     |> List.map(fun (paymentAgreementId, pairs) ->
         let claimants = pairs |> List.map snd
-        let cluster: StageDataClassificationComponent.PaymentAgreementClaimCluster =
+        let cluster: ClassificationComponent.PaymentAgreementClaimCluster =
             { paymentAgreementId = paymentAgreementId
               claimants = claimants
               containsUnwrittenTies = claimants |> List.exists isTiedClaimant }
@@ -186,19 +187,19 @@ let private fetchAgreementsWithDirection
 /// the obligation. A rule matches on description, amount and source, none of which separate an entry's two lines.
 let private selectLegsOfClaimedEntries
     (agreementsById: Map<PaymentAgreementId, PaymentAgreement.PaymentAgreement * FlowDirection>)
-    (rulesById: Map<StageDataClassificationComponent.ClassificationRuleId, ClassificationRule.ClassificationRule>)
+    (rulesById: Map<ClassificationComponent.ClassificationRuleId, ClassificationRule.ClassificationRule>)
     (linesById: Map<StageEntryComponent.StageEntryLineId, StageEntryLine.StageEntryLine>)
-    (results: StageDataClassificationComponent.ClassificationResult list)
+    (results: ClassificationComponent.ClassificationResult list)
     : Result<
-        (PaymentAgreementId * StageDataClassificationComponent.ClassificationResult) list *
-        StageDataClassificationComponent.PaymentAgreementDecision list, AppError> =
+        (PaymentAgreementId * ClassificationComponent.ClassificationResult) list *
+        ClassificationComponent.PaymentAgreementDecision list, AppError> =
     let expectedLineType (direction: FlowDirection) =
         match direction with
         | Income -> Business.FinancialServices.Ledger.JournalEntryComponent.Credit
         | Outgo -> Business.FinancialServices.Ledger.JournalEntryComponent.Debit
     let doesAnyClaimingRuleConstrainLineType
         (paymentAgreementId: PaymentAgreementId)
-        (claims: (PaymentAgreementId * StageDataClassificationComponent.ClassificationResult) list)
+        (claims: (PaymentAgreementId * ClassificationComponent.ClassificationResult) list)
         : Result<bool, AppError> =
         claims
         |> List.collect (fun (_, result) -> result |> matchesClaimingPaymentAgreement paymentAgreementId)
@@ -206,7 +207,7 @@ let private selectLegsOfClaimedEntries
             match rulesById |> Map.tryFind prioritizedMatch.ruleId with
             | Some rule -> Ok (rule |> ClassificationRule.constrainsLineType)
             | None ->
-                let ruleUuid = prioritizedMatch.ruleId |> StageDataClassificationComponent.ClassificationRuleId.value
+                let ruleUuid = prioritizedMatch.ruleId |> ClassificationComponent.ClassificationRuleId.value
                 Error (IngestionClassificationRuleIdDoesntExist ruleUuid))
         |> convertListOfResultsToResultsList
         |> Result.map (List.exists id)
@@ -241,10 +242,10 @@ let private selectLegsOfClaimedEntries
                 match survivors with
                 | [ single ] -> return [ single ], []
                 | [] ->
-                    let outcome = StageDataClassificationComponent.NoLineOnAgreementAccounts
+                    let outcome = ClassificationComponent.NoLineOnAgreementAccounts
                     return [], claims |> List.map (snd >> decisionFor paymentAgreementId outcome)
                 | many ->
-                    let outcome = StageDataClassificationComponent.ManyLinesOnAgreementAccount
+                    let outcome = ClassificationComponent.ManyLinesOnAgreementAccount
                     return [], many |> List.map (snd >> decisionFor paymentAgreementId outcome) })
             |> convertListOfResultsToResultsList
         let selections = selectionsAndDecisions |> List.collect fst
@@ -254,8 +255,8 @@ let private selectLegsOfClaimedEntries
 
 let private writeLinkagesForClaimClusters
     (context: Context.Context)
-    (clusters: StageDataClassificationComponent.PaymentAgreementClaimCluster list)
-    : Result<StageDataClassificationComponent.PaymentAgreementDecision list, AppError> =
+    (clusters: ClassificationComponent.PaymentAgreementClaimCluster list)
+    : Result<ClassificationComponent.PaymentAgreementDecision list, AppError> =
     result {
         let! decisionsByCluster =
             clusters
@@ -268,7 +269,7 @@ let private writeLinkagesForClaimClusters
                     let linkId = PaymentAgreementLinkId.create ()
                     let link = PaymentAgreementLink.create linkId paymentAgreementId lineId now now
                     do! link |> PaymentAgreementLink.persist context
-                    return [ claimant |> decisionFor paymentAgreementId StageDataClassificationComponent.Linked ]
+                    return [ claimant |> decisionFor paymentAgreementId ClassificationComponent.Linked ]
                 // code is not allowed to break a tie, so a tied claimant contests its agreement however few rows
                 // claimed it
                 | claimants ->
@@ -276,8 +277,8 @@ let private writeLinkagesForClaimClusters
                         claimants
                         |> List.map (fun claimant ->
                             let outcome =
-                                if claimant |> isTiedClaimant then StageDataClassificationComponent.TiedClaimants
-                                else StageDataClassificationComponent.ContestedAgreement
+                                if claimant |> isTiedClaimant then ClassificationComponent.TiedClaimants
+                                else ClassificationComponent.ContestedAgreement
                             claimant |> decisionFor paymentAgreementId outcome) })
             |> convertListOfResultsToResultsList
         return decisionsByCluster |> List.concat
@@ -338,7 +339,7 @@ let private isOverpaid
             |> List.find (fun invoiceComposite ->
                 invoiceComposite |> InstanceOrchestration.invoice |> Invoice.invoiceId = invoiceId)
         let payments = invoiceComposite |> InstanceOrchestration.payments
-        let! paidTotal = payments |> List.map Payment.amount |> List.map _.money |> Model.Money.sumList
+        let! paidTotal = payments |> List.map Payment.amount |> List.map _.money |> Money.sumList
         let invoiceAmount = invoiceComposite |> InstanceOrchestration.invoice |> Invoice.amount
         return paidTotal > invoiceAmount.money
     }
@@ -500,7 +501,7 @@ let classifyPaymentAgreements
             existingLinks |> List.map PaymentAgreementLink.stageEntryLineId |> Set.ofList
         // an entry whose lines all carry an account is still a candidate here. account assignment and obligation
         // linkage are independent questions about the same row
-        let (matchCandidates: StageDataClassificationComponent.MatchCandidate list) =
+        let (matchCandidates: ClassificationComponent.MatchCandidate list) =
             roster
             |> List.collect(fun entry ->
                 let header = entry |> StageEntryOrchestration.stageEntryHeader
@@ -519,7 +520,7 @@ let classifyPaymentAgreements
         let! classificationRun =
             matchCandidates
             |> ClassificationOrchestration.classifyMatchCandidatesAndRecordMatches
-                context StageDataClassificationComponent.PaymentAgreementClaimant
+                context ClassificationComponent.PaymentAgreementClaimant
         let classificationResults = classificationRun.results
         let claimedAgreementIds =
             classificationResults |> List.collect paymentAgreementsClaimedBy |> List.distinct
@@ -529,7 +530,7 @@ let classifyPaymentAgreements
             nameLike = None
             accountAtMatch = None
             paymentAgreementAtMatch = None
-            claimantType = Some StageDataClassificationComponent.PaymentAgreementClaimant
+            claimantType = Some ClassificationComponent.PaymentAgreementClaimant
             sourceLike = None
             activeOnly = true }
         let! rules = ClassificationOrchestration.fetchRulesFiltered context ruleFilter None
@@ -712,7 +713,7 @@ let projectCashFlowNDaysForward
             |> List.groupBy fst
             |> List.map (fun (accountId, pairs) -> accountId, (pairs |> List.map snd))
             |> Map.ofList
-        let! zero = Model.Money.fromDecimal 0M
+        let! zero = Money.fromDecimal 0M
         let! projectedAccounts =
             cashAccounts
             |> List.map (fun account ->
@@ -724,10 +725,10 @@ let projectCashFlowNDaysForward
                     |> List.filter (fun (invoice: CashFlowComponent.ProjectedInvoice) -> invoice.direction = direction)
                     |> List.map (fun invoice -> invoice.amount.money)
                 result {
-                    let! knownInflows = CashFlowComponent.Income |> amountsForDirection |> Model.Money.sumList
-                    let! knownOutflows = CashFlowComponent.Outgo |> amountsForDirection |> Model.Money.sumList
-                    let! balanceWithInflows = Model.Money.add currentBalance knownInflows
-                    let! projectedLow = Model.Money.subtractVal1FromVal2 knownOutflows balanceWithInflows
+                    let! knownInflows = CashFlowComponent.Income |> amountsForDirection |> Money.sumList
+                    let! knownOutflows = CashFlowComponent.Outgo |> amountsForDirection |> Money.sumList
+                    let! balanceWithInflows = Money.add currentBalance knownInflows
+                    let! projectedLow = Money.subtractVal1FromVal2 knownOutflows balanceWithInflows
                     let projectedAccount: CashFlowComponent.ProjectedAccount =
                         { accountId = accountId
                           accountCode = account |> Account.code

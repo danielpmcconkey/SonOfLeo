@@ -1,7 +1,6 @@
-module ModelOrchestrator.AccountBalance
+module Business.FinancialServices.AccountBalance
 
 open System
-open Model
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open NodaTime
@@ -9,11 +8,17 @@ open App.Utility.AppError
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.Utility.Result
+open App.Session
 
 
-type AccountBalance = { accountId: AccountId; totalCredits: Money; totalDebits: Money; netBalance: Money }
+type AccountBalance = {
+    accountId: AccountId; totalCredits: Money.Money; totalDebits: Money.Money; netBalance: Money.Money
+}
 type AccountBalanceComponent =
-    private { accountId: AccountId; lineType: JournalEntryLineType; accountType: AccountType; sumAtType: Money }
+    private {
+        accountId: AccountId; lineType: JournalEntryLineType
+        accountType: AccountType; sumAtType: Money.Money
+    }
 
 let private mapRawForDbRead (row: RowReader) : Guid * string * string * decimal =
     (row |> RowReader.getUuid "account_id"),

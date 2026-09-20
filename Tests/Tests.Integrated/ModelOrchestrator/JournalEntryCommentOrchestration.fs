@@ -1,10 +1,10 @@
-namespace Tests.Integrated.ModelOrchestrator
+namespace Tests.Integrated.Business.FinancialServices
 
 open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Business.FinancialServices.Ledger
-open ModelOrchestrator
-open ModelOrchestrator.JournalEntries
+open Business.FinancialServices
+open Business.FinancialServices.JournalEntries
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Tests.Helpers.SadPath

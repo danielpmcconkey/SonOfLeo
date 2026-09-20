@@ -8,7 +8,7 @@ open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open InterfaceBridge.CommandRoute
 open App.Utility.Result
-open ModelOrchestrator.FiscalPeriodCreation
+open Business.FinancialServices.FiscalPeriodCreation
 open App.DataAccessLayer.DbTransaction
 
 let private create payload _ =

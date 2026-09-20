@@ -1,4 +1,4 @@
-namespace Tests.Integrated.ModelOrchestrator
+namespace Tests.Integrated.Business.FinancialServices
 
 open App.DataAccessLayer.DbTransaction
 open Logger.Audit
@@ -6,15 +6,15 @@ open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator.JournalEntries
+open Business.FinancialServices.JournalEntries
 open App.Utility.AppError
 open App.Utility.Result
 open Xunit
 open Tests.Helpers
 open Model
-open ModelOrchestrator
+open Business.FinancialServices
 open System
-open ModelOrchestrator.FetchFilters
+open Business.FinancialServices.FetchFilters
 open Tests.Helpers.Railroad
 
 [<Collection("SharedTestData")>]

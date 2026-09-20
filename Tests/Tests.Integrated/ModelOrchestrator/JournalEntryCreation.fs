@@ -1,4 +1,4 @@
-namespace Tests.Integrated.ModelOrchestrator
+namespace Tests.Integrated.Business.FinancialServices
 
 open System
 
@@ -13,7 +13,7 @@ open Tests.Helpers.Railroad
 open App.Utility.Result
 open Xunit
 open Tests.Helpers
-open ModelOrchestrator.JournalEntries.JournalEntry
+open Business.FinancialServices.JournalEntries.JournalEntry
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Utilities
 open App.Utility.AppError

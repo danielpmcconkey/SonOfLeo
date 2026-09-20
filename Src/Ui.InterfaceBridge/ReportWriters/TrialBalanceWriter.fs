@@ -8,10 +8,10 @@ open InterfaceBridge.ReportVisualizationAssets.ReportFooter
 open InterfaceBridge.ReportVisualizationAssets.ReportHeader
 open Model
 open Business.FinancialServices.Ledger.AccountComponent
-open ModelOrchestrator.TrialBalanceReport
+open Business.FinancialServices.TrialBalanceReport
 open NodaTime
 open App.Utility.AppError
-open App.UtilityCalendar
+open App.Utility.Calendar
 open App.UtilityFileIO
 open App.Utility.Result
 

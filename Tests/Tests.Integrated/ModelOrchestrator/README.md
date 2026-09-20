@@ -1,10 +1,10 @@
-# Tests.Integrated.ModelOrchestrator
+# Tests.Integrated.Business.FinancialServices
 
-These are a 1:1 map to Src/ModelOrchestrator functions
+These are a 1:1 map to Src/Business.FinancialServices functions
 
 ## What belongs here
 
-- Happy paths of each public ModelOrchestrator function
+- Happy paths of each public Business.FinancialServices function
 - Guards against failures of type validation that are intrinsic to composite objects (eg: a journal entry header must have 2 or more journal entry lines.)
 - Guards that enforce the existence of related entities (e.g.: the parentId provided at account creation is a real account record)
 - Guards that enforce the state of related entities (e.g.: the fiscal period is still open before voiding a journal entry)

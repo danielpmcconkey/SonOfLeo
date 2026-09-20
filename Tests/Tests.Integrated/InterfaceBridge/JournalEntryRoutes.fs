@@ -8,7 +8,7 @@ open Logger.Audit
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator.JournalEntries.JournalEntry
+open Business.FinancialServices.JournalEntries.JournalEntry
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers
 open Tests.Helpers.Railroad
@@ -19,7 +19,7 @@ open App.Utility.FieldUpdate
 open App.Utility.Result
 open Xunit
 open Tests.Helpers.Cleanup
-open Utilities
+open App.Utility
 
 
 [<Collection("SharedTestData")>]

@@ -1,15 +1,15 @@
-module ModelOrchestrator.JournalEntryLineOrchestration
+module Business.FinancialServices.JournalEntryLineOrchestration
 
-open Model
-open Business.FinancialServices.Ledger.Account
-open Business.FinancialServices.Ledger.AccountComponent
-open Business.FinancialServices.Ledger
-open Business.FinancialServices.Ledger.JournalEntryLine
-open Business.FinancialServices.Ledger.JournalEntryComponent
 open App.Utility.AppError
 open App.Utility.Result
+open App.Session
+open Business.FinancialServices
+open Business.FinancialServices.Ledger.Account
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.JournalEntryLine
+open Business.FinancialServices.Ledger.JournalEntryComponent
 
-let private confirmAmountIsPositive (m: Money) : Result<unit, AppError> =
+let private confirmAmountIsPositive (m: Money.Money) : Result<unit, AppError> =
     if
         m |> Money.amount <= 0M
     then
@@ -28,7 +28,7 @@ let constructNewAndPersist
     (context: Context.Context)
     (journalEntryId: JournalEntryHeaderId)
     (accountId: AccountId)
-    (amount: Money)
+    (amount: Money.Money)
     (lineType: JournalEntryLineType)
     (memo: JournalEntryLineMemo option)
     : Result<JournalEntryLine, AppError> =

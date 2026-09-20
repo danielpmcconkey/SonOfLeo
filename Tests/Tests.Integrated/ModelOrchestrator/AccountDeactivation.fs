@@ -1,4 +1,4 @@
-namespace Tests.Integrated.ModelOrchestrator
+namespace Tests.Integrated.Business.FinancialServices
 
 open InterfaceBridge.CommandRoute
 open Logger.Audit
@@ -9,7 +9,7 @@ open Tests.Helpers.Railroad
 open App.Utility.Result
 open Xunit
 open Business.FinancialServices.Ledger.Account
-open ModelOrchestrator.AccountDeactivation
+open Business.FinancialServices.AccountDeactivation
 open Utilities
 open App.Utility.AppError
 open Tests.Helpers.SadPath

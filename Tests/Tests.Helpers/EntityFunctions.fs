@@ -12,9 +12,9 @@ open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator
-open ModelOrchestrator.JournalEntries
-open ModelOrchestrator.StageEntryOrchestration
+open Business.FinancialServices
+open Business.FinancialServices.JournalEntries
+open Business.FinancialServices.StageEntryOrchestration
 open NodaTime
 open Tests.Helpers.GenericTestProperties
 open App.Utility.AppError

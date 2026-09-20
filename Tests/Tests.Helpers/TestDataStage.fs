@@ -10,14 +10,14 @@ open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.Classification
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator
-open ModelOrchestrator.JournalEntries
+open Business.FinancialServices
+open Business.FinancialServices.JournalEntries
 open Tests.Helpers.EntityFunctions
 open App.Utility.Result
 open Xunit
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
-open Utilities
+open App.Utility
 open Business.FinancialServices.Ledger.AccountComponent
 open App.Utility.AppError
 open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent

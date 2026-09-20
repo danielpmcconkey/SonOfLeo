@@ -1,19 +1,20 @@
-module ModelOrchestrator.StageEntryOrchestration
+module Business.FinancialServices.StageEntryOrchestration
 
 open System
+open App.Utility.AppError
+open App.Utility.FieldUpdate
+open App.Utility.Result
+open App.DataAccessLayer
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
-open Model
+open App.Session
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.BaseStageEntry
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator.FetchFilters
-open ModelOrchestrator.JournalEntries
-open App.Utility.AppError
-open App.Utility.FieldUpdate
-open App.Utility.Result
-open Business.FinancialServices.Classification.StageDataClassificationComponent
+open Business.FinancialServices.FetchFilters
+open Business.FinancialServices.JournalEntries
+open Business.FinancialServices.Classification.ClassificationComponent
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 
 type StageEntry =
@@ -41,7 +42,7 @@ let statusTransitions se = se.statusTransitions
 let private sumLinesByType
     (debitOrCredit: JournalEntryLineType)
     (lines: StageEntryLine.StageEntryLine list)
-    : Result<Money, AppError> =
+    : Result<Money.Money, AppError> =
     lines
     |> List.filter(fun x -> x |> StageEntryLine.lineType = debitOrCredit)
     |> List.map(fun x -> x |> StageEntryLine.amount) |> Money.sumList
@@ -92,7 +93,7 @@ let private confirmLinesAccountCodes
             | _, Some accountId ->
                 let accountUuid = accountId |> AccountId.value
                 let lookupResult =
-                    accountUuid |> LookupCache.accountIdToCode.fetch context // we don't need the code; we just check that the ID is in the DB this way 
+                    accountUuid |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction) // we don't need the code; we just check that the ID is in the DB this way 
                 match lookupResult with
                 | Ok _ -> Ok ()
                 | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->

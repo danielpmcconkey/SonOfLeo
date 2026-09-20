@@ -1,19 +1,17 @@
-module ModelOrchestrator.AgreementOrchestration
+module Business.FinancialServices.AgreementOrchestration
 
 open App.DataAccessLayer.ExecuteReader
-open Model
-open Business.FinancialServices.CashFlow
-open Business.FinancialServices.DataIngestion
-open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.Ledger.AccountComponent
-open Business.FinancialServices.Ledger
-open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator.CashFlowCompositeFetcher
-open ModelOrchestrator.FetchFilters
 open App.Utility.AppError
-open App.UtilityCalendar
+open App.Utility.Calendar
 open App.Utility.FieldUpdate
 open App.Utility.Result
+open App.DataAccessLayer
+open App.Session
+open Business.General
+open Business.FinancialServices.CashFlow
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.CashFlowCompositeFetcher
+open Business.FinancialServices.FetchFilters
 
 type Agreement = private {
     masterAgreement: MasterAgreement.MasterAgreement
@@ -35,7 +33,7 @@ let private confirmValidAccountId
     : Result<unit, AppError> =
     let accountUuid = accountId |> AccountId.value
     let lookupResult = // we don't need the code; we just check that the ID is in the DB this way
-        accountUuid |> LookupCache.accountIdToCode.fetch context
+        accountUuid |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction)
     match lookupResult with
     | Ok _ -> Ok ()
     | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
@@ -263,7 +261,7 @@ let constructNewAndPersist
         (CashFlowComponent.PaymentAgreementName *
          CashFlowComponent.DebitAccount *
          CashFlowComponent.CreditAccount *
-         Money option *
+         Money.Money option *
          CashFlowComponent.DaysDueAfterInvoiceDate option *
          CashFlowComponent.PaymentAgreementMemo option) list)
     : Result<Agreement, AppError> =

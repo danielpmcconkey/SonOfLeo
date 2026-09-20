@@ -8,8 +8,8 @@ open InterfaceBridge.InterfaceContracts.SharedContracts
 open Model
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator.AccountActivity
-open ModelOrchestrator.FetchFilters
+open Business.FinancialServices.AccountActivity
+open Business.FinancialServices.FetchFilters
 open App.Utility.AppError
 open Business.FinancialServices.Ledger.AccountComponent
 open App.Utility.Result

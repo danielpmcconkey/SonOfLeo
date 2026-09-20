@@ -7,7 +7,7 @@ open Model
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator.JournalEntries
+open Business.FinancialServices.JournalEntries
 open App.Utility.AppError
 open App.Utility.Result
 

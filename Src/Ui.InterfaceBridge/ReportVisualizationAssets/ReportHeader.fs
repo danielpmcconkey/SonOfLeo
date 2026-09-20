@@ -1,7 +1,7 @@
 module InterfaceBridge.ReportVisualizationAssets.ReportHeader
 
 open NodaTime
-open App.UtilityCalendar
+open App.Utility.Calendar
 
 let createReportHeader title subtitle =
     {

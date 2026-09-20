@@ -1,4 +1,4 @@
-module Tests.Integrated.ModelOrchestrator.ClassificationRuleCrud
+module Tests.Integrated.Business.FinancialServices.ClassificationRuleCrud
 
 open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open App.DataAccessLayer.DbTransaction
@@ -7,8 +7,8 @@ open Logger.Audit
 open Model
 open Business.FinancialServices.DataIngestion.Classification
 open Business.FinancialServices.Ledger.AccountComponent
-open ModelOrchestrator
-open ModelOrchestrator.FetchFilters
+open Business.FinancialServices
+open Business.FinancialServices.FetchFilters
 open Tests.Helpers
 open Tests.Helpers.Cleanup
 open Tests.Helpers.Railroad

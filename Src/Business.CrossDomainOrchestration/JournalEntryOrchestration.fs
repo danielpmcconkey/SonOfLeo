@@ -1,19 +1,20 @@
-namespace ModelOrchestrator.JournalEntries
+namespace Business.FinancialServices.JournalEntries
 
 open System
 
 open App.DataAccessLayer.ExecuteReader
-open Model
-open Business.FinancialServices.Ledger.AccountComponent
-open Business.FinancialServices.Ledger
-open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.Ledger.Account
-open ModelOrchestrator
-open ModelOrchestrator.FetchFilters
 open NodaTime
 open App.Utility.AppError
 open App.Utility.Result
 open App.DataAccessLayer.QueryParameter
+open App.Session
+open Business.General
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger.Account
+open Business.FinancialServices
+open Business.FinancialServices.FetchFilters
 
 type JournalEntry =
     private
@@ -97,7 +98,7 @@ module JournalEntry =
         (context: Context.Context)
         (journalEntryId: JournalEntryHeaderId)
         (entryDate: EntryDate)
-        (lines: (AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option) list)
+        (lines: (AccountId * Money.Money * JournalEntryLineType * JournalEntryLineMemo option) list)
         : Result<JournalEntryLine.JournalEntryLine list, AppError> =
         lines
         |> List.map(fun line ->
@@ -150,7 +151,7 @@ module JournalEntry =
         (description: JournalEntryDescription)
         (source: JournalEntrySource option)
         (entryDate: EntryDate)
-        (lines: (AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option) list)
+        (lines: (AccountId * Money.Money * JournalEntryLineType * JournalEntryLineMemo option) list)
         (references: (JournalRefFinancialInstitution * JournalExternalReferenceText) list)
         (comments: (JournalEntryHeaderId option * CommentText) list)
         : Result<JournalEntry, AppError> =

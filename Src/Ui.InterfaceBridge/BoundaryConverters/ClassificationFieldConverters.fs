@@ -8,7 +8,7 @@ open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.Classification
 open Business.FinancialServices.Classification.StageDataClassificationComponent
-open ModelOrchestrator.FetchFilters
+open Business.FinancialServices.FetchFilters
 open App.Utility.AppError
 open App.Utility.Result
 

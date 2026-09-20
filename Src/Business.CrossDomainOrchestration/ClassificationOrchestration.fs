@@ -1,21 +1,21 @@
-module ModelOrchestrator.ClassificationOrchestration
+module Business.FinancialServices.ClassificationOrchestration
 
 open System
-
+open App.Utility
+open App.Utility.AppError
+open App.Utility.Json
+open App.Utility.Result
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
-open Model
+open App.DataAccessLayer
+open App.DataAccessLayer.QueryParameter
+open App.Session
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.Classification
 open Business.FinancialServices.Ledger.AccountComponent
-open ModelOrchestrator.FetchFilters
-open App.Utility.AppError
-open App.Utility.Json
-open App.Utility.Result
-open App.DataAccessLayer.QueryParameter
-open App.Utility.FieldUpdate
-open Business.FinancialServices.Classification.StageDataClassificationComponent
+open Business.FinancialServices.FetchFilters
+open Business.FinancialServices.Classification.ClassificationComponent
 open Business.FinancialServices.Classification.ClassificationRuleGroup
 open Business.FinancialServices.Classification.FieldMatchChain
 
@@ -24,7 +24,7 @@ let private confirmAccount
     (accountId: AccountId)
     : Result<unit, AppError> =
     let uuid = accountId |> AccountId.value
-    let confirmed = uuid |> LookupCache.accountIdToCode.fetch context // we don't need the code. we just want to know that the accountId exists
+    let confirmed = uuid |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction) // we don't need the code. we just want to know that the accountId exists
     match confirmed with
     | Ok _ -> Ok ()
     | Error (DalResultantRowsDidntMatchExpectation _) -> Error (AccountIdDoesntMatch uuid)
@@ -270,11 +270,11 @@ let classifyMatchCandidatesAndRecordMatches
 // both claimant columns are written on every change so any update must write a value to both and one must always be
 // null
 let private classificationClaimantToJointUpdates
-    (classificationClaimantUpdate: FieldUpdate<ClassificationClaimant>)
+    (classificationClaimantUpdate: FieldUpdate.FieldUpdate<ClassificationClaimant>)
     : (string * QueryParameter) option * (string * QueryParameter) option =
     match classificationClaimantUpdate with
-    | NoChange -> None, None
-    | SetTo claimant ->
+    | FieldUpdate.NoChange -> None, None
+    | FieldUpdate.SetTo claimant ->
         let accountUuid, paymentAgreementUuid =
             match claimant with
             | Account accountId ->
@@ -288,11 +288,11 @@ let private classificationClaimantToJointUpdates
 
 let updateClassificationRule
     (context: Context.Context)
-    (classificationRuleNameUpdate: FieldUpdate<ClassificationRuleName>)
-    (classificationClaimantUpdate: FieldUpdate<ClassificationClaimant>)
-    (priorityUpdate: FieldUpdate<int>)
-    (ruleGroupsUpdate: FieldUpdate<ClassificationRuleGroup list>)
-    (isActiveUpdate: FieldUpdate<bool>)
+    (classificationRuleNameUpdate: FieldUpdate.FieldUpdate<ClassificationRuleName>)
+    (classificationClaimantUpdate: FieldUpdate.FieldUpdate<ClassificationClaimant>)
+    (priorityUpdate: FieldUpdate.FieldUpdate<int>)
+    (ruleGroupsUpdate: FieldUpdate.FieldUpdate<ClassificationRuleGroup list>)
+    (isActiveUpdate: FieldUpdate.FieldUpdate<bool>)
     (classificationRuleId: ClassificationRuleId)
     : Result<ClassificationRule.ClassificationRule, AppError> =
     let uuid = classificationRuleId |> ClassificationRuleId.value
@@ -301,15 +301,15 @@ let updateClassificationRule
           { name = "@unique_id"; value = UniqueId uuid } ]
     result {
         do! match classificationClaimantUpdate with
-            | NoChange -> Ok ()
-            | SetTo x -> x |> confirmClassificationClaimant context
+            | FieldUpdate.NoChange -> Ok ()
+            | FieldUpdate.SetTo x -> x |> confirmClassificationClaimant context
         do! match ruleGroupsUpdate with
-            | NoChange -> Ok ()
-            | SetTo x -> x |> confirmRuleGroups
+            | FieldUpdate.NoChange -> Ok ()
+            | FieldUpdate.SetTo x -> x |> confirmRuleGroups
         let! groupStr =
             match ruleGroupsUpdate with
-            | NoChange -> Ok ""
-            | SetTo x -> x |> Json.toJson<ClassificationRuleGroup list> 
+            | FieldUpdate.NoChange -> Ok ""
+            | FieldUpdate.SetTo x -> x |> Json.toJson<ClassificationRuleGroup list> 
         let accountAtMatchUpdate, paymentAtMatchUpdate =
             classificationClaimantUpdate |> classificationClaimantToJointUpdates
         let updates =

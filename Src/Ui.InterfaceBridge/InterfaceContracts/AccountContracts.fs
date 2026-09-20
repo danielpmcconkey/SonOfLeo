@@ -1,7 +1,7 @@
 module InterfaceBridge.InterfaceContracts.AccountContracts
 
 open InterfaceBridge.InterfaceContracts.SharedContracts
-open ModelOrchestrator.FetchFilters
+open Business.FinancialServices.FetchFilters
 open NodaTime
 open System
 

@@ -1,4 +1,4 @@
-namespace Tests.Integrated.ModelOrchestrator
+namespace Tests.Integrated.Business.FinancialServices
 
 open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.CommandRoute
@@ -7,7 +7,7 @@ open Model
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.DataIngestion.BaseStageEntry
-open ModelOrchestrator.StageEntryOrchestration
+open Business.FinancialServices.StageEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Utilities
@@ -507,7 +507,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                    ledger row that makes the entry matchable and the Posted status that is
                    supposed to protect it. The entry ingested above is the only postable one
                    in this rolled-back transaction. *)
-                do! ModelOrchestrator.StageEntryOrchestration.post contextForPost
+                do! Business.FinancialServices.StageEntryOrchestration.post contextForPost
 
                 System.Threading.Thread.Sleep(10)
                 let contextForReimport = contextForPost |> Context.updateInitiationInstant

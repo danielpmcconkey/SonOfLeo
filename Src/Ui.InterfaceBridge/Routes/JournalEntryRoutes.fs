@@ -9,9 +9,9 @@ open InterfaceBridge.InterfaceContracts.JournalContracts
 open App.Utility.Json
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator
-open ModelOrchestrator.JournalEntries
-open ModelOrchestrator.JournalEntryVoiding
+open Business.FinancialServices
+open Business.FinancialServices.JournalEntries
+open Business.FinancialServices.JournalEntryVoiding
 open InterfaceBridge.CommandRoute
 open App.Utility.AppError
 open App.Utility.FieldUpdate

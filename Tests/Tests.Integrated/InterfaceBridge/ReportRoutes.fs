@@ -7,12 +7,12 @@ open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
 open Model
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator.JournalEntries.JournalEntry
+open Business.FinancialServices.JournalEntries.JournalEntry
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
 open Tests.Helpers.SadPath
-open Utilities
+open App.Utility
 open App.Utility.AppError
 open App.Utility.Result
 open Xunit

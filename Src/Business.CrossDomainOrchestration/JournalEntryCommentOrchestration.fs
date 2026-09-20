@@ -1,14 +1,15 @@
-module ModelOrchestrator.JournalEntryCommentOrchestration
+module Business.FinancialServices.JournalEntryCommentOrchestration
 
-open Business.FinancialServices.Ledger
-open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.Ledger.JournalEntryComment
 open App.Utility.AppError
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteNonQuery
-open App.Utility.FieldUpdate
+open App.Utility
 open App.Utility.Result
+open App.Session
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger.JournalEntryComment
 
 
 let private confirmJournalEntryHeader (context: Context.Context) (journalEntryId: JournalEntryHeaderId) : Result<unit, AppError> =
@@ -69,8 +70,8 @@ let constructNewAndPersist
 let updateComment
     (context: Context.Context)
     (journalEntryCommentId: JournalEntryCommentId)
-    (commentUpdate: FieldUpdate<CommentText>)
-    (secondaryIdUpdate: FieldUpdate<JournalEntryHeaderId option>)
+    (commentUpdate: FieldUpdate.FieldUpdate<CommentText>)
+    (secondaryIdUpdate: FieldUpdate.FieldUpdate<JournalEntryHeaderId option>)
     : Result<JournalEntryComment, AppError> =
     let commentUuid = journalEntryCommentId |> JournalEntryCommentId.value
     let baseParams =
@@ -79,13 +80,13 @@ let updateComment
     result {
         let! validSecondaryId =
             match secondaryIdUpdate with
-            | NoChange -> Ok NoChange
-            | SetTo x ->
+            | FieldUpdate.NoChange -> Ok FieldUpdate.NoChange
+            | FieldUpdate.SetTo x ->
                 result {
                     let! existing = journalEntryCommentId |> (fetchById context)
                     let primaryJournalEntryId = existing |> primaryJournalEntryId
                     do! confirmPrimaryAndSecondaryRelationship primaryJournalEntryId x
-                    return (SetTo x)
+                    return (FieldUpdate.SetTo x)
                 }
 
         let updates =

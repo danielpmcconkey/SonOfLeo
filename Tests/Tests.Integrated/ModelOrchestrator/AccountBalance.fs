@@ -1,4 +1,4 @@
-namespace Tests.Integrated.ModelOrchestrator
+namespace Tests.Integrated.Business.FinancialServices
 
 open App.DataAccessLayer.DbTransaction
 open InterfaceBridge.CommandRoute
@@ -6,14 +6,14 @@ open Logger.Audit
 open Model
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator.JournalEntries.JournalEntry
+open Business.FinancialServices.JournalEntries.JournalEntry
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
 open App.Utility.AppError
 open Xunit
 open Tests.Helpers
 open Tests.Helpers.SadPath
-open ModelOrchestrator.AccountBalance
+open Business.FinancialServices.AccountBalance
 open Utilities
 open App.Utility.Result
 

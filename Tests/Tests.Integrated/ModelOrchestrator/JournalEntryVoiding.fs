@@ -1,19 +1,19 @@
-namespace Tests.Integrated.ModelOrchestrator
+namespace Tests.Integrated.Business.FinancialServices
 
 open System
 open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger
-open ModelOrchestrator
-open ModelOrchestrator.JournalEntries.JournalEntry
+open Business.FinancialServices
+open Business.FinancialServices.JournalEntries.JournalEntry
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
 open App.Utility.Result
 open Xunit
 open Tests.Helpers
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator.JournalEntryVoiding
+open Business.FinancialServices.JournalEntryVoiding
 open Utilities
 open App.Utility.AppError
 

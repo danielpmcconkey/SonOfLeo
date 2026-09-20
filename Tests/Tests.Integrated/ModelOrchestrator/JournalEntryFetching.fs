@@ -1,4 +1,4 @@
-namespace Tests.Integrated.ModelOrchestrator
+namespace Tests.Integrated.Business.FinancialServices
 
 open System
 open App.DataAccessLayer.DbTransaction
@@ -14,7 +14,7 @@ open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Model.LookupCache
-open ModelOrchestrator.JournalEntries.JournalEntry
+open Business.FinancialServices.JournalEntries.JournalEntry
 open Utilities
 open App.Utility.AppError
 open Tests.Helpers.SadPath
@@ -278,7 +278,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(AppError.toMessage e)
 
     [<Fact>]
-    member _.``REQ-JE-3.2 FetchById route returns exit code 1 for nonexistent ID``() = // todo refactor to use ModelOrchestrator instead of command routes
+    member _.``REQ-JE-3.2 FetchById route returns exit code 1 for nonexistent ID``() = // todo refactor to use Business.FinancialServices instead of command routes
         result {
             let! payload = { JournalEntryFetchByIdInput.id = Guid.NewGuid() } |> toJson<JournalEntryFetchByIdInput>
             do!

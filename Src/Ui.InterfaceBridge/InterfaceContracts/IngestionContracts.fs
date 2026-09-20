@@ -4,7 +4,7 @@ open System
 open InterfaceBridge.InterfaceContracts.ClassificationContracts
 open InterfaceBridge.InterfaceContracts.ReportsContracts
 open InterfaceBridge.InterfaceContracts.SharedContracts
-open ModelOrchestrator.FetchFilters
+open Business.FinancialServices.FetchFilters
 open NodaTime
 open App.Utility.FieldUpdate
 

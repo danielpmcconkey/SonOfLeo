@@ -5,7 +5,7 @@ open InterfaceBridge.InterfaceContracts.AccountContracts
 open Model
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
-open ModelOrchestrator.AccountBalance
+open Business.FinancialServices.AccountBalance
 open App.Utility.AppError
 open App.Utility.Result
 open System

@@ -1,16 +1,16 @@
-module ModelOrchestrator.FetchFilters
+module Business.FinancialServices.FetchFilters
 
-open Model
+open NodaTime
+open App.Utility.AppError
+open App.Utility.Result
+open App.DataAccessLayer.QueryParameter
+open App.Session
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open NodaTime
-open App.Utility.AppError
-open App.Utility.Result
-open App.DataAccessLayer.QueryParameter
-open Business.FinancialServices.Classification.StageDataClassificationComponent
+open Business.FinancialServices.Classification.ClassificationComponent
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 
 type FetchSort =
@@ -27,9 +27,9 @@ type TemporalFilter =
     | FiscalPeriodIdentifier of FiscalPeriodId
     | DateRange of FilterDateRange
 
-type AmountRange = { inclusiveFloor: Money; inclusiveCeiling: Money }
+type AmountRange = { inclusiveFloor: Money.Money; inclusiveCeiling: Money.Money }
 type AmountFilter =
-    | ExactAmount of Money
+    | ExactAmount of Money.Money
     | AmountRange of AmountRange
 
 type AccountActivityFilter =
@@ -40,7 +40,7 @@ type AccountActivityFilter =
       accountSubtype: AccountSubtype option
       accountParentId: AccountId option
       journalEntryId: JournalEntryHeaderId option
-      amount: Money option
+      amount: Money.Money option
       description: JournalEntryDescription option
       unVoidedOnly: bool }
 
@@ -76,7 +76,7 @@ type StageEntryFetchFilter =
       fiReference: JournalExternalReferenceText option
       status: StagedEntryStatus option
       stageEntryLineId: StageEntryLineId option
-      amount: Money option
+      amount: Money.Money option
       lineType: JournalEntryLineType option
       accountId: AccountId option
       memo: JournalEntryLineMemo option

@@ -1,3 +1,3 @@
-module Tests.Integrated.ModelOrchestrator.JournalEntryOrchestration
+module Tests.Integrated.Business.FinancialServices.JournalEntryOrchestration
 
 // todo: add tests here

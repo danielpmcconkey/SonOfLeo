@@ -1,14 +1,15 @@
-module ModelOrchestrator.JournalEntryExternalReferenceOrchestration
+module Business.FinancialServices.JournalEntryExternalReferenceOrchestration
 
-open Business.FinancialServices.Ledger.JournalEntryExternalReference
-open Business.FinancialServices.Ledger
-open Business.FinancialServices.Ledger.JournalEntryComponent
 open App.Utility.AppError
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteNonQuery
-open App.Utility.FieldUpdate
+open App.Utility
 open App.Utility.Result
+open App.Session
+open Business.FinancialServices.Ledger.JournalEntryExternalReference
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.JournalEntryComponent
 
 let private confirmJournalEntryHeader (context: Context.Context) (journalEntryHeaderId: JournalEntryHeaderId) : Result<unit, AppError> =
     match journalEntryHeaderId |> JournalEntryHeader.fetchById context with
@@ -44,8 +45,8 @@ let constructNewAndPersist
 
 let updateFiAndReferenceText
     (context: Context.Context)
-    (fiUpdate: FieldUpdate<JournalRefFinancialInstitution>)
-    (referenceUpdate: FieldUpdate<JournalExternalReferenceText>)
+    (fiUpdate: FieldUpdate.FieldUpdate<JournalRefFinancialInstitution>)
+    (referenceUpdate: FieldUpdate.FieldUpdate<JournalExternalReferenceText>)
     (journalEntryExternalReferenceId: JournalEntryExternalReferenceId)
     : Result<JournalEntryExternalReference, AppError> =
     let uuid = journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value

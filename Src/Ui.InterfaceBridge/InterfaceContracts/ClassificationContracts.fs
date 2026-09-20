@@ -2,7 +2,7 @@ module InterfaceBridge.InterfaceContracts.ClassificationContracts
 
 open System
 open InterfaceBridge.InterfaceContracts.AccountContracts
-open ModelOrchestrator.FetchFilters
+open Business.FinancialServices.FetchFilters
 open NodaTime
 open App.Utility.FieldUpdate
 

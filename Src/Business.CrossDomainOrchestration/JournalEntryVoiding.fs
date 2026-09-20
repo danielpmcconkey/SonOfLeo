@@ -1,14 +1,15 @@
-module ModelOrchestrator.JournalEntryVoiding
+module Business.FinancialServices.JournalEntryVoiding
 
-open Business.FinancialServices.Ledger
-open Business.FinancialServices.Ledger.FiscalPeriodComponent
-open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator.JournalEntries
 open App.Utility.AppError
 open App.Utility.Result
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteNonQuery
+open App.Session
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.FiscalPeriodComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.JournalEntries
 
 let private confirmJournalEntryIdIsReal
     (context: Context.Context)

@@ -7,7 +7,7 @@ open InterfaceBridge.InterfaceContracts.ReportsContracts
 open App.Utility.Json
 open InterfaceBridge.ReportWriters
 open Logger.Audit
-open ModelOrchestrator.TrialBalanceReport
+open Business.FinancialServices.TrialBalanceReport
 open App.Utility.Result
 
 let private trialBalance payload _ =

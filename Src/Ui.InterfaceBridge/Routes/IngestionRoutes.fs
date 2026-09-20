@@ -10,10 +10,10 @@ open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.Classification
 open Business.FinancialServices.DataIngestion.StageEntryHeader
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator
-open ModelOrchestrator.ClassificationOrchestration
-open ModelOrchestrator.TrialBalanceReport
-open Utilities
+open Business.FinancialServices
+open Business.FinancialServices.ClassificationOrchestration
+open Business.FinancialServices.TrialBalanceReport
+open App.Utility
 open App.Utility.AppError
 open App.Utility.FieldUpdate
 open App.Utility.FieldUpdate.FieldUpdate

@@ -13,14 +13,14 @@ open Business.FinancialServices.Ledger.JournalEntryComponent
 (* JournalEntry first, StageEntryOrchestration second: both expose `lines`, and the staged
    side is what the bulk of this file reads. The ledger-side name used here is
    `fetchByReference`, which only the JournalEntry module defines. *)
-open ModelOrchestrator.JournalEntries.JournalEntry
-open ModelOrchestrator.StageEntryOrchestration
+open Business.FinancialServices.JournalEntries.JournalEntry
+open Business.FinancialServices.StageEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Cleanup
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
 open Tests.Helpers.SadPath
-open Utilities
+open App.Utility
 open App.Utility.AppError
 open App.Utility.FieldUpdate
 open App.Utility.Json.Json

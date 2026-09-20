@@ -1,18 +1,19 @@
-module ModelOrchestrator.AccountDeactivation
+module Business.FinancialServices.AccountDeactivation
 
+open Business.General
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Model
 open NodaTime
-open Utilities
+open App.Utility
 open App.Utility.AppError
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteScalar
 open App.Utility.Result
+open App.Session
 
 let private updateActiveEnd (context: Context.Context) (activeEndUpdate: LocalDate) (account: Account) : Result<Account, AppError> =
     let accountId = account |> Account.accountId

@@ -1,18 +1,19 @@
-module ModelOrchestrator.CashFlowCompositeFetcher
+module Business.FinancialServices.CashFlowCompositeFetcher
 
 open System
 open App.DataAccessLayer.ExecuteReader
+open App.DataAccessLayer.QueryParameter
+open App.Utility
+open App.Utility.AppError
+open App.Utility.Result
+open App.Session
 open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.CashFlow.Invoice
 open Business.FinancialServices.CashFlow.MasterAgreement
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open ModelOrchestrator.FetchFilters
-open App.DataAccessLayer.QueryParameter
-open Utilities
-open App.Utility.AppError
-open App.Utility.Result
+open Business.FinancialServices.FetchFilters
 
 type TargetComposite =
     | Agreement

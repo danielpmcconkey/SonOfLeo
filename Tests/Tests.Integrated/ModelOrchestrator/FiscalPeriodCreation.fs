@@ -1,10 +1,10 @@
-module Tests.Integrated.ModelOrchestrator.FiscalPeriodCreation
+module Tests.Integrated.Business.FinancialServices.FiscalPeriodCreation
 
 open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
-open ModelOrchestrator
+open Business.FinancialServices
 open Tests.Helpers.Railroad
 open Xunit
 open App.Utility.AppError
