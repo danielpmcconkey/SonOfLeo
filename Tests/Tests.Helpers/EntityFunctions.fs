@@ -1,7 +1,7 @@
 module Tests.Helpers.EntityFunctions
 
-open InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open InterfaceBridge.InterfaceContracts.AccountContracts
+open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
+open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
 open Model
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.DataIngestion

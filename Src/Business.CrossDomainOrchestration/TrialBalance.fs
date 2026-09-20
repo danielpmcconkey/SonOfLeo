@@ -1,7 +1,7 @@
 module Business.FinancialServices.TrialBalanceReport
 
 open Business.FinancialServices
-open Business.FinancialServices.Ledger.Account
+open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open NodaTime
 open App.Utility.AppError
@@ -26,8 +26,8 @@ type TrialBalanceRowFlattened =
       netBalance: Money.Money }
     
 let rec private crawlAndCompile
-    (accountToCrawl: Account)
-    (allAccounts: Account list)
+    (accountToCrawl: Account.Account)
+    (allAccounts: Account.Account list)
     (allAccountBalances: AccountBalance.AccountBalance list)
     (thisGeneration: int)
     : Result<TrialBalanceRowNested, AppError> =

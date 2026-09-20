@@ -1,23 +1,22 @@
-module InterfaceBridge.Routes.JournalEntryRoutes
-
+module Ui.InterfaceBridge.Routes.JournalEntryRoutes
 
 open App.DataAccessLayer.DbTransaction
-open InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
-open InterfaceBridge.BoundaryConverters.JournalEntryFieldConverters
-open InterfaceBridge.InterfaceContracts.JournalContracts
 open App.Utility.Json
+open App.Utility.AppError
+open App.Utility.FieldUpdate
+open App.Utility.Result
+open App.Session
+open App.Operation.Audit
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices
 open Business.FinancialServices.JournalEntries
 open Business.FinancialServices.JournalEntryVoiding
-open InterfaceBridge.CommandRoute
-open App.Utility.AppError
-open App.Utility.FieldUpdate
-open App.Utility.FieldUpdate.FieldUpdate
-open App.Utility.Result
-open Logger.Audit
+open Ui.InterfaceBridge.CommandRoute
+open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.JournalEntryFieldConverters
+open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 
 let private postNew payload _ : Result<string, AppError> =
     runCommandRouteAndAutoCompleteTransaction JournalEntryPostNew (fun context ->

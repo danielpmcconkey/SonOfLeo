@@ -1,9 +1,9 @@
-module InterfaceBridge.InterfaceContracts.AccountContracts
+module Ui.InterfaceBridge.InterfaceContracts.AccountContracts
 
-open InterfaceBridge.InterfaceContracts.SharedContracts
-open Business.FinancialServices.FetchFilters
-open NodaTime
 open System
+open NodaTime
+open Business.FinancialServices.FetchFilters
+open Ui.InterfaceBridge.InterfaceContracts.SharedContracts
 
 // ****************************************
 // RETURN

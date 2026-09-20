@@ -1,4 +1,4 @@
-module InterfaceBridge.InterfaceContracts.JournalContracts
+module Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 
 open System
 open NodaTime

@@ -2,7 +2,7 @@ namespace Tests.Integrated.Business.FinancialServices
 
 open System
 open InterfaceBridge.CommandRoute
-open Logger.Audit
+open App.Operation.Audit
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger
 open Business.FinancialServices

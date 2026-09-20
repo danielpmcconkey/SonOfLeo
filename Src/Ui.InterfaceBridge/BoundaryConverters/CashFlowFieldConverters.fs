@@ -1,20 +1,20 @@
-module InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
+module Ui.InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
 
-open InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
-open InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
-open InterfaceBridge.InterfaceContracts.CashFlowContracts
-open Model
+open App.Utility
+open App.Utility.AppError
+open App.Utility.Result
+open App.Session
+open Business.General
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.Classification
 open Business.FinancialServices
-open App.Utility.AppError
-open App.Utility.FieldUpdate
-open App.Utility.FieldUpdate.FieldUpdate
-open App.Utility.Result
+open Ui.InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
+open Ui.InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
+open Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
+open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
 
 let ``convert [Blocker] to [BlockerContract]`` (blocker: Blocker) : BlockerContract =
     match blocker with
@@ -35,8 +35,10 @@ let ``convert [TransactionPointer] to [TransactionPointerContract]``
     (transactionPointer: TransactionPointer)
     : TransactionPointerContract =
     match transactionPointer with
-    | CashFlowComponent.Posted journalEntryLineId -> TransactionPointerContract.Posted(journalEntryLineId |> JournalEntryLineId.value)
-    | CashFlowComponent.Staged stageEntryLineId -> TransactionPointerContract.Staged(stageEntryLineId |> StageEntryLineId.value)
+    | CashFlowComponent.Posted journalEntryLineId ->
+        TransactionPointerContract.Posted(journalEntryLineId |> JournalEntryLineId.value)
+    | CashFlowComponent.Staged stageEntryLineId ->
+        TransactionPointerContract.Staged(stageEntryLineId |> StageEntryLineId.value)
 
 let ``convert [MonthDay] to [MonthDayContract]`` (monthDay: Cadence.MonthDay) : MonthDayContract =
     match monthDay with
@@ -61,7 +63,9 @@ let ``convert [MonthDayContract] to [MonthDay]``
         }
     | MonthDayContract.Last -> Ok Cadence.Last
 
-let ``convert [CadenceType] to [CadenceTypeContract]`` (cadenceType: Cadence.CadenceType) : CadenceTypeContract =
+let ``convert [CadenceType] to [CadenceTypeContract]``
+    (cadenceType: Cadence.CadenceType)
+    : CadenceTypeContract =
     match cadenceType with
     | Cadence.Daily -> CadenceTypeContract.Daily
     | Cadence.Weekly weekDay -> CadenceTypeContract.Weekly(weekDay |> Cadence.WeekDay.toString)
@@ -94,7 +98,9 @@ let ``convert [Cadence] to [CadenceContract]`` (cadence: Cadence.Cadence) : Cade
     cadenceType = cadence |> Cadence.cadenceType |> ``convert [CadenceType] to [CadenceTypeContract]``
     nextInstance = (cadence |> Cadence.nextInstance).nextInstance }
 
-let ``convert [CadenceContract] to [Cadence]`` (cadenceContract: CadenceContract) : Result<Cadence.Cadence, AppError> =
+let ``convert [CadenceContract] to [Cadence]``
+    (cadenceContract: CadenceContract)
+    : Result<Cadence.Cadence, AppError> =
     result {
         let! cadenceType = cadenceContract.cadenceType |> ``convert [CadenceTypeContract] to [CadenceType]``
         let nextInstance : Cadence.CadenceNextInstance = { nextInstance = cadenceContract.nextInstance }
@@ -104,7 +110,8 @@ let ``convert [CadenceContract] to [Cadence]`` (cadenceContract: CadenceContract
 let ``convert [Payment] to [PaymentReturn]`` (payment: Payment.Payment) : PaymentReturn = {
     paymentId = payment |> Payment.paymentId |> PaymentId.value
     invoiceId = payment |> Payment.invoiceId |> InvoiceId.value
-    transactionPointer = payment |> Payment.transactionPointer |> ``convert [TransactionPointer] to [TransactionPointerContract]``
+    transactionPointer =
+        payment |> Payment.transactionPointer |> ``convert [TransactionPointer] to [TransactionPointerContract]``
     amount = (payment |> Payment.amount).money |> Money.amount
     postedToFiDate = payment |> Payment.postedToFiDate |> Option.map _.localDate
     postedToLedgerDate = payment |> Payment.postedToLedgerDate |> Option.map _.localDate
@@ -215,12 +222,15 @@ let ``convert [PaymentAgreement] to [PaymentAgreementReturn]``
         return {
             paymentAgreementId = paymentAgreement |> PaymentAgreement.paymentAgreementId |> PaymentAgreementId.value
             masterAgreementName = masterAgreementName
-            paymentAgreementName = paymentAgreement |> PaymentAgreement.paymentAgreementName |> PaymentAgreementName.value
+            paymentAgreementName =
+                paymentAgreement |> PaymentAgreement.paymentAgreementName |> PaymentAgreementName.value
             debitAccountCode = debitAccountCode
             creditAccountCode = creditAccountCode
             expectedAmount = paymentAgreement |> PaymentAgreement.expectedAmount |> Option.map Money.amount
             daysDueAfterInvoiceDate =
-                paymentAgreement |> PaymentAgreement.daysDueAfterInvoiceDate |> Option.map DaysDueAfterInvoiceDate.value
+                paymentAgreement
+                |> PaymentAgreement.daysDueAfterInvoiceDate
+                |> Option.map DaysDueAfterInvoiceDate.value
             memo = paymentAgreement |> PaymentAgreement.memo |> Option.map PaymentAgreementMemo.value
             createdAt = paymentAgreement |> PaymentAgreement.createdAt
             modifiedAt = paymentAgreement |> PaymentAgreement.modifiedAt } }
@@ -231,7 +241,9 @@ let ``convert [Agreement] to [AgreementReturn]``
     : Result<AgreementReturn, AppError> =
     result {
         let masterAgreement =
-            agreement |> AgreementOrchestration.masterAgreement |> ``convert [MasterAgreement] to [MasterAgreementReturn]``
+            agreement
+            |> AgreementOrchestration.masterAgreement
+            |> ``convert [MasterAgreement] to [MasterAgreementReturn]``
         let! paymentAgreements =
             agreement
             |> AgreementOrchestration.paymentAgreements
@@ -263,7 +275,8 @@ let ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]``
             |> PaymentAgreementLink.paymentAgreementId
             |> ``convert [PaymentAgreementId] to [PaymentAgreementNameString]`` context
         return {
-            paymentAgreementLinkId = link |> PaymentAgreementLink.paymentAgreementLinkId |> PaymentAgreementLinkId.value
+            paymentAgreementLinkId =
+                link |> PaymentAgreementLink.paymentAgreementLinkId |> PaymentAgreementLinkId.value
             paymentAgreementName = paymentAgreementName
             stageEntryLineId = link |> PaymentAgreementLink.stageEntryLineId |> StageEntryLineId.value
             createdAt = link |> PaymentAgreementLink.createdAt
@@ -271,7 +284,7 @@ let ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]``
 
 let ``convert [PaymentAgreementDecision] to [PaymentAgreementDecisionReturn]``
     (context: Context.Context)
-    (decision: StageDataClassificationComponent.PaymentAgreementDecision)
+    (decision: ClassificationComponent.PaymentAgreementDecision)
     : Result<PaymentAgreementDecisionReturn, AppError> =
     result {
         let! paymentAgreementName =
@@ -279,8 +292,8 @@ let ``convert [PaymentAgreementDecision] to [PaymentAgreementDecisionReturn]``
         return {
             stageEntryLineId = decision.stageEntryLineId |> StageEntryLineId.value
             paymentAgreementName = paymentAgreementName
-            ruleIds = decision.ruleIds |> List.map StageDataClassificationComponent.ClassificationRuleId.value
-            outcome = decision.outcome |> StageDataClassificationComponent.PaymentAgreementDecisionOutcome.toString } }
+            ruleIds = decision.ruleIds |> List.map ClassificationComponent.ClassificationRuleId.value
+            outcome = decision.outcome |> ClassificationComponent.PaymentAgreementDecisionOutcome.toString } }
 
 let ``convert [InvoiceDecision] to [InvoiceDecisionReturn]`` (decision: InvoiceDecision) : InvoiceDecisionReturn =
     let outcome =
@@ -376,7 +389,7 @@ let ``convert [PaymentAgreementClassificationResult] to [PaymentAgreementClassif
             |> List.map ``convert [InvoiceDecision] to [InvoiceDecisionReturn]``
             |> List.sortBy (fun (decision: InvoiceDecisionReturn) -> decision.invoiceId, decision.outcome)
         return {
-            runId = classificationResult.runId |> StageDataClassificationComponent.ClassificationRunId.value
+            runId = classificationResult.runId |> ClassificationComponent.ClassificationRunId.value
             classificationResults = sortedResults
             decisionLog = sortedDecisionLog
             invoiceDecisionLog = sortedInvoiceDecisionLog
@@ -429,7 +442,8 @@ let ``convert [CreatePaymentFieldsInput] to [PaymentPrimitives]``
         let postedToFiDate =
             input.postedToFiDate |> Option.map (fun localDate -> ({ localDate = localDate } : PostedToFiDate))
         let postedToLedgerDate =
-            input.postedToLedgerDate |> Option.map (fun localDate -> ({ localDate = localDate } : PostedToLedgerDate))
+            input.postedToLedgerDate
+            |> Option.map (fun localDate -> ({ localDate = localDate } : PostedToLedgerDate))
         let! memo = input.memo |> convertOptionToDesiredTypeWithFallibleConverter PaymentMemo.create
         return transactionPointer, amount, postedToFiDate, postedToLedgerDate, memo
     }
@@ -507,20 +521,20 @@ let ``convert [NewInvoiceFieldsInput] to [NewInvoicePrimitives]``
 
 let private noChangeInvoiceUpdates (invoiceId: InvoiceId) : Invoice.InvoiceFieldUpdates =
     { invoiceIdToUpdate = invoiceId
-      externalInvoiceIdUpdate = NoChange
-      invoiceDateUpdate = NoChange
-      dueDateUpdate = NoChange
-      amountUpdate = NoChange
-      invoiceStateUpdate = NoChange
-      paymentStateUpdate = NoChange
-      postedStateUpdate = NoChange
-      blockerUpdate = NoChange
-      memoUpdate = NoChange }
+      externalInvoiceIdUpdate = FieldUpdate.NoChange
+      invoiceDateUpdate = FieldUpdate.NoChange
+      dueDateUpdate = FieldUpdate.NoChange
+      amountUpdate = FieldUpdate.NoChange
+      invoiceStateUpdate = FieldUpdate.NoChange
+      paymentStateUpdate = FieldUpdate.NoChange
+      postedStateUpdate = FieldUpdate.NoChange
+      blockerUpdate = FieldUpdate.NoChange
+      memoUpdate = FieldUpdate.NoChange }
 
 let private noChangeInstanceUpdates (instanceId: InstanceId) : Instance.InstanceFieldUpdates =
     { instanceIdToUpdate = instanceId
-      instanceDateUpdate = NoChange
-      isFulfilledUpdate = NoChange }
+      instanceDateUpdate = FieldUpdate.NoChange
+      isFulfilledUpdate = FieldUpdate.NoChange }
 
 let ``convert [CreateInvoiceInput] to [InstanceCompositeUpdate]``
     (context: Context.Context)
@@ -544,22 +558,28 @@ let ``convert [UpdateInvoiceInput] to [InstanceCompositeUpdate]``
         let! invoice = invoiceId |> Invoice.fetchById context
         let instanceId = invoice |> Invoice.instanceId
         let! externalInvoiceIdUpdate =
-            input.externalInvoiceIdUpdate |> convertFieldUpdateOptionToNewTypeOptionFallible ExternalInvoiceId.create
+            input.externalInvoiceIdUpdate
+            |> FieldUpdate.convertFieldUpdateOptionToNewTypeOptionFallible ExternalInvoiceId.create
         let invoiceDateUpdate =
             input.invoiceDateUpdate |> FieldUpdate.map (fun localDate -> ({ localDate = localDate } : InvoiceDate))
         let dueDateUpdate =
             input.dueDateUpdate |> FieldUpdate.map (fun localDate -> ({ localDate = localDate } : DueDate))
         let! amountUpdate =
             input.amountUpdate
-            |> convertFieldUpdateToNewTypeFallible (fun amount ->
+            |> FieldUpdate.convertFieldUpdateToNewTypeFallible (fun amount ->
                 amount |> Money.fromDecimal |> Result.map (fun money -> ({ money = money } : InvoiceAmount)))
-        let! invoiceStateUpdate = input.invoiceStateUpdate |> convertFieldUpdateToNewTypeFallible InvoiceState.fromString
-        let! paymentStateUpdate = input.paymentStateUpdate |> convertFieldUpdateToNewTypeFallible PaymentState.fromString
-        let! postedStateUpdate = input.postedStateUpdate |> convertFieldUpdateToNewTypeFallible PostedState.fromString
+        let! invoiceStateUpdate = input.invoiceStateUpdate
+                                  |> FieldUpdate.convertFieldUpdateToNewTypeFallible InvoiceState.fromString
+        let! paymentStateUpdate = input.paymentStateUpdate
+                                  |> FieldUpdate.convertFieldUpdateToNewTypeFallible PaymentState.fromString
+        let! postedStateUpdate = input.postedStateUpdate
+                                 |> FieldUpdate.convertFieldUpdateToNewTypeFallible PostedState.fromString
         let! blockerUpdate =
             input.blockerUpdate
-            |> convertFieldUpdateOptionToNewTypeOptionFallible ``convert [BlockerContract] to [Blocker]``
-        let! memoUpdate = input.memoUpdate |> convertFieldUpdateOptionToNewTypeOptionFallible InvoiceMemo.create
+            |> FieldUpdate.convertFieldUpdateOptionToNewTypeOptionFallible
+                   ``convert [BlockerContract] to [Blocker]``
+        let! memoUpdate = input.memoUpdate
+                          |> FieldUpdate.convertFieldUpdateOptionToNewTypeOptionFallible InvoiceMemo.create
         let invoiceUpdates : Invoice.InvoiceFieldUpdates = {
             invoiceIdToUpdate = invoiceId
             externalInvoiceIdUpdate = externalInvoiceIdUpdate
@@ -607,14 +627,15 @@ let ``convert [UpdatePaymentAgreementLinkInput] to [PaymentAgreementLinkFieldUpd
         let linkId = input.paymentAgreementLinkId |> PaymentAgreementLinkId.fromGuid
         let! paymentAgreementIdUpdate =
             input.paymentAgreementNameUpdate
-            |> convertFieldUpdateToNewTypeFallible (``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context)
+            |> FieldUpdate.convertFieldUpdateToNewTypeFallible (
+                ``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context)
         return { linkIdToUpdate = linkId; paymentAgreementIdUpdate = paymentAgreementIdUpdate } }
 
 let ``convert [CreatePaymentAgreementFieldsInput] to [PaymentAgreementPrimitives]``
     (context: Context.Context)
     (input: CreatePaymentAgreementFieldsInput)
     : Result<
-        PaymentAgreementName * DebitAccount * CreditAccount * Money option * DaysDueAfterInvoiceDate option *
+        PaymentAgreementName * DebitAccount * CreditAccount * Money.Money option * DaysDueAfterInvoiceDate option *
         PaymentAgreementMemo option, AppError> =
     result {
         let! paymentAgreementName = input.paymentAgreementName |> PaymentAgreementName.create
@@ -623,7 +644,8 @@ let ``convert [CreatePaymentAgreementFieldsInput] to [PaymentAgreementPrimitives
         let! expectedAmount =
             input.expectedAmount |> convertOptionToDesiredTypeWithFallibleConverter Money.fromDecimal
         let! daysDueAfterInvoiceDate =
-            input.daysDueAfterInvoiceDate |> convertOptionToDesiredTypeWithFallibleConverter DaysDueAfterInvoiceDate.create
+            input.daysDueAfterInvoiceDate
+            |> convertOptionToDesiredTypeWithFallibleConverter DaysDueAfterInvoiceDate.create
         let! memo = input.memo |> convertOptionToDesiredTypeWithFallibleConverter PaymentAgreementMemo.create
         return
             paymentAgreementName,
@@ -638,7 +660,7 @@ let ``convert [CreatePaymentAgreementFieldsInput list] to [PaymentAgreementPrimi
     (context: Context.Context)
     (input: CreatePaymentAgreementFieldsInput list)
     : Result<
-        (PaymentAgreementName * DebitAccount * CreditAccount * Money option * DaysDueAfterInvoiceDate option *
+        (PaymentAgreementName * DebitAccount * CreditAccount * Money.Money option * DaysDueAfterInvoiceDate option *
          PaymentAgreementMemo option) list, AppError> =
     input
     |> List.map (``convert [CreatePaymentAgreementFieldsInput] to [PaymentAgreementPrimitives]`` context)
@@ -650,27 +672,35 @@ let ``convert [UpdateAgreementInput] to [MasterAgreementFieldUpdates]``
     : Result<MasterAgreement.MasterAgreementFieldUpdates, AppError> =
     result {
         let! agreementId = input.agreementName |> ``convert [AgreementNameString] to [MasterAgreementId]`` context
-        let! agreementNameUpdate = input.agreementNameUpdate |> convertFieldUpdateToNewTypeFallible AgreementName.create
-        let! directionUpdate = input.directionUpdate |> convertFieldUpdateToNewTypeFallible FlowDirection.fromString
+        let! agreementNameUpdate = input.agreementNameUpdate
+                                   |> FieldUpdate.convertFieldUpdateToNewTypeFallible AgreementName.create
+        let! directionUpdate = input.directionUpdate
+                               |> FieldUpdate.convertFieldUpdateToNewTypeFallible FlowDirection.fromString
         let! cadenceUpdate =
-            input.cadenceUpdate |> convertFieldUpdateToNewTypeFallible ``convert [CadenceContract] to [Cadence]``
-        let! counterpartyUpdate = input.counterpartyUpdate |> convertFieldUpdateToNewTypeFallible Counterparty.create
+            input.cadenceUpdate
+            |> FieldUpdate.convertFieldUpdateToNewTypeFallible ``convert [CadenceContract] to [Cadence]``
+        let! counterpartyUpdate = input.counterpartyUpdate
+                                  |> FieldUpdate.convertFieldUpdateToNewTypeFallible Counterparty.create
         // the model holds the two dates as one ActivityPeriod, so setting either one has to carry the other over
         let! activityPeriodUpdate =
-            if input.activeBeginUpdate = NoChange && input.activeEndUpdate = NoChange then Ok NoChange
+            if input.activeBeginUpdate = FieldUpdate.NoChange && input.activeEndUpdate = FieldUpdate.NoChange
+            then Ok FieldUpdate.NoChange
             else
                 result {
                     let! current = agreementId |> MasterAgreement.fetchById context
                     let currentActivityPeriod = current |> MasterAgreement.activityPeriod
                     let activeBegin =
-                        input.activeBeginUpdate |> valueOrCurrent (currentActivityPeriod |> ActivityPeriod.activeBegin)
+                        input.activeBeginUpdate
+                        |> FieldUpdate.valueOrCurrent (currentActivityPeriod |> ActivityPeriod.activeBegin)
                     let activeEnd =
-                        input.activeEndUpdate |> valueOrCurrent (currentActivityPeriod |> ActivityPeriod.activeEnd)
+                        input.activeEndUpdate
+                        |> FieldUpdate.valueOrCurrent (currentActivityPeriod |> ActivityPeriod.activeEnd)
                     let! activityPeriod =
                         ActivityPeriod.create activeBegin activeEnd ActivityPeriod.ConsideredAvailableBeforeBeginDate
-                    return SetTo activityPeriod
+                    return FieldUpdate.SetTo activityPeriod
                 }
-        let! memoUpdate = input.memoUpdate |> convertFieldUpdateOptionToNewTypeOptionFallible AgreementMemo.create
+        let! memoUpdate = input.memoUpdate
+                          |> FieldUpdate.convertFieldUpdateOptionToNewTypeOptionFallible AgreementMemo.create
         return {
             agreementIdToUpdate = agreementId
             agreementNameUpdate = agreementNameUpdate

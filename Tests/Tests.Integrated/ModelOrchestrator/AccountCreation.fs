@@ -3,7 +3,7 @@ module Tests.Integrated.Business.FinancialServices.AccountCreation
 open System
 
 open InterfaceBridge.CommandRoute
-open Logger.Audit
+open App.Operation.Audit
 open Business.FinancialServices
 open Tests.Helpers.Railroad
 open Xunit

@@ -1,17 +1,17 @@
-module InterfaceBridge.Routes.ClassificationRoutes
+module Ui.InterfaceBridge.Routes.ClassificationRoutes
 
-open App.DataAccessLayer.DbTransaction
-open InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
-open InterfaceBridge.CommandRoute
-open InterfaceBridge.InterfaceContracts.ClassificationContracts
-open Logger.Audit
-open Business.FinancialServices.Classification
-open Business.FinancialServices.Classification.StageDataClassificationComponent
-open Business.FinancialServices.ClassificationOrchestration
-open App.Utility
-open App.Utility.FieldUpdate.FieldUpdate
+open App.Utility.FieldUpdate
 open App.Utility.Json
 open App.Utility.Result
+open App.DataAccessLayer.DbTransaction
+open App.Operation.Audit
+open App.Session
+open Business.FinancialServices.Classification
+open Business.FinancialServices.Classification.ClassificationComponent
+open Business.FinancialServices.ClassificationOrchestration
+open Ui.InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
+open Ui.InterfaceBridge.CommandRoute
+open Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
 
 let private newClassificationRule payload _ =
     let context = Context.create NoTransaction ClassificationNewRule

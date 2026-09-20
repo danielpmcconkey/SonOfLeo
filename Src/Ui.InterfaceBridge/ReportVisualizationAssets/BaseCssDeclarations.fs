@@ -1,15 +1,6 @@
-module InterfaceBridge.ReportVisualizationAssets.Css
+module Ui.InterfaceBridge.ReportVisualizationAssets.BaseCssDeclarations
 
-type CssDeclaration =
-    internal
-        { ordinal: int
-          declarator: string
-          definition: string }
-
-module CssDeclaration =
-    let toString c = $"{c.declarator} {{{c.definition}}}"
-        
-
+open Ui.InterfaceBridge.ReportVisualizationAssets.HtmlComponents
 let baseCssDeclarations = [
     {
         ordinal = 10

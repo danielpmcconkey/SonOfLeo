@@ -1,19 +1,19 @@
-module InterfaceBridge.ReportWriters.TrialBalanceWriter
+module Ui.InterfaceBridge.ReportWriters.TrialBalanceWriter
 
-open InterfaceBridge.InterfaceContracts.ReportsContracts
-open InterfaceBridge.ReportVisualizationAssets
-open InterfaceBridge.ReportVisualizationAssets.Css
-open InterfaceBridge.ReportVisualizationAssets.ReportBody
-open InterfaceBridge.ReportVisualizationAssets.ReportFooter
-open InterfaceBridge.ReportVisualizationAssets.ReportHeader
-open Model
-open Business.FinancialServices.Ledger.AccountComponent
-open Business.FinancialServices.TrialBalanceReport
 open NodaTime
 open App.Utility.AppError
 open App.Utility.Calendar
-open App.UtilityFileIO
+open App.Utility.File
 open App.Utility.Result
+open Business.FinancialServices
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.TrialBalanceReport
+open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
+open Ui.InterfaceBridge.ReportVisualizationAssets.HtmlComponents
+open Ui.InterfaceBridge.ReportVisualizationAssets.BaseCssDeclarations
+open Ui.InterfaceBridge.ReportVisualizationAssets.ReportBody
+open Ui.InterfaceBridge.ReportVisualizationAssets.ReportFooter
+open Ui.InterfaceBridge.ReportVisualizationAssets.ReportHeader
 
 
 let specificCss = [
@@ -195,8 +195,11 @@ let createAccountLabel labelType amount ordinal   =
         contents = [ labelSpan; labelBold ]
     } 
 
-let createAccountRowDomElement ordinal row =
-    let code = row.accountCode |> AccountCode.value
+let createAccountRowDomElement
+    (ordinal:int)
+    (row:TrialBalanceRowFlattened)
+    : DomElement =
+    let code:string = row.accountCode |> AccountCode.value
     let accountName = row.accountName |> AccountName.value
     let accountLabelName = {
         ordinal = 10

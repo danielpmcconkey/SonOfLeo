@@ -1,6 +1,6 @@
 namespace Tests.Integrated.InterfaceBridge
 
-open InterfaceBridge.InterfaceContracts.ReportsContracts
+open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open App.Utility.Json.Json
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.Account

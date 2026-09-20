@@ -1,12 +1,12 @@
-module InterfaceBridge.InterfaceContracts.IngestionContracts
+module Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
 
 open System
-open InterfaceBridge.InterfaceContracts.ClassificationContracts
-open InterfaceBridge.InterfaceContracts.ReportsContracts
-open InterfaceBridge.InterfaceContracts.SharedContracts
-open Business.FinancialServices.FetchFilters
 open NodaTime
 open App.Utility.FieldUpdate
+open Business.FinancialServices.FetchFilters
+open Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
+open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
+open Ui.InterfaceBridge.InterfaceContracts.SharedContracts
 
 // ****************************************
 // Return

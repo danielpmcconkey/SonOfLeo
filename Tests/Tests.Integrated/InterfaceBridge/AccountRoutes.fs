@@ -2,9 +2,9 @@ namespace Tests.Integrated.InterfaceBridge.AccountRoutes
 
 open System
 open App.DataAccessLayer.DbTransaction
-open InterfaceBridge.InterfaceContracts.SharedContracts
+open Ui.InterfaceBridge.InterfaceContracts.SharedContracts
 open App.Utility.Json.Json
-open Logger.Audit
+open App.Operation.Audit
 open Model
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.Account
@@ -19,7 +19,7 @@ open App.Utility
 open App.Utility.Result
 open Xunit
 open Tests.Helpers.Cleanup
-open InterfaceBridge.InterfaceContracts.AccountContracts
+open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
 open App.Utility.AppError
 
 open Business.FinancialServices.Ledger.JournalEntryComponent

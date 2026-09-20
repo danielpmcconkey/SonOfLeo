@@ -1,8 +1,15 @@
-namespace InterfaceBridge.ReportVisualizationAssets
+module Ui.InterfaceBridge.ReportVisualizationAssets.HtmlComponents
 
-open InterfaceBridge.ReportVisualizationAssets.Css
 open System
 
+type CssDeclaration =
+    internal
+        { ordinal: int
+          declarator: string
+          definition: string }
+
+module CssDeclaration =
+    let toString c = $"{c.declarator} {{{c.definition}}}"
         
 type HtmlHead =
     internal 
@@ -11,8 +18,7 @@ type HtmlHead =
           baseCss: CssDeclaration list
           specificCss: CssDeclaration list
           script: string }
-
-module HtmlHead =
+module HtmlHead = 
     let toString h =
         let baseCss =
             h.baseCss
@@ -25,24 +31,25 @@ module HtmlHead =
             |> List.map CssDeclaration.toString
             |> String.concat Environment.NewLine
         $"""
-    <head>
-        <meta charset="{h.charSet}">
-        <title>{h.title}</title>
-        <style>
-        {baseCss}
-        {specificCss}
+        <head>
+            <meta charset="{h.charSet}">
+            <title>{h.title}</title>
+            <style>
+            {baseCss}
+            {specificCss}
 
-  /* ----- print ----- */
-  @media print {{
-    body {{ background: #fff; }}
-    .report {{ box-shadow: none; margin: 0; padding: 1rem 1.5rem; max-width: none; }}
-    .acct, .acct-label, .acct > table.tx {{ break-inside: avoid; }}
-    .acct.level-0 {{ break-before: auto; }}
-    }}
-        </style>
-        {h.script}
-    </head>
-"""
+      /* ----- print ----- */
+      @media print {{
+        body {{ background: #fff; }}
+        .report {{ box-shadow: none; margin: 0; padding: 1rem 1.5rem; max-width: none; }}
+        .acct, .acct-label, .acct > table.tx {{ break-inside: avoid; }}
+        .acct.level-0 {{ break-before: auto; }}
+        }}
+            </style>
+            {h.script}
+        </head>
+    """
+        
 
 type DomElementType =
     | Section

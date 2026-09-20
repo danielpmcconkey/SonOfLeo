@@ -3,7 +3,7 @@ module Tests.Integrated.Business.FinancialServices.ClassificationRuleCrud
 open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open App.DataAccessLayer.DbTransaction
 open InterfaceBridge.CommandRoute
-open Logger.Audit
+open App.Operation.Audit
 open Model
 open Business.FinancialServices.DataIngestion.Classification
 open Business.FinancialServices.Ledger.AccountComponent

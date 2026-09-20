@@ -109,7 +109,7 @@ Tags an already-validated type to prevent mixing.
 
 One `*Component.fs` per domain slice, holding all shared primitives:
 - `AccountComponent.fs`, `JournalEntryComponent.fs`, `StageEntryComponent.fs`,
-  `CashFlowComponent.fs`, `StageDataClassificationComponent.fs`
+  `CashFlowComponent.fs`, `ClassificationComponent.fs`
 
 **What goes in:** ID wrappers, bounded strings, DU enums, semantic wrappers, small composite
 value types (`InvoiceLifeCycleState`, `MoneySearchPattern`).
@@ -304,7 +304,7 @@ Utilities → Model → ModelOrchestrator → InterfaceBridge → CLI
 ```
 
 Within Model, domains are interleaved — ordered by dependency, not by domain.
-`StageDataClassificationComponent.fs` sits between `CashFlowComponent.fs` and
+`ClassificationComponent.fs` sits between `CashFlowComponent.fs` and
 `DataIngestion/IngestionSource.fs` because it needs types from both.
 
 A new file goes at its correct position in `<Compile Include>`, never appended.

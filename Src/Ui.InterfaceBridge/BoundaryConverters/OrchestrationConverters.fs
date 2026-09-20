@@ -1,18 +1,20 @@
-module InterfaceBridge.BoundaryConverters.OrchestrationConverters
+module Ui.InterfaceBridge.BoundaryConverters.OrchestrationConverters
 
-open InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open InterfaceBridge.BoundaryConverters.JournalEntryFieldConverters
-open InterfaceBridge.BoundaryConverters.MoneyFieldConverters
-open InterfaceBridge.InterfaceContracts.AccountContracts
-open InterfaceBridge.InterfaceContracts.SharedContracts
-open Model
+open App.Utility.AppError
+open App.Utility.Result
+open App.DataAccessLayer
+open App.Session
+open Business.FinancialServices
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.AccountActivity
 open Business.FinancialServices.FetchFilters
-open App.Utility.AppError
 open Business.FinancialServices.Ledger.AccountComponent
-open App.Utility.Result
+open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.JournalEntryFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.MoneyFieldConverters
+open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
+open Ui.InterfaceBridge.InterfaceContracts.SharedContracts
 
 
 let ``convert TemporalFilterInput to TemporalFilter``
@@ -29,7 +31,7 @@ let ``convert TemporalFilterInput to TemporalFilter``
             let! _ = periodKey |> FiscalPeriodKey.fromString
             let! uuid =
                 periodKey
-                |> LookupCache.fiscalPeriodKeyToId.fetch context
+                |> LookupCache.fiscalPeriodKeyToId.fetch (context |> Context.getDatabaseTransaction)
                 |> Result.mapError(fun _ -> FiscalPeriodNoPeriodMatchingKey periodKey)
             return uuid |> FiscalPeriodId.fromGuid |> TemporalFilter.FiscalPeriodIdentifier
         }

@@ -1,4 +1,4 @@
-module InterfaceBridge.InterfaceContracts.SharedContracts
+module Ui.InterfaceBridge.InterfaceContracts.SharedContracts
 
 open NodaTime
 

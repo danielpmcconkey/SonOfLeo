@@ -1,9 +1,8 @@
-module InterfaceBridge.CommandRoute
+module Ui.InterfaceBridge.CommandRoute
 
 open App.Utility.AppError
 open App.DataAccessLayer.DbTransaction
-
-
+open App.Session
 
 type CommandRoute =
     {

@@ -1,15 +1,15 @@
-module InterfaceBridge.BoundaryConverters.JournalEntryFieldConverters
+module Ui.InterfaceBridge.BoundaryConverters.JournalEntryFieldConverters
 
-
-open InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open InterfaceBridge.InterfaceContracts.JournalContracts
-open Model
+open App.Utility.AppError
+open App.Utility.Result
+open App.Session
+open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.JournalEntries
-open App.Utility.AppError
-open App.Utility.Result
+open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
+open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 
 let ``convert JeDescriptionString Option to JeDescription Option``
     (stringOption: string option)
@@ -26,7 +26,7 @@ let ``convert JeSourceString Option to JeSource Option``
 let ``convert JournalEntryLineInput to JournalEntryLinePrimitives``
     (context: Context.Context)
     (input: JournalEntryLineInput)
-    : Result<AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option, AppError> =
+    : Result<AccountId * Money.Money * JournalEntryLineType * JournalEntryLineMemo option, AppError> =
     result {
         let! accountId = input.accountCode |> ``convert AccountCodeString to Id`` context
         let! amount = input.amount |> Money.fromDecimal
@@ -38,7 +38,7 @@ let ``convert JournalEntryLineInput to JournalEntryLinePrimitives``
 let ``convert [JournalEntryLineInput list] to [JournalEntryLinePrimitives list]``
     (context: Context.Context)
     (input: JournalEntryLineInput list)
-    : Result<(AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option) list, AppError> =
+    : Result<(AccountId * Money.Money * JournalEntryLineType * JournalEntryLineMemo option) list, AppError> =
     input
     |> List.map(fun x -> x |> ``convert JournalEntryLineInput to JournalEntryLinePrimitives`` context)
     |> convertListOfResultsToResultsList

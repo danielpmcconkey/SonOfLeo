@@ -1,7 +1,7 @@
 namespace Tests.Integrated.Business.FinancialServices
 
 open InterfaceBridge.CommandRoute
-open Logger.Audit
+open App.Operation.Audit
 open Model
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.DataIngestion

@@ -2,11 +2,11 @@ module Tests.Helpers.RouteResolver
 
 
 open App.DataAccessLayer.DbTransaction
-open InterfaceBridge.Routes.AccountRoutes
-open InterfaceBridge.Routes.FiscalPeriodRoutes
-open InterfaceBridge.Routes.IngestionRoutes
-open InterfaceBridge.Routes.JournalEntryRoutes
-open InterfaceBridge.Routes.ReportRoutes
+open Ui.InterfaceBridge.Routes.AccountRoutes
+open Ui.InterfaceBridge.Routes.FiscalPeriodRoutes
+open Ui.InterfaceBridge.Routes.IngestionRoutes
+open Ui.InterfaceBridge.Routes.JournalEntryRoutes
+open Ui.InterfaceBridge.Routes.ReportRoutes
 open App.Utility.AppError
 
 

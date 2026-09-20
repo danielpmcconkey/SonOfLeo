@@ -3,9 +3,9 @@ module Tests.Integrated.InterfaceBridge.IngestionRoutes
 open System
 open System.IO
 open App.DataAccessLayer.DbTransaction
-open InterfaceBridge.InterfaceContracts.IngestionContracts
-open InterfaceBridge.InterfaceContracts.ReportsContracts
-open Logger.Audit
+open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
+open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
+open App.Operation.Audit
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.Ledger

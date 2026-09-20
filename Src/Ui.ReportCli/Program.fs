@@ -1,7 +1,7 @@
 ﻿open System
-open InterfaceBridge.CommandRoute
-open InterfaceBridge.Routes.ReportRoutes
 open App.Utility.AppError
+open Ui.InterfaceBridge.CommandRoute
+open Ui.InterfaceBridge.Routes.ReportRoutes
 
 let route name rest payload : Result<string, AppError> =
     match reportingRoutes |> List.tryFind(fun r -> r.name = name) with

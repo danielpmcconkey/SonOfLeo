@@ -1,6 +1,7 @@
-module InterfaceBridge.ReportVisualizationAssets.ReportFooter
+module Ui.InterfaceBridge.ReportVisualizationAssets.ReportFooter
 
 open App.Utility
+open Ui.InterfaceBridge.ReportVisualizationAssets.HtmlComponents
 
 let createReportFooter ()  =
     let createTime = Clock.now() |> Clock.instantToString "yyyy-MM-dd HH:mm:ss"

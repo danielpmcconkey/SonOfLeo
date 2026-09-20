@@ -2,7 +2,7 @@ module Tests.Integrated.InterfaceBridge.FiscalPeriodRoutes
 
 open App.DataAccessLayer.DbTransaction
 open App.Utility.Json.Json
-open Logger.Audit
+open App.Operation.Audit
 open Model
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers
@@ -16,7 +16,7 @@ open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger
 open Tests.Integrated
 open Tests.Helpers.Cleanup
-open InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
+open Ui.InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
 
 
 [<Collection("SharedTestData")>]

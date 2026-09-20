@@ -56,7 +56,6 @@ module AuditEnvelope =
 
     // todo: create an actual audit log that appends a log file on AuditEnvelope create
     let create
-        (instant:Instant)
         (action: AuditableAction)
         : AuditEnvelope =
-        { uniqueId = Guid.NewGuid(); action = action; instant = instant }
+        { uniqueId = Guid.NewGuid(); action = action; instant = Clock.now() }

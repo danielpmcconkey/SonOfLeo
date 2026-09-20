@@ -1,14 +1,15 @@
-module InterfaceBridge.Routes.ReportRoutes
+module Ui.InterfaceBridge.Routes.ReportRoutes
 
 open App.DataAccessLayer.DbTransaction
-open InterfaceBridge.BoundaryConverters.ReportConverters
-open InterfaceBridge.CommandRoute
-open InterfaceBridge.InterfaceContracts.ReportsContracts
+open Ui.InterfaceBridge.BoundaryConverters.ReportConverters
+open Ui.InterfaceBridge.CommandRoute
+open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open App.Utility.Json
-open InterfaceBridge.ReportWriters
-open Logger.Audit
+open Ui.InterfaceBridge.ReportWriters
+open App.Operation.Audit
 open Business.FinancialServices.TrialBalanceReport
 open App.Utility.Result
+open App.Session
 
 let private trialBalance payload _ =
     let context = Context.create NoTransaction FetchOnly

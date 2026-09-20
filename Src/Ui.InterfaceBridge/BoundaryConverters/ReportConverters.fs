@@ -1,9 +1,9 @@
-module InterfaceBridge.BoundaryConverters.ReportConverters
+module Ui.InterfaceBridge.BoundaryConverters.ReportConverters
 
-open InterfaceBridge.InterfaceContracts.ReportsContracts
-open Model
+open Business.FinancialServices
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.TrialBalanceReport
+open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 
 let ``convert [TrialBalanceRowFlattened] to [TrialBalanceReturnRow]``
     (flattenedRow: TrialBalanceRowFlattened)

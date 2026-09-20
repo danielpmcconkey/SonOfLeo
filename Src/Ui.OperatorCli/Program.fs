@@ -1,12 +1,12 @@
 ﻿open System
-open InterfaceBridge.Routes.AccountRoutes
-open InterfaceBridge.Routes.CashFlowRoutes
-open InterfaceBridge.Routes.ClassificationRoutes
-open InterfaceBridge.Routes.FiscalPeriodRoutes
-open InterfaceBridge.Routes.IngestionRoutes
-open InterfaceBridge.Routes.JournalEntryRoutes
-open InterfaceBridge.CommandRoute
 open App.Utility.AppError
+open Ui.InterfaceBridge.Routes.AccountRoutes
+open Ui.InterfaceBridge.Routes.CashFlowRoutes
+open Ui.InterfaceBridge.Routes.ClassificationRoutes
+open Ui.InterfaceBridge.Routes.FiscalPeriodRoutes
+open Ui.InterfaceBridge.Routes.IngestionRoutes
+open Ui.InterfaceBridge.Routes.JournalEntryRoutes
+open Ui.InterfaceBridge.CommandRoute
 
 
 let commandRoutes =

@@ -1,27 +1,24 @@
-module InterfaceBridge.Routes.IngestionRoutes
+module Ui.InterfaceBridge.Routes.IngestionRoutes
 
-open App.DataAccessLayer.DbTransaction
-open InterfaceBridge.BoundaryConverters.IngestionFieldConverters
-open InterfaceBridge.BoundaryConverters.ReportConverters
-open InterfaceBridge.InterfaceContracts.IngestionContracts
-open Logger.Audit
-open Business.FinancialServices.DataIngestion
-open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.Classification
-open Business.FinancialServices.DataIngestion.StageEntryHeader
-open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices
-open Business.FinancialServices.ClassificationOrchestration
-open Business.FinancialServices.TrialBalanceReport
 open App.Utility
 open App.Utility.AppError
 open App.Utility.FieldUpdate
-open App.Utility.FieldUpdate.FieldUpdate
-open App.UtilityFileIO
+open App.Utility.File
 open App.Utility.Json
-open InterfaceBridge.CommandRoute
 open App.Utility.Result
-open Business.FinancialServices.Classification.StageDataClassificationComponent
+open App.DataAccessLayer.DbTransaction
+open App.Operation.Audit
+open App.Session
+open Business.FinancialServices.DataIngestion
+open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.DataIngestion.StageEntryHeader
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices
+open Business.FinancialServices.TrialBalanceReport
+open Ui.InterfaceBridge.CommandRoute
+open Ui.InterfaceBridge.BoundaryConverters.IngestionFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.ReportConverters
+open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
 
 let private ingestRawEntries payload _ =
     runCommandRouteAndAutoCompleteTransaction IngestRawEntries (fun context ->
@@ -184,14 +181,14 @@ let ingestionDomainCommandRoutes: CommandRoute list =
       { domain = "Ingestion"
         verb = "DeduplicateStageEntries"
         description = "Mark every staged entry that duplicates one already in the database, and return everything still Ingested."
-        inputContract = typeof<InterfaceBridge.InterfaceContracts.SharedContracts.NoInput>.Name
+        inputContract = typeof<Ui.InterfaceBridge.InterfaceContracts.SharedContracts.NoInput>.Name
         outputContract = typeof<StageEntryReturn list>.Name
         handler = deduplicateStageEntries }
 
       { domain = "Ingestion"
         verb = "ClassifyAccounts"
         description = "Run the account classification rules over every unresolved staged entry line, write the account where a rule wins outright, and update each entry's status. Returns the run, its results, and the entries an operator may still need to act on."
-        inputContract = typeof<InterfaceBridge.InterfaceContracts.SharedContracts.NoInput>.Name
+        inputContract = typeof<Ui.InterfaceBridge.InterfaceContracts.SharedContracts.NoInput>.Name
         outputContract = typeof<AccountClassificationResultReturn>.Name
         handler = classifyAccounts }
 

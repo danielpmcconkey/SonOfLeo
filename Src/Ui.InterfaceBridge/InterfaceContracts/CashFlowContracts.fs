@@ -1,8 +1,7 @@
-module InterfaceBridge.InterfaceContracts.CashFlowContracts
+module Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
 
 open System
-open InterfaceBridge.InterfaceContracts.ClassificationContracts
-open InterfaceBridge.InterfaceContracts.IngestionContracts
+open Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
 open NodaTime
 open App.Utility.FieldUpdate
 

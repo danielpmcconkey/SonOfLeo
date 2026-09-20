@@ -4,7 +4,7 @@ open System
 open App.DataAccessLayer.DbTransaction
 open InterfaceBridge.InterfaceContracts.JournalContracts
 open App.Utility.Json.Json
-open Logger.Audit
+open App.Operation.Audit
 open Tests.Helpers.RouteResolver
 open Tests.Helpers.Railroad
 open App.Utility.Result

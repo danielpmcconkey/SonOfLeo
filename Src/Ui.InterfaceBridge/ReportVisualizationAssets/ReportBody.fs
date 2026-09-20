@@ -1,5 +1,6 @@
-module InterfaceBridge.ReportVisualizationAssets.ReportBody
+module Ui.InterfaceBridge.ReportVisualizationAssets.ReportBody
 
+open Ui.InterfaceBridge.ReportVisualizationAssets.HtmlComponents
 let createReportBody elements =
     {
         ordinal = 20

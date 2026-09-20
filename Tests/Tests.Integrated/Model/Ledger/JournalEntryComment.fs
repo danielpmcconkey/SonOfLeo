@@ -2,8 +2,8 @@ namespace Tests.Integrated.Business.FinancialServices.Ledger
 
 open System
 
-open InterfaceBridge.CommandRoute
-open Logger.Audit
+open Ui.InterfaceBridge.CommandRoute
+open App.Operation.Audit
 open Business.FinancialServices.Ledger
 open Business.FinancialServices
 open Tests.Helpers.Railroad

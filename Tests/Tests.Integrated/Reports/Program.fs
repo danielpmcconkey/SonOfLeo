@@ -1,8 +1,8 @@
 module Tests.Integrated.Reports.Program
 
 open System
-open InterfaceBridge.InterfaceContracts.AccountContracts
-open InterfaceBridge.InterfaceContracts.ReportsContracts
+open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
+open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open App.Utility.Json.Json
 open Tests.Helpers
 open Tests.Helpers.CliExecutor

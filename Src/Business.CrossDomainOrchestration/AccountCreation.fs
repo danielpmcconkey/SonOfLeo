@@ -6,11 +6,11 @@ open App.Utility.AppError
 open App.Utility.Result
 open App.Session
 open Business.General
-open Business.FinancialServices.Ledger.Account
+open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 
 
-let private confirmParentAccountIsActive (parentAccount: Account) (referenceDate: LocalDate) : Result<unit, AppError> =
+let private confirmParentAccountIsActive (parentAccount: Account.Account) (referenceDate: LocalDate) : Result<unit, AppError> =
     match parentAccount |> Account.activityPeriod |> ActivityPeriod.isActive referenceDate with
     | true -> Ok()
     | false -> Error(AccountParentIsInactive(parentAccount |> Account.accountId |> AccountId.value))
@@ -83,7 +83,7 @@ let constructNewAndPersist
     (subType: AccountSubtype option)
     (parentId: AccountId option)
     (reference: AccountExternalReference option)
-    : Result<Account, AppError> =
+    : Result<Account.Account, AppError> =
     result {
         let accountId = AccountId.create()
         let now = context |> Context.getInitiationInstant

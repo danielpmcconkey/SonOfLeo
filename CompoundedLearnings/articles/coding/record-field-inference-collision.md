@@ -30,7 +30,7 @@ Don't assume an unused type is inert. Declaring it is enough — nothing has to 
 `StageEntryOrchestration.fs` held
 `let isTied result = match result.outcome with | ManyMatchesTied _ -> true | _ -> false`,
 inferring `ClassificationResult` from the `outcome` label. Adding `PaymentAgreementDecision` —
-also carrying an `outcome` field, declared later in `StageDataClassificationComponent.fs` —
+also carrying an `outcome` field, declared later in `ClassificationComponent.fs` —
 flipped the inference, and the file failed with "expected `PaymentAgreementDecisionOutcome` but
 here has type `ClassifierOutcome`". `isMatch`, four lines above and doing the same work, was
 annotated and unaffected.

@@ -1,7 +1,7 @@
-module InterfaceBridge.InterfaceContracts.ClassificationContracts
+module Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
 
 open System
-open InterfaceBridge.InterfaceContracts.AccountContracts
+open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
 open Business.FinancialServices.FetchFilters
 open NodaTime
 open App.Utility.FieldUpdate

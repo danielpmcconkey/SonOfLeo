@@ -1,6 +1,6 @@
 namespace Tests.Integrated.SonOfLeoCli
 
-open InterfaceBridge.InterfaceContracts.AccountContracts
+open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.Account
 open App.Utility.Json.Json

@@ -157,7 +157,7 @@ deliberate, move on," not being polite about it.
 (`CompoundedLearnings/articles/architecture/type-placement-by-compile-tier.md`). Walk the
 `<Compile Include>` order and take the first file that already sees every dependency — don't place
 by which domain owns the concept. When a slice's own component file can't see one of them, check
-the tier *below* before concluding `Model/` is closed: `StageDataClassificationComponent.fs` is the
+the tier *below* before concluding `Model/` is closed: `ClassificationComponent.fs` is the
 last component tier and holds `PaymentAgreementClaimCluster` for exactly that reason. Only a type
 referencing a composite is genuinely forced into `ModelOrchestrator/`, and it goes beside that
 composite. A clean build proves nothing here — the top of an orchestrator file sees everything,

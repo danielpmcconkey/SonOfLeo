@@ -32,8 +32,8 @@
     <Compile Include="Routes\IngestionRoutes.fs" />
     <Compile Include="Routes\ClassificationRoutes.fs" />
     <Compile Include="Routes\CashFlowRoutes.fs" />
-    <Compile Include="ReportVisualizationAssets\Css.fs" />
-    <Compile Include="ReportVisualizationAssets\HtmlWrapper.fs" />
+    <Compile Include="ReportVisualizationAssets\HtmlComponents.fs" />
+    <Compile Include="ReportVisualizationAssets\BaseCssDeclarations.fs" />
     <Compile Include="ReportVisualizationAssets\ReportHeader.fs" />
     <Compile Include="ReportVisualizationAssets\ReportBody.fs" />
     <Compile Include="ReportVisualizationAssets\ReportFooter.fs" />
@@ -45,12 +45,11 @@
     <ProjectReference Include="..\App.Session\App.Session.fsproj" />
     <ProjectReference Include="..\App.DataAccessLayer\App.DataAccessLayer.fsproj" />
     <ProjectReference Include="..\Business.CrossDomainOrchestration\Business.CrossDomainOrchestration.fsproj" />
-    <ProjectReference Include="..\Model\Model.fsproj" />
     <ProjectReference Include="..\App.Utility\App.Utility.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NodaTime" Version="3.3.3" />
+    <PackageReference Include="NodaTime" Version="3.3.4" />
   </ItemGroup>
 
 </Project>

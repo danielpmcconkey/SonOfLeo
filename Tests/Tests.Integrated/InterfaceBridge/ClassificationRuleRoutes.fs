@@ -1,6 +1,6 @@
 module Tests.Integrated.InterfaceBridge.ClassificationRuleRoutes
 
-open InterfaceBridge.InterfaceContracts.IngestionContracts
+open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
 open Business.FinancialServices.DataIngestion.Classification
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent

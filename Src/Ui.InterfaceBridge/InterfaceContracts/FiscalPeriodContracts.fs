@@ -1,4 +1,4 @@
-module InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
+module Ui.InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
 
 open NodaTime
 

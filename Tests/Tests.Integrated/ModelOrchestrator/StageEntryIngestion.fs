@@ -2,7 +2,7 @@ namespace Tests.Integrated.Business.FinancialServices
 
 open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.CommandRoute
-open Logger.Audit
+open App.Operation.Audit
 open Model
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent

@@ -12,7 +12,7 @@ references. Find that by walking the tier order, not by asking which domain owns
 - Read the `<Compile Include>` order in the `.fsproj` and work down it. The first file that
   already sees every dependency is the home.
 - When a slice's own component file can't see one of the dependencies, check the slice *below* it
-  before concluding `Model/` is closed. `StageDataClassificationComponent.fs` is the last
+  before concluding `Model/` is closed. `ClassificationComponent.fs` is the last
   component tier and sees `AccountId`, `PaymentAgreementId`, and `StageEntryLineId` — which is
   why `PaymentAgreementClaimCluster` lives there rather than in `CashFlowComponent.fs`.
 - Only a type that references an orchestrator-level type — a composite — is genuinely forced up
@@ -34,7 +34,7 @@ references. Find that by walking the tier order, not by asking which domain owns
 The scaffolding step declared `PaymentAgreementDecision`, `InvoiceDecision`, their two outcome
 DUs, and `PaymentAgreementClassificationResult` at the top of `CashFlowOps.fs`. It built clean.
 Four of the five belonged in `Model/`: the payment agreement decision log in
-`StageDataClassificationComponent.fs` beside `PaymentAgreementClaimCluster`, and the invoice
+`ClassificationComponent.fs` beside `PaymentAgreementClaimCluster`, and the invoice
 decision log in `CashFlowComponent.fs`, which already opens `StageEntryComponent` and uses
 `StageEntryLineId` for `TransactionPointer`. Only `PaymentAgreementClassificationResult` was
 orchestrator-bound — it holds `InstanceComposite list` — and it went under `InstanceComposite` in

@@ -2,9 +2,9 @@ module Tests.Integrated.InterfaceBridge.JournalEntryRoutes
 
 open System
 open App.DataAccessLayer.DbTransaction
-open InterfaceBridge.InterfaceContracts.JournalContracts
+open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 open App.Utility.Json.Json
-open Logger.Audit
+open App.Operation.Audit
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent

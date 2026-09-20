@@ -1,10 +1,10 @@
-module InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
+module Ui.InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
 
-open Model
-open Business.FinancialServices.CashFlow.CashFlowComponent
 open App.Utility.AppError
 open App.Utility.Result
-
+open App.DataAccessLayer
+open App.Session
+open Business.FinancialServices.CashFlow.CashFlowComponent
 
 let private fallibleConverterAgreementNameStringToMasterAgreementUuid context nameString =
     result {
@@ -12,7 +12,8 @@ let private fallibleConverterAgreementNameStringToMasterAgreementUuid context na
         let! _ = nameString |> AgreementName.create
         // now see if it matches a master agreement ID
         return!
-            match nameString |> LookupCache.masterAgreementNameToId.fetch context with
+            match nameString
+                  |> LookupCache.masterAgreementNameToId.fetch (context |> Context.getDatabaseTransaction) with
             | Ok x -> Ok x
             | Error(DalResultantRowsDidntMatchExpectation _) -> Error(CashflowAgreementNameDoesntMatchId nameString)
             | Error e -> Error e
@@ -31,7 +32,9 @@ let ``convert [MasterAgreementId] to [AgreementNameString]``
     (context: Context.Context)
     (masterAgreementId: MasterAgreementId)
     : Result<string, AppError> =
-    masterAgreementId |> MasterAgreementId.value |> LookupCache.masterAgreementIdToName.fetch context
+    masterAgreementId
+    |> MasterAgreementId.value
+    |> LookupCache.masterAgreementIdToName.fetch (context |> Context.getDatabaseTransaction)
 
 let private fallibleConverterPaymentAgreementNameStringToPaymentAgreementUuid context nameString =
     result {
@@ -39,7 +42,8 @@ let private fallibleConverterPaymentAgreementNameStringToPaymentAgreementUuid co
         let! _ = nameString |> PaymentAgreementName.create
         // now see if it matches a payment agreement ID
         return!
-            match nameString |> LookupCache.paymentAgreementNameToId.fetch context with
+            match nameString
+                  |> LookupCache.paymentAgreementNameToId.fetch (context |> Context.getDatabaseTransaction) with
             | Ok x -> Ok x
             | Error(DalResultantRowsDidntMatchExpectation _) ->
                 Error(CashflowPaymentAgreementNameDoesntMatchId nameString)
@@ -60,13 +64,16 @@ let ``convert [PaymentAgreementNameString option] to [PaymentAgreementId option]
     (nameStringOption: string option)
     : Result<PaymentAgreementId option, AppError> =
     nameStringOption
-    |> convertOptionToDesiredTypeWithFallibleConverter (``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context)
+    |> convertOptionToDesiredTypeWithFallibleConverter (
+        ``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context)
 
 let ``convert [PaymentAgreementId] to [PaymentAgreementNameString]``
     (context: Context.Context)
     (paymentAgreementId: PaymentAgreementId)
     : Result<string, AppError> =
-    paymentAgreementId |> PaymentAgreementId.value |> LookupCache.paymentAgreementIdToName.fetch context
+    paymentAgreementId
+    |> PaymentAgreementId.value
+    |> LookupCache.paymentAgreementIdToName.fetch (context |> Context.getDatabaseTransaction)
 
 let ``convert [PaymentAgreementId option] to [PaymentAgreementNameString option]``
     (context: Context.Context)

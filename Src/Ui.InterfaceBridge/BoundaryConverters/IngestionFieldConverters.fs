@@ -1,24 +1,23 @@
-module InterfaceBridge.BoundaryConverters.IngestionFieldConverters
+module Ui.InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 
-open InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
-open InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
-open InterfaceBridge.BoundaryConverters.OrchestrationConverters
-open InterfaceBridge.InterfaceContracts.ClassificationContracts
-open InterfaceBridge.InterfaceContracts.IngestionContracts
-open Model
+open App.Utility.AppError
+open App.Utility.FieldUpdate
+open App.Utility.Result
+open App.Session
+open Business.FinancialServices
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.DataIngestion.BaseStageEntry
-open Business.FinancialServices.Classification
 open Business.FinancialServices.DataIngestion.StageEntryStatusTransition
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.FetchFilters
 open Business.FinancialServices.StageEntryOrchestration
-open App.Utility.AppError
-open App.Utility.FieldUpdate.FieldUpdate
-open App.Utility.Result
-open Business.FinancialServices.Classification.StageDataClassificationComponent
+open Business.FinancialServices.Classification.ClassificationComponent
+open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.OrchestrationConverters
+open Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
+open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
 
 let ``convert [StageEntryStatusTransition] to [StageEntryStatusTransitionReturn]``
     (model: StageEntryStatusTransition)

@@ -1,16 +1,17 @@
-module InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
+module Ui.InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
 
-open InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
-open InterfaceBridge.InterfaceContracts.ClassificationContracts
-open Model
+open App.Utility.AppError
+open App.Utility.Result
+open App.Session
+open Business.FinancialServices
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.Classification
-open Business.FinancialServices.Classification.StageDataClassificationComponent
+open Business.FinancialServices.Classification.ClassificationComponent
 open Business.FinancialServices.FetchFilters
-open App.Utility.AppError
-open App.Utility.Result
+open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
+open Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
 
 let ``convert [FieldMatch] to [FieldMatchContract]``
     (fieldMatch: FieldMatch.FieldMatch)

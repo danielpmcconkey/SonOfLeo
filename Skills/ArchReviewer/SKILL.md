@@ -192,7 +192,7 @@ wrong-file placement within the correct layer.
   "types" file, not at the bottom of a random orchestration module.
 - Interface contracts go in `InterfaceBridge`, never in `Model/`.
 - If a component file can't see a dependency, check the tier below before concluding Model
-  is closed. `StageDataClassificationComponent.fs` exists for exactly this reason.
+  is closed. `ClassificationComponent.fs` exists for exactly this reason.
 
 ---
 

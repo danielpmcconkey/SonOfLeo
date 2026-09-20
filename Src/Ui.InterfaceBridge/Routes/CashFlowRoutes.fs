@@ -1,19 +1,19 @@
-module InterfaceBridge.Routes.CashFlowRoutes
+module Ui.InterfaceBridge.Routes.CashFlowRoutes
 
+open App.Utility.Json
+open App.Utility.Result
 open App.DataAccessLayer.DbTransaction
-open InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
-open InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
-open InterfaceBridge.InterfaceContracts.CashFlowContracts
-open InterfaceBridge.InterfaceContracts.SharedContracts
-open InterfaceBridge.CommandRoute
-open Logger.Audit
-open Model
+open App.Operation.Audit
+open App.Session
+open Business.General
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices
-open App.Utility
-open App.Utility.Json
-open App.Utility.Result
+open Ui.InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
+open Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
+open Ui.InterfaceBridge.InterfaceContracts.SharedContracts
+open Ui.InterfaceBridge.CommandRoute
 
 let private createUpcomingInstances payload _ =
     runCommandRouteAndAutoCompleteTransaction CashFlowCreateUpcomingInstances (fun context ->

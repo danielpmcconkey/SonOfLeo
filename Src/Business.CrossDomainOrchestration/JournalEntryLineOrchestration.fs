@@ -4,7 +4,7 @@ open App.Utility.AppError
 open App.Utility.Result
 open App.Session
 open Business.FinancialServices
-open Business.FinancialServices.Ledger.Account
+open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryLine
 open Business.FinancialServices.Ledger.JournalEntryComponent

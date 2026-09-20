@@ -1,19 +1,20 @@
-module InterfaceBridge.Routes.AccountRoutes
+module Ui.InterfaceBridge.Routes.AccountRoutes
 
-open InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open InterfaceBridge.BoundaryConverters.OrchestrationConverters
-open InterfaceBridge.InterfaceContracts.AccountContracts
-open Logger.Audit
-open Model
-open Business.FinancialServices.Ledger.Account
+open App.Utility.AppError
+open App.Utility.Result
+open App.Utility.Json
+open App.DataAccessLayer.DbTransaction
+open App.Operation.Audit
+open App.Session
+open Business.General
+open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices
 open Business.FinancialServices.AccountActivity
-open App.Utility.Json
-open InterfaceBridge.CommandRoute
-open App.DataAccessLayer.DbTransaction
-open App.Utility.AppError
-open App.Utility.Result
+open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.OrchestrationConverters
+open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
+open Ui.InterfaceBridge.CommandRoute
 
 let private accountCreate payload _ =
     let context = Context.create NoTransaction AccountCreate

@@ -1,18 +1,18 @@
-module InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
+module Ui.InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
 
-open InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
-open Model
-open Business.FinancialServices.Ledger
-open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open App.Utility.AppError
 open App.Utility.Result
-
+open App.DataAccessLayer
+open App.Session
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.FiscalPeriodComponent
+open Ui.InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
 
 let ``convert FiscalPeriodKeyString to FiscalPeriodId``
     (context: Context.Context)
     (key: string)
     : Result<FiscalPeriodId, AppError> =
-    match key |> LookupCache.fiscalPeriodKeyToId.fetch context with
+    match key |> LookupCache.fiscalPeriodKeyToId.fetch (context |> Context.getDatabaseTransaction) with
     | Ok x -> x |> FiscalPeriodId.fromGuid |> Ok
     | Error (DalResultantRowsDidntMatchExpectation _) -> Error (FiscalPeriodNoPeriodMatchingKey key)
     | Error e -> Error e

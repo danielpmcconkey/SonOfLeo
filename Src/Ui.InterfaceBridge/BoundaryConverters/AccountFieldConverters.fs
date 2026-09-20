@@ -1,14 +1,17 @@
-module InterfaceBridge.BoundaryConverters.AccountFieldConverters
+module Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
 
 
-open InterfaceBridge.InterfaceContracts.AccountContracts
-open Model
-open Business.FinancialServices.Ledger.Account
-open Business.FinancialServices.Ledger.AccountComponent
-open Business.FinancialServices.AccountBalance
+open System
 open App.Utility.AppError
 open App.Utility.Result
-open System
+open App.DataAccessLayer
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.AccountBalance
+open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
 
 let fallibleConverterAccountCodeStringToAccountUuid context codeString =
     result {
@@ -16,7 +19,7 @@ let fallibleConverterAccountCodeStringToAccountUuid context codeString =
         let! _ = codeString |> AccountCode.create
         // now see if it matches an account ID
         return!
-            match codeString |> LookupCache.accountCodeToId.fetch context with
+            match codeString |> LookupCache.accountCodeToId.fetch (context |> Context.getDatabaseTransaction) with
             | Ok x -> Ok x
             | Error(DalResultantRowsDidntMatchExpectation _) -> Error(AccountCodeDoesntMatchAccountId codeString)
             | Error e -> Error e
@@ -29,10 +32,10 @@ let fallibleConverterAccountCodeToAccountId context codeString =
     }
 
 let ``convert AccountId to AccountCodeString`` (context: Context.Context) (id: AccountId) : Result<string, AppError> =
-    id |> AccountId.value |> LookupCache.accountIdToCode.fetch context
+    id |> AccountId.value |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction)
 
 let ``convert AccountId to AccountNameString`` (context: Context.Context) (id: AccountId) : Result<string, AppError> =
-    id |> AccountId.value |> LookupCache.accountIdToName.fetch context
+    id |> AccountId.value |> LookupCache.accountIdToName.fetch (context |> Context.getDatabaseTransaction)
 
 let ``convert AccountId to AccountCode`` (context: Context.Context) (id: AccountId) : Result<AccountCode, AppError> =
     id |> ``convert AccountId to AccountCodeString`` context |> Result.bind AccountCode.create
@@ -42,7 +45,7 @@ let ``convert AccountId Option to AccountCode Option``
     (idOption: AccountId option)
     : Result<AccountCode option, AppError> =
     let fallibleConverter =
-        (fun id -> id |> AccountId.value |> LookupCache.accountIdToCode.fetch context |> Result.bind AccountCode.create)
+        (fun id -> id |> AccountId.value |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction) |> Result.bind AccountCode.create)
     idOption |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
 let ``convert AccountId Option to AccountCodeString Option``
@@ -89,7 +92,7 @@ let ``convert AccountCodeString Option to AccountUuidOption``
     match code with
     | Some x ->
         x
-        |> LookupCache.accountCodeToId.fetch context
+        |> LookupCache.accountCodeToId.fetch (context |> Context.getDatabaseTransaction)
         |> Result.mapError(fun e ->
             let originalType = code.GetType().Name
             let originalValue =
@@ -102,7 +105,7 @@ let ``convert AccountCodeString Option to AccountUuidOption``
         |> Result.map Some
     | None -> Ok None
 
-let ``convert Account to AccountReturn`` (context: Context.Context) (a: Account) : Result<AccountReturn, AppError> =
+let ``convert Account to AccountReturn`` (context: Context.Context) (a: Account.Account) : Result<AccountReturn, AppError> =
     result {
         let! parentCode = a |> Account.parentId |> ``convert AccountId Option to AccountCodeString Option`` context
         let activityPeriod = a |> Account.activityPeriod
@@ -124,7 +127,7 @@ let ``convert Account to AccountReturn`` (context: Context.Context) (a: Account)
 let ``convert AccountCodeString to Id`` (context: Context.Context) (codeString: string) : Result<AccountId, AppError> =
     codeString |> fallibleConverterAccountCodeToAccountId context
 
-let ``convert AccountCodeString to Account`` (context: Context.Context) (codeString: string) : Result<Account, AppError> =
+let ``convert AccountCodeString to Account`` (context: Context.Context) (codeString: string) : Result<Account.Account, AppError> =
     result {
         let! accountId = codeString |> fallibleConverterAccountCodeToAccountId context
         return! accountId |> Account.fetchById context
@@ -155,7 +158,7 @@ let ``convert AccountUuId Option to AccountCode Option``
     (uuidOption: Guid option)
     : Result<AccountCode option, AppError> =
     let fallibleConverter =
-        (fun id -> id |> LookupCache.accountIdToCode.fetch context |> Result.bind AccountCode.create)
+        (fun id -> id |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction) |> Result.bind AccountCode.create)
     uuidOption |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
 let ``convert AccountTypeString Option to AccountType Option``

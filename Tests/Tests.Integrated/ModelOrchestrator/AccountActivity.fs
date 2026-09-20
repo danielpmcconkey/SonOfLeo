@@ -1,7 +1,7 @@
 namespace Tests.Integrated.Business.FinancialServices
 
 open App.DataAccessLayer.DbTransaction
-open Logger.Audit
+open App.Operation.Audit
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
