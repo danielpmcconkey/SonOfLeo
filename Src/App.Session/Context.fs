@@ -2,13 +2,10 @@ module App.Session.Context
 
 open App.DataAccessLayer.DbTransaction
 open App.Operation.Audit
-open App.Utility.AppError
 
 type DataContext = { dbTransaction: DbTransaction }
 
 type LoggingContext = { envelope: AuditEnvelope }
-
-// todo: add a user context so Jodi can use this system too someday
 
 type Context = { dataContext: DataContext; loggingContext: LoggingContext }
 
@@ -16,7 +13,8 @@ let create transactionNeed auditAction  =
     let dbTransaction =
         match transactionNeed with
         | NoTransaction -> createNoTransaction()
-        | NewTransaction -> createDbTransaction() |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)) // we throw here to avoid complicated error unwinding at the head of every method
+        | NewTransaction -> createDbTransaction() |> Result.defaultWith(
+            fun e -> failwith(e |> App.DataAccessLayer.DalError.toMessage)) // we throw here to avoid complicated error unwinding at the head of every method
         | ExistingTransaction x -> x
     let envelope = auditAction |> AuditEnvelope.create 
     { dataContext = { dbTransaction = dbTransaction }; loggingContext = { envelope = envelope } }

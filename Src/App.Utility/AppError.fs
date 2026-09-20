@@ -35,7 +35,7 @@ type AppError = // todo: turn AppError into an interface and remove upper level 
     | AccountTypeInvalid of string
     | AccountUpdateNoOp
 
-    | ActiveEndBeforeBegin of LocalDate * LocalDate option
+    
 
     | CashflowAgreementMemoIsEmpty of string
     | CashflowAgreementMemoTooLong of string * int
@@ -45,12 +45,6 @@ type AppError = // todo: turn AppError into an interface and remove upper level 
     | CashflowAgreementUpdateNoOp
     | CashflowBlockerNoteIsEmpty of string
     | CashflowBlockerNoteTooLong of string * int
-    | CashflowCadenceDateNotLastDayOfMonth of LocalDate
-    | CashflowCadenceDateNotNthWeekDayInMonth of LocalDate * int * string
-    | CashflowCadenceDateNotOnAnnualDate of LocalDate * string * string
-    | CashflowCadenceDateNotOnDateInMonth of LocalDate * int
-    | CashflowCadenceDateNotOnMonth of LocalDate * string
-    | CashflowCadenceDateNotOnWeekDay of LocalDate * string
     | CashflowCounterpartyIsEmpty of string
     | CashflowCounterpartyTooLong of string * int
     | CashflowDaysDueAfterInvoiceDateBelowMin of int * int
@@ -68,17 +62,12 @@ type AppError = // todo: turn AppError into an interface and remove upper level 
     | CashflowInstanceUpdateNoOp
     | CashflowInvalidBlocker of string
     | CashflowInvalidBlockerRow of string
-    | CashflowInvalidCadenceRow of string
-    | CashflowInvalidDateInMonthNumber of int
     | CashflowInvalidFlowDirection of string
     | CashflowInvalidInvoiceState of string
-    | CashflowInvalidMonth of string
     | CashflowInvalidPaymentAmountRow of string
     | CashflowInvalidPaymentState of string
     | CashflowInvalidPaymentTransactionPointerRow of string
     | CashflowInvalidPostedState of string
-    | CashflowInvalidWeekDay of string
-    | CashflowInvalidWeekInMonthNumber of int
     | CashflowInvoiceCompositeUpdateNoOp
     | CashflowInvoiceDiamondMismatch of Guid * Guid * Guid
     | CashflowInvoiceFullyPaidAmountMismatch of Guid * decimal * decimal
@@ -252,8 +241,7 @@ module AppError =
         | AccountTypeInvalid typeString -> $"Provided string of '{typeString}' is not a valid account type."
         | AccountUpdateNoOp -> "Updating the account record failed because at least one updatable parameter must be set."
 
-        | ActiveEndBeforeBegin(activeBegin, activeEnd) -> $"An activity period's active end ({activeEnd}) cannot be before its active begin ({activeBegin})."
-
+        
         | CashflowAgreementMemoIsEmpty memo -> $"AgreementMemo cannot be empty. Provided Memo is {memo}."
         | CashflowAgreementMemoTooLong(memo, max) -> $"AgreementMemo cannot exceed {max} characters. Provided Memo is {memo}."
         | CashflowAgreementNameDoesntMatchId name -> $"AgreementName of {name} doesn't match a MasterAgreement ID in the database."
@@ -262,12 +250,6 @@ module AppError =
         | CashflowAgreementUpdateNoOp -> "Updating the Agreement composite failed because at least one updatable parameter must be set."
         | CashflowBlockerNoteIsEmpty note -> $"AgreementMemo cannot be empty. Provided Memo is {note}."
         | CashflowBlockerNoteTooLong(note, max) -> $"BlockerNote cannot exceed {max} characters. Provided Memo is {note}."
-        | CashflowCadenceDateNotLastDayOfMonth date -> $"{date} does not fit the cadence, which falls on the last day of the month."
-        | CashflowCadenceDateNotNthWeekDayInMonth(date, weekInMonth, weekDay) -> $"{date} does not fit the cadence, which falls on {weekDay} number {weekInMonth} of the month."
-        | CashflowCadenceDateNotOnAnnualDate(date, monthDay, month) -> $"{date} does not fit the annual cadence, which falls on {monthDay} of {month}."
-        | CashflowCadenceDateNotOnDateInMonth(date, dateInMonth) -> $"{date} does not fit the cadence, which falls on day {dateInMonth} of the month."
-        | CashflowCadenceDateNotOnMonth(date, month) -> $"{date} does not fit the cadence, which falls in {month}."
-        | CashflowCadenceDateNotOnWeekDay(date, weekDay) -> $"{date} does not fit the cadence, which falls on a {weekDay}."
         | CashflowCounterpartyIsEmpty name -> $"Counterparty cannot be empty. Provided name is {name}."
         | CashflowCounterpartyTooLong(name, max) -> $"Counterparty cannot exceed {max} characters. Provided name is {name}."
         | CashflowDaysDueAfterInvoiceDateBelowMin(raw, min) -> $"Failed to convert {raw} to a DaysDueAfterInvoiceDate as value falls below the minimum allowable value of {min}."
@@ -285,17 +267,12 @@ module AppError =
         | CashflowInstanceUpdateNoOp -> "Updating the Instance record failed because at least one updatable parameter must be set."
         | CashflowInvalidBlocker str -> $"Invalid Blocker of \"{str}\"."
         | CashflowInvalidBlockerRow reason -> $"Invalid Blocker row: {reason}."
-        | CashflowInvalidCadenceRow reason -> $"Invalid Cadence row: {reason}."
-        | CashflowInvalidDateInMonthNumber i -> $"Invalid DateInMonthNumber of \"{i}\"."
         | CashflowInvalidFlowDirection str -> $"Invalid FlowDirection of \"{str}\"."
         | CashflowInvalidInvoiceState str -> $"Invalid InvoiceState of \"{str}\"."
-        | CashflowInvalidMonth str -> $"Invalid Month of \"{str}\"."
         | CashflowInvalidPaymentAmountRow reason -> $"Invalid Payment amount row: {reason}."
         | CashflowInvalidPaymentState str -> $"Invalid PaymentState of \"{str}\"."
         | CashflowInvalidPaymentTransactionPointerRow reason -> $"Invalid Payment transactionPointer row: {reason}."
         | CashflowInvalidPostedState str -> $"Invalid PostedState of \"{str}\"."
-        | CashflowInvalidWeekDay str -> $"Invalid WeekDay of \"{str}\"."
-        | CashflowInvalidWeekInMonthNumber i -> $"Invalid WeekInMonthNumber of \"{i}\"."
         | CashflowInvoiceCompositeUpdateNoOp -> "Updating the Invoice composite failed because at least one updatable parameter must be set."
         | CashflowInvoiceDiamondMismatch(invoiceId, instanceAgreementId, paymentAgreementAgreementId) -> $"Invoice {invoiceId}'s Instance traces to MasterAgreement {instanceAgreementId} but its PaymentAgreement traces to MasterAgreement {paymentAgreementAgreementId}; both must trace to the same MasterAgreement."
         | CashflowInvoiceFullyPaidAmountMismatch(invoiceId, paidTotal, invoiceAmount) -> $"Invoice {invoiceId} is FullyPaid but its Payments sum to {paidTotal}, not its amount of {invoiceAmount}."

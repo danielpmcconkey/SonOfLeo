@@ -3,10 +3,11 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <RootNamespace>Model.CoreComponents</RootNamespace>
+    <RootNamespace>Business.General</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="BizGeneralError.fs" />
     <Compile Include="ActivityPeriod.fs" />
     <Compile Include="Cadence.fs" />
   </ItemGroup>

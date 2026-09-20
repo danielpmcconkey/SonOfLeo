@@ -1,7 +1,7 @@
 module Business.General.ActivityPeriod
 
 open NodaTime
-open App.Utility.AppError
+open Business.General.BizGeneralError
 
 type BeginValidationBehavior =
     // sometimes, you want to be able to create an entity before its begin date. Sometimes, that's an illegal state
@@ -19,7 +19,7 @@ let create
     (rawBegin: LocalDate)
     (rawEnd: LocalDate option)
     (beginValidationBehavior: BeginValidationBehavior)
-    : Result<ActivityPeriod, AppError> =
+    : Result<ActivityPeriod, BizGeneralError> =
     match rawEnd with
     | None -> Ok { activeBegin = rawBegin; activeEnd = None; beginValidationBehavior = beginValidationBehavior }
     | Some x ->
@@ -71,5 +71,5 @@ let insistBeginValidationBehavior
     let beginDate = ap |> activeBegin
     let endDate = ap |> activeEnd
     create beginDate endDate beginValidationBehavior
-    |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))  
+    |> Result.defaultWith(fun e -> failwith(BizGeneralError.toMessage e))  
 
