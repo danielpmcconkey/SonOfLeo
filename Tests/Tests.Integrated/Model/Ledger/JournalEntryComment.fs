@@ -1,19 +1,19 @@
-namespace Tests.Integrated.Model.Ledger
+namespace Tests.Integrated.Business.FinancialServices.Ledger
 
 open System
 
 open InterfaceBridge.CommandRoute
 open Logger.Audit
-open Model.Ledger
+open Business.FinancialServices.Ledger
 open ModelOrchestrator
 open Tests.Helpers.Railroad
-open Utilities.AppError
+open App.Utility.AppError
 open Tests.Helpers.SadPath
-open Utilities.FieldUpdate
-open Utilities.ResultHelper
+open App.Utility.FieldUpdate
+open App.Utility.Result
 open Xunit
 open Tests.Helpers
-open Model.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 
 [<Collection("SharedTestData")>]
 type JournalEntryCommentTests(fixture: TestDataFixture) =

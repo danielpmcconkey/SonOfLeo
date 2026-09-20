@@ -1,8 +1,8 @@
-module Tests.Isolated.Model.DataIngestion.ClassificationRuleComponent
+module Tests.Isolated.Business.FinancialServices.DataIngestion.ClassificationRuleComponent
 
-open Utilities.AppError
+open App.Utility.AppError
 open Xunit
-open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
 
 
 // =============================================================================

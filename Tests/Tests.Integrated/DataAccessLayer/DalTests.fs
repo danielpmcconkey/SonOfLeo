@@ -1,15 +1,15 @@
 module Tests.Integrated.DataAccessLayer.DalTests
 
 open System
-open DataAccessLayer.DbTransaction
-open DataAccessLayer.ExecuteNonQuery
-open DataAccessLayer.ExecuteReader
-open DataAccessLayer.ExecuteScalar
+open App.DataAccessLayer.DbTransaction
+open App.DataAccessLayer.ExecuteNonQuery
+open App.DataAccessLayer.ExecuteReader
+open App.DataAccessLayer.ExecuteScalar
 open Logger.Audit
 open Tests.Helpers.Railroad
-open Utilities.ResultHelper
+open App.Utility.Result
 open Xunit
-open Utilities.AppError
+open App.Utility.AppError
 open Tests.Helpers.SadPath
 
 

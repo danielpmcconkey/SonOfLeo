@@ -1,13 +1,13 @@
 module Tests.Helpers.RouteResolver
 
 
-open DataAccessLayer.DbTransaction
+open App.DataAccessLayer.DbTransaction
 open InterfaceBridge.Routes.AccountRoutes
 open InterfaceBridge.Routes.FiscalPeriodRoutes
 open InterfaceBridge.Routes.IngestionRoutes
 open InterfaceBridge.Routes.JournalEntryRoutes
 open InterfaceBridge.Routes.ReportRoutes
-open Utilities.AppError
+open App.Utility.AppError
 
 
 let commandRoutes =

@@ -1,0 +1,121 @@
+module ModelOrchestrator.AccountBalance
+
+open System
+open Model
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open NodaTime
+open App.Utility.AppError
+open App.DataAccessLayer.QueryParameter
+open App.DataAccessLayer.ExecuteReader
+open App.Utility.Result
+
+
+type AccountBalance = { accountId: AccountId; totalCredits: Money; totalDebits: Money; netBalance: Money }
+type AccountBalanceComponent =
+    private { accountId: AccountId; lineType: JournalEntryLineType; accountType: AccountType; sumAtType: Money }
+
+let private mapRawForDbRead (row: RowReader) : Guid * string * string * decimal =
+    (row |> RowReader.getUuid "account_id"),
+    (row |> RowReader.getString "line_type"),
+    (row |> RowReader.getString "account_type"),
+    (row |> RowReader.getNumeric "sum_at_type")
+
+let private reconstitute (raw: Guid * string * string * decimal) : Result<AccountBalanceComponent, AppError> =
+    let accountIdGuid, lineType, accountType, sumAtType = raw
+    result {
+        let accountId = accountIdGuid |> AccountId.fromGuid
+        let! jeLineType = lineType |> JournalEntryLineType.fromString
+        let! accountType = accountType |> AccountType.fromString
+        let! sumAtTypeM = sumAtType |> Money.fromDecimal
+        return { accountId = accountId; lineType = jeLineType; accountType = accountType; sumAtType = sumAtTypeM }
+    }
+
+let fetchByAccountIdList
+    (context: Context.Context)
+    (accountIdFilter: AccountId list option)
+    (asOf: LocalDate option)
+    : Result<AccountBalance list, AppError> =
+    if accountIdFilter = Some [] then Error(AccountBalanceFetchInvalidArguments) else
+    let asOfParam, asOfJoin =
+        match asOf with
+        | None -> [], ""
+        | Some x -> [ { name = "@as_of"; value = DbLocalDate x } ], "and je.entry_date <= @as_of"
+    let accountIds = accountIdFilter |> Option.defaultValue []
+    let accountFilters =
+        [ 1 .. (accountIds |> List.length) ]
+        |> List.zip accountIds
+        |> List.map(fun (accountId, iterator) ->
+            let accountIdGuid = accountId |> AccountId.value
+            ($"@account_id_{iterator}", { name = $"@account_id_{iterator}"; value = UniqueId accountIdGuid }))
+    let accountIdsInString = accountFilters |> List.map fst |> String.concat ", "
+    let accountPredicate = if accountIdFilter |> Option.isNone then "" else $"where a.unique_id in ({accountIdsInString})"
+    let parameters = asOfParam @ (accountFilters |> List.map snd)
+    let queryStatement =
+        $"""
+        with line_types as (
+            select '{Credit |> JournalEntryLineType.toString}' as line_type
+            union all
+            select '{Debit |> JournalEntryLineType.toString}' as line_type
+        ), account_and_types as (
+            select
+                a.unique_id as account_id,
+                lt.line_type,
+                a.account_type
+            from ledger.account a
+            cross join line_types lt
+            {accountPredicate} )
+        select
+            ant.account_id,
+            ant.line_type,
+            ant.account_type,
+            sum ( case 
+                    when je.voided_at is not null then 0
+                    when jel.amount is null then 0 
+					when je.entry_date is null then 0 -- the asOf only filters out the JE, not the line
+                    else jel.amount end) as sum_at_type
+        from account_and_types ant
+        left join ledger.journal_entry_line jel on ant.account_id = jel.account_id
+            and ant.line_type = jel.line_type
+        left join ledger.journal_entry je on jel.journal_entry_id = je.unique_id
+            {asOfJoin}
+        group by 
+            ant.account_id,
+            ant.line_type,
+            ant.account_type
+        """
+    result {
+        let! moneyZero = Money.fromDecimal 0M
+        let! components =
+            executeReaderQuery
+                (context |> Context.getDatabaseTransaction)
+                queryStatement
+                parameters
+                mapRawForDbRead
+                reconstitute
+                AnyQuantityIsAcceptable
+        let balances =
+            components
+            |> List.groupBy(fun c -> c.accountId, c.accountType)
+            |> List.map(fun ((accountId, accountType), rows) ->
+                let credits =
+                    rows
+                    |> List.tryFind(fun r -> r.lineType = Credit)
+                    |> Option.map(fun r -> r.sumAtType)
+                    |> Option.defaultValue moneyZero
+                let debits =
+                    rows
+                    |> List.tryFind(fun r -> r.lineType = Debit)
+                    |> Option.map(fun r -> r.sumAtType)
+                    |> Option.defaultValue moneyZero
+                if
+                    accountType |> AccountType.normalBalance = AccountTypeNormalBalance.Debit
+                then
+                    Money.subtractVal1FromVal2 credits debits
+                else
+                    Money.subtractVal1FromVal2 debits credits
+                |> Result.map(fun bal ->
+                    { accountId = accountId; totalCredits = credits; totalDebits = debits; netBalance = bal }))
+            |> convertListOfResultsToResultsList
+        return! balances
+    }

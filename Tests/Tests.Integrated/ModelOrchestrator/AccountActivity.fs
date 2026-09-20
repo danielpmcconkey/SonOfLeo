@@ -1,14 +1,14 @@
 namespace Tests.Integrated.ModelOrchestrator
 
-open DataAccessLayer.DbTransaction
+open App.DataAccessLayer.DbTransaction
 open Logger.Audit
-open Model.Ledger
-open Model.Ledger.Account
-open Model.Ledger.AccountComponent
-open Model.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.Account
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open ModelOrchestrator.JournalEntries
-open Utilities.AppError
-open Utilities.ResultHelper
+open App.Utility.AppError
+open App.Utility.Result
 open Xunit
 open Tests.Helpers
 open Model

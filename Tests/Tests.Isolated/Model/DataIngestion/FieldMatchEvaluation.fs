@@ -1,13 +1,13 @@
-module Tests.Isolated.Model.DataIngestion.FieldMatchEvaluation
+module Tests.Isolated.Business.FinancialServices.DataIngestion.FieldMatchEvaluation
 
 open Model
-open Model.DataIngestion.StageEntryComponent
-open Model.DataIngestion.Classification
-open Model.Ledger.JournalEntryComponent
-open Utilities.AppError
+open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.DataIngestion.Classification
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open App.Utility.AppError
 open Xunit
-open Model.DataIngestion.Classification.ClassificationRuleComponent
-open Model.DataIngestion.Classification.FieldMatch
+open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
+open Business.FinancialServices.DataIngestion.Classification.FieldMatch
 
 
 let private unwrap result =

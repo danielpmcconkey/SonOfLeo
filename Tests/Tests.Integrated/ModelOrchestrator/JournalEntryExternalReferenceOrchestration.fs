@@ -6,8 +6,8 @@ open ModelOrchestrator
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Tests.Helpers.SadPath
-open Utilities.AppError
-open Utilities.FieldUpdate
+open App.Utility.AppError
+open App.Utility.FieldUpdate
 open Xunit
 
 [<Collection("SharedTestData")>]

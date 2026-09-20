@@ -1,18 +1,18 @@
 module Tests.Helpers.Cleanup
 
 open System
-open DataAccessLayer.DbTransaction
-open DataAccessLayer.ExecuteNonQuery
-open DataAccessLayer.ExecuteReader
+open App.DataAccessLayer.DbTransaction
+open App.DataAccessLayer.ExecuteNonQuery
+open App.DataAccessLayer.ExecuteReader
 open Logger.Audit
-open Model.DataIngestion.StageEntryComponent
-open Model.Ledger.AccountComponent
-open Model.Ledger.FiscalPeriodComponent
-open Model.Ledger.JournalEntryComponent
-open Utilities.AppError
-open Utilities.ResultHelper
-open DataAccessLayer.QueryParameters
-open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.FiscalPeriodComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open App.Utility.AppError
+open App.Utility.Result
+open App.DataAccessLayer.QueryParameter
+open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
 
 
 (*

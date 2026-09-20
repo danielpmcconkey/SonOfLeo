@@ -6,12 +6,12 @@ open Model
 open Model.ActivityPeriod
 open Tests.Helpers
 open Tests.Helpers.Railroad
-open Utilities.ResultHelper
+open App.Utility.Result
 open Xunit
-open Model.Ledger.Account
+open Business.FinancialServices.Ledger.Account
 open ModelOrchestrator.AccountDeactivation
 open Utilities
-open Utilities.AppError
+open App.Utility.AppError
 open Tests.Helpers.SadPath
 
 [<Collection("SharedTestData")>]

@@ -1,18 +1,18 @@
 module Tests.Integrated.InterfaceBridge.ClassificationRuleRoutes
 
 open InterfaceBridge.InterfaceContracts.IngestionContracts
-open Model.DataIngestion.Classification
-open Model.Ledger.Account
-open Model.Ledger.AccountComponent
+open Business.FinancialServices.DataIngestion.Classification
+open Business.FinancialServices.Ledger.Account
+open Business.FinancialServices.Ledger.AccountComponent
 open Tests.Helpers
 open Tests.Helpers.Cleanup
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
-open Utilities.FieldUpdate
-open Utilities.Json.Json
-open Utilities.ResultHelper
+open App.Utility.FieldUpdate
+open App.Utility.Json.Json
+open App.Utility.Result
 open Xunit
-open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
 
 
 (* Every route below reaches the same orchestrator functions ClassificationRuleCrud.fs
@@ -37,7 +37,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
     /// One group matching on source, which is the smallest shape the contract converter has
     /// to carry in both directions.
     static let groupMatchingSource pattern : ClassificationRuleGroupContract =
-        (* Annotated because `open Model.DataIngestion.Classification` brings the domain
+        (* Annotated because `open Business.FinancialServices.DataIngestion.Classification` brings the domain
            ClassificationRuleGroup into scope with the same field names. *)
         { connector = "And"
           chainOne = ({ chain = [ FieldMatchContract.Source pattern ] }: FieldMatchChainContract)

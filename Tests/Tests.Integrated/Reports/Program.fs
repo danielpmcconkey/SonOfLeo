@@ -3,13 +3,13 @@ module Tests.Integrated.Reports.Program
 open System
 open InterfaceBridge.InterfaceContracts.AccountContracts
 open InterfaceBridge.InterfaceContracts.ReportsContracts
-open Utilities.Json.Json
+open App.Utility.Json.Json
 open Tests.Helpers
 open Tests.Helpers.CliExecutor
 open Tests.Helpers.Railroad
 open Utilities
-open Utilities.AppError
-open Utilities.ResultHelper
+open App.Utility.AppError
+open App.Utility.Result
 open Xunit
 
 [<Collection("SharedTestData")>]

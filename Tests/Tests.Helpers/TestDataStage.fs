@@ -1,27 +1,27 @@
 namespace Tests.Helpers
 
 
-open DataAccessLayer.DbTransaction
-open DataAccessLayer.ExecuteNonQuery
-open DataAccessLayer.ExecuteReader
+open App.DataAccessLayer.DbTransaction
+open App.DataAccessLayer.ExecuteNonQuery
+open App.DataAccessLayer.ExecuteReader
 open Logger.Audit
 open Model
-open Model.DataIngestion
-open Model.DataIngestion.Classification
-open Model.Ledger.Account
-open Model.Ledger.JournalEntryComponent
+open Business.FinancialServices.DataIngestion
+open Business.FinancialServices.DataIngestion.Classification
+open Business.FinancialServices.Ledger.Account
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open ModelOrchestrator
 open ModelOrchestrator.JournalEntries
 open Tests.Helpers.EntityFunctions
-open Utilities.ResultHelper
+open App.Utility.Result
 open Xunit
-open Model.Ledger
-open Model.Ledger.FiscalPeriodComponent
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Utilities
-open Model.Ledger.AccountComponent
-open Utilities.AppError
-open Model.DataIngestion.Classification.ClassificationRuleComponent
-open Model.DataIngestion.Classification.FieldMatch
+open Business.FinancialServices.Ledger.AccountComponent
+open App.Utility.AppError
+open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
+open Business.FinancialServices.DataIngestion.Classification.FieldMatch
 
 /// This data represents a known data state to stage at the beginning of test
 /// runs. It should be used to test any read functions in the system. It can be

@@ -1,0 +1,354 @@
+module ModelOrchestrator.ClassificationOrchestration
+
+open System
+
+open App.DataAccessLayer.ExecuteNonQuery
+open App.DataAccessLayer.ExecuteReader
+open Model
+open Business.FinancialServices.CashFlow
+open Business.FinancialServices.CashFlow.CashFlowComponent
+open Business.FinancialServices.Classification
+open Business.FinancialServices.Ledger.AccountComponent
+open ModelOrchestrator.FetchFilters
+open App.Utility.AppError
+open App.Utility.Json
+open App.Utility.Result
+open App.DataAccessLayer.QueryParameter
+open App.Utility.FieldUpdate
+open Business.FinancialServices.Classification.StageDataClassificationComponent
+open Business.FinancialServices.Classification.ClassificationRuleGroup
+open Business.FinancialServices.Classification.FieldMatchChain
+
+let private confirmAccount
+    (context: Context.Context)
+    (accountId: AccountId)
+    : Result<unit, AppError> =
+    let uuid = accountId |> AccountId.value
+    let confirmed = uuid |> LookupCache.accountIdToCode.fetch context // we don't need the code. we just want to know that the accountId exists
+    match confirmed with
+    | Ok _ -> Ok ()
+    | Error (DalResultantRowsDidntMatchExpectation _) -> Error (AccountIdDoesntMatch uuid)
+    | Error e -> Error e
+
+let private confirmPaymentAgreement
+    (context: Context.Context)
+    (paymentAgreementId: CashFlowComponent.PaymentAgreementId)
+    : Result<unit, AppError> =
+    let confirmed = paymentAgreementId |> PaymentAgreement.fetchById context
+    match confirmed with
+    | Ok _ -> Ok ()
+    | Error (DalResultantRowsDidntMatchExpectation _) ->
+        let uuid = paymentAgreementId |> PaymentAgreementId.value
+        Error (CashflowPaymentAgreementIdDoesntExist uuid)
+    | Error e -> Error e
+
+let private confirmClassificationClaimant
+    (context: Context.Context)
+    (classificationClaimant: ClassificationClaimant)
+    : Result<unit, AppError> =
+    match classificationClaimant with
+    | Account accountId -> accountId |> confirmAccount context
+    | PaymentAgreement paymentAgreementId -> paymentAgreementId |> confirmPaymentAgreement context
+
+let private confirmFieldMatchChain
+    (fieldMatchChain: FieldMatchChain)
+    : Result<unit, AppError> =
+    let chain = fieldMatchChain |> FieldMatchChain.chain
+    if chain |> List.isEmpty then Error IngestionFieldMatchChainEmpty else Ok ()
+    
+let private confirmRuleGroup
+    (ruleGroup: ClassificationRuleGroup)
+    : Result<unit, AppError> = result {
+        do! ruleGroup |> chainOne |> confirmFieldMatchChain
+        do! match ruleGroup |> chainTwo with
+            | None -> Ok ()
+            | Some x -> x |> confirmFieldMatchChain
+        return ()
+    }
+    
+let private confirmRuleGroups
+    (ruleGroups: ClassificationRuleGroup list)
+    : Result<unit, AppError> = 
+    if ruleGroups |> List.isEmpty then Error IngestionClassificationRuleGroupsEmpty
+    else
+        ruleGroups
+        |> List.map(confirmRuleGroup)
+        |> convertListOfResultsToResultsList
+        |> Result.map ignore
+
+let createNewClassificationRule
+    (context: Context.Context)
+    (classificationRuleName: ClassificationRuleName)
+    (classificationClaimant: ClassificationClaimant)
+    (priority: int)
+    (ruleGroups: ClassificationRuleGroup list)
+    : Result<ClassificationRule.ClassificationRule, AppError> = 
+    let classificationRuleId = ClassificationRuleId.create()
+    let instant = context |> Context.getInitiationInstant
+    let newRule =
+        ClassificationRule.create
+            classificationRuleId
+            classificationRuleName
+            classificationClaimant
+            priority
+            ruleGroups
+            true // no new rules that are already inactive
+            instant
+            instant
+    result {
+        do! ruleGroups |> confirmRuleGroups
+        do! classificationClaimant |> confirmClassificationClaimant context
+        do! newRule |> ClassificationRule.persist context
+        return newRule
+    }
+
+let fetchRulesFiltered
+    (context: Context.Context)
+    (filter: ClassificationRuleFilter)
+    (sort: FetchSortClassificationRule option)
+    : Result<ClassificationRule.ClassificationRule list, AppError> =
+    result {
+        let sourcePredicate = """
+            EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements(cr.rule_groups) AS rg,
+                     jsonb_array_elements(
+                        CASE
+                            WHEN rg.value -> 'chainTwo' IS NOT NULL
+                                AND rg.value -> 'chainTwo' != 'null'::jsonb
+                            THEN (rg.value -> 'chainOne' -> 'chain') || (rg.value -> 'chainTwo' -> 'chain')
+                            ELSE rg.value -> 'chainOne' -> 'chain'
+                        END
+                ) AS fm
+                WHERE fm.value ->> 'Case' = 'Source'
+                AND fm.value -> 'Fields' ->> 0 LIKE @source_like
+            )
+            """
+        
+        let activeClause =
+            match filter.activeOnly with
+            | true -> "and cr.is_active = true"
+            | false -> ""
+
+        // the claimant columns are mutually exclusive, so "is not null" on one of them is the whole test
+        let claimantTypeClause =
+            match filter.claimantType with
+            | None -> ""
+            | Some AccountClaimant -> "and cr.account_at_match is not null"
+            | Some PaymentAgreementClaimant -> "and cr.payment_agreement_at_match is not null"
+
+        let orderBy =
+            match sort with
+            | None -> None
+            | Some AccountCodeAsc -> Some "a.code asc"
+            | Some AccountCodeDesc -> Some "a.code desc"
+            | Some PriorityAsc -> Some "cr.priority asc"
+            | Some PriorityDesc -> Some "cr.priority desc"
+        
+        let join =
+            Some [ "left join ledger.account a on cr.account_at_match = a.unique_id"
+                   "left join cashflow.payment_agreement pa on cr.payment_agreement_at_match = pa.unique_id" ]
+            
+        let whereClausesAndParams =
+            [ filter.ruleId
+              |> Option.map(fun x ->
+                  ("cr.unique_id = @rule_id", { name = "@rule_id"; value = UniqueId(x |> ClassificationRuleId.value) }))
+        
+              filter.nameLike
+              |> Option.map(fun x ->
+                  let ruleName = x |> ClassificationRuleName.value
+                  ("cr.rule_name like @rule_name",
+                   { name = "@rule_name"; value = CharString $"%%{ruleName}%%"}))
+        
+              filter.accountAtMatch
+              |> Option.map(fun x ->
+                  ("cr.account_at_match = @account_at_match",
+                   { name = "@account_at_match"; value = UniqueId(x |> AccountId.value) }))
+
+              filter.paymentAgreementAtMatch
+              |> Option.map(fun x ->
+                  ("cr.payment_agreement_at_match = @payment_agreement_at_match",
+                   { name = "@payment_agreement_at_match"; value = UniqueId(x |> PaymentAgreementId.value) }))
+
+              filter.sourceLike
+              |> Option.map(fun x ->
+                  (sourcePredicate, { name = "@source_like"; value = CharString $"%%{x}%%" }))
+            ]
+            |> List.choose id
+        let whereClauses = whereClausesAndParams |> List.map fst |> String.concat $" and {Environment.NewLine}"        
+        let predicate = Some $"""
+            {if whereClausesAndParams |> List.isEmpty then "1 = 1" else whereClauses}
+            {activeClause}
+            {claimantTypeClause}
+        """
+        let limit = None
+        let parameters = whereClausesAndParams |> List.map snd
+        return!
+            ClassificationRule.query context join predicate limit parameters orderBy AnyQuantityIsAcceptable
+    }
+
+// every rule that matched earns a diagnostic row, not only the one priority resolution picked. the winner is dropped on
+// the clear-winner arm because the second element already carries every match, winner included
+let private matchesToRecord (outcome: ClassifierOutcome) : PrioritizedMatch list =
+    match outcome with
+    | NoMatch -> []
+    | OneMatch prioritizedMatch -> [ prioritizedMatch ]
+    | ManyMatchesClearWinner (_, allMatches) -> allMatches
+    | ManyMatchesTied ties -> ties
+
+let private recordRuleMatches
+    (context: Context.Context)
+    (runId: ClassificationRunId)
+    (results: ClassificationResult list)
+    : Result<unit, AppError> =
+    results
+    |> List.collect (fun result ->
+        result.outcome
+        |> matchesToRecord
+        |> List.map (fun prioritizedMatch ->
+            let classificationMatchId = ClassificationMatchId.create ()
+            let createdAt = context |> Context.getInitiationInstant
+            RuleMatch.create
+                classificationMatchId
+                runId
+                result.candidate.lineIdOfCandidate
+                prioritizedMatch.ruleId
+                createdAt
+            |> RuleMatch.persist context))
+    |> convertListOfResultsToResultsList
+    |> Result.map ignore
+
+/// fetchRunMatchesWithRules pairs each recorded match with the rule as it stands now, not as it stood during the run.
+/// The diagnostic row keeps neither the claimed entity nor the priority, so renaming or re-prioritizing a rule changes
+/// how an old run reads back.
+let fetchRunMatchesWithRules
+    (context: Context.Context)
+    (runId: ClassificationRunId)
+    : Result<(RuleMatch.RuleMatch * ClassificationRule.ClassificationRule) list, AppError> =
+    result {
+        let! matches = runId |> RuleMatch.fetchByRunId context
+        if matches |> List.isEmpty then return [] else
+        let ruleIds = matches |> List.map RuleMatch.classificationRuleId |> List.distinct
+        let! rules = ruleIds |> ClassificationRule.fetchByIdList context
+        let rulesById =
+            rules
+            |> List.map (fun rule -> (rule |> ClassificationRule.classificationRuleId), rule)
+            |> Map.ofList
+        return!
+            matches
+            |> List.map (fun ruleMatch ->
+                let ruleId = ruleMatch |> RuleMatch.classificationRuleId
+                match rulesById |> Map.tryFind ruleId with
+                | Some rule -> Ok(ruleMatch, rule)
+                | None ->
+                    let ruleUuid = ruleId |> ClassificationRuleId.value
+                    Error(IngestionClassificationRuleIdDoesntExist ruleUuid))
+            |> convertListOfResultsToResultsList
+    }
+
+let classifyMatchCandidatesAndRecordMatches
+    (context: Context.Context)
+    (claimantType: ClassificationClaimantType)
+    (candidates: MatchCandidate list)
+    : Result<ClassificationRun, AppError> =
+    result {
+        let ruleFilter =  {
+            ruleId = None
+            nameLike = None
+            accountAtMatch = None
+            paymentAgreementAtMatch = None
+            claimantType = Some claimantType
+            sourceLike = None
+            activeOnly = true }
+        let! rules = fetchRulesFiltered context ruleFilter None
+        let runId = ClassificationRunId.create ()
+        let classificationResults = Classifier.classify rules candidates
+        do! classificationResults |> recordRuleMatches context runId
+        return { runId = runId; results = classificationResults }
+    }
+    
+// both claimant columns are written on every change so any update must write a value to both and one must always be
+// null
+let private classificationClaimantToJointUpdates
+    (classificationClaimantUpdate: FieldUpdate<ClassificationClaimant>)
+    : (string * QueryParameter) option * (string * QueryParameter) option =
+    match classificationClaimantUpdate with
+    | NoChange -> None, None
+    | SetTo claimant ->
+        let accountUuid, paymentAgreementUuid =
+            match claimant with
+            | Account accountId ->
+                accountId |> AccountId.value |> Some, None
+            | PaymentAgreement paymentAgreementId ->
+                None, paymentAgreementId |> PaymentAgreementId.value |> Some
+        Some ("account_at_match = @account_at_match",
+                { name = "@account_at_match"; value = NullableUniqueId(accountUuid) }),
+        Some ("payment_agreement_at_match = @payment_agreement_at_match",
+                { name = "@payment_agreement_at_match"; value = NullableUniqueId(paymentAgreementUuid) })
+
+let updateClassificationRule
+    (context: Context.Context)
+    (classificationRuleNameUpdate: FieldUpdate<ClassificationRuleName>)
+    (classificationClaimantUpdate: FieldUpdate<ClassificationClaimant>)
+    (priorityUpdate: FieldUpdate<int>)
+    (ruleGroupsUpdate: FieldUpdate<ClassificationRuleGroup list>)
+    (isActiveUpdate: FieldUpdate<bool>)
+    (classificationRuleId: ClassificationRuleId)
+    : Result<ClassificationRule.ClassificationRule, AppError> =
+    let uuid = classificationRuleId |> ClassificationRuleId.value
+    let baseParams =
+        [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
+          { name = "@unique_id"; value = UniqueId uuid } ]
+    result {
+        do! match classificationClaimantUpdate with
+            | NoChange -> Ok ()
+            | SetTo x -> x |> confirmClassificationClaimant context
+        do! match ruleGroupsUpdate with
+            | NoChange -> Ok ()
+            | SetTo x -> x |> confirmRuleGroups
+        let! groupStr =
+            match ruleGroupsUpdate with
+            | NoChange -> Ok ""
+            | SetTo x -> x |> Json.toJson<ClassificationRuleGroup list> 
+        let accountAtMatchUpdate, paymentAtMatchUpdate =
+            classificationClaimantUpdate |> classificationClaimantToJointUpdates
+        let updates =
+            [
+                  classificationRuleNameUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                      ("rule_name = @rule_name",
+                       { name = "@rule_name"; value = CharString(n |> ClassificationRuleName.value) }))
+
+                  priorityUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                      ("priority = @priority",
+                       { name = "@priority"; value = Integer(n) }))
+
+                  ruleGroupsUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun _ ->
+                      ("rule_groups = @rule_groups",
+                       { name = "@rule_groups"; value = Jsonb(groupStr) }))
+
+                  isActiveUpdate
+                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                      ("is_active = @is_active",
+                       { name = "@is_active"; value = Boolean(n) }))
+                  
+                  accountAtMatchUpdate
+                  paymentAtMatchUpdate
+            ]
+            |> List.choose id
+        let setClauses = updates |> List.map fst |> String.concat ", "
+        let parameters = baseParams @ (updates |> List.map snd)
+        let queryStatement =
+            $"""
+            UPDATE classification.classification_rule
+            set
+                {setClauses},
+                modified_at = @modified
+            WHERE unique_id = @unique_id;
+        """
+        do! if updates.IsEmpty then Error(IngestionClassificationRuleUpdateNoOp) else Ok()
+        let! () = executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+        return! classificationRuleId |> ClassificationRule.fetchById context
+    }

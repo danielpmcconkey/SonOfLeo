@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RootNamespace>Business.FinancialServices.Classification</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ClassificationComponent.fs" />
+    <Compile Include="FieldMatch.fs" />
+    <Compile Include="FieldMatchChain.fs" />
+    <Compile Include="RuleMatch.fs" />
+    <Compile Include="ClassificationRuleGroup.fs" />
+    <Compile Include="ClassificationRule.fs" />
+    <Compile Include="Classifier.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\App.Session\App.Session.fsproj" />
+    <ProjectReference Include="..\App.DataAccessLayer\App.DataAccessLayer.fsproj" />
+    <ProjectReference Include="..\Business.FinancialServices.CashFlow\Business.FinancialServices.CashFlow.fsproj" />
+    <ProjectReference Include="..\Business.General\Business.General.fsproj" />
+    <ProjectReference Include="..\Business.FinancialServices.DataIngestion\Business.FinancialServices.DataIngestion.fsproj" />
+    <ProjectReference Include="..\Business.FinancialServices.Ledger\Business.FinancialServices.Ledger.fsproj" />
+    <ProjectReference Include="..\App.Utility\App.Utility.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NodaTime" Version="3.3.4" />
+  </ItemGroup>
+
+</Project>

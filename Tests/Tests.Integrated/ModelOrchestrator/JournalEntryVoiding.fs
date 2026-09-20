@@ -3,19 +3,19 @@ namespace Tests.Integrated.ModelOrchestrator
 open System
 open InterfaceBridge.CommandRoute
 open Logger.Audit
-open Model.Ledger.FiscalPeriodComponent
-open Model.Ledger
+open Business.FinancialServices.Ledger.FiscalPeriodComponent
+open Business.FinancialServices.Ledger
 open ModelOrchestrator
 open ModelOrchestrator.JournalEntries.JournalEntry
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
-open Utilities.ResultHelper
+open App.Utility.Result
 open Xunit
 open Tests.Helpers
-open Model.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open ModelOrchestrator.JournalEntryVoiding
 open Utilities
-open Utilities.AppError
+open App.Utility.AppError
 
 [<Collection("SharedTestData")>]
 type JournalEntryVoidingTests(fixture: TestDataFixture) =

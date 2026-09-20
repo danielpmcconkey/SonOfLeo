@@ -7,9 +7,9 @@ open Logger.Audit
 open ModelOrchestrator
 open Tests.Helpers.Railroad
 open Xunit
-open Model.Ledger.Account
-open Model.Ledger.AccountComponent
-open Utilities.AppError
+open Business.FinancialServices.Ledger.Account
+open Business.FinancialServices.Ledger.AccountComponent
+open App.Utility.AppError
 open Tests.Helpers.SadPath
 open Tests.Helpers.GenericTestProperties
 

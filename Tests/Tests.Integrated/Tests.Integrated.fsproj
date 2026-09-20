@@ -16,8 +16,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Src\Model\Model.fsproj" />
-    <ProjectReference Include="..\..\Src\Reports\Reports.fsproj" />
-    <ProjectReference Include="..\..\Src\SonOfLeoCli\SonOfLeoCli.fsproj" />
+    <ProjectReference Include="..\..\Src\Ui.ReportCli\Ui.ReportCli.fsproj" />
+    <ProjectReference Include="..\..\Src\Ui.OperatorCli\Ui.OperatorCli.fsproj" />
     <ProjectReference Include="..\Tests.Helpers\Tests.Helpers.fsproj" />
   </ItemGroup>
 

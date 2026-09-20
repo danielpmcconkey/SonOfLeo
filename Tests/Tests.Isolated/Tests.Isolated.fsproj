@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Src\ModelOrchestrator\ModelOrchestrator.fsproj" />
+    <ProjectReference Include="..\..\Src\Business.CrossDomainOrchestration\Business.CrossDomainOrchestration.fsproj" />
     <ProjectReference Include="..\..\Src\Model\Model.fsproj" />
     <ProjectReference Include="..\Tests.Helpers\Tests.Helpers.fsproj" />
   </ItemGroup>

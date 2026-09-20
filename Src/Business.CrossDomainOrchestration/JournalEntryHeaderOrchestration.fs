@@ -1,0 +1,33 @@
+module ModelOrchestrator.JournalEntryHeaderOrchestration
+
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open App.Utility.AppError
+open App.Utility.Result
+
+let private confirmEntryDateIsInOpenFiscalPeriod (context: Context.Context) (entryDate: EntryDate) : Result<unit, AppError> =
+    result {
+        let! fiscalPeriod = entryDate |> EntryDate.fiscalPeriodId |> FiscalPeriod.fetchById context
+        match fiscalPeriod |> FiscalPeriod.isOpen with
+        | true -> return! Ok()
+        | false -> return! Error(JournalEntryHeaderEntryDateInvalid(entryDate |> EntryDate.entryDate))
+    }
+
+let constructNewAndPersist
+    (context: Context.Context)
+    (description: JournalEntryDescription)
+    (source: JournalEntrySource option)
+    (entryDate: EntryDate)
+    : Result<JournalEntryHeader.JournalEntryHeader, AppError> =
+    let journalEntryId = JournalEntryHeaderId.create()
+    let now = context |> Context.getInitiationInstant
+    let createdAt = now
+    let modifiedAt = now
+    let voidedAt = None
+    result {
+        do! entryDate |> confirmEntryDateIsInOpenFiscalPeriod context
+        let journalEntryHeader =
+            JournalEntryHeader.create journalEntryId description source entryDate voidedAt createdAt modifiedAt
+        let! () = journalEntryHeader |> JournalEntryHeader.persist context
+        return journalEntryHeader
+    }

@@ -1,17 +1,17 @@
-namespace Tests.Integrated.Model.Ledger
+namespace Tests.Integrated.Business.FinancialServices.Ledger
 
 open System
 
 open InterfaceBridge.CommandRoute
 open Logger.Audit
-open Model.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open ModelOrchestrator
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
 open Xunit
 open Tests.Helpers
-open Model.Ledger.JournalEntryExternalReference
-open Utilities.AppError
+open Business.FinancialServices.Ledger.JournalEntryExternalReference
+open App.Utility.AppError
 
 [<Collection("SharedTestData")>]
 type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =

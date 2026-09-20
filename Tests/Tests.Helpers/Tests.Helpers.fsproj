@@ -19,12 +19,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Src\Context\Context.fsproj" />
-    <ProjectReference Include="..\..\Src\DataAccessLayer\DataAccessLayer.fsproj" />
-    <ProjectReference Include="..\..\Src\InterfaceBridge\InterfaceBridge.fsproj" />
-    <ProjectReference Include="..\..\Src\ModelOrchestrator\ModelOrchestrator.fsproj" />
+    <ProjectReference Include="..\..\Src\App.Session\App.Session.fsproj" />
+    <ProjectReference Include="..\..\Src\App.DataAccessLayer\App.DataAccessLayer.fsproj" />
+    <ProjectReference Include="..\..\Src\Ui.InterfaceBridge\Ui.InterfaceBridge.fsproj" />
+    <ProjectReference Include="..\..\Src\Business.CrossDomainOrchestration\Business.CrossDomainOrchestration.fsproj" />
     <ProjectReference Include="..\..\Src\Model\Model.fsproj" />
-    <ProjectReference Include="..\..\Src\Utilities\Utilities.fsproj" />
+    <ProjectReference Include="..\..\Src\App.Utility\App.Utility.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

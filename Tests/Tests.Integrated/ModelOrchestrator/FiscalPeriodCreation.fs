@@ -2,13 +2,13 @@ module Tests.Integrated.ModelOrchestrator.FiscalPeriodCreation
 
 open InterfaceBridge.CommandRoute
 open Logger.Audit
-open Model.Ledger
-open Model.Ledger.FiscalPeriodComponent
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open ModelOrchestrator
 open Tests.Helpers.Railroad
 open Xunit
-open Utilities.AppError
-open Utilities.ResultHelper
+open App.Utility.AppError
+open App.Utility.Result
 
 (* REQ-FP-1.5 singles out February and leap years, so the derivation is exercised across
    all three month-end lengths rather than the one 30-day month it used to use. *)

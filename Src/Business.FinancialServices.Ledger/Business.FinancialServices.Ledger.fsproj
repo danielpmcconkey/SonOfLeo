@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RootNamespace>Business.FinancialServices.Ledger</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="AccountComponent.fs" />
+    <Compile Include="Account.fs" />
+    <Compile Include="FiscalPeriodComponent.fs" />
+    <Compile Include="FiscalPeriod.fs" />
+    <Compile Include="JournalEntryComponent.fs" />
+    <Compile Include="JournalEntryHeader.fs" />
+    <Compile Include="JournalEntryLine.fs" />
+    <Compile Include="JournalEntryExternalReference.fs" />
+    <Compile Include="JournalEntryComment.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\App.Session\App.Session.fsproj" />
+    <ProjectReference Include="..\App.DataAccessLayer\App.DataAccessLayer.fsproj" />
+    <ProjectReference Include="..\App.Utility\App.Utility.fsproj" />
+    <ProjectReference Include="..\Business.FinancialServices\Business.FinancialServices.fsproj" />
+    <ProjectReference Include="..\Business.General\Business.General.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NodaTime" Version="3.3.4" />
+  </ItemGroup>
+
+</Project>

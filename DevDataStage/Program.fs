@@ -1,10 +1,10 @@
 
 
-open DataAccessLayer.DbTransaction
-open DataAccessLayer.ExecuteScalar
+open App.DataAccessLayer.DbTransaction
+open App.DataAccessLayer.ExecuteScalar
 open Logger.Audit
 open Tests.Helpers
-open Utilities.AppError
+open App.Utility.AppError
 
 (* The stage's first act is a TRUNCATE CASCADE over every ledger table. This asks the
  database it is about to truncate for its own name, over the same connection the stage

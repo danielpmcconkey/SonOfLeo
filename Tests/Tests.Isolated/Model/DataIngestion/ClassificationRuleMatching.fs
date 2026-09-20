@@ -1,15 +1,15 @@
-module Tests.Isolated.Model.DataIngestion.ClassificationRuleMatching
+module Tests.Isolated.Business.FinancialServices.DataIngestion.ClassificationRuleMatching
 
 open Model
-open Model.DataIngestion.StageEntryComponent
-open Model.DataIngestion.Classification
-open Model.Ledger.AccountComponent
-open Model.Ledger.JournalEntryComponent
+open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.DataIngestion.Classification
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open Utilities
-open Utilities.AppError
+open App.Utility.AppError
 open Xunit
-open Model.DataIngestion.Classification.ClassificationRuleComponent
-open Model.DataIngestion.Classification.FieldMatch
+open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
+open Business.FinancialServices.DataIngestion.Classification.FieldMatch
 
 let private unwrap result =
     result |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))

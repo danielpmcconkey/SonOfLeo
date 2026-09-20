@@ -1,25 +1,25 @@
 module Tests.Integrated.ModelOrchestrator.ClassificationRuleCrud
 
 open InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open DataAccessLayer.DbTransaction
+open App.DataAccessLayer.DbTransaction
 open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model
-open Model.DataIngestion.Classification
-open Model.Ledger.AccountComponent
+open Business.FinancialServices.DataIngestion.Classification
+open Business.FinancialServices.Ledger.AccountComponent
 open ModelOrchestrator
 open ModelOrchestrator.FetchFilters
 open Tests.Helpers
 open Tests.Helpers.Cleanup
 open Tests.Helpers.Railroad
 open Tests.Helpers.SadPath
-open Utilities.AppError
-open Utilities.ResultHelper
-open Utilities.FieldUpdate
+open App.Utility.AppError
+open App.Utility.Result
+open App.Utility.FieldUpdate
 open Xunit
-open Model.DataIngestion.Classification.ClassificationRuleComponent
-open Model.DataIngestion.Classification.ClassificationRuleGroup
-open Model.DataIngestion.Classification.FieldMatch
+open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
+open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleGroup
+open Business.FinancialServices.DataIngestion.Classification.FieldMatch
 
 let private unwrap result =
     result |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
@@ -107,7 +107,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 let groups =
                     [ ClassificationRuleGroup.create
                         And
-                        (chainOf [ Source(patternOf "TestRoundTrip"); LineType(Model.Ledger.JournalEntryComponent.JournalEntryLineType.Debit) ])
+                        (chainOf [ Source(patternOf "TestRoundTrip"); LineType(Business.FinancialServices.Ledger.JournalEntryComponent.JournalEntryLineType.Debit) ])
                         None
                       ClassificationRuleGroup.create
                         Or

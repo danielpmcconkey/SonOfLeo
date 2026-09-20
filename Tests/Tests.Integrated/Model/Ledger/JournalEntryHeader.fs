@@ -1,12 +1,12 @@
-namespace Tests.Integrated.Model.Ledger
+namespace Tests.Integrated.Business.FinancialServices.Ledger
 
-open DataAccessLayer.DbTransaction
+open App.DataAccessLayer.DbTransaction
 open Logger.Audit
-open Utilities.AppError
+open App.Utility.AppError
 open Xunit
 open Tests.Helpers
-open Model.Ledger
-open Model.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.JournalEntryComponent
 
 
 [<Collection("SharedTestData")>]

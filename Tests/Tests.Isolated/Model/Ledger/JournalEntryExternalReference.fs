@@ -1,8 +1,8 @@
-module Tests.Isolated.Model.Ledger.JournalEntryExternalReference
+module Tests.Isolated.Business.FinancialServices.Ledger.JournalEntryExternalReference
 
 open System
-open Model.Ledger.JournalEntryComponent
-open Utilities.AppError
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open App.Utility.AppError
 open Xunit
 open Tests.Helpers.SadPath
 open Tests.Helpers.Railroad

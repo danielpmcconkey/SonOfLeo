@@ -1,0 +1,324 @@
+module Business.FinancialServices.CashFlow.PaymentAgreement
+
+open NodaTime
+open App.Utility
+open App.Utility.AppError
+open App.Utility.Result
+open App.DataAccessLayer.ExecuteNonQuery
+open App.DataAccessLayer.ExecuteReader
+open App.DataAccessLayer.QueryParameter
+open App.Session
+open Business.FinancialServices
+open Business.FinancialServices.CashFlow.CashFlowComponent
+open Business.FinancialServices.Ledger.AccountComponent
+
+type PaymentAgreement = private {
+    paymentAgreementId: PaymentAgreementId
+    masterAgreementID: MasterAgreementId
+    paymentAgreementName: PaymentAgreementName
+    debitAccount: DebitAccount
+    creditAccount: CreditAccount
+    expectedAmount: Money.Money option
+    daysDueAfterInvoiceDate: DaysDueAfterInvoiceDate option
+    memo: PaymentAgreementMemo option
+    createdAt: Instant
+    modifiedAt: Instant
+}
+
+type PaymentAgreementFieldUpdates = {
+    paymentAgreementIdToUpdate: PaymentAgreementId
+    paymentAgreementNameUpdate: FieldUpdate.FieldUpdate<PaymentAgreementName>
+    debitAccountUpdate: FieldUpdate.FieldUpdate<DebitAccount>
+    creditAccountUpdate: FieldUpdate.FieldUpdate<CreditAccount>
+    expectedAmountUpdate: FieldUpdate.FieldUpdate<Money.Money option>
+    daysDueAfterInvoiceDateUpdate: FieldUpdate.FieldUpdate<DaysDueAfterInvoiceDate option>
+    memoUpdate: FieldUpdate.FieldUpdate<PaymentAgreementMemo option>
+}
+
+let paymentAgreementId p = p.paymentAgreementId
+let masterAgreementID p = p.masterAgreementID
+let paymentAgreementName p = p.paymentAgreementName
+let debitAccount p = p.debitAccount
+let creditAccount p = p.creditAccount
+let expectedAmount p = p.expectedAmount
+let daysDueAfterInvoiceDate p = p.daysDueAfterInvoiceDate
+let memo p = p.memo
+let createdAt p = p.createdAt
+let modifiedAt p = p.modifiedAt
+
+let create
+    (paymentAgreementId: PaymentAgreementId)
+    (masterAgreementID: MasterAgreementId)
+    (paymentAgreementName: PaymentAgreementName)
+    (debitAccount: DebitAccount)
+    (creditAccount: CreditAccount)
+    (expectedAmount: Money.Money option)
+    (daysDueAfterInvoiceDate: DaysDueAfterInvoiceDate option)
+    (memo: PaymentAgreementMemo option)
+    (createdAt: Instant)
+    (modifiedAt: Instant)
+    : PaymentAgreement =
+    { paymentAgreementId = paymentAgreementId
+      masterAgreementID = masterAgreementID
+      paymentAgreementName = paymentAgreementName
+      debitAccount = debitAccount
+      creditAccount = creditAccount
+      expectedAmount = expectedAmount
+      daysDueAfterInvoiceDate = daysDueAfterInvoiceDate
+      memo = memo
+      createdAt = createdAt
+      modifiedAt = modifiedAt }
+
+/// accountIdForFlowDirection names the account the money lands on for a direction: an Income agreement is satisfied on
+/// its credit account, an Outgo agreement on its debit account. It says nothing about line type, which a rule is
+/// allowed to override.
+let accountIdForFlowDirection (direction: FlowDirection) (paymentAgreement: PaymentAgreement) : AccountId =
+    match direction with
+    | Income ->
+        let (CreditAccount accountId) = paymentAgreement.creditAccount
+        accountId
+    | Outgo ->
+        let (DebitAccount accountId) = paymentAgreement.debitAccount
+        accountId
+
+/// cashAccountIdForFlowDirection is deliberately the opposite leg to accountIdForFlowDirection: money leaving on an
+/// Outgo agreement credits the account it is paid from, and money arriving on an Income agreement debits the account
+/// it lands in.
+let cashAccountIdForFlowDirection (direction: FlowDirection) (paymentAgreement: PaymentAgreement) : AccountId =
+    match direction with
+    | Income ->
+        let (DebitAccount accountId) = paymentAgreement.debitAccount
+        accountId
+    | Outgo ->
+        let (CreditAccount accountId) = paymentAgreement.creditAccount
+        accountId
+
+let persist
+    (context: Context.Context)
+    (paymentAgreement: PaymentAgreement)
+    : Result<unit, AppError> =
+    result {
+        let queryStatement =
+            """
+            insert into cashflow.payment_agreement(
+	            unique_id, master_agreement_id, payment_agreement_name, debit_account, credit_account, expected_amount,
+                days_due_after_invoice, memo, created_at, modified_at)
+            values (
+	            @unique_id, @master_agreement_id, @payment_agreement_name, @debit_account, @credit_account,
+                @expected_amount, @days_due_after_invoice, @memo, @created_at, @modified_at);"""
+        let uuid = paymentAgreement.paymentAgreementId |> PaymentAgreementId.value
+        let masterAgreementUuid = paymentAgreement.masterAgreementID |> MasterAgreementId.value
+        let paymentAgreementName = paymentAgreement.paymentAgreementName |> PaymentAgreementName.value
+        let (DebitAccount debitAccountId) = paymentAgreement.debitAccount
+        let (CreditAccount creditAccountId) = paymentAgreement.creditAccount
+        let debitAccountUuid = debitAccountId |> AccountId.value
+        let creditAccountUuid = creditAccountId |> AccountId.value
+        let expectedAmount = paymentAgreement.expectedAmount |> Option.map Money.amount
+        let daysDueAfterInvoiceDate =
+            paymentAgreement.daysDueAfterInvoiceDate |> Option.map DaysDueAfterInvoiceDate.value
+        let memo = paymentAgreement.memo |> Option.map PaymentAgreementMemo.value
+        let parameters =
+            [
+              { name = "@unique_id"; value = UniqueId(uuid) }
+              { name = "@master_agreement_id"; value = UniqueId(masterAgreementUuid) }
+              { name = "@payment_agreement_name"; value = CharString(paymentAgreementName) }
+              { name = "@debit_account"; value = UniqueId(debitAccountUuid) }
+              { name = "@credit_account"; value = UniqueId(creditAccountUuid) }
+              { name = "@expected_amount"; value = NullableNumeric(expectedAmount) }
+              { name = "@days_due_after_invoice"; value = NullableInteger(daysDueAfterInvoiceDate) }
+              { name = "@memo"; value = NullableCharString(memo) }
+              { name = "@created_at"; value = DbInstant(paymentAgreement.createdAt) }
+              { name = "@modified_at"; value = DbInstant(paymentAgreement.modifiedAt) }
+            ]
+        return! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+    }
+
+let private reconstitute raw =
+    result {
+        let (uuid,
+             masterAgreementUuid,
+             paymentAgreementNameStr,
+             debitAccountUuid,
+             creditAccountUuid,
+             expectedAmountDec,
+             daysDueAfterInvoiceDateInt,
+             memoStr,
+             createdAt,
+             modifiedAt) =
+            raw
+        let paymentAgreementId = uuid |> PaymentAgreementId.fromGuid
+        let masterAgreementID = masterAgreementUuid |> MasterAgreementId.fromGuid
+        let! paymentAgreementName = paymentAgreementNameStr |> PaymentAgreementName.create
+        let debitAccount = debitAccountUuid |> AccountId.fromGuid |> DebitAccount
+        let creditAccount = creditAccountUuid |> AccountId.fromGuid |> CreditAccount
+        let! expectedAmount = expectedAmountDec |> convertOptionToDesiredTypeWithFallibleConverter Money.fromDecimal
+        let! daysDueAfterInvoiceDate =
+            daysDueAfterInvoiceDateInt
+            |> convertOptionToDesiredTypeWithFallibleConverter DaysDueAfterInvoiceDate.create
+        let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter PaymentAgreementMemo.create
+        return
+            create
+                paymentAgreementId
+                masterAgreementID
+                paymentAgreementName
+                debitAccount
+                creditAccount
+                expectedAmount
+                daysDueAfterInvoiceDate
+                memo
+                createdAt
+                modifiedAt
+    }
+
+let private mapRawForDbRead (row: RowReader) =
+    (row |> RowReader.getUuid "unique_id"),
+    (row |> RowReader.getUuid "master_agreement_id"),
+    (row |> RowReader.getString "payment_agreement_name"),
+    (row |> RowReader.getUuid "debit_account"),
+    (row |> RowReader.getUuid "credit_account"),
+    (row |> RowReader.getNumericOption "expected_amount"),
+    (row |> RowReader.getIntOption "days_due_after_invoice"),
+    (row |> RowReader.getStringOption "memo"),
+    (row |> RowReader.getInstant "created_at"),
+    (row |> RowReader.getInstant "modified_at")
+
+let query
+    (context: Context.Context)
+    (cteList: string list option)
+    (select: string)
+    (joinList: string list option)
+    (predicate: string option)
+    (limit: int option)
+    (groupBy: string option)
+    (orderBy: string option)
+    (parameters: QueryParameter list)
+    (expectedRows: AcceptableExpectedRows)
+    : Result<PaymentAgreement list, AppError> =
+    let from = "cashflow.payment_agreement pa"
+    let queryStatement = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
+    executeReaderQuery
+        (context |> Context.getDatabaseTransaction)
+        queryStatement
+        parameters
+        mapRawForDbRead
+        reconstitute
+        expectedRows
+
+let private fetchAny
+    (context: Context.Context)
+    (predicate: string option)
+    (limit: int option)
+    (parameters: QueryParameter list)
+    (expectedRows: AcceptableExpectedRows)
+    : Result<PaymentAgreement list, AppError> =
+    let select = """
+        pa.unique_id, pa.master_agreement_id, pa.payment_agreement_name, pa.debit_account, pa.credit_account,
+        pa.expected_amount, pa.days_due_after_invoice, pa.memo, pa.created_at, pa.modified_at
+        """
+    query context None select None predicate limit None None parameters expectedRows
+
+let fetchById (context: Context.Context) (paymentAgreementID: PaymentAgreementId) : Result<PaymentAgreement, AppError> =
+    let predicate = "pa.unique_id = @unique_id"
+    let uuid = paymentAgreementID |> PaymentAgreementId.value
+    let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
+    fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+
+let fetchByName
+    (context: Context.Context)
+    (paymentAgreementName: PaymentAgreementName)
+    : Result<PaymentAgreement, AppError> =
+    let predicate = "pa.payment_agreement_name = @payment_agreement_name"
+    let nameStr = paymentAgreementName |> PaymentAgreementName.value
+    let parameters = [ { name = "@payment_agreement_name"; value = CharString(nameStr) } ]
+    fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+
+let fetchByMasterAgreementIdList
+    (context: Context.Context)
+    (masterAgreementIds: MasterAgreementId list)
+    : Result<PaymentAgreement list, AppError> =
+    if masterAgreementIds |> List.isEmpty then Error CashflowMasterAgreementIdListCannotBeEmpty else
+    let namesAndParameters =
+        List.zip [ 1 .. masterAgreementIds.Length ] masterAgreementIds
+        |> List.map (fun (ordinal, id) ->
+            let name = $"@masterAgreementId{ordinal}"
+            name, { name = name; value = UniqueId(id |> MasterAgreementId.value) })
+    let names = namesAndParameters |> List.map fst |> String.concat ", "
+    let parameters = namesAndParameters |> List.map snd
+    let predicate = $"pa.master_agreement_id in ({names})"
+    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
+
+let fetchByPaymentAgreementIdList
+    (context: Context.Context)
+    (paymentAgreementIds: PaymentAgreementId list)
+    : Result<PaymentAgreement list, AppError> =
+    if paymentAgreementIds |> List.isEmpty then Error CashflowPaymentAgreementIdListCannotBeEmpty else
+    let namesAndParameters =
+        List.zip [ 1 .. paymentAgreementIds.Length ] paymentAgreementIds
+        |> List.map (fun (ordinal, id) ->
+            let name = $"@paymentAgreementId{ordinal}"
+            name, { name = name; value = UniqueId(id |> PaymentAgreementId.value) })
+    let names = namesAndParameters |> List.map fst |> String.concat ", "
+    let parameters = namesAndParameters |> List.map snd
+    let predicate = $"pa.unique_id in ({names})"
+    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
+
+let update
+    (context: Context.Context)
+    (fieldUpdates: PaymentAgreementFieldUpdates)
+    : Result<PaymentAgreement, AppError> =
+    let paymentAgreementID = fieldUpdates.paymentAgreementIdToUpdate
+    let uuid = paymentAgreementID |> PaymentAgreementId.value
+    let baseParams =
+        [ { name = "@unique_id"; value = UniqueId uuid } ]
+    let updates =
+        [
+              fieldUpdates.paymentAgreementNameUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("payment_agreement_name = @payment_agreement_name",
+                     { name = "@payment_agreement_name"; value = CharString(n |> PaymentAgreementName.value) }) ])
+
+              fieldUpdates.debitAccountUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  let (DebitAccount accountId) = n
+                  [ ("debit_account = @debit_account",
+                     { name = "@debit_account"; value = UniqueId(accountId |> AccountId.value) }) ])
+
+              fieldUpdates.creditAccountUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  let (CreditAccount accountId) = n
+                  [ ("credit_account = @credit_account",
+                     { name = "@credit_account"; value = UniqueId(accountId |> AccountId.value) }) ])
+
+              fieldUpdates.expectedAmountUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("expected_amount = @expected_amount",
+                     { name = "@expected_amount"; value = NullableNumeric(n |> Option.map Money.amount) }) ])
+
+              fieldUpdates.daysDueAfterInvoiceDateUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("days_due_after_invoice = @days_due_after_invoice",
+                     { name = "@days_due_after_invoice"
+                       value = NullableInteger(n |> Option.map DaysDueAfterInvoiceDate.value) }) ])
+
+              fieldUpdates.memoUpdate
+              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("memo = @memo",
+                     { name = "@memo"; value = NullableCharString(n |> Option.map PaymentAgreementMemo.value) }) ])
+        ]
+        |> List.choose id
+        |> List.collect id
+    let setClauses = updates |> List.map fst |> String.concat ", "
+    let parameters = baseParams @ (updates |> List.map snd)
+    let queryStatement =
+        $"""
+        UPDATE cashflow.payment_agreement
+        set
+            {setClauses}
+        WHERE unique_id = @unique_id;
+    """
+    result {
+        do! if updates |> List.isEmpty then Error(CashflowPaymentAgreementUpdateNoOp) else Ok()
+        do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+        return! paymentAgreementID |> fetchById context
+    }
+

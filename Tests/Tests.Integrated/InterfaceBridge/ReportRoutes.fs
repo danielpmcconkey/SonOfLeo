@@ -1,20 +1,20 @@
 namespace Tests.Integrated.InterfaceBridge
 
 open InterfaceBridge.InterfaceContracts.ReportsContracts
-open Utilities.Json.Json
-open Model.Ledger
-open Model.Ledger.Account
-open Model.Ledger.AccountComponent
+open App.Utility.Json.Json
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.Account
+open Business.FinancialServices.Ledger.AccountComponent
 open Model
-open Model.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open ModelOrchestrator.JournalEntries.JournalEntry
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
 open Tests.Helpers.SadPath
 open Utilities
-open Utilities.AppError
-open Utilities.ResultHelper
+open App.Utility.AppError
+open App.Utility.Result
 open Xunit
 
 [<Collection("SharedTestData")>]

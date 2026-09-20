@@ -1,15 +1,15 @@
 module DevDataStage.DevFixtures
 
-open Model.DataIngestion
-open Model.DataIngestion.StageEntryComponent
-open Model.Ledger.Account
-open Model.Ledger.AccountComponent
-open Model.Ledger.JournalEntryComponent
+open Business.FinancialServices.DataIngestion
+open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.Ledger.Account
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open Tests.Helpers
 open Tests.Helpers.EntityFunctions
 open Utilities
-open Utilities.AppError
-open Utilities.ResultHelper
+open App.Utility.AppError
+open App.Utility.Result
 
 let stageDevData (context: Context.Context) (data: FixtureData) =
     let result =

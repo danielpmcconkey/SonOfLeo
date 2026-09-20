@@ -1,21 +1,21 @@
 namespace Tests.Integrated.ModelOrchestrator
 
-open DataAccessLayer.DbTransaction
+open App.DataAccessLayer.DbTransaction
 open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model
-open Model.Ledger
-open Model.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open ModelOrchestrator.JournalEntries.JournalEntry
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
-open Utilities.AppError
+open App.Utility.AppError
 open Xunit
 open Tests.Helpers
 open Tests.Helpers.SadPath
 open ModelOrchestrator.AccountBalance
 open Utilities
-open Utilities.ResultHelper
+open App.Utility.Result
 
 
 [<Collection("SharedTestData")>]

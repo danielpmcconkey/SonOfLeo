@@ -1,11 +1,11 @@
-module Tests.Isolated.Model.Ledger.AccountComponent
+module Tests.Isolated.Business.FinancialServices.Ledger.AccountComponent
 
 open System
 open Model
 open Xunit
-open Model.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.AccountComponent
 open Utilities
-open Utilities.AppError
+open App.Utility.AppError
 open Tests.Helpers.SadPath
 open Tests.Helpers.Railroad
 

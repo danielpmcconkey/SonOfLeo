@@ -3,17 +3,17 @@ namespace Tests.Integrated.ModelOrchestrator
 open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model
-open Model.DataIngestion
-open Model.DataIngestion.StageEntryComponent
-open Model.Ledger
+open Business.FinancialServices.DataIngestion
+open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.Ledger
 open ModelOrchestrator.FetchFilters
 open ModelOrchestrator.StageEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Utilities
-open Utilities.ResultHelper
+open App.Utility.Result
 open Xunit
-open Model.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 
 
 [<Collection("SharedTestData")>]

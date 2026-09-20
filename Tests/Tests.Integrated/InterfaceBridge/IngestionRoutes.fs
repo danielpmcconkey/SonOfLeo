@@ -2,14 +2,14 @@ module Tests.Integrated.InterfaceBridge.IngestionRoutes
 
 open System
 open System.IO
-open DataAccessLayer.DbTransaction
+open App.DataAccessLayer.DbTransaction
 open InterfaceBridge.InterfaceContracts.IngestionContracts
 open InterfaceBridge.InterfaceContracts.ReportsContracts
 open Logger.Audit
-open Model.DataIngestion
-open Model.DataIngestion.StageEntryComponent
-open Model.Ledger
-open Model.Ledger.JournalEntryComponent
+open Business.FinancialServices.DataIngestion
+open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.JournalEntryComponent
 (* JournalEntry first, StageEntryOrchestration second: both expose `lines`, and the staged
    side is what the bulk of this file reads. The ledger-side name used here is
    `fetchByReference`, which only the JournalEntry module defines. *)
@@ -21,10 +21,10 @@ open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
 open Tests.Helpers.SadPath
 open Utilities
-open Utilities.AppError
-open Utilities.FieldUpdate
-open Utilities.Json.Json
-open Utilities.ResultHelper
+open App.Utility.AppError
+open App.Utility.FieldUpdate
+open App.Utility.Json.Json
+open App.Utility.Result
 open Xunit
 
 

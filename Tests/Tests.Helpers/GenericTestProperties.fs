@@ -1,10 +1,10 @@
 module Tests.Helpers.GenericTestProperties
 
 open Model
-open Model.Ledger.AccountComponent
-open Model.Ledger.FiscalPeriodComponent
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Utilities
-open Utilities.AppError
+open App.Utility.AppError
 
 // account
 let genericAccountCodeString = "GenCode"

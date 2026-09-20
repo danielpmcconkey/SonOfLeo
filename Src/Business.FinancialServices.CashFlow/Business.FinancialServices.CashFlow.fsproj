@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RootNamespace>Business.FinancialServices.CashFlow</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="CashFlowComponent.fs" />
+    <Compile Include="Instance.fs" />
+    <Compile Include="Invoice.fs" />
+    <Compile Include="MasterAgreement.fs" />
+    <Compile Include="Payment.fs" />
+    <Compile Include="PaymentAgreement.fs" />
+    <Compile Include="PaymentAgreementLink.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Business.FinancialServices.DataIngestion\Business.FinancialServices.DataIngestion.fsproj" />
+    <ProjectReference Include="..\Business.FinancialServices.Ledger\Business.FinancialServices.Ledger.fsproj" />
+    <ProjectReference Include="..\App.Utility\App.Utility.fsproj" />
+    <ProjectReference Include="..\Business.FinancialServices\Business.FinancialServices.fsproj" />
+    <ProjectReference Include="..\Business.General\Business.General.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NodaTime" Version="3.3.4" />
+  </ItemGroup>
+
+</Project>

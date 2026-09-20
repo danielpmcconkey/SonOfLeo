@@ -3,8 +3,8 @@ module Tests.Isolated.Model.Money
 open System
 open Model.Money
 open Tests.Helpers.Railroad
-open Utilities.AppError
-open Utilities.ResultHelper
+open App.Utility.AppError
+open App.Utility.Result
 open Xunit
 
 // =============================================================================

@@ -3,22 +3,22 @@ namespace Tests.Integrated.ModelOrchestrator
 open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model
-open Model.Ledger
-open Model.DataIngestion
-open Model.DataIngestion.StageEntryComponent
-open Model.DataIngestion.StageEntryHeader
-open Model.DataIngestion.StageEntryLine
-open Model.Ledger.Account
-open Model.Ledger.AccountComponent
-open Model.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.DataIngestion
+open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.DataIngestion.StageEntryHeader
+open Business.FinancialServices.DataIngestion.StageEntryLine
+open Business.FinancialServices.Ledger.Account
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open ModelOrchestrator.StageEntryOrchestration
 open ModelOrchestrator.TrialBalanceReport
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Utilities
-open Utilities.AppError
-open Utilities.FieldUpdate
-open Utilities.ResultHelper
+open App.Utility.AppError
+open App.Utility.FieldUpdate
+open App.Utility.Result
 open Xunit
 
 

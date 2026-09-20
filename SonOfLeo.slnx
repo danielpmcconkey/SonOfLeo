@@ -3,15 +3,20 @@
     <Project Path="DbMigration/Migrator/Migrator.fsproj" />
   </Folder>
   <Folder Name="/Src/">
-    <Project Path="Src/Context/Context.fsproj" />
-    <Project Path="Src/DataAccessLayer/DataAccessLayer.fsproj" />
-    <Project Path="Src/InterfaceBridge/InterfaceBridge.fsproj" />
-    <Project Path="Src/Logger/Logger.fsproj" />
-    <Project Path="Src/Model/Model.fsproj" />
-    <Project Path="Src/ModelOrchestrator/ModelOrchestrator.fsproj" />
-    <Project Path="Src/Reports/Reports.fsproj" />
-    <Project Path="Src/SonOfLeoCli/SonOfLeoCli.fsproj" />
-    <Project Path="Src/Utilities/Utilities.fsproj" />
+    <Project Path="Src/Business.FinancialServices/Business.FinancialServices.fsproj" />
+    <Project Path="Src\App.DataAccessLayer\App.DataAccessLayer.fsproj" />
+    <Project Path="Src\App.Operation\App.Operation.fsproj" />
+    <Project Path="Src\App.Session\App.Session.fsproj" />
+    <Project Path="Src\App.Utility\App.Utility.fsproj" />
+    <Project Path="Src\Business.CrossDomainOrchestration\Business.CrossDomainOrchestration.fsproj" />
+    <Project Path="Src\Business.FinancialServices.CashFlow\Business.FinancialServices.CashFlow.fsproj" />
+    <Project Path="Src\Business.FinancialServices.DataIngestion\Business.FinancialServices.DataIngestion.fsproj" />
+    <Project Path="Src\Business.FinancialServices.Ledger\Business.FinancialServices.Ledger.fsproj" />
+    <Project Path="Src\Business.FinancialServices.Classification\Business.FinancialServices.Classification.fsproj" />
+    <Project Path="Src\Business.General\Business.General.fsproj" />
+    <Project Path="Src\Ui.InterfaceBridge\Ui.InterfaceBridge.fsproj" />
+    <Project Path="Src\Ui.OperatorCli\Ui.OperatorCli.fsproj" />
+    <Project Path="Src\Ui.ReportCli\Ui.ReportCli.fsproj" />
   </Folder>
   <Folder Name="/Tests/">
     <Project Path="Tests/Tests.Integrated/Tests.Integrated.fsproj" />

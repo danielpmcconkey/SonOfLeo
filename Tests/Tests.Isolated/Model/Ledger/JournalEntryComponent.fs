@@ -1,12 +1,12 @@
-module Tests.Isolated.Model.Ledger.JournalEntryComponent
+module Tests.Isolated.Business.FinancialServices.Ledger.JournalEntryComponent
 
 open System
-open Utilities.AppError
+open App.Utility.AppError
 open Xunit
-open Model.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open Tests.Helpers.SadPath
 open Tests.Helpers.Railroad
-open Utilities.ResultHelper
+open App.Utility.Result
 
 
 // =============================================================================

@@ -1,8 +1,8 @@
-module Tests.Isolated.Model.DataIngestion.StageEntryStatusTransition
+module Tests.Isolated.Business.FinancialServices.DataIngestion.StageEntryStatusTransition
 
-open Model.DataIngestion.StageEntryComponent
-open Model.DataIngestion.StageEntryStatusTransition
-open Utilities.AppError
+open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.DataIngestion.StageEntryStatusTransition
+open App.Utility.AppError
 open Xunit
 
 

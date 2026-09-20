@@ -5,18 +5,18 @@ open System
 open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model
-open Model.Ledger.Account
-open Model.Ledger.AccountComponent
-open Model.Ledger
+open Business.FinancialServices.Ledger.Account
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
-open Utilities.ResultHelper
+open App.Utility.Result
 open Xunit
 open Tests.Helpers
 open ModelOrchestrator.JournalEntries.JournalEntry
-open Model.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open Utilities
-open Utilities.AppError
+open App.Utility.AppError
 
 [<Collection("SharedTestData")>]
 type JournalEntryCreationTests(fixture: TestDataFixture) =

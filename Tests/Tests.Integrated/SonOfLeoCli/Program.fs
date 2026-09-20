@@ -1,13 +1,13 @@
 namespace Tests.Integrated.SonOfLeoCli
 
 open InterfaceBridge.InterfaceContracts.AccountContracts
-open Model.Ledger.AccountComponent
-open Model.Ledger.Account
-open Utilities.Json.Json
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.Account
+open App.Utility.Json.Json
 open Tests.Helpers
 open Tests.Helpers.CliExecutor
-open Utilities.AppError
-open Utilities.ResultHelper
+open App.Utility.AppError
+open App.Utility.Result
 open Xunit
 
 [<Collection("SharedTestData")>]

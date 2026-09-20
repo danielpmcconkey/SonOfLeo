@@ -1,7 +1,7 @@
-namespace Tests.Integrated.Model.Ledger
+namespace Tests.Integrated.Business.FinancialServices.Ledger
 
 open System
-open DataAccessLayer.DbTransaction
+open App.DataAccessLayer.DbTransaction
 open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model
@@ -10,11 +10,11 @@ open Tests.Helpers
 open Tests.Helpers.Cleanup
 open Tests.Helpers.GenericTestProperties
 open Utilities
-open Utilities.ResultHelper
+open App.Utility.Result
 open Xunit
-open Model.Ledger.Account
-open Model.Ledger.AccountComponent
-open Utilities.AppError
+open Business.FinancialServices.Ledger.Account
+open Business.FinancialServices.Ledger.AccountComponent
+open App.Utility.AppError
 open Tests.Helpers.SadPath
 
 open Tests.Helpers.Railroad

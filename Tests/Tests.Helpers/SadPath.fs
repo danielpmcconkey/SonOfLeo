@@ -2,7 +2,7 @@ module Tests.Helpers.SadPath
 
 open System
 open Microsoft.FSharp.Reflection
-open Utilities.AppError
+open App.Utility.AppError
 
 (*
 Functions that help with validating sad path functionality

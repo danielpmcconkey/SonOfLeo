@@ -4,17 +4,17 @@ open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.CommandRoute
 open Logger.Audit
 open Model
-open Model.DataIngestion
-open Model.DataIngestion.StageEntryComponent
-open Model.DataIngestion.BaseStageEntry
+open Business.FinancialServices.DataIngestion
+open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.DataIngestion.BaseStageEntry
 open ModelOrchestrator.StageEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Utilities
-open Utilities.AppError
-open Utilities.ResultHelper
+open App.Utility.AppError
+open App.Utility.Result
 open Xunit
-open Model.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 
 
 module StageTestData =
@@ -716,7 +716,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let firstEntry = firstResult.stagedEntries |> List.head
                 let headerId = firstEntry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let contextForIgnore = context |> Context.updateInitiationInstant
-                do! headerId |> Model.DataIngestion.StageEntryHeader.updateHeaderStatus contextForIgnore Ignored Operator
+                do! headerId |> Business.FinancialServices.DataIngestion.StageEntryHeader.updateHeaderStatus contextForIgnore Ignored Operator
                 let contextForReimport = contextForIgnore |> Context.updateInitiationInstant
                 let! sourceFile2 = "/tmp/test-ignored-reimport.jsonl" |> SourceFile.create
                 let! row3 = StageTestData.makeRawRow context "grp-ign2" today "Reimport of ignored" "TestBank" "REF-IGNORED-001" 30.00M "Debit" (Some "F-5350") None

@@ -3,17 +3,17 @@ namespace Tests.Integrated.ModelOrchestrator
 open InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open InterfaceBridge.CommandRoute
 open Logger.Audit
-open Model.DataIngestion
-open Model.DataIngestion.StageEntryComponent
-open Model.DataIngestion.Classification
+open Business.FinancialServices.DataIngestion
+open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.DataIngestion.Classification
 open ModelOrchestrator.StageEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Railroad
-open Utilities.AppError
-open Utilities.ResultHelper
+open App.Utility.AppError
+open App.Utility.Result
 open Xunit
-open Model.Ledger.JournalEntryComponent
-open Model.DataIngestion.Classification.ClassificationRuleComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
 
 
 [<Collection("SharedTestData")>]
