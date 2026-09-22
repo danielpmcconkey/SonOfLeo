@@ -38,10 +38,10 @@ let convertListOfResultsToResultsList<'T> (listOfResults: Result<'T, IAppError> 
 let convertOptionToDesiredTypeWithFallibleConverter
     (fallibleConverter: 'a -> Result<'b, #IAppError>)
     (sourceOption: 'a option)
-    : Result<'b option, UtilityError> =
+    : Result<'b option, IAppError> =
     match sourceOption with
     | None -> Ok None
     | Some x ->
         fallibleConverter x
-        |> Result.mapError (fun e -> FallibleOptionConversionFailure (e.ToMessage()))
+        |> Result.mapError (fun e -> FallibleOptionConversionFailure (e.ToMessage()) |> toAppError)
         |> Result.map Some

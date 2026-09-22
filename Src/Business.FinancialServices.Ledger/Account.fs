@@ -2,7 +2,7 @@ module Business.FinancialServices.Ledger.Account
 
 open NodaTime
 open App.Utility
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.FieldUpdate
 open App.Utility.Result
 open App.DataAccessLayer.ExecuteReader
@@ -10,6 +10,7 @@ open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.QueryParameter
 open App.Session
 open Business.General
+open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Ledger.AccountComponent
 
 type Account =
@@ -81,7 +82,12 @@ let private reconstitute raw =
         let! accountName = nameString |> AccountName.create
         let! accountType = accountTypeString |> AccountType.fromString
         let! activityPeriod =
-            ActivityPeriod.create activeBegin activeEnd ActivityPeriod.NotConsideredAvailableBeforeBeginDate
+            match ActivityPeriod.create activeBegin activeEnd ActivityPeriod.NotConsideredAvailableBeforeBeginDate with
+            | Ok x -> Ok x
+            | Error e ->
+                if e.DomainName = nameof BizGeneralError && e.CaseName = nameof BizGeneralError.ActiveEndBeforeBegin
+                then error(AccountActiveEndBeforeBegin (activeBegin, activeEnd))
+                else Error e 
         let! subtype =
             subtypeString
             |> Option.map(fun x -> x |> AccountSubtype.fromString |> Result.map Some)
@@ -124,7 +130,7 @@ let private query
     (limit: int option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<Account list, AppError> =
+    : Result<Account list, IAppError> =
     let select =
         """
         a.unique_id, a.code, a.account_name, a.account_type, a.active_begin, a.active_end, 
@@ -138,9 +144,9 @@ let private query
         parameters
         mapRawForDbRead
         reconstitute
-        expectedRows
+        expectedRows 
 
-let persist (context: Context.Context) (account: Account) : Result<unit, AppError> =
+let persist (context: Context.Context) (account: Account) : Result<unit, IAppError> =
     let queryStatement =
         """
         insert into ledger.account(
@@ -187,24 +193,24 @@ let persist (context: Context.Context) (account: Account) : Result<unit, AppErro
           { name = "@external_ref"; value = NullableCharString externalReferenceString } ]
     executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
 
-let fetchById (context: Context.Context) (accountId: AccountId) : Result<Account, AppError> =
+let fetchById (context: Context.Context) (accountId: AccountId) : Result<Account, IAppError> =
     let predicate = "a.unique_id = @unique_id"
     let accountIdGuid = accountId |> AccountId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId accountIdGuid } ]
     query context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
-let fetchByParentId (context: Context.Context) (parentId: AccountId) : Result<Account list, AppError> =
+let fetchByParentId (context: Context.Context) (parentId: AccountId) : Result<Account list, IAppError> =
     let predicate = "a.parent_id = @parent_id"
     let parentIdGuid = parentId |> AccountId.value
     let parameters = [ { name = "@parent_id"; value = UniqueId parentIdGuid } ]
     query context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-let fetchByAccountType (context: Context.Context) (accountType: AccountType) : Result<Account list, AppError> =
+let fetchByAccountType (context: Context.Context) (accountType: AccountType) : Result<Account list, IAppError> =
     let predicate = "a.account_type = @account_type"
     let parameters = [ { name = "@account_type"; value = CharString(accountType |> AccountType.toString) } ]
     query context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-let fetchAll (context: Context.Context) (activeOnly: bool) : Result<Account list, AppError> =
+let fetchAll (context: Context.Context) (activeOnly: bool) : Result<Account list, IAppError> =
     let predicate = None
     let parameters = []
     let activeReference = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
@@ -224,7 +230,7 @@ let private update
     (accountId: AccountId)
     (nameUpdate: FieldUpdate<AccountName>)
     (referenceUpdate: FieldUpdate<AccountExternalReference option>)
-    : Result<Account, AppError> =
+    : Result<Account, IAppError> =
     let accountIdGuid = accountId |> AccountId.value
     let baseParams =
         [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
@@ -257,7 +263,7 @@ let private update
         return! accountId |> fetchById context
     }
 
-let updateAccountNameById (context: Context.Context) (accountId: AccountId) (newName: string) : Result<Account, AppError> =
+let updateAccountNameById (context: Context.Context) (accountId: AccountId) (newName: string) : Result<Account, IAppError> =
     result {
         let! validAccountName = AccountName.create newName
         let! newAccount = update context accountId (SetTo validAccountName) NoChange
@@ -268,7 +274,7 @@ let updateExternalReferenceById
     (context: Context.Context)
     (accountId: AccountId)
     (newReference: string option) // todo make this as FieldUpdate
-    : Result<Account, AppError> =
+    : Result<Account, IAppError> =
     result {
         let! validRef =
             match newReference with

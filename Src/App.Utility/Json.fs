@@ -3,6 +3,7 @@ module App.Utility.Json
 open System.Text.Json
 open System.Text.Json.Serialization
 open NodaTime.Serialization.SystemTextJson
+open App.Utility.IAppError
 open App.Utility.UtilityError
 
 module Json =
@@ -13,13 +14,13 @@ module Json =
         o.Converters.Add(NodaConverters.LocalDateConverter)
         o
 
-    let fromJson<'T> (json: string) : Result<'T, UtilityError> =
+    let fromJson<'T> (json: string) : Result<'T, IAppError> =
         try
             Ok(JsonSerializer.Deserialize<'T>(json, options))
         with e ->
             Error(JsonDeserializationFailed(typeof<'T>.ToString(), e.Message, e.StackTrace))
 
-    let toJson<'T> (value: 'T) : Result<string, UtilityError> =
+    let toJson<'T> (value: 'T) : Result<string, IAppError> =
         try
             Ok(JsonSerializer.Serialize<'T>(value, options))
         with e ->

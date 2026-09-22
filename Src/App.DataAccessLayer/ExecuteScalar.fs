@@ -3,13 +3,14 @@ module App.DataAccessLayer.ExecuteScalar
 open System
 open NodaTime
 open Npgsql
+open App.Utility.IAppError
 open App.DataAccessLayer.DalError
 open App.Utility.Result
 open App.DataAccessLayer.DbTransaction
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.DbConnection
 
-let stringUnboxing (objRaw: obj) : Result<string, DalError> =
+let stringUnboxing (objRaw: obj) : Result<string, IAppError> =
     try
         if objRaw = null || objRaw = DBNull.Value then
             Error DalStringUnboxingReturnedNull
@@ -18,7 +19,7 @@ let stringUnboxing (objRaw: obj) : Result<string, DalError> =
     with ex ->
         Error(DalErrorDuringStringUnboxing ex)
 
-let stringOptionUnboxing (objRaw: obj) : Result<string option, DalError> =
+let stringOptionUnboxing (objRaw: obj) : Result<string option, IAppError> =
     try
         if objRaw = null || objRaw = DBNull.Value then
             Ok None
@@ -27,7 +28,7 @@ let stringOptionUnboxing (objRaw: obj) : Result<string option, DalError> =
     with ex ->
         Error(DalErrorDuringStringOptionUnboxing ex)
 
-let intUnboxing (objRaw: obj) : Result<int, DalError> =
+let intUnboxing (objRaw: obj) : Result<int, IAppError> =
     try
         if objRaw = null || objRaw = DBNull.Value then
             Error DalIntUnboxingReturnedNull
@@ -37,7 +38,7 @@ let intUnboxing (objRaw: obj) : Result<int, DalError> =
     with ex ->
         Error(DalErrorDuringIntUnboxing ex)
 
-let intOptionUnboxing (objRaw: obj) : Result<int option, DalError> =
+let intOptionUnboxing (objRaw: obj) : Result<int option, IAppError> =
     try
         if objRaw = null || objRaw = DBNull.Value then
             Ok None
@@ -48,7 +49,7 @@ let intOptionUnboxing (objRaw: obj) : Result<int option, DalError> =
     with ex ->
         Error(DalErrorDuringIntOptionUnboxing ex)
 
-let longUnboxing (objRaw: obj) : Result<int64, DalError> =
+let longUnboxing (objRaw: obj) : Result<int64, IAppError> =
     try
         if objRaw = null || objRaw = DBNull.Value then
             Error(DalLongUnboxingReturnedNull)
@@ -58,7 +59,7 @@ let longUnboxing (objRaw: obj) : Result<int64, DalError> =
     with ex ->
         Error(DalErrorDuringLongUnboxing ex)
 
-let longOptionUnboxing (objRaw: obj) : Result<int64 option, DalError> =
+let longOptionUnboxing (objRaw: obj) : Result<int64 option, IAppError> =
     try
         if objRaw = null || objRaw = DBNull.Value then
             Ok None
@@ -68,7 +69,7 @@ let longOptionUnboxing (objRaw: obj) : Result<int64 option, DalError> =
     with ex ->
         Error(DalErrorDuringLongOptionUnboxing ex)
 
-let decimalUnboxing (objRaw: obj) : Result<decimal, DalError> =
+let decimalUnboxing (objRaw: obj) : Result<decimal, IAppError> =
     try
         if objRaw = null || objRaw = DBNull.Value then
             Error DalDecimalUnboxingReturnedNull
@@ -78,7 +79,7 @@ let decimalUnboxing (objRaw: obj) : Result<decimal, DalError> =
     with ex ->
         Error(DalErrorDuringDecimalUnboxing ex)
 
-let decimalOptionUnboxing (objRaw: obj) : Result<decimal option, DalError> =
+let decimalOptionUnboxing (objRaw: obj) : Result<decimal option, IAppError> =
     try
         if objRaw = null || objRaw = DBNull.Value then
             Ok None
@@ -88,7 +89,7 @@ let decimalOptionUnboxing (objRaw: obj) : Result<decimal option, DalError> =
     with ex ->
         Error(DalErrorDuringDecimalOptionUnboxing ex)
 
-let localDateUnboxing (objRaw: obj) : Result<LocalDate, DalError> =
+let localDateUnboxing (objRaw: obj) : Result<LocalDate, IAppError> =
     try
         if objRaw = null || objRaw = DBNull.Value then
             Error DalLocalDateUnboxingReturnedNull
@@ -98,7 +99,7 @@ let localDateUnboxing (objRaw: obj) : Result<LocalDate, DalError> =
     with ex ->
         Error(DalErrorDuringLocalDateUnboxing ex)
 
-let localDateOptionUnboxing (objRaw: obj) : Result<LocalDate option, DalError> =
+let localDateOptionUnboxing (objRaw: obj) : Result<LocalDate option, IAppError> =
     try
         if objRaw = null || objRaw = DBNull.Value then
             Ok None
@@ -108,7 +109,7 @@ let localDateOptionUnboxing (objRaw: obj) : Result<LocalDate option, DalError> =
     with ex ->
         Error(DalErrorDuringLocalDateOptionUnboxing ex)
 
-let instantUnboxing (objRaw: obj) : Result<Instant, DalError> =
+let instantUnboxing (objRaw: obj) : Result<Instant, IAppError> =
     try
         if objRaw = null || objRaw = DBNull.Value then
             Error DalInstantUnboxingReturnedNull
@@ -118,7 +119,7 @@ let instantUnboxing (objRaw: obj) : Result<Instant, DalError> =
     with ex ->
         Error(DalErrorDuringInstantUnboxing ex)
 
-let instantOptionUnboxing (objRaw: obj) : Result<Instant option, DalError> =
+let instantOptionUnboxing (objRaw: obj) : Result<Instant option, IAppError> =
     try
         if objRaw = null || objRaw = DBNull.Value then
             Ok None
@@ -128,7 +129,7 @@ let instantOptionUnboxing (objRaw: obj) : Result<Instant option, DalError> =
     with ex ->
         Error(DalErrorDuringInstantOptionUnboxing ex)
 
-let uuidUnboxing (objRaw: obj) : Result<Guid, DalError> =
+let uuidUnboxing (objRaw: obj) : Result<Guid, IAppError> =
     try
         if objRaw = null || objRaw = DBNull.Value then
             Error DalUuidUnboxingReturnedNull
@@ -138,7 +139,7 @@ let uuidUnboxing (objRaw: obj) : Result<Guid, DalError> =
     with ex ->
         Error(DalErrorDuringUuidUnboxing ex)
 
-let uuidOptionUnboxing (objRaw: obj) : Result<Guid option, DalError> =
+let uuidOptionUnboxing (objRaw: obj) : Result<Guid option, IAppError> =
     try
         if objRaw = null || objRaw = DBNull.Value then
             Ok None
@@ -152,8 +153,8 @@ let executeScalar
     (dbTransaction: DbTransaction)
     (queryStatement: string)
     (parameters: QueryParameter list)
-    (unboxingFunc: obj -> Result<'T, DalError>)
-    : Result<'T, DalError> =
+    (unboxingFunc: obj -> Result<'T, IAppError>)
+    : Result<'T, IAppError> =
     result {
         let! ds = dataSource.Value
         let parameters = buildParamsList parameters
@@ -173,7 +174,7 @@ let executeScalar
                         let tran, conn =
                             dbTransaction
                             |> transactionAndConnection
-                            |> Result.defaultWith(fun e -> failwith(DalError.toMessage e)) // we do this because we're already inside the boundary of DB try / catch. Result railroad doesn't really work here.
+                            |> Result.defaultWith(fun e -> failwith(toMessage e)) // we do this because we're already inside the boundary of DB try / catch. Result railroad doesn't really work here.
                         use command = new NpgsqlCommand(queryStatement, conn)
                         command.Transaction <- tran
                         parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)

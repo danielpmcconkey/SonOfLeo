@@ -1,6 +1,7 @@
 module Business.General.ActivityPeriod
 
 open NodaTime
+open App.Utility.IAppError
 open Business.General.BizGeneralError
 
 type BeginValidationBehavior =
@@ -19,7 +20,7 @@ let create
     (rawBegin: LocalDate)
     (rawEnd: LocalDate option)
     (beginValidationBehavior: BeginValidationBehavior)
-    : Result<ActivityPeriod, BizGeneralError> =
+    : Result<ActivityPeriod, IAppError> =
     match rawEnd with
     | None -> Ok { activeBegin = rawBegin; activeEnd = None; beginValidationBehavior = beginValidationBehavior }
     | Some x ->
@@ -71,5 +72,5 @@ let insistBeginValidationBehavior
     let beginDate = ap |> activeBegin
     let endDate = ap |> activeEnd
     create beginDate endDate beginValidationBehavior
-    |> Result.defaultWith(fun e -> failwith(BizGeneralError.toMessage e))  
+    |> Result.defaultWith(fun e -> failwith(e.ToMessage()))  
 

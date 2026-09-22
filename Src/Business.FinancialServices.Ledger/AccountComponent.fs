@@ -1,7 +1,8 @@
 module Business.FinancialServices.Ledger.AccountComponent
 
 open System
-open App.Utility.AppError
+open App.Utility.IAppError
+open Business.FinancialServices.Ledger.LedgerError
 
 type AccountId = private AccountId of Guid
 module AccountId =
@@ -14,7 +15,7 @@ type AccountCode = private AccountCode of string
 module AccountCode =
     let maxLength = 10
     let value (AccountCode ac) = ac
-    let create (raw: string) : Result<AccountCode, AppError> =
+    let create (raw: string) : Result<AccountCode, IAppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
             Error(AccountCodeIsEmpty raw)
@@ -28,7 +29,7 @@ type AccountName = private AccountName of string
 module AccountName =
     let maxLength = 100
     let value (AccountName an) = an
-    let create (raw: string) : Result<AccountName, AppError> =
+    let create (raw: string) : Result<AccountName, IAppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
             Error(AccountNameIsEmpty raw)
@@ -49,7 +50,7 @@ type AccountType =
     | Expense
 
 module AccountType =
-    let fromString (accountType: string) : Result<AccountType, AppError> =
+    let fromString (accountType: string) : Result<AccountType, IAppError> =
         match accountType.Trim() with
         | "Asset" -> Ok Asset
         | "Liability" -> Ok Liability
@@ -97,7 +98,7 @@ module AccountSubtype =
         | OperatingExpense -> "OperatingExpense"
         | OtherRevenue -> "OtherRevenue"
         | OtherExpense -> "OtherExpense"
-    let fromString (subtype: string) : Result<AccountSubtype, AppError> =
+    let fromString (subtype: string) : Result<AccountSubtype, IAppError> =
         match subtype.Trim() with
         | "Cash" -> Ok Cash
         | "CurrentLiability" -> Ok CurrentLiability
@@ -140,7 +141,7 @@ type AccountExternalReference = private AccountExternalReference of string
 module AccountExternalReference =
     let maxLength = 50
     let value (AccountExternalReference reference) = reference
-    let create (raw: string) : Result<AccountExternalReference, AppError> =
+    let create (raw: string) : Result<AccountExternalReference, IAppError> =
         let trimmed = raw.Trim()
         if trimmed = String.Empty then
             Error(AccountExternalReferenceIsEmpty raw)

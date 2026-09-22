@@ -1,6 +1,6 @@
 module App.Utility.FieldUpdate
 
-open App.Utility.UtilityError
+open App.Utility.IAppError
 open App.Utility.Result
 
 /// FieldUpdate is a simple DU to use for functions that can update one
@@ -36,9 +36,9 @@ let mapNoChangeToOptionWithConversion conversion original =
 /// FieldUpdate before putting it back together and finally wraps the whole
 /// thing in the fallible converter's result.
 let convertFieldUpdateToNewTypeFallible
-    (typeConverter: 'A -> Result<'B, UtilityError>)
+    (typeConverter: 'A -> Result<'B, IAppError>)
     (original: FieldUpdate<'A>)
-    : Result<FieldUpdate<'B>, UtilityError> =
+    : Result<FieldUpdate<'B>, IAppError> =
     original
     |> function
         | NoChange -> Ok NoChange
@@ -61,9 +61,9 @@ let convertFieldUpdateOptionToNewTypeOption
 /// the FieldUpdate and the option before putting it back together and
 /// finally wraps the whole thing in the fallible converter's result.
 let convertFieldUpdateOptionToNewTypeOptionFallible
-    (nonOptionConverter: 'A -> Result<'B, UtilityError>)
+    (nonOptionConverter: 'A -> Result<'B, IAppError>)
     (original: FieldUpdate<'A option>)
-    : Result<FieldUpdate<'B option>, UtilityError> =
+    : Result<FieldUpdate<'B option>, IAppError> =
     original
     |> function
         | NoChange -> Ok NoChange

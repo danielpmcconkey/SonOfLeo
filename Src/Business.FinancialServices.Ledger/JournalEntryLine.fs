@@ -2,13 +2,14 @@ module Business.FinancialServices.Ledger.JournalEntryLine
 
 open System
 open NodaTime
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
 open Business.FinancialServices
+open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 
@@ -51,7 +52,7 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
-let persist (context: Context.Context) (journalEntryLine: JournalEntryLine) : Result<unit, AppError> =
+let persist (context: Context.Context) (journalEntryLine: JournalEntryLine) : Result<unit, IAppError> =
     let queryStatement =
         """
         INSERT INTO ledger.journal_entry_line(
@@ -86,7 +87,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
-let private reconstitute raw : Result<JournalEntryLine, AppError> =
+let private reconstitute raw : Result<JournalEntryLine, IAppError> =
     let id, jeId, accountId, amountDec, lineTypeStr, memoStrOpt, createdAt, modifiedAt = raw
     let journalEntryLineId = id |> JournalEntryLineId.fromGuid
     let journalEntryId = jeId |> JournalEntryHeaderId.fromGuid
@@ -106,7 +107,7 @@ let private query
     (orderBy: string option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<JournalEntryLine list, AppError> =
+    : Result<JournalEntryLine list, IAppError> =
     let select =
         """
         jel.unique_id, jel.journal_entry_id, jel.account_id, jel.amount,
@@ -122,7 +123,7 @@ let private query
         reconstitute
         expectedRows
 
-let fetchById (context: Context.Context) (journalEntryLineId: JournalEntryLineId) : Result<JournalEntryLine, AppError> =
+let fetchById (context: Context.Context) (journalEntryLineId: JournalEntryLineId) : Result<JournalEntryLine, IAppError> =
     let uuid = journalEntryLineId |> JournalEntryLineId.value
     let predicate = "jel.unique_id = @unique_id"
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
@@ -131,7 +132,7 @@ let fetchById (context: Context.Context) (journalEntryLineId: JournalEntryLineId
 let fetchByJournalEntryHeaderId
     (context: Context.Context)
     (journalEntryHeaderId: JournalEntryHeaderId)
-    : Result<JournalEntryLine list, AppError> =
+    : Result<JournalEntryLine list, IAppError> =
     let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
     let predicate = "jel.journal_entry_id = @journal_entry_id"
     let parameters = [ { name = "@journal_entry_id"; value = UniqueId uuid } ]
@@ -141,7 +142,7 @@ let fetchByJournalEntryHeaderId
 let fetchByJournalEntryHeaderIdList
     (context: Context.Context)
     (journalEntryHeaderIds: JournalEntryHeaderId list)
-    : Result<JournalEntryLine list, AppError> =
+    : Result<JournalEntryLine list, IAppError> =
     if journalEntryHeaderIds |> List.isEmpty then Error JournalEntryHeaderIdListCannotBeEmpty else
     let ordinals = [ 1 .. journalEntryHeaderIds.Length ]
     let zipped = List.zip ordinals journalEntryHeaderIds
@@ -161,7 +162,7 @@ let fetchByAccountId
     (context: Context.Context)
     (nonVoidedOnly: bool)
     (accountId: AccountId)
-    : Result<JournalEntryLine list, AppError> =
+    : Result<JournalEntryLine list, IAppError> =
     let joinList = Some ["left join ledger.journal_entry je on jel.journal_entry_id = je.unique_id"]
     let voidCheck =
         match nonVoidedOnly with
@@ -173,5 +174,5 @@ let fetchByAccountId
     let orderBy = Some "jel.created_at"
     query context joinList predicate None orderBy parameters AnyQuantityIsAcceptable
 
-let sumLinesByType (debitOrCredit: JournalEntryLineType) (lines: JournalEntryLine list) : Result<Money.Money, AppError> =
+let sumLinesByType (debitOrCredit: JournalEntryLineType) (lines: JournalEntryLine list) : Result<Money.Money, IAppError> =
     lines |> List.filter(fun x -> lineType x = debitOrCredit) |> List.map(amount) |> Money.sumList

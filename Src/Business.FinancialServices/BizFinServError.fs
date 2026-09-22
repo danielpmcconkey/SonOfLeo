@@ -11,6 +11,8 @@ type BizFinServError =
     | MoneySplitFailedReconciliation of decimal * decimal
     
     interface IAppError with
+        member this.DomainName = nameof BizFinServError
+        member this.CaseName = getUnionCaseName this
         member this.ToMessage() =
             match this with
             | MoneyFailedToConvertBelowMin(raw, min) -> $"Failed to convert {raw} to Money record as value falls below the minimum allowable value of {min}."
@@ -21,13 +23,6 @@ type BizFinServError =
             | FromDecimalListFailedConversion appError -> $"Failure to convert raw one or more raw decimals to Money. Message: {appError.ToMessage()}"
 
 let toMessage (e: BizFinServError) = (e :> IAppError).ToMessage()
-
-let convertListOfResultsToResultsList<'T>
-    (wrapError: IAppError -> BizFinServError)
-    (listOfResults: Result<'T, BizFinServError> list)
-    : Result<'T list, BizFinServError> =
-    listOfResults
-    |> List.map (Result.mapError (fun e -> e :> IAppError))
-    |> App.Utility.Result.convertListOfResultsToResultsList
-    |> Result.mapError wrapError
+let toAppError (e: BizFinServError) : IAppError = e :> IAppError
+let error (e: BizFinServError) : Result<'T, IAppError> = Error (e :> IAppError)
 

@@ -1,16 +1,15 @@
 module Business.FinancialServices.Ledger.FiscalPeriod
 
 open NodaTime
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Result
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
 open App.Session
+open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
-
-
-
 type FiscalPeriod =
     private
         { fiscalPeriodId: FiscalPeriodId
@@ -46,7 +45,7 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
-let persist (context: Context.Context) (fp: FiscalPeriod) : Result<unit, AppError> =
+let persist (context: Context.Context) (fp: FiscalPeriod) : Result<unit, IAppError> =
     let queryStatement =
         """
         insert into ledger.fiscal_period(
@@ -91,7 +90,7 @@ let private query
     (limit: int option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<FiscalPeriod list, AppError> =
+    : Result<FiscalPeriod list, IAppError> =
     let select =
         "fp.unique_id, fp.period_key, fp.start_date, fp.end_date, fp.is_open, fp.created_at, fp.modified_at"
     let from = "ledger.fiscal_period fp"
@@ -104,16 +103,18 @@ let private query
         reconstitute
         expectedRows
 
-let fetchById (context: Context.Context) (id: FiscalPeriodId) : Result<FiscalPeriod, AppError> =
+let fetchById (context: Context.Context) (id: FiscalPeriodId) : Result<FiscalPeriod, IAppError> =
     let predicate = "fp.unique_id = @unique_id"
     let uuid = id |> FiscalPeriodId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     match query context (Some predicate) None parameters ExactlyOne |> Result.map List.head with
     | Ok x -> Ok x
-    | Error (DalResultantRowsDidntMatchExpectation _) -> Error (FiscalPeriodNoPeriodMatchingId uuid)
-    | Error e -> Error e
+    | Error e ->
+        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+        then error (FiscalPeriodNoPeriodMatchingId uuid)
+        else Error e
 
-let fetchIdByKey (context: Context.Context) (key: string) : Result<FiscalPeriodId, AppError> =
+let fetchIdByKey (context: Context.Context) (key: string) : Result<FiscalPeriodId, IAppError> =
     let mapRawForDbRead (row: RowReader) =
         (row |> RowReader.getUuid "unique_id"), ()
     let reconstitute raw =
@@ -123,13 +124,17 @@ let fetchIdByKey (context: Context.Context) (key: string) : Result<FiscalPeriodI
     let parameters = [ { name = "@period_key"; value = CharString key } ]
 
     match
-        executeReaderQuery (context |> Context.getDatabaseTransaction) queryStatement parameters mapRawForDbRead reconstitute ExactlyOne
+        executeReaderQuery
+            (context |> Context.getDatabaseTransaction) queryStatement parameters
+            mapRawForDbRead reconstitute ExactlyOne
     with
-    | Ok x -> Ok(x |> List.head |> FiscalPeriodId.fromGuid)
-    | Error(DalResultantRowsDidntMatchExpectation _) -> Error(FiscalPeriodNoPeriodMatchingKey key)
-    | Error e -> Error e
+        | Ok x -> Ok(x |> List.head |> FiscalPeriodId.fromGuid)
+        | Error e ->
+            if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+            then error (FiscalPeriodNoPeriodMatchingKey key)
+            else Error e
 
-let fetchAll (context: Context.Context) (openOnly: bool) : Result<FiscalPeriod list, AppError> =
+let fetchAll (context: Context.Context) (openOnly: bool) : Result<FiscalPeriod list, IAppError> =
     let predicate =
         match openOnly with
         | true -> Some "fp.is_open = true"
@@ -141,7 +146,7 @@ let private toggleOpenFlagById
     (context: Context.Context)
     (fpId: FiscalPeriodId)
     (newValue: bool)
-    : Result<FiscalPeriod, AppError> =
+    : Result<FiscalPeriod, IAppError> =
     let enforcedCurrentValue = not newValue
     let uuid = fpId |> FiscalPeriodId.value
     let parameters =
@@ -162,22 +167,21 @@ let private toggleOpenFlagById
     result {
         do! match executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne with
             | Ok _ -> Ok ()
-            | Error (DalResultantRowsDidntMatchExpectation (expected, actual)) ->
-                if actual = 0
-                then Error FiscalPeriodToggleOpenNoOp
-                else Error (DalResultantRowsDidntMatchExpectation (expected, actual))
-            | Error e -> Error e
+            | Error e ->
+                if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalNoOp
+                then error FiscalPeriodToggleOpenNoOp
+                else Error e
         return! fpId |> fetchById context
     }
 
 let closeFiscalPeriod
     (context: Context.Context)
     (fpId: FiscalPeriodId)
-    : Result<FiscalPeriod, AppError> =
+    : Result<FiscalPeriod, IAppError> =
     toggleOpenFlagById context fpId false
 
 let reopenFiscalPeriod
     (context: Context.Context)
     (fpId: FiscalPeriodId)
-    : Result<FiscalPeriod, AppError> =
+    : Result<FiscalPeriod, IAppError> =
     toggleOpenFlagById context fpId true

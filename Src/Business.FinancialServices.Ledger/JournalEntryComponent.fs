@@ -2,10 +2,11 @@ module Business.FinancialServices.Ledger.JournalEntryComponent
 
 open System
 open NodaTime
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Result
 open App.Session
 open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 
 type JournalEntryHeaderId = private JournalEntryHeaderId of Guid
@@ -37,7 +38,7 @@ type JournalRefFinancialInstitution = private JournalRefFinancialInstitution of 
 module JournalRefFinancialInstitution =
     let max = 100
     let value (JournalRefFinancialInstitution d) = d
-    let create (raw: string) : Result<JournalRefFinancialInstitution, AppError> =
+    let create (raw: string) : Result<JournalRefFinancialInstitution, IAppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
             Error(JournalRefFinancialInstitutionIsEmpty raw)
@@ -49,7 +50,7 @@ module JournalRefFinancialInstitution =
 type JournalExternalReferenceText = private JournalExternalReferenceText of string
 module JournalExternalReferenceText =
     let value (JournalExternalReferenceText d) = d
-    let create (raw: string) : Result<JournalExternalReferenceText, AppError> =
+    let create (raw: string) : Result<JournalExternalReferenceText, IAppError> =
         let max = 100
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
@@ -63,7 +64,7 @@ type JournalEntryDescription = private JournalEntryDescription of string
 
 module JournalEntryDescription =
     let value (JournalEntryDescription d) = d
-    let create (raw: string) : Result<JournalEntryDescription, AppError> =
+    let create (raw: string) : Result<JournalEntryDescription, IAppError> =
         let max = 1000
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
@@ -77,7 +78,7 @@ type JournalEntrySource = private JournalEntrySource of string
 
 module JournalEntrySource =
     let value (JournalEntrySource d) = d
-    let create (raw: string) : Result<JournalEntrySource, AppError> =
+    let create (raw: string) : Result<JournalEntrySource, IAppError> =
         let max = 50
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
@@ -95,7 +96,7 @@ type EntryDate =
 module EntryDate =
     let entryDate (e: EntryDate) : LocalDate = e.entryDate
     let fiscalPeriodId (e: EntryDate) : FiscalPeriodId = e.fiscalPeriodId
-    let create (context: Context.Context) (entryDate: LocalDate) : Result<EntryDate, AppError> =
+    let create (context: Context.Context) (entryDate: LocalDate) : Result<EntryDate, IAppError> =
         let monthF = entryDate.Month.ToString("D2")
         result {
             let key = $"{entryDate.Year}-{monthF}"
@@ -121,7 +122,7 @@ type JournalEntryLineType =
     | Credit
 
 module JournalEntryLineType =
-    let fromString (s: string) : Result<JournalEntryLineType, AppError> =
+    let fromString (s: string) : Result<JournalEntryLineType, IAppError> =
         match s.Trim() with
         | "Debit" -> Ok Debit
         | "Credit" -> Ok Credit
@@ -136,7 +137,7 @@ type JournalEntryLineMemo = private LineMemo of string
 
 module JournalEntryLineMemo =
     let value (LineMemo d) = d
-    let create (raw: string) : Result<JournalEntryLineMemo, AppError> =
+    let create (raw: string) : Result<JournalEntryLineMemo, IAppError> =
         let max = 1000
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
@@ -149,7 +150,7 @@ type CommentText = private CommentText of string
 module CommentText =
     let max = 2000
     let value (CommentText d) = d
-    let create (raw: string) : Result<CommentText, AppError> =
+    let create (raw: string) : Result<CommentText, IAppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
             Error(JournalEntryCommentIsEmpty raw)

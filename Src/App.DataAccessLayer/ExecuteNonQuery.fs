@@ -1,6 +1,7 @@
 module App.DataAccessLayer.ExecuteNonQuery
 
 open Npgsql
+open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer.DalError
 open App.DataAccessLayer.DbTransaction
@@ -13,7 +14,7 @@ let executeNonQuery
     (queryStatement: string)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<unit, DalError> =
+    : Result<unit, IAppError> =
     result {
         let! ds = dataSource.Value
         let parameters = buildParamsList parameters

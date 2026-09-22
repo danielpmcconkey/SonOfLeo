@@ -18,6 +18,8 @@ type BizGeneralError =
     | InvalidWeekInMonthNumber of int
     
     interface IAppError with
+        member this.DomainName = nameof BizGeneralError
+        member this.CaseName = getUnionCaseName this
         member this.ToMessage() =
             match this with
             | ActiveEndBeforeBegin(activeBegin, activeEnd) -> $"An activity period's active end ({activeEnd}) cannot be before its active begin ({activeBegin})."
@@ -34,14 +36,7 @@ type BizGeneralError =
             | InvalidWeekInMonthNumber i -> $"Invalid WeekInMonthNumber of \"{i}\"."
 
 let toMessage (e: BizGeneralError) = (e :> IAppError).ToMessage()
-
-let convertListOfResultsToResultsList<'T>
-    (wrapError: IAppError -> BizGeneralError)
-    (listOfResults: Result<'T, BizGeneralError> list)
-    : Result<'T list, BizGeneralError> =
-    listOfResults
-    |> List.map (Result.mapError (fun e -> e :> IAppError))
-    |> App.Utility.Result.convertListOfResultsToResultsList
-    |> Result.mapError wrapError
+let toAppError (e: BizGeneralError) : IAppError = e :> IAppError
+let error (e: BizGeneralError) : Result<'T, IAppError> = Error (e :> IAppError)
 
     

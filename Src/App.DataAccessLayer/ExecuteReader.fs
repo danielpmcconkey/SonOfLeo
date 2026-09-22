@@ -4,6 +4,7 @@ open System
 open System.Data
 open NodaTime
 open Npgsql
+open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer.DalError
 open App.DataAccessLayer.DbTransaction
@@ -16,12 +17,14 @@ type AcceptableExpectedRows =
     | OneOrMany
     | AnyQuantityIsAcceptable
 
-let internal confirmNumRows (numRows: int) (expectation: AcceptableExpectedRows) : Result<unit, DalError> =
+let internal confirmNumRows (numRows: int) (expectation: AcceptableExpectedRows) : Result<unit, IAppError> =
     match expectation with
     | Zero when numRows = 0 -> Ok()
     | ExactlyOne when numRows = 1 -> Ok()
     | OneOrMany when numRows >= 1 -> Ok()
     | AnyQuantityIsAcceptable -> Ok()
+    | ExactlyOne when numRows = 0 -> Error(DalNoOp(expectation.ToString(), numRows))
+    | OneOrMany when numRows = 0 -> Error(DalNoOp(expectation.ToString(), numRows))
     | _ -> Error(DalResultantRowsDidntMatchExpectation(expectation.ToString(), numRows))
 
 type RowReader = private { reader: Common.DbDataReader }
@@ -156,9 +159,9 @@ let executeReaderQuery
     (queryStatement: string)
     (parameters: QueryParameter list)
     (mapRaw: RowReader -> 'Tuple)
-    (constructFromRaw: 'Tuple -> Result<'T, DalError>)
+    (constructFromRaw: 'Tuple -> Result<'T, IAppError>)
     (expectedRows: AcceptableExpectedRows)
-    : Result<'T list, DalError> =
+    : Result<'T list, IAppError> =
     result {
         let! ds = dataSource.Value
         let parameters = buildParamsList parameters
@@ -175,7 +178,7 @@ let executeReaderQuery
                         parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
                         use nReader = command.ExecuteReader()
                         readRawRows nReader mapRaw []
-                    rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList ReaderFailedToConvertRawRows
+                    rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList
                 | false ->
                     dbTransaction
                     |> transactionAndConnection
@@ -188,7 +191,7 @@ let executeReaderQuery
                                 parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
                                 use nReader = command.ExecuteReader()
                                 readRawRows nReader mapRaw []
-                            rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList ReaderFailedToConvertRawRows
+                            rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList
             with ex ->
                 Error(DalErrorDuringReaderQueryExecution ex)
         let! () = confirmNumRows rows.Length expectedRows

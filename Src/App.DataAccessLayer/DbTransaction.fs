@@ -1,6 +1,7 @@
 module App.DataAccessLayer.DbTransaction
 
 open Npgsql
+open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer.DalError
 open App.DataAccessLayer.DbConnection
@@ -38,7 +39,7 @@ let internal transactionAndConnection dbTransaction =
         let conn = npgTranAndConn.connection
         Ok(tran, conn)
 
-let createDbTransaction () : Result<DbTransaction, DalError> =
+let createDbTransaction () : Result<DbTransaction, IAppError> =
     result {
         let! ds = dataSource.Value
         return!
@@ -50,7 +51,7 @@ let createDbTransaction () : Result<DbTransaction, DalError> =
                 Error(DalErrorDuringTransactionCreation ex)
     }
 
-let private commitOrRollbackAndDispose completionAction dbTransaction : Result<unit, DalError> =
+let private commitOrRollbackAndDispose completionAction dbTransaction : Result<unit, IAppError> =
     if dbTransaction.npgTranAndConn |> Option.isNone then
         Error DalCantCompleteTransactionOfNone
     else
@@ -71,10 +72,10 @@ let private commitOrRollbackAndDispose completionAction dbTransaction : Result<u
             npgTran.Dispose()
             conn.Dispose()
 
-let commit (dbTransaction: DbTransaction) : Result<unit, DalError> =
+let commit (dbTransaction: DbTransaction) : Result<unit, IAppError> =
     dbTransaction |> commitOrRollbackAndDispose Commit
 
-let rollback (dbTransaction: DbTransaction) : Result<unit, DalError> =
+let rollback (dbTransaction: DbTransaction) : Result<unit, IAppError> =
     dbTransaction |> commitOrRollbackAndDispose Rollback
 
 /// runWithAutoCompleteTransaction executes the func and then either
@@ -82,8 +83,8 @@ let rollback (dbTransaction: DbTransaction) : Result<unit, DalError> =
 /// on success or failure of the function.
 let runWithAutoCompleteTransaction
     (dbTransaction: DbTransaction)
-    (func: unit -> Result<'T, DalError>)
-    : Result<'T, DalError> =
+    (func: unit -> Result<'T, IAppError>)
+    : Result<'T, IAppError> =
     if dbTransaction.npgTranAndConn |> Option.isNone then
         Error DalCantUseTransactionOfNoneInAutoCommit
     else

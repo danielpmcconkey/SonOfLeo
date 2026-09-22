@@ -2,8 +2,9 @@ module Business.General.Cadence // todo: I think this needs to have its own cade
 
 open System
 open NodaTime
-open Business.General.BizGeneralError
+open App.Utility.IAppError
 open App.Utility.Result
+open Business.General.BizGeneralError
 
 type WeekDay =
     | Sunday
@@ -24,7 +25,7 @@ module WeekDay =
         | "Thursday" -> Ok Thursday
         | "Friday" -> Ok Friday
         | "Saturday" -> Ok Saturday
-        | _ -> Error (InvalidWeekDay str)
+        | _ -> error (InvalidWeekDay str)
     let toString weekDay =
         match weekDay with
         | Sunday -> "Sunday"
@@ -99,7 +100,7 @@ module Month =
         | "October" -> Ok October
         | "November" -> Ok November
         | "December" -> Ok December
-        | _ -> Error (InvalidMonth str)
+        | _ -> error (InvalidMonth str)
     let toMonthNum m =
         match m with
         | January -> 1
@@ -135,14 +136,14 @@ module DateInMonthNumber =
     let value (DateInMonthNumber i) = i
     let fromInt i =
         // we fail anything > 28 because not all months have 29+ days
-        if i > 0 && i < 29 then Ok (DateInMonthNumber i) else Error (InvalidDateInMonthNumber i)
+        if i > 0 && i < 29 then Ok (DateInMonthNumber i) else error (InvalidDateInMonthNumber i)
 
 type WeekInMonthNumber = private WeekInMonthNumber of int
 
 module WeekInMonthNumber =
     let value (WeekInMonthNumber i) = i
     let fromInt i =
-        if i > 0 && i < 5 then Ok (WeekInMonthNumber i) else Error (InvalidWeekInMonthNumber i)
+        if i > 0 && i < 5 then Ok (WeekInMonthNumber i) else error (InvalidWeekInMonthNumber i)
 
 type MonthDay =
     | DateInMonth of DateInMonthNumber
@@ -167,7 +168,7 @@ let nextInstance c = c.nextInstance
 let confirmWeekDay
     (weekday: WeekDay)
     (nextInstance: CadenceNextInstance)
-    : Result<unit, BizGeneralError> =
+    : Result<unit, IAppError> =
     if weekday |> WeekDay.toIsoDayOfWeek = nextInstance.nextInstance.DayOfWeek then Ok()
     else
         let date = nextInstance.nextInstance
@@ -177,7 +178,7 @@ let confirmWeekDay
 let confirmDateInMonth
     (dateInMonthNumber: DateInMonthNumber)
     (nextInstance: CadenceNextInstance)
-    : Result<unit, BizGeneralError> =
+    : Result<unit, IAppError> =
     if dateInMonthNumber |> DateInMonthNumber.value = nextInstance.nextInstance.Day then Ok()
     else
         let date = nextInstance.nextInstance
@@ -188,7 +189,7 @@ let confirmNthWeekDayInMonth
     (weekInMonthNumber: WeekInMonthNumber)
     (weekday: WeekDay)
     (nextInstance: CadenceNextInstance)
-    : Result<unit, BizGeneralError> =
+    : Result<unit, IAppError> =
     let nextInstanceMonth = nextInstance.nextInstance.Month
     let nextInstanceYear = nextInstance.nextInstance.Year
     let isoWeekDay = weekday |> WeekDay.toIsoDayOfWeek
@@ -202,7 +203,7 @@ let confirmNthWeekDayInMonth
 
 let confirmLastDayOfMonth
     (nextInstance: CadenceNextInstance)
-    : Result<unit, BizGeneralError> =
+    : Result<unit, IAppError> =
     let nextInstanceMonth = nextInstance.nextInstance.Month
     let nextInstanceYear = nextInstance.nextInstance.Year
     let daysInMonth = CalendarSystem.Iso.GetDaysInMonth(nextInstanceYear, nextInstanceMonth)
@@ -215,7 +216,7 @@ let confirmLastDayOfMonth
 let confirmMonthDay
     (monthDay: MonthDay)
     (nextInstance: CadenceNextInstance)
-    : Result<unit, BizGeneralError> =
+    : Result<unit, IAppError> =
     match monthDay with
     | DateInMonth dateInMonthNumber -> nextInstance |> confirmDateInMonth dateInMonthNumber
     | NthWeekDay (weekInMonthNumber, weekday) ->
@@ -225,7 +226,7 @@ let confirmMonthDay
 let confirmMonth
     (month: Month)
     (nextInstance: CadenceNextInstance)
-    : Result<unit, BizGeneralError> =
+    : Result<unit, IAppError> =
     if nextInstance.nextInstance.Month = (month |> Month.toMonthNum) then Ok ()
     else
         let date = nextInstance.nextInstance
@@ -243,7 +244,7 @@ let confirmAnnually
     (month: Month)
     (monthDay: MonthDay)
     (nextInstance: CadenceNextInstance)
-    : Result<unit, BizGeneralError> =
+    : Result<unit, IAppError> =
     let monthDayResult = nextInstance |> confirmMonthDay monthDay
     let monthResult = nextInstance |> confirmMonth month
     match monthDayResult, monthResult with
@@ -257,7 +258,7 @@ let confirmAnnually
 let confirmDateFitsCadenceType
     (cadenceType: CadenceType)
     (date: LocalDate)
-    : Result<unit, BizGeneralError> =
+    : Result<unit, IAppError> =
     let asNextInstance = { nextInstance = date }
     match cadenceType with
     | Daily -> Ok ()
@@ -268,13 +269,13 @@ let confirmDateFitsCadenceType
 
 let confirmNextInstance
     (cadence: Cadence)
-    : Result<unit, BizGeneralError> =
+    : Result<unit, IAppError> =
     cadence.nextInstance.nextInstance |> confirmDateFitsCadenceType cadence.cadenceType
 
 let create
     (cadenceType: CadenceType)
     (nextInstance: CadenceNextInstance)
-    : Result<Cadence, BizGeneralError> =
+    : Result<Cadence, IAppError> =
     result {
         let cadence = { cadenceType = cadenceType; nextInstance = nextInstance }
         do! cadence |> confirmNextInstance
@@ -304,7 +305,7 @@ let private monthDayFromColumns // todo: monthDayFromColumns doesn't belong in t
     (cadenceDateInMonth: int option)
     (cadenceWeekInMonth: int option)
     (cadenceWeekDay: string option)
-    : Result<MonthDay, BizGeneralError> =
+    : Result<MonthDay, IAppError> =
     match cadenceDateInMonth, cadenceWeekInMonth, cadenceWeekDay with
     | Some d, None, None -> d |> DateInMonthNumber.fromInt |> Result.map DateInMonth
     | None, Some w, Some wd ->
@@ -325,7 +326,7 @@ let reconstitute
     (cadenceWeekInMonth: int option)
     (cadenceMonth: string option)
     (nextInstance: LocalDate)
-    : Result<Cadence, BizGeneralError> =
+    : Result<Cadence, IAppError> =
     result {
         let! cadenceType =  
             match cadenceName with

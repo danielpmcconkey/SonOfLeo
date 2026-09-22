@@ -1,12 +1,13 @@
 module App.Utility.File
 
 open System.IO
+open App.Utility.IAppError
 open App.Utility.UtilityError
 
 let createFullPath
     (baseDir: string)
     (fileName: string)
-    : Result<string, UtilityError> =
+    : Result<string, IAppError> =
     try
         Path.Combine(baseDir, fileName) |> Ok
     with ex ->
@@ -14,7 +15,7 @@ let createFullPath
 
 let confirmDirectoryExists
     (dir: string)
-    : Result<unit, UtilityError> =
+    : Result<unit, IAppError> =
     try
         match dir |> Directory.Exists with
         | true -> Ok ()
@@ -24,7 +25,7 @@ let confirmDirectoryExists
         
 let confirmFileExists
     (fullFilePath: string)
-    : Result<unit, UtilityError> =
+    : Result<unit, IAppError> =
     try
         match fullFilePath |> File.Exists with
         | true -> Ok ()
@@ -34,7 +35,7 @@ let confirmFileExists
 
 let readTextFileLines
     (fullPath: string)
-    : Result<string list, UtilityError> =
+    : Result<string list, IAppError> =
     try 
         File.ReadAllLines(fullPath)
         |> Array.toList
@@ -45,7 +46,7 @@ let readTextFileLines
 let writeTextFile
     (fullPath: string)
     (text: string)
-    : Result<unit, UtilityError> =
+    : Result<unit, IAppError> =
     try 
         File.WriteAllText(fullPath, text)
         Ok ()
@@ -55,7 +56,7 @@ let writeTextFile
 let moveFile
     (oldPath: string)
     (newPath: string)
-    : Result<unit, UtilityError> =
+    : Result<unit, IAppError> =
     try 
         File.Move(oldPath, newPath)
         Ok ()

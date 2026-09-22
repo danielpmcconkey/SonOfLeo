@@ -155,7 +155,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
             result {
                 let! payload = input |> toJson<JournalEntryInput>
                 do!
-                    isCorrectErrorString
+                    isCorrectErrorString // todo: post-refactor, check on the IAppError CaseName property
                         (routeUiCommandForTesting "JournalEntry" "PostNew" [] payload)
                         expectedError
                         (Some "Record should be cleaned up.")

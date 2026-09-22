@@ -1,12 +1,13 @@
 module Business.FinancialServices.Ledger.JournalEntryExternalReference
 
 open NodaTime
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
+open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Ledger.JournalEntryComponent
 
 type JournalEntryExternalReference =
@@ -40,7 +41,7 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
-let persist (context: Context.Context) (externalReference: JournalEntryExternalReference) : Result<unit, AppError> =
+let persist (context: Context.Context) (externalReference: JournalEntryExternalReference) : Result<unit, IAppError> =
     let queryStatement =
         """
         INSERT INTO ledger.journal_entry_ext_reference(
@@ -70,7 +71,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
-let private reconstitute raw : Result<JournalEntryExternalReference, AppError> =
+let private reconstitute raw : Result<JournalEntryExternalReference, IAppError> =
     let uuid, journalEntryUuid, financialInstitutionStr, referenceTextStr, createdAt, modifiedAt = raw
     let journalEntryExternalReferenceId = uuid |> JournalEntryExternalReferenceId.fromGuid
     let journalEntryId = journalEntryUuid |> JournalEntryHeaderId.fromGuid
@@ -94,7 +95,7 @@ let private query
     (orderBy: string option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<JournalEntryExternalReference list, AppError> =
+    : Result<JournalEntryExternalReference list, IAppError> =
     let select =
         """
         jer.unique_id, jer.journal_entry_id, jer.financial_institution, jer.reference,
@@ -113,7 +114,7 @@ let private query
 let fetchById
     (context: Context.Context)
     (journalEntryExternalReferenceId: JournalEntryExternalReferenceId)
-    : Result<JournalEntryExternalReference, AppError> =
+    : Result<JournalEntryExternalReference, IAppError> =
     let uuid = journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
     let predicate = "jer.unique_id = @unique_id"
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
@@ -122,7 +123,7 @@ let fetchById
 let fetchByJournalEntryId
     (context: Context.Context)
     (journalEntryId: JournalEntryHeaderId)
-    : Result<JournalEntryExternalReference list, AppError> =
+    : Result<JournalEntryExternalReference list, IAppError> =
     let uuid = journalEntryId |> JournalEntryHeaderId.value
     let predicate = "jer.journal_entry_id = @unique_id"
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
@@ -131,7 +132,7 @@ let fetchByJournalEntryId
 let fetchByJournalEntryHeaderIdList
     (context: Context.Context)
     (journalEntryHeaderIds: JournalEntryHeaderId list)
-    : Result<JournalEntryExternalReference list, AppError> =
+    : Result<JournalEntryExternalReference list, IAppError> =
     if journalEntryHeaderIds |> List.isEmpty then Error JournalEntryHeaderIdListCannotBeEmpty else
     let ordinals = [ 1 .. journalEntryHeaderIds.Length ]
     let zipped = List.zip ordinals journalEntryHeaderIds

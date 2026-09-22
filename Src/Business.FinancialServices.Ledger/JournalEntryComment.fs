@@ -2,10 +2,11 @@ module Business.FinancialServices.Ledger.JournalEntryComment
 
 open NodaTime
 open App.DataAccessLayer.ExecuteNonQuery
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.Session
+open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Ledger.JournalEntryComponent
 
 type JournalEntryComment =
@@ -39,7 +40,7 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
-let persist (context: Context.Context) (comment: JournalEntryComment) : Result<unit, AppError> =
+let persist (context: Context.Context) (comment: JournalEntryComment) : Result<unit, IAppError> =
     let queryStatement =
         """
         INSERT INTO ledger.journal_entry_comment(
@@ -67,7 +68,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
-let private reconstitute raw : Result<JournalEntryComment, AppError> =
+let private reconstitute raw : Result<JournalEntryComment, IAppError> =
     let id, primaryJeId, secondaryJeId, commentTextStr, createdAt, modifiedAt = raw
     let journalEntryCommentId = id |> JournalEntryCommentId.fromGuid
     let primaryJournalEntryId = primaryJeId |> JournalEntryHeaderId.fromGuid
@@ -91,7 +92,7 @@ let private query
     (orderBy: string option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<JournalEntryComment list, AppError> =
+    : Result<JournalEntryComment list, IAppError> =
     let select =
         """
             jec.unique_id, jec.journal_primary_entry_id, jec.journal_secondary_entry_id,
@@ -110,7 +111,7 @@ let private query
 let fetchById
     (context: Context.Context)
     (journalEntryCommentId: JournalEntryCommentId)
-    : Result<JournalEntryComment, AppError> =
+    : Result<JournalEntryComment, IAppError> =
     let uuid = journalEntryCommentId |> JournalEntryCommentId.value
     let predicate = "jec.unique_id = @unique_id"
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
@@ -119,7 +120,7 @@ let fetchById
 let fetchByJournalEntryId
     (context: Context.Context)
     (journalEntryId: JournalEntryHeaderId)
-    : Result<JournalEntryComment list, AppError> =
+    : Result<JournalEntryComment list, IAppError> =
     let uuid = journalEntryId |> JournalEntryHeaderId.value
     let predicate =
         "jec.journal_primary_entry_id = @unique_id or jec.journal_secondary_entry_id = @unique_id"
@@ -134,7 +135,7 @@ let fetchByJournalEntryId
 let fetchByJournalEntryHeaderIdList
     (context: Context.Context)
     (journalEntryHeaderIds: JournalEntryHeaderId list)
-    : Result<JournalEntryComment list, AppError> =
+    : Result<JournalEntryComment list, IAppError> =
     if journalEntryHeaderIds |> List.isEmpty then Error JournalEntryHeaderIdListCannotBeEmpty else
     let ordinals = [ 1 .. journalEntryHeaderIds.Length ]
     let zipped = List.zip ordinals journalEntryHeaderIds

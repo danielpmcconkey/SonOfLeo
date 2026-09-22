@@ -9,7 +9,7 @@ open App.Utility.Config
 let timeZoneLocal =
     match getConfigValue<string> "LocalizedTimeZone"  with 
     | Ok x -> DateTimeZoneProviders.Tzdb[x]
-    | Error e -> failwith (toMessage e)
+    | Error e -> failwith (e.ToMessage())
 
 
 /// Clock.Now exists because the app layer creates time at a 1 * 10 ^ -7

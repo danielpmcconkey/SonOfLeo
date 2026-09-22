@@ -38,12 +38,15 @@ type DalError =
     | DalIntUnboxingReturnedNull
     | DalLocalDateUnboxingReturnedNull
     | DalLongUnboxingReturnedNull
+    | DalNoOp of string * int
     | DalResultantRowsDidntMatchExpectation of string * int
     | DalStringUnboxingReturnedNull
     | DalUuidUnboxingReturnedNull
     | ReaderFailedToConvertRawRows of IAppError
     
     interface IAppError with
+        member this.DomainName = nameof DalError
+        member this.CaseName = getUnionCaseName this
         member this.ToMessage() =
             match this with        
             | DalCantCompleteTransactionOfNone -> "Error. You cannot commit or rollback with a raw transaction of None."
@@ -80,18 +83,12 @@ type DalError =
             | DalIntUnboxingReturnedNull -> "Int unboxing returned DB null"
             | DalLocalDateUnboxingReturnedNull -> "LocalDate unboxing returned DB null"
             | DalLongUnboxingReturnedNull -> "Long unboxing returned DB null"
+            | DalNoOp(expected, actual) -> $"Resultant rows was either ExactlyOne or OneOrMany and the result set returned zero rows. Expected {expected}. Actual {actual}."
             | DalResultantRowsDidntMatchExpectation(expected, actual) -> $"Resultant rows didn't match expectation. Expected {expected}. Actual {actual}."
             | DalStringUnboxingReturnedNull -> "String unboxing returned DB null"
             | DalUuidUnboxingReturnedNull -> "UUID unboxing returned DB null"
             | ReaderFailedToConvertRawRows appError -> $"Failure to convert raw rows on DB read. Message: {appError.ToMessage()}"
 
 let toMessage (e: DalError) = (e :> IAppError).ToMessage()
-
-let convertListOfResultsToResultsList<'T>
-    (wrapError: IAppError -> DalError)
-    (listOfResults: Result<'T, DalError> list)
-    : Result<'T list, DalError> =
-    listOfResults
-    |> List.map (Result.mapError (fun e -> e :> IAppError))
-    |> App.Utility.Result.convertListOfResultsToResultsList
-    |> Result.mapError wrapError
+let toAppError (e: DalError) : IAppError = e :> IAppError
+let error (e: DalError) : Result<'T, IAppError> = Error (e :> IAppError)

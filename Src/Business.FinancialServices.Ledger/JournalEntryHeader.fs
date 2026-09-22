@@ -1,7 +1,7 @@
 module Business.FinancialServices.Ledger.JournalEntryHeader
 
 open NodaTime
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
@@ -45,7 +45,7 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
-let persist (context: Context.Context) (journalEntry: JournalEntryHeader) : Result<unit, AppError> =
+let persist (context: Context.Context) (journalEntry: JournalEntryHeader) : Result<unit, IAppError> =
     let queryStatement =
         """
         INSERT INTO ledger.journal_entry(
@@ -79,7 +79,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
-let private reconstitute raw : Result<JournalEntryHeader, AppError> =
+let private reconstitute raw : Result<JournalEntryHeader, IAppError> =
     let id, descriptionStr, jeSourceStr, entryDateLd, fiscalPeriodUuid, voidedAt, createdAt, modifiedAt =
         raw
     let journalEntryId = id |> JournalEntryHeaderId.fromGuid
@@ -99,7 +99,7 @@ let query
     (orderBy: string option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<JournalEntryHeader list, AppError> =
+    : Result<JournalEntryHeader list, IAppError> =
     let selectColumns =
         """
         je.unique_id, je.description, je.je_source, je.entry_date,
@@ -118,7 +118,7 @@ let query
 let fetchById
     (context: Context.Context)
     (journalEntryHeaderId: JournalEntryHeaderId)
-    : Result<JournalEntryHeader, AppError> =
+    : Result<JournalEntryHeader, IAppError> =
     let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
     let predicate = Some "je.unique_id = @unique_id"
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
@@ -127,7 +127,7 @@ let fetchById
 let fetchByPeriod
     (context: Context.Context)
     (periodId: FiscalPeriodId)
-    : Result<JournalEntryHeader list, AppError> =
+    : Result<JournalEntryHeader list, IAppError> =
     let uuid = periodId |> FiscalPeriodId.value
     let predicate = Some "je.fiscal_period_id = @fiscal_period_id"
     let orderBy = Some "je.entry_date asc"
