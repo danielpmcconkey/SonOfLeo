@@ -1,7 +1,7 @@
 module Business.FinancialServices.CashFlow.MasterAgreement
 
 open NodaTime
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.FieldUpdate
 open App.Utility.Result
 open App.DataAccessLayer.ExecuteNonQuery
@@ -9,6 +9,7 @@ open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
 open App.Session
 open Business.General
+open Business.FinancialServices.CashFlow.CashFlowError
 open Business.FinancialServices.CashFlow.CashFlowComponent
 
 let masterAgreementSelectFields = """
@@ -78,7 +79,7 @@ let create
 let persist
     (context: Context.Context)
     (masterAgreement: MasterAgreement)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         let queryStatement =
             """
@@ -188,7 +189,7 @@ let query
     (orderBy: string option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<MasterAgreement list, AppError> =
+    : Result<MasterAgreement list, IAppError> =
     let from = "cashflow.master_agreement ma"
     let queryStatement = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
     executeReaderQuery
@@ -205,10 +206,10 @@ let private fetchAny
     (limit: int option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<MasterAgreement list, AppError> =
+    : Result<MasterAgreement list, IAppError> =
     query context None masterAgreementSelectFields None predicate limit None None parameters expectedRows
 
-let fetchById (context: Context.Context) (agreementID: MasterAgreementId) : Result<MasterAgreement, AppError> =
+let fetchById (context: Context.Context) (agreementID: MasterAgreementId) : Result<MasterAgreement, IAppError> =
     let predicate = "ma.unique_id = @unique_id"
     let uuid = agreementID |> MasterAgreementId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
@@ -217,7 +218,7 @@ let fetchById (context: Context.Context) (agreementID: MasterAgreementId) : Resu
 let fetchByMasterAgreementIdList
     (context: Context.Context)
     (agreementIds: MasterAgreementId list)
-    : Result<MasterAgreement list, AppError> =
+    : Result<MasterAgreement list, IAppError> =
     if agreementIds |> List.isEmpty then Error CashflowMasterAgreementIdListCannotBeEmpty else
     let namesAndParameters =
         List.zip [ 1 .. agreementIds.Length ] agreementIds
@@ -232,7 +233,7 @@ let fetchByMasterAgreementIdList
 let update
     (context: Context.Context)
     (fieldUpdates: MasterAgreementFieldUpdates)
-    : Result<MasterAgreement, AppError> =
+    : Result<MasterAgreement, IAppError> =
     let agreementID = fieldUpdates.agreementIdToUpdate
     let uuid = agreementID |> MasterAgreementId.value
     let baseParams =

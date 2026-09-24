@@ -1,13 +1,14 @@
 module Business.FinancialServices.CashFlow.Instance
 
 open NodaTime
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.FieldUpdate
 open App.Utility.Result
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
 open App.Session
+open Business.FinancialServices.CashFlow.CashFlowError
 open Business.FinancialServices.CashFlow.CashFlowComponent
 
 type Instance = private {
@@ -59,7 +60,7 @@ let applyFieldUpdates (fieldUpdates: InstanceFieldUpdates) (instance: Instance) 
 let persist
     (context: Context.Context)
     (instance: Instance)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         let queryStatement =
             """
@@ -125,7 +126,7 @@ let query
     (orderBy: string option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<Instance list, AppError> =
+    : Result<Instance list, IAppError> =
     let from = "cashflow.instance ins"
     let queryStatement = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
     executeReaderQuery
@@ -142,7 +143,7 @@ let private fetchAny
     (limit: int option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<Instance list, AppError> =
+    : Result<Instance list, IAppError> =
     let select = """
         ins.unique_id, ins.master_agreement_id, ma.agreement_name, ins.instance_date, ins.is_fulfilled,
         ins.created_at, ins.modified_at
@@ -150,7 +151,7 @@ let private fetchAny
     let joinList = [ "join cashflow.master_agreement ma on ins.master_agreement_id = ma.unique_id" ]
     query context None select (Some joinList) predicate limit None None parameters expectedRows
 
-let fetchById (context: Context.Context) (instanceId: InstanceId) : Result<Instance, AppError> =
+let fetchById (context: Context.Context) (instanceId: InstanceId) : Result<Instance, IAppError> =
     let predicate = "ins.unique_id = @unique_id"
     let uuid = instanceId |> InstanceId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
@@ -159,7 +160,7 @@ let fetchById (context: Context.Context) (instanceId: InstanceId) : Result<Insta
 let fetchByMasterAgreementIdList
     (context: Context.Context)
     (masterAgreementIds: MasterAgreementId list)
-    : Result<Instance list, AppError> =
+    : Result<Instance list, IAppError> =
     if masterAgreementIds |> List.isEmpty then Error CashflowMasterAgreementIdListCannotBeEmpty else
     let namesAndParameters =
         List.zip [ 1 .. masterAgreementIds.Length ] masterAgreementIds
@@ -174,7 +175,7 @@ let fetchByMasterAgreementIdList
 let fetchByIsFulfilled
     (context: Context.Context)
     (isFulfilled: bool)
-    : Result<Instance list, AppError> =
+    : Result<Instance list, IAppError> =
     let predicate = "ins.is_fulfilled = @is_fulfilled"
     let parameters = [ { name = "@is_fulfilled"; value = Boolean isFulfilled } ]
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
@@ -182,7 +183,7 @@ let fetchByIsFulfilled
 let update
     (context: Context.Context)
     (fieldUpdates: InstanceFieldUpdates)
-    : Result<Instance, AppError> =
+    : Result<Instance, IAppError> =
     let instanceId = fieldUpdates.instanceIdToUpdate
     let uuid = instanceId |> InstanceId.value
     let baseParams =

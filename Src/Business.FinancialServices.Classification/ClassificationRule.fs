@@ -1,15 +1,16 @@
 module Business.FinancialServices.Classification.ClassificationRule
 
 open NodaTime
+open App.Utility.IAppError
+open App.Utility.Json.Json
+open App.Utility.Result
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
-open App.Utility.AppError
-open App.Utility.Json.Json
-open App.Utility.Result
 open App.Session
-open Business.FinancialServices.CashFlow
 open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.DataIngestion.DataIngestionError
+open Business.FinancialServices.CashFlow
 open Business.FinancialServices.Classification.ClassificationComponent
 open Business.FinancialServices.Classification.ClassificationRuleGroup
 
@@ -56,7 +57,7 @@ let create
         modifiedAt = modifiedAt
     }
     
-let persist (context: Context.Context) (classificationRule: ClassificationRule) : Result<unit, AppError> =
+let persist (context: Context.Context) (classificationRule: ClassificationRule) : Result<unit, IAppError> =
     let queryStatement =
         """
         insert into classification.classification_rule(
@@ -153,7 +154,7 @@ let query
     (parameters: QueryParameter list)
     (orderBy: string option)
     (expectedRows: AcceptableExpectedRows)
-    : Result<ClassificationRule list, AppError> =
+    : Result<ClassificationRule list, IAppError> =
     let select =
         """
         cr.unique_id, cr.rule_name, cr.account_at_match, cr.payment_agreement_at_match, cr.priority,
@@ -169,7 +170,7 @@ let query
         reconstitute
         expectedRows
 
-let fetchById (context: Context.Context) (ruleId: ClassificationRuleId) : Result<ClassificationRule, AppError> =
+let fetchById (context: Context.Context) (ruleId: ClassificationRuleId) : Result<ClassificationRule, IAppError> =
     let predicate = "cr.unique_id = @unique_id"
     let nameStr = ruleId |> ClassificationRuleId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId(nameStr) } ]
@@ -178,7 +179,7 @@ let fetchById (context: Context.Context) (ruleId: ClassificationRuleId) : Result
 let fetchByIdList
     (context: Context.Context)
     (ruleIds: ClassificationRuleId list)
-    : Result<ClassificationRule list, AppError> =
+    : Result<ClassificationRule list, IAppError> =
     if ruleIds |> List.isEmpty then Error IngestionClassificationRuleIdListCannotBeEmpty else
     let namesAndParameters =
         List.zip [ 1 .. ruleIds.Length ] ruleIds
@@ -190,7 +191,7 @@ let fetchByIdList
     let predicate = $"cr.unique_id in ({names})"
     query context None (Some predicate) None parameters None AnyQuantityIsAcceptable
 
-let fetchByName (context: Context.Context) (name: ClassificationRuleName) : Result<ClassificationRule, AppError> =
+let fetchByName (context: Context.Context) (name: ClassificationRuleName) : Result<ClassificationRule, IAppError> =
     let predicate = "cr.rule_name = @rule_name"
     let nameStr = name |> ClassificationRuleName.value
     let parameters = [ { name = "@rule_name"; value = CharString(nameStr) } ]

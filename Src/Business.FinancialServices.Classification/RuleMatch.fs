@@ -1,11 +1,11 @@
 module Business.FinancialServices.Classification.RuleMatch
 
 open NodaTime
+open App.Utility.IAppError
+open App.Utility.Result
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
-open App.Utility.AppError
-open App.Utility.Result
 open App.Session
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.Classification.ClassificationComponent
@@ -39,7 +39,7 @@ let create
       classificationRuleId = classificationRuleId
       createdAt = createdAt }
 
-let persist (context: Context.Context) (ruleMatch: RuleMatch) : Result<unit, AppError> =
+let persist (context: Context.Context) (ruleMatch: RuleMatch) : Result<unit, IAppError> =
     let queryStatement =
         """
         insert into classification.rule_match(
@@ -87,7 +87,7 @@ let query
     (parameters: QueryParameter list)
     (orderBy: string option)
     (expectedRows: AcceptableExpectedRows)
-    : Result<RuleMatch list, AppError> =
+    : Result<RuleMatch list, IAppError> =
     let select =
         """
         rm.unique_id, rm.run_id, rm.stage_entry_line_id, rm.classification_rule_id, rm.created_at
@@ -102,13 +102,13 @@ let query
         reconstitute
         expectedRows
 
-let fetchById (context: Context.Context) (matchId: ClassificationMatchId) : Result<RuleMatch, AppError> =
+let fetchById (context: Context.Context) (matchId: ClassificationMatchId) : Result<RuleMatch, IAppError> =
     let predicate = "rm.unique_id = @unique_id"
     let uuid = matchId |> ClassificationMatchId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     query context None (Some predicate) None parameters None ExactlyOne |> Result.map List.head
 
-let fetchByRunId (context: Context.Context) (runId: ClassificationRunId) : Result<RuleMatch list, AppError> =
+let fetchByRunId (context: Context.Context) (runId: ClassificationRunId) : Result<RuleMatch list, IAppError> =
     let predicate = "rm.run_id = @run_id"
     let runUuid = runId |> ClassificationRunId.value
     let parameters = [ { name = "@run_id"; value = UniqueId runUuid } ]
@@ -118,7 +118,7 @@ let fetchByRunIdAndClaimantType
     (context: Context.Context)
     (runId: ClassificationRunId)
     (claimantType: ClassificationClaimantType)
-    : Result<RuleMatch list, AppError> =
+    : Result<RuleMatch list, IAppError> =
     let joinList =
         [ "join classification.classification_rule cr on rm.classification_rule_id = cr.unique_id" ]
     let claimantClause =

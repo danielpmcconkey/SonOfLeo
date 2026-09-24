@@ -1,7 +1,8 @@
 module Business.FinancialServices.DataIngestion.StageEntryComponent
 
-open App.Utility.AppError
 open System
+open App.Utility.IAppError
+open Business.FinancialServices.DataIngestion.DataIngestionError
 
 type IngestionSourceId = private IngestionSourceId of Guid
 
@@ -30,7 +31,7 @@ module StagedEntryStatus =
         | "Duplicate" -> Ok Duplicate
         | "Posted" -> Ok Posted
         | "Ignored" -> Ok Ignored
-        | _ -> Error(IngestionInvalidStagedEntryStatus str)
+        | _ -> error(IngestionInvalidStagedEntryStatus str)
     
     let toString ``type`` = ``type`` |> function
         | Ingested -> "Ingested"
@@ -56,7 +57,7 @@ module StageStatusChangeMechanism =
         | "Deduplicator" -> Ok Deduplicator
         | "Operator" -> Ok Operator
         | "LedgerPoster" -> Ok LedgerPoster
-        | _ -> Error(IngestionInvalidStageStatusChangeMechanism str)
+        | _ -> error(IngestionInvalidStageStatusChangeMechanism str)
     
     let toString ``type`` = ``type`` |> function
         | StageIngestion -> "StageIngestion"
@@ -70,12 +71,12 @@ type SourceFile = private SourceFile of string
 module SourceFile =
     let maxLength = 150
     let value (SourceFile ac) = ac 
-    let create (raw: string) : Result<SourceFile, AppError> =
+    let create (raw: string) : Result<SourceFile, IAppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
-            Error(IngestionSourceFileIsEmpty raw)
+            error(IngestionSourceFileIsEmpty raw)
         elif trimmed.Length > maxLength then
-            Error(IngestionSourceFileTooLong(raw, maxLength))
+            error(IngestionSourceFileTooLong(raw, maxLength))
         else
             Ok(SourceFile trimmed)
 

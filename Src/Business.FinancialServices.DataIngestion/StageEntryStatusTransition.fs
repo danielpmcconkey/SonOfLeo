@@ -1,11 +1,12 @@
 module Business.FinancialServices.DataIngestion.StageEntryStatusTransition
 
 open NodaTime
-open App.Utility.AppError
+open App.Utility.IAppError
+open App.Utility.Result
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
-open App.Utility.Result
 open App.Session
+open Business.FinancialServices.DataIngestion.DataIngestionError
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 
 type StageEntryStatusTransition =
@@ -95,7 +96,7 @@ let private query
     (limit: int option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<StageEntryStatusTransition list, AppError> =
+    : Result<StageEntryStatusTransition list, IAppError> =
     let select =
         """
         sea.unique_id, sea.entry_id, sea.from_status, sea.to_status, sea.modified_at, sea.change_mechanism
@@ -110,7 +111,7 @@ let private query
         reconstitute
         expectedRows
 
-let fetchByHeaderId (context: Context.Context) (headerId: StageEntryHeaderId) : Result<StageEntryStatusTransition list, AppError> =
+let fetchByHeaderId (context: Context.Context) (headerId: StageEntryHeaderId) : Result<StageEntryStatusTransition list, IAppError> =
     let predicate = "sea.entry_id = @unique_id"
     let uuid = headerId |> StageEntryHeaderId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
@@ -119,7 +120,7 @@ let fetchByHeaderId (context: Context.Context) (headerId: StageEntryHeaderId) : 
 let fetchByHeaderIdList
     (context: Context.Context)
     (stageEntryHeaderIds: StageEntryHeaderId list)
-    : Result<StageEntryStatusTransition list, AppError> =
+    : Result<StageEntryStatusTransition list, IAppError> =
     if stageEntryHeaderIds |> List.isEmpty then Error IngestionStageHeaderIdListCannotBeEmpty else
     let ordinals = [ 1 .. stageEntryHeaderIds.Length ]
     let zipped = List.zip ordinals stageEntryHeaderIds
@@ -142,7 +143,7 @@ let confirmValidTransition transition =
     else
         let fromStr = fromType |> Option.map StagedEntryStatus.toString
         let toStr = toType |> StagedEntryStatus.toString
-        Error (IngestionInvalidStageStatusTransition (fromStr, toStr))
+        error (IngestionInvalidStageStatusTransition (fromStr, toStr))
 
 let formAllStatusesCte sortOrder =
     let orderBy =

@@ -1,15 +1,17 @@
 module Business.FinancialServices.CashFlow.PaymentAgreementLink
 
+open Business.FinancialServices.DataIngestion
 open NodaTime
 open App.Utility
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
 open App.Session
-open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.CashFlow.CashFlowError
+open Business.FinancialServices.CashFlow.CashFlowComponent
 
 type PaymentAgreementLink = private {
     paymentAgreementLinkId: PaymentAgreementLinkId
@@ -43,7 +45,7 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
-let persist (context: Context.Context) (link: PaymentAgreementLink) : Result<unit, AppError> =
+let persist (context: Context.Context) (link: PaymentAgreementLink) : Result<unit, IAppError> =
     let queryStatement =
         """
         insert into cashflow.payment_agreement_link(
@@ -67,7 +69,7 @@ let persist (context: Context.Context) (link: PaymentAgreementLink) : Result<uni
 
 let private reconstitute raw =
     result {
-        let (uuid, agreementUuid, lineUuid, createdAt, modifiedAt) = raw
+        let uuid, agreementUuid, lineUuid, createdAt, modifiedAt = raw
         let paymentAgreementLinkId = uuid |> PaymentAgreementLinkId.fromGuid
         let paymentAgreementId = agreementUuid |> PaymentAgreementId.fromGuid
         let stageEntryLineId = lineUuid |> StageEntryLineId.fromGuid
@@ -92,7 +94,7 @@ let query
     (orderBy: string option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<PaymentAgreementLink list, AppError> =
+    : Result<PaymentAgreementLink list, IAppError> =
     let from = "cashflow.payment_agreement_link pal"
     let queryStatement = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
     executeReaderQuery
@@ -109,7 +111,7 @@ let private fetchAny
     (limit: int option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<PaymentAgreementLink list, AppError> =
+    : Result<PaymentAgreementLink list, IAppError> =
     let select = """
         pal.unique_id, pal.payment_agreement_id, pal.stage_entry_line_id, pal.created_at, pal.modified_at
         """
@@ -118,7 +120,7 @@ let private fetchAny
 let fetchById
     (context: Context.Context)
     (linkId: PaymentAgreementLinkId)
-    : Result<PaymentAgreementLink, AppError> =
+    : Result<PaymentAgreementLink, IAppError> =
     let predicate = "pal.unique_id = @unique_id"
     let uuid = linkId |> PaymentAgreementLinkId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
@@ -127,7 +129,7 @@ let fetchById
 let fetchByPaymentAgreementId
     (context: Context.Context)
     (agreementId: PaymentAgreementId)
-    : Result<PaymentAgreementLink list, AppError> =
+    : Result<PaymentAgreementLink list, IAppError> =
     let predicate = "pal.payment_agreement_id = @payment_agreement_id"
     let uuid = agreementId |> PaymentAgreementId.value
     let parameters = [ { name = "@payment_agreement_id"; value = UniqueId uuid } ]
@@ -136,7 +138,7 @@ let fetchByPaymentAgreementId
 let fetchByPaymentAgreementIdList
     (context: Context.Context)
     (agreementIds: PaymentAgreementId list)
-    : Result<PaymentAgreementLink list, AppError> =
+    : Result<PaymentAgreementLink list, IAppError> =
     if agreementIds |> List.isEmpty then Error CashflowPaymentAgreementIdListCannotBeEmpty else
     let namesAndParameters =
         List.zip [ 1 .. agreementIds.Length ] agreementIds
@@ -153,7 +155,7 @@ let fetchByPaymentAgreementIdList
 let fetchByStageEntryLineId
     (context: Context.Context)
     (lineId: StageEntryLineId)
-    : Result<PaymentAgreementLink list, AppError> =
+    : Result<PaymentAgreementLink list, IAppError> =
     let predicate = "pal.stage_entry_line_id = @stage_entry_line_id"
     let uuid = lineId |> StageEntryLineId.value
     let parameters = [ { name = "@stage_entry_line_id"; value = UniqueId uuid } ]
@@ -162,8 +164,8 @@ let fetchByStageEntryLineId
 let fetchByStageEntryLineIdList
     (context: Context.Context)
     (lineIds: StageEntryLineId list)
-    : Result<PaymentAgreementLink list, AppError> =
-    if lineIds |> List.isEmpty then Error IngestionStageEntryLineIdListCannotBeEmpty else
+    : Result<PaymentAgreementLink list, IAppError> =
+    if lineIds |> List.isEmpty then Error DataIngestionError.IngestionStageEntryLineIdListCannotBeEmpty else
     let namesAndParameters =
         List.zip [ 1 .. lineIds.Length ] lineIds
         |> List.map (fun (ordinal, id) ->
@@ -177,7 +179,7 @@ let fetchByStageEntryLineIdList
 let update
     (context: Context.Context)
     (fieldUpdates: PaymentAgreementLinkFieldUpdates)
-    : Result<PaymentAgreementLink, AppError> =
+    : Result<PaymentAgreementLink, IAppError> =
     let linkId = fieldUpdates.linkIdToUpdate
     let uuid = linkId |> PaymentAgreementLinkId.value
     let baseParams =
@@ -210,7 +212,7 @@ let update
 /// delete removes the row outright. This is the only hard delete in Src/ -- the ledger's indelibility rules do not
 /// reach here, because a link is a belief about which obligation a bank row belongs to, and a wrong belief is removed
 /// rather than voided. The classification diagnostic that produced it survives and is where the trail lives.
-let delete (context: Context.Context) (linkId: PaymentAgreementLinkId) : Result<unit, AppError> =
+let delete (context: Context.Context) (linkId: PaymentAgreementLinkId) : Result<unit, IAppError> =
     let queryStatement = "delete from cashflow.payment_agreement_link where unique_id = @unique_id;"
     let uuid = linkId |> PaymentAgreementLinkId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]

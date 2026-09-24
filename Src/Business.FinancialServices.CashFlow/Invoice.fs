@@ -1,7 +1,7 @@
 module Business.FinancialServices.CashFlow.Invoice
 
 open NodaTime
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.FieldUpdate
 open App.Utility.Result
 open App.DataAccessLayer.ExecuteNonQuery
@@ -9,6 +9,7 @@ open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
 open App.Session
 open Business.FinancialServices
+open Business.FinancialServices.CashFlow.CashFlowError
 open Business.FinancialServices.CashFlow.CashFlowComponent
 
 let invoiceSelectFields = """
@@ -111,7 +112,7 @@ let private blockerToColumns (blocker: Blocker option) : string option * string 
 let private blockerFromColumns
     (blockerState: string option)
     (blockerNote: string option)
-    : Result<Blocker option, AppError> =
+    : Result<Blocker option, IAppError> =
     match blockerState with
     | None ->
         match blockerNote with
@@ -138,7 +139,7 @@ let private blockerFromColumns
 let persist
     (context: Context.Context)
     (invoice: Invoice)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         let queryStatement =
             """
@@ -257,7 +258,7 @@ let query
     (orderBy: string option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<Invoice list, AppError> =
+    : Result<Invoice list, IAppError> =
     let from = "cashflow.invoice inv"
     let queryStatement = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
     executeReaderQuery
@@ -274,10 +275,10 @@ let private fetchAny
     (limit: int option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<Invoice list, AppError> =
+    : Result<Invoice list, IAppError> =
     query context None invoiceSelectFields None predicate limit None None parameters expectedRows
 
-let fetchById (context: Context.Context) (invoiceId: InvoiceId) : Result<Invoice, AppError> =
+let fetchById (context: Context.Context) (invoiceId: InvoiceId) : Result<Invoice, IAppError> =
     let predicate = "inv.unique_id = @unique_id"
     let uuid = invoiceId |> InvoiceId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
@@ -286,7 +287,7 @@ let fetchById (context: Context.Context) (invoiceId: InvoiceId) : Result<Invoice
 let fetchByIdList
     (context: Context.Context)
     (invoiceIds: InvoiceId list)
-    : Result<Invoice list, AppError> =
+    : Result<Invoice list, IAppError> =
     if invoiceIds |> List.isEmpty then Error CashflowInvoiceIdListCannotBeEmpty else
     let namesAndParameters =
         List.zip [ 1 .. invoiceIds.Length ] invoiceIds
@@ -301,7 +302,7 @@ let fetchByIdList
 let fetchByInstanceIdList
     (context: Context.Context)
     (instanceIds: InstanceId list)
-    : Result<Invoice list, AppError> =
+    : Result<Invoice list, IAppError> =
     if instanceIds |> List.isEmpty then Error CashflowInstanceIdListCannotBeEmpty else
     let namesAndParameters =
         List.zip [ 1 .. instanceIds.Length ] instanceIds
@@ -316,7 +317,7 @@ let fetchByInstanceIdList
 let update
     (context: Context.Context)
     (fieldUpdates: InvoiceFieldUpdates)
-    : Result<Invoice, AppError> =
+    : Result<Invoice, IAppError> =
     let invoiceId = fieldUpdates.invoiceIdToUpdate
     let uuid = invoiceId |> InvoiceId.value
     let baseParams =

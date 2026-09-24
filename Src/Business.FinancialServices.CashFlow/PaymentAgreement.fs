@@ -2,15 +2,16 @@ module Business.FinancialServices.CashFlow.PaymentAgreement
 
 open NodaTime
 open App.Utility
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
 open App.Session
 open Business.FinancialServices
-open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.CashFlow.CashFlowError
+open Business.FinancialServices.CashFlow.CashFlowComponent
 
 type PaymentAgreement = private {
     paymentAgreementId: PaymentAgreementId
@@ -96,7 +97,7 @@ let cashAccountIdForFlowDirection (direction: FlowDirection) (paymentAgreement: 
 let persist
     (context: Context.Context)
     (paymentAgreement: PaymentAgreement)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         let queryStatement =
             """
@@ -193,7 +194,7 @@ let query
     (orderBy: string option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<PaymentAgreement list, AppError> =
+    : Result<PaymentAgreement list, IAppError> =
     let from = "cashflow.payment_agreement pa"
     let queryStatement = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
     executeReaderQuery
@@ -210,14 +211,14 @@ let private fetchAny
     (limit: int option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<PaymentAgreement list, AppError> =
+    : Result<PaymentAgreement list, IAppError> =
     let select = """
         pa.unique_id, pa.master_agreement_id, pa.payment_agreement_name, pa.debit_account, pa.credit_account,
         pa.expected_amount, pa.days_due_after_invoice, pa.memo, pa.created_at, pa.modified_at
         """
     query context None select None predicate limit None None parameters expectedRows
 
-let fetchById (context: Context.Context) (paymentAgreementID: PaymentAgreementId) : Result<PaymentAgreement, AppError> =
+let fetchById (context: Context.Context) (paymentAgreementID: PaymentAgreementId) : Result<PaymentAgreement, IAppError> =
     let predicate = "pa.unique_id = @unique_id"
     let uuid = paymentAgreementID |> PaymentAgreementId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
@@ -226,7 +227,7 @@ let fetchById (context: Context.Context) (paymentAgreementID: PaymentAgreementId
 let fetchByName
     (context: Context.Context)
     (paymentAgreementName: PaymentAgreementName)
-    : Result<PaymentAgreement, AppError> =
+    : Result<PaymentAgreement, IAppError> =
     let predicate = "pa.payment_agreement_name = @payment_agreement_name"
     let nameStr = paymentAgreementName |> PaymentAgreementName.value
     let parameters = [ { name = "@payment_agreement_name"; value = CharString(nameStr) } ]
@@ -235,7 +236,7 @@ let fetchByName
 let fetchByMasterAgreementIdList
     (context: Context.Context)
     (masterAgreementIds: MasterAgreementId list)
-    : Result<PaymentAgreement list, AppError> =
+    : Result<PaymentAgreement list, IAppError> =
     if masterAgreementIds |> List.isEmpty then Error CashflowMasterAgreementIdListCannotBeEmpty else
     let namesAndParameters =
         List.zip [ 1 .. masterAgreementIds.Length ] masterAgreementIds
@@ -250,7 +251,7 @@ let fetchByMasterAgreementIdList
 let fetchByPaymentAgreementIdList
     (context: Context.Context)
     (paymentAgreementIds: PaymentAgreementId list)
-    : Result<PaymentAgreement list, AppError> =
+    : Result<PaymentAgreement list, IAppError> =
     if paymentAgreementIds |> List.isEmpty then Error CashflowPaymentAgreementIdListCannotBeEmpty else
     let namesAndParameters =
         List.zip [ 1 .. paymentAgreementIds.Length ] paymentAgreementIds
@@ -265,7 +266,7 @@ let fetchByPaymentAgreementIdList
 let update
     (context: Context.Context)
     (fieldUpdates: PaymentAgreementFieldUpdates)
-    : Result<PaymentAgreement, AppError> =
+    : Result<PaymentAgreement, IAppError> =
     let paymentAgreementID = fieldUpdates.paymentAgreementIdToUpdate
     let uuid = paymentAgreementID |> PaymentAgreementId.value
     let baseParams =

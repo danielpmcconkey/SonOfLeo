@@ -2,12 +2,13 @@ module Business.FinancialServices.CashFlow.CashFlowComponent
 
 open System
 open NodaTime
-open App.Utility.AppError
+open App.Utility.IAppError
 open Business.General
 open Business.FinancialServices
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.CashFlow.CashFlowError
 
 type MasterAgreementId = private MasterAgreementId of Guid
 module MasterAgreementId =
@@ -57,7 +58,7 @@ module FlowDirection =
         match str with
         | "Income" -> Ok Income
         | "Outgo" -> Ok Outgo
-        | _ -> Error (CashflowInvalidFlowDirection str)
+        | _ -> error (CashflowInvalidFlowDirection str)
     let toString fd =
         match fd with
         | Income -> "Income"
@@ -85,7 +86,7 @@ module InvoiceState =
         | "InvoiceSent" -> Ok InvoiceSent
         | "InvoiceExpected" -> Ok InvoiceExpected
         | "InvoiceReceived" -> Ok InvoiceReceived
-        | _ -> Error (CashflowInvalidInvoiceState str)
+        | _ -> error (CashflowInvalidInvoiceState str)
     let toString state =
         match state with
         | InvoiceGenerated -> "InvoiceGenerated"
@@ -104,7 +105,7 @@ module PaymentState =
         | "NotYetPaid" -> Ok NotYetPaid
         | "PartiallyPaid" -> Ok PartiallyPaid
         | "FullyPaid" -> Ok FullyPaid
-        | _ -> Error (CashflowInvalidPaymentState str)
+        | _ -> error (CashflowInvalidPaymentState str)
     let toString state =
         match state with
         | NotYetPaid -> "NotYetPaid"
@@ -122,7 +123,7 @@ module PostedState =
         | "NotHandled" -> Ok NotHandled
         | "PartiallyPosted" -> Ok PartiallyPosted
         | "PostedToLedger" -> Ok PostedToLedger
-        | _ -> Error (CashflowInvalidPostedState str)
+        | _ -> error (CashflowInvalidPostedState str)
     let toString state =
         match state with
         | NotHandled -> "NotHandled"
@@ -134,7 +135,7 @@ type BlockerNote = private BlockerNote of string
 module BlockerNote =
     let maxLength = 500
     let value (BlockerNote an) = an
-    let create (raw: string) : Result<BlockerNote, AppError> =
+    let create (raw: string) : Result<BlockerNote, IAppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
             Error(CashflowBlockerNoteIsEmpty raw)
@@ -169,7 +170,7 @@ type AgreementName = private AgreementName of string
 module AgreementName =
     let maxLength = 100
     let value (AgreementName an) = an 
-    let create (raw: string) : Result<AgreementName, AppError> =
+    let create (raw: string) : Result<AgreementName, IAppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
             Error(CashflowAgreementNameIsEmpty raw)
@@ -183,7 +184,7 @@ type PaymentAgreementName = private PaymentAgreementName of string
 module PaymentAgreementName =
     let maxLength = 250
     let value (PaymentAgreementName pan) = pan
-    let create (raw: string) : Result<PaymentAgreementName, AppError> =
+    let create (raw: string) : Result<PaymentAgreementName, IAppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
             Error(CashflowPaymentAgreementNameIsEmpty raw)
@@ -197,7 +198,7 @@ type Counterparty = private Counterparty of string
 module Counterparty =
     let maxLength = 250
     let value (Counterparty cp) = cp
-    let create (raw: string) : Result<Counterparty, AppError> =
+    let create (raw: string) : Result<Counterparty, IAppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
             Error(CashflowCounterpartyIsEmpty raw)
@@ -211,7 +212,7 @@ type ExternalInvoiceId = private ExternalInvoiceId of string
 module ExternalInvoiceId =
     let maxLength = 100
     let value (ExternalInvoiceId eid) = eid
-    let create (raw: string) : Result<ExternalInvoiceId, AppError> =
+    let create (raw: string) : Result<ExternalInvoiceId, IAppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
             Error(CashflowExternalInvoiceIdIsEmpty raw)
@@ -225,7 +226,7 @@ type AgreementMemo = private AgreementMemo of string
 module AgreementMemo =
     let maxLength = 2000
     let value (AgreementMemo cp) = cp
-    let create (raw: string) : Result<AgreementMemo, AppError> =
+    let create (raw: string) : Result<AgreementMemo, IAppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
             Error(CashflowAgreementMemoIsEmpty raw)
@@ -239,7 +240,7 @@ type PaymentAgreementMemo = private PaymentAgreementMemo of string
 module PaymentAgreementMemo =
     let maxLength = 2000
     let value (PaymentAgreementMemo cp) = cp
-    let create (raw: string) : Result<PaymentAgreementMemo, AppError> =
+    let create (raw: string) : Result<PaymentAgreementMemo, IAppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
             Error(CashflowPaymentAgreementMemoIsEmpty raw)
@@ -253,7 +254,7 @@ type InvoiceMemo = private InvoiceMemo of string
 module InvoiceMemo =
     let maxLength = 2000
     let value (InvoiceMemo cp) = cp
-    let create (raw: string) : Result<InvoiceMemo, AppError> =
+    let create (raw: string) : Result<InvoiceMemo, IAppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
             Error(CashflowInvoiceMemoIsEmpty raw)
@@ -267,7 +268,7 @@ type PaymentMemo = private PaymentMemo of string
 module PaymentMemo =
     let maxLength = 2000
     let value (PaymentMemo cp) = cp
-    let create (raw: string) : Result<PaymentMemo, AppError> =
+    let create (raw: string) : Result<PaymentMemo, IAppError> =
         let trimmed = raw.Trim()
         if String.IsNullOrWhiteSpace trimmed then
             Error(CashflowPaymentMemoIsEmpty raw)
@@ -286,7 +287,7 @@ module ProjectionHorizonInDays =
     let min = 1
     let max = 365
     let value (h: ProjectionHorizonInDays) : int = h.days
-    let create (raw: int) : Result<ProjectionHorizonInDays, AppError> =
+    let create (raw: int) : Result<ProjectionHorizonInDays, IAppError> =
         match raw with
         | x when x > max -> Error(CashflowProjectionHorizonInDaysExceededMax(raw, max))
         | x when x < min -> Error(CashflowProjectionHorizonInDaysBelowMin(raw, min))
@@ -298,7 +299,7 @@ module DaysDueAfterInvoiceDate =
     let min = 0
     let max = 365
     let value (d: DaysDueAfterInvoiceDate) : int = d.daysAfter
-    let create (raw: int) : Result<DaysDueAfterInvoiceDate, AppError> =
+    let create (raw: int) : Result<DaysDueAfterInvoiceDate, IAppError> =
         match raw with
         | x when x > max -> Error(CashflowDaysDueAfterInvoiceDateExceededMax(raw, max))
         | x when x < min -> Error(CashflowDaysDueAfterInvoiceDateBelowMin(raw, min))

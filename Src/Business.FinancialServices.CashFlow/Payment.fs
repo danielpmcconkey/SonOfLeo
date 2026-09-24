@@ -1,18 +1,21 @@
 module Business.FinancialServices.CashFlow.Payment
 
 open System
+open App.DataAccessLayer.DalError
+open Business.FinancialServices.DataIngestion
 open NodaTime
 open App.Utility
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
 open App.Session
 open Business.FinancialServices
-open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.CashFlow.CashFlowError
+open Business.FinancialServices.CashFlow.CashFlowComponent
 
 type Payment = private {
     paymentId: PaymentId
@@ -68,7 +71,7 @@ let create
 /// applyFieldUpdates folds the two independent id updates back into one pointer on the same Posted-wins rule the row
 /// decode uses, so setting a stage line on an already-posted payment leaves the in-hand pointer Posted even though the
 /// write still sets the column.
-let applyFieldUpdates (fieldUpdates: PaymentFieldUpdates) (payment: Payment) : Result<Payment, AppError> =
+let applyFieldUpdates (fieldUpdates: PaymentFieldUpdates) (payment: Payment) : Result<Payment, IAppError> =
     let currentJournalEntryLineId, currentStageEntryLineId =
         match payment.transactionPointer with
         | CashFlowComponent.Posted journalEntryLineId -> Some journalEntryLineId, None
@@ -106,7 +109,7 @@ let private transactionPointerToColumns (transactionPointer: TransactionPointer)
 let persist
     (context: Context.Context)
     (payment: Payment)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         let queryStatement =
             """
@@ -138,7 +141,7 @@ let persist
 let private transactionPointerFromColumns
     (journalEntryLineUuid: Guid option)
     (stageEntryLineUuid: Guid option)
-    : Result<TransactionPointer, AppError> =
+    : Result<TransactionPointer, IAppError> =
     // Note: it is not an illegal state for the database to have both a stage reference and a ledger reference. Both
     // being populated is the normal end state, not corruption. The standard lifecycle is for the data ingestion to load
     // the FI transaction into stage and run the classifier. Then the operator will review obligations to see if any of
@@ -219,7 +222,7 @@ let query
     (orderBy: string option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<Payment list, AppError> =
+    : Result<Payment list, IAppError> =
     let from = "cashflow.payment pmt"
     let queryStatement = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
     executeReaderQuery
@@ -236,7 +239,7 @@ let private fetchAny
     (limit: int option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<Payment list, AppError> =
+    : Result<Payment list, IAppError> =
     let select = """
         pmt.unique_id, pmt.invoice_id, pmt.journal_entry_line_id, pmt.stage_entry_line_id,
         case when jel.unique_id is not null then jel.amount else sel.amount end as amount,
@@ -251,7 +254,7 @@ let private fetchAny
         ]
     query context None select (Some join) predicate limit None None parameters expectedRows
 
-let fetchById (context: Context.Context) (paymentId: PaymentId) : Result<Payment, AppError> =
+let fetchById (context: Context.Context) (paymentId: PaymentId) : Result<Payment, IAppError> =
     let predicate = "pmt.unique_id = @unique_id"
     let uuid = paymentId |> PaymentId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
@@ -260,7 +263,7 @@ let fetchById (context: Context.Context) (paymentId: PaymentId) : Result<Payment
 let fetchByInvoiceIdList
     (context: Context.Context)
     (invoiceIds: InvoiceId list)
-    : Result<Payment list, AppError> =
+    : Result<Payment list, IAppError> =
     if invoiceIds |> List.isEmpty then Error CashflowInvoiceIdListCannotBeEmpty else
     let namesAndParameters =
         List.zip [ 1 .. invoiceIds.Length ] invoiceIds
@@ -272,15 +275,15 @@ let fetchByInvoiceIdList
     let predicate = $"pmt.invoice_id in ({names})"
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-let fetchByStagedTransactionPointer (context: Context.Context) : Result<Payment list, AppError> =
+let fetchByStagedTransactionPointer (context: Context.Context) : Result<Payment list, IAppError> =
     let predicate = "pmt.journal_entry_line_id is null"
     fetchAny context (Some predicate) None [] AnyQuantityIsAcceptable
 
 let fetchByStageEntryLineIdList
     (context: Context.Context)
     (lineIds: StageEntryLineId list)
-    : Result<Payment list, AppError> =
-    if lineIds |> List.isEmpty then Error IngestionStageEntryLineIdListCannotBeEmpty else
+    : Result<Payment list, IAppError> =
+    if lineIds |> List.isEmpty then Error DataIngestionError.IngestionStageEntryLineIdListCannotBeEmpty else
     let namesAndParameters =
         List.zip [ 1 .. lineIds.Length ] lineIds
         |> List.map (fun (ordinal, id) ->
@@ -296,7 +299,7 @@ let fetchByStageEntryLineIdList
 let fetchStageEntryLineIdById
     (context: Context.Context)
     (paymentId: PaymentId)
-    : Result<StageEntryLineId option, AppError> =
+    : Result<StageEntryLineId option, IAppError> =
     let mapRawForDbRead (row: RowReader) =
         (row |> RowReader.getUuidOption "stage_entry_line_id"), ()
     let reconstitute raw =
@@ -311,13 +314,15 @@ let fetchStageEntryLineIdById
             ExactlyOne
     with
     | Ok rows -> Ok(rows |> List.head |> Option.map StageEntryLineId.fromGuid)
-    | Error(DalResultantRowsDidntMatchExpectation(_, 0)) -> Error(CashflowPaymentIdDoesntExist uuid)
-    | Error e -> Error e
+    | Error e ->
+        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+        then Error (CashflowPaymentIdDoesntExist uuid)
+        else Error e
 
 let update
     (context: Context.Context)
     (fieldUpdates: PaymentFieldUpdates)
-    : Result<Payment, AppError> =
+    : Result<Payment, IAppError> =
     let paymentId = fieldUpdates.paymentIdToUpdate
     let uuid = paymentId |> PaymentId.value
     let baseParams =
@@ -363,7 +368,7 @@ let update
         return! paymentId |> fetchById context
     }
 
-let delete (context: Context.Context) (paymentId: PaymentId) : Result<unit, AppError> =
+let delete (context: Context.Context) (paymentId: PaymentId) : Result<unit, IAppError> =
     let queryStatement = "delete from cashflow.payment where unique_id = @unique_id;"
     let uuid = paymentId |> PaymentId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]

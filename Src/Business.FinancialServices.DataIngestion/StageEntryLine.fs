@@ -1,6 +1,6 @@
 module Business.FinancialServices.DataIngestion.StageEntryLine
 
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.DataAccessLayer
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
@@ -9,8 +9,10 @@ open App.Utility.FieldUpdate
 open App.Utility.Result
 open App.Session
 open Business.FinancialServices
+open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.DataIngestion.DataIngestionError
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 
 type StageEntryLine = private {
@@ -58,17 +60,19 @@ let create
 let confirmAccountId
     (context: Context.Context)
     (accountIdOption: AccountId option)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     match accountIdOption with
     | None -> Ok ()
     | Some accountCode ->
         let uuid = accountCode |> AccountId.value
         match uuid |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction) with
         | Ok _ -> Ok ()
-        | Error(DalResultantRowsDidntMatchExpectation (_, 0)) -> Error (AccountIdDoesntMatch uuid)
-        | Error e -> Error e
+        | Error e ->
+            if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+            then Error (LedgerError.AccountIdDoesntMatch uuid)
+            else Error e
 
-let persist (context: Context.Context) (stageEntryLine: StageEntryLine) : Result<unit, AppError> =
+let persist (context: Context.Context) (stageEntryLine: StageEntryLine) : Result<unit, IAppError> =
     let queryStatement =
         """
         insert into ingestion.staged_entry_line (
@@ -146,7 +150,7 @@ let private query
     (limit: int option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<StageEntryLine list, AppError> =
+    : Result<StageEntryLine list, IAppError> =
     let select =
         """
         sel.unique_id, sel.entry_id, sel.amount, sel.line_type, sel.account_id, sel.memo,
@@ -162,7 +166,7 @@ let private query
         reconstitute
         expectedRows
 
-let fetchById (context: Context.Context) (lineId: StageEntryLineId) : Result<StageEntryLine, AppError> =
+let fetchById (context: Context.Context) (lineId: StageEntryLineId) : Result<StageEntryLine, IAppError> =
     let predicate = "sel.unique_id = @unique_id"
     let uuid = lineId |> StageEntryLineId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
@@ -171,7 +175,7 @@ let fetchById (context: Context.Context) (lineId: StageEntryLineId) : Result<Sta
 let fetchByIdList
     (context: Context.Context)
     (lineIds: StageEntryLineId list)
-    : Result<StageEntryLine list, AppError> =
+    : Result<StageEntryLine list, IAppError> =
     if lineIds |> List.isEmpty then Error IngestionStageEntryLineIdListCannotBeEmpty else
     let ordinals = [ 1 .. lineIds.Length ]
     let zipped = List.zip ordinals lineIds
@@ -187,7 +191,7 @@ let fetchByIdList
     let predicate = $"sel.unique_id in ({names})"
     query context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-let fetchByHeaderId (context: Context.Context) (lineId: StageEntryHeaderId) : Result<StageEntryLine list, AppError> =
+let fetchByHeaderId (context: Context.Context) (lineId: StageEntryHeaderId) : Result<StageEntryLine list, IAppError> =
     let predicate = "sel.entry_id = @unique_id"
     let accountIdGuid = lineId |> StageEntryHeaderId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId accountIdGuid } ]
@@ -196,7 +200,7 @@ let fetchByHeaderId (context: Context.Context) (lineId: StageEntryHeaderId) : Re
 let fetchByHeaderIdList
     (context: Context.Context)
     (stageEntryHeaderIds: StageEntryHeaderId list)
-    : Result<StageEntryLine list, AppError> =
+    : Result<StageEntryLine list, IAppError> =
     if stageEntryHeaderIds |> List.isEmpty then Error IngestionStageHeaderIdListCannotBeEmpty else
     let ordinals = [ 1 .. stageEntryHeaderIds.Length ]
     let zipped = List.zip ordinals stageEntryHeaderIds
@@ -215,7 +219,7 @@ let fetchByHeaderIdList
 let update
     (context: Context.Context)
     (fieldUpdates: StageEntryLineFieldUpdates)
-    : Result<StageEntryLine, AppError> =
+    : Result<StageEntryLine, IAppError> =
     result {
         let stageEntryLineId = fieldUpdates.lineIdToUpdate
         let amountUpdate = fieldUpdates.amountUpdate
@@ -277,7 +281,7 @@ let updateAccountId
     (context: Context.Context)
     (accountIdUpdate: FieldUpdate<AccountId option>)
     (stageEntryLineId : StageEntryLineId)
-    : Result<StageEntryLine, AppError> =
+    : Result<StageEntryLine, IAppError> =
     let fieldUpdates = {
         lineIdToUpdate = stageEntryLineId
         amountUpdate = NoChange
@@ -291,7 +295,7 @@ let updateJournalEntryLineId
     (context: Context.Context)
     (journalEntryLineIdUpdate: FieldUpdate<JournalEntryLineId option>)
     (stageEntryLineId : StageEntryLineId)
-    : Result<StageEntryLine, AppError> =
+    : Result<StageEntryLine, IAppError> =
     let fieldUpdates = {
         lineIdToUpdate = stageEntryLineId
         amountUpdate = NoChange

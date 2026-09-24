@@ -1,12 +1,13 @@
 module Business.FinancialServices.Classification.ClassificationComponent
 
 open System
+open App.Utility.IAppError
 open Business.FinancialServices
-open Business.FinancialServices.CashFlow
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open App.Utility.AppError
+open Business.FinancialServices.DataIngestion.DataIngestionError
 open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.CashFlow
 
 type ClassificationRuleId = private ClassificationRuleId of Guid
 
@@ -64,7 +65,7 @@ type ClassificationRuleName = private ClassificationRuleName of string
 module ClassificationRuleName =
     let maxLength = 250
     let value (ClassificationRuleName reference) = reference 
-    let create (raw: string) : Result<ClassificationRuleName, AppError> =
+    let create (raw: string) : Result<ClassificationRuleName, IAppError> =
         let trimmed = raw.Trim()
         if trimmed = String.Empty then
             Error(IngestionClassificationRuleNameIsEmpty raw)
@@ -78,7 +79,7 @@ type StringSearchPattern = private StringSearchPattern of string
 module StringSearchPattern =
     let maxLength = 500
     let value (StringSearchPattern reference) = reference 
-    let create (raw: string) : Result<StringSearchPattern, AppError> =
+    let create (raw: string) : Result<StringSearchPattern, IAppError> =
         // Note, every other string-to-type create function trims the inbound string. Here, we should not. We use
         // StringSearchPattern in a regex string comparison and white space is probably meaningful in that context.
         if raw = String.Empty then

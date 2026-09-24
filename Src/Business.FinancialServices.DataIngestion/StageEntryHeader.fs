@@ -1,15 +1,16 @@
 module Business.FinancialServices.DataIngestion.StageEntryHeader
 
 open NodaTime
+open App.Utility.IAppError
+open App.Utility.FieldUpdate
+open App.Utility.Result
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
-open App.Utility.AppError
-open App.Utility.FieldUpdate
-open App.Utility.Result
 open App.Session
 open Business.FinancialServices.DataIngestion.IngestionSource
 open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.DataIngestion.DataIngestionError
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 
 type StageEntryHeader =
@@ -67,7 +68,7 @@ let create
 let persistStatusTransition
     (context: Context.Context)
     (stageEntryStatusTransition: StageEntryStatusTransition.StageEntryStatusTransition)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let queryStatement =
         """
         insert into ingestion.staged_entry_audit(
@@ -117,7 +118,7 @@ let updateHeaderStatus
     (newStatus: StagedEntryStatus)
     (mechanism: StageStatusChangeMechanism)
     (headerId: StageEntryHeaderId)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         let! statusTransitions = headerId |> StageEntryStatusTransition.fetchByHeaderId context
         let fromStatus =
@@ -145,7 +146,7 @@ let persist
     (initialStatus: StagedEntryStatus)
     (statusChangeMechanism: StageStatusChangeMechanism)
     (stageEntryHeader: StageEntryHeader)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         let queryStatement =
             """
@@ -239,7 +240,7 @@ let query
     (orderBy: string option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<StageEntryHeader list, AppError> =
+    : Result<StageEntryHeader list, IAppError> =
     let from = "ingestion.staged_entry se"
     let queryStatement = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
     executeReaderQuery
@@ -256,7 +257,7 @@ let private fetchAny
     (limit: int option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-      : Result<StageEntryHeader list, AppError> =    
+      : Result<StageEntryHeader list, IAppError> =    
     let latestStatusCtes = StageEntryStatusTransition.formLatestStatusCte
     let select = """
         se.unique_id, se.entry_date, se.description, se.source_id, se.fi_reference, se.source_file,
@@ -270,7 +271,7 @@ let private fetchAny
         ]
     query context (Some latestStatusCtes) select (Some joinList) predicate limit None None parameters expectedRows
 
-let fetchById (context: Context.Context) (headerId: StageEntryHeaderId) : Result<StageEntryHeader, AppError> =
+let fetchById (context: Context.Context) (headerId: StageEntryHeaderId) : Result<StageEntryHeader, IAppError> =
     let predicate = "se.unique_id = @unique_id"
     let uuid = headerId |> StageEntryHeaderId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
@@ -279,7 +280,7 @@ let fetchById (context: Context.Context) (headerId: StageEntryHeaderId) : Result
 let fetchByIdList
     (context: Context.Context)
     (headerIds: StageEntryHeaderId list)
-    : Result<StageEntryHeader list, AppError> =
+    : Result<StageEntryHeader list, IAppError> =
     if headerIds |> List.isEmpty then Error IngestionStageHeaderIdListCannotBeEmpty else
     let ordinals = [ 1 .. headerIds.Length ]
     let zipped = List.zip ordinals headerIds
@@ -295,7 +296,7 @@ let fetchByIdList
     let predicate = $"se.unique_id in ({names})"
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-let fetchByStatus (context: Context.Context) (status: StagedEntryStatus) : Result<StageEntryHeader list, AppError> =
+let fetchByStatus (context: Context.Context) (status: StagedEntryStatus) : Result<StageEntryHeader list, IAppError> =
     let predicate = "latest_statuses.to_status = @status"
     let statusStr = status |> StagedEntryStatus.toString
     let parameters = [ { name = "@status"; value = CharString statusStr } ]
@@ -305,7 +306,7 @@ let fetchBySourceFile
     (context: Context.Context)
     (statusFilter: StagedEntryStatus list option)
     (sourceFile: SourceFile)
-    : Result<StageEntryHeader list, AppError> =
+    : Result<StageEntryHeader list, IAppError> =
     let statusListClause =
         match statusFilter with
         | None -> ""
@@ -323,7 +324,7 @@ let fetchBySourceFile
     let parameters = [ { name = "@source_file"; value = CharString fileStr } ]
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, AppError> =
+let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, IAppError> =
     let latestStatusCtes = StageEntryStatusTransition.formLatestStatusCte
     let earliestStatusCtes = StageEntryStatusTransition.formEarliestStatusCte
     let dedupCtes =
@@ -381,7 +382,7 @@ let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, A
 let update
     (context: Context.Context)
     (fieldUpdates: StageEntryHeaderFieldUpdates)
-    : Result<StageEntryHeader, AppError> =
+    : Result<StageEntryHeader, IAppError> =
     let headerId = fieldUpdates.headerIdToUpdate
     let sourceFileUpdate = fieldUpdates.sourceFileUpdate
     let entryDateUpdate = fieldUpdates.entryDateUpdate

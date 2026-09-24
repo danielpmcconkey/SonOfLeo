@@ -1,13 +1,15 @@
 module Business.FinancialServices.DataIngestion.IngestionSource
 
 open NodaTime
+open App.Utility.IAppError
+open App.Utility.Result
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
-open App.Utility.AppError
-open App.Utility.Result
 open App.Session
 open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.DataIngestion.DataIngestionError
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 
 type IngestionSource =
@@ -35,7 +37,7 @@ let create
         modifiedAt = modifiedAt
     }
     
-let persist (context: Context.Context) (ingestionSource: IngestionSource) : Result<unit, AppError> =
+let persist (context: Context.Context) (ingestionSource: IngestionSource) : Result<unit, IAppError> =
     let queryStatement =
         """
         insert into ingestion.source(
@@ -85,7 +87,7 @@ let private query
     (limit: int option)
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
-    : Result<IngestionSource list, AppError> =
+    : Result<IngestionSource list, IAppError> =
     let select =
         """
         src.unique_id, src.source_name, src.created_at, src.modified_at
@@ -100,13 +102,15 @@ let private query
         reconstitute
         expectedRows
 
-let fetchByName (context: Context.Context) (name: JournalRefFinancialInstitution) : Result<IngestionSource, AppError> =
+let fetchByName (context: Context.Context) (name: JournalRefFinancialInstitution) : Result<IngestionSource, IAppError> =
     let predicate = "src.source_name = @source_name"
     let nameStr = name |> JournalRefFinancialInstitution.value
     let parameters = [ { name = "@source_name"; value = CharString(nameStr) } ]
     match query context (Some predicate) None parameters ExactlyOne with
     | Ok x -> x |> List.head |> Ok
-    | Error(DalResultantRowsDidntMatchExpectation (_, 0)) -> Error (IngestionSourceNameNotFound nameStr)
-    | Error e -> Error e
+    | Error e ->
+        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+        then Error (IngestionSourceNameNotFound nameStr)
+        else Error e
 
         
