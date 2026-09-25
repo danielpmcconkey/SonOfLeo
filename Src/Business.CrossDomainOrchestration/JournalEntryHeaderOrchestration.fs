@@ -1,12 +1,13 @@
-module Business.FinancialServices.JournalEntryHeaderOrchestration
+module Business.CrossDomainOrchestration.JournalEntryHeaderOrchestration
 
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Result
 open App.Session
 open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Ledger.JournalEntryComponent
 
-let private confirmEntryDateIsInOpenFiscalPeriod (context: Context.Context) (entryDate: EntryDate) : Result<unit, AppError> =
+let private confirmEntryDateIsInOpenFiscalPeriod (context: Context.Context) (entryDate: EntryDate) : Result<unit, IAppError> =
     result {
         let! fiscalPeriod = entryDate |> EntryDate.fiscalPeriodId |> FiscalPeriod.fetchById context
         match fiscalPeriod |> FiscalPeriod.isOpen with
@@ -19,7 +20,7 @@ let constructNewAndPersist
     (description: JournalEntryDescription)
     (source: JournalEntrySource option)
     (entryDate: EntryDate)
-    : Result<JournalEntryHeader.JournalEntryHeader, AppError> =
+    : Result<JournalEntryHeader.JournalEntryHeader, IAppError> =
     let journalEntryId = JournalEntryHeaderId.create()
     let now = context |> Context.getInitiationInstant
     let createdAt = now

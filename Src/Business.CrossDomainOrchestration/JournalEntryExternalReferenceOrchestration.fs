@@ -1,30 +1,32 @@
-module Business.FinancialServices.JournalEntryExternalReferenceOrchestration
+module Business.CrossDomainOrchestration.JournalEntryExternalReferenceOrchestration
 
-open App.Utility.AppError
+open App.Utility
+open App.Utility.IAppError
+open App.Utility.Result
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteNonQuery
-open App.Utility
-open App.Utility.Result
 open App.Session
-open Business.FinancialServices.Ledger.JournalEntryExternalReference
 open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.LedgerError
+open Business.FinancialServices.Ledger.JournalEntryExternalReference
 open Business.FinancialServices.Ledger.JournalEntryComponent
 
-let private confirmJournalEntryHeader (context: Context.Context) (journalEntryHeaderId: JournalEntryHeaderId) : Result<unit, AppError> =
+let private confirmJournalEntryHeader (context: Context.Context) (journalEntryHeaderId: JournalEntryHeaderId) : Result<unit, IAppError> =
     match journalEntryHeaderId |> JournalEntryHeader.fetchById context with
     | Ok _ -> Ok ()
-    | Error (DalResultantRowsDidntMatchExpectation(expected, actual)) ->
-        if actual = 0 then Error(JournalEntryHeaderIdDoesntExist (journalEntryHeaderId |> JournalEntryHeaderId.value))
-        else Error (DalResultantRowsDidntMatchExpectation(expected, actual))
-    | Error e -> Error e
+    | Error e ->
+        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+        then Error (JournalEntryHeaderIdDoesntExist (journalEntryHeaderId |> JournalEntryHeaderId.value))
+        else Error e
 
 let constructNewAndPersist
     (context: Context.Context)
     (journalEntryHeaderId: JournalEntryHeaderId)
     (financialInstitution: JournalRefFinancialInstitution)
     (referenceText: JournalExternalReferenceText)
-    : Result<JournalEntryExternalReference, AppError> =
+    : Result<JournalEntryExternalReference, IAppError> =
     let journalEntryExternalReferenceId = JournalEntryExternalReferenceId.create()
     let now = context |> Context.getInitiationInstant
     let createdAt = now
@@ -48,7 +50,7 @@ let updateFiAndReferenceText
     (fiUpdate: FieldUpdate.FieldUpdate<JournalRefFinancialInstitution>)
     (referenceUpdate: FieldUpdate.FieldUpdate<JournalExternalReferenceText>)
     (journalEntryExternalReferenceId: JournalEntryExternalReferenceId)
-    : Result<JournalEntryExternalReference, AppError> =
+    : Result<JournalEntryExternalReference, IAppError> =
     let uuid = journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
     let baseParams =
         [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }

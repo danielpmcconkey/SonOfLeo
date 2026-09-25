@@ -1,14 +1,14 @@
-module Business.FinancialServices.FiscalPeriodCreation
+module Business.CrossDomainOrchestration.FiscalPeriodCreation
 
 open System
 open NodaTime
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Result
 open App.Session
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 
-let constructNewAndPersist (context: Context.Context) (periodKey: FiscalPeriodKey) : Result<FiscalPeriod.FiscalPeriod, AppError> =
+let constructNewAndPersist (context: Context.Context) (periodKey: FiscalPeriodKey) : Result<FiscalPeriod.FiscalPeriod, IAppError> =
     let fiscalPeriodId = FiscalPeriodId.create()
     let keyString = periodKey |> FiscalPeriodKey.value
     let year = keyString[0..3]

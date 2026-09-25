@@ -1,12 +1,12 @@
-module Business.FinancialServices.TrialBalanceReport
+module Business.CrossDomainOrchestration.TrialBalanceReport
 
+open NodaTime
+open App.Utility.IAppError
+open App.Utility.Result
+open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
-open NodaTime
-open App.Utility.AppError
-open App.Utility.Result
-open App.Session
 
 type TrialBalanceRowNested =
     { accountCode: AccountCode
@@ -30,7 +30,7 @@ let rec private crawlAndCompile
     (allAccounts: Account.Account list)
     (allAccountBalances: AccountBalance.AccountBalance list)
     (thisGeneration: int)
-    : Result<TrialBalanceRowNested, AppError> =
+    : Result<TrialBalanceRowNested, IAppError> =
     let balanceRowForThisAccount = allAccountBalances |> List.filter(fun ab -> ab.accountId = (accountToCrawl |> Account.accountId)) |> List.head
     let creditsForThisAccount = balanceRowForThisAccount.totalCredits
     let debitsForThisAccount = balanceRowForThisAccount.totalDebits
@@ -96,7 +96,7 @@ let rec private flattenNestedTrialBalance
 let fetchTrialBalanceData
     (context: Context.Context)
     (asOf: LocalDate)
-    : Result<TrialBalanceRowFlattened list, AppError> =
+    : Result<TrialBalanceRowFlattened list, IAppError> =
     result {
         let! accountBalances = AccountBalance.fetchByAccountIdList context None (Some asOf)
         let! allAccounts = Account.fetchAll context false

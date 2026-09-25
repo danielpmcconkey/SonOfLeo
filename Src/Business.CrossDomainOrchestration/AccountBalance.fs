@@ -1,14 +1,16 @@
-module Business.FinancialServices.AccountBalance
+module Business.CrossDomainOrchestration.AccountBalance
 
 open System
-open Business.FinancialServices.Ledger.AccountComponent
-open Business.FinancialServices.Ledger.JournalEntryComponent
 open NodaTime
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.Utility.Result
 open App.Session
+open Business.FinancialServices
+open Business.FinancialServices.Ledger.LedgerError
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 
 
 type AccountBalance = {
@@ -26,7 +28,7 @@ let private mapRawForDbRead (row: RowReader) : Guid * string * string * decimal 
     (row |> RowReader.getString "account_type"),
     (row |> RowReader.getNumeric "sum_at_type")
 
-let private reconstitute (raw: Guid * string * string * decimal) : Result<AccountBalanceComponent, AppError> =
+let private reconstitute (raw: Guid * string * string * decimal) : Result<AccountBalanceComponent, IAppError> =
     let accountIdGuid, lineType, accountType, sumAtType = raw
     result {
         let accountId = accountIdGuid |> AccountId.fromGuid
@@ -40,7 +42,7 @@ let fetchByAccountIdList
     (context: Context.Context)
     (accountIdFilter: AccountId list option)
     (asOf: LocalDate option)
-    : Result<AccountBalance list, AppError> =
+    : Result<AccountBalance list, IAppError> =
     if accountIdFilter = Some [] then Error(AccountBalanceFetchInvalidArguments) else
     let asOfParam, asOfJoin =
         match asOf with

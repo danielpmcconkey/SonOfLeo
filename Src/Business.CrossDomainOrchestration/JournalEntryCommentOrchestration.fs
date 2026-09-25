@@ -1,30 +1,31 @@
-module Business.FinancialServices.JournalEntryCommentOrchestration
+module Business.CrossDomainOrchestration.JournalEntryCommentOrchestration
 
-open App.Utility.AppError
+open App.Utility
+open App.Utility.IAppError
+open App.Utility.Result
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteNonQuery
-open App.Utility
-open App.Utility.Result
 open App.Session
 open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.Ledger.JournalEntryComment
 
 
-let private confirmJournalEntryHeader (context: Context.Context) (journalEntryId: JournalEntryHeaderId) : Result<unit, AppError> =
+let private confirmJournalEntryHeader (context: Context.Context) (journalEntryId: JournalEntryHeaderId) : Result<unit, IAppError> =
     match journalEntryId |> JournalEntryHeader.fetchById context with
     | Ok _ -> Ok ()
-    | Error (DalResultantRowsDidntMatchExpectation(expected, actual)) ->
-        if actual = 0
+    | Error e ->
+        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
         then Error (JournalEntryHeaderIdDoesntExist (journalEntryId |> JournalEntryHeaderId.value))
-        else Error (DalResultantRowsDidntMatchExpectation(expected, actual))
-    | Error e -> Error e
+        else Error e
 
 let private confirmPrimaryAndSecondaryRelationship
     (primaryJournalEntryId: JournalEntryHeaderId)
     (secondaryJournalEntryId: JournalEntryHeaderId option)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     match secondaryJournalEntryId with
     | None -> Ok()
     | Some x ->
@@ -40,7 +41,7 @@ let constructNewAndPersist
     (primaryJournalEntryId: JournalEntryHeaderId)
     (secondaryJournalEntryId: JournalEntryHeaderId option)
     (commentText: CommentText)
-    : Result<JournalEntryComment, AppError> =
+    : Result<JournalEntryComment, IAppError> =
     let journalEntryCommentId = JournalEntryCommentId.create()
     let now = context |> Context.getInitiationInstant
     let createdAt = now
@@ -48,12 +49,18 @@ let constructNewAndPersist
     result {
         do! match primaryJournalEntryId |> confirmJournalEntryHeader context with
             | Ok _ -> Ok()
-            | Error (JournalEntryHeaderIdDoesntExist uuid) -> Error (JournalEntryCommentPrimaryJeHeaderIdNotFound uuid)
-            | Error e -> Error e
+            | Error e ->
+                if e.DomainName = nameof LedgerError && e.CaseName = nameof JournalEntryHeaderIdDoesntExist
+                then Error (JournalEntryCommentPrimaryJeHeaderIdNotFound (primaryJournalEntryId |> JournalEntryHeaderId.value))
+                else Error e
         do! match secondaryJournalEntryId |> convertOptionToDesiredTypeWithFallibleConverter (confirmJournalEntryHeader context) with
             | Ok _ -> Ok()
-            | Error (JournalEntryHeaderIdDoesntExist uuid) -> Error (JournalEntryCommentSecondaryJeHeaderIdNotFound uuid)
-            | Error e -> Error e
+            | Error e ->
+                if e.DomainName = nameof LedgerError && e.CaseName = nameof JournalEntryHeaderIdDoesntExist
+                then
+                    let uuid = secondaryJournalEntryId |> Option.get |> JournalEntryHeaderId.value
+                    Error (JournalEntryCommentPrimaryJeHeaderIdNotFound uuid)
+                else Error e
         do! confirmPrimaryAndSecondaryRelationship primaryJournalEntryId secondaryJournalEntryId
         let journalEntryComment =
             create
@@ -72,7 +79,7 @@ let updateComment
     (journalEntryCommentId: JournalEntryCommentId)
     (commentUpdate: FieldUpdate.FieldUpdate<CommentText>)
     (secondaryIdUpdate: FieldUpdate.FieldUpdate<JournalEntryHeaderId option>)
-    : Result<JournalEntryComment, AppError> =
+    : Result<JournalEntryComment, IAppError> =
     let commentUuid = journalEntryCommentId |> JournalEntryCommentId.value
     let baseParams =
         [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }

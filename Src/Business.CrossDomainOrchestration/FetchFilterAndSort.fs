@@ -1,17 +1,18 @@
-module Business.FinancialServices.FetchFilters
+module Business.CrossDomainOrchestration.FetchFilters
 
 open NodaTime
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer.QueryParameter
 open App.Session
+open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.Classification.ClassificationComponent
 open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.Classification.ClassificationComponent
 
 type FetchSort =
     | AccountCodeAsc
@@ -118,7 +119,7 @@ type AgreementFilter = {
 let getDateRangeFromTemporalFilter 
     (context: Context.Context)
     (temporalFilter: TemporalFilter)
-    : Result<FilterDateRange, AppError>=
+    : Result<FilterDateRange, IAppError>=
     match temporalFilter with
     | DateRange dr -> Ok dr
     | FiscalPeriodIdentifier fpId ->
@@ -218,7 +219,7 @@ let createTemporalPredicateAndParameters
     (parameterPrefix: string)
     (columnReference: string)
     (temporalFilterOption: TemporalFilter option)
-    : Result<string option * QueryParameter list, AppError> =
+    : Result<string option * QueryParameter list, IAppError> =
     if temporalFilterOption |> Option.isNone then Ok (None, []) else
     result {
         let! filterDateRange =

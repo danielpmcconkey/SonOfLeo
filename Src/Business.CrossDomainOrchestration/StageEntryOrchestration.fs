@@ -1,21 +1,23 @@
-module Business.FinancialServices.StageEntryOrchestration
+module Business.CrossDomainOrchestration.StageEntryOrchestration
 
 open System
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.FieldUpdate
 open App.Utility.Result
 open App.DataAccessLayer
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
 open App.Session
-open Business.FinancialServices.DataIngestion
-open Business.FinancialServices.DataIngestion.BaseStageEntry
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.FetchFilters
-open Business.FinancialServices.JournalEntries
-open Business.FinancialServices.Classification.ClassificationComponent
+open Business.FinancialServices.DataIngestion
+open Business.FinancialServices.DataIngestion.BaseStageEntry
 open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.Classification.ClassificationComponent
+open Business.CrossDomainOrchestration.FetchFilters
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
 
 type StageEntry =
     private {
@@ -42,12 +44,12 @@ let statusTransitions se = se.statusTransitions
 let private sumLinesByType
     (debitOrCredit: JournalEntryLineType)
     (lines: StageEntryLine.StageEntryLine list)
-    : Result<Money.Money, AppError> =
+    : Result<Money.Money, IAppError> =
     lines
     |> List.filter(fun x -> x |> StageEntryLine.lineType = debitOrCredit)
     |> List.map(fun x -> x |> StageEntryLine.amount) |> Money.sumList
     
-let private confirmAmountEquality (lines: StageEntryLine.StageEntryLine list) : Result<unit, AppError> =
+let private confirmAmountEquality (lines: StageEntryLine.StageEntryLine list) : Result<unit, IAppError> =
     result {
         let! totalDebits = lines |> sumLinesByType Debit
         let! totalCredits = lines |> sumLinesByType Credit
@@ -55,21 +57,23 @@ let private confirmAmountEquality (lines: StageEntryLine.StageEntryLine list) : 
             if totalCredits = totalDebits then
                 Ok()
             else
-                Error(IngestionStageEntryDebitCreditMismatch(totalDebits |> Money.amount, totalCredits |> Money.amount))
+                Error(DataIngestionError.IngestionStageEntryDebitCreditMismatch(
+                    totalDebits |> Money.amount, totalCredits |> Money.amount))
     }
 
-let private confirmLineCount (lines: StageEntryLine.StageEntryLine list) : Result<unit, AppError> =
+let private confirmLineCount (lines: StageEntryLine.StageEntryLine list) : Result<unit, IAppError> =
     if lines |> List.length < 2 then
-        Error(IngestionStageEntryInsufficientLines(lines |> List.length))
+        Error(DataIngestionError.IngestionStageEntryInsufficientLines(lines |> List.length))
     else
         Ok()
 
-let private confirmLinesAreAllPositive (lines: StageEntryLine.StageEntryLine list) : Result<unit, AppError> =
+let private confirmLinesAreAllPositive (lines: StageEntryLine.StageEntryLine list) : Result<unit, IAppError> =
     let checkedLines =
         lines
         |> List.map(fun x ->
             let amountDec = x |> StageEntryLine.amount |> Money.amount
-            if amountDec <= 0M then Error(IngestionStageLineNonPositiveAmount(amountDec))
+            if amountDec <= 0M
+            then DataIngestionError.error(DataIngestionError.IngestionStageLineNonPositiveAmount(amountDec))
             else Ok ()
             )
         |> convertListOfResultsToResultsList
@@ -81,7 +85,7 @@ let private confirmLinesAccountCodes
     (context: Context.Context)
     (accountValidationType: AccountValidationType)
     (lines: StageEntryLine.StageEntryLine list)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let checkedLines =
         lines
         |> List.map(fun x ->
@@ -89,16 +93,19 @@ let private confirmLinesAccountCodes
             match accountValidationType, accountIdOption with
             | AllowNone, None -> Ok ()
             | DisallowNone, None ->
-                Error (IngestionNoneAccount (x |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value))
+                DataIngestionError.error (
+                    DataIngestionError.IngestionNoneAccount (x |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value))
             | _, Some accountId ->
                 let accountUuid = accountId |> AccountId.value
                 let lookupResult =
                     accountUuid |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction) // we don't need the code; we just check that the ID is in the DB this way 
                 match lookupResult with
                 | Ok _ -> Ok ()
-                | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                    Error (AccountIdDoesntMatch accountUuid)
-                | Error e -> Error e
+                | Error e ->
+                    if e.DomainName = nameof DalError
+                        && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+                    then LedgerError.error (LedgerError.AccountIdDoesntMatch accountUuid)
+                    else Error e
             )
         |> convertListOfResultsToResultsList
     match checkedLines with
@@ -109,7 +116,7 @@ let private confirmLines
     (context: Context.Context)
     (accountCodeValidationType: AccountValidationType)
     (lines: StageEntryLine.StageEntryLine list)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         do! lines |> confirmLineCount
         do! lines |> confirmAmountEquality
@@ -130,11 +137,14 @@ let private confirmStageEntryCompositeIsValid
     (context: Context.Context)
     (accountCodeValidationType: AccountValidationType)
     (stageEntry: StageEntry)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         do! stageEntry.seLines |> confirmLines context accountCodeValidationType
         do! stageEntry.statusTransitions |> confirmValidTransitions
-        do! if stageEntry.statusTransitions |> List.isEmpty then Error IngestionStatusTransitionList else Ok ()
+        do!
+            if stageEntry.statusTransitions |> List.isEmpty
+            then Error DataIngestionError.IngestionStatusTransitionList
+            else Ok ()
     }
 
 let createStageEntry
@@ -142,7 +152,7 @@ let createStageEntry
     (header: StageEntryHeader.StageEntryHeader)
     (lines: StageEntryLine.StageEntryLine list)
     (transitions: StageEntryStatusTransition.StageEntryStatusTransition list)
-    : Result<StageEntry, AppError> =
+    : Result<StageEntry, IAppError> =
     result {
         let stageEntry = {
             stageEntryHeader = header
@@ -156,7 +166,7 @@ let private constructSetFromRaw
     (context: Context.Context)
     (sourceFile: SourceFile)
     (rawRows: BaseStageRawRow list)
-    : Result<StageEntry list, AppError> =
+    : Result<StageEntry list, IAppError> =
     rawRows
     |> List.groupBy(_.baseStageEntryGroupId)
     |> List.map(fun (baseStageEntryGroupId, rawRowsAtGroupId) ->
@@ -164,7 +174,9 @@ let private constructSetFromRaw
             rawRowsAtGroupId
             |> List.groupBy(fun x -> x.entryDate, x.description, x.fiSource, x.fiReference)
         if distinctHeadersList |> List.length > 1
-        then Error (IngestionBaseStageGroupIdDistinctDataViolation (baseStageEntryGroupId |> BaseStageEntryGroupId.value))
+        then DataIngestionError.error (
+            DataIngestionError.IngestionBaseStageGroupIdDistinctDataViolation (
+                baseStageEntryGroupId |> BaseStageEntryGroupId.value))
         else
             let theOnly = distinctHeadersList |> List.head
             let entryDate, description, fiSource, fiReference = theOnly |> fst
@@ -194,7 +206,7 @@ let private constructSetFromRaw
 let private fetchAllLinesByHeaders
     (context: Context.Context)
     (headers: StageEntryHeader.StageEntryHeader list)
-    : Result<StageEntryLine.StageEntryLine list, AppError> =
+    : Result<StageEntryLine.StageEntryLine list, IAppError> =
     headers
     |> List.map(fun x -> x |> StageEntryHeader.stageEntryHeaderId)
     |> StageEntryLine.fetchByHeaderIdList context
@@ -202,7 +214,7 @@ let private fetchAllLinesByHeaders
 let private fetchAllTransitionsByHeaders
     (context: Context.Context)
     (headers: StageEntryHeader.StageEntryHeader list)
-    : Result<StageEntryStatusTransition.StageEntryStatusTransition list, AppError> =
+    : Result<StageEntryStatusTransition.StageEntryStatusTransition list, IAppError> =
     headers
     |> List.map(fun x -> x |> StageEntryHeader.stageEntryHeaderId)
     |> StageEntryStatusTransition.fetchByHeaderIdList context
@@ -227,7 +239,7 @@ let fetchAllByFile
     (context: Context.Context)
     (statusFilter: StagedEntryStatus list option)
     (sourceFile: SourceFile)
-    : Result<StageEntry list, AppError> =
+    : Result<StageEntry list, IAppError> =
     result {
         let! headers = sourceFile |> StageEntryHeader.fetchBySourceFile context statusFilter
         if headers |> List.isEmpty then return [] else
@@ -238,7 +250,7 @@ let fetchAllByFile
 
 let fetchAllForPosting
     (context: Context.Context)
-    : Result<StageEntry list, AppError> =
+    : Result<StageEntry list, IAppError> =
     result {
         let! headersReviewed = StageEntryHeader.fetchByStatus context StagedEntryStatus.Reviewed
         let! headersClassified = StageEntryHeader.fetchByStatus context StagedEntryStatus.Classified
@@ -256,7 +268,7 @@ let fetchAllForPosting
 let fetchByStatusList
     (context: Context.Context)
     (statuses: StagedEntryStatus list)
-    : Result<StageEntry list, AppError> =
+    : Result<StageEntry list, IAppError> =
     result {
         let! headersByStatus =
             statuses
@@ -273,7 +285,7 @@ let fetchByStatusList
 let fetchByStageEntryHeaderId
     (context: Context.Context)
     (headerId: StageEntryHeaderId)
-    : Result<StageEntry, AppError> =
+    : Result<StageEntry, IAppError> =
     result {
         let! header = headerId |> StageEntryHeader.fetchById context
         let! lines = headerId |> StageEntryLine.fetchByHeaderId context
@@ -286,7 +298,7 @@ let fetchByStageEntryHeaderId
 let createNewSource
     (context: Context.Context)
     (name: JournalRefFinancialInstitution)
-    : Result<IngestionSource.IngestionSource, AppError> =
+    : Result<IngestionSource.IngestionSource, IAppError> =
     result {
         let instant = context |> Context.getInitiationInstant
         let uuid = IngestionSourceId.create()
@@ -296,7 +308,7 @@ let createNewSource
 
 let deduplicateStagedEntries
     (context: Context.Context)
-    : Result<StageEntry list, AppError> =
+    : Result<StageEntry list, IAppError> =
     result {
         let! duplicateHeaders = StageEntryHeader.fetchDuplicates context
         let toStatus = StagedEntryStatus.Duplicate
@@ -313,7 +325,7 @@ let deduplicateStagedEntries
 
 let classifyAccounts
     (context: Context.Context)
-    : Result<AccountClassificationResult, AppError> =
+    : Result<AccountClassificationResult, IAppError> =
     result {
         let rosterStatuses = [ Ingested; StagedEntryStatus.NoMatch; Conflict ]
         let! roster = rosterStatuses |> fetchByStatusList context
@@ -384,7 +396,7 @@ let ingestRawToStage
     (context: Context.Context)
     (sourceFile: SourceFile)
     (rawRows: BaseStageRawRow list)
-    : Result<StageEntry list, AppError> =
+    : Result<StageEntry list, IAppError> =
     result {
         let! entries = rawRows |> constructSetFromRaw context sourceFile
         let! _ =
@@ -406,7 +418,7 @@ let private confirmUpdateLinesMatchUpdateHeader
     (context: Context.Context)
     (headerUpdates: StageEntryHeader.StageEntryHeaderFieldUpdates)
     (lineUpdates: StageEntryLine.StageEntryLineFieldUpdates list)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     lineUpdates
     |> List.map (fun lineUpdate ->
         result {
@@ -420,7 +432,7 @@ let private confirmUpdateLinesMatchUpdateHeader
                 else
                     let headerUuid = headerId |> StageEntryHeaderId.value
                     let lineUuid = lineUpdate.lineIdToUpdate |> StageEntryLineId.value
-                    Error (IngestionUpdateStageEntryLinesMustMatchHeader(headerUuid, lineUuid))
+                    Error (DataIngestionError.IngestionUpdateStageEntryLinesMustMatchHeader(headerUuid, lineUuid))
         } )
     |> convertListOfResultsToResultsList
     |> Result.map ignore
@@ -457,12 +469,12 @@ let updateStageEntry
     (context: Context.Context)
     (headerUpdates: StageEntryHeader.StageEntryHeaderFieldUpdates)
     (lineUpdates: StageEntryLine.StageEntryLineFieldUpdates list)
-    : Result<StageEntry, AppError> =
+    : Result<StageEntry, IAppError> =
     result {
         let shouldUpdateHeader = headerUpdates |> isThereAHeaderUpdate
         let shouldUpdateLines = lineUpdates |> isThereALineUpdate
         do! if shouldUpdateHeader = false && shouldUpdateLines = false
-            then (Error IngestionUpdateStageEntryNoOp)
+            then (Error DataIngestionError.IngestionUpdateStageEntryNoOp)
             else Ok ()
         do! confirmUpdateLinesMatchUpdateHeader context headerUpdates lineUpdates
         do! if shouldUpdateLines
@@ -482,36 +494,36 @@ let updateStageEntry
 
 let private isSameLine
     (stageEntryLine: StageEntryLine.StageEntryLine)
-    (journalEntryLine: Business.FinancialServices.Ledger.JournalEntryLine.JournalEntryLine)
+    (journalEntryLine: JournalEntryLine.JournalEntryLine)
     : bool =
     let stageAccountId = stageEntryLine |> StageEntryLine.accountId
-    let journalAccountId = journalEntryLine |> Business.FinancialServices.Ledger.JournalEntryLine.accountId
+    let journalAccountId = journalEntryLine |> JournalEntryLine.accountId
     let stageAmount = stageEntryLine |> StageEntryLine.amount |> Money.amount
-    let journalAmount = journalEntryLine |> Business.FinancialServices.Ledger.JournalEntryLine.amount |> Money.amount
+    let journalAmount = journalEntryLine |> JournalEntryLine.amount |> Money.amount
     let stageLineType = stageEntryLine |> StageEntryLine.lineType
-    let journalLineType = journalEntryLine |> Business.FinancialServices.Ledger.JournalEntryLine.lineType
+    let journalLineType = journalEntryLine |> JournalEntryLine.lineType
     stageAccountId = Some journalAccountId && stageAmount = journalAmount && stageLineType = journalLineType
 
 /// pairStageLinesToJournalEntryLines matches on account, line type, and amount rather than trusting the two lists to
 /// arrive in the same order. A matched journal entry line leaves the pool, so two identical staged lines still pair
 /// one to one.
 let rec private pairStageLinesToJournalEntryLines
-    (pairs: (StageEntryLine.StageEntryLine * Business.FinancialServices.Ledger.JournalEntryLine.JournalEntryLine) list)
-    (unpairedJournalEntryLines: Business.FinancialServices.Ledger.JournalEntryLine.JournalEntryLine list)
+    (pairs: (StageEntryLine.StageEntryLine * JournalEntryLine.JournalEntryLine) list)
+    (unpairedJournalEntryLines: JournalEntryLine.JournalEntryLine list)
     (stageEntryLines: StageEntryLine.StageEntryLine list)
-    : Result<(StageEntryLine.StageEntryLine * Business.FinancialServices.Ledger.JournalEntryLine.JournalEntryLine) list, AppError> =
+    : Result<(StageEntryLine.StageEntryLine * JournalEntryLine.JournalEntryLine) list, IAppError> =
     match stageEntryLines with
     | [] -> Ok (pairs |> List.rev)
     | stageEntryLine :: remainingStageEntryLines ->
         match unpairedJournalEntryLines |> List.tryFind (isSameLine stageEntryLine) with
         | None ->
             let uuid = stageEntryLine |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value
-            Error (IngestionStageEntryLineNoMatchingJournalEntryLine uuid)
+            Error (DataIngestionError.IngestionStageEntryLineNoMatchingJournalEntryLine uuid)
         | Some journalEntryLine ->
-            let pairedId = journalEntryLine |> Business.FinancialServices.Ledger.JournalEntryLine.journalEntryLineId
+            let pairedId = journalEntryLine |> JournalEntryLine.journalEntryLineId
             let stillUnpaired =
                 unpairedJournalEntryLines
-                |> List.filter (fun x -> (x |> Business.FinancialServices.Ledger.JournalEntryLine.journalEntryLineId) <> pairedId)
+                |> List.filter (fun x -> (x |> JournalEntryLine.journalEntryLineId) <> pairedId)
             remainingStageEntryLines
             |> pairStageLinesToJournalEntryLines ((stageEntryLine, journalEntryLine) :: pairs) stillUnpaired
 
@@ -519,7 +531,7 @@ let postStageEntry
     (context: Context.Context)
     (jeHeaderSource: JournalEntrySource option)
     (stageEntry: StageEntry)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         let description = stageEntry.stageEntryHeader |> StageEntryHeader.description
         let! entryDate =
@@ -536,7 +548,7 @@ let postStageEntry
                 result {
                     let! accountId =
                         match line |> StageEntryLine.accountId with
-                        | None -> Error (IngestionNoneAccount (
+                        | None -> DataIngestionError.error (DataIngestionError.IngestionNoneAccount (
                                 line |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value))
                         | Some x -> Ok x
                     let amount = line |> StageEntryLine.amount
@@ -546,7 +558,7 @@ let postStageEntry
                 } )
             |> convertListOfResultsToResultsList
         let! journalEntry =
-            JournalEntry.constructNewAndPersist
+            JournalEntryOrchestration.constructNewAndPersist
                 context
                 description
                 jeHeaderSource
@@ -563,21 +575,21 @@ let postStageEntry
             fiReferenceUpdate = FieldUpdate.NoChange
             journalEntryHeaderIdUpdate =
                 journalEntry
-                |> JournalEntry.header
-                |> Business.FinancialServices.Ledger.JournalEntryHeader.journalEntryHeaderId
+                |> JournalEntryOrchestration.header
+                |> JournalEntryHeader.journalEntryHeaderId
                 |> Some
                 |> FieldUpdate.SetTo
             statusUpdate = FieldUpdate.NoChange }
         do! headerUpdates |> StageEntryHeader.update context |> Result.map ignore
         let! pairedLines =
             stageEntry.seLines
-            |> pairStageLinesToJournalEntryLines [] (journalEntry |> JournalEntry.jeLines)
+            |> pairStageLinesToJournalEntryLines [] (journalEntry |> JournalEntryOrchestration.jeLines)
         let! _ =
             pairedLines
             |> List.map (fun (stageEntryLine, journalEntryLine) ->
                 let journalEntryLineIdUpdate =
                     journalEntryLine
-                    |> Business.FinancialServices.Ledger.JournalEntryLine.journalEntryLineId
+                    |> JournalEntryLine.journalEntryLineId
                     |> Some
                     |> FieldUpdate.SetTo
                 stageEntryLine
@@ -590,7 +602,7 @@ let postStageEntry
 /// set-based operation, allowing the ledger types and modules to do their jobs in keeping stupid out of the ledger.
 let post
     (context: Context.Context)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         let! stageEntries = fetchAllForPosting context
         if stageEntries |> List.isEmpty then return () else
@@ -626,7 +638,7 @@ let fetchFiltered
     (context: Context.Context)
     (sort: FetchStageEntrySort option)
     (filter: StageEntryFetchFilter)
-    : Result<StageEntry list, AppError> = result {
+    : Result<StageEntry list, IAppError> = result {
     let! filterDateRangeOption =
         filter.temporalFilter
         |> convertOptionToDesiredTypeWithFallibleConverter (getDateRangeFromTemporalFilter context)

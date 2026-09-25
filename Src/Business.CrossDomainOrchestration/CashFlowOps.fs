@@ -1,16 +1,16 @@
-module Business.FinancialServices.CashFlowOps
+module Business.CrossDomainOrchestration.CashFlowOps
 
 open NodaTime
 open App.Utility
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Result
+open App.DataAccessLayer
 open App.Session
 open Business.General
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
-open Business.FinancialServices.CashFlow
-open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.DataIngestion
+open Business.FinancialServices.CashFlow
 open Business.FinancialServices.Classification
 
 let rec private fillInstanceDatesToCutOff
@@ -26,12 +26,12 @@ let rec private fillInstanceDatesToCutOff
 
 let private spawnInstancesFromAgreement
     (context: Context.Context)
-    (daysOut: ProjectionHorizonInDays)
+    (daysOut: CashFlowComponent.ProjectionHorizonInDays)
     (agreement: AgreementOrchestration.Agreement)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         let today = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
-        let cutOffDate = today.PlusDays(daysOut |> ProjectionHorizonInDays.value)
+        let cutOffDate = today.PlusDays(daysOut |> CashFlowComponent.ProjectionHorizonInDays.value)
         let master = agreement |> AgreementOrchestration.masterAgreement
         let agreementId = master |> MasterAgreement.agreementID
         let cadence = master |> MasterAgreement.cadence
@@ -56,14 +56,21 @@ let private spawnInstancesFromAgreement
                     | Some expectedAmount, Some daysDueAfterInvoiceDate ->
                         let paId = paymentAgreement |> PaymentAgreement.paymentAgreementId
                         let extInvoiceId = None
-                        let invoiceDate = {InvoiceDate.localDate = neededDate}
-                        let daysPastInvDateForDueDate = daysDueAfterInvoiceDate |> DaysDueAfterInvoiceDate.value
-                        let dueDate = {DueDate.localDate = neededDate.PlusDays(daysPastInvDateForDueDate)}
-                        let amount = { InvoiceAmount.money = expectedAmount }
+                        let invoiceDate = {CashFlowComponent.InvoiceDate.localDate = neededDate}
+                        let daysPastInvDateForDueDate =
+                            daysDueAfterInvoiceDate |> CashFlowComponent.DaysDueAfterInvoiceDate.value
+                        let dueDate =
+                            {CashFlowComponent.DueDate.localDate = neededDate.PlusDays(daysPastInvDateForDueDate)}
+                        let amount = { CashFlowComponent.InvoiceAmount.money = expectedAmount }
                         let direction = master |> MasterAgreement.direction
-                        let invoiceState = if direction = Income then InvoiceGenerated else InvoiceReceived
-                        let lifecycle = { invoiceState = invoiceState; paymentState = NotYetPaid
-                                          postedState = NotHandled; blocker = None }
+                        let invoiceState =
+                            if direction = CashFlowComponent.Income
+                            then CashFlowComponent.InvoiceGenerated
+                            else CashFlowComponent.InvoiceReceived
+                        let lifecycle = { CashFlowComponent.invoiceState = invoiceState
+                                          CashFlowComponent.paymentState = CashFlowComponent.NotYetPaid
+                                          CashFlowComponent.postedState = CashFlowComponent.NotHandled
+                                          CashFlowComponent.blocker = None }
                         let invMemo = None
                         Some (paId, extInvoiceId, invoiceDate, dueDate, amount, lifecycle, invMemo, [])
                     | _ -> None
@@ -76,9 +83,9 @@ let private spawnInstancesFromAgreement
 
 let private spawnInstancesFromAgreements
     (context: Context.Context)
-    (daysOut: ProjectionHorizonInDays)
+    (daysOut: CashFlowComponent.ProjectionHorizonInDays)
     (agreements: AgreementOrchestration.Agreement list)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     agreements
     |> List.map (spawnInstancesFromAgreement context daysOut)
     |> convertListOfResultsToResultsList
@@ -87,8 +94,8 @@ let private spawnInstancesFromAgreements
 
 let createUpcomingInstances
     (context: Context.Context)
-    (daysOut: ProjectionHorizonInDays)
-    : Result<InstanceOrchestration.InstanceComposite list, AppError> =
+    (daysOut: CashFlowComponent.ProjectionHorizonInDays)
+    : Result<InstanceOrchestration.InstanceComposite list, IAppError> =
     result {
         let! agreements = AgreementOrchestration.fetchAllActiveAgreements context
         do! agreements |> spawnInstancesFromAgreements context daysOut
@@ -107,11 +114,11 @@ let private claimingMatches
 
 let private paymentAgreementsClaimedBy
     (result: ClassificationComponent.ClassificationResult)
-    : PaymentAgreementId list =
+    : CashFlowComponent.PaymentAgreementId list =
     result |> claimingMatches |> List.choose _.paymentAgreementId
 
 let private matchesClaimingPaymentAgreement
-    (paymentAgreementId: PaymentAgreementId)
+    (paymentAgreementId: CashFlowComponent.PaymentAgreementId)
     (result: ClassificationComponent.ClassificationResult)
     : ClassificationComponent.PrioritizedMatch list =
     result
@@ -124,7 +131,7 @@ let private isTiedClaimant (result: ClassificationComponent.ClassificationResult
     | _ -> false
 
 let private decisionFor
-    (paymentAgreementId: PaymentAgreementId)
+    (paymentAgreementId: CashFlowComponent.PaymentAgreementId)
     (outcome: ClassificationComponent.PaymentAgreementDecisionOutcome)
     (result: ClassificationComponent.ClassificationResult)
     : ClassificationComponent.PaymentAgreementDecision =
@@ -142,7 +149,7 @@ let private decisionFor
 /// dangerous case, since paying the same bill twice looks like a fulfilled obligation, so a contested agreement is
 /// handed to the operator whole rather than resolved here.
 let pivotClaimsByPaymentAgreement
-    (claims: (PaymentAgreementId * ClassificationComponent.ClassificationResult) list)
+    (claims: (CashFlowComponent.PaymentAgreementId * ClassificationComponent.ClassificationResult) list)
     : ClassificationComponent.PaymentAgreementClaimCluster list =
     claims
     |> List.groupBy fst
@@ -156,8 +163,8 @@ let pivotClaimsByPaymentAgreement
 
 let private fetchAgreementsWithDirection
     (context: Context.Context)
-    (paymentAgreementIds: PaymentAgreementId list)
-    : Result<Map<PaymentAgreementId, PaymentAgreement.PaymentAgreement * FlowDirection>, AppError> =
+    (paymentAgreementIds: CashFlowComponent.PaymentAgreementId list)
+    : Result<Map<CashFlowComponent.PaymentAgreementId, PaymentAgreement.PaymentAgreement * CashFlowComponent.FlowDirection>, IAppError> =
     result {
         if paymentAgreementIds |> List.isEmpty then return Map.empty else
         let! paymentAgreements = paymentAgreementIds |> PaymentAgreement.fetchByPaymentAgreementIdList context
@@ -177,8 +184,8 @@ let private fetchAgreementsWithDirection
                     let paymentAgreementId = paymentAgreement |> PaymentAgreement.paymentAgreementId
                     Ok (paymentAgreementId, (paymentAgreement, direction))
                 | None ->
-                    let agreementUuid = masterAgreementId |> MasterAgreementId.value
-                    Error (CashflowMasterAgreementIdDoesntExist agreementUuid))
+                    let agreementUuid = masterAgreementId |> CashFlowComponent.MasterAgreementId.value
+                    CashFlowError.error (CashFlowError.CashflowMasterAgreementIdDoesntExist agreementUuid))
             |> convertListOfResultsToResultsList
             |> Result.map Map.ofList
     }
@@ -186,21 +193,21 @@ let private fetchAgreementsWithDirection
 /// selectLegsOfClaimedEntries collapses each (payment agreement, stage entry) claim down to the one line that carries
 /// the obligation. A rule matches on description, amount and source, none of which separate an entry's two lines.
 let private selectLegsOfClaimedEntries
-    (agreementsById: Map<PaymentAgreementId, PaymentAgreement.PaymentAgreement * FlowDirection>)
+    (agreementsById: Map<CashFlowComponent.PaymentAgreementId, PaymentAgreement.PaymentAgreement * CashFlowComponent.FlowDirection>)
     (rulesById: Map<ClassificationComponent.ClassificationRuleId, ClassificationRule.ClassificationRule>)
     (linesById: Map<StageEntryComponent.StageEntryLineId, StageEntryLine.StageEntryLine>)
     (results: ClassificationComponent.ClassificationResult list)
     : Result<
-        (PaymentAgreementId * ClassificationComponent.ClassificationResult) list *
-        ClassificationComponent.PaymentAgreementDecision list, AppError> =
-    let expectedLineType (direction: FlowDirection) =
+        (CashFlowComponent.PaymentAgreementId * ClassificationComponent.ClassificationResult) list *
+        ClassificationComponent.PaymentAgreementDecision list, IAppError> =
+    let expectedLineType (direction: CashFlowComponent.FlowDirection) =
         match direction with
-        | Income -> Business.FinancialServices.Ledger.JournalEntryComponent.Credit
-        | Outgo -> Business.FinancialServices.Ledger.JournalEntryComponent.Debit
+        | CashFlowComponent.FlowDirection.Income -> JournalEntryComponent.Credit
+        | CashFlowComponent.FlowDirection.Outgo -> JournalEntryComponent.Debit
     let doesAnyClaimingRuleConstrainLineType
-        (paymentAgreementId: PaymentAgreementId)
-        (claims: (PaymentAgreementId * ClassificationComponent.ClassificationResult) list)
-        : Result<bool, AppError> =
+        (paymentAgreementId: CashFlowComponent.PaymentAgreementId)
+        (claims: (CashFlowComponent.PaymentAgreementId * ClassificationComponent.ClassificationResult) list)
+        : Result<bool, IAppError> =
         claims
         |> List.collect (fun (_, result) -> result |> matchesClaimingPaymentAgreement paymentAgreementId)
         |> List.map (fun prioritizedMatch ->
@@ -208,7 +215,7 @@ let private selectLegsOfClaimedEntries
             | Some rule -> Ok (rule |> ClassificationRule.constrainsLineType)
             | None ->
                 let ruleUuid = prioritizedMatch.ruleId |> ClassificationComponent.ClassificationRuleId.value
-                Error (IngestionClassificationRuleIdDoesntExist ruleUuid))
+                DataIngestionError.error (DataIngestionError.IngestionClassificationRuleIdDoesntExist ruleUuid))
         |> convertListOfResultsToResultsList
         |> Result.map (List.exists id)
     result {
@@ -226,8 +233,8 @@ let private selectLegsOfClaimedEntries
                     if ruleChoseTheLeg then Ok claims else
                     match agreementsById |> Map.tryFind paymentAgreementId with
                     | None ->
-                        let agreementUuid = paymentAgreementId |> PaymentAgreementId.value
-                        Error (CashflowPaymentAgreementIdDoesntExist agreementUuid)
+                        let agreementUuid = paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
+                        Error (CashFlowError.CashflowPaymentAgreementIdDoesntExist agreementUuid)
                     | Some (paymentAgreement, direction) ->
                         let accountId = paymentAgreement |> PaymentAgreement.accountIdForFlowDirection direction
                         let lineType = expectedLineType direction
@@ -256,7 +263,7 @@ let private selectLegsOfClaimedEntries
 let private writeLinkagesForClaimClusters
     (context: Context.Context)
     (clusters: ClassificationComponent.PaymentAgreementClaimCluster list)
-    : Result<ClassificationComponent.PaymentAgreementDecision list, AppError> =
+    : Result<ClassificationComponent.PaymentAgreementDecision list, IAppError> =
     result {
         let! decisionsByCluster =
             clusters
@@ -266,7 +273,7 @@ let private writeLinkagesForClaimClusters
                 | [ claimant ] when cluster.containsUnwrittenTies |> not ->
                     let lineId = claimant.candidate.lineIdOfCandidate
                     let now = context |> Context.getInitiationInstant
-                    let linkId = PaymentAgreementLinkId.create ()
+                    let linkId = CashFlowComponent.PaymentAgreementLinkId.create ()
                     let link = PaymentAgreementLink.create linkId paymentAgreementId lineId now now
                     do! link |> PaymentAgreementLink.persist context
                     return [ claimant |> decisionFor paymentAgreementId ClassificationComponent.Linked ]
@@ -312,7 +319,7 @@ let private createPaymentForInvoice
     (lineId: StageEntryComponent.StageEntryLineId)
     (amount: CashFlowComponent.PaymentAmount)
     (entryDate: LocalDate)
-    : Result<InstanceOrchestration.InstanceComposite, AppError> =
+    : Result<InstanceOrchestration.InstanceComposite, IAppError> =
     let invoiceCompositeUpdate: InstanceOrchestration.InvoiceCompositeUpdate =
         { invoiceUpdates = invoiceId |> noChangeInvoiceUpdates
           paymentUpdates = []
@@ -331,7 +338,7 @@ let private createPaymentForInvoice
 let private isOverpaid
     (invoiceId: CashFlowComponent.InvoiceId)
     (instanceComposite: InstanceOrchestration.InstanceComposite)
-    : Result<bool, AppError> =
+    : Result<bool, IAppError> =
     result {
         let invoiceComposite =
             instanceComposite
@@ -347,7 +354,7 @@ let private isOverpaid
 let private matchInvoicesAndCreatePayments
     (context: Context.Context)
     (openInstances: InstanceOrchestration.InstanceComposite list)
-    : Result<CashFlowComponent.InvoiceDecision list, AppError> =
+    : Result<CashFlowComponent.InvoiceDecision list, IAppError> =
     result {
         // a fully paid invoice has nothing left to match. its instance can still be open, waiting on a sibling leg
         let unpaidInvoices =
@@ -448,9 +455,11 @@ let private matchInvoicesAndCreatePayments
                             entryDate |> createPaymentForInvoice context instanceId invoiceId lineId amount
                         let! overpaid = updated |> isOverpaid invoiceId
                         let created =
-                            { invoiceId = invoiceId; outcome = CashFlowComponent.PaymentCreated lineId }
+                            { CashFlowComponent.invoiceId = invoiceId
+                              CashFlowComponent.outcome = CashFlowComponent.PaymentCreated lineId }
                         let overpayment =
-                            if overpaid then [ { invoiceId = invoiceId; outcome = CashFlowComponent.Overpayment } ]
+                            if overpaid then [ { CashFlowComponent.invoiceId = invoiceId
+                                                 CashFlowComponent.outcome = CashFlowComponent.Overpayment } ]
                             else []
                         return
                             decisionsSoFar @ [ created ] @ overpayment,
@@ -458,8 +467,8 @@ let private matchInvoicesAndCreatePayments
                             consideredSoFar
                     | manyLineIds ->
                         let contested =
-                            { invoiceId = invoiceId
-                              outcome = CashFlowComponent.ManyCandidateEntries manyLineIds }
+                            { CashFlowComponent.invoiceId = invoiceId
+                              CashFlowComponent.outcome = CashFlowComponent.ManyCandidateEntries manyLineIds }
                         return decisionsSoFar @ [ contested ], claimedSoFar, consideredSoFar })
                 (Ok([], paidLineIds, Set.empty))
         // a line that was offered to an invoice and lost is the operator's problem, not a data gap -- only a line no
@@ -473,7 +482,7 @@ let private matchInvoicesAndCreatePayments
                 let lineUuid = lineId |> StageEntryComponent.StageEntryLineId.value
                 let agreementUuid =
                     link |> PaymentAgreementLink.paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
-                Error(CashflowPaymentAgreementLinkNoInvoiceToMatch(lineUuid, agreementUuid)))
+                CashFlowError.error(CashFlowError.CashflowPaymentAgreementLinkNoInvoiceToMatch(lineUuid, agreementUuid)))
             |> convertListOfResultsToResultsList
             |> Result.map ignore
         return decisions
@@ -482,7 +491,7 @@ let private matchInvoicesAndCreatePayments
 /// classifyPaymentAgreements does not update a stage entry's status. That belongs to the data ingestion domain.
 let classifyPaymentAgreements
     (context: Context.Context)
-    : Result<InstanceOrchestration.PaymentAgreementClassificationResult, AppError> =
+    : Result<InstanceOrchestration.PaymentAgreementClassificationResult, IAppError> =
     result {
         let rosterStatuses =
             [ StageEntryComponent.Ingested
@@ -562,17 +571,19 @@ let classifyPaymentAgreements
 
 let constructNewPaymentAgreementLinkAndPersist
     (context: Context.Context)
-    (paymentAgreementId: PaymentAgreementId)
+    (paymentAgreementId: CashFlowComponent.PaymentAgreementId)
     (stageEntryLineId: StageEntryComponent.StageEntryLineId)
-    : Result<PaymentAgreementLink.PaymentAgreementLink, AppError> =
+    : Result<PaymentAgreementLink.PaymentAgreementLink, IAppError> =
     result {
         let! _ =
             match stageEntryLineId |> StageEntryLine.fetchById context with
             | Ok line -> Ok line
-            | Error(DalResultantRowsDidntMatchExpectation(_, 0)) ->
-                let lineUuid = stageEntryLineId |> StageEntryComponent.StageEntryLineId.value
-                Error(IngestionStageEntryLineIdDoesntExist lineUuid)
-            | Error e -> Error e
+            | Error e ->
+                if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+                then 
+                    let lineUuid = stageEntryLineId |> StageEntryComponent.StageEntryLineId.value
+                    Error(DataIngestionError.IngestionStageEntryLineIdDoesntExist lineUuid)
+                else Error e
         let! existingLinks = stageEntryLineId |> PaymentAgreementLink.fetchByStageEntryLineId context
         do!
             match existingLinks with
@@ -580,10 +591,10 @@ let constructNewPaymentAgreementLinkAndPersist
             | existingLink :: _ ->
                 let lineUuid = stageEntryLineId |> StageEntryComponent.StageEntryLineId.value
                 let agreementUuid =
-                    existingLink |> PaymentAgreementLink.paymentAgreementId |> PaymentAgreementId.value
-                Error(CashflowPaymentAgreementLinkLineAlreadyLinked(lineUuid, agreementUuid))
+                    existingLink |> PaymentAgreementLink.paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
+                Error(CashFlowError.CashflowPaymentAgreementLinkLineAlreadyLinked(lineUuid, agreementUuid))
         let now = context |> Context.getInitiationInstant
-        let linkId = PaymentAgreementLinkId.create ()
+        let linkId = CashFlowComponent.PaymentAgreementLinkId.create ()
         let link = PaymentAgreementLink.create linkId paymentAgreementId stageEntryLineId now now
         do! link |> PaymentAgreementLink.persist context
         return link
@@ -594,16 +605,18 @@ let constructNewPaymentAgreementLinkAndPersist
 /// at the same line.
 let deletePaymentAndItsLinkage
     (context: Context.Context)
-    (paymentId: PaymentId)
-    : Result<InstanceOrchestration.InstanceComposite, AppError> =
+    (paymentId: CashFlowComponent.PaymentId)
+    : Result<InstanceOrchestration.InstanceComposite, IAppError> =
     result {
         let! payment =
             match paymentId |> Payment.fetchById context with
             | Ok found -> Ok found
-            | Error(DalResultantRowsDidntMatchExpectation(_, 0)) ->
-                let paymentUuid = paymentId |> PaymentId.value
-                Error(CashflowPaymentIdDoesntExist paymentUuid)
-            | Error e -> Error e
+            | Error e ->
+                if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+                then 
+                    let paymentUuid = paymentId |> CashFlowComponent.PaymentId.value
+                    Error(CashFlowError.CashflowPaymentIdDoesntExist paymentUuid)
+                else Error e
         let invoiceId = payment |> Payment.invoiceId
         let! invoice = invoiceId |> Invoice.fetchById context
         let instanceId = invoice |> Invoice.instanceId
@@ -642,16 +655,16 @@ let deletePaymentAndItsLinkage
 
 let projectCashFlowNDaysForward
     (context: Context.Context)
-    (daysOut: ProjectionHorizonInDays)
-    : Result<CashFlowProjection, AppError> =
+    (daysOut: CashFlowComponent.ProjectionHorizonInDays)
+    : Result<CashFlowComponent.CashFlowProjection, IAppError> =
     result {
         let runDate = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
-        let horizonEnd = runDate.PlusDays(daysOut |> ProjectionHorizonInDays.value)
+        let horizonEnd = runDate.PlusDays(daysOut |> CashFlowComponent.ProjectionHorizonInDays.value)
         let! allAccounts = Account.fetchAll context true
         let cashAccounts =
             allAccounts
             |> List.filter (fun account ->
-                account |> Account.accountSubType = Some Business.FinancialServices.Ledger.AccountComponent.Cash)
+                account |> Account.accountSubType = Some AccountComponent.Cash)
         let cashAccountIds = cashAccounts |> List.map Account.accountId
         let! balances =
             if cashAccountIds |> List.isEmpty then Ok []
@@ -720,7 +733,7 @@ let projectCashFlowNDaysForward
                 let accountId = account |> Account.accountId
                 let invoices = projectedInvoicesByAccountId |> Map.tryFind accountId |> Option.defaultValue []
                 let currentBalance = balanceByAccountId |> Map.tryFind accountId |> Option.defaultValue zero
-                let amountsForDirection (direction: FlowDirection) =
+                let amountsForDirection (direction: CashFlowComponent.FlowDirection) =
                     invoices
                     |> List.filter (fun (invoice: CashFlowComponent.ProjectedInvoice) -> invoice.direction = direction)
                     |> List.map (fun invoice -> invoice.amount.money)
@@ -775,10 +788,10 @@ let projectCashFlowNDaysForward
 
 let private transitionOneInstancesPaymentsToPosted
     (context: Context.Context)
-    (instanceId: InstanceId)
+    (instanceId: CashFlowComponent.InstanceId)
     (postings:
-        (Payment.Payment * Business.FinancialServices.Ledger.JournalEntryComponent.JournalEntryLineId * Invoice.Invoice) list)
-    : Result<PaymentPostingTransition list, AppError> =
+        (Payment.Payment * JournalEntryComponent.JournalEntryLineId * Invoice.Invoice) list)
+    : Result<CashFlowComponent.PaymentPostingTransition list, IAppError> =
     result {
         let invoiceCompositeUpdates =
             postings
@@ -818,7 +831,7 @@ let private transitionOneInstancesPaymentsToPosted
                   journalEntryLineId = journalEntryLineId })
     }
 
-let transitionPaymentsToPosted (context: Context.Context) : Result<PaymentPostingTransition list, AppError> =
+let transitionPaymentsToPosted (context: Context.Context) : Result<CashFlowComponent.PaymentPostingTransition list, IAppError> =
     result {
         let! stagedPayments = Payment.fetchByStagedTransactionPointer context
         let paymentsAndLines =
@@ -858,8 +871,8 @@ let transitionPaymentsToPosted (context: Context.Context) : Result<PaymentPostin
                 match invoices |> List.tryFind (fun invoice -> invoice |> Invoice.invoiceId = invoiceId) with
                 | Some invoice -> Ok(payment, journalEntryLineId, invoice)
                 | None ->
-                    let invoiceUuid = invoiceId |> InvoiceId.value
-                    Error(CashflowInvoiceIdDoesntExist invoiceUuid))
+                    let invoiceUuid = invoiceId |> CashFlowComponent.InvoiceId.value
+                    CashFlowError.error(CashFlowError.CashflowInvoiceIdDoesntExist invoiceUuid))
             |> convertListOfResultsToResultsList
         let! transitions =
             postings

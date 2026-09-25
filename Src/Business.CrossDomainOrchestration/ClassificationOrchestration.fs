@@ -1,64 +1,72 @@
-module Business.FinancialServices.ClassificationOrchestration
+module Business.CrossDomainOrchestration.ClassificationOrchestration
 
 open System
 open App.Utility
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Json
 open App.Utility.Result
+open App.DataAccessLayer
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
-open App.DataAccessLayer
 open App.DataAccessLayer.QueryParameter
 open App.Session
+open Business.FinancialServices.Ledger.LedgerError
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.DataIngestion.DataIngestionError
 open Business.FinancialServices.CashFlow
+open Business.FinancialServices.CashFlow.CashFlowError
 open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.Classification
-open Business.FinancialServices.Ledger.AccountComponent
-open Business.FinancialServices.FetchFilters
 open Business.FinancialServices.Classification.ClassificationComponent
 open Business.FinancialServices.Classification.ClassificationRuleGroup
 open Business.FinancialServices.Classification.FieldMatchChain
+open Business.CrossDomainOrchestration.FetchFilters
 
 let private confirmAccount
     (context: Context.Context)
     (accountId: AccountId)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let uuid = accountId |> AccountId.value
     let confirmed = uuid |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction) // we don't need the code. we just want to know that the accountId exists
     match confirmed with
     | Ok _ -> Ok ()
-    | Error (DalResultantRowsDidntMatchExpectation _) -> Error (AccountIdDoesntMatch uuid)
-    | Error e -> Error e
+    | Error e ->
+        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+        then Error (AccountIdDoesntMatch uuid)
+        else Error e
 
 let private confirmPaymentAgreement
     (context: Context.Context)
     (paymentAgreementId: CashFlowComponent.PaymentAgreementId)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let confirmed = paymentAgreementId |> PaymentAgreement.fetchById context
     match confirmed with
     | Ok _ -> Ok ()
-    | Error (DalResultantRowsDidntMatchExpectation _) ->
-        let uuid = paymentAgreementId |> PaymentAgreementId.value
-        Error (CashflowPaymentAgreementIdDoesntExist uuid)
-    | Error e -> Error e
+    | Error e ->
+        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+        then
+            let uuid = paymentAgreementId |> PaymentAgreementId.value
+            Error (CashflowPaymentAgreementIdDoesntExist uuid)
+        else Error e
 
 let private confirmClassificationClaimant
     (context: Context.Context)
     (classificationClaimant: ClassificationClaimant)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     match classificationClaimant with
     | Account accountId -> accountId |> confirmAccount context
     | PaymentAgreement paymentAgreementId -> paymentAgreementId |> confirmPaymentAgreement context
 
 let private confirmFieldMatchChain
     (fieldMatchChain: FieldMatchChain)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let chain = fieldMatchChain |> FieldMatchChain.chain
     if chain |> List.isEmpty then Error IngestionFieldMatchChainEmpty else Ok ()
     
 let private confirmRuleGroup
     (ruleGroup: ClassificationRuleGroup)
-    : Result<unit, AppError> = result {
+    : Result<unit, IAppError> = result {
         do! ruleGroup |> chainOne |> confirmFieldMatchChain
         do! match ruleGroup |> chainTwo with
             | None -> Ok ()
@@ -68,7 +76,7 @@ let private confirmRuleGroup
     
 let private confirmRuleGroups
     (ruleGroups: ClassificationRuleGroup list)
-    : Result<unit, AppError> = 
+    : Result<unit, IAppError> = 
     if ruleGroups |> List.isEmpty then Error IngestionClassificationRuleGroupsEmpty
     else
         ruleGroups
@@ -82,7 +90,7 @@ let createNewClassificationRule
     (classificationClaimant: ClassificationClaimant)
     (priority: int)
     (ruleGroups: ClassificationRuleGroup list)
-    : Result<ClassificationRule.ClassificationRule, AppError> = 
+    : Result<ClassificationRule.ClassificationRule, IAppError> = 
     let classificationRuleId = ClassificationRuleId.create()
     let instant = context |> Context.getInitiationInstant
     let newRule =
@@ -106,7 +114,7 @@ let fetchRulesFiltered
     (context: Context.Context)
     (filter: ClassificationRuleFilter)
     (sort: FetchSortClassificationRule option)
-    : Result<ClassificationRule.ClassificationRule list, AppError> =
+    : Result<ClassificationRule.ClassificationRule list, IAppError> =
     result {
         let sourcePredicate = """
             EXISTS (
@@ -200,7 +208,7 @@ let private recordRuleMatches
     (context: Context.Context)
     (runId: ClassificationRunId)
     (results: ClassificationResult list)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     results
     |> List.collect (fun result ->
         result.outcome
@@ -224,7 +232,7 @@ let private recordRuleMatches
 let fetchRunMatchesWithRules
     (context: Context.Context)
     (runId: ClassificationRunId)
-    : Result<(RuleMatch.RuleMatch * ClassificationRule.ClassificationRule) list, AppError> =
+    : Result<(RuleMatch.RuleMatch * ClassificationRule.ClassificationRule) list, IAppError> =
     result {
         let! matches = runId |> RuleMatch.fetchByRunId context
         if matches |> List.isEmpty then return [] else
@@ -242,7 +250,8 @@ let fetchRunMatchesWithRules
                 | Some rule -> Ok(ruleMatch, rule)
                 | None ->
                     let ruleUuid = ruleId |> ClassificationRuleId.value
-                    Error(IngestionClassificationRuleIdDoesntExist ruleUuid))
+                    Business.FinancialServices.DataIngestion.DataIngestionError.error(
+                        IngestionClassificationRuleIdDoesntExist ruleUuid))
             |> convertListOfResultsToResultsList
     }
 
@@ -250,7 +259,7 @@ let classifyMatchCandidatesAndRecordMatches
     (context: Context.Context)
     (claimantType: ClassificationClaimantType)
     (candidates: MatchCandidate list)
-    : Result<ClassificationRun, AppError> =
+    : Result<ClassificationRun, IAppError> =
     result {
         let ruleFilter =  {
             ruleId = None
@@ -294,7 +303,7 @@ let updateClassificationRule
     (ruleGroupsUpdate: FieldUpdate.FieldUpdate<ClassificationRuleGroup list>)
     (isActiveUpdate: FieldUpdate.FieldUpdate<bool>)
     (classificationRuleId: ClassificationRuleId)
-    : Result<ClassificationRule.ClassificationRule, AppError> =
+    : Result<ClassificationRule.ClassificationRule, IAppError> =
     let uuid = classificationRuleId |> ClassificationRuleId.value
     let baseParams =
         [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }

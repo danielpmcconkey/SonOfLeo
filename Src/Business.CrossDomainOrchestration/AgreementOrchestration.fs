@@ -1,17 +1,19 @@
-module Business.FinancialServices.AgreementOrchestration
+module Business.CrossDomainOrchestration.AgreementOrchestration
 
-open App.DataAccessLayer.ExecuteReader
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Calendar
 open App.Utility.FieldUpdate
 open App.Utility.Result
 open App.DataAccessLayer
+open App.DataAccessLayer.ExecuteReader
 open App.Session
 open Business.General
-open Business.FinancialServices.CashFlow
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
-open Business.FinancialServices.CashFlowCompositeFetcher
-open Business.FinancialServices.FetchFilters
+open Business.FinancialServices.CashFlow
+open Business.CrossDomainOrchestration.CashFlowCompositeFetcher
+open Business.CrossDomainOrchestration.FetchFilters
 
 type Agreement = private {
     masterAgreement: MasterAgreement.MasterAgreement
@@ -30,36 +32,39 @@ let payments (agreement:Agreement) = agreement.payments
 let private confirmValidAccountId
     (context: Context.Context)
     (accountId: AccountId)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let accountUuid = accountId |> AccountId.value
     let lookupResult = // we don't need the code; we just check that the ID is in the DB this way
         accountUuid |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction)
     match lookupResult with
     | Ok _ -> Ok ()
-    | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-        Error (AccountIdDoesntMatch accountUuid)
-    | Error e -> Error e
+    | Error e ->
+        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+        then Error (LedgerError.AccountIdDoesntMatch accountUuid)
+        else Error e
 
 let private confirmPaymentAgreementBelongsToAgreement
     (context: Context.Context)
     (agreementId: CashFlowComponent.MasterAgreementId)
     (fieldUpdates: PaymentAgreement.PaymentAgreementFieldUpdates)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         let! paymentAgreement = fieldUpdates.paymentAgreementIdToUpdate |> PaymentAgreement.fetchById context
         return!
             if paymentAgreement |> PaymentAgreement.masterAgreementID = agreementId then Ok ()
             else
-                let paymentAgreementUuid = fieldUpdates.paymentAgreementIdToUpdate |> CashFlowComponent.PaymentAgreementId.value
+                let paymentAgreementUuid =
+                    fieldUpdates.paymentAgreementIdToUpdate |> CashFlowComponent.PaymentAgreementId.value
                 let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
-                Error(CashflowPaymentAgreementNotUnderMasterAgreement(paymentAgreementUuid, agreementUuid))
+                Error(
+                    CashFlowError.CashflowPaymentAgreementNotUnderMasterAgreement(paymentAgreementUuid, agreementUuid))
     }
 
 let private confirmInstanceBelongsToAgreement
     (context: Context.Context)
     (agreementId: CashFlowComponent.MasterAgreementId)
     (fieldUpdates: Instance.InstanceFieldUpdates)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         let! instance = fieldUpdates.instanceIdToUpdate |> Instance.fetchById context
         return!
@@ -67,14 +72,14 @@ let private confirmInstanceBelongsToAgreement
             else
                 let instanceUuid = fieldUpdates.instanceIdToUpdate |> CashFlowComponent.InstanceId.value
                 let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
-                Error(CashflowInstanceNotUnderMasterAgreement(instanceUuid, agreementUuid))
+                Error(CashFlowError.CashflowInstanceNotUnderMasterAgreement(instanceUuid, agreementUuid))
     }
 
 let private confirmInvoiceBelongsToAgreement
     (context: Context.Context)
     (agreementId: CashFlowComponent.MasterAgreementId)
     (fieldUpdates: Invoice.InvoiceFieldUpdates)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         let! invoice = fieldUpdates.invoiceIdToUpdate |> Invoice.fetchById context
         let! instance = invoice |> Invoice.instanceId |> Instance.fetchById context
@@ -83,14 +88,14 @@ let private confirmInvoiceBelongsToAgreement
             else
                 let invoiceUuid = fieldUpdates.invoiceIdToUpdate |> CashFlowComponent.InvoiceId.value
                 let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
-                Error(CashflowInvoiceNotUnderMasterAgreement(invoiceUuid, agreementUuid))
+                Error(CashFlowError.CashflowInvoiceNotUnderMasterAgreement(invoiceUuid, agreementUuid))
     }
 
 let private confirmPaymentBelongsToAgreement
     (context: Context.Context)
     (agreementId: CashFlowComponent.MasterAgreementId)
     (fieldUpdates: Payment.PaymentFieldUpdates)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         let! payment = fieldUpdates.paymentIdToUpdate |> Payment.fetchById context
         let! invoice = payment |> Payment.invoiceId |> Invoice.fetchById context
@@ -100,7 +105,7 @@ let private confirmPaymentBelongsToAgreement
             else
                 let paymentUuid = fieldUpdates.paymentIdToUpdate |> CashFlowComponent.PaymentId.value
                 let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
-                Error(CashflowPaymentNotUnderMasterAgreement(paymentUuid, agreementUuid))
+                Error(CashFlowError.CashflowPaymentNotUnderMasterAgreement(paymentUuid, agreementUuid))
     }
 
 let private confirmAuthorityAndCohesion
@@ -110,7 +115,7 @@ let private confirmAuthorityAndCohesion
     (invoiceUpdates: Invoice.InvoiceFieldUpdates list)
     (paymentUpdates: Payment.PaymentFieldUpdates list)
     (masterAgreementUpdates: MasterAgreement.MasterAgreementFieldUpdates)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     // note: this runs super slow. It's not a common activity so that's likely okay. Start with this flow. If we
     // notice that it takes forever, we can implement some memoization down the line
     let agreementId = masterAgreementUpdates.agreementIdToUpdate
@@ -140,19 +145,19 @@ let private confirmAuthorityAndCohesion
 let private confirmInstance
     (agreementId: CashFlowComponent.MasterAgreementId)
     (instance: Instance.Instance)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     if instance |> Instance.masterAgreementID = agreementId then Ok ()
     else
         let uuid = instance
                 |> Instance.instanceId
                 |> CashFlowComponent.InstanceId.value
         let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
-        Error(CashflowInstanceNotUnderMasterAgreement(uuid, agreementUuid))
+        Error(CashFlowError.CashflowInstanceNotUnderMasterAgreement(uuid, agreementUuid))
 
 let private confirmInstances
     (agreementId: CashFlowComponent.MasterAgreementId)
     (instances: Instance.Instance list)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     instances
     |> List.map (confirmInstance agreementId)
     |> convertListOfResultsToResultsList
@@ -162,41 +167,60 @@ let private confirmPaymentAgreement
     (context: Context.Context)
     (agreementId: CashFlowComponent.MasterAgreementId)
     (paymentAgreement: PaymentAgreement.PaymentAgreement)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         do!
             if paymentAgreement |> PaymentAgreement.masterAgreementID = agreementId then Ok ()
             else
-                let paymentAgreementUuid = paymentAgreement |> PaymentAgreement.paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
+                let paymentAgreementUuid =
+                    paymentAgreement
+                    |> PaymentAgreement.paymentAgreementId
+                    |> CashFlowComponent.PaymentAgreementId.value
                 let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
-                Error(CashflowPaymentAgreementNotUnderMasterAgreement(paymentAgreementUuid, agreementUuid))
+                Error(CashFlowError.CashflowPaymentAgreementNotUnderMasterAgreement(paymentAgreementUuid, agreementUuid))
         let (CashFlowComponent.DebitAccount debitAccountId) = paymentAgreement |> PaymentAgreement.debitAccount
         do!
             match debitAccountId |> confirmValidAccountId context with
-            | Error(AccountIdDoesntMatch uuid) -> Error(CashflowPaymentAgreementDebitAccountInvalid uuid)
-            | other -> other
+            | Ok x -> Ok x
+            | Error e ->
+                if e.DomainName = nameof LedgerError && e.CaseName = nameof LedgerError.AccountIdDoesntMatch
+                then
+                    let uuid = debitAccountId |> AccountId.value
+                    Error (CashFlowError.CashflowPaymentAgreementDebitAccountInvalid uuid)
+                else Error e
         let (CashFlowComponent.CreditAccount creditAccountId) = paymentAgreement |> PaymentAgreement.creditAccount
         do!
             match creditAccountId |> confirmValidAccountId context with
-            | Error(AccountIdDoesntMatch uuid) -> Error(CashflowPaymentAgreementCreditAccountInvalid uuid)
-            | other -> other
+            | Ok x -> Ok x
+            | Error e ->
+                if e.DomainName = nameof LedgerError && e.CaseName = nameof LedgerError.AccountIdDoesntMatch
+                then
+                    let uuid = creditAccountId |> AccountId.value
+                    Error (CashFlowError.CashflowPaymentAgreementCreditAccountInvalid uuid)
+                else Error e
         return!
             match paymentAgreement |> PaymentAgreement.expectedAmount with
             | None -> Ok ()
             | Some money when money |> Money.amount > 0M -> Ok ()
             | Some money ->
-                let paymentAgreementUuid = paymentAgreement |> PaymentAgreement.paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
+                let paymentAgreementUuid =
+                    paymentAgreement
+                    |> PaymentAgreement.paymentAgreementId
+                    |> CashFlowComponent.PaymentAgreementId.value
                 let amount = money |> Money.amount
-                Error(CashflowPaymentAgreementNonPositiveExpectedAmount(paymentAgreementUuid, amount))
+                Error(CashFlowError.CashflowPaymentAgreementNonPositiveExpectedAmount(paymentAgreementUuid, amount))
     }
 
 let private confirmPaymentAgreements
     (context: Context.Context)
     (agreementID: CashFlowComponent.MasterAgreementId)
     (paymentAgreements: PaymentAgreement.PaymentAgreement list)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
-        do! if paymentAgreements |> List.isEmpty then Error CashflowPaymentAgreementsListCannotBeEmpty else Ok ()
+        do!
+            if paymentAgreements |> List.isEmpty
+            then Error CashFlowError.CashflowPaymentAgreementsListCannotBeEmpty
+            else Ok ()
         return!
             paymentAgreements
             |> List.map (confirmPaymentAgreement context agreementID)
@@ -208,7 +232,7 @@ let private confirmAgreementDates
     (context: Context.Context)
     (agreementId: CashFlowComponent.MasterAgreementId)
     (agreementActivityPeriod: ActivityPeriod.ActivityPeriod)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let referenceDate = context |> Context.getInitiationInstant |> dateFromInstant
     match agreementActivityPeriod |> ActivityPeriod.isAvailable referenceDate with
     | true -> Ok ()
@@ -216,12 +240,12 @@ let private confirmAgreementDates
         let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
         let beginDate = agreementActivityPeriod |> ActivityPeriod.activeBegin
         let endDate = agreementActivityPeriod |> ActivityPeriod.activeEnd
-        Error(CashflowMasterAgreementUnavailable(agreementUuid, referenceDate, beginDate, endDate))
+        Error(CashFlowError.CashflowMasterAgreementUnavailable(agreementUuid, referenceDate, beginDate, endDate))
 
 let private confirmMasterAgreement
     (context: Context.Context)
     (masterAgreement: MasterAgreement.MasterAgreement)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         let agreementId = masterAgreement |> MasterAgreement.agreementID
         let agreementActivityPeriod = masterAgreement |> MasterAgreement.activityPeriod
@@ -231,7 +255,7 @@ let private confirmMasterAgreement
 let private confirmComposite
     (context: Context.Context)
     (agreement: Agreement)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         do! agreement.masterAgreement |> confirmMasterAgreement context
         do!
@@ -264,7 +288,7 @@ let constructNewAndPersist
          Money.Money option *
          CashFlowComponent.DaysDueAfterInvoiceDate option *
          CashFlowComponent.PaymentAgreementMemo option) list)
-    : Result<Agreement, AppError> =
+    : Result<Agreement, IAppError> =
     result {
         let now = context |> Context.getInitiationInstant
         let agreementId = CashFlowComponent.MasterAgreementId.create()
@@ -327,7 +351,7 @@ let fetchFiltered
     (context: Context.Context)
     (expectedRows: AcceptableExpectedRows)
     (filter: AgreementFilter)
-    : Result<Agreement list, AppError> =
+    : Result<Agreement list, IAppError> =
     result {
         let! masterAgreements =
             filter |> fetchCompositeFiltered context expectedRows MasterAgreement.query TargetComposite.Agreement
@@ -347,7 +371,7 @@ let fetchFiltered
 let fetchByMasterAgreementId
     (context: Context.Context)
     (agreementId: CashFlowComponent.MasterAgreementId)
-    : Result<Agreement, AppError> =
+    : Result<Agreement, IAppError> =
     result {
         let filter : AgreementFilter =
             { agreementIds = Some [ agreementId ]
@@ -373,10 +397,12 @@ let fetchByMasterAgreementId
         return!
             match agreementsResult with
             | Ok agreements -> Ok (agreements |> List.head)
-            | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
-                Error(CashflowMasterAgreementIdDoesntExist agreementUuid)
-            | Error e -> Error e
+            | Error e ->
+                if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+                then 
+                    let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
+                    Error(CashFlowError.CashflowMasterAgreementIdDoesntExist agreementUuid)
+                else Error e
     }
     
 let fetchAllActiveAgreements
@@ -469,7 +495,7 @@ let updateAgreement
     (invoiceUpdates: Invoice.InvoiceFieldUpdates list)
     (paymentUpdates: Payment.PaymentFieldUpdates list)
     (masterAgreementUpdates: MasterAgreement.MasterAgreementFieldUpdates)
-    : Result<Agreement, AppError> =
+    : Result<Agreement, IAppError> =
     result {
         let shouldUpdateMasterAgreement = masterAgreementUpdates |> isThereAMasterAgreementUpdate
         let shouldUpdatePaymentAgreements = paymentAgreementUpdates |> isThereAPaymentAgreementUpdate
@@ -482,7 +508,7 @@ let updateAgreement
                && shouldUpdateInstances = false
                && shouldUpdateInvoices = false
                && shouldUpdatePayments = false
-            then Error CashflowAgreementUpdateNoOp
+            then Error CashFlowError.CashflowAgreementUpdateNoOp
             else Ok ()
         do!
             confirmAuthorityAndCohesion

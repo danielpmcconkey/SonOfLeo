@@ -1,16 +1,16 @@
-module Business.FinancialServices.AccountCreation
+module Business.CrossDomainOrchestration.AccountCreation
 
 open NodaTime
 open App.Utility
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Result
 open App.Session
 open Business.General
 open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Ledger.AccountComponent
 
-
-let private confirmParentAccountIsActive (parentAccount: Account.Account) (referenceDate: LocalDate) : Result<unit, AppError> =
+let private confirmParentAccountIsActive (parentAccount: Account.Account) (referenceDate: LocalDate) : Result<unit, IAppError> =
     match parentAccount |> Account.activityPeriod |> ActivityPeriod.isActive referenceDate with
     | true -> Ok()
     | false -> Error(AccountParentIsInactive(parentAccount |> Account.accountId |> AccountId.value))
@@ -18,7 +18,7 @@ let private confirmParentAccountIsActive (parentAccount: Account.Account) (refer
 let private confirmParentAndChildAccountTypesMatch
     (parentAccountType: AccountType)
     (childAccountType: AccountType)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     match parentAccountType = childAccountType with
     | true -> Ok()
     | false ->
@@ -32,7 +32,7 @@ let private confirmParentAndChildAccountTypesMatch
 let private confirmParentAndChildAreDistinct
     (parentId: AccountId option)
     (childId: AccountId)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     match parentId with
     | None -> Ok()
     | Some x when x = childId ->
@@ -45,7 +45,7 @@ let private confirmParentChildRelationship
     (childId: AccountId)
     (childType: AccountType)
     (referenceDate: LocalDate)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     // Note, this function no longer validates against circular ancestry. Since the child
     // ID is always created at the DB insertion, it is impossible for a newly created child
     // to already have descendents. And, since requirement REQ-AC-4.22 explicitly forbids
@@ -63,7 +63,7 @@ let private confirmParentChildRelationship
             return ()
         }
 
-let private confirmTypeAndSubtypeAreValid (accountType: AccountType) (subType: AccountSubtype option) : Result<unit, AppError> =
+let private confirmTypeAndSubtypeAreValid (accountType: AccountType) (subType: AccountSubtype option) : Result<unit, IAppError> =
     if AccountSubtype.validTypeSubtypeCombination accountType subType then
         Ok()
     else
@@ -83,7 +83,7 @@ let constructNewAndPersist
     (subType: AccountSubtype option)
     (parentId: AccountId option)
     (reference: AccountExternalReference option)
-    : Result<Account.Account, AppError> =
+    : Result<Account.Account, IAppError> =
     result {
         let accountId = AccountId.create()
         let now = context |> Context.getInitiationInstant

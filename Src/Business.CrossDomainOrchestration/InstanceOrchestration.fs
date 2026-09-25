@@ -1,20 +1,22 @@
-module Business.FinancialServices.InstanceOrchestration
+module Business.CrossDomainOrchestration.InstanceOrchestration
 
-open App.DataAccessLayer.ExecuteReader
 open NodaTime
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.FieldUpdate
 open App.Utility.Result
+open App.DataAccessLayer
+open App.DataAccessLayer.ExecuteReader
 open App.Session
 open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.Ledger
-open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.Classification
-open Business.FinancialServices.CashFlowCompositeFetcher
-open Business.FinancialServices.FetchFilters
+open Business.CrossDomainOrchestration.CashFlowCompositeFetcher
+open Business.CrossDomainOrchestration.FetchFilters
 
 type InvoiceComposite = private {
     invoice: Invoice.Invoice
@@ -47,12 +49,12 @@ let private isPostedPayment (payment: Payment.Payment) : bool =
 let private confirmPaymentIsUnderInvoice
     (invoiceId: CashFlowComponent.InvoiceId)
     (payment: Payment.Payment)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     if payment |> Payment.invoiceId = invoiceId then Ok ()
     else
         let paymentUuid = payment |> Payment.paymentId |> CashFlowComponent.PaymentId.value
         let invoiceUuid = invoiceId |> CashFlowComponent.InvoiceId.value
-        Error(CashflowPaymentNotUnderInvoice(paymentUuid, invoiceUuid))
+        Error(CashFlowError.CashflowPaymentNotUnderInvoice(paymentUuid, invoiceUuid))
 
 /// confirmPayment checks the account its line sits on, not the line type. A classification rule may deliberately claim
 /// the opposite leg -- an Outgo agreement taking a refund matches a Credit line -- and an operator repointing a payment
@@ -61,7 +63,7 @@ let confirmPayment
     (context: Context.Context)
     (expectedAccountId: AccountComponent.AccountId)
     (payment: Payment.Payment)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         // JE and SE existence is checked below via whichever half of the transactionPointer is actually populated;
         // the other half isn't reachable off a reconstituted Payment (see transactionPointerFromColumns).
@@ -76,56 +78,64 @@ let confirmPayment
                     let accountId = line |> JournalEntryLine.accountId
                     match headerId |> JournalEntryHeader.fetchById context with
                     | Ok header -> Ok(Some header, Some accountId)
-                    | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                        let journalEntryHeaderUuid = headerId |> JournalEntryHeaderId.value
-                        Error(JournalEntryHeaderIdDoesntExist journalEntryHeaderUuid)
-                    | Error e -> Error e
-                | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                    let journalEntryLineUuid = journalEntryLineId |> JournalEntryLineId.value
-                    Error(JournalEntryLineIdDoesntExist journalEntryLineUuid)
-                | Error e -> Error e
+                    | Error e ->
+                        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+                        then
+                            let journalEntryHeaderUuid = headerId |> JournalEntryHeaderId.value
+                            LedgerError.error(LedgerError.JournalEntryHeaderIdDoesntExist journalEntryHeaderUuid)
+                        else Error e
+                | Error e ->
+                    if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+                    then
+                        let journalEntryLineUuid = journalEntryLineId |> JournalEntryLineId.value
+                        LedgerError.error(LedgerError.JournalEntryLineIdDoesntExist journalEntryLineUuid)
+                    else Error e
             | CashFlowComponent.Staged stageEntryLineId ->
                 match stageEntryLineId |> StageEntryLine.fetchById context with
                 | Ok line -> Ok(None, line |> StageEntryLine.accountId)
-                | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                    let stageEntryLineUuid = stageEntryLineId |> StageEntryLineId.value
-                    Error(IngestionStageEntryLineIdDoesntExist stageEntryLineUuid)
-                | Error e -> Error e
+                | Error e ->
+                    if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+                    then
+                        let stageEntryLineUuid = stageEntryLineId |> StageEntryLineId.value
+                        Error (DataIngestionError.IngestionStageEntryLineIdDoesntExist stageEntryLineUuid)
+                    else Error e
         do!
             if lineAccountId = Some expectedAccountId then Ok ()
             else
                 let paymentUuid = payment |> Payment.paymentId |> CashFlowComponent.PaymentId.value
                 let actualAccountUuid = lineAccountId |> Option.map AccountComponent.AccountId.value
                 let expectedAccountUuid = expectedAccountId |> AccountComponent.AccountId.value
-                Error(CashflowPaymentLineNotOnAgreementAccount(paymentUuid, actualAccountUuid, expectedAccountUuid))
+                Error(CashFlowError.CashflowPaymentLineNotOnAgreementAccount(
+                    paymentUuid, actualAccountUuid, expectedAccountUuid))
         return!
             match payment |> Payment.postedToLedgerDate, journalEntryHeader with
             | None, _ -> Ok ()
             | Some _, None ->
                 let paymentUuid = payment |> Payment.paymentId |> CashFlowComponent.PaymentId.value
-                Error(CashflowPaymentPostedToLedgerDateWithoutJournalEntry paymentUuid)
+                Error(CashFlowError.CashflowPaymentPostedToLedgerDateWithoutJournalEntry paymentUuid)
             | Some providedDate, Some header ->
                 let actualDate = header |> JournalEntryHeader.entryDate |> EntryDate.entryDate
                 if providedDate.localDate = actualDate then Ok ()
                 else
                     let paymentUuid = payment |> Payment.paymentId |> CashFlowComponent.PaymentId.value
-                    Error(CashflowPaymentPostedToLedgerDateMismatch(paymentUuid, providedDate.localDate, actualDate))
+                    Error(CashFlowError.CashflowPaymentPostedToLedgerDateMismatch(
+                        paymentUuid, providedDate.localDate, actualDate))
     }
 
 let private confirmInvoiceAmountIsPositive
     (invoice: Invoice.Invoice)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let invoiceAmount = invoice |> Invoice.amount
     let invoiceAmountDecimal = invoiceAmount.money |> Money.amount
     if invoiceAmountDecimal > 0M then Ok ()
     else
         let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
-        Error(CashflowInvoiceNonPositiveAmount(invoiceUuid, invoiceAmountDecimal))
+        Error(CashFlowError.CashflowInvoiceNonPositiveAmount(invoiceUuid, invoiceAmountDecimal))
 
 let private confirmFullyPaidAmountMatches
     (invoice: Invoice.Invoice)
     (payments: Payment.Payment list)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
     if lifeCycleState.paymentState <> CashFlowComponent.FullyPaid then Ok () else
     result {
@@ -137,64 +147,64 @@ let private confirmFullyPaidAmountMatches
                 let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
                 let paidDec = paidTotal |> Money.amount
                 let invoiceDec = invoiceAmount.money |> Money.amount
-                Error(CashflowInvoiceFullyPaidAmountMismatch(invoiceUuid, paidDec, invoiceDec))
+                Error(CashFlowError.CashflowInvoiceFullyPaidAmountMismatch(invoiceUuid, paidDec, invoiceDec))
     }
 
 let private confirmPostedToLedgerRequiresFullyPaid
     (invoice: Invoice.Invoice)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
     if lifeCycleState.postedState <> CashFlowComponent.PostedToLedger
        || lifeCycleState.paymentState = CashFlowComponent.FullyPaid then Ok ()
     else
         let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
-        Error(CashflowInvoicePostedToLedgerRequiresFullyPaid invoiceUuid)
+        Error(CashFlowError.CashflowInvoicePostedToLedgerRequiresFullyPaid invoiceUuid)
 
 let private confirmFullyPaidHasNoBlocker
     (invoice: Invoice.Invoice)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
     if lifeCycleState.paymentState <> CashFlowComponent.FullyPaid || lifeCycleState.blocker |> Option.isNone then Ok ()
     else
         let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
-        Error(CashflowInvoiceFullyPaidWithBlocker invoiceUuid)
+        Error(CashFlowError.CashflowInvoiceFullyPaidWithBlocker invoiceUuid)
 
 let private confirmPartiallyPaidHasPayments
     (invoice: Invoice.Invoice)
     (payments: Payment.Payment list)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
     if lifeCycleState.paymentState <> CashFlowComponent.PartiallyPaid || (payments |> List.isEmpty |> not) then Ok ()
     else
         let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
-        Error(CashflowInvoicePartiallyPaidWithNoPayments invoiceUuid)
+        Error(CashFlowError.CashflowInvoicePartiallyPaidWithNoPayments invoiceUuid)
 
 let private confirmPostedToLedgerRequiresAllPaymentsPosted
     (invoice: Invoice.Invoice)
     (payments: Payment.Payment list)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
     if lifeCycleState.postedState <> CashFlowComponent.PostedToLedger
        || (payments |> List.forall isPostedPayment) then Ok ()
     else
         let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
-        Error(CashflowInvoicePostedToLedgerWithUnpostedPayment invoiceUuid)
+        Error(CashFlowError.CashflowInvoicePostedToLedgerWithUnpostedPayment invoiceUuid)
 
 let private confirmPartiallyPostedHasAPostedPayment
     (invoice: Invoice.Invoice)
     (payments: Payment.Payment list)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
     if lifeCycleState.postedState <> CashFlowComponent.PartiallyPosted
        || (payments |> List.exists isPostedPayment) then Ok ()
     else
         let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
-        Error(CashflowInvoicePartiallyPostedWithNoPostedPayment invoiceUuid)
+        Error(CashFlowError.CashflowInvoicePartiallyPostedWithNoPostedPayment invoiceUuid)
 
 let private confirmInvoiceComposite
     (context: Context.Context)
     (invoiceComposite: InvoiceComposite)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let invoice = invoiceComposite.invoice
     let payments = invoiceComposite.payments
     let invoiceId = invoice |> Invoice.invoiceId
@@ -218,10 +228,12 @@ let private confirmInvoiceComposite
                 let! paymentAgreement =
                     match paymentAgreementId |> PaymentAgreement.fetchById context with
                     | Ok fetched -> Ok fetched
-                    | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                        let paymentAgreementUuid = paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
-                        Error(CashflowPaymentAgreementIdDoesntExist paymentAgreementUuid)
-                    | Error e -> Error e
+                    | Error e ->
+                        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+                        then
+                            let paymentAgreementUuid = paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
+                            Error (CashFlowError.CashflowPaymentAgreementIdDoesntExist paymentAgreementUuid)
+                        else Error e
                 let! masterAgreement =
                     paymentAgreement |> PaymentAgreement.masterAgreementID |> MasterAgreement.fetchById context
                 let direction = masterAgreement |> MasterAgreement.direction
@@ -237,19 +249,19 @@ let private confirmInvoiceComposite
 let private confirmInvoiceIsUnderInstance
     (instanceId: CashFlowComponent.InstanceId)
     (invoice: Invoice.Invoice)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     if invoice |> Invoice.instanceId = instanceId then Ok ()
     else
         let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
         let instanceUuid = instanceId |> CashFlowComponent.InstanceId.value
-        Error(CashflowInvoiceNotUnderInstance(invoiceUuid, instanceUuid))
+        Error(CashFlowError.CashflowInvoiceNotUnderInstance(invoiceUuid, instanceUuid))
 
 let private confirmInvoicePaymentAgreementIsUnderInstanceAgreement
     (context: Context.Context)
     (instanceAgreementId: CashFlowComponent.MasterAgreementId)
     (agreementPaymentAgreementIds: CashFlowComponent.PaymentAgreementId list)
     (invoice: Invoice.Invoice)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let paymentAgreementId = invoice |> Invoice.paymentAgreementId
     if agreementPaymentAgreementIds |> List.contains paymentAgreementId then Ok () else
     result {
@@ -258,23 +270,25 @@ let private confirmInvoicePaymentAgreementIsUnderInstanceAgreement
         let! paymentAgreement =
             match paymentAgreementId |> PaymentAgreement.fetchById context with
             | Ok pa -> Ok pa
-            | Error(DalResultantRowsDidntMatchExpectation (_, 0)) ->
-                let paymentAgreementUuid = paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
-                Error(CashflowPaymentAgreementIdDoesntExist paymentAgreementUuid)
-            | Error e -> Error e
+            | Error e ->
+                if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+                then
+                    let paymentAgreementUuid = paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
+                    CashFlowError.error(CashFlowError.CashflowPaymentAgreementIdDoesntExist paymentAgreementUuid)
+                else Error e
         let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
         let instanceAgreementUuid = instanceAgreementId |> CashFlowComponent.MasterAgreementId.value
         let paymentAgreementAgreementUuid =
             paymentAgreement |> PaymentAgreement.masterAgreementID |> CashFlowComponent.MasterAgreementId.value
         return!
-            Error(CashflowInvoiceDiamondMismatch(invoiceUuid, instanceAgreementUuid, paymentAgreementAgreementUuid))
+            Error(CashFlowError.CashflowInvoiceDiamondMismatch(invoiceUuid, instanceAgreementUuid, paymentAgreementAgreementUuid))
     }
 
 let private confirmDiamond
     (context: Context.Context)
     (instance: Instance.Instance)
     (invoices: Invoice.Invoice list)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     if invoices |> List.isEmpty then Ok () else
     result {
         let instanceAgreementId = instance |> Instance.masterAgreementID
@@ -294,16 +308,16 @@ let private confirmDiamond
 let private confirmFulfilledInstanceHasInvoices
     (instance: Instance.Instance)
     (invoices: Invoice.Invoice list)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     if instance |> Instance.isFulfilled |> not || (invoices |> List.isEmpty |> not) then Ok ()
     else
         let instanceUuid = instance |> Instance.instanceId |> CashFlowComponent.InstanceId.value
-        Error(CashflowInstanceFulfilledWithNoInvoices instanceUuid)
+        Error(CashFlowError.CashflowInstanceFulfilledWithNoInvoices instanceUuid)
 
 let private confirmFulfilledInstanceInvoicesAreFullyPaid
     (instance: Instance.Instance)
     (invoices: Invoice.Invoice list)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     if instance |> Instance.isFulfilled |> not then Ok () else
     let instanceUuid = instance |> Instance.instanceId |> CashFlowComponent.InstanceId.value
     invoices
@@ -312,14 +326,14 @@ let private confirmFulfilledInstanceInvoicesAreFullyPaid
         if lifeCycleState.paymentState = CashFlowComponent.FullyPaid then Ok ()
         else
             let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
-            Error(CashflowInstanceFulfilledWithUnpaidInvoice(instanceUuid, invoiceUuid)))
+            CashFlowError.error(CashFlowError.CashflowInstanceFulfilledWithUnpaidInvoice(instanceUuid, invoiceUuid)))
     |> convertListOfResultsToResultsList
     |> Result.map ignore
 
 let private confirmOneInvoicePerPaymentAgreement
     (instance: Instance.Instance)
     (invoices: Invoice.Invoice list)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let duplicated =
         invoices
         |> List.countBy Invoice.paymentAgreementId
@@ -329,12 +343,12 @@ let private confirmOneInvoicePerPaymentAgreement
     | (paymentAgreementId, count) :: _ ->
         let instanceUuid = instance |> Instance.instanceId |> CashFlowComponent.InstanceId.value
         let paymentAgreementUuid = paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
-        Error(CashflowInstanceManyInvoicesForPaymentAgreement(instanceUuid, paymentAgreementUuid, count))
+        Error(CashFlowError.CashflowInstanceManyInvoicesForPaymentAgreement(instanceUuid, paymentAgreementUuid, count))
 
 let confirmInstanceComposite
     (context: Context.Context)
     (instanceComposite: InstanceComposite)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let instance = instanceComposite.instance
     let invoiceComposites = instanceComposite.invoiceComposites
     let invoices = invoiceComposites |> List.map (fun invoiceComposite -> invoiceComposite.invoice)
@@ -386,7 +400,7 @@ let fetchFiltered
     (context: Context.Context)
     (expectedRows: AcceptableExpectedRows)
     (filter: AgreementFilter)
-    : Result<InvoiceComposite list, AppError> =
+    : Result<InvoiceComposite list, IAppError> =
     result {
         let! invoices =
             filter |> fetchCompositeFiltered context expectedRows Invoice.query TargetComposite.Invoice
@@ -399,7 +413,7 @@ let fetchFiltered
 let fetchCompositeByInvoiceId
     (context: Context.Context)
     (invoiceId: CashFlowComponent.InvoiceId)
-    : Result<InvoiceComposite, AppError> =
+    : Result<InvoiceComposite, IAppError> =
     result {
         let! invoice = invoiceId |> Invoice.fetchById context
         let! payments = [ invoiceId ] |> Payment.fetchByInvoiceIdList context
@@ -409,7 +423,7 @@ let fetchCompositeByInvoiceId
 let fetchCompositeByInstanceId
     (context: Context.Context)
     (instanceId: CashFlowComponent.InstanceId)
-    : Result<InstanceComposite, AppError> =
+    : Result<InstanceComposite, IAppError> =
     result {
         let! instance = instanceId |> Instance.fetchById context
         let! invoices = [ instanceId ] |> Invoice.fetchByInstanceIdList context
@@ -422,7 +436,7 @@ let fetchCompositeByInstanceId
 let fetchCompositesByIsFulfilled
     (context: Context.Context)
     (isFulfilled: bool)
-    : Result<InstanceComposite list, AppError> =
+    : Result<InstanceComposite list, IAppError> =
     result {
         let! instances = isFulfilled |> Instance.fetchByIsFulfilled context
         if instances |> List.isEmpty then return [] else
@@ -497,7 +511,7 @@ let private isThereACompositeUpdate (compositeUpdate: InstanceCompositeUpdate) :
            || invoiceCompositeUpdate.newPayments |> List.isEmpty |> not)
     || compositeUpdate.newInvoices |> List.isEmpty |> not
 
-let private confirmNoDerivedFieldIsSet (compositeUpdate: InstanceCompositeUpdate) : Result<unit, AppError> =
+let private confirmNoDerivedFieldIsSet (compositeUpdate: InstanceCompositeUpdate) : Result<unit, IAppError> =
     let setDerivedFields =
         [ if compositeUpdate.instanceUpdates.isFulfilledUpdate <> FieldUpdate.NoChange then "isFulfilled"
           for invoiceCompositeUpdate in compositeUpdate.invoiceCompositeUpdates do
@@ -505,12 +519,12 @@ let private confirmNoDerivedFieldIsSet (compositeUpdate: InstanceCompositeUpdate
               if invoiceCompositeUpdate.invoiceUpdates.postedStateUpdate <> FieldUpdate.NoChange then "postedState" ]
     match setDerivedFields with
     | [] -> Ok ()
-    | fieldName :: _ -> Error(CashflowInstanceCompositeDerivedFieldSet fieldName)
+    | fieldName :: _ -> Error(CashFlowError.CashflowInstanceCompositeDerivedFieldSet fieldName)
 
 let private derivePaymentState
     (invoice: Invoice.Invoice)
     (payments: Payment.Payment list)
-    : Result<CashFlowComponent.PaymentState, AppError> =
+    : Result<CashFlowComponent.PaymentState, IAppError> =
     if payments |> List.isEmpty then Ok CashFlowComponent.NotYetPaid else
     result {
         let! paidTotal = payments |> List.map Payment.amount |> List.map _.money |> Money.sumList
@@ -552,7 +566,7 @@ let private preConstructInvoiceComposite
     (context: Context.Context)
     (invoiceComposites: InvoiceComposite list)
     (invoiceCompositeUpdate: InvoiceCompositeUpdate)
-    : Result<InvoiceComposite * Payment.Payment list, AppError> =
+    : Result<InvoiceComposite * Payment.Payment list, IAppError> =
     let invoiceId = invoiceCompositeUpdate.invoiceUpdates.invoiceIdToUpdate
     result {
         let! current =
@@ -563,7 +577,7 @@ let private preConstructInvoiceComposite
             | Some found -> Ok found
             | None ->
                 let invoiceUuid = invoiceId |> CashFlowComponent.InvoiceId.value
-                Error(CashflowInvoiceIdDoesntExist invoiceUuid)
+                CashFlowError.error(CashFlowError.CashflowInvoiceIdDoesntExist invoiceUuid)
         let! updatedPayments =
             current.payments
             |> List.filter (fun payment ->
@@ -585,7 +599,7 @@ let private preConstructInvoiceComposite
                 else
                     let paymentUuid = paymentId |> CashFlowComponent.PaymentId.value
                     let invoiceUuid = invoiceId |> CashFlowComponent.InvoiceId.value
-                    Error(CashflowPaymentNotUnderInvoice(paymentUuid, invoiceUuid)))
+                    CashFlowError.error(CashFlowError.CashflowPaymentNotUnderInvoice(paymentUuid, invoiceUuid)))
             |> convertListOfResultsToResultsList
             |> Result.map ignore
         let now = context |> Context.getInitiationInstant
@@ -622,7 +636,7 @@ let private preConstructNewInvoiceComposite
           CashFlowComponent.PostedToFiDate option *
           CashFlowComponent.PostedToLedgerDate option *
           CashFlowComponent.PaymentMemo option) list)
-    : Result<InvoiceComposite, AppError> =
+    : Result<InvoiceComposite, IAppError> =
     let paymentAgreementId, externalInvoiceId, invoiceDate, dueDate, amount, invoiceState, blocker, memo,
         paymentFieldsList = newInvoice
     result {
@@ -660,12 +674,12 @@ let private preConstructNewInvoiceComposite
 let updateInstanceComposite
     (context: Context.Context)
     (compositeUpdate: InstanceCompositeUpdate)
-    : Result<InstanceComposite, AppError> =
+    : Result<InstanceComposite, IAppError> =
     result {
         do! compositeUpdate |> confirmNoDerivedFieldIsSet
         do!
             if compositeUpdate |> isThereACompositeUpdate then Ok ()
-            else Error CashflowInstanceCompositeUpdateNoOp
+            else CashFlowError.error CashFlowError.CashflowInstanceCompositeUpdateNoOp
         let instanceId = compositeUpdate.instanceUpdates.instanceIdToUpdate
         let! current = instanceId |> fetchCompositeByInstanceId context
         let! preConstructed =
@@ -743,7 +757,7 @@ let private confirmInstanceDateIsAfterLatestInstance
     (context: Context.Context)
     (masterAgreementID: CashFlowComponent.MasterAgreementId)
     (instanceDate: LocalDate)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         let! existingInstances = [ masterAgreementID ] |> Instance.fetchByMasterAgreementIdList context
         let existingDates = existingInstances |> List.map Instance.instanceDate
@@ -751,7 +765,7 @@ let private confirmInstanceDateIsAfterLatestInstance
         let latestDate = existingDates |> List.max
         if instanceDate > latestDate then return () else
         let agreementUuid = masterAgreementID |> CashFlowComponent.MasterAgreementId.value
-        return! Error (CashflowInstanceDateNotAfterLatestInstance(agreementUuid, instanceDate, latestDate))
+        return! Error (CashFlowError.CashflowInstanceDateNotAfterLatestInstance(agreementUuid, instanceDate, latestDate))
     }
 
 let createInstanceCompositeAndSaveToDb
@@ -775,7 +789,7 @@ let createInstanceCompositeAndSaveToDb
             CashFlowComponent.PostedToLedgerDate option *
             CashFlowComponent.PaymentMemo option) list
         ) list)
-    : Result<InstanceComposite, AppError> =
+    : Result<InstanceComposite, IAppError> =
     result {
         let! masterAgreement = masterAgreementID |> MasterAgreement.fetchById context
         let cadenceType = masterAgreement |> MasterAgreement.cadence |> Cadence.cadenceType

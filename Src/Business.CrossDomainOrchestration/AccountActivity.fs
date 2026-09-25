@@ -1,8 +1,8 @@
-module Business.FinancialServices.AccountActivity
+module Business.CrossDomainOrchestration.AccountActivity
 
 open System
 open NodaTime
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
@@ -10,8 +10,7 @@ open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.FetchFilters
-
+open Business.CrossDomainOrchestration.FetchFilters
 
 type AccountActivityDetail =
     { lineId: JournalEntryLineId
@@ -133,7 +132,7 @@ let fetchFiltered
     (context: Context.Context)
     (filter: AccountActivityFilter)
     (sort: FetchSort option)
-    : Result<AccountActivity list, AppError> =
+    : Result<AccountActivity list, IAppError> =
     result {
         let! filterDateRangeOption =
             filter.temporalFilter

@@ -1,21 +1,23 @@
-module Business.FinancialServices.AccountDeactivation
+module Business.CrossDomainOrchestration.AccountDeactivation
 
-open Business.General
-open Business.FinancialServices.Ledger.Account
-open Business.FinancialServices.Ledger.AccountComponent
-open Business.FinancialServices.Ledger
-open Business.FinancialServices.Ledger.JournalEntryComponent
 open NodaTime
 open App.Utility
-open App.Utility.AppError
+open App.Utility.IAppError
+open App.Utility.Result
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteScalar
-open App.Utility.Result
 open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.LedgerError
+open Business.FinancialServices.Ledger.Account
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 
-let private updateActiveEnd (context: Context.Context) (activeEndUpdate: LocalDate) (account: Account) : Result<Account, AppError> =
+let private updateActiveEnd (context: Context.Context) (activeEndUpdate: LocalDate) (account: Account) : Result<Account, IAppError> =
     let accountId = account |> Account.accountId
     let uuid = accountId |> AccountId.value
     let parameters =
@@ -39,7 +41,7 @@ let private updateActiveEnd (context: Context.Context) (activeEndUpdate: LocalDa
 let private confirmProposedDeactivationDateIsValid
     (proposedDate: LocalDate)
     (account: Account)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let ab = account |> Account.activityPeriod |> ActivityPeriod.activeBegin
     if proposedDate < ab then
         Error(
@@ -48,7 +50,7 @@ let private confirmProposedDeactivationDateIsValid
     else
         Ok()
 
-let private confirmNoActiveChildrenBeforeDeactivation (context: Context.Context) (account: Account) : Result<unit, AppError> =
+let private confirmNoActiveChildrenBeforeDeactivation (context: Context.Context) (account: Account) : Result<unit, IAppError> =
     let accountId = account |> Account.accountId
     result {
         let! children = accountId |> Account.fetchByParentId context
@@ -63,7 +65,7 @@ let private confirmNoActiveChildrenBeforeDeactivation (context: Context.Context)
                 Ok()
     }
 
-let private confirmZeroBalanceBeforeDeactivation (context: Context.Context) (account: Account) : Result<unit, AppError> =
+let private confirmZeroBalanceBeforeDeactivation (context: Context.Context) (account: Account) : Result<unit, IAppError> =
     let accountId = account |> Account.accountId
     result {
         let! nonVoidedLines = accountId |> JournalEntryLine.fetchByAccountId context true
@@ -87,7 +89,7 @@ let private confirmNoJournalEntriesAfterDeactivationDate
     (context: Context.Context)
     (deactivationDate: LocalDate)
     (account: Account)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let accountId = account |> Account.accountId
     let queryStatement =
         """
@@ -112,7 +114,7 @@ let private confirmJournalEntriesAreInProperState
     (context: Context.Context)
     (deactivationDate: LocalDate)
     (account: Account)
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     result {
         do! account |> confirmZeroBalanceBeforeDeactivation context
         do! account |> confirmNoJournalEntriesAfterDeactivationDate context deactivationDate
@@ -125,7 +127,7 @@ let deactivateAccount
     (context: Context.Context)
     (explicitEnd: LocalDate option)
     (account: Account)
-    : Result<Account, AppError> =
+    : Result<Account, IAppError> =
     let accountId = account |> Account.accountId
     let deactivationDate =
         match explicitEnd with

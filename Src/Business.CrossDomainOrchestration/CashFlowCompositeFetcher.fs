@@ -1,19 +1,19 @@
-module Business.FinancialServices.CashFlowCompositeFetcher
+module Business.CrossDomainOrchestration.CashFlowCompositeFetcher
 
 open System
+open App.Utility
+open App.Utility.IAppError
+open App.Utility.Result
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
-open App.Utility
-open App.Utility.AppError
-open App.Utility.Result
 open App.Session
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.CashFlow.Invoice
 open Business.FinancialServices.CashFlow.MasterAgreement
-open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.Ledger.AccountComponent
-open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.FetchFilters
+open Business.CrossDomainOrchestration.FetchFilters
 
 type TargetComposite =
     | Agreement
@@ -50,7 +50,7 @@ let invoicesSelectAndJoinInsideDistinct = """
 let createPredicateAndParameters
     (context: Context.Context)
     (filter: AgreementFilter)
-    : Result<string * QueryParameter list, AppError> = result {
+    : Result<string * QueryParameter list, IAppError> = result {
     let agreementPredicate, agreementParameters =
         filter.agreementIds
         |> createIdPredicateAndParameters<MasterAgreementId> MasterAgreementId.value "agreement_id" ["ma.unique_id"]
@@ -169,10 +169,10 @@ let fetchCompositeFiltered
     (fetchFunc:
         Context.Context -> string list option -> string -> string list option -> string option ->                          
         int option -> string option -> string option -> QueryParameter list -> AcceptableExpectedRows ->               
-        Result<'T list, AppError>)
+        Result<'T list, IAppError>)
     (target: TargetComposite)
     (filter: AgreementFilter)
-    : Result<'T list, AppError> =
+    : Result<'T list, IAppError> =
     result {
         let! predicates, parameters = filter |> createPredicateAndParameters context
         let distinct = distinctCte target predicates
