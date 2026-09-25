@@ -8,10 +8,11 @@ open App.Operation.Audit
 open App.Session
 open Business.FinancialServices.Classification
 open Business.FinancialServices.Classification.ClassificationComponent
-open Business.FinancialServices.ClassificationOrchestration
+open Business.CrossDomainOrchestration
+open Business.CrossDomainOrchestration.ClassificationOrchestration
+open Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
 open Ui.InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
 open Ui.InterfaceBridge.CommandRoute
-open Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
 
 let private newClassificationRule payload _ =
     let context = Context.create NoTransaction ClassificationNewRule
@@ -107,6 +108,15 @@ let private fetchClassificationRun payload _ =
         return! Json.toJson<ClassificationRunReturn> returnVal
     }
 
+let private classifyAccounts _ _ =
+    runCommandRouteAndAutoCompleteTransaction IngestClassifyAccounts (fun context ->
+        result {
+            let! classificationResult = StageEntryOrchestration.classifyAccounts context
+            let! converted =
+                classificationResult
+                |> ``convert [AccountClassificationResult] to [AccountClassificationResultReturn]`` context
+            return! Json.toJson<AccountClassificationResultReturn> converted })
+
 let classificationDomainCommandRoutes: CommandRoute list =
     [
       { domain = "Classification"
@@ -150,4 +160,11 @@ let classificationDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<FetchClassificationRunInput>.Name
         outputContract = typeof<ClassificationRunReturn>.Name
         handler = fetchClassificationRun }
+
+      { domain = "Ingestion"
+        verb = "ClassifyAccounts"
+        description = "Run the account classification rules over every unresolved staged entry line, write the account where a rule wins outright, and update each entry's status. Returns the run, its results, and the entries an operator may still need to act on."
+        inputContract = typeof<Ui.InterfaceBridge.InterfaceContracts.SharedContracts.NoInput>.Name
+        outputContract = typeof<AccountClassificationResultReturn>.Name
+        handler = classifyAccounts }
     ]

@@ -1,9 +1,10 @@
 ﻿open System
-open App.Utility.AppError
+open App.Utility.IAppError
 open Ui.InterfaceBridge.CommandRoute
 open Ui.InterfaceBridge.Routes.ReportRoutes
+open Ui.ReportCli.ReportCliError
 
-let route name rest payload : Result<string, AppError> =
+let route name rest payload : Result<string, IAppError> =
     match reportingRoutes |> List.tryFind(fun r -> r.name = name) with
     | Some command -> command.handler payload rest
     | None -> Error(ReportingUnknownReportName name)
@@ -20,5 +21,5 @@ let main args =
             exit 1; failwith ""
     match route name rest payload with
     | Ok n -> n |> printfn "%s"; 0
-    | Error e -> e |> AppError.toMessage |> eprintfn "%s"; 1
+    | Error e -> e.ToMessage() |> eprintfn "%s"; 1
 

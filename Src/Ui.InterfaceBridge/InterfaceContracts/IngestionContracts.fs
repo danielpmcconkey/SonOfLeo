@@ -3,9 +3,8 @@ module Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
 open System
 open NodaTime
 open App.Utility.FieldUpdate
-open Business.FinancialServices.FetchFilters
-open Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
-open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
+open Business.CrossDomainOrchestration.FetchFilters
+open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 open Ui.InterfaceBridge.InterfaceContracts.SharedContracts
 
 // ****************************************
@@ -47,12 +46,6 @@ type StageEntryReturn = {
         stageEntryHeader: StageEntryHeaderReturn
         lines: StageEntryLineReturn list
         statusTransitions: StageEntryStatusTransitionReturn list
-}
-
-type AccountClassificationResultReturn = {
-    runId: Guid
-    classificationResults: ClassificationResultReturn list
-    stagedEntries: StageEntryReturn list
 }
 
 type IngestionSourceReturn = {

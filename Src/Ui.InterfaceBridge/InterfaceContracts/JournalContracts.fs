@@ -78,6 +78,20 @@ type JournalEntryReturn =
       lines: JournalEntryLineReturn list
       externalReferences: JournalEntryExternalReferenceReturn list
       comments: JournalEntryCommentReturn list }
+    
+/// TrialBalanceReturnRow is in the JE contracts because the concept of a trial balance is a function of account plus
+/// journal entries. A trial balance *report* is a reporting function, but the data used to create that report is of the
+/// JE domain
+type TrialBalanceReturnRow =
+    { accountCode: string
+      accountName: string
+      generation: int
+      totalCredits: decimal
+      totalDebits: decimal
+      netBalance: decimal }
+
+
+
 
 type JournalEntryFetchByIdInput = { id: Guid }
 type JournalEntryFetchByPeriodInput = { periodKey: string }

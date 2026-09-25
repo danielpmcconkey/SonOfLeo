@@ -7,7 +7,7 @@ open App.Operation.Audit
 open App.Session
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
-open Business.FinancialServices.FiscalPeriodCreation
+open Business.CrossDomainOrchestration.FiscalPeriodCreation
 open Ui.InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
 open Ui.InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
 open Ui.InterfaceBridge.CommandRoute

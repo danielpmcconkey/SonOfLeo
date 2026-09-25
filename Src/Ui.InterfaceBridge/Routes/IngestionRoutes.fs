@@ -1,7 +1,7 @@
 module Ui.InterfaceBridge.Routes.IngestionRoutes
 
 open App.Utility
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.FieldUpdate
 open App.Utility.File
 open App.Utility.Json
@@ -9,16 +9,16 @@ open App.Utility.Result
 open App.DataAccessLayer.DbTransaction
 open App.Operation.Audit
 open App.Session
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.DataIngestion.StageEntryHeader
-open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices
-open Business.FinancialServices.TrialBalanceReport
-open Ui.InterfaceBridge.CommandRoute
+open Business.CrossDomainOrchestration
+open Business.CrossDomainOrchestration.TrialBalanceReport
+open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
 open Ui.InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 open Ui.InterfaceBridge.BoundaryConverters.ReportConverters
-open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
+open Ui.InterfaceBridge.CommandRoute
 
 let private ingestRawEntries payload _ =
     runCommandRouteAndAutoCompleteTransaction IngestRawEntries (fun context ->
@@ -106,7 +106,7 @@ let private updateStageEntry payload _ =
     
 let private postWithExternallyManagedTransaction
     (context: Context.Context)
-    : Result<PostStageEntriesTrialBalancesResult, AppError> =
+    : Result<PostStageEntriesTrialBalancesResult, IAppError> =
     result {
         let asOf = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
         // get the "before" snapshot        
@@ -167,15 +167,6 @@ let private deduplicateStageEntries _ _ =
                 |> convertListOfResultsToResultsList
             return! Json.toJson<StageEntryReturn list> converted })
 
-let private classifyAccounts _ _ =
-    runCommandRouteAndAutoCompleteTransaction IngestClassifyAccounts (fun context ->
-        result {
-            let! classificationResult = StageEntryOrchestration.classifyAccounts context
-            let! converted =
-                classificationResult
-                |> ``convert [AccountClassificationResult] to [AccountClassificationResultReturn]`` context
-            return! Json.toJson<AccountClassificationResultReturn> converted })
-
 let ingestionDomainCommandRoutes: CommandRoute list =
     [
       { domain = "Ingestion"
@@ -184,13 +175,6 @@ let ingestionDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<Ui.InterfaceBridge.InterfaceContracts.SharedContracts.NoInput>.Name
         outputContract = typeof<StageEntryReturn list>.Name
         handler = deduplicateStageEntries }
-
-      { domain = "Ingestion"
-        verb = "ClassifyAccounts"
-        description = "Run the account classification rules over every unresolved staged entry line, write the account where a rule wins outright, and update each entry's status. Returns the run, its results, and the entries an operator may still need to act on."
-        inputContract = typeof<Ui.InterfaceBridge.InterfaceContracts.SharedContracts.NoInput>.Name
-        outputContract = typeof<AccountClassificationResultReturn>.Name
-        handler = classifyAccounts }
 
       { domain = "Ingestion"
         verb = "IngestRawFileToStage"

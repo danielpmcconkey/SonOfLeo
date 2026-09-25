@@ -1,6 +1,6 @@
 module Ui.InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
 
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer
 open App.Session
@@ -11,16 +11,18 @@ open Ui.InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
 let ``convert FiscalPeriodKeyString to FiscalPeriodId``
     (context: Context.Context)
     (key: string)
-    : Result<FiscalPeriodId, AppError> =
+    : Result<FiscalPeriodId, IAppError> =
     match key |> LookupCache.fiscalPeriodKeyToId.fetch (context |> Context.getDatabaseTransaction) with
     | Ok x -> x |> FiscalPeriodId.fromGuid |> Ok
-    | Error (DalResultantRowsDidntMatchExpectation _) -> Error (FiscalPeriodNoPeriodMatchingKey key)
-    | Error e -> Error e
+    | Error e ->
+        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
+        then Error (LedgerError.FiscalPeriodNoPeriodMatchingKey key)
+        else Error e
 
 let ``convert [FiscalPeriodKeyString] to FiscalPeriod``
     (context: Context.Context)
     (key: string)
-    : Result<FiscalPeriod.FiscalPeriod, AppError> =
+    : Result<FiscalPeriod.FiscalPeriod, IAppError> =
     result {
         let! fiscalPeriodId = key |> ``convert FiscalPeriodKeyString to FiscalPeriodId`` context
         return! fiscalPeriodId |> FiscalPeriod.fetchById context

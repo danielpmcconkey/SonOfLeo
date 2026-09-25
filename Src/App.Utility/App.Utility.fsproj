@@ -9,7 +9,6 @@
   <ItemGroup>
     <Compile Include="IAppError.fs" />
     <Compile Include="UtilityError.fs" />
-    <Compile Include="AppError.fs" />
     <Compile Include="Result.fs" />
     <Compile Include="Config.fs" />
     <Compile Include="File.fs" />

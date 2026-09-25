@@ -1,24 +1,24 @@
 module Ui.InterfaceBridge.Routes.JournalEntryRoutes
 
-open App.DataAccessLayer.DbTransaction
+open App.Utility.IAppError
 open App.Utility.Json
-open App.Utility.AppError
 open App.Utility.FieldUpdate
 open App.Utility.Result
+open App.DataAccessLayer.DbTransaction
 open App.Session
 open App.Operation.Audit
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices
-open Business.FinancialServices.JournalEntries
-open Business.FinancialServices.JournalEntryVoiding
-open Ui.InterfaceBridge.CommandRoute
+open Business.CrossDomainOrchestration
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
+open Business.CrossDomainOrchestration.JournalEntryVoiding
+open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open Ui.InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
 open Ui.InterfaceBridge.BoundaryConverters.JournalEntryFieldConverters
-open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
+open Ui.InterfaceBridge.CommandRoute
 
-let private postNew payload _ : Result<string, AppError> =
+let private postNew payload _ : Result<string, IAppError> =
     runCommandRouteAndAutoCompleteTransaction JournalEntryPostNew (fun context ->
         result {
             let! input = Json.fromJson<JournalEntryInput> payload
@@ -34,7 +34,7 @@ let private postNew payload _ : Result<string, AppError> =
                 input.comments
                 |> ``convert [JournalEntryCommentInput list] to [JournalEntryCommentPrimitives list]``
             let! newJournalEntry =
-                JournalEntry.constructNewAndPersist context description source entryDate lines references comments
+                JournalEntryOrchestration.constructNewAndPersist context description source entryDate lines references comments
             let! returnVal = ``convert JournalEntry to JournalEntryReturn`` context newJournalEntry
             return! Json.toJson<JournalEntryReturn> returnVal
         })
@@ -43,7 +43,7 @@ let private fetchById payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
         let! input = Json.fromJson<JournalEntryFetchByIdInput> payload
-        let! journalEntry = input.id |> JournalEntryHeaderId.fromGuid |> JournalEntry.fetchById context
+        let! journalEntry = input.id |> JournalEntryHeaderId.fromGuid |> JournalEntryOrchestration.fetchById context
         let! returnVal = ``convert JournalEntry to JournalEntryReturn`` context journalEntry
         return! Json.toJson<JournalEntryReturn> returnVal
     }
@@ -53,7 +53,7 @@ let private fetchByPeriod payload _ =
     result {
         let! input = Json.fromJson<JournalEntryFetchByPeriodInput> payload
         let! fiscalPeriod = input.periodKey |> ``convert [FiscalPeriodKeyString] to FiscalPeriod`` context
-        let! model = fiscalPeriod |> JournalEntry.fetchByPeriod context
+        let! model = fiscalPeriod |> JournalEntryOrchestration.fetchByPeriod context
         let! returnVal = model |> ``convert JournalEntry list to JournalEntryReturn list`` context
         return! Json.toJson<JournalEntryReturn list> returnVal
     }
@@ -76,7 +76,7 @@ let private fetchByExternalReference payload _ =
         let! reference =
             input.reference
             |> convertOptionToDesiredTypeWithFallibleConverter JournalExternalReferenceText.create
-        let! model = JournalEntry.fetchByReference context fi reference
+        let! model = JournalEntryOrchestration.fetchByReference context fi reference
         let! returnVal = model |> ``convert JournalEntry list to JournalEntryReturn list`` context
         return! Json.toJson<JournalEntryReturn list> returnVal
     }
@@ -85,7 +85,7 @@ let private fetchByDateRange payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
         let! input = Json.fromJson<JournalEntryFetchByDateRangeInput> payload
-        let! model = JournalEntry.fetchByDateRange context input.beginDate input.endDateInclusive
+        let! model = JournalEntryOrchestration.fetchByDateRange context input.beginDate input.endDateInclusive
         let! returnVal = model |> ``convert JournalEntry list to JournalEntryReturn list`` context
         return! Json.toJson<JournalEntryReturn list> returnVal
     }

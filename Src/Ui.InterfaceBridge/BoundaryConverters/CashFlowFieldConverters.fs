@@ -1,20 +1,19 @@
 module Ui.InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
 
 open App.Utility
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Result
 open App.Session
 open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.CashFlow.CashFlowComponent
-open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.Classification
-open Business.FinancialServices
-open Ui.InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
-open Ui.InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
+open Business.CrossDomainOrchestration
 open Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
 open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
 
 let ``convert [Blocker] to [BlockerContract]`` (blocker: Blocker) : BlockerContract =
     match blocker with
@@ -51,7 +50,7 @@ let ``convert [MonthDay] to [MonthDayContract]`` (monthDay: Cadence.MonthDay) : 
 
 let ``convert [MonthDayContract] to [MonthDay]``
     (monthDayContract: MonthDayContract)
-    : Result<Cadence.MonthDay, AppError> =
+    : Result<Cadence.MonthDay, IAppError> =
     match monthDayContract with
     | MonthDayContract.DateInMonth dateInMonth ->
         dateInMonth |> Cadence.DateInMonthNumber.fromInt |> Result.map Cadence.DateInMonth
@@ -78,7 +77,7 @@ let ``convert [CadenceType] to [CadenceTypeContract]``
 
 let ``convert [CadenceTypeContract] to [CadenceType]``
     (cadenceTypeContract: CadenceTypeContract)
-    : Result<Cadence.CadenceType, AppError> =
+    : Result<Cadence.CadenceType, IAppError> =
     match cadenceTypeContract with
     | CadenceTypeContract.Daily -> Ok Cadence.Daily
     | CadenceTypeContract.Weekly weekDayString ->
@@ -100,7 +99,7 @@ let ``convert [Cadence] to [CadenceContract]`` (cadence: Cadence.Cadence) : Cade
 
 let ``convert [CadenceContract] to [Cadence]``
     (cadenceContract: CadenceContract)
-    : Result<Cadence.Cadence, AppError> =
+    : Result<Cadence.Cadence, IAppError> =
     result {
         let! cadenceType = cadenceContract.cadenceType |> ``convert [CadenceTypeContract] to [CadenceType]``
         let nextInstance : Cadence.CadenceNextInstance = { nextInstance = cadenceContract.nextInstance }
@@ -122,7 +121,7 @@ let ``convert [Payment] to [PaymentReturn]`` (payment: Payment.Payment) : Paymen
 let ``convert [Invoice] to [InvoiceReturn]``
     (context: Context.Context)
     (invoice: Invoice.Invoice)
-    : Result<InvoiceReturn, AppError> =
+    : Result<InvoiceReturn, IAppError> =
     result {
         let! paymentAgreementName =
             invoice |> Invoice.paymentAgreementId |> ``convert [PaymentAgreementId] to [PaymentAgreementNameString]`` context
@@ -151,7 +150,7 @@ let ``convert [Instance] to [InstanceReturn]`` (instance: Instance.Instance) : I
 let ``convert [InvoiceComposite] to [InvoiceCompositeReturn]``
     (context: Context.Context)
     (invoiceComposite: InstanceOrchestration.InvoiceComposite)
-    : Result<InvoiceCompositeReturn, AppError> =
+    : Result<InvoiceCompositeReturn, IAppError> =
     result {
         let! invoice =
             invoiceComposite |> InstanceOrchestration.invoice |> ``convert [Invoice] to [InvoiceReturn]`` context
@@ -165,7 +164,7 @@ let ``convert [InvoiceComposite] to [InvoiceCompositeReturn]``
 let ``convert [InstanceComposite] to [InstanceCompositeReturn]``
     (context: Context.Context)
     (instanceComposite: InstanceOrchestration.InstanceComposite)
-    : Result<InstanceCompositeReturn, AppError> =
+    : Result<InstanceCompositeReturn, IAppError> =
     result {
         let instance = instanceComposite |> InstanceOrchestration.instance |> ``convert [Instance] to [InstanceReturn]``
         let! invoiceComposites =
@@ -182,7 +181,7 @@ let ``convert [InstanceComposite] to [InstanceCompositeReturn]``
 let ``convert [InstanceComposite list] to [InstanceCompositeReturn list]``
     (context: Context.Context)
     (instanceComposites: InstanceOrchestration.InstanceComposite list)
-    : Result<InstanceCompositeReturn list, AppError> =
+    : Result<InstanceCompositeReturn list, IAppError> =
     instanceComposites
     |> List.map (``convert [InstanceComposite] to [InstanceCompositeReturn]`` context)
     |> convertListOfResultsToResultsList
@@ -209,7 +208,7 @@ let ``convert [MasterAgreement] to [MasterAgreementReturn]``
 let ``convert [PaymentAgreement] to [PaymentAgreementReturn]``
     (context: Context.Context)
     (paymentAgreement: PaymentAgreement.PaymentAgreement)
-    : Result<PaymentAgreementReturn, AppError> =
+    : Result<PaymentAgreementReturn, IAppError> =
     result {
         let! masterAgreementName =
             paymentAgreement
@@ -238,7 +237,7 @@ let ``convert [PaymentAgreement] to [PaymentAgreementReturn]``
 let ``convert [Agreement] to [AgreementReturn]``
     (context: Context.Context)
     (agreement: AgreementOrchestration.Agreement)
-    : Result<AgreementReturn, AppError> =
+    : Result<AgreementReturn, IAppError> =
     result {
         let masterAgreement =
             agreement
@@ -268,7 +267,7 @@ let ``convert [Agreement] to [AgreementReturn]``
 let ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]``
     (context: Context.Context)
     (link: PaymentAgreementLink.PaymentAgreementLink)
-    : Result<PaymentAgreementLinkReturn, AppError> =
+    : Result<PaymentAgreementLinkReturn, IAppError> =
     result {
         let! paymentAgreementName =
             link
@@ -281,19 +280,6 @@ let ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]``
             stageEntryLineId = link |> PaymentAgreementLink.stageEntryLineId |> StageEntryLineId.value
             createdAt = link |> PaymentAgreementLink.createdAt
             modifiedAt = link |> PaymentAgreementLink.modifiedAt } }
-
-let ``convert [PaymentAgreementDecision] to [PaymentAgreementDecisionReturn]``
-    (context: Context.Context)
-    (decision: ClassificationComponent.PaymentAgreementDecision)
-    : Result<PaymentAgreementDecisionReturn, AppError> =
-    result {
-        let! paymentAgreementName =
-            decision.paymentAgreementId |> ``convert [PaymentAgreementId option] to [PaymentAgreementNameString option]`` context
-        return {
-            stageEntryLineId = decision.stageEntryLineId |> StageEntryLineId.value
-            paymentAgreementName = paymentAgreementName
-            ruleIds = decision.ruleIds |> List.map ClassificationComponent.ClassificationRuleId.value
-            outcome = decision.outcome |> ClassificationComponent.PaymentAgreementDecisionOutcome.toString } }
 
 let ``convert [InvoiceDecision] to [InvoiceDecisionReturn]`` (decision: InvoiceDecision) : InvoiceDecisionReturn =
     let outcome =
@@ -362,40 +348,7 @@ let ``convert [CashFlowProjection] to [CashFlowProjectionReturn]``
             bill.instanceDate, (bill.paymentAgreementName |> PaymentAgreementName.value))
         |> List.map ``convert [BillToChase] to [BillToChaseReturn]`` }
 
-let ``convert [PaymentAgreementClassificationResult] to [PaymentAgreementClassificationResultReturn]``
-    (context: Context.Context)
-    (classificationResult: InstanceOrchestration.PaymentAgreementClassificationResult)
-    : Result<PaymentAgreementClassificationResultReturn, AppError> =
-    result {
-        let! classificationResults =
-            classificationResult.classificationResults
-            |> ``convert [ClassificationResult list] to [ClassificationResultReturn list]`` context
-        let! decisionLog =
-            classificationResult.decisionLog
-            |> List.map (``convert [PaymentAgreementDecision] to [PaymentAgreementDecisionReturn]`` context)
-            |> convertListOfResultsToResultsList
-        let! openInstances =
-            classificationResult.openInstances
-            |> ``convert [InstanceComposite list] to [InstanceCompositeReturn list]`` context
-        let sortedResults =
-            classificationResults
-            |> List.sortBy (fun result -> result.candidate.stageEntryHeaderId, result.candidate.stageEntryLineId)
-        let sortedDecisionLog =
-            decisionLog
-            |> List.sortBy (fun (decision: PaymentAgreementDecisionReturn) ->
-                decision.paymentAgreementName, decision.stageEntryLineId)
-        let sortedInvoiceDecisionLog =
-            classificationResult.invoiceDecisionLog
-            |> List.map ``convert [InvoiceDecision] to [InvoiceDecisionReturn]``
-            |> List.sortBy (fun (decision: InvoiceDecisionReturn) -> decision.invoiceId, decision.outcome)
-        return {
-            runId = classificationResult.runId |> ClassificationComponent.ClassificationRunId.value
-            classificationResults = sortedResults
-            decisionLog = sortedDecisionLog
-            invoiceDecisionLog = sortedInvoiceDecisionLog
-            openInstances = openInstances } }
-
-let ``convert [BlockerContract] to [Blocker]`` (blockerContract: BlockerContract) : Result<Blocker, AppError> =
+let ``convert [BlockerContract] to [Blocker]`` (blockerContract: BlockerContract) : Result<Blocker, IAppError> =
     match blockerContract with
     | BlockerContract.NoFunds -> Ok Blocker.NoFunds
     | BlockerContract.Irresponsible -> Ok Blocker.Irresponsible
@@ -404,7 +357,7 @@ let ``convert [BlockerContract] to [Blocker]`` (blockerContract: BlockerContract
 
 let ``convert [InvoiceLifeCycleStateContract] to [InvoiceLifeCycleState]``
     (lifeCycleStateContract: InvoiceLifeCycleStateContract)
-    : Result<InvoiceLifeCycleState, AppError> =
+    : Result<InvoiceLifeCycleState, IAppError> =
     result {
         let! invoiceState = lifeCycleStateContract.invoiceState |> InvoiceState.fromString
         let! paymentState = lifeCycleStateContract.paymentState |> PaymentState.fromString
@@ -433,7 +386,7 @@ let ``convert [CreatePaymentFieldsInput] to [PaymentPrimitives]``
     (input: CreatePaymentFieldsInput)
     : Result<
         TransactionPointer * PaymentAmount * PostedToFiDate option * PostedToLedgerDate option * PaymentMemo option,
-        AppError> =
+        IAppError> =
     result {
         let transactionPointer =
             input.transactionPointer |> ``convert [TransactionPointerContract] to [TransactionPointer]``
@@ -452,7 +405,7 @@ let ``convert [CreatePaymentFieldsInput list] to [PaymentPrimitives list]``
     (input: CreatePaymentFieldsInput list)
     : Result<
         (TransactionPointer * PaymentAmount * PostedToFiDate option * PostedToLedgerDate option * PaymentMemo option) list,
-        AppError> =
+        IAppError> =
     input
     |> List.map ``convert [CreatePaymentFieldsInput] to [PaymentPrimitives]``
     |> convertListOfResultsToResultsList
@@ -464,7 +417,7 @@ let ``convert [CreateInvoiceFieldsInput] to [InvoiceCompositePrimitives]``
         PaymentAgreementId * ExternalInvoiceId option * InvoiceDate * DueDate * InvoiceAmount * InvoiceLifeCycleState *
         InvoiceMemo option *
         (TransactionPointer * PaymentAmount * PostedToFiDate option * PostedToLedgerDate option * PaymentMemo option) list,
-        AppError> =
+        IAppError> =
     result {
         let! paymentAgreementId =
             input.paymentAgreementName |> ``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context
@@ -488,7 +441,7 @@ let ``convert [CreateInvoiceFieldsInput list] to [InvoiceCompositePrimitives lis
         (PaymentAgreementId * ExternalInvoiceId option * InvoiceDate * DueDate * InvoiceAmount * InvoiceLifeCycleState *
          InvoiceMemo option *
          (TransactionPointer * PaymentAmount * PostedToFiDate option * PostedToLedgerDate option * PaymentMemo option) list) list,
-        AppError> =
+        IAppError> =
     input
     |> List.map (``convert [CreateInvoiceFieldsInput] to [InvoiceCompositePrimitives]`` context)
     |> convertListOfResultsToResultsList
@@ -500,7 +453,7 @@ let ``convert [NewInvoiceFieldsInput] to [NewInvoicePrimitives]``
         PaymentAgreementId * ExternalInvoiceId option * InvoiceDate * DueDate * InvoiceAmount * InvoiceState *
         Blocker option * InvoiceMemo option *
         (TransactionPointer * PaymentAmount * PostedToFiDate option * PostedToLedgerDate option * PaymentMemo option) list,
-        AppError> =
+        IAppError> =
     result {
         let! paymentAgreementId =
             input.paymentAgreementName |> ``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context
@@ -539,7 +492,7 @@ let private noChangeInstanceUpdates (instanceId: InstanceId) : Instance.Instance
 let ``convert [CreateInvoiceInput] to [InstanceCompositeUpdate]``
     (context: Context.Context)
     (input: CreateInvoiceInput)
-    : Result<InstanceOrchestration.InstanceCompositeUpdate, AppError> =
+    : Result<InstanceOrchestration.InstanceCompositeUpdate, IAppError> =
     result {
         let instanceId = input.instanceId |> InstanceId.fromGuid
         let! newInvoice = input.invoice |> ``convert [NewInvoiceFieldsInput] to [NewInvoicePrimitives]`` context
@@ -552,7 +505,7 @@ let ``convert [CreateInvoiceInput] to [InstanceCompositeUpdate]``
 let ``convert [UpdateInvoiceInput] to [InstanceCompositeUpdate]``
     (context: Context.Context)
     (input: UpdateInvoiceInput)
-    : Result<InstanceOrchestration.InstanceCompositeUpdate, AppError> =
+    : Result<InstanceOrchestration.InstanceCompositeUpdate, IAppError> =
     result {
         let invoiceId = input.invoiceId |> InvoiceId.fromGuid
         let! invoice = invoiceId |> Invoice.fetchById context
@@ -602,7 +555,7 @@ let ``convert [UpdateInvoiceInput] to [InstanceCompositeUpdate]``
 let ``convert [CreatePaymentInput] to [InstanceCompositeUpdate]``
     (context: Context.Context)
     (input: CreatePaymentInput)
-    : Result<InstanceOrchestration.InstanceCompositeUpdate, AppError> =
+    : Result<InstanceOrchestration.InstanceCompositeUpdate, IAppError> =
     result {
         let invoiceId = input.invoiceId |> InvoiceId.fromGuid
         let! invoice = invoiceId |> Invoice.fetchById context
@@ -622,7 +575,7 @@ let ``convert [CreatePaymentInput] to [InstanceCompositeUpdate]``
 let ``convert [UpdatePaymentAgreementLinkInput] to [PaymentAgreementLinkFieldUpdates]``
     (context: Context.Context)
     (input: UpdatePaymentAgreementLinkInput)
-    : Result<PaymentAgreementLink.PaymentAgreementLinkFieldUpdates, AppError> =
+    : Result<PaymentAgreementLink.PaymentAgreementLinkFieldUpdates, IAppError> =
     result {
         let linkId = input.paymentAgreementLinkId |> PaymentAgreementLinkId.fromGuid
         let! paymentAgreementIdUpdate =
@@ -636,7 +589,7 @@ let ``convert [CreatePaymentAgreementFieldsInput] to [PaymentAgreementPrimitives
     (input: CreatePaymentAgreementFieldsInput)
     : Result<
         PaymentAgreementName * DebitAccount * CreditAccount * Money.Money option * DaysDueAfterInvoiceDate option *
-        PaymentAgreementMemo option, AppError> =
+        PaymentAgreementMemo option, IAppError> =
     result {
         let! paymentAgreementName = input.paymentAgreementName |> PaymentAgreementName.create
         let! debitAccountId = input.debitAccountCode |> ``convert AccountCodeString to Id`` context
@@ -661,7 +614,7 @@ let ``convert [CreatePaymentAgreementFieldsInput list] to [PaymentAgreementPrimi
     (input: CreatePaymentAgreementFieldsInput list)
     : Result<
         (PaymentAgreementName * DebitAccount * CreditAccount * Money.Money option * DaysDueAfterInvoiceDate option *
-         PaymentAgreementMemo option) list, AppError> =
+         PaymentAgreementMemo option) list, IAppError> =
     input
     |> List.map (``convert [CreatePaymentAgreementFieldsInput] to [PaymentAgreementPrimitives]`` context)
     |> convertListOfResultsToResultsList
@@ -669,7 +622,7 @@ let ``convert [CreatePaymentAgreementFieldsInput list] to [PaymentAgreementPrimi
 let ``convert [UpdateAgreementInput] to [MasterAgreementFieldUpdates]``
     (context: Context.Context)
     (input: UpdateAgreementInput)
-    : Result<MasterAgreement.MasterAgreementFieldUpdates, AppError> =
+    : Result<MasterAgreement.MasterAgreementFieldUpdates, IAppError> =
     result {
         let! agreementId = input.agreementName |> ``convert [AgreementNameString] to [MasterAgreementId]`` context
         let! agreementNameUpdate = input.agreementNameUpdate

@@ -2,9 +2,10 @@ module Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
 
 open System
 open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
-open Business.FinancialServices.FetchFilters
+open Business.CrossDomainOrchestration.FetchFilters
 open NodaTime
 open App.Utility.FieldUpdate
+open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
 
 // ****************************************
 // Bi-directional contracts
@@ -68,6 +69,12 @@ type ClassificationResultReturn = {
         candidate: MatchCandidateReturn
         outcome: ClassifierOutcomeReturn
     }
+
+type AccountClassificationResultReturn = {
+    runId: Guid
+    classificationResults: ClassificationResultReturn list
+    stagedEntries: StageEntryReturn list
+}
 
 // priority is read off the live rule rather than the recorded match, so a rule re-prioritized since the run reports its
 // current priority, not the one that decided the match

@@ -53,7 +53,7 @@ module NumericSearchOperator =
         | "GreaterThanOrEqualTo" -> Ok GreaterThanOrEqualTo
         | "LessThanOrEqualTo" -> Ok LessThanOrEqualTo
         | "ExactlyEqual" -> Ok ExactlyEqual
-        | _ -> Error (IngestionInvalidNumericSearchOperator str)
+        | _ -> error (IngestionInvalidNumericSearchOperator str)
     
 type MoneySearchPattern = {
         numericSearchOperator: NumericSearchOperator
@@ -105,7 +105,7 @@ module ClassificationGroupConnector =
         match str with
         | "And" -> Ok And
         | "Or" -> Ok Or
-        | _ -> Error (IngestionInvalidClassificationGroupConnector str)
+        | _ -> error (IngestionInvalidClassificationGroupConnector str)
 
 type MatchCandidate = {
         headerIdOfCandidate: StageEntryHeaderId

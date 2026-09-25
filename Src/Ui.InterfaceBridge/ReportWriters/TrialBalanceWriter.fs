@@ -1,13 +1,13 @@
 module Ui.InterfaceBridge.ReportWriters.TrialBalanceWriter
 
 open NodaTime
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Calendar
 open App.Utility.File
 open App.Utility.Result
 open Business.FinancialServices
 open Business.FinancialServices.Ledger.AccountComponent
-open Business.FinancialServices.TrialBalanceReport
+open Business.CrossDomainOrchestration.TrialBalanceReport
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Ui.InterfaceBridge.ReportVisualizationAssets.HtmlComponents
 open Ui.InterfaceBridge.ReportVisualizationAssets.BaseCssDeclarations
@@ -228,7 +228,7 @@ let write
     (pathInfo: OutputPathInput)
     (asOf: LocalDate)
     (sortedRows: TrialBalanceRowFlattened list)
-    : Result<TrialBalanceReturn, AppError> =
+    : Result<TrialBalanceReportReturn, IAppError> =
     let head = {
         charSet = "utf-8"
         title = $"Son of Leo: Trial Balance Report as of {asOf}"
@@ -274,5 +274,5 @@ let write
         do! htmlWrapper
             |> HtmlWrapper.toString
             |> writeTextFile path
-        return TrialBalanceReturn.Report{ fullyQualifiedPath = path}
+        return TrialBalanceReportReturn.Report{ fullyQualifiedPath = path}
     }

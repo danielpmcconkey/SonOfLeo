@@ -6,13 +6,15 @@ open App.DataAccessLayer.DbTransaction
 open App.Operation.Audit
 open App.Session
 open Business.General
+open Business.FinancialServices
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.CashFlow.CashFlowComponent
-open Business.FinancialServices
-open Ui.InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
-open Ui.InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
-open Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
+open Business.CrossDomainOrchestration
 open Ui.InterfaceBridge.InterfaceContracts.SharedContracts
+open Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
+open Ui.InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
+open Ui.InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
 open Ui.InterfaceBridge.CommandRoute
 
 let private createUpcomingInstances payload _ =

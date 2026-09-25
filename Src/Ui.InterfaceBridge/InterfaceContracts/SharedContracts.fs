@@ -2,7 +2,6 @@ module Ui.InterfaceBridge.InterfaceContracts.SharedContracts
 
 open NodaTime
 
-
 type FilterDateRangeInput =
     {
       beginDate: LocalDate

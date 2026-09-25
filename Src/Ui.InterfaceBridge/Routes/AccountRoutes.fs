@@ -1,6 +1,5 @@
 module Ui.InterfaceBridge.Routes.AccountRoutes
 
-open App.Utility.AppError
 open App.Utility.Result
 open App.Utility.Json
 open App.DataAccessLayer.DbTransaction
@@ -8,12 +7,12 @@ open App.Operation.Audit
 open App.Session
 open Business.General
 open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Ledger.AccountComponent
-open Business.FinancialServices
-open Business.FinancialServices.AccountActivity
-open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open Ui.InterfaceBridge.BoundaryConverters.OrchestrationConverters
+open Business.CrossDomainOrchestration
 open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
+open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.JournalEntryFieldConverters
 open Ui.InterfaceBridge.CommandRoute
 
 let private accountCreate payload _ =
@@ -32,9 +31,10 @@ let private accountCreate payload _ =
             |> ``convert AccountCodeString Option to AccountId Option`` context
             |> function
                 | Ok x -> Ok x
-                | Error(AccountCodeDoesntMatchAccountId _) ->
-                    Error(AccountParentCodeInvalid(accountCreateInput.parentCode |> Option.defaultValue "None"))
-                | Error e -> Error e
+                | Error e ->
+                    if e.DomainName = nameof LedgerError && e.CaseName = nameof AccountCodeDoesntMatchAccountId
+                    then Error (AccountParentCodeInvalid(accountCreateInput.parentCode |> Option.defaultValue "None"))
+                    else Error e
         let! reference =
             accountCreateInput.reference
             |> ``convert [Account Reference String Option] to [AccountExternalReference Option]``
@@ -136,7 +136,7 @@ let private accountActivityFetch payload _ =
     result {
         let! input = Json.fromJson<AccountActivityFetchInput> payload
         let! filter = input.filter |> ``convert AccountActivityFilterInput to AccountActivityFilter`` context
-        let! fetched = fetchFiltered context filter input.sort
+        let! fetched = AccountActivity.fetchFiltered context filter input.sort
         let! returnList = fetched |> ``convert AccountActivity List to AccountActivityReturn List`` context
         return! returnList |> Json.toJson<AccountActivityReturn list>
     }

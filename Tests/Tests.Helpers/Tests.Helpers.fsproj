@@ -16,6 +16,7 @@
     <Compile Include="RouteResolver.fs" />
     <Compile Include="SadPath.fs" />
     <Compile Include="CliExecutor.fs" />
+    <Compile Include="TestError.fs" />
   </ItemGroup>
 
   <ItemGroup>

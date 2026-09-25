@@ -2,7 +2,7 @@ module Ui.InterfaceBridge.InterfaceContracts.AccountContracts
 
 open System
 open NodaTime
-open Business.FinancialServices.FetchFilters
+open Business.CrossDomainOrchestration.FetchFilters
 open Ui.InterfaceBridge.InterfaceContracts.SharedContracts
 
 // ****************************************

@@ -1,6 +1,7 @@
 module Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 
 open NodaTime
+open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 
 type ReportAsOf = { asOf: LocalDate }
 
@@ -14,18 +15,10 @@ type OutputPathReturn = { fullyQualifiedPath: string }
 type OutputSpecifier =
     | DataOnly
     | Report of OutputPathInput
+    
+type TrialBalanceReportInput = { asOf: ReportAsOf; reportOutput: OutputSpecifier }
 
-type TrialBalanceInput = { asOf: ReportAsOf; reportOutput: OutputSpecifier }
-
-type TrialBalanceReturnRow =
-    { accountCode: string
-      accountName: string
-      generation: int
-      totalCredits: decimal
-      totalDebits: decimal
-      netBalance: decimal }
-
-type TrialBalanceReturn = 
+type TrialBalanceReportReturn = 
     | DataOnly of TrialBalanceReturnRow list
     | Report of OutputPathReturn
     

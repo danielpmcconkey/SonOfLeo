@@ -31,7 +31,7 @@ type ReportRoutesTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-2.2 data-only mode returns boundary-type rows with expected field types``() =
-        let input: TrialBalanceInput = { asOf = { asOf = nextMonth }; reportOutput = OutputSpecifier.DataOnly }
+        let input: TrialBalanceReportInput = { asOf = { asOf = nextMonth }; reportOutput = OutputSpecifier.DataOnly }
         let expectedCount = fixture.Data.accounts |> List.length
         let leafId = fixture.Data.food5350Id
         let leafCode =
@@ -54,66 +54,66 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             |> List.sumBy(fun l -> l |> JournalEntryLine.amount |> Money.amount)
         let expectedNet = expectedDebits - expectedCredits
         result {
-            let! payload = input |> toJson<TrialBalanceInput>
+            let! payload = input |> toJson<TrialBalanceReportInput>
             let! returnPayload = routeReportingCommandForTesting "TrialBalance" [] payload
-            let! returned = returnPayload |> fromJson<TrialBalanceReturn>
+            let! returned = returnPayload |> fromJson<TrialBalanceReportReturn>
             return!
                 match returned with
-                | TrialBalanceReturn.DataOnly rows ->
+                | TrialBalanceReportReturn.DataOnly rows ->
                     Assert.Equal(expectedCount, rows |> List.length)
                     let leafRow = rows |> List.find(fun r -> r.accountCode = leafCode)
                     Assert.Equal(expectedDebits, leafRow.totalDebits)
                     Assert.Equal(expectedCredits, leafRow.totalCredits)
                     Assert.Equal(expectedNet, leafRow.netBalance)
                     Ok ()
-                | TrialBalanceReturn.Report _ ->
+                | TrialBalanceReportReturn.Report _ ->
                     Error (TestingError "Expected DataOnly but got Report")
         }
         |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-2.3 report mode writes an HTML file and returns the file path``() =
-        let input: TrialBalanceInput =
+        let input: TrialBalanceReportInput =
             { asOf = { asOf = nextMonth }
               reportOutput = OutputSpecifier.Report { baseDir = testOutputDir; interpolateAsOf = false; fileName = "rpt-2-3-test" } }
         result {
-            let! payload = input |> toJson<TrialBalanceInput>
+            let! payload = input |> toJson<TrialBalanceReportInput>
             let! returnPayload = routeReportingCommandForTesting "TrialBalance" [] payload
-            let! returned = returnPayload |> fromJson<TrialBalanceReturn>
+            let! returned = returnPayload |> fromJson<TrialBalanceReportReturn>
             return!
                 match returned with
-                | TrialBalanceReturn.Report pathReturn ->
+                | TrialBalanceReportReturn.Report pathReturn ->
                     Assert.True(System.IO.File.Exists pathReturn.fullyQualifiedPath)
                     Assert.Contains(".html", pathReturn.fullyQualifiedPath)
                     System.IO.File.Delete pathReturn.fullyQualifiedPath
                     Ok ()
-                | TrialBalanceReturn.DataOnly _ ->
+                | TrialBalanceReportReturn.DataOnly _ ->
                     Error (TestingError "Expected Report but got DataOnly")
         }
         |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-2.4 date interpolation appends yyyy-MM-dd to filename before extension``() =
-        let input: TrialBalanceInput =
+        let input: TrialBalanceReportInput =
             { asOf = { asOf = nextMonth }
               reportOutput = OutputSpecifier.Report { baseDir = testOutputDir; interpolateAsOf = true; fileName = "rpt-2-4-test" } }
         let expectedDateStr = nextMonth |> Calendar.localDateToString "yyyy-MM-dd"
         let expectedPath =
             System.IO.Path.Combine(testOutputDir, $"rpt-2-4-test-{expectedDateStr}.html")
         result {
-            let! payload = input |> toJson<TrialBalanceInput>
+            let! payload = input |> toJson<TrialBalanceReportInput>
             let! returnPayload = routeReportingCommandForTesting "TrialBalance" [] payload
-            let! returned = returnPayload |> fromJson<TrialBalanceReturn>
+            let! returned = returnPayload |> fromJson<TrialBalanceReportReturn>
             return!
                 match returned with
-                | TrialBalanceReturn.Report pathReturn ->
+                | TrialBalanceReportReturn.Report pathReturn ->
                     (* Containment proves the date is somewhere in the path. The requirement
                        is about where: base dir, then the file name, then a hyphen and the
                        date, then the extension. Only the whole path asserts that. *)
                     Assert.Equal(expectedPath, pathReturn.fullyQualifiedPath)
                     System.IO.File.Delete pathReturn.fullyQualifiedPath
                     Ok ()
-                | TrialBalanceReturn.DataOnly _ ->
+                | TrialBalanceReportReturn.DataOnly _ ->
                     Error (TestingError "Expected Report but got DataOnly")
         }
         |> railroadWrapper

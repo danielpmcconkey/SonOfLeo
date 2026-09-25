@@ -1,23 +1,20 @@
 module Ui.InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.FieldUpdate
 open App.Utility.Result
 open App.Session
 open Business.FinancialServices
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.DataIngestion.BaseStageEntry
 open Business.FinancialServices.DataIngestion.StageEntryStatusTransition
-open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.FetchFilters
-open Business.FinancialServices.StageEntryOrchestration
-open Business.FinancialServices.Classification.ClassificationComponent
-open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open Ui.InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
-open Ui.InterfaceBridge.BoundaryConverters.OrchestrationConverters
-open Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
+open Business.CrossDomainOrchestration.FetchFilters
+open Business.CrossDomainOrchestration.StageEntryOrchestration
 open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
+open Ui.InterfaceBridge.BoundaryConverters.SharedContractConverters
+open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
 
 let ``convert [StageEntryStatusTransition] to [StageEntryStatusTransitionReturn]``
     (model: StageEntryStatusTransition)
@@ -68,7 +65,7 @@ let ``convert [StageEntryHeader] to [StageEntryHeaderReturn]``
 let ``convert [StageEntryLine] to [StageEntryLineReturn]``
     (context: Context.Context)
     (model: StageEntryLine.StageEntryLine)
-    : Result<StageEntryLineReturn, AppError> = result {
+    : Result<StageEntryLineReturn, IAppError> = result {
     let stageEntryLineId = model |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value
     let stageEntryHeaderId = model |> StageEntryLine.stageEntryHeaderId |> StageEntryHeaderId.value
     let amount = model |> StageEntryLine.amount |> Money.amount
@@ -95,7 +92,7 @@ let ``convert [StageEntryLine] to [StageEntryLineReturn]``
 let ``convert [StageEntryLine list] to [StageEntryLineReturn list]``
     (context: Context.Context)
     (input: StageEntryLine.StageEntryLine list)
-    : Result<StageEntryLineReturn list, AppError> =
+    : Result<StageEntryLineReturn list, IAppError> =
     input
     |> List.map(fun x -> x |> ``convert [StageEntryLine] to [StageEntryLineReturn]`` context)
     |> convertListOfResultsToResultsList
@@ -103,7 +100,7 @@ let ``convert [StageEntryLine list] to [StageEntryLineReturn list]``
 let ``convert [StageEntry] to [StageEntryReturn]``
     (context: Context.Context)
     (stageEntry: StageEntry)
-    : Result<StageEntryReturn, AppError> = result {
+    : Result<StageEntryReturn, IAppError> = result {
     let! lines =
         stageEntry
         |> seLines
@@ -123,30 +120,10 @@ let ``convert [StageEntry] to [StageEntryReturn]``
 let ``convert [StageEntry list] to [StageEntryReturn list]``
     (context: Context.Context)
     (stageEntries: StageEntry list)
-    : Result<StageEntryReturn list, AppError> =
+    : Result<StageEntryReturn list, IAppError> =
     stageEntries
     |> List.map(fun x -> x |> ``convert [StageEntry] to [StageEntryReturn]`` context)
     |> convertListOfResultsToResultsList
-
-let ``convert [AccountClassificationResult] to [AccountClassificationResultReturn]``
-    (context: Context.Context)
-    (classificationResult: AccountClassificationResult)
-    : Result<AccountClassificationResultReturn, AppError> = result {
-    let! classificationResults =
-        classificationResult.classificationResults
-        |> ``convert [ClassificationResult list] to [ClassificationResultReturn list]`` context
-    let! stagedEntries =
-        classificationResult.stagedEntries
-        |> ``convert [StageEntry list] to [StageEntryReturn list]`` context
-    let sortedResults =
-        classificationResults
-        |> List.sortBy (fun r -> r.candidate.stageEntryHeaderId, r.candidate.stageEntryLineId)
-    let sortedEntries =
-        stagedEntries
-        |> List.sortBy (fun e -> e.stageEntryHeader.entryDate, e.stageEntryHeader.stageEntryHeaderId)
-    return {    runId = classificationResult.runId |> ClassificationRunId.value
-                classificationResults = sortedResults
-                stagedEntries = sortedEntries } }
 
 let ``convert [IngestionSource] to [IngestionSourceReturn]``
     (source: IngestionSource.IngestionSource)
@@ -160,7 +137,7 @@ let ``convert [IngestionSource] to [IngestionSourceReturn]``
 let ``convert [UpdateStageEntryLineInput] to [StageEntryLineFieldUpdates]``
     (context: Context.Context)
     (line: UpdateStageEntryLineInput)
-    : Result<StageEntryLine.StageEntryLineFieldUpdates, AppError> =
+    : Result<StageEntryLine.StageEntryLineFieldUpdates, IAppError> =
     result {
         let lineIdToUpdate = line.stageEntryLineId |> StageEntryLineId.fromGuid
         let! amountUpdate = line.amount |> convertFieldUpdateToNewTypeFallible Money.fromDecimal
@@ -175,12 +152,12 @@ let ``convert [UpdateStageEntryLineInput] to [StageEntryLineFieldUpdates]``
           entryTypeUpdate = entryTypeUpdate
           accountIdUpdate = accountIdUpdate
           memoUpdate = memoUpdate
-          journalEntryLineIdUpdate = App.Utility.FieldUpdate.NoChange } }
+          journalEntryLineIdUpdate = NoChange } }
 
 let ``convert [UpdateStageEntryLineInput list] to [StageEntryLineFieldUpdates list]``
     (context: Context.Context)
     (lines: UpdateStageEntryLineInput list)
-    : Result<StageEntryLine.StageEntryLineFieldUpdates list, AppError> =
+    : Result<StageEntryLine.StageEntryLineFieldUpdates list, IAppError> =
     lines
     |> List.map (``convert [UpdateStageEntryLineInput] to [StageEntryLineFieldUpdates]`` context)
     |> convertListOfResultsToResultsList
@@ -188,7 +165,7 @@ let ``convert [UpdateStageEntryLineInput list] to [StageEntryLineFieldUpdates li
 let ``convert [BaseStageRawRowInput] to [BaseStageRawRow]``
     (context: Context.Context)
     (rawInputRow: BaseStageRawRowInput)
-    : Result<BaseStageRawRow, AppError> =
+    : Result<BaseStageRawRow, IAppError> =
     result {
         let! baseStageEntryGroupId = rawInputRow.baseStageEntryGroupId |> BaseStageEntryGroupId.create
         let entryDate = rawInputRow.entryDate
@@ -213,7 +190,7 @@ let ``convert [BaseStageRawRowInput] to [BaseStageRawRow]``
 let ``convert [BaseStageRawRowInput list] to [BaseStageRawRow list]``
     (context: Context.Context)
     (rawInputRows: BaseStageRawRowInput list)
-    : Result<BaseStageRawRow list, AppError> =
+    : Result<BaseStageRawRow list, IAppError> =
     rawInputRows
     |> List.map (``convert [BaseStageRawRowInput] to [BaseStageRawRow]`` context)
     |> convertListOfResultsToResultsList
@@ -221,7 +198,7 @@ let ``convert [BaseStageRawRowInput list] to [BaseStageRawRow list]``
 let ``convert [StageEntryFetchFilterInput] to [StageEntryFetchFilter]``
     (context: Context.Context)
     (filterInput: StageEntryFetchFilterInput)
-    : Result<StageEntryFetchFilter, AppError> = result {
+    : Result<StageEntryFetchFilter, IAppError> = result {
         let stageEntryHeaderId = filterInput.stageEntryHeaderId |> Option.map StageEntryHeaderId.fromGuid
         let! sourceFile = filterInput.sourceFile |> convertOptionToDesiredTypeWithFallibleConverter SourceFile.create
         let! temporalFilter =

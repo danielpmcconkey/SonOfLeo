@@ -1,16 +1,21 @@
 module Ui.InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
 
-open App.Utility.AppError
+open App.Utility.IAppError
 open App.Utility.Result
 open App.Session
 open Business.FinancialServices
-open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.Classification
 open Business.FinancialServices.Classification.ClassificationComponent
-open Business.FinancialServices.FetchFilters
+open Business.CrossDomainOrchestration
+open Business.CrossDomainOrchestration.FetchFilters
+open Business.CrossDomainOrchestration.StageEntryOrchestration
 open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.IngestionFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
 open Ui.InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
+open Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
 open Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
 
 let ``convert [FieldMatch] to [FieldMatchContract]``
@@ -59,7 +64,7 @@ let ``convert [ClassificationRuleGroup list] to [ClassificationRuleGroupContract
 
 let ``convert [FieldMatchContract] to [FieldMatch]``
     (fieldMatch: FieldMatchContract)
-    : Result<FieldMatch.FieldMatch, AppError> =
+    : Result<FieldMatch.FieldMatch, IAppError> =
         match fieldMatch with
         | FieldMatchContract.Source patternStr ->
             match patternStr |> StringSearchPattern.create with
@@ -86,7 +91,7 @@ let ``convert [FieldMatchContract] to [FieldMatch]``
 
 let ``convert [FieldMatchChainContract] to [FieldMatchChain]``
     (fieldMatchChainContract: FieldMatchChainContract)
-    : Result<FieldMatchChain.FieldMatchChain, AppError> =
+    : Result<FieldMatchChain.FieldMatchChain, IAppError> =
     result {
         let! chain =
             fieldMatchChainContract.chain
@@ -96,7 +101,7 @@ let ``convert [FieldMatchChainContract] to [FieldMatchChain]``
 
 let ``convert [ClassificationRuleGroupContract] to [ClassificationRuleGroup]``
     (ruleGroup: ClassificationRuleGroupContract)
-    : Result<ClassificationRuleGroup.ClassificationRuleGroup, AppError> =
+    : Result<ClassificationRuleGroup.ClassificationRuleGroup, IAppError> =
     result {
         let! connector = ruleGroup.connector |> ClassificationGroupConnector.fromString
         let! chainOne = ruleGroup.chainOne |> ``convert [FieldMatchChainContract] to [FieldMatchChain]``
@@ -107,7 +112,7 @@ let ``convert [ClassificationRuleGroupContract] to [ClassificationRuleGroup]``
 
 let ``convert [ClassificationRuleGroupContract list] to [ClassificationRuleGroup list]``
     (ruleGroups: ClassificationRuleGroupContract list)
-    : Result<ClassificationRuleGroup.ClassificationRuleGroup list, AppError> =
+    : Result<ClassificationRuleGroup.ClassificationRuleGroup list, IAppError> =
     ruleGroups
     |> List.map(fun x -> x |> ``convert [ClassificationRuleGroupContract] to [ClassificationRuleGroup]``)
     |> convertListOfResultsToResultsList
@@ -115,7 +120,7 @@ let ``convert [ClassificationRuleGroupContract list] to [ClassificationRuleGroup
 let ``convert [ClassificationClaimant] to [ClassificationClaimantReturn]``
     (context: Context.Context)
     (claimant: ClassificationClaimant)
-    : Result<ClassificationClaimantReturn, AppError> =
+    : Result<ClassificationClaimantReturn, IAppError> =
     match claimant with
     | ClassificationClaimant.Account accountId -> result {
         let! code = accountId |> ``convert AccountId to AccountCodeString`` context
@@ -129,7 +134,7 @@ let ``convert [ClassificationClaimant] to [ClassificationClaimantReturn]``
 let ``convert [ClassificationClaimantInput] to [ClassificationClaimant]``
     (context: Context.Context)
     (claimantInput: ClassificationClaimantInput)
-    : Result<ClassificationClaimant, AppError> =
+    : Result<ClassificationClaimant, IAppError> =
     match claimantInput with
     | ClassificationClaimantInput.Account codeString ->
         codeString
@@ -143,7 +148,7 @@ let ``convert [ClassificationClaimantInput] to [ClassificationClaimant]``
 let ``convert [ClassificationRule] to [ClassificationRuleReturn]``
     (context: Context.Context)
     (rule: ClassificationRule.ClassificationRule)
-    : Result<ClassificationRuleReturn, AppError> = result {
+    : Result<ClassificationRuleReturn, IAppError> = result {
     let classificationRuleId = rule |> ClassificationRule.classificationRuleId |> ClassificationRuleId.value
     let classificationRuleName = rule |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value
     let! claimantAtMatch =
@@ -167,7 +172,7 @@ let ``convert [ClassificationRule] to [ClassificationRuleReturn]``
 let ``convert [ClassificationRule list] to [ClassificationRuleReturn list]``
     (context: Context.Context)
     (rules: ClassificationRule.ClassificationRule list)
-    : Result<ClassificationRuleReturn list, AppError> =
+    : Result<ClassificationRuleReturn list, IAppError> =
     rules
     |> List.map (``convert [ClassificationRule] to [ClassificationRuleReturn]`` context)
     |> convertListOfResultsToResultsList
@@ -186,7 +191,7 @@ let ``convert [MatchCandidate] to [MatchCandidateReturn]``
 let ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]``
     (context: Context.Context)
     (prioritizedMatch: PrioritizedMatch)
-    : Result<PrioritizedMatchReturn, AppError> = result {
+    : Result<PrioritizedMatchReturn, IAppError> = result {
     let! accountCode =
         prioritizedMatch.accountId |> ``convert AccountId Option to AccountCodeString Option`` context
     let! accountName =
@@ -203,7 +208,7 @@ let ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]``
 let ``convert [ClassifierOutcome] to [ClassifierOutcomeReturn]``
     (context: Context.Context)
     (outcome: ClassifierOutcome)
-    : Result<ClassifierOutcomeReturn, AppError> = 
+    : Result<ClassifierOutcomeReturn, IAppError> = 
     match outcome with
     | ClassifierOutcome.NoMatch -> Ok ClassifierOutcomeReturn.NoMatch
     | ClassifierOutcome.OneMatch pm -> result {
@@ -226,7 +231,7 @@ let ``convert [ClassifierOutcome] to [ClassifierOutcomeReturn]``
 let ``convert [ClassificationResult] to [ClassificationResultReturn]``
     (context: Context.Context)
     (classificationResults: ClassificationResult)
-    : Result<ClassificationResultReturn, AppError> = result {
+    : Result<ClassificationResultReturn, IAppError> = result {
     let candidate = classificationResults.candidate |>  ``convert [MatchCandidate] to [MatchCandidateReturn]``
     let! outcome = classificationResults.outcome |> ``convert [ClassifierOutcome] to [ClassifierOutcomeReturn]`` context
     return {    candidate = candidate
@@ -235,7 +240,7 @@ let ``convert [ClassificationResult] to [ClassificationResultReturn]``
 let ``convert [ClassificationResult list] to [ClassificationResultReturn list]``
     (context: Context.Context)
     (classificationResults: ClassificationResult list)
-    : Result<ClassificationResultReturn list, AppError> =
+    : Result<ClassificationResultReturn list, IAppError> =
     classificationResults
     |> List.map (``convert [ClassificationResult] to [ClassificationResultReturn]`` context)
     |> convertListOfResultsToResultsList
@@ -243,7 +248,7 @@ let ``convert [ClassificationResult list] to [ClassificationResultReturn list]``
 let ``convert [ClassificationRuleFilterInput] to [ClassificationRuleFilter]``
     (context: Context.Context)
     (filterInput: ClassificationRuleFilterInput)
-    : Result<ClassificationRuleFilter, AppError> = result {
+    : Result<ClassificationRuleFilter, IAppError> = result {
     let ruleId = filterInput.ruleId |> Option.map ClassificationRuleId.fromGuid
     let! nameLike =
         filterInput.nameLike |> convertOptionToDesiredTypeWithFallibleConverter ClassificationRuleName.create
@@ -269,7 +274,7 @@ let ``convert [RuleMatch] to [RuleMatchReturn]``
     (context: Context.Context)
     (rule: ClassificationRule.ClassificationRule)
     (ruleMatch: RuleMatch.RuleMatch)
-    : Result<RuleMatchReturn, AppError> =
+    : Result<RuleMatchReturn, IAppError> =
     result {
         let! claimantAtMatch =
             rule
@@ -283,3 +288,69 @@ let ``convert [RuleMatch] to [RuleMatchReturn]``
             claimantAtMatch = claimantAtMatch
             priority = rule |> ClassificationRule.priority
             createdAt = ruleMatch |> RuleMatch.createdAt } }
+
+let ``convert [AccountClassificationResult] to [AccountClassificationResultReturn]``
+    (context: Context.Context)
+    (classificationResult: AccountClassificationResult)
+    : Result<AccountClassificationResultReturn, IAppError> = result {
+    let! classificationResults =
+        classificationResult.classificationResults
+        |> ``convert [ClassificationResult list] to [ClassificationResultReturn list]`` context
+    let! stagedEntries =
+        classificationResult.stagedEntries
+        |> ``convert [StageEntry list] to [StageEntryReturn list]`` context
+    let sortedResults =
+        classificationResults
+        |> List.sortBy (fun r -> r.candidate.stageEntryHeaderId, r.candidate.stageEntryLineId)
+    let sortedEntries =
+        stagedEntries
+        |> List.sortBy (fun e -> e.stageEntryHeader.entryDate, e.stageEntryHeader.stageEntryHeaderId)
+    return {    runId = classificationResult.runId |> ClassificationRunId.value
+                classificationResults = sortedResults
+                stagedEntries = sortedEntries } }
+
+let ``convert [PaymentAgreementDecision] to [PaymentAgreementDecisionReturn]``
+    (context: Context.Context)
+    (decision: PaymentAgreementDecision)
+    : Result<PaymentAgreementDecisionReturn, IAppError> =
+    result {
+        let! paymentAgreementName =
+            decision.paymentAgreementId |> ``convert [PaymentAgreementId option] to [PaymentAgreementNameString option]`` context
+        return {
+            stageEntryLineId = decision.stageEntryLineId |> StageEntryLineId.value
+            paymentAgreementName = paymentAgreementName
+            ruleIds = decision.ruleIds |> List.map ClassificationRuleId.value
+            outcome = decision.outcome |> PaymentAgreementDecisionOutcome.toString } }
+
+let ``convert [PaymentAgreementClassificationResult] to [PaymentAgreementClassificationResultReturn]``
+    (context: Context.Context)
+    (classificationResult: InstanceOrchestration.PaymentAgreementClassificationResult)
+    : Result<PaymentAgreementClassificationResultReturn, IAppError> =
+    result {
+        let! classificationResults =
+            classificationResult.classificationResults
+            |> ``convert [ClassificationResult list] to [ClassificationResultReturn list]`` context
+        let! decisionLog =
+            classificationResult.decisionLog
+            |> List.map (``convert [PaymentAgreementDecision] to [PaymentAgreementDecisionReturn]`` context)
+            |> convertListOfResultsToResultsList
+        let! openInstances =
+            classificationResult.openInstances
+            |> ``convert [InstanceComposite list] to [InstanceCompositeReturn list]`` context
+        let sortedResults =
+            classificationResults
+            |> List.sortBy (fun result -> result.candidate.stageEntryHeaderId, result.candidate.stageEntryLineId)
+        let sortedDecisionLog =
+            decisionLog
+            |> List.sortBy (fun (decision: PaymentAgreementDecisionReturn) ->
+                decision.paymentAgreementName, decision.stageEntryLineId)
+        let sortedInvoiceDecisionLog =
+            classificationResult.invoiceDecisionLog
+            |> List.map ``convert [InvoiceDecision] to [InvoiceDecisionReturn]``
+            |> List.sortBy (fun (decision: InvoiceDecisionReturn) -> decision.invoiceId, decision.outcome)
+        return {
+            runId = classificationResult.runId |> ClassificationRunId.value
+            classificationResults = sortedResults
+            decisionLog = sortedDecisionLog
+            invoiceDecisionLog = sortedInvoiceDecisionLog
+            openInstances = openInstances } }
