@@ -597,3 +597,26 @@ again. That's easy on a loop back from step 10. The Saturday runbook and
 the state machine should say so explicitly: split first; if a link already
 exists, delete it, split, and re-link.
 *Response:*
+
+**R-15. Dan rejects REQ-NGUI-2.5 (unknown payload fields rejected).**
+Dan's position: it's the wrong requirement, and it can't be met without
+writing our own JSON parser. Contracts are F# types, and every route
+deserialises stdin first.
+What the serializer does (checked with `App.Utility/Json.fs`'s settings):
+- A missing field fails, including a missing `option` field. So does a
+  misspelt field, because the real field is then missing.
+- An extra field the contract doesn't define is silently dropped.
+- .NET's `UnmappedMemberHandling = Disallow` has no effect under
+  `JsonFSharpConverter`.
+So the only case REQ-NGUI-2.5 covered is a caller sending a field that was
+removed from the contract. That applies to #13 (`stageStatusChangeMechanism`)
+and #7 (payment state, posted state, is-fulfilled): those values will be
+ignored, not rejected.
+Follow-on for the spec: withdraw REQ-NGUI-2.5. REQ-CF-9.11 ("a
+caller-supplied value … is rejected with a typed error") then can't be met
+by the contract alone. Either reword it so the contract has no such fields,
+or withdraw it. #7 becomes: remove the fields from the create contract and
+derive them, as the update path already does. Callers, including the saved
+debug payloads and the test at `Tests.Integrated/InterfaceBridge/IngestionRoutes.fs:352`,
+stop sending them.
+*Response:*
