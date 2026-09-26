@@ -243,7 +243,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             | Error e -> failwith (e.ToMessage())
 
     [<Theory>]
-    [<InlineData("entryDate", "not-a-date", "InterfaceBridgeFailedJsonDeserialization")>]
+    [<InlineData("entryDate", "not-a-date", "JsonDeserializationFailed")>]
     [<InlineData("amount", "32.475", "MoneyFailedToConvertImproperPrecision")>]
     [<InlineData("amount", "19999999999.99", "MoneyFailedToConvertExceededMax")>]
     [<InlineData("entryType", "Sideways", "JournalEntryLineTypeInvalid")>]
@@ -465,11 +465,11 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             |> railroadWrapper
         finally
             deleteImportFile fileName
-            // journal entries first: they are the rows the post created, and nothing depends on them
-            match cleanUpJournalEntryList journalEntryIdsToCleanUp with
+            // staged entries first: posting links each staged header and line back to the journal entry it made
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
             | Ok () -> ()
             | Error e -> failwith (e.ToMessage())
-            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            match cleanUpJournalEntryList journalEntryIdsToCleanUp with
             | Ok () -> ()
             | Error e -> failwith (e.ToMessage())
 
@@ -527,10 +527,10 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             |> railroadWrapper
         finally
             deleteImportFile fileName
-            match cleanUpJournalEntryList journalEntryIdsToCleanUp with
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
             | Ok () -> ()
             | Error e -> failwith (e.ToMessage())
-            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            match cleanUpJournalEntryList journalEntryIdsToCleanUp with
             | Ok () -> ()
             | Error e -> failwith (e.ToMessage())
 
