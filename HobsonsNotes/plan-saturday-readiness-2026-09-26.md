@@ -599,9 +599,9 @@ exists, delete it, split, and re-link.
 *Response:*
 
 **R-15. Dan rejects REQ-NGUI-2.5 (unknown payload fields rejected).**
-Dan's position: it's the wrong requirement, and it can't be met without
-writing our own JSON parser. Contracts are F# types, and every route
-deserialises stdin first.
+**Dan's ruling: rejected.** Withdraw REQ-NGUI-2.5; don't implement it. (A
+check that deserialises, re-serialises and compares field names was
+discussed and also rejected.)
 What the serializer does (checked with `App.Utility/Json.fs`'s settings):
 - A missing field fails, including a missing `option` field. So does a
   misspelt field, because the real field is then missing.
