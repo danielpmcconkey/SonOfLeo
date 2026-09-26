@@ -12,8 +12,8 @@
     <Compile Include="DbTransaction.fs" />
     <Compile Include="QueryParameter.fs" />
     <Compile Include="ExecuteReader.fs" />
-    <Compile Include="ExecuteNonQuery.fs" />
     <Compile Include="ExecuteScalar.fs" />
+    <Compile Include="ExecuteNonQuery.fs" />
     <Compile Include="LookupCache.fs" />
   </ItemGroup>
 

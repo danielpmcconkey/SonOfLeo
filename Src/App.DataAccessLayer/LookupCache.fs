@@ -6,6 +6,7 @@ open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.DbTransaction
 open App.DataAccessLayer.QueryParameter
 
+// todo: make this an interface so that lower tier doesn't need to have higher tier awareness
 
 (*
 Note: the LookupCache is designed to support an easy translation between UUIDs used in the model and string codes and
