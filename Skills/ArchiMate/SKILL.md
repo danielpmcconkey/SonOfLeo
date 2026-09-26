@@ -87,6 +87,22 @@ The direction that earns its keep for auditing:
   `AssociationRelationship` is almost always valid — but it carries no semantics.
   Prefer a typed relationship when one exists.
 
+### Application-layer conventions
+
+Each relationship type carries one meaning, so an auditor can ask one question of one type:
+
+| Relationship | Between | Means |
+|---|---|---|
+| Composition | component → component | *contains*: `Src` → tier (`App`, `Business`, `Ui`) → project → (sub-folder) → module |
+| Serving | component → component | *is used by*: the provider serves the consumer (`ExecuteReader` serves `Account`). Module-level edges come from `open`s and qualified references; project-level edges from `ProjectReference`s |
+| Serving | system software → component | a library (`NodaTime`, `Npgsql`, …) is used by a module |
+| Realization | component → function | the component implements the capability. A capability is defined once and may be realized by many components |
+| Composition | function → function | capability taxonomy; each function has exactly one parent group, matching its folder |
+
+Components carry a `path` property naming the source they model (a `.fs` file, a `.fsproj`, or a
+directory), which is the key for code-to-model auditing. There is one component per `.fsproj` and
+one per compiled `.fs` file.
+
 ### Properties
 
 Use `<property key="..." value="..."/>` on elements for metadata the model schema
@@ -105,8 +121,8 @@ Use sub-folders within layer folders for organisation. They are user-defined and
 carry no ArchiMate semantics. Good groupings for SonOfLeo:
 
 - **Motivation:** `Principles/`, `Constraints/`, `Requirements/`, `Goals/`
-- **Application:** by domain — `Ledger/`, `Obligations/`, `CashFlow/`,
-  `DataIngestion/`, `Classification/`, `Pipeline/`
+- **Application components:** mirror `Src/` — `Src/<tier>/<project>/[<sub-folder>]`
+- **Application functions:** by capability group; the folder name is the group function it belongs to
 
 ### Validation
 
