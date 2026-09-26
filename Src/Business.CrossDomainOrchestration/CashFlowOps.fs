@@ -391,16 +391,25 @@ let private matchInvoicesAndCreatePayments
             |> Map.ofList
         let lineById =
             linkedLines |> List.map (fun line -> (line |> StageEntryLine.stageEntryLineId), line) |> Map.ofList
-        let! paymentsOnLinkedLines = linkedLineIds |> Payment.fetchByStageEntryLineIdList context
-        // a payment that has reached the ledger no longer names the staged line it came from, but its invoice is
-        // FullyPaid by then and was filtered out above, so its line cannot be a candidate here either way
-        let paidLineIds =
-            paymentsOnLinkedLines
-            |> List.choose (fun payment ->
-                match payment |> Payment.transactionPointer with
-                | CashFlowComponent.Staged lineId -> Some lineId
-                | CashFlowComponent.Posted _ -> None)
+        // links outlive posting, so a line paid last week is still linked this week. any Payment that references
+        // the line, Staged or Posted, takes it out of matching for good
+        let! paidLineIds = linkedLineIds |> Payment.fetchReferencedStageEntryLineIds context
+        // an entry dedup or the operator has set aside moved no cash of its own
+        let setAsideHeaderIds =
+            headers
+            |> List.filter (fun header ->
+                match header |> StageEntryHeader.currentStatus with
+                | Some StageEntryComponent.Duplicate
+                | Some StageEntryComponent.Ignored -> true
+                | _ -> false)
+            |> List.map StageEntryHeader.stageEntryHeaderId
             |> Set.ofList
+        let setAsideLineIds =
+            linkedLines
+            |> List.filter (fun line -> setAsideHeaderIds |> Set.contains (line |> StageEntryLine.stageEntryHeaderId))
+            |> List.map StageEntryLine.stageEntryLineId
+        // an ineligible line is neither offered to an invoice nor counted as an orphan
+        let ineligibleLineIds = paidLineIds @ setAsideLineIds |> Set.ofList
         let masterAgreementIds = unpaidInvoices |> List.map (fun (_, maId, _) -> maId) |> List.distinct
         let! masterAgreements = masterAgreementIds |> MasterAgreement.fetchByMasterAgreementIdList context
         let cadenceTypeByAgreementId =
@@ -431,7 +440,7 @@ let private matchInvoicesAndCreatePayments
             | Some agreementLineIds ->
                 agreementLineIds
                 |> List.filter (fun lineId ->
-                    if paidLineIds |> Set.contains lineId || claimedLineIds |> Set.contains lineId then false else
+                    if ineligibleLineIds |> Set.contains lineId || claimedLineIds |> Set.contains lineId then false else
                     match lineById |> Map.tryFind lineId with
                     | None -> false
                     | Some line ->
@@ -471,7 +480,7 @@ let private matchInvoicesAndCreatePayments
                             { CashFlowComponent.invoiceId = invoiceId
                               CashFlowComponent.outcome = CashFlowComponent.ManyCandidateEntries manyLineIds }
                         return decisionsSoFar @ [ contested ], claimedSoFar, consideredSoFar })
-                (Ok([], paidLineIds, Set.empty))
+                (Ok([], ineligibleLineIds, Set.empty))
         // a line that was offered to an invoice and lost is the operator's problem, not a data gap -- only a line no
         // invoice would even consider means the Instance or Invoice it needs is missing
         let accountedForLineIds = Set.union claimedLineIds consideredLineIds

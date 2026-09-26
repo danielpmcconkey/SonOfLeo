@@ -314,6 +314,31 @@ let fetchStageEntryLineIdById
     |> whenNoRows (CashflowPaymentIdDoesntExist uuid)
     |> Result.map (fun rows -> rows |> List.head |> Option.map StageEntryLineId.fromGuid)
 
+/// fetchReferencedStageEntryLineIds returns which of the given stage lines any Payment references, Staged or Posted.
+/// It reads the column for the same reason as fetchStageEntryLineIdById: a posted payment's TransactionPointer no
+/// longer names its stage line.
+let fetchReferencedStageEntryLineIds
+    (context: Context.Context)
+    (lineIds: StageEntryLineId list)
+    : Result<StageEntryLineId list, IAppError> =
+    if lineIds |> List.isEmpty then Error DataIngestionError.IngestionStageEntryLineIdListCannotBeEmpty else
+    let namesAndParameters =
+        List.zip [ 1 .. lineIds.Length ] lineIds
+        |> List.map (fun (ordinal, id) ->
+            let name = $"@stageEntryLineId{ordinal}"
+            name, { name = name; value = UniqueId(id |> StageEntryLineId.value) })
+    let names = namesAndParameters |> List.map fst |> String.concat ", "
+    let parameters = namesAndParameters |> List.map snd
+    let mapRawForDbRead (row: RowReader) = (row |> RowReader.getUuid "stage_entry_line_id"), ()
+    let reconstitute raw =
+        let stageEntryLineUuid, _ = raw
+        Ok (stageEntryLineUuid |> StageEntryLineId.fromGuid)
+    let queryStatement =
+        $"select distinct stage_entry_line_id from cashflow.payment where stage_entry_line_id in ({names})"
+    executeReaderQuery
+        (context |> Context.getDatabaseTransaction) queryStatement parameters mapRawForDbRead reconstitute
+        AnyQuantityIsAcceptable
+
 let update
     (context: Context.Context)
     (fieldUpdates: PaymentFieldUpdates)
