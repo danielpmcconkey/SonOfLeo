@@ -177,6 +177,35 @@ def validate(model_path: Path, matrix_path: Path) -> list[dict]:
                 "relationship_type": rel["type"],
             })
 
+    findings.extend(validate_view_references(model_path))
+    return findings
+
+
+# Attributes on diagram children and connections that must resolve to an id in the model. Archi refuses to open a
+# file with an unresolved one ("Unresolved reference ..."), so these are errors, not warnings.
+VIEW_REFERENCE_ATTRIBUTES = ("archimateElement", "archimateRelationship", "source", "target")
+
+
+def validate_view_references(model_path: Path) -> list[dict]:
+    root = ET.parse(model_path).getroot()
+    ids = {node.attrib["id"] for node in root.iter() if "id" in node.attrib}
+    findings: list[dict] = []
+    for view in root.iter("element"):
+        if strip_archimate_prefix(view.attrib.get(f"{{{XSI}}}type", "")) not in VIEW_TYPES:
+            continue
+        view_name = view.attrib.get("name", view.attrib.get("id", ""))
+        for node in view.iter():
+            references = [(a, node.attrib[a]) for a in VIEW_REFERENCE_ATTRIBUTES if a in node.attrib]
+            references += [("targetConnections", ref) for ref in node.attrib.get("targetConnections", "").split()]
+            for attribute, ref in references:
+                if ref not in ids:
+                    findings.append({
+                        "severity": "ERROR",
+                        "type": "broken_view_reference",
+                        "message": f"View '{view_name}': {node.tag} {node.attrib.get('id', '')} "
+                                   f"{attribute}='{ref}' not found",
+                        "relationship_id": node.attrib.get("id", ""),
+                    })
     return findings
 
 
