@@ -24,7 +24,7 @@ Behavioral specs for the reporting domain. Reports are read-only computations ov
 - **REQ-RPT-2.1** Report operations must support an output specifier that determines how results are delivered: data-only or rendered report.
 - **REQ-RPT-2.2** In data-only mode, the trial balance operation returns the computed data as a list of boundary-type rows suitable for JSON serialization. Each row includes: account code (string), account name (string), generation (int), total credits (decimal), total debits (decimal), and net balance (decimal).
 - **REQ-RPT-2.3** In report mode, the operation renders the trial balance to an HTML file and returns the fully qualified file path to the written file.
-- **REQ-RPT-2.4** The report output path is constructed from a caller-provided base directory and file name. When date interpolation is requested, the as-of date in yyyy-MM-dd format is appended to the file name, prefixed with a hyphen, before the file extension.
+- **REQ-RPT-2.4** The report output path is constructed from a caller-provided base directory and file name. The caller's file name carries no extension; the system appends `.html`. When date interpolation is requested, the as-of date in yyyy-MM-dd format, prefixed with a hyphen, is appended to the file name before the extension. (Extension rule added 2026-09-26)
 - **REQ-RPT-2.5** If writing the report file fails, the operation must fail with a typed AppError.
 - **REQ-RPT-2.6** Report operations are read-only. No database transaction is required and no ledger state is modified.
   - *Why:* Reports query the ledger; they do not participate in it. A report that fails mid-render leaves no dirty state to roll back. (2026-08-07)

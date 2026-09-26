@@ -33,7 +33,8 @@ Applies to command line, importing, reporting, API, etc. Any use case where an e
 - **REQ-NGUI-3.7** Upon unsuccessful execution, the system will return the error via stderr and exit with a non-0 code.
 - **REQ-NGUI-3.8** The domain and verb command line arguments must be treated as case sensitive
 - **REQ-NGUI-3.9** If the actor provides an incorrect or otherwise unsupported domain and verb combination, the CLI application must exit with a typed error 
-- **REQ-NGUI-3.10** The actor may provide the payload component of the trigger via a `--file` argument followed by a file path, as an alternative to stdin (REQ-NGUI-3.3). The contents of the specified file replace the stdin payload. This mechanism applies to both the main CLI (this section) and the Reports CLI (section 4).
+- **REQ-NGUI-3.10** The actor may provide the payload component of the trigger via a `--file` argument followed by a file path, as an alternative to stdin (REQ-NGUI-3.3). The contents of the specified file replace the stdin payload. `--file` is recognised only in the position immediately after the verb (main CLI) or the report name (Reports CLI); anywhere else it is an ordinary additional argument (REQ-NGUI-3.4) and the payload is read from stdin. This mechanism applies to both the main CLI (this section) and the Reports CLI (section 4). (Position rule added 2026-09-26)
+- **REQ-NGUI-3.11** When the actor provides fewer than two command line arguments, the CLI writes a usage message to stderr and exits with a non-0 code.
 
 ## 4. Reports CLI
 
@@ -42,6 +43,7 @@ Applies to command line, importing, reporting, API, etc. Any use case where an e
 - **REQ-NGUI-4.3** The Reports CLI accepts the payload via stdin or the `--file` flag (REQ-NGUI-3.10).
 - **REQ-NGUI-4.4** Upon successful execution, the Reports CLI returns the payload via stdout and exits with code 0. Upon failure, it returns the error via stderr and exits with a non-zero code.
 - **REQ-NGUI-4.5** If the actor provides an unsupported report name, the Reports CLI must exit with a typed error.
+- **REQ-NGUI-4.6** When the actor provides no command line arguments, the Reports CLI writes a usage message to stderr and exits with a non-zero code.
 
 
 ## Waived from testing

@@ -81,24 +81,28 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-2.8** When posting a journal entry, the system must reject any entry that references an account not active as of the entry date. The reference point is the entry date (a Calendar Date, per REQ-AC-1.48.1); an account is active when `active_begin <= entry_date AND (active_end IS NULL OR entry_date <= active_end)` (inclusive, per REQ-AC-1.50). This is a pure Calendar Date comparison — no instant conversion is involved.
 - **REQ-JE-2.9** When posting a journal entry, the system must generate a unique UUID for each external reference and persist it with the entry.
 - **REQ-JE-2.10** stricken
-- **REQ-JE-2.11** When posting a journal entry, if all validations pass, the system must persist the header, all lines, and all external references atomically in a single database transaction, and return the fully constructed journal entry with all generated IDs and timestamps.
+- **REQ-JE-2.11** When posting a journal entry, if all validations pass, the system must persist the header, all lines, all external references, and all comments atomically in a single database transaction, and return the fully constructed journal entry with all generated IDs and timestamps. (Comments added 2026-09-26)
 - **REQ-JE-2.12** When posting a journal entry, if any validation fails, no rows may be persisted (atomicity).
 - **REQ-JE-2.13** The system must provide a means to post a new journal entry.
 - **REQ-JE-2.14** The system must not allow the creation of a new journal entry that is already voided.
+- **REQ-JE-2.15** When posting a journal entry, the caller may supply zero or more comments. Each is created with the new entry as its primary journal entry and is validated as any other new comment (REQ-JE-1.52–1.54, REQ-JE-5.8).
 
 
 ## 3. Read behaviors
 
-- **REQ-JE-3.1** When retrieving a journal entry from the persistence layer, the system must return a JournalEntry type with all header properties, all associated lines, all external references, and all comments.
+- **REQ-JE-3.1** When retrieving a journal entry from the persistence layer, the system must return a JournalEntry type with all header properties, all associated lines, all external references, and all comments whose primary journal entry is this entry. (Comment scope clarified 2026-09-26)
+- **REQ-JE-3.1.1** Journal entry reads return voided entries alongside active ones; the void marker distinguishes them. Only the line-level reads (REQ-JE-3.4, REQ-JE-3.9.1) offer a non-voided filter.
 - **REQ-JE-3.2** The system must be able to retrieve a journal entry by the caller providing that entry's ID.
 - **REQ-JE-3.3** The system must be able to retrieve all journal entries for a given fiscal period by the caller providing a PeriodKey.
-- **REQ-JE-3.4** The system must be able to retrieve all journal entry lines for a given account. Note: this requirement is retained alongside JE-3.9 because the underlying model code exists and may serve a future need.
-- **REQ-JE-3.5** The system must be able to retrieve the journal entries carrying a given external reference, by the caller providing a source FI and reference value. The result is a set (external references are not unique across entries, per REQ-JE-1.48).
+- **REQ-JE-3.4** The system must be able to retrieve all journal entry lines for a given account, optionally restricted to lines of non-voided entries. Note: this requirement is retained alongside JE-3.9 because the underlying model code exists and may serve a future need.
+- **REQ-JE-3.5** The system must be able to retrieve the journal entries carrying a matching external reference, by the caller providing a source FI, a reference value, or both. When both are provided, a single external reference must match both. The result is a set (external references are not unique across entries, per REQ-JE-1.48). (Either-or lookup added 2026-09-26)
+- **REQ-JE-3.5.1** When neither a source FI nor a reference value is provided, the lookup must fail with a typed error.
 - **REQ-JE-3.6** The system must be able to compute and return the total debit amount, total credit amount, and net balance for a given account's non-voided journal entry lines (per REQ-JE-4.7).
 - **REQ-JE-3.6.1** Net balance is expressed in the account's **normal balance** orientation such that a positive net balance always means "more of what
   this account holds. Ex: asset/expense → debits - credits; liability/equity/revenue → credits - debits.
 - **REQ-JE-3.6.2** The caller must be able to pass an optional "as-of" date such that the result represents the balance as it would've been at the end of the as-of date 
 - **REQ-JE-3.7** The system must be able to retrieve all journal entries whose entry date falls within a caller-provided date range (start date and end date, both inclusive Calendar Dates). The result is a set of complete journal entries (per REQ-JE-3.1).
+- **REQ-JE-3.7.1** When the start date is after the end date, the retrieval must fail with a typed error.
 - **REQ-JE-3.8** The system must be able to retrieve all journal entries carrying at least one external reference whose source FI matches a caller-provided value. Unlike REQ-JE-3.5, this requires only the FI — no reference value. The result is a set of complete journal entries (per REQ-JE-3.1).
 - **REQ-JE-3.9** The system must be able to retrieve all journal entry lines for a given account, enriched with their parent entry's `entry_date`, `description`, `source`, and `voided_at`. 
 - **REQ-JE-3.9.1** The caller may filter to non-voided entries only (per REQ-JE-4.7). The enriched fields are a boundary-only return type — the domain model is unchanged.
@@ -110,7 +114,7 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-4.1** The system must not provide a user interface for updating any of the following posted fields of a journal entry or its lines: entry date, description, source, and — per line — referenced account, amount, entry type, and memo. These fields are set when the entry is posted and have no update path.
 - **REQ-JE-4.2** A posted journal entry is not immutable. The only changes permitted after posting are: (a) voiding the entry, which sets its void marker and excludes its lines from all balance computations; (b) attaching or amending explanatory comments via the comment record; and (c) attaching new external references or updating existing ones (REQ-JE-4.9, REQ-JE-4.10). None of these paths edit the posted fields enumerated in REQ-JE-4.1. Voiding deliberately changes an entry's effective contribution to ledger balances; for that reason, no spec, requirement, or tooling may characterize journal entries as immutable or append-only.
 - **REQ-JE-4.3** The system must provide a means to void a posted journal entry, which sets the void marker (`voided_at`).
-- **REQ-JE-4.4** Voiding a journal entry must record a reason as a comment on the voided entry (primary journal entry = the voided entry). A void with no reason — or a whitespace-only reason — is rejected (the comment fails REQ-JE-1.54).
+- **REQ-JE-4.4** Voiding a journal entry must record a reason as a comment on the voided entry (primary journal entry = the voided entry). The reason comment may name a secondary journal entry (e.g. the replacement entry), validated per REQ-JE-1.53 and REQ-JE-5.8. A void with no reason — or a whitespace-only reason — is rejected (the comment fails REQ-JE-1.54). If the void fails for any reason, the reason comment is not persisted. (Secondary entry and atomicity added 2026-09-26)
 - **REQ-JE-4.5** Voiding is rejected when the entry's derived fiscal period is not open. A voided period cannot be re-opened by voiding within it; closed-period corrections go through an offsetting entry (REQ-JE-4.8).
 - **REQ-JE-4.6** Voiding an already-voided entry must produce an error rather than update nothing, per REQ-SYS-6.1. *Why:* this diverges deliberately from LeoBloom, which made re-void idempotent; a silent no-op masks a caller working from a stale view of the entry's state.
 - **REQ-JE-4.7** Voided journal entries must be excluded from every balance, trial-balance, and account-sum computation. The exclusion must be applied such that a voided entry's lines contribute nothing (see the leobloom_prod skill's note on the `LEFT JOIN ... AND voided_at IS NULL` overstatement trap — the void check belongs in the `WHERE`, not the join).
@@ -131,6 +135,7 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-5.5** A comment may be appended to an existing journal entry, even if the JE is voided or if the JE's fiscal period is closed.
 - **REQ-JE-5.6** A comment's primary journal entry link is fixed once created. The primary relationship a comment records is a historical fact and must not be re-pointed.
 - **REQ-JE-5.7** Updating a comment where all mutable fields are unchanged (text and secondary journal entry both NoChange) must be rejected as a no-op per REQ-SYS-6.1.
+- **REQ-JE-5.8** When a comment is created, its primary journal entry and, if named, its secondary journal entry must exist. A primary or secondary ID that matches no journal entry fails with a typed error distinguishing which of the two was not found.
 
 ## 6. Deletion behaviors
 

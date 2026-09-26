@@ -38,11 +38,11 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-1.1** The base staging format is JSONL: one JSON object per text line, newline-delimited.
 - **REQ-STG-1.2** Each record in the file represents one future journal entry line.
 - **REQ-STG-1.3** Records sharing a `group_id` value within a single file form one economic event. All records in a group will produce one journal entry when posted.
-- **REQ-STG-1.4** `group_id`: required, string.
+- **REQ-STG-1.4** `group_id`: required, string, maximum 36 characters (room for a UUID). (Length limit added 2026-09-26)
 - **REQ-STG-1.16** `group_id` is unique within the file. Not globally unique — the ingestion step replaces it with a system-generated staged entry ID.
   - *Why:* group_id is a local association mechanism for the parser. Global identity is the staged entry's UUID, assigned at ingestion. (2026-08-08)
 - **REQ-STG-1.5** `entry_date`: required, ISO 8601 calendar date (`yyyy-MM-dd`). Must parse to a valid Calendar Date.
-- **REQ-STG-1.6** `amount`: required, positive decimal with exactly two decimal places. Maximum value 9,999,999,999.99. Direction is expressed by `line_type`, not by sign.
+- **REQ-STG-1.6** `amount`: required, positive decimal with no more than two decimal places. Maximum value 9,999,999,999.99. Direction is expressed by `line_type`, not by sign. (Revised 2026-09-26 from "exactly two decimal places" — a JSON number cannot carry trailing zeros, so the system rejects excess precision rather than requiring two digits.)
 - **REQ-STG-1.7** `line_type`: required. Must be `"Debit"` or `"Credit"`.
 - **REQ-STG-1.8** `account_code`: optional (null). When present, must be a non-empty string. The parser populates this when the destination account is known; null when classification must determine it.
 - **REQ-STG-1.9** `description`: required, maximum 1000 characters. The raw description from the source document.
@@ -55,6 +55,8 @@ The base staging format is the interface contract between bespoke parsers and th
   - *Why:* Every journal entry requires at least two legs (REQ-JE-1.12). A single-record group cannot produce a balanced entry. (2026-08-08)
 - **REQ-STG-1.15** Within a group, the sum of all amounts where line_type is `"Debit"` must equal the sum of all amounts where line_type is `"Credit"`.
   - *Why:* The balanced-entry invariant (REQ-JE-1.13) is validated at ingestion rather than deferred to posting. Catching imbalance immediately gives the parser actionable feedback. (2026-08-08)
+- **REQ-STG-1.17** The JSON property names are: `baseStageEntryGroupId` (group_id), `entryDate` (entry_date), `amount`, `entryType` (line_type), `accountCode` (account_code), `description`, `fiSource` (fi_source), `fiReference` (fi_reference), `memo`. Text fields are trimmed before validation (REQ-SYS-1.1).
+  - *Why:* The file is an external contract. The naming design note frees code from the spec's identifiers, but a parser author needs the literal keys. (2026-09-26)
 
 
 ## 2. Staged data states
@@ -66,7 +68,7 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-2.3** Staged entry description cannot be null and cannot be whitespace only (post-trim per REQ-SYS-1.1). Maximum 1000 characters.
 - **REQ-STG-2.4** Staged entry must reference a source in `ingestion.source` (source_id foreign key, not null).
 - **REQ-STG-2.5** Staged entry fi_reference cannot be null. Maximum 100 characters.
-- **REQ-STG-2.6** Staged entry source_file cannot be null. Records the full file path of the base staging format file that produced this entry.
+- **REQ-STG-2.6** Staged entry source_file cannot be null or whitespace only, and cannot exceed 150 characters. Records the full file path of the base staging format file that produced this entry. (Length limit added 2026-09-26)
 - **REQ-STG-2.7** Staged entry status cannot be null. Must be one of the values defined in §4.
 - **REQ-STG-2.24** Stricken.
 - **REQ-STG-2.8** Stricken.
@@ -80,7 +82,7 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-2.13** Staged line line_type must be `'Debit'` or `'Credit'`.
 - **REQ-STG-2.14** Staged line account is nullable (account_id foreign key to `ledger.account`). When set, identifies the target account by UUID.
 - **REQ-STG-2.15** Staged line memo is optional (nullable). When provided, cannot be whitespace only (post-trim per REQ-SYS-1.1). Maximum 1000 characters.
-- **REQ-STG-2.16** Staged line classification_rule_id is nullable. When set, identifies the classification rule that assigned the account. The classification rules entity is specified in `ClassificationRuleCrud.md`.
+- **REQ-STG-2.16** *(Withdrawn 2026-09-26 — see the Withdrawn table.)*
 - **REQ-STG-2.17** Within a staged entry, the sum of all line amounts where line_type is `'Debit'` must equal the sum of all line amounts where line_type is `'Credit'`.
 
 ### Staged entry audit (`ingestion.staged_entry_audit`)
@@ -91,6 +93,12 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-2.21** Audit record to_status cannot be null.
 - **REQ-STG-2.22** Audit record changed_at is a non-null Instant.
 - **REQ-STG-2.23** Audit record change_mechanism cannot be null. Must be one of: `'StageIngestion'`, `'Classifier'`, `'Deduplicator'`, `'Operator'`, `'LedgerPoster'`.
+
+### Ingestion source (`ingestion.source`)
+
+- **REQ-STG-2.25** Ingestion source ID is a system-generated UUID. Cannot be null. Must be unique.
+- **REQ-STG-2.26** Ingestion source name cannot be null or whitespace only (post-trim per REQ-SYS-1.1). Maximum 100 characters. It is the value a record's `fi_source` must equal to resolve to this source (REQ-STG-3.6), and the financial institution written on the external reference of every journal entry posted from it (REQ-STG-9.5).
+- **REQ-STG-2.27** Ingestion source carries created-at and modified-at Instants.
 
 
 ## 3. Ingestion behaviors
@@ -108,11 +116,18 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-3.8** When a record's account_code is null, the staged line's account is set to null.
 - **REQ-STG-3.9** On successful ingestion, every staged entry's status is set to `'Ingested'` and an audit record is created (from_status null, to_status `'Ingested'`).
 - **REQ-STG-3.10** Ingestion is atomic: either the entire file is ingested (all entries and lines persisted) or no rows are created.
+- **REQ-STG-3.11** The ingestion request names the file, the directory to read it from, and a processed directory. Both directories must exist and the file must exist in the import directory; otherwise the request fails with a typed error and nothing is ingested.
+- **REQ-STG-3.12** On successful ingestion, the file is moved to the processed directory, its name prefixed with the ingestion timestamp (`yyyy-MM-dd.HHmmss.fff-`). A failed ingestion leaves the file where it was.
+  - *Why:* The import directory then holds only files not yet ingested, and a re-run cannot ingest the same file twice by accident. The timestamp keeps repeated drops of the same file name from colliding. (2026-09-26)
+- **REQ-STG-3.13** Ingestion returns every staged entry it created, each with its full composition (header, lines, status transitions).
+- **REQ-STG-3.14** Ingestion does not deduplicate or classify. Those are separate operations (§7, §5).
+- **REQ-STG-3.15** The system must provide a means to create an ingestion source by name. The system generates the ID and sets created-at and modified-at to the time of creation.
 
 
 ## 4. Status lifecycle
 
 - **REQ-STG-4.1** A staged entry's status must be one of: `'Ingested'`, `'Classified'`, `'NoMatch'`, `'Conflict'`, `'Reviewed'`, `'Duplicate'`, `'Posted'`, `'Ignored'`.
+- **REQ-STG-4.1.1** A staged entry's current status is the to_status of its most recent audit record. Status is not stored anywhere else.
 - **REQ-STG-4.2** `'Posted'` is a terminal status. No transitions out of `'Posted'` are permitted, except the void reversal in REQ-STG-4.7. (Amended 2026-09-26)
 - **REQ-STG-4.3** Every status transition must create an audit record in `ingestion.staged_entry_audit`.
 - **REQ-STG-4.4** A staged entry is postable when its status is `'Classified'` or `'Reviewed'`. No additional filtering (e.g. line-level account presence) is applied — if the upstream invariants are sound, all lines have an account by the time an entry reaches these statuses. If they do not, posting fails loudly (REQ-STG-9.4) rather than silently excluding the entry.
@@ -162,16 +177,19 @@ The classification step runs the vendor classification rules engine against stag
 
 - **REQ-STG-5.1** The system must provide a means to run automated classification against staged entries with status `'Ingested'`, `'NoMatch'`, or `'Conflict'`.
   - *Why:* A rule added after the first run can resolve an entry that previously failed to classify. Re-running over `'NoMatch'` and `'Conflict'` entries picks those up without operator intervention; REQ-STG-5.3 keeps already-settled lines untouched. (2026-09-26)
-- **REQ-STG-5.2** Classification evaluates each staged line whose account is null against the vendor classification rules. A rule matches when its field match conditions are satisfied by the staged entry and line properties (description, source, amount, line type, and their combinations per ClassificationRuleCrud.md §1).
+- **REQ-STG-5.2** Classification evaluates each staged line whose account is null against the active classification rules whose claimant is an account. A rule matches when its field match conditions are satisfied by the staged entry and line properties (description, source, amount, line type, memo, and their combinations per ClassificationRuleCrud.md). (Revised 2026-09-26: account-claimant rules only; rules claiming a payment agreement are evaluated by payment agreement linkage, CashFlow §12.)
 - **REQ-STG-5.3** Classification must not modify a staged line whose account is already non-null.
   - *Why:* Parser-assigned accounts are authoritative. The classifier fills gaps; it does not override. (2026-08-08)
-- **REQ-STG-5.4** When exactly one rule matches and the line's account is null, the classifier assigns the matching rule's account ID to the line and records the classification_rule_id on the staged line.
-- **REQ-STG-5.5** When multiple rules match and one has strictly higher priority, the classifier assigns the highest-priority rule's account ID to the line and records the classification_rule_id on the staged line.
+- **REQ-STG-5.4** When exactly one rule matches and the line's account is null, the classifier assigns the matching rule's account to the line. (Revised 2026-09-26: the matching rule is recorded in the classification run, REQ-STG-5.10, not on the staged line.)
+- **REQ-STG-5.5** When multiple rules match and one has strictly higher priority, the classifier assigns the highest-priority rule's account to the line. (Revised 2026-09-26: see REQ-STG-5.4.)
 - **REQ-STG-5.6** When multiple rules match with equal priority for a line with null account, the staged entry's status is set to `'Conflict'`.
 - **REQ-STG-5.7** When no rule matches a line with null account, the staged entry's status is set to `'NoMatch'`.
   - *Why:* `'NoMatch'` means the classifier ran and found nothing — it is distinct from "not yet classified." The name was chosen over "unclassified" to avoid ambiguity. (2026-08-09)
 - **REQ-STG-5.8** When classification completes and every line in the staged entry has a non-null account, the entry's status is set to `'Classified'`.
 - **REQ-STG-5.9** When classification of a single entry produces both Conflict and NoMatch outcomes on different lines, Conflict takes precedence.
+- **REQ-STG-5.10** Every classification run is identified by a system-generated run ID. For each line evaluated, every rule that matched it is recorded against the line under the run ID — all matching rules, including those that lost to a higher priority and every rule in a tie. The record is retrievable by run ID.
+  - *Why:* An operator resolving a Conflict or questioning an assignment needs to see what matched, not re-run the classifier against rules that may have changed since. (2026-09-26)
+- **REQ-STG-5.11** Classification returns the run ID, the outcome for each line evaluated, and every staged entry whose status is `'Ingested'`, `'Classified'`, `'NoMatch'`, `'Conflict'` or `'Reviewed'` after the run.
 
 
 ## 6. Manual review behaviors
@@ -181,6 +199,8 @@ The classification step runs the vendor classification rules engine against stag
   - *Why:* Original spec auto-transitioned to `'Reviewed'` on any line modification. Overruled — manual intervention is the highest authority tier, and the operator knows the intended status. Inferring it revokes that authority. (2026-08-16)
 - **REQ-STG-6.3** The operator may override a duplicate flag, transitioning the entry's status from `'Duplicate'` to `'Reviewed'`.
   - *Why:* Legitimate duplicate transactions exist (two identical charges on the same day). The operator, not the system, makes this call. (2026-08-08)
+- **REQ-STG-6.3.1** A manual update that names a line belonging to a different staged entry is rejected with a typed error naming both.
+- **REQ-STG-6.3.2** A manual update that changes nothing is rejected, per REQ-SYS-6.1. Setting only the status to the entry's current status is the exception stated under REQ-STG-4.6: it writes nothing and succeeds.
 - **REQ-STG-6.4** The system must provide a means for the operator to add lines to a staged entry and to remove lines from it, in the same operation as any other manual update (REQ-STG-6.2). Validation applies to the entry as it stands after the whole operation: it must satisfy every staged-entry requirement in §2, in particular at least two lines (REQ-STG-2.9) and balance (REQ-STG-2.17). An operation whose result fails validation changes nothing.
   - *Why:* One FI line often carries more than one economic purpose. A tenant payment covers rent and a utility share that post to different revenue accounts; a mortgage payment covers principal, interest and escrow. The split depends on data the parser may not have when it runs (the tenant's invoice can postdate the parse), so the operator must be able to split in review. Validating only the final state is what makes a split possible at all: reducing one line and adding another passes through an unbalanced intermediate. (2026-09-26)
 - **REQ-STG-6.5** A staged line that is linked to a payment agreement (CashFlow §12) or referenced by a Payment cannot be removed. The operation fails with a typed error naming the line; the link or Payment must be removed first.
@@ -191,12 +211,13 @@ The classification step runs the vendor classification rules engine against stag
 ## 7. Deduplication behaviors
 
 - **REQ-STG-7.1** The system must provide a means to run deduplication against staged entries.
-- **REQ-STG-7.2** A staged entry is flagged as duplicate when another staged entry shares the same source_id and fi_reference values. This includes `'Ignored'` entries (per REQ-STG-4.5). Entries with status `'Duplicate'`, `'Posted'`, or `'Reviewed'` are excluded from duplicate detection — they have already been dispositioned.
-  - *Why:* The original parenthetical excluded `'Posted'` entries on the assumption that REQ-STG-7.3 covered them via the ledger. Removed — each requirement should stand alone, and a Posted staged entry with the same key is evidence of a duplicate regardless of whether 7.3 exists. `'Reviewed'` is excluded because the operator is a higher authority than the dedup engine (see classification authority hierarchy in the preamble); if an operator reviewed it, the dedup pass must not override that judgment. (2026-08-15, Reviewed exclusion added 2026-08-25)
+- **REQ-STG-7.2** Staged entries that share the same source and fi_reference are ordered by when each was first ingested. The earliest is the original; every later one is flagged as duplicate. Every staged entry counts when establishing the original, whatever its status — including `'Ignored'` (per REQ-STG-4.5), `'Posted'`, `'Reviewed'` and `'Duplicate'`. Only entries with status `'Ingested'`, `'Classified'`, `'NoMatch'` or `'Conflict'` are ever flagged; entries already `'Duplicate'`, `'Posted'`, `'Ignored'` or `'Reviewed'` are left as they are.
+  - *Why:* Every prior sighting of a transaction is evidence the new one is a repeat, so every status counts as the original. Only undecided entries get flagged: `'Reviewed'` because the operator outranks the deduplicator (see the classification authority hierarchy in the preamble), and the rest because they are already decided. (2026-08-15, Reviewed exclusion added 2026-08-25, restated 2026-09-26 to name the original-by-ingestion-order rule and the flaggable statuses)
 - **REQ-STG-7.3** A staged entry is flagged as duplicate when a non-voided journal entry in the ledger carries an external reference whose financial_institution and reference values match the staged entry's source and fi_reference. Voided journal entries are not considered present in the ledger for dedup purposes.
   - *Why:* Prevents re-importing transactions that were posted in a prior cycle. Voided entries are excluded because voiding is a soft delete — the economic event the entry recorded has been reversed, so its external reference should not block re-import of the same transaction. (2026-08-08, voided exclusion clarified 2026-08-25)
 - **REQ-STG-7.4** Stricken.
 - **REQ-STG-7.5** Flagging a staged entry as duplicate must not alter its lines or their account assignments.
+- **REQ-STG-7.5.1** Deduplication returns every staged entry whose status is `'Ingested'` after the pass.
 
 ### Transfer pairing
 
@@ -224,13 +245,14 @@ A transfer between two accounts that are both imported appears twice: once in ea
 - **REQ-STG-8.3** Shadow post must produce a trial balance before posting and a trial balance after posting (computed within the rolled-back transaction). The caller derives the delta.
   - *Why:* Original spec required only a delta. The full before/after is more useful — the Saturday routine reconciles against point-in-time account balances, not movements. A delta alone can't be reconciled without a second call. (2026-08-16)
 - **REQ-STG-8.4** Shadow post must not modify any staged entry's status or any staging data. It is read-only against the staging tables and write-then-rollback against the ledger.
+- **REQ-STG-8.5** The before and after trial balances are computed as of the date the operation runs. The result states that the post was rolled back.
 
 
 ## 9. Batch post behaviors
 
 - **REQ-STG-9.1** The system must provide a means to batch-post all postable staged entries to the ledger.
 - **REQ-STG-9.2** For each postable staged entry, the system must construct a journal entry through the domain model (JournalEntryCrud §2), applying all existing JE validations.
-- **REQ-STG-9.3** The journal entry header fields are mapped from the staged entry: description from the staged entry's description, entry_date from the staged entry's entry_date. Source is a fixed provenance label (e.g. "Data ingestion import") describing *how* the entry was created, not which FI it came from — the FI identity lives on the external reference (REQ-STG-9.5).
+- **REQ-STG-9.3** The journal entry header fields are mapped from the staged entry: description from the staged entry's description, entry_date from the staged entry's entry_date. Source is the fixed provenance label "Data ingestion import", describing *how* the entry was created, not which FI it came from — the FI identity lives on the external reference (REQ-STG-9.5). No comments are attached.
 - **REQ-STG-9.4** For each staged line, the system must construct a journal entry line with the line's account ID, amount, line_type, and memo. A null account at posting time is a loud failure — it indicates a broken upstream invariant (classification or review allowed an unassigned line through). Invalid non-null account IDs cannot occur: the staged line's account_id is FK-constrained against `ledger.account`.
 - **REQ-STG-9.5** The system must construct one external reference on each journal entry: financial_institution from the staged entry's source name, reference from fi_reference.
 - **REQ-STG-9.6** Stricken.
@@ -241,14 +263,15 @@ A transfer between two accounts that are both imported appears twice: once in ea
   - *Why:* One-to-one mapping preserves auditability. (2026-08-08)
 - **REQ-STG-9.10** On posting, the system must record on the staged entry the ID of the journal entry it produced, and on each staged line the ID of the journal entry line it produced. Staged lines are paired to journal entry lines by account, line type and amount, not by position; each journal entry line pairs with exactly one staged line.
   - *Why:* See scope exclusion 2 (reversed). (2026-09-26)
+- **REQ-STG-9.11** Batch post returns the same before and after trial balances as shadow post (REQ-STG-8.3, REQ-STG-8.5), and states that the post was not rolled back.
 
 
 ## 10. Staged entry query behaviors
 
 - **REQ-STG-10.1** The system must provide a means to retrieve staged entries matching a combination of filter criteria. All filters are optional; when none are provided, the query returns all staged entries.
-- **REQ-STG-10.2** The following filter criteria are supported, applied as a conjunction (AND): staged entry ID, source file, date range (begin and end inclusive), fiscal period (resolved to a date range), description (case-sensitive partial match), ingestion source, FI reference, status, staged line ID, amount, line type, account, memo, and classification rule ID.
-  - *Why:* The operator's primary tool for reviewing staged data. Filters that span both header-level and line-level properties allow queries like "show me all Classified entries from TestBank where amount is $50.00." Description uses partial match because FI descriptions are long institution-specific strings; the operator needs to search by merchant name fragments, not exact strings. (2026-08-23, match semantics added 2026-08-25)
-- **REQ-STG-10.3** When any line-level filter is applied (line ID, amount, line type, account, memo, classification rule ID), the query identifies matching staged entries by their lines, then returns the complete staged entry with all its lines — not just the matching lines.
+- **REQ-STG-10.2** The following filter criteria are supported, applied as a conjunction (AND): staged entry ID, source file, date range (begin and end inclusive) or fiscal period key (resolved to that period's date range), description (case-sensitive partial match), ingestion source, FI reference, status, staged line ID, amount, line type, account, memo, journal entry ID, and journal entry line ID.
+  - *Why:* The operator's primary tool for reviewing staged data. Filters that span both header-level and line-level properties allow queries like "show me all Classified entries from TestBank where amount is $50.00." Description uses partial match because FI descriptions are long institution-specific strings; the operator needs to search by merchant name fragments, not exact strings. The journal entry filters trace a posted ledger entry back to the staged data it came from. (2026-08-23, match semantics added 2026-08-25, classification rule ID replaced by journal entry IDs 2026-09-26)
+- **REQ-STG-10.3** When any line-level filter is applied (line ID, amount, line type, account, memo, journal entry line ID), the query identifies matching staged entries by their lines, then returns the complete staged entry with all its lines — not just the matching lines.
   - *Why:* A staged entry is the unit of work. Returning partial entries would break downstream operations that expect balanced entries with all legs present. (2026-08-23)
 - **REQ-STG-10.4** The query must support sorting. Supported sort options: entry date (ascending/descending), ingestion source (ascending/descending), status (ascending/descending), description (ascending/descending).
 - **REQ-STG-10.5** When no filter matches any staged entry, the query returns an empty list, not an error.
@@ -288,3 +311,4 @@ A transfer between two accounts that are both imported appears twice: once in ea
 | REQ-STG-2.24 | The status column on a staged entry must always reflect the `to_status` of the entry's most recent audit record. The audit trail is the source of truth; the column is a denormalization for read performance. | Status column removed (Option 4). Status is now derived from the audit trail at read time. The drift risk this requirement guarded against is eliminated by construction. (2026-08-24) |
 | REQ-STG-7.4 | Staged entries with null fi_reference are never flagged as duplicate by the automated dedup pass. | fi_reference is now required (REQ-STG-1.11, REQ-STG-2.5). Parsers must produce a deterministic reference for every source, ensuring universal dedup coverage. (2026-08-08) |
 | REQ-STG-9.6 | When the staged entry's fi_reference is null, no external reference is created on the journal entry. | fi_reference is now required; an external reference is always created (REQ-STG-9.5). (2026-08-08) |
+| REQ-STG-2.16 | Staged line classification_rule_id is nullable. When set, identifies the classification rule that assigned the account. | The staged line no longer carries the rule. Every match is recorded in the classification run under a run ID (REQ-STG-5.10), which keeps losing and tied matches too. (2026-09-26) |

@@ -23,8 +23,10 @@ per entity. Generic requirements state policy and scope, not vague aspiration.
 ## 3. Audit
 
 - **REQ-SYS-3.1** Every persisted entity must carry a "created at" and a "modified at" timestamp.
-- **REQ-SYS-3.2** When a record is created, both "created at" and "modified at" Instant properties must be set to the AuditEnvelope's system instant property at time of creation.
-- **REQ-SYS-3.3** Every successful update to a record must set its "modified at" timestamp to the system clock at time of the update.
+- **REQ-SYS-3.2** When a record is created, both "created at" and "modified at" Instant properties must be set to the initiation instant of the operation creating it (REQ-SYS-3.4). (Reworded 2026-09-26)
+- **REQ-SYS-3.3** Every successful update to a record must set its "modified at" timestamp to the initiation instant of the operation performing the update (REQ-SYS-3.4). (Amended 2026-09-26 — was "the system clock at time of the update")
+- **REQ-SYS-3.4** Every operation carries an auditable action identifying what the operation is, and a single initiation instant read from the system clock when the operation begins. Every timestamp the operation writes, and every "current date" it derives (e.g. the reference date for account activity, the start of a projection horizon), uses that instant.
+  - *Why:* One operation, one moment. A batch that writes hundreds of rows records them as happening together, and date-dependent logic cannot straddle midnight partway through a run. (2026-09-26)
 todo: add a requirement for logging audit activities to an external log
 
 ## 4. Deletion
@@ -42,6 +44,16 @@ domain-level decision, made in each entity's spec (for Accounts, see REQ-AC-5.1)
 
 - **REQ-SYS-6.1** No state-transition operation may silently succeed as a no-op. When a requested operation would change nothing — because the target entity is already in the requested state, or because the record the operation would create already exists — the operation must produce an error rather than update or insert nothing. A silent no-op masks a caller that believes the system is in a different state than it is, hiding an upstream problem the system should surface. Per-entity instances cite this rule (e.g., REQ-FP-4.1.1 close-already-closed, REQ-FP-4.2.1 reopen-already-open, REQ-AC-2.9 / REQ-FP-2.2 duplicate creation, and journal-entry void-already-voided).
 - **REQ-SYS-6.1.1** Any exception to REQ-SYS-6.1 (an operation deliberately permitted to be idempotent) must be stated explicitly in the relevant entity spec; absent such a statement, the no-op rejection applies.
+
+## 7. Time zone
+
+- **REQ-SYS-7.1** Converting an Instant to a calendar Date uses one configured local time zone, system-wide. When the time zone is not configured or is not a recognised time zone identifier, the system refuses to run rather than falling back to a default.
+  - *Why:* Per the Date definition, mapping an Instant to a Date always requires a declared time zone. A silent fallback (UTC, or the host's zone) would shift late-evening activity into the next day. (2026-09-26)
+
+## 8. Operation atomicity
+
+- **REQ-SYS-8.1** Every operation triggered through the interface is atomic: either all of its database writes persist or none do. An operation that makes more than one write performs them in a single database transaction that commits only when the whole operation succeeds and rolls back otherwise, including when the operation raises an exception. Read-only operations and single-write operations may run without a transaction.
+  - *Why:* The interface is the unit of work. A half-applied operation (a journal entry header without its lines, a staged batch half-posted) is an illegal state no later operation can be trusted to notice. (2026-09-26)
 
 ## Waived from testing
 

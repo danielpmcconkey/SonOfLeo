@@ -1,10 +1,10 @@
 # Classification Rule CRUD
 
-Service-level behavioral specs for creating, reading, and managing classification rules — the pattern-matching engine that assigns accounts to staged lines during data ingestion. Cross-cutting policies (string trimming, data-state enforcement, audit timestamps) live in SystemWide.md.
+Service-level behavioral specs for creating, reading, and managing classification rules — the pattern-matching engine that proposes a claimant for each staged line during data ingestion. A claimant is either an account (the rule assigns the line's account; DataIngestion.md §5) or a payment agreement (the rule links the line to an obligation; CashFlow.md §12–§13). Cross-cutting policies (string trimming, data-state enforcement, audit timestamps) live in SystemWide.md.
 
 **Design note — evaluation domain.** Classification rules are evaluated in F#, not in SQL. The rule body is stored as JSONB and reconstituted into a typed domain model at read time. This eliminates the SQL injection surface that would exist if patterns were interpolated into queries.
 
-**Design note — authority hierarchy.** Classification rules occupy the middle tier of the account-assignment authority hierarchy defined in DataIngestion.md: parser (highest) > classifier > operator (lowest, but can override all). The classifier only fills null account assignments; it never overrides parser assignments (REQ-STG-5.3).
+**Design note — authority hierarchy.** Account-claimant classification rules occupy the middle tier of the account-assignment authority hierarchy defined in DataIngestion.md: parser (highest) > classifier > operator (lowest, but can override all). The classifier only fills null account assignments; it never overrides parser assignments (REQ-STG-5.3).
 
 
 ## 1. Valid and invalid data states for the ClassificationRule type and related types
@@ -17,7 +17,12 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 - **REQ-CR-1.4** Classification rule name length cannot exceed 250 characters.
 - **REQ-CR-1.22** Classification rule name must be unique across all classification rules.
   - *Why:* Rules are fetched by name (REQ-CR-5.2). Duplicate names would make the single-result fetch ambiguous. Enforced by a unique constraint in the database. (2026-08-25)
-- **REQ-CR-1.5** Classification rule must reference a valid account (`accountIdAtMatch`, foreign key to `ledger.account`). The account must exist in the chart of accounts at creation time and at update time.
+- **REQ-CR-1.5** Classification rule must have exactly one claimant: either an account (foreign key to `ledger.account`) or a payment agreement (foreign key to `cashflow.payment_agreement`). The claimant must exist at creation time and at update time. (Revised 2026-09-26 — previously account only.)
+  - *Why:* One rule engine serves two questions — which account a line belongs to, and which obligation a line pays. A rule answers exactly one of them. (2026-09-26)
+- **REQ-CR-1.23** A rule's claimant type is `'AccountClaimant'` when its claimant is an account and `'PaymentAgreementClaimant'` when its claimant is a payment agreement.
+- **REQ-CR-1.24** A stored rule with both or neither claimant set is invalid; reading it fails with a typed error identifying the rule.
+- **REQ-CR-1.25** A rule "constrains line type" when any field match anywhere in any of its rule groups is a `LineType` field match.
+  - *Why:* Payment-agreement leg selection (REQ-CF-12.4) defers to a rule that constrains line type instead of applying the direction default. The test is "present anywhere", not "present on every path": a rule whose `'Or'` group has one chain without a `LineType` match still counts as constraining. (2026-09-26)
 - **REQ-CR-1.6** Classification rule priority is an integer. Lower values represent higher priority — when multiple rules match a candidate, the rule with the lowest priority value wins.
 - **REQ-CR-1.7** Classification rule must contain at least one rule group.
 - **REQ-CR-1.8** Classification rule has an `isActive` boolean flag. Only active rules participate in classification (REQ-STG-5.1, enforced by the classifier filtering to active rules before evaluation).
@@ -35,7 +40,7 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 ### FieldMatch
 
 - **REQ-CR-1.13** A field match targets exactly one of: `Source`, `Description`, `Memo`, `LineType`, or `Amount`.
-- **REQ-CR-1.14** `Source`, `Description`, and `Memo` field matches carry a `StringSearchPattern` evaluated as a regex against the candidate's corresponding field value.
+- **REQ-CR-1.14** `Source`, `Description`, and `Memo` field matches carry a `StringSearchPattern` evaluated as a regex against the candidate's corresponding field value. Matching is case-sensitive and unanchored (the pattern may match anywhere in the value) unless the pattern itself says otherwise. (Clarified 2026-09-26)
 - **REQ-CR-1.15** `LineType` field matches carry a `JournalEntryLineType` value and evaluate by exact equality against the candidate's line type.
 - **REQ-CR-1.16** `Amount` field matches carry a `MoneySearchPattern` (a `NumericSearchOperator` and a `Money` value) and evaluate by comparing the candidate's amount against the pattern's amount using the specified operator.
 
@@ -73,16 +78,19 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 - **REQ-CR-3.1** The classifier accepts a list of rules and a list of match candidates and returns one `ClassificationResult` per candidate.
 - **REQ-CR-3.2** Before evaluating, the classifier filters the rule list to active rules only.
 - **REQ-CR-3.3** When no active rule matches a candidate, the outcome is `NoMatch`.
-- **REQ-CR-3.4** When exactly one active rule matches a candidate, the outcome is `OneMatch` carrying the matching rule's account ID, rule ID, and priority.
+- **REQ-CR-3.4** When exactly one active rule matches a candidate, the outcome is `OneMatch` carrying the matching rule's claimant (account ID or payment agreement ID), rule ID, and priority. (Revised 2026-09-26)
 - **REQ-CR-3.5** When multiple active rules match and one has a strictly lower priority value than all others, the outcome is `ManyMatchesClearWinner` carrying the winner and the full list of matches.
 - **REQ-CR-3.6** When multiple active rules match and two or more share the lowest priority value, the outcome is `ManyMatchesTied` carrying all matches.
+- **REQ-CR-3.7** Each classification run evaluates rules of one claimant type only: account classification uses only active account-claimant rules, and payment-agreement classification uses only active payment-agreement-claimant rules.
+  - *Why:* Priority resolution does not distinguish claimant types. Mixing them would produce false ties between an account rule and an obligation rule that answer different questions. (2026-09-26)
+- **REQ-CR-3.8** The classifier does not consider whether a candidate line already has an account or a link. It reports which rules matched; deciding what to do with the result belongs to the caller (REQ-STG-5.3, REQ-CF-12.3).
 
 
 ## 4. Create behaviors
 
 - **REQ-CR-4.1** The system must provide a means to create a new classification rule.
 - **REQ-CR-4.2** When creating a classification rule, the system must generate a unique UUID for the ID (new UUIDs may not be passed in).
-- **REQ-CR-4.3** When creating a classification rule, the system must validate that the account at match resolves to an existing account in the chart of accounts. If it does not, the creation must fail.
+- **REQ-CR-4.3** When creating a classification rule, the system must validate that the claimant resolves to an existing account (supplied by account code) or an existing payment agreement (supplied by name). If it does not, the creation must fail. (Revised 2026-09-26)
 - **REQ-CR-4.4** New classification rules are always created as active (`isActive = true`).
 - **REQ-CR-4.8** The system must not provide a mechanism to create a classification rule in an inactive state.
 - **REQ-CR-4.5** On successful creation, the system must persist the rule and return the fully constructed classification rule with its generated ID and timestamps.
@@ -94,17 +102,18 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 
 - **REQ-CR-5.1** The system must be able to retrieve a classification rule by its ID.
 - **REQ-CR-5.2** The system must be able to retrieve a classification rule by its name (exact match).
-- **REQ-CR-5.3** The system must be able to retrieve classification rules by a combination of optional filter criteria: rule ID, name (partial match), account-at-match (exact), source pattern (partial match against rule group JSONB), and active-only flag.
+- **REQ-CR-5.3** The system must be able to retrieve classification rules by a combination of optional filter criteria: rule ID, name (case-sensitive partial match), account claimant (by account code, exact), payment agreement claimant (by payment agreement name, exact), claimant type, source pattern (case-sensitive partial match against the text of any `Source` field match in the rule), and active-only flag. (Revised 2026-09-26)
+- **REQ-CR-5.6** A filter naming an account code, payment agreement name, or claimant type that does not resolve fails with a typed error.
 - **REQ-CR-5.4** Filtered retrieval must support optional sort ordering by account code (ascending or descending, resolved via the account table) or priority (ascending or descending).
-- **REQ-CR-5.5** The returned classification rule must include the resolved account name corresponding to the account at match.
-  - *Why:* The CLI display layer needs the human-readable account name without a second round-trip. The rule stores an account ID internally; the boundary layer resolves the name at read time. (2026-08-25)
+- **REQ-CR-5.5** The returned classification rule must identify its claimant in human-readable form: the account's code and name for an account claimant, or the payment agreement's name for a payment agreement claimant.
+  - *Why:* The CLI display layer needs the human-readable account name without a second round-trip. The rule stores an ID internally; the boundary layer resolves the name at read time. (2026-08-25, payment agreement claimant added 2026-09-26)
 
 
 ## 6. Update behaviors
 
-- **REQ-CR-6.1** The system must provide a means to update a classification rule's name, account-at-match, priority, rule groups, and isActive flag. Each field is independently updatable via a FieldUpdate (NoChange or SetTo).
+- **REQ-CR-6.1** The system must provide a means to update a classification rule's name, claimant, priority, rule groups, and isActive flag. Each field is independently updatable via a FieldUpdate (NoChange or SetTo). Updating the claimant may change its type (account to payment agreement or the reverse); the rule always ends with exactly one claimant (REQ-CR-1.5). (Revised 2026-09-26)
 - **REQ-CR-6.2** When updating a classification rule, if all fields are NoChange, the update must fail (no-op rejection).
-- **REQ-CR-6.3** When updating the account at match, the system must validate that the new value resolves to an existing account in the chart of accounts. If it does not, the update must fail.
+- **REQ-CR-6.3** When updating the claimant, the system must validate that the new value resolves to an existing account or payment agreement. If it does not, the update must fail. (Revised 2026-09-26)
 - **REQ-CR-6.4** When updating `ruleGroups`, the system must validate that the new list is not empty and that every field match chain within every rule group is not empty. If either condition fails, the update must fail.
 - **REQ-CR-6.5** On successful update, the system must update the `modified_at` timestamp and return the updated rule.
 
@@ -112,6 +121,18 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 ## 7. Deletion behaviors
 
 - **REQ-CR-7.1** The system must not provide a user interface for hard-deleting a classification rule.
+
+
+## 8. Classification runs
+
+Every classification run leaves a durable record of what matched, so an operator can review a contested or surprising outcome without re-running the classifier.
+
+- **REQ-CR-8.1** Each classification run is assigned a system-generated run ID, returned to the caller.
+- **REQ-CR-8.2** For every candidate line, the run records one match row per rule that matched it — including losing and tied rules, not only the winner. A line with no match produces no row. Each row carries: a system-generated ID, the run ID, the staged line ID, the rule ID, and the run's Instant.
+- **REQ-CR-8.3** A given (run, staged line, rule) combination is recorded at most once.
+- **REQ-CR-8.4** Match rows are a historical record. The system provides no means to update or delete them.
+- **REQ-CR-8.5** The system must be able to retrieve all match rows for a run ID. Each returned row includes the rule's name, claimant, and priority as they stand at retrieval time, sorted by staged line, then priority, then rule name. A run ID with no rows returns an empty list.
+  - *Why:* The match row stores only the rule ID. Renaming, re-pointing, or re-prioritizing a rule after the run therefore changes how an old run reads back; the run records *which* rules matched, not *what they said* at the time. (2026-09-26)
 
 
 ## Waived from testing
@@ -127,3 +148,4 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 | REQ-CR-4.2 | UUID generation via Guid.NewGuid() in create; uniqueness enforced by PK constraint. Same rationale as REQ-CR-1.1. | Dan, 2026-08-21 |
 | REQ-CR-4.8 | A negative existence claim over the entire API surface cannot be proven by a unit test; enforced by code review and periodic adversarial audit. Same rationale as REQ-CR-7.1. | Dan, 2026-08-21 |
 | REQ-CR-7.1 | A negative existence claim over the entire API surface cannot be proven by a unit test; enforced by code review and periodic adversarial audit. Same rationale as REQ-AC-5.1. | Dan, 2026-08-21 |
+| REQ-CR-8.4 | A negative existence claim over the API surface; the match record type has no update path. Enforced by code review. | *pending Dan* |

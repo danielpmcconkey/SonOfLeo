@@ -82,6 +82,9 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-2.19** stricken
 - **REQ-AC-2.20** When creating an Account with a parent ID, the child's AccountType must match the parent's AccountType.
 - **REQ-AC-2.21** The system must provide a means to create a new account
+- **REQ-AC-2.22** At the interface, the parent of a new Account is identified by account code, not ID. A parent code that does not resolve to an existing Account fails the creation with a typed error naming the code.
+  - *Why:* Codes at the boundary, IDs in the model. REQ-AC-2.6 still governs the ID the code resolves to. (2026-09-26)
+- **REQ-AC-2.23** The caller may supply an "active end" Calendar Date at creation. When omitted, "active end" is null.
 
 
 ## 3. Read behaviors
@@ -100,10 +103,20 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-3.8** stricken
 - **REQ-AC-3.9** The system must be able to retrieve all active Account records relative to the current date (anchored to a US Eastern Time interpretation of the calendar date associated to the system run time)
 - **REQ-AC-3.10** The system must be able to retrieve all child records of an Account by the caller providing that parent record's Account Code string.
+- **REQ-AC-3.11** Any operation that identifies an Account by account code must fail with a typed error when the code does not match an existing Account. This applies to retrieve, update, deactivate, activity, and balance operations.
+- **REQ-AC-3.12** The system must provide a means to retrieve account activity: Account records joined to their journal entry lines. Each result row carries the account's code, name, type, subtype, parent code and external reference, and — when the row represents a line — the line's ID, amount, line type, memo, created/modified Instants, and its journal entry's ID, entry date, description, source and voided-at Instant.
+- **REQ-AC-3.12.1** Activity filters are optional and applied as a conjunction (AND): account code; a temporal filter given as either a fiscal period key or an inclusive date range on entry date; journal entry source (exact match); account type; account subtype; parent account code; journal entry ID; exact line amount; journal entry description (case-sensitive partial match); and an unvoided-only flag.
+- **REQ-AC-3.12.2** Lines of voided journal entries are included, with their voided-at Instant, unless the unvoided-only flag is set.
+- **REQ-AC-3.12.3** An Account with no journal entry lines is returned once, without line detail, provided no filter on journal entry properties (temporal, source, journal entry ID, amount, description) is applied.
+- **REQ-AC-3.12.4** Activity results may be sorted by account code, entry date, or amount, each ascending or descending. With no sort specified, order is unspecified.
+- **REQ-AC-3.13** The system must provide a means to retrieve balances for a caller-provided list of account codes, optionally as of a Calendar Date. Each result carries account code, account name, total debits, total credits, and net balance in the account's normal-balance direction (debits minus credits for debit-normal accounts; credits minus debits for credit-normal accounts).
+- **REQ-AC-3.13.1** Balances exclude voided journal entries. When an as-of date is given, entries dated after it are excluded. An Account with no qualifying lines has zero totals.
+- **REQ-AC-3.13.2** A balance covers the Account's own lines only; it does not roll up descendant accounts. (Roll-up is a trial balance behavior, REQ-RPT-1.5.)
+- **REQ-AC-3.13.3** An empty list of account codes fails with a typed error.
 
 ## 4. Update behaviors
 
-- **REQ-AC-4.1** The system must provide a means to deactivate an Account, using a provided "active end" Calendar Date.
+- **REQ-AC-4.1** The system must provide a means to deactivate an Account, using a provided "active end" Calendar Date. When no date is provided, the "active end" is the current date (the Eastern calendar date of the AuditEnvelope's system instant). (Amended 2026-09-26)
 - **REQ-AC-4.2** When an Account deactivation is requested, the system must reject any request where the "active end" date would be earlier than the "active begin" date (equality permitted, per REQ-AC-1.46).
 - **REQ-AC-4.3** When an Account deactivation is requested, the system must reject any request where the Account to be deactivated has active children accounts (reference as-of the current date — the Eastern calendar date of the AuditEnvelope's system instant).
 - **REQ-AC-4.4** When an Account deactivation is requested, the system must reject any request where the Account has a non-zero balance at the time of the request.
@@ -111,7 +124,7 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-4.6** When an Account deactivation is requested, the system must reject any request where the Account is referenced by a journal entry line whose entry date is later than the provided "active end" date (a pure Calendar Date comparison; the inclusive boundary means an entry dated on the active-end date is permitted).
 - **REQ-AC-4.7** stricken
 - **REQ-AC-4.8** The system must provide a means to update an Account record's "name" field.
-- **REQ-AC-4.9** The system must provide a means to update an Account record's "external reference" field.
+- **REQ-AC-4.9** The system must provide a means to update an Account record's "external reference" field, including clearing it to null. (Amended 2026-09-26)
 - **REQ-AC-4.10** stricken
 - **REQ-AC-4.11** stricken
 - **REQ-AC-4.12** stricken

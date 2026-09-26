@@ -27,11 +27,13 @@ The top-level template. Defines a recurring contractual obligation: its name, th
 
 Examples: a mortgage note, a tenant lease, a utility autopay arrangement, a mobile phone contract.
 
+The cadence carries a next-instance date: where the next occurrence falls. Creating an Instance advances it, which is how the projection sweep knows where to resume.
+
 ### Payment Agreement (Template)
 
 A child of Master Agreement. Defines one leg of the payment structure — which accounts to debit and credit, and optionally the expected amount per period. Every Master Agreement has at least one Payment Agreement. Multi-leg arrangements (e.g. a tenant agreement with separate rent and utility-share legs) have one Payment Agreement per leg.
 
-The Payment Agreement serves as the template for how the journal entry is structured when the obligation is fulfilled. Each Payment Agreement maps to one debit/credit pair and produces one journal entry (or one set of lines within a multi-line journal entry) when its corresponding Payment is posted.
+The Payment Agreement's accounts say which ledger lines satisfy it: an Income agreement is satisfied by a line on its credit account and lands cash on its debit account; an Outgo agreement is satisfied by a line on its debit account and pays from its credit account. Payment Agreements do not create journal entries — the ledger lines come from staged entries (DataIngestion) and are recognised against the agreement.
 
 References: Master Agreement, Account (debit), Account (credit).
 
@@ -97,7 +99,13 @@ References: Payment Agreement, staged entry line.
 - **REQ-CF-2.20** Start date cannot be null. Start date is a Calendar Date.
 - **REQ-CF-2.21** End date may be null. When non-null, end date is a Calendar Date and must not be earlier than start date. Equality is permitted (an agreement active for exactly one period).
 - **REQ-CF-2.22** Master Agreement memo may be null. When non-null, memo length cannot exceed 2000 characters and cannot be whitespace only (post-trim, per REQ-SYS-1.1).
-- **REQ-CF-2.23** When cadence is 'EveryOtherWeek', the start date serves as the phase anchor — the system derives which weeks are on-cycle by counting from the start date.
+- **REQ-CF-2.23** When cadence is 'EveryOtherWeek', the next-instance date (REQ-CF-2.24) serves as the phase anchor — on-cycle dates are every 14 days from it.
+  - *Why:* The start date says when the agreement took effect; the next-instance date says when the next occurrence falls. Anchoring the phase to the latter means an agreement that started on an off-week still lands on the right Friday. (Revised 2026-09-26; was the start date)
+- **REQ-CF-2.24** A Master Agreement's cadence carries a next-instance date: the date of the next occurrence the system has not yet created an Instance for. It cannot be null. On creation the caller supplies it.
+- **REQ-CF-2.25** The next-instance date must fit the cadence: on the named week day for 'Weekly' and 'EveryOtherWeek'; on the specified date-in-month, nth weekday, or last day of its month for 'Monthly'; and additionally in the named month for 'Annually'. A date that does not fit is rejected with a typed error naming the date and the cadence rule it violates. Any date fits 'Daily'.
+- **REQ-CF-2.26** A Master Agreement may be created or updated before its start date, but not when its end date is earlier than the current date. Such a create or update is rejected with a typed error.
+  - *Why:* An agreement is set up ahead of a lease or loan starting; one that has already ended is a data-entry mistake. (2026-09-26)
+- **REQ-CF-2.27** Every Master Agreement must have at least one Payment Agreement. Creating a Master Agreement with none is rejected.
 
 
 ## 3. Valid and invalid data states — Payment Agreement
@@ -110,6 +118,10 @@ References: Payment Agreement, staged entry line.
 - **REQ-CF-3.6** Debit account and credit account must not be the same account
 - **REQ-CF-3.7** Expected amount may be null (for variable-amount obligations where the amount is not known until the invoice arrives). When non-null, expected amount must be a valid positive Money value.
 - **REQ-CF-3.8** Payment Agreement memo may be null. When non-null, memo length cannot exceed 2000 characters and cannot be whitespace only (post-trim, per REQ-SYS-1.1).
+- **REQ-CF-3.9** Payment Agreement name cannot be null or whitespace only (post-trim, per REQ-SYS-1.1), cannot exceed 250 characters, and must be unique across all Payment Agreements.
+  - *Why:* Payment Agreements are addressed by name at the boundary (invoice and link creation name the Payment Agreement), so the name must identify exactly one. (2026-09-26)
+- **REQ-CF-3.10** Days-due-after-invoice-date may be null. When non-null, it is a whole number from 0 to 365 inclusive: the number of days after an Invoice's date that the Invoice falls due.
+- **REQ-CF-3.11** A Payment Agreement's debit account or credit account that does not reference an existing account is rejected with a typed error naming which side is invalid.
 
 
 ## 4. Valid and invalid data states — Instance
@@ -119,6 +131,13 @@ References: Payment Agreement, staged entry line.
 - **REQ-CF-4.3** Instance must reference a valid Master Agreement ID
 - **REQ-CF-4.4** Instance date cannot be null. Instance date is a Calendar Date.
 - **REQ-CF-4.5** Is-fulfilled is a boolean. Default is false.
+- **REQ-CF-4.6** An Instance's date must fit its Master Agreement's cadence (the rule in REQ-CF-2.25).
+- **REQ-CF-4.7** An Instance's date must be later than the date of every existing Instance of the same Master Agreement. An earlier or equal date is rejected with a typed error naming the latest existing date.
+  - *Why:* Instances only move forward. Back-filling a missed period is not a supported operation; a gap indicates the sweep or cadence is wrong. (2026-09-26)
+- **REQ-CF-4.8** Creating an Instance advances its Master Agreement's next-instance date to the cadence date following the new Instance's date.
+  - *Why:* The next-instance date is how the sweep knows where to resume. Advancing it on every creation is what makes the sweep idempotent without searching for existing Instances. (2026-09-26)
+- **REQ-CF-4.9** An Instance's is-fulfilled flag may be true only when it has at least one Invoice and every Invoice is 'FullyPaid' (see REQ-CF-9.10).
+- **REQ-CF-4.10** An Instance may hold at most one Invoice per Payment Agreement, and every Invoice it holds must belong to a Payment Agreement of the Instance's own Master Agreement (REQ-CF-5.5, REQ-CF-5.16). These are validated whenever the Instance or any of its Invoices or Payments is created or changed.
 
 
 ## 5. Valid and invalid data states — Invoice
@@ -155,6 +174,10 @@ References: Payment Agreement, staged entry line.
   - *Why:* The cash amount lives in the ledger/stage data, not duplicated on the Payment record. The Payment is a link, not a copy. A line-level pointer names the leg directly, so no account filtering is needed to find it. (2026-08-29, revised 2026-09-26)
 - **REQ-CF-6.6** Posted-to-FI date may be null. When non-null, it is a Calendar Date representing when the financial institution processed the payment.
 - **REQ-CF-6.7** Payment memo may be null. When non-null, memo length cannot exceed 2000 characters and cannot be whitespace only (post-trim, per REQ-SYS-1.1).
+- **REQ-CF-6.9** The line a Payment's transaction pointer references must sit on the Payment Agreement's credit account (Income agreements) or debit account (Outgo agreements). The line type is not checked.
+  - *Why:* A rule or the operator may deliberately claim the opposite leg — an Outgo agreement taking a refund matches a Credit line. The account is what ties the cash to the obligation. (2026-09-26)
+- **REQ-CF-6.10** Posted-to-ledger date is derived, not stored: it is the entry date of the journal entry whose line the Payment references. A Payment without a journal entry line has no posted-to-ledger date. A caller-supplied posted-to-ledger date that differs from the journal entry's date, or that is supplied for a Payment with no journal entry line, is rejected.
+- **REQ-CF-6.11** The transaction pointer must reference an existing staged line or journal entry line. A reference that does not resolve is rejected with a typed error.
 - **REQ-CF-6.8** *(Withdrawn 2026-08-29 — replaced by REQ-CF-9.1. The sum constraint is an Invoice lifecycle check, not a Payment creation constraint.)*
 
 
@@ -162,33 +185,41 @@ References: Payment Agreement, staged entry line.
 
 The projection sweep is a deterministic operation that ensures the event side of the entity model is populated for the upcoming planning horizon. Given a horizon (a number of days forward from the current date), the sweep walks every active Master Agreement's cadence and creates any missing Instances and, where amounts are known, their Invoices.
 
-- **REQ-CF-7.1** The projection sweep accepts a horizon parameter expressed as a number of days. The sweep considers all Calendar Dates from the current date through the current date plus the horizon, inclusive.
+- **REQ-CF-7.1** The projection sweep accepts a horizon parameter expressed as a number of days, from 1 to 365 inclusive. The horizon end is the current date plus the horizon. (Revised 2026-09-26)
 - **REQ-CF-7.2** A Master Agreement is considered active for the purpose of the sweep when the current date is on or after its start date AND (its end date is null OR its end date is on or after the current date).
   - *Why:* The sweep's active check uses strict temporal gating — both start and end date matter. A future-start agreement is not active for sweeping even though it is available for creation and editing. This is distinct from availability, which allows working with an agreement before its start date. (2026-08-30, reverted from an earlier change that dropped the start-date gate)
-- **REQ-CF-7.3** For each active Master Agreement, the sweep must enumerate all cadence dates that fall within the horizon window by walking the agreement's cadence rule forward from the start date.
-- **REQ-CF-7.4** When cadence is 'EveryOtherWeek', the sweep derives on-cycle weeks by counting from the start date (the phase anchor, per REQ-CF-2.23).
+- **REQ-CF-7.3** For each active Master Agreement, the sweep enumerates cadence dates by walking the agreement's cadence rule forward from its next-instance date (REQ-CF-2.24) through the horizon end, inclusive. A next-instance date already in the past is included: the sweep catches up missed periods.
+  - *Why:* Catching up is what lets a skipped Saturday be absorbed by the next one without manual Instance creation. (Revised 2026-09-26; previously walked from the start date and considered only dates on or after the current date)
+- **REQ-CF-7.4** When cadence is 'EveryOtherWeek', the sweep steps 14 days at a time from the next-instance date (REQ-CF-2.23). (Revised 2026-09-26)
 - **REQ-CF-7.5** *(Withdrawn 2026-08-31 — the clamping scenario is now impossible. DateInMonthNumber is capped at 28 (REQ-CF-2.15) and WeekInMonthNumber at 4 (REQ-CF-2.16), so every cadence date is valid in every month. Use the 'Last' MonthDay variant for end-of-month semantics.)*
-- **REQ-CF-7.6** For each cadence date in the horizon window, if no Instance exists for that Master Agreement with a matching instance date, the sweep must create one.
-- **REQ-CF-7.7** The sweep must not create duplicate Instances. If an Instance already exists for a given (Master Agreement, instance date) pair, it is skipped.
-- **REQ-CF-7.8** For each Instance created or found by the sweep, and for each Payment Agreement belonging to the Instance's Master Agreement: if the Payment Agreement has a non-null expected amount and no Invoice exists for that (Instance, Payment Agreement) pair, the sweep must create an Invoice with the expected amount.
-  - *Why:* Fixed-amount obligations (mortgage, rent) have a known amount at template time. Creating the Invoice during the sweep means the cash-flow projection can include them immediately without waiting for a bill to arrive or an invoice to be generated. (2026-08-28)
-- **REQ-CF-7.9** For Payment Agreements with a null expected amount (variable obligations), the sweep must not create an Invoice. The Invoice is created later when the actual amount becomes known (bill arrives, invoice generated).
-  - *Why:* Creating an Invoice with an unknown amount would be misleading. Variable obligations appear in the projection as "known upcoming, amount TBD" via their Instance alone. (2026-08-28)
+- **REQ-CF-7.6** For each enumerated cadence date, oldest first, the sweep creates an Instance, subject to the Instance rules in §4 (in particular REQ-CF-4.8, which advances the next-instance date past it). (Revised 2026-09-26)
+- **REQ-CF-7.7** The sweep must not create duplicate Instances. Because every enumerated date lies at or after the next-instance date, and creating an Instance advances the next-instance date (REQ-CF-4.8), no date is enumerated twice across runs. (Revised 2026-09-26)
+- **REQ-CF-7.8** For each Instance the sweep creates, and for each Payment Agreement of its Master Agreement that has both a non-null expected amount and a non-null days-due-after-invoice-date, the sweep creates an Invoice with the expected amount, an invoice date equal to the Instance date, and a due date equal to the Instance date plus the days-due value. Instances that already existed are not given Invoices by the sweep.
+  - *Why:* Fixed-amount obligations (mortgage, rent) have a known amount at template time. Creating the Invoice during the sweep means the cash-flow projection can include them immediately. Without a days-due value there is no way to derive a due date, so such a Payment Agreement waits for its real bill. (2026-08-28, revised 2026-09-26)
+- **REQ-CF-7.9** For Payment Agreements with a null expected amount or a null days-due-after-invoice-date, the sweep must not create an Invoice. The Invoice is created later when the actual bill arrives or the invoice is generated.
+  - *Why:* Creating an Invoice with an unknown amount or due date would be misleading. These obligations appear in the projection as bills to chase via their Instance alone. (2026-08-28, revised 2026-09-26)
 - **REQ-CF-7.10** Invoices created by the sweep must set invoice state based on the parent Master Agreement's flow direction: 'InvoiceExpected' for Outgo, 'InvoiceGenerated' for Income.
 - **REQ-CF-7.11** Invoices created by the sweep must set payment state to 'NotYetPaid' and posted state to 'NotHandled'.
-- **REQ-CF-7.12** The sweep is idempotent. Running it multiple times with the same horizon and current date must produce the same result — no duplicate Instances, no duplicate Invoices, no state changes to existing records.
+- **REQ-CF-7.12** The sweep is idempotent. Running it again with the same horizon on the same date creates nothing and changes no existing record. (Revised 2026-09-26)
 - **REQ-CF-7.13** The sweep is a deterministic `[DET]` operation. It requires no judgment and makes no classification or matching decisions.
+- **REQ-CF-7.14** The sweep returns every unfulfilled Instance, with its Invoices and their Payments, after it has run — not only those it created.
+  - *Why:* The caller needs the whole open book for the Saturday review; what was just created is a subset of it. (2026-09-26)
+- **REQ-CF-7.15** The sweep is atomic: if any Instance or Invoice cannot be created, nothing the run created is kept.
 
 
 ## 8. Cash-flow projection
 
 The cash-flow projection is a read-only, deterministic operation that computes the projected cash position per managed account over the planning horizon. It reads Instances, Invoices, and Payments created by the projection sweep and the obligation routine, and produces the "money you need to move" output.
 
-- **REQ-CF-8.1** The projection computes, per managed cash account, the projected low balance over the horizon window: `projected_low = current_balance + known_inflows − known_outflows`.
-- **REQ-CF-8.2** Known inflows are the amounts from Income Invoices due within the horizon window where payment state is not 'FullyPaid'.
-- **REQ-CF-8.3** Known outflows are the amounts from Outgo Invoices due within the horizon window where payment state is not 'FullyPaid'.
-- **REQ-CF-8.4** Payment agreements on unfulfilled Instances that have no Invoice must be surfaced as known upcoming obligations with unknown magnitude. These are the "bills to chase" — obligations the system knows about but cannot include in the arithmetic. An Instance may carry invoices for some of its payment agreements while others are still missing; each missing agreement is a separate bill to chase.
+- **REQ-CF-8.1** The projection accepts a horizon in days, from 1 to 365 inclusive, and computes, for every managed cash account, the projected low balance: `projected_low = current_balance + known_inflows − known_outflows`. Current balance is the account's net balance as of the current date. (Revised 2026-09-26)
+- **REQ-CF-8.2** Known inflows for an account are the amounts of Income Invoices on unfulfilled Instances, with payment state not 'FullyPaid' and due date on or before the horizon end, whose Payment Agreement's debit account is that account. There is no lower bound on the due date. (Revised 2026-09-26)
+  - *Why:* An already-overdue bill is the most urgent money to move, so the window has no start. (2026-09-26)
+- **REQ-CF-8.3** Known outflows for an account are the amounts of Outgo Invoices on unfulfilled Instances, with payment state not 'FullyPaid' and due date on or before the horizon end, whose Payment Agreement's credit account is that account. There is no lower bound on the due date. (Revised 2026-09-26)
+- **REQ-CF-8.4** Payment agreements on unfulfilled Instances dated on or before the horizon end that have no Invoice must be surfaced as known upcoming obligations with unknown magnitude — the "bills to chase." An Instance may carry invoices for some of its payment agreements while others are still missing; each missing agreement is a separate bill to chase, reported with its agreement name, payment agreement name, Instance date and cadence. There is no lower bound on the Instance date. (Revised 2026-09-26)
 - **REQ-CF-8.5** The projection is a deterministic `[DET]` operation. It performs arithmetic only and makes no judgment calls.
+- **REQ-CF-8.6** A managed cash account is an active account whose subtype is 'Cash'. Every managed cash account appears in the projection, including those with no invoices.
+- **REQ-CF-8.7** Each projected account reports its code, name, current balance, known inflows, known outflows, projected low, and the Invoices that contributed.
+- **REQ-CF-8.8** The projection is read-only.
 
 
 ## 9. Invoice lifecycle constraints
@@ -278,6 +309,19 @@ Matching turns links into Payments. It runs in the same operation as linkage (§
 - **REQ-CF-13.8** A line that was a candidate and lost (REQ-CF-13.5) is not an orphan under REQ-CF-13.7.
 - **REQ-CF-13.9** The linkage-and-matching operation returns: the classification run ID; every link created; every claim not linked, with its reason (REQ-CF-12.4, REQ-CF-12.5); every Payment created; every Invoice with multiple candidates; every overpayment; and the open Instances after matching.
   - *Why:* This result is the Saturday review stack for obligations. Everything the operator must decide is in it; nothing requires a second query. (2026-09-26)
+
+## 14. Maintenance operations
+
+The operator-facing operations on agreements and their events. Master and Payment Agreements are addressed by name at the boundary.
+
+- **REQ-CF-14.1** The system must provide a means to create a Master Agreement together with its Payment Agreements in one atomic operation. Payment Agreement accounts are given by account code.
+- **REQ-CF-14.2** The system must provide a means to update a Master Agreement's name, flow direction, cadence (including next-instance date), counterparty, start date, end date, and memo. An update that changes nothing is rejected (REQ-SYS-6.1).
+- **REQ-CF-14.3** The system must provide a means to fetch one Master Agreement, by name, with its whole tree: Payment Agreements, Instances, Invoices, and Payments.
+- **REQ-CF-14.4** The system must provide a means to create an Instance for a Master Agreement, optionally with Invoices and their Payments, in one atomic operation.
+- **REQ-CF-14.5** The system must provide a means to add an Invoice, optionally with Payments, to an existing Instance; to update an Invoice's external invoice ID, invoice date, due date, amount, invoice state, blocker and memo; and to add a Payment to an existing Invoice. Each validates the Instance as a whole (§4, §5, §9) before anything is written.
+- **REQ-CF-14.6** The system must provide a means to delete a Payment. Deleting a Payment also deletes the Payment Agreement Link that produced it, unless another Payment still references the same line; the line then becomes a candidate for linkage again (REQ-CF-12.3).
+  - *Why:* A wrong automatic match is undone by deleting its Payment. Leaving the link would re-create the same Payment on the next matching run. (2026-09-26)
+- **REQ-CF-14.7** A Master Agreement or Payment Agreement name that does not match an existing record fails with a typed error naming it.
 
 ## Withdrawn
 
