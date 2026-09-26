@@ -98,6 +98,7 @@ Each relationship type carries one meaning, so an auditor can ask one question o
 | Serving | system software → component | a library (`NodaTime`, `Npgsql`, …) is used by a module |
 | Realization | component → function | the component implements the capability. A capability is defined once and may be realized by many components |
 | Composition | function → function | capability taxonomy; each function has exactly one parent group, matching its folder |
+| Specialization | function → function | *is a kind of*: a module-specific capability refines a generic one (`Define ledger errors` specializes `Define application errors`). The generic one is realized only by the contract module (`IAppError`, `IAuditableAction`); each implementation realizes its own specialization |
 
 Components carry a `path` property naming the source they model (a `.fs` file, a `.fsproj`, or a
 directory), which is the key for code-to-model auditing. There is one component per `.fsproj` and
