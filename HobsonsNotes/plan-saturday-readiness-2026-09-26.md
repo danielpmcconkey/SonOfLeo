@@ -306,3 +306,233 @@ Do these first. Most are small; #1 breaks agreement creation outright.
 Report to Dan: what you implemented (by item number and REQ), what you
 didn't and why, test status (which suites ran, where), any spec you believe
 is wrong. Don't mark anything done that you haven't verified.
+
+---
+
+## 8. Review — 2026-09-26 (Claude Code, `cash-flow` @ 0622f92)
+
+Every code claim in items 1–25 was checked against the branch, every cited
+REQ exists, and all 18 defects in §4.A are real. What follows are problems
+with the plan, not the diagnosis. Each finding has an ID (R-*) so replies
+can point at it. **Hobson: answer inline under "Response" (or add your own
+notes below the section), and mark each one agreed / disagreed / for Dan.**
+
+Environment at review time: the solution builds except `DevDataStage` (it
+still references the removed `Src/Model/Model.fsproj`); `Tests.Isolated`
+324 passed / 0 failed; PostgreSQL is installed but not running and there is
+no `sonofleo_test`, so `Tests.Integrated` did not run.
+
+### 8.1 Blocks starting
+
+**R-1. `Checks/run-all.sh` fails 3 of 9.** `check-clock` allowlists
+`Src/Utilities/Clock.fs` (now `Src/App.Utility/Clock.fs`); `check-npgsql`
+allowlists `Src/DataAccessLayer/` (now `Src/App.DataAccessLayer/`);
+`check-tomessage-wildcard` reads `Src/Utilities/AppError.fs`, which no
+longer exists (errors are per-tier `IAppError` DUs). None is a real
+violation, and none is `# SLOW`, so the pre-commit hook would refuse every
+commit. §2 says "it must pass". Proposal: fix the three checks as the first
+commit.
+*Response:*
+
+**R-2. Item 30's command returns nothing.** `git log -p --since=2026-09-26`
+means "since today at the current time", so it misses the five spec commits
+from that morning (ec2e867, 2cde344, e42e06b, 06e9a8b, e10ae06). Use
+`--since=2026-09-26T00:00` or `git diff 8aad321 HEAD -- Specs/`. That diff
+gives 187 live new or revised REQs, 153 with no citing test, and 30 revised
+REQs cited only by tests written before the revision (e.g. REQ-RPT-2.4 now
+has the system append `.html`).
+*Response:*
+
+**R-3. The traceability audit treats withdrawn requirements as active.**
+Withdrawals are marked in place (`*(Withdrawn 2026-09-26 …)*`) but
+`traceability-audit.sh` only filters "stricken". So REQ-CF-11.1–11.4 show
+as untested (would block `main`), and a test still citing withdrawn
+REQ-STG-2.16 (`Tests.Integrated/CrossDomainOrchestration/StageEntryIngestion.fs:242`)
+isn't flagged as a phantom reference. Also: the audit counts REQ-CR-8.4 as
+waived while its row still says *pending Dan*.
+*Response:*
+
+**R-4. The plan's authority and the repo's process disagree.**
+- `Specs/README.md:39` says `HobsonsNotes/` is history, never authority,
+  and this plan lives there. `README.md:25-27` says to ask once when an
+  instruction from Dan seems to break the process; §2 says don't ask. If Dan
+  means it, the authorisation should live somewhere the README recognises.
+- One agent writing Src, Tests and Specs sets aside README constraints 1–2
+  (tests named from the spec before seeing Src; approved names are a
+  contract). The plan doesn't mention constraint 3 (a test isn't done until
+  it has been seen to fail). Say which of these still apply.
+- §3 drops "same commit" from the commit gate (`Specs/README.md:89`).
+  `Specs/README.md:96-97` claims the gate runs in pre-commit; it doesn't
+  (`check-traceability.sh` is `# SLOW` and exits 0 off `main`).
+- §2 points the agent at stale guidance: `Skills/SonOfLeoSrcDeveloper/SKILL.md:364`
+  and `Src/README.md:20-28` still describe the single `Utilities.AppError` DU.
+*Response:*
+
+### 8.2 Spec contradictions — need Dan before items 19, 23, 24
+
+**R-5. Transfer pairing can flag a Reviewed entry (item 23).** Survivor
+precedence Posted > Reviewed means a Posted/Reviewed pair sends the
+Reviewed entry to `'Duplicate'`. But REQ-STG-4.6 has no Reviewed →
+Duplicate, REQ-STG-7.9's own rationale says Reviewed is never flagged, and
+§3 says Reviewed entries are never "paired away". Proposal: a Posted +
+Reviewed pair is reported, like Reviewed + Reviewed.
+*Response:*
+
+**R-6. `Posted → Reviewed` in the shared transition table allows double
+posting (item 24).** Manual `UpdateStageEntry` checks the same table
+(`StageEntryStatusTransition.fs:33-44`), so an operator could move Posted →
+Reviewed without voiding and post again. That contradicts REQ-STG-4.7 ("no
+other path out of Posted") while REQ-STG-4.6 lists the transition as
+permitted and REQ-STG-6.2 lets the operator set any legal status. Proposal:
+the spec restricts this transition to the void path (mechanism alone won't
+do it; the manual route will always stamp `'Operator'` after item 13).
+Related, already live: manual Reviewed → Posted is allowed, so an operator
+can mark an entry Posted with no journal entry behind it.
+*Response:*
+
+**R-7. Removing a split line will hit a foreign key (item 19).**
+`classification.rule_match.stage_entry_line_id` is `ON DELETE RESTRICT`
+(`202609071135-CreateClassificationTables.sql:51-54`), and match rows are
+indelible (REQ-CR-8.4). Any line a classifier has evaluated can't be
+deleted. Options: (a) delete match history (loses REQ-STG-5.10 history),
+(b) change the FK, (c) splits edit the existing line and add lines, never
+remove classified ones. Recommend (c). Also unspecified:
+- REQ-STG-6.5 blocks *removing* a linked or paid line but not editing its
+  amount, account or line type. A Payment's amount is copied from its line
+  at creation, so it silently drifts.
+- REQ-STG-6.6 blocks add/remove on Posted but not field edits on a Posted
+  entry's lines, which desyncs them from the journal entry.
+- REQ-STG-6.4 requires the final state to meet every §2 staged-entry
+  requirement, not just "≥ 2 lines, balanced" as item 19 says.
+*Response:*
+
+**R-8. Minor: REQ-FP-2.7 (item 25) is a silent no-op when nothing is
+missing.** REQ-SYS-6.1 forbids those. Returning an empty list is
+defensible, but REQ-FP-2.7 should say it's an exception, as REQ-STG-4.6
+does. Also validate start ≤ end.
+*Response:*
+
+### 8.3 Defect missing from §4
+
+**R-9. Payment matching re-pays or orphan-stops on already-posted lines.**
+Links are never deleted after posting. `paidLineIds` (`CashFlowOps.fs:393-402`)
+keeps only Payments whose pointer is still `Staged`; after
+`TransitionPaymentsToPosted` the pointer is `Posted` and the staged line
+ID survives only in the column. So when an agreement gets a new unpaid
+invoice, every earlier linked line is fetched again (`:381`): inside the
+invoice's window it gets a second Payment; outside, it's an orphan and
+REQ-CF-13.7 stops the run. Likely from the second Saturday on. Fix: build
+the set from the `stage_entry_line_id` column (every Payment row). Proposal:
+insert as item 1.5 in §4.A.
+Related (item 20): matching and orphan detection ignore the staged entry's
+status, so a link on a line whose entry later goes `'Duplicate'` or
+`'Ignored'` can still get a Payment or trip the orphan stop.
+*Response:*
+
+### 8.4 Fixes that are too narrow
+
+**R-10. Per item.**
+- **#1:** the fix is the VALUES reorder only; round-trip test should also
+  assert `next_instance`.
+- **#2:** payments are loaded but dropped by `invoicesWithAgreementId`
+  (`CashFlowOps.fs:680-687`). The plan should say whether the projected
+  invoice shows the full or outstanding amount (touches `ProjectedInvoice`,
+  `ProjectedInvoiceReturn` and its converter). Floor at zero matters.
+- **#3:** the sweep also spawns instances past an agreement's `end_date`
+  when it falls inside the horizon (`CashFlowOps.fs:28-83`). No REQ forbids
+  it; spec gap.
+- **#4:** item 5's check won't catch it (`InvoiceReceived` is legal for
+  Outgo), so it needs its own test.
+- **#5:** enforce in `InstanceOrchestration.confirmInstanceComposite`,
+  which covers create, sweep, CreateInvoice/UpdateInvoice and
+  `updateAgreement`. The plan misses the flow-direction flip (REQ-CF-14.2),
+  which must be rejected when existing invoices conflict.
+- **#6:** needs a new typed error.
+- **#7:** removing the fields from the contract isn't enough.
+  `Json.fromJson` ignores unknown fields, so a caller still sending
+  `paymentState`/`isFulfilled` is ignored, not rejected as REQ-CF-9.11
+  requires. Either strict deserialisation or optional fields rejected when
+  present. The sweep (`CashFlowOps.fs:71-81`) and `updateAgreement`
+  (`AgreementOrchestration.fs:477-537`, latent) also set derived state.
+- **#8:** say what happens if the move fails after commit: data committed,
+  file still in the import directory, re-run ingests it again. Report it
+  clearly.
+- **#9:** the DAL doesn't translate unique violations, so the pre-check is
+  what gives the typed error. The migration fails if duplicate names
+  already exist; query for them first.
+- **#10:** stored rules are read by JSON deserialisation straight into the
+  private `StringSearchPattern` union (`ClassificationRule.fs:125`) and skip
+  `create`, even today's empty/length checks. Needs an explicit validation
+  pass after read. A regex timeout would break "never raises" unless caught.
+  `RegexOptions.Compiled` per evaluation is worse than slow.
+- **#11:** nine module-level caches, so up to nine leaked connections. Also
+  `DbTransaction.fs:47-51` leaks the connection if `BeginTransaction()`
+  throws.
+- **#12:** neither `Ui.OperatorCli` nor `Ui.ReportCli` has a top-level
+  handler; `LookupCache.fs:25` also `failwith`s. "No data access is
+  attempted" implies validating config at startup. The DAL test-exemption
+  row for REQ-DAL-1.3 (`DataAccessLayer.md:57`) is stale.
+- **#13:** existing test `Tests.Integrated/InterfaceBridge/IngestionRoutes.fs:352`
+  sends the mechanism and needs updating.
+- **#14:** the JSON parse (`IngestionRoutes.fs:34-36`) and group-level
+  checks in `constructSetFromRaw` also stop at the first error. Say "line
+  number, and group_id when the line parses"; count blank lines.
+- **#15:** two more LIKE sites: agreement name and the blocker filter in
+  `FetchFilterAndSort.fs` (`:168-171`, `:255-267`). Escape `\` first.
+- **#16:** also generic on missing ID: UpdateInvoice, UpdatePaymentAgreementLink,
+  DeletePaymentAgreementLink, UpdateClassificationRule, UpdateStageEntry
+  (missing header or line), and the referents for CreatePayment and
+  CreateInvoice. Root cause: `DalNoOp` for zero rows (`ExecuteReader.fs:26`).
+- **#17:** no current path triggers it; it guards items 23–24. Forbid
+  dodging it with `Context.updateInitiationInstant`.
+- **#18:** the `ReportsContracts.fs` comment should also mention the
+  leading hyphen and the appended `.html`.
+- **#21/#22:** once overpaid invoices are excluded, lines only they could
+  take become "orphans", and the current message ("Instance or Invoice is
+  missing, or the cadence … is wrong") misleads. Give it a distinct reason.
+- **#23:** also 7.9's reporting of Reviewed pairs, 7.11's return value,
+  7.12 (lines untouched). Undefined: "group" (suggest connected components,
+  since the window isn't transitive), window bounds, multiset line
+  comparison. Tie-break 4 ("ingested first") can tie within one operation;
+  existing dedup breaks that tie by `unique_id`, which is code breaking a
+  tie; pairing must report. Flagging an entry whose line is linked or paid
+  strands a Payment.
+- **#24:** `Payment.applyFieldUpdates` (`Payment.fs:74-99`) reads the
+  staged line from the pointer, which is `None` once Posted, so clearing the
+  JE line raises `CashflowInvalidPaymentTransactionPointerRow`. Read the
+  column (`fetchStageEntryLineIdById`). No
+  `Payment.fetchByJournalEntryLineId` yet. `JournalEntryVoiding.fs`
+  compiles before the orchestration it needs; the void moves after
+  `CashFlowOps`.
+- **#26:** state the sign (external − ledger) and that external balances
+  are supplied in the same direction (REQ-RPT-4.2).
+- **#26/#29:** shadow reconciliation needs a write-then-rollback
+  transaction; report routes run with `NoTransaction` and REQ-RPT-2.6 says
+  none is required. Build it as an OperatorCli command route under
+  `runCommandRouteAndAutoRollback`, next to shadow post. REQ-RPT-2.4/3.1
+  assume one as-of date; reconciliation has one per row and period activity
+  has a range.
+- **#27:** include the "whether they are equal" flag (REQ-RPT-5.1).
+*Response:*
+
+### 8.5 Order of operations
+
+**R-11. Transfer pairing runs before review.** Candidates must be
+Classified/Reviewed with every line assigned (REQ-STG-7.7, 7.8), so a
+transfer leg the operator assigns in step 8 is never paired. Pairing has to
+run again after step 8 and inside the step-10 loop.
+*Response:*
+
+**R-12. Step 5 needs instances.** `CashFlow CreateInvoice` attaches an
+invoice to an existing Instance. Tenant invoices need one from step 3 or
+`CreateInstance`. Every route named in the table exists as named; step 15's
+trial balance is a ReportCli route, and the new reports belong with it.
+*Response:*
+
+### 8.6 Suggested sequence
+
+1. R-1 (checks green), R-2/R-3 (true list of untested REQs).
+2. Dan rules on R-5, R-6, R-7; the spec is updated before items 19, 23, 24.
+3. R-9 as item 1.5, then §4.A with R-10 folded in.
+4. PostgreSQL and `sonofleo_test` provisioned, or the report says
+   `Tests.Integrated` didn't run here.
