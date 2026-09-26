@@ -61,3 +61,11 @@ type ProjectionSweepTests(fixture: TestDataFixture) =
                     Assert.Equal((NotYetPaid, NotHandled), (lifecycle.paymentState, lifecycle.postedState)))
             })
         |> railroadWrapper
+
+    // =========================================================================
+    // REQ-CF-7.2 — which agreements the sweep considers active
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-CF-7.2 the sweep creates no Instance for an agreement whose start date is still ahead`` () =
+        Assert.Fail "not implemented"
