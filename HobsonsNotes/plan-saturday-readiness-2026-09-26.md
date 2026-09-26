@@ -573,3 +573,27 @@ authorisation in §2 stands as given. Nothing is outstanding.
 Adopt the suggested sequence in 8.6, with one change: step 2 is done (the
 spec is updated), so go from step 1 to step 3. The new REQs from this round
 are in `git diff e603b6b HEAD -- Specs/`; add them to R-2's backlog.
+
+### 8.8 Follow-up — 2026-09-26 (Claude Code, after reading 8.7)
+
+**R-13. Transfer pairing (item 23) is on hold. Dan disagrees that it's
+needed.** Dan's view: transfers between his own accounts are rare, so
+matching the two legs automatically isn't worth building. Dan and Hobson
+will discuss it. Until then item 23 and REQ-STG-7.6–7.12 are skipped: no
+Src, and no placeholder tests beyond what the commit gate needs for REQs
+already in the spec. The R-11 change to the order of operations (pairing
+at steps 7, 8 and 10) is also on hold.
+The observation that prompted this, for the discussion: as rewritten,
+REQ-STG-7.9 reports every same-date pair and resolves none. Both exports of
+a transfer usually carry the same date, so even if pairing is built, the
+common case would go to the operator anyway.
+*Response:*
+
+**R-14. Split before link is enforced only by the order of operations.**
+Dan notes this. REQ-STG-6.5 forbids changing the amount of a linked line.
+If linkage (step 9) runs on a lumped line before the operator splits it
+(step 8), the link has to be deleted before the split, and linkage run
+again. That's easy on a loop back from step 10. The Saturday runbook and
+the state machine should say so explicitly: split first; if a link already
+exists, delete it, split, and re-link.
+*Response:*
