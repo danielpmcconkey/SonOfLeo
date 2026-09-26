@@ -52,6 +52,8 @@
     <Compile Include="CrossDomainOrchestration\StageEntryUpdate.fs" />
     <Compile Include="CrossDomainOrchestration\StageEntryPosting.fs" />
     <Compile Include="CrossDomainOrchestration\StageEntryFetching.fs" />
+    <Compile Include="CrossDomainOrchestration\AgreementCreation.fs" />
+    <Compile Include="CrossDomainOrchestration\InvoiceMatching.fs" />
     <Compile Include="Model\Ledger\JournalEntryHeader.fs" />
     <Compile Include="Model\Ledger\JournalEntryExternalReference.fs" />
     <Compile Include="Model\Ledger\JournalEntryComment.fs" />
