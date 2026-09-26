@@ -45,9 +45,10 @@ let ``convert AccountId Option to AccountCode Option``
     : Result<AccountCode option, IAppError> =
     let fallibleConverter =
         (fun id ->
-        id
-        |> AccountId.value
+        let uuid = id |> AccountId.value
+        uuid
         |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction)
+        |> whenNoRows (LedgerError.AccountIdDoesntMatch uuid)
         |> Result.bind AccountCode.create)
     idOption |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
@@ -55,18 +56,9 @@ let ``convert AccountId Option to AccountCodeString Option``
     (context: Context.Context)
     (idOption: AccountId option)
     : Result<string option, IAppError> =
-    let code = idOption |> ``convert AccountId Option to AccountCode Option`` context
-    match code with
-    | Error e ->
-        let originalType = idOption.GetType().Name
-        let originalValue =
-            match idOption with
-            | None -> "None"
-            | Some x -> x.ToString()
-        let desiredType = "AccountCode string option"
-        let childError = e.ToMessage()
-        Error(BridgeError.InterfaceBridgeConversionFailure(originalType, originalValue, desiredType, childError))
-    | Ok x -> Ok(x |> Option.map(AccountCode.value))
+    idOption
+    |> ``convert AccountId Option to AccountCode Option`` context
+    |> Result.map (Option.map AccountCode.value)
     
 let ``convert [AccountId option] to [AccountName option]``
     (context: Context.Context)
@@ -92,23 +84,7 @@ let ``convert AccountCodeString Option to AccountUuidOption``
     (context: Context.Context)
     (code: string option)
     : Result<Guid option, IAppError> =
-    match code with
-    | Some x ->
-        x
-        |> LookupCache.accountCodeToId.fetch (context |> Context.getDatabaseTransaction)
-        |> Result.mapError(fun e ->
-            let originalType = code.GetType().Name
-            let originalValue =
-                match code with
-                | None -> "None"
-                | Some x -> x.ToString()
-            let desiredType = "Account UUID option"
-            let childError = e.ToMessage()
-            BridgeError.InterfaceBridgeConversionFailure(originalType, originalValue, desiredType, childError)
-            |> BridgeError.toAppError
-            )
-        |> Result.map Some
-    | None -> Ok None
+    code |> convertOptionToDesiredTypeWithFallibleConverter (fallibleConverterAccountCodeStringToAccountUuid context)
 
 let ``convert Account to AccountReturn`` (context: Context.Context) (a: Account.Account) : Result<AccountReturn, IAppError> =
     result {

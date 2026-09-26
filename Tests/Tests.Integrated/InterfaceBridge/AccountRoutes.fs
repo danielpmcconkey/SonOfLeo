@@ -650,3 +650,15 @@ type AccountRouteTests(fixture: TestDataFixture) =
             return ()
         }
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``An account id that matches no account converts to AccountIdDoesntMatch naming that id, not a generic conversion failure``() =
+        let context = Context.create NoTransaction FetchOnly
+        let bogusUuid = Guid.NewGuid()
+        match
+            Some(bogusUuid |> AccountId.fromGuid)
+            |> Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters.``convert AccountId Option to AccountCodeString Option`` context
+        with
+        | Error (AsError (AccountIdDoesntMatch uuid)) -> Assert.Equal(bogusUuid, uuid)
+        | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+        | Ok _ -> Assert.Fail "Expected failure; got success"
