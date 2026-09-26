@@ -9,19 +9,9 @@ called out below so that a future improvisation doesn't quietly remove one.
 
 ## Who does what
 
-Three of us work on this repo. Dan is the human; Hobson and BD are Claude instances, Hobson
-on the host and BD in a container. Hobson and Dan share a working tree. BD does not — BD's
+Dan is the human; Hobson is a Claude instances on Dan's desktop. BD is a Claude instance 
+in a container. Hobson and Dan share a working tree. BD does not — BD's
 clone is separate, and everything reaches it through `origin`.
-
-| Area | Owner | Notes |
-|---|---|---|
-| `Specs/Behavioral/` | Dan | Hobson drafts from Dan's input; Dan rules on content |
-| `Src/` | Dan | `fsharp-guard` refuses BD's edits to `.fs` under `Src/`; BD proposes diffs instead |
-| `Tests/` | BD | BD is the **only** reviewer of test bodies |
-| `Checks/`, `DbMigrations/` | Dan | |
-| `Audit/` | Dan | owns the audit process end to end |
-| `Skills/`, `CompoundedLearnings/` | shared | whoever learns the lesson writes it down |
-| `BdsNotes/`, `HobsonsNotes/` | respective author | session hand-offs |
 
 Branch creation and merging to `main` are Dan's. `git-guard` refuses BD the working-tree
 destroying verbs — the restore family, the branch-switching family, `clean`, `stash`, hard
@@ -31,6 +21,10 @@ reset.
 
 A *slice* is one coherent piece of behavior: a spec section, the code that satisfies it, and
 the tests that hold it to account.
+
+Dan's note: much of this is in flux. With the advent of Opus 5.5, Dan is experimenting with 
+new agentic workflows. If an instruction from Dan seems to violate this process, ask once. Dan
+will clarify for you.
 
 | # | Step | Who |
 |---|---|---|
