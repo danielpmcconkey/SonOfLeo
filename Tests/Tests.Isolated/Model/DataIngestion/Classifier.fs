@@ -7,23 +7,25 @@ open Business.FinancialServices.DataIngestion.Classification.Classifier
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open App.Utility
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open Xunit
 open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
 
 let private makeCandidate descriptionStr sourceStr amount lineType =
     let description =
         descriptionStr |> JournalEntryDescription.create
-        |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+        |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
     let source =
         sourceStr |> JournalRefFinancialInstitution.create
-        |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+        |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
     let money =
         amount |> Money.fromDecimal
-        |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+        |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
     let lt =
         lineType |> JournalEntryLineType.fromString
-        |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+        |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
     { headerIdOfCandidate = StageEntryHeaderId.create ()
       lineIdOfCandidate = StageEntryLineId.create ()
       ingestionSource = source
@@ -45,10 +47,10 @@ let private makeRule (accountId: AccountId) priority patternStr isActive =
     let name =
         $"Rule-{System.Guid.NewGuid().ToString().Substring(0, 8)}"
         |> ClassificationRuleName.create
-        |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+        |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
     let pattern =
         patternStr |> StringSearchPattern.create
-        |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+        |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
     let chain = FieldMatchChain.create [ FieldMatch.Description pattern ]
     let group = ClassificationRuleGroup.create And chain None
     let instant = Clock.now()

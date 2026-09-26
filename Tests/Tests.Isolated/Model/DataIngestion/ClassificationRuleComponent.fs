@@ -1,6 +1,8 @@
 module Tests.Isolated.Business.FinancialServices.DataIngestion.ClassificationRuleComponent
 
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open Xunit
 open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
 

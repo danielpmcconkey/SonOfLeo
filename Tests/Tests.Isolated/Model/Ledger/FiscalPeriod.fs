@@ -1,14 +1,16 @@
 module Tests.Isolated.Business.FinancialServices.Ledger.FiscalPeriod
 
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open Xunit
 let genericKey = "2026-06"
 
 [<Fact>]
 let ``REQ-FP-1.2 PeriodKey.fromString happy path`` () =
     match FiscalPeriodKey.fromString genericKey with
-    | Error e -> Assert.Fail(AppError.toMessage e)
+    | Error e -> Assert.Fail(e.ToMessage())
     | _ -> ()
 
 [<Theory>]

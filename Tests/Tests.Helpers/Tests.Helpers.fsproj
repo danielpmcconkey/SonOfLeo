@@ -8,23 +8,24 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="TestError.fs" />
+    <Compile Include="SadPath.fs" />
     <Compile Include="Cleanup.fs" />
     <Compile Include="Railroad.fs" />
     <Compile Include="GenericTestProperties.fs" />
     <Compile Include="EntityFunctions.fs" />
     <Compile Include="TestDataStage.fs" />
     <Compile Include="RouteResolver.fs" />
-    <Compile Include="SadPath.fs" />
     <Compile Include="CliExecutor.fs" />
-    <Compile Include="TestError.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Src\App.Session\App.Session.fsproj" />
     <ProjectReference Include="..\..\Src\App.DataAccessLayer\App.DataAccessLayer.fsproj" />
     <ProjectReference Include="..\..\Src\Ui.InterfaceBridge\Ui.InterfaceBridge.fsproj" />
+    <ProjectReference Include="..\..\Src\Ui.OperatorCli\Ui.OperatorCli.fsproj" />
+    <ProjectReference Include="..\..\Src\Ui.ReportCli\Ui.ReportCli.fsproj" />
     <ProjectReference Include="..\..\Src\Business.CrossDomainOrchestration\Business.CrossDomainOrchestration.fsproj" />
-    <ProjectReference Include="..\..\Src\Model\Model.fsproj" />
     <ProjectReference Include="..\..\Src\App.Utility\App.Utility.fsproj" />
   </ItemGroup>
 

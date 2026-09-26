@@ -9,8 +9,8 @@ type ExecutableCliForTesting =
 module ExecutableCliForTesting =
     let toString e =
         match e with
-        | SonOfLeoCli -> "SonOfLeoCli.dll"
-        | Reports -> "Reports.dll"
+        | SonOfLeoCli -> "Ui.OperatorCli.dll"
+        | Reports -> "Ui.ReportCli.dll"
 
 module CliExecutor = 
     let testBinDir =

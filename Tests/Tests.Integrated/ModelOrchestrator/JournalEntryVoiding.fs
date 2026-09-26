@@ -15,7 +15,9 @@ open Tests.Helpers
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.JournalEntryVoiding
 open Utilities
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 
 [<Collection("SharedTestData")>]
 type JournalEntryVoidingTests(fixture: TestDataFixture) =
@@ -23,7 +25,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
     let commentText =
         "Voiding for test"
         |> CommentText.create
-        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
 
     [<Fact>]
     member _.``REQ-JE-4.3 voidJournalEntryOrchestration sets voided_at on the entry``() =
@@ -84,7 +86,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
             result {
                 // create Fiscal Period as open so you can add an entry into it
                 let! periodKey = periodKeyStr |> FiscalPeriodKey.fromString
-                let! fp = periodKey |> FiscalPeriodCreation.constructNewAndSaveToDb context
+                let! fp = periodKey |> FiscalPeriodCreation.constructNewAndPersist context
                 let fpId = fp |> FiscalPeriod.fiscalPeriodId
                 // add the JE into that FP
                 let! _, jeId =
@@ -104,7 +106,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
                 do!
                     match voidedResult with
                     | Error(JournalEntryVoidingFiscalPeriodIsClosed _) -> Ok()
-                    | Error e -> Error(TestingError $"Wrong error message. {AppError.toMessage e}")
+                    | Error e -> Error(TestingError $"Wrong error message. {e.ToMessage()}")
                     | Ok _ -> Error(TestingError "Expected failure; got success")
                 return ()
             })
@@ -116,7 +118,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
             let voidedResult = fixture.Data.voidedJeId |> voidJournalEntry context None commentText
             match voidedResult with
             | Error(JournalEntryVoidingNoOp _) -> Ok()
-            | Error e -> Error(TestingError $"Wrong error message. {AppError.toMessage e}")
+            | Error e -> Error(TestingError $"Wrong error message. {e.ToMessage()}")
             | Ok _ -> Error(TestingError "Expected failure; got success"))
         |> railroadWrapper
 
@@ -129,6 +131,6 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
             let voidedResult = badId |> voidJournalEntry context None commentText
             match voidedResult with
             | Error(JournalEntryHeaderIdDoesntExist _) -> Ok()
-            | Error e -> Error(TestingError $"Wrong error message. {AppError.toMessage e}")
+            | Error e -> Error(TestingError $"Wrong error message. {e.ToMessage()}")
             | Ok _ -> Error(TestingError "Expected failure; got success"))
         |> railroadWrapper

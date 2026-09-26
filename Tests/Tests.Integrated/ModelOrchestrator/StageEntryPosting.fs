@@ -16,7 +16,9 @@ open Business.FinancialServices.TrialBalanceReport
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Utilities
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open App.Utility.FieldUpdate
 open App.Utility.Result
 open Xunit
@@ -141,7 +143,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 return!
                     match Business.FinancialServices.StageEntryOrchestration.post context with
                     | Error (JournalEntryHeaderEntryDateInvalid _) -> Ok ()
-                    | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
+                    | Error e -> Error (TestingError $"Wrong error. {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure posting to closed period; got success")
             })
         |> railroadWrapper
@@ -402,7 +404,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 return!
                     match Business.FinancialServices.StageEntryOrchestration.post context with
                     | Error (IngestionNoneAccount _) -> Ok ()
-                    | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
+                    | Error e -> Error (TestingError $"Wrong error. {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
         |> railroadWrapper

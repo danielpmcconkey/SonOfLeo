@@ -7,7 +7,9 @@ open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices
 open Tests.Helpers.Railroad
 open Xunit
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open App.Utility.Result
 
 (* REQ-FP-1.5 singles out February and leap years, so the derivation is exercised across
@@ -26,10 +28,10 @@ let ``REQ-FP-1.4 REQ-FP-1.5 REQ-FP-2.3 fiscal period runs from the first of the 
     let key =
         keyString
         |> FiscalPeriodKey.fromString
-        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
     runCommandRouteAndAutoRollback FiscalPeriodCreate (fun context ->
         result {
-            let! fp = key |> FiscalPeriodCreation.constructNewAndSaveToDb context
+            let! fp = key |> FiscalPeriodCreation.constructNewAndPersist context
             let startDate = FiscalPeriod.startDate fp
             let endDate = FiscalPeriod.endDate fp
             Assert.Equal(expectedYear, startDate.Year)

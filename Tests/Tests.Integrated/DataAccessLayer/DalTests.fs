@@ -9,43 +9,45 @@ open App.Operation.AuditEnvelope
 open Tests.Helpers.Railroad
 open App.Utility.Result
 open Xunit
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open Tests.Helpers.SadPath
 
 
 let unBoxingNull
-    (unboxingFunc: obj -> Result<'T, AppError>)
-    : Result<unit, AppError> =
+    (unboxingFunc: obj -> Result<'T, IAppError>)
+    : Result<unit, IAppError> =
     let context = Context.create NoTransaction FetchOnly
     match executeScalar (context |> Context.getDatabaseTransaction) "select 'burp' where 1 = 0" [] unboxingFunc with
     | Ok _ -> Ok ()
     | Error e -> Error e
     
 let unBoxingNonNullReturnsString
-    (unboxingFunc: obj -> Result<'T, AppError>)
-    : Result<unit, AppError> =
+    (unboxingFunc: obj -> Result<'T, IAppError>)
+    : Result<unit, IAppError> =
     let context = Context.create NoTransaction FetchOnly
     match executeScalar (context |> Context.getDatabaseTransaction) "SELECT 'hello'" [] unboxingFunc with
     | Ok _ -> Ok ()
     | Error e -> Error e
     
 let unBoxingNonNullReturnsInt
-    (unboxingFunc: obj -> Result<'T, AppError>)
-    : Result<unit, AppError> =
+    (unboxingFunc: obj -> Result<'T, IAppError>)
+    : Result<unit, IAppError> =
     let context = Context.create NoTransaction FetchOnly
     match executeScalar (context |> Context.getDatabaseTransaction) "SELECT 1" [] unboxingFunc with
     | Ok _ -> Ok ()
     | Error e -> Error e
 
 let errorNonQuery ()
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let context = Context.create NoTransaction FetchOnly
     match executeNonQuery (context |> Context.getDatabaseTransaction) "SEL ECT from ledger.account;" [] Zero with
     | Ok _ -> Ok ()
     | Error e -> Error e
 
 let errorReaderQuery ()
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let context = Context.create NoTransaction FetchOnly
     let mapRaw _ = ("", "")
     let contructFromRaw _ = Ok ""
@@ -54,14 +56,14 @@ let errorReaderQuery ()
     | Error e -> Error e
 
 let errorScalar ()
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let context = Context.create NoTransaction FetchOnly
     match executeScalar (context |> Context.getDatabaseTransaction) "SEL ECT from ledger.account;" [] stringUnboxing with
     | Ok _ -> Ok ()
     | Error e -> Error e
 
 let errorRowCount ()
-    : Result<unit, AppError> =
+    : Result<unit, IAppError> =
     let context = Context.create NoTransaction FetchOnly
     let mapRaw _ = ("", "")
     let contructFromRaw _ = Ok ""

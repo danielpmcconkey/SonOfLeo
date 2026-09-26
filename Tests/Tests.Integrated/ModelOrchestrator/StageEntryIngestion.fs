@@ -11,7 +11,9 @@ open Business.FinancialServices.StageEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Utilities
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open App.Utility.Result
 open Xunit
 open Business.FinancialServices.Ledger.JournalEntryComponent
@@ -301,7 +303,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 return!
                     match [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
                     | Error (IngestionBaseStageGroupIdDistinctDataViolation _) -> Ok ()
-                    | Error e -> Error (TestingError $"Wrong error when {field} differed within the group: {AppError.toMessage e}")
+                    | Error e -> Error (TestingError $"Wrong error when {field} differed within the group: {e.ToMessage()}")
                     | Ok _ -> Error (TestingError $"Expected failure; got success when {field} differed within the group")
             })
         |> railroadWrapper
@@ -320,7 +322,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 return!
                     match [ row ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
                     | Error (IngestionStageEntryInsufficientLines _) -> Ok ()
-                    | Error e -> Error (TestingError $"Wrong error: {AppError.toMessage e}")
+                    | Error e -> Error (TestingError $"Wrong error: {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
         |> railroadWrapper
@@ -340,7 +342,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 return!
                     match [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
                     | Error (IngestionStageEntryDebitCreditMismatch _) -> Ok ()
-                    | Error e -> Error (TestingError $"Wrong error: {AppError.toMessage e}")
+                    | Error e -> Error (TestingError $"Wrong error: {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
         |> railroadWrapper
@@ -361,7 +363,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 return!
                     match [ validRow1; validRow2; badRow ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
                     | Error (IngestionStageEntryInsufficientLines _) -> Ok ()
-                    | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
+                    | Error e -> Error (TestingError $"Wrong error. {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
         |> railroadWrapper
@@ -381,7 +383,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 return!
                     match [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
                     | Error (IngestionSourceNameNotFound _) -> Ok ()
-                    | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
+                    | Error e -> Error (TestingError $"Wrong error. {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
         |> railroadWrapper
@@ -404,7 +406,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                         Assert.Equal(100.00M, d)
                         Assert.Equal(50.00M, c)
                         Ok ()
-                    | Error e -> Error (TestingError $"Wrong error: {AppError.toMessage e}")
+                    | Error e -> Error (TestingError $"Wrong error: {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
         |> railroadWrapper

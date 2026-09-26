@@ -13,7 +13,9 @@ open Tests.Helpers
 open Tests.Helpers.Cleanup
 open Tests.Helpers.Railroad
 open Tests.Helpers.SadPath
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open App.Utility.Result
 open App.Utility.FieldUpdate
 open Xunit
@@ -22,7 +24,7 @@ open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleG
 open Business.FinancialServices.DataIngestion.Classification.FieldMatch
 
 let private unwrap result =
-    result |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+    result |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
 
 let private ruleNameOf s = s |> ClassificationRuleName.create |> unwrap
 let private codeOf s = s |> AccountCode.create |> unwrap
@@ -45,7 +47,7 @@ let private nameOf (r: ClassificationRule.ClassificationRule) =
 let private codeStrOf
     (context: Context.Context)
     (r: ClassificationRule.ClassificationRule)
-    : Result<string, AppError> =
+    : Result<string, IAppError> =
     r
     |> ClassificationRule.classificationClaimant
     |> ``convert AccountId to AccountCodeString`` context

@@ -1,10 +1,10 @@
 module Tests.Helpers.Railroad
 
-open App.Utility.AppError
+open App.Utility.IAppError
 open Xunit
 
 
-let railroadWrapper (railroad: Result<'T, AppError>) : unit =
+let railroadWrapper (railroad: Result<'T, IAppError>) : unit =
     match railroad with
     | Ok _ -> ()
-    | Error e -> Assert.Fail(AppError.toMessage e)
+    | Error e -> Assert.Fail(e.ToMessage())

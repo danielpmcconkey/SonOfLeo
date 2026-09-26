@@ -21,7 +21,9 @@ open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
 open Tests.Helpers.SadPath
 open App.Utility
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open App.Utility.FieldUpdate
 open App.Utility.Json.Json
 open App.Utility.Result
@@ -76,7 +78,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
           importDir = importDir
           processedDir = processedDir }
         |> toJson<IngestRawFileToStageInput>
-        |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+        |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
 
     /// Writes a one-defect file, asserts the route rejects it with the exact error, cleans up.
     static let assertRouteRejects fileName rows expectedError =
@@ -206,7 +208,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             deleteImportFile fileName
             match cleanUpStageEntryHeaderIdList idsToCleanUp with
             | Ok () -> ()
-            | Error e -> failwith (AppError.toMessage e)
+            | Error e -> failwith (e.ToMessage())
 
     [<Theory>]
     [<InlineData("entryDate", "not-a-date", "InterfaceBridgeFailedJsonDeserialization")>]
@@ -352,7 +354,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             deleteImportFile fileName
             match cleanUpStageEntryHeaderIdList idsToCleanUp with
             | Ok () -> ()
-            | Error e -> failwith (AppError.toMessage e)
+            | Error e -> failwith (e.ToMessage())
 
     (* No orchestrator-level test can carry either of these two: down there every test already
        runs inside a rolled-back transaction, so a shadow post and a real one leave identical
@@ -399,7 +401,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             deleteImportFile fileName
             match cleanUpStageEntryHeaderIdList idsToCleanUp with
             | Ok () -> ()
-            | Error e -> failwith (AppError.toMessage e)
+            | Error e -> failwith (e.ToMessage())
 
     [<Fact>]
     member _.``REQ-STG-9.1 PostStageEntries real route posts entries and returns wasRolledBack false`` () =
@@ -435,10 +437,10 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             // journal entries first: they are the rows the post created, and nothing depends on them
             match cleanUpJournalEntryList journalEntryIdsToCleanUp with
             | Ok () -> ()
-            | Error e -> failwith (AppError.toMessage e)
+            | Error e -> failwith (e.ToMessage())
             match cleanUpStageEntryHeaderIdList idsToCleanUp with
             | Ok () -> ()
-            | Error e -> failwith (AppError.toMessage e)
+            | Error e -> failwith (e.ToMessage())
 
     (* The all-or-nothing claim has two halves. That a poisoned batch fails is visible anywhere;
        that *none* of it lands is visible only out here, after the route has decided whether to
@@ -496,10 +498,10 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             deleteImportFile fileName
             match cleanUpJournalEntryList journalEntryIdsToCleanUp with
             | Ok () -> ()
-            | Error e -> failwith (AppError.toMessage e)
+            | Error e -> failwith (e.ToMessage())
             match cleanUpStageEntryHeaderIdList idsToCleanUp with
             | Ok () -> ()
-            | Error e -> failwith (AppError.toMessage e)
+            | Error e -> failwith (e.ToMessage())
 
     [<Fact>]
     member _.``REQ-STG-2.4 CreateIngestionSource route happy path`` () =
@@ -525,7 +527,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
         finally
             match cleanUpIngestionSourceId idToCleanUp with
             | Ok () -> ()
-            | Error e -> failwith (AppError.toMessage e)
+            | Error e -> failwith (e.ToMessage())
     [<Fact>]
     member _.``REQ-STG-10.1 REQ-STG-10.6 FetchStageEntryFiltered route returns the staged entry with its lines and status transitions intact`` () =
         let fileName = "fetch-filtered-composition.jsonl"
@@ -581,7 +583,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             deleteImportFile fileName
             match cleanUpStageEntryHeaderIdList idsToCleanUp with
             | Ok () -> ()
-            | Error e -> failwith (AppError.toMessage e)
+            | Error e -> failwith (e.ToMessage())
 
     [<Fact>]
     member _.``REQ-STG-10.2 FetchStageEntryFiltered route resolves an account code to the account whose lines it returns`` () =
@@ -625,7 +627,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             deleteImportFile fileName
             match cleanUpStageEntryHeaderIdList idsToCleanUp with
             | Ok () -> ()
-            | Error e -> failwith (AppError.toMessage e)
+            | Error e -> failwith (e.ToMessage())
 
     [<Fact>]
     member _.``REQ-STG-10.7 FetchStageEntryFiltered route rejects an account code matching no ledger account rather than returning an empty list`` () =

@@ -8,7 +8,9 @@ open Tests.Helpers.EntityFunctions
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open Tests.Helpers.SadPath
 open App.Utility.Result
 open Xunit
@@ -25,27 +27,27 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
     static let createFiscalPeriodCreateInputPayload keyToUse =
         { FiscalPeriodCreateInput.periodKey = keyToUse }
         |> toJson<FiscalPeriodCreateInput>
-        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
 
     static let createFiscalPeriodFetchByKeyInputPayload keyToUse =
         { FiscalPeriodFetchByKeyInput.periodKey = keyToUse }
         |> toJson<FiscalPeriodFetchByKeyInput>
-        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
 
     static let createFiscalPeriodCloseInputPayload keyToUse =
         { FiscalPeriodCloseInput.periodKey = keyToUse }
         |> toJson<FiscalPeriodCloseInput>
-        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
 
     static let createFiscalPeriodReopenInputPayload keyToUse =
         { FiscalPeriodReopenInput.periodKey = keyToUse }
         |> toJson<FiscalPeriodReopenInput>
-        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
 
     static let createFiscalPeriodFetchAllInputPayload openOnly =
         { openOnly = openOnly }
         |> toJson<FiscalPeriodFetchAllInput>
-        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
 
     [<Fact>]
     member _.``REQ-FP-2.4 FiscalPeriod Create happy path``() =
@@ -70,7 +72,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         finally
             match cleanUpFiscalPeriodKey keyToCleanUp with
             | Ok() -> ()
-            | Error e -> failwith(AppError.toMessage e)
+            | Error e -> failwith(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-FP-3.2 FiscalPeriod FetchByKey returns the period's dates and open state, not just the key it was looked up by``() =
@@ -133,7 +135,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         finally
             match cleanUpFiscalPeriodKey keyToCleanUp with
             | Ok() -> ()
-            | Error e -> failwith(AppError.toMessage e)
+            | Error e -> failwith(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-FP-4.2 FiscalPeriod Reopen happy path``() =
@@ -160,7 +162,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         finally
             match cleanUpFiscalPeriodKey keyToCleanUp with
             | Ok() -> ()
-            | Error e -> failwith(AppError.toMessage e)
+            | Error e -> failwith(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-FP-3.6 REQ-FP-3.2 FetchByKey rejects non-existent period key``() =

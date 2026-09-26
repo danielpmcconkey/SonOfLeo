@@ -20,7 +20,9 @@ open App.Utility.Result
 open Xunit
 open Tests.Helpers.Cleanup
 open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 
 open Business.FinancialServices.Ledger.JournalEntryComponent
 
@@ -45,7 +47,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         finally
             match cleanUpAccountId accountIdToCleanup with
             | Ok() -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
+            | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-NGUI-1.5 Account Create fails with invalid parent code``() =
@@ -75,7 +77,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         finally
             match cleanUpAccountId accountIdToCleanup with
             | Ok() -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
+            | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-AC-3.4 Account FetchByCode happy path``() =
@@ -88,7 +90,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let payload =
             { code = expectedCode }
             |> toJson<AccountFetchByCodeInput>
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         result {
             let! resultPayload = routeUiCommandForTesting "Account" "FetchByCode" [] payload
             let! returned = fromJson<AccountReturn> resultPayload
@@ -186,7 +188,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         finally
             match cleanUpAccountId idToCleanUp_1 with
             | Ok() -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
+            | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-NGUI-1.5 Account Deactivate fails with invalid code``() =
@@ -224,7 +226,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         finally
             match cleanUpAccountId idToCleanUp_1 with
             | Ok() -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
+            | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-NGUI-1.5 Account UpdateName fails with invalid code``() =
@@ -262,7 +264,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         finally
             match cleanUpAccountId idToCleanUp_1 with
             | Ok() -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
+            | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-NGUI-1.5 Account UpdateExternalReference fails with invalid code``() =
@@ -439,10 +441,10 @@ type AccountRouteTests(fixture: TestDataFixture) =
         finally
             match cleanUpJournalEntryId jeIdToCleanUp with
             | Ok() -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
+            | Error e -> Assert.Fail(e.ToMessage())
             match cleanUpAccountId accountIdToCleanUp with
             | Ok() -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
+            | Error e -> Assert.Fail(e.ToMessage())
 
 
 
@@ -468,7 +470,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
     [<InlineData("amount", "-19999999999.99", "MoneyFailedToConvertBelowMin")>]
     member _.``REQ-JE-3.9 FetchActivity validates all input as valid types``
         (field: string, value: string, expectedError: string) =
-        let convertValueToTemporalFilter () : Result<TemporalFilterInput, AppError> =
+        let convertValueToTemporalFilter () : Result<TemporalFilterInput, IAppError> =
             match value.IndexOf(':') with
             | -1 -> Error(TestingError "bad inline data on temporal filter")
             | index ->
@@ -487,7 +489,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
                         if field = "temporalFilter" then
                             Some(
                                 convertValueToTemporalFilter()
-                                |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+                                |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
                             )
                         else
                             None

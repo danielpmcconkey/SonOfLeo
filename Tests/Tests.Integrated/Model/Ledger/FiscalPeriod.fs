@@ -12,7 +12,9 @@ open Tests.Helpers.GenericTestProperties
 open Tests.Helpers.Railroad
 open App.Utility.Result
 open Xunit
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open Tests.Helpers.SadPath
 
 
@@ -23,7 +25,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
     member _.``REQ-FP-2.1 creating a fiscal period must generate a UUID``() =
         runCommandRouteAndAutoRollback AccountCreate (fun context ->
             result {
-                let! fp = genericFiscalPeriodKey |> FiscalPeriodCreation.constructNewAndSaveToDb context
+                let! fp = genericFiscalPeriodKey |> FiscalPeriodCreation.constructNewAndPersist context
                 let unique_id = FiscalPeriod.fiscalPeriodId fp |> FiscalPeriodId.value
                 Assert.NotEqual(unique_id, Guid.Empty)
                 ()
@@ -38,18 +40,18 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
                 let existingKey = FiscalPeriod.periodKey existingPeriod
                 do!
                     isCorrectError
-                        (existingKey |> FiscalPeriodCreation.constructNewAndSaveToDb context)
+                        (existingKey |> FiscalPeriodCreation.constructNewAndPersist context)
                         DalErrorDuringNonQueryExecution
                         None
             })
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-FP-2.4 REQ-FP-2.5 insertNewToDb happy path``() =
+    member _.``REQ-FP-2.4 REQ-FP-2.5 persist happy path``() =
         let expectedKey =
             "2050-10"
             |> FiscalPeriodKey.fromString
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         let expectedYear = 2050
         let expectedStartMonth = 10
         let expectedStartDay = 1
@@ -58,7 +60,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
         let expectedIsOpen = true
         runCommandRouteAndAutoRollback AccountCreate (fun context ->
             result {
-                let! fp = expectedKey |> FiscalPeriodCreation.constructNewAndSaveToDb context
+                let! fp = expectedKey |> FiscalPeriodCreation.constructNewAndPersist context
                 let startDate = FiscalPeriod.startDate fp
                 let endDate = FiscalPeriod.endDate fp
                 let uuid = FiscalPeriod.fiscalPeriodId fp |> FiscalPeriodId.value
@@ -80,7 +82,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
         let expectedIsOpen = true
         runCommandRouteAndAutoRollback AccountCreate (fun context ->
             result {
-                let! fp = genericFiscalPeriodKey |> FiscalPeriodCreation.constructNewAndSaveToDb context
+                let! fp = genericFiscalPeriodKey |> FiscalPeriodCreation.constructNewAndPersist context
                 Assert.Equal(expectedIsOpen, FiscalPeriod.isOpen fp)
                 ()
             })
@@ -205,11 +207,11 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-SYS-3.2 insertNewToDb sets create and modified timestamps``() =
+    member _.``REQ-SYS-3.2 persist sets create and modified timestamps``() =
         runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let expected = context |> Context.getInitiationInstant
             result {
-                let! fp = genericFiscalPeriodKey |> FiscalPeriodCreation.constructNewAndSaveToDb context
+                let! fp = genericFiscalPeriodKey |> FiscalPeriodCreation.constructNewAndPersist context
                 Assert.Equal(expected, FiscalPeriod.createdAt fp)
                 Assert.Equal(expected, FiscalPeriod.modifiedAt fp)
                 ()

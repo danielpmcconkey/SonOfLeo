@@ -2,7 +2,9 @@ namespace Tests.Integrated.Business.FinancialServices.Ledger
 
 open App.DataAccessLayer.DbTransaction
 open App.Operation.AuditEnvelope
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open Xunit
 open Tests.Helpers
 open Business.FinancialServices.Ledger
@@ -27,4 +29,4 @@ type JournalEntryHeaderTests(fixture: TestDataFixture) =
                 "Fixture JE in closed period",
                 h |> JournalEntryHeader.description |> JournalEntryDescription.value
             )
-        | Error e -> Assert.Fail $"Fetching a JE header in a closed period failed: {AppError.toMessage e}"
+        | Error e -> Assert.Fail $"Fetching a JE header in a closed period failed: {e.ToMessage()}"

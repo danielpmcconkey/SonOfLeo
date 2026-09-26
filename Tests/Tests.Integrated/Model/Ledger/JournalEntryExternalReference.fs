@@ -11,7 +11,9 @@ open Tests.Helpers.Railroad
 open Xunit
 open Tests.Helpers
 open Business.FinancialServices.Ledger.JournalEntryExternalReference
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 
 [<Collection("SharedTestData")>]
 type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
@@ -60,14 +62,14 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-4.10 constructNewAndSaveToDb appends a reference to an existing entry``() =
+    member _.``REQ-JE-4.10 constructNewAndPersist appends a reference to an existing entry``() =
         let expected1 = "NewBank"
         let expected2 = "NEW-001"
         let fiAdd = expected1 |> createJournalRefFinancialInstitutionFromString
         let refAdd = expected2 |> createJournalExternalReferenceTextFromString
         runCommandRouteAndAutoRollback JournalEntryAddExternalReference (fun context ->
             let result =
-                JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
+                JournalEntryExternalReferenceOrchestration.constructNewAndPersist
                     context
                     fixture.Data.basicJeId
                     fiAdd
@@ -85,12 +87,12 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-4.10 constructNewAndSaveToDb generates a unique UUID for the new reference``() =
+    member _.``REQ-JE-4.10 constructNewAndPersist generates a unique UUID for the new reference``() =
         let fiAdd = "UuidBank" |> createJournalRefFinancialInstitutionFromString
         let refAdd = "UUID-001" |> createJournalExternalReferenceTextFromString
         runCommandRouteAndAutoRollback JournalEntryAddExternalReference (fun context ->
             let result =
-                JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
+                JournalEntryExternalReferenceOrchestration.constructNewAndPersist
                     context
                     fixture.Data.basicJeId
                     fiAdd
@@ -113,7 +115,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
         let refAdd = "VOID-001" |> createJournalExternalReferenceTextFromString
         runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let result =
-                JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
+                JournalEntryExternalReferenceOrchestration.constructNewAndPersist
                     context
                     fixture.Data.voidedJeId
                     fiAdd
@@ -179,7 +181,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
         let refAdd = "CLOSED-001" |> createJournalExternalReferenceTextFromString
         runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let result =
-                JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
+                JournalEntryExternalReferenceOrchestration.constructNewAndPersist
                     context
                     fixture.Data.jeInClosedPeriodId
                     fiAdd
@@ -197,7 +199,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
         let refAdd = "FID-RT-001" |> createJournalExternalReferenceTextFromString
         runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let createResult =
-                JournalEntryExternalReferenceOrchestration.constructNewAndSaveToDb
+                JournalEntryExternalReferenceOrchestration.constructNewAndPersist
                     context
                     fixture.Data.basicJeId
                     fiAdd

@@ -2,7 +2,9 @@ module Tests.Isolated.Business.FinancialServices.DataIngestion.StageEntryStatusT
 
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.DataIngestion.StageEntryStatusTransition
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open Xunit
 
 
@@ -46,7 +48,7 @@ let ``REQ-STG-4.1 StagedEntryStatus.fromString accepts Ignored`` () =
 let ``REQ-STG-4.1 StagedEntryStatus.fromString rejects invalid string`` () =
     match StagedEntryStatus.fromString "Bogus" with
     | Error (IngestionInvalidStagedEntryStatus _) -> ()
-    | Error e -> Assert.Fail $"Wrong error: {AppError.toMessage e}"
+    | Error e -> Assert.Fail $"Wrong error: {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
 
@@ -68,7 +70,7 @@ let ``REQ-STG-4.1 StageStatusChangeMechanism.fromString accepts all valid values
 let ``REQ-STG-4.1 StageStatusChangeMechanism.fromString rejects invalid string`` () =
     match StageStatusChangeMechanism.fromString "Bogus" with
     | Error (IngestionInvalidStageStatusChangeMechanism _) -> ()
-    | Error e -> Assert.Fail $"Wrong error: {AppError.toMessage e}"
+    | Error e -> Assert.Fail $"Wrong error: {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
 
@@ -163,7 +165,7 @@ let ``REQ-STG-4.6 validTransitions permits exactly the pairs the spec's transiti
     let parse s =
         s
         |> StagedEntryStatus.fromString
-        |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+        |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
     let fromStatus =
         match fromStr with
         | "None" -> None

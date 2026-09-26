@@ -2,7 +2,9 @@ module Tests.Isolated.Business.FinancialServices.Ledger.JournalEntryExternalRefe
 
 open System
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open Xunit
 open Tests.Helpers.SadPath
 open Tests.Helpers.Railroad
@@ -36,7 +38,7 @@ let ``REQ-SYS-1.1 JournalRefFinancialInstitution.create trims whitespace`` () =
     let trimmed = "Chase"
     let result = JournalRefFinancialInstitution.create $"  {trimmed}   "
     match result with
-    | Error e -> Assert.Fail(AppError.toMessage e)
+    | Error e -> Assert.Fail(e.ToMessage())
     | Ok fi -> Assert.Equal(trimmed, JournalRefFinancialInstitution.value fi)
 
 [<Fact>]
@@ -73,7 +75,7 @@ let ``REQ-SYS-1.1 JournalExternalReferenceText.create trims whitespace`` () =
     let trimmed = "TXN-20260627-001"
     let result = JournalExternalReferenceText.create $"  {trimmed}   "
     match result with
-    | Error e -> Assert.Fail(AppError.toMessage e)
+    | Error e -> Assert.Fail(e.ToMessage())
     | Ok rt -> Assert.Equal(trimmed, JournalExternalReferenceText.value rt)
 
 [<Fact>]

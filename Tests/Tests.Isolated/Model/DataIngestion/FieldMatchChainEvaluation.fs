@@ -4,13 +4,15 @@ open Model
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.DataIngestion.Classification
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open Xunit
 open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
 open Business.FinancialServices.DataIngestion.Classification.FieldMatch
 
 let private unwrap result =
-    result |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+    result |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
 
 let private candidate =
     { headerIdOfCandidate = StageEntryHeaderId.create ()

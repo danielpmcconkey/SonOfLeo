@@ -1,33 +1,35 @@
 module Tests.Helpers.EntityFunctions
 
-open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
-open Model
+open NodaTime
+open App.Utility.IAppError
+open App.Utility.Result
+open App.Utility.FieldUpdate
+open App.Session
+open Business.General
+open Business.FinancialServices
 open Business.FinancialServices.Ledger
-open Business.FinancialServices.DataIngestion
-open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.DataIngestion.Classification
-open Business.FinancialServices.DataIngestion.Classification.ClassificationRule
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices
-open Business.FinancialServices.JournalEntries
-open Business.FinancialServices.StageEntryOrchestration
-open NodaTime
+open Business.FinancialServices.DataIngestion
+open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.Classification
+open Business.FinancialServices.Classification.ClassificationComponent
+open Business.FinancialServices.Classification.ClassificationRule
+open Business.FinancialServices.Classification.ClassificationRuleGroup
+open Business.FinancialServices.Classification.FieldMatch
+open Business.CrossDomainOrchestration
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
+open Business.CrossDomainOrchestration.StageEntryOrchestration
+open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
+open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
 open Tests.Helpers.GenericTestProperties
-open App.Utility.AppError
-open App.Utility.Result
-open App.Utility.FieldUpdate
-open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
-open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleGroup
-open Business.FinancialServices.DataIngestion.Classification.FieldMatch
 
-let createTestFiscalPeriodFromPrimitives context keyStr : Result<FiscalPeriod.FiscalPeriod, AppError> =
+let createTestFiscalPeriodFromPrimitives context keyStr : Result<FiscalPeriod.FiscalPeriod, IAppError> =
     result {
         let! key = keyStr |> FiscalPeriodKey.fromString
-        return! key |> FiscalPeriodCreation.constructNewAndSaveToDb context
+        return! key |> FiscalPeriodCreation.constructNewAndPersist context
     }
 
 let createTestAccountFromPrimitives
@@ -40,23 +42,23 @@ let createTestAccountFromPrimitives
     subtype
     parentId
     reference
-    : Result<Account * AccountId, AppError> =
+    : Result<Account * AccountId, IAppError> =
     result {
         let! account =
-            AccountCreation.constructNewAndSaveToDb
+            AccountCreation.constructNewAndPersist
                 context
-                (code |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
-                (name |> AccountName.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
-                (actType |> AccountType.fromString |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
+                (code |> AccountCode.create |> Result.defaultWith(fun e -> failwith(e.ToMessage())))
+                (name |> AccountName.create |> Result.defaultWith(fun e -> failwith(e.ToMessage())))
+                (actType |> AccountType.fromString |> Result.defaultWith(fun e -> failwith(e.ToMessage())))
                 (ActivityPeriod.create activeBegin activeEnd ActivityPeriod.NotConsideredAvailableBeforeBeginDate
-                 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
+                 |> Result.defaultWith(fun e -> failwith(e.ToMessage())))
                 (subtype
                  |> convertOptionToDesiredTypeWithFallibleConverter AccountSubtype.fromString
-                 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
+                 |> Result.defaultWith(fun e -> failwith(e.ToMessage())))
                 parentId
                 (reference
                  |> convertOptionToDesiredTypeWithFallibleConverter AccountExternalReference.create
-                 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e)))
+                 |> Result.defaultWith(fun e -> failwith(e.ToMessage())))
         return (account, account |> Account.accountId)
     }
 
@@ -89,10 +91,10 @@ let createTestJournalEntryFromPrimitives
     (lines: (AccountId * decimal * string * string option) list)
     (references: (string * string) list)
     (comments: (JournalEntryHeaderId option * string) list)
-    : Result<JournalEntry * JournalEntryHeaderId, AppError> =
+    : Result<JournalEntry * JournalEntryHeaderId, IAppError> =
     let convertLines
         (linesIn: (AccountId * decimal * string * string option) list)
-        : Result<(AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option) list, AppError> =
+        : Result<(AccountId * Money.Money * JournalEntryLineType * JournalEntryLineMemo option) list, IAppError> =
         linesIn
         |> List.map(fun l ->
             let id, amountDec, lineTypeSt, memoSt = l
@@ -105,7 +107,7 @@ let createTestJournalEntryFromPrimitives
         |> convertListOfResultsToResultsList
     let convertRefs
         (refsIn: (string * string) list)
-        : Result<(JournalRefFinancialInstitution * JournalExternalReferenceText) list, AppError> =
+        : Result<(JournalRefFinancialInstitution * JournalExternalReferenceText) list, IAppError> =
         refsIn
         |> List.map(fun r ->
             let fiSt, refSt = r
@@ -117,7 +119,7 @@ let createTestJournalEntryFromPrimitives
         |> convertListOfResultsToResultsList
     let convertComments
         (commentsIn: (JournalEntryHeaderId option * string) list)
-        : Result<(JournalEntryHeaderId option * CommentText) list, AppError> =
+        : Result<(JournalEntryHeaderId option * CommentText) list, IAppError> =
         commentsIn
         |> List.map(fun c ->
             let id, textSt = c
@@ -134,7 +136,7 @@ let createTestJournalEntryFromPrimitives
         let! refsConverted = references |> convertRefs
         let! commentsConverted = comments |> convertComments
         let! journalEntry =
-            JournalEntry.constructNewAndSaveToDb
+            JournalEntryOrchestration.constructNewAndPersist
                 context
                 description
                 source
@@ -142,17 +144,17 @@ let createTestJournalEntryFromPrimitives
                 linesConverted
                 refsConverted
                 commentsConverted
-        let headerId = journalEntry |> JournalEntry.header |> JournalEntryHeader.journalEntryHeaderId
+        let headerId = journalEntry |> JournalEntryOrchestration.header |> JournalEntryHeader.journalEntryHeaderId
         return (journalEntry, headerId)
     }
 let createJournalRefFinancialInstitutionFromString fiString =
     fiString
     |> JournalRefFinancialInstitution.create
-    |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+    |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
 let createJournalExternalReferenceTextFromString textString =
     textString
     |> JournalExternalReferenceText.create
-    |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+    |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
 let createFiUpdateFromString fiString =
     fiString |> createJournalRefFinancialInstitutionFromString |> SetTo
 let createReferenceTextUpdateFromString textString =
@@ -170,7 +172,7 @@ let sumJournalEntryLinesByAccountIdAndType tran unvoidedOnly accountId lineType 
                 x
                 |> JournalEntryLine.journalEntryHeaderId
                 |> JournalEntryHeader.fetchById tran
-                |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+                |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
                 |> JournalEntryHeader.voidedAt
                 |> Option.isNone)
         else
@@ -179,7 +181,7 @@ let sumJournalEntryLinesByAccountIdAndType tran unvoidedOnly accountId lineType 
     
 let createClassificationRuleGroupListForTest
     (ruleGroupPrimitives: (string * FieldMatch list * FieldMatch list option) list)
-    : Result<ClassificationRuleGroup list, AppError> =
+    : Result<ClassificationRuleGroup list, IAppError> =
     let ruleGroups =
         ruleGroupPrimitives
         |> List.map(fun x -> 
@@ -198,16 +200,17 @@ let createClassificationRuleForTest
     (codeAtMatchStr: string)
     (priority: int)
     (ruleGroupPrimitives: (string * FieldMatch list * FieldMatch list option) list)
-    : Result<ClassificationRule, AppError> =
+    : Result<ClassificationRule, IAppError> =
     result {
         let! classificationRuleName = classificationRuleNameStr |> ClassificationRuleName.create
         let! accountAtMatch = codeAtMatchStr |> ``convert AccountCodeString to Id`` context
+        let classificationClaimant = ClassificationClaimant.Account accountAtMatch
         let! ruleGroups = ruleGroupPrimitives |> createClassificationRuleGroupListForTest
         return!
             ClassificationOrchestration.createNewClassificationRule
                 context
                 classificationRuleName
-                accountAtMatch
+                classificationClaimant
                 priority
                 ruleGroups
     }
@@ -215,13 +218,13 @@ let createClassificationRuleForTest
 let createIngestionSourceForTest
     (context: Context.Context)
     (nameStr: string)
-    : Result<IngestionSource.IngestionSource, AppError> =
+    : Result<IngestionSource.IngestionSource, IAppError> =
     result {
         let instant = context |> Context.getInitiationInstant
         let uuid = IngestionSourceId.create()
         let! name = nameStr |> JournalRefFinancialInstitution.create
         let source = IngestionSource.create uuid name instant instant
-        do! source |> IngestionSource.insertNewToDb context
+        do! source |> IngestionSource.persist context
         return source
         }
     
@@ -232,7 +235,7 @@ let createStageEntryHeaderForTest
     (fiReferenceStr: string)
     (ingestionSource: IngestionSource.IngestionSource)
     (entryDate: LocalDate)
-    : Result<StageEntryHeader.StageEntryHeader, AppError> =
+    : Result<StageEntryHeader.StageEntryHeader, IAppError> =
     result {
         let! sourceFile = sourceFileStr |> SourceFile.create
         let stageEntryHeaderId = StageEntryHeaderId.create()
@@ -241,8 +244,8 @@ let createStageEntryHeaderForTest
         let! fiReference = fiReferenceStr |> JournalExternalReferenceText.create
         let header =
             StageEntryHeader.create sourceFile stageEntryHeaderId
-                entryDate description ingestionSource fiReference (Some Ingested)
-        do! header |> StageEntryHeader.insertNewToDb context Ingested StageIngestion
+                entryDate description ingestionSource fiReference None (Some Ingested)
+        do! header |> StageEntryHeader.persist context Ingested StageIngestion
         return header
         }
 
@@ -253,8 +256,8 @@ let createStageEntryLineForTest
     (entryTypeStr : string)
     (accountCodeStr: string option)
     (memoStr: string option)
-    (classificationRuleId: ClassificationRuleId option)
-    : Result<StageEntryLine.StageEntryLine, AppError> =
+    (journalEntryLineId: JournalEntryLineId option)
+    : Result<StageEntryLine.StageEntryLine, IAppError> =
     result {
         let uuid = StageEntryLineId.create()
         let! amount = amountDec |> Money.fromDecimal
@@ -262,20 +265,20 @@ let createStageEntryLineForTest
         let! accountId = accountCodeStr |> ``convert AccountCodeString Option to AccountId Option`` context
         let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
         let line =
-            StageEntryLine.create uuid stageEntryHeaderId amount entryType accountId memo classificationRuleId
-        do! line |> StageEntryLine.insertNewToDb context
+            StageEntryLine.create uuid stageEntryHeaderId amount entryType accountId memo journalEntryLineId
+        do! line |> StageEntryLine.persist context
         return line
         }
 
 let createStageEntryLineListForTest
     (context: Context.Context)
     (stageEntryHeaderId: StageEntryHeaderId)
-    (lines: (decimal * string * string option * string option * ClassificationRuleId option) list)
-    : Result<StageEntryLine.StageEntryLine list, AppError> =
+    (lines: (decimal * string * string option * string option * JournalEntryLineId option) list)
+    : Result<StageEntryLine.StageEntryLine list, IAppError> =
     lines
-    |> List.map (fun (amountDec, entryTypeStr, accountCodeStr, memoStr, classificationRuleId) ->
+    |> List.map (fun (amountDec, entryTypeStr, accountCodeStr, memoStr, journalEntryLineId) ->
         createStageEntryLineForTest context stageEntryHeaderId amountDec entryTypeStr
-            accountCodeStr memoStr classificationRuleId)
+            accountCodeStr memoStr journalEntryLineId)
     |> convertListOfResultsToResultsList
 
 let createStageEntryStatusTransitionForTest
@@ -285,7 +288,7 @@ let createStageEntryStatusTransitionForTest
     (toStatusStr: string)
     (instant: Instant)
     (stageStatusChangeMechanismStr: string)
-    : Result<StageEntryStatusTransition.StageEntryStatusTransition, AppError> =
+    : Result<StageEntryStatusTransition.StageEntryStatusTransition, IAppError> =
     result {
         let uuid = StageEntryStatusTransitionId.create()
         let! fromStatus = fromStatusStr |> convertOptionToDesiredTypeWithFallibleConverter StagedEntryStatus.fromString
@@ -293,7 +296,7 @@ let createStageEntryStatusTransitionForTest
         let! stageStatusChangeMechanism = stageStatusChangeMechanismStr |> StageStatusChangeMechanism.fromString
         let transition = StageEntryStatusTransition.create uuid stageEntryHeaderId fromStatus
                              toStatus instant stageStatusChangeMechanism
-        do! transition |> StageEntryHeader.insertNewStatusTransitionToDb context
+        do! transition |> StageEntryHeader.persistStatusTransition context
         return transition
     }
 
@@ -301,7 +304,7 @@ let createStageEntryStatusTransitionListForTest
     (context: Context.Context)
     (stageEntryHeaderId: StageEntryHeaderId)
     (transitions: (string option * string * Instant * string) list)
-    : Result<StageEntryStatusTransition.StageEntryStatusTransition list, AppError> =
+    : Result<StageEntryStatusTransition.StageEntryStatusTransition list, IAppError> =
     transitions
     |> List.map (fun (fromStatusStr, toStatusStr, instant, stageStatusChangeMechanismStr) ->
         createStageEntryStatusTransitionForTest context stageEntryHeaderId fromStatusStr toStatusStr
@@ -316,9 +319,9 @@ let createStageEntryForTest
     (fiReferenceStr: string)
     (ingestionSource: IngestionSource.IngestionSource)
     (entryDate: LocalDate)
-    (linePrimitives: (decimal * string * string option * string option * ClassificationRuleId option) list)
+    (linePrimitives: (decimal * string * string option * string option * JournalEntryLineId option) list)
     (transitionPrimitives: (string option * string * Instant * string) list)
-    : Result<StageEntry, AppError> =
+    : Result<StageEntry, IAppError> =
     result {
         let! header = createStageEntryHeaderForTest context sourceFileStr descriptionStr fiReferenceStr ingestionSource entryDate
         let headerId = header |> StageEntryHeader.stageEntryHeaderId

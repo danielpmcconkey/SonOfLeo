@@ -7,7 +7,9 @@ open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.JournalEntries
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open App.Utility.Result
 open Xunit
 open Tests.Helpers
@@ -46,7 +48,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
             let descriptionText = detail.journalEntryDescription |> JournalEntryDescription.value
             Assert.False(String.IsNullOrWhiteSpace descriptionText)
             Assert.NotEqual(Guid.Empty, detail.journalEntryHeaderId |> JournalEntryHeaderId.value)
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-3.9 activity detail carries its parent entry's date, description, source, and voided-at``() =
@@ -141,7 +143,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
             Assert.Empty(
                 returnedDetails
                 |> List.filter(fun detail -> voidedLineIds |> List.contains detail.lineId))
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-3.9 fetchFiltered returns no-activity row for account with no lines``() =
@@ -168,7 +170,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
             Assert.Equal(1, activities |> List.length)
             let activity = activities |> List.head
             Assert.True(activity.activityDetail |> Option.isNone)
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-3.9 fetchFiltered by amount returns only matching lines``() =
@@ -187,7 +189,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
             |> List.filter(fun l -> l |> JournalEntryLine.amount |> Money.amount = targetAmountDecimal)
             |> List.length
         let targetAmount =
-            targetAmountDecimal |> Money.fromDecimal |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            targetAmountDecimal |> Money.fromDecimal |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         let filter:AccountActivityFilter =
             { accountId = None
               temporalFilter = None
@@ -208,7 +210,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
             for activity in withDetail do
                 let detail = activity.activityDetail |> Option.get
                 Assert.Equal(targetAmountDecimal, detail.amount |> Money.amount)
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-3.9.3 fetchFiltered sort by entry date — ascending and descending are mutual reverses``() =
@@ -325,7 +327,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
         let targetDescription =
             targetDescriptionString
             |> JournalEntryDescription.create
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         let filter:AccountActivityFilter =
             { accountId = None
               temporalFilter = None
@@ -346,7 +348,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
             for activity in withDetail do
                 let detail = activity.activityDetail |> Option.get
                 Assert.Equal(targetDescriptionStringFull, detail.journalEntryDescription |> JournalEntryDescription.value)
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-3.9 AccountActivity.fetchFiltered by journalEntryId returns only lines for that entry``() =
@@ -376,7 +378,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
             for activity in withDetail do
                 let detail = activity.activityDetail |> Option.get
                 Assert.Equal(targetId, detail.journalEntryHeaderId)
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-3.9 fetchFiltered by journalEntryId with nonexistent id returns no activity rows``() =
@@ -396,4 +398,4 @@ type AccountActivityTests(fixture: TestDataFixture) =
         let result = AccountActivity.fetchFiltered context filter None
         match result with
         | Ok activities -> Assert.Empty(activities)
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        | Error e -> Assert.Fail(e.ToMessage())

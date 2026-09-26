@@ -4,24 +4,27 @@ namespace Tests.Helpers
 open App.DataAccessLayer.DbTransaction
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
-open App.Operation.AuditEnvelope
-open Model
-open Business.FinancialServices.DataIngestion
-open Business.FinancialServices.DataIngestion.Classification
-open Business.FinancialServices.Ledger.Account
-open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices
-open Business.FinancialServices.JournalEntries
-open Tests.Helpers.EntityFunctions
-open App.Utility.Result
-open Xunit
-open Business.FinancialServices.Ledger
-open Business.FinancialServices.Ledger.FiscalPeriodComponent
+open App.Operation.CoreAuditableAction
+open App.Session
 open App.Utility
+open App.Utility.IAppError
+open App.Utility.Result
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
-open App.Utility.AppError
-open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
-open Business.FinancialServices.DataIngestion.Classification.FieldMatch
+open Business.FinancialServices.Ledger.FiscalPeriodComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.DataIngestion
+open Business.FinancialServices.Classification
+open Business.FinancialServices.Classification.ClassificationComponent
+open Business.FinancialServices.Classification.FieldMatch
+open Business.CrossDomainOrchestration
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
+open Tests.Helpers.EntityFunctions
+open Tests.Helpers.TestError
+open Xunit
 
 /// This data represents a known data state to stage at the beginning of test
 /// runs. It should be used to test any read functions in the system. It can be
@@ -115,11 +118,18 @@ type TestDataFixture() =
                             ledger.journal_entry,
                             ledger.account,
                             ledger.fiscal_period,
-                            ingestion.classification_rule,
                             ingestion.source,
                             ingestion.staged_entry,
                             ingestion.staged_entry_audit,
-                            ingestion.staged_entry_line
+                            ingestion.staged_entry_line,
+                            classification.classification_rule,
+                            classification.rule_match,
+                            cashflow.master_agreement,
+                            cashflow.payment_agreement,
+                            cashflow.instance,
+                            cashflow.invoice,
+                            cashflow.payment,
+                            cashflow.payment_agreement_link
                         CASCADE;
                 """
                 let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) deleteQuery [] AnyQuantityIsAcceptable
@@ -364,8 +374,8 @@ type TestDataFixture() =
                         let key =
                             $"{date.Year}-{monthF}"
                             |> FiscalPeriodKey.fromString
-                            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-                        key |> FiscalPeriodCreation.constructNewAndSaveToDb context)
+                            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+                        key |> FiscalPeriodCreation.constructNewAndPersist context)
                     |> convertListOfResultsToResultsList
                 fiscalPeriods <- openFiscalPeriods @ fiscalPeriods
 
@@ -379,8 +389,8 @@ type TestDataFixture() =
                     let key =
                         $"{date.Year}-{monthF}"
                         |> FiscalPeriodKey.fromString
-                        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-                    key |> FiscalPeriodCreation.constructNewAndSaveToDb context
+                        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+                    key |> FiscalPeriodCreation.constructNewAndPersist context
                 // note: don't add it to the FP list until after you've closed it
 
                 let closedFiscalPeriodId = closedFiscalPeriod |> FiscalPeriod.fiscalPeriodId
@@ -437,7 +447,7 @@ type TestDataFixture() =
                 journalEntries <- basicJe :: journalEntries
 
                 let fixtureCommentId = // todo: figure out why we need this
-                    basicJe |> JournalEntry.comments |> List.head |> JournalEntryComment.journalEntryCommentId
+                    basicJe |> JournalEntryOrchestration.comments |> List.head |> JournalEntryComment.journalEntryCommentId
 
                 let! jeWithRef, jeWithRefId =
                     createTestJournalEntryFromPrimitives
@@ -453,7 +463,7 @@ type TestDataFixture() =
 
                 let jeWithRefExtRefId = // todo: figure out why we need this
                     jeWithRef
-                    |> JournalEntry.externalReferences
+                    |> JournalEntryOrchestration.externalReferences
                     |> List.head
                     |> JournalEntryExternalReference.journalEntryExternalReferenceId
 
@@ -496,7 +506,7 @@ type TestDataFixture() =
                 journalEntries <- jeInClosedPeriod :: journalEntries
                 let jeInClosedPeriodExtRefId =
                     jeInClosedPeriod
-                    |> JournalEntry.externalReferences
+                    |> JournalEntryOrchestration.externalReferences
                     |> List.head
                     |> JournalEntryExternalReference.journalEntryExternalReferenceId
 
@@ -567,10 +577,10 @@ type TestDataFixture() =
 
                 let! commentText = "Fixture voiding reason" |> CommentText.create
                 let! voidedJe = jeToVoidId |> JournalEntryVoiding.voidJournalEntry context None commentText
-                let voidedJeId = voidedJe |> JournalEntry.header |> JournalEntryHeader.journalEntryHeaderId
+                let voidedJeId = voidedJe |> JournalEntryOrchestration.header |> JournalEntryHeader.journalEntryHeaderId
                 let voidedJeExtRefId =
                     voidedJe
-                    |> JournalEntry.externalReferences
+                    |> JournalEntryOrchestration.externalReferences
                     |> List.head
                     |> JournalEntryExternalReference.journalEntryExternalReferenceId
                 journalEntries <- voidedJe :: journalEntries
@@ -881,18 +891,18 @@ type TestDataFixture() =
                 let totalJournalEntryHeaders = journalEntries |> List.length
                 let voidedEntries =
                     journalEntries
-                    |> List.filter(fun x -> x |> JournalEntry.header |> JournalEntryHeader.voidedAt |> Option.isSome)
+                    |> List.filter(fun x -> x |> JournalEntryOrchestration.header |> JournalEntryHeader.voidedAt |> Option.isSome)
                 let totalVoidedJournalEntryHeaders = voidedEntries |> List.length
                 let totalJournalEntryLines =
-                    journalEntries |> List.sumBy(fun x -> x |> JournalEntry.jeLines |> List.length)
+                    journalEntries |> List.sumBy(fun x -> x |> JournalEntryOrchestration.jeLines |> List.length)
                 let totalVoidedJournalEntryLines =
-                    voidedEntries |> List.sumBy(fun x -> x |> JournalEntry.jeLines |> List.length)
-                let journalEntryLines = journalEntries |> List.collect JournalEntry.jeLines
+                    voidedEntries |> List.sumBy(fun x -> x |> JournalEntryOrchestration.jeLines |> List.length)
+                let journalEntryLines = journalEntries |> List.collect JournalEntryOrchestration.jeLines
                 let totalAccountsWithLines =
                     journalEntryLines |> List.map JournalEntryLine.accountId |> List.distinct |> List.length
                 let totalAccountsWithNoLines = totalAccounts - totalAccountsWithLines
-                let journalEntryExternalReferences = journalEntries |> List.collect JournalEntry.externalReferences
-                let journalEntryComments = journalEntries |> List.collect JournalEntry.comments
+                let journalEntryExternalReferences = journalEntries |> List.collect JournalEntryOrchestration.externalReferences
+                let journalEntryComments = journalEntries |> List.collect JournalEntryOrchestration.comments
 
                 // =============================================================================
                 // Return all the data
@@ -959,7 +969,7 @@ type TestDataFixture() =
                       ingestionSources = ingestionSources
                       classificationRules = classificationRules }
             }
-        stageResult |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+        stageResult |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
 
     member _.Data = data
 

@@ -16,18 +16,20 @@ open Tests.Helpers
 open Business.FinancialServices.JournalEntries.JournalEntry
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Utilities
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 
 [<Collection("SharedTestData")>]
 type JournalEntryCreationTests(fixture: TestDataFixture) =
 
     [<Fact>]
-    member _.``REQ-JE-2.13 REQ-JE-2.11 constructNewAndSaveToDb posts a valid journal entry and returns it``() =
+    member _.``REQ-JE-2.13 REQ-JE-2.11 constructNewAndPersist posts a valid journal entry and returns it``() =
         let expected = "JE create happy"
         let today = Calendar.today()
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! jeHappy, _ = // the test helper resolves to constructNewAndSaveToDb
+                let! jeHappy, _ = // the test helper resolves to constructNewAndPersist
                     createTestJournalEntryFromPrimitives
                         context
                         expected
@@ -45,11 +47,11 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-2.1 constructNewAndSaveToDb generates a unique UUID for the header``() =
+    member _.``REQ-JE-2.1 constructNewAndPersist generates a unique UUID for the header``() =
         let today = Calendar.today()
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! _, jeHappyId = // the test helper resolves to constructNewAndSaveToDb
+                let! _, jeHappyId = // the test helper resolves to constructNewAndPersist
                     createTestJournalEntryFromPrimitives
                         context
                         "JE create happy"
@@ -65,11 +67,11 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-2.2 REQ-JE-1.21 constructNewAndSaveToDb generates unique UUIDs for each line``() =
+    member _.``REQ-JE-2.2 REQ-JE-1.21 constructNewAndPersist generates unique UUIDs for each line``() =
         let today = Calendar.today()
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! jeHappy, _ = // the test helper resolves to constructNewAndSaveToDb
+                let! jeHappy, _ = // the test helper resolves to constructNewAndPersist
                     createTestJournalEntryFromPrimitives
                         context
                         "JE create happy"
@@ -88,11 +90,11 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-2.9 REQ-JE-1.40 constructNewAndSaveToDb generates unique UUIDs for each external reference``() =
+    member _.``REQ-JE-2.9 REQ-JE-1.40 constructNewAndPersist generates unique UUIDs for each external reference``() =
         let today = Calendar.today()
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! jeHappy, _ = // the test helper resolves to constructNewAndSaveToDb
+                let! jeHappy, _ = // the test helper resolves to constructNewAndPersist
                     createTestJournalEntryFromPrimitives
                         context
                         "JE create happy"
@@ -111,12 +113,12 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-SYS-3.2 constructNewAndSaveToDb sets created_at and modified_at from AuditEnvelope``() =
+    member _.``REQ-SYS-3.2 constructNewAndPersist sets created_at and modified_at from AuditEnvelope``() =
         let today = Calendar.today()
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             let expected = context |> Context.getInitiationInstant
             result {
-                let! jeHappy, _ = // the test helper resolves to constructNewAndSaveToDb
+                let! jeHappy, _ = // the test helper resolves to constructNewAndPersist
                     createTestJournalEntryFromPrimitives
                         context
                         "JE create happy"
@@ -133,12 +135,12 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-1.46 constructNewAndSaveToDb accepts an entry with zero external references``() =
+    member _.``REQ-JE-1.46 constructNewAndPersist accepts an entry with zero external references``() =
         let today = Calendar.today()
         let explicitlyEmpty = []
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! je, _ = // the test helper resolves to constructNewAndSaveToDb
+                let! je, _ = // the test helper resolves to constructNewAndPersist
                     createTestJournalEntryFromPrimitives
                         context
                         "JE create happy"
@@ -154,12 +156,12 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-1.46 constructNewAndSaveToDb accepts an entry with multiple external references``() =
+    member _.``REQ-JE-1.46 constructNewAndPersist accepts an entry with multiple external references``() =
         let today = Calendar.today()
         let explicitlyMultiple = [ ("TestBank", "F-SHARED-001"); ("TestBank", "TXN-001") ]
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! je, _ = // the test helper resolves to constructNewAndSaveToDb
+                let! je, _ = // the test helper resolves to constructNewAndPersist
                     createTestJournalEntryFromPrimitives
                         context
                         "JE create happy"
@@ -182,12 +184,12 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-1.55 constructNewAndSaveToDb accepts an entry with zero comments``() =
+    member _.``REQ-JE-1.55 constructNewAndPersist accepts an entry with zero comments``() =
         let today = Calendar.today()
         let explicitlyEmpty = []
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! je, _ = // the test helper resolves to constructNewAndSaveToDb
+                let! je, _ = // the test helper resolves to constructNewAndPersist
                     createTestJournalEntryFromPrimitives
                         context
                         "JE create happy"
@@ -203,14 +205,14 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-1.55 constructNewAndSaveToDb accepts an entry with multiple comments``() =
+    member _.``REQ-JE-1.55 constructNewAndPersist accepts an entry with multiple comments``() =
         let today = Calendar.today()
         let explicitlyMultiple =
             [ (None, "Fixture comment for testing")
               (None, "Fixture comment for testing 2") ]
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! je, _ = // the test helper resolves to constructNewAndSaveToDb
+                let! je, _ = // the test helper resolves to constructNewAndPersist
                     createTestJournalEntryFromPrimitives
                         context
                         "JE create happy"
@@ -231,12 +233,12 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-1.6 constructNewAndSaveToDb accepts an entry with null source``() =
+    member _.``REQ-JE-1.6 constructNewAndPersist accepts an entry with null source``() =
         let today = Calendar.today()
         let explicitlyNone = None
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! je, _ = // the test helper resolves to constructNewAndSaveToDb
+                let! je, _ = // the test helper resolves to constructNewAndPersist
                     createTestJournalEntryFromPrimitives
                         context
                         "JE create happy"
@@ -252,12 +254,12 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-1.26 constructNewAndSaveToDb accepts lines with null memos``() =
+    member _.``REQ-JE-1.26 constructNewAndPersist accepts lines with null memos``() =
         let today = Calendar.today()
         let explicitlyNone = None
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! je, _ = // the test helper resolves to constructNewAndSaveToDb
+                let! je, _ = // the test helper resolves to constructNewAndPersist
                     createTestJournalEntryFromPrimitives
                         context
                         "JE create happy"
@@ -275,7 +277,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-1.48 constructNewAndSaveToDb accepts duplicate source_fi/reference pairs``() =
+    member _.``REQ-JE-1.48 constructNewAndPersist accepts duplicate source_fi/reference pairs``() =
         let today = Calendar.today()
         let sameRef = ("TestBank", "F-SHARED-001")
         let explicitlySame = [ sameRef; sameRef ]
@@ -309,7 +311,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-1.12 constructNewAndSaveToDb rejects entry with fewer than 2 lines``() =
+    member _.``REQ-JE-1.12 constructNewAndPersist rejects entry with fewer than 2 lines``() =
         let today = Calendar.today()
         let onlyOneLine = [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None) ]
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
@@ -317,12 +319,12 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                 createTestJournalEntryFromPrimitives context "JE create unhappy432" None today onlyOneLine [] []
             match result with
             | Error(JournalEntryInsufficientLines _) -> Ok()
-            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-1.13 REQ-JE-2.12 constructNewAndSaveToDb rejects unbalanced entry — debits != credits``() =
+    member _.``REQ-JE-1.13 REQ-JE-2.12 constructNewAndPersist rejects unbalanced entry — debits != credits``() =
         let today = Calendar.today()
         let unbalancedLines =
             [ (fixture.Data.entertainment5650Id, 15.79M, "Debit", None)
@@ -332,12 +334,12 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                 createTestJournalEntryFromPrimitives context "JE create unhappy892" None today unbalancedLines [] []
             match result with
             | Error(JournalEntryDebitCreditMismatch _) -> Ok()
-            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-1.22 constructNewAndSaveToDb rejects line with nonexistent account ID``() =
+    member _.``REQ-JE-1.22 constructNewAndPersist rejects line with nonexistent account ID``() =
         let today = Calendar.today()
         let phoneyAccountId = Guid.NewGuid() |> AccountId.fromGuid
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
@@ -353,14 +355,14 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     []
             match result with
             | Error(JournalEntryLineAccountDoesntExist _) -> Ok()
-            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
 
     [<Theory>]
     [<InlineData("0.00")>]
     [<InlineData("-5.00")>]
-    member _.``REQ-JE-1.24 constructNewAndSaveToDb rejects line whose amount is not positive``(amount: string) =
+    member _.``REQ-JE-1.24 constructNewAndPersist rejects line whose amount is not positive``(amount: string) =
         let today = Calendar.today()
         let amountToUse = Decimal.Parse amount
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
@@ -376,12 +378,12 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     []
             match result with
             | Error(JournalEntryLineNonPositiveAmount _) -> Ok()
-            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-2.5 REQ-JE-2.6 REQ-JE-1.11 constructNewAndSaveToDb rejects entry date w/ no matching fiscal period``() =
+    member _.``REQ-JE-2.5 REQ-JE-2.6 REQ-JE-1.11 constructNewAndPersist rejects entry date w/ no matching fiscal period``() =
         let today = Calendar.today()
         let badDate = today.PlusYears(-3)
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
@@ -397,12 +399,12 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     []
             match result with
             | Error(JournalEntryDateNotInFiscalPeriod _) -> Ok()
-            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-2.7 constructNewAndSaveToDb rejects entry date in a closed fiscal period``() =
+    member _.``REQ-JE-2.7 constructNewAndPersist rejects entry date in a closed fiscal period``() =
         let badDate = (fixture.Data.closedFiscalPeriod |> FiscalPeriod.startDate).PlusDays(14)
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             let result =
@@ -417,12 +419,12 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     []
             match result with
             | Error(JournalEntryHeaderEntryDateInvalid _) -> Ok()
-            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-2.8 constructNewAndSaveToDb rejects line referencing an inactive account as of entry date``() =
+    member _.``REQ-JE-2.8 constructNewAndPersist rejects line referencing an inactive account as of entry date``() =
         let badAccount = fixture.Data.closedAccount
         let badId = badAccount |> Account.accountId
         let badDate =
@@ -440,6 +442,6 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     []
             match result with
             | Error(JournalEntryLineAccountInactive _) -> Ok()
-            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper

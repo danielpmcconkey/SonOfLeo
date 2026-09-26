@@ -8,7 +8,9 @@ open Tests.Helpers
 open Tests.Helpers.CliExecutor
 open Tests.Helpers.Railroad
 open App.Utility
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open App.Utility.Result
 open Xunit
 
@@ -37,7 +39,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             standardInput
             |> toJson<TrialBalanceReportInput>
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         let exitCode, _, _ = runCli Reports args payload
         (exitCode = 0) |> Assert.True
 
@@ -55,7 +57,7 @@ type ProgramTests(fixture: TestDataFixture) =
                     let payload =
                         badPathInput
                         |> toJson<TrialBalanceReportInput>
-                        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+                        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
                     let _, _, e = runCli Reports args payload
                     Assert.Equal(expectedErrorMessage, e)
                     Ok()
@@ -69,7 +71,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             standardInput
             |> toJson<TrialBalanceReportInput>
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         let exitCode, p, _ = runCli Reports args payload
         Assert.Equal(0, exitCode)
         result {
@@ -84,7 +86,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             standardInput
             |> toJson<TrialBalanceReportInput>
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         let exitCode, _, _ = runCli Reports args payload
         (exitCode = 1) |> Assert.True
 
@@ -95,7 +97,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             standardInput
             |> toJson<TrialBalanceReportInput>
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         let exitCode, _, e = runCli Reports args payload
         (exitCode = 1) |> Assert.True
         Assert.Equal(expected, e.Trim())

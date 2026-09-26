@@ -6,7 +6,9 @@ open Business.FinancialServices.Ledger.Account
 open App.Utility.Json.Json
 open Tests.Helpers
 open Tests.Helpers.CliExecutor
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open App.Utility.Result
 open Xunit
 
@@ -26,7 +28,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             { activeOnly = true }
             |> toJson<AccountFetchAllInput>
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         let exitCode, _, _ = runCli SonOfLeoCli args payload
         (exitCode = 0) |> Assert.True
 
@@ -38,7 +40,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             { code = code }
             |> toJson<AccountFetchByCodeInput>
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         let _, _, e = runCli SonOfLeoCli args payload
         Assert.Contains(expectedError, e)
 
@@ -57,7 +59,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             { code = targetCode }
             |> toJson<AccountFetchByCodeInput>
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         let exitCode, p, _ = runCli SonOfLeoCli args payload
         Assert.Equal(0, exitCode)
         let railroad =
@@ -69,7 +71,7 @@ type ProgramTests(fixture: TestDataFixture) =
             }
         match railroad with
         | Ok _ -> ()
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-NGUI-3.8 The domain argument is case sensitive``() =
@@ -77,7 +79,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             { activeOnly = true }
             |> toJson<AccountFetchAllInput>
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         let exitCode, _, _ = runCli SonOfLeoCli args payload
         (exitCode = 1) |> Assert.True
 
@@ -87,7 +89,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             { activeOnly = true }
             |> toJson<AccountFetchAllInput>
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         let exitCode, _, _ = runCli SonOfLeoCli args payload
         (exitCode = 1) |> Assert.True
 
@@ -98,7 +100,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             { activeOnly = true }
             |> toJson<AccountFetchAllInput>
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         let exitCode, _, e = runCli SonOfLeoCli args payload
         (exitCode = 1) |> Assert.True
         Assert.Equal(expected, e.Trim())

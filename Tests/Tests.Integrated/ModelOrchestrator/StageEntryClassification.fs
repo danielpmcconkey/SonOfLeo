@@ -9,7 +9,9 @@ open Business.FinancialServices.DataIngestion.Classification
 open Business.FinancialServices.StageEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Railroad
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open App.Utility.Result
 open Xunit
 open Business.FinancialServices.Ledger.JournalEntryComponent

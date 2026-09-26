@@ -7,7 +7,9 @@ open App.Operation.AuditEnvelope
 open Business.FinancialServices.Ledger
 open Business.FinancialServices
 open Tests.Helpers.Railroad
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open Tests.Helpers.SadPath
 open App.Utility.FieldUpdate
 open App.Utility.Result
@@ -20,14 +22,14 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
 
     // todo: need to move all of the tests that require orchestration to the orchestration files and see if we have duplicate tests. This goes for all domains
     [<Fact>]
-    member _.``REQ-JE-5.1 constructNewAndSaveToDb attaches a comment to a journal entry``() =
+    member _.``REQ-JE-5.1 constructNewAndPersist attaches a comment to a journal entry``() =
         let commentText =
             "Test comment text"
             |> CommentText.create
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let result =
-                JournalEntryCommentOrchestration.constructNewAndSaveToDb
+                JournalEntryCommentOrchestration.constructNewAndPersist
                     context
                     fixture.Data.basicJeId
                     None
@@ -41,14 +43,14 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-5.1 constructNewAndSaveToDb attaches a comment with a secondary JE link``() =
+    member _.``REQ-JE-5.1 constructNewAndPersist attaches a comment with a secondary JE link``() =
         let commentText =
             "Comment with secondary link"
             |> CommentText.create
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let result =
-                JournalEntryCommentOrchestration.constructNewAndSaveToDb
+                JournalEntryCommentOrchestration.constructNewAndPersist
                     context
                     fixture.Data.basicJeId
                     (Some fixture.Data.jeWithRefId)
@@ -62,15 +64,15 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-5.2 constructNewAndSaveToDb generates UUID and sets timestamps``() =
+    member _.``REQ-JE-5.2 constructNewAndPersist generates UUID and sets timestamps``() =
         let commentText =
             "Comment with secondary link"
             |> CommentText.create
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let expectedInstant = context |> Context.getInitiationInstant
             let result =
-                JournalEntryCommentOrchestration.constructNewAndSaveToDb
+                JournalEntryCommentOrchestration.constructNewAndPersist
                     context
                     fixture.Data.basicJeId
                     None
@@ -88,14 +90,14 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-1.52 constructNewAndSaveToDb accepts null secondary JE ID``() =
+    member _.``REQ-JE-1.52 constructNewAndPersist accepts null secondary JE ID``() =
         let commentText =
             "Null secondary"
             |> CommentText.create
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let result =
-                JournalEntryCommentOrchestration.constructNewAndSaveToDb
+                JournalEntryCommentOrchestration.constructNewAndPersist
                     context
                     fixture.Data.basicJeId
                     None
@@ -108,14 +110,14 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-1.53 constructNewAndSaveToDb rejects secondary JE ID equal to primary``() =
+    member _.``REQ-JE-1.53 constructNewAndPersist rejects secondary JE ID equal to primary``() =
         runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let commentText =
                 "Same primary and secondary"
                 |> CommentText.create
-                |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+                |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
             let result =
-                JournalEntryCommentOrchestration.constructNewAndSaveToDb
+                JournalEntryCommentOrchestration.constructNewAndPersist
                     context
                     fixture.Data.basicJeId
                     (Some fixture.Data.basicJeId)
@@ -124,14 +126,14 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-5.5 constructNewAndSaveToDb allows comment on a voided entry``() =
+    member _.``REQ-JE-5.5 constructNewAndPersist allows comment on a voided entry``() =
         let commentText =
             "Comment on voided"
             |> CommentText.create
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let result =
-                JournalEntryCommentOrchestration.constructNewAndSaveToDb
+                JournalEntryCommentOrchestration.constructNewAndPersist
                     context
                     fixture.Data.voidedJeId
                     None
@@ -144,14 +146,14 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-5.5 constructNewAndSaveToDb allows comment when fiscal period is closed``() =
+    member _.``REQ-JE-5.5 constructNewAndPersist allows comment when fiscal period is closed``() =
         let commentText =
             "Comment on closed period entry"
             |> CommentText.create
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let result =
-                JournalEntryCommentOrchestration.constructNewAndSaveToDb
+                JournalEntryCommentOrchestration.constructNewAndPersist
                     context
                     fixture.Data.jeInClosedPeriodId
                     None
@@ -220,10 +222,10 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
         let commentText =
             "Round-trip comment"
             |> CommentText.create
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let createResult =
-                JournalEntryCommentOrchestration.constructNewAndSaveToDb
+                JournalEntryCommentOrchestration.constructNewAndPersist
                     context
                     fixture.Data.basicJeId
                     (Some fixture.Data.jeWithRefId)

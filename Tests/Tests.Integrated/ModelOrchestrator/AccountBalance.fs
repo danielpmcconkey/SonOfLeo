@@ -9,7 +9,9 @@ open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.JournalEntries.JournalEntry
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open Xunit
 open Tests.Helpers
 open Tests.Helpers.SadPath
@@ -100,7 +102,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
             Assert.Equal(0M, bal.totalDebits |> Money.amount)
             Assert.Equal(0M, bal.totalCredits |> Money.amount)
             Assert.Equal(0M, bal.netBalance |> Money.amount)
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-3.6 fetchByAccountIdList with empty list returns Error``() =
@@ -138,7 +140,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
             Assert.Equal(expectedDebits, bal.totalDebits |> Money.amount)
             Assert.Equal(expectedCredits, bal.totalCredits |> Money.amount)
             Assert.True(linesBeforeCutoff |> List.length > 0)
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-3.6.2 fetchByAccountIdList with asOf before all entries returns zero balances``() =
@@ -154,7 +156,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
             Assert.Equal(0M, bal.totalDebits |> Money.amount)
             Assert.Equal(0M, bal.totalCredits |> Money.amount)
             Assert.Equal(0M, bal.netBalance |> Money.amount)
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-3.6.1 net balance is positive in normal-balance orientation``() =

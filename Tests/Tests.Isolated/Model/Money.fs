@@ -3,7 +3,9 @@ module Tests.Isolated.Model.Money
 open System
 open Model.Money
 open Tests.Helpers.Railroad
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open App.Utility.Result
 open Xunit
 
@@ -14,19 +16,19 @@ open Xunit
 [<Fact>]
 let ``REQ-MON-2.2 fromDecimal accepts valid 2dp amount`` () =
     let amount_d = 3.99M
-    let m = fromDecimal amount_d |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+    let m = fromDecimal amount_d |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
     Assert.Equal(amount_d, amount m)
 
 [<Fact>]
 let ``REQ-MON-2.2 fromDecimal accepts negative amounts`` () =
     let amount_d = -3.99M
-    let m = fromDecimal amount_d |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+    let m = fromDecimal amount_d |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
     Assert.Equal(amount_d, amount m)
 
 [<Fact>]
 let ``REQ-MON-2.2 fromDecimal accepts zero`` () =
     let amount_d = 0M
-    let m = fromDecimal amount_d |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+    let m = fromDecimal amount_d |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
     Assert.Equal(amount_d, amount m)
 
 [<Fact>]
@@ -35,7 +37,7 @@ let ``REQ-MON-2.2.1 REQ-MON-1.4 fromDecimal rejects amount with more than 2dp pr
     let result = fromDecimal amount_d
     match result with
     | Error(MoneyFailedToConvertImproperPrecision _) -> ()
-    | Error e -> Assert.Fail $"Wrong error. {AppError.toMessage e}"
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
@@ -44,7 +46,7 @@ let ``REQ-MON-2.2.1 REQ-MON-1.2 fromDecimal rejects amount exceeding maxMoney`` 
     let result = fromDecimal amount_d
     match result with
     | Error(MoneyFailedToConvertExceededMax _) -> ()
-    | Error e -> Assert.Fail $"Wrong error. {AppError.toMessage e}"
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
@@ -53,7 +55,7 @@ let ``REQ-MON-2.2.1 REQ-MON-1.3 fromDecimal rejects amount below minMoney`` () =
     let result = fromDecimal amount_d
     match result with
     | Error(MoneyFailedToConvertBelowMin _) -> ()
-    | Error e -> Assert.Fail $"Wrong error. {AppError.toMessage e}"
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
@@ -75,7 +77,7 @@ let ``REQ-MON-2.3.1 fromDecimal list must check rounding precision`` () =
     let result = fromDecimalList list_d
     match result with
     | Error(MoneyFailedToConvertImproperPrecision _) -> ()
-    | Error e -> Assert.Fail $"Wrong error. {AppError.toMessage e}"
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
@@ -84,7 +86,7 @@ let ``REQ-MON-2.3.1 fromDecimal list must check max value`` () =
     let result = fromDecimalList list_d
     match result with
     | Error(MoneyFailedToConvertExceededMax _) -> ()
-    | Error e -> Assert.Fail $"Wrong error. {AppError.toMessage e}"
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
@@ -93,7 +95,7 @@ let ``REQ-MON-2.3.1 fromDecimal list must check min value`` () =
     let result = fromDecimalList list_d
     match result with
     | Error(MoneyFailedToConvertBelowMin _) -> ()
-    | Error e -> Assert.Fail $"Wrong error. {AppError.toMessage e}"
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
@@ -101,7 +103,7 @@ let ``REQ-MON-2.3.2 fromDecimal list preserves sort order`` () =
     let list_d = [ -3.99M; 12.24M; 27194338M ]
     let result = fromDecimalList list_d
     match result with
-    | Error e -> Assert.Fail(AppError.toMessage e)
+    | Error e -> Assert.Fail(e.ToMessage())
     | Ok list_m -> List.zip list_d list_m |> List.iter(fun (d, m) -> Assert.Equal(d, amount m))
 
 
@@ -143,7 +145,7 @@ let ``REQ-MON-2.4.2 splitByN rejects zero-ways split requests`` () =
         return!
             match result with
             | Error(MoneyImproperSplit _) -> Ok()
-            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError "Expected failure; got success")
     }
     |> railroadWrapper
@@ -157,7 +159,7 @@ let ``REQ-MON-2.4.3 splitByN rejects one-ways split requests`` () =
         return!
             match result with
             | Error(MoneyImproperSplit _) -> Ok()
-            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError "Expected failure; got success")
     }
     |> railroadWrapper
@@ -171,7 +173,7 @@ let ``REQ-MON-2.4.6 splitByN rejects negative-ways split requests`` () =
         return!
             match result with
             | Error(MoneyImproperSplit _) -> Ok()
-            | Error e -> Error(TestingError $"Wrong error. {AppError.toMessage e}")
+            | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError "Expected failure; got success")
     }
     |> railroadWrapper
@@ -219,35 +221,35 @@ let ``REQ-MON-2.5 add function happy path`` () =
     let d1 = 145877.43M
     let d2 = -874.12M
     let expected = d1 + d2
-    let m1 = fromDecimal d1 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    let m2 = fromDecimal d2 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+    let m1 = fromDecimal d1 |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+    let m2 = fromDecimal d2 |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
     let result = add m1 m2
     match result with
-    | Error e -> Assert.Fail(AppError.toMessage e)
+    | Error e -> Assert.Fail(e.ToMessage())
     | Ok sumTotal -> Assert.Equal(expected, amount sumTotal)
 
 [<Fact>]
 let ``REQ-MON-2.5.1 add returns Error when sum exceeds max`` () =
     let d1 = maxMoney
     let d2 = 0.01M
-    let m1 = fromDecimal d1 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    let m2 = fromDecimal d2 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+    let m1 = fromDecimal d1 |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+    let m2 = fromDecimal d2 |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
     let result = add m1 m2
     match result with
     | Error(MoneyFailedToConvertExceededMax _) -> ()
-    | Error e -> Assert.Fail $"Wrong error. {AppError.toMessage e}"
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
 let ``REQ-MON-2.5.1 add returns Error when sum falls below min`` () =
     let d1 = minMoney
     let d2 = -0.01M
-    let m1 = fromDecimal d1 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    let m2 = fromDecimal d2 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+    let m1 = fromDecimal d1 |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+    let m2 = fromDecimal d2 |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
     let result = add m1 m2
     match result with
     | Error(MoneyFailedToConvertBelowMin _) -> ()
-    | Error e -> Assert.Fail $"Wrong error. {AppError.toMessage e}"
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
@@ -255,11 +257,11 @@ let ``REQ-MON-2.6 subtract happy path`` () =
     let decimal1 = -874.12M
     let decimal2 = 145877.43M
     let expected = decimal2 - decimal1
-    let val1 = fromDecimal decimal1 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    let val2 = fromDecimal decimal2 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+    let val1 = fromDecimal decimal1 |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+    let val2 = fromDecimal decimal2 |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
     let result = subtractVal1FromVal2 val1 val2
     match result with
-    | Error e -> Assert.Fail(AppError.toMessage e)
+    | Error e -> Assert.Fail(e.ToMessage())
     | Ok sumTotal -> Assert.Equal(expected, amount sumTotal)
 
 [<Fact>]
@@ -267,24 +269,24 @@ let ``REQ-MON-2.6.1 subtract returns Error when difference exceeds max`` () =
     // subtractVal1FromVal2 computes val2 - val1, so a negative val1 drives the result upward
     let decimal2 = maxMoney
     let decimal1 = -0.01M
-    let val2 = fromDecimal decimal2 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    let val1 = fromDecimal decimal1 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+    let val2 = fromDecimal decimal2 |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+    let val1 = fromDecimal decimal1 |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
     let result = subtractVal1FromVal2 val1 val2
     match result with
     | Error(MoneyFailedToConvertExceededMax _) -> ()
-    | Error e -> Assert.Fail $"Wrong error. {AppError.toMessage e}"
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
 let ``REQ-MON-2.6.1 subtract returns Error when difference falls below min`` () =
     let decimal2 = minMoney
     let decimal1 = 0.01M
-    let val2 = fromDecimal decimal2 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    let val1 = fromDecimal decimal1 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+    let val2 = fromDecimal decimal2 |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+    let val1 = fromDecimal decimal1 |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
     let result = subtractVal1FromVal2 val1 val2
     match result with
     | Error(MoneyFailedToConvertBelowMin _) -> ()
-    | Error e -> Assert.Fail $"Wrong error. {AppError.toMessage e}"
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
@@ -318,22 +320,22 @@ let ``REQ-MON-2.9 sum list happy path`` () =
 let ``REQ-MON-2.9.1 sum list rejects results greater than maxMoney`` () =
     let d1 = maxMoney
     let d2 = 0.01M
-    let m1 = fromDecimal d1 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    let m2 = fromDecimal d2 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+    let m1 = fromDecimal d1 |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+    let m2 = fromDecimal d2 |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
     let result = sumList [ m1; m2 ]
     match result with
     | Error(MoneyFailedToConvertExceededMax _) -> ()
-    | Error e -> Assert.Fail $"Wrong error. {AppError.toMessage e}"
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
 let ``REQ-MON-2.9.1 sum list rejects results lesser than minMoney`` () =
     let d1 = minMoney
     let d2 = -0.01M
-    let m1 = fromDecimal d1 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-    let m2 = fromDecimal d2 |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+    let m1 = fromDecimal d1 |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+    let m2 = fromDecimal d2 |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
     let result = sumList [ m1; m2 ]
     match result with
     | Error(MoneyFailedToConvertBelowMin _) -> ()
-    | Error e -> Assert.Fail $"Wrong error. {AppError.toMessage e}"
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"

@@ -9,15 +9,17 @@ open Tests.Helpers.Railroad
 open Xunit
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open Tests.Helpers.SadPath
 open Tests.Helpers.GenericTestProperties
 
 [<Fact>]
 let ``REQ-AC-2.13 constructNew generates UUID`` () =
     runCommandRouteAndAutoRollback AccountCreate (fun context ->
-        let code = "abc1" |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
-        AccountCreation.constructNewAndSaveToDb
+        let code = "abc1" |> AccountCode.create |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+        AccountCreation.constructNewAndPersist
             context
             code
             genericAccountName
@@ -26,7 +28,7 @@ let ``REQ-AC-2.13 constructNew generates UUID`` () =
             genericAccountSubtype
             genericAccountParentId
             genericAccountReference
-        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         |> Account.accountId
         |> AccountId.value
         |> fun id -> Assert.NotEqual(Guid.Empty, id)
@@ -36,10 +38,10 @@ let ``REQ-AC-2.13 constructNew generates UUID`` () =
 [<Fact>]
 let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` () =
     runCommandRouteAndAutoRollback AccountCreate (fun context ->
-        let code = "abc2" |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+        let code = "abc2" |> AccountCode.create |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         let expected = context |> Context.getInitiationInstant
         let account =
-            AccountCreation.constructNewAndSaveToDb
+            AccountCreation.constructNewAndPersist
                 context
                 code
                 genericAccountName
@@ -48,7 +50,7 @@ let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` 
                 genericAccountSubtype
                 genericAccountParentId
                 genericAccountReference
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         Assert.Equal(expected, Account.createdAt account)
         Assert.Equal(expected, Account.modifiedAt account)
         Ok())
@@ -57,10 +59,10 @@ let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` 
 [<Fact>]
 let ``REQ-AC-1.40 constructNew rejects non-existent parent ID`` () =
     runCommandRouteAndAutoRollback AccountCreate (fun context ->
-        let code = "ac140" |> AccountCode.create |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+        let code = "ac140" |> AccountCode.create |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         let bogusParentId = Some(Guid.NewGuid() |> AccountId.fromGuid)
         let result =
-            AccountCreation.constructNewAndSaveToDb
+            AccountCreation.constructNewAndPersist
                 context
                 code
                 genericAccountName

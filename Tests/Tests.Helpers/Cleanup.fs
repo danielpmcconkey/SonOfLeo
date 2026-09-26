@@ -9,10 +9,14 @@ open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open App.Utility.Result
 open App.DataAccessLayer.QueryParameter
-open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
+open Business.FinancialServices.Classification.ClassificationComponent
+open App.Session
+open App.Operation.CoreAuditableAction
 
 
 (*
@@ -26,7 +30,7 @@ open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleC
 // Account clean up
 //=================================================
 
-let cleanUpAccountId (accountId: AccountId option) : Result<unit, AppError> =
+let cleanUpAccountId (accountId: AccountId option) : Result<unit, IAppError> =
     let context = Context.create NoTransaction FetchOnly
     match accountId with
     | None -> Ok()
@@ -40,7 +44,7 @@ let cleanUpAccountId (accountId: AccountId option) : Result<unit, AppError> =
             """
         executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
 
-let cleanUpAccountList (l: AccountId option list) : Result<unit, AppError> =
+let cleanUpAccountList (l: AccountId option list) : Result<unit, IAppError> =
     l
     |> List.map cleanUpAccountId
     |> List.choose (function
@@ -51,10 +55,10 @@ let cleanUpAccountList (l: AccountId option list) : Result<unit, AppError> =
         | errors ->
             let baseMessage =
                 "One or more errors returns while deleting a list of account IDs. Individual errors follow, separated by '||'"
-            let insideErrors = errors |> List.map(AppError.toMessage) |> String.concat "||"
+            let insideErrors = errors |> List.map _.ToMessage() |> String.concat "||"
             Error(TestingError $"{baseMessage}||{insideErrors}")
 
-let cleanUpParentIdAndChildren (parentId: AccountId option) (children: AccountId option list) : Result<unit, AppError> =
+let cleanUpParentIdAndChildren (parentId: AccountId option) (children: AccountId option list) : Result<unit, IAppError> =
     result {
         let! _ =
             children // clean the children before parent
@@ -66,7 +70,7 @@ let cleanUpParentIdAndChildren (parentId: AccountId option) (children: AccountId
 //=================================================
 // Fiscal Period clean up
 //=================================================
-let cleanUpFiscalPeriodId (fpId: FiscalPeriodId option) : Result<unit, AppError> =
+let cleanUpFiscalPeriodId (fpId: FiscalPeriodId option) : Result<unit, IAppError> =
     let context = Context.create NoTransaction FetchOnly
     match fpId with
     | None -> Ok()
@@ -80,7 +84,7 @@ let cleanUpFiscalPeriodId (fpId: FiscalPeriodId option) : Result<unit, AppError>
             """
         executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
 
-let cleanUpFiscalPeriodKey (key: string option) : Result<unit, AppError> =
+let cleanUpFiscalPeriodKey (key: string option) : Result<unit, IAppError> =
     let context = Context.create NoTransaction FetchOnly
     match key with
     | None -> Ok()
@@ -93,7 +97,7 @@ let cleanUpFiscalPeriodKey (key: string option) : Result<unit, AppError> =
             """
         executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
 
-let cleanUpFiscalPeriodIdsList (l: FiscalPeriodId option list) : Result<unit, AppError> =
+let cleanUpFiscalPeriodIdsList (l: FiscalPeriodId option list) : Result<unit, IAppError> =
     l
     |> List.map cleanUpFiscalPeriodId
     |> List.choose (function
@@ -104,10 +108,10 @@ let cleanUpFiscalPeriodIdsList (l: FiscalPeriodId option list) : Result<unit, Ap
         | errors ->
             let baseMessage =
                 "One or more errors returns while deleting a list of fiscal period IDs. Individual errors follow, separated by '||'"
-            let insideErrors = errors |> List.map(AppError.toMessage) |> String.concat "||"
+            let insideErrors = errors |> List.map _.ToMessage() |> String.concat "||"
             Error(TestingError $"{baseMessage}||{insideErrors}")
 
-let cleanUpFiscalPeriodKeysList (l: string option list) : Result<unit, AppError> =
+let cleanUpFiscalPeriodKeysList (l: string option list) : Result<unit, IAppError> =
     l
     |> List.map cleanUpFiscalPeriodKey
     |> List.choose (function
@@ -118,14 +122,14 @@ let cleanUpFiscalPeriodKeysList (l: string option list) : Result<unit, AppError>
         | errors ->
             let baseMessage =
                 "One or more errors returns while deleting a list of fiscal period keys. Individual errors follow, separated by '||'"
-            let insideErrors = errors |> List.map(AppError.toMessage) |> String.concat "||"
+            let insideErrors = errors |> List.map _.ToMessage() |> String.concat "||"
             Error(TestingError $"{baseMessage}||{insideErrors}")
 
 //=================================================
 // Journal Entry clean up
 //=================================================
 
-let cleanUpJournalEntryId (journalEntryHeaderId: JournalEntryHeaderId option) : Result<unit, AppError> =
+let cleanUpJournalEntryId (journalEntryHeaderId: JournalEntryHeaderId option) : Result<unit, IAppError> =
     let context = Context.create NoTransaction FetchOnly
     match journalEntryHeaderId with
     | None -> Ok()
@@ -163,7 +167,7 @@ let cleanUpJournalEntryId (journalEntryHeaderId: JournalEntryHeaderId option) : 
             return! executeNonQuery (context |> Context.getDatabaseTransaction) headerQuery parameters ExactlyOne
         }
 
-let cleanUpJournalEntryExtReferenceId (uniqueId: Guid option) : Result<unit, AppError> =
+let cleanUpJournalEntryExtReferenceId (uniqueId: Guid option) : Result<unit, IAppError> =
     let context = Context.create NoTransaction FetchOnly
     match uniqueId with
     | None -> Ok()
@@ -176,7 +180,7 @@ let cleanUpJournalEntryExtReferenceId (uniqueId: Guid option) : Result<unit, App
             """
         executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
 
-let cleanUpJournalEntryCommentId (uniqueId: Guid option) : Result<unit, AppError> =
+let cleanUpJournalEntryCommentId (uniqueId: Guid option) : Result<unit, IAppError> =
     let context = Context.create NoTransaction FetchOnly
     match uniqueId with
     | None -> Ok()
@@ -189,7 +193,7 @@ let cleanUpJournalEntryCommentId (uniqueId: Guid option) : Result<unit, AppError
             """
         executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
 
-let cleanUpJournalEntryList (l: JournalEntryHeaderId option list) : Result<unit, AppError> =
+let cleanUpJournalEntryList (l: JournalEntryHeaderId option list) : Result<unit, IAppError> =
     l
     |> List.map cleanUpJournalEntryId
     |> List.choose (function
@@ -200,14 +204,14 @@ let cleanUpJournalEntryList (l: JournalEntryHeaderId option list) : Result<unit,
         | errors ->
             let baseMessage =
                 "One or more errors returns while deleting a list of journal entry IDs. Individual errors follow, separated by '||'"
-            let insideErrors = errors |> List.map(AppError.toMessage) |> String.concat "||"
+            let insideErrors = errors |> List.map _.ToMessage() |> String.concat "||"
             Error(TestingError $"{baseMessage}||{insideErrors}")
 
 //=================================================
 // Staged entry clean up
 //=================================================
 
-let cleanUpStageEntryHeaderId (headerId: StageEntryHeaderId option) : Result<unit, AppError> =
+let cleanUpStageEntryHeaderId (headerId: StageEntryHeaderId option) : Result<unit, IAppError> =
     let context = Context.create NoTransaction FetchOnly
     match headerId with
     | None -> Ok()
@@ -220,6 +224,11 @@ let cleanUpStageEntryHeaderId (headerId: StageEntryHeaderId option) : Result<uni
             $"""
                 delete from ingestion.staged_entry_audit
                 WHERE entry_id = @entry_id;
+            """
+        let ruleMatchQuery =
+            $"""
+                delete from classification.rule_match
+                WHERE stage_entry_line_id IN (select unique_id from ingestion.staged_entry_line where entry_id = @entry_id);
             """
         let lineQuery =
             $"""
@@ -234,11 +243,12 @@ let cleanUpStageEntryHeaderId (headerId: StageEntryHeaderId option) : Result<uni
 
         result {
             let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) auditQuery parameters AnyQuantityIsAcceptable
+            let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) ruleMatchQuery parameters AnyQuantityIsAcceptable
             let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) lineQuery parameters AnyQuantityIsAcceptable
             return! executeNonQuery (context |> Context.getDatabaseTransaction) headerQuery headerParameters ExactlyOne
         }
 
-let cleanUpStageEntryHeaderIdList (l: StageEntryHeaderId option list) : Result<unit, AppError> =
+let cleanUpStageEntryHeaderIdList (l: StageEntryHeaderId option list) : Result<unit, IAppError> =
     l
     |> List.map cleanUpStageEntryHeaderId
     |> List.choose (function
@@ -249,14 +259,14 @@ let cleanUpStageEntryHeaderIdList (l: StageEntryHeaderId option list) : Result<u
         | errors ->
             let baseMessage =
                 "One or more errors returns while deleting a list of staged entry IDs. Individual errors follow, separated by '||'"
-            let insideErrors = errors |> List.map(AppError.toMessage) |> String.concat "||"
+            let insideErrors = errors |> List.map _.ToMessage() |> String.concat "||"
             Error(TestingError $"{baseMessage}||{insideErrors}")
 
 //=================================================
 // Ingestion source clean up
 //=================================================
 
-let cleanUpIngestionSourceId (sourceId: IngestionSourceId option) : Result<unit, AppError> =
+let cleanUpIngestionSourceId (sourceId: IngestionSourceId option) : Result<unit, IAppError> =
     let context = Context.create NoTransaction FetchOnly
     match sourceId with
     | None -> Ok()
@@ -275,9 +285,9 @@ let cleanUpIngestionSourceId (sourceId: IngestionSourceId option) : Result<unit,
 //=================================================
 
 (* No child rows are deleted here. A rule a test created has never classified anything, so
-   nothing in staged_entry_line points at it — and if something does, ExactlyOne surfacing
+   nothing in classification.rule_match points at it — and if something does, ExactlyOne surfacing
    the FK violation is the right outcome rather than quietly widening the delete. *)
-let cleanUpClassificationRuleId (ruleId: ClassificationRuleId option) : Result<unit, AppError> =
+let cleanUpClassificationRuleId (ruleId: ClassificationRuleId option) : Result<unit, IAppError> =
     let context = Context.create NoTransaction FetchOnly
     match ruleId with
     | None -> Ok()
@@ -286,7 +296,7 @@ let cleanUpClassificationRuleId (ruleId: ClassificationRuleId option) : Result<u
         let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
         let query =
             $"""
-                delete from ingestion.classification_rule
+                delete from classification.classification_rule
                 WHERE unique_id = @unique_id;
             """
         executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne

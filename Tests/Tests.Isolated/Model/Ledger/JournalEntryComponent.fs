@@ -1,7 +1,9 @@
 module Tests.Isolated.Business.FinancialServices.Ledger.JournalEntryComponent
 
 open System
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open Xunit
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Tests.Helpers.SadPath
@@ -37,7 +39,7 @@ let ``REQ-SYS-1.1 CommentText.create trims whitespace`` () =
     let trimmed = "Correcting entry for June"
     let result = CommentText.create $"  {trimmed}   "
     match result with
-    | Error e -> Assert.Fail(AppError.toMessage e)
+    | Error e -> Assert.Fail(e.ToMessage())
     | Ok ct -> Assert.Equal(trimmed, CommentText.value ct)
 
 [<Fact>]
@@ -74,7 +76,7 @@ let ``REQ-SYS-1.1 Description.create trims leading and trailing whitespace`` () 
     let trimmed = "Grocery run"
     let result = JournalEntryDescription.create $"  {trimmed}   "
     match result with
-    | Error e -> Assert.Fail(AppError.toMessage e)
+    | Error e -> Assert.Fail(e.ToMessage())
     | Ok d -> Assert.Equal(trimmed, JournalEntryDescription.value d)
 
 [<Fact>]
@@ -111,7 +113,7 @@ let ``REQ-SYS-1.1 Source.create trims leading and trailing whitespace`` () =
     let trimmed = "BankImport"
     let result = JournalEntrySource.create $"  {trimmed}   "
     match result with
-    | Error e -> Assert.Fail(AppError.toMessage e)
+    | Error e -> Assert.Fail(e.ToMessage())
     | Ok s -> Assert.Equal(trimmed, JournalEntrySource.value s)
 
 // =============================================================================
@@ -151,7 +153,7 @@ let ``REQ-JE-1.25 JournalEntryLineType.toString round-trips with fromString`` ()
         original
         |> JournalEntryLineType.toString
         |> JournalEntryLineType.fromString
-        |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
     Assert.Equal(original, roundTripped)
 
 // =============================================================================
@@ -183,6 +185,6 @@ let ``REQ-SYS-1.1 LineMemo.create trims leading and trailing whitespace`` () =
     let trimmed = "Office supplies"
     let result = JournalEntryLineMemo.create $"  {trimmed}   "
     match result with
-    | Error e -> Assert.Fail(AppError.toMessage e)
+    | Error e -> Assert.Fail(e.ToMessage())
     | Ok m -> Assert.Equal(trimmed, JournalEntryLineMemo.value m)
 

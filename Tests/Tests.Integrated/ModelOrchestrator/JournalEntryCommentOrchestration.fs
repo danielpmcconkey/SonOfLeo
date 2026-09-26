@@ -8,7 +8,9 @@ open Business.FinancialServices.JournalEntries
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Tests.Helpers.SadPath
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open App.Utility.FieldUpdate
 open App.Utility.Result
 open Xunit

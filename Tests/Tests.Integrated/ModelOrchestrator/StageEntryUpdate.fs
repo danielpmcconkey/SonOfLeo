@@ -10,7 +10,9 @@ open Business.FinancialServices.DataIngestion.StageEntryLine
 open Business.FinancialServices.StageEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Railroad
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open App.Utility.FieldUpdate
 open App.Utility.Result
 open Xunit
@@ -54,7 +56,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 return!
                     match updateStageEntry context (noChangeHeaderUpdates headerId) [ noChangeLineUpdates lineId ] with
                     | Error IngestionUpdateStageEntryNoOp -> Ok ()
-                    | Error e -> Error (TestingError $"Wrong error: {AppError.toMessage e}")
+                    | Error e -> Error (TestingError $"Wrong error: {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
         |> railroadWrapper
@@ -138,7 +140,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 return!
                     match updateStageEntry context headerUpdates lineUpdates with
                     | Error (IngestionStageEntryDebitCreditMismatch _) -> Ok ()
-                    | Error e -> Error (TestingError $"Wrong error: {AppError.toMessage e}")
+                    | Error e -> Error (TestingError $"Wrong error: {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
         |> railroadWrapper
@@ -158,7 +160,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 return!
                     match updateStageEntry context headerUpdates lineUpdates with
                     | Error (AccountIdDoesntMatch _) -> Ok ()
-                    | Error e -> Error (TestingError $"Wrong error. {AppError.toMessage e}")
+                    | Error e -> Error (TestingError $"Wrong error. {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
         |> railroadWrapper
@@ -175,7 +177,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 return!
                     match updateStageEntry context headerUpdates [] with
                     | Error (IngestionInvalidStageStatusTransition _) -> Ok ()
-                    | Error e -> Error (TestingError $"Wrong error: {AppError.toMessage e}")
+                    | Error e -> Error (TestingError $"Wrong error: {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
         |> railroadWrapper

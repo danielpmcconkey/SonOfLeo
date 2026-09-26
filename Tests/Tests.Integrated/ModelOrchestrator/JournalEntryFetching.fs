@@ -16,7 +16,9 @@ open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Model.LookupCache
 open Business.FinancialServices.JournalEntries.JournalEntry
 open Utilities
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open Tests.Helpers.SadPath
 
 
@@ -52,7 +54,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         | Ok je ->
             Assert.Equal(idToCheck, je |> header |> JournalEntryHeader.journalEntryHeaderId)
             Assert.Equal(expected, je |> header |> JournalEntryHeader.description |> JournalEntryDescription.value)
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-3.2 fetchById returns error for nonexistent ID``() =
@@ -87,7 +89,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
             Assert.Equal<JournalEntryLineId list>(expectedEntry |> lineIdsOf, je |> lineIdsOf)
             Assert.Equal<string list>(expectedEntry |> refTextsOf, je |> refTextsOf)
             Assert.Equal<string list>(expectedEntry |> commentTextsOf, je |> commentTextsOf)
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-3.3 fetchByPeriod returns all entries for a given fiscal period``() =
@@ -242,7 +244,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let context = Context.create NoTransaction FetchOnly
         match fetchByReference context None None with
         | Error(JournalEntryFetchByReferenceBothArgumentsNull) -> ()
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        | Error e -> Assert.Fail(e.ToMessage())
         | Ok _ -> Assert.Fail "Expected failure; got success"
 
     [<Fact>]
@@ -266,7 +268,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
             Assert.All(
                 entries,
                 fun je -> Assert.Equal(today, je |> header |> JournalEntryHeader.entryDate |> EntryDate.entryDate))
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-3.7 fetchByDateRange returns empty list when no entries in range``() =
@@ -275,7 +277,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let result = fetchByDateRange context farDate farDate
         match result with
         | Ok entries -> Assert.Equal(0, entries |> List.length)
-        | Error e -> Assert.Fail(AppError.toMessage e)
+        | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-3.2 FetchById route returns exit code 1 for nonexistent ID``() = // todo refactor to use Business.FinancialServices instead of command routes

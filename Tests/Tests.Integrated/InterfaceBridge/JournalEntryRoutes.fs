@@ -13,7 +13,9 @@ open Tests.Helpers.EntityFunctions
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
-open App.Utility.AppError
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 open Tests.Helpers.SadPath
 open App.Utility.FieldUpdate
 open App.Utility.Result
@@ -50,7 +52,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         finally
             match cleanUpJournalEntryId idToCleanUp with
             | Ok() -> ()
-            | Error e -> failwith(AppError.toMessage e)
+            | Error e -> failwith(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-2.13 REQ-JE-2.3 PostNew route unhappy path cleans up after itself``() =
@@ -79,8 +81,8 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                         }
                     match railroad with
                     | Ok _ -> ()
-                    | Error e -> Assert.Fail(AppError.toMessage e)
-                | Error e -> Assert.Fail $"Wrong error. {AppError.toMessage e}"
+                    | Error e -> Assert.Fail(e.ToMessage())
+                | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
                 | Ok _ -> // clean-up on aisle four
                     Assert.Fail "Expected failure; got success. You have data to clean up"
             }
@@ -88,7 +90,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         finally
             match cleanUpJournalEntryId idToCleanUp with
             | Ok() -> ()
-            | Error e -> failwith(AppError.toMessage e)
+            | Error e -> failwith(e.ToMessage())
 
     [<Theory>]
     [<InlineData("description", "", "JournalEntryDescriptionIsEmpty")>]
@@ -165,7 +167,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         finally
             match cleanUpJournalEntryId idToCleanUp with
             | Ok() -> ()
-            | Error e -> failwith(AppError.toMessage e)
+            | Error e -> failwith(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-3.2 FetchById route happy path``() =
@@ -212,10 +214,10 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         let refOptionStr = Some refStr
         let fi =
             JournalRefFinancialInstitution.create fiStr
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         let exRef =
             JournalExternalReferenceText.create refStr
-            |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
         (* The route returns distinct journal entries, so the expectation has to count entries
            and not the reference rows pointing at them — one entry can carry several matching
            references. The orchestrator test already derives it this way; this one counted rows
@@ -296,7 +298,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         finally
             match idToCleanUp_1 |> cleanUpJournalEntryId with
             | Ok() -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
+            | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-4.9 UpdateExternalReference happy path``() =
@@ -334,7 +336,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         finally
             match idToCleanUp_1 |> cleanUpJournalEntryId with
             | Ok() -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
+            | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-4.10 AddExternalReference route happy path``() =
@@ -367,7 +369,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         finally
             match idToCleanUp_1 |> cleanUpJournalEntryId with
             | Ok() -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
+            | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-5.1 AddComment route happy path``() =
@@ -399,7 +401,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         finally
             match idToCleanUp_1 |> cleanUpJournalEntryId with
             | Ok() -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
+            | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-5.3 UpdateComment route happy path``() =
@@ -437,7 +439,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         finally
             match idToCleanUp_1 |> cleanUpJournalEntryId with
             | Ok() -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
+            | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
     member _.``REQ-JE-3.7 FetchByDateRange rejects begin date after end date``() =
@@ -563,7 +565,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         finally
             match idToCleanUp_1 |> cleanUpJournalEntryId with
             | Ok() -> ()
-            | Error e -> Assert.Fail(AppError.toMessage e)
+            | Error e -> Assert.Fail(e.ToMessage())
 
     [<Theory>]
     [<InlineData("fi", "", "JournalRefFinancialInstitutionIsEmpty")>]
