@@ -77,12 +77,8 @@ module JournalEntryOrchestration =
         : Result<unit, IAppError> =
         result {
             let! account =
-                match accountId |> Account.fetchById context with
-                | Ok a -> Ok a
-                | Error e ->
-                    if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-                    then Error (JournalEntryLineAccountDoesntExist(accountId |> AccountId.value))
-                    else Error e
+                accountId |> Account.fetchById context
+                |> whenNoRows (JournalEntryLineAccountDoesntExist(accountId |> AccountId.value))
             let referenceDate = entryDate |> EntryDate.entryDate
             let activityPeriod = account |> Account.activityPeriod
             return!
@@ -273,6 +269,8 @@ module JournalEntryOrchestration =
                 | ExactlyOne when dedupedCount = 1 -> Ok()
                 | OneOrMany when dedupedCount >= 1 -> Ok()
                 | AnyQuantityIsAcceptable -> Ok()
+                // same rule as the DAL's own row check: zero rows where rows were required is DalNoOp
+                | ExactlyOne | OneOrMany when dedupedCount = 0 -> Error(DalNoOp(expectedRows.ToString(), dedupedCount))
                 | _ -> Error(DalResultantRowsDidntMatchExpectation(expectedRows.ToString(), dedupedCount))
             return deduped
         }
@@ -316,12 +314,9 @@ module JournalEntryOrchestration =
         // template for a new fetch function, know that the deduplication of
         // records happens *after* DAL checks the exactly one condition.
         let expectedRows = ExactlyOne
-        match fetchFiltered context filter expectedRows with
-        | Ok x -> x |> List.head |> Ok
-        | Error e ->
-            if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-            then Error (JournalEntryHeaderIdDoesntExist (journalEntryHeaderId |> JournalEntryHeaderId.value))
-            else Error e
+        fetchFiltered context filter expectedRows
+        |> whenNoRows (JournalEntryHeaderIdDoesntExist (journalEntryHeaderId |> JournalEntryHeaderId.value))
+        |> Result.map List.head
 
     let fetchByPeriod
         (context: Context.Context)

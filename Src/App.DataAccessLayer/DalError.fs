@@ -92,3 +92,10 @@ type DalError =
 let toMessage (e: DalError) = (e :> IAppError).ToMessage()
 let toAppError (e: DalError) : IAppError = e :> IAppError
 let error (e: DalError) : Result<'T, IAppError> = Error (e :> IAppError)
+
+/// whenNoRows swaps DalNoOp, the DAL's backstop for "no rows came back", for the domain error that names what was
+/// missing. Only the caller knows what an empty result means. Every other error passes through untouched.
+let whenNoRows (specific: #IAppError) (result: Result<'T, IAppError>) : Result<'T, IAppError> =
+    match result with
+    | Error (AsError (DalNoOp _)) -> Error (specific :> IAppError)
+    | other -> other

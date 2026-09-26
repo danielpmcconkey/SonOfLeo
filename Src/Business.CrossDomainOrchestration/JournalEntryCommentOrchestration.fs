@@ -15,12 +15,9 @@ open Business.FinancialServices.Ledger.JournalEntryComment
 
 
 let private confirmJournalEntryHeader (context: Context.Context) (journalEntryId: JournalEntryHeaderId) : Result<unit, IAppError> =
-    match journalEntryId |> JournalEntryHeader.fetchById context with
-    | Ok _ -> Ok ()
-    | Error e ->
-        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-        then Error (JournalEntryHeaderIdDoesntExist (journalEntryId |> JournalEntryHeaderId.value))
-        else Error e
+    journalEntryId |> JournalEntryHeader.fetchById context
+    |> whenNoRows (JournalEntryHeaderIdDoesntExist (journalEntryId |> JournalEntryHeaderId.value))
+    |> Result.map ignore
 
 let private confirmPrimaryAndSecondaryRelationship
     (primaryJournalEntryId: JournalEntryHeaderId)
@@ -48,19 +45,11 @@ let constructNewAndPersist
     let modifiedAt = now
     result {
         do! match primaryJournalEntryId |> confirmJournalEntryHeader context with
-            | Ok _ -> Ok()
-            | Error e ->
-                if e.DomainName = nameof LedgerError && e.CaseName = nameof JournalEntryHeaderIdDoesntExist
-                then Error (JournalEntryCommentPrimaryJeHeaderIdNotFound (primaryJournalEntryId |> JournalEntryHeaderId.value))
-                else Error e
+            | Error (AsError (JournalEntryHeaderIdDoesntExist uuid)) -> Error (JournalEntryCommentPrimaryJeHeaderIdNotFound uuid)
+            | other -> other
         do! match secondaryJournalEntryId |> convertOptionToDesiredTypeWithFallibleConverter (confirmJournalEntryHeader context) with
-            | Ok _ -> Ok()
-            | Error e ->
-                if e.DomainName = nameof LedgerError && e.CaseName = nameof JournalEntryHeaderIdDoesntExist
-                then
-                    let uuid = secondaryJournalEntryId |> Option.get |> JournalEntryHeaderId.value
-                    Error (JournalEntryCommentPrimaryJeHeaderIdNotFound uuid)
-                else Error e
+            | Error (AsError (JournalEntryHeaderIdDoesntExist uuid)) -> Error (JournalEntryCommentSecondaryJeHeaderIdNotFound uuid)
+            | other -> other |> Result.map ignore
         do! confirmPrimaryAndSecondaryRelationship primaryJournalEntryId secondaryJournalEntryId
         let journalEntryComment =
             create

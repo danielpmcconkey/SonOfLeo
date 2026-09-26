@@ -220,7 +220,7 @@ type AccountTests(fixture: TestDataFixture) =
                     parentAccountId
                     genericAccountReference
             match result with
-            | Error (AsError (DalResultantRowsDidntMatchExpectation _)) -> Ok()
+            | Error (AsError (AccountIdDoesntMatch uuid)) -> Assert.Equal(parentId, uuid); Ok()
             | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper

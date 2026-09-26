@@ -1,6 +1,7 @@
 module Business.CrossDomainOrchestration.CashFlowOps
 
 open NodaTime
+open App.DataAccessLayer.DalError
 open App.Utility
 open App.Utility.IAppError
 open App.Utility.Result
@@ -576,14 +577,9 @@ let constructNewPaymentAgreementLinkAndPersist
     : Result<PaymentAgreementLink.PaymentAgreementLink, IAppError> =
     result {
         let! _ =
-            match stageEntryLineId |> StageEntryLine.fetchById context with
-            | Ok line -> Ok line
-            | Error e ->
-                if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-                then 
-                    let lineUuid = stageEntryLineId |> StageEntryComponent.StageEntryLineId.value
-                    Error(DataIngestionError.IngestionStageEntryLineIdDoesntExist lineUuid)
-                else Error e
+            let lineUuid = stageEntryLineId |> StageEntryComponent.StageEntryLineId.value
+            stageEntryLineId |> StageEntryLine.fetchById context
+            |> whenNoRows (DataIngestionError.IngestionStageEntryLineIdDoesntExist lineUuid)
         let! existingLinks = stageEntryLineId |> PaymentAgreementLink.fetchByStageEntryLineId context
         do!
             match existingLinks with
@@ -609,14 +605,9 @@ let deletePaymentAndItsLinkage
     : Result<InstanceOrchestration.InstanceComposite, IAppError> =
     result {
         let! payment =
-            match paymentId |> Payment.fetchById context with
-            | Ok found -> Ok found
-            | Error e ->
-                if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-                then 
-                    let paymentUuid = paymentId |> CashFlowComponent.PaymentId.value
-                    Error(CashFlowError.CashflowPaymentIdDoesntExist paymentUuid)
-                else Error e
+            let paymentUuid = paymentId |> CashFlowComponent.PaymentId.value
+            paymentId |> Payment.fetchById context
+            |> whenNoRows (CashFlowError.CashflowPaymentIdDoesntExist paymentUuid)
         let invoiceId = payment |> Payment.invoiceId
         let! invoice = invoiceId |> Invoice.fetchById context
         let instanceId = invoice |> Invoice.instanceId

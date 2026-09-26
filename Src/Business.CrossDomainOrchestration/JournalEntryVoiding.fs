@@ -17,12 +17,9 @@ let private confirmJournalEntryIdIsReal
     (context: Context.Context)
     (journalEntryHeaderId: JournalEntryHeaderId)
     : Result<unit, IAppError> =
-    match journalEntryHeaderId |> JournalEntryHeader.fetchById context with
-    | Ok _ -> Ok ()
-    | Error e ->
-        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-        then Error (JournalEntryHeaderIdDoesntExist(journalEntryHeaderId |> JournalEntryHeaderId.value))
-        else Error e
+    journalEntryHeaderId |> JournalEntryHeader.fetchById context
+    |> whenNoRows (JournalEntryHeaderIdDoesntExist(journalEntryHeaderId |> JournalEntryHeaderId.value))
+    |> Result.map ignore
 
 let private confirmFiscalPeriodIsStillOpenBeforeVoiding
     (context: Context.Context)
@@ -32,15 +29,10 @@ let private confirmFiscalPeriodIsStillOpenBeforeVoiding
     let fiscalPeriodId = entryDate |> EntryDate.fiscalPeriodId
     result {
         let! fiscalPeriod =
-            match fiscalPeriodId |> FiscalPeriod.fetchById context with
-            | Ok x -> Ok x
-            | Error e ->
-                if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-                then
-                    let entryDatePrim = entryDate |> EntryDate.entryDate
-                    let uuid = fiscalPeriodId |> FiscalPeriodId.value
-                    Error (JournalEntryVoidingCannotFetchFiscalPeriod(entryDatePrim, uuid))
-                else Error e
+            let entryDatePrim = entryDate |> EntryDate.entryDate
+            let uuid = fiscalPeriodId |> FiscalPeriodId.value
+            fiscalPeriodId |> FiscalPeriod.fetchById context
+            |> whenNoRows (JournalEntryVoidingCannotFetchFiscalPeriod(entryDatePrim, uuid))
         return!
             match fiscalPeriod |> FiscalPeriod.isOpen with
             | true -> Ok()
@@ -75,12 +67,8 @@ let private voidById
     """
     result {
         let! je =
-            match journalEntryHeaderId |> JournalEntryHeader.fetchById context with
-            | Ok x -> Ok x
-            | Error e ->
-                if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-                then Error (JournalEntryHeaderIdDoesntExist uuid)
-                else Error e
+            journalEntryHeaderId |> JournalEntryHeader.fetchById context
+            |> whenNoRows (JournalEntryHeaderIdDoesntExist uuid)
         do! je |> confirmFiscalPeriodIsStillOpenBeforeVoiding context
         do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
     }
@@ -110,11 +98,6 @@ let voidJournalEntry
         do!
             journalEntryHeaderId
             |> voidById context
-            |> function
-                | Ok y -> Ok y
-                | Error e ->
-                    if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalNoOp
-                    then Error (JournalEntryVoidingNoOp(journalEntryHeaderId |> JournalEntryHeaderId.value))
-                    else Error e
+            |> whenNoRows (JournalEntryVoidingNoOp(journalEntryHeaderId |> JournalEntryHeaderId.value))
         return! journalEntryHeaderId |> JournalEntryOrchestration.fetchById context
     }

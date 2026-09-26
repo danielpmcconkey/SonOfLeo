@@ -6,7 +6,6 @@ open App.Utility.IAppError
 type UtilityError =
     | ConfigReadError of string * exn
     | ConfigNotFound of string
-    | FallibleOptionConversionFailure of string
     | FileIoDirectoryDoesntExist of string
     | FileIoFileDoesntExist of string
     | FileIoError of exn
@@ -20,7 +19,6 @@ type UtilityError =
             match this with        
             | ConfigReadError (keyString, ex) -> $"Cannot resolve config with key {keyString}. It likely cannot be parsed as the requested type. Full error: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
             | ConfigNotFound keyString -> $"Cannot find config with key {keyString}."
-            | FallibleOptionConversionFailure message -> $"The FallibleOptionConversionFailure failed with the following message: {message}."
             | FileIoDirectoryDoesntExist str -> $"Directory {str} doesn't exist."
             | FileIoFileDoesntExist str -> $"No file exists at path \"{str}\"."
             | FileIoError ex -> $"Error in File I/O operation. Error message: {ex.Message}{Environment.NewLine} {ex.StackTrace}"

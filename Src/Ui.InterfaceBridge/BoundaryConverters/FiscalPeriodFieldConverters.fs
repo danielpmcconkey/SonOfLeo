@@ -1,6 +1,7 @@
 module Ui.InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
 
 open App.Utility.IAppError
+open App.DataAccessLayer.DalError
 open App.Utility.Result
 open App.DataAccessLayer
 open App.Session
@@ -12,12 +13,9 @@ let ``convert FiscalPeriodKeyString to FiscalPeriodId``
     (context: Context.Context)
     (key: string)
     : Result<FiscalPeriodId, IAppError> =
-    match key |> LookupCache.fiscalPeriodKeyToId.fetch (context |> Context.getDatabaseTransaction) with
-    | Ok x -> x |> FiscalPeriodId.fromGuid |> Ok
-    | Error e ->
-        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-        then Error (LedgerError.FiscalPeriodNoPeriodMatchingKey key)
-        else Error e
+    key |> LookupCache.fiscalPeriodKeyToId.fetch (context |> Context.getDatabaseTransaction)
+    |> whenNoRows (LedgerError.FiscalPeriodNoPeriodMatchingKey key)
+    |> Result.map FiscalPeriodId.fromGuid
 
 let ``convert [FiscalPeriodKeyString] to FiscalPeriod``
     (context: Context.Context)

@@ -308,16 +308,11 @@ let fetchStageEntryLineIdById
     let queryStatement = "select stage_entry_line_id from cashflow.payment where unique_id = @unique_id"
     let uuid = paymentId |> PaymentId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    match
-        executeReaderQuery
-            (context |> Context.getDatabaseTransaction) queryStatement parameters mapRawForDbRead reconstitute
-            ExactlyOne
-    with
-    | Ok rows -> Ok(rows |> List.head |> Option.map StageEntryLineId.fromGuid)
-    | Error e ->
-        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-        then Error (CashflowPaymentIdDoesntExist uuid)
-        else Error e
+    executeReaderQuery
+        (context |> Context.getDatabaseTransaction) queryStatement parameters mapRawForDbRead reconstitute
+        ExactlyOne
+    |> whenNoRows (CashflowPaymentIdDoesntExist uuid)
+    |> Result.map (fun rows -> rows |> List.head |> Option.map StageEntryLineId.fromGuid)
 
 let update
     (context: Context.Context)

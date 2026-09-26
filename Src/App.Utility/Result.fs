@@ -1,7 +1,6 @@
 module App.Utility.Result
 
 open App.Utility.IAppError
-open App.Utility.UtilityError
 
 /// ResultBuilder is a class that provides computational expressions for
 /// more elegant results binding and mapping
@@ -43,5 +42,5 @@ let convertOptionToDesiredTypeWithFallibleConverter
     | None -> Ok None
     | Some x ->
         fallibleConverter x
-        |> Result.mapError (fun e -> FallibleOptionConversionFailure (e.ToMessage()) |> toAppError)
+        |> Result.mapError (fun e -> e :> IAppError) // the converter's own error is the specific one; pass it through
         |> Result.map Some

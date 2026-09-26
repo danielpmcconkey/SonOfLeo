@@ -1,6 +1,7 @@
 module Ui.InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
 
 open App.Utility.IAppError
+open App.DataAccessLayer.DalError
 open App.Utility.Result
 open App.DataAccessLayer
 open App.Session
@@ -13,13 +14,9 @@ let private fallibleConverterAgreementNameStringToMasterAgreementUuid context na
         let! _ = nameString |> AgreementName.create
         // now see if it matches a master agreement ID
         return!
-            match nameString
-                  |> LookupCache.masterAgreementNameToId.fetch (context |> Context.getDatabaseTransaction) with
-            | Ok x -> Ok x
-            | Error e ->
-                if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-                then Error (CashflowAgreementNameDoesntMatchId nameString)
-                else Error e
+            nameString
+            |> LookupCache.masterAgreementNameToId.fetch (context |> Context.getDatabaseTransaction)
+            |> whenNoRows (CashflowAgreementNameDoesntMatchId nameString)
     }
 
 let ``convert [AgreementNameString] to [MasterAgreementId]``
@@ -45,13 +42,9 @@ let private fallibleConverterPaymentAgreementNameStringToPaymentAgreementUuid co
         let! _ = nameString |> PaymentAgreementName.create
         // now see if it matches a payment agreement ID
         return!
-            match nameString
-                  |> LookupCache.paymentAgreementNameToId.fetch (context |> Context.getDatabaseTransaction) with
-            | Ok x -> Ok x
-            | Error e ->
-                if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-                then Error (CashflowPaymentAgreementNameDoesntMatchId nameString)
-                else Error e
+            nameString
+            |> LookupCache.paymentAgreementNameToId.fetch (context |> Context.getDatabaseTransaction)
+            |> whenNoRows (CashflowPaymentAgreementNameDoesntMatchId nameString)
     }
 
 let ``convert [PaymentAgreementNameString] to [PaymentAgreementId]``

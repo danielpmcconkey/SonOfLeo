@@ -29,26 +29,19 @@ let private confirmAccount
     : Result<unit, IAppError> =
     let uuid = accountId |> AccountId.value
     let confirmed = uuid |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction) // we don't need the code. we just want to know that the accountId exists
-    match confirmed with
-    | Ok _ -> Ok ()
-    | Error e ->
-        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-        then Error (AccountIdDoesntMatch uuid)
-        else Error e
+    confirmed
+    |> whenNoRows (AccountIdDoesntMatch uuid)
+    |> Result.map ignore
 
 let private confirmPaymentAgreement
     (context: Context.Context)
     (paymentAgreementId: CashFlowComponent.PaymentAgreementId)
     : Result<unit, IAppError> =
     let confirmed = paymentAgreementId |> PaymentAgreement.fetchById context
-    match confirmed with
-    | Ok _ -> Ok ()
-    | Error e ->
-        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-        then
-            let uuid = paymentAgreementId |> PaymentAgreementId.value
-            Error (CashflowPaymentAgreementIdDoesntExist uuid)
-        else Error e
+    let uuid = paymentAgreementId |> PaymentAgreementId.value
+    confirmed
+    |> whenNoRows (CashflowPaymentAgreementIdDoesntExist uuid)
+    |> Result.map ignore
 
 let private confirmClassificationClaimant
     (context: Context.Context)

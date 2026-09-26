@@ -35,12 +35,6 @@ let cough = isCorrectErrorEmpty (Ok "cough") AccountBalanceFetchInvalidArguments
 
 *)
 
-/// AsError matches an IAppError that is the domain error type 'E, yielding it typed.
-let (|AsError|_|) (e: IAppError) : 'E option =
-    match box e with
-    | :? 'E as typed -> Some typed
-    | _ -> None
-
 let private checkErrorCase
     (result: Result<'T, IAppError>)
     (isExpected: IAppError -> bool)

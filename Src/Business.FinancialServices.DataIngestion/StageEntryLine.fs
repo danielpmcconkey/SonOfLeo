@@ -1,6 +1,7 @@
 module Business.FinancialServices.DataIngestion.StageEntryLine
 
 open App.Utility.IAppError
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
@@ -65,12 +66,9 @@ let confirmAccountId
     | None -> Ok ()
     | Some accountCode ->
         let uuid = accountCode |> AccountId.value
-        match uuid |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction) with
-        | Ok _ -> Ok ()
-        | Error e ->
-            if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-            then Error (LedgerError.AccountIdDoesntMatch uuid)
-            else Error e
+        uuid |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction)
+        |> whenNoRows (LedgerError.AccountIdDoesntMatch uuid)
+        |> Result.map ignore
 
 let persist (context: Context.Context) (stageEntryLine: StageEntryLine) : Result<unit, IAppError> =
     let queryStatement =

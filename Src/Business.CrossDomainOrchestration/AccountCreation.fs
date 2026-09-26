@@ -1,6 +1,7 @@
 module Business.CrossDomainOrchestration.AccountCreation
 
 open NodaTime
+open App.DataAccessLayer.DalError
 open App.Utility
 open App.Utility.IAppError
 open App.Utility.Result
@@ -55,7 +56,10 @@ let private confirmParentChildRelationship
     | None -> Ok()
     | Some someParentId ->
         result {
-            let! validParent = someParentId |> Account.fetchById context
+            let! validParent =
+                someParentId
+                |> Account.fetchById context
+                |> whenNoRows (AccountIdDoesntMatch(someParentId |> AccountId.value))
             let parentType = validParent |> Account.accountType
             do! confirmParentAccountIsActive validParent referenceDate
             do! confirmParentAndChildAccountTypesMatch parentType childType

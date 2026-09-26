@@ -1,6 +1,7 @@
 module Business.CrossDomainOrchestration.InstanceOrchestration
 
 open NodaTime
+open App.DataAccessLayer.DalError
 open App.Utility.IAppError
 open App.Utility.FieldUpdate
 open App.Utility.Result
@@ -72,33 +73,21 @@ let confirmPayment
             | CashFlowComponent.Posted journalEntryLineId ->
                 // the pointer names a line, but the date checked below lives on the header, so this branch resolves
                 // one hop further than the staged branch needs to
-                match journalEntryLineId |> JournalEntryLine.fetchById context with
-                | Ok line ->
+                let journalEntryLineUuid = journalEntryLineId |> JournalEntryLineId.value
+                journalEntryLineId |> JournalEntryLine.fetchById context
+                |> whenNoRows (LedgerError.JournalEntryLineIdDoesntExist journalEntryLineUuid)
+                |> Result.bind (fun line ->
                     let headerId = line |> JournalEntryLine.journalEntryHeaderId
                     let accountId = line |> JournalEntryLine.accountId
-                    match headerId |> JournalEntryHeader.fetchById context with
-                    | Ok header -> Ok(Some header, Some accountId)
-                    | Error e ->
-                        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-                        then
-                            let journalEntryHeaderUuid = headerId |> JournalEntryHeaderId.value
-                            LedgerError.error(LedgerError.JournalEntryHeaderIdDoesntExist journalEntryHeaderUuid)
-                        else Error e
-                | Error e ->
-                    if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-                    then
-                        let journalEntryLineUuid = journalEntryLineId |> JournalEntryLineId.value
-                        LedgerError.error(LedgerError.JournalEntryLineIdDoesntExist journalEntryLineUuid)
-                    else Error e
+                    let journalEntryHeaderUuid = headerId |> JournalEntryHeaderId.value
+                    headerId |> JournalEntryHeader.fetchById context
+                    |> whenNoRows (LedgerError.JournalEntryHeaderIdDoesntExist journalEntryHeaderUuid)
+                    |> Result.map (fun header -> Some header, Some accountId))
             | CashFlowComponent.Staged stageEntryLineId ->
-                match stageEntryLineId |> StageEntryLine.fetchById context with
-                | Ok line -> Ok(None, line |> StageEntryLine.accountId)
-                | Error e ->
-                    if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-                    then
-                        let stageEntryLineUuid = stageEntryLineId |> StageEntryLineId.value
-                        Error (DataIngestionError.IngestionStageEntryLineIdDoesntExist stageEntryLineUuid)
-                    else Error e
+                let stageEntryLineUuid = stageEntryLineId |> StageEntryLineId.value
+                stageEntryLineId |> StageEntryLine.fetchById context
+                |> whenNoRows (DataIngestionError.IngestionStageEntryLineIdDoesntExist stageEntryLineUuid)
+                |> Result.map (fun line -> None, line |> StageEntryLine.accountId)
         do!
             if lineAccountId = Some expectedAccountId then Ok ()
             else
@@ -226,14 +215,9 @@ let private confirmInvoiceComposite
             result {
                 let paymentAgreementId = invoice |> Invoice.paymentAgreementId
                 let! paymentAgreement =
-                    match paymentAgreementId |> PaymentAgreement.fetchById context with
-                    | Ok fetched -> Ok fetched
-                    | Error e ->
-                        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-                        then
-                            let paymentAgreementUuid = paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
-                            Error (CashFlowError.CashflowPaymentAgreementIdDoesntExist paymentAgreementUuid)
-                        else Error e
+                    let paymentAgreementUuid = paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
+                    paymentAgreementId |> PaymentAgreement.fetchById context
+                    |> whenNoRows (CashFlowError.CashflowPaymentAgreementIdDoesntExist paymentAgreementUuid)
                 let! masterAgreement =
                     paymentAgreement |> PaymentAgreement.masterAgreementID |> MasterAgreement.fetchById context
                 let direction = masterAgreement |> MasterAgreement.direction
@@ -268,14 +252,9 @@ let private confirmInvoicePaymentAgreementIsUnderInstanceAgreement
         // this fetch only runs once the diamond is already known to be broken; it exists to name the other
         // MasterAgreement in the error, not to decide the check
         let! paymentAgreement =
-            match paymentAgreementId |> PaymentAgreement.fetchById context with
-            | Ok pa -> Ok pa
-            | Error e ->
-                if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-                then
-                    let paymentAgreementUuid = paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
-                    CashFlowError.error(CashFlowError.CashflowPaymentAgreementIdDoesntExist paymentAgreementUuid)
-                else Error e
+            let paymentAgreementUuid = paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
+            paymentAgreementId |> PaymentAgreement.fetchById context
+            |> whenNoRows (CashFlowError.CashflowPaymentAgreementIdDoesntExist paymentAgreementUuid)
         let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
         let instanceAgreementUuid = instanceAgreementId |> CashFlowComponent.MasterAgreementId.value
         let paymentAgreementAgreementUuid =

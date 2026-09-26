@@ -1,6 +1,7 @@
 module Ui.InterfaceBridge.Routes.AccountRoutes
 
 open App.Utility.Result
+open App.Utility.IAppError
 open App.Utility.Json
 open App.DataAccessLayer.DbTransaction
 open App.Operation.CoreAuditableAction
@@ -31,11 +32,9 @@ let private accountCreate payload _ =
             accountCreateInput.parentCode
             |> ``convert AccountCodeString Option to AccountId Option`` context
             |> function
-                | Ok x -> Ok x
-                | Error e ->
-                    if e.DomainName = nameof LedgerError && e.CaseName = nameof AccountCodeDoesntMatchAccountId
-                    then Error (AccountParentCodeInvalid(accountCreateInput.parentCode |> Option.defaultValue "None"))
-                    else Error e
+                | Error (AsError (AccountCodeDoesntMatchAccountId _)) ->
+                    Error (AccountParentCodeInvalid(accountCreateInput.parentCode |> Option.defaultValue "None"))
+                | other -> other
         let! reference =
             accountCreateInput.reference
             |> ``convert [Account Reference String Option] to [AccountExternalReference Option]``

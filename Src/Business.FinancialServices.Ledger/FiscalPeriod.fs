@@ -107,12 +107,9 @@ let fetchById (context: Context.Context) (id: FiscalPeriodId) : Result<FiscalPer
     let predicate = "fp.unique_id = @unique_id"
     let uuid = id |> FiscalPeriodId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    match query context (Some predicate) None parameters ExactlyOne |> Result.map List.head with
-    | Ok x -> Ok x
-    | Error e ->
-        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-        then error (FiscalPeriodNoPeriodMatchingId uuid)
-        else Error e
+    query context (Some predicate) None parameters ExactlyOne
+    |> whenNoRows (FiscalPeriodNoPeriodMatchingId uuid)
+    |> Result.map List.head
 
 let fetchIdByKey (context: Context.Context) (key: string) : Result<FiscalPeriodId, IAppError> =
     let mapRawForDbRead (row: RowReader) =
@@ -123,16 +120,11 @@ let fetchIdByKey (context: Context.Context) (key: string) : Result<FiscalPeriodI
     let queryStatement = "select unique_id from ledger.fiscal_period where period_key = @period_key"
     let parameters = [ { name = "@period_key"; value = CharString key } ]
 
-    match
-        executeReaderQuery
-            (context |> Context.getDatabaseTransaction) queryStatement parameters
-            mapRawForDbRead reconstitute ExactlyOne
-    with
-        | Ok x -> Ok(x |> List.head |> FiscalPeriodId.fromGuid)
-        | Error e ->
-            if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-            then error (FiscalPeriodNoPeriodMatchingKey key)
-            else Error e
+    executeReaderQuery
+        (context |> Context.getDatabaseTransaction) queryStatement parameters
+        mapRawForDbRead reconstitute ExactlyOne
+    |> whenNoRows (FiscalPeriodNoPeriodMatchingKey key)
+    |> Result.map (List.head >> FiscalPeriodId.fromGuid)
 
 let fetchAll (context: Context.Context) (openOnly: bool) : Result<FiscalPeriod list, IAppError> =
     let predicate =
@@ -165,12 +157,8 @@ let private toggleOpenFlagById
         ;
     """
     result {
-        do! match executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne with
-            | Ok _ -> Ok ()
-            | Error e ->
-                if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalNoOp
-                then error FiscalPeriodToggleOpenNoOp
-                else Error e
+        do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+            |> whenNoRows FiscalPeriodToggleOpenNoOp
         return! fpId |> fetchById context
     }
 

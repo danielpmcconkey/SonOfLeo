@@ -106,11 +106,8 @@ let fetchByName (context: Context.Context) (name: JournalRefFinancialInstitution
     let predicate = "src.source_name = @source_name"
     let nameStr = name |> JournalRefFinancialInstitution.value
     let parameters = [ { name = "@source_name"; value = CharString(nameStr) } ]
-    match query context (Some predicate) None parameters ExactlyOne with
-    | Ok x -> x |> List.head |> Ok
-    | Error e ->
-        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-        then Error (IngestionSourceNameNotFound nameStr)
-        else Error e
+    query context (Some predicate) None parameters ExactlyOne
+    |> whenNoRows (IngestionSourceNameNotFound nameStr)
+    |> Result.map List.head
 
         

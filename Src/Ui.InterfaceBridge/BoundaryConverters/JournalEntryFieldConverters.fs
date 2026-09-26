@@ -191,18 +191,15 @@ let ``convert AccountActivityFilterInput to AccountActivityFilter``
             input.accountCode |> ``convert AccountCodeString Option to AccountId Option`` context
         let! accountParentId =
             match input.accountParentCode |> ``convert AccountCodeString Option to AccountId Option`` context with
-            | Ok x -> Ok x
-            | Error e ->
-                if e.DomainName = nameof LedgerError && e.CaseName = nameof LedgerError.AccountCodeIsEmpty
-                then Error(LedgerError.AccountParentCodeIsEmpty (input.accountParentCode |> Option.get))
-                elif e.DomainName = nameof LedgerError && e.CaseName = nameof LedgerError.AccountCodeTooLong
-                then
-                    let codeString = input.accountParentCode |> Option.get
-                    let max = AccountCode.maxLength
-                    Error(LedgerError.AccountParentCodeTooLong (codeString, max))
-                elif e.DomainName = nameof LedgerError && e.CaseName = nameof LedgerError.AccountCodeDoesntMatchAccountId
-                then Error(LedgerError.AccountParentCodeInvalid (input.accountParentCode |> Option.get))
-                else Error e
+            | Error (AsError (LedgerError.AccountCodeIsEmpty _)) ->
+                Error(LedgerError.AccountParentCodeIsEmpty (input.accountParentCode |> Option.get))
+            | Error (AsError (LedgerError.AccountCodeTooLong _)) ->
+                let codeString = input.accountParentCode |> Option.get
+                let max = AccountCode.maxLength
+                Error(LedgerError.AccountParentCodeTooLong (codeString, max))
+            | Error (AsError (LedgerError.AccountCodeDoesntMatchAccountId _)) ->
+                Error(LedgerError.AccountParentCodeInvalid (input.accountParentCode |> Option.get))
+            | other -> other
         let! accountType = input.accountType |> ``convert AccountTypeString Option to AccountType Option``
         let! accountSubtype = input.accountSubtype |> ``convert AccountSubtypeString Option to AccountSubtype Option``
         let! amount = input.amount |> ``convert Decimal Option to Money Option``

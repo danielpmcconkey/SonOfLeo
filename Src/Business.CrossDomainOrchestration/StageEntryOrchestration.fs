@@ -1,6 +1,7 @@
 module Business.CrossDomainOrchestration.StageEntryOrchestration
 
 open System
+open App.DataAccessLayer.DalError
 open App.Utility.IAppError
 open App.Utility.FieldUpdate
 open App.Utility.Result
@@ -99,13 +100,9 @@ let private confirmLinesAccountCodes
                 let accountUuid = accountId |> AccountId.value
                 let lookupResult =
                     accountUuid |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction) // we don't need the code; we just check that the ID is in the DB this way 
-                match lookupResult with
-                | Ok _ -> Ok ()
-                | Error e ->
-                    if e.DomainName = nameof DalError
-                        && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-                    then LedgerError.error (LedgerError.AccountIdDoesntMatch accountUuid)
-                    else Error e
+                lookupResult
+                |> whenNoRows (LedgerError.AccountIdDoesntMatch accountUuid)
+                |> Result.map ignore
             )
         |> convertListOfResultsToResultsList
     match checkedLines with

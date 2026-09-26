@@ -14,12 +14,9 @@ open Business.FinancialServices.Ledger.JournalEntryExternalReference
 open Business.FinancialServices.Ledger.JournalEntryComponent
 
 let private confirmJournalEntryHeader (context: Context.Context) (journalEntryHeaderId: JournalEntryHeaderId) : Result<unit, IAppError> =
-    match journalEntryHeaderId |> JournalEntryHeader.fetchById context with
-    | Ok _ -> Ok ()
-    | Error e ->
-        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-        then Error (JournalEntryHeaderIdDoesntExist (journalEntryHeaderId |> JournalEntryHeaderId.value))
-        else Error e
+    journalEntryHeaderId |> JournalEntryHeader.fetchById context
+    |> whenNoRows (JournalEntryHeaderIdDoesntExist (journalEntryHeaderId |> JournalEntryHeaderId.value))
+    |> Result.map ignore
 
 let constructNewAndPersist
     (context: Context.Context)

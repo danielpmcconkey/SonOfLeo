@@ -1,6 +1,7 @@
 module Business.CrossDomainOrchestration.AgreementOrchestration
 
 open App.Utility.IAppError
+open App.DataAccessLayer.DalError
 open App.Utility.Calendar
 open App.Utility.FieldUpdate
 open App.Utility.Result
@@ -36,12 +37,9 @@ let private confirmValidAccountId
     let accountUuid = accountId |> AccountId.value
     let lookupResult = // we don't need the code; we just check that the ID is in the DB this way
         accountUuid |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction)
-    match lookupResult with
-    | Ok _ -> Ok ()
-    | Error e ->
-        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-        then Error (LedgerError.AccountIdDoesntMatch accountUuid)
-        else Error e
+    lookupResult
+    |> whenNoRows (LedgerError.AccountIdDoesntMatch accountUuid)
+    |> Result.map ignore
 
 let private confirmPaymentAgreementBelongsToAgreement
     (context: Context.Context)
@@ -181,23 +179,15 @@ let private confirmPaymentAgreement
         let (CashFlowComponent.DebitAccount debitAccountId) = paymentAgreement |> PaymentAgreement.debitAccount
         do!
             match debitAccountId |> confirmValidAccountId context with
-            | Ok x -> Ok x
-            | Error e ->
-                if e.DomainName = nameof LedgerError && e.CaseName = nameof LedgerError.AccountIdDoesntMatch
-                then
-                    let uuid = debitAccountId |> AccountId.value
-                    Error (CashFlowError.CashflowPaymentAgreementDebitAccountInvalid uuid)
-                else Error e
+            | Error (AsError (LedgerError.AccountIdDoesntMatch uuid)) ->
+                Error (CashFlowError.CashflowPaymentAgreementDebitAccountInvalid uuid)
+            | other -> other
         let (CashFlowComponent.CreditAccount creditAccountId) = paymentAgreement |> PaymentAgreement.creditAccount
         do!
             match creditAccountId |> confirmValidAccountId context with
-            | Ok x -> Ok x
-            | Error e ->
-                if e.DomainName = nameof LedgerError && e.CaseName = nameof LedgerError.AccountIdDoesntMatch
-                then
-                    let uuid = creditAccountId |> AccountId.value
-                    Error (CashFlowError.CashflowPaymentAgreementCreditAccountInvalid uuid)
-                else Error e
+            | Error (AsError (LedgerError.AccountIdDoesntMatch uuid)) ->
+                Error (CashFlowError.CashflowPaymentAgreementCreditAccountInvalid uuid)
+            | other -> other
         return!
             match paymentAgreement |> PaymentAgreement.expectedAmount with
             | None -> Ok ()
@@ -394,15 +384,11 @@ let fetchByMasterAgreementId
               paymentAmount = None
               paymentPostedToLedgerTemporalFilter = None }
         let agreementsResult = filter |> fetchFiltered context ExactlyOne
+        let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
         return!
-            match agreementsResult with
-            | Ok agreements -> Ok (agreements |> List.head)
-            | Error e ->
-                if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-                then 
-                    let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
-                    Error(CashFlowError.CashflowMasterAgreementIdDoesntExist agreementUuid)
-                else Error e
+            agreementsResult
+            |> whenNoRows (CashFlowError.CashflowMasterAgreementIdDoesntExist agreementUuid)
+            |> Result.map (fun agreements -> agreements |> List.head)
     }
     
 let fetchAllActiveAgreements

@@ -77,7 +77,8 @@ let errorRowCount ()
     let context = Context.create NoTransaction FetchOnly
     let mapRaw _ = ("", "")
     let contructFromRaw _ = Ok ""
-    match executeReaderQuery (context |> Context.getDatabaseTransaction) "select code, account_name from ledger.account where 1 = 2;" [] mapRaw contructFromRaw ExactlyOne with
+    // two rows where exactly one was required. Zero rows is a different fact, DalNoOp, pinned below
+    match executeReaderQuery (context |> Context.getDatabaseTransaction) "select 'a' union all select 'b';" [] mapRaw contructFromRaw ExactlyOne with
     | Ok _ -> Ok ()
     | Error e -> Error e
     
@@ -159,3 +160,40 @@ let ``DAL errors surface when they should`` expectedError =
         return ()
     }
     |> railroadWrapper
+
+(* Zero rows where rows were required is one fact whether the statement read or wrote: DalNoOp. It is a backstop; the
+   caller that knows what the empty result means swaps it for a domain error with whenNoRows. Any other wrong count is
+   DalResultantRowsDidntMatchExpectation, above. *)
+[<Fact>]
+let ``a read requiring exactly one row that finds none returns DalNoOp`` () =
+    let context = Context.create NoTransaction FetchOnly
+    let mapRaw _ = ("", "")
+    let contructFromRaw _ = Ok ""
+    isCorrectErrorEmpty
+        (executeReaderQuery (context |> Context.getDatabaseTransaction) "select 1 where 1 = 2;" [] mapRaw contructFromRaw ExactlyOne)
+        (App.DataAccessLayer.DalError.DalNoOp ("", 0))
+        None
+    |> railroadWrapper
+
+[<Fact>]
+let ``an update requiring exactly one row that touches none returns DalNoOp`` () =
+    let context = Context.create NoTransaction FetchOnly
+    isCorrectErrorEmpty
+        (executeNonQuery (context |> Context.getDatabaseTransaction) "update ledger.account set code = code where 1 = 2;" [] ExactlyOne)
+        (App.DataAccessLayer.DalError.DalNoOp ("", 0))
+        None
+    |> railroadWrapper
+
+[<Fact>]
+let ``whenNoRows swaps DalNoOp for the caller's domain error and passes every other error through`` () =
+    let specific = TestingError "the specific error"
+    let noRows : Result<unit, IAppError> = App.DataAccessLayer.DalError.error (App.DataAccessLayer.DalError.DalNoOp ("ExactlyOne", 0))
+    let wrongCount : Result<unit, IAppError> =
+        App.DataAccessLayer.DalError.error (App.DataAccessLayer.DalError.DalResultantRowsDidntMatchExpectation ("ExactlyOne", 2))
+    match noRows |> App.DataAccessLayer.DalError.whenNoRows specific with
+    | Error (AsError (TestingError message)) -> Assert.Equal("the specific error", message)
+    | other -> Assert.Fail $"Expected the specific error; got {other}"
+    match wrongCount |> App.DataAccessLayer.DalError.whenNoRows specific with
+    | Error (AsError (App.DataAccessLayer.DalError.DalResultantRowsDidntMatchExpectation (_, actual))) -> Assert.Equal(2, actual)
+    | other -> Assert.Fail $"Expected the wrong-count error to pass through; got {other}"
+

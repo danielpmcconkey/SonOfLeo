@@ -83,11 +83,9 @@ let private reconstitute raw =
         let! accountType = accountTypeString |> AccountType.fromString
         let! activityPeriod =
             match ActivityPeriod.create activeBegin activeEnd ActivityPeriod.NotConsideredAvailableBeforeBeginDate with
-            | Ok x -> Ok x
-            | Error e ->
-                if e.DomainName = nameof BizGeneralError && e.CaseName = nameof BizGeneralError.ActiveEndBeforeBegin
-                then error(AccountActiveEndBeforeBegin (activeBegin, activeEnd))
-                else Error e 
+            | Error (AsError (BizGeneralError.ActiveEndBeforeBegin _)) ->
+                error(AccountActiveEndBeforeBegin (activeBegin, activeEnd))
+            | other -> other
         let! subtype =
             subtypeString
             |> Option.map(fun x -> x |> AccountSubtype.fromString |> Result.map Some)

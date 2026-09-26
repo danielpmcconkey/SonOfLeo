@@ -1,6 +1,7 @@
 module Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
 
 open System
+open App.DataAccessLayer.DalError
 open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer
@@ -19,12 +20,8 @@ let fallibleConverterAccountCodeStringToAccountUuid context codeString =
         let! _ = codeString |> AccountCode.create
         // now see if it matches an account ID
         return!
-            match codeString |> LookupCache.accountCodeToId.fetch (context |> Context.getDatabaseTransaction) with
-            | Ok x -> Ok x
-            | Error e ->
-                if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-                then Error (LedgerError.AccountCodeDoesntMatchAccountId codeString)
-                else Error e
+            codeString |> LookupCache.accountCodeToId.fetch (context |> Context.getDatabaseTransaction)
+            |> whenNoRows (LedgerError.AccountCodeDoesntMatchAccountId codeString)
     }
 
 let fallibleConverterAccountCodeToAccountId context codeString =

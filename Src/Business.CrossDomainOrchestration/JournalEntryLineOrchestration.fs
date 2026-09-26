@@ -20,12 +20,9 @@ let private confirmAmountIsPositive (m: Money.Money) : Result<unit, IAppError> =
         Ok()
 
 let private confirmAccountExists (context: Context.Context) (accountId: AccountId) : Result<unit, IAppError> =
-    match accountId |> Account.fetchById context with
-    | Ok _ -> Ok()
-    | Error e ->
-        if e.DomainName = nameof DalError && e.CaseName = nameof DalError.DalResultantRowsDidntMatchExpectation
-        then Error (JournalEntryLineAccountDoesntExist(accountId |> AccountId.value))
-        else Error e
+    accountId |> Account.fetchById context
+    |> whenNoRows (JournalEntryLineAccountDoesntExist(accountId |> AccountId.value))
+    |> Result.map ignore
 
 let constructNewAndPersist
     (context: Context.Context)

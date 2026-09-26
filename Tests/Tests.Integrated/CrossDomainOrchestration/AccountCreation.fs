@@ -21,6 +21,7 @@ open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 open Tests.Helpers.GenericTestProperties
 open App.DataAccessLayer.DalError
+open Business.FinancialServices.Ledger.LedgerError
 
 [<Fact>]
 let ``REQ-AC-2.13 constructNew generates UUID`` () =
@@ -78,5 +79,5 @@ let ``REQ-AC-1.40 constructNew rejects non-existent parent ID`` () =
                 genericAccountSubtype
                 bogusParentId
                 genericAccountReference
-        isCorrectError result DalResultantRowsDidntMatchExpectation None)
+        isCorrectError result AccountIdDoesntMatch None)
     |> railroadWrapper
