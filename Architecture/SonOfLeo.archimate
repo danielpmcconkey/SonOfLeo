@@ -1570,65 +1570,75 @@
         <property key="audit-strategy" value="Verify Pipeline/engine.py has no LLM calls; verify agent invocations pass --no-session-persistence"/>
       </element>
       <element xsi:type="archimate:Principle" name="Dependencies Build From the Base Up" id="id-34b9a65763214347bf93a2fae4fffc11">
-        <documentation>Every part of SonOfLeo sits on a rung, and a part may depend only on parts at or below its own rung. The rungs nest: tier, then project, then — inside any container that spans several of them — the domain, the UI layer, and the container's own interfaces.
+        <documentation>Scope: Src/ only. Nothing outside Src/ is judged by this principle.
 
-The four principles composed into this one define the rungs. The two constraints that realize it say how the hierarchy shows up in the source: build order and open order.
+Every part of Src sits on a rung, and a part may reference only parts at or below its own rung. The rungs nest, outermost first: tier; then, inside any container that holds more than one business concept, the concept order; inside the Ui tier, the UI layer; and inside every container, that container's foundations at the very bottom.
 
-A container may freely use anything in a container below it. The ordering among siblings only binds siblings. For example, an orchestrator in Business.CrossDomainOrchestration may use any Ledger, DataIngestion, CashFlow or Classification module, because all of Business.FinancialServices is below orchestration; but inside orchestration, the data ingestion orchestrator may not use the classification orchestrator, because classification is the higher domain.</documentation>
+The rungs govern two things: what may reference what (a lower rung never references a higher one), and the order things are listed in (project references, the Compile Include order of each .fsproj, and the open statements of each file all run base first). The two constraints that realize this principle cover the listing order.
+
+A container may freely use anything in a container below it; the ordering among siblings binds only siblings. An orchestrator in Business.CrossDomainOrchestration may use any Ledger, DataIngestion, CashFlow or Classification module, because all of Business.FinancialServices is below orchestration; but inside orchestration, an account-level orchestrator may not use a journal-entry-level orchestrator.
+
+This principle only answers &quot;does the reference go down the ladder?&quot; Other principles may forbid a reference that goes down (for example, the UI reaching straight into the data access layer); that is not this alarm's concern.</documentation>
         <property key="enforcement" value="strong"/>
         <property key="source" value="app-tier-refactor-2026-09-26"/>
         <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="For every reference between SonOfLeo modules (open statements, qualified references, project references), place both ends on the rungs defined by the composed principles and report any reference from a lower rung to a higher one, or between sibling rungs that are unordered peers (e.g. reports and operator UI)."/>
+        <property key="audit-strategy" value="For every reference between Src modules (open statements, qualified references, project references), place both ends on the rungs defined by the composed principles. Report any reference from a lower rung to a higher one, any reference between the reports and operator sides at the route or interface layer, and any listing (project reference, Compile Include, open) that puts a higher rung before a lower one. Report only; Dan rules."/>
       </element>
       <element xsi:type="archimate:Principle" name="Tiers Build Upward" id="id-204abe28f2434088bea3cc371ee1275c">
-        <documentation>The three tiers are ordered App &lt; Business &lt; Ui. App knows nothing of Business or Ui; Business knows nothing of Ui. Within a tier, projects are ordered by their project references.</documentation>
+        <documentation>The three tiers are ordered App &lt; Business &lt; Ui. A tier may reference anything in any tier below it, including skipping a tier: Ui may use App directly without going through Business, and may use any module there, internals included. App references nothing in Business or Ui; Business references nothing in Ui.</documentation>
         <property key="enforcement" value="absolute"/>
         <property key="source" value="app-tier-refactor-2026-09-26"/>
         <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Check each .fsproj ProjectReference and each open/qualified reference: no App.* project or module references Business.* or Ui.*, and no Business.* references Ui.*."/>
+        <property key="audit-strategy" value="Check each .fsproj ProjectReference and each open/qualified reference in Src: no App.* project or module references Business.* or Ui.*, and no Business.* references Ui.*."/>
       </element>
       <element xsi:type="archimate:Principle" name="Domains Build Upward" id="id-2042ff5d257b4f2ebb67a50e953b2590">
-        <documentation>The business domains are ordered, basest first:
+        <documentation>The business concepts are ordered, basest first:
 
-1. General business and core financial services — Business.General (ActivityPeriod, Cadence) and Business.FinancialServices (Money)
-2. Account
-3. Fiscal period
-4. Journal entry
-5. Data ingestion
-6. Cash flow
-7. Classification
+  account &lt; fiscal period &lt; journal entry &lt; data ingestion &lt; cash flow &lt; classification
 
-Wherever a container holds pieces of several domains, those siblings honor this order: a piece may use its own domain and lower ones, never a higher one. That applies inside Business.FinancialServices (Ledger &lt; DataIngestion &lt; CashFlow &lt; Classification), inside Ledger (account &lt; fiscal period &lt; journal entry), inside Business.CrossDomainOrchestration (e.g. data ingestion orchestration is above journal entry orchestration and below classification orchestration), and inside every operator UI layer (e.g. the account routes are more base than the journal entry routes; the account contracts more base than the journal entry contracts).
+These are business concepts, not files: &quot;account&quot; is the concept of an account, not Account.fs. Below all of them, but still in the Business tier, sit the business foundations: Business.General (ActivityPeriod, Cadence) and core financial services (Money).
 
-A module's domain is the business concept it serves, not merely the words in its name: AccountActivity and AccountBalance read journal entry lines, but live in orchestration, which may use any Ledger module.</documentation>
+The order applies at every zoom level where a container holds more than one concept:
+- Inside Business.FinancialServices.Ledger: account, then fiscal period, then journal entry.
+- Across the FinancialServices projects: Ledger &lt; DataIngestion &lt; CashFlow &lt; Classification. Ledger holds the three basest concepts, so the whole project sits below the others.
+- Inside Business.CrossDomainOrchestration: the full order again, account-level orchestration basest, classification-level orchestration most specialised.
+- Inside every Ui layer (contracts, converters, routes): account pieces first, then fiscal period, journal entry, data ingestion, cash flow, classification. The account routes are more base than the journal entry routes.
+
+Within such a container a piece may use its own concept and lower ones, never a higher sibling. The rule binds siblings only: a container may use anything in a container below it. Closing an account is an account use case that needs a journal-entry fact (a zero balance); Ledger's account pieces may not reach up to journal entries, so the use case is owned by orchestration, which sits above Ledger and may use any Ledger module. Were that account orchestrator to use a journal-entry orchestrator (a sibling), the alarm goes off and Dan decides whether it is warranted.</documentation>
         <property key="enforcement" value="strong"/>
         <property key="source" value="app-tier-refactor-2026-09-26"/>
         <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Assign each module in a multi-domain container to a domain from what it serves (its realized capabilities help). Report any use of a sibling in a higher domain, and any compile or open order that lists a higher domain's sibling first."/>
+        <property key="audit-strategy" value="In each multi-concept container (Ledger, the FinancialServices projects, CrossDomainOrchestration, each Ui layer) assign every module to a concept from the business concept it serves. Report any reference to a sibling of a higher concept, and any Compile Include or open order that lists a higher concept's sibling before a lower one."/>
       </element>
-      <element xsi:type="archimate:Principle" name="Interfaces Are the Base of Their Container" id="id-8e032f4523fa44838b3e510933718422">
-        <documentation>A container's error vocabulary (its IAppError implementation, e.g. LedgerError, DalError) and its auditable actions (its IAuditableAction implementation, e.g. LedgerAuditableAction) are the basest components of that container. Nothing else in the container is below them, so they compile first and depend on nothing in it.</documentation>
+      <element xsi:type="archimate:Principle" name="Foundations Are the Base of Their Container" id="id-8e032f4523fa44838b3e510933718422">
+        <documentation>Every container has foundations that sit below everything else in it:
+- Its error vocabulary and its auditable actions (e.g. LedgerError and LedgerAuditableAction in Ledger, DalError in App.DataAccessLayer). Nothing else in the container is below them.
+- Where the interfaces themselves are defined, the definition is the very bottom and the container's own implementation sits just above it: IAppError below UtilityError in App.Utility; IAuditableAction below CoreAuditableAction in App.Operation.
+- SharedContracts is the base of the UI contracts layer; CommandRoute is the base of the UI routes layer; FetchFilters is the base of Business.CrossDomainOrchestration.
+
+Foundations compile first in their container and reference nothing in it that sits above them.</documentation>
         <property key="enforcement" value="strong"/>
         <property key="source" value="app-tier-refactor-2026-09-26"/>
         <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="In each .fsproj, the *Error and *AuditableAction files come before every other file in the Compile Include list; neither references any other module of its own project."/>
+        <property key="audit-strategy" value="In each .fsproj (and each Ui layer), the foundation files come before every other file in the Compile Include list, in the order given, and reference nothing in their container above them. Report any file that compiles before a foundation, and any foundation that references a sibling above it."/>
       </element>
       <element xsi:type="archimate:Principle" name="UI Layers Build Upward" id="id-9e3560f326954a6db086953a55ac710d">
-        <documentation>The Ui tier holds two sibling domains, operator UI and reports. Neither uses the other. Each is built from four layers, basest first:
+        <documentation>Within the Ui tier the layers are ordered, basest first:
 
-1. Use case contracts
-2. Boundary converters — for reports this includes the visualization assets and report writers, which are specialised converters used only by reporting
-3. Use case routes
-4. Interfaces — CLI, API, web interface, etc.
+  contracts &lt; converters &lt; routes &lt; interface (CLI, API, web interface, ...)
 
-A layer may use its own layer and the layers below it within its own UI domain. Within each operator UI layer, the business domain order also applies.</documentation>
+The visualization assets and report writers are converters: specialised ones that only reporting uses.
+
+Reports and operator UI are sibling sides at the top two layers only. The report CLI does not touch the operator CLI or its routes, and the operator CLI does not touch the report CLI or its routes; report routes and operator routes do not touch each other. Contracts and converters are a shared pool: either side's routes may use any of them.
+
+Within each layer the business concept order applies (see Domains Build Upward), with that layer's foundation at the bottom (see Foundations Are the Base of Their Container).</documentation>
         <property key="enforcement" value="strong"/>
         <property key="source" value="app-tier-refactor-2026-09-26"/>
         <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Place each Ui module on (UI domain, layer). Report any reference from a lower layer to a higher one, and any reference between the reports and operator domains."/>
+        <property key="audit-strategy" value="Place each Ui module on its layer (and, for routes and interfaces, its side). Report any reference from a lower layer to a higher one, and any reference between the reports and operator sides at the route or interface layer."/>
       </element>
       <element xsi:type="archimate:Principle" name="Out-of-Order Is a Design Smell" id="id-010d670603bb420f974a8b744577bc35">
-        <documentation>If code needs to reach something out of the hierarchy's order — a higher rung, an unordered sibling, or an open out of build order — the likeliest cause is a design mistake in that code; the next likeliest is that the architecture itself is wrong. Either way it is surfaced to Dan for a ruling, never quietly accommodated. Dan may approve a specific exception (a namespace collision, for instance); an approval covers that case only.</documentation>
+        <documentation>If code in Src needs to reach something out of the hierarchy's order (a higher rung, a higher sibling, the other UI side's routes or CLI, or an open out of build order), the likeliest cause is a design mistake in that code; the next likeliest is that the architecture itself is wrong. Either way the alarm reports it to Dan, who decides whether it is warranted; it is never quietly accommodated or auto-judged. Dan may approve a specific exception (a namespace collision, for instance); an approval covers that case only.</documentation>
         <property key="enforcement" value="absolute"/>
         <property key="source" value="app-tier-refactor-2026-09-26"/>
         <property key="auditable" value="true"/>
@@ -1659,14 +1669,14 @@ A layer may use its own layer and the layers below it within its own UI domain. 
         <property key="source" value="standing-corrections"/>
       </element>
       <element xsi:type="archimate:Constraint" name="Build Order Follows the Hierarchy" id="id-a5f95c974acd427883151d19c8ca7627">
-        <documentation>Project references and each .fsproj's Compile Include list follow the rungs: a file compiles after everything below it and before everything above it. Where siblings are unordered peers, their relative order is free.</documentation>
+        <documentation>In Src, project references and each .fsproj's Compile Include list follow the rungs: a file compiles after everything below it and before everything above it, foundations first. Where siblings are unordered peers, their relative order is free.</documentation>
         <property key="enforcement" value="strong"/>
         <property key="source" value="app-tier-refactor-2026-09-26"/>
         <property key="auditable" value="true"/>
         <property key="audit-strategy" value="Walk each .fsproj Compile Include list and report any file that compiles before a sibling on a lower rung (e.g. a *AuditableAction after entity modules; a classification orchestrator before the data ingestion orchestrator)."/>
       </element>
       <element xsi:type="archimate:Constraint" name="Opens Follow Build Order" id="id-1b37530d544d4acb9c5ba711963cd0f4">
-        <documentation>Within a file, open statements for SonOfLeo modules list them in build order: baser modules first, more specialized ones after. An open that has to break that order signals a design problem to raise, not a formatting choice.</documentation>
+        <documentation>Within each Src file, open statements for Src modules list them in build order: baser modules first, more specialised ones after. An open that has to break that order is reported to Dan, not a formatting choice.</documentation>
         <property key="enforcement" value="strong"/>
         <property key="source" value="app-tier-refactor-2026-09-26"/>
         <property key="auditable" value="true"/>
@@ -3608,6 +3618,7 @@ A layer may use its own layer and the layers below it within its own UI domain. 
     <element xsi:type="archimate:RealizationRelationship" id="id-3540ba761c594cf1b3c07985b995e809" source="id-ab7491ebef214f898c509ef67c192b84" target="id-8e032f4523fa44838b3e510933718422"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-44af8b706d8c466bb40fd24a9fb9e814" source="id-482e6cba43ba4e9fb82aaf36c1640015" target="id-8e032f4523fa44838b3e510933718422"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-6696bd4d8cff4b3f8a9b6fe335af2d26" source="id-93157bb88042403ea12abcf5b4f6cbe8" target="id-9e3560f326954a6db086953a55ac710d"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-2f8c724290c845f3beecc426d4b581db" source="id-086000a2a5a741b2aab0b8cba1053569" target="id-8e032f4523fa44838b3e510933718422"/>
   </folder>
   <folder name="Views" id="id-75e0717f00f244fe89d04a8b9e32fac9" type="diagrams">
     <element xsi:type="archimate:ArchimateDiagramModel" name="Application tiers" id="id-398726ae0f1d4b0a896928395ae87a15">
