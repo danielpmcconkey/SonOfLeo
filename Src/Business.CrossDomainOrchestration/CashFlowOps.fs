@@ -67,7 +67,7 @@ let private spawnInstancesFromAgreement
                         let invoiceState =
                             if direction = CashFlowComponent.Income
                             then CashFlowComponent.InvoiceGenerated
-                            else CashFlowComponent.InvoiceReceived
+                            else CashFlowComponent.InvoiceExpected
                         let lifecycle = { CashFlowComponent.invoiceState = invoiceState
                                           CashFlowComponent.paymentState = CashFlowComponent.NotYetPaid
                                           CashFlowComponent.postedState = CashFlowComponent.NotHandled

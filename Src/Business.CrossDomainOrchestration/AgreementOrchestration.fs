@@ -188,6 +188,9 @@ let private confirmPaymentAgreement
             | Error (AsError (LedgerError.AccountIdDoesntMatch uuid)) ->
                 Error (CashFlowError.CashflowPaymentAgreementCreditAccountInvalid uuid)
             | other -> other
+        do!
+            if debitAccountId <> creditAccountId then Ok ()
+            else Error (CashFlowError.CashflowPaymentAgreementDebitEqualsCredit(debitAccountId |> AccountId.value))
         return!
             match paymentAgreement |> PaymentAgreement.expectedAmount with
             | None -> Ok ()

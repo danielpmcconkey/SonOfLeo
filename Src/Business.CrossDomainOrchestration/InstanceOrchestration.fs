@@ -190,6 +190,20 @@ let private confirmPartiallyPostedHasAPostedPayment
         let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
         Error(CashFlowError.CashflowInvoicePartiallyPostedWithNoPostedPayment invoiceUuid)
 
+let private confirmInvoiceStateSuitsDirection
+    (direction: CashFlowComponent.FlowDirection)
+    (invoice: Invoice.Invoice)
+    : Result<unit, IAppError> =
+    let invoiceState = (invoice |> Invoice.invoiceLifeCycleState).invoiceState
+    if invoiceState |> CashFlowComponent.InvoiceState.isValidFlowDirectionInvoiceStateCombination direction then Ok ()
+    else
+        let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
+        CashFlowError.error (
+            CashFlowError.CashflowInvoiceStateInvalidForFlowDirection(
+                invoiceUuid,
+                invoiceState |> CashFlowComponent.InvoiceState.toString,
+                direction |> CashFlowComponent.FlowDirection.toString))
+
 let private confirmInvoiceComposite
     (context: Context.Context)
     (invoiceComposite: InvoiceComposite)
@@ -203,6 +217,17 @@ let private confirmInvoiceComposite
             |> List.map (confirmPaymentIsUnderInvoice invoiceId)
             |> convertListOfResultsToResultsList
             |> Result.map ignore
+        let paymentAgreementId = invoice |> Invoice.paymentAgreementId
+        let! paymentAgreement =
+            let paymentAgreementUuid = paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
+            paymentAgreementId |> PaymentAgreement.fetchById context
+            |> whenNoRows (CashFlowError.CashflowPaymentAgreementIdDoesntExist paymentAgreementUuid)
+        let! masterAgreement =
+            paymentAgreement |> PaymentAgreement.masterAgreementID |> MasterAgreement.fetchById context
+        let direction = masterAgreement |> MasterAgreement.direction
+        // the state check comes before anything that reads the direction, so a direction change that strands an
+        // invoice's state is reported as that, not as whatever the new direction breaks downstream
+        do! invoice |> confirmInvoiceStateSuitsDirection direction
         do! invoice |> confirmInvoiceAmountIsPositive
         do! confirmFullyPaidAmountMatches invoice payments
         do! confirmPostedToLedgerRequiresFullyPaid invoice
@@ -210,24 +235,12 @@ let private confirmInvoiceComposite
         do! confirmPartiallyPaidHasPayments invoice payments
         do! confirmPostedToLedgerRequiresAllPaymentsPosted invoice payments
         do! confirmPartiallyPostedHasAPostedPayment invoice payments
-        do!
-            if payments |> List.isEmpty then Ok () else
-            result {
-                let paymentAgreementId = invoice |> Invoice.paymentAgreementId
-                let! paymentAgreement =
-                    let paymentAgreementUuid = paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
-                    paymentAgreementId |> PaymentAgreement.fetchById context
-                    |> whenNoRows (CashFlowError.CashflowPaymentAgreementIdDoesntExist paymentAgreementUuid)
-                let! masterAgreement =
-                    paymentAgreement |> PaymentAgreement.masterAgreementID |> MasterAgreement.fetchById context
-                let direction = masterAgreement |> MasterAgreement.direction
-                let expectedAccountId = paymentAgreement |> PaymentAgreement.accountIdForFlowDirection direction
-                return!
-                    payments
-                    |> List.map (confirmPayment context expectedAccountId)
-                    |> convertListOfResultsToResultsList
-                    |> Result.map ignore
-            }
+        let expectedAccountId = paymentAgreement |> PaymentAgreement.accountIdForFlowDirection direction
+        return!
+            payments
+            |> List.map (confirmPayment context expectedAccountId)
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
     }
 
 let private confirmInvoiceIsUnderInstance

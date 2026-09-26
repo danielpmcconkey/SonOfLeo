@@ -51,12 +51,14 @@ type CashFlowError =
     | CashflowInvoicePartiallyPostedWithNoPostedPayment of Guid
     | CashflowInvoicePostedToLedgerRequiresFullyPaid of Guid
     | CashflowInvoicePostedToLedgerWithUnpostedPayment of Guid
+    | CashflowInvoiceStateInvalidForFlowDirection of Guid * string * string
     | CashflowInvoiceUpdateNoOp
     | CashflowMasterAgreementIdDoesntExist of Guid
     | CashflowMasterAgreementIdListCannotBeEmpty
     | CashflowMasterAgreementUnavailable of Guid * LocalDate * LocalDate * LocalDate option
     | CashflowMasterAgreementUpdateNoOp
     | CashflowPaymentAgreementCreditAccountInvalid of Guid
+    | CashflowPaymentAgreementDebitEqualsCredit of Guid
     | CashflowPaymentAgreementDebitAccountInvalid of Guid
     | CashflowPaymentAgreementIdDoesntExist of Guid
     | CashflowPaymentAgreementIdListCannotBeEmpty
@@ -135,6 +137,7 @@ type CashFlowError =
             | CashflowInvoicePartiallyPostedWithNoPostedPayment invoiceId -> $"Invoice {invoiceId} is PartiallyPosted but none of its Payments are posted to a journal entry."
             | CashflowInvoicePostedToLedgerRequiresFullyPaid invoiceId -> $"Invoice {invoiceId} cannot be PostedToLedger unless its PaymentState is FullyPaid."
             | CashflowInvoicePostedToLedgerWithUnpostedPayment invoiceId -> $"Invoice {invoiceId} is PostedToLedger but at least one of its Payments is still staged, not posted to a journal entry."
+            | CashflowInvoiceStateInvalidForFlowDirection(uuid, state, direction) -> $"Invoice {uuid} has invoice state {state}, which is not valid for a {direction} agreement. Income invoices are InvoiceGenerated or InvoiceSent; Outgo invoices are InvoiceExpected or InvoiceReceived."
             | CashflowInvoiceUpdateNoOp -> "Updating the Invoice record failed because at least one updatable parameter must be set."
             | CashflowMasterAgreementIdDoesntExist uuid -> $"Could not locate a MasterAgreement with the id of {uuid}."
             | CashflowMasterAgreementIdListCannotBeEmpty -> "The masterAgreementIds list must contain at least 1 ID."
@@ -145,6 +148,7 @@ type CashFlowError =
                 $"Master Agreement ({uuid}) is not available (begin {beginDate}; end {endDateStr}) as of {referenceDate}."
             | CashflowMasterAgreementUpdateNoOp -> "Updating the MasterAgreement record failed because at least one updatable parameter must be set."
             | CashflowPaymentAgreementCreditAccountInvalid uuid -> $"PaymentAgreement's credit account ({uuid}) does not match an Account in the database."
+            | CashflowPaymentAgreementDebitEqualsCredit uuid -> $"PaymentAgreement debits and credits the same account ({uuid}). Its debit and credit accounts must differ."
             | CashflowPaymentAgreementDebitAccountInvalid uuid -> $"PaymentAgreement's debit account ({uuid}) does not match an Account in the database."
             | CashflowPaymentAgreementIdDoesntExist uuid -> $"Could not locate a PaymentAgreement with the id of {uuid}."
             | CashflowPaymentAgreementIdListCannotBeEmpty -> "The paymentAgreementIds list must contain at least 1 ID."

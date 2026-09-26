@@ -3,6 +3,7 @@ module Tests.Integrated.CrossDomainOrchestration.AgreementCreation
 open NodaTime
 open App.Utility
 open App.Utility.Result
+open App.Utility.IAppError
 open Business.General
 open Business.FinancialServices
 open Business.FinancialServices.CashFlow
@@ -99,4 +100,25 @@ type AgreementCreationTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CF-3.6 an agreement whose leg debits and credits the same account is rejected naming that account`` () =
-        Assert.Fail "not implemented"
+        let sameAccount = fixture.Data.mortgage2210Id
+        runCommandRouteAndAutoRollback CashFlowCreateAgreement (fun context ->
+            result {
+                let! agreementName = "CF-3.6 same account" |> AgreementName.create
+                let! first = 1 |> Cadence.DateInMonthNumber.fromInt
+                let! counterparty = "Fixture counterparty" |> Counterparty.create
+                let! activityPeriod =
+                    ActivityPeriod.create (Calendar.today()) None ActivityPeriod.ConsideredAvailableBeforeBeginDate
+                let! legName = "CF-3.6 same account leg" |> PaymentAgreementName.create
+                let created =
+                    AgreementOrchestration.constructNewAndPersist
+                        context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first))
+                        { nextInstance = firstOfNextMonth () } counterparty activityPeriod None
+                        [ (legName, DebitAccount sameAccount, CreditAccount sameAccount, None, None, None) ]
+                return
+                    match created with
+                    | Error (AsError (CashFlowError.CashflowPaymentAgreementDebitEqualsCredit uuid)) ->
+                        Assert.Equal(sameAccount |> Business.FinancialServices.Ledger.AccountComponent.AccountId.value, uuid)
+                    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                    | Ok _ -> Assert.Fail "Expected failure; got success"
+            })
+        |> railroadWrapper

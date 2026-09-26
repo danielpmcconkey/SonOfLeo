@@ -42,6 +42,16 @@ type CashFlowFixtureData =
       /// Outgo, monthly on the 1st, due on the invoice date. Same paid-and-posted history as A, but this month's open
       /// invoice window does not cover the paid line.
       agreementBId: MasterAgreementId
+      legAId: PaymentAgreementId
+      legBId: PaymentAgreementId
+      /// Last month's Invoice on A, paid in full by the posted line.
+      paidInvoiceAId: InvoiceId
+      /// This month's open Instances and their Invoices (InvoiceReceived, NotYetPaid).
+      openInstanceAId: InstanceId
+      openInvoiceAId: InvoiceId
+      openInvoiceBId: InvoiceId
+      /// A's next-instance date: the 1st of next month.
+      nextInstanceDateA: LocalDate
       paidPostedLineAId: StageEntryComponent.StageEntryLineId
       paidPostedLineBId: StageEntryComponent.StageEntryLineId
       /// Unpaid linked lines on A, dated inside this month's open invoice window.
@@ -982,12 +992,16 @@ type TestDataFixture() =
                               paymentState = NotYetPaid
                               postedState = NotHandled
                               blocker = None }
-                        let! _ =
+                        let! created =
                             InstanceOrchestration.createInstanceCompositeAndSaveToDb
                                 context agreementId instanceDate false
                                 [ (legId, None, { localDate = instanceDate }, { localDate = instanceDate.PlusDays(daysDue) },
                                    { money = amount }, lifecycle, None, []) ]
-                        return ()
+                        let instanceId = created |> InstanceOrchestration.instance |> Instance.instanceId
+                        let invoiceId =
+                            created |> InstanceOrchestration.invoiceComposites |> List.head
+                            |> InstanceOrchestration.invoice |> Invoice.invoiceId
+                        return instanceId, invoiceId
                     }
 
                 let createLinkedLine legId (description: string) (entryDate: LocalDate) statuses =
@@ -1003,8 +1017,8 @@ type TestDataFixture() =
 
                 let! agreementAId, legAId = createCashFlowAgreement "Fixture agreement A" 30
                 let! agreementBId, legBId = createCashFlowAgreement "Fixture agreement B" 0
-                do! createOpenInstance agreementAId legAId firstOfLastMonth 30
-                do! createOpenInstance agreementBId legBId firstOfLastMonth 0
+                let! _, paidInvoiceAId = createOpenInstance agreementAId legAId firstOfLastMonth 30
+                let! _ = createOpenInstance agreementBId legBId firstOfLastMonth 0
 
                 let classified = [ ("Classified", "Classifier") ]
                 let! paidPostedLineAId =
@@ -1030,8 +1044,8 @@ type TestDataFixture() =
                     |> convertListOfResultsToResultsList
                 journalEntries <- postedJournalEntries @ journalEntries
 
-                do! createOpenInstance agreementAId legAId firstOfThisMonth 30
-                do! createOpenInstance agreementBId legBId firstOfThisMonth 0
+                let! openInstanceAId, openInvoiceAId = createOpenInstance agreementAId legAId firstOfThisMonth 30
+                let! _, openInvoiceBId = createOpenInstance agreementBId legBId firstOfThisMonth 0
 
                 let duplicate = [ ("Duplicate", "Deduplicator") ]
                 let ignored = [ ("Ignored", "Operator") ]
@@ -1047,6 +1061,13 @@ type TestDataFixture() =
                 let cashFlow =
                     { agreementAId = agreementAId
                       agreementBId = agreementBId
+                      legAId = legAId
+                      legBId = legBId
+                      paidInvoiceAId = paidInvoiceAId
+                      openInstanceAId = openInstanceAId
+                      openInvoiceAId = openInvoiceAId
+                      openInvoiceBId = openInvoiceBId
+                      nextInstanceDateA = firstOfThisMonth.PlusMonths(1)
                       paidPostedLineAId = paidPostedLineAId
                       paidPostedLineBId = paidPostedLineBId
                       duplicateLineInWindowId = duplicateLineInWindowId
