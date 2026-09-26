@@ -239,7 +239,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-2.12 REQ-STG-2.13 REQ-STG-2.14 REQ-STG-2.15 REQ-STG-2.16 REQ-STG-2.17 ingested entry has correct line fields`` () =
+    member _.``REQ-STG-2.12 REQ-STG-2.13 REQ-STG-2.14 REQ-STG-2.15 REQ-STG-2.17 REQ-STG-5.10 ingested entry has correct line fields`` () =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
@@ -254,7 +254,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                     |> ``convert AccountId Option to AccountCodeString Option`` context
                 Assert.Equal(Some "F-1270", codeStr)
                 Assert.Equal(Some "Net pay to checking", debitLine |> StageEntryLine.memo |> Option.map JournalEntryLineMemo.value)
-                // parser-assigned lines have no classification_rule_id
+                // 5.10 — a parser-assigned line has no rule recorded against it in the classification run
                 let! debitLineRuleIds = debitLine |> StageTestData.recordedRuleIdsForLine context fullResult.classificationRunId
                 Assert.Empty(debitLineRuleIds)
                 // 2.17 — balanced

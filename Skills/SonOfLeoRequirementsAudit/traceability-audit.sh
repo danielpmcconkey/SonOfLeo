@@ -28,8 +28,15 @@ tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 # definition; IDs later in the line are cross-references.
 for f in "${SPEC_FILES[@]}"; do
     awk '/^## (Withdrawn|Waived from testing|Promotion candidates|Unenforceable)/{exit} {print}' "$f" \
-        | grep -iv 'stricken' | grep -oE "^[[:space:]]*- \*\*$ID_RE" | grep -oE "$ID_RE" || true
+        | grep -iv 'stricken' | grep -vE "^[[:space:]]*- \*\*$ID_RE\*\* \*\(Withdrawn" \
+        | grep -oE "^[[:space:]]*- \*\*$ID_RE" | grep -oE "$ID_RE" || true
 done | sort -u > "$tmp/active"
+
+# Withdrawn in place: a bullet left where it was, its text replaced by
+# "*(Withdrawn <date> — …)*". Counts as withdrawn exactly like a table row.
+for f in "${SPEC_FILES[@]}"; do
+    grep -oE "^[[:space:]]*- \*\*$ID_RE\*\* \*\(Withdrawn" "$f" | grep -oE "$ID_RE" || true
+done | sort -u > "$tmp/withdrawn_inline"
 
 section_ids() {  # $1 = section heading; first table column only
     for f in "${SPEC_FILES[@]}"; do
@@ -37,8 +44,16 @@ section_ids() {  # $1 = section heading; first table column only
             | grep -E '^\|' | cut -d'|' -f2 | grep -oE "$ID_RE" || true
     done | sort -u
 }
-section_ids "Withdrawn"           > "$tmp/withdrawn"
-section_ids "Waived from testing" > "$tmp/waived"
+# A waiver row whose approval column still says "pending" is not a waiver.
+approved_waiver_ids() {
+    for f in "${SPEC_FILES[@]}"; do
+        awk '/^## Waived from testing/ {on=1; next} /^## /{on=0} on' "$f" \
+            | grep -E '^\|' | awk -F'|' '{ if (tolower($(NF-1)) !~ /pending/) print $2 }' \
+            | grep -oE "$ID_RE" || true
+    done | sort -u
+}
+section_ids "Withdrawn" | sort -u - "$tmp/withdrawn_inline" > "$tmp/withdrawn"
+approved_waiver_ids                > "$tmp/waived"
 section_ids "Unenforceable"       > "$tmp/unenforceable"
 
 # ---- scan destinations ------------------------------------------------------
