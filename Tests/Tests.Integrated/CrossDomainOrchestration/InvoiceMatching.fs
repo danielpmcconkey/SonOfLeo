@@ -97,3 +97,43 @@ type InvoiceMatchingTests(fixture: TestDataFixture) =
                 Assert.Equal(0, payments)
             })
         |> railroadWrapper
+
+    // =========================================================================
+    // REQ-CF-12.3 — which staged lines linkage considers
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-CF-12.3 an unlinked line of a Reviewed staged entry that an active Payment Agreement rule claims is linked to that rule's Payment Agreement`` () =
+        Assert.Fail "not implemented"
+
+    // =========================================================================
+    // REQ-CF-13.1 — which Invoices are candidates
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-CF-13.1 an older Invoice whose Payments already exceed its amount is passed over, and a linked line both Invoices' windows cover is paid to the newer Invoice`` () =
+        Assert.Fail "not implemented"
+
+    // =========================================================================
+    // REQ-CF-13.7 — orphaned linked lines
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-CF-13.7 when several eligible linked lines, two on one Payment Agreement and one on another, have no candidate Invoice, the run fails with one error naming every line with its Payment Agreement`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-13.7 an orphaned line whose date only another Payment Agreement's open Invoice covers fails the run with the no-open-Invoice reason, not the overpaid reason`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-13.1 REQ-CF-13.7 an orphaned line whose date only an overpaid Invoice covers fails the run with the overpaid reason, not the no-open-Invoice reason`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-13.7 when one orphan has no covering open Invoice and another is covered only by an overpaid Invoice, the one error gives each line its own reason`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-13.7 a run that fails on an orphaned line, alongside a line that would have been paid, leaves links, Payments, Instances and Invoices as they were before the run`` () =
+        Assert.Fail "not implemented"
