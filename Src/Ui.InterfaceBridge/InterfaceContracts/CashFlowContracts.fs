@@ -1,7 +1,6 @@
 module Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
 
 open System
-open Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
 open NodaTime
 open App.Utility.FieldUpdate
 
@@ -126,39 +125,6 @@ type AgreementReturn = {
     payments: PaymentReturn list
 }
 
-type PaymentAgreementLinkReturn = {
-    paymentAgreementLinkId: Guid
-    paymentAgreementName: string
-    stageEntryLineId: Guid
-    createdAt: Instant
-    modifiedAt: Instant
-}
-
-type PaymentAgreementDecisionReturn = {
-    stageEntryLineId: Guid
-    paymentAgreementName: string option
-    ruleIds: Guid list
-    outcome: string
-}
-
-type InvoiceDecisionOutcomeReturn =
-    | PaymentCreated of Guid
-    | ManyCandidateEntries of Guid list
-    | Overpayment
-
-type InvoiceDecisionReturn = {
-    invoiceId: Guid
-    outcome: InvoiceDecisionOutcomeReturn
-}
-
-type PaymentAgreementClassificationResultReturn = {
-    runId: Guid
-    classificationResults: ClassificationResultReturn list
-    decisionLog: PaymentAgreementDecisionReturn list
-    invoiceDecisionLog: InvoiceDecisionReturn list
-    openInstances: InstanceCompositeReturn list
-}
-
 type PaymentPostingTransitionReturn = {
     paymentId: Guid
     agreementName: string
@@ -269,18 +235,6 @@ type CreatePaymentInput = {
 }
 
 type DeletePaymentInput = { paymentId: Guid }
-
-type CreatePaymentAgreementLinkInput = {
-    paymentAgreementName: string
-    stageEntryLineId: Guid
-}
-
-type UpdatePaymentAgreementLinkInput = {
-    paymentAgreementLinkId: Guid
-    paymentAgreementNameUpdate: FieldUpdate<string>
-}
-
-type DeletePaymentAgreementLinkInput = { paymentAgreementLinkId: Guid }
 
 type FetchAgreementSummaryInput = { agreementName: string }
 

@@ -15,6 +15,7 @@
     <Compile Include="Payment.fs" />
     <Compile Include="PaymentAgreement.fs" />
     <Compile Include="PaymentAgreementLink.fs" />
+    <Compile Include="CashFlowAuditableAction.fs" />
   </ItemGroup>
 
   <ItemGroup>

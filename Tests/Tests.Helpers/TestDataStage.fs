@@ -4,7 +4,7 @@ namespace Tests.Helpers
 open App.DataAccessLayer.DbTransaction
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
-open App.Operation.Audit
+open App.Operation.AuditEnvelope
 open Model
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.Classification

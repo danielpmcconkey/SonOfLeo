@@ -1,7 +1,7 @@
 module App.Session.Context
 
 open App.DataAccessLayer.DbTransaction
-open App.Operation.Audit
+open App.Operation.AuditEnvelope
 
 type DataContext = { dbTransaction: DbTransaction }
 

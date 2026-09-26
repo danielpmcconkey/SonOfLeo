@@ -5,7 +5,7 @@ open App.DataAccessLayer.DbTransaction
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteScalar
-open App.Operation.Audit
+open App.Operation.AuditEnvelope
 open Tests.Helpers.Railroad
 open App.Utility.Result
 open Xunit

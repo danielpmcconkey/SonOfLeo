@@ -1,20 +1,18 @@
 module Ui.InterfaceBridge.Routes.CashFlowRoutes
 
+open App.Operation.CoreAuditableAction
 open App.Utility.Json
 open App.Utility.Result
 open App.DataAccessLayer.DbTransaction
-open App.Operation.Audit
 open App.Session
 open Business.General
-open Business.FinancialServices
-open Business.FinancialServices.CashFlow
 open Business.FinancialServices.CashFlow.CashFlowComponent
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open Business.CrossDomainOrchestration
 open Ui.InterfaceBridge.InterfaceContracts.SharedContracts
 open Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
 open Ui.InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
 open Ui.InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
-open Ui.InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
 open Ui.InterfaceBridge.CommandRoute
 
 let private createUpcomingInstances payload _ =
@@ -26,16 +24,6 @@ let private createUpcomingInstances payload _ =
             let! converted =
                 openInstances |> ``convert [InstanceComposite list] to [InstanceCompositeReturn list]`` context
             return! Json.toJson<InstanceCompositeReturn list> converted
-        })
-
-let private classifyPaymentAgreements _ _ =
-    runCommandRouteAndAutoCompleteTransaction CashFlowClassifyPaymentAgreements (fun context ->
-        result {
-            let! classificationResult = CashFlowOps.classifyPaymentAgreements context
-            let! converted =
-                classificationResult
-                |> ``convert [PaymentAgreementClassificationResult] to [PaymentAgreementClassificationResultReturn]`` context
-            return! Json.toJson<PaymentAgreementClassificationResultReturn> converted
         })
 
 let private transitionPaymentsToPosted _ _ =
@@ -147,42 +135,6 @@ let private deletePayment payload _ =
             return! Json.toJson<InstanceCompositeReturn> converted
         })
 
-let private createPaymentAgreementLink payload _ =
-    runCommandRouteAndAutoCompleteTransaction CashFlowCreatePaymentAgreementLink (fun context ->
-        result {
-            let! input = Json.fromJson<CreatePaymentAgreementLinkInput> payload
-            let! paymentAgreementId =
-                input.paymentAgreementName |> ``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context
-            let stageEntryLineId =
-                input.stageEntryLineId |> DataIngestion.StageEntryComponent.StageEntryLineId.fromGuid
-            let! link =
-                stageEntryLineId |> CashFlowOps.constructNewPaymentAgreementLinkAndPersist context paymentAgreementId
-            let! converted = link |> ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]`` context
-            return! Json.toJson<PaymentAgreementLinkReturn> converted
-        })
-
-let private updatePaymentAgreementLink payload _ =
-    runCommandRouteAndAutoCompleteTransaction CashFlowUpdatePaymentAgreementLink (fun context ->
-        result {
-            let! input = Json.fromJson<UpdatePaymentAgreementLinkInput> payload
-            let! fieldUpdates =
-                input |> ``convert [UpdatePaymentAgreementLinkInput] to [PaymentAgreementLinkFieldUpdates]`` context
-            let! link = fieldUpdates |> PaymentAgreementLink.update context
-            let! converted = link |> ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]`` context
-            return! Json.toJson<PaymentAgreementLinkReturn> converted
-        })
-
-let private deletePaymentAgreementLink payload _ =
-    runCommandRouteAndAutoCompleteTransaction CashFlowDeletePaymentAgreementLink (fun context ->
-        result {
-            let! input = Json.fromJson<DeletePaymentAgreementLinkInput> payload
-            let linkId = input.paymentAgreementLinkId |> PaymentAgreementLinkId.fromGuid
-            let! link = linkId |> PaymentAgreementLink.fetchById context
-            do! linkId |> PaymentAgreementLink.delete context
-            let! converted = link |> ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]`` context
-            return! Json.toJson<PaymentAgreementLinkReturn> converted
-        })
-
 let private fetchAgreementSummary payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
@@ -201,13 +153,6 @@ let cashFlowDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<CreateUpcomingInstancesInput>.Name
         outputContract = typeof<InstanceCompositeReturn list>.Name
         handler = createUpcomingInstances }
-
-      { domain = "CashFlow"
-        verb = "ClassifyPaymentAgreements"
-        description = "Match staged entry lines to payment agreements, record the linkage for each uncontested match, create the payments that follow from it, and return both decision logs alongside the open instances."
-        inputContract = typeof<NoInput>.Name
-        outputContract = typeof<PaymentAgreementClassificationResultReturn>.Name
-        handler = classifyPaymentAgreements }
 
       { domain = "CashFlow"
         verb = "TransitionPaymentsToPosted"
@@ -271,28 +216,6 @@ let cashFlowDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<DeletePaymentInput>.Name
         outputContract = typeof<InstanceCompositeReturn>.Name
         handler = deletePayment }
-
-      { domain = "CashFlow"
-        verb = "CreatePaymentAgreementLink"
-        description = "Link a staged entry line to the payment agreement it satisfies, where classification left the decision to the operator."
-        inputContract = typeof<CreatePaymentAgreementLinkInput>.Name
-        outputContract = typeof<PaymentAgreementLinkReturn>.Name
-        handler = createPaymentAgreementLink }
-
-      { domain = "CashFlow"
-        verb = "UpdatePaymentAgreementLink"
-        description = "Repoint an existing linkage at a different payment agreement."
-        inputContract = typeof<UpdatePaymentAgreementLinkInput>.Name
-        outputContract = typeof<PaymentAgreementLinkReturn>.Name
-        handler = updatePaymentAgreementLink }
-
-      { domain = "CashFlow"
-        verb = "DeletePaymentAgreementLink"
-        description = "Remove a linkage outright, for a staged entry line that is not an obligation at all. Returns the row as it stood before deletion. This is a hard delete, not a void."
-        inputContract = typeof<DeletePaymentAgreementLinkInput>.Name
-        outputContract = typeof<PaymentAgreementLinkReturn>.Name
-        handler = deletePaymentAgreementLink }
-
 
       { domain = "CashFlow"
         verb = "FetchAgreementSummary"

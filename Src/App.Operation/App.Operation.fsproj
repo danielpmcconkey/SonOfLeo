@@ -7,7 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Audit.fs" />
+    <Compile Include="IAuditableAction.fs" />
+    <Compile Include="AuditEnvelope.fs" />
+    <Compile Include="CoreAuditableAction.fs" />
   </ItemGroup>
 
   <ItemGroup>

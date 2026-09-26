@@ -3,12 +3,13 @@ module Ui.InterfaceBridge.Routes.AccountRoutes
 open App.Utility.Result
 open App.Utility.Json
 open App.DataAccessLayer.DbTransaction
-open App.Operation.Audit
+open App.Operation.CoreAuditableAction
 open App.Session
 open Business.General
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.LedgerAuditableAction
 open Business.CrossDomainOrchestration
 open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
 open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters

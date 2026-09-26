@@ -5,10 +5,11 @@ open App.Utility.Json
 open App.Utility.FieldUpdate
 open App.Utility.Result
 open App.DataAccessLayer.DbTransaction
+open App.Operation.CoreAuditableAction
 open App.Session
-open App.Operation.Audit
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger.LedgerAuditableAction
 open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.JournalEntryOrchestration
 open Business.CrossDomainOrchestration.JournalEntryVoiding

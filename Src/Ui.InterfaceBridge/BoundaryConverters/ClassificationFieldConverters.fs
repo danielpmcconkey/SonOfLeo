@@ -1,11 +1,14 @@
 module Ui.InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
 
+open App.Utility
 open App.Utility.IAppError
 open App.Utility.Result
 open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.CashFlow
+open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.Classification
 open Business.FinancialServices.Classification.ClassificationComponent
 open Business.CrossDomainOrchestration
@@ -15,7 +18,6 @@ open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open Ui.InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 open Ui.InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
 open Ui.InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
-open Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
 open Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
 
 let ``convert [FieldMatch] to [FieldMatchContract]``
@@ -322,6 +324,16 @@ let ``convert [PaymentAgreementDecision] to [PaymentAgreementDecisionReturn]``
             ruleIds = decision.ruleIds |> List.map ClassificationRuleId.value
             outcome = decision.outcome |> PaymentAgreementDecisionOutcome.toString } }
 
+let ``convert [InvoiceDecision] to [InvoiceDecisionReturn]`` (decision: InvoiceDecision) : InvoiceDecisionReturn =
+    let outcome =
+        match decision.outcome with
+        | CashFlowComponent.PaymentCreated lineId ->
+            InvoiceDecisionOutcomeReturn.PaymentCreated(lineId |> StageEntryLineId.value)
+        | CashFlowComponent.ManyCandidateEntries lineIds ->
+            InvoiceDecisionOutcomeReturn.ManyCandidateEntries(lineIds |> List.map StageEntryLineId.value)
+        | CashFlowComponent.Overpayment -> InvoiceDecisionOutcomeReturn.Overpayment
+    { invoiceId = decision.invoiceId |> InvoiceId.value; outcome = outcome }
+
 let ``convert [PaymentAgreementClassificationResult] to [PaymentAgreementClassificationResultReturn]``
     (context: Context.Context)
     (classificationResult: InstanceOrchestration.PaymentAgreementClassificationResult)
@@ -354,3 +366,32 @@ let ``convert [PaymentAgreementClassificationResult] to [PaymentAgreementClassif
             decisionLog = sortedDecisionLog
             invoiceDecisionLog = sortedInvoiceDecisionLog
             openInstances = openInstances } }
+
+let ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]``
+    (context: Context.Context)
+    (link: PaymentAgreementLink.PaymentAgreementLink)
+    : Result<PaymentAgreementLinkReturn, IAppError> =
+    result {
+        let! paymentAgreementName =
+            link
+            |> PaymentAgreementLink.paymentAgreementId
+            |> ``convert [PaymentAgreementId] to [PaymentAgreementNameString]`` context
+        return {
+            paymentAgreementLinkId =
+                link |> PaymentAgreementLink.paymentAgreementLinkId |> PaymentAgreementLinkId.value
+            paymentAgreementName = paymentAgreementName
+            stageEntryLineId = link |> PaymentAgreementLink.stageEntryLineId |> StageEntryLineId.value
+            createdAt = link |> PaymentAgreementLink.createdAt
+            modifiedAt = link |> PaymentAgreementLink.modifiedAt } }
+
+let ``convert [UpdatePaymentAgreementLinkInput] to [PaymentAgreementLinkFieldUpdates]``
+    (context: Context.Context)
+    (input: UpdatePaymentAgreementLinkInput)
+    : Result<PaymentAgreementLink.PaymentAgreementLinkFieldUpdates, IAppError> =
+    result {
+        let linkId = input.paymentAgreementLinkId |> PaymentAgreementLinkId.fromGuid
+        let! paymentAgreementIdUpdate =
+            input.paymentAgreementNameUpdate
+            |> FieldUpdate.convertFieldUpdateToNewTypeFallible (
+                ``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context)
+        return { linkIdToUpdate = linkId; paymentAgreementIdUpdate = paymentAgreementIdUpdate } }

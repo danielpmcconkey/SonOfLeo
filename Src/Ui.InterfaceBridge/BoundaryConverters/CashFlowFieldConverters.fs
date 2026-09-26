@@ -264,33 +264,6 @@ let ``convert [Agreement] to [AgreementReturn]``
             invoices = invoices |> List.sortBy (fun i -> i.invoiceDate, i.amount, i.invoiceId)
             payments = payments |> List.sortBy (fun p -> p.postedToFiDate, p.amount, p.paymentId) } }
 
-let ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]``
-    (context: Context.Context)
-    (link: PaymentAgreementLink.PaymentAgreementLink)
-    : Result<PaymentAgreementLinkReturn, IAppError> =
-    result {
-        let! paymentAgreementName =
-            link
-            |> PaymentAgreementLink.paymentAgreementId
-            |> ``convert [PaymentAgreementId] to [PaymentAgreementNameString]`` context
-        return {
-            paymentAgreementLinkId =
-                link |> PaymentAgreementLink.paymentAgreementLinkId |> PaymentAgreementLinkId.value
-            paymentAgreementName = paymentAgreementName
-            stageEntryLineId = link |> PaymentAgreementLink.stageEntryLineId |> StageEntryLineId.value
-            createdAt = link |> PaymentAgreementLink.createdAt
-            modifiedAt = link |> PaymentAgreementLink.modifiedAt } }
-
-let ``convert [InvoiceDecision] to [InvoiceDecisionReturn]`` (decision: InvoiceDecision) : InvoiceDecisionReturn =
-    let outcome =
-        match decision.outcome with
-        | CashFlowComponent.PaymentCreated lineId ->
-            InvoiceDecisionOutcomeReturn.PaymentCreated(lineId |> StageEntryLineId.value)
-        | CashFlowComponent.ManyCandidateEntries lineIds ->
-            InvoiceDecisionOutcomeReturn.ManyCandidateEntries(lineIds |> List.map StageEntryLineId.value)
-        | CashFlowComponent.Overpayment -> InvoiceDecisionOutcomeReturn.Overpayment
-    { invoiceId = decision.invoiceId |> InvoiceId.value; outcome = outcome }
-
 let ``convert [PaymentPostingTransition] to [PaymentPostingTransitionReturn]``
     (transition: PaymentPostingTransition)
     : PaymentPostingTransitionReturn =
@@ -571,18 +544,6 @@ let ``convert [CreatePaymentInput] to [InstanceCompositeUpdate]``
             invoiceCompositeUpdates = [ invoiceCompositeUpdate ]
             newInvoices = [] }
     }
-
-let ``convert [UpdatePaymentAgreementLinkInput] to [PaymentAgreementLinkFieldUpdates]``
-    (context: Context.Context)
-    (input: UpdatePaymentAgreementLinkInput)
-    : Result<PaymentAgreementLink.PaymentAgreementLinkFieldUpdates, IAppError> =
-    result {
-        let linkId = input.paymentAgreementLinkId |> PaymentAgreementLinkId.fromGuid
-        let! paymentAgreementIdUpdate =
-            input.paymentAgreementNameUpdate
-            |> FieldUpdate.convertFieldUpdateToNewTypeFallible (
-                ``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context)
-        return { linkIdToUpdate = linkId; paymentAgreementIdUpdate = paymentAgreementIdUpdate } }
 
 let ``convert [CreatePaymentAgreementFieldsInput] to [PaymentAgreementPrimitives]``
     (context: Context.Context)

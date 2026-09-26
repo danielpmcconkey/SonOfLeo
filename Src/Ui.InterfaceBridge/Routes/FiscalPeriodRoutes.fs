@@ -3,10 +3,11 @@ module Ui.InterfaceBridge.Routes.FiscalPeriodRoutes
 open App.Utility.Json
 open App.Utility.Result
 open App.DataAccessLayer.DbTransaction
-open App.Operation.Audit
+open App.Operation.CoreAuditableAction
 open App.Session
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
+open Business.FinancialServices.Ledger.LedgerAuditableAction
 open Business.CrossDomainOrchestration.FiscalPeriodCreation
 open Ui.InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
 open Ui.InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters

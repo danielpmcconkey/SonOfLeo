@@ -1,7 +1,7 @@
 namespace Tests.Integrated.Business.FinancialServices.Ledger
 
 open App.DataAccessLayer.DbTransaction
-open App.Operation.Audit
+open App.Operation.AuditEnvelope
 open App.Utility.AppError
 open Xunit
 open Tests.Helpers

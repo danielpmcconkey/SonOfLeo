@@ -4,7 +4,7 @@ open System
 open App.DataAccessLayer.DbTransaction
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
-open App.Operation.Audit
+open App.Operation.AuditEnvelope
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.FiscalPeriodComponent

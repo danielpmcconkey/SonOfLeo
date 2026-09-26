@@ -3,7 +3,7 @@ module Ui.InterfaceBridge.Routes.ReportRoutes
 open App.Utility.Json
 open App.Utility.Result
 open App.DataAccessLayer.DbTransaction
-open App.Operation.Audit
+open App.Operation.CoreAuditableAction
 open App.Session
 open Business.CrossDomainOrchestration.TrialBalanceReport
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts

@@ -2,7 +2,7 @@
 
 open App.DataAccessLayer.DbTransaction
 open App.DataAccessLayer.ExecuteScalar
-open App.Operation.Audit
+open App.Operation.AuditEnvelope
 open Tests.Helpers
 open App.Utility.AppError
 

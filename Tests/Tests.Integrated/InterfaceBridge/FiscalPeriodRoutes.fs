@@ -2,7 +2,7 @@ module Tests.Integrated.InterfaceBridge.FiscalPeriodRoutes
 
 open App.DataAccessLayer.DbTransaction
 open App.Utility.Json.Json
-open App.Operation.Audit
+open App.Operation.AuditEnvelope
 open Model
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers

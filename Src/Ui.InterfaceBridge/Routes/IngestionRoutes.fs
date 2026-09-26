@@ -7,12 +7,13 @@ open App.Utility.File
 open App.Utility.Json
 open App.Utility.Result
 open App.DataAccessLayer.DbTransaction
-open App.Operation.Audit
+open App.Operation.CoreAuditableAction
 open App.Session
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.DataIngestion.StageEntryHeader
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
 open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.TrialBalanceReport
 open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts

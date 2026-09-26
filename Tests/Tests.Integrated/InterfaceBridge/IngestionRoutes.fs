@@ -5,7 +5,7 @@ open System.IO
 open App.DataAccessLayer.DbTransaction
 open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
-open App.Operation.Audit
+open App.Operation.AuditEnvelope
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.Ledger

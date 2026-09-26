@@ -14,6 +14,7 @@
     <Compile Include="StageEntryStatusTransition.fs" />
     <Compile Include="StageEntryHeader.fs" />
     <Compile Include="StageEntryLine.fs" />
+    <Compile Include="DataIngestionAuditableAction.fs" />
   </ItemGroup>
 
   <ItemGroup>

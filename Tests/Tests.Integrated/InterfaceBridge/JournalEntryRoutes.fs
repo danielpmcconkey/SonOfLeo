@@ -4,7 +4,7 @@ open System
 open App.DataAccessLayer.DbTransaction
 open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 open App.Utility.Json.Json
-open App.Operation.Audit
+open App.Operation.AuditEnvelope
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent

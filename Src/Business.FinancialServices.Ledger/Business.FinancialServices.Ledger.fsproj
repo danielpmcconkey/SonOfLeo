@@ -17,6 +17,7 @@
     <Compile Include="JournalEntryLine.fs" />
     <Compile Include="JournalEntryExternalReference.fs" />
     <Compile Include="JournalEntryComment.fs" />
+    <Compile Include="LedgerAuditableAction.fs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -14,8 +14,8 @@
     <Compile Include="InterfaceContracts\FiscalPeriodContracts.fs" />
     <Compile Include="InterfaceContracts\JournalContracts.fs" />
     <Compile Include="InterfaceContracts\IngestionContracts.fs" />
-    <Compile Include="InterfaceContracts\ClassificationContracts.fs" />
     <Compile Include="InterfaceContracts\CashFlowContracts.fs" />
+    <Compile Include="InterfaceContracts\ClassificationContracts.fs" />
     <Compile Include="InterfaceContracts\ReportsContracts.fs" />
     <Compile Include="BoundaryConverters\SharedContractConverters.fs" />
     <Compile Include="BoundaryConverters\MoneyFieldConverters.fs" />
