@@ -39,6 +39,37 @@ Behavioral specs for the reporting domain. Reports are read-only computations ov
 - **REQ-RPT-3.6** Each account row must display three labeled monetary values: total credits, total debits, and net balance.
 
 
+**Design note — net worth.** Investment positions are not in the SonOfLeo ledger until the portfolio domain migrates (roadmap step 3). Until then, net worth is assembled outside the system from the balance sheet below (§5) plus position values from the portfolio source.
+
+## 4. Reconciliation
+
+Reconciliation compares ledger balances to balances captured from each institution at extract time. The comparison is arithmetic, so it is computed, not judged; judgment applies only to explaining a non-zero delta.
+
+- **REQ-RPT-4.1** The system must provide a reconciliation computation. Input: a list of (account code, external balance, as-of Calendar Date). Output, one row per input: account code, account name, as-of date, external balance, ledger net balance as of that date, and delta (external minus ledger).
+- **REQ-RPT-4.2** The ledger net balance follows the trial balance rules: voided entries excluded (REQ-RPT-1.8), entries dated after the as-of date excluded (REQ-RPT-1.9), net computed in the account's normal-balance direction (REQ-RPT-1.10). A parent account's balance includes its descendants (REQ-RPT-1.5). External balances are supplied in the same direction — for example, a credit card balance owed is positive.
+- **REQ-RPT-4.3** An account code that does not resolve to an existing account, or that appears more than once in the input, fails the computation with a typed error naming the code.
+- **REQ-RPT-4.4** The system must provide a means to run the reconciliation computation against the ledger as it would stand after posting every postable staged entry, without modifying ledger or staging data. Posting is simulated exactly as in shadow post (REQ-STG-8.2, REQ-STG-8.4).
+  - *Why:* The shadow recon loop is what keeps errors out of an indelible ledger. It must compare against the simulated post, and the comparison must be mechanical, so "reconciled" is a computed fact rather than a model's reading of two tables. (2026-09-26)
+- **REQ-RPT-4.5** Reconciliation is read-only and makes no judgment. A non-zero delta is output, not an error.
+
+## 5. Balance-sheet integrity
+
+- **REQ-RPT-5.1** The system must provide a balance-sheet integrity computation that accepts an as-of Calendar Date and returns: total debits and total credits across all non-voided journal entry lines dated on or before that date, and whether they are equal.
+  - *Why:* The only thing that can truly break the books is a one-legged journal entry. This is that assertion. (2026-09-26)
+- **REQ-RPT-5.2** The computation also returns, as of the same date, the net balance of each account type (Asset, Liability, Equity, Revenue, Expense) in its normal-balance direction; net income (Revenue minus Expense); and the residual: Assets minus (Liabilities plus Equity plus net income).
+  - *Why:* With no closing entries, lifetime net income sits in the revenue and expense accounts, so Assets = Liabilities + Equity does not hold on its own. That is correct, not a defect. Returning the full identity lets anyone confirm it at a glance and stops the net-income gap from being re-investigated as a discrepancy. (2026-09-26)
+- **REQ-RPT-5.3** Unequal debits and credits, or a non-zero residual, are returned as data, not raised as an error. The caller decides whether to stop.
+
+## 6. Period activity
+
+The spending view: what came in and what went out over a date range, with the transactions behind each total.
+
+- **REQ-RPT-6.1** The system must provide a period activity computation that accepts a begin and an end Calendar Date (inclusive) and returns, for every Revenue and Expense account with activity in the range: account code, account name, net total for the range in the account's normal-balance direction, and each contributing journal entry line (entry date, journal entry ID, journal entry description, line type, amount, memo).
+- **REQ-RPT-6.2** Voided journal entries contribute nothing to period activity.
+- **REQ-RPT-6.3** Accounts are ordered as in the trial balance (REQ-RPT-1.6); lines within an account are ordered by entry date, then journal entry ID.
+- **REQ-RPT-6.4** Reconciliation (§4), balance-sheet integrity (§5) and period activity (§6) support the output modes of §2: data-only, and rendered HTML written to a caller-provided path.
+
+
 ## Waived from testing
 
 Active requirements that are enforced (by type system, code review, schema, or

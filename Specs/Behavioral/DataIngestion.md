@@ -23,10 +23,10 @@ Behavioral specs for the staging and ingestion pipeline — the mechanism by whi
 **Scope exclusions — deliberately not supported by the staging pipeline.** These are design decisions, not gaps. Each was evaluated and excluded during the initial design (2026-08-08).
 
 1. **Journal entry comments.** The staging format carries no comment fields. Comments are editorial artifacts that describe relationships and corrections which do not exist until after posting. Attach comments after posting via the CLI (JournalEntryCrud §5).
-2. **Back-trace from staging to ledger.** The staged entry does not record which journal entry it became after posting. The staged line does not record which journal entry line it became. Tracing from staging to ledger is not a system concern — the staging pipeline's job ends at posting. If provenance is needed, the journal entry's external reference (constructed from the staged entry's fi_source and fi_reference at posting time) provides the link back to the original FI data.
+2. ~~**Back-trace from staging to ledger.**~~ *Reversed 2026-09-26.* Posting now records the journal entry a staged entry became, and the journal entry line each staged line became (REQ-STG-9.10). The payment-to-posted transition (CashFlow §10) and the void reversal (REQ-JE-4.11) both have to follow a staged line to its ledger line; the external reference alone cannot identify a line.
 3. **Multiple external references per journal entry.** A staged entry carries one fi_source and one fi_reference, producing exactly one external reference on the resulting JE. An imported transaction has one financial-institution identity. Additional external references can be attached after posting (REQ-JE-4.10).
-4. **Obligation instance linking.** The staging pipeline has no mechanism for linking journal entries to obligation instances. Obligation linking requires knowledge of the instance ID, which comes from the obligation domain, not the FI data. Link after posting via the CLI.
-5. **Voids, adjustments, and corrections.** Staging handles incoming financial data only. Voids and corrections operate on existing ledger state via dedicated CLI commands (JournalEntryCrud §4).
+4. ~~**Obligation instance linking.**~~ *Reversed 2026-09-26.* Staged lines are linked to payment agreements and matched to invoices before posting, by the cash flow domain (CashFlow §12–§13). The link lives in the cash flow domain, not on the staged line.
+5. **Voids, adjustments, and corrections.** Staging handles incoming financial data only. Voids and corrections operate on existing ledger state via dedicated CLI commands (JournalEntryCrud §4). One consequence reaches back into staging: voiding a journal entry that was posted from a staged entry returns that staged entry to `'Reviewed'` so it can be corrected and posted again (REQ-STG-4.7, REQ-JE-4.11). (Amended 2026-09-26)
 6. **Period close entries.** Closing and reversing entries are domain operations, not imported data.
 7. **Classifier override of parser-assigned accounts.** The classification rules engine can only assign an account where the staged line's account is null. It cannot override a value assigned by the parser. Manual override is available via the review step (§6). This ensures that a parser's deterministic decomposition is authoritative within its domain.
 
@@ -113,7 +113,7 @@ The base staging format is the interface contract between bespoke parsers and th
 ## 4. Status lifecycle
 
 - **REQ-STG-4.1** A staged entry's status must be one of: `'Ingested'`, `'Classified'`, `'NoMatch'`, `'Conflict'`, `'Reviewed'`, `'Duplicate'`, `'Posted'`, `'Ignored'`.
-- **REQ-STG-4.2** `'Posted'` is a terminal status. No transitions out of `'Posted'` are permitted.
+- **REQ-STG-4.2** `'Posted'` is a terminal status. No transitions out of `'Posted'` are permitted, except the void reversal in REQ-STG-4.7. (Amended 2026-09-26)
 - **REQ-STG-4.3** Every status transition must create an audit record in `ingestion.staged_entry_audit`.
 - **REQ-STG-4.4** A staged entry is postable when its status is `'Classified'` or `'Reviewed'`. No additional filtering (e.g. line-level account presence) is applied — if the upstream invariants are sound, all lines have an account by the time an entry reaches these statuses. If they do not, posting fails loudly (REQ-STG-9.4) rather than silently excluding the entry.
 - **REQ-STG-4.5** `'Ignored'` marks an entry that should not be posted due to data problems at the source. The deduplication pass must treat `'Ignored'` entries as matches — re-importing a transaction that was deliberately ignored must flag the new entry as duplicate, not silently re-admit it.
@@ -146,11 +146,15 @@ Duplicate  → Ignored     (operator deliberately excludes the entry)
 Ignored    → Reviewed    (operator resurrects a previously ignored entry)
 Reviewed   → Ignored     (operator deliberately excludes the entry)
 Reviewed   → Posted      (batch post)
+Posted     → Reviewed    (the journal entry posted from this entry was voided; REQ-STG-4.7)
 ```
 
   - Setting a staged entry to the status it already has is not a transition: nothing is written and no audit record is created. Classification re-runs rely on this, since they re-derive the status of every entry they touch and many land where they started.
   - *Why:* The four classification re-run transitions out of `'NoMatch'` and `'Conflict'` exist because classification runs over those statuses as well as `'Ingested'` (REQ-STG-5.1). (2026-09-26)
 
+
+- **REQ-STG-4.7** When the journal entry posted from a staged entry is voided, the staged entry transitions from `'Posted'` to `'Reviewed'` with change mechanism `'Operator'`, as part of the void (REQ-JE-4.11). No other path out of `'Posted'` exists.
+  - *Why:* Correcting an imported transaction is void-and-repost. Without this path the staged entry stays `'Posted'`, its fi_reference blocks re-import as a duplicate (REQ-STG-7.2 counts `'Posted'` entries), and the only way back into the ledger is a hand-built journal entry that has lost its provenance. `'Reviewed'` because the operator is now the authority on this entry, and a `'Reviewed'` entry is postable (REQ-STG-4.4) and exempt from dedup (REQ-STG-7.2). (2026-09-26)
 
 ## 5. Classification behaviors
 
@@ -177,6 +181,11 @@ The classification step runs the vendor classification rules engine against stag
   - *Why:* Original spec auto-transitioned to `'Reviewed'` on any line modification. Overruled — manual intervention is the highest authority tier, and the operator knows the intended status. Inferring it revokes that authority. (2026-08-16)
 - **REQ-STG-6.3** The operator may override a duplicate flag, transitioning the entry's status from `'Duplicate'` to `'Reviewed'`.
   - *Why:* Legitimate duplicate transactions exist (two identical charges on the same day). The operator, not the system, makes this call. (2026-08-08)
+- **REQ-STG-6.4** The system must provide a means for the operator to add lines to a staged entry and to remove lines from it, in the same operation as any other manual update (REQ-STG-6.2). Validation applies to the entry as it stands after the whole operation: it must satisfy every staged-entry requirement in §2, in particular at least two lines (REQ-STG-2.9) and balance (REQ-STG-2.17). An operation whose result fails validation changes nothing.
+  - *Why:* One FI line often carries more than one economic purpose. A tenant payment covers rent and a utility share that post to different revenue accounts; a mortgage payment covers principal, interest and escrow. The split depends on data the parser may not have when it runs (the tenant's invoice can postdate the parse), so the operator must be able to split in review. Validating only the final state is what makes a split possible at all: reducing one line and adding another passes through an unbalanced intermediate. (2026-09-26)
+- **REQ-STG-6.5** A staged line that is linked to a payment agreement (CashFlow §12) or referenced by a Payment cannot be removed. The operation fails with a typed error naming the line; the link or Payment must be removed first.
+  - *Why:* Removing the line would orphan the link or Payment that points at it. (2026-09-26)
+- **REQ-STG-6.6** Lines cannot be added to or removed from a staged entry whose status is `'Posted'`.
 
 
 ## 7. Deduplication behaviors
@@ -188,6 +197,23 @@ The classification step runs the vendor classification rules engine against stag
   - *Why:* Prevents re-importing transactions that were posted in a prior cycle. Voided entries are excluded because voiding is a soft delete — the economic event the entry recorded has been reversed, so its external reference should not block re-import of the same transaction. (2026-08-08, voided exclusion clarified 2026-08-25)
 - **REQ-STG-7.4** Stricken.
 - **REQ-STG-7.5** Flagging a staged entry as duplicate must not alter its lines or their account assignments.
+
+### Transfer pairing
+
+A transfer between two accounts that are both imported appears twice: once in each institution's export. Each side, once its accounts are assigned, describes the same journal entry. Reference-based dedup (REQ-STG-7.2, REQ-STG-7.3) cannot see this — the two sides carry different sources and references.
+
+- **REQ-STG-7.6** The system must provide a means to detect transfer pairs among staged entries.
+  - *Why:* Posting both sides doubles the movement on both accounts. LeoBloom handled this by convention (one importer owns each transfer; the other side is skipped by hand), which lived in operator memory and failed silently. (2026-09-26)
+- **REQ-STG-7.7** Two staged entries form a transfer pair when all of the following hold: (a) they come from different sources; (b) every line on both entries has an assigned account; (c) the two entries would produce the same journal entry lines — the same accounts, each with the same line type and the same amount; (d) their entry dates are no more than a caller-supplied number of days apart.
+  - *Why:* (c) is the whole definition of "the same movement recorded twice." It needs no notion of cash accounts or transfer vocabulary, and it cannot pair two entries that would post differently. (b) makes pairing run after account classification — before it, the non-cash side of each entry is unknown. (2026-09-26)
+- **REQ-STG-7.8** An entry is a pairing candidate only when its status is `'Classified'` or `'Reviewed'`. An entry's counterpart may additionally have status `'Posted'`.
+  - *Why:* A transfer whose other side posted in a prior week must still be caught when the second side arrives. (2026-09-26)
+- **REQ-STG-7.9** When an entry has exactly one counterpart, and that counterpart has exactly one counterpart (the entry itself), the pair is resolved. The survivor is chosen by the first rule that decides it: (1) the entry with status `'Posted'`; (2) the entry with status `'Reviewed'`; (3) the entry with the earlier entry date; (4) the entry ingested first. The other entry transitions to `'Duplicate'` with change mechanism `'Deduplicator'`. When both entries are `'Reviewed'`, neither is flagged and the pair is reported.
+  - *Why:* A `'Reviewed'` entry is never flagged because the operator outranks the deduplicator (REQ-STG-7.2). Otherwise the earlier date wins because it is when the money left, which is the date the journal entry should carry. (2026-09-26)
+- **REQ-STG-7.10** When an entry has more than one possible counterpart, no entry in that group is flagged. The group is reported for the operator.
+  - *Why:* Two identical transfers in the same window are indistinguishable by data. Code does not break ties anywhere in this system. (2026-09-26)
+- **REQ-STG-7.11** The pairing operation returns every resolved pair (survivor and flagged entry) and every unresolved group.
+- **REQ-STG-7.12** Flagging an entry as a transfer duplicate must not alter its lines or their account assignments.
 
 
 ## 8. Shadow post behaviors
@@ -213,6 +239,8 @@ The classification step runs the vendor classification rules engine against stag
   - *Why:* All-or-nothing prevents a half-posted run that requires manual reconciliation to determine what went in and what did not. (2026-08-08)
 - **REQ-STG-9.9** The system must produce one journal entry per staged entry. Staged entries are not combined into aggregate journal entries.
   - *Why:* One-to-one mapping preserves auditability. (2026-08-08)
+- **REQ-STG-9.10** On posting, the system must record on the staged entry the ID of the journal entry it produced, and on each staged line the ID of the journal entry line it produced. Staged lines are paired to journal entry lines by account, line type and amount, not by position; each journal entry line pairs with exactly one staged line.
+  - *Why:* See scope exclusion 2 (reversed). (2026-09-26)
 
 
 ## 10. Staged entry query behaviors

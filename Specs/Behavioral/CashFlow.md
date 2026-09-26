@@ -55,13 +55,19 @@ References: Instance, Payment Agreement.
 
 ### Payment (Event)
 
-A receipt record. A Payment is created when cash has been identified as having moved — either in the staging area (linked to a staged entry) or in the ledger (linked to a journal entry). A Payment always has a transaction pointer: at least one of a Staged Entry Header ID or a Journal Entry Header ID must be present. Both may be present — the staged entry link is provenance, the journal entry link is current truth. In the F# model, the pointer resolves to one value (Posted takes precedence). A Payment progresses from Staged to Posted as the underlying data moves through the ingestion pipeline.
+A receipt record. A Payment is created when cash has been identified as having moved — either in the staging area (linked to a staged entry) or in the ledger (linked to a journal entry). A Payment always has a transaction pointer: at least one of a staged entry line ID or a journal entry line ID must be present. Both may be present — the staged line is provenance, the journal entry line is current truth. The pointer resolves to one value (Posted takes precedence). A Payment progresses from Staged to Posted as the underlying data moves through the ingestion pipeline.
 
-Payment amount is derived, not stored. The amount is computed from the journal entry line or staged entry line that the Payment's transaction pointer references, using the parent Master Agreement's flow direction and the parent Payment Agreement's accounts to identify the correct line. When both pointers are present, the journal entry line is authoritative. One line per leg per entry is a documented assumption.
+Payment amount is derived, not stored: it is the amount of the line the transaction pointer references. When both pointers are present, the journal entry line is authoritative.
 
 Every Invoice has zero or more Payments. An Invoice with no Payments is an unfulfilled obligation. Partial payments produce additional Payment records against the same Invoice.
 
-References: Invoice, Transaction Pointer (Staged Entry Header or Journal Entry Header — required).
+References: Invoice, Transaction Pointer (staged entry line or journal entry line — required).
+
+### Payment Agreement Link
+
+Records that a staged line is the cash movement for a Payment Agreement. Links are created by classification against payment-agreement rules or by the operator (§12), and are the input to invoice matching (§13).
+
+References: Payment Agreement, staged entry line.
 
 
 ## 2. Valid and invalid data states — Master Agreement
@@ -143,10 +149,10 @@ References: Invoice, Transaction Pointer (Staged Entry Header or Journal Entry H
 - **REQ-CF-6.1** Payment ID cannot be null
 - **REQ-CF-6.2** Payment ID must be unique
 - **REQ-CF-6.3** Payment must reference a valid Invoice ID
-- **REQ-CF-6.4** Payment must have a transaction pointer. At least one of Staged Entry Header ID or Journal Entry Header ID must be present. Both may be present: a Payment is created pointing to a staged entry, and after posting, the journal entry header ID is added while the staged entry header ID is retained as provenance. In the F# model, the transaction pointer is a discriminated union that resolves to one value — when both are present, the journal entry header (Posted) takes precedence. In the database, this is represented as two nullable columns (`stage_entry_header_id` and `journal_entry_header_id`), with an application-layer constraint that at least one is non-null.
-  - *Why:* The staged entry link is provenance (the FI export that proved cash moved). The journal entry link is current truth (the ledger record). Both are worth keeping. (2026-08-28, revised 2026-08-29)
-- **REQ-CF-6.5** Payment amount is derived, not stored. The amount is computed by joining through the Payment's transaction pointer to the journal entry line (when Posted) or staged entry line (when Staged), filtered by the parent Master Agreement's flow direction and the parent Payment Agreement's accounts. For Income: the credit account's Credit line amount. For Outgo: the debit account's Debit line amount. When both pointers are present, the journal entry line is authoritative. One line per leg per entry is a documented assumption — the derivation expects exactly one matching line per pointer.
-  - *Why:* The cash amount lives in the ledger/stage data, not duplicated on the Payment record. The Payment is a link, not a copy. (2026-08-29)
+- **REQ-CF-6.4** Payment must have a transaction pointer. At least one of a staged entry line ID or a journal entry line ID must be present. Both may be present: a Payment is created pointing to a staged line, and after posting, the journal entry line ID is added while the staged line ID is retained as provenance. When both are present, the journal entry line (Posted) takes precedence.
+  - *Why:* The staged line is provenance (the FI export that proved cash moved). The journal entry line is current truth (the ledger record). Both are worth keeping. Line-level rather than header-level because one entry can satisfy several legs — a split tenant payment carries a rent line and a utility line, each paying a different invoice. (2026-08-28, revised 2026-08-29, moved to line level 2026-09-26)
+- **REQ-CF-6.5** Payment amount is derived, not stored. It is the amount of the journal entry line the transaction pointer references when Posted, or of the staged line when Staged.
+  - *Why:* The cash amount lives in the ledger/stage data, not duplicated on the Payment record. The Payment is a link, not a copy. A line-level pointer names the leg directly, so no account filtering is needed to find it. (2026-08-29, revised 2026-09-26)
 - **REQ-CF-6.6** Posted-to-FI date may be null. When non-null, it is a Calendar Date representing when the financial institution processed the payment.
 - **REQ-CF-6.7** Payment memo may be null. When non-null, memo length cannot exceed 2000 characters and cannot be whitespace only (post-trim, per REQ-SYS-1.1).
 - **REQ-CF-6.8** *(Withdrawn 2026-08-29 — replaced by REQ-CF-9.1. The sum constraint is an Invoice lifecycle check, not a Payment creation constraint.)*
@@ -187,7 +193,7 @@ The cash-flow projection is a read-only, deterministic operation that computes t
 
 ## 9. Invoice lifecycle constraints
 
-The Invoice owns three independent lifecycle dimensions — invoice state, payment state, and posted state — plus an optional blocker. These dimensions are not a state machine with mandatory transitions: any valid value may be set directly (e.g. an Outgo invoice may be created as 'InvoiceReceived' without passing through 'InvoiceExpected'). However, certain combinations are invalid given the Invoice's current Payments.
+The Invoice owns three independent lifecycle dimensions — invoice state, payment state, and posted state — plus an optional blocker. Invoice state and blocker are set by the operator; any valid value may be set directly (e.g. an Outgo invoice may be created as 'InvoiceReceived' without passing through 'InvoiceExpected'). Payment state and posted state are derived from the Invoice's Payments (REQ-CF-9.8 through REQ-CF-9.10) and cannot be set by any caller. (Amended 2026-09-26)
 
 These constraints are validated by the orchestrator after any Invoice creation or update: persist the new state, fetch the resulting composite (Invoice + its Payments), validate the composite, rollback on failure. The diamond-relation constraint (REQ-CF-5.5) is also validated as part of this composite check.
 
@@ -205,31 +211,73 @@ These constraints are validated by the orchestrator after any Invoice creation o
   - *Why:* Full ledger posting means every Payment has been promoted from staging to the ledger. A Payment still pointing only at a staged entry is not posted. (2026-08-29)
 - **REQ-CF-9.7** Posted state cannot be 'PartiallyPosted' unless at least one Payment for the Invoice has a journal entry header ID.
   - *Why:* "Partially posted" requires evidence that at least one Payment has reached the ledger. (2026-08-29)
+- **REQ-CF-9.8** Payment state is derived: 'NotYetPaid' when the Invoice has no Payments; 'FullyPaid' when the sum of its Payment amounts equals the Invoice amount; otherwise 'PartiallyPaid'.
+- **REQ-CF-9.9** Posted state is derived: 'NotHandled' when no Payment is Posted; 'PostedToLedger' when every Payment is Posted and payment state is 'FullyPaid'; otherwise 'PartiallyPosted'.
+- **REQ-CF-9.10** Any operation that creates, re-points, or removes a Payment must re-derive the payment state and posted state of the affected Invoice, and the is-fulfilled flag of its Instance, in the same transaction. An Instance is fulfilled when it has at least one Invoice and every Invoice is 'FullyPaid'.
+  - *Why:* Derived state that is recomputed only by some operations drifts. Every Saturday decision (bills to chase, cash coverage, what still needs matching) reads these three values. (2026-09-26)
+- **REQ-CF-9.11** A caller-supplied value for payment state, posted state, or is-fulfilled is rejected with a typed error.
 
 
 ## 10. Payment-to-posted transition
 
 A deterministic batch operation that runs after staged entries have been posted to the ledger (Phase 7 of the Saturday routine). It ensures that Payments tracking cash movement through staging are updated to reflect the corresponding journal entries, and that Invoice posted states are updated accordingly.
 
-- **REQ-CF-10.1** The transition identifies all Payments whose transaction pointer resolves to Staged (staged entry header ID present, journal entry header ID absent).
-- **REQ-CF-10.2** For each such Payment, the transition checks whether a journal entry has been created from the Payment's staged entry.
-- **REQ-CF-10.3** When a corresponding journal entry is found, the transition sets the Payment's journal entry header ID. The staged entry header ID is retained as provenance.
+- **REQ-CF-10.1** The transition identifies all Payments whose transaction pointer resolves to Staged (staged line ID present, journal entry line ID absent). (Revised to line level 2026-09-26)
+- **REQ-CF-10.2** For each such Payment, the transition checks whether the staged line has been posted — that is, whether it records the journal entry line it produced (REQ-STG-9.10).
+- **REQ-CF-10.3** When the staged line records a journal entry line, the transition sets the Payment's journal entry line ID. The staged line ID is retained as provenance.
 - **REQ-CF-10.4** After updating Payments, the transition updates each affected Invoice's posted state as appropriate, subject to the lifecycle constraints in §9.
 - **REQ-CF-10.5** The transition is idempotent. Running it multiple times produces the same result.
 - **REQ-CF-10.6** The transition is a deterministic `[DET]` operation.
-- **REQ-CF-10.7** The transition returns the list of updated Payments with their agreement name, invoice amount, and journal entry header ID.
+- **REQ-CF-10.7** The transition returns the list of updated Payments with their agreement name, invoice amount, and journal entry line ID.
   - *Why:* The caller (Hobson) needs this for the Saturday summary's review stack without re-querying. (2026-08-29)
 
 
 ## 11. Staged entry match candidates
 
-A read-only, deterministic query that surfaces staged entries which may correspond to a given obligation. This is a decision-support operation — it returns candidates for the operator to evaluate during the obligation routine (Phase 4 of the Saturday routine). The operator makes the final matching decision.
+*Withdrawn 2026-09-26 — superseded by payment agreement linkage (§12) and invoice matching (§13). See the Withdrawn table.*
 
-- **REQ-CF-11.1** The query accepts a Master Agreement ID or an Invoice ID as input.
-- **REQ-CF-11.2** A staged entry is a candidate if: (a) it is not already linked to any Payment, (b) at least one of its line accounts matches a debit or credit account on a Payment Agreement belonging to the target Master Agreement, and (c) its entry date falls within a configurable window around the target Instance's date.
-- **REQ-CF-11.3** The query returns candidates only. It does not create Payments, modify Invoices, or alter any state.
-- **REQ-CF-11.4** The query is a deterministic `[DET]` operation.
+- **REQ-CF-11.1** *(Withdrawn 2026-09-26 — see §12–§13.)*
+- **REQ-CF-11.2** *(Withdrawn 2026-09-26 — see §12–§13.)*
+- **REQ-CF-11.3** *(Withdrawn 2026-09-26 — see §12–§13.)*
+- **REQ-CF-11.4** *(Withdrawn 2026-09-26 — see §12–§13.)*
 
+
+## 12. Payment agreement linkage
+
+Linkage answers "which staged line is the cash movement for which Payment Agreement." It runs against staged data before posting, so obligation matching is settled while everything is still correctable. It runs after account classification and after any line splits (REQ-STG-6.4), because leg selection reads line accounts.
+
+- **REQ-CF-12.1** A Payment Agreement Link carries: a system-generated ID, a Payment Agreement ID, a staged line ID, and created/modified Instants.
+- **REQ-CF-12.2** A staged line may be linked to at most one Payment Agreement.
+  - *Why:* One leg, one obligation. A cash movement that serves two obligations is split into two lines first (REQ-STG-6.4), and each line is linked separately. (2026-09-26)
+- **REQ-CF-12.3** The system must provide a means to classify staged lines against the active rules whose claimant is a Payment Agreement, and to create links from the result. Candidates are the lines of staged entries with status `'Ingested'`, `'Classified'`, `'NoMatch'`, `'Conflict'` or `'Reviewed'` that are not already linked. A line's account assignment does not exclude it.
+  - *Why:* Account assignment and obligation linkage are independent questions about the same line. `'Reviewed'` is included because splitting a line (REQ-STG-6.4) is an operator review action and must happen before linkage — a split tenant payment is exactly the entry that most needs linking. (2026-09-26)
+- **REQ-CF-12.4** Leg selection. A rule matches an entry's description, source and amount, none of which distinguishes one line of the entry from another. For each (Payment Agreement, staged entry) claim, the claimed line is chosen as follows: when any claiming rule constrains line type, the lines that rule matched are kept; otherwise the kept line is the one on the Payment Agreement's credit account with line type Credit (Income agreements) or on its debit account with line type Debit (Outgo agreements). Exactly one kept line proceeds to REQ-CF-12.5. Zero or more than one kept line means no link, and the claim is reported with the reason.
+  - *Why:* The rule author knew something the direction default doesn't — an Outgo agreement taking a refund matches a Credit line, which the default would discard. (2026-09-26)
+- **REQ-CF-12.5** Resolution is by Payment Agreement, not by line. A Payment Agreement claimed by exactly one line, where that line's claim is not a tie between rules of equal priority, is linked. A Payment Agreement claimed by more than one line, or by any tied claim, is not linked, and every claimant is reported as contested.
+  - *Why:* The dangerous case is one obligation claimed by two cash movements — two $150 lines both claiming the water bill looks like a paid bill and a spare $150. One line ambiguously matching two obligations is merely inconvenient. Code never breaks a tie. (2026-09-26)
+- **REQ-CF-12.6** Linkage does not change any staged entry's status.
+- **REQ-CF-12.7** The system must provide a means for the operator to create a link, re-point a link to a different Payment Agreement, and delete a link. Creating a link for a line that is already linked is rejected with a typed error naming the existing link's Payment Agreement.
+- **REQ-CF-12.8** The classification run's matches, including the rules that matched each line and their priorities, are recorded under a run ID and retrievable by that ID.
+  - *Why:* The operator reviewing a contested claim needs to see what matched, not re-run the classifier. (2026-09-26)
+
+
+## 13. Invoice matching
+
+Matching turns links into Payments. It runs in the same operation as linkage (§12), immediately after links are written.
+
+- **REQ-CF-13.1** Candidate invoices are those on unfulfilled Instances whose payment state is not 'FullyPaid' and whose Payments do not already exceed the Invoice amount. They are considered in order of due date, oldest first.
+  - *Why:* The oldest bill gets first claim on a line two invoices could both take. Fetch order must never decide it. An overpaid invoice is excluded so it doesn't absorb further payments. (2026-09-26)
+- **REQ-CF-13.2** A linked line is a candidate for an Invoice when: it is linked to the Invoice's Payment Agreement; no Payment already references it; no earlier Invoice in this run claimed it; and its entry date falls between the Invoice date minus the grace period and the due date plus the grace period, inclusive.
+- **REQ-CF-13.3** The grace period is derived from the Master Agreement's cadence: Daily 0 days, Weekly 2, EveryOtherWeek 4, Monthly 7, Annually 7.
+- **REQ-CF-13.4** When an Invoice has exactly one candidate line, a Payment is created against it with a Staged pointer to that line, and the line is claimed.
+- **REQ-CF-13.5** When an Invoice has more than one candidate line, no Payment is created for it and the Invoice is reported with every candidate.
+- **REQ-CF-13.6** When a Payment brings an Invoice's paid total above its amount, the Invoice is reported as an overpayment. The system takes no ledger action and creates no further records.
+  - *Why:* Under GAAP the excess is a credit that needs a ledger-level treatment this system does not model yet. The operator decides. (2026-09-26)
+- **REQ-CF-13.7** When a linked line is not a candidate for any Invoice in the run — no Invoice would even consider it — the operation fails and rolls back in full. It must not create an Instance or Invoice to absorb the line. The error must identify every such line and its Payment Agreement, not only the first.
+  - *Why:* A linked line with nowhere to go means an upstream gap: the sweep did not run far enough, a cadence is wrong, or a bill has not been entered. Creating records on the fly masks it. Naming every orphan at once means one fix cycle, not one per orphan. (2026-09-26)
+- **REQ-CF-13.8** A line that was a candidate and lost (REQ-CF-13.5) is not an orphan under REQ-CF-13.7.
+- **REQ-CF-13.9** The linkage-and-matching operation returns: the classification run ID; every link created; every claim not linked, with its reason (REQ-CF-12.4, REQ-CF-12.5); every Payment created; every Invoice with multiple candidates; every overpayment; and the open Instances after matching.
+  - *Why:* This result is the Saturday review stack for obligations. Everything the operator must decide is in it; nothing requires a second query. (2026-09-26)
 
 ## Withdrawn
 
@@ -237,6 +285,10 @@ A read-only, deterministic query that surfaces staged entries which may correspo
 |---|---|---|
 | REQ-CF-6.8 | Replaced by REQ-CF-9.1. The sum constraint is an Invoice lifecycle check, not a Payment creation constraint. | 2026-08-29 |
 | REQ-CF-7.5 | Clamping scenario eliminated by type constraints. DateInMonthNumber capped at 28 (REQ-CF-2.15), WeekInMonthNumber capped at 4 (REQ-CF-2.16). 'Last' handles end-of-month. | 2026-08-31 |
+| REQ-CF-11.1 | Superseded by §12–§13. The operator no longer searches for candidates per obligation; linkage and matching produce them in batch. | 2026-09-26 |
+| REQ-CF-11.2 | Superseded by REQ-CF-12.4 and REQ-CF-13.2. | 2026-09-26 |
+| REQ-CF-11.3 | Superseded by §12–§13, which do create links and Payments. | 2026-09-26 |
+| REQ-CF-11.4 | Superseded by §12–§13. | 2026-09-26 |
 
 ## Waived from testing
 
