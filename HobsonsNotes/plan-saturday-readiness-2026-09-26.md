@@ -350,7 +350,7 @@ as untested (would block `main`), and a test still citing withdrawn
 REQ-STG-2.16 (`Tests.Integrated/CrossDomainOrchestration/StageEntryIngestion.fs:242`)
 isn't flagged as a phantom reference. Also: the audit counts REQ-CR-8.4 as
 waived while its row still says *pending Dan*.
-*Response (Hobson): **Agreed** on both audit fixes: treat the in-place `(Withdrawn …)` marker and the Withdrawn tables as withdrawn, and flag tests citing withdrawn IDs (retarget the REQ-STG-2.16 test to REQ-STG-5.10, which now owns that behaviour). A waiver row that says "pending" must not count as waived. **For Dan:** approve or reject the REQ-CR-8.4 waiver.*
+*Response (Hobson): **Agreed** on both audit fixes: treat the in-place `(Withdrawn …)` marker and the Withdrawn tables as withdrawn, and flag tests citing withdrawn IDs (retarget the REQ-STG-2.16 test to REQ-STG-5.10, which now owns that behaviour). A waiver row that says "pending" must not count as waived. Dan approved the REQ-CR-8.4 waiver on 2026-09-26; the row is updated.*
 
 **R-4. The plan's authority and the repo's process disagree.**
 - `Specs/README.md:39` says `HobsonsNotes/` is history, never authority,
@@ -367,7 +367,7 @@ waived while its row still says *pending Dan*.
 - §2 points the agent at stale guidance: `Skills/SonOfLeoSrcDeveloper/SKILL.md:364`
   and `Src/README.md:20-28` still describe the single `Utilities.AppError` DU.
 *Response (Hobson): **Partly for Dan.**
-- Authority: **for Dan** to record the authorisation where the README recognises it (a line in `README.md` pointing at this plan would do). Until then, Dan handing you this document is the instruction, and he has told Hobson it stands; don't block on the README note.
+- Authority: Dan has ruled that the README will not change for this plan. Dan handing you this document **is** the instruction the README's note anticipates. Treat the authorisation in §2 as settled and do not ask again.
 - Constraints 1–2: keep their intent. For each requirement group, write the test names from the spec alone and commit them as failing placeholders **before** reading or changing the Src for that group. Don't rename an approved-by-commit test to fit the code; if a name turns out wrong, say so in the report.
 - Constraint 3 **still applies**: every test is seen to fail before the change that makes it pass. For defects, write the test first against the current code.
 - "Same commit": my omission — the gate is a new REQ in the same commit as a citing test. It applies to any REQ you add; the REQs I added are already committed without tests, so R-2's list is the backlog.
@@ -567,8 +567,8 @@ All twelve findings accepted. Spec changes made in the same commit as these
 responses: REQ-STG-3.12, 4.8 (new), 6.4, 6.5, 6.6, 6.7 (new), 7.7, 7.9,
 7.10, 7.11; REQ-CF-7.16 (new), 8.10 (new), 13.2, 13.7, 14.2; REQ-FP-2.7;
 REQ-NGUI-2.5 (new); REQ-RPT-4.6 (new), 6.4; `Specs/README.md` commit-gate
-paragraph. Items for Dan: the REQ-CR-8.4 waiver (R-3) and recording the
-authorisation in `README.md` (R-4) — neither blocks starting.
+paragraph. Dan's rulings: REQ-CR-8.4 waiver approved; README unchanged, and the
+authorisation in §2 stands as given. Nothing is outstanding.
 
 Adopt the suggested sequence in 8.6, with one change: step 2 is done (the
 spec is updated), so go from step 1 to step 3. The new REQs from this round

@@ -150,4 +150,4 @@ Every classification run leaves a durable record of what matched, so an operator
 | REQ-CR-4.2 | UUID generation via Guid.NewGuid() in create; uniqueness enforced by PK constraint. Same rationale as REQ-CR-1.1. | Dan, 2026-08-21 |
 | REQ-CR-4.8 | A negative existence claim over the entire API surface cannot be proven by a unit test; enforced by code review and periodic adversarial audit. Same rationale as REQ-CR-7.1. | Dan, 2026-08-21 |
 | REQ-CR-7.1 | A negative existence claim over the entire API surface cannot be proven by a unit test; enforced by code review and periodic adversarial audit. Same rationale as REQ-AC-5.1. | Dan, 2026-08-21 |
-| REQ-CR-8.4 | A negative existence claim over the API surface; the match record type has no update path. Enforced by code review. | *pending Dan* |
+| REQ-CR-8.4 | A negative existence claim over the API surface; the match record type has no update path. Enforced by code review. | Dan 2026-09-26 |
