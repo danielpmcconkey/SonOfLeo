@@ -250,7 +250,8 @@ These constraints are validated by the orchestrator after any Invoice creation o
 - **REQ-CF-9.9** Posted state is derived: 'NotHandled' when no Payment is Posted; 'PostedToLedger' when every Payment is Posted and payment state is 'FullyPaid'; otherwise 'PartiallyPosted'.
 - **REQ-CF-9.10** Any operation that creates, re-points, or removes a Payment must re-derive the payment state and posted state of the affected Invoice, and the is-fulfilled flag of its Instance, in the same transaction. An Instance is fulfilled when it has at least one Invoice and every Invoice is 'FullyPaid'.
   - *Why:* Derived state that is recomputed only by some operations drifts. Every Saturday decision (bills to chase, cash coverage, what still needs matching) reads these three values. (2026-09-26)
-- **REQ-CF-9.11** A caller-supplied value for payment state, posted state, or is-fulfilled is rejected with a typed error.
+- **REQ-CF-9.11** No create or update contract carries payment state, posted state, or is-fulfilled. The system always derives them (REQ-CF-9.8–9.10); a caller has no means to set them. (Revised 2026-09-26)
+  - *Why:* Originally "rejected with a typed error." Unknown payload fields are dropped rather than rejected (REQ-NGUI-2.5 withdrawn), so the guarantee comes from the contract not having the fields. (2026-09-26)
 
 
 ## 10. Payment-to-posted transition

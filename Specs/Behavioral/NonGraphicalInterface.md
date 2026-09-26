@@ -21,8 +21,7 @@ Applies to command line, importing, reporting, API, etc. Any use case where an e
 - **REQ-NGUI-2.3** stricken
 - **REQ-NGUI-2.3.1** stricken
 - **REQ-NGUI-2.4** The interface layer (see Definitions) will be responsible for marshalling / unmarshalling between UI domain types and their serialized format. No other layer in this system will be allowed to perform such conversions.
-- **REQ-NGUI-2.5** A payload containing a field that the operation's input contract does not define is rejected with a typed error naming the field.
-  - *Why:* Silently ignoring unknown fields turns a misspelt field name into "no change," and lets a caller believe it set a value the system never accepted — for example derived state (REQ-CF-9.11). (2026-09-26)
+- **REQ-NGUI-2.5** *(Withdrawn 2026-09-26 — see the Withdrawn table.)*
 
 ## 3. Command line interface
 
@@ -87,3 +86,4 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 |-------------|----------------------|--------|
 | REQ-NGUI-2.3 | UI domain types will provide a 1:1 map to the primary domain types. Example, if the primary domain type for Account has an accountType field, the UI domain type will have an accountType field. | Moved to an interface contract paradigm |
 | REQ-NGUI-2.3.1 | For compound types (e.g.: the Account type's activityPeriod), feature designers have the latitude to represent them as multiple peer fields in the UI domain type or as a compound "nested" type within the domain type. | Moved to an interface contract paradigm |
+| REQ-NGUI-2.5 | A payload containing a field that the operation's input contract does not define is rejected with a typed error naming the field. | Rejected by Dan (2026-09-26). Deserialisation already enforces the contract's types and fails on any missing field, so a misspelt field fails too. The only case left is a caller sending a field the contract doesn't define, which is dropped harmlessly; tolerant reading of extra fields is the common default. |
