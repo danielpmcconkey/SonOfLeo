@@ -131,9 +131,13 @@ Classified → Duplicate   (dedup re-run finds a match after classification)
 Classified → Reviewed    (operator confirms or adjusts)
 Classified → Ignored     (operator deliberately excludes the entry)
 Classified → Posted      (batch post)
+NoMatch    → Classified  (classification re-run; all lines now have accounts)
+NoMatch    → Conflict    (classification re-run; a line now has multiple rule matches at equal priority)
 NoMatch    → Duplicate   (dedup re-run finds a match)
 NoMatch    → Reviewed    (operator manually assigns missing accounts)
 NoMatch    → Ignored     (operator deliberately excludes the entry)
+Conflict   → Classified  (classification re-run; all lines now have accounts)
+Conflict   → NoMatch     (classification re-run; the tie is gone but a line still has no rule match)
 Conflict   → Duplicate   (dedup re-run finds a match)
 Conflict   → Reviewed    (operator resolves the conflict)
 Conflict   → Ignored     (operator deliberately excludes the entry)
@@ -143,6 +147,9 @@ Ignored    → Reviewed    (operator resurrects a previously ignored entry)
 Reviewed   → Ignored     (operator deliberately excludes the entry)
 Reviewed   → Posted      (batch post)
 ```
+
+  - Setting a staged entry to the status it already has is not a transition: nothing is written and no audit record is created. Classification re-runs rely on this, since they re-derive the status of every entry they touch and many land where they started.
+  - *Why:* Classification re-runs over `'NoMatch'` and `'Conflict'` entries as well as `'Ingested'` ones, so a rule added after the first run can resolve an entry that previously failed to classify. The four classification re-run transitions out of `'NoMatch'` and `'Conflict'` exist for that. (2026-09-26)
 
 
 ## 5. Classification behaviors
