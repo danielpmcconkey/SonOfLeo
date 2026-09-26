@@ -6,7 +6,8 @@ Generic database functions: connecting, executing queries, parameterization, and
 
 - **REQ-DAL-1.1** stricken
 - **REQ-DAL-1.2** stricken
-- **REQ-DAL-1.3** If the external configuration file cannot be accessed by the system, all data access functions must fail with an error 
+- **REQ-DAL-1.3** If the external configuration file cannot be read, or a required setting in it is missing or invalid, no data access is attempted. The interface reports an error message naming the file or setting and exits with a non-zero code; it must not terminate with an unhandled exception. (Revised 2026-09-26)
+  - *Why:* Configuration is read once at start-up, so the realistic failure is "the program cannot start," not "one data access call fails." What matters is that the operator gets an actionable message, not a stack trace. (2026-09-26)
 - **REQ-DAL-1.4** stricken
 - **REQ-DAL-1.5** stricken
 - **REQ-DAL-1.6** stricken
@@ -30,6 +31,8 @@ Generic database functions: connecting, executing queries, parameterization, and
 - **REQ-DAL-2.1** All data inserted into the database must be parameterized in accordance with industry standard best practice to prevent SQL injection
 - **REQ-DAL-2.2** All non-scalar queries (set-based read, insert, update, and delete) must verify against expected rows affected
 - **REQ-DAL-2.3** All values originating from user input must be parameterized to prevent SQL injection. Values whose type makes injection structurally impossible (e.g. `limit: int option`, where F# enforces the type at compile time) may be interpolated directly.
+- **REQ-DAL-2.4** Every database transaction the system opens is committed or rolled back, and its connection released, on every path — success, typed error, and exception.
+  - *Why:* A transaction left open holds a pooled connection; enough of them exhausts the pool. (2026-09-26)
 
 ## 3. Database and data access architecture
 

@@ -99,12 +99,16 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-2.25** Ingestion source ID is a system-generated UUID. Cannot be null. Must be unique.
 - **REQ-STG-2.26** Ingestion source name cannot be null or whitespace only (post-trim per REQ-SYS-1.1). Maximum 100 characters. It is the value a record's `fi_source` must equal to resolve to this source (REQ-STG-3.6), and the financial institution written on the external reference of every journal entry posted from it (REQ-STG-9.5).
 - **REQ-STG-2.27** Ingestion source carries created-at and modified-at Instants.
+- **REQ-STG-2.28** Ingestion source name must be unique across all ingestion sources.
+  - *Why:* Records resolve their source by name (REQ-STG-3.6). Two sources with one name make every file from that institution unresolvable. (2026-09-26)
 
 
 ## 3. Ingestion behaviors
 
 - **REQ-STG-3.1** The system must provide a means to ingest a base staging format file.
 - **REQ-STG-3.2** The system must validate every record in the file against the format requirements in §1. A record that fails validation must be rejected with a typed error identifying the record and the violation.
+- **REQ-STG-3.2.1** When more than one record fails validation, the rejection reports every failing record, not only the first. Each failure identifies the record by its line number in the file and its `group_id`.
+  - *Why:* A parser defect usually affects many records. Reporting one at a time turns one fix into a fix-and-rerun loop. (2026-09-26)
 - **REQ-STG-3.3** If any record in the file fails validation, the entire file is rejected. No staged entries or lines are created. Partial ingestion is not permitted.
   - *Why:* A group that loses a record to validation cannot produce a balanced entry. All-or-nothing prevents orphaned legs. (2026-08-08)
 - **REQ-STG-3.4** For each group in the file, the system must create one staged entry and one staged line per record. The staged entry's entry_date, description, and fi_reference are populated from the group's shared values. The source_id is resolved from the group's fi_source. The source_file is the full file path of the ingested file.
@@ -117,7 +121,8 @@ The base staging format is the interface contract between bespoke parsers and th
 - **REQ-STG-3.9** On successful ingestion, every staged entry's status is set to `'Ingested'` and an audit record is created (from_status null, to_status `'Ingested'`).
 - **REQ-STG-3.10** Ingestion is atomic: either the entire file is ingested (all entries and lines persisted) or no rows are created.
 - **REQ-STG-3.11** The ingestion request names the file, the directory to read it from, and a processed directory. Both directories must exist and the file must exist in the import directory; otherwise the request fails with a typed error and nothing is ingested.
-- **REQ-STG-3.12** On successful ingestion, the file is moved to the processed directory, its name prefixed with the ingestion timestamp (`yyyy-MM-dd.HHmmss.fff-`). A failed ingestion leaves the file where it was.
+- **REQ-STG-3.12** On successful ingestion, the file is moved to the processed directory, its name prefixed with the ingestion timestamp (`yyyy-MM-dd.HHmmss.fff-`). The move happens only after the staged data has been committed. A failed ingestion — including a failure to commit — leaves the file where it was.
+  - *Why:* A file moved before its rows commit looks processed when nothing was staged, and the next run skips it. (2026-09-26)
   - *Why:* The import directory then holds only files not yet ingested, and a re-run cannot ingest the same file twice by accident. The timestamp keeps repeated drops of the same file name from colliding. (2026-09-26)
 - **REQ-STG-3.13** Ingestion returns every staged entry it created, each with its full composition (header, lines, status transitions).
 - **REQ-STG-3.14** Ingestion does not deduplicate or classify. Those are separate operations (§7, §5).
@@ -128,6 +133,8 @@ The base staging format is the interface contract between bespoke parsers and th
 
 - **REQ-STG-4.1** A staged entry's status must be one of: `'Ingested'`, `'Classified'`, `'NoMatch'`, `'Conflict'`, `'Reviewed'`, `'Duplicate'`, `'Posted'`, `'Ignored'`.
 - **REQ-STG-4.1.1** A staged entry's current status is the to_status of its most recent audit record. Status is not stored anywhere else.
+- **REQ-STG-4.1.2** No single operation creates more than one status transition for the same staged entry.
+  - *Why:* Every transition written by one operation carries that operation's initiation instant (REQ-SYS-3.4). Two transitions for one entry in one operation would tie on time and make its current status (REQ-STG-4.1.1) ambiguous. (2026-09-26)
 - **REQ-STG-4.2** `'Posted'` is a terminal status. No transitions out of `'Posted'` are permitted, except the void reversal in REQ-STG-4.7. (Amended 2026-09-26)
 - **REQ-STG-4.3** Every status transition must create an audit record in `ingestion.staged_entry_audit`.
 - **REQ-STG-4.4** A staged entry is postable when its status is `'Classified'` or `'Reviewed'`. No additional filtering (e.g. line-level account presence) is applied — if the upstream invariants are sound, all lines have an account by the time an entry reaches these statuses. If they do not, posting fails loudly (REQ-STG-9.4) rather than silently excluding the entry.
@@ -197,6 +204,8 @@ The classification step runs the vendor classification rules engine against stag
 - **REQ-STG-6.1** The system must provide a means for an operator to assign or override the account on a staged line, regardless of whether the account was previously set by a parser or the classifier.
 - **REQ-STG-6.2** The manual update mechanism allows the operator to set any field on the staged entry and its lines, including status. The system validates the result (balanced entry, valid account codes, legal status transition) but does not infer or auto-assign status from the operator's changes.
   - *Why:* Original spec auto-transitioned to `'Reviewed'` on any line modification. Overruled — manual intervention is the highest authority tier, and the operator knows the intended status. Inferring it revokes that authority. (2026-08-16)
+- **REQ-STG-6.2.1** Every status transition made through the manual update mechanism is recorded with change mechanism `'Operator'`. The caller does not choose the change mechanism.
+  - *Why:* The audit trail records who acted. Letting the caller name the mechanism lets an operator edit masquerade as the classifier or the poster. (2026-09-26)
 - **REQ-STG-6.3** The operator may override a duplicate flag, transitioning the entry's status from `'Duplicate'` to `'Reviewed'`.
   - *Why:* Legitimate duplicate transactions exist (two identical charges on the same day). The operator, not the system, makes this call. (2026-08-08)
 - **REQ-STG-6.3.1** A manual update that names a line belonging to a different staged entry is rejected with a typed error naming both.

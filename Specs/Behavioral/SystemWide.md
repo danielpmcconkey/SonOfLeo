@@ -12,6 +12,8 @@ per entity. Generic requirements state policy and scope, not vague aspiration.
 - **REQ-SYS-1.1** All raw string inputs must be trimmed of leading and trailing white space at the system boundary, before validation, before persistence, and before being returned to the caller.
 - **REQ-SYS-1.2** A required (non-nullable) text field may never hold a value that is empty or whitespace-only post-trim.
 - **REQ-SYS-1.3** An optional (nullable) text field, when provided, may never hold a value that is empty or whitespace-only post-trim. Absence must be represented as null, never as an empty string.
+- **REQ-SYS-1.4** A partial-match ("contains") filter treats the caller's text literally. Characters that are special to the underlying matching mechanism (such as `%` and `_` in SQL `LIKE`) match only themselves.
+  - *Why:* A search for "50%" must not match every description containing "50". (2026-09-26)
 
 ## 2. Legal data-state enforcement
 
@@ -44,6 +46,9 @@ domain-level decision, made in each entity's spec (for Accounts, see REQ-AC-5.1)
 
 - **REQ-SYS-6.1** No state-transition operation may silently succeed as a no-op. When a requested operation would change nothing — because the target entity is already in the requested state, or because the record the operation would create already exists — the operation must produce an error rather than update or insert nothing. A silent no-op masks a caller that believes the system is in a different state than it is, hiding an upstream problem the system should surface. Per-entity instances cite this rule (e.g., REQ-FP-4.1.1 close-already-closed, REQ-FP-4.2.1 reopen-already-open, REQ-AC-2.9 / REQ-FP-2.2 duplicate creation, and journal-entry void-already-voided).
 - **REQ-SYS-6.1.1** Any exception to REQ-SYS-6.1 (an operation deliberately permitted to be idempotent) must be stated explicitly in the relevant entity spec; absent such a statement, the no-op rejection applies.
+- **REQ-SYS-6.2** An operation that updates or deletes a record identified by ID, where no record has that ID, fails with a typed not-found error naming the kind of record and the ID. It must not surface as a generic database or row-count error.
+- **REQ-SYS-6.3** When an operation sets a reference to another record (for example, a comment's secondary journal entry), the referenced record must exist. A missing referent fails with a typed not-found error before any write, on update as well as on create.
+  - *Why:* Relying on the database's foreign key check produces an error the caller cannot act on. (2026-09-26)
 
 ## 7. Time zone
 

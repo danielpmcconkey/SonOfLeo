@@ -49,6 +49,8 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 - **REQ-CR-1.17** String search pattern cannot be null.
 - **REQ-CR-1.18** String search pattern cannot be empty. Whitespace is not trimmed — REQ-SYS-1.1 does not apply because whitespace is meaningful in regex patterns.
 - **REQ-CR-1.19** String search pattern length cannot exceed 500 characters.
+- **REQ-CR-1.26** String search pattern must be a valid regular expression. An invalid pattern is rejected with a typed error when the rule is created or updated, and when a stored rule is read. Evaluating a valid pattern never raises an exception.
+  - *Why:* An invalid pattern accepted at save time fails mid-run and aborts the whole classification for every entry. The pattern is data from the operator; it is validated at the boundary like any other input. (2026-09-26)
 
 ### NumericSearchOperator
 
