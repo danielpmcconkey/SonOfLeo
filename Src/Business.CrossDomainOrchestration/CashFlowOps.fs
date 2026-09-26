@@ -354,7 +354,7 @@ let private matchInvoicesAndCreatePayments
     : Result<CashFlowComponent.InvoiceDecision list, IAppError> =
     result {
         // a fully paid invoice has nothing left to match. its instance can still be open, waiting on a sibling leg
-        let unpaidInvoices =
+        let! openInvoices =
             openInstances
             |> List.collect (fun instanceComposite ->
                 let instanceId = instanceComposite |> InstanceOrchestration.instance |> Instance.instanceId
@@ -362,18 +362,32 @@ let private matchInvoicesAndCreatePayments
                     instanceComposite |> InstanceOrchestration.instance |> Instance.masterAgreementID
                 instanceComposite
                 |> InstanceOrchestration.invoiceComposites
+                |> List.filter (fun invoiceComposite ->
+                    let lifeCycleState = invoiceComposite |> InstanceOrchestration.invoice |> Invoice.invoiceLifeCycleState
+                    lifeCycleState.paymentState <> CashFlowComponent.FullyPaid)
                 |> List.map (fun invoiceComposite ->
-                    instanceId, masterAgreementId, (invoiceComposite |> InstanceOrchestration.invoice))
-                |> List.filter (fun (_, _, invoice) ->
-                    let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
-                    lifeCycleState.paymentState <> CashFlowComponent.FullyPaid))
+                    let invoice = invoiceComposite |> InstanceOrchestration.invoice
+                    instanceComposite
+                    |> isOverpaid (invoice |> Invoice.invoiceId)
+                    |> Result.map (fun overpaid -> instanceId, masterAgreementId, invoice, overpaid)))
+            |> convertListOfResultsToResultsList
+        // an overpaid invoice derives PartiallyPaid, so the state alone doesn't keep it from absorbing more payments.
+        // it is kept aside only to explain the orphans it would otherwise have taken
+        let unpaidInvoices =
+            openInvoices
+            |> List.filter (fun (_, _, _, overpaid) -> not overpaid)
+            |> List.map (fun (instanceId, masterAgreementId, invoice, _) -> instanceId, masterAgreementId, invoice)
             // the oldest bill gets first claim on a line two invoices could both take, and fetch order never decides it
             |> List.sortBy (fun (_, _, invoice) ->
                 (invoice |> Invoice.dueDate).localDate,
                 (invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value))
-        if unpaidInvoices |> List.isEmpty then return [] else
+        let overpaidInvoices =
+            openInvoices
+            |> List.filter (fun (_, _, _, overpaid) -> overpaid)
+            |> List.map (fun (_, masterAgreementId, invoice, _) -> masterAgreementId, invoice)
+        if openInvoices |> List.isEmpty then return [] else
         let agreementIds =
-            unpaidInvoices |> List.map (fun (_, _, invoice) -> invoice |> Invoice.paymentAgreementId) |> List.distinct
+            openInvoices |> List.map (fun (_, _, invoice, _) -> invoice |> Invoice.paymentAgreementId) |> List.distinct
         let! links = agreementIds |> PaymentAgreementLink.fetchByPaymentAgreementIdList context
         if links |> List.isEmpty then return [] else
         let linkedLineIds = links |> List.map PaymentAgreementLink.stageEntryLineId |> List.distinct
@@ -406,7 +420,7 @@ let private matchInvoicesAndCreatePayments
             |> List.map StageEntryLine.stageEntryLineId
         // an ineligible line is neither offered to an invoice nor counted as an orphan
         let ineligibleLineIds = paidLineIds @ setAsideLineIds |> Set.ofList
-        let masterAgreementIds = unpaidInvoices |> List.map (fun (_, maId, _) -> maId) |> List.distinct
+        let masterAgreementIds = openInvoices |> List.map (fun (_, maId, _, _) -> maId) |> List.distinct
         let! masterAgreements = masterAgreementIds |> MasterAgreement.fetchByMasterAgreementIdList context
         let cadenceTypeByAgreementId =
             masterAgreements
@@ -420,29 +434,32 @@ let private matchInvoicesAndCreatePayments
             |> List.map (fun (agreementId, agreementLinks) ->
                 agreementId, (agreementLinks |> List.map PaymentAgreementLink.stageEntryLineId))
             |> Map.ofList
-        let candidatesForInvoice
-            (masterAgreementId: CashFlowComponent.MasterAgreementId)
-            (invoice: Invoice.Invoice)
-            (claimedLineIds: Set<StageEntryComponent.StageEntryLineId>)
-            : StageEntryComponent.StageEntryLineId list =
+        let entryDateOfLine lineId =
+            lineById
+            |> Map.tryFind lineId
+            |> Option.bind (fun line -> entryDateByHeaderId |> Map.tryFind (line |> StageEntryLine.stageEntryHeaderId))
+        let windowCovers (masterAgreementId: CashFlowComponent.MasterAgreementId) (invoice: Invoice.Invoice) lineId =
             let graceInDays =
                 match cadenceTypeByAgreementId |> Map.tryFind masterAgreementId with
                 | Some cadenceType -> cadenceType |> gracePeriodInDaysFromCadenceType
                 | None -> 0
             let windowStart = (invoice |> Invoice.invoiceDate).localDate.PlusDays(-graceInDays)
             let windowEnd = (invoice |> Invoice.dueDate).localDate.PlusDays(graceInDays)
+            match lineId |> entryDateOfLine with
+            | None -> false
+            | Some entryDate -> entryDate >= windowStart && entryDate <= windowEnd
+        let candidatesForInvoice
+            (masterAgreementId: CashFlowComponent.MasterAgreementId)
+            (invoice: Invoice.Invoice)
+            (claimedLineIds: Set<StageEntryComponent.StageEntryLineId>)
+            : StageEntryComponent.StageEntryLineId list =
             match linesByAgreementId |> Map.tryFind (invoice |> Invoice.paymentAgreementId) with
             | None -> []
             | Some agreementLineIds ->
                 agreementLineIds
                 |> List.filter (fun lineId ->
-                    if ineligibleLineIds |> Set.contains lineId || claimedLineIds |> Set.contains lineId then false else
-                    match lineById |> Map.tryFind lineId with
-                    | None -> false
-                    | Some line ->
-                        match entryDateByHeaderId |> Map.tryFind (line |> StageEntryLine.stageEntryHeaderId) with
-                        | None -> false
-                        | Some entryDate -> entryDate >= windowStart && entryDate <= windowEnd)
+                    if ineligibleLineIds |> Set.contains lineId || claimedLineIds |> Set.contains lineId then false
+                    else windowCovers masterAgreementId invoice lineId)
         let! decisions, claimedLineIds, consideredLineIds =
             unpaidInvoices
             |> List.fold
@@ -480,17 +497,27 @@ let private matchInvoicesAndCreatePayments
         // a line that was offered to an invoice and lost is the operator's problem, not a data gap -- only a line no
         // invoice would even consider means the Instance or Invoice it needs is missing
         let accountedForLineIds = Set.union claimedLineIds consideredLineIds
-        do!
+        // every orphan is named at once, so the operator fixes them in one pass rather than one run per orphan
+        let orphans =
             links
+            |> List.filter (fun link -> accountedForLineIds |> Set.contains (link |> PaymentAgreementLink.stageEntryLineId) |> not)
             |> List.map (fun link ->
                 let lineId = link |> PaymentAgreementLink.stageEntryLineId
-                if accountedForLineIds |> Set.contains lineId then Ok () else
-                let lineUuid = lineId |> StageEntryComponent.StageEntryLineId.value
-                let agreementUuid =
-                    link |> PaymentAgreementLink.paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
-                CashFlowError.error(CashFlowError.CashflowPaymentAgreementLinkNoInvoiceToMatch(lineUuid, agreementUuid)))
-            |> convertListOfResultsToResultsList
-            |> Result.map ignore
+                let agreementId = link |> PaymentAgreementLink.paymentAgreementId
+                let coveredByOverpaid =
+                    overpaidInvoices
+                    |> List.exists (fun (masterAgreementId, invoice) ->
+                        (invoice |> Invoice.paymentAgreementId) = agreementId
+                        && windowCovers masterAgreementId invoice lineId)
+                let reason =
+                    if coveredByOverpaid then CashFlowError.CoveringInvoicesOverpaid
+                    else CashFlowError.NoOpenInvoiceCoversDate
+                (lineId |> StageEntryComponent.StageEntryLineId.value),
+                (agreementId |> CashFlowComponent.PaymentAgreementId.value),
+                reason)
+        do!
+            if orphans |> List.isEmpty then Ok ()
+            else CashFlowError.error(CashFlowError.CashflowPaymentAgreementLinksOrphaned orphans)
         return decisions
     }
 
@@ -503,7 +530,8 @@ let classifyPaymentAgreements
             [ StageEntryComponent.Ingested
               StageEntryComponent.Classified
               StageEntryComponent.NoMatch
-              StageEntryComponent.Conflict ]
+              StageEntryComponent.Conflict
+              StageEntryComponent.Reviewed ]
         let! roster = rosterStatuses |> StageEntryOrchestration.fetchByStatusList context
         let rosterLineIds =
             roster

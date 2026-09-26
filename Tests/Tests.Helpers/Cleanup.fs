@@ -300,3 +300,50 @@ let cleanUpClassificationRuleId (ruleId: ClassificationRuleId option) : Result<u
                 WHERE unique_id = @unique_id;
             """
         executeNonQuery (context |> Context.getDatabaseTransaction) query parameters ExactlyOne
+
+//=================================================
+// Cash flow clean up
+//=================================================
+
+/// Deletes a Master Agreement and everything hanging off it: its legs' links, its Payments, Invoices and Instances,
+/// then the legs and the agreement itself. Staged entries the links pointed at are left for their own clean up.
+let cleanUpMasterAgreementTree (agreementId: Guid option) : Result<unit, IAppError> =
+    let context = Context.create NoTransaction FetchOnly
+    match agreementId with
+    | None -> Ok()
+    | Some uuid ->
+        let parameters = [ { name = "@agreement_id"; value = UniqueId uuid } ]
+        // delete children before parents, in FK order
+        let queries =
+            [ """delete from cashflow.payment_agreement_link WHERE payment_agreement_id IN
+                    (select unique_id from cashflow.payment_agreement where master_agreement_id = @agreement_id);"""
+              """delete from cashflow.payment WHERE invoice_id IN
+                    (select i.unique_id from cashflow.invoice i join cashflow.instance n on n.unique_id = i.instance_id
+                     where n.master_agreement_id = @agreement_id);"""
+              """delete from cashflow.invoice WHERE instance_id IN
+                    (select unique_id from cashflow.instance where master_agreement_id = @agreement_id);"""
+              """delete from cashflow.instance WHERE master_agreement_id = @agreement_id;"""
+              """delete from cashflow.payment_agreement WHERE master_agreement_id = @agreement_id;""" ]
+        result {
+            do!
+                queries
+                |> List.map (fun query ->
+                    executeNonQuery (context |> Context.getDatabaseTransaction) query parameters AnyQuantityIsAcceptable
+                    |> Result.map ignore)
+                |> List.fold (fun acc r -> acc |> Result.bind (fun () -> r)) (Ok())
+            let masterQuery = """delete from cashflow.master_agreement WHERE unique_id = @agreement_id;"""
+            return!
+                executeNonQuery (context |> Context.getDatabaseTransaction) masterQuery parameters ExactlyOne
+                |> Result.map ignore
+        }
+
+/// Deletes the rule matches a classification rule recorded, which must go before the rule itself.
+let cleanUpRuleMatchesOfRuleId (ruleId: ClassificationRuleId option) : Result<unit, IAppError> =
+    let context = Context.create NoTransaction FetchOnly
+    match ruleId with
+    | None -> Ok()
+    | Some x ->
+        let parameters = [ { name = "@rule_id"; value = UniqueId(x |> ClassificationRuleId.value) } ]
+        let query = """delete from classification.rule_match WHERE classification_rule_id = @rule_id;"""
+        executeNonQuery (context |> Context.getDatabaseTransaction) query parameters AnyQuantityIsAcceptable
+        |> Result.map ignore

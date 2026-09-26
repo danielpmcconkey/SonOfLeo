@@ -4,6 +4,11 @@ open System
 open NodaTime
 open App.Utility.IAppError
 
+/// Why a linked line that is still eligible found no Invoice to take it.
+type OrphanedLineReason =
+    | NoOpenInvoiceCoversDate
+    | CoveringInvoicesOverpaid
+
 type CashFlowError =
     | CashflowAgreementMemoIsEmpty of string
     | CashflowAgreementMemoTooLong of string * int
@@ -63,7 +68,7 @@ type CashFlowError =
     | CashflowPaymentAgreementIdDoesntExist of Guid
     | CashflowPaymentAgreementIdListCannotBeEmpty
     | CashflowPaymentAgreementLinkLineAlreadyLinked of Guid * Guid
-    | CashflowPaymentAgreementLinkNoInvoiceToMatch of Guid * Guid
+    | CashflowPaymentAgreementLinksOrphaned of (Guid * Guid * OrphanedLineReason) list
     | CashflowPaymentAgreementLinkUpdateNoOp
     | CashflowPaymentAgreementMemoIsEmpty of string
     | CashflowPaymentAgreementMemoTooLong of string * int
@@ -153,7 +158,15 @@ type CashFlowError =
             | CashflowPaymentAgreementIdDoesntExist uuid -> $"Could not locate a PaymentAgreement with the id of {uuid}."
             | CashflowPaymentAgreementIdListCannotBeEmpty -> "The paymentAgreementIds list must contain at least 1 ID."
             | CashflowPaymentAgreementLinkLineAlreadyLinked(stageEntryLineId, paymentAgreementId) -> $"Stage entry line {stageEntryLineId} is already linked to PaymentAgreement {paymentAgreementId}. Repoint that linkage or remove it rather than adding a second one."
-            | CashflowPaymentAgreementLinkNoInvoiceToMatch(stageEntryLineId, paymentAgreementId) -> $"Stage entry line {stageEntryLineId} is linked to PaymentAgreement {paymentAgreementId} but no open Invoice accepts it. The Instance or Invoice it belongs to is missing, or the cadence that would have created it is wrong."
+            | CashflowPaymentAgreementLinksOrphaned orphans ->
+                let describe (stageEntryLineId: Guid, paymentAgreementId: Guid, reason) =
+                    match reason with
+                    | NoOpenInvoiceCoversDate ->
+                        $"Stage entry line {stageEntryLineId} is linked to PaymentAgreement {paymentAgreementId} but no open Invoice on that agreement covers its date. The Instance or Invoice it belongs to is missing, or the cadence that would have created it is wrong."
+                    | CoveringInvoicesOverpaid ->
+                        $"Stage entry line {stageEntryLineId} is linked to PaymentAgreement {paymentAgreementId} but the only Invoices that cover its date are already overpaid, so they take no further payments. An earlier payment may have been misapplied."
+                let described = orphans |> List.map describe |> String.concat " "
+                $"{orphans.Length} linked stage entry line(s) have no open Invoice to take them. {described}"
             | CashflowPaymentAgreementLinkUpdateNoOp -> "Updating the PaymentAgreementLink record failed because at least one updatable parameter must be set."
             | CashflowPaymentAgreementMemoIsEmpty memo -> $"PaymentAgreementMemo cannot be empty. Provided Memo is {memo}."
             | CashflowPaymentAgreementMemoTooLong(memo, max) -> $"PaymentAgreementMemo cannot exceed {max} characters. Provided Memo is {memo}."
