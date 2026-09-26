@@ -3,8 +3,9 @@
 open App.DataAccessLayer.DbTransaction
 open App.DataAccessLayer.ExecuteScalar
 open App.Operation.AuditEnvelope
+open App.Operation.CoreAuditableAction
 open Tests.Helpers
-open App.Utility.AppError
+open App.Session
 
 (* The stage's first act is a TRUNCATE CASCADE over every ledger table. This asks the
  database it is about to truncate for its own name, over the same connection the stage
@@ -15,7 +16,7 @@ let private context = Context.create NoTransaction FetchOnly
 
 let private actualDatabase =
   executeScalar (context |> Context.getDatabaseTransaction) "select current_database()" [] stringUnboxing
-  |> Result.defaultWith(fun e -> failwith(AppError.toMessage e))
+  |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
 
 if actualDatabase <> expectedDatabase then
   failwith

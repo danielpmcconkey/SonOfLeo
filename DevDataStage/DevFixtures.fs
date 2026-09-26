@@ -2,13 +2,13 @@ module DevDataStage.DevFixtures
 
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.Ledger.Account
+open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Tests.Helpers
 open Tests.Helpers.EntityFunctions
 open App.Utility
-open App.Utility.AppError
+open App.Session
 open App.Utility.Result
 
 let stageDevData (context: Context.Context) (data: FixtureData) =
@@ -120,4 +120,4 @@ let stageDevData (context: Context.Context) (data: FixtureData) =
 
             return count
         }
-    result |> Result.defaultWith (fun e -> failwith (AppError.toMessage e))
+    result |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
