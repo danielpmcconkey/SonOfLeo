@@ -94,7 +94,9 @@ The gate checks existence only. Whether a test is meaningful is the audit's job
 and code review's job, not the gate's.
 
 Enforced by `Checks/check-traceability.sh` (Invariant 2 of the traceability
-audit), which runs in the pre-commit hook via `Checks/run-all.sh --quick`.
+audit). It is a slow check, so the pre-commit hook (`Checks/run-all.sh --quick`)
+skips it, and it only enforces on `main`. Run the full `Checks/run-all.sh`
+before proposing a merge to `main`.
 
 ## Linkage rules (the star chart)
 

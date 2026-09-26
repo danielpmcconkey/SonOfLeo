@@ -21,6 +21,8 @@ Applies to command line, importing, reporting, API, etc. Any use case where an e
 - **REQ-NGUI-2.3** stricken
 - **REQ-NGUI-2.3.1** stricken
 - **REQ-NGUI-2.4** The interface layer (see Definitions) will be responsible for marshalling / unmarshalling between UI domain types and their serialized format. No other layer in this system will be allowed to perform such conversions.
+- **REQ-NGUI-2.5** A payload containing a field that the operation's input contract does not define is rejected with a typed error naming the field.
+  - *Why:* Silently ignoring unknown fields turns a misspelt field name into "no change," and lets a caller believe it set a value the system never accepted — for example derived state (REQ-CF-9.11). (2026-09-26)
 
 ## 3. Command line interface
 

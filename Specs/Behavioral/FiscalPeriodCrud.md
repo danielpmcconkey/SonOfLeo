@@ -27,8 +27,8 @@ Service-level behavioral specs for creating, reading, and updating fiscal period
 - **REQ-FP-2.5** The system must provide a means to create a new fiscal period.
 - **REQ-FP-2.6** When creating a fiscal period the system will set the "is open" flag to true
 - **REQ-FP-2.6.1** The system will not allow the creating actor to create a fiscal period as "closed"
-- **REQ-FP-2.7** The system must provide a means to ensure a fiscal period exists for every month from a given start month through a given end month, inclusive. Missing periods are created open (REQ-FP-2.6). Existing periods, open or closed, are left unchanged. The operation is idempotent and returns the periods it created.
-  - *Why:* Posting fails when an entry's month has no fiscal period, and batch post is all-or-nothing (REQ-STG-9.8). The Saturday run ensures the current and next month exist before it posts, instead of finding out from a failed batch on the first Saturday of a month. Periods are not created as a side effect of posting: creating a record because a lookup failed hides the failure. (2026-09-26)
+- **REQ-FP-2.7** The system must provide a means to ensure a fiscal period exists for every month from a given start month through a given end month, inclusive. Missing periods are created open (REQ-FP-2.6). Existing periods, open or closed, are left unchanged. The operation returns the periods it created. It is idempotent: when nothing is missing it succeeds and returns an empty list — an explicit exception to REQ-SYS-6.1 (per REQ-SYS-6.1.1). A start month later than the end month fails with a typed error.
+  - *Why:* Posting fails when an entry's month has no fiscal period, and batch post is all-or-nothing (REQ-STG-9.8). The Saturday run ensures the current and next month exist before it posts, instead of finding out from a failed batch on the first Saturday of a month. Periods are not created as a side effect of posting: creating a record because a lookup failed hides the failure. Idempotence is the point — the run calls it every week without first checking. (2026-09-26)
 
 
 ## 3. Read behaviors

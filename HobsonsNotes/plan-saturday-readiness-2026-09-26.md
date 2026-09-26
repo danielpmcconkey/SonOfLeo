@@ -332,7 +332,7 @@ longer exists (errors are per-tier `IAppError` DUs). None is a real
 violation, and none is `# SLOW`, so the pre-commit hook would refuse every
 commit. §2 says "it must pass". Proposal: fix the three checks as the first
 commit.
-*Response:*
+*Response (Hobson): **Agreed.** Fix the three checks' paths to the re-tiered layout as the first commit. `check-tomessage-wildcard` should scan every `IAppError` implementation for wildcard `ToMessage` matches, not a single file. Also fix `DevDataStage`'s reference to the removed project (or remove the project from the solution if nothing uses it) so the solution builds clean.*
 
 **R-2. Item 30's command returns nothing.** `git log -p --since=2026-09-26`
 means "since today at the current time", so it misses the five spec commits
@@ -341,7 +341,7 @@ from that morning (ec2e867, 2cde344, e42e06b, 06e9a8b, e10ae06). Use
 gives 187 live new or revised REQs, 153 with no citing test, and 30 revised
 REQs cited only by tests written before the revision (e.g. REQ-RPT-2.4 now
 has the system append `.html`).
-*Response:*
+*Response (Hobson): **Agreed.** Use `git diff 8aad321 HEAD -- Specs/`. The 30 revised REQs cited by old tests: update those tests to the revised behaviour; they're failing the revision silently. Placeholders only for REQs whose implementation you don't reach.*
 
 **R-3. The traceability audit treats withdrawn requirements as active.**
 Withdrawals are marked in place (`*(Withdrawn 2026-09-26 …)*`) but
@@ -350,7 +350,7 @@ as untested (would block `main`), and a test still citing withdrawn
 REQ-STG-2.16 (`Tests.Integrated/CrossDomainOrchestration/StageEntryIngestion.fs:242`)
 isn't flagged as a phantom reference. Also: the audit counts REQ-CR-8.4 as
 waived while its row still says *pending Dan*.
-*Response:*
+*Response (Hobson): **Agreed** on both audit fixes: treat the in-place `(Withdrawn …)` marker and the Withdrawn tables as withdrawn, and flag tests citing withdrawn IDs (retarget the REQ-STG-2.16 test to REQ-STG-5.10, which now owns that behaviour). A waiver row that says "pending" must not count as waived. **For Dan:** approve or reject the REQ-CR-8.4 waiver.*
 
 **R-4. The plan's authority and the repo's process disagree.**
 - `Specs/README.md:39` says `HobsonsNotes/` is history, never authority,
@@ -366,7 +366,13 @@ waived while its row still says *pending Dan*.
   (`check-traceability.sh` is `# SLOW` and exits 0 off `main`).
 - §2 points the agent at stale guidance: `Skills/SonOfLeoSrcDeveloper/SKILL.md:364`
   and `Src/README.md:20-28` still describe the single `Utilities.AppError` DU.
-*Response:*
+*Response (Hobson): **Partly for Dan.**
+- Authority: **for Dan** to record the authorisation where the README recognises it (a line in `README.md` pointing at this plan would do). Until then, Dan handing you this document is the instruction, and he has told Hobson it stands; don't block on the README note.
+- Constraints 1–2: keep their intent. For each requirement group, write the test names from the spec alone and commit them as failing placeholders **before** reading or changing the Src for that group. Don't rename an approved-by-commit test to fit the code; if a name turns out wrong, say so in the report.
+- Constraint 3 **still applies**: every test is seen to fail before the change that makes it pass. For defects, write the test first against the current code.
+- "Same commit": my omission — the gate is a new REQ in the same commit as a citing test. It applies to any REQ you add; the REQs I added are already committed without tests, so R-2's list is the backlog.
+- `Specs/README.md` wrongly claimed the gate runs in pre-commit. Fixed in this commit.
+- Stale guidance: where `Src/README.md` or `Skills/SonOfLeoSrcDeveloper/SKILL.md` describe the single `Utilities.AppError` DU, the code wins (per-tier `IAppError` DUs). Update those passages as part of this work.*
 
 ### 8.2 Spec contradictions — need Dan before items 19, 23, 24
 
@@ -376,7 +382,7 @@ Reviewed entry to `'Duplicate'`. But REQ-STG-4.6 has no Reviewed →
 Duplicate, REQ-STG-7.9's own rationale says Reviewed is never flagged, and
 §3 says Reviewed entries are never "paired away". Proposal: a Posted +
 Reviewed pair is reported, like Reviewed + Reviewed.
-*Response:*
+*Response (Hobson): **Agreed.** REQ-STG-7.9 rewritten: `'Posted'` and `'Reviewed'` entries are never flagged; a pair where the would-be flagged entry is Posted/Reviewed is reported. Also dropped the "ingested first" tie-break (see R-10 #23).*
 
 **R-6. `Posted → Reviewed` in the shared transition table allows double
 posting (item 24).** Manual `UpdateStageEntry` checks the same table
@@ -388,7 +394,7 @@ the spec restricts this transition to the void path (mechanism alone won't
 do it; the manual route will always stamp `'Operator'` after item 13).
 Related, already live: manual Reviewed → Posted is allowed, so an operator
 can mark an entry Posted with no journal entry behind it.
-*Response:*
+*Response (Hobson): **Agreed.** New REQ-STG-4.8: `→ 'Posted'` is reserved to batch post and `'Posted' → 'Reviewed'` to the void reversal; every other operation, including the manual update, rejects both. This also closes the live manual Reviewed → Posted hole. Implement it as an operation-level restriction, not via mechanism.*
 
 **R-7. Removing a split line will hit a foreign key (item 19).**
 `classification.rule_match.stage_entry_line_id` is `ON DELETE RESTRICT`
@@ -404,13 +410,13 @@ remove classified ones. Recommend (c). Also unspecified:
   entry's lines, which desyncs them from the journal entry.
 - REQ-STG-6.4 requires the final state to meet every §2 staged-entry
   requirement, not just "≥ 2 lines, balanced" as item 19 says.
-*Response:*
+*Response (Hobson): **Agreed, option (c).** REQ-STG-6.4 now defines a split as reducing the existing line and adding lines. REQ-STG-6.5 forbids removing any line that is linked, paid, or recorded in a classification run, and forbids changing amount/line type/account on a linked or paid line. REQ-STG-6.6 now forbids any manual modification of a `'Posted'` entry. Item 19's summary is loose; the spec (every §2 requirement) governs. (Note: Payment amount is derived on read, not copied — but the objection stands, because an edit would change it without re-deriving invoice state.)*
 
 **R-8. Minor: REQ-FP-2.7 (item 25) is a silent no-op when nothing is
 missing.** REQ-SYS-6.1 forbids those. Returning an empty list is
 defensible, but REQ-FP-2.7 should say it's an exception, as REQ-STG-4.6
 does. Also validate start ≤ end.
-*Response:*
+*Response (Hobson): **Agreed.** REQ-FP-2.7 now declares itself an explicit idempotent exception under REQ-SYS-6.1.1 and rejects start > end.*
 
 ### 8.3 Defect missing from §4
 
@@ -427,7 +433,7 @@ insert as item 1.5 in §4.A.
 Related (item 20): matching and orphan detection ignore the staged entry's
 status, so a link on a line whose entry later goes `'Duplicate'` or
 `'Ignored'` can still get a Payment or trip the orphan stop.
-*Response:*
+*Response (Hobson): **Agreed — good catch, and it would have bitten on the second Saturday.** Insert as item 1.5. Spec: REQ-CF-13.2 now excludes lines referenced by any Payment (Staged or Posted, via the retained staged-line column) and lines whose entry is `'Duplicate'`/`'Ignored'`; REQ-CF-13.7's orphan test uses the same eligibility. New REQ-STG-6.7: an entry with a paid line can't go to `'Duplicate'`/`'Ignored'` by any operation (manual update errors; dedup and pairing report instead of flagging).*
 
 ### 8.4 Fixes that are too narrow
 
@@ -513,7 +519,25 @@ status, so a link on a line whose entry later goes `'Duplicate'` or
   assume one as-of date; reconciliation has one per row and period activity
   has a range.
 - **#27:** include the "whether they are equal" flag (REQ-RPT-5.1).
-*Response:*
+*Response (Hobson): **Agreed on all**, with these rulings:
+- #1: yes, assert `next_instance` too.
+- #2: projected invoices carry both amount and outstanding amount (new REQ-CF-8.10); arithmetic uses outstanding, floored at zero.
+- #3: spec gap closed — REQ-CF-7.16, no instance after end date.
+- #4: own test, yes.
+- #5: enforce in the instance-composite validation; REQ-CF-14.2 now rejects a flow-direction flip that invalidates existing invoice states.
+- #6: new typed error, yes.
+- #7: new REQ-NGUI-2.5 — unknown payload fields are rejected with a typed error naming the field, system-wide. That covers derived fields. The sweep and `updateAgreement` must derive, not set.
+- #8: REQ-STG-3.12 now specifies the committed-but-not-moved error.
+- #9: pre-check gives the typed error; the migration checks for existing duplicates first and fails with a clear message rather than silently deduplicating.
+- #10: validation pass after every read; build each regex once, with a match timeout; a timeout becomes a typed error naming the rule and fails the run (REQ-CR-1.26's "never raises" means no unhandled exception). No `Compiled` per evaluation.
+- #11: fix all nine caches and the `BeginTransaction` path.
+- #12: validate config and time zone at startup; top-level handler in both CLIs producing REQ-NGUI-1.3.x output; remove `failwith`. Update the stale DAL waiver row.
+- #13, #14, #15 (escape `\` first, then `%` and `_`), #16 (translate zero-row updates to typed not-found where an ID was supplied), #17 (and yes, no `updateInitiationInstant` dodge), #18: agreed as written.
+- #21/#22: distinct reason — now in REQ-CF-13.7.
+- #23: REQ-STG-7.7 and 7.9–7.11 rewritten: groups are connected components; window is `|Δdate| ≤ N`, N ≥ 0; lines compared as multisets; same-date pairs are reported (no ingestion-order tie-break); paid lines block flagging (REQ-STG-6.7); results give a reason per unresolved group.
+- #24: agreed on all four points; move voiding after `CashFlowOps` in compile order.
+- #26: sign is external − ledger (REQ-RPT-4.1). Shadow reconciliation is a command route under auto-rollback next to shadow post (new REQ-RPT-4.6); the non-shadow variant, integrity and period activity are ReportCli routes. REQ-RPT-6.4 now defines range interpolation and makes reconciliation data-only.
+- #27: yes.*
 
 ### 8.5 Order of operations
 
@@ -521,13 +545,13 @@ status, so a link on a line whose entry later goes `'Duplicate'` or
 Classified/Reviewed with every line assigned (REQ-STG-7.7, 7.8), so a
 transfer leg the operator assigns in step 8 is never paired. Pairing has to
 run again after step 8 and inside the step-10 loop.
-*Response:*
+*Response (Hobson): **Agreed.** Run pairing at step 7, again after step 8, and at the top of each step-10 loop iteration. Pairing is idempotent in effect (already-flagged entries aren't candidates), so repeated runs are safe.*
 
 **R-12. Step 5 needs instances.** `CashFlow CreateInvoice` attaches an
 invoice to an existing Instance. Tenant invoices need one from step 3 or
 `CreateInstance`. Every route named in the table exists as named; step 15's
 trial balance is a ReportCli route, and the new reports belong with it.
-*Response:*
+*Response (Hobson): **Agreed.** Tenant agreements have a cadence, so the step-3 sweep creates their Instances (and the fixed rent invoice); step 5 adds the variable utility-share Invoice to that Instance. If the Instance is missing, that's the sweep's problem to surface, not step 5's to create. New reports go in ReportCli; shadow reconciliation goes in OperatorCli (R-10 #26).*
 
 ### 8.6 Suggested sequence
 
@@ -536,3 +560,16 @@ trial balance is a ReportCli route, and the new reports belong with it.
 3. R-9 as item 1.5, then §4.A with R-10 folded in.
 4. PostgreSQL and `sonofleo_test` provisioned, or the report says
    `Tests.Integrated` didn't run here.
+
+### 8.7 Hobson's summary (2026-09-26)
+
+All twelve findings accepted. Spec changes made in the same commit as these
+responses: REQ-STG-3.12, 4.8 (new), 6.4, 6.5, 6.6, 6.7 (new), 7.7, 7.9,
+7.10, 7.11; REQ-CF-7.16 (new), 8.10 (new), 13.2, 13.7, 14.2; REQ-FP-2.7;
+REQ-NGUI-2.5 (new); REQ-RPT-4.6 (new), 6.4; `Specs/README.md` commit-gate
+paragraph. Items for Dan: the REQ-CR-8.4 waiver (R-3) and recording the
+authorisation in `README.md` (R-4) — neither blocks starting.
+
+Adopt the suggested sequence in 8.6, with one change: step 2 is done (the
+spec is updated), so go from step 1 to step 3. The new REQs from this round
+are in `git diff e603b6b HEAD -- Specs/`; add them to R-2's backlog.

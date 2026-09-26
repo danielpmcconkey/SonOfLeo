@@ -51,6 +51,7 @@ Reconciliation compares ledger balances to balances captured from each instituti
 - **REQ-RPT-4.4** The system must provide a means to run the reconciliation computation against the ledger as it would stand after posting every postable staged entry, without modifying ledger or staging data. Posting is simulated exactly as in shadow post (REQ-STG-8.2, REQ-STG-8.4).
   - *Why:* The shadow recon loop is what keeps errors out of an indelible ledger. It must compare against the simulated post, and the comparison must be mechanical, so "reconciled" is a computed fact rather than a model's reading of two tables. (2026-09-26)
 - **REQ-RPT-4.5** Reconciliation is read-only and makes no judgment. A non-zero delta is output, not an error.
+- **REQ-RPT-4.6** The shadow variant (REQ-RPT-4.4) writes to the ledger inside a transaction that is always rolled back; it is therefore a command operation, not a report, and REQ-RPT-2.6 does not apply to it. The non-shadow variant, integrity, and period activity are read-only reports.
 
 ## 5. Balance-sheet integrity
 
@@ -67,7 +68,8 @@ The spending view: what came in and what went out over a date range, with the tr
 - **REQ-RPT-6.1** The system must provide a period activity computation that accepts a begin and an end Calendar Date (inclusive) and returns, for every Revenue and Expense account with activity in the range: account code, account name, net total for the range in the account's normal-balance direction, and each contributing journal entry line (entry date, journal entry ID, journal entry description, line type, amount, memo).
 - **REQ-RPT-6.2** Voided journal entries contribute nothing to period activity.
 - **REQ-RPT-6.3** Accounts are ordered as in the trial balance (REQ-RPT-1.6); lines within an account are ordered by entry date, then journal entry ID.
-- **REQ-RPT-6.4** Reconciliation (§4), balance-sheet integrity (§5) and period activity (§6) support the output modes of §2: data-only, and rendered HTML written to a caller-provided path.
+- **REQ-RPT-6.4** Balance-sheet integrity (§5) and period activity (§6) support the output modes of §2: data-only, and rendered HTML written to a caller-provided path. For period activity, date interpolation (REQ-RPT-2.4) appends the begin and end dates as `-yyyy-MM-dd_yyyy-MM-dd`, and the rendered header (REQ-RPT-3.1) shows the range. Reconciliation (§4) is data-only.
+  - *Why:* Reconciliation feeds the operator and the Saturday summary, not a printed page; each row carries its own as-of date, so a single header date does not describe it. (2026-09-26)
 
 
 ## Waived from testing

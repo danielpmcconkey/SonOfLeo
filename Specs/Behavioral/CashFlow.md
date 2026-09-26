@@ -205,6 +205,7 @@ The projection sweep is a deterministic operation that ensures the event side of
 - **REQ-CF-7.14** The sweep returns every unfulfilled Instance, with its Invoices and their Payments, after it has run — not only those it created.
   - *Why:* The caller needs the whole open book for the Saturday review; what was just created is a subset of it. (2026-09-26)
 - **REQ-CF-7.15** The sweep is atomic: if any Instance or Invoice cannot be created, nothing the run created is kept.
+- **REQ-CF-7.16** The sweep never creates an Instance dated after its Master Agreement's end date, even when that date falls inside the horizon.
 
 
 ## 8. Cash-flow projection
@@ -218,6 +219,7 @@ The cash-flow projection is a read-only, deterministic operation that computes t
 - **REQ-CF-8.4** Payment agreements on unfulfilled Instances dated on or before the horizon end that have no Invoice must be surfaced as known upcoming obligations with unknown magnitude — the "bills to chase." An Instance may carry invoices for some of its payment agreements while others are still missing; each missing agreement is a separate bill to chase, reported with its agreement name, payment agreement name, Instance date and cadence. There is no lower bound on the Instance date. (Revised 2026-09-26)
 - **REQ-CF-8.9** An Invoice's outstanding amount is its amount minus the sum of its Payment amounts, floored at zero.
   - *Why:* A partially paid bill still owes only the remainder. Counting the full amount double-counts cash that has already left (or arrived), overstating the money that needs moving. (2026-09-26)
+- **REQ-CF-8.10** Each projected Invoice in the result carries both its amount and its outstanding amount.
 - **REQ-CF-8.5** The projection is a deterministic `[DET]` operation. It performs arithmetic only and makes no judgment calls.
 - **REQ-CF-8.6** A managed cash account is an active account whose subtype is 'Cash'. Every managed cash account appears in the projection, including those with no invoices.
 - **REQ-CF-8.7** Each projected account reports its code, name, current balance, known inflows, known outflows, projected low, and the Invoices that contributed.
@@ -300,14 +302,15 @@ Matching turns links into Payments. It runs in the same operation as linkage (§
 
 - **REQ-CF-13.1** Candidate invoices are those on unfulfilled Instances whose payment state is not 'FullyPaid' and whose Payments do not already exceed the Invoice amount. They are considered in order of due date, oldest first.
   - *Why:* The oldest bill gets first claim on a line two invoices could both take. Fetch order must never decide it. An overpaid invoice is excluded so it doesn't absorb further payments. (2026-09-26)
-- **REQ-CF-13.2** A linked line is a candidate for an Invoice when: it is linked to the Invoice's Payment Agreement; no Payment already references it; no earlier Invoice in this run claimed it; and its entry date falls between the Invoice date minus the grace period and the due date plus the grace period, inclusive.
+- **REQ-CF-13.2** A linked line is a candidate for an Invoice when: it is linked to the Invoice's Payment Agreement; its staged entry's status is neither `'Duplicate'` nor `'Ignored'`; no Payment references it, whether that Payment's pointer is still Staged or has moved to Posted (the Payment retains the staged line as provenance, REQ-CF-6.4); no earlier Invoice in this run claimed it; and its entry date falls between the Invoice date minus the grace period and the due date plus the grace period, inclusive. (Revised 2026-09-26)
+  - *Why:* Links outlive posting. A line already paid must never be offered again, or a second Saturday re-pays last week's bill. (2026-09-26)
 - **REQ-CF-13.3** The grace period is derived from the Master Agreement's cadence: Daily 0 days, Weekly 2, EveryOtherWeek 4, Monthly 7, Annually 7.
 - **REQ-CF-13.4** When an Invoice has exactly one candidate line, a Payment is created against it with a Staged pointer to that line, and the line is claimed.
 - **REQ-CF-13.5** When an Invoice has more than one candidate line, no Payment is created for it and the Invoice is reported with every candidate.
 - **REQ-CF-13.6** When a Payment brings an Invoice's paid total above its amount, the Invoice is reported as an overpayment. The system takes no ledger action and creates no further records.
   - *Why:* Under GAAP the excess is a credit that needs a ledger-level treatment this system does not model yet. The operator decides. (2026-09-26)
-- **REQ-CF-13.7** When a linked line is not a candidate for any Invoice in the run — no Invoice would even consider it — the operation fails and rolls back in full. It must not create an Instance or Invoice to absorb the line. The error must identify every such line and its Payment Agreement, not only the first.
-  - *Why:* A linked line with nowhere to go means an upstream gap: the sweep did not run far enough, a cadence is wrong, or a bill has not been entered. Creating records on the fly masks it. Naming every orphan at once means one fix cycle, not one per orphan. (2026-09-26)
+- **REQ-CF-13.7** When a linked line that is still eligible (not referenced by any Payment; staged entry not `'Duplicate'` or `'Ignored'`) is not a candidate for any Invoice in the run, the operation fails and rolls back in full. It must not create an Instance or Invoice to absorb the line. The error must identify every such line and its Payment Agreement, not only the first, and must give each a reason: no open Invoice on that agreement covers the line's date, or the only Invoices that would cover it are excluded as overpaid (REQ-CF-13.1).
+  - *Why:* A linked line with nowhere to go means an upstream gap: the sweep did not run far enough, a cadence is wrong, a bill has not been entered, or an earlier payment was misapplied. Creating records on the fly masks it. Naming every orphan at once, with the reason, means one fix cycle, not one per orphan. (2026-09-26)
 - **REQ-CF-13.8** A line that was a candidate and lost (REQ-CF-13.5) is not an orphan under REQ-CF-13.7.
 - **REQ-CF-13.9** The linkage-and-matching operation returns: the classification run ID; every link created; every claim not linked, with its reason (REQ-CF-12.4, REQ-CF-12.5); every Payment created; every Invoice with multiple candidates; every overpayment; and the open Instances after matching.
   - *Why:* This result is the Saturday review stack for obligations. Everything the operator must decide is in it; nothing requires a second query. (2026-09-26)
@@ -317,7 +320,7 @@ Matching turns links into Payments. It runs in the same operation as linkage (§
 The operator-facing operations on agreements and their events. Master and Payment Agreements are addressed by name at the boundary.
 
 - **REQ-CF-14.1** The system must provide a means to create a Master Agreement together with its Payment Agreements in one atomic operation. Payment Agreement accounts are given by account code.
-- **REQ-CF-14.2** The system must provide a means to update a Master Agreement's name, flow direction, cadence (including next-instance date), counterparty, start date, end date, and memo. An update that changes nothing is rejected (REQ-SYS-6.1).
+- **REQ-CF-14.2** The system must provide a means to update a Master Agreement's name, flow direction, cadence (including next-instance date), counterparty, start date, end date, and memo. An update that changes nothing is rejected (REQ-SYS-6.1). A flow-direction change is rejected when any existing Invoice's invoice state is not valid for the new direction (REQ-CF-5.10). (Amended 2026-09-26)
 - **REQ-CF-14.3** The system must provide a means to fetch one Master Agreement, by name, with its whole tree: Payment Agreements, Instances, Invoices, and Payments.
 - **REQ-CF-14.4** The system must provide a means to create an Instance for a Master Agreement, optionally with Invoices and their Payments, in one atomic operation.
 - **REQ-CF-14.5** The system must provide a means to add an Invoice, optionally with Payments, to an existing Instance; to update an Invoice's external invoice ID, invoice date, due date, amount, invoice state, blocker and memo; and to add a Payment to an existing Invoice. Each validates the Instance as a whole (§4, §5, §9) before anything is written.
