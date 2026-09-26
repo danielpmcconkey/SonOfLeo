@@ -8,8 +8,6 @@ open Business.CrossDomainOrchestration
 open System
 open System.IO
 open App.DataAccessLayer.DbTransaction
-open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
-open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open App.Operation.AuditEnvelope
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
@@ -39,6 +37,15 @@ open Business.FinancialServices.Classification.ClassificationAuditableAction
 open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.BizFinServError
+
+open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
+open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
+open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
+
+/// What the single ingest route used to return, rebuilt from the three routes an operator now runs in its place.
+type IngestionPipelineReturn =
+    { stagedEntries: StageEntryReturn list
+      newDuplicates: StageEntryReturn list }
 
 
 [<Collection("SharedTestData")>]
@@ -107,17 +114,60 @@ type IngestionRouteTests(fixture: TestDataFixture) =
         finally
             deleteImportFile fileName
 
-    /// Runs a file through the ingestion route and hands back the parsed result. The route
-    /// commits, so every caller owns the staged entries that come back and must clean them up.
+    (* ---------------------------------------------------------------------
+       FetchStageEntryFiltered — the route that carried a dead column reference
+       through two audits because nothing ever called it.
+       --------------------------------------------------------------------- *)
+
+    static let noFilterInput: StageEntryFetchFilterInput =
+        { stageEntryHeaderId = None
+          sourceFile = None
+          temporalFilter = None
+          description = None
+          ingestionSource = None
+          fiReference = None
+          status = None
+          stageEntryLineId = None
+          amount = None
+          lineType = None
+          accountCode = None
+          memo = None
+          journalEntryHeaderId = None
+          journalEntryLineId = None }
+
+    static let fetchFilteredThroughRoute filter =
+        result {
+            let! payload =
+                { StageEntryFetchFilteredInput.filter = filter; sort = None }
+                |> toJson<StageEntryFetchFilteredInput>
+            let! resultPayload = routeUiCommandForTesting "Ingestion" "FetchStageEntryFiltered" [] payload
+            return! fromJson<StageEntryReturn list> resultPayload
+        }
+
+    /// Runs a file through ingestion the way an operator now does: the ingest route, then the dedup route, then
+    /// account classification, which used to be one route. Hands back the file's entries as they stand afterwards
+    /// and the ones dedup flagged. Every route commits, so every caller owns the staged entries that come back and
+    /// must clean them up.
     static let ingestThroughRoute fileName rows =
         writeImportFile fileName rows
         result {
-            let! resultPayload =
+            let! ingestedPayload =
                 routeUiCommandForTesting "Ingestion" "IngestRawFileToStage" [] (ingestPayload fileName)
-            return! fromJson<IngestionFullResultReturn> resultPayload
+            let! ingested = fromJson<StageEntryReturn list> ingestedPayload
+            let! _ = routeUiCommandForTesting "Ingestion" "DeduplicateStageEntries" [] ""
+            let! _ = routeUiCommandForTesting "Classification" "ClassifyAccounts" [] ""
+            let! stagedEntries =
+                match ingested |> List.tryHead with
+                | None -> Ok []
+                | Some entry ->
+                    fetchFilteredThroughRoute { noFilterInput with sourceFile = Some entry.stageEntryHeader.sourceFile }
+            return
+                { stagedEntries = stagedEntries
+                  newDuplicates =
+                    stagedEntries |> List.filter (fun entry -> entry.stageEntryHeader.status = Some "Duplicate") }
         }
 
-    static let headerIdsToCleanUp (fullResult: IngestionFullResultReturn) =
+    static let headerIdsToCleanUp (fullResult: IngestionPipelineReturn) =
         fullResult.stagedEntries
         |> List.map (fun entry -> entry.stageEntryHeader.stageEntryHeaderId |> StageEntryHeaderId.fromGuid |> Some)
 
@@ -149,35 +199,6 @@ type IngestionRouteTests(fixture: TestDataFixture) =
           rawRow "grp-route-a" today "Route ingest first group" "TestBank" referenceOne "42.10" "Credit" (Some "F-1270") None
           rawRow "grp-route-b" today "Route ingest second group" "TestBank" referenceTwo "18.00" "Debit" (Some "F-5300") None
           rawRow "grp-route-b" today "Route ingest second group" "TestBank" referenceTwo "18.00" "Credit" (Some "F-1270") None ]
-
-    (* ---------------------------------------------------------------------
-       FetchStageEntryFiltered — the route that carried a dead column reference
-       through two audits because nothing ever called it.
-       --------------------------------------------------------------------- *)
-
-    static let noFilterInput: StageEntryFetchFilterInput =
-        { stageEntryHeaderId = None
-          sourceFile = None
-          temporalFilter = None
-          description = None
-          ingestionSource = None
-          fiReference = None
-          status = None
-          stageEntryLineId = None
-          amount = None
-          lineType = None
-          accountCode = None
-          memo = None
-          classificationRuleId = None }
-
-    static let fetchFilteredThroughRoute filter =
-        result {
-            let! payload =
-                { StageEntryFetchFilteredInput.filter = filter; sort = None }
-                |> toJson<StageEntryFetchFilteredInput>
-            let! resultPayload = routeUiCommandForTesting "Ingestion" "FetchStageEntryFiltered" [] payload
-            return! fromJson<StageEntryReturn list> resultPayload
-        }
 
     /// Two groups whose every line names its account outright, so the accounts a filter has to
     /// resolve are the ones these rows were written with rather than whatever the classifier
@@ -308,8 +329,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                       amount = NoChange
                       lineType = NoChange
                       accountCode = SetTo (Some newCode)
-                      memo = NoChange
-                      classificationRuleId = NoChange }
+                      memo = NoChange }
                 let updateThroughRoute (input: UpdateStageEntryInput) =
                     result {
                         let! payload = input |> toJson<UpdateStageEntryInput>

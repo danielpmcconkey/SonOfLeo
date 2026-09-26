@@ -449,33 +449,40 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
             })
         |> railroadWrapper
 
-    [<Fact>]
-    member _.``REQ-STG-10.2 fetchFiltered by classification rule id returns every entry having a line classified by that rule and no entry classified by another``
-        ()
-        =
-        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
-            result {
-                let! staged = stageAll context
-                (* Which rule wins which line is the classifier's business; take whichever rule
-                   the pipeline actually stamped onto the fewest entries so the exclusion half
-                   has something to exclude. *)
-                let targetRuleId =
-                    staged
-                    |> List.collect(fun e -> e |> seLines |> List.choose StageEntryLine.accountClassificationRuleId)
-                    |> List.distinct
-                    |> List.head
-                let expected =
-                    staged
-                    |> List.filter(fun e ->
-                        e
-                        |> seLines
-                        |> List.exists(fun l -> l |> StageEntryLine.accountClassificationRuleId = Some targetRuleId))
-                let! fetched = { noFilter with classificationRuleId = Some targetRuleId } |> fetchFiltered context None
-                Assert.NotEmpty expected
-                Assert.Equal<StageEntryHeaderId list>(expected |> idsOf, fetched |> idsOf)
-                Assert.NotEmpty(staged |> List.except expected)
-            })
-        |> railroadWrapper
+    (* Commented out pending Dan's decision. The spec's filter list for staged-entry fetches still names a
+       classification rule id, but Src dropped that filter in 511d01f when classification stopped stamping a rule id on
+       the staged line (matches now live in classification.rule_match, keyed by run). StageEntryFetchFilter carries
+       journalEntryHeaderId and journalEntryLineId in its place. Either the filter comes back by way of rule_match, or
+       the spec drops it and this test goes.
+
+    // [<Fact>]
+    // member _.``REQ-STG-10.2 fetchFiltered by classification rule id returns every entry having a line classified by that rule and no entry classified by another``
+    //     ()
+    //     =
+    //     runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+    //         result {
+    //             let! staged = stageAll context
+    //             (* Which rule wins which line is the classifier's business; take whichever rule
+    //                the pipeline actually stamped onto the fewest entries so the exclusion half
+    //                has something to exclude. *)
+    //             let targetRuleId =
+    //                 staged
+    //                 |> List.collect(fun e -> e |> seLines |> List.choose StageEntryLine.accountClassificationRuleId)
+    //                 |> List.distinct
+    //                 |> List.head
+    //             let expected =
+    //                 staged
+    //                 |> List.filter(fun e ->
+    //                     e
+    //                     |> seLines
+    //                     |> List.exists(fun l -> l |> StageEntryLine.accountClassificationRuleId = Some targetRuleId))
+    //             let! fetched = { noFilter with classificationRuleId = Some targetRuleId } |> fetchFiltered context None
+    //             Assert.NotEmpty expected
+    //             Assert.Equal<StageEntryHeaderId list>(expected |> idsOf, fetched |> idsOf)
+    //             Assert.NotEmpty(staged |> List.except expected)
+    //         })
+    //     |> railroadWrapper
+    *)
 
     [<Fact>]
     member _.``REQ-STG-10.2 fetchFiltered given both a status and an ingestion source returns only the entries satisfying both, not the union``

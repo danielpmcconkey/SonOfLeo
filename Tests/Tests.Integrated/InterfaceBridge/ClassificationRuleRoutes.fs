@@ -6,6 +6,8 @@ open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.CrossDomainOrchestration
 open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
+open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
+open Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
 open Business.FinancialServices.Classification
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
@@ -39,6 +41,18 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
     let ruleNameOf (r: ClassificationRule.ClassificationRule) =
         r |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value
 
+    /// The account code a returned rule claims at match, if it claims an account at all.
+    static let claimantCodeOf (claimant: ClassificationClaimantReturn) =
+        match claimant with
+        | ClassificationClaimantReturn.Account a -> Some a.code
+        | ClassificationClaimantReturn.PaymentAgreement _ -> None
+
+    /// The account name a returned rule claims at match, if it claims an account at all.
+    static let claimantAccountNameOf (claimant: ClassificationClaimantReturn) =
+        match claimant with
+        | ClassificationClaimantReturn.Account a -> Some a.accountName
+        | ClassificationClaimantReturn.PaymentAgreement _ -> None
+
     let namesOf (returns: ClassificationRuleReturn list) =
         returns |> List.map(fun r -> r.classificationRuleName) |> List.sort
 
@@ -55,11 +69,11 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
         result {
             let! payload =
                 { classificationRuleName = name
-                  codeAtMatch = code
+                  claimantAtMatch = ClassificationClaimantInput.Account code
                   priority = priority
                   ruleGroups = groups }
                 |> toJson<NewClassificationRuleInput>
-            let! returnPayload = routeUiCommandForTesting "Ingestion" "NewClassificationRule" [] payload
+            let! returnPayload = routeUiCommandForTesting "Classification" "NewClassificationRule" [] payload
             return! fromJson<ClassificationRuleReturn> returnPayload
         }
 
@@ -83,17 +97,17 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
                 Assert.True(created.isActive)
                 (* The caller sent a code and never an id. Both of these come back only if the
                    route resolved that code against the chart of accounts. *)
-                Assert.Equal(accountCodeForNewRules, created.codeAtMatch)
+                Assert.Equal(Some(accountCodeForNewRules), created.claimantAtMatch |> claimantCodeOf)
                 Assert.Equal(
-                    expectedAccount |> Account.accountName |> AccountName.value,
-                    created.accountNameAtMatch)
+                    Some(expectedAccount |> Account.accountName |> AccountName.value),
+                    created.claimantAtMatch |> claimantAccountNameOf)
                 (* Read it back through a second route call so the assertion is about what the
                    route committed, not about what it happened to return. *)
                 let! byIdPayload =
                     { FetchClassificationRuleByIdInput.classificationRuleId = created.classificationRuleId }
                     |> toJson<FetchClassificationRuleByIdInput>
                 let! refetchedPayload =
-                    routeUiCommandForTesting "Ingestion" "FetchClassificationRuleById" [] byIdPayload
+                    routeUiCommandForTesting "Classification" "FetchClassificationRuleById" [] byIdPayload
                 let! refetched = fromJson<ClassificationRuleReturn> refetchedPayload
                 Assert.Equal(ruleName, refetched.classificationRuleName)
                 Assert.Equal(42, refetched.priority)
@@ -124,20 +138,20 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
                 let! payload =
                     { classificationRuleId = created.classificationRuleId
                       classificationRuleNameUpdate = SetTo "CR-6.1 route update after"
-                      codeAtMatchUpdate = SetTo endingCode
+                      claimantAtMatchUpdate = SetTo (ClassificationClaimantInput.Account endingCode)
                       priorityUpdate = SetTo 99
                       ruleGroupsUpdate = SetTo endingGroups
                       isActiveUpdate = SetTo false }
                     |> toJson<UpdateClassificationRuleInput>
                 let! updatedPayload =
-                    routeUiCommandForTesting "Ingestion" "UpdateClassificationRule" [] payload
+                    routeUiCommandForTesting "Classification" "UpdateClassificationRule" [] payload
                 let! updated = fromJson<ClassificationRuleReturn> updatedPayload
                 Assert.Equal(created.classificationRuleId, updated.classificationRuleId)
                 Assert.Equal("CR-6.1 route update after", updated.classificationRuleName)
-                Assert.Equal(endingCode, updated.codeAtMatch)
+                Assert.Equal(Some(endingCode), updated.claimantAtMatch |> claimantCodeOf)
                 Assert.Equal(
-                    endingAccount |> Account.accountName |> AccountName.value,
-                    updated.accountNameAtMatch)
+                    Some(endingAccount |> Account.accountName |> AccountName.value),
+                    updated.claimantAtMatch |> claimantAccountNameOf)
                 Assert.Equal(99, updated.priority)
                 Assert.Equal<ClassificationRuleGroupContract list>(endingGroups, updated.ruleGroups)
                 Assert.False(updated.isActive)
@@ -155,16 +169,16 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
         let expected = fixture.Data.classificationRules |> List.head
         let expectedAccount =
             fixture.Data.accounts
-            |> List.find(fun a -> a |> Account.accountId = (expected |> ClassificationRule.classificationClaimant))
+            |> List.find(fun a -> ClassificationClaimant.Account(a |> Account.accountId) = (expected |> ClassificationRule.classificationClaimant))
         result {
             let! payload =
                 { FetchClassificationRuleByIdInput.classificationRuleId =
                     expected |> ClassificationRule.classificationRuleId |> ClassificationRuleId.value }
                 |> toJson<FetchClassificationRuleByIdInput>
-            let! returnPayload = routeUiCommandForTesting "Ingestion" "FetchClassificationRuleById" [] payload
+            let! returnPayload = routeUiCommandForTesting "Classification" "FetchClassificationRuleById" [] payload
             let! returned = fromJson<ClassificationRuleReturn> returnPayload
             Assert.Equal(expected |> ruleNameOf, returned.classificationRuleName)
-            Assert.Equal(expectedAccount |> Account.code |> AccountCode.value, returned.codeAtMatch)
+            Assert.Equal(Some(expectedAccount |> Account.code |> AccountCode.value), returned.claimantAtMatch |> claimantCodeOf)
             Assert.Equal(expected |> ClassificationRule.priority, returned.priority)
         }
         |> railroadWrapper
@@ -183,7 +197,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
             let! payload =
                 { FetchClassificationRuleByNameInput.classificationRuleName = expected |> ruleNameOf }
                 |> toJson<FetchClassificationRuleByNameInput>
-            let! returnPayload = routeUiCommandForTesting "Ingestion" "FetchClassificationRuleByName" [] payload
+            let! returnPayload = routeUiCommandForTesting "Classification" "FetchClassificationRuleByName" [] payload
             let! returned = fromJson<ClassificationRuleReturn> returnPayload
             Assert.Equal(expected |> ruleNameOf, returned.classificationRuleName)
             Assert.Equal(
@@ -202,7 +216,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
                 { FetchClassificationRuleFilteredInput.filter = filter; sort = None }
                 |> toJson<FetchClassificationRuleFilteredInput>
             let! returnPayload =
-                routeUiCommandForTesting "Ingestion" "FetchClassificationRuleFiltered" [] payload
+                routeUiCommandForTesting "Classification" "FetchClassificationRuleFiltered" [] payload
             return! fromJson<ClassificationRuleReturn list> returnPayload
         }
 
@@ -219,6 +233,8 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
                     { ruleId = None
                       nameLike = Some fragment
                       accountCodeAtMatch = None
+                      paymentAgreementNameAtMatch = None
+                      claimantType = None
                       sourceLike = None
                       activeOnly = false }
             Assert.Equal<string list>(expected |> List.map ruleNameOf |> List.sort, returned |> namesOf)
@@ -232,7 +248,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
         let account = accountByCode code
         let expected =
             fixture.Data.classificationRules
-            |> List.filter(fun r -> (r |> ClassificationRule.classificationClaimant) = (account |> Account.accountId))
+            |> List.filter(fun r -> (r |> ClassificationRule.classificationClaimant) = ClassificationClaimant.Account(account |> Account.accountId))
         result {
             Assert.NotEmpty expected
             (* The caller never sends an AccountId. If the route stopped resolving the code,
@@ -242,10 +258,12 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
                     { ruleId = None
                       nameLike = None
                       accountCodeAtMatch = Some code
+                      paymentAgreementNameAtMatch = None
+                      claimantType = None
                       sourceLike = None
                       activeOnly = false }
             Assert.Equal<string list>(expected |> List.map ruleNameOf |> List.sort, returned |> namesOf)
-            Assert.All(returned, fun r -> Assert.Equal(code, r.codeAtMatch))
+            Assert.All(returned, fun r -> Assert.Equal(Some(code), r.claimantAtMatch |> claimantCodeOf))
         }
         |> railroadWrapper
 
@@ -265,7 +283,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
             |> List.filter(fun r -> (r |> ruleNameOf).StartsWith "Allstate Insurance to ")
         let expectedNameFor (rule: ClassificationRule.ClassificationRule) =
             fixture.Data.accounts
-            |> List.find(fun a -> a |> Account.accountId = (rule |> ClassificationRule.classificationClaimant))
+            |> List.find(fun a -> ClassificationClaimant.Account(a |> Account.accountId) = (rule |> ClassificationRule.classificationClaimant))
             |> Account.accountName
             |> AccountName.value
         result {
@@ -282,13 +300,13 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
                                 rule |> ClassificationRule.classificationRuleId |> ClassificationRuleId.value }
                             |> toJson<FetchClassificationRuleByIdInput>
                         let! returnPayload =
-                            routeUiCommandForTesting "Ingestion" "FetchClassificationRuleById" [] payload
+                            routeUiCommandForTesting "Classification" "FetchClassificationRuleById" [] payload
                         let! returned = fromJson<ClassificationRuleReturn> returnPayload
                         return (rule, returned)
                     })
                 |> convertListOfResultsToResultsList
             fetched
             |> List.iter(fun (rule, returned) ->
-                Assert.Equal(expectedNameFor rule, returned.accountNameAtMatch))
+                Assert.Equal(Some(expectedNameFor rule), returned.claimantAtMatch |> claimantAccountNameOf))
         }
         |> railroadWrapper
