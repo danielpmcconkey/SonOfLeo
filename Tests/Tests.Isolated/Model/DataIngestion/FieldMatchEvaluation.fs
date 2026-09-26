@@ -1,19 +1,23 @@
 module Tests.Isolated.Business.FinancialServices.DataIngestion.FieldMatchEvaluation
 
-open Model
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.DataIngestion.Classification
+open Business.FinancialServices.Classification
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 open Xunit
-open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
-open Business.FinancialServices.DataIngestion.Classification.FieldMatch
+open Business.FinancialServices.Classification.ClassificationComponent
+open Business.FinancialServices.Classification.FieldMatch
 
 
 let private unwrap result =
-    result |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
+    result |> Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage()))
 
 // A candidate whose every field is independently settable, so each field match
 // under test is exercised against a value chosen for it and nothing else.

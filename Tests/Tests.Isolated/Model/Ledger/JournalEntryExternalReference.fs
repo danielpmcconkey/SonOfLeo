@@ -1,13 +1,18 @@
 module Tests.Isolated.Business.FinancialServices.Ledger.JournalEntryExternalReference
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open System
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 open Xunit
-open Tests.Helpers.SadPath
 open Tests.Helpers.Railroad
+open Business.FinancialServices.Ledger.LedgerError
 
 // =============================================================================
 // JournalRefFinancialInstitution

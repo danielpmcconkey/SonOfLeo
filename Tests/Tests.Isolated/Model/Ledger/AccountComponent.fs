@@ -1,15 +1,20 @@
 module Tests.Isolated.Business.FinancialServices.Ledger.AccountComponent
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open System
-open Model
 open Xunit
 open Business.FinancialServices.Ledger.AccountComponent
 open App.Utility
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
-open Tests.Helpers.SadPath
 open Tests.Helpers.Railroad
+open Business.FinancialServices.Ledger.LedgerError
+open Business.General.BizGeneralError
 
 // =============================================================================
 // AccountCode
@@ -161,351 +166,351 @@ let ``REQ-SYS-1.1 AccountSubtype fromString trims input before matching`` () =
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type can be matched with Cash subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
-    let st = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "Cash")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
+    let st = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "Cash")
     Assert.True(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type cannot be matched with CurrentLiability subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "CurrentLiability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "CurrentLiability")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type can be matched with FixedAsset subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "FixedAsset")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "FixedAsset")
     Assert.True(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type can be matched with Investment subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "Investment")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "Investment")
     Assert.True(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type cannot be matched with LongTermLiability subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "LongTermLiability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "LongTermLiability")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type cannot be matched with OperatingExpense subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingExpense")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingExpense")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type cannot be matched with OperatingRevenue subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingRevenue")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingRevenue")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type cannot be matched with OtherRevenue subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherRevenue")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherRevenue")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.28 REQ-AC-1.29 Asset type cannot be matched with OtherExpense subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherExpense")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherExpense")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type cannot be matched with Cash subtypes`` () =
     let t =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
-    let st = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "Cash")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
+    let st = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "Cash")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type can be matched with CurrentLiability subtypes`` () =
     let t =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "CurrentLiability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "CurrentLiability")
     Assert.True(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type cannot be matched with FixedAsset subtypes`` () =
     let t =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "FixedAsset")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "FixedAsset")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type cannot be matched with Investment subtypes`` () =
     let t =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "Investment")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "Investment")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type can be matched with LongTermLiability subtypes`` () =
     let t =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "LongTermLiability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "LongTermLiability")
     Assert.True(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type cannot be matched with OperatingExpense subtypes`` () =
     let t =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingExpense")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingExpense")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type cannot be matched with OperatingRevenue subtypes`` () =
     let t =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingRevenue")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingRevenue")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type cannot be matched with OtherRevenue subtypes`` () =
     let t =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherRevenue")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherRevenue")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.30 REQ-AC-1.31 Liability type cannot be matched with OtherExpense subtypes`` () =
     let t =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherExpense")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherExpense")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with Cash subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
-    let st = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "Cash")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
+    let st = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "Cash")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with CurrentLiability subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "CurrentLiability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "CurrentLiability")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with FixedAsset subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "FixedAsset")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "FixedAsset")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with Investment subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "Investment")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "Investment")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with LongTermLiability subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "LongTermLiability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "LongTermLiability")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with OperatingExpense subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingExpense")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingExpense")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with OperatingRevenue subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingRevenue")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingRevenue")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with OtherRevenue subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherRevenue")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherRevenue")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.32 Equity type cannot be matched with OtherExpense subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherExpense")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherExpense")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type cannot be matched with Cash subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
-    let st = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "Cash")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
+    let st = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "Cash")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type cannot be matched with CurrentLiability subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "CurrentLiability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "CurrentLiability")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type cannot be matched with FixedAsset subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "FixedAsset")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "FixedAsset")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type cannot be matched with Investment subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "Investment")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "Investment")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type cannot be matched with LongTermLiability subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "LongTermLiability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "LongTermLiability")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type cannot be matched with OperatingExpense subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingExpense")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingExpense")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type can be matched with OperatingRevenue subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingRevenue")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingRevenue")
     Assert.True(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type can be matched with OtherRevenue subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherRevenue")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherRevenue")
     Assert.True(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.33 REQ-AC-1.34 Revenue type cannot be matched with OtherExpense subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherExpense")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherExpense")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type cannot be matched with Cash subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
-    let st = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "Cash")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
+    let st = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "Cash")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type cannot be matched with CurrentLiability subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "CurrentLiability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "CurrentLiability")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type cannot be matched with FixedAsset subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "FixedAsset")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "FixedAsset")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type cannot be matched with Investment subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "Investment")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "Investment")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type cannot be matched with LongTermLiability subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "LongTermLiability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "LongTermLiability")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type can be matched with OperatingExpense subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingExpense")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingExpense")
     Assert.True(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type cannot be matched with OperatingRevenue subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingRevenue")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OperatingRevenue")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type cannot be matched with OtherRevenue subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherRevenue")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherRevenue")
     Assert.False(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.35 REQ-AC-1.36 Expense type can be matched with OtherExpense subtypes`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
     let st =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherExpense")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountSubtype.fromString "OtherExpense")
     Assert.True(AccountSubtype.validTypeSubtypeCombination t (Some st))
 
 [<Fact>]
 let ``REQ-AC-1.19 Asset type can be matched with a subtype of null`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Asset")
     let st = None
     Assert.True(AccountSubtype.validTypeSubtypeCombination t st)
 
 [<Fact>]
 let ``REQ-AC-1.19 Liability type can be matched with a subtype of null`` () =
     let t =
-        Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
+        Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Liability")
     let st = None
     Assert.True(AccountSubtype.validTypeSubtypeCombination t st)
 
 [<Fact>]
 let ``REQ-AC-1.19 Equity type can be matched with a subtype of null`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Equity")
     let st = None
     Assert.True(AccountSubtype.validTypeSubtypeCombination t st)
 
 [<Fact>]
 let ``REQ-AC-1.19 Revenue type can be matched with a subtype of null`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Revenue")
     let st = None
     Assert.True(AccountSubtype.validTypeSubtypeCombination t st)
 
 [<Fact>]
 let ``REQ-AC-1.19 Expense type can be matched with a subtype of null`` () =
-    let t = Result.defaultWith (fun e -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
+    let t = Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage())) (AccountType.fromString "Expense")
     let st = None
     Assert.True(AccountSubtype.validTypeSubtypeCombination t st)
 
@@ -577,7 +582,7 @@ let ``REQ-AC-1.50 isActive returns true when begin <= ref and no end`` () =
     let ae = None
     let now = Calendar.today()
     ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate
-    |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+    |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
     |> ActivityPeriod.isActive now
     |> Assert.True
 
@@ -587,7 +592,7 @@ let ``REQ-AC-1.50 isActive returns true when begin <= ref and end > ref`` () =
     let ae = Some(Calendar.today().PlusDays(1))
     let now = Calendar.today()
     ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate
-    |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+    |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
     |> ActivityPeriod.isActive now
     |> Assert.True
 
@@ -598,7 +603,7 @@ let ``REQ-AC-1.48 isActive returns false when end < ref (deactivated)`` () =
     let ae = Some(Calendar.today().PlusDays(-1))
     let now = Calendar.today()
     ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate
-    |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+    |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
     |> ActivityPeriod.isActive now
     |> Assert.False
 
@@ -608,7 +613,7 @@ let ``REQ-AC-1.50 isActive returns false when ref precedes begin (not yet starte
     let ae = None
     let now = Calendar.today()
     ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate
-    |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+    |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
     |> ActivityPeriod.isActive now
     |> Assert.False
 
@@ -618,7 +623,7 @@ let ``REQ-AC-1.50 isActive returns true when the reference point exactly equals 
     let ae = None
     let now = ab
     ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate
-    |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+    |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
     |> ActivityPeriod.isActive now
     |> Assert.True
 
@@ -628,6 +633,6 @@ let ``REQ-AC-1.48 isActive returns true when the reference point exactly equals 
     let now = Calendar.today()
     let ae = Some now
     ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate
-    |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+    |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
     |> ActivityPeriod.isActive now
     |> Assert.True

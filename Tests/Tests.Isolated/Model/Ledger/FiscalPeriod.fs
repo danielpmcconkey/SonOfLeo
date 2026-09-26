@@ -1,10 +1,16 @@
 module Tests.Isolated.Business.FinancialServices.Ledger.FiscalPeriod
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 open Xunit
+open Business.FinancialServices.Ledger.LedgerError
 let genericKey = "2026-06"
 
 [<Fact>]
@@ -20,6 +26,6 @@ let ``REQ-FP-1.2 PeriodKey.fromString happy path`` () =
 [<InlineData("Sep-2025")>] // total horseshit
 let ``REQ-FP-1.2 PeriodKey.fromString fails when given an incorrect format`` badString =
     match FiscalPeriodKey.fromString badString with
-    | Error(FiscalPeriodInvalidKeyString _) -> Assert.True(true)
+    | Error (AsError (FiscalPeriodInvalidKeyString _)) -> Assert.True(true)
     | Error _ -> Assert.Fail "Incorrect error type"
     | _ -> Assert.Fail "Expected failure and got success"

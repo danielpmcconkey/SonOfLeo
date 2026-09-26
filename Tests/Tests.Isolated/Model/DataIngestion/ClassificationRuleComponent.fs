@@ -1,10 +1,17 @@
 module Tests.Isolated.Business.FinancialServices.DataIngestion.ClassificationRuleComponent
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 open Xunit
-open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
+open Business.FinancialServices.Classification
+open Business.FinancialServices.Classification.ClassificationComponent
+open Business.FinancialServices.DataIngestion.DataIngestionError
 
 
 // =============================================================================
@@ -20,7 +27,7 @@ open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleC
 [<InlineData(" \t \n ")>]
 let ``REQ-CR-1.3 ClassificationRuleName.create rejects input that is empty or whitespace only`` (raw: string) =
     match raw |> ClassificationRuleName.create with
-    | Error (IngestionClassificationRuleNameIsEmpty returned) -> Assert.Equal(raw, returned)
+    | Error (AsError (IngestionClassificationRuleNameIsEmpty returned)) -> Assert.Equal(raw, returned)
     | Error other -> Assert.Fail $"Wrong error. Expected IngestionClassificationRuleNameIsEmpty but got {other}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
@@ -35,7 +42,7 @@ let ``REQ-CR-1.4 ClassificationRuleName.create accepts a name of exactly 250 cha
 let ``REQ-CR-1.4 ClassificationRuleName.create rejects a name of 251 characters`` () =
     let raw = String.replicate 251 "a"
     match raw |> ClassificationRuleName.create with
-    | Error (IngestionClassificationRuleNameTooLong (returned, limit)) ->
+    | Error (AsError (IngestionClassificationRuleNameTooLong (returned, limit))) ->
         Assert.Equal(raw, returned)
         Assert.Equal(250, limit)
     | Error other -> Assert.Fail $"Wrong error. Expected IngestionClassificationRuleNameTooLong but got {other}"
@@ -62,7 +69,7 @@ let ``REQ-CR-1.4 ClassificationRuleName.create accepts a 254-character name that
 [<Fact>]
 let ``REQ-CR-1.18 StringSearchPattern.create rejects an empty string`` () =
     match "" |> StringSearchPattern.create with
-    | Error (IngestionSearchPatternIsEmpty returned) -> Assert.Equal("", returned)
+    | Error (AsError (IngestionSearchPatternIsEmpty returned)) -> Assert.Equal("", returned)
     | Error other -> Assert.Fail $"Wrong error. Expected IngestionSearchPatternIsEmpty but got {other}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
@@ -86,7 +93,7 @@ let ``REQ-CR-1.19 StringSearchPattern.create accepts a pattern of exactly 500 ch
 let ``REQ-CR-1.19 StringSearchPattern.create rejects a pattern of 501 characters`` () =
     let raw = String.replicate 501 "a"
     match raw |> StringSearchPattern.create with
-    | Error (IngestionSearchPatternTooLong (returned, limit)) ->
+    | Error (AsError (IngestionSearchPatternTooLong (returned, limit))) ->
         Assert.Equal(raw, returned)
         Assert.Equal(500, limit)
     | Error other -> Assert.Fail $"Wrong error. Expected IngestionSearchPatternTooLong but got {other}"
@@ -125,7 +132,7 @@ let ``REQ-CR-1.20 NumericSearchOperator.fromString maps each of the five operato
 [<InlineData("")>]
 let ``REQ-CR-1.20 NumericSearchOperator.fromString rejects a string that is not one of the five operators`` (raw: string) =
     match raw |> NumericSearchOperator.fromString with
-    | Error (IngestionInvalidNumericSearchOperator returned) -> Assert.Equal(raw, returned)
+    | Error (AsError (IngestionInvalidNumericSearchOperator returned)) -> Assert.Equal(raw, returned)
     | Error other -> Assert.Fail $"Wrong error. Expected IngestionInvalidNumericSearchOperator but got {other}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
@@ -150,6 +157,6 @@ let ``REQ-CR-1.9 ClassificationGroupConnector.fromString maps "And" to And and "
 [<InlineData("")>]
 let ``REQ-CR-1.9 ClassificationGroupConnector.fromString rejects a connector name that is neither And nor Or`` (raw: string) =
     match raw |> ClassificationGroupConnector.fromString with
-    | Error (IngestionInvalidClassificationGroupConnector returned) -> Assert.Equal(raw, returned)
+    | Error (AsError (IngestionInvalidClassificationGroupConnector returned)) -> Assert.Equal(raw, returned)
     | Error other -> Assert.Fail $"Wrong error. Expected IngestionInvalidClassificationGroupConnector but got {other}"
     | Ok _ -> Assert.Fail "Expected failure; got success"

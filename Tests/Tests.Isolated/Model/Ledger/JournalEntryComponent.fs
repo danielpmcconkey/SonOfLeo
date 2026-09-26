@@ -1,14 +1,19 @@
 module Tests.Isolated.Business.FinancialServices.Ledger.JournalEntryComponent
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open System
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 open Xunit
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Tests.Helpers.SadPath
 open Tests.Helpers.Railroad
 open App.Utility.Result
+open Business.FinancialServices.Ledger.LedgerError
 
 
 // =============================================================================
@@ -153,7 +158,7 @@ let ``REQ-JE-1.25 JournalEntryLineType.toString round-trips with fromString`` ()
         original
         |> JournalEntryLineType.toString
         |> JournalEntryLineType.fromString
-        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+        |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
     Assert.Equal(original, roundTripped)
 
 // =============================================================================

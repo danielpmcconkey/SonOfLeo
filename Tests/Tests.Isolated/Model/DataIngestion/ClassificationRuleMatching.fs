@@ -1,8 +1,12 @@
 module Tests.Isolated.Business.FinancialServices.DataIngestion.ClassificationRuleMatching
 
-open Model
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.DataIngestion.Classification
+open Business.FinancialServices.Classification
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open App.Utility
@@ -10,11 +14,11 @@ open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 open Xunit
-open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
-open Business.FinancialServices.DataIngestion.Classification.FieldMatch
+open Business.FinancialServices.Classification.ClassificationComponent
+open Business.FinancialServices.Classification.FieldMatch
 
 let private unwrap result =
-    result |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
+    result |> Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage()))
 
 let private candidate =
     { headerIdOfCandidate = StageEntryHeaderId.create ()
@@ -47,7 +51,7 @@ let private ruleOf groups =
     ClassificationRule.create
         (ClassificationRuleId.create ())
         ("Rule under test" |> ClassificationRuleName.create |> unwrap)
-        syntheticAccountId
+        (ClassificationClaimant.Account syntheticAccountId)
         100
         groups
         true

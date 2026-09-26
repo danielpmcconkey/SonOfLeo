@@ -1,11 +1,17 @@
 module Tests.Isolated.Business.FinancialServices.DataIngestion.StageEntryStatusTransition
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.DataIngestion.StageEntryStatusTransition
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 open Xunit
+open Business.FinancialServices.DataIngestion.DataIngestionError
 
 
 // =============================================================================
@@ -47,7 +53,7 @@ let ``REQ-STG-4.1 StagedEntryStatus.fromString accepts Ignored`` () =
 [<Fact>]
 let ``REQ-STG-4.1 StagedEntryStatus.fromString rejects invalid string`` () =
     match StagedEntryStatus.fromString "Bogus" with
-    | Error (IngestionInvalidStagedEntryStatus _) -> ()
+    | Error (AsError (IngestionInvalidStagedEntryStatus _)) -> ()
     | Error e -> Assert.Fail $"Wrong error: {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
@@ -69,7 +75,7 @@ let ``REQ-STG-4.1 StageStatusChangeMechanism.fromString accepts all valid values
 [<Fact>]
 let ``REQ-STG-4.1 StageStatusChangeMechanism.fromString rejects invalid string`` () =
     match StageStatusChangeMechanism.fromString "Bogus" with
-    | Error (IngestionInvalidStageStatusChangeMechanism _) -> ()
+    | Error (AsError (IngestionInvalidStageStatusChangeMechanism _)) -> ()
     | Error e -> Assert.Fail $"Wrong error: {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
@@ -165,7 +171,7 @@ let ``REQ-STG-4.6 validTransitions permits exactly the pairs the spec's transiti
     let parse s =
         s
         |> StagedEntryStatus.fromString
-        |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
+        |> Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage()))
     let fromStatus =
         match fromStr with
         | "None" -> None

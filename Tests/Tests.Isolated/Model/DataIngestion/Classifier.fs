@@ -1,9 +1,13 @@
 module Tests.Isolated.Business.FinancialServices.DataIngestion.Classifier
 
-open Model
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.DataIngestion.Classification
-open Business.FinancialServices.DataIngestion.Classification.Classifier
+open Business.FinancialServices.Classification
+open Business.FinancialServices.Classification.Classifier
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open App.Utility
@@ -11,21 +15,21 @@ open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 open Xunit
-open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
+open Business.FinancialServices.Classification.ClassificationComponent
 
 let private makeCandidate descriptionStr sourceStr amount lineType =
     let description =
         descriptionStr |> JournalEntryDescription.create
-        |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
+        |> Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage()))
     let source =
         sourceStr |> JournalRefFinancialInstitution.create
-        |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
+        |> Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage()))
     let money =
         amount |> Money.fromDecimal
-        |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
+        |> Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage()))
     let lt =
         lineType |> JournalEntryLineType.fromString
-        |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
+        |> Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage()))
     { headerIdOfCandidate = StageEntryHeaderId.create ()
       lineIdOfCandidate = StageEntryLineId.create ()
       ingestionSource = source
@@ -47,14 +51,14 @@ let private makeRule (accountId: AccountId) priority patternStr isActive =
     let name =
         $"Rule-{System.Guid.NewGuid().ToString().Substring(0, 8)}"
         |> ClassificationRuleName.create
-        |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
+        |> Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage()))
     let pattern =
         patternStr |> StringSearchPattern.create
-        |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
+        |> Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage()))
     let chain = FieldMatchChain.create [ FieldMatch.Description pattern ]
     let group = ClassificationRuleGroup.create And chain None
     let instant = Clock.now()
-    ClassificationRule.create ruleId name accountId priority [ group ] isActive instant instant
+    ClassificationRule.create ruleId name (ClassificationClaimant.Account accountId) priority [ group ] isActive instant instant
 
 
 // =============================================================================
@@ -85,7 +89,7 @@ let ``REQ-CR-3.4 when exactly one active rule matches, classifyCandidate returns
     let result = classifyCandidate [ rule ] candidate
     match result.outcome with
     | OneMatch pm ->
-        Assert.Equal(specificRuleAccountId, pm.accountId)
+        Assert.Equal(Some specificRuleAccountId, pm.accountId)
         Assert.Equal(rule |> ClassificationRule.classificationRuleId, pm.ruleId)
         Assert.Equal(100, pm.priority)
     | other -> Assert.Fail $"Expected OneMatch but got {other}"
@@ -104,7 +108,7 @@ let ``REQ-CR-3.5 REQ-CR-1.6 classifyCandidate returns ManyMatchesClearWinner nam
     match result.outcome with
     | ManyMatchesClearWinner (winner, _) ->
         Assert.Equal(specificRule |> ClassificationRule.classificationRuleId, winner.ruleId)
-        Assert.Equal(specificRuleAccountId, winner.accountId)
+        Assert.Equal(Some specificRuleAccountId, winner.accountId)
         Assert.Equal(100, winner.priority)
     | other -> Assert.Fail $"Expected ManyMatchesClearWinner but got {other}"
 
@@ -151,7 +155,7 @@ let ``REQ-CR-3.2 REQ-CR-1.8 classify returns OneMatch on the active rule when an
     let result = results |> List.head
     match result.outcome with
     | OneMatch pm ->
-        Assert.Equal(specificRuleAccountId, pm.accountId)
+        Assert.Equal(Some specificRuleAccountId, pm.accountId)
     | other -> Assert.Fail $"Expected OneMatch (inactive rule filtered out) but got {other}"
 
 
