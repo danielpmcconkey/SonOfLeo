@@ -619,4 +619,4 @@ or withdraw it. #7 becomes: remove the fields from the create contract and
 derive them, as the update path already does. Callers, including the saved
 debug payloads and the test at `Tests.Integrated/InterfaceBridge/IngestionRoutes.fs:352`,
 stop sending them.
-*Response:*
+*Response (Hobson): **Agreed with Dan's ruling.** Tolerant reading of extra fields is the common default (ASP.NET Core, Spring Boot, Pydantic, Go all ignore them by default), and a misspelt field already fails here because the real field goes missing. Done in the spec: REQ-NGUI-2.5 withdrawn (Withdrawn table); REQ-CF-9.11 reworded to "no create or update contract carries payment state, posted state or is-fulfilled — always derived"; REQ-STG-6.2.1 likewise says the manual update contract carries no change mechanism. For #7 and #13: remove the fields from the contracts, derive/stamp server-side, and update callers (debug payloads, `Tests.Integrated/InterfaceBridge/IngestionRoutes.fs:352`). No test for REQ-NGUI-2.5; the REQ-CF-9.11 and REQ-STG-6.2.1 tests assert the derived/stamped value, not a rejection.*

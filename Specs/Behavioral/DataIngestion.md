@@ -206,7 +206,7 @@ The classification step runs the vendor classification rules engine against stag
 - **REQ-STG-6.1** The system must provide a means for an operator to assign or override the account on a staged line, regardless of whether the account was previously set by a parser or the classifier.
 - **REQ-STG-6.2** The manual update mechanism allows the operator to set any field on the staged entry and its lines, including status. The system validates the result (balanced entry, valid account codes, legal status transition) but does not infer or auto-assign status from the operator's changes.
   - *Why:* Original spec auto-transitioned to `'Reviewed'` on any line modification. Overruled — manual intervention is the highest authority tier, and the operator knows the intended status. Inferring it revokes that authority. (2026-08-16)
-- **REQ-STG-6.2.1** Every status transition made through the manual update mechanism is recorded with change mechanism `'Operator'`. The caller does not choose the change mechanism.
+- **REQ-STG-6.2.1** Every status transition made through the manual update mechanism is recorded with change mechanism `'Operator'`. The manual update contract carries no change mechanism field; the caller has no means to choose it. (Revised 2026-09-26)
   - *Why:* The audit trail records who acted. Letting the caller name the mechanism lets an operator edit masquerade as the classifier or the poster. (2026-09-26)
 - **REQ-STG-6.3** The operator may override a duplicate flag, transitioning the entry's status from `'Duplicate'` to `'Reviewed'`.
   - *Why:* Legitimate duplicate transactions exist (two identical charges on the same day). The operator, not the system, makes this call. (2026-08-08)
