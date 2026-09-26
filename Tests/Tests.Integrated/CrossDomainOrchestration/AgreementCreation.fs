@@ -92,3 +92,11 @@ type AgreementCreationTests(fixture: TestDataFixture) =
                 Assert.Equal(Some memo, readBack |> MasterAgreement.memo |> Option.map AgreementMemo.value)
             })
         |> railroadWrapper
+
+    // =========================================================================
+    // REQ-CF-3.6 — a leg cannot debit and credit the same account
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-CF-3.6 an agreement whose leg debits and credits the same account is rejected naming that account`` () =
+        Assert.Fail "not implemented"
