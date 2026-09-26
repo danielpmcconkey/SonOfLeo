@@ -285,7 +285,8 @@ let ``convert [ProjectedInvoice] to [ProjectedInvoiceReturn]`` (invoice: Project
       agreementName = invoice.agreementName |> AgreementName.value
       direction = invoice.direction |> FlowDirection.toString
       dueDate = invoice.dueDate.localDate
-      amount = invoice.amount.money |> Money.amount }
+      amount = invoice.amount.money |> Money.amount
+      outstandingAmount = invoice.outstanding |> Money.amount }
 
 let ``convert [ProjectedAccount] to [ProjectedAccountReturn]`` (account: ProjectedAccount) : ProjectedAccountReturn =
     { accountCode = account.accountCode |> Business.FinancialServices.Ledger.AccountComponent.AccountCode.value

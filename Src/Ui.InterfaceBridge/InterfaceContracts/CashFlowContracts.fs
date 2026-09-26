@@ -138,6 +138,7 @@ type ProjectedInvoiceReturn = {
     direction: string
     dueDate: LocalDate
     amount: decimal
+    outstandingAmount: decimal
 }
 
 type ProjectedAccountReturn = {

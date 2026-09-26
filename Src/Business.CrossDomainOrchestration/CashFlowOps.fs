@@ -692,7 +692,9 @@ let projectCashFlowNDaysForward
                 composite
                 |> InstanceOrchestration.invoiceComposites
                 |> List.map (fun invoiceComposite ->
-                    masterAgreementId, (invoiceComposite |> InstanceOrchestration.invoice)))
+                    masterAgreementId,
+                    (invoiceComposite |> InstanceOrchestration.invoice),
+                    (invoiceComposite |> InstanceOrchestration.payments)))
         let! paymentAgreements =
             if masterAgreementIds |> List.isEmpty then Ok []
             else masterAgreementIds |> PaymentAgreement.fetchByMasterAgreementIdList context
@@ -704,13 +706,22 @@ let projectCashFlowNDaysForward
             paymentAgreements |> List.groupBy PaymentAgreement.masterAgreementID |> Map.ofList
         let cashAccountIdSet = cashAccountIds |> Set.ofList
         // an already-overdue bill is the most urgent money to move, so the window has no lower bound
-        let projectedInvoicesByAccountId =
+        let! invoicesWithOutstanding =
             invoicesWithAgreementId
-            |> List.filter (fun (_, invoice) ->
+            |> List.filter (fun (_, invoice, _) ->
                 let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
                 lifeCycleState.paymentState <> CashFlowComponent.FullyPaid
                 && (invoice |> Invoice.dueDate).localDate <= horizonEnd)
-            |> List.choose (fun (masterAgreementId, invoice) ->
+            |> List.map (fun (masterAgreementId, invoice, payments) -> result {
+                // what is still owed, not what was billed: a part-paid bill must not be counted twice. an overpaid
+                // bill owes nothing
+                let paid = payments |> List.sumBy (fun payment -> (payment |> Payment.amount).money |> Money.amount)
+                let! outstanding = Money.fromDecimal (max 0M (((invoice |> Invoice.amount).money |> Money.amount) - paid))
+                return masterAgreementId, invoice, outstanding })
+            |> convertListOfResultsToResultsList
+        let projectedInvoicesByAccountId =
+            invoicesWithOutstanding
+            |> List.choose (fun (masterAgreementId, invoice, outstanding) ->
                 let master = masterAgreementById |> Map.find masterAgreementId
                 let paymentAgreement = paymentAgreementById |> Map.find (invoice |> Invoice.paymentAgreementId)
                 let direction = master |> MasterAgreement.direction
@@ -721,7 +732,8 @@ let projectCashFlowNDaysForward
                       agreementName = master |> MasterAgreement.agreementName
                       direction = direction
                       dueDate = invoice |> Invoice.dueDate
-                      amount = invoice |> Invoice.amount }
+                      amount = invoice |> Invoice.amount
+                      outstanding = outstanding }
                 Some(accountId, projected))
             |> List.groupBy fst
             |> List.map (fun (accountId, pairs) -> accountId, (pairs |> List.map snd))
@@ -736,7 +748,7 @@ let projectCashFlowNDaysForward
                 let amountsForDirection (direction: CashFlowComponent.FlowDirection) =
                     invoices
                     |> List.filter (fun (invoice: CashFlowComponent.ProjectedInvoice) -> invoice.direction = direction)
-                    |> List.map (fun invoice -> invoice.amount.money)
+                    |> List.map (fun invoice -> invoice.outstanding)
                 result {
                     let! knownInflows = CashFlowComponent.Income |> amountsForDirection |> Money.sumList
                     let! knownOutflows = CashFlowComponent.Outgo |> amountsForDirection |> Money.sumList

@@ -62,7 +62,9 @@ let createPredicateAndParameters
         |> createBasicPredicateAndParameters
                (fun x -> CharString(x |> FlowDirection.toString)) "flow_direction" "ma.flow_direction"    
     let activeAgreementPredicate =
-        if filter.activeAgreementsOnly then Some "(ma.end_date is null or ma.end_date >= @today)" else None
+        if filter.activeAgreementsOnly then
+            Some "(ma.start_date <= @today and (ma.end_date is null or ma.end_date >= @today))"
+        else None
     let activeAgreementParameters = 
         let today = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
         if filter.activeAgreementsOnly then [{ name = "@today"; value = DbLocalDate today }] else []

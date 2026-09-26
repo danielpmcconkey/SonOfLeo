@@ -68,4 +68,14 @@ type ProjectionSweepTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CF-7.2 the sweep creates no Instance for an agreement whose start date is still ahead`` () =
-        Assert.Fail "not implemented"
+        (* D's next instance is the 1st of next month, inside a 40-day horizon; only its start date keeps it out. *)
+        runCommandRouteAndAutoRollback CashFlowCreateUpcomingInstances (fun context ->
+            result {
+                let! horizon = 40 |> ProjectionHorizonInDays.create
+                let! unfulfilled = horizon |> CashFlowOps.createUpcomingInstances context
+                let agreementIds =
+                    unfulfilled |> List.map (InstanceOrchestration.instance >> Instance.masterAgreementID)
+                Assert.Contains(cashFlow.agreementAId, agreementIds)
+                Assert.DoesNotContain(cashFlow.notYetStartedAgreementDId, agreementIds)
+            })
+        |> railroadWrapper

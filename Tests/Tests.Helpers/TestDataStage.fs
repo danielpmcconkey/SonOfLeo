@@ -52,6 +52,16 @@ type CashFlowFixtureData =
       openInvoiceBId: InvoiceId
       /// A's next-instance date: the 1st of next month.
       nextInstanceDateA: LocalDate
+      /// Outgo, monthly on the 1st, due 30 days after invoice. This month's 100.00 Invoice is part paid by one Posted
+      /// Payment on a 40.00 ledger-only line, so 60.00 is still owed.
+      agreementCId: MasterAgreementId
+      partlyPaidInvoiceCId: InvoiceId
+      /// Outgo, monthly on the 1st, starting two months out. Its next instance falls before its start date, inside
+      /// any horizon that reaches next month. It has no Instances.
+      notYetStartedAgreementDId: MasterAgreementId
+      /// A 100.00 ledger-only Debit line on A's leg account that no Payment references: somewhere for a test to point
+      /// a new Payment.
+      unclaimedLedgerLineId: JournalEntryLineId
       paidPostedLineAId: StageEntryComponent.StageEntryLineId
       paidPostedLineBId: StageEntryComponent.StageEntryLineId
       /// Unpaid linked lines on A, dated inside this month's open invoice window.
@@ -1058,6 +1068,68 @@ type TestDataFixture() =
                 let! ignoredLineOutsideWindowId =
                     createLinkedLine legBId "Fixture agreement B ignored" (firstOfLastMonth.PlusDays(14)) ignored
 
+                (* Archetypes C, D and E. None of them touches staging: C's Payment and E's spare line are on journal
+                   entries posted straight to the ledger. *)
+                let ledgerOnlyDebitLine (description: string) (amount: decimal) =
+                    result {
+                        let! entry, _ =
+                            createTestJournalEntryFromPrimitives
+                                context description None firstOfThisMonth
+                                [ (loanPayable2230Id, amount, "Debit", None)
+                                  (operatingCash1280Id, amount, "Credit", None) ]
+                                [] []
+                        journalEntries <- entry :: journalEntries
+                        return
+                            entry
+                            |> JournalEntryOrchestration.jeLines
+                            |> List.find (fun l -> l |> JournalEntryLine.accountId = loanPayable2230Id)
+                            |> JournalEntryLine.journalEntryLineId
+                    }
+
+                let! agreementCId, legCId = createCashFlowAgreement "Fixture agreement C" 30
+                let! partPaymentLineId = ledgerOnlyDebitLine "Fixture agreement C part payment" 40.00M
+                let! partlyPaidInvoiceCId =
+                    result {
+                        let! amount = Money.fromDecimal 100.00M
+                        let! paid = Money.fromDecimal 40.00M
+                        let! created =
+                            InstanceOrchestration.createInstanceCompositeAndSaveToDb
+                                context agreementCId firstOfThisMonth false
+                                [ (legCId, None, { localDate = firstOfThisMonth }, { localDate = firstOfThisMonth.PlusDays(30) },
+                                   { money = amount },
+                                   { invoiceState = InvoiceReceived
+                                     paymentState = PartiallyPaid
+                                     postedState = PartiallyPosted
+                                     blocker = None },
+                                   None,
+                                   [ (Posted partPaymentLineId, { money = paid }, None, None, None) ]) ]
+                        return
+                            created |> InstanceOrchestration.invoiceComposites |> List.head
+                            |> InstanceOrchestration.invoice |> Invoice.invoiceId
+                    }
+
+                let! notYetStartedAgreementDId =
+                    result {
+                        let! agreementName = "Fixture agreement D" |> AgreementName.create
+                        let! first = 1 |> Cadence.DateInMonthNumber.fromInt
+                        let! counterparty = "Fixture lender" |> Counterparty.create
+                        let! activityPeriod =
+                            ActivityPeriod.create (firstOfThisMonth.PlusMonths(2)) None
+                                ActivityPeriod.ConsideredAvailableBeforeBeginDate
+                        let! legName = "Fixture agreement D leg" |> PaymentAgreementName.create
+                        let! expected = Money.fromDecimal 100.00M
+                        let! due = 30 |> DaysDueAfterInvoiceDate.create
+                        let! agreement =
+                            AgreementOrchestration.constructNewAndPersist
+                                context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first))
+                                { nextInstance = firstOfThisMonth.PlusMonths(1) } counterparty activityPeriod None
+                                [ (legName, DebitAccount loanPayable2230Id, CreditAccount operatingCash1280Id,
+                                   Some expected, Some due, None) ]
+                        return agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
+                    }
+
+                let! unclaimedLedgerLineId = ledgerOnlyDebitLine "Fixture unclaimed ledger line" 100.00M
+
                 let cashFlow =
                     { agreementAId = agreementAId
                       agreementBId = agreementBId
@@ -1068,6 +1140,10 @@ type TestDataFixture() =
                       openInvoiceAId = openInvoiceAId
                       openInvoiceBId = openInvoiceBId
                       nextInstanceDateA = firstOfThisMonth.PlusMonths(1)
+                      agreementCId = agreementCId
+                      partlyPaidInvoiceCId = partlyPaidInvoiceCId
+                      notYetStartedAgreementDId = notYetStartedAgreementDId
+                      unclaimedLedgerLineId = unclaimedLedgerLineId
                       paidPostedLineAId = paidPostedLineAId
                       paidPostedLineBId = paidPostedLineBId
                       duplicateLineInWindowId = duplicateLineInWindowId

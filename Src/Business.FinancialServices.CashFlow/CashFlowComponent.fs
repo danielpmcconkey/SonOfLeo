@@ -335,6 +335,8 @@ type ProjectedInvoice = {
     direction: FlowDirection
     dueDate: DueDate
     amount: InvoiceAmount
+    /// the amount less its Payments, floored at zero (REQ-CF-8.9)
+    outstanding: Money.Money
 }
 
 type ProjectedAccount = {
