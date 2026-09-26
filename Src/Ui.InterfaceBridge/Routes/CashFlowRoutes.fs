@@ -75,7 +75,7 @@ let private updateAgreement payload _ =
             let! input = Json.fromJson<UpdateAgreementInput> payload
             let! masterAgreementUpdates =
                 input |> ``convert [UpdateAgreementInput] to [MasterAgreementFieldUpdates]`` context
-            let! agreement = masterAgreementUpdates |> AgreementOrchestration.updateAgreement context [] [] [] []
+            let! agreement = masterAgreementUpdates |> AgreementOrchestration.updateAgreement context []
             let! converted = agreement |> ``convert [Agreement] to [AgreementReturn]`` context
             return! Json.toJson<AgreementReturn> converted
         })
@@ -87,10 +87,10 @@ let private createInstance payload _ =
             let! masterAgreementId =
                 input.masterAgreementName |> ``convert [AgreementNameString] to [MasterAgreementId]`` context
             let! invoices =
-                input.invoices |> ``convert [CreateInvoiceFieldsInput list] to [InvoiceCompositePrimitives list]`` context
+                input.invoices |> ``convert [NewInvoiceFieldsInput list] to [NewInvoicePrimitives list]`` context
             let! instanceComposite =
                 InstanceOrchestration.createInstanceCompositeAndSaveToDb
-                    context masterAgreementId input.instanceDate input.isFulfilled invoices
+                    context masterAgreementId input.instanceDate invoices
             let! converted = instanceComposite |> ``convert [InstanceComposite] to [InstanceCompositeReturn]`` context
             return! Json.toJson<InstanceCompositeReturn> converted
         })

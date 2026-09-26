@@ -180,26 +180,8 @@ type CreatePaymentFieldsInput = {
     memo: string option
 }
 
-type CreateInvoiceFieldsInput = {
-    paymentAgreementName: string
-    externalInvoiceId: string option
-    invoiceDate: LocalDate
-    dueDate: LocalDate
-    amount: decimal
-    invoiceLifeCycleState: InvoiceLifeCycleStateContract
-    memo: string option
-    payments: CreatePaymentFieldsInput list
-}
-
-type CreateInstanceInput = {
-    masterAgreementName: string
-    instanceDate: LocalDate
-    isFulfilled: bool
-    invoices: CreateInvoiceFieldsInput list
-}
-
-// an invoice added to an instance that already exists names only the invoice state and the blocker: the composite door
-// derives payment state and posted state, and rejects a package that sets either
+// an invoice names only its invoice state and blocker: payment state, posted state and the instance's is-fulfilled are
+// always derived from the payments, so no contract carries them
 type NewInvoiceFieldsInput = {
     paymentAgreementName: string
     externalInvoiceId: string option
@@ -210,6 +192,12 @@ type NewInvoiceFieldsInput = {
     blocker: BlockerContract option
     memo: string option
     payments: CreatePaymentFieldsInput list
+}
+
+type CreateInstanceInput = {
+    masterAgreementName: string
+    instanceDate: LocalDate
+    invoices: NewInvoiceFieldsInput list
 }
 
 type CreateInvoiceInput = {

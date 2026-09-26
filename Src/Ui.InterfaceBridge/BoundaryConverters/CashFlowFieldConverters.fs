@@ -329,24 +329,6 @@ let ``convert [BlockerContract] to [Blocker]`` (blockerContract: BlockerContract
     | BlockerContract.NeedsDecision note -> note |> BlockerNote.create |> Result.map Blocker.NeedsDecision
     | BlockerContract.Other note -> note |> BlockerNote.create |> Result.map Blocker.Other
 
-let ``convert [InvoiceLifeCycleStateContract] to [InvoiceLifeCycleState]``
-    (lifeCycleStateContract: InvoiceLifeCycleStateContract)
-    : Result<InvoiceLifeCycleState, IAppError> =
-    result {
-        let! invoiceState = lifeCycleStateContract.invoiceState |> InvoiceState.fromString
-        let! paymentState = lifeCycleStateContract.paymentState |> PaymentState.fromString
-        let! postedState = lifeCycleStateContract.postedState |> PostedState.fromString
-        let! blocker =
-            lifeCycleStateContract.blocker
-            |> convertOptionToDesiredTypeWithFallibleConverter ``convert [BlockerContract] to [Blocker]``
-        let lifeCycleState : InvoiceLifeCycleState = {
-            invoiceState = invoiceState
-            paymentState = paymentState
-            postedState = postedState
-            blocker = blocker }
-        return lifeCycleState
-    }
-
 let ``convert [TransactionPointerContract] to [TransactionPointer]``
     (transactionPointerContract: TransactionPointerContract)
     : TransactionPointer =
@@ -384,42 +366,6 @@ let ``convert [CreatePaymentFieldsInput list] to [PaymentPrimitives list]``
     |> List.map ``convert [CreatePaymentFieldsInput] to [PaymentPrimitives]``
     |> convertListOfResultsToResultsList
 
-let ``convert [CreateInvoiceFieldsInput] to [InvoiceCompositePrimitives]``
-    (context: Context.Context)
-    (input: CreateInvoiceFieldsInput)
-    : Result<
-        PaymentAgreementId * ExternalInvoiceId option * InvoiceDate * DueDate * InvoiceAmount * InvoiceLifeCycleState *
-        InvoiceMemo option *
-        (TransactionPointer * PaymentAmount * PostedToFiDate option * PostedToLedgerDate option * PaymentMemo option) list,
-        IAppError> =
-    result {
-        let! paymentAgreementId =
-            input.paymentAgreementName |> ``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context
-        let! externalInvoiceId =
-            input.externalInvoiceId |> convertOptionToDesiredTypeWithFallibleConverter ExternalInvoiceId.create
-        let invoiceDate : InvoiceDate = { localDate = input.invoiceDate }
-        let dueDate : DueDate = { localDate = input.dueDate }
-        let! money = input.amount |> Money.fromDecimal
-        let amount : InvoiceAmount = { money = money }
-        let! lifeCycleState =
-            input.invoiceLifeCycleState |> ``convert [InvoiceLifeCycleStateContract] to [InvoiceLifeCycleState]``
-        let! memo = input.memo |> convertOptionToDesiredTypeWithFallibleConverter InvoiceMemo.create
-        let! payments = input.payments |> ``convert [CreatePaymentFieldsInput list] to [PaymentPrimitives list]``
-        return paymentAgreementId, externalInvoiceId, invoiceDate, dueDate, amount, lifeCycleState, memo, payments
-    }
-
-let ``convert [CreateInvoiceFieldsInput list] to [InvoiceCompositePrimitives list]``
-    (context: Context.Context)
-    (input: CreateInvoiceFieldsInput list)
-    : Result<
-        (PaymentAgreementId * ExternalInvoiceId option * InvoiceDate * DueDate * InvoiceAmount * InvoiceLifeCycleState *
-         InvoiceMemo option *
-         (TransactionPointer * PaymentAmount * PostedToFiDate option * PostedToLedgerDate option * PaymentMemo option) list) list,
-        IAppError> =
-    input
-    |> List.map (``convert [CreateInvoiceFieldsInput] to [InvoiceCompositePrimitives]`` context)
-    |> convertListOfResultsToResultsList
-
 let ``convert [NewInvoiceFieldsInput] to [NewInvoicePrimitives]``
     (context: Context.Context)
     (input: NewInvoiceFieldsInput)
@@ -445,6 +391,18 @@ let ``convert [NewInvoiceFieldsInput] to [NewInvoicePrimitives]``
         return
             paymentAgreementId, externalInvoiceId, invoiceDate, dueDate, amount, invoiceState, blocker, memo, payments
     }
+
+let ``convert [NewInvoiceFieldsInput list] to [NewInvoicePrimitives list]``
+    (context: Context.Context)
+    (input: NewInvoiceFieldsInput list)
+    : Result<
+        (PaymentAgreementId * ExternalInvoiceId option * InvoiceDate * DueDate * InvoiceAmount * InvoiceState *
+         Blocker option * InvoiceMemo option *
+         (TransactionPointer * PaymentAmount * PostedToFiDate option * PostedToLedgerDate option * PaymentMemo option) list) list,
+        IAppError> =
+    input
+    |> List.map (``convert [NewInvoiceFieldsInput] to [NewInvoicePrimitives]`` context)
+    |> convertListOfResultsToResultsList
 
 let private noChangeInvoiceUpdates (invoiceId: InvoiceId) : Invoice.InvoiceFieldUpdates =
     { invoiceIdToUpdate = invoiceId

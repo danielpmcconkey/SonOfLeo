@@ -760,19 +760,21 @@ let private confirmInstanceDateIsAfterLatestInstance
         return! Error (CashFlowError.CashflowInstanceDateNotAfterLatestInstance(agreementUuid, instanceDate, latestDate))
     }
 
+/// createInstanceCompositeAndSaveToDb takes each Invoice's invoice state and blocker only. Payment state, posted state
+/// and is-fulfilled are derived from the Payments (REQ-CF-9.8 through 9.11), the same way adding an Invoice to an
+/// existing Instance derives them.
 let createInstanceCompositeAndSaveToDb
     (context: Context.Context)
     (masterAgreementID: CashFlowComponent.MasterAgreementId)
     (instanceDate: LocalDate)
-    (isFulfilled: bool)
-    (invoiceCompositeFieldsList: (
-        // invoice fields
+    (newInvoices: (
         CashFlowComponent.PaymentAgreementId *
         CashFlowComponent.ExternalInvoiceId option *
         CashFlowComponent.InvoiceDate *
         CashFlowComponent.DueDate *
         CashFlowComponent.InvoiceAmount *
-        CashFlowComponent.InvoiceLifeCycleState *
+        CashFlowComponent.InvoiceState *
+        CashFlowComponent.Blocker option *
         CashFlowComponent.InvoiceMemo option *
         ( // payments
             CashFlowComponent.TransactionPointer *
@@ -790,23 +792,13 @@ let createInstanceCompositeAndSaveToDb
         let instanceId = CashFlowComponent.InstanceId.create()
         let now = context |> Context.getInitiationInstant
         let masterAgreementName = masterAgreement |> MasterAgreement.agreementName
+        let! invoiceComposites =
+            newInvoices
+            |> List.map (preConstructNewInvoiceComposite context instanceId)
+            |> convertListOfResultsToResultsList
+        let isFulfilled = invoiceComposites |> deriveIsFulfilled
         let newInstance =
             Instance.create instanceId masterAgreementID masterAgreementName instanceDate isFulfilled now now
-        let invoiceComposites =
-            invoiceCompositeFieldsList |> List.map(fun invFields ->
-                let paId, externalInvoiceId, invoiceDate, dueDate,
-                    invAmount, lifecycle, invMemo, paymentsFieldsList = invFields
-                let invoiceId = CashFlowComponent.InvoiceId.create()
-                let invoice = Invoice.create invoiceId instanceId paId externalInvoiceId
-                                  invoiceDate dueDate invAmount lifecycle invMemo now now
-                let payments = paymentsFieldsList |> List.map(fun pmtFields ->
-                    let paymentId = CashFlowComponent.PaymentId.create()
-                    let transactionPointer, pmtAmount, postedToFi, postedToLedger, pmtMemo = pmtFields
-                    Payment.create paymentId invoiceId transactionPointer pmtAmount
-                        postedToFi postedToLedger pmtMemo now now
-                    )
-                { invoice = invoice; payments = payments }
-                )
         let instanceComposite = { instance = newInstance; invoiceComposites = invoiceComposites }
         do! instanceComposite |> confirmInstanceComposite context
         do! newInstance |> Instance.persist context

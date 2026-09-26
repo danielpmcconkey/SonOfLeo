@@ -54,7 +54,6 @@ type AgreementUpdateTests(fixture: TestDataFixture) =
                     AgreementOrchestration.updateAgreement
                         context
                         [ { noLegChange cashFlow.legAId with creditAccountUpdate = FieldUpdate.SetTo(CreditAccount debitAccountId) } ]
-                        [] [] []
                         (noMasterAgreementChange cashFlow.agreementAId)
                 return
                     match updated with
@@ -78,7 +77,7 @@ type AgreementUpdateTests(fixture: TestDataFixture) =
             result {
                 let updated =
                     AgreementOrchestration.updateAgreement
-                        context [] [] [] []
+                        context []
                         { noMasterAgreementChange cashFlow.agreementAId with directionUpdate = FieldUpdate.SetTo Income }
                 return
                     match updated with

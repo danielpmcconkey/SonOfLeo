@@ -997,16 +997,11 @@ type TestDataFixture() =
                 let createOpenInstance agreementId legId (instanceDate: LocalDate) (daysDue: int) =
                     result {
                         let! amount = Money.fromDecimal 100.00M
-                        let lifecycle =
-                            { invoiceState = InvoiceReceived
-                              paymentState = NotYetPaid
-                              postedState = NotHandled
-                              blocker = None }
                         let! created =
                             InstanceOrchestration.createInstanceCompositeAndSaveToDb
-                                context agreementId instanceDate false
+                                context agreementId instanceDate
                                 [ (legId, None, { localDate = instanceDate }, { localDate = instanceDate.PlusDays(daysDue) },
-                                   { money = amount }, lifecycle, None, []) ]
+                                   { money = amount }, InvoiceReceived, None, None, []) ]
                         let instanceId = created |> InstanceOrchestration.instance |> Instance.instanceId
                         let invoiceId =
                             created |> InstanceOrchestration.invoiceComposites |> List.head
@@ -1094,14 +1089,9 @@ type TestDataFixture() =
                         let! paid = Money.fromDecimal 40.00M
                         let! created =
                             InstanceOrchestration.createInstanceCompositeAndSaveToDb
-                                context agreementCId firstOfThisMonth false
+                                context agreementCId firstOfThisMonth
                                 [ (legCId, None, { localDate = firstOfThisMonth }, { localDate = firstOfThisMonth.PlusDays(30) },
-                                   { money = amount },
-                                   { invoiceState = InvoiceReceived
-                                     paymentState = PartiallyPaid
-                                     postedState = PartiallyPosted
-                                     blocker = None },
-                                   None,
+                                   { money = amount }, InvoiceReceived, None, None,
                                    [ (Posted partPaymentLineId, { money = paid }, None, None, None) ]) ]
                         return
                             created |> InstanceOrchestration.invoiceComposites |> List.head

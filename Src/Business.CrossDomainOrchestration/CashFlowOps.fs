@@ -68,16 +68,12 @@ let private spawnInstancesFromAgreement
                             if direction = CashFlowComponent.Income
                             then CashFlowComponent.InvoiceGenerated
                             else CashFlowComponent.InvoiceExpected
-                        let lifecycle = { CashFlowComponent.invoiceState = invoiceState
-                                          CashFlowComponent.paymentState = CashFlowComponent.NotYetPaid
-                                          CashFlowComponent.postedState = CashFlowComponent.NotHandled
-                                          CashFlowComponent.blocker = None }
                         let invMemo = None
-                        Some (paId, extInvoiceId, invoiceDate, dueDate, amount, lifecycle, invMemo, [])
+                        Some (paId, extInvoiceId, invoiceDate, dueDate, amount, invoiceState, None, invMemo, [])
                     | _ -> None
                     )
                 InstanceOrchestration.createInstanceCompositeAndSaveToDb
-                        context agreementId neededDate false invoiceCompositeFieldsList)
+                        context agreementId neededDate invoiceCompositeFieldsList)
             |> convertListOfResultsToResultsList
             |> Result.map ignore
     }

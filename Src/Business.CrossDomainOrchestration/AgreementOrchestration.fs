@@ -58,87 +58,16 @@ let private confirmPaymentAgreementBelongsToAgreement
                     CashFlowError.CashflowPaymentAgreementNotUnderMasterAgreement(paymentAgreementUuid, agreementUuid))
     }
 
-let private confirmInstanceBelongsToAgreement
-    (context: Context.Context)
-    (agreementId: CashFlowComponent.MasterAgreementId)
-    (fieldUpdates: Instance.InstanceFieldUpdates)
-    : Result<unit, IAppError> =
-    result {
-        let! instance = fieldUpdates.instanceIdToUpdate |> Instance.fetchById context
-        return!
-            if instance |> Instance.masterAgreementID = agreementId then Ok ()
-            else
-                let instanceUuid = fieldUpdates.instanceIdToUpdate |> CashFlowComponent.InstanceId.value
-                let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
-                Error(CashFlowError.CashflowInstanceNotUnderMasterAgreement(instanceUuid, agreementUuid))
-    }
-
-let private confirmInvoiceBelongsToAgreement
-    (context: Context.Context)
-    (agreementId: CashFlowComponent.MasterAgreementId)
-    (fieldUpdates: Invoice.InvoiceFieldUpdates)
-    : Result<unit, IAppError> =
-    result {
-        let! invoice = fieldUpdates.invoiceIdToUpdate |> Invoice.fetchById context
-        let! instance = invoice |> Invoice.instanceId |> Instance.fetchById context
-        return!
-            if instance |> Instance.masterAgreementID = agreementId then Ok ()
-            else
-                let invoiceUuid = fieldUpdates.invoiceIdToUpdate |> CashFlowComponent.InvoiceId.value
-                let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
-                Error(CashFlowError.CashflowInvoiceNotUnderMasterAgreement(invoiceUuid, agreementUuid))
-    }
-
-let private confirmPaymentBelongsToAgreement
-    (context: Context.Context)
-    (agreementId: CashFlowComponent.MasterAgreementId)
-    (fieldUpdates: Payment.PaymentFieldUpdates)
-    : Result<unit, IAppError> =
-    result {
-        let! payment = fieldUpdates.paymentIdToUpdate |> Payment.fetchById context
-        let! invoice = payment |> Payment.invoiceId |> Invoice.fetchById context
-        let! instance = invoice |> Invoice.instanceId |> Instance.fetchById context
-        return!
-            if instance |> Instance.masterAgreementID = agreementId then Ok ()
-            else
-                let paymentUuid = fieldUpdates.paymentIdToUpdate |> CashFlowComponent.PaymentId.value
-                let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
-                Error(CashFlowError.CashflowPaymentNotUnderMasterAgreement(paymentUuid, agreementUuid))
-    }
-
 let private confirmAuthorityAndCohesion
     (context: Context.Context)
     (paymentAgreementUpdates: PaymentAgreement.PaymentAgreementFieldUpdates list)
-    (instanceUpdates: Instance.InstanceFieldUpdates list)
-    (invoiceUpdates: Invoice.InvoiceFieldUpdates list)
-    (paymentUpdates: Payment.PaymentFieldUpdates list)
     (masterAgreementUpdates: MasterAgreement.MasterAgreementFieldUpdates)
     : Result<unit, IAppError> =
-    // note: this runs super slow. It's not a common activity so that's likely okay. Start with this flow. If we
-    // notice that it takes forever, we can implement some memoization down the line
     let agreementId = masterAgreementUpdates.agreementIdToUpdate
-    result {
-        do!
-            paymentAgreementUpdates
-            |> List.map (confirmPaymentAgreementBelongsToAgreement context agreementId)
-            |> convertListOfResultsToResultsList
-            |> Result.map ignore
-        do!
-            instanceUpdates
-            |> List.map (confirmInstanceBelongsToAgreement context agreementId)
-            |> convertListOfResultsToResultsList
-            |> Result.map ignore
-        do!
-            invoiceUpdates
-            |> List.map (confirmInvoiceBelongsToAgreement context agreementId)
-            |> convertListOfResultsToResultsList
-            |> Result.map ignore
-        do!
-            paymentUpdates
-            |> List.map (confirmPaymentBelongsToAgreement context agreementId)
-            |> convertListOfResultsToResultsList
-            |> Result.map ignore
-    }
+    paymentAgreementUpdates
+    |> List.map (confirmPaymentAgreementBelongsToAgreement context agreementId)
+    |> convertListOfResultsToResultsList
+    |> Result.map ignore
 
 let private confirmInstance
     (agreementId: CashFlowComponent.MasterAgreementId)
@@ -441,67 +370,23 @@ let private isThereAPaymentAgreementUpdate
         || u.memoUpdate <> FieldUpdate.NoChange)
     |> List.exists id
 
-let private isThereAnInstanceUpdate
-    (instanceUpdates: Instance.InstanceFieldUpdates list)
-    : bool =
-    instanceUpdates
-    |> List.map (fun u -> u.instanceDateUpdate <> FieldUpdate.NoChange || u.isFulfilledUpdate <> FieldUpdate.NoChange)
-    |> List.exists id
-
-let private isThereAnInvoiceUpdate
-    (invoiceUpdates: Invoice.InvoiceFieldUpdates list)
-    : bool =
-    invoiceUpdates
-    |> List.map (fun u ->
-        u.externalInvoiceIdUpdate <> FieldUpdate.NoChange
-        || u.invoiceDateUpdate <> FieldUpdate.NoChange
-        || u.dueDateUpdate <> FieldUpdate.NoChange
-        || u.amountUpdate <> FieldUpdate.NoChange
-        || u.invoiceStateUpdate <> FieldUpdate.NoChange
-        || u.paymentStateUpdate <> FieldUpdate.NoChange
-        || u.postedStateUpdate <> FieldUpdate.NoChange
-        || u.blockerUpdate <> FieldUpdate.NoChange
-        || u.memoUpdate <> FieldUpdate.NoChange)
-    |> List.exists id
-
-let private isThereAPaymentUpdate
-    (paymentUpdates: Payment.PaymentFieldUpdates list)
-    : bool =
-    paymentUpdates
-    |> List.map (fun u ->
-        u.journalEntryLineIdUpdate <> FieldUpdate.NoChange
-        || u.stageEntryLineIdUpdate <> FieldUpdate.NoChange
-        || u.postedToFiDateUpdate <> FieldUpdate.NoChange
-        || u.memoUpdate <> FieldUpdate.NoChange)
-    |> List.exists id
-
-/// Note to caller, many of the updates are sent to the DB *before* true aggregate validation. Make sure you wrap this
-/// in a transaction you can roll back
+/// updateAgreement changes the master agreement and its legs only. Instances, Invoices and Payments change through
+/// the instance composite, which derives payment state, posted state and is-fulfilled (REQ-CF-9.11).
+/// Note to caller, the updates are sent to the DB *before* aggregate validation. Make sure you wrap this in a
+/// transaction you can roll back
 let updateAgreement
     (context: Context.Context)
     (paymentAgreementUpdates: PaymentAgreement.PaymentAgreementFieldUpdates list)
-    (instanceUpdates: Instance.InstanceFieldUpdates list)
-    (invoiceUpdates: Invoice.InvoiceFieldUpdates list)
-    (paymentUpdates: Payment.PaymentFieldUpdates list)
     (masterAgreementUpdates: MasterAgreement.MasterAgreementFieldUpdates)
     : Result<Agreement, IAppError> =
     result {
         let shouldUpdateMasterAgreement = masterAgreementUpdates |> isThereAMasterAgreementUpdate
         let shouldUpdatePaymentAgreements = paymentAgreementUpdates |> isThereAPaymentAgreementUpdate
-        let shouldUpdateInstances = instanceUpdates |> isThereAnInstanceUpdate
-        let shouldUpdateInvoices = invoiceUpdates |> isThereAnInvoiceUpdate
-        let shouldUpdatePayments = paymentUpdates |> isThereAPaymentUpdate
         do!
-            if shouldUpdateMasterAgreement = false
-               && shouldUpdatePaymentAgreements = false
-               && shouldUpdateInstances = false
-               && shouldUpdateInvoices = false
-               && shouldUpdatePayments = false
+            if shouldUpdateMasterAgreement = false && shouldUpdatePaymentAgreements = false
             then Error CashFlowError.CashflowAgreementUpdateNoOp
             else Ok ()
-        do!
-            confirmAuthorityAndCohesion
-                context paymentAgreementUpdates instanceUpdates invoiceUpdates paymentUpdates masterAgreementUpdates
+        do! confirmAuthorityAndCohesion context paymentAgreementUpdates masterAgreementUpdates
         do!
             if shouldUpdateMasterAgreement then masterAgreementUpdates |> MasterAgreement.update context |> Result.map ignore
             else Ok ()
@@ -509,27 +394,6 @@ let updateAgreement
             if shouldUpdatePaymentAgreements then
                 paymentAgreementUpdates
                 |> List.map (PaymentAgreement.update context)
-                |> convertListOfResultsToResultsList
-                |> Result.map ignore
-            else Ok ()
-        do!
-            if shouldUpdateInstances then
-                instanceUpdates
-                |> List.map (Instance.update context)
-                |> convertListOfResultsToResultsList
-                |> Result.map ignore
-            else Ok ()
-        do!
-            if shouldUpdateInvoices then
-                invoiceUpdates
-                |> List.map (Invoice.update context)
-                |> convertListOfResultsToResultsList
-                |> Result.map ignore
-            else Ok ()
-        do!
-            if shouldUpdatePayments then
-                paymentUpdates
-                |> List.map (Payment.update context)
                 |> convertListOfResultsToResultsList
                 |> Result.map ignore
             else Ok ()

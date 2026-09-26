@@ -40,13 +40,11 @@ type InvoiceStateByDirectionTests(fixture: TestDataFixture) =
             result {
                 let! invoiceState = state |> InvoiceState.fromString
                 let! amount = Money.fromDecimal 100.00M
-                let lifecycle =
-                    { invoiceState = invoiceState; paymentState = NotYetPaid; postedState = NotHandled; blocker = None }
                 let created =
                     InstanceOrchestration.createInstanceCompositeAndSaveToDb
-                        context cashFlow.agreementAId instanceDate false
+                        context cashFlow.agreementAId instanceDate
                         [ (cashFlow.legAId, None, { localDate = instanceDate }, { localDate = instanceDate.PlusDays(30) },
-                           { money = amount }, lifecycle, None, []) ]
+                           { money = amount }, invoiceState, None, None, []) ]
                 return created |> expectStateRejected state
             })
         |> railroadWrapper
