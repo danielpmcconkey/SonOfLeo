@@ -1,11 +1,16 @@
-namespace Tests.Integrated.Business.FinancialServices.Ledger
+namespace Tests.Integrated.Model.Ledger
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open System
-
 open Ui.InterfaceBridge.CommandRoute
 open App.Operation.AuditEnvelope
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
 open Xunit

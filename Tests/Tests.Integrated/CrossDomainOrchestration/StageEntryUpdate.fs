@@ -1,13 +1,21 @@
-namespace Tests.Integrated.Business.FinancialServices
+namespace Tests.Integrated.CrossDomainOrchestration
 
-open InterfaceBridge.CommandRoute
-open App.Operation.Audit
-open Model
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
+open Ui.InterfaceBridge.CommandRoute
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.DataIngestion.StageEntryHeader
 open Business.FinancialServices.DataIngestion.StageEntryLine
-open Business.FinancialServices.StageEntryOrchestration
+open Business.CrossDomainOrchestration.StageEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open App.Utility.IAppError
@@ -18,6 +26,8 @@ open App.Utility.Result
 open Xunit
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger.LedgerError
+open Business.FinancialServices.DataIngestion.DataIngestionError
 
 
 [<Collection("SharedTestData")>]
@@ -30,6 +40,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
           descriptionUpdate = NoChange
           ingestionSourceUpdate = NoChange
           fiReferenceUpdate = NoChange
+          journalEntryHeaderIdUpdate = NoChange
           statusUpdate = NoChange }
 
     let noChangeLineUpdates lineId : StageEntryLineFieldUpdates =
@@ -38,7 +49,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
           entryTypeUpdate = NoChange
           accountIdUpdate = NoChange
           memoUpdate = NoChange
-          accountClassificationRuleIdUpdate = NoChange }
+          journalEntryLineIdUpdate = NoChange }
 
 
     // =========================================================================
@@ -55,7 +66,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let lineId = entry |> seLines |> List.head |> StageEntryLine.stageEntryLineId
                 return!
                     match updateStageEntry context (noChangeHeaderUpdates headerId) [ noChangeLineUpdates lineId ] with
-                    | Error IngestionUpdateStageEntryNoOp -> Ok ()
+                    | Error (AsError IngestionUpdateStageEntryNoOp) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error: {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
@@ -139,7 +150,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with amountUpdate = SetTo badAmount } ]
                 return!
                     match updateStageEntry context headerUpdates lineUpdates with
-                    | Error (IngestionStageEntryDebitCreditMismatch _) -> Ok ()
+                    | Error (AsError (IngestionStageEntryDebitCreditMismatch _)) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error: {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
@@ -159,7 +170,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some bogusAccountId) } ]
                 return!
                     match updateStageEntry context headerUpdates lineUpdates with
-                    | Error (AccountIdDoesntMatch _) -> Ok ()
+                    | Error (AsError (AccountIdDoesntMatch _)) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error. {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
@@ -176,7 +187,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo (Ingested, Operator) }
                 return!
                     match updateStageEntry context headerUpdates [] with
-                    | Error (IngestionInvalidStageStatusTransition _) -> Ok ()
+                    | Error (AsError (IngestionInvalidStageStatusTransition _)) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error: {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })

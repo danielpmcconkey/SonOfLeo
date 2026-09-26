@@ -1,13 +1,17 @@
 namespace Tests.Integrated.InterfaceBridge
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open App.Utility.Json.Json
-open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
-open Model
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.JournalEntries.JournalEntry
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
+open Business.CrossDomainOrchestration.JournalEntryOrchestration.JournalEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
@@ -15,9 +19,9 @@ open Tests.Helpers.SadPath
 open App.Utility
 open App.Utility.IAppError
 open Tests.Helpers.TestError
-open Tests.Helpers.SadPath
 open App.Utility.Result
 open Xunit
+open Ui.ReportCli.ReportCliError
 
 [<Collection("SharedTestData")>]
 type ReportRoutesTests(fixture: TestDataFixture) =

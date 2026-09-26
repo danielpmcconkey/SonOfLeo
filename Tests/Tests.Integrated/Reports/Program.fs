@@ -1,5 +1,10 @@
 module Tests.Integrated.Reports.Program
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open System
 open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
@@ -39,7 +44,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             standardInput
             |> toJson<TrialBalanceReportInput>
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         let exitCode, _, _ = runCli Reports args payload
         (exitCode = 0) |> Assert.True
 
@@ -48,16 +53,16 @@ type ProgramTests(fixture: TestDataFixture) =
         // intentionally get the file write to throw the same error you're expecting
         let textToWrite = "this was supposed to fail fail. If you can read this, something is broke in SonOfLeo"
         result {
-            let! path = FileIO.createFullPath badPathRoot $"{badPathFile}.html"
-            do! match textToWrite |> FileIO.writeTextFile path with
+            let! path = File.createFullPath badPathRoot $"{badPathFile}.html"
+            do! match textToWrite |> File.writeTextFile path with
                 | Ok _ -> Error (TestingError "expected failure but got success")
                 | Error intendedError -> 
-                    let expectedErrorMessage = $"{AppError.toMessage(intendedError)}{Environment.NewLine}"
+                    let expectedErrorMessage = $"{intendedError.ToMessage()}{Environment.NewLine}"
                     let args = [ "TrialBalance" ]
                     let payload =
                         badPathInput
                         |> toJson<TrialBalanceReportInput>
-                        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+                        |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
                     let _, _, e = runCli Reports args payload
                     Assert.Equal(expectedErrorMessage, e)
                     Ok()
@@ -71,7 +76,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             standardInput
             |> toJson<TrialBalanceReportInput>
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         let exitCode, p, _ = runCli Reports args payload
         Assert.Equal(0, exitCode)
         result {
@@ -86,7 +91,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             standardInput
             |> toJson<TrialBalanceReportInput>
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         let exitCode, _, _ = runCli Reports args payload
         (exitCode = 1) |> Assert.True
 
@@ -97,7 +102,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             standardInput
             |> toJson<TrialBalanceReportInput>
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         let exitCode, _, e = runCli Reports args payload
         (exitCode = 1) |> Assert.True
         Assert.Equal(expected, e.Trim())

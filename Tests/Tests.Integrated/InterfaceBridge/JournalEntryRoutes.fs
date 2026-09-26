@@ -1,14 +1,19 @@
 module Tests.Integrated.InterfaceBridge.JournalEntryRoutes
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open System
 open App.DataAccessLayer.DbTransaction
 open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 open App.Utility.Json.Json
 open App.Operation.AuditEnvelope
-open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.JournalEntries.JournalEntry
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
+open Business.CrossDomainOrchestration.JournalEntryOrchestration.JournalEntryOrchestration
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers
 open Tests.Helpers.Railroad
@@ -16,12 +21,18 @@ open Tests.Helpers.RouteResolver
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
-open Tests.Helpers.SadPath
 open App.Utility.FieldUpdate
 open App.Utility.Result
 open Xunit
 open Tests.Helpers.Cleanup
 open App.Utility
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
+open Business.FinancialServices.Ledger.LedgerError
+open Business.FinancialServices.BizFinServError
 
 
 [<Collection("SharedTestData")>]
@@ -68,7 +79,7 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
             result {
                 let! payload = input |> toJson<JournalEntryInput>
                 match routeUiCommandForTesting "JournalEntry" "PostNew" [] payload with
-                | Error(JournalEntryInsufficientLines _) ->
+                | Error (AsError (JournalEntryInsufficientLines _)) ->
                     let railroad =
                         let context = Context.create NoTransaction FetchOnly
                         result {
@@ -214,10 +225,10 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         let refOptionStr = Some refStr
         let fi =
             JournalRefFinancialInstitution.create fiStr
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         let exRef =
             JournalExternalReferenceText.create refStr
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         (* The route returns distinct journal entries, so the expectation has to count entries
            and not the reference rows pointing at them — one entry can carry several matching
            references. The orchestrator test already derives it this way; this one counted rows

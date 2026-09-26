@@ -1,11 +1,15 @@
-namespace Tests.Integrated.Business.FinancialServices.Ledger
+namespace Tests.Integrated.Model.Ledger
 
+open App.Session
+open App.DataAccessLayer
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open System
 open App.DataAccessLayer.DbTransaction
 open Ui.InterfaceBridge.CommandRoute
 open App.Operation.AuditEnvelope
-open Model
-open Business.FinancialServices
 open Tests.Helpers
 open Tests.Helpers.Cleanup
 open Tests.Helpers.GenericTestProperties
@@ -17,9 +21,14 @@ open Business.FinancialServices.Ledger.AccountComponent
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
-open Tests.Helpers.SadPath
-
 open Tests.Helpers.Railroad
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
+open Business.FinancialServices.Ledger.LedgerError
+open App.DataAccessLayer.DalError
 
 [<Collection("SharedTestData")>]
 type AccountTests(fixture: TestDataFixture) =
@@ -41,7 +50,7 @@ type AccountTests(fixture: TestDataFixture) =
                 do!
                     AccountCreation.constructNewAndPersist
                         context
-                        (duplicateCode |> AccountCode.create |> Result.defaultWith(fun e -> failwith(e.ToMessage())))
+                        (duplicateCode |> AccountCode.create |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage())))
                         genericAccountName
                         genericAccountType
                         genericActivityPeriod
@@ -77,7 +86,7 @@ type AccountTests(fixture: TestDataFixture) =
                 let! returned =
                     AccountCreation.constructNewAndPersist
                         context
-                        (code |> AccountCode.create |> Result.defaultWith(fun e -> failwith(e.ToMessage())))
+                        (code |> AccountCode.create |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage())))
                         genericAccountName
                         genericAccountType
                         genericActivityPeriod
@@ -203,7 +212,7 @@ type AccountTests(fixture: TestDataFixture) =
                 let parentAccountId = parentId |> AccountId.fromGuid |> Some
                 AccountCreation.constructNewAndPersist
                     context
-                    (code |> AccountCode.create |> Result.defaultWith(fun e -> failwith(e.ToMessage())))
+                    (code |> AccountCode.create |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage())))
                     genericAccountName
                     genericAccountType
                     genericActivityPeriod
@@ -211,7 +220,7 @@ type AccountTests(fixture: TestDataFixture) =
                     parentAccountId
                     genericAccountReference
             match result with
-            | Error(DalResultantRowsDidntMatchExpectation _) -> Ok()
+            | Error (AsError (DalResultantRowsDidntMatchExpectation _)) -> Ok()
             | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
@@ -223,7 +232,7 @@ type AccountTests(fixture: TestDataFixture) =
             let parentAccountId = fixture.Data.revenue4000Id |> Some
             AccountCreation.constructNewAndPersist
                 context
-                (code |> AccountCode.create |> Result.defaultWith(fun e -> failwith(e.ToMessage())))
+                (code |> AccountCode.create |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage())))
                 genericAccountName
                 genericAccountType
                 genericActivityPeriod
@@ -240,7 +249,7 @@ type AccountTests(fixture: TestDataFixture) =
                 let parentAccountId = fixture.Data.closedBank1290Id |> Some
                 AccountCreation.constructNewAndPersist
                     context
-                    (code |> AccountCode.create |> Result.defaultWith(fun e -> failwith(e.ToMessage())))
+                    (code |> AccountCode.create |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage())))
                     genericAccountName
                     genericAccountType
                     genericActivityPeriod
@@ -248,7 +257,7 @@ type AccountTests(fixture: TestDataFixture) =
                     parentAccountId
                     genericAccountReference
             match result with
-            | Error(AccountParentIsInactive _) -> Ok()
+            | Error (AsError (AccountParentIsInactive _)) -> Ok()
             | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
@@ -262,10 +271,10 @@ type AccountTests(fixture: TestDataFixture) =
                 let accountType =
                     "Liability"
                     |> AccountType.fromString
-                    |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+                    |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
                 AccountCreation.constructNewAndPersist
                     context
-                    (code |> AccountCode.create |> Result.defaultWith(fun e -> failwith(e.ToMessage())))
+                    (code |> AccountCode.create |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage())))
                     genericAccountName
                     accountType
                     genericActivityPeriod
@@ -273,7 +282,7 @@ type AccountTests(fixture: TestDataFixture) =
                     parentAccountId
                     genericAccountReference
             match result with
-            | Error(AccountParentAndChildTypesDontMatch _) -> Ok()
+            | Error (AsError (AccountParentAndChildTypesDontMatch _)) -> Ok()
             | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
@@ -372,7 +381,7 @@ type AccountTests(fixture: TestDataFixture) =
             |> List.find(fun a -> a |> Account.accountId = fixture.Data.mortgage2210Id)
         let expectedCode = expectedAccount |> Account.code
         result {
-            let! id = expectedCode |> AccountCode.value |> LookupCache.accountCodeToId.fetch context
+            let! id = expectedCode |> AccountCode.value |> LookupCache.accountCodeToId.fetch (context |> Context.getDatabaseTransaction)
             let! account = id |> AccountId.fromGuid |> Account.fetchById context
             Assert.Equal(expectedCode, account |> Account.code)
             Assert.Equal(expectedAccount |> Account.accountId, account |> Account.accountId)

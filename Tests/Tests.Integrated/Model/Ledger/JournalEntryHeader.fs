@@ -1,5 +1,10 @@
-namespace Tests.Integrated.Business.FinancialServices.Ledger
+namespace Tests.Integrated.Model.Ledger
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open App.DataAccessLayer.DbTransaction
 open App.Operation.AuditEnvelope
 open App.Utility.IAppError
@@ -7,8 +12,12 @@ open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 open Xunit
 open Tests.Helpers
-open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.JournalEntryComponent
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 
 
 [<Collection("SharedTestData")>]

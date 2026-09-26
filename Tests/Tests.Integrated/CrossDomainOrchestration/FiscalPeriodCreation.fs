@@ -1,10 +1,17 @@
-module Tests.Integrated.Business.FinancialServices.FiscalPeriodCreation
+module Tests.Integrated.CrossDomainOrchestration.FiscalPeriodCreation
 
-open InterfaceBridge.CommandRoute
-open App.Operation.Audit
-open Business.FinancialServices.Ledger
-open Business.FinancialServices.Ledger.FiscalPeriodComponent
+open App.Session
+open Business.General
 open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
+open Ui.InterfaceBridge.CommandRoute
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
+open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Tests.Helpers.Railroad
 open Xunit
 open App.Utility.IAppError
@@ -28,7 +35,7 @@ let ``REQ-FP-1.4 REQ-FP-1.5 REQ-FP-2.3 fiscal period runs from the first of the 
     let key =
         keyString
         |> FiscalPeriodKey.fromString
-        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+        |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
     runCommandRouteAndAutoRollback FiscalPeriodCreate (fun context ->
         result {
             let! fp = key |> FiscalPeriodCreation.constructNewAndPersist context

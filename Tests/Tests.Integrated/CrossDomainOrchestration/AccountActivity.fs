@@ -1,22 +1,28 @@
-namespace Tests.Integrated.Business.FinancialServices
+namespace Tests.Integrated.CrossDomainOrchestration
 
-open App.DataAccessLayer.DbTransaction
-open App.Operation.Audit
+open App.Session
+open Business.General
+open Business.FinancialServices
 open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
+open App.DataAccessLayer.DbTransaction
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.JournalEntries
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 open App.Utility.Result
 open Xunit
 open Tests.Helpers
-open Model
-open Business.FinancialServices
 open System
-open Business.FinancialServices.FetchFilters
+open Business.CrossDomainOrchestration.FetchFilters
 open Tests.Helpers.Railroad
 
 [<Collection("SharedTestData")>]
@@ -59,12 +65,12 @@ type AccountActivityTests(fixture: TestDataFixture) =
             fixture.Data.journalEntries
             |> List.find(fun je ->
                 je
-                |> JournalEntry.header
+                |> JournalEntryOrchestration.header
                 |> JournalEntryHeader.description
                 |> JournalEntryDescription.value = "Fixture JE with reference")
-        let expectedHeader = expectedEntry |> JournalEntry.header
+        let expectedHeader = expectedEntry |> JournalEntryOrchestration.header
         let expectedLineId =
-            expectedEntry |> JournalEntry.jeLines |> List.head |> JournalEntryLine.journalEntryLineId
+            expectedEntry |> JournalEntryOrchestration.jeLines |> List.head |> JournalEntryLine.journalEntryLineId
         let filter: AccountActivityFilter =
             { accountId = None
               temporalFilter = None
@@ -102,8 +108,8 @@ type AccountActivityTests(fixture: TestDataFixture) =
     member _.``REQ-JE-3.9.1 fetchFiltered with unVoidedOnly excludes voided entries``() =
         let unVoidedJournalEntries =
             fixture.Data.journalEntries
-            |> List.filter(fun je -> je |> JournalEntry.header |> JournalEntryHeader.voidedAt |> Option.isNone)
-        let unVoidedLines = unVoidedJournalEntries |> List.collect(fun je -> je |> JournalEntry.jeLines)
+            |> List.filter(fun je -> je |> JournalEntryOrchestration.header |> JournalEntryHeader.voidedAt |> Option.isNone)
+        let unVoidedLines = unVoidedJournalEntries |> List.collect(fun je -> je |> JournalEntryOrchestration.jeLines)
         let accounts = fixture.Data.accounts
         let expectedCountTotal =
             accounts
@@ -126,8 +132,8 @@ type AccountActivityTests(fixture: TestDataFixture) =
               unVoidedOnly = true }
         let voidedLineIds =
             fixture.Data.journalEntries
-            |> List.filter(fun je -> je |> JournalEntry.header |> JournalEntryHeader.voidedAt |> Option.isSome)
-            |> List.collect(fun je -> je |> JournalEntry.jeLines)
+            |> List.filter(fun je -> je |> JournalEntryOrchestration.header |> JournalEntryHeader.voidedAt |> Option.isSome)
+            |> List.collect(fun je -> je |> JournalEntryOrchestration.jeLines)
             |> List.map JournalEntryLine.journalEntryLineId
         let context = Context.create NoTransaction FetchOnly
         let result = AccountActivity.fetchFiltered context filter None
@@ -177,8 +183,8 @@ type AccountActivityTests(fixture: TestDataFixture) =
         let nonVoidedLines =
             fixture.Data.journalEntries
             |> List.filter(fun je ->
-                je |> JournalEntry.header |> JournalEntryHeader.voidedAt |> Option.isNone)
-            |> List.collect JournalEntry.jeLines
+                je |> JournalEntryOrchestration.header |> JournalEntryHeader.voidedAt |> Option.isNone)
+            |> List.collect JournalEntryOrchestration.jeLines
         let targetAmountDecimal =
             nonVoidedLines
             |> List.countBy(fun l -> l |> JournalEntryLine.amount |> Money.amount)
@@ -189,7 +195,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
             |> List.filter(fun l -> l |> JournalEntryLine.amount |> Money.amount = targetAmountDecimal)
             |> List.length
         let targetAmount =
-            targetAmountDecimal |> Money.fromDecimal |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            targetAmountDecimal |> Money.fromDecimal |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         let filter:AccountActivityFilter =
             { accountId = None
               temporalFilter = None
@@ -310,24 +316,24 @@ type AccountActivityTests(fixture: TestDataFixture) =
     member _.``REQ-JE-3.9 fetchFiltered by description returns only matching lines``() =
         let targetDescriptionStringFull =
             fixture.Data.jeWithUniqueDescription
-            |> JournalEntry.header
+            |> JournalEntryOrchestration.header
             |> JournalEntryHeader.description
             |> JournalEntryDescription.value
         // the description is a like match, so we want to take a substring
         let targetDescriptionLength = targetDescriptionStringFull |> String.length
         let targetDescriptionString = targetDescriptionStringFull.Substring(2, targetDescriptionLength - 4)
-        let numLines = fixture.Data.jeWithUniqueDescription |> JournalEntry.jeLines |> List.length
+        let numLines = fixture.Data.jeWithUniqueDescription |> JournalEntryOrchestration.jeLines |> List.length
         let numMatchingEntries =
             fixture.Data.journalEntries
             |> List.filter(fun je ->
-                let full = je |> JournalEntry.header |> JournalEntryHeader.description |> JournalEntryDescription.value
+                let full = je |> JournalEntryOrchestration.header |> JournalEntryHeader.description |> JournalEntryDescription.value
                 full.Contains(targetDescriptionString))
             |> List.length
         let expectedCount = numMatchingEntries * numLines // the report surfaces all lines whose entry matches
         let targetDescription =
             targetDescriptionString
             |> JournalEntryDescription.create
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         let filter:AccountActivityFilter =
             { accountId = None
               temporalFilter = None

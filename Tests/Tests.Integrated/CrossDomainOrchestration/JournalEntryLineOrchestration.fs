@@ -1,16 +1,26 @@
-namespace Tests.Integrated.Business.FinancialServices
+namespace Tests.Integrated.CrossDomainOrchestration
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open System
 open App.DataAccessLayer.DbTransaction
-open App.Operation.Audit
-open Model
-open Business.FinancialServices.Ledger
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.JournalEntries
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open App.Utility.Result
 open Xunit
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 
 [<Collection("SharedTestData")>]
 type JournalEntryLineOrchestrationTests(fixture: TestDataFixture) =
@@ -20,7 +30,7 @@ type JournalEntryLineOrchestrationTests(fixture: TestDataFixture) =
         let accountId = fixture.Data.food5350Id
         let expectedLines =
             fixture.Data.journalEntries
-            |> List.collect JournalEntry.jeLines
+            |> List.collect JournalEntryOrchestration.jeLines
             |> List.filter(fun l -> l |> JournalEntryLine.accountId = accountId)
         let expectedIds =
             expectedLines

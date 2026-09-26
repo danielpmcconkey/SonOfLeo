@@ -1,19 +1,29 @@
-namespace Tests.Integrated.Business.FinancialServices
+namespace Tests.Integrated.CrossDomainOrchestration
 
-open InterfaceBridge.CommandRoute
-open App.Operation.Audit
-open Model
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
+open Ui.InterfaceBridge.CommandRoute
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.Ledger
-open Business.FinancialServices.FetchFilters
-open Business.FinancialServices.StageEntryOrchestration
+open Business.CrossDomainOrchestration.FetchFilters
+open Business.CrossDomainOrchestration.StageEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Railroad
-open Utilities
+open App.Utility
 open App.Utility.Result
 open Xunit
 open Business.FinancialServices.Ledger.JournalEntryComponent
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 
 
 [<Collection("SharedTestData")>]
@@ -46,7 +56,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                       context "grp-other-001" otherBatchDate "PRIOR PERIOD UTILITY PAYMENT"
                       "TestBank" "REF-OTHER-001" 91.40M "Credit" (Some "F-1270") None ]
                 |> convertListOfResultsToResultsList
-            return! rows |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
+            return! rows |> StageTestData.ingestDeduplicateAndClassify context sourceFile
         }
 
     /// Stages both batches and hands back every entry now in the stage, so expected values
@@ -71,7 +81,8 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
           lineType = None
           accountId = None
           memo = None
-          classificationRuleId = None }
+          journalEntryHeaderId = None
+          journalEntryLineId = None }
 
     static let idOf entry = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
     static let idsOf entries = entries |> List.map idOf |> List.sort
@@ -520,7 +531,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                 let returned = fetched |> List.head
                 Assert.Equal(payroll |> idOf, returned |> idOf)
                 Assert.Equal(4, returned |> seLines |> List.length)
-                Assert.Equal<Money list>(
+                Assert.Equal<Money.Money list>(
                     payroll |> seLines |> List.map StageEntryLine.amount |> List.sort,
                     returned |> seLines |> List.map StageEntryLine.amount |> List.sort)
             })
@@ -630,7 +641,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                 Assert.Equal<StageEntryLineId list>(
                     payroll |> seLines |> List.map StageEntryLine.stageEntryLineId |> List.sort,
                     returned |> seLines |> List.map StageEntryLine.stageEntryLineId |> List.sort)
-                Assert.Equal<Money list>(
+                Assert.Equal<Money.Money list>(
                     payroll |> seLines |> List.map StageEntryLine.amount |> List.sort,
                     returned |> seLines |> List.map StageEntryLine.amount |> List.sort)
 

@@ -1,20 +1,28 @@
-namespace Tests.Integrated.Business.FinancialServices
+namespace Tests.Integrated.CrossDomainOrchestration
 
-open InterfaceBridge.CommandRoute
-open App.Operation.Audit
-open Model
-open Model.ActivityPeriod
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
+open Ui.InterfaceBridge.CommandRoute
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
+open Business.General.ActivityPeriod
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open App.Utility.Result
 open Xunit
 open Business.FinancialServices.Ledger.Account
-open Business.FinancialServices.AccountDeactivation
-open Utilities
+open Business.CrossDomainOrchestration.AccountDeactivation
+open App.Utility
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
-open Tests.Helpers.SadPath
+open Business.FinancialServices.Ledger.LedgerError
 
 [<Collection("SharedTestData")>]
 type AccountDeactivationTests(fixture: TestDataFixture) =

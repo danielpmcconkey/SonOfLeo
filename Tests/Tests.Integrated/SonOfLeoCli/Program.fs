@@ -1,5 +1,10 @@
 namespace Tests.Integrated.SonOfLeoCli
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.Account
@@ -11,6 +16,7 @@ open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 open App.Utility.Result
 open Xunit
+open Business.FinancialServices.Ledger.LedgerError
 
 [<Collection("SharedTestData")>]
 type ProgramTests(fixture: TestDataFixture) =
@@ -28,19 +34,19 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             { activeOnly = true }
             |> toJson<AccountFetchAllInput>
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         let exitCode, _, _ = runCli SonOfLeoCli args payload
         (exitCode = 0) |> Assert.True
 
     [<Fact>]
     member _.``REQ-NGUI-1.3.1, REQ-NGUI-3.7 The stderr will comprise the error message``() =
         let code = "burp"
-        let expectedError = AppError.toMessage(AccountCodeDoesntMatchAccountId code)
+        let expectedError = LedgerError.toMessage(AccountCodeDoesntMatchAccountId code)
         let args = [ "Account"; "FetchByCode" ]
         let payload =
             { code = code }
             |> toJson<AccountFetchByCodeInput>
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         let _, _, e = runCli SonOfLeoCli args payload
         Assert.Contains(expectedError, e)
 
@@ -59,7 +65,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             { code = targetCode }
             |> toJson<AccountFetchByCodeInput>
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         let exitCode, p, _ = runCli SonOfLeoCli args payload
         Assert.Equal(0, exitCode)
         let railroad =
@@ -79,7 +85,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             { activeOnly = true }
             |> toJson<AccountFetchAllInput>
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         let exitCode, _, _ = runCli SonOfLeoCli args payload
         (exitCode = 1) |> Assert.True
 
@@ -89,7 +95,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             { activeOnly = true }
             |> toJson<AccountFetchAllInput>
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         let exitCode, _, _ = runCli SonOfLeoCli args payload
         (exitCode = 1) |> Assert.True
 
@@ -100,7 +106,7 @@ type ProgramTests(fixture: TestDataFixture) =
         let payload =
             { activeOnly = true }
             |> toJson<AccountFetchAllInput>
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         let exitCode, _, e = runCli SonOfLeoCli args payload
         (exitCode = 1) |> Assert.True
         Assert.Equal(expected, e.Trim())

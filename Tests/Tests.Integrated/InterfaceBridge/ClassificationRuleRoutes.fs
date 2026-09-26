@@ -1,7 +1,12 @@
 module Tests.Integrated.InterfaceBridge.ClassificationRuleRoutes
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
-open Business.FinancialServices.DataIngestion.Classification
+open Business.FinancialServices.Classification
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
 open Tests.Helpers
@@ -12,7 +17,10 @@ open App.Utility.FieldUpdate
 open App.Utility.Json.Json
 open App.Utility.Result
 open Xunit
-open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
+open Business.FinancialServices.Classification.ClassificationComponent
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 
 
 (* Every route below reaches the same orchestrator functions ClassificationRuleCrud.fs

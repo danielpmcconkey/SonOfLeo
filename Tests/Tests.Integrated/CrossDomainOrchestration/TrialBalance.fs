@@ -1,20 +1,31 @@
-namespace Tests.Integrated.Business.FinancialServices
+namespace Tests.Integrated.CrossDomainOrchestration
 
 
-open App.DataAccessLayer.DbTransaction
-open App.Operation.Audit
-open Model
+open App.Session
+open Business.General
+open Business.FinancialServices
 open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
+open App.DataAccessLayer.DbTransaction
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.JournalEntries.JournalEntry
-open Business.FinancialServices.TrialBalanceReport
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
+open Business.CrossDomainOrchestration.JournalEntryOrchestration.JournalEntryOrchestration
+open Business.CrossDomainOrchestration.TrialBalanceReport
 open Tests.Helpers
 open Tests.Helpers.Railroad
-open Utilities
+open App.Utility
 open App.Utility.Result
 open Xunit
+open App.Utility.IAppError
+open Tests.Helpers.TestError
+open Tests.Helpers.SadPath
 
 [<Collection("SharedTestData")>]
 type TrialBalanceTests(fixture: TestDataFixture) =

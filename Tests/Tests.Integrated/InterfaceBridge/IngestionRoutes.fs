@@ -1,5 +1,10 @@
 module Tests.Integrated.InterfaceBridge.IngestionRoutes
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open System
 open System.IO
 open App.DataAccessLayer.DbTransaction
@@ -8,13 +13,13 @@ open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open App.Operation.AuditEnvelope
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.JournalEntryComponent
 (* JournalEntry first, StageEntryOrchestration second: both expose `lines`, and the staged
    side is what the bulk of this file reads. The ledger-side name used here is
    `fetchByReference`, which only the JournalEntry module defines. *)
-open Business.FinancialServices.JournalEntries.JournalEntry
-open Business.FinancialServices.StageEntryOrchestration
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
+open Business.CrossDomainOrchestration.JournalEntryOrchestration.JournalEntryOrchestration
+open Business.CrossDomainOrchestration.StageEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Cleanup
 open Tests.Helpers.Railroad
@@ -23,11 +28,17 @@ open Tests.Helpers.SadPath
 open App.Utility
 open App.Utility.IAppError
 open Tests.Helpers.TestError
-open Tests.Helpers.SadPath
 open App.Utility.FieldUpdate
 open App.Utility.Json.Json
 open App.Utility.Result
 open Xunit
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
+open Business.FinancialServices.Ledger.LedgerError
+open Business.FinancialServices.BizFinServError
 
 
 [<Collection("SharedTestData")>]
@@ -78,7 +89,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
           importDir = importDir
           processedDir = processedDir }
         |> toJson<IngestRawFileToStageInput>
-        |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
+        |> Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage()))
 
     /// Writes a one-defect file, asserts the route rejects it with the exact error, cleans up.
     static let assertRouteRejects fileName rows expectedError =

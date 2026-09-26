@@ -1,30 +1,39 @@
-module Tests.Integrated.Business.FinancialServices.ClassificationRuleCrud
+module Tests.Integrated.CrossDomainOrchestration.ClassificationRuleCrud
 
-open InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open App.DataAccessLayer.DbTransaction
-open InterfaceBridge.CommandRoute
-open App.Operation.Audit
-open Model
-open Business.FinancialServices.DataIngestion.Classification
-open Business.FinancialServices.Ledger.AccountComponent
+open App.Session
+open Business.General
 open Business.FinancialServices
-open Business.FinancialServices.FetchFilters
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
+open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
+open App.DataAccessLayer.DbTransaction
+open Ui.InterfaceBridge.CommandRoute
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
+open Business.FinancialServices.Classification
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.CrossDomainOrchestration.FetchFilters
 open Tests.Helpers
 open Tests.Helpers.Cleanup
 open Tests.Helpers.Railroad
 open Tests.Helpers.SadPath
 open App.Utility.IAppError
 open Tests.Helpers.TestError
-open Tests.Helpers.SadPath
 open App.Utility.Result
 open App.Utility.FieldUpdate
 open Xunit
-open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
-open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleGroup
-open Business.FinancialServices.DataIngestion.Classification.FieldMatch
+open Business.FinancialServices.Classification.ClassificationComponent
+open Business.FinancialServices.Classification.ClassificationRuleGroup
+open Business.FinancialServices.Classification.FieldMatch
+open Business.FinancialServices.Ledger.LedgerError
+open App.DataAccessLayer.DalError
+open Business.FinancialServices.DataIngestion.DataIngestionError
 
 let private unwrap result =
-    result |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
+    result |> Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage()))
 
 let private ruleNameOf s = s |> ClassificationRuleName.create |> unwrap
 let private codeOf s = s |> AccountCode.create |> unwrap
@@ -38,6 +47,8 @@ let private noFilter =
     { ruleId = None
       nameLike = None
       accountAtMatch = None
+      paymentAgreementAtMatch = None
+      claimantType = None
       sourceLike = None
       activeOnly = false }
 
@@ -48,9 +59,10 @@ let private codeStrOf
     (context: Context.Context)
     (r: ClassificationRule.ClassificationRule)
     : Result<string, IAppError> =
-    r
-    |> ClassificationRule.classificationClaimant
-    |> ``convert AccountId to AccountCodeString`` context
+    match r |> ClassificationRule.classificationClaimant with
+    | ClassificationClaimant.Account accountId -> accountId |> ``convert AccountId to AccountCodeString`` context
+    | ClassificationClaimant.PaymentAgreement _ ->
+        TestError.error (TestingError $"Rule {r |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value} claims a payment agreement, not an account")
 
 let private idOf (r: ClassificationRule.ClassificationRule) =
     r |> ClassificationRule.classificationRuleId
@@ -77,18 +89,18 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CR-4.1 REQ-CR-4.5 create returns the new rule bearing an id, a created_at and modified_at that are populated and equal, and the name, account, priority, and rule groups it was given`` () =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let groups = [ groupOf [ Source(patternOf "TestReturnShape") ] ]
                 let! created =
                     ClassificationOrchestration.createNewClassificationRule
                         context
                         (ruleNameOf "CR-4.1 return shape")
-                        fixture.Data.food5350Id
+                        (ClassificationClaimant.Account fixture.Data.food5350Id)
                         777
                         groups
                 Assert.Equal("CR-4.1 return shape", created |> nameOf)
-                Assert.Equal(fixture.Data.food5350Id, created |> ClassificationRule.classificationClaimant )
+                Assert.Equal(ClassificationClaimant.Account fixture.Data.food5350Id, created |> ClassificationRule.classificationClaimant)
                 Assert.Equal(777, created |> ClassificationRule.priority)
                 Assert.Equal<ClassificationRuleGroup list>(groups, created |> ClassificationRule.ruleGroups)
                 Assert.NotEqual(System.Guid.Empty, created |> idOf |> ClassificationRuleId.value)
@@ -101,7 +113,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CR-4.5 a created rule fetched back from the database carries the same rule groups, field matches, and amount patterns it was created with`` () =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 // Two groups, a chainTwo, and an Amount match: the round trip has to survive
                 // JSONB serialisation and reconstitution, not just a flat string compare.
@@ -119,7 +131,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                     ClassificationOrchestration.createNewClassificationRule
                         context
                         (ruleNameOf "CR-4.5 round trip")
-                        fixture.Data.entertainment5650Id
+                        (ClassificationClaimant.Account fixture.Data.entertainment5650Id)
                         778
                         groups
                 let! fetched = created |> idOf |> ClassificationRule.fetchById context
@@ -129,13 +141,13 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CR-4.4 a newly created rule is active, both in the value create returns and in the row fetched back`` () =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let! created =
                     ClassificationOrchestration.createNewClassificationRule
                         context
                         (ruleNameOf "CR-4.4 always active")
-                        fixture.Data.food5350Id
+                        (ClassificationClaimant.Account fixture.Data.food5350Id)
                         779
                         [ groupOf [ Source(patternOf "TestAlwaysActive") ] ]
                 Assert.True(created |> ClassificationRule.isActive)
@@ -146,13 +158,13 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CR-4.3 REQ-CR-1.5 create returns an account-not-found error when the account at match doesn't exist in the ledger`` () =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             // Rule groups are valid, because confirmRuleGroups runs first and would otherwise
             // return its own error before the code is ever looked at.
             ClassificationOrchestration.createNewClassificationRule
                 context
                 (ruleNameOf "CR-4.3 bogus code")
-                (AccountId.create())
+                (ClassificationClaimant.Account(AccountId.create()))
                 780
                 [ groupOf [ Source(patternOf "TestBogusCode") ] ]
             |> fun r -> isCorrectError r AccountIdDoesntMatch None)
@@ -169,14 +181,14 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
         let mutable idToCleanUp = None
         let incumbent = fixtureRules () |> List.head
         let takenName = incumbent |> nameOf
-        let context = Context.create NoTransaction IngestNewClassificationRule
+        let context = Context.create NoTransaction ClassificationNewRule
         try
             result {
                 do!
                     ClassificationOrchestration.createNewClassificationRule
                         context
                         (ruleNameOf takenName)
-                        fixture.Data.food5350Id
+                        (ClassificationClaimant.Account fixture.Data.food5350Id)
                         783
                         [ groupOf [ Source(patternOf "CR122Duplicate") ] ]
                     |> fun r ->
@@ -210,7 +222,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
         let incumbent = fixtureRules () |> List.head
         let takenName = incumbent |> nameOf
         let subjectName = "CR-1.22 rename subject"
-        let context = Context.create NoTransaction IngestUpdateClassificationRule
+        let context = Context.create NoTransaction ClassificationUpdateRule
         try
             result {
                 (* The subject has to be committed for the rename to be attempted against real
@@ -221,7 +233,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                     ClassificationOrchestration.createNewClassificationRule
                         context
                         (ruleNameOf subjectName)
-                        fixture.Data.food5350Id
+                        (ClassificationClaimant.Account fixture.Data.food5350Id)
                         784
                         [ groupOf [ Source(patternOf "CR122Rename") ] ]
                 idToCleanUp <- Some(subject |> idOf)
@@ -249,11 +261,11 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CR-4.6 REQ-CR-1.7 create returns a validation error when the rule groups list is empty`` () =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             ClassificationOrchestration.createNewClassificationRule
                 context
                 (ruleNameOf "CR-4.6 no groups")
-                fixture.Data.food5350Id
+                (ClassificationClaimant.Account fixture.Data.food5350Id)
                 781
                 []
             |> fun r -> isCorrectErrorEmpty r IngestionClassificationRuleGroupsEmpty None)
@@ -267,7 +279,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
     [<InlineData(1)>]
     [<InlineData(2)>]
     member _.``REQ-CR-4.7 REQ-CR-1.12 create returns a validation error when a field match chain is empty`` (emptyPosition: int) =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             let populated = chainOf [ Source(patternOf "TestEmptyChain") ]
             let empty = chainOf []
             let groups =
@@ -280,7 +292,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
             ClassificationOrchestration.createNewClassificationRule
                 context
                 (ruleNameOf $"CR-4.7 empty chain at {emptyPosition}")
-                fixture.Data.food5350Id
+                (ClassificationClaimant.Account fixture.Data.food5350Id)
                 782
                 groups
             |> fun r -> isCorrectErrorEmpty r IngestionFieldMatchChainEmpty None)
@@ -292,7 +304,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CR-5.1 fetch by id returns the one rule bearing that id with its rule groups, field matches, and amount patterns intact`` () =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let expected =
                     fixtureRules ()
@@ -308,7 +320,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CR-5.2 fetch by name returns the rule whose name matches exactly and not one whose name merely contains it`` () =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let target =
                     fixtureRules ()
@@ -319,7 +331,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                     ClassificationOrchestration.createNewClassificationRule
                         context
                         (ruleNameOf "Source = TestBank then 5300 EXTENDED")
-                        fixture.Data.food5350Id
+                        (ClassificationClaimant.Account fixture.Data.food5350Id)
                         783
                         [ groupOf [ Source(patternOf "TestSuperstring") ] ]
                 let! fetched = ruleNameOf "Source = TestBank then 5300" |> ClassificationRule.fetchByName context
@@ -330,7 +342,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CR-5.3 fetchRulesFiltered by id returns exactly the one rule bearing that id`` () =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let target = fixtureRules () |> List.find (fun r -> r |> nameOf = "Allstate Insurance to 5300")
                 let! found =
@@ -345,7 +357,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CR-5.3 fetchRulesFiltered by name fragment returns every rule whose name contains the fragment and no others`` () =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let fragment = "Allstate"
                 let expected =
@@ -367,11 +379,11 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CR-5.3 fetchRulesFiltered by account at match returns every rule assigned that account and no rule assigned a different one`` () =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let expected =
                     fixtureRules ()
-                    |> List.filter (fun r -> r |> ClassificationRule.classificationClaimant = fixture.Data.entertainment5650Id)
+                    |> List.filter (fun r -> r |> ClassificationRule.classificationClaimant = (ClassificationClaimant.Account fixture.Data.entertainment5650Id))
                     |> namesOf
                 let! found =
                     ClassificationOrchestration.fetchRulesFiltered
@@ -381,13 +393,13 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 Assert.NotEmpty(expected)
                 Assert.NotEqual<string list>(fixtureRules () |> namesOf, expected)
                 Assert.Equal<string list>(expected, found |> namesOf)
-                Assert.DoesNotContain(fixture.Data.food5350Id, found |> List.map ClassificationRule.classificationClaimant)
+                Assert.DoesNotContain(ClassificationClaimant.Account fixture.Data.food5350Id, found |> List.map ClassificationRule.classificationClaimant)
             })
         |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-CR-5.3 fetchRulesFiltered by source pattern fragment returns the rules whose rule group bodies carry that pattern and no others`` () =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let sourceFragment = "TestSplitBank"
                 (* The filter searches the rule group bodies; the expectation is derived from
@@ -410,7 +422,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CR-5.3 fetchRulesFiltered with activeOnly true omits the inactive rule that its other filters would otherwise have returned`` () =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let inactiveName = inactiveFixtureRule () |> nameOf
                 let! withInactive =
@@ -433,11 +445,11 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CR-5.3 fetchRulesFiltered with activeOnly false returns that inactive rule alongside the active ones its other filters match`` () =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let expected =
                     fixtureRules ()
-                    |> List.filter (fun r -> r |> ClassificationRule.classificationClaimant = fixture.Data.personalExpenses5300Id)
+                    |> List.filter (fun r -> r |> ClassificationRule.classificationClaimant = (ClassificationClaimant.Account fixture.Data.personalExpenses5300Id))
                     |> namesOf
                 let! found =
                     ClassificationOrchestration.fetchRulesFiltered
@@ -452,17 +464,17 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CR-5.3 fetchRulesFiltered given both a name fragment and an account returns only the rules satisfying both, not the union`` () =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let fragment = "Allstate"
                 let code = "F-5650"
                 let both =
                     fixtureRules ()
-                    |> List.filter (fun r -> (r |> nameOf).Contains fragment && r |> ClassificationRule.classificationClaimant = fixture.Data.entertainment5650Id)
+                    |> List.filter (fun r -> (r |> nameOf).Contains fragment && r |> ClassificationRule.classificationClaimant = (ClassificationClaimant.Account fixture.Data.entertainment5650Id))
                     |> namesOf
                 let union =
                     fixtureRules ()
-                    |> List.filter (fun r -> (r |> nameOf).Contains fragment || r |> ClassificationRule.classificationClaimant = fixture.Data.entertainment5650Id)
+                    |> List.filter (fun r -> (r |> nameOf).Contains fragment || r |> ClassificationRule.classificationClaimant = (ClassificationClaimant.Account fixture.Data.entertainment5650Id))
                     |> namesOf
                 // The two sets must differ or the assertion below proves nothing.
                 Assert.NotEqual<string list>(both, union)
@@ -478,7 +490,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CR-5.3 fetchRulesFiltered with every filter omitted returns every rule in the table`` () =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let! found = ClassificationOrchestration.fetchRulesFiltered context noFilter None
                 Assert.Equal<string list>(fixtureRules () |> namesOf, found |> namesOf)
@@ -492,7 +504,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
     [<InlineData("code")>]
     [<InlineData("priority")>]
     member _.``REQ-CR-5.4 fetchRulesFiltered sorted ascending returns rules in increasing order of the named key, and sorted descending returns the exact reverse``(key: string) =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let asc, desc =
                     match key with
@@ -521,7 +533,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CR-5.4 fetchRulesFiltered sorted by priority ascending places no rule before one of lower priority, and places rules tied at the same priority adjacent to each other``() =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let! sorted = ClassificationOrchestration.fetchRulesFiltered context noFilter (Some PriorityAsc)
                 let priorities = sorted |> List.map ClassificationRule.priority
@@ -576,7 +588,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member this.``REQ-CR-6.1 updating name with SetTo changes the name and leaves account, priority, rule groups, and isActive as they were``() =
-        runCommandRouteAndAutoRollback IngestUpdateClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationUpdateRule (fun context ->
             result {
                 let original = this.TwoGroupRule()
                 let! updated =
@@ -593,16 +605,16 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member this.``REQ-CR-6.1 updating the account at match with SetTo changes the account and leaves name, priority, rule groups, and isActive as they were``() =
-        runCommandRouteAndAutoRollback IngestUpdateClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationUpdateRule (fun context ->
             result {
                 let original = this.TwoGroupRule()
                 let! updated =
                     ClassificationOrchestration.updateClassificationRule
                         context
-                        NoChange (SetTo(fixture.Data.food5350Id)) NoChange NoChange NoChange
+                        NoChange (SetTo((ClassificationClaimant.Account fixture.Data.food5350Id))) NoChange NoChange NoChange
                         (original |> idOf)
-                Assert.Equal(fixture.Data.food5350Id, updated |> ClassificationRule.classificationClaimant)
-                Assert.NotEqual<AccountId>(
+                Assert.Equal(ClassificationClaimant.Account fixture.Data.food5350Id, updated |> ClassificationRule.classificationClaimant)
+                Assert.NotEqual<ClassificationClaimant>(
                     original |> ClassificationRule.classificationClaimant, updated |> ClassificationRule.classificationClaimant)
                 this.AssertOnlyChangedField updated original "account"
             })
@@ -610,7 +622,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member this.``REQ-CR-6.1 updating priority with SetTo changes the priority and leaves name, account, rule groups, and isActive as they were``() =
-        runCommandRouteAndAutoRollback IngestUpdateClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationUpdateRule (fun context ->
             result {
                 let original = this.TwoGroupRule()
                 let newPriority = (original |> ClassificationRule.priority) + 11
@@ -626,7 +638,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member this.``REQ-CR-6.1 updating ruleGroups with SetTo leaves exactly the new rule groups with none of the old surviving, and leaves name, account, priority, and isActive as they were``() =
-        runCommandRouteAndAutoRollback IngestUpdateClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationUpdateRule (fun context ->
             result {
                 let original = this.TwoGroupRule()
                 let replacement = [ groupOf [ Source(patternOf "TestReplacedBody") ] ]
@@ -646,7 +658,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member this.``REQ-CR-6.1 updating isActive with SetTo false deactivates the rule and leaves name, account, priority, and rule groups as they were``() =
-        runCommandRouteAndAutoRollback IngestUpdateClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationUpdateRule (fun context ->
             result {
                 let original = this.TwoGroupRule()
                 Assert.True(original |> ClassificationRule.isActive)
@@ -662,7 +674,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member this.``REQ-CR-6.1 updating isActive with SetTo true reactivates the inactive rule and leaves name, account, priority, and rule groups as they were``() =
-        runCommandRouteAndAutoRollback IngestUpdateClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationUpdateRule (fun context ->
             result {
                 let original = inactiveFixtureRule ()
                 Assert.False(original |> ClassificationRule.isActive)
@@ -678,7 +690,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member this.``REQ-CR-6.2 an update with all five fields NoChange is rejected and leaves the stored rule, modified_at included, untouched``() =
-        runCommandRouteAndAutoRollback IngestUpdateClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationUpdateRule (fun context ->
             result {
                 let ruleId = this.TwoGroupRule() |> idOf
                 let! before = ruleId |> ClassificationRule.fetchById context
@@ -698,17 +710,17 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member this.``REQ-CR-6.3 REQ-CR-1.5 update returns an account-not-found error when the new account at match doesn't exist in the ledger``() =
-        runCommandRouteAndAutoRollback IngestUpdateClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationUpdateRule (fun context ->
             ClassificationOrchestration.updateClassificationRule
                 context
-                NoChange (SetTo(AccountId.create())) NoChange NoChange NoChange
+                NoChange (SetTo(ClassificationClaimant.Account(AccountId.create()))) NoChange NoChange NoChange
                 (this.TwoGroupRule() |> idOf)
             |> fun r -> isCorrectError r AccountIdDoesntMatch None)
         |> railroadWrapper
 
     [<Fact>]
     member this.``REQ-CR-6.4 update returns a validation error when the new rule groups list is empty``() =
-        runCommandRouteAndAutoRollback IngestUpdateClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationUpdateRule (fun context ->
             ClassificationOrchestration.updateClassificationRule
                 context
                 NoChange NoChange NoChange (SetTo []) NoChange
@@ -721,7 +733,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
     [<InlineData(1)>]
     [<InlineData(2)>]
     member this.``REQ-CR-6.4 update returns a validation error when a chain within the new rule groups is empty``(emptyPosition: int) =
-        runCommandRouteAndAutoRollback IngestUpdateClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationUpdateRule (fun context ->
             let populated = chainOf [ Source(patternOf "TestEmptyChainOnUpdate") ]
             let empty = chainOf []
             let groups =
@@ -740,13 +752,13 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CR-6.5 a successful update leaves modified_at later than the value it held before the update``() =
-        runCommandRouteAndAutoRollback IngestNewClassificationRule (fun context ->
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let! created =
                     ClassificationOrchestration.createNewClassificationRule
                         context
                         (ruleNameOf "CR-6.5 timestamp")
-                        fixture.Data.food5350Id
+                        (ClassificationClaimant.Account fixture.Data.food5350Id)
                         784
                         [ groupOf [ Source(patternOf "TestTimestamp") ] ]
                 // modified_at is stamped from the context's initiation instant, not the wall

@@ -1,12 +1,21 @@
-namespace Tests.Integrated.Business.FinancialServices
+namespace Tests.Integrated.CrossDomainOrchestration
 
-open InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open InterfaceBridge.CommandRoute
-open App.Operation.Audit
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
+open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
+open Ui.InterfaceBridge.CommandRoute
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.DataIngestion.Classification
-open Business.FinancialServices.StageEntryOrchestration
+open Business.FinancialServices.Classification
+open Business.CrossDomainOrchestration.StageEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open App.Utility.IAppError
@@ -15,7 +24,7 @@ open Tests.Helpers.SadPath
 open App.Utility.Result
 open Xunit
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.DataIngestion.Classification.ClassificationRuleComponent
+open Business.FinancialServices.Classification.ClassificationComponent
 
 
 [<Collection("SharedTestData")>]
@@ -52,9 +61,12 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                    The debit sibling carrying a rule id is what proves a rule was available to
                    this entry -- without it, an untouched credit line is equally well explained
                    by the classifier having found nothing to match. *)
-                Assert.True(lineOfType Debit |> StageEntryLine.accountClassificationRuleId |> Option.isSome)
+                let recordedRuleIds line = line |> StageTestData.recordedRuleIdsForLine context fullResult.classificationRunId
+                let! debitRuleIds = lineOfType Debit |> recordedRuleIds
+                let! creditRuleIds = lineOfType Credit |> recordedRuleIds
+                Assert.NotEmpty(debitRuleIds)
                 Assert.Equal(Some fixture.Data.moneyMarket1270Id, lineOfType Credit |> StageEntryLine.accountId)
-                Assert.True(lineOfType Credit |> StageEntryLine.accountClassificationRuleId |> Option.isNone)
+                Assert.Empty(creditRuleIds)
             })
         |> railroadWrapper
 
@@ -92,13 +104,14 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                    claim rests on the fixture staying as it is. Naming the rule is the other half:
                    a classifier that lands the right account while stamping some other rule's id
                    breaks the provenance link and nothing else in the suite would notice. *)
+                let! recordedRuleIds = debitLine |> StageTestData.recordedRuleIdsForLine context fullResult.classificationRunId
                 return!
                     match debitResult.outcome with
                     | OneMatch _ ->
                         Assert.Equal(Some fixture.Data.food5350Id, debitLine |> StageEntryLine.accountId)
-                        Assert.Equal(
-                            Some (splitDebitRule |> ClassificationRule.classificationRuleId),
-                            debitLine |> StageEntryLine.accountClassificationRuleId)
+                        Assert.Equal<ClassificationRuleId list>(
+                            [ splitDebitRule |> ClassificationRule.classificationRuleId ],
+                            recordedRuleIds)
                         Ok ()
                     | other -> Error (TestingError $"Expected OneMatch but got {other}")
             })
@@ -139,12 +152,16 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                     match (debitResults |> List.head).outcome with
                     | ManyMatchesClearWinner (winner, _) ->
                         result {
-                            let! codeStr = winner.accountId |> ``convert AccountId to AccountCodeString`` context
-                            Assert.Equal("F-5350", codeStr)
+                            let! codeStr = winner.accountId |> ``convert AccountId Option to AccountCodeString Option`` context
+                            Assert.Equal(Some "F-5350", codeStr)
                             Assert.Equal(Some fixture.Data.food5350Id, debitLine |> StageEntryLine.accountId)
-                            Assert.Equal(
-                                Some (doorDashRule |> ClassificationRule.classificationRuleId),
-                                debitLine |> StageEntryLine.accountClassificationRuleId)
+                            (* The line no longer carries a rule id. The winner is named by the run's result, and
+                               the run's diagnostic rows record every rule that matched, the winner among them. *)
+                            let doorDashRuleId = doorDashRule |> ClassificationRule.classificationRuleId
+                            Assert.Equal(doorDashRuleId, winner.ruleId)
+                            let! recordedRuleIds =
+                                debitLine |> StageTestData.recordedRuleIdsForLine context fullResult.classificationRunId
+                            Assert.Contains(doorDashRuleId, recordedRuleIds)
                             return ()
                         }
                     | other -> Error (TestingError $"Expected ManyMatchesClearWinner but got {other}")

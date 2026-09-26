@@ -1,19 +1,26 @@
-namespace Tests.Integrated.Business.FinancialServices
+namespace Tests.Integrated.CrossDomainOrchestration
 
-open InterfaceBridge.CommandRoute
-open App.Operation.Audit
-open Business.FinancialServices.Ledger
+open App.Session
+open Business.General
 open Business.FinancialServices
-open Business.FinancialServices.JournalEntries
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
+open Ui.InterfaceBridge.CommandRoute
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open Tests.Helpers.SadPath
 open App.Utility.IAppError
 open Tests.Helpers.TestError
-open Tests.Helpers.SadPath
 open App.Utility.FieldUpdate
 open App.Utility.Result
 open Xunit
+open Business.FinancialServices.Ledger.LedgerError
 
 [<Collection("SharedTestData")>]
 type JournalEntryCommentOrchestrationTests(fixture: TestDataFixture) =
@@ -22,7 +29,7 @@ type JournalEntryCommentOrchestrationTests(fixture: TestDataFixture) =
     member _.``REQ-JE-1.56 updateComment repoints the secondary JE link at a different entry``() =
         let comment =
             fixture.Data.sharedCommentJe2
-            |> JournalEntry.comments
+            |> JournalEntryOrchestration.comments
             |> List.head
         let commentId = comment |> JournalEntryComment.journalEntryCommentId
         let repointedJeId = fixture.Data.jeWithLinesRefsAndCommentsId
@@ -44,7 +51,7 @@ type JournalEntryCommentOrchestrationTests(fixture: TestDataFixture) =
     member _.``REQ-JE-1.56 updateComment clears the secondary JE link to no entry``() =
         let comment =
             fixture.Data.sharedCommentJe2
-            |> JournalEntry.comments
+            |> JournalEntryOrchestration.comments
             |> List.head
         let commentId = comment |> JournalEntryComment.journalEntryCommentId
         let expected = None
@@ -66,7 +73,7 @@ type JournalEntryCommentOrchestrationTests(fixture: TestDataFixture) =
     member _.``REQ-JE-5.7 updateComment rejects no-op when both fields are NoChange``() =
         let comment =
             fixture.Data.sharedCommentJe2
-            |> JournalEntry.comments
+            |> JournalEntryOrchestration.comments
             |> List.head
         let commentId = comment |> JournalEntryComment.journalEntryCommentId
         runCommandRouteAndAutoRollback JournalEntryUpdateComment (fun context ->

@@ -1,12 +1,15 @@
-namespace Tests.Integrated.Business.FinancialServices.Ledger
+namespace Tests.Integrated.Model.Ledger
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open System
 open App.DataAccessLayer.DbTransaction
 open Ui.InterfaceBridge.CommandRoute
 open App.Operation.AuditEnvelope
-open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
-open Business.FinancialServices
 open Tests.Helpers
 open Tests.Helpers.GenericTestProperties
 open Tests.Helpers.Railroad
@@ -15,7 +18,13 @@ open Xunit
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
-open Tests.Helpers.SadPath
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
+open App.DataAccessLayer.DalError
+open Business.FinancialServices.Ledger.LedgerError
 
 
 [<Collection("SharedTestData")>]
@@ -51,7 +60,7 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
         let expectedKey =
             "2050-10"
             |> FiscalPeriodKey.fromString
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         let expectedYear = 2050
         let expectedStartMonth = 10
         let expectedStartDay = 1

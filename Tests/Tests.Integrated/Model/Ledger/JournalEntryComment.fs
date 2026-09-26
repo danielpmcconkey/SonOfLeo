@@ -1,21 +1,24 @@
-namespace Tests.Integrated.Business.FinancialServices.Ledger
+namespace Tests.Integrated.Model.Ledger
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open System
-
 open Ui.InterfaceBridge.CommandRoute
 open App.Operation.AuditEnvelope
-open Business.FinancialServices.Ledger
-open Business.FinancialServices
 open Tests.Helpers.Railroad
 open App.Utility.IAppError
 open Tests.Helpers.TestError
-open Tests.Helpers.SadPath
 open Tests.Helpers.SadPath
 open App.Utility.FieldUpdate
 open App.Utility.Result
 open Xunit
 open Tests.Helpers
 open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger.LedgerError
+open Business.FinancialServices.Ledger.LedgerAuditableAction
 
 [<Collection("SharedTestData")>]
 type JournalEntryCommentTests(fixture: TestDataFixture) =
@@ -26,7 +29,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
         let commentText =
             "Test comment text"
             |> CommentText.create
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndPersist
@@ -47,7 +50,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
         let commentText =
             "Comment with secondary link"
             |> CommentText.create
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndPersist
@@ -68,7 +71,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
         let commentText =
             "Comment with secondary link"
             |> CommentText.create
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let expectedInstant = context |> Context.getInitiationInstant
             let result =
@@ -94,7 +97,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
         let commentText =
             "Null secondary"
             |> CommentText.create
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndPersist
@@ -115,7 +118,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
             let commentText =
                 "Same primary and secondary"
                 |> CommentText.create
-                |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+                |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
             let result =
                 JournalEntryCommentOrchestration.constructNewAndPersist
                     context
@@ -130,7 +133,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
         let commentText =
             "Comment on voided"
             |> CommentText.create
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndPersist
@@ -150,7 +153,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
         let commentText =
             "Comment on closed period entry"
             |> CommentText.create
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let result =
                 JournalEntryCommentOrchestration.constructNewAndPersist
@@ -222,7 +225,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
         let commentText =
             "Round-trip comment"
             |> CommentText.create
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         runCommandRouteAndAutoRollback JournalEntryAddComment (fun context ->
             let createResult =
                 JournalEntryCommentOrchestration.constructNewAndPersist

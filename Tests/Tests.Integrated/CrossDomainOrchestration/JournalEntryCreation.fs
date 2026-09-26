@@ -1,24 +1,32 @@
-namespace Tests.Integrated.Business.FinancialServices
+namespace Tests.Integrated.CrossDomainOrchestration
 
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open System
-
-open InterfaceBridge.CommandRoute
-open App.Operation.Audit
-open Model
+open Ui.InterfaceBridge.CommandRoute
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
-open Business.FinancialServices.Ledger
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
 open App.Utility.Result
 open Xunit
 open Tests.Helpers
-open Business.FinancialServices.JournalEntries.JournalEntry
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
+open Business.CrossDomainOrchestration.JournalEntryOrchestration.JournalEntryOrchestration
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Utilities
+open App.Utility
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
+open Business.FinancialServices.Ledger.LedgerError
 
 [<Collection("SharedTestData")>]
 type JournalEntryCreationTests(fixture: TestDataFixture) =
@@ -318,7 +326,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             let result =
                 createTestJournalEntryFromPrimitives context "JE create unhappy432" None today onlyOneLine [] []
             match result with
-            | Error(JournalEntryInsufficientLines _) -> Ok()
+            | Error (AsError (JournalEntryInsufficientLines _)) -> Ok()
             | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
@@ -333,7 +341,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             let result =
                 createTestJournalEntryFromPrimitives context "JE create unhappy892" None today unbalancedLines [] []
             match result with
-            | Error(JournalEntryDebitCreditMismatch _) -> Ok()
+            | Error (AsError (JournalEntryDebitCreditMismatch _)) -> Ok()
             | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
@@ -354,7 +362,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     []
                     []
             match result with
-            | Error(JournalEntryLineAccountDoesntExist _) -> Ok()
+            | Error (AsError (JournalEntryLineAccountDoesntExist _)) -> Ok()
             | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
@@ -377,7 +385,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     []
                     []
             match result with
-            | Error(JournalEntryLineNonPositiveAmount _) -> Ok()
+            | Error (AsError (JournalEntryLineNonPositiveAmount _)) -> Ok()
             | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
@@ -398,7 +406,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     []
                     []
             match result with
-            | Error(JournalEntryDateNotInFiscalPeriod _) -> Ok()
+            | Error (AsError (JournalEntryDateNotInFiscalPeriod _)) -> Ok()
             | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
@@ -418,7 +426,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     []
                     []
             match result with
-            | Error(JournalEntryHeaderEntryDateInvalid _) -> Ok()
+            | Error (AsError (JournalEntryHeaderEntryDateInvalid _)) -> Ok()
             | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
@@ -441,7 +449,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                     []
                     []
             match result with
-            | Error(JournalEntryLineAccountInactive _) -> Ok()
+            | Error (AsError (JournalEntryLineAccountInactive _)) -> Ok()
             | Error e -> Error(TestingError $"Wrong error. {e.ToMessage()}")
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper

@@ -1,23 +1,32 @@
-namespace Tests.Integrated.Business.FinancialServices
+namespace Tests.Integrated.CrossDomainOrchestration
 
-open System
-open InterfaceBridge.CommandRoute
-open App.Operation.Audit
-open Business.FinancialServices.Ledger.FiscalPeriodComponent
-open Business.FinancialServices.Ledger
+open App.Session
+open Business.General
 open Business.FinancialServices
-open Business.FinancialServices.JournalEntries.JournalEntry
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
+open System
+open Ui.InterfaceBridge.CommandRoute
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
+open Business.FinancialServices.Ledger.FiscalPeriodComponent
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
+open Business.CrossDomainOrchestration.JournalEntryOrchestration.JournalEntryOrchestration
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
 open App.Utility.Result
 open Xunit
 open Tests.Helpers
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.JournalEntryVoiding
-open Utilities
+open Business.CrossDomainOrchestration.JournalEntryVoiding
+open App.Utility
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
+open Business.FinancialServices.Ledger.LedgerError
 
 [<Collection("SharedTestData")>]
 type JournalEntryVoidingTests(fixture: TestDataFixture) =
@@ -25,7 +34,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
     let commentText =
         "Voiding for test"
         |> CommentText.create
-        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+        |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
 
     [<Fact>]
     member _.``REQ-JE-4.3 voidJournalEntryOrchestration sets voided_at on the entry``() =
@@ -105,7 +114,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
                 let voidedResult = jeId |> voidJournalEntry context None commentText
                 do!
                     match voidedResult with
-                    | Error(JournalEntryVoidingFiscalPeriodIsClosed _) -> Ok()
+                    | Error (AsError (JournalEntryVoidingFiscalPeriodIsClosed _)) -> Ok()
                     | Error e -> Error(TestingError $"Wrong error message. {e.ToMessage()}")
                     | Ok _ -> Error(TestingError "Expected failure; got success")
                 return ()
@@ -117,7 +126,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback JournalEntryVoid (fun context ->
             let voidedResult = fixture.Data.voidedJeId |> voidJournalEntry context None commentText
             match voidedResult with
-            | Error(JournalEntryVoidingNoOp _) -> Ok()
+            | Error (AsError (JournalEntryVoidingNoOp _)) -> Ok()
             | Error e -> Error(TestingError $"Wrong error message. {e.ToMessage()}")
             | Ok _ -> Error(TestingError "Expected failure; got success"))
         |> railroadWrapper
@@ -130,7 +139,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
             let badId = Guid.NewGuid() |> JournalEntryHeaderId.fromGuid
             let voidedResult = badId |> voidJournalEntry context None commentText
             match voidedResult with
-            | Error(JournalEntryHeaderIdDoesntExist _) -> Ok()
+            | Error (AsError (JournalEntryHeaderIdDoesntExist _)) -> Ok()
             | Error e -> Error(TestingError $"Wrong error message. {e.ToMessage()}")
             | Ok _ -> Error(TestingError "Expected failure; got success"))
         |> railroadWrapper

@@ -1,12 +1,16 @@
 namespace Tests.Integrated.InterfaceBridge.AccountRoutes
 
+open App.Session
+open App.DataAccessLayer
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open System
 open App.DataAccessLayer.DbTransaction
 open Ui.InterfaceBridge.InterfaceContracts.SharedContracts
 open App.Utility.Json.Json
 open App.Operation.AuditEnvelope
-open Model
-open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
 open Tests.Helpers.EntityFunctions
@@ -22,9 +26,14 @@ open Tests.Helpers.Cleanup
 open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
 open App.Utility.IAppError
 open Tests.Helpers.TestError
-open Tests.Helpers.SadPath
-
 open Business.FinancialServices.Ledger.JournalEntryComponent
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
+open Business.FinancialServices.Ledger.LedgerError
+open Business.FinancialServices.BizFinServError
 
 [<Collection("SharedTestData")>]
 type AccountRouteTests(fixture: TestDataFixture) =
@@ -39,7 +48,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
                 let! payload = accountInput |> toJson<AccountCreateInput>
                 let! resultPayload = routeUiCommandForTesting "Account" "Create" [] payload
                 let! accountReturn = fromJson<AccountReturn> resultPayload
-                let! cleanUpId = accountReturn.code |> LookupCache.accountCodeToId.fetch context
+                let! cleanUpId = accountReturn.code |> LookupCache.accountCodeToId.fetch (context |> Context.getDatabaseTransaction)
                 accountIdToCleanup <- (cleanUpId |> AccountId.fromGuid |> Some)
                 return ()
             }
@@ -90,7 +99,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let payload =
             { code = expectedCode }
             |> toJson<AccountFetchByCodeInput>
-            |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         result {
             let! resultPayload = routeUiCommandForTesting "Account" "FetchByCode" [] payload
             let! returned = fromJson<AccountReturn> resultPayload
@@ -489,7 +498,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
                         if field = "temporalFilter" then
                             Some(
                                 convertValueToTemporalFilter()
-                                |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+                                |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
                             )
                         else
                             None

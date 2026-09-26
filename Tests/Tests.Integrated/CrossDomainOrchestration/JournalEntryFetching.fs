@@ -1,25 +1,35 @@
-namespace Tests.Integrated.Business.FinancialServices
+namespace Tests.Integrated.CrossDomainOrchestration
 
+open App.Session
+open App.DataAccessLayer
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open System
 open App.DataAccessLayer.DbTransaction
-open InterfaceBridge.InterfaceContracts.JournalContracts
+open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 open App.Utility.Json.Json
-open App.Operation.Audit
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open Tests.Helpers.RouteResolver
 open Tests.Helpers.Railroad
 open App.Utility.Result
 open Xunit
 open Tests.Helpers
-open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
-open Model.LookupCache
-open Business.FinancialServices.JournalEntries.JournalEntry
-open Utilities
+open App.DataAccessLayer.LookupCache
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
+open Business.CrossDomainOrchestration.JournalEntryOrchestration.JournalEntryOrchestration
+open App.Utility
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
-open Tests.Helpers.SadPath
+open Business.FinancialServices.Ledger.LedgerError
 
 
 [<Collection("SharedTestData")>]
@@ -98,7 +108,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let periodKey = $"{today.Year}-{monthF}"
         let context = Context.create NoTransaction FetchOnly
         result {
-            let! fpUuid = periodKey |> fiscalPeriodKeyToId.fetch context
+            let! fpUuid = periodKey |> fiscalPeriodKeyToId.fetch (context |> Context.getDatabaseTransaction)
             let fpId = fpUuid |> FiscalPeriodId.fromGuid
             let expected =
                 fixture.Data.journalEntries
@@ -125,7 +135,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let periodKey = $"{farDate.Year}-{monthF}"
         let context = Context.create NoTransaction FetchOnly
         result {
-            let! uuid = periodKey |> fiscalPeriodKeyToId.fetch context
+            let! uuid = periodKey |> fiscalPeriodKeyToId.fetch (context |> Context.getDatabaseTransaction)
             let! fp = uuid |> FiscalPeriodId.fromGuid |> FiscalPeriod.fetchById context
             let! entries = fp |> fetchByPeriod context
             Assert.Equal(0, entries |> List.length)
@@ -243,7 +253,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
     member _.``REQ-JE-3.5 REQ-JE-3.8 fetchByReference with both parameters None returns Error``() =
         let context = Context.create NoTransaction FetchOnly
         match fetchByReference context None None with
-        | Error(JournalEntryFetchByReferenceBothArgumentsNull) -> ()
+        | Error (AsError (JournalEntryFetchByReferenceBothArgumentsNull)) -> ()
         | Error e -> Assert.Fail(e.ToMessage())
         | Ok _ -> Assert.Fail "Expected failure; got success"
 

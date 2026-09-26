@@ -1,12 +1,20 @@
-namespace Tests.Integrated.Business.FinancialServices
+namespace Tests.Integrated.CrossDomainOrchestration
 
-open App.DataAccessLayer.DbTransaction
-open InterfaceBridge.CommandRoute
-open App.Operation.Audit
-open Model
+open App.Session
+open Business.General
+open Business.FinancialServices
 open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
+open App.DataAccessLayer.DbTransaction
+open Ui.InterfaceBridge.CommandRoute
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.JournalEntries.JournalEntry
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
+open Business.CrossDomainOrchestration.JournalEntryOrchestration.JournalEntryOrchestration
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
 open App.Utility.IAppError
@@ -14,10 +22,10 @@ open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 open Xunit
 open Tests.Helpers
-open Tests.Helpers.SadPath
-open Business.FinancialServices.AccountBalance
-open Utilities
+open Business.CrossDomainOrchestration.AccountBalance
+open App.Utility
 open App.Utility.Result
+open Business.FinancialServices.Ledger.LedgerError
 
 
 [<Collection("SharedTestData")>]

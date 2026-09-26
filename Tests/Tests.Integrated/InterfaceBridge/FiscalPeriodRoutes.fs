@@ -1,9 +1,14 @@
 module Tests.Integrated.InterfaceBridge.FiscalPeriodRoutes
 
+open App.Session
+open App.DataAccessLayer
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
 open App.DataAccessLayer.DbTransaction
 open App.Utility.Json.Json
 open App.Operation.AuditEnvelope
-open Model
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers
 open Tests.Helpers.Railroad
@@ -11,14 +16,18 @@ open Tests.Helpers.RouteResolver
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
-open Tests.Helpers.SadPath
 open App.Utility.Result
 open Xunit
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
-open Business.FinancialServices.Ledger
 open Tests.Integrated
 open Tests.Helpers.Cleanup
 open Ui.InterfaceBridge.InterfaceContracts.FiscalPeriodContracts
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
+open Business.FinancialServices.Ledger.LedgerError
 
 
 [<Collection("SharedTestData")>]
@@ -27,27 +36,27 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
     static let createFiscalPeriodCreateInputPayload keyToUse =
         { FiscalPeriodCreateInput.periodKey = keyToUse }
         |> toJson<FiscalPeriodCreateInput>
-        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+        |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
 
     static let createFiscalPeriodFetchByKeyInputPayload keyToUse =
         { FiscalPeriodFetchByKeyInput.periodKey = keyToUse }
         |> toJson<FiscalPeriodFetchByKeyInput>
-        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+        |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
 
     static let createFiscalPeriodCloseInputPayload keyToUse =
         { FiscalPeriodCloseInput.periodKey = keyToUse }
         |> toJson<FiscalPeriodCloseInput>
-        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+        |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
 
     static let createFiscalPeriodReopenInputPayload keyToUse =
         { FiscalPeriodReopenInput.periodKey = keyToUse }
         |> toJson<FiscalPeriodReopenInput>
-        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+        |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
 
     static let createFiscalPeriodFetchAllInputPayload openOnly =
         { openOnly = openOnly }
         |> toJson<FiscalPeriodFetchAllInput>
-        |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+        |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
 
     [<Fact>]
     member _.``REQ-FP-2.4 FiscalPeriod Create happy path``() =
@@ -60,7 +69,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
                 let! resultPayload = routeUiCommandForTesting "FiscalPeriod" "Create" [] payload
                 let! fp = fromJson<FiscalPeriodReturn> resultPayload
                 let returnedKey = fp.periodKey
-                let! uuid = returnedKey |> LookupCache.fiscalPeriodKeyToId.fetch context
+                let! uuid = returnedKey |> LookupCache.fiscalPeriodKeyToId.fetch (context |> Context.getDatabaseTransaction)
                 let id = uuid |> FiscalPeriodId.fromGuid
                 keyToCleanUp <- Some returnedKey
                 Assert.Equal(expected, returnedKey)

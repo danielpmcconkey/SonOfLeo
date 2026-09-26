@@ -1,9 +1,16 @@
-namespace Tests.Integrated.Business.FinancialServices
+namespace Tests.Integrated.CrossDomainOrchestration
 
-open InterfaceBridge.CommandRoute
-open App.Operation.Audit
-open Model
+open App.Session
+open Business.General
+open Business.FinancialServices
 open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
+open Ui.InterfaceBridge.CommandRoute
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.DataIngestion.StageEntryHeader
@@ -11,17 +18,19 @@ open Business.FinancialServices.DataIngestion.StageEntryLine
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.StageEntryOrchestration
-open Business.FinancialServices.TrialBalanceReport
+open Business.CrossDomainOrchestration.StageEntryOrchestration
+open Business.CrossDomainOrchestration.TrialBalanceReport
 open Tests.Helpers
 open Tests.Helpers.Railroad
-open Utilities
+open App.Utility
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 open App.Utility.FieldUpdate
 open App.Utility.Result
 open Xunit
+open Business.FinancialServices.DataIngestion.DataIngestionError
+open Business.FinancialServices.Ledger.LedgerError
 
 
 (* The orchestrator's JournalEntry type shadows its companion module on a fully qualified
@@ -29,7 +38,7 @@ open Xunit
    A local module with its own open gets at the ledger-side names without disturbing either. *)
 module PostedJournalEntry =
 
-    open Business.FinancialServices.JournalEntries.JournalEntry
+    open Business.CrossDomainOrchestration.JournalEntryOrchestration.JournalEntryOrchestration
 
     let fetchByFiReference context financialInstitution fiReference =
         fetchByReference context (Some financialInstitution) (Some fiReference)
@@ -61,6 +70,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
           descriptionUpdate = NoChange
           ingestionSourceUpdate = NoChange
           fiReferenceUpdate = NoChange
+          journalEntryHeaderIdUpdate = NoChange
           statusUpdate = NoChange }
 
     static let noChangeLineUpdates lineId : StageEntryLineFieldUpdates =
@@ -69,7 +79,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
           entryTypeUpdate = NoChange
           accountIdUpdate = NoChange
           memoUpdate = NoChange
-          accountClassificationRuleIdUpdate = NoChange }
+          journalEntryLineIdUpdate = NoChange }
 
     static let stageEntryHeaderIdOf entry =
         entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
@@ -138,11 +148,11 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 let! sourceFile = "/tmp/test-closed-period.jsonl" |> SourceFile.create
                 let! row1 = StageTestData.makeRawRow context "grp-cp" closedPeriodDate "Closed period entry" "TestBank" "REF-CP-001" 50.00M "Debit" (Some "F-5350") None
                 let! row2 = StageTestData.makeRawRow context "grp-cp" closedPeriodDate "Closed period entry" "TestBank" "REF-CP-001" 50.00M "Credit" (Some "F-1270") None
-                let! _ = [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
+                let! _ = [ row1; row2 ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile
                 // the entry is now Classified; post should fail because the period is closed
                 return!
-                    match Business.FinancialServices.StageEntryOrchestration.post context with
-                    | Error (JournalEntryHeaderEntryDateInvalid _) -> Ok ()
+                    match Business.CrossDomainOrchestration.StageEntryOrchestration.post context with
+                    | Error (AsError (JournalEntryHeaderEntryDateInvalid _)) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error. {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure posting to closed period; got success")
             })
@@ -194,7 +204,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 Assert.NotEmpty(accountIdsReceivingPostings)
                 let asOf = Calendar.today()
                 let! trialBalanceBefore = fetchTrialBalanceData context asOf
-                do! Business.FinancialServices.StageEntryOrchestration.post context
+                do! Business.CrossDomainOrchestration.StageEntryOrchestration.post context
                 let! trialBalanceAfter = fetchTrialBalanceData context asOf
                 let rowFor accountCode (rows: TrialBalanceRowFlattened list) =
                     rows |> List.find (fun row -> row.accountCode = accountCode)
@@ -235,9 +245,9 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 let! row3 = StageTestData.makeRawRow context "grp-1je" today "One JE per group" "TestBank" "REF-1JE-001" 187.50M "Credit" (Some "F-5350") (Some "State withholding")
                 let! row4 = StageTestData.makeRawRow context "grp-1je" today "One JE per group" "TestBank" "REF-1JE-001" 300.00M "Credit" (Some "F-5650") (Some "401k contribution")
                 let! _ =
-                    [ row1; row2; row3; row4 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
+                    [ row1; row2; row3; row4 ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile
                 let contextForPost = context |> Context.updateInitiationInstant
-                do! Business.FinancialServices.StageEntryOrchestration.post contextForPost
+                do! Business.CrossDomainOrchestration.StageEntryOrchestration.post contextForPost
                 let! fi = "TestBank" |> JournalRefFinancialInstitution.create
                 let! fiReference = "REF-1JE-001" |> JournalExternalReferenceText.create
                 let! posted = PostedJournalEntry.fetchByFiReference contextForPost fi fiReference
@@ -263,7 +273,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                    modified_at, and a Posted row stamped behind the pipeline's own Classified
                    row would leave the entry looking unposted. *)
                 let contextForPost = context |> Context.updateInitiationInstant
-                do! Business.FinancialServices.StageEntryOrchestration.post contextForPost
+                do! Business.CrossDomainOrchestration.StageEntryOrchestration.post contextForPost
                 let! postablesAfter = fetchAllForPosting contextForPost
                 Assert.Equal(0, postablesAfter |> List.length)
             })
@@ -310,9 +320,9 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 let! savingsCredit = StageTestData.makeRawRow context "grp-prov-b" today "Provenance from the savings" "TestSavings" "REF-PROV-002" 31.00M "Credit" (Some "F-1270") None
                 let! staged =
                     [ bankDebit; bankCredit; savingsDebit; savingsCredit ]
-                    |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
+                    |> StageTestData.ingestDeduplicateAndClassify context sourceFile
                 let contextForPost = context |> Context.updateInitiationInstant
-                do! Business.FinancialServices.StageEntryOrchestration.post contextForPost
+                do! Business.CrossDomainOrchestration.StageEntryOrchestration.post contextForPost
                 let sourceOfPosted description =
                     result {
                         let! posted =
@@ -402,8 +412,8 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                     uncoded |> seLines |> List.exists (fun line -> line |> StageEntryLine.accountId |> Option.isNone),
                     "The line under test must be uncoded for this test to mean anything.")
                 return!
-                    match Business.FinancialServices.StageEntryOrchestration.post context with
-                    | Error (IngestionNoneAccount _) -> Ok ()
+                    match Business.CrossDomainOrchestration.StageEntryOrchestration.post context with
+                    | Error (AsError (IngestionNoneAccount _)) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error. {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
@@ -455,7 +465,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                    first. The requirement is about each staged entry, and a post that marked
                    one of nine satisfies any assertion made about a single head. *)
                 let postedHeaderIds = postablesBefore |> List.map stageEntryHeaderIdOf
-                do! Business.FinancialServices.StageEntryOrchestration.post contextForPost
+                do! Business.CrossDomainOrchestration.StageEntryOrchestration.post contextForPost
                 let! refetched =
                     postedHeaderIds
                     |> List.map (fun headerId -> headerId |> fetchByStageEntryHeaderId contextForPost)

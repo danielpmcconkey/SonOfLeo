@@ -1,22 +1,33 @@
-namespace Tests.Integrated.Business.FinancialServices
+namespace Tests.Integrated.CrossDomainOrchestration
 
-open InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open InterfaceBridge.CommandRoute
-open App.Operation.Audit
-open Model
+open App.Session
+open Business.General
+open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.CrossDomainOrchestration
+open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
+open Ui.InterfaceBridge.CommandRoute
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.Ledger.LedgerAuditableAction
+open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
+open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.DataIngestion.BaseStageEntry
-open Business.FinancialServices.StageEntryOrchestration
+open Business.CrossDomainOrchestration.StageEntryOrchestration
+open Business.FinancialServices.Classification
+open Business.FinancialServices.Classification.ClassificationComponent
 open Tests.Helpers
 open Tests.Helpers.Railroad
-open Utilities
+open App.Utility
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 open App.Utility.Result
 open Xunit
 open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.DataIngestion.DataIngestionError
 
 
 module StageTestData =
@@ -83,11 +94,68 @@ module StageTestData =
             makeRawRow context "grp-012" (today.PlusDays(-1)) "MIXED OUTCOME BOTH SIDES NULL" "MixedOutcomeBank" "REF-MIXED-001" 60.00M "Credit" None None
         ] |> convertListOfResultsToResultsList
 
+    /// What ingesting one file used to hand back in a single call: that file's entries as they stand after the
+    /// pipeline, the headers this dedup pass flagged, and the classification results for that file's lines.
+    type IngestionPipelineResult =
+        { stagedEntries: StageEntry list
+          newDuplicates: StageEntryHeader.StageEntryHeader list
+          classificationResults: ClassificationResult list
+          classificationRunId: ClassificationRunId }
+
+    /// Ingest, dedup and account classification are three separate steps in Src, and classification now sweeps every
+    /// unresolved staged entry rather than one file's. This runs the three in order, advancing the audit instant
+    /// between them as the old single call did, and narrows the results back to the file just ingested.
+    let ingestDeduplicateAndClassify
+        (context: Context.Context)
+        (sourceFile: SourceFile)
+        (rawRows: BaseStageRawRow list)
+        : Result<IngestionPipelineResult, IAppError> =
+        result {
+            let headerIdOf entry = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+            let! ingested = rawRows |> ingestRawToStage context sourceFile
+            let ingestedIds = ingested |> List.map headerIdOf
+            let contextAfterLoad = context |> Context.updateInitiationInstant
+            let! duplicatesBefore = [ StagedEntryStatus.Duplicate ] |> fetchByStatusList contextAfterLoad
+            let! _ = deduplicateStagedEntries contextAfterLoad
+            let! duplicatesAfter = [ StagedEntryStatus.Duplicate ] |> fetchByStatusList contextAfterLoad
+            let priorDuplicateIds = duplicatesBefore |> List.map headerIdOf
+            let newDuplicates =
+                duplicatesAfter
+                |> List.filter (fun e -> priorDuplicateIds |> List.contains (headerIdOf e) |> not)
+                |> List.map stageEntryHeader
+            let contextAfterDedup = contextAfterLoad |> Context.updateInitiationInstant
+            let! classification = classifyAccounts contextAfterDedup
+            let classificationResults =
+                classification.classificationResults
+                |> List.filter (fun r -> ingestedIds |> List.contains r.candidate.headerIdOfCandidate)
+            let! stagedEntries = sourceFile |> fetchAllByFile contextAfterDedup None
+            return
+                { stagedEntries = stagedEntries
+                  newDuplicates = newDuplicates
+                  classificationResults = classificationResults
+                  classificationRunId = classification.runId }
+        }
+
+    /// The rules a classification run recorded against one staged line. Classification no longer stamps a rule id
+    /// onto the line; every rule that matched gets a row in the run's diagnostic table instead.
+    let recordedRuleIdsForLine
+        (context: Context.Context)
+        (runId: ClassificationRunId)
+        (line: StageEntryLine.StageEntryLine)
+        : Result<ClassificationRuleId list, IAppError> =
+        let lineId = line |> StageEntryLine.stageEntryLineId
+        runId
+        |> RuleMatch.fetchByRunId context
+        |> Result.map (fun matches ->
+            matches
+            |> List.filter (fun m -> m |> RuleMatch.stageEntryLineId = lineId)
+            |> List.map RuleMatch.classificationRuleId)
+
     let runPipeline context =
         result {
             let! sourceFile = "/tmp/stg-test-checking.jsonl" |> SourceFile.create
             let! rows = buildTestRows context
-            return! rows |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
+            return! rows |> ingestDeduplicateAndClassify context sourceFile
         }
 
     let findByDescription desc (entries: StageEntry list) =
@@ -187,7 +255,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 Assert.Equal(Some "F-1270", codeStr)
                 Assert.Equal(Some "Net pay to checking", debitLine |> StageEntryLine.memo |> Option.map JournalEntryLineMemo.value)
                 // parser-assigned lines have no classification_rule_id
-                Assert.True(debitLine |> StageEntryLine.accountClassificationRuleId |> Option.isNone)
+                let! debitLineRuleIds = debitLine |> StageTestData.recordedRuleIdsForLine context fullResult.classificationRunId
+                Assert.Empty(debitLineRuleIds)
                 // 2.17 — balanced
                 let totalDebits =
                     entry |> seLines
@@ -240,7 +309,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! otherRow2 = StageTestData.makeRawRow context "grp-other" today "Separate event" "TestBank" "REF-OTHER-001" 40.00M "Credit" (Some "F-1270") None
                 let! fullResult =
                     [ multiRow1; multiRow2; multiRow3; multiRow4; otherRow1; otherRow2 ]
-                    |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
+                    |> StageTestData.ingestDeduplicateAndClassify context sourceFile
                 Assert.Equal(2, fullResult.stagedEntries |> List.length)
                 let multi = fullResult.stagedEntries |> StageTestData.findByDescription "Multi leg event"
                 Assert.Equal(4, multi |> seLines |> List.length)
@@ -259,13 +328,13 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! firstFile = "/tmp/test-grouping-file-one.jsonl" |> SourceFile.create
                 let! firstRow1 = StageTestData.makeRawRow context "grp-reused" today "First file event" "TestBank" "REF-REUSED-001" 25.00M "Debit" (Some "F-5350") None
                 let! firstRow2 = StageTestData.makeRawRow context "grp-reused" today "First file event" "TestBank" "REF-REUSED-001" 25.00M "Credit" (Some "F-1270") None
-                let! firstResult = [ firstRow1; firstRow2 ] |> ingestRawToStageThenDeduplicateAndClassify context firstFile
+                let! firstResult = [ firstRow1; firstRow2 ] |> StageTestData.ingestDeduplicateAndClassify context firstFile
                 let contextForSecondFile = context |> Context.updateInitiationInstant
                 let! secondFile = "/tmp/test-grouping-file-two.jsonl" |> SourceFile.create
                 let! secondRow1 = StageTestData.makeRawRow context "grp-reused" today "Second file event" "TestBank" "REF-REUSED-002" 61.00M "Debit" (Some "F-5350") None
                 let! secondRow2 = StageTestData.makeRawRow context "grp-reused" today "Second file event" "TestBank" "REF-REUSED-002" 61.00M "Credit" (Some "F-1270") None
                 let! secondResult =
-                    [ secondRow1; secondRow2 ] |> ingestRawToStageThenDeduplicateAndClassify contextForSecondFile secondFile
+                    [ secondRow1; secondRow2 ] |> StageTestData.ingestDeduplicateAndClassify contextForSecondFile secondFile
                 let firstId = firstResult.stagedEntries |> List.exactlyOne |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let secondId = secondResult.stagedEntries |> List.exactlyOne |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 Assert.True(firstId <> secondId, "A reused group_id in a later file must not join the earlier entry")
@@ -301,8 +370,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! row1 = StageTestData.makeRawRow context "grp-inc" today "Inconsistent" "TestBank" "REF-INC-001" 100.00M "Debit" (Some "F-5350") None
                 let! row2 = StageTestData.makeRawRow context "grp-inc" secondDate secondDescription secondSource secondReference 100.00M "Credit" (Some "F-1270") None
                 return!
-                    match [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
-                    | Error (IngestionBaseStageGroupIdDistinctDataViolation _) -> Ok ()
+                    match [ row1; row2 ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile with
+                    | Error (AsError (IngestionBaseStageGroupIdDistinctDataViolation _)) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error when {field} differed within the group: {e.ToMessage()}")
                     | Ok _ -> Error (TestingError $"Expected failure; got success when {field} differed within the group")
             })
@@ -320,8 +389,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! sourceFile = "/tmp/test-single.jsonl" |> SourceFile.create
                 let! row = StageTestData.makeRawRow context "grp-one" today "Single record" "TestBank" "REF-ONE-001" 100.00M "Debit" (Some "F-5350") None
                 return!
-                    match [ row ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
-                    | Error (IngestionStageEntryInsufficientLines _) -> Ok ()
+                    match [ row ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile with
+                    | Error (AsError (IngestionStageEntryInsufficientLines _)) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error: {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
@@ -340,8 +409,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! row1 = StageTestData.makeRawRow context "grp-imb" today "Imbalanced" "TestBank" "REF-IMB-001" 100.00M "Debit" (Some "F-5350") None
                 let! row2 = StageTestData.makeRawRow context "grp-imb" today "Imbalanced" "TestBank" "REF-IMB-001" 99.99M "Credit" (Some "F-1270") None
                 return!
-                    match [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
-                    | Error (IngestionStageEntryDebitCreditMismatch _) -> Ok ()
+                    match [ row1; row2 ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile with
+                    | Error (AsError (IngestionStageEntryDebitCreditMismatch _)) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error: {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
@@ -361,8 +430,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! validRow2 = StageTestData.makeRawRow context "grp-ok" today "Valid group" "TestBank" "REF-OK-001" 100.00M "Credit" (Some "F-1270") None
                 let! badRow = StageTestData.makeRawRow context "grp-bad" today "Bad group" "TestBank" "REF-BAD-001" 50.00M "Debit" (Some "F-5350") None
                 return!
-                    match [ validRow1; validRow2; badRow ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
-                    | Error (IngestionStageEntryInsufficientLines _) -> Ok ()
+                    match [ validRow1; validRow2; badRow ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile with
+                    | Error (AsError (IngestionStageEntryInsufficientLines _)) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error. {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
@@ -381,8 +450,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! row1 = StageTestData.makeRawRow context "grp-src" today "Bad source" "NonExistentBank" "REF-SRC-001" 100.00M "Debit" (Some "F-5350") None
                 let! row2 = StageTestData.makeRawRow context "grp-src" today "Bad source" "NonExistentBank" "REF-SRC-001" 100.00M "Credit" (Some "F-1270") None
                 return!
-                    match [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
-                    | Error (IngestionSourceNameNotFound _) -> Ok ()
+                    match [ row1; row2 ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile with
+                    | Error (AsError (IngestionSourceNameNotFound _)) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error. {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
             })
@@ -401,8 +470,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! row1 = StageTestData.makeRawRow context "grp-err" today "Typed error" "TestBank" "REF-ERR-001" 100.00M "Debit" (Some "F-5350") None
                 let! row2 = StageTestData.makeRawRow context "grp-err" today "Typed error" "TestBank" "REF-ERR-001" 50.00M "Credit" (Some "F-1270") None
                 return!
-                    match [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile with
-                    | Error (IngestionStageEntryDebitCreditMismatch (d, c)) ->
+                    match [ row1; row2 ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile with
+                    | Error (AsError (IngestionStageEntryDebitCreditMismatch (d, c))) ->
                         Assert.Equal(100.00M, d)
                         Assert.Equal(50.00M, c)
                         Ok ()
@@ -444,7 +513,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! sourceFile1 = "/tmp/test-reviewed-first.jsonl" |> SourceFile.create
                 let! row1 = StageTestData.makeRawRow context "grp-rev" today "Reviewed dedup subject" "TestBank" "REF-REVIEWED-001" 61.00M "Debit" (Some "F-5650") None
                 let! row2 = StageTestData.makeRawRow context "grp-rev" today "Reviewed dedup subject" "TestBank" "REF-REVIEWED-001" 61.00M "Credit" (Some "F-1270") None
-                let! firstResult = [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile1
+                let! firstResult = [ row1; row2 ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile1
                 let firstEntry = firstResult.stagedEntries |> List.exactlyOne
                 let firstHeaderId = firstEntry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
 
@@ -458,7 +527,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! sourceFile2 = "/tmp/test-reviewed-second.jsonl" |> SourceFile.create
                 let! row3 = StageTestData.makeRawRow context "grp-rev2" today "Reviewed dedup rerun" "TestBank" "REF-REVIEWED-001" 61.00M "Debit" (Some "F-5650") None
                 let! row4 = StageTestData.makeRawRow context "grp-rev2" today "Reviewed dedup rerun" "TestBank" "REF-REVIEWED-001" 61.00M "Credit" (Some "F-1270") None
-                let! secondResult = [ row3; row4 ] |> ingestRawToStageThenDeduplicateAndClassify contextForReimport sourceFile2
+                let! secondResult = [ row3; row4 ] |> StageTestData.ingestDeduplicateAndClassify contextForReimport sourceFile2
 
                 let secondEntry = secondResult.stagedEntries |> List.exactlyOne
                 Assert.Equal(Duplicate, StageTestData.latestStatus secondEntry)
@@ -493,7 +562,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! sourceFile1 = "/tmp/test-posted-first.jsonl" |> SourceFile.create
                 let! row1 = StageTestData.makeRawRow context "grp-post" today "Posted dedup subject" "TestBank" "REF-POSTED-001" 63.00M "Debit" (Some "F-5650") None
                 let! row2 = StageTestData.makeRawRow context "grp-post" today "Posted dedup subject" "TestBank" "REF-POSTED-001" 63.00M "Credit" (Some "F-1270") None
-                let! firstResult = [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile1
+                let! firstResult = [ row1; row2 ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile1
                 let firstEntry = firstResult.stagedEntries |> List.exactlyOne
                 let firstHeaderId = firstEntry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
 
@@ -509,14 +578,14 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                    ledger row that makes the entry matchable and the Posted status that is
                    supposed to protect it. The entry ingested above is the only postable one
                    in this rolled-back transaction. *)
-                do! Business.FinancialServices.StageEntryOrchestration.post contextForPost
+                do! Business.CrossDomainOrchestration.StageEntryOrchestration.post contextForPost
 
                 System.Threading.Thread.Sleep(10)
                 let contextForReimport = contextForPost |> Context.updateInitiationInstant
                 let! sourceFile2 = "/tmp/test-posted-second.jsonl" |> SourceFile.create
                 let! row3 = StageTestData.makeRawRow context "grp-post2" today "Posted dedup rerun" "TestBank" "REF-POSTED-001" 63.00M "Debit" (Some "F-5650") None
                 let! row4 = StageTestData.makeRawRow context "grp-post2" today "Posted dedup rerun" "TestBank" "REF-POSTED-001" 63.00M "Credit" (Some "F-1270") None
-                let! secondResult = [ row3; row4 ] |> ingestRawToStageThenDeduplicateAndClassify contextForReimport sourceFile2
+                let! secondResult = [ row3; row4 ] |> StageTestData.ingestDeduplicateAndClassify contextForReimport sourceFile2
 
                 let secondEntry = secondResult.stagedEntries |> List.exactlyOne
                 Assert.Equal(Duplicate, StageTestData.latestStatus secondEntry)
@@ -542,7 +611,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                         let! sourceFile = $"/tmp/test-redup-{label}.jsonl" |> SourceFile.create
                         let! debit = StageTestData.makeRawRow ctx groupId today $"Duplicate dedup {label}" "TestBank" "REF-REDUP-001" 44.00M "Debit" (Some "F-5650") None
                         let! credit = StageTestData.makeRawRow ctx groupId today $"Duplicate dedup {label}" "TestBank" "REF-REDUP-001" 44.00M "Credit" (Some "F-1270") None
-                        let! ingested = [ debit; credit ] |> ingestRawToStageThenDeduplicateAndClassify ctx sourceFile
+                        let! ingested = [ debit; credit ] |> StageTestData.ingestDeduplicateAndClassify ctx sourceFile
                         return ingested.stagedEntries |> List.exactlyOne
                     }
 
@@ -592,7 +661,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                       makeEntry "grp-pk6" "Partial key both shared two" "TestBank" "REF-PARTIAL-C" ]
                     |> List.concat
                     |> convertListOfResultsToResultsList
-                let! fullResult = rows |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
+                let! fullResult = rows |> StageTestData.ingestDeduplicateAndClassify context sourceFile
 
                 let entryNamed desc = fullResult.stagedEntries |> StageTestData.findByDescription desc
                 [ "Partial key same source one"
@@ -636,7 +705,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! sourceFile = "/tmp/test-voided-ref.jsonl" |> SourceFile.create
                 let! row1 = StageTestData.makeRawRow context "grp-vd" today "Voided ref test" "VoidedEntryBank" "VOIDED-REF-001" 75.00M "Debit" (Some "F-5650") None
                 let! row2 = StageTestData.makeRawRow context "grp-vd" today "Voided ref test" "VoidedEntryBank" "VOIDED-REF-001" 75.00M "Credit" (Some "F-1270") None
-                let! fullResult = [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
+                let! fullResult = [ row1; row2 ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile
                 let entry = fullResult.stagedEntries |> List.head
                 Assert.NotEqual(Duplicate, StageTestData.latestStatus entry)
             })
@@ -663,7 +732,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                       makeEntry "grp-lp3" "Ledger partial both" "TestBank" "TXN-001" ]
                     |> List.concat
                     |> convertListOfResultsToResultsList
-                let! fullResult = rows |> ingestRawToStageThenDeduplicateAndClassify context sourceFile
+                let! fullResult = rows |> StageTestData.ingestDeduplicateAndClassify context sourceFile
 
                 let entryNamed desc = fullResult.stagedEntries |> StageTestData.findByDescription desc
                 Assert.Equal(0, entryNamed "Ledger partial source only" |> StageTestData.duplicateTransitionCount)
@@ -714,7 +783,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! sourceFile1 = "/tmp/test-ignored-setup.jsonl" |> SourceFile.create
                 let! row1 = StageTestData.makeRawRow context "grp-ign" today "Ignored entry" "TestBank" "REF-IGNORED-001" 30.00M "Debit" (Some "F-5350") None
                 let! row2 = StageTestData.makeRawRow context "grp-ign" today "Ignored entry" "TestBank" "REF-IGNORED-001" 30.00M "Credit" (Some "F-1270") None
-                let! firstResult = [ row1; row2 ] |> ingestRawToStageThenDeduplicateAndClassify context sourceFile1
+                let! firstResult = [ row1; row2 ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile1
                 let firstEntry = firstResult.stagedEntries |> List.head
                 let headerId = firstEntry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let contextForIgnore = context |> Context.updateInitiationInstant
@@ -723,7 +792,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! sourceFile2 = "/tmp/test-ignored-reimport.jsonl" |> SourceFile.create
                 let! row3 = StageTestData.makeRawRow context "grp-ign2" today "Reimport of ignored" "TestBank" "REF-IGNORED-001" 30.00M "Debit" (Some "F-5350") None
                 let! row4 = StageTestData.makeRawRow context "grp-ign2" today "Reimport of ignored" "TestBank" "REF-IGNORED-001" 30.00M "Credit" (Some "F-1270") None
-                let! secondResult = [ row3; row4 ] |> ingestRawToStageThenDeduplicateAndClassify contextForReimport sourceFile2
+                let! secondResult = [ row3; row4 ] |> StageTestData.ingestDeduplicateAndClassify contextForReimport sourceFile2
                 Assert.NotEmpty(secondResult.newDuplicates)
             })
         |> railroadWrapper

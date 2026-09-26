@@ -28,7 +28,7 @@ let burp = isCorrectError (Ok "burp") AccountCodeDoesntMatchAccountId None
 let fart = isCorrectError (Ok "fart") AccountDeactivationProposedDateIsInvalid None
 
 // AccountNameTooLong of string * int
-let sneeze = isCorrectErrorString (Ok "sneeze") "LedgerError" "AccountNameTooLong" (Some "You probably need to clean up test data.")
+let sneeze = isCorrectErrorString (Ok "sneeze") "AccountNameTooLong" (Some "You probably need to clean up test data.")
 
 // AccountBalanceFetchInvalidArguments (no arguments)
 let cough = isCorrectErrorEmpty (Ok "cough") AccountBalanceFetchInvalidArguments None
@@ -41,10 +41,10 @@ let (|AsError|_|) (e: IAppError) : 'E option =
     | :? 'E as typed -> Some typed
     | _ -> None
 
-let isCorrectErrorString
+let private checkErrorCase
     (result: Result<'T, IAppError>)
-    (expectedDomain: string)
-    (expectedCase: string)
+    (isExpected: IAppError -> bool)
+    (expectedDescription: string)
     (additionalWarningOnSuccess: string option)
     : Result<unit, IAppError> =
     match result with
@@ -52,17 +52,30 @@ let isCorrectErrorString
         let warn = match additionalWarningOnSuccess with | Some x -> $" {x}" | None -> ""
         error (TestingError $"Expected failure; returned success.{warn}")
     | Error e ->
-        if e.DomainName = expectedDomain && e.CaseName = expectedCase then Ok()
+        if isExpected e then Ok()
         else
             error (TestingError
-                $"Wrong error type. Expected {expectedDomain}.{expectedCase}. Got {e.DomainName}.{e.CaseName}: {e.ToMessage()}")
+                $"Wrong error type. Expected {expectedDescription}. Got {e.DomainName}.{e.CaseName}: {e.ToMessage()}")
+
+/// isCorrectErrorString matches on case name alone. Case names are unique across every domain's error DU, so the name
+/// still identifies exactly one case.
+let isCorrectErrorString
+    (result: Result<'T, IAppError>)
+    (expectedCase: string)
+    (additionalWarningOnSuccess: string option)
+    : Result<unit, IAppError> =
+    checkErrorCase result (fun e -> e.CaseName = expectedCase) expectedCase additionalWarningOnSuccess
 
 let private isCorrectErrorSample
     (result: Result<'T, IAppError>)
     (sample: IAppError)
     (additionalWarningOnSuccess: string option)
     : Result<unit, IAppError> =
-    isCorrectErrorString result sample.DomainName sample.CaseName additionalWarningOnSuccess
+    checkErrorCase
+        result
+        (fun e -> e.DomainName = sample.DomainName && e.CaseName = sample.CaseName)
+        $"{sample.DomainName}.{sample.CaseName}"
+        additionalWarningOnSuccess
 
 let private makeDefault (t: Type) : obj =
     if t = typeof<string> then "" :> obj
