@@ -22,9 +22,34 @@ open Business.FinancialServices.Classification.ClassificationComponent
 open Business.FinancialServices.Classification.FieldMatch
 open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.JournalEntryOrchestration
+open Business.FinancialServices.CashFlow
+open Business.FinancialServices.CashFlow.CashFlowComponent
+open NodaTime
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.TestError
 open Xunit
+
+/// Every staged entry the fixture itself creates carries this source file, so a test that needs "everything in the
+/// stage" can fetch the fixture's share by file rather than through the function it is testing.
+module CashFlowFixture =
+    let sourceFile = "/tmp/cashflow-fixture.dat"
+
+/// The cash flow archetypes. Every line named here is linked to its agreement's single leg.
+type CashFlowFixtureData =
+    { /// Outgo, monthly on the 1st, due 30 days after invoice. Last month's invoice is paid by a line that has been
+      /// posted and whose Payment has moved to Posted; this month's invoice is open, and its window covers that line.
+      agreementAId: MasterAgreementId
+      /// Outgo, monthly on the 1st, due on the invoice date. Same paid-and-posted history as A, but this month's open
+      /// invoice window does not cover the paid line.
+      agreementBId: MasterAgreementId
+      paidPostedLineAId: StageEntryComponent.StageEntryLineId
+      paidPostedLineBId: StageEntryComponent.StageEntryLineId
+      /// Unpaid linked lines on A, dated inside this month's open invoice window.
+      duplicateLineInWindowId: StageEntryComponent.StageEntryLineId
+      ignoredLineInWindowId: StageEntryComponent.StageEntryLineId
+      /// Unpaid linked lines on B, dated outside every open invoice window.
+      duplicateLineOutsideWindowId: StageEntryComponent.StageEntryLineId
+      ignoredLineOutsideWindowId: StageEntryComponent.StageEntryLineId }
 
 /// This data represents a known data state to stage at the beginning of test
 /// runs. It should be used to test any read functions in the system. It can be
@@ -90,7 +115,8 @@ type FixtureData =
       journalEntryExternalReferences: JournalEntryExternalReference.JournalEntryExternalReference list
       journalEntryComments: JournalEntryComment.JournalEntryComment list
       ingestionSources: IngestionSource.IngestionSource list
-      classificationRules: ClassificationRule.ClassificationRule list }
+      classificationRules: ClassificationRule.ClassificationRule list
+      cashFlow: CashFlowFixtureData }
 
 type TestDataFixture() =
     let data =
@@ -877,6 +903,158 @@ type TestDataFixture() =
                 classificationRules <- mixedDebit5650Rule :: classificationRules
 
                 // =============================================================================
+                // Cash flow archetypes
+                // =============================================================================
+
+                (* Two Outgo agreements, monthly on the 1st, one leg each (debit F-2230, credit F-1280, 100.00).
+                   Last month's history is built the way a Saturday builds it: stage, link, match, post, then move
+                   the Payments to Posted. Every leg line here is on F-2230 with line type Debit, which is the leg an
+                   Outgo agreement claims by default.
+
+                   A is due 30 days after its invoice date, so this month's invoice window reaches back over last
+                   month's paid line. B is due on its invoice date, so its window does not. Their Duplicate and
+                   Ignored lines are placed the same way: A's inside this month's window, B's outside every window.
+                   Nothing here may be left eligible and uncovered once matching obeys the spec, or every run of
+                   invoice matching against this fixture fails as an orphan. *)
+                (* The two accounts are the cash flow archetypes' own. Borrowing existing ones would give them
+                   balances other tests rely on them not having. *)
+                let! loanPayable2230, loanPayable2230Id =
+                    createTestAccountFromPrimitives
+                        context "F-2230" "Fixture Loan Payable" "Liability"
+                        lastYear None (Some "LongTermLiability")
+                        (Some liabilities2000Id) None
+                accounts <- loanPayable2230 :: accounts
+                let! operatingCash1280, operatingCash1280Id =
+                    createTestAccountFromPrimitives
+                        context "F-1280" "Fixture Operating Cash" "Asset"
+                        lastYear None (Some "Cash")
+                        (Some assets1000Id) None
+                accounts <- operatingCash1280 :: accounts
+
+                let firstOfThisMonth = LocalDate(today.Year, today.Month, 1)
+                let firstOfLastMonth = firstOfThisMonth.PlusMonths(-1)
+                let loanCode = loanPayable2230 |> Account.code |> AccountCode.value
+                let cashCode = operatingCash1280 |> Account.code |> AccountCode.value
+                let outgoLines amount =
+                    [ (amount, "Debit", Some loanCode, None, None)
+                      (amount, "Credit", Some cashCode, None, None) ]
+                let transitionsTo (statuses: (string * string) list) =
+                    let start = Clock.now()
+                    (("Ingested", "StageIngestion") :: statuses)
+                    |> List.mapi (fun i (status, mechanism) ->
+                        let prior = if i = 0 then None else Some(fst ((("Ingested", "") :: statuses).[i - 1]))
+                        (prior, status, start.Plus(Duration.FromMilliseconds(int64 (i * 10))), mechanism))
+                let leglineOf (entry: StageEntryOrchestration.StageEntry) =
+                    entry
+                    |> StageEntryOrchestration.seLines
+                    |> List.find (fun l -> l |> StageEntryLine.lineType = JournalEntryLineType.Debit)
+                    |> StageEntryLine.stageEntryLineId
+
+                let createCashFlowAgreement (name: string) (daysDue: int) =
+                    result {
+                        let! agreementName = name |> AgreementName.create
+                        let! first = 1 |> Cadence.DateInMonthNumber.fromInt
+                        let! counterparty = "Fixture lender" |> Counterparty.create
+                        let! activityPeriod =
+                            ActivityPeriod.create (firstOfLastMonth.PlusMonths(-1)) None
+                                ActivityPeriod.ConsideredAvailableBeforeBeginDate
+                        let! legName = $"{name} leg" |> PaymentAgreementName.create
+                        let! expected = Money.fromDecimal 100.00M
+                        let! due = daysDue |> DaysDueAfterInvoiceDate.create
+                        let! agreement =
+                            AgreementOrchestration.constructNewAndPersist
+                                context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first))
+                                { nextInstance = firstOfLastMonth } counterparty activityPeriod None
+                                [ (legName, DebitAccount loanPayable2230Id, CreditAccount operatingCash1280Id,
+                                   Some expected, Some due, None) ]
+                        let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
+                        let legId =
+                            agreement |> AgreementOrchestration.paymentAgreements |> List.head
+                            |> PaymentAgreement.paymentAgreementId
+                        return agreementId, legId
+                    }
+
+                let createOpenInstance agreementId legId (instanceDate: LocalDate) (daysDue: int) =
+                    result {
+                        let! amount = Money.fromDecimal 100.00M
+                        let lifecycle =
+                            { invoiceState = InvoiceReceived
+                              paymentState = NotYetPaid
+                              postedState = NotHandled
+                              blocker = None }
+                        let! _ =
+                            InstanceOrchestration.createInstanceCompositeAndSaveToDb
+                                context agreementId instanceDate false
+                                [ (legId, None, { localDate = instanceDate }, { localDate = instanceDate.PlusDays(daysDue) },
+                                   { money = amount }, lifecycle, None, []) ]
+                        return ()
+                    }
+
+                let createLinkedLine legId (description: string) (entryDate: LocalDate) statuses =
+                    result {
+                        let! entry =
+                            createStageEntryForTest context CashFlowFixture.sourceFile description
+                                (System.Guid.NewGuid().ToString()) testBankSource entryDate (outgoLines 100.00M)
+                                (transitionsTo statuses)
+                        let lineId = entry |> leglineOf
+                        let! _ = CashFlowOps.constructNewPaymentAgreementLinkAndPersist context legId lineId
+                        return lineId
+                    }
+
+                let! agreementAId, legAId = createCashFlowAgreement "Fixture agreement A" 30
+                let! agreementBId, legBId = createCashFlowAgreement "Fixture agreement B" 0
+                do! createOpenInstance agreementAId legAId firstOfLastMonth 30
+                do! createOpenInstance agreementBId legBId firstOfLastMonth 0
+
+                let classified = [ ("Classified", "Classifier") ]
+                let! paidPostedLineAId =
+                    createLinkedLine legAId "Fixture agreement A payment" (firstOfLastMonth.PlusDays(25)) classified
+                let! paidPostedLineBId =
+                    createLinkedLine legBId "Fixture agreement B payment" firstOfLastMonth classified
+                let! _ = CashFlowOps.classifyPaymentAgreements context
+                do! StageEntryOrchestration.post context
+                let! _ = CashFlowOps.transitionPaymentsToPosted context
+
+                let! postedHeaders =
+                    [ paidPostedLineAId; paidPostedLineBId ]
+                    |> List.map (fun lineId ->
+                        result {
+                            let! line = lineId |> StageEntryLine.fetchById context
+                            return! line |> StageEntryLine.stageEntryHeaderId |> StageEntryHeader.fetchById context
+                        })
+                    |> convertListOfResultsToResultsList
+                let! postedJournalEntries =
+                    postedHeaders
+                    |> List.choose StageEntryHeader.journalEntryHeaderId
+                    |> List.map (JournalEntryOrchestration.fetchById context)
+                    |> convertListOfResultsToResultsList
+                journalEntries <- postedJournalEntries @ journalEntries
+
+                do! createOpenInstance agreementAId legAId firstOfThisMonth 30
+                do! createOpenInstance agreementBId legBId firstOfThisMonth 0
+
+                let duplicate = [ ("Duplicate", "Deduplicator") ]
+                let ignored = [ ("Ignored", "Operator") ]
+                let! duplicateLineInWindowId =
+                    createLinkedLine legAId "Fixture agreement A duplicate" firstOfThisMonth duplicate
+                let! ignoredLineInWindowId =
+                    createLinkedLine legAId "Fixture agreement A ignored" firstOfThisMonth ignored
+                let! duplicateLineOutsideWindowId =
+                    createLinkedLine legBId "Fixture agreement B duplicate" (firstOfLastMonth.PlusDays(14)) duplicate
+                let! ignoredLineOutsideWindowId =
+                    createLinkedLine legBId "Fixture agreement B ignored" (firstOfLastMonth.PlusDays(14)) ignored
+
+                let cashFlow =
+                    { agreementAId = agreementAId
+                      agreementBId = agreementBId
+                      paidPostedLineAId = paidPostedLineAId
+                      paidPostedLineBId = paidPostedLineBId
+                      duplicateLineInWindowId = duplicateLineInWindowId
+                      ignoredLineInWindowId = ignoredLineInWindowId
+                      duplicateLineOutsideWindowId = duplicateLineOutsideWindowId
+                      ignoredLineOutsideWindowId = ignoredLineOutsideWindowId }
+
+                // =============================================================================
                 // Calculate aggregate totals for fetch tests
                 // =============================================================================
 
@@ -967,7 +1145,8 @@ type TestDataFixture() =
                       journalEntryExternalReferences = journalEntryExternalReferences
                       journalEntryComments = journalEntryComments
                       ingestionSources = ingestionSources
-                      classificationRules = classificationRules }
+                      classificationRules = classificationRules
+                      cashFlow = cashFlow }
             }
         stageResult |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
 

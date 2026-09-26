@@ -59,13 +59,16 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
             return! rows |> StageTestData.ingestDeduplicateAndClassify context sourceFile
         }
 
-    /// Stages both batches and hands back every entry now in the stage, so expected values
-    /// are derived from entities this test put there rather than from the fetch under test.
+    /// Stages both batches and hands back every entry now in the stage — these plus the ones the
+    /// shared fixture staged, fetched by their source file — so expected values are derived from
+    /// entities this test knows are there rather than from the fetch under test.
     static let stageAll context =
         result {
             let! main = StageTestData.runPipeline context
             let! other = stageOtherBatch context
-            return main.stagedEntries @ other.stagedEntries
+            let! fixtureFile = CashFlowFixture.sourceFile |> SourceFile.create
+            let! fixtureEntries = fixtureFile |> StageEntryOrchestration.fetchAllByFile context None
+            return main.stagedEntries @ other.stagedEntries @ fixtureEntries
         }
 
     static let noFilter: StageEntryFetchFilter =
