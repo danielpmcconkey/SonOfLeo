@@ -149,14 +149,15 @@ Reviewed   → Posted      (batch post)
 ```
 
   - Setting a staged entry to the status it already has is not a transition: nothing is written and no audit record is created. Classification re-runs rely on this, since they re-derive the status of every entry they touch and many land where they started.
-  - *Why:* Classification re-runs over `'NoMatch'` and `'Conflict'` entries as well as `'Ingested'` ones, so a rule added after the first run can resolve an entry that previously failed to classify. The four classification re-run transitions out of `'NoMatch'` and `'Conflict'` exist for that. (2026-09-26)
+  - *Why:* The four classification re-run transitions out of `'NoMatch'` and `'Conflict'` exist because classification runs over those statuses as well as `'Ingested'` (REQ-STG-5.1). (2026-09-26)
 
 
 ## 5. Classification behaviors
 
 The classification step runs the vendor classification rules engine against staged entries. The rules entity (pattern, priority, FI scoping, account mapping) is specified in `ClassificationRuleCrud.md`. These requirements govern how the staging pipeline interacts with the rules engine.
 
-- **REQ-STG-5.1** The system must provide a means to run automated classification against staged entries with status `'Ingested'`.
+- **REQ-STG-5.1** The system must provide a means to run automated classification against staged entries with status `'Ingested'`, `'NoMatch'`, or `'Conflict'`.
+  - *Why:* A rule added after the first run can resolve an entry that previously failed to classify. Re-running over `'NoMatch'` and `'Conflict'` entries picks those up without operator intervention; REQ-STG-5.3 keeps already-settled lines untouched. (2026-09-26)
 - **REQ-STG-5.2** Classification evaluates each staged line whose account is null against the vendor classification rules. A rule matches when its field match conditions are satisfied by the staged entry and line properties (description, source, amount, line type, and their combinations per ClassificationRuleCrud.md §1).
 - **REQ-STG-5.3** Classification must not modify a staged line whose account is already non-null.
   - *Why:* Parser-assigned accounts are authoritative. The classifier fills gaps; it does not override. (2026-08-08)
