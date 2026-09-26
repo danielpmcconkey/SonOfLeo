@@ -89,7 +89,7 @@ let persist
                 created_at, modified_at)
             values (
 	            @unique_id, @agreement_name, @flow_direction, @cadence, @cadence_week_day, @cadence_date_in_month,
-                @cadence_week_in_month, @cadence_month, @counterparty, @start_date, @end_date, @memo, @next_instance,
+                @cadence_week_in_month, @cadence_month, @counterparty, @start_date, @next_instance, @end_date, @memo,
                 @created_at, @modified_at);"""
         let uuid = masterAgreement.agreementId |> MasterAgreementId.value
         let agreementName = masterAgreement.agreementName |> AgreementName.value
