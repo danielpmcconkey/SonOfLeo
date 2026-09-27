@@ -9,6 +9,7 @@ type DataIngestionAuditableAction =
     | IngestUpdateStageEntry
     | IngestPostStageEntries
     | IngestShadowPostStageEntries
+    | IngestShadowReconcile
     
     interface IAuditableAction with
         member this.CaseName = getUnionCaseName this

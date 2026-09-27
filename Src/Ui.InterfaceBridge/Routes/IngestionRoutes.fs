@@ -16,9 +16,12 @@ open Business.FinancialServices.DataIngestion.StageEntryHeader
 open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
 open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.TrialBalanceReport
+open Business.CrossDomainOrchestration.Reconciliation
 open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
 open Ui.InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 open Ui.InterfaceBridge.BoundaryConverters.ReportConverters
+open Ui.InterfaceBridge.InterfaceContracts.ReconciliationContracts
+open Ui.InterfaceBridge.BoundaryConverters.ReconciliationConverters
 open Ui.InterfaceBridge.CommandRoute
 
 let private ingestRawEntries payload _ =
@@ -188,6 +191,23 @@ let private post payload _ =
                 })
     }
     
+/// The shadow reconciliation writes to the ledger, so it is a command, not a report, and its transaction is always
+/// rolled back (REQ-RPT-4.6).
+let private shadowReconcile payload _ =
+    result {
+        let! input = Json.fromJson<ReconciliationInput> payload
+        let! requests = input |> ``convert [ReconciliationInput] to [ReconciliationRequest list]``
+        return!
+            runCommandRouteAndAutoRollback IngestShadowReconcile (fun context ->
+                result {
+                    let! rows = requests |> reconcileAfterPostingStagedEntries context
+                    return!
+                        rows
+                        |> List.map ``convert [ReconciliationRow] to [ReconciliationReturnRow]``
+                        |> Json.toJson<ReconciliationReturnRow list>
+                })
+    }
+    
 let private fetchStageEntryFiltered payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
@@ -247,6 +267,13 @@ let ingestionDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<PostStageEntriesInput>.Name
         outputContract = typeof<PostStageEntriesFullResult>.Name
         handler = post }
+      
+      { domain = "Ingestion"
+        verb = "ShadowReconcile"
+        description = "Reconciles as the Reconciliation report does, but against the ledger as it would stand after posting every Classified and Reviewed stage entry. The posting is simulated exactly as in a shadow post and always rolled back, so neither ledger nor staging changes. Fails if the shadow post would."
+        inputContract = typeof<ReconciliationInput>.Name
+        outputContract = typeof<ReconciliationReturnRow list>.Name
+        handler = shadowReconcile }
       
       { domain = "Ingestion"
         verb = "FetchStageEntryFiltered"

@@ -1,11 +1,14 @@
 namespace Tests.Integrated.InterfaceBridge
 
 open App.Session
+open App.DataAccessLayer.DbTransaction
+open App.Operation.CoreAuditableAction
 open Business.General
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.CrossDomainOrchestration
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
+open Ui.InterfaceBridge.InterfaceContracts.ReconciliationContracts
 open App.Utility.Json.Json
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
@@ -219,4 +222,32 @@ type ReportRoutesTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-4.1 REQ-RPT-6.4 the Reconciliation report route returns one data-only row per input row``() =
-        Assert.Fail "not implemented"
+        let today = Calendar.today()
+        let yesterday = today.PlusDays(-1)
+        let input: ReconciliationInput =
+            { rows =
+                [ { accountCode = "F-5650"; externalBalance = 12.34M; asOf = today }
+                  { accountCode = "F-1270"; externalBalance = 0.00M; asOf = yesterday } ] }
+        let context = Context.create NoTransaction FetchOnly
+        result {
+            let! trialBalanceToday = TrialBalanceReport.fetchTrialBalanceData context today
+            let! trialBalanceYesterday = TrialBalanceReport.fetchTrialBalanceData context yesterday
+            let expectedRow code (trialBalance: TrialBalanceReport.TrialBalanceRowFlattened list) =
+                trialBalance |> List.find (fun row -> row.accountCode |> AccountCode.value = code)
+            let! payload = input |> toJson<ReconciliationInput>
+            let! returnPayload = routeReportingCommandForTesting "Reconciliation" [] payload
+            let! rows = returnPayload |> fromJson<ReconciliationReturnRow list>
+            Assert.Equal(2, rows |> List.length)
+            [ "F-5650", 12.34M, today, trialBalanceToday
+              "F-1270", 0.00M, yesterday, trialBalanceYesterday ]
+            |> List.iter (fun (code, external, asOf, trialBalance) ->
+                let expected = trialBalance |> expectedRow code
+                let row = rows |> List.filter (fun r -> r.accountCode = code) |> List.exactlyOne
+                Assert.Equal(expected.accountName |> AccountName.value, row.accountName)
+                Assert.Equal(asOf, row.asOf)
+                Assert.Equal(external, row.externalBalance)
+                Assert.Equal(expected.netBalance |> Money.amount, row.ledgerBalance)
+                Assert.Equal(external - (expected.netBalance |> Money.amount), row.delta))
+            return ()
+        }
+        |> railroadWrapper

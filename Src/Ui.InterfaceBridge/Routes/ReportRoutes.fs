@@ -8,8 +8,11 @@ open App.Session
 open Business.CrossDomainOrchestration.TrialBalanceReport
 open Business.CrossDomainOrchestration.PrePostingReview
 open App.Utility
+open Business.CrossDomainOrchestration.Reconciliation
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Ui.InterfaceBridge.BoundaryConverters.ReportConverters
+open Ui.InterfaceBridge.InterfaceContracts.ReconciliationContracts
+open Ui.InterfaceBridge.BoundaryConverters.ReconciliationConverters
 open Ui.InterfaceBridge.ReportWriters
 open Ui.InterfaceBridge.CommandRoute
 
@@ -43,6 +46,18 @@ let private prePostingReview payload _ =
         return! prePostingReviewReturn |> Json.toJson<PrePostingReviewReturn>
     }
 
+let private reconciliation payload _ =
+    let context = Context.create NoTransaction FetchOnly
+    result {
+        let! input = Json.fromJson<ReconciliationInput> payload
+        let! requests = input |> ``convert [ReconciliationInput] to [ReconciliationRequest list]``
+        let! rows = requests |> reconcile context
+        return!
+            rows
+            |> List.map ``convert [ReconciliationRow] to [ReconciliationReturnRow]``
+            |> Json.toJson<ReconciliationReturnRow list>
+    }
+
 let reportingRoutes: ReportRoute list =
     [
         { name = "TrialBalance"
@@ -55,4 +70,9 @@ let reportingRoutes: ReportRoute list =
           inputContract = typeof<PrePostingReviewInput>.Name
           outputContract = typeof<PrePostingReviewReturn>.Name
           handler = prePostingReview }
+        { name = "Reconciliation"
+          description = "Data only. For each (account code, external balance, as-of date) row, returns the account's name, its ledger net balance as of that row's date by the trial balance rules, and the delta (external minus ledger). External balances are given in the account's normal-balance direction. An unknown or repeated account code is an error; a non-zero delta is not."
+          inputContract = typeof<ReconciliationInput>.Name
+          outputContract = typeof<ReconciliationReturnRow list>.Name
+          handler = reconciliation }
     ]

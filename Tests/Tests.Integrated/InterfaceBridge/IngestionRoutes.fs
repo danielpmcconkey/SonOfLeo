@@ -40,6 +40,7 @@ open Business.FinancialServices.BizFinServError
 
 open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
+open Ui.InterfaceBridge.InterfaceContracts.ReconciliationContracts
 open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 
 /// What the single ingest route used to return, rebuilt from the three routes an operator now runs in its place.
@@ -935,6 +936,60 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             [ [ 1; 2 ], Some "grp-level-a", "IngestionStageEntryDebitCreditMismatch"
               [ 3 ], Some "grp-level-b", "JournalEntryLineTypeInvalid" ]
 
+    (* Like the shadow post route test above, this asks from outside: the route has returned, so whatever it posted
+       must already be gone. *)
     [<Fact>]
     member _.``REQ-RPT-4.4 REQ-RPT-4.6 the shadow reconciliation route returns reconciliation rows and leaves ledger and staging untouched`` () =
-        Assert.Fail "not implemented"
+        let fileName = "ingestion-route-shadow-reconcile.jsonl"
+        let reference = "REF-ROUTE-SHADOW-RECON-001"
+        let rows =
+            [ rawRow "grp-route-shadow-recon" today "Route shadow reconcile" "TestBank" reference "25.00" "Debit" (Some "F-5650") None
+              rawRow "grp-route-shadow-recon" today "Route shadow reconcile" "TestBank" reference "25.00" "Credit" (Some "F-1270") None ]
+        let reconciliationPayload =
+            { ReconciliationInput.rows = [ { accountCode = "F-5650"; externalBalance = 0.00M; asOf = Calendar.today() } ] }
+            |> toJson<ReconciliationInput>
+            |> Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage()))
+        let ledgerBalanceIn payload =
+            payload
+            |> fromJson<ReconciliationReturnRow list>
+            |> Result.map (fun returned -> (returned |> List.exactlyOne).ledgerBalance)
+        let plainLedgerBalance () =
+            routeReportingCommandForTesting "Reconciliation" [] reconciliationPayload |> Result.bind ledgerBalanceIn
+        let mutable idsToCleanUp = []
+        try
+            result {
+                let! ingested = rows |> ingestThroughRoute fileName
+                idsToCleanUp <- ingested |> headerIdsToCleanUp
+                let context = Context.create NoTransaction FetchOnly
+                (* F-5650 is a debit-normal leaf, so posting moves it by exactly its postable debits minus credits,
+                   whatever else is staged. *)
+                let! postable = fetchAllForPosting context
+                let expectedMovement =
+                    postable
+                    |> List.collect seLines
+                    |> List.filter (fun line -> line |> StageEntryLine.accountId = Some fixture.Data.entertainment5650Id)
+                    |> List.sumBy (fun line ->
+                        let amount = line |> StageEntryLine.amount |> Money.amount
+                        if line |> StageEntryLine.lineType = Debit then amount else -amount)
+                Assert.True(expectedMovement >= 25.00M, "The entry this test staged is not postable.")
+                let! before = plainLedgerBalance ()
+                let! shadow =
+                    routeUiCommandForTesting "Ingestion" "ShadowReconcile" [] reconciliationPayload
+                    |> Result.bind ledgerBalanceIn
+                let! after = plainLedgerBalance ()
+                Assert.Equal(before + expectedMovement, shadow)
+                Assert.Equal(before, after)
+                let! financialInstitution = "TestBank" |> JournalRefFinancialInstitution.create
+                let! referenceText = reference |> JournalExternalReferenceText.create
+                let! posted = fetchByReference context (Some financialInstitution) (Some referenceText)
+                Assert.Empty(posted)
+                let! refetched = refetchStageEntry (ingested.stagedEntries |> List.head).stageEntryHeader.stageEntryHeaderId
+                Assert.Equal(Classified, refetched |> latestStatusOf)
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            deleteImportFile fileName
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (e.ToMessage())

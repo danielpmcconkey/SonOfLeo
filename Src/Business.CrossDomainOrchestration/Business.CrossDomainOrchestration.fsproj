@@ -34,6 +34,7 @@
     <Compile Include="TrialBalance.fs" />
     <Compile Include="ClassificationOrchestration.fs" />
     <Compile Include="StageEntryOrchestration.fs" />
+    <Compile Include="Reconciliation.fs" />
     <Compile Include="CashFlowCompositeFetcher.fs" />
     <Compile Include="InstanceOrchestration.fs" />
     <Compile Include="AgreementOrchestration.fs" />
