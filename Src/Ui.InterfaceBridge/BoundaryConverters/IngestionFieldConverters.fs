@@ -154,6 +154,17 @@ let ``convert [UpdateStageEntryLineInput] to [StageEntryLineFieldUpdates]``
           memoUpdate = memoUpdate
           journalEntryLineIdUpdate = NoChange } }
 
+let ``convert [AddStageEntryLineInput] to [StageEntryLineAddition]``
+    (context: Context.Context)
+    (line: AddStageEntryLineInput)
+    : Result<StageEntryLineAddition, IAppError> =
+    result {
+        let! amount = line.amount |> Money.fromDecimal
+        let! lineType = line.lineType |> JournalEntryLineType.fromString
+        let! accountId = line.accountCode |> ``convert AccountCodeString Option to AccountId Option`` context
+        let! memo = line.memo |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
+        return { amount = amount; lineType = lineType; accountId = accountId; memo = memo } }
+
 let ``convert [UpdateStageEntryLineInput list] to [StageEntryLineFieldUpdates list]``
     (context: Context.Context)
     (lines: UpdateStageEntryLineInput list)

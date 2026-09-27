@@ -7,6 +7,19 @@ open App.Utility.IAppError
 /// included), the group they belong to when that is known, and the error itself.
 type IngestionRejectedRecord = { lineNumbers: int list; groupId: string option; error: IAppError }
 
+/// StageLineProtection is why a staged line cannot be removed or have its amount, line type or account changed
+/// (REQ-STG-6.5).
+type StageLineProtection =
+    | LinkedToPaymentAgreement
+    | ReferencedByPayment
+    | RecordedInClassificationRun
+
+let private describeProtection (protection: StageLineProtection) =
+    match protection with
+    | LinkedToPaymentAgreement -> "it is linked to a payment agreement; remove the link first"
+    | ReferencedByPayment -> "a Payment references it; remove the Payment first"
+    | RecordedInClassificationRun -> "a classification run recorded it, and those records are permanent"
+
 type DataIngestionError = 
     | IngestionBaseStageEntryGroupIdIsEmpty of string
     | IngestionBaseStageEntryGroupIdTooLong of string * int
@@ -50,6 +63,10 @@ type DataIngestionError =
     | IngestionSourceNameAlreadyExists of string
     | IngestionStagedButFileNotMoved of string * string * string
     | IngestionFileRejected of string * IngestionRejectedRecord list
+    | IngestionStageEntryLineCannotBeRemoved of Guid * StageLineProtection
+    | IngestionStageEntryLineCannotBeChanged of Guid * StageLineProtection
+    | IngestionPostedStageEntryCannotBeModified of Guid
+    | IngestionManualUpdateCannotSetStatus of string
     
     interface IAppError with
         member this.DomainName = nameof DataIngestionError
@@ -106,6 +123,14 @@ type DataIngestionError =
             | IngestionSourceNameNotFound str -> $"No ingestion source of {str} could be found."
             | IngestionSourceNameAlreadyExists str -> $"An ingestion source named {str} already exists. Source names must be unique."
             | IngestionStagedButFileNotMoved (filePath, targetPath, reason) -> $"The entries in {filePath} were staged and committed, but the file could not be moved to {targetPath} ({reason}). Move it by hand. Ingesting it again would stage the same entries a second time, which dedup would then flag."
+            | IngestionStageEntryLineCannotBeRemoved (uuid, protection) ->
+                $"Staged line {uuid} cannot be removed because {protection |> describeProtection}."
+            | IngestionStageEntryLineCannotBeChanged (uuid, protection) ->
+                $"Staged line {uuid} cannot have its amount, line type or account changed because {protection |> describeProtection}."
+            | IngestionPostedStageEntryCannotBeModified uuid ->
+                $"Staged entry {uuid} is Posted and cannot be modified. Void its journal entry to return it to review."
+            | IngestionManualUpdateCannotSetStatus status ->
+                $"The manual update cannot set a staged entry's status to {status}; only batch post does that."
             | IngestionFileRejected (filePath, records) ->
                 let describe (record: IngestionRejectedRecord) =
                     let lines =

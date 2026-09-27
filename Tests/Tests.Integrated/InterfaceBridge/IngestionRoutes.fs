@@ -386,7 +386,9 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                           ingestionSource = NoChange
                           fiReference = NoChange
                           status = SetTo { newStatus = "Reviewed" }
-                          lines = [ overrideCodeWith "F-5650" ] }
+                          lines = [ overrideCodeWith "F-5650" ]
+                          linesToAdd = []
+                          lineIdsToRemove = [] }
                 Assert.Equal(Some "F-5650", afterReview |> codeOf)
                 Assert.Equal(Some "Reviewed", afterReview.stageEntryHeader.status)
                 (* REQ-STG-6.2: the system validates the result but does not infer status from
@@ -401,7 +403,9 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                           ingestionSource = NoChange
                           fiReference = NoChange
                           status = NoChange
-                          lines = [ overrideCodeWith "F-5350" ] }
+                          lines = [ overrideCodeWith "F-5350" ]
+                          linesToAdd = []
+                          lineIdsToRemove = [] }
                 Assert.Equal(Some "F-5350", afterSecondOverride |> codeOf)
                 Assert.Equal(Some "Reviewed", afterSecondOverride.stageEntryHeader.status)
                 // both edits are durable outside the transaction the route managed
@@ -848,7 +852,9 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                       ingestionSource = NoChange
                       fiReference = NoChange
                       status = SetTo { newStatus = "Ignored" }
-                      lines = [] }
+                      lines = []
+                      linesToAdd = []
+                      lineIdsToRemove = [] }
                     |> toJson<UpdateStageEntryInput>
                 let statusField = "\"newStatus\":\"Ignored\""
                 Assert.Contains(statusField, contractPayload)

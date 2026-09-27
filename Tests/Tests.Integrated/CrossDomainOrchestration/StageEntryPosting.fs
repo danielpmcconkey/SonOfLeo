@@ -94,6 +94,8 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
             context
             (entry |> stageEntryHeaderIdOf |> noChangeHeaderUpdates)
             [ { noChangeLineUpdates lineId with accountIdUpdate = SetTo None } ]
+            []
+            []
 
     static let postStagedEntry context entry =
         result {

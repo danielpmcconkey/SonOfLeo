@@ -28,6 +28,10 @@ open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.DataIngestion.DataIngestionError
+open Business.FinancialServices.CashFlow
+open Tests.Helpers.EntityFunctions
+open NodaTime
+open App.Utility
 open App.DataAccessLayer.DalError
 
 
@@ -52,6 +56,86 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
           memoUpdate = NoChange
           journalEntryLineIdUpdate = NoChange }
 
+    let accountIdOf code =
+        fixture.Data.accounts
+        |> List.find (fun a -> a |> Account.code |> AccountCode.value = code)
+        |> Account.accountId
+
+    let addition amount lineType accountId : StageEntryLineAddition =
+        { amount = amount; lineType = lineType; accountId = accountId; memo = None }
+
+    let lineIdsOf entry = entry |> seLines |> List.map StageEntryLine.stageEntryLineId
+
+    let lineShapesOf entry =
+        entry
+        |> seLines
+        |> List.map (fun l ->
+            (l |> StageEntryLine.amount |> Money.amount), (l |> StageEntryLine.lineType), (l |> StageEntryLine.accountId))
+        |> List.sort
+
+    /// A Classified 100.00 outgo entry on the fixture's cash flow accounts (debit F-2230, credit F-1280), the shape a
+    /// payment agreement leg matches. Returns the entry and its debit line's id. No classification run has seen it.
+    let createOutgoEntry (context: Context.Context) (description: string) =
+        result {
+            let later = (context |> Context.getInitiationInstant).Plus(Duration.FromSeconds 1L)
+            let! entry =
+                createStageEntryForTest context "/tmp/stage-update-outgo.dat" description (System.Guid.NewGuid().ToString())
+                    (fixture.Data.ingestionSources |> List.head) (Calendar.today())
+                    [ (100.00M, "Debit", Some "F-2230", None, None); (100.00M, "Credit", Some "F-1280", None, None) ]
+                    [ (Some "Ingested", "Classified", later, "Classifier") ]
+            let debitLineId =
+                entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit) |> StageEntryLine.stageEntryLineId
+            return entry, debitLineId
+        }
+
+    /// Puts a 100.00 Payment on the fixture's open invoice on agreement A, pointing at the given staged line.
+    let payWithLine (context: Context.Context) (lineId: StageEntryLineId) =
+        result {
+            let! amount = Money.fromDecimal 100.00M
+            let invoiceId = fixture.Data.cashFlow.openInvoiceAId
+            let update : InstanceOrchestration.InstanceCompositeUpdate =
+                { instanceUpdates =
+                    { instanceIdToUpdate = fixture.Data.cashFlow.openInstanceAId
+                      instanceDateUpdate = NoChange
+                      isFulfilledUpdate = NoChange }
+                  invoiceCompositeUpdates =
+                    [ { invoiceUpdates =
+                          { invoiceIdToUpdate = invoiceId
+                            externalInvoiceIdUpdate = NoChange
+                            invoiceDateUpdate = NoChange
+                            dueDateUpdate = NoChange
+                            amountUpdate = NoChange
+                            invoiceStateUpdate = NoChange
+                            paymentStateUpdate = NoChange
+                            postedStateUpdate = NoChange
+                            blockerUpdate = NoChange
+                            memoUpdate = NoChange }
+                        paymentUpdates = []
+                        paymentIdsToDelete = []
+                        newPayments = [ (CashFlowComponent.Staged lineId, { money = amount }, None, None, None) ] } ]
+                  newInvoices = [] }
+            let! _ = InstanceOrchestration.updateInstanceComposite context update
+            return ()
+        }
+
+    /// expectRejection passes when the update fails with the expected error and leaves the entry exactly as it was.
+    let expectRejection
+        context
+        headerId
+        (isExpected: IAppError -> bool)
+        (before: StageEntry)
+        (updateResult: Result<StageEntry, IAppError>)
+        : Result<unit, IAppError> =
+        result {
+            do!
+                match updateResult with
+                | Error e when isExpected e -> Ok ()
+                | Error (e: IAppError) -> Error (TestingError $"Wrong error: {e.DomainName}.{e.CaseName}: {e.ToMessage()}")
+                | Ok _ -> Error (TestingError "Expected failure; got success")
+            let! after = headerId |> fetchByStageEntryHeaderId context
+            Assert.Equal(before, after)
+        }
+
 
     // =========================================================================
     // REQ-STG-6.2 — An update that sets nothing
@@ -66,7 +150,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let lineId = entry |> seLines |> List.head |> StageEntryLine.stageEntryLineId
                 return!
-                    match updateStageEntry context (noChangeHeaderUpdates headerId) [ noChangeLineUpdates lineId ] with
+                    match updateStageEntry context (noChangeHeaderUpdates headerId) [ noChangeLineUpdates lineId ] [] [] with
                     | Error (AsError IngestionUpdateStageEntryNoOp) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error: {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
@@ -90,7 +174,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let firstLine = entry |> seLines |> List.head
                 let lineId = firstLine |> StageEntryLine.stageEntryLineId
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some newAccountId) } ]
-                let! updated = updateStageEntry context (noChangeHeaderUpdates headerId) lineUpdates
+                let! updated = updateStageEntry context (noChangeHeaderUpdates headerId) lineUpdates [] []
                 let updatedLine =
                     updated |> seLines
                     |> List.find (fun l -> l |> StageEntryLine.stageEntryLineId = lineId)
@@ -110,7 +194,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let debitLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
                 let lineId = debitLine |> StageEntryLine.stageEntryLineId
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some newAccountId) } ]
-                let! updated = updateStageEntry context (noChangeHeaderUpdates headerId) lineUpdates
+                let! updated = updateStageEntry context (noChangeHeaderUpdates headerId) lineUpdates [] []
                 let updatedLine =
                     updated |> seLines
                     |> List.find (fun l -> l |> StageEntryLine.stageEntryLineId = lineId)
@@ -132,7 +216,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "HARRIS TEETER 0381 ANYTOWN US"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
-                let! updated = updateStageEntry contextForUpdate headerUpdates []
+                let! updated = updateStageEntry contextForUpdate headerUpdates [] [] []
                 Assert.Equal(Reviewed, StageTestData.latestStatus updated)
             })
         |> railroadWrapper
@@ -151,7 +235,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with amountUpdate = SetTo badAmount } ]
                 let contextForUpdate = context |> Context.updateInitiationInstant
                 return!
-                    match updateStageEntry contextForUpdate headerUpdates lineUpdates with
+                    match updateStageEntry contextForUpdate headerUpdates lineUpdates [] [] with
                     | Error (AsError (IngestionStageEntryDebitCreditMismatch _)) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error: {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
@@ -171,7 +255,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some bogusAccountId) } ]
                 return!
-                    match updateStageEntry context headerUpdates lineUpdates with
+                    match updateStageEntry context headerUpdates lineUpdates [] [] with
                     | Error (AsError (AccountIdDoesntMatch _)) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error. {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
@@ -188,7 +272,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 // Classified → Ingested is not a valid transition
                 let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Ingested }
                 return!
-                    match updateStageEntry context headerUpdates [] with
+                    match updateStageEntry context headerUpdates [] [] [] with
                     | Error (AsError (IngestionInvalidStageStatusTransition _)) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error: {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
@@ -211,7 +295,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 Assert.Equal(Duplicate, StageTestData.latestStatus dupEntry)
                 let headerId = dupEntry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
-                let! updated = updateStageEntry contextForUpdate headerUpdates []
+                let! updated = updateStageEntry contextForUpdate headerUpdates [] [] []
                 Assert.Equal(Reviewed, StageTestData.latestStatus updated)
             })
         |> railroadWrapper
@@ -231,7 +315,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let transitionCountBefore = entry |> statusTransitions |> List.length
                 let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
-                let! updated = updateStageEntry contextForUpdate headerUpdates []
+                let! updated = updateStageEntry contextForUpdate headerUpdates [] [] []
                 let transitionCountAfter = updated |> statusTransitions |> List.length
                 Assert.Equal(transitionCountBefore + 1, transitionCountAfter)
                 let latestTransition =
@@ -253,7 +337,6 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
     [<InlineData("NoMatch")>]
     [<InlineData("Conflict")>]
     [<InlineData("Reviewed")>]
-    [<InlineData("Posted")>]
     [<InlineData("Ignored")>]
     member _.``REQ-STG-6.2.1 every status transition the manual update makes, to each target status it allows, is recorded with change mechanism Operator and no other`` (targetStr: string) =
         runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
@@ -271,7 +354,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                     |> Option.defaultWith (fun () -> failwith $"the pipeline left no entry that can move to {targetStr}")
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo target }
-                let! updated = updateStageEntry contextForUpdate headerUpdates []
+                let! updated = updateStageEntry contextForUpdate headerUpdates [] [] []
                 let fromThisUpdate =
                     updated
                     |> statusTransitions
@@ -288,7 +371,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
         let missingId = StageEntryHeaderId.create ()
         runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
             let headerUpdates = { (noChangeHeaderUpdates missingId) with journalEntryHeaderIdUpdate = SetTo None }
-            match updateStageEntry context headerUpdates [] with
+            match updateStageEntry context headerUpdates [] [] [] with
             | Error (AsError (IngestionStageEntryHeaderIdDoesntExist uuid)) ->
                 Assert.Equal(missingId |> StageEntryHeaderId.value, uuid)
                 Ok ()
@@ -307,7 +390,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let lineUpdates =
                     [ { (noChangeLineUpdates missingId) with accountIdUpdate = SetTo (Some fixture.Data.entertainment5650Id) } ]
                 do!
-                    match updateStageEntry context (noChangeHeaderUpdates headerId) lineUpdates with
+                    match updateStageEntry context (noChangeHeaderUpdates headerId) lineUpdates [] [] with
                     | Error (AsError (IngestionStageEntryLineIdDoesntExist uuid)) ->
                         Assert.Equal(missingId |> StageEntryLineId.value, uuid)
                         Ok ()
@@ -375,48 +458,300 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-STG-6.4 a manual update that lowers a line's amount and adds lines for the difference, in one operation, leaves the entry with exactly those lines, balanced`` () =
-        Assert.Fail "not implemented"
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let! fullResult = StageTestData.runPipeline context
+                let entry = fullResult.stagedEntries |> StageTestData.findByDescription "MARATHON PETRO 7218 ANYTOWN US"
+                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let debitLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
+                let creditLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
+                let contextForUpdate = context |> Context.updateInitiationInstant
+                let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
+                let! lowered = Money.fromDecimal 30.00M
+                let! difference = Money.fromDecimal 18.12M
+                let lineUpdates =
+                    [ { (noChangeLineUpdates (debitLine |> StageEntryLine.stageEntryLineId)) with amountUpdate = SetTo lowered } ]
+                let! updated =
+                    updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) lineUpdates
+                        [ addition difference Debit (Some fixture.Data.entertainment5650Id) ] []
+                let expected =
+                    [ (30.00M, Debit, debitLine |> StageEntryLine.accountId)
+                      (18.12M, Debit, Some fixture.Data.entertainment5650Id)
+                      (48.12M, Credit, creditLine |> StageEntryLine.accountId) ]
+                    |> List.sort
+                Assert.Equal<(decimal * JournalEntryLineType * AccountId option) list>(expected, updated |> lineShapesOf)
+                let! stored = headerId |> fetchByStageEntryHeaderId contextForUpdate
+                Assert.Equal<(decimal * JournalEntryLineType * AccountId option) list>(expected, stored |> lineShapesOf)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-STG-6.4 a manual update removes a line the operator added, in the same operation as a field edit`` () =
-        Assert.Fail "not implemented"
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let! fullResult = StageTestData.runPipeline context
+                let entry = fullResult.stagedEntries |> StageTestData.findByDescription "MARATHON PETRO 7218 ANYTOWN US"
+                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let debitLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
+                let creditLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
+                let contextForUpdate = context |> Context.updateInitiationInstant
+                let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
+                let debitLineId = debitLine |> StageEntryLine.stageEntryLineId
+                let! lowered = Money.fromDecimal 30.00M
+                let! difference = Money.fromDecimal 18.12M
+                let! split =
+                    updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId)
+                        [ { (noChangeLineUpdates debitLineId) with amountUpdate = SetTo lowered } ]
+                        [ addition difference Debit (Some fixture.Data.entertainment5650Id) ] []
+                let addedLineId = split |> lineIdsOf |> List.except (before |> lineIdsOf) |> List.exactlyOne
+                let contextForUndo = contextForUpdate |> Context.updateInitiationInstant
+                let! description = "MARATHON PETRO, split undone" |> JournalEntryDescription.create
+                let! restored =
+                    updateStageEntry contextForUndo
+                        { (noChangeHeaderUpdates headerId) with descriptionUpdate = SetTo description }
+                        [ { (noChangeLineUpdates debitLineId) with amountUpdate = SetTo (debitLine |> StageEntryLine.amount) } ]
+                        [] [ addedLineId ]
+                Assert.Equal<(decimal * JournalEntryLineType * AccountId option) list>(before |> lineShapesOf, restored |> lineShapesOf)
+                Assert.DoesNotContain(addedLineId, restored |> lineIdsOf)
+                Assert.Equal(description, restored |> stageEntryHeader |> StageEntryHeader.description)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-STG-6.4 an update that would leave the entry with fewer than two lines is rejected with a typed error, and nothing is changed`` () =
-        Assert.Fail "not implemented"
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let! fullResult = StageTestData.runPipeline context
+                let entry = fullResult.stagedEntries |> StageTestData.findByDescription "MARATHON PETRO 7218 ANYTOWN US"
+                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let debitLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
+                let creditLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
+                let contextForUpdate = context |> Context.updateInitiationInstant
+                let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
+                return!
+                    updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [] []
+                        [ creditLine |> StageEntryLine.stageEntryLineId ]
+                    |> expectRejection contextForUpdate headerId
+                        (function AsError (IngestionStageEntryInsufficientLines 1) -> true | _ -> false) before
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-STG-6.4 an update whose added lines leave the entry unbalanced is rejected with a typed error, and nothing is changed`` () =
-        Assert.Fail "not implemented"
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let! fullResult = StageTestData.runPipeline context
+                let entry = fullResult.stagedEntries |> StageTestData.findByDescription "MARATHON PETRO 7218 ANYTOWN US"
+                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let debitLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
+                let creditLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
+                let contextForUpdate = context |> Context.updateInitiationInstant
+                let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
+                let! extra = Money.fromDecimal 10.00M
+                return!
+                    updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) []
+                        [ addition extra Debit (Some fixture.Data.entertainment5650Id) ] []
+                    |> expectRejection contextForUpdate headerId
+                        (function AsError (IngestionStageEntryDebitCreditMismatch _) -> true | _ -> false) before
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-STG-6.4 an added line that fails a staged-line rule is rejected with a typed error, and nothing is changed`` () =
-        Assert.Fail "not implemented"
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let! fullResult = StageTestData.runPipeline context
+                let entry = fullResult.stagedEntries |> StageTestData.findByDescription "MARATHON PETRO 7218 ANYTOWN US"
+                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let debitLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
+                let creditLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
+                let contextForUpdate = context |> Context.updateInitiationInstant
+                let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
+                let! extra = Money.fromDecimal 10.00M
+                let missingAccountId = AccountId.create ()
+                return!
+                    updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) []
+                        [ addition extra Credit (creditLine |> StageEntryLine.accountId)
+                          addition extra Debit (Some missingAccountId) ] []
+                    |> expectRejection contextForUpdate headerId
+                        (function
+                         | AsError (AccountIdDoesntMatch uuid) -> uuid = (missingAccountId |> AccountId.value)
+                         | _ -> false) before
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-STG-6.5 removing a line linked to a payment agreement is rejected with a typed error naming the line and the reason, and nothing is changed`` () =
-        Assert.Fail "not implemented"
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let contextForUpdate = context |> Context.updateInitiationInstant
+                let! entry, debitLineId = createOutgoEntry context "REQ-STG-6.5 linked line removal"
+                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let! _ = CashFlowOps.constructNewPaymentAgreementLinkAndPersist context fixture.Data.cashFlow.legAId debitLineId
+                let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
+                return!
+                    updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [] [] [ debitLineId ]
+                    |> expectRejection contextForUpdate headerId
+                        (function
+                         | AsError (IngestionStageEntryLineCannotBeRemoved (uuid, LinkedToPaymentAgreement)) ->
+                             uuid = (debitLineId |> StageEntryLineId.value)
+                         | _ -> false) before
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-STG-6.5 removing a line a Payment references is rejected with a typed error naming the line and the reason, and nothing is changed`` () =
-        Assert.Fail "not implemented"
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let contextForUpdate = context |> Context.updateInitiationInstant
+                let! entry, debitLineId = createOutgoEntry context "REQ-STG-6.5 paid line removal"
+                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                do! payWithLine context debitLineId
+                let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
+                return!
+                    updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [] [] [ debitLineId ]
+                    |> expectRejection contextForUpdate headerId
+                        (function
+                         | AsError (IngestionStageEntryLineCannotBeRemoved (uuid, ReferencedByPayment)) ->
+                             uuid = (debitLineId |> StageEntryLineId.value)
+                         | _ -> false) before
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-STG-6.5 removing a line a classification run recorded is rejected with a typed error naming the line and the reason, and nothing is changed`` () =
-        Assert.Fail "not implemented"
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let! fullResult = StageTestData.runPipeline context
+                let entry = fullResult.stagedEntries |> StageTestData.findByDescription "MARATHON PETRO 7218 ANYTOWN US"
+                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let debitLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
+                let creditLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
+                let contextForUpdate = context |> Context.updateInitiationInstant
+                let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
+                let debitLineId = debitLine |> StageEntryLine.stageEntryLineId
+                // the classifier assigned this line's account, so the run recorded it
+                let! recorded = [ debitLineId ] |> Classification.RuleMatch.fetchByStageEntryLineIdList contextForUpdate
+                Assert.NotEmpty(recorded)
+                return!
+                    updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [] [] [ debitLineId ]
+                    |> expectRejection contextForUpdate headerId
+                        (function
+                         | AsError (IngestionStageEntryLineCannotBeRemoved (uuid, RecordedInClassificationRun)) ->
+                             uuid = (debitLineId |> StageEntryLineId.value)
+                         | _ -> false) before
+            })
+        |> railroadWrapper
 
-    [<Fact>]
-    member _.``REQ-STG-6.5 changing the amount, line type or account of a line linked to a payment agreement is rejected with a typed error naming the line and the reason, and nothing is changed`` () =
-        Assert.Fail "not implemented"
+    [<Theory>]
+    [<InlineData("amount")>]
+    [<InlineData("lineType")>]
+    [<InlineData("account")>]
+    member _.``REQ-STG-6.5 changing the amount, line type or account of a line linked to a payment agreement is rejected with a typed error naming the line and the reason, and nothing is changed`` (field: string) =
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let contextForUpdate = context |> Context.updateInitiationInstant
+                let! entry, debitLineId = createOutgoEntry context "REQ-STG-6.5 linked line change"
+                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let! _ = CashFlowOps.constructNewPaymentAgreementLinkAndPersist context fixture.Data.cashFlow.legAId debitLineId
+                let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
+                let! newAmount = Money.fromDecimal 90.00M
+                let lineUpdate =
+                    match field with
+                    | "amount" -> { (noChangeLineUpdates debitLineId) with amountUpdate = SetTo newAmount }
+                    | "lineType" -> { (noChangeLineUpdates debitLineId) with entryTypeUpdate = SetTo Credit }
+                    | _ -> { (noChangeLineUpdates debitLineId) with accountIdUpdate = SetTo (Some fixture.Data.entertainment5650Id) }
+                return!
+                    updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [ lineUpdate ] [] []
+                    |> expectRejection contextForUpdate headerId
+                        (function
+                         | AsError (IngestionStageEntryLineCannotBeChanged (uuid, LinkedToPaymentAgreement)) ->
+                             uuid = (debitLineId |> StageEntryLineId.value)
+                         | _ -> false) before
+            })
+        |> railroadWrapper
 
-    [<Fact>]
-    member _.``REQ-STG-6.5 changing the amount, line type or account of a line a Payment references is rejected with a typed error naming the line and the reason, and nothing is changed`` () =
-        Assert.Fail "not implemented"
+    [<Theory>]
+    [<InlineData("amount")>]
+    [<InlineData("lineType")>]
+    [<InlineData("account")>]
+    member _.``REQ-STG-6.5 changing the amount, line type or account of a line a Payment references is rejected with a typed error naming the line and the reason, and nothing is changed`` (field: string) =
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let contextForUpdate = context |> Context.updateInitiationInstant
+                let! entry, debitLineId = createOutgoEntry context "REQ-STG-6.5 paid line change"
+                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                do! payWithLine context debitLineId
+                let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
+                let! newAmount = Money.fromDecimal 90.00M
+                let lineUpdate =
+                    match field with
+                    | "amount" -> { (noChangeLineUpdates debitLineId) with amountUpdate = SetTo newAmount }
+                    | "lineType" -> { (noChangeLineUpdates debitLineId) with entryTypeUpdate = SetTo Credit }
+                    | _ -> { (noChangeLineUpdates debitLineId) with accountIdUpdate = SetTo (Some fixture.Data.entertainment5650Id) }
+                return!
+                    updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [ lineUpdate ] [] []
+                    |> expectRejection contextForUpdate headerId
+                        (function
+                         | AsError (IngestionStageEntryLineCannotBeChanged (uuid, ReferencedByPayment)) ->
+                             uuid = (debitLineId |> StageEntryLineId.value)
+                         | _ -> false) before
+            })
+        |> railroadWrapper
 
-    [<Fact>]
-    member _.``REQ-STG-6.6 a manual update on a Posted entry is rejected with a typed error, whether it edits a field, adds a line or removes one, and nothing is changed`` () =
-        Assert.Fail "not implemented"
+    [<Theory>]
+    [<InlineData("field")>]
+    [<InlineData("add")>]
+    [<InlineData("remove")>]
+    member _.``REQ-STG-6.6 a manual update on a Posted entry is rejected with a typed error, whether it edits a field, adds a line or removes one, and nothing is changed`` (change: string) =
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let! fullResult = StageTestData.runPipeline context
+                let entry = fullResult.stagedEntries |> StageTestData.findByDescription "MARATHON PETRO 7218 ANYTOWN US"
+                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let creditLineId =
+                    entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit) |> StageEntryLine.stageEntryLineId
+                let contextForPost = context |> Context.updateInitiationInstant
+                do! post contextForPost
+                let contextForUpdate = contextForPost |> Context.updateInitiationInstant
+                let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
+                Assert.Equal(Posted, StageTestData.latestStatus before)
+                let! description = "MARATHON PETRO, edited after posting" |> JournalEntryDescription.create
+                let! extra = Money.fromDecimal 10.00M
+                let attempt =
+                    match change with
+                    | "field" ->
+                        updateStageEntry contextForUpdate
+                            { (noChangeHeaderUpdates headerId) with descriptionUpdate = SetTo description } [] [] []
+                    | "add" ->
+                        updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) []
+                            [ addition extra Debit (Some fixture.Data.entertainment5650Id)
+                              addition extra Credit (Some fixture.Data.entertainment5650Id) ] []
+                    | _ -> updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [] [] [ creditLineId ]
+                return!
+                    attempt
+                    |> expectRejection contextForUpdate headerId
+                        (function
+                         | AsError (IngestionPostedStageEntryCannotBeModified uuid) -> uuid = (headerId |> StageEntryHeaderId.value)
+                         | _ -> false) before
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-STG-4.8 the manual update rejects setting an entry's status to Posted with a typed error, and nothing is changed`` () =
-        Assert.Fail "not implemented"
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let! fullResult = StageTestData.runPipeline context
+                let entry = fullResult.stagedEntries |> StageTestData.findByDescription "MARATHON PETRO 7218 ANYTOWN US"
+                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let debitLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
+                let creditLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
+                let contextForUpdate = context |> Context.updateInitiationInstant
+                let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
+                Assert.Equal(Classified, StageTestData.latestStatus before)
+                return!
+                    updateStageEntry contextForUpdate { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Posted } [] [] []
+                    |> expectRejection contextForUpdate headerId
+                        (function AsError (IngestionManualUpdateCannotSetStatus "Posted") -> true | _ -> false) before
+            })
+        |> railroadWrapper

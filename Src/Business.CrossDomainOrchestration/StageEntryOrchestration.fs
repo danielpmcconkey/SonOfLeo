@@ -490,35 +490,163 @@ let isThereALineUpdate
         )
     |> List.exists id
     
+/// StageEntryLineAddition is a line the operator adds to a staged entry in a manual update (REQ-STG-6.4).
+type StageEntryLineAddition = {
+    amount: Money.Money
+    lineType: JournalEntryLineType
+    accountId: AccountId option
+    memo: JournalEntryLineMemo option }
+
+/// protectionsOf says, for each of the given lines, whatever keeps it from being removed or having its amount, line type
+/// or account changed (REQ-STG-6.5): a payment agreement link, a Payment, or a classification run's record of it.
+let private protectionsOf
+    (context: Context.Context)
+    (lineIds: StageEntryLineId list)
+    : Result<(StageEntryLineId * DataIngestionError.StageLineProtection) list, IAppError> =
+    if lineIds |> List.isEmpty then Ok [] else
+    result {
+        let! links = lineIds |> CashFlow.PaymentAgreementLink.fetchByStageEntryLineIdList context
+        let! paidLineIds = lineIds |> CashFlow.Payment.fetchReferencedStageEntryLineIds context
+        let! ruleMatches = lineIds |> Classification.RuleMatch.fetchByStageEntryLineIdList context
+        let linkedLineIds = links |> List.map CashFlow.PaymentAgreementLink.stageEntryLineId
+        let recordedLineIds = ruleMatches |> List.map Classification.RuleMatch.stageEntryLineId
+        return
+            [ yield! linkedLineIds |> List.map (fun id -> id, DataIngestionError.LinkedToPaymentAgreement)
+              yield! paidLineIds |> List.map (fun id -> id, DataIngestionError.ReferencedByPayment)
+              yield! recordedLineIds |> List.map (fun id -> id, DataIngestionError.RecordedInClassificationRun) ]
+            |> List.distinct
+    }
+
+/// changesProtectedField is true when an update would change a line's amount, line type or account from what it holds;
+/// setting a field to the value it already has changes nothing.
+let private changesProtectedField (line: StageEntryLine.StageEntryLine) (lineUpdate: StageEntryLine.StageEntryLineFieldUpdates) =
+    let differs current update =
+        match update with
+        | NoChange -> false
+        | SetTo x -> x <> current
+    differs (line |> StageEntryLine.amount) lineUpdate.amountUpdate
+    || differs (line |> StageEntryLine.lineType) lineUpdate.entryTypeUpdate
+    || differs (line |> StageEntryLine.accountId) lineUpdate.accountIdUpdate
+
+/// updateStageEntry is the operator's manual update. It can edit the entry and its lines, add lines and remove them in
+/// one operation, and only the entry as the whole operation leaves it is validated (REQ-STG-6.4): a split passes
+/// through an unbalanced state on the way. Everything is checked before anything is written.
 let updateStageEntry
     (context: Context.Context)
     (headerUpdates: StageEntryHeader.StageEntryHeaderFieldUpdates)
     (lineUpdates: StageEntryLine.StageEntryLineFieldUpdates list)
+    (linesToAdd: StageEntryLineAddition list)
+    (lineIdsToRemove: StageEntryLineId list)
     : Result<StageEntry, IAppError> =
     result {
         let shouldUpdateHeader = headerUpdates |> isThereAHeaderUpdate
         let shouldUpdateLines = lineUpdates |> isThereALineUpdate
         do! if shouldUpdateHeader = false && shouldUpdateLines = false
+               && linesToAdd.IsEmpty && lineIdsToRemove.IsEmpty
             then (Error DataIngestionError.IngestionUpdateStageEntryNoOp)
             else Ok ()
-        let headerUuid = headerUpdates.headerIdToUpdate |> StageEntryHeaderId.value
-        do!
-            headerUpdates.headerIdToUpdate
-            |> StageEntryHeader.fetchById context
+        let headerId = headerUpdates.headerIdToUpdate
+        let headerUuid = headerId |> StageEntryHeaderId.value
+        let! current =
+            headerId
+            |> fetchByStageEntryHeaderId context
             |> whenNoRows (DataIngestionError.IngestionStageEntryHeaderIdDoesntExist headerUuid)
-            |> Result.map ignore
+        // a posted entry's lines are paired to its journal entry's lines; correcting it is void and repost (REQ-STG-6.6)
+        do!
+            if current.stageEntryHeader |> StageEntryHeader.currentStatus = Some Posted
+            then Error(DataIngestionError.IngestionPostedStageEntryCannotBeModified headerUuid)
+            else Ok ()
+        // only batch post moves an entry to Posted (REQ-STG-4.8)
+        do!
+            match headerUpdates.statusUpdate with
+            | SetTo Posted -> Error(DataIngestionError.IngestionManualUpdateCannotSetStatus(Posted |> StagedEntryStatus.toString))
+            | _ -> Ok ()
         do! confirmUpdateLinesMatchUpdateHeader context headerUpdates lineUpdates
+        let lineIdsToCheck = lineIdsToRemove |> List.distinct
+        do!
+            lineIdsToCheck
+            |> List.map (fun lineId ->
+                if current.seLines |> List.exists (fun line -> line |> StageEntryLine.stageEntryLineId = lineId) then Ok ()
+                else
+                    let lineUuid = lineId |> StageEntryLineId.value
+                    lineId
+                    |> StageEntryLine.fetchById context
+                    |> whenNoRows (DataIngestionError.IngestionStageEntryLineIdDoesntExist lineUuid)
+                    |> Result.bind (fun _ ->
+                        Error(DataIngestionError.IngestionUpdateStageEntryLinesMustMatchHeader(headerUuid, lineUuid))))
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
+        let changedLines =
+            lineUpdates
+            |> List.filter (fun lineUpdate ->
+                current.seLines
+                |> List.exists (fun line ->
+                    line |> StageEntryLine.stageEntryLineId = lineUpdate.lineIdToUpdate
+                    && changesProtectedField line lineUpdate))
+            |> List.map _.lineIdToUpdate
+        let! protections = (lineIdsToCheck @ changedLines) |> List.distinct |> protectionsOf context
+        let firstProtectionOf lineId =
+            protections |> List.tryFind (fun (id, _) -> id = lineId) |> Option.map snd
+        do!
+            lineIdsToCheck
+            |> List.map (fun lineId ->
+                match firstProtectionOf lineId with
+                | Some protection ->
+                    DataIngestionError.error(
+                        DataIngestionError.IngestionStageEntryLineCannotBeRemoved(lineId |> StageEntryLineId.value, protection))
+                | None -> Ok ())
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
+        // a classification run's record does not stop an edit, only a removal: the record stays true of the line
+        do!
+            changedLines
+            |> List.map (fun lineId ->
+                match
+                    protections
+                    |> List.tryFind (fun (id, protection) ->
+                        id = lineId && protection <> DataIngestionError.RecordedInClassificationRun)
+                with
+                | Some (_, protection) ->
+                    DataIngestionError.error(
+                        DataIngestionError.IngestionStageEntryLineCannotBeChanged(lineId |> StageEntryLineId.value, protection))
+                | None -> Ok ())
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
+        let addedLines =
+            linesToAdd
+            |> List.map (fun addition ->
+                StageEntryLine.create
+                    (StageEntryLineId.create ()) headerId addition.amount addition.lineType addition.accountId
+                    addition.memo None)
+        let finalLines =
+            (current.seLines
+             |> List.filter (fun line -> lineIdsToCheck |> List.contains (line |> StageEntryLine.stageEntryLineId) |> not)
+             |> List.map (fun line ->
+                 lineUpdates
+                 |> List.filter (fun lineUpdate -> lineUpdate.lineIdToUpdate = (line |> StageEntryLine.stageEntryLineId))
+                 |> List.fold (fun updated lineUpdate -> updated |> StageEntryLine.applyFieldUpdates lineUpdate) line))
+            @ addedLines
+        do! finalLines |> confirmLines context AllowNone
         do! if shouldUpdateLines
             then
                 lineUpdates
+                |> List.filter (fun lineUpdate -> [ lineUpdate ] |> isThereALineUpdate)
                 |> List.map(fun lineUpdate -> lineUpdate |> StageEntryLine.update context)
                 |> convertListOfResultsToResultsList
                 |> Result.map ignore
             else Ok ()
+        do! lineIdsToCheck
+            |> List.map (StageEntryLine.delete context)
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
+        do! addedLines
+            |> List.map (StageEntryLine.persist context)
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
         do! if shouldUpdateHeader then headerUpdates |> StageEntryHeader.update context |> Result.map ignore
             else Ok ()
         // now that we updated everything, we should read it back and ensure it still meets composite requirements
-        let! fetched = headerUpdates.headerIdToUpdate |> fetchByStageEntryHeaderId context
+        let! fetched = headerId |> fetchByStageEntryHeaderId context
         do! fetched |> confirmStageEntryCompositeIsValid context AllowNone
         return fetched
     }

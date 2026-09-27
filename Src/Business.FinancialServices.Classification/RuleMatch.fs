@@ -114,6 +114,22 @@ let fetchByRunId (context: Context.Context) (runId: ClassificationRunId) : Resul
     let parameters = [ { name = "@run_id"; value = UniqueId runUuid } ]
     query context None (Some predicate) None parameters None AnyQuantityIsAcceptable
 
+/// fetchByStageEntryLineIdList returns every match any classification run recorded against the given lines.
+let fetchByStageEntryLineIdList
+    (context: Context.Context)
+    (lineIds: StageEntryLineId list)
+    : Result<RuleMatch list, IAppError> =
+    if lineIds |> List.isEmpty then Ok [] else
+    let namesAndParameters =
+        List.zip [ 1 .. lineIds.Length ] lineIds
+        |> List.map (fun (ordinal, id) ->
+            let name = $"@stageEntryLineId{ordinal}"
+            name, { name = name; value = UniqueId(id |> StageEntryLineId.value) })
+    let names = namesAndParameters |> List.map fst |> String.concat ", "
+    let parameters = namesAndParameters |> List.map snd
+    let predicate = $"rm.stage_entry_line_id in ({names})"
+    query context None (Some predicate) None parameters None AnyQuantityIsAcceptable
+
 let fetchByRunIdAndClaimantType
     (context: Context.Context)
     (runId: ClassificationRunId)

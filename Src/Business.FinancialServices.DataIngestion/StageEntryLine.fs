@@ -58,6 +58,16 @@ let create
                 memo = memo
                 journalEntryLineId = journalEntryLineId }
 
+/// applyFieldUpdates gives the line as an update would leave it, without writing anything, so the entry it belongs to
+/// can be validated as a whole before any of it reaches the database (REQ-STG-6.4).
+let applyFieldUpdates (fieldUpdates: StageEntryLineFieldUpdates) (line: StageEntryLine) : StageEntryLine =
+    { line with
+        amount = fieldUpdates.amountUpdate |> valueOrCurrent line.amount
+        lineType = fieldUpdates.entryTypeUpdate |> valueOrCurrent line.lineType
+        accountId = fieldUpdates.accountIdUpdate |> valueOrCurrent line.accountId
+        memo = fieldUpdates.memoUpdate |> valueOrCurrent line.memo
+        journalEntryLineId = fieldUpdates.journalEntryLineIdUpdate |> valueOrCurrent line.journalEntryLineId }
+
 let confirmAccountId
     (context: Context.Context)
     (accountIdOption: AccountId option)
@@ -302,3 +312,12 @@ let updateJournalEntryLineId
         memoUpdate = NoChange
         journalEntryLineIdUpdate = journalEntryLineIdUpdate }
     update context fieldUpdates
+
+/// delete removes a line outright. Only a line nothing refers to can go: the manual update checks links, Payments and
+/// classification runs first (REQ-STG-6.5), and the foreign keys back that up.
+let delete (context: Context.Context) (lineId: StageEntryLineId) : Result<unit, IAppError> =
+    let queryStatement = "delete from ingestion.staged_entry_line where unique_id = @unique_id;"
+    let uuid = lineId |> StageEntryLineId.value
+    let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
+    executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+    |> whenNoRows (IngestionStageEntryLineIdDoesntExist uuid)

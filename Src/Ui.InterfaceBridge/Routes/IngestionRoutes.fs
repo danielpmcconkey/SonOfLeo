@@ -138,7 +138,13 @@ let private updateStageEntry payload _ =
             let! lineUpdates =
                 input.lines
                 |> ``convert [UpdateStageEntryLineInput list] to [StageEntryLineFieldUpdates list]`` context
-            let! model = StageEntryOrchestration.updateStageEntry context headerUpdates lineUpdates
+            let! linesToAdd =
+                input.linesToAdd
+                |> List.map (``convert [AddStageEntryLineInput] to [StageEntryLineAddition]`` context)
+                |> convertListOfResultsToResultsList
+            let lineIdsToRemove = input.lineIdsToRemove |> List.map StageEntryLineId.fromGuid
+            let! model =
+                StageEntryOrchestration.updateStageEntry context headerUpdates lineUpdates linesToAdd lineIdsToRemove
             let! returnVal = model |> ``convert [StageEntry] to [StageEntryReturn]`` context
             return! Json.toJson<StageEntryReturn> returnVal })
     
