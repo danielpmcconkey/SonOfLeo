@@ -81,13 +81,13 @@ let ``REQ-STG-4.1 StageStatusChangeMechanism.fromString rejects invalid string``
 
 
 // =============================================================================
-// REQ-STG-4.2 — Posted is terminal, except the void reversal (REQ-STG-4.7)
+// REQ-STG-4.2 — Posted is terminal
 // =============================================================================
 
 [<Fact>]
-let ``REQ-STG-4.2 validTransitions from Posted permits only Reviewed, the void reversal`` () =
+let ``REQ-STG-4.2 validTransitions from Posted returns empty list`` () =
     let transitions = validTransitions (Some Posted)
-    Assert.Equal<StagedEntryStatus list>([ Reviewed ], transitions)
+    Assert.Empty(transitions)
 
 
 // =============================================================================
@@ -155,7 +155,7 @@ let ``REQ-STG-4.2 validTransitions from Posted permits only Reviewed, the void r
 [<InlineData("Posted", "Classified", false)>]
 [<InlineData("Posted", "NoMatch", false)>]
 [<InlineData("Posted", "Conflict", false)>]
-[<InlineData("Posted", "Reviewed", true)>]
+[<InlineData("Posted", "Reviewed", false)>]
 [<InlineData("Posted", "Duplicate", false)>]
 [<InlineData("Posted", "Posted", false)>]
 [<InlineData("Posted", "Ignored", false)>]

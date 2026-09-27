@@ -297,7 +297,7 @@ let private gracePeriodInDaysFromCadenceType (cadenceType: Cadence.CadenceType) 
     | Cadence.Monthly _ -> 7
     | Cadence.Annually _ -> 7
 
-let noChangeInvoiceUpdates (invoiceId: CashFlowComponent.InvoiceId) : Invoice.InvoiceFieldUpdates =
+let private noChangeInvoiceUpdates (invoiceId: CashFlowComponent.InvoiceId) : Invoice.InvoiceFieldUpdates =
     { invoiceIdToUpdate = invoiceId
       externalInvoiceIdUpdate = FieldUpdate.NoChange
       invoiceDateUpdate = FieldUpdate.NoChange

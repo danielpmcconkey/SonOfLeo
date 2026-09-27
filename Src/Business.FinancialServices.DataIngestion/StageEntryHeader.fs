@@ -297,16 +297,6 @@ let fetchByIdList
     let predicate = $"se.unique_id in ({names})"
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-/// fetchByJournalEntryHeaderId returns the staged entry, if any, that posting turned into the given journal entry.
-let fetchByJournalEntryHeaderId
-    (context: Context.Context)
-    (journalEntryHeaderId: JournalEntryHeaderId)
-    : Result<StageEntryHeader list, IAppError> =
-    let predicate = "se.journal_entry_header_id = @journal_entry_header_id"
-    let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
-    let parameters = [ { name = "@journal_entry_header_id"; value = UniqueId uuid } ]
-    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
-
 let fetchByStatus (context: Context.Context) (status: StagedEntryStatus) : Result<StageEntryHeader list, IAppError> =
     let predicate = "latest_statuses.to_status = @status"
     let statusStr = status |> StagedEntryStatus.toString

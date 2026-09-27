@@ -40,7 +40,7 @@ let validTransitions fromType = fromType |> function
         | Conflict -> [ Duplicate; Classified; NoMatch; Reviewed; Ignored ]
         | Reviewed -> [ Posted; Ignored ]
         | Duplicate -> [ Reviewed; Ignored ]
-        | Posted -> [ Reviewed ] // only the void reversal makes this move (REQ-STG-4.7, REQ-STG-4.8)
+        | Posted -> []
         | Ignored -> [ Reviewed ]
 
 let create

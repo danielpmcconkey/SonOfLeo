@@ -82,7 +82,6 @@ type CashFlowError =
     | CashflowPaymentAgreementUpdateNoOp
     | CashflowPaymentAgreementsListCannotBeEmpty
     | CashflowPaymentIdDoesntExist of Guid
-    | CashflowPaymentWithoutStagedLineBlocksVoid of Guid * Guid
     | CashflowPaymentLineNotOnAgreementAccount of Guid * Guid option * Guid
     | CashflowPaymentMemoIsEmpty of string
     | CashflowPaymentMemoTooLong of string * int
@@ -183,8 +182,6 @@ type CashFlowError =
             | CashflowPaymentAgreementUpdateNoOp -> "Updating the PaymentAgreement record failed because at least one updatable parameter must be set."
             | CashflowPaymentAgreementsListCannotBeEmpty -> "A MasterAgreement must have at least one PaymentAgreement."
             | CashflowPaymentIdDoesntExist uuid -> $"Could not locate a Payment with the id of {uuid}."
-            | CashflowPaymentWithoutStagedLineBlocksVoid (paymentUuid, journalEntryUuid) ->
-                $"Journal entry {journalEntryUuid} cannot be voided: Payment {paymentUuid} points at one of its lines and has no staged line to fall back to. Remove or re-point the Payment first."
             | CashflowPaymentLineNotOnAgreementAccount(paymentUuid, actualAccountUuid, expectedAccountUuid) ->
                 let actualStr =
                     match actualAccountUuid with
