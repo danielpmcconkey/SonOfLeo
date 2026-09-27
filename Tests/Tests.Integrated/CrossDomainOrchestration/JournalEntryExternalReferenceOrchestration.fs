@@ -15,6 +15,7 @@ open Tests.Helpers
 open Tests.Helpers.Railroad
 open Tests.Helpers.SadPath
 open App.Utility.IAppError
+open App.Utility.Result
 open Tests.Helpers.TestError
 open App.Utility.FieldUpdate
 open Xunit
@@ -42,4 +43,16 @@ type JournalEntryExternalReferenceOrchestrationTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-SYS-6.2 updating a journal entry external reference by an ID no reference holds fails with a typed not-found error naming the kind of record and the ID`` () =
-        Assert.Fail "not implemented"
+        let missingId = JournalEntryComponent.JournalEntryExternalReferenceId.create ()
+        runCommandRouteAndAutoRollback JournalEntryUpdateExternalReference (fun context ->
+            result {
+                let! text = "REQ-SYS-6.2-NO-SUCH-REF" |> JournalEntryComponent.JournalExternalReferenceText.create
+                return!
+                    match JournalEntryExternalReferenceOrchestration.updateFiAndReferenceText context NoChange (SetTo text) missingId with
+                    | Error (AsError (JournalEntryExternalReferenceIdDoesntExist uuid)) ->
+                        Assert.Equal(missingId |> JournalEntryComponent.JournalEntryExternalReferenceId.value, uuid)
+                        Ok ()
+                    | Error e -> Error (TestingError $"Wrong error: {e.DomainName}.{e.CaseName}: {e.ToMessage()}")
+                    | Ok _ -> Error (TestingError "Expected failure; got success")
+            })
+        |> railroadWrapper

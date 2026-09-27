@@ -70,6 +70,8 @@ type CashFlowError =
     | CashflowPaymentAgreementLinkLineAlreadyLinked of Guid * Guid
     | CashflowPaymentAgreementLinksOrphaned of (Guid * Guid * OrphanedLineReason) list
     | CashflowPaymentAgreementLinkUpdateNoOp
+    | CashflowPaymentAgreementLinkIdDoesntExist of Guid
+    | CashflowInstanceIdDoesntExist of Guid
     | CashflowPaymentAgreementMemoIsEmpty of string
     | CashflowPaymentAgreementMemoTooLong of string * int
     | CashflowPaymentAgreementNameDoesntMatchId of string
@@ -168,6 +170,8 @@ type CashFlowError =
                 let described = orphans |> List.map describe |> String.concat " "
                 $"{orphans.Length} linked stage entry line(s) have no open Invoice to take them. {described}"
             | CashflowPaymentAgreementLinkUpdateNoOp -> "Updating the PaymentAgreementLink record failed because at least one updatable parameter must be set."
+            | CashflowPaymentAgreementLinkIdDoesntExist uuid -> $"Could not locate a PaymentAgreementLink with the id of {uuid}."
+            | CashflowInstanceIdDoesntExist uuid -> $"Could not locate an Instance with the id of {uuid}."
             | CashflowPaymentAgreementMemoIsEmpty memo -> $"PaymentAgreementMemo cannot be empty. Provided Memo is {memo}."
             | CashflowPaymentAgreementMemoTooLong(memo, max) -> $"PaymentAgreementMemo cannot exceed {max} characters. Provided Memo is {memo}."
             | CashflowPaymentAgreementNameDoesntMatchId name -> $"PaymentAgreementName of {name} doesn't match a PaymentAgreement ID in the database."

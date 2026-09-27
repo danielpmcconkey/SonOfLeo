@@ -351,6 +351,8 @@ let updateClassificationRule
             WHERE unique_id = @unique_id;
         """
         do! if updates.IsEmpty then Error(IngestionClassificationRuleUpdateNoOp) else Ok()
-        let! () = executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+        let! () =
+            executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+            |> whenNoRows (IngestionClassificationRuleIdDoesntExist uuid)
         return! classificationRuleId |> ClassificationRule.fetchById context
     }

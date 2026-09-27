@@ -80,6 +80,8 @@ let updateFiAndReferenceText
                 Error(JournalEntryReferenceUpdateNoOp)
             else
                 Ok()
-        let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+        let! _ =
+            executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+            |> whenNoRows (JournalEntryExternalReferenceIdDoesntExist uuid)
         return! journalEntryExternalReferenceId |> fetchById context
     }

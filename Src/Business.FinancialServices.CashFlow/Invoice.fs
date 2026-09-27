@@ -4,6 +4,7 @@ open NodaTime
 open App.Utility.IAppError
 open App.Utility.FieldUpdate
 open App.Utility.Result
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
@@ -379,6 +380,8 @@ let update
     """
     result {
         do! if updates |> List.isEmpty then Error(CashflowInvoiceUpdateNoOp) else Ok()
-        do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+        do!
+            executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+            |> whenNoRows (CashflowInvoiceIdDoesntExist (invoiceId |> InvoiceId.value))
         return! invoiceId |> fetchById context
     }

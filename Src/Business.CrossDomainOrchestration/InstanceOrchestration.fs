@@ -591,7 +591,12 @@ let private preConstructInvoiceComposite
                 else
                     let paymentUuid = paymentId |> CashFlowComponent.PaymentId.value
                     let invoiceUuid = invoiceId |> CashFlowComponent.InvoiceId.value
-                    CashFlowError.error(CashFlowError.CashflowPaymentNotUnderInvoice(paymentUuid, invoiceUuid)))
+                    // a Payment that exists nowhere is not found; one that exists belongs to another Invoice
+                    paymentId
+                    |> Payment.fetchById context
+                    |> whenNoRows (CashFlowError.CashflowPaymentIdDoesntExist paymentUuid)
+                    |> Result.bind (fun _ ->
+                        CashFlowError.error(CashFlowError.CashflowPaymentNotUnderInvoice(paymentUuid, invoiceUuid))))
             |> convertListOfResultsToResultsList
             |> Result.map ignore
         let now = context |> Context.getInitiationInstant
@@ -673,7 +678,10 @@ let updateInstanceComposite
             if compositeUpdate |> isThereACompositeUpdate then Ok ()
             else CashFlowError.error CashFlowError.CashflowInstanceCompositeUpdateNoOp
         let instanceId = compositeUpdate.instanceUpdates.instanceIdToUpdate
-        let! current = instanceId |> fetchCompositeByInstanceId context
+        let! current =
+            instanceId
+            |> fetchCompositeByInstanceId context
+            |> whenNoRows (CashFlowError.CashflowInstanceIdDoesntExist (instanceId |> CashFlowComponent.InstanceId.value))
         let! preConstructed =
             compositeUpdate.invoiceCompositeUpdates
             |> List.map (preConstructInvoiceComposite context current.invoiceComposites)

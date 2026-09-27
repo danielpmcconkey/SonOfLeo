@@ -842,7 +842,20 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-SYS-6.2 updating a classification rule by an ID no rule holds fails with a typed not-found error naming the kind of record and the ID`` () =
-        Assert.Fail "not implemented"
+        let missingId = ClassificationRuleId.create ()
+        runCommandRouteAndAutoRollback ClassificationUpdateRule (fun context ->
+            match
+                ClassificationOrchestration.updateClassificationRule
+                    context
+                    (SetTo(ruleNameOf "REQ-SYS-6.2 no such rule")) NoChange NoChange NoChange NoChange
+                    missingId
+            with
+            | Error (AsError (IngestionClassificationRuleIdDoesntExist uuid)) ->
+                Assert.Equal(missingId |> ClassificationRuleId.value, uuid)
+                Ok ()
+            | Error e -> Error (TestingError $"Wrong error: {e.DomainName}.{e.CaseName}: {e.ToMessage()}")
+            | Ok _ -> Error (TestingError "Expected failure; got success"))
+        |> railroadWrapper
 
     (* A stored pattern can only turn invalid by being written outside the application, so the test does exactly
        that, inside its own rolled-back transaction, and then reads the rule back. *)

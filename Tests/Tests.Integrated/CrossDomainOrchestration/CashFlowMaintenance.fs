@@ -17,6 +17,8 @@ open Ui.InterfaceBridge.CommandRoute
 open NodaTime
 open Tests.Helpers
 open Tests.Helpers.Railroad
+open Tests.Helpers.TestError
+open App.Utility.IAppError
 open Xunit
 
 let private noAgreementFilter : AgreementFilter =
@@ -81,6 +83,75 @@ let private createBlockedInvoice context agreementId legId (monthsAgo: int) (blo
         return created |> InstanceOrchestration.invoiceComposites |> List.head |> InstanceOrchestration.invoice |> Invoice.invoiceId
     }
 
+/// A 100.00 Invoice with no blocker on a new agreement's first Instance, dated the first of last month. Returns the
+/// agreement's id, its leg's id and the Instance composite.
+let private createInvoicedInstance (fixture: TestDataFixture) context (name: string) =
+    result {
+        let! agreementId, legId = createAgreement fixture context name
+        let today = Calendar.today()
+        let invoiceDate = LocalDate(today.Year, today.Month, 1).PlusMonths(-1)
+        let! amount = Money.fromDecimal 100.00M
+        let! created =
+            InstanceOrchestration.createInstanceCompositeAndSaveToDb
+                context agreementId invoiceDate
+                [ (legId, None, { localDate = invoiceDate }, { localDate = invoiceDate }, { money = amount },
+                   InvoiceReceived, None, None, []) ]
+        return agreementId, legId, created
+    }
+
+let private noChangeInvoiceUpdates invoiceId : Invoice.InvoiceFieldUpdates =
+    { invoiceIdToUpdate = invoiceId
+      externalInvoiceIdUpdate = FieldUpdate.NoChange
+      invoiceDateUpdate = FieldUpdate.NoChange
+      dueDateUpdate = FieldUpdate.NoChange
+      amountUpdate = FieldUpdate.NoChange
+      invoiceStateUpdate = FieldUpdate.NoChange
+      paymentStateUpdate = FieldUpdate.NoChange
+      postedStateUpdate = FieldUpdate.NoChange
+      blockerUpdate = FieldUpdate.NoChange
+      memoUpdate = FieldUpdate.NoChange }
+
+let private invoiceCompositeUpdate invoiceId : InstanceOrchestration.InvoiceCompositeUpdate =
+    { invoiceUpdates = noChangeInvoiceUpdates invoiceId
+      paymentUpdates = []
+      paymentIdsToDelete = []
+      newPayments = [] }
+
+let private instanceCompositeUpdate instanceId : InstanceOrchestration.InstanceCompositeUpdate =
+    { instanceUpdates =
+        { instanceIdToUpdate = instanceId
+          instanceDateUpdate = FieldUpdate.NoChange
+          isFulfilledUpdate = FieldUpdate.NoChange }
+      invoiceCompositeUpdates = []
+      newInvoices = [] }
+
+let private instanceIdOf composite = composite |> InstanceOrchestration.instance |> Instance.instanceId
+
+let private invoiceIdOf composite =
+    composite |> InstanceOrchestration.invoiceComposites |> List.head |> InstanceOrchestration.invoice |> Invoice.invoiceId
+
+/// A new 100.00 Invoice for the given leg, with no payments, dated the first of this month.
+let private newInvoiceFor legId =
+    result {
+        let today = Calendar.today()
+        let invoiceDate = LocalDate(today.Year, today.Month, 1)
+        let! amount = Money.fromDecimal 100.00M
+        return
+            (legId, None, ({ localDate = invoiceDate }: InvoiceDate), ({ localDate = invoiceDate }: DueDate),
+             ({ money = amount }: InvoiceAmount), InvoiceReceived, None, None, [])
+    }
+
+/// expectNotFound passes when the result is the expected error carrying the expected id, and fails otherwise.
+let private expectNotFound (isExpected: IAppError -> System.Guid option) (expectedId: System.Guid) result : Result<unit, IAppError> =
+    match result with
+    | Error e ->
+        match isExpected e with
+        | Some uuid ->
+            Assert.Equal(expectedId, uuid)
+            Ok ()
+        | None -> Error (TestingError $"Wrong error: {e.DomainName}.{e.CaseName}: {e.ToMessage()}")
+    | Ok _ -> Error (TestingError "Expected failure; got success")
+
 [<Collection("SharedTestData")>]
 type CashFlowMaintenanceTests(fixture: TestDataFixture) =
 
@@ -140,32 +211,150 @@ type CashFlowMaintenanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-SYS-6.2 updating an invoice by an ID no invoice holds fails with a typed not-found error naming the kind of record and the ID`` () =
-        Assert.Fail "not implemented"
+        let missingId = InvoiceId.create ()
+        runCommandRouteAndAutoRollback CashFlowCreateAgreement (fun context ->
+            result {
+                let! _, _, created = createInvoicedInstance fixture context "sys62 invoice update"
+                let! memo = "REQ-SYS-6.2 no such invoice" |> InvoiceMemo.create
+                let update =
+                    { instanceCompositeUpdate (created |> instanceIdOf) with
+                        invoiceCompositeUpdates =
+                            [ { invoiceCompositeUpdate missingId with
+                                  invoiceUpdates =
+                                    { noChangeInvoiceUpdates missingId with memoUpdate = FieldUpdate.SetTo(Some memo) } } ] }
+                return!
+                    InstanceOrchestration.updateInstanceComposite context update
+                    |> expectNotFound
+                        (function AsError (CashFlowError.CashflowInvoiceIdDoesntExist uuid) -> Some uuid | _ -> None)
+                        (missingId |> InvoiceId.value)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-6.2 updating a payment agreement link by an ID no link holds fails with a typed not-found error naming the kind of record and the ID`` () =
-        Assert.Fail "not implemented"
+        let missingId = PaymentAgreementLinkId.create ()
+        runCommandRouteAndAutoRollback CashFlowCreateAgreement (fun context ->
+            result {
+                let! _, legId = createAgreement fixture context "sys62 link update"
+                return!
+                    PaymentAgreementLink.update
+                        context { linkIdToUpdate = missingId; paymentAgreementIdUpdate = FieldUpdate.SetTo legId }
+                    |> expectNotFound
+                        (function AsError (CashFlowError.CashflowPaymentAgreementLinkIdDoesntExist uuid) -> Some uuid | _ -> None)
+                        (missingId |> PaymentAgreementLinkId.value)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-6.2 deleting a payment agreement link by an ID no link holds fails with a typed not-found error naming the kind of record and the ID`` () =
-        Assert.Fail "not implemented"
+        let missingId = PaymentAgreementLinkId.create ()
+        runCommandRouteAndAutoRollback CashFlowCreateAgreement (fun context ->
+            PaymentAgreementLink.delete context missingId
+            |> expectNotFound
+                (function AsError (CashFlowError.CashflowPaymentAgreementLinkIdDoesntExist uuid) -> Some uuid | _ -> None)
+                (missingId |> PaymentAgreementLinkId.value))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-6.2 deleting a payment by an ID no payment holds fails with a typed not-found error naming the kind of record and the ID`` () =
-        Assert.Fail "not implemented"
+        let missingId = PaymentId.create ()
+        runCommandRouteAndAutoRollback CashFlowCreateAgreement (fun context ->
+            result {
+                let! _, _, created = createInvoicedInstance fixture context "sys62 payment delete"
+                let invoiceId = created |> invoiceIdOf
+                let update =
+                    { instanceCompositeUpdate (created |> instanceIdOf) with
+                        invoiceCompositeUpdates =
+                            [ { invoiceCompositeUpdate invoiceId with paymentIdsToDelete = [ missingId ] } ] }
+                return!
+                    InstanceOrchestration.updateInstanceComposite context update
+                    |> expectNotFound
+                        (function AsError (CashFlowError.CashflowPaymentIdDoesntExist uuid) -> Some uuid | _ -> None)
+                        (missingId |> PaymentId.value)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-6.3 creating a payment pointing at a staged line that does not exist fails with a typed not-found error naming the missing referent, and nothing is written or changed`` () =
-        Assert.Fail "not implemented"
+        let missingId = DataIngestion.StageEntryComponent.StageEntryLineId.create ()
+        runCommandRouteAndAutoRollback CashFlowCreateAgreement (fun context ->
+            result {
+                let! _, _, created = createInvoicedInstance fixture context "sys63 staged pointer"
+                let instanceId = created |> instanceIdOf
+                let! amount = Money.fromDecimal 40.00M
+                let update =
+                    { instanceCompositeUpdate instanceId with
+                        invoiceCompositeUpdates =
+                            [ { invoiceCompositeUpdate (created |> invoiceIdOf) with
+                                  newPayments = [ (Staged missingId, { money = amount }, None, None, None) ] } ] }
+                do!
+                    InstanceOrchestration.updateInstanceComposite context update
+                    |> expectNotFound
+                        (function AsError (DataIngestion.DataIngestionError.IngestionStageEntryLineIdDoesntExist uuid) -> Some uuid | _ -> None)
+                        (missingId |> DataIngestion.StageEntryComponent.StageEntryLineId.value)
+                let! after = instanceId |> InstanceOrchestration.fetchCompositeByInstanceId context
+                Assert.Equal(created, after)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-6.3 creating a payment pointing at a journal entry line that does not exist fails with a typed not-found error naming the missing referent, and nothing is written or changed`` () =
-        Assert.Fail "not implemented"
+        let missingId = JournalEntryComponent.JournalEntryLineId.create ()
+        runCommandRouteAndAutoRollback CashFlowCreateAgreement (fun context ->
+            result {
+                let! _, _, created = createInvoicedInstance fixture context "sys63 posted pointer"
+                let instanceId = created |> instanceIdOf
+                let! amount = Money.fromDecimal 40.00M
+                let update =
+                    { instanceCompositeUpdate instanceId with
+                        invoiceCompositeUpdates =
+                            [ { invoiceCompositeUpdate (created |> invoiceIdOf) with
+                                  newPayments = [ (Posted missingId, { money = amount }, None, None, None) ] } ] }
+                do!
+                    InstanceOrchestration.updateInstanceComposite context update
+                    |> expectNotFound
+                        (function AsError (LedgerError.JournalEntryLineIdDoesntExist uuid) -> Some uuid | _ -> None)
+                        (missingId |> JournalEntryComponent.JournalEntryLineId.value)
+                let! after = instanceId |> InstanceOrchestration.fetchCompositeByInstanceId context
+                Assert.Equal(created, after)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-6.3 creating an invoice on an instance that does not exist fails with a typed not-found error naming the missing referent, and nothing is written or changed`` () =
-        Assert.Fail "not implemented"
+        let missingId = InstanceId.create ()
+        runCommandRouteAndAutoRollback CashFlowCreateAgreement (fun context ->
+            result {
+                let! agreementId, legId = createAgreement fixture context "sys63 missing instance"
+                let byAgreement = { noAgreementFilter with agreementIds = Some [ agreementId ] }
+                let! before = byAgreement |> InstanceOrchestration.fetchFiltered context AnyQuantityIsAcceptable
+                let! newInvoice = newInvoiceFor legId
+                do!
+                    { instanceCompositeUpdate missingId with newInvoices = [ newInvoice ] }
+                    |> InstanceOrchestration.updateInstanceComposite context
+                    |> expectNotFound
+                        (function AsError (CashFlowError.CashflowInstanceIdDoesntExist uuid) -> Some uuid | _ -> None)
+                        (missingId |> InstanceId.value)
+                let! after = byAgreement |> InstanceOrchestration.fetchFiltered context AnyQuantityIsAcceptable
+                Assert.Equal<InstanceOrchestration.InvoiceComposite list>(before, after)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-6.3 creating an invoice for a payment agreement that does not exist fails with a typed not-found error naming the missing referent, and nothing is written or changed`` () =
-        Assert.Fail "not implemented"
+        let missingId = PaymentAgreementId.create ()
+        runCommandRouteAndAutoRollback CashFlowCreateAgreement (fun context ->
+            result {
+                let! _, _, created = createInvoicedInstance fixture context "sys63 missing agreement"
+                let instanceId = created |> instanceIdOf
+                let! newInvoice = newInvoiceFor missingId
+                do!
+                    { instanceCompositeUpdate instanceId with newInvoices = [ newInvoice ] }
+                    |> InstanceOrchestration.updateInstanceComposite context
+                    |> expectNotFound
+                        (function AsError (CashFlowError.CashflowPaymentAgreementIdDoesntExist uuid) -> Some uuid | _ -> None)
+                        (missingId |> PaymentAgreementId.value)
+                let! after = instanceId |> InstanceOrchestration.fetchCompositeByInstanceId context
+                Assert.Equal(created, after)
+            })
+        |> railroadWrapper

@@ -384,7 +384,9 @@ let update
     """
     result {
         do! if updates |> List.isEmpty then Error(CashflowPaymentUpdateNoOp) else Ok()
-        do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+        do!
+            executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+            |> whenNoRows (CashflowPaymentIdDoesntExist (paymentId |> PaymentId.value))
         return! paymentId |> fetchById context
     }
 
@@ -393,3 +395,4 @@ let delete (context: Context.Context) (paymentId: PaymentId) : Result<unit, IApp
     let uuid = paymentId |> PaymentId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+    |> whenNoRows (CashflowPaymentIdDoesntExist uuid)

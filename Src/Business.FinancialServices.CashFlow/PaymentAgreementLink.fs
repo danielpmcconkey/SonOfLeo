@@ -5,6 +5,7 @@ open NodaTime
 open App.Utility
 open App.Utility.IAppError
 open App.Utility.Result
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
@@ -205,7 +206,9 @@ let update
     """
     result {
         do! if updates |> List.isEmpty then Error(CashflowPaymentAgreementLinkUpdateNoOp) else Ok()
-        do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+        do!
+            executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+            |> whenNoRows (CashflowPaymentAgreementLinkIdDoesntExist uuid)
         return! linkId |> fetchById context
     }
 
@@ -217,3 +220,4 @@ let delete (context: Context.Context) (linkId: PaymentAgreementLinkId) : Result<
     let uuid = linkId |> PaymentAgreementLinkId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+    |> whenNoRows (CashflowPaymentAgreementLinkIdDoesntExist uuid)

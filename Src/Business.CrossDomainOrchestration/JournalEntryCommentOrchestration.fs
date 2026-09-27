@@ -74,14 +74,19 @@ let updateComment
         [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
           { name = "@unique_id"; value = UniqueId commentUuid } ]
     result {
+        let! existing =
+            journalEntryCommentId |> fetchById context |> whenNoRows (JournalEntryCommentIdDoesntExist commentUuid)
         let! validSecondaryId =
             match secondaryIdUpdate with
             | FieldUpdate.NoChange -> Ok FieldUpdate.NoChange
             | FieldUpdate.SetTo x ->
                 result {
-                    let! existing = journalEntryCommentId |> (fetchById context)
-                    let primaryJournalEntryId = existing |> primaryJournalEntryId
-                    do! confirmPrimaryAndSecondaryRelationship primaryJournalEntryId x
+                    // the new secondary must exist, checked here rather than left to the foreign key (REQ-SYS-6.3)
+                    do! match x |> convertOptionToDesiredTypeWithFallibleConverter (confirmJournalEntryHeader context) with
+                        | Error (AsError (JournalEntryHeaderIdDoesntExist uuid)) ->
+                            Error (JournalEntryCommentSecondaryJeHeaderIdNotFound uuid)
+                        | other -> other |> Result.map ignore
+                    do! confirmPrimaryAndSecondaryRelationship (existing |> primaryJournalEntryId) x
                     return (FieldUpdate.SetTo x)
                 }
 
@@ -110,6 +115,8 @@ let updateComment
                                 modified_at = @modified
                                 {setClauses}
                             WHERE unique_id = @unique_id; """
-        let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+        let! _ =
+            executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+            |> whenNoRows (JournalEntryCommentIdDoesntExist commentUuid)
         return! journalEntryCommentId |> fetchById context
     }

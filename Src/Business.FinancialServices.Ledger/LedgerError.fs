@@ -56,6 +56,8 @@ type LedgerError =
     | JournalEntryLineAccountDoesntExist of Guid
     | JournalEntryLineAccountInactive of Guid * LocalDate * LocalDate * LocalDate Option
     | JournalEntryLineIdDoesntExist of Guid
+    | JournalEntryCommentIdDoesntExist of Guid
+    | JournalEntryExternalReferenceIdDoesntExist of Guid
     | JournalEntryLineMemoIsEmpty of string
     | JournalEntryLineMemoTooLong of string * int
     | JournalEntryLineNonPositiveAmount of decimal
@@ -131,6 +133,8 @@ type LedgerError =
                                     | None -> "None"
                 $"Account ({uuid}) is not active (begin {beginDate}; end {endDateStr}) relative to the Journal Entry's entry date ({entryDate})." 
             | JournalEntryLineIdDoesntExist uuid -> $"Could not locate a journal entry line with the id of {uuid}."
+            | JournalEntryCommentIdDoesntExist uuid -> $"Could not locate a journal entry comment with the id of {uuid}."
+            | JournalEntryExternalReferenceIdDoesntExist uuid -> $"Could not locate a journal entry external reference with the id of {uuid}."
             | JournalEntryLineMemoIsEmpty lineMemo -> $"Journal Entry Line Memo cannot be empty. Provided string is {lineMemo}."
             | JournalEntryLineMemoTooLong(lineMemo, max) -> $"Journal Entry LineMemo cannot exceed {max} characters. Provided string is {lineMemo}."
             | JournalEntryLineNonPositiveAmount amount -> $"Journal Entry Line Amount field ({amount}) cannot be less than or equal to 0.00."

@@ -283,11 +283,38 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-SYS-6.2 updating a staged entry by an ID no entry holds fails with a typed not-found error naming the kind of record and the ID`` () =
-        Assert.Fail "not implemented"
+        let missingId = StageEntryHeaderId.create ()
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            let headerUpdates = { (noChangeHeaderUpdates missingId) with journalEntryHeaderIdUpdate = SetTo None }
+            match updateStageEntry context headerUpdates [] with
+            | Error (AsError (IngestionStageEntryHeaderIdDoesntExist uuid)) ->
+                Assert.Equal(missingId |> StageEntryHeaderId.value, uuid)
+                Ok ()
+            | Error e -> Error (TestingError $"Wrong error: {e.DomainName}.{e.CaseName}: {e.ToMessage()}")
+            | Ok _ -> Error (TestingError "Expected failure; got success"))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-6.2 updating a staged entry line by an ID no line holds fails with a typed not-found error naming the kind of record and the ID`` () =
-        Assert.Fail "not implemented"
+        let missingId = StageEntryLineId.create ()
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let! fullResult = StageTestData.runPipeline context
+                let entry = fullResult.stagedEntries |> StageTestData.findByDescription "MARATHON PETRO 7218 ANYTOWN US"
+                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let lineUpdates =
+                    [ { (noChangeLineUpdates missingId) with accountIdUpdate = SetTo (Some fixture.Data.entertainment5650Id) } ]
+                do!
+                    match updateStageEntry context (noChangeHeaderUpdates headerId) lineUpdates with
+                    | Error (AsError (IngestionStageEntryLineIdDoesntExist uuid)) ->
+                        Assert.Equal(missingId |> StageEntryLineId.value, uuid)
+                        Ok ()
+                    | Error e -> Error (TestingError $"Wrong error: {e.DomainName}.{e.CaseName}: {e.ToMessage()}")
+                    | Ok _ -> Error (TestingError "Expected failure; got success")
+                let! after = headerId |> fetchByStageEntryHeaderId context
+                Assert.Equal(entry, after)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-STG-4.1.2 a second status transition for a staged entry within one operation is rejected with a typed error, and the entry holds exactly one transition from that operation, the first`` () =

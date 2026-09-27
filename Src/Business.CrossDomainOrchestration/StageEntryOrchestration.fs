@@ -448,6 +448,8 @@ let private confirmUpdateLinesMatchUpdateHeader
             let! lineHeaderIdToCompare =
                 lineUpdate.lineIdToUpdate
                 |> StageEntryLine.fetchById context
+                |> whenNoRows (
+                    DataIngestionError.IngestionStageEntryLineIdDoesntExist (lineUpdate.lineIdToUpdate |> StageEntryLineId.value))
                 |> Result.map StageEntryLine.stageEntryHeaderId
             let headerId = headerUpdates.headerIdToUpdate
             return!
@@ -499,6 +501,12 @@ let updateStageEntry
         do! if shouldUpdateHeader = false && shouldUpdateLines = false
             then (Error DataIngestionError.IngestionUpdateStageEntryNoOp)
             else Ok ()
+        let headerUuid = headerUpdates.headerIdToUpdate |> StageEntryHeaderId.value
+        do!
+            headerUpdates.headerIdToUpdate
+            |> StageEntryHeader.fetchById context
+            |> whenNoRows (DataIngestionError.IngestionStageEntryHeaderIdDoesntExist headerUuid)
+            |> Result.map ignore
         do! confirmUpdateLinesMatchUpdateHeader context headerUpdates lineUpdates
         do! if shouldUpdateLines
             then

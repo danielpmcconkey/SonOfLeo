@@ -92,12 +92,56 @@ type JournalEntryCommentOrchestrationTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-SYS-6.2 updating a journal entry comment by an ID no comment holds fails with a typed not-found error naming the kind of record and the ID`` () =
-        Assert.Fail "not implemented"
+        let missingId = JournalEntryComponent.JournalEntryCommentId.create ()
+        runCommandRouteAndAutoRollback JournalEntryUpdateComment (fun context ->
+            result {
+                let! text = "REQ-SYS-6.2 no such comment" |> JournalEntryComponent.CommentText.create
+                return!
+                    match JournalEntryCommentOrchestration.updateComment context missingId (SetTo text) NoChange with
+                    | Error (AsError (JournalEntryCommentIdDoesntExist uuid)) ->
+                        Assert.Equal(missingId |> JournalEntryComponent.JournalEntryCommentId.value, uuid)
+                        Ok ()
+                    | Error e -> Error (TestingError $"Wrong error: {e.DomainName}.{e.CaseName}: {e.ToMessage()}")
+                    | Ok _ -> Error (TestingError "Expected failure; got success")
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-6.3 re-pointing a comment's secondary journal entry to an ID no journal entry holds fails with a typed not-found error naming the missing referent, and nothing is written or changed`` () =
-        Assert.Fail "not implemented"
+        let comment = fixture.Data.sharedCommentJe2 |> JournalEntryOrchestration.comments |> List.head
+        let commentId = comment |> JournalEntryComment.journalEntryCommentId
+        let missingJeId = JournalEntryComponent.JournalEntryHeaderId.create ()
+        runCommandRouteAndAutoRollback JournalEntryUpdateComment (fun context ->
+            result {
+                let! before = commentId |> JournalEntryComment.fetchById context
+                do!
+                    match JournalEntryCommentOrchestration.updateComment context commentId NoChange (SetTo(Some missingJeId)) with
+                    | Error (AsError (JournalEntryCommentSecondaryJeHeaderIdNotFound uuid)) ->
+                        Assert.Equal(missingJeId |> JournalEntryComponent.JournalEntryHeaderId.value, uuid)
+                        Ok ()
+                    | Error e -> Error (TestingError $"Wrong error: {e.DomainName}.{e.CaseName}: {e.ToMessage()}")
+                    | Ok _ -> Error (TestingError "Expected failure; got success")
+                let! after = commentId |> JournalEntryComment.fetchById context
+                Assert.Equal(before, after)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-6.3 creating a comment whose secondary journal entry does not exist fails with a typed not-found error naming the missing referent, and nothing is written or changed`` () =
-        Assert.Fail "not implemented"
+        let primaryId = fixture.Data.basicJeId
+        let missingJeId = JournalEntryComponent.JournalEntryHeaderId.create ()
+        runCommandRouteAndAutoRollback JournalEntryUpdateComment (fun context ->
+            result {
+                let! text = "REQ-SYS-6.3 comment on a missing secondary" |> JournalEntryComponent.CommentText.create
+                let! before = primaryId |> JournalEntryComment.fetchByJournalEntryId context
+                do!
+                    match JournalEntryCommentOrchestration.constructNewAndPersist context primaryId (Some missingJeId) text with
+                    | Error (AsError (JournalEntryCommentSecondaryJeHeaderIdNotFound uuid)) ->
+                        Assert.Equal(missingJeId |> JournalEntryComponent.JournalEntryHeaderId.value, uuid)
+                        Ok ()
+                    | Error e -> Error (TestingError $"Wrong error: {e.DomainName}.{e.CaseName}: {e.ToMessage()}")
+                    | Ok _ -> Error (TestingError "Expected failure; got success")
+                let! after = primaryId |> JournalEntryComment.fetchByJournalEntryId context
+                Assert.Equal<JournalEntryComment.JournalEntryComment list>(before, after)
+            })
+        |> railroadWrapper
