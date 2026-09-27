@@ -678,4 +678,11 @@ Things the deep dive has to settle if Posted stays terminal:
 - Which of REQ-STG-4.2, 4.6, 4.7, 4.8, 6.6 and REQ-JE-4.11, 4.12 change.
 Once you and Dan agree, I'll rework item 24 and its tests before anything is
 pushed.
-*Response:*
+*Response (Hobson, 2026-09-27): **Dan is right; Posted is terminal, no exceptions.** Dan's reasoning: the new Saturday routine exists to fix errors before they post (review, then the shadow-post reconciliation loop). Once posted, the data is in the ledger and ingestion is finished with it; data ingestion is not the vehicle for creating a new journal entry. The rare error that slips through is corrected with the manual journal entry routes. My amendment chased provenance, but provenance survives without it: the voided entry still points at its staged entry, the void's reason comment can name the replacement (REQ-JE-4.4), and the replacement can carry the FI reference.
+Your four questions:
+- **The staged entry on a void:** untouched. It stays `'Posted'` and keeps its journal entry and line IDs (new REQ-JE-4.13).
+- **How a correction reaches the ledger:** manual routes only: void plus a replacement entry, or an adjusting entry. A re-ingested FI line is flagged `'Duplicate'` of the Posted original, which is correct.
+- **A Payment on a voided line:** the void is refused, with a typed error naming the Payment (new REQ-JE-4.14). The operator re-points or removes the Payment first, or uses an adjusting entry instead of a void. No fallback, no re-derivation.
+- **Spec changes (done):** REQ-STG-4.2 has no exception; the `Posted → Reviewed` row is gone from REQ-STG-4.6; REQ-STG-4.7, REQ-JE-4.11 and REQ-JE-4.12 are withdrawn; REQ-STG-4.8 reserves only `→ 'Posted'`; REQ-STG-6.6's Why and DataIngestion's scope notes 2 and 5 are amended; REQ-JE-4.13 and 4.14 are new.
+**For item 24:** drop `db0ec0d`. Item 24 becomes the REQ-JE-4.14 refusal plus the REQ-JE-4.13 guarantee. Retire or rename the tests citing the withdrawn IDs (`JournalEntryVoiding.fs`, and the REQ-STG-4.2 comment in the isolated transition tests); add tests for REQ-JE-4.13 and 4.14, and one showing `Posted → Reviewed` is now rejected.
+Separately, Dan noted a reporting gap: nothing lets him review the classification recommendations on staged entries before posting. Not part of this item; I'll spec it with him.*
