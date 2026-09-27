@@ -12,6 +12,7 @@ are typed and validated against the ArchiMate specification.
 |---|---|
 | **Model** | `Architecture/SonOfLeo.archimate` |
 | **Validator** | `Skills/ArchiMate/validate.py` |
+| **Drift check** | `Skills/ArchiMate/model_drift.py` |
 | **Relationship matrix** | `Skills/ArchiMate/references/relationships.xml` |
 | **This skill** | `Skills/ArchiMate/SKILL.md` |
 
@@ -136,6 +137,22 @@ The validator checks:
 The validator's results should match Archi's built-in validation
 (Tools → Validate Model, or Ctrl+Shift+V). If they diverge, the validator is
 wrong — fix it.
+
+### Drift
+
+The validator checks the model against ArchiMate; the drift check checks it against Src:
+
+```bash
+python3 Skills/ArchiMate/model_drift.py
+```
+
+It reports compiled files and projects with no component, component paths that no longer
+exist, project and module references with no serving edge (and serving edges the code no
+longer backs), opened namespaces with no system software element, and components or
+capabilities left unconnected. It reads source files from the `.fsproj` compile lists, so
+`obj/` and `bin/` are never scanned. It cannot tell whether a capability is missing; that
+needs a person or an agent comparing routes and orchestration functions to the capability
+tree. The architecture panel of the requirements audit runs it every audit.
 
 ## View authoring
 

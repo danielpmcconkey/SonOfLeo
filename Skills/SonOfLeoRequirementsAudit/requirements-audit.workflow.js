@@ -577,6 +577,16 @@ THE MODEL — ${REPO}/Architecture/SonOfLeo.archimate (Archi XML):
 READ: the model in full; every .fsproj and .fs file under ${REPO}/Src/ (skip obj/ and bin/);
 ${REPO}/DbMigration/Scripts/ where a rule concerns the database.
 
+MODEL DRIFT — do this first. Run \`python3 Skills/ArchiMate/model_drift.py\` from ${REPO}. It
+compares the model's components, capabilities, serving edges and system software against the
+.fsproj compile lists and the modules' references. Every line it prints is a finding (category
+architecture) unless you open the code and show it is a false alarm; say which. It cannot see
+capabilities, so also compare the operator and report routes (domain and verb in
+Src/Ui.InterfaceBridge/Routes/) and the orchestration functions against the model's
+ApplicationFunctions: a use case the code offers that no capability describes is drift too.
+Drift the model should absorb gets suggestedAction "add to the model"; drift that is the code's
+fault (a reference that breaks a rule, a file that shouldn't exist) cites the rule it breaks.
+
 METHOD: for each rule, work out from its wording what conforming code looks like, then check
 the code against it. Cite the rule by its exact element name in every finding, with file and
 line.
