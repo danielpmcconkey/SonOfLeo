@@ -86,6 +86,17 @@ isolated test. That test's one assertion was flipped by hand, and all 3 cases fa
 
 REQ-CF-7.13 ("a deterministic [DET] operation") has no test, for the same reason as REQ-CF-10.6 above.
 
+### §9 derived state
+
+File: `Tests/Tests.Integrated/CrossDomainOrchestration/DerivedStateRules.fs`. There are 16 tests, and all pass.
+
+The three REQ-CF-9.11 tests go through the CashFlow routes, which commit. Each one sets up in a committed transaction,
+calls the route, reads back from a fresh context, and deletes the agreement and its journal entries in a finally. The
+payloads are built from the real contracts, then the derived fields are added to the JSON by hand, because the create
+contracts have no field to hold them.
+
+The mutation pass ran k = 1 through 3, the deepest any test goes, and no mutant survived.
+
 ## Findings
 
 Each finding gives the requirement, the test, what the spec says, what the code does, and where the bug probably lies.
@@ -130,6 +141,19 @@ Each finding gives the requirement, the test, what the spec says, what the code 
   for every cadence date through the horizon end. The REQ-CF-7.2 end-today test checks only the Instance dated today,
   so it passes.
 
+**F-5. REQ-CF-9.11: the UpdateInvoice contract still carries payment state and posted state. Code or spec; the
+behaviour holds.**
+- Test: `DerivedStateRules.fs`, "an UpdateInvoice payload supplying FullyPaid and PostedToLedger for an Invoice with no
+  Payments leaves it NotYetPaid and NotHandled when re-fetched". It passes.
+- Spec: "No create or update contract carries payment state, posted state, or is-fulfilled."
+- Code: `UpdateInvoiceInput` has `paymentStateUpdate` and `postedStateUpdate`. `InstanceOrchestration.updateInstanceComposite`
+  rejects any update that sets them (`CashflowInstanceCompositeDerivedFieldSet`), so a caller still can't set them. The
+  contract, though, carries them, which the spec says it must not.
+- The create contracts behave differently. When CreateInstance or CreatePayment is sent derived fields, it ignores them
+  without a word, because the JSON reader skips properties it doesn't know. The call succeeds and the fields are never
+  used.
+- Suggest removing the two fields from `UpdateInvoiceInput`, or rewording REQ-CF-9.11 to say the system rejects them.
+
 **Observation, not tested in this batch:**
 - `PaymentAgreementLink.update` (operator re-point) sets `payment_agreement_id` but not `modified_at`. That looks like
   it breaks REQ-SYS-3.3. It will get a test when the SystemWide requirements come up.
@@ -140,6 +164,7 @@ These are cited by passing tests unless noted.
 - §12–§13: REQ-CF-12.1, 12.2, 12.3 (more cases), 12.4 (one case fails, F-1), 12.5, 12.6, 12.7, 12.8, 13.1 (more
   cases), 13.2 (more cases), 13.3, 13.4, 13.5, 13.6, 13.8, 13.9.
 - §10: REQ-CF-10.1, 10.2, 10.3, 10.4, 10.5, 10.7.
+- §9: REQ-CF-9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.10, 9.11.
 - §7: REQ-CF-7.1, 7.2, 7.3, 7.4, 7.6, 7.7, 7.8, 7.9, 7.10, 7.12, 7.14, 7.15, 7.16 (fails, F-4), plus REQ-CF-4.8.
 
 ## Requirements still uncovered
