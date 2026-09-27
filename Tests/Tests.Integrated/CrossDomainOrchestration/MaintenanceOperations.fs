@@ -27,7 +27,7 @@ type MaintenanceOperationsTests(fixture: TestDataFixture) =
         Assert.Fail "not implemented"
 
     [<Fact>]
-    member _.``REQ-CF-14.4 a CreateInstance payload whose second Invoice's Payments exceed its amount is rejected and nothing is written, not even the Instance or the first Invoice`` () =
+    member _.``REQ-CF-14.4 REQ-CF-9.3 a CreateInstance payload whose second Invoice carries a blocker and Payments summing to its amount is rejected and nothing is written, not even the Instance or the first Invoice`` () =
         Assert.Fail "not implemented"
 
     [<Fact>]
@@ -39,7 +39,7 @@ type MaintenanceOperationsTests(fixture: TestDataFixture) =
         Assert.Fail "not implemented"
 
     [<Fact>]
-    member _.``REQ-CF-14.5 a CreateInvoice payload whose Payments exceed its amount is rejected and nothing is written`` () =
+    member _.``REQ-CF-14.5 REQ-CF-9.3 a CreateInvoice payload carrying a blocker and Payments summing to its amount is rejected and nothing is written`` () =
         Assert.Fail "not implemented"
 
     [<Fact>]
@@ -51,7 +51,7 @@ type MaintenanceOperationsTests(fixture: TestDataFixture) =
         Assert.Fail "not implemented"
 
     [<Fact>]
-    member _.``REQ-CF-14.5 an UpdateInvoice payload that changes the memo and sets the amount below its Payments' sum is rejected and the Invoice is unchanged, memo included`` () =
+    member _.``REQ-CF-14.5 REQ-CF-9.4 an UpdateInvoice payload that changes the memo and sets a blocker on a FullyPaid Invoice is rejected and the Invoice is unchanged, memo included`` () =
         Assert.Fail "not implemented"
 
     [<Fact>]
@@ -59,7 +59,7 @@ type MaintenanceOperationsTests(fixture: TestDataFixture) =
         Assert.Fail "not implemented"
 
     [<Fact>]
-    member _.``REQ-CF-14.5 a CreatePayment payload that would take the Invoice's Payments past its amount is rejected and nothing is written`` () =
+    member _.``REQ-CF-14.5 REQ-CF-9.8 REQ-CF-9.10 a CreatePayment payload that takes a FullyPaid Invoice's Payments past its amount is stored, the Invoice's payment state becomes PartiallyPaid, and its Instance is no longer fulfilled`` () =
         Assert.Fail "not implemented"
 
     [<Fact>]
