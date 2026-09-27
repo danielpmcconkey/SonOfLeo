@@ -84,6 +84,7 @@
     <Compile Include="InterfaceBridge\ReportRoutes.fs" />
     <Compile Include="InterfaceBridge\IngestionRoutes.fs" />
     <Compile Include="InterfaceBridge\ClassificationRuleRoutes.fs" />
+    <Compile Include="InterfaceBridge\StartupErrorReporting.fs" />
     <Compile Include="DataAccessLayer\DalTests.fs" />
   </ItemGroup>
 
