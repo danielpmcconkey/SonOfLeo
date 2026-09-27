@@ -1,7 +1,7 @@
 # SonOfLeo Architecture Paradigms
 
-Extracted from the full `Src/` at commit `005bef5` (2026-09-10) — the last commit under
-active architectural review. This is what right looks like. A diff that deviates from these
+Extracted from the full `Src/` at commit `005bef5` (2026-09-10); revised 2026-09-27 for the
+re-tiered layout (`Src/App.*`, `Src/Business.*`, `Src/Ui.*`). This is what right looks like. A diff that deviates from these
 patterns is a finding.
 
 ---
@@ -45,14 +45,14 @@ Every persisted entity has these functions, named exactly this way:
 
 | Function | Returns | Purpose |
 |---|---|---|
-| `persist` | `Result<unit, AppError>` | INSERT. Never returns the entity. |
-| `reconstitute` | `Result<Entity, AppError>` | Private. Builds from a raw DB-row tuple via `create`. |
+| `persist` | `Result<unit, IAppError>` | INSERT. Never returns the entity. |
+| `reconstitute` | `Result<Entity, IAppError>` | Private. Builds from a raw DB-row tuple via `create`. |
 | `mapRawForDbRead` | `rawTuple` | Private. Maps `RowReader` to the tuple `reconstitute` expects. |
-| `query` | `Result<Entity list, AppError>` | Private. Single SELECT path — all fetch functions route through it. |
-| `fetchById` | `Result<Entity, AppError>` | Public. `query` + `ExactlyOne`. |
-| `fetchByX` | `Result<Entity list, AppError>` | Public. `query` + predicate. Named after the filter field. |
-| `fetchByXIdList` | `Result<Entity list, AppError>` | Public. Bulk fetch by ID list. |
-| `update` | `Result<Entity, AppError>` | Takes `FieldUpdates`. Builds SET dynamically. Re-fetches and returns. |
+| `query` | `Result<Entity list, IAppError>` | The entity's basic SELECT; its fetch functions route through it. Usually private, but may be called by functions in the same business domain (`StageEntryHeader.query` is public for deduplication). Not the only SELECT: a cross-domain fetcher may issue its own (`CashFlowCompositeFetcher`). |
+| `fetchById` | `Result<Entity, IAppError>` | Public. `query` + `ExactlyOne`. |
+| `fetchByX` | `Result<Entity list, IAppError>` | Public. `query` + predicate. Named after the filter field. |
+| `fetchByXIdList` | `Result<Entity list, IAppError>` | Public. Bulk fetch by ID list. |
+| `update` | `Result<Entity, IAppError>` | Takes `FieldUpdates`. Builds SET dynamically. Re-fetches and returns. |
 
 - Table aliases are globally unique (`a` for account, `je` for journal_entry, `ma` for
   master_agreement, `inv` for invoice).
@@ -82,16 +82,16 @@ type AccountCode = private AccountCode of string
 module AccountCode =
     let maxLength = 10
     let value (AccountCode ac) = ac
-    let create (raw: string) : Result<AccountCode, AppError> =
+    let create (raw: string) : Result<AccountCode, IAppError> =
         // trim, check empty, check length
 ```
-Fallible — returns `Result`. Dedicated `AppError` cases per type.
+Fallible — returns `Result`. Dedicated error cases per type in the domain's error DU.
 
 **DU enums:**
 ```fsharp
 type AccountType = Asset | Liability | Equity | Revenue | Expense
 module AccountType =
-    let fromString (s: string) : Result<AccountType, AppError> = ...
+    let fromString (s: string) : Result<AccountType, IAppError> = ...
     let toString (t: AccountType) : string = ...
 ```
 Always `fromString`/`toString`. Never .NET enum types.
@@ -124,7 +124,7 @@ any value type from any domain.
 
 ## 5. Composite Type Shape
 
-Composites live in `ModelOrchestrator/`, defined as private records next to their orchestration
+Composites live in `Src/Business.CrossDomainOrchestration`, defined as private records next to their orchestration
 functions:
 
 ```fsharp
@@ -171,7 +171,7 @@ let constructNewAndPersist
     (lines: (AccountId * Money * JournalEntryLineType * JournalEntryLineMemo option) list)
     (references: (JournalRefFinancialInstitution * JournalExternalReferenceText) list)
     (comments: (JournalEntryHeaderId option * CommentText) list)
-    : Result<JournalEntry, AppError> =
+    : Result<JournalEntry, IAppError> =
 ```
 
 Each tuple element is an already-validated domain primitive. The function unpacks them to call
@@ -182,7 +182,7 @@ entity `create` functions. This keeps the type count down — there is no
 
 ## 7. Validation Gauntlet
 
-`confirm*` functions (not `validate*` — retired). Each returns `Result<unit, AppError>`.
+`confirm*` functions (not `validate*` — retired). Each returns `Result<unit, IAppError>`.
 Composed in a `result { }` block of `do!` bindings.
 
 **Ordering:** cohesion checks first (does this child belong to this parent?), then structural
@@ -239,21 +239,26 @@ with a depleting pool.
 
 ---
 
-## 10. AppError Model
+## 10. Error Model
 
-One global DU. Every error in the system is a case. No exceptions, no string errors.
+`IAppError` (`Src/App.Utility/IAppError.fs`) is the interface; each container defines its own
+error DU implementing it (`UtilityError`, `DalError`, `BizGeneralError`, `BizFinServError`,
+`LedgerError`, `DataIngestionError`, `CashFlowError`, `BridgeError`, `OperatorCliError`,
+`ReportCliError`). Functions return `Result<'T, IAppError>`. No exceptions, no string errors.
 
 - Cases carry diagnostic data as tuple elements, pre-computed.
-- `toMessage` is the only place error strings live.
-- Cases are domain-prefixed: `Account*`, `Cashflow*`, `Ingestion*`, `Dal*`.
-- DAL errors are generic; orchestration/bridge layers reinterpret at their altitude.
+- Each DU's `ToMessage` is the only place its error strings live.
+- DAL errors are generic; orchestration/bridge layers reinterpret at their altitude, matching
+  a specific case with the `AsError` active pattern (or `DalError.whenNoRows`).
 
 ```fsharp
-match accountId |> Account.fetchById context with
-| Ok a -> Ok a
-| Error(DalResultantRowsDidntMatchExpectation _) ->
-    Error(JournalEntryLineAccountDoesntExist(accountId |> AccountId.value))
-| Error e -> Error e
+accountId |> Account.fetchById context
+|> whenNoRows (JournalEntryLineAccountDoesntExist(accountId |> AccountId.value))
+
+match result with
+| Error (AsError (LedgerError.AccountIdDoesntMatch uuid)) ->
+    Error (CashFlowError.CashflowPaymentAgreementDebitAccountInvalid uuid)
+| other -> other
 ```
 
 ---
@@ -261,13 +266,13 @@ match accountId |> Account.fetchById context with
 ## 11. Transaction Ownership
 
 - Routes own transactions via `Context.create`.
-- Model and orchestrator functions receive context — they never create transactions.
+- Business-tier functions receive context — they never create transactions.
 - `AuditEnvelope` stamps a single `Instant` per operation. All mutations within one route
   share the same initiation timestamp.
 
 ---
 
-## 12. InterfaceBridge Layer
+## 12. InterfaceBridge Layer (`Src/Ui.InterfaceBridge`)
 
 Three sub-areas:
 
@@ -297,15 +302,15 @@ Private functions registered in a `CommandRoute` dispatch table with domain + ve
 
 ## 14. Compile-Order DAG
 
-Hand-maintained, load-bearing. Dependencies flow one way:
+Hand-maintained, load-bearing. Dependencies flow one way through the tiers:
 
 ```
-Utilities → Model → ModelOrchestrator → InterfaceBridge → CLI
+App → Business → Ui
 ```
 
-Within Model, domains are interleaved — ordered by dependency, not by domain.
-`ClassificationComponent.fs` sits between `CashFlowComponent.fs` and
-`DataIngestion/IngestionSource.fs` because it needs types from both.
+The rungs within and across projects (tier, business concept order, UI layer, container
+foundations) are defined by the "Dependencies Build From the Base Up" principle in
+`Architecture/SonOfLeo.archimate`. That model is the source of truth; don't restate it here.
 
 A new file goes at its correct position in `<Compile Include>`, never appended.
 `Checks/check-compile-order.sh` guards this.
@@ -327,7 +332,7 @@ access. The orchestrator handles fetch, classify, write, status update.
 
 ## 16. Comment Discipline (as practiced)
 
-~10 comments across 33 Model files. All follow the "looks wrong but is correct" pattern:
+~10 comments across the domain projects (then `Model/`, 33 files). All follow the "looks wrong but is correct" pattern:
 
 - `Payment.transactionPointerFromColumns`: arm ignores `stageEntryHeaderUuid` — looks like a
   missed case, is correct because a posted payment carries both IDs.

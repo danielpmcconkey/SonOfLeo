@@ -92,21 +92,24 @@ most force. It indicates a structural problem, not a style preference.
 
 **The question:** Is each type and function at the right altitude in the dependency chain?
 
-The layers, bottom to top:
-- **Model** — entity CRUD, domain primitives, component types. Single-domain, single-concern.
-- **ModelOrchestrator** — composite types, cross-domain composition, orchestrated multi-step
-  operations. See the five reasons in `orchestration-layer.md`.
-- **InterfaceBridge** — boundary contracts, converters, routes. Highest error-interpretation
-  authority.
+The tiers, bottom to top (the rungs within them are defined by the "Dependencies Build From
+the Base Up" principle in `Architecture/SonOfLeo.archimate` — the model is the source of truth):
+- **App** (`Src/App.*`) — utilities, data access, operation/audit, session context.
+- **Business** — `Src/Business.General` and `Src/Business.FinancialServices.*` hold entity
+  CRUD, domain primitives, component types: single-domain, single-concern.
+  `Src/Business.CrossDomainOrchestration` holds composite types, cross-domain composition,
+  orchestrated multi-step operations. See the five reasons in `orchestration-layer.md`.
+- **Ui** — `Src/Ui.InterfaceBridge` (boundary contracts, converters, routes; highest
+  error-interpretation authority), then `Src/Ui.OperatorCli` and `Src/Ui.ReportCli`.
 
 **What goes wrong:**
 - Simple types (value objects, enums, wrapper IDs) defined in an orchestration file.
   "You're defining basic bitch types inside of CashFlowOps. These should be in
   `CashFlowComponent.fs`."
-- Composite types defined in Model. A type that assembles children from multiple tables
+- Composite types defined in a `Business.FinancialServices.*` project. A type that assembles children from multiple tables
   belongs in orchestration, next to the function that builds it.
-- Business logic in InterfaceBridge. The bridge converts and routes — it doesn't orchestrate.
-- A function in Model that needs data from another domain module. That's orchestration
+- Business logic in `Ui.InterfaceBridge`. The bridge converts and routes — it doesn't orchestrate.
+- A function in a domain project that needs data from another domain module. That's orchestration
   (reason 1 from `orchestration-layer.md`).
 
 **How to check:**
@@ -165,7 +168,9 @@ process touches it.
 DAG?
 
 F# compiles files in the order they appear in the `.fsproj`. This is structural, not
-optional. A type in file A cannot reference a type in file B if B compiles after A.
+optional. A type in file A cannot reference a type in file B if B compiles after A. Project
+references and Compile Include order must also follow the rungs in the "Dependencies Build
+From the Base Up" principle in `Architecture/SonOfLeo.archimate`.
 
 **How to check:**
 1. For each new type reference across files: does the referencing file compile after the
@@ -190,9 +195,9 @@ wrong-file placement within the correct layer.
 - Entity types get their own file: `Account.fs`, `MasterAgreement.fs`, etc.
 - Composite types go next to the orchestration function that builds them. Not in a separate
   "types" file, not at the bottom of a random orchestration module.
-- Interface contracts go in `InterfaceBridge`, never in `Model/`.
-- If a component file can't see a dependency, check the tier below before concluding Model
-  is closed. `ClassificationComponent.fs` exists for exactly this reason.
+- Interface contracts go in `Ui.InterfaceBridge`, never in the Business tier.
+- If a component file can't see a dependency, check the projects below before concluding the
+  domain projects are closed. `ClassificationComponent.fs` exists for exactly this reason.
 
 ---
 
@@ -204,7 +209,7 @@ established conventions?
 **Convention inventory:**
 - CRUD operations: `persist` (not `insertNewToDb`), `fetch` / `fetchById` / `fetchByX` /
   `fetchAll` (not `readRowsFromDb`), `reconstitute` / `mapRawForDbRead`,
-  `constructNewAndSaveToDb`, `updateXById`
+  `constructNewAndPersist`, `updateXById`
 - Confirmation checks: `confirmX` (not `validateX` — retired;
   `Checks/check-confirm-naming.sh` enforces this)
 - Boundary converters: `convert [SourceType] to [TargetType]` with square brackets

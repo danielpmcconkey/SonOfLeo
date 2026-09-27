@@ -160,7 +160,7 @@ Derive the CURRENT state mechanically. Read:
   REQ IDs per file
 - The Src/ tree (every .fs, excluding obj/ and bin/) and each .fsproj's compile order
 - The Tests/ tree — file list and approximate test counts ([<Fact>] and [<Theory>])
-- DbMigrations/ — list migrations in order
+- DbMigration/Scripts/ — list migrations in order
 
 Produce a dense, factual stateSummary — it becomes shared context for downstream
 auditors. Include what they need to avoid flagging phantoms: which domains have specs,
@@ -245,10 +245,10 @@ const CONTEXT = `${AUTHORITY_HIERARCHY}\n${VISION}\n${DAN_BLOCK}\n${STATE_BLOCK}
 phase('Auditors')
 
 const areaOf = f =>
-  f.startsWith('Src/DataAccessLayer') ? 'dal'
-  : f.startsWith('Src/InterfaceBridge') || f.startsWith('Src/SonOfLeoCli') ? 'interface'
-  : f.startsWith('Src/Model') ? 'model'
-  : f.startsWith('Src/ModelOrchestrator') ? 'orchestrator'
+  f.startsWith('Src/App.DataAccessLayer') ? 'dal'
+  : f.startsWith('Src/Ui.') ? 'interface'
+  : f.startsWith('Src/Business.CrossDomainOrchestration') ? 'orchestrator'
+  : f.startsWith('Src/Business.') ? 'model'
   : 'infrastructure'
 const areas = {}
 for (const f of scout.srcFiles) {
@@ -390,7 +390,7 @@ for (const [area, files] of Object.entries(areas)) {
     filename: `10-truthfulness-${area}.md`,
     prompt: `You are a code-truthfulness auditor for SonOfLeo.
 
-YOUR SCOPE — these source files (plus ${REPO}/DbMigrations/ where relevant):
+YOUR SCOPE — these source files (plus ${REPO}/DbMigration/Scripts/ where relevant):
 ${files.map(f => `- ${REPO}/${f}`).join('\n')}
 
 ${CONTEXT}
@@ -483,7 +483,7 @@ ${CONTEXT}
 READ FIRST:
 - Weekly routine: /home/dan/.claude/skills/leobloom:saturday/SKILL.md
 - Real usage data: ${REPO}/HobsonsNotes/cli-requirements-from-leobloom-usage.md
-- Current CLI: ${REPO}/Src/SonOfLeoCli/ and ${REPO}/Src/InterfaceBridge/InterfaceContracts/
+- Current CLI: ${REPO}/Src/Ui.OperatorCli/, ${REPO}/Src/Ui.ReportCli/ and ${REPO}/Src/Ui.InterfaceBridge/InterfaceContracts/
 - ${REPO}/Specs/Behavioral/NonGraphicalInterface.md
 
 JUDGE AGAINST THREE HORIZONS:
@@ -509,7 +509,8 @@ ${CONTEXT}
 
 READ: Specs/Behavioral/ (JournalEntryCrud.md, AccountCrud.md, FiscalPeriodCrud.md,
 SystemWide.md, Money.md, DataIngestion.md), Specs/Definitions.md, and corresponding
-code in Src/Model/Ledger/, Src/Model/DataIngestion/, and Src/ModelOrchestrator/.
+code in Src/Business.FinancialServices.Ledger/, Src/Business.FinancialServices.DataIngestion/,
+and Src/Business.CrossDomainOrchestration/.
 
 EVALUATE:
 1. JOURNAL MODEL: entry/line/reference/comment design, balanced-entry invariant,
@@ -560,8 +561,8 @@ structural decisions that will hurt when the system grows.
 
 ${CONTEXT}
 
-READ: .fsproj files, ${REPO}/Src/ layout, ${REPO}/Src/InterfaceBridge/InterfaceContracts/,
-${REPO}/Src/DataAccessLayer/, DbMigrations/.
+READ: .fsproj files, ${REPO}/Src/ layout, ${REPO}/Src/Ui.InterfaceBridge/InterfaceContracts/,
+${REPO}/Src/App.DataAccessLayer/, ${REPO}/DbMigration/Scripts/.
 
 EVALUATE AGAINST WHAT'S COMING (staging domain, trial balance, period close, reporting,
 reconciliation, analytics):
