@@ -405,3 +405,11 @@ type AccountActivityTests(fixture: TestDataFixture) =
         match result with
         | Ok activities -> Assert.Empty(activities)
         | Error e -> Assert.Fail(e.ToMessage())
+
+    // =========================================================================
+    // Plan defects 8–17 (2026-09-27)
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-SYS-1.4 account activity description filter returns every record containing search text with a literal %, _ or \ and no record lacking it`` () =
+        Assert.Fail "not implemented"

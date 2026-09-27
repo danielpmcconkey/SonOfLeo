@@ -85,3 +85,19 @@ type JournalEntryCommentOrchestrationTests(fixture: TestDataFixture) =
                     NoChange
             isCorrectErrorEmpty result JournalEntryCommentUpdateNoOp None)
         |> railroadWrapper
+
+    // =========================================================================
+    // Plan defects 8–17 (2026-09-27)
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-SYS-6.2 updating a journal entry comment by an ID no comment holds fails with a typed not-found error naming the kind of record and the ID`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-SYS-6.3 re-pointing a comment's secondary journal entry to an ID no journal entry holds fails with a typed not-found error naming the missing referent, and nothing is written or changed`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-SYS-6.3 creating a comment whose secondary journal entry does not exist fails with a typed not-found error naming the missing referent, and nothing is written or changed`` () =
+        Assert.Fail "not implemented"

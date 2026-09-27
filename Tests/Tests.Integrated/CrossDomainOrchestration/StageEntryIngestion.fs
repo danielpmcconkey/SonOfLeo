@@ -796,3 +796,15 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 Assert.NotEmpty(secondResult.newDuplicates)
             })
         |> railroadWrapper
+
+    // =========================================================================
+    // Plan defects 8–17 (2026-09-27)
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-STG-2.28 creating an ingestion source with a name an existing source already holds is rejected with a typed error naming that name, and the existing source stays its only holder`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-2.28 a direct insert of an ingestion source whose name another source holds violates the unique constraint on name, and that name still has exactly one source`` () =
+        Assert.Fail "not implemented"

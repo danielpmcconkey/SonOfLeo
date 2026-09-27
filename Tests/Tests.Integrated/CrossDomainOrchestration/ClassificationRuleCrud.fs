@@ -777,3 +777,31 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 Assert.Equal(created |> ClassificationRule.createdAt, updated |> ClassificationRule.createdAt)
             })
         |> railroadWrapper
+
+    // =========================================================================
+    // Plan defects 8–17 (2026-09-27)
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-CR-1.26 creating a rule whose Source, Description or Memo pattern is not a valid regular expression is rejected with a typed error naming the pattern, and no rule is written`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-CR-1.26 updating a rule's Source, Description or Memo pattern to one that is not a valid regular expression is rejected with a typed error naming the pattern, and the stored rule keeps its old pattern`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-CR-1.26 reading a stored rule whose Source, Description or Memo pattern is not a valid regular expression fails with a typed error naming the rule and the pattern`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-SYS-1.4 classification rule name filter returns every record containing search text with a literal %, _ or \ and no record lacking it`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-SYS-1.4 classification rule source filter returns every record containing search text with a literal %, _ or \ and no record lacking it`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-SYS-6.2 updating a classification rule by an ID no rule holds fails with a typed not-found error naming the kind of record and the ID`` () =
+        Assert.Fail "not implemented"

@@ -675,3 +675,39 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             return ()
         }
         |> railroadWrapper
+
+    // =========================================================================
+    // Plan defects 8–17 (2026-09-27)
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-STG-3.12 an ingestion that fails after some of its entries were written leaves the file in the import directory and stages none of its entries`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-3.12 when the entries commit but the file cannot be moved, the ingestion fails with the staged-but-not-moved error naming the file and telling the operator to move it by hand, the entries stay staged, and the file stays in the import directory`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-3.12 a successful ingestion leaves its entries staged and the file only in the processed directory, named with its original name prefixed by the ingestion timestamp as yyyy-MM-dd.HHmmss.fff-`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-6.2.1 a manual update payload naming change mechanism Classifier or Deduplicator still records its status change as Operator`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-3.2 REQ-STG-3.2.1 a file mixing valid and invalid records is rejected with one error listing every failing record, and only those, by line number, group_id and violation`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-3.2.1 a line that is not valid JSON is reported by its line number alongside every other failing record, not instead of them`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-3.2.1 line numbers in a rejection count blank lines, so each matches the line an editor shows`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-3.2.1 a group that fails a group-level check is reported with its group_id and the check it failed, alongside every failing record in the same file`` () =
+        Assert.Fail "not implemented"

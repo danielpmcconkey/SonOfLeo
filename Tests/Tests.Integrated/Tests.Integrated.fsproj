@@ -30,6 +30,7 @@
     <Compile Include="Model\Ledger\FiscalPeriod.fs" />
     <Compile Include="SharedTestDataCollection.fs" />
     <Compile Include="SonOfLeoCli\Program.fs" />
+    <Compile Include="SonOfLeoCli\Configuration.fs" />
     <Content Include="SonOfLeoCli\README.md" />
     <Compile Include="CrossDomainOrchestration\AccountDeactivation.fs" />
     <Compile Include="CrossDomainOrchestration\JournalEntryCreation.fs" />
@@ -59,6 +60,7 @@
     <Compile Include="CrossDomainOrchestration\ProjectionSweep.fs" />
     <Compile Include="CrossDomainOrchestration\DerivedInvoiceState.fs" />
     <Compile Include="CrossDomainOrchestration\CashFlowProjection.fs" />
+    <Compile Include="CrossDomainOrchestration\CashFlowMaintenance.fs" />
     <Compile Include="Model\Ledger\JournalEntryHeader.fs" />
     <Compile Include="Model\Ledger\JournalEntryExternalReference.fs" />
     <Compile Include="Model\Ledger\JournalEntryComment.fs" />

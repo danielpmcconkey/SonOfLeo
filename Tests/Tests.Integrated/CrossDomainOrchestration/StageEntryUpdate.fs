@@ -239,3 +239,27 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 Assert.Equal(Operator, latestTransition |> StageEntryStatusTransition.stageStatusChangeMechanism)
             })
         |> railroadWrapper
+
+    // =========================================================================
+    // Plan defects 8–17 (2026-09-27)
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-STG-6.2.1 every status transition the manual update makes, to each target status it allows, is recorded with change mechanism Operator and no other`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-SYS-6.2 updating a staged entry by an ID no entry holds fails with a typed not-found error naming the kind of record and the ID`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-SYS-6.2 updating a staged entry line by an ID no line holds fails with a typed not-found error naming the kind of record and the ID`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-4.1.2 a second status transition for a staged entry within one operation is rejected with a typed error, and the entry holds exactly one transition from that operation, the first`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-4.1.2 a second status transition for a staged entry within one operation is rejected even when the two transitions would carry different instants, and the entry keeps exactly one transition from that operation`` () =
+        Assert.Fail "not implemented"

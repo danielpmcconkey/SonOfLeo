@@ -35,3 +35,11 @@ type JournalEntryExternalReferenceOrchestrationTests(fixture: TestDataFixture) =
                     referenceId
             isCorrectErrorEmpty result JournalEntryReferenceUpdateNoOp None)
         |> railroadWrapper
+
+    // =========================================================================
+    // Plan defects 8–17 (2026-09-27)
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-SYS-6.2 updating a journal entry external reference by an ID no reference holds fails with a typed not-found error naming the kind of record and the ID`` () =
+        Assert.Fail "not implemented"

@@ -197,3 +197,18 @@ let ``whenNoRows swaps DalNoOp for the caller's domain error and passes every ot
     | Error (AsError (App.DataAccessLayer.DalError.DalResultantRowsDidntMatchExpectation (_, actual))) -> Assert.Equal(2, actual)
     | other -> Assert.Fail $"Expected the wrong-count error to pass through; got {other}"
 
+[<Fact>]
+let ``REQ-DAL-2.4 after every lookup cache has loaded, no session this process opened is idle in a transaction and the pool's in-use count is back where it started`` () =
+    Assert.Fail "not implemented"
+
+[<Fact>]
+let ``REQ-DAL-2.4 an operation that ends in a typed error mid-transaction rolls back, leaves no session idle in a transaction, and returns its connection to the pool`` () =
+    Assert.Fail "not implemented"
+
+[<Fact>]
+let ``REQ-DAL-2.4 an operation that throws mid-transaction rolls back, leaves no session idle in a transaction, and returns its connection to the pool`` () =
+    Assert.Fail "not implemented"
+
+[<Fact>]
+let ``REQ-DAL-2.4 running more failing operations than the pool holds connections never exhausts the pool`` () =
+    Assert.Fail "not implemented"

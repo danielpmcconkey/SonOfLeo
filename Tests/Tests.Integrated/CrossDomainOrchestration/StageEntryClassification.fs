@@ -279,3 +279,11 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                 Assert.Equal(Some fixture.Data.entertainment5650Id, idOfLineType Credit)
             })
         |> railroadWrapper
+
+    // =========================================================================
+    // Plan defects 8–17 (2026-09-27)
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-CR-1.26 a classification run whose valid pattern exceeds the match time limit on an entry fails with a typed error naming the rule, and raises no exception`` () =
+        Assert.Fail "not implemented"
