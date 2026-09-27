@@ -7,10 +7,7 @@ open Business.General
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.CrossDomainOrchestration
-open Ui.InterfaceBridge.InterfaceContracts.BalanceSheetIntegrityContracts
-open Ui.InterfaceBridge.InterfaceContracts.PeriodActivityContracts
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
-open Ui.InterfaceBridge.InterfaceContracts.ReconciliationContracts
 open App.Utility.Json.Json
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
@@ -292,6 +289,23 @@ type ReportRoutesTests(fixture: TestDataFixture) =
                 Assert.Equal(expected.netBalance |> Money.amount, row.ledgerBalance)
                 Assert.Equal(external - (expected.netBalance |> Money.amount), row.delta))
             return ()
+        }
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-RPT-4.3 an account code that resolves to no account fails with a typed error naming the code`` () =
+        let today = Calendar.today()
+        let input: ReconciliationInput =
+            { rows =
+                [ { accountCode = "F-5650"; externalBalance = 0.00M; asOf = today }
+                  { accountCode = "RC-9999"; externalBalance = 0.00M; asOf = today } ] }
+        result {
+            let! payload = input |> toJson<ReconciliationInput>
+            return!
+                match routeReportingCommandForTesting "Reconciliation" [] payload with
+                | Error (AsError (LedgerError.AccountCodeDoesntMatchAccountId code)) -> Assert.Equal("RC-9999", code); Ok ()
+                | Error e -> Error (TestingError $"Wrong error. {e.ToMessage()}")
+                | Ok _ -> Error (TestingError "Expected failure on an unknown account code; got success")
         }
         |> railroadWrapper
 

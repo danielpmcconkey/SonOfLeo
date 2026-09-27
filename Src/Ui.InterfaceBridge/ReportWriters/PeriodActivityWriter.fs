@@ -10,7 +10,6 @@ open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.CrossDomainOrchestration.PeriodActivity
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
-open Ui.InterfaceBridge.InterfaceContracts.PeriodActivityContracts
 open Ui.InterfaceBridge.ReportVisualizationAssets.HtmlComponents
 open Ui.InterfaceBridge.ReportVisualizationAssets.BaseCssDeclarations
 open Ui.InterfaceBridge.ReportVisualizationAssets.ReportBody

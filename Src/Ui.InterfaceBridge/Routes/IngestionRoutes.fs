@@ -19,9 +19,8 @@ open Business.CrossDomainOrchestration.TrialBalanceReport
 open Business.CrossDomainOrchestration.Reconciliation
 open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
 open Ui.InterfaceBridge.BoundaryConverters.IngestionFieldConverters
+open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Ui.InterfaceBridge.BoundaryConverters.ReportConverters
-open Ui.InterfaceBridge.InterfaceContracts.ReconciliationContracts
-open Ui.InterfaceBridge.BoundaryConverters.ReconciliationConverters
 open Ui.InterfaceBridge.CommandRoute
 
 let private ingestRawEntries payload _ =
@@ -196,10 +195,10 @@ let private post payload _ =
 let private shadowReconcile payload _ =
     result {
         let! input = Json.fromJson<ReconciliationInput> payload
-        let! requests = input |> ``convert [ReconciliationInput] to [ReconciliationRequest list]``
         return!
             runCommandRouteAndAutoRollback IngestShadowReconcile (fun context ->
                 result {
+                    let! requests = input |> ``convert [ReconciliationInput] to [(AccountId * Money * LocalDate) list]`` context
                     let! rows = requests |> reconcileAfterPostingStagedEntries context
                     return!
                         rows

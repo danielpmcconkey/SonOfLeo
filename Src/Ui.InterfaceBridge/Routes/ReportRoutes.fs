@@ -11,14 +11,8 @@ open App.Utility
 open Business.CrossDomainOrchestration.Reconciliation
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Ui.InterfaceBridge.BoundaryConverters.ReportConverters
-open Ui.InterfaceBridge.InterfaceContracts.ReconciliationContracts
-open Ui.InterfaceBridge.BoundaryConverters.ReconciliationConverters
 open Business.CrossDomainOrchestration.BalanceSheetIntegrity
-open Ui.InterfaceBridge.InterfaceContracts.BalanceSheetIntegrityContracts
-open Ui.InterfaceBridge.BoundaryConverters.BalanceSheetIntegrityConverters
 open Business.CrossDomainOrchestration.PeriodActivity
-open Ui.InterfaceBridge.InterfaceContracts.PeriodActivityContracts
-open Ui.InterfaceBridge.BoundaryConverters.PeriodActivityConverters
 open Ui.InterfaceBridge.ReportWriters
 open Ui.InterfaceBridge.CommandRoute
 
@@ -56,7 +50,7 @@ let private reconciliation payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
         let! input = Json.fromJson<ReconciliationInput> payload
-        let! requests = input |> ``convert [ReconciliationInput] to [ReconciliationRequest list]``
+        let! requests = input |> ``convert [ReconciliationInput] to [(AccountId * Money * LocalDate) list]`` context
         let! rows = requests |> reconcile context
         return!
             rows

@@ -40,7 +40,6 @@ open Business.FinancialServices.BizFinServError
 
 open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
-open Ui.InterfaceBridge.InterfaceContracts.ReconciliationContracts
 open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 
 /// What the single ingest route used to return, rebuilt from the three routes an operator now runs in its place.

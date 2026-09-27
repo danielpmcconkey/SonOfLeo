@@ -8,7 +8,6 @@ open App.Utility.Result
 open Business.FinancialServices
 open Business.CrossDomainOrchestration.BalanceSheetIntegrity
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
-open Ui.InterfaceBridge.InterfaceContracts.BalanceSheetIntegrityContracts
 open Ui.InterfaceBridge.ReportVisualizationAssets.HtmlComponents
 open Ui.InterfaceBridge.ReportVisualizationAssets.BaseCssDeclarations
 open Ui.InterfaceBridge.ReportVisualizationAssets.ReportBody

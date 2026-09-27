@@ -96,15 +96,20 @@ type ReconciliationTests(fixture: TestDataFixture) =
             return ledger
         }
 
-    let request code (externalBalance: decimal) asOf : Result<ReconciliationRequest, IAppError> =
+    /// Resolves each code through the context, so accounts this test created in its own transaction resolve too.
+    let requests (context: Context.Context) (raw: (string * decimal * NodaTime.LocalDate) list) =
         result {
-            let! accountCode = code |> AccountCode.create
-            let! external = externalBalance |> Money.fromDecimal
-            return { accountCode = accountCode; externalBalance = external; asOf = asOf }
+            let! accounts = Account.fetchAll context false
+            return!
+                raw
+                |> List.map (fun (code, external, asOf) ->
+                    result {
+                        let account = accounts |> List.find (fun a -> a |> Account.code |> AccountCode.value = code)
+                        let! externalBalance = external |> Money.fromDecimal
+                        return Account.accountId account, externalBalance, asOf
+                    })
+                |> convertListOfResultsToResultsList
         }
-
-    let requests (raw: (string * decimal * NodaTime.LocalDate) list) =
-        raw |> List.map (fun (code, external, asOf) -> request code external asOf) |> convertListOfResultsToResultsList
 
     let rowFor code (rows: ReconciliationRow list) =
         rows |> List.filter (fun row -> row.accountCode |> AccountCode.value = code)
@@ -129,7 +134,7 @@ type ReconciliationTests(fixture: TestDataFixture) =
     member _.``REQ-RPT-4.1 each input row comes back once with account code, account name, as-of date, external balance, ledger net balance and delta`` () =
         withLedger (fun context ledger ->
             result {
-                let! input = requests [ ledger.childCode, 104.25M, today; ledger.liabilityCode, 118.50M, yesterday ]
+                let! input = requests context [ ledger.childCode, 104.25M, today; ledger.liabilityCode, 118.50M, yesterday ]
                 let! rows = input |> reconcile context
                 Assert.Equal(2, rows |> List.length)
                 let child = rows |> rowFor ledger.childCode |> List.exactlyOne
@@ -151,7 +156,7 @@ type ReconciliationTests(fixture: TestDataFixture) =
         withLedger (fun context ledger ->
             result {
                 let! input =
-                    requests
+                    requests context
                         [ ledger.childCode, 110.00M, today
                           ledger.liabilityCode, 125.00M, today
                           ledger.parentCode, 130.00M, today ]
@@ -166,7 +171,7 @@ type ReconciliationTests(fixture: TestDataFixture) =
     member _.``REQ-RPT-4.2 a voided journal entry contributes nothing to the ledger balance`` () =
         withLedger (fun context ledger ->
             result {
-                let! input = requests [ ledger.childCode, 0.00M, today ]
+                let! input = requests context [ ledger.childCode, 0.00M, today ]
                 let! rows = input |> reconcile context
                 Assert.Equal(100.00M, rows |> ledgerBalanceOf ledger.childCode)
             })
@@ -175,8 +180,8 @@ type ReconciliationTests(fixture: TestDataFixture) =
     member _.``REQ-RPT-4.2 an entry dated on the as-of date counts and one dated after it does not`` () =
         withLedger (fun context ledger ->
             result {
-                let! asOfYesterday = requests [ ledger.parentCode, 0.00M, yesterday ]
-                let! asOfToday = requests [ ledger.parentCode, 0.00M, today ]
+                let! asOfYesterday = requests context [ ledger.parentCode, 0.00M, yesterday ]
+                let! asOfToday = requests context [ ledger.parentCode, 0.00M, today ]
                 let! rowsYesterday = asOfYesterday |> reconcile context
                 let! rowsToday = asOfToday |> reconcile context
                 // yesterday's entry counts on its own date; today's does not count as of yesterday
@@ -188,7 +193,7 @@ type ReconciliationTests(fixture: TestDataFixture) =
     member _.``REQ-RPT-4.2 the ledger balance is debits minus credits for a debit-normal account and credits minus debits for a credit-normal one`` () =
         withLedger (fun context ledger ->
             result {
-                let! input = requests [ ledger.childCode, 0.00M, today; ledger.liabilityCode, 0.00M, today ]
+                let! input = requests context [ ledger.childCode, 0.00M, today; ledger.liabilityCode, 0.00M, today ]
                 let! rows = input |> reconcile context
                 Assert.Equal(100.00M, rows |> ledgerBalanceOf ledger.childCode)
                 Assert.Equal(130.00M, rows |> ledgerBalanceOf ledger.liabilityCode)
@@ -198,7 +203,7 @@ type ReconciliationTests(fixture: TestDataFixture) =
     member _.``REQ-RPT-4.2 a parent account's ledger balance includes its descendants`` () =
         withLedger (fun context ledger ->
             result {
-                let! input = requests [ ledger.parentCode, 0.00M, today ]
+                let! input = requests context [ ledger.parentCode, 0.00M, today ]
                 let! rows = input |> reconcile context
                 Assert.Equal(130.00M, rows |> ledgerBalanceOf ledger.parentCode)
             })
@@ -207,22 +212,10 @@ type ReconciliationTests(fixture: TestDataFixture) =
     member _.``REQ-RPT-4.2 rows in one request with different as-of dates are each computed as of their own date`` () =
         withLedger (fun context ledger ->
             result {
-                let! input = requests [ ledger.parentCode, 0.00M, yesterday; ledger.liabilityCode, 0.00M, today ]
+                let! input = requests context [ ledger.parentCode, 0.00M, yesterday; ledger.liabilityCode, 0.00M, today ]
                 let! rows = input |> reconcile context
                 Assert.Equal(100.00M, rows |> ledgerBalanceOf ledger.parentCode)
                 Assert.Equal(130.00M, rows |> ledgerBalanceOf ledger.liabilityCode)
-            })
-
-    [<Fact>]
-    member _.``REQ-RPT-4.3 an account code that resolves to no account fails with a typed error naming the code`` () =
-        withLedger (fun context ledger ->
-            result {
-                let! input = requests [ ledger.childCode, 0.00M, today; "RC-9999", 0.00M, today ]
-                return!
-                    match input |> reconcile context with
-                    | Error (AsError (ReconciliationAccountCodeNotFound code)) -> Assert.Equal("RC-9999", code); Ok ()
-                    | Error e -> Error (TestingError $"Wrong error. {e.ToMessage()}")
-                    | Ok _ -> Error (TestingError "Expected failure on an unknown account code; got success")
             })
 
     [<Fact>]
@@ -230,9 +223,9 @@ type ReconciliationTests(fixture: TestDataFixture) =
         withLedger (fun context ledger ->
             result {
                 let! input =
-                    requests
-                        [ ledger.childCode, 100.00M, today
-                          ledger.liabilityCode, 0.00M, today
+                    requests context
+                        [ ledger.liabilityCode, 0.00M, today
+                          ledger.childCode, 100.00M, today
                           ledger.childCode, 100.00M, yesterday ]
                 return!
                     match input |> reconcile context with
@@ -254,7 +247,7 @@ type ReconciliationTests(fixture: TestDataFixture) =
                 let! credit = StageTestData.makeRawRow context "grp-rc-shadow" today "Reconciliation shadow" "TestBank" "REF-RC-SHADOW-001" 40.00M "Credit" (Some ledger.liabilityCode) None
                 let! staged = [ debit; credit ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile
                 Assert.Equal(Classified, staged.stagedEntries |> List.exactlyOne |> StageTestData.latestStatus)
-                let! input = requests [ ledger.childCode, 0.00M, today; ledger.parentCode, 0.00M, today ]
+                let! input = requests context [ ledger.childCode, 0.00M, today; ledger.parentCode, 0.00M, today ]
                 let! rows = input |> reconcileAfterPostingStagedEntries (context |> Context.updateInitiationInstant)
                 Assert.Equal(140.00M, rows |> ledgerBalanceOf ledger.childCode)
                 Assert.Equal(170.00M, rows |> ledgerBalanceOf ledger.parentCode)
@@ -294,7 +287,7 @@ type ReconciliationTests(fixture: TestDataFixture) =
                         let amount = line |> StageEntryLine.amount |> Money.amount
                         if line |> StageEntryLine.lineType = Debit then amount else -amount)
                 Assert.True(expectedMovement >= 21.40M, "The entry this test staged is not postable.")
-                let! input = requests [ accountCode, 0.00M, today ]
+                let! input = requests (fetchOnly ()) [ accountCode, 0.00M, today ]
                 let! before = input |> reconcile (fetchOnly ())
                 let! shadow =
                     runCommandRouteAndAutoRollback IngestShadowReconcile (fun context ->
@@ -333,7 +326,7 @@ type ReconciliationTests(fixture: TestDataFixture) =
                 let! debit = StageTestData.makeRawRow context "grp-rc-closed" closedPeriodDate "Reconciliation closed period" "TestBank" "REF-RC-CLOSED-001" 50.00M "Debit" (Some "F-5350") None
                 let! credit = StageTestData.makeRawRow context "grp-rc-closed" closedPeriodDate "Reconciliation closed period" "TestBank" "REF-RC-CLOSED-001" 50.00M "Credit" (Some "F-1270") None
                 let! _ = [ debit; credit ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile
-                let! input = requests [ ledger.childCode, 0.00M, today ]
+                let! input = requests context [ ledger.childCode, 0.00M, today ]
                 return!
                     match input |> reconcileAfterPostingStagedEntries (context |> Context.updateInitiationInstant) with
                     | Error (AsError (JournalEntryHeaderEntryDateInvalid _)) -> Ok ()

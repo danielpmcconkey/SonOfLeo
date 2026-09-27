@@ -1,8 +1,15 @@
 module Ui.InterfaceBridge.BoundaryConverters.ReportConverters
 
+open NodaTime
+open App.Utility.IAppError
+open App.Utility.Result
+open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.CrossDomainOrchestration.TrialBalanceReport
+open Business.CrossDomainOrchestration.BalanceSheetIntegrity
+open Business.CrossDomainOrchestration.PeriodActivity
+open Business.CrossDomainOrchestration.Reconciliation
 open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Business.FinancialServices.Ledger.JournalEntryComponent
@@ -10,6 +17,7 @@ open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.Classification.ClassificationComponent
 open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.CrossDomainOrchestration.PrePostingReview
+open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
 
 let ``convert [TrialBalanceRowFlattened] to [TrialBalanceReturnRow]``
     (flattenedRow: TrialBalanceRowFlattened)
@@ -57,3 +65,60 @@ let ``convert [PrePostingEntry list] to [PrePostingEntryReturnRow list]``
           fiReference = e.fiReference |> JournalExternalReferenceText.value
           status = e.status |> StagedEntryStatus.toString
           lines = e.lines |> List.map convertLine })
+
+/// Resolves each row's account code to its account, failing with the code of the first that resolves to none.
+let ``convert [ReconciliationInput] to [(AccountId * Money * LocalDate) list]``
+    (context: Context.Context)
+    (input: ReconciliationInput)
+    : Result<(AccountId * Money.Money * LocalDate) list, IAppError> =
+    input.rows
+    |> List.map (fun inputRow ->
+        result {
+            let! accountId = inputRow.accountCode |> fallibleConverterAccountCodeToAccountId context
+            let! externalBalance = inputRow.externalBalance |> Money.fromDecimal
+            return accountId, externalBalance, inputRow.asOf
+        })
+    |> convertListOfResultsToResultsList
+
+let ``convert [ReconciliationRow] to [ReconciliationReturnRow]``
+    (row: ReconciliationRow)
+    : ReconciliationReturnRow =
+    { accountCode = row.accountCode |> AccountCode.value
+      accountName = row.accountName |> AccountName.value
+      asOf = row.asOf
+      externalBalance = row.externalBalance |> Money.amount
+      ledgerBalance = row.ledgerBalance |> Money.amount
+      delta = row.delta |> Money.amount }
+
+let ``convert [BalanceSheetIntegrity] to [BalanceSheetIntegrityReturnRow]``
+    (integrity: BalanceSheetIntegrity)
+    : BalanceSheetIntegrityReturnRow =
+    { asOf = integrity.asOf
+      totalDebits = integrity.totalDebits |> Money.amount
+      totalCredits = integrity.totalCredits |> Money.amount
+      debitsEqualCredits = integrity.debitsEqualCredits
+      assets = integrity.assets |> Money.amount
+      liabilities = integrity.liabilities |> Money.amount
+      equity = integrity.equity |> Money.amount
+      revenue = integrity.revenue |> Money.amount
+      expenses = integrity.expenses |> Money.amount
+      netIncome = integrity.netIncome |> Money.amount
+      residual = integrity.residual |> Money.amount }
+
+let ``convert [PeriodActivityLine] to [PeriodActivityLineReturnRow]``
+    (line: PeriodActivityLine)
+    : PeriodActivityLineReturnRow =
+    { entryDate = line.entryDate
+      journalEntryId = line.journalEntryId |> JournalEntryHeaderId.value
+      description = line.description |> JournalEntryDescription.value
+      lineType = line.lineType |> JournalEntryLineType.toString
+      amount = line.amount |> Money.amount
+      memo = line.memo |> Option.map JournalEntryLineMemo.value }
+
+let ``convert [PeriodActivityAccount] to [PeriodActivityAccountReturnRow]``
+    (account: PeriodActivityAccount)
+    : PeriodActivityAccountReturnRow =
+    { accountCode = account.accountCode |> AccountCode.value
+      accountName = account.accountName |> AccountName.value
+      netTotal = account.netTotal |> Money.amount
+      lines = account.lines |> List.map ``convert [PeriodActivityLine] to [PeriodActivityLineReturnRow]`` }

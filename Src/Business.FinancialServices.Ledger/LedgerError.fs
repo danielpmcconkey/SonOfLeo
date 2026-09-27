@@ -74,7 +74,6 @@ type LedgerError =
     | JournalRefFinancialInstitutionIsEmpty of string
     | JournalRefFinancialInstitutionTooLong of string * int
     | ReconciliationAccountCodeGivenTwice of string
-    | ReconciliationAccountCodeNotFound of string
     
     interface IAppError with
         member this.DomainName = nameof LedgerError
@@ -155,7 +154,6 @@ type LedgerError =
             | JournalRefFinancialInstitutionIsEmpty fi -> $"Journal Entry External Reference's Financial Institution cannot be empty. Provided string is {fi}."
             | JournalRefFinancialInstitutionTooLong (fi, max) -> $"Journal Entry External Reference's Financial Institution cannot exceed {max} characters. Provided string is {fi}."
             | ReconciliationAccountCodeGivenTwice code -> $"Reconciliation input gives account code {code} more than once."
-            | ReconciliationAccountCodeNotFound code -> $"Reconciliation input account code {code} does not resolve to an existing account."
 
 let toMessage (e: LedgerError) = (e :> IAppError).ToMessage()
 let toAppError (e: LedgerError) : IAppError = e :> IAppError
