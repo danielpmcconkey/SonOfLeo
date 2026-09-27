@@ -139,14 +139,14 @@ the Base Up" principle in `Architecture/SonOfLeo.archimate` — the model is the
 
 ```
 Dan              ← highest
-Hobson           ← second
-Import script    ← deterministic, writes only what it KNOWS
-Classifier       ← lowest, probabilistic
+Operator         ← second
+Import script    ← deterministic, external; writes only what it KNOWS
+Business logic   ← lowest (the classifier, matching)
 ```
 
 A value set by a higher authority is never re-evaluated or overridden by a lower authority.
 If an import script sets an account code (because it knows with certainty), the classifier
-does not get to re-classify that line. If Dan manually corrected a value, no automated
+does not get to re-classify that line. If Dan or the operator set a value, no automated
 process touches it.
 
 **How to check:**

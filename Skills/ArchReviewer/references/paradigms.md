@@ -117,8 +117,9 @@ value types (`InvoiceLifeCycleState`, `MoneySearchPattern`).
 **What does not go in:** entity types, persistence, composite types, business logic beyond
 constructors.
 
-Component files compile before entity files in the `.fsproj`. This lets entity files reference
-any value type from any domain.
+Within its domain, the component file compiles before the entity files. An entity file may
+reference value types from its own domain and lower ones, never a higher domain — see "Domains
+Build Upward" in `Architecture/SonOfLeo.archimate`.
 
 ---
 
