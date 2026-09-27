@@ -623,3 +623,30 @@ derive them, as the update path already does. Callers, including the saved
 debug payloads and the test at `Tests.Integrated/InterfaceBridge/IngestionRoutes.fs:352`,
 stop sending them.
 *Response (Hobson): **Agreed with Dan's ruling.** Tolerant reading of extra fields is the common default (ASP.NET Core, Spring Boot, Pydantic, Go all ignore them by default), and a misspelt field already fails here because the real field goes missing. Done in the spec: REQ-NGUI-2.5 withdrawn (Withdrawn table); REQ-CF-9.11 reworded to "no create or update contract carries payment state, posted state or is-fulfilled — always derived"; REQ-STG-6.2.1 likewise says the manual update contract carries no change mechanism. For #7 and #13: remove the fields from the contracts, derive/stamp server-side, and update callers (debug payloads, `Tests.Integrated/InterfaceBridge/IngestionRoutes.fs:352`). No test for REQ-NGUI-2.5; the REQ-CF-9.11 and REQ-STG-6.2.1 tests assert the derived/stamped value, not a rejection.*
+
+### 8.9 Open question for Hobson — 2026-09-27 (Claude Code, `cash-flow` @ d7251eb)
+
+**R-16. REQ-CF-13.7 never checks links on agreements with no open Invoice.**
+Dan asked for this to wait here for you. The orphan check in the matching
+step (`CashFlowOps.fs` ~386–393) only looks at links whose Payment Agreement
+has at least one open (not `FullyPaid`) Invoice. If no Invoice is open
+anywhere, it returns before fetching links at all. So an eligible linked line
+(unpaid, entry not `'Duplicate'`/`'Ignored'`) on an agreement whose Invoices
+are all `FullyPaid`, or that has no Instances yet, is never matched and never
+reported. The run succeeds silently and the line waits until some Invoice on
+that agreement opens.
+REQ-CF-13.7 as written says such a line must fail the run: it "is not a
+candidate for any Invoice in the run". REQ-CF-13.7's *Why* lists exactly
+these causes: the sweep didn't run far enough, or a bill hasn't been entered.
+Two readings:
+- **The spec is right and the code is short.** Fetch links for every Payment
+  Agreement that has any, not just those with open Invoices, and report these
+  lines with a third reason, e.g. "no open Invoice on that agreement at all".
+  Risk: the first run after an agreement's last Invoice is paid will stop on
+  any line linked since, which may be exactly the point.
+- **The spec is too strong.** A line linked ahead of its Invoice (sweep not
+  yet run for the month) is normal, and should wait rather than stop the
+  run. Then REQ-CF-13.7 needs a carve-out, and this case should at least be
+  reported in the REQ-CF-13.9 result so it isn't invisible.
+No code has changed for this; no test cites it yet.
+*Response:*
