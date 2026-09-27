@@ -45,8 +45,13 @@ let createDbTransaction () : Result<DbTransaction, IAppError> =
         return!
             try
                 let connection = ds.OpenConnection()
-                let transaction = connection.BeginTransaction()
-                Ok { npgTranAndConn = Some { connection = connection; transaction = transaction } }
+                try
+                    let transaction = connection.BeginTransaction()
+                    Ok { npgTranAndConn = Some { connection = connection; transaction = transaction } }
+                with _ ->
+                    // the connection opened but no transaction holds it, so nothing else would ever release it
+                    connection.Dispose()
+                    reraise()
             with ex ->
                 Error(DalErrorDuringTransactionCreation ex)
     }

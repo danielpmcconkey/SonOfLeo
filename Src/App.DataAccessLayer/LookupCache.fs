@@ -2,6 +2,7 @@ module App.DataAccessLayer.LookupCache
 
 open System
 open App.Utility.IAppError
+open App.Utility.Result
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.DbTransaction
 open App.DataAccessLayer.QueryParameter
@@ -45,9 +46,17 @@ let private mapRawForDbRead (fieldNameId: string) (fieldNameKey: string) (row: R
     id, key
     
 let private fetchAll table keyColumn =
-  let tran = createDbTransaction() |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
-  executeReaderQuery tran $"select unique_id, {keyColumn} from {table}" []
-      (mapRawForDbRead "unique_id" keyColumn) reconstitute AnyQuantityIsAcceptable
+  result {
+      let! tran = createDbTransaction()
+      let rows =
+          try
+              executeReaderQuery tran $"select unique_id, {keyColumn} from {table}" []
+                  (mapRawForDbRead "unique_id" keyColumn) reconstitute AnyQuantityIsAcceptable
+          finally
+              // the read changes nothing, so rolling back only ends the transaction and releases its connection
+              tran |> rollback |> ignore
+      return! rows
+  }
 
 let private fetchOne table keyColumn whereColumn paramValue dbTransaction =
   executeReaderQuery dbTransaction

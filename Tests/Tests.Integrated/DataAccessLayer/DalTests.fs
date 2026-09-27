@@ -197,18 +197,114 @@ let ``whenNoRows swaps DalNoOp for the caller's domain error and passes every ot
     | Error (AsError (App.DataAccessLayer.DalError.DalResultantRowsDidntMatchExpectation (_, actual))) -> Assert.Equal(2, actual)
     | other -> Assert.Fail $"Expected the wrong-count error to pass through; got {other}"
 
+(* REQ-DAL-2.4 is read from two places. The server says whether a transaction was left open: a session that ran a
+   statement and never ended its transaction sits in pg_stat_activity as 'idle in transaction'. ConnectionPool says
+   whether the connection came back to the pool. Tests run one at a time, so nothing else holds a connection while
+   these read. *)
+
+let private connectionsInUse = App.DataAccessLayer.ConnectionPool.connectionsInUse
+
+let private poolMaximum () : int64 =
+    App.DataAccessLayer.ConnectionPool.maximumConnections ()
+    |> Option.defaultWith (fun () -> failwith "no connection pool has been built yet")
+
+let private sessionsIdleInTransaction () : Result<int64, IAppError> =
+    let context = Context.create NoTransaction FetchOnly
+    executeScalar
+        (context |> Context.getDatabaseTransaction)
+        """
+        select count(*) from pg_stat_activity
+        where datname = current_database() and state = 'idle in transaction' and pid <> pg_backend_pid()
+        """
+        []
+        longUnboxing
+
+let private probeTable = "public.dal_2_4_probe"
+
+let private probeTableExists () : Result<bool, IAppError> =
+    let context = Context.create NoTransaction FetchOnly
+    executeScalar
+        (context |> Context.getDatabaseTransaction)
+        $"select to_regclass('{probeTable}') is not null"
+        []
+        (fun raw -> Ok (unbox<bool> raw))
+
+// the probe table is created inside the transaction, so it exists afterwards only if the transaction committed
+let private createProbeTable (context: Context.Context) : Result<unit, IAppError> =
+    executeNonQuery
+        (context |> Context.getDatabaseTransaction)
+        $"create table {probeTable} (x int)"
+        []
+        AnyQuantityIsAcceptable
+    |> Result.map ignore
+
+let private failWithTypedError (context: Context.Context) : Result<unit, IAppError> =
+    result {
+        do! createProbeTable context
+        return! Error (TestingError "typed failure mid-transaction")
+    }
+
+let private failByThrowing (context: Context.Context) : Result<unit, IAppError> =
+    result {
+        do! createProbeTable context
+        return failwith "thrown mid-transaction"
+    }
+
+let private confirmReleased (inUseBefore: int64) : Result<unit, IAppError> =
+    result {
+        let! idle = sessionsIdleInTransaction()
+        Assert.Equal(0L, idle)
+        Assert.Equal(inUseBefore, connectionsInUse())
+        let! probeExists = probeTableExists()
+        Assert.False(probeExists, "the probe table exists, so the transaction committed instead of rolling back")
+    }
+
 [<Fact>]
 let ``REQ-DAL-2.4 after every lookup cache has loaded, no session this process opened is idle in a transaction and the pool's in-use count is back where it started`` () =
-    Assert.Fail "not implemented"
+    let inUseBefore = connectionsInUse()
+    // naming each cache forces the module to load all nine
+    let caches : obj list =
+        [ box App.DataAccessLayer.LookupCache.accountCodeToId
+          box App.DataAccessLayer.LookupCache.accountIdToCode
+          box App.DataAccessLayer.LookupCache.accountIdToName
+          box App.DataAccessLayer.LookupCache.fiscalPeriodKeyToId
+          box App.DataAccessLayer.LookupCache.fiscalPeriodIdToKey
+          box App.DataAccessLayer.LookupCache.masterAgreementNameToId
+          box App.DataAccessLayer.LookupCache.masterAgreementIdToName
+          box App.DataAccessLayer.LookupCache.paymentAgreementNameToId
+          box App.DataAccessLayer.LookupCache.paymentAgreementIdToName ]
+    Assert.All(caches, fun cache -> Assert.NotNull cache)
+    result {
+        let! idle = sessionsIdleInTransaction()
+        Assert.Equal(0L, idle)
+        Assert.Equal(inUseBefore, connectionsInUse())
+    }
+    |> railroadWrapper
 
 [<Fact>]
 let ``REQ-DAL-2.4 an operation that ends in a typed error mid-transaction rolls back, leaves no session idle in a transaction, and returns its connection to the pool`` () =
-    Assert.Fail "not implemented"
+    let inUseBefore = connectionsInUse()
+    match Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoCompleteTransaction FetchOnly failWithTypedError with
+    | Error (AsError (TestingError message)) -> Assert.Equal("typed failure mid-transaction", message)
+    | other -> Assert.Fail $"Expected the operation's own typed error; got {other}"
+    confirmReleased inUseBefore |> railroadWrapper
 
 [<Fact>]
 let ``REQ-DAL-2.4 an operation that throws mid-transaction rolls back, leaves no session idle in a transaction, and returns its connection to the pool`` () =
-    Assert.Fail "not implemented"
+    let inUseBefore = connectionsInUse()
+    match Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoCompleteTransaction FetchOnly failByThrowing with
+    | Error (AsError (DalErrorDuringAutoCompleteTransactionRun ex)) -> Assert.Equal("thrown mid-transaction", ex.Message)
+    | other -> Assert.Fail $"Expected the thrown exception wrapped as a typed error; got {other}"
+    confirmReleased inUseBefore |> railroadWrapper
 
 [<Fact>]
 let ``REQ-DAL-2.4 running more failing operations than the pool holds connections never exhausts the pool`` () =
-    Assert.Fail "not implemented"
+    let inUseBefore = connectionsInUse()
+    let operations = int (poolMaximum()) + 5
+    for i in 1 .. operations do
+        let operation = if i % 2 = 0 then failWithTypedError else failByThrowing
+        match Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoCompleteTransaction FetchOnly operation with
+        | Error (AsError (TestingError _))
+        | Error (AsError (DalErrorDuringAutoCompleteTransactionRun _)) -> ()
+        | other -> Assert.Fail $"Operation {i} of {operations} should have failed with its own error; got {other}"
+    confirmReleased inUseBefore |> railroadWrapper
