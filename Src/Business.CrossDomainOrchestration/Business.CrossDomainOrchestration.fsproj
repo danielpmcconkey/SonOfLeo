@@ -30,7 +30,6 @@
     <Compile Include="JournalEntryLineOrchestration.fs" />
     <Compile Include="JournalEntryHeaderOrchestration.fs" />
     <Compile Include="JournalEntryOrchestration.fs" />
-    <Compile Include="JournalEntryVoiding.fs" />
     <Compile Include="TrialBalance.fs" />
     <Compile Include="ClassificationOrchestration.fs" />
     <Compile Include="StageEntryOrchestration.fs" />
@@ -38,6 +37,7 @@
     <Compile Include="InstanceOrchestration.fs" />
     <Compile Include="AgreementOrchestration.fs" />
     <Compile Include="CashFlowOps.fs" />
+    <Compile Include="JournalEntryVoiding.fs" />
   </ItemGroup>
 
 </Project>

@@ -94,10 +94,16 @@ let applyFieldUpdates (fieldUpdates: PaymentFieldUpdates) (payment: Payment) : R
                 Error(
                     CashflowInvalidPaymentTransactionPointerRow
                         "neither journal_entry_line_id nor stage_entry_line_id was set; at least one must be set.")
+        // the ledger date is read from the journal entry the pointer names, so a pointer back to a staged line has none
+        let postedToLedgerDate =
+            match transactionPointer with
+            | CashFlowComponent.Staged _ -> None
+            | CashFlowComponent.Posted _ -> payment.postedToLedgerDate
         return
             { payment with
                 transactionPointer = transactionPointer
                 postedToFiDate = postedToFiDate
+                postedToLedgerDate = postedToLedgerDate
                 memo = fieldUpdates.memoUpdate |> FieldUpdate.valueOrCurrent payment.memo }
     }
 
@@ -273,6 +279,22 @@ let fetchByInvoiceIdList
     let names = namesAndParameters |> List.map fst |> String.concat ", "
     let parameters = namesAndParameters |> List.map snd
     let predicate = $"pmt.invoice_id in ({names})"
+    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
+
+/// fetchByJournalEntryLineIdList returns every Payment whose pointer names one of the given journal entry lines.
+let fetchByJournalEntryLineIdList
+    (context: Context.Context)
+    (lineIds: JournalEntryLineId list)
+    : Result<Payment list, IAppError> =
+    if lineIds |> List.isEmpty then Ok [] else
+    let namesAndParameters =
+        List.zip [ 1 .. lineIds.Length ] lineIds
+        |> List.map (fun (ordinal, id) ->
+            let name = $"@journalEntryLineId{ordinal}"
+            name, { name = name; value = UniqueId(id |> JournalEntryLineId.value) })
+    let names = namesAndParameters |> List.map fst |> String.concat ", "
+    let parameters = namesAndParameters |> List.map snd
+    let predicate = $"pmt.journal_entry_line_id in ({names})"
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
 let fetchByStagedTransactionPointer (context: Context.Context) : Result<Payment list, IAppError> =
