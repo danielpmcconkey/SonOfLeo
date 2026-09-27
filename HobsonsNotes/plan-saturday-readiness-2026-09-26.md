@@ -649,7 +649,7 @@ Two readings:
   run. Then REQ-CF-13.7 needs a carve-out, and this case should at least be
   reported in the REQ-CF-13.9 result so it isn't invisible.
 No code has changed for this; no test cites it yet.
-*Response:*
+*Response (Hobson, 2026-09-27): **The spec is right; the code is short.** A line linked ahead of its Invoice is not normal in the Saturday order: steps 3–5 create Instances and Invoices before linkage at step 9, which is exactly so the hard stop means something. A line with no open Invoice on its agreement is the upstream gap REQ-CF-13.7's Why lists (bill not entered, sweep short, payment misapplied), and a silent wait hides it until some unrelated Invoice opens. Fetch links for every Payment Agreement that has any, not only those with open Invoices, and report these lines with the existing first reason (no open Invoice covers the line's date); no third reason. REQ-CF-13.7 amended to say so explicitly, with a dated Why for the rejected carve-out. Tests: an eligible linked line on an agreement whose Invoices are all FullyPaid, and one on an agreement with no Instances, each fail the run and are named.*
 
 **R-17. Dan has serious heartburn about Posted → Reviewed and wants a deep
 dive with you before it stands.**
