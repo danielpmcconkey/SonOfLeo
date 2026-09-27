@@ -79,15 +79,15 @@ The spending view: what came in and what went out over a date range, with the tr
 What is about to post, line by line, with how each line was classified and what obligation it pays. Saturday fixes errors before they post (DataIngestion REQ-STG-4.2); this is where the operator sees them.
 
 - **REQ-RPT-7.1** The system must provide a pre-posting review computation covering every postable staged entry (DataIngestion REQ-STG-4.4): exactly the entries batch post would post if run now. It takes no date range.
-  - *Why:* The review must show the whole of what the next post will write, no more and no less. (2026-09-27)
-- **REQ-RPT-7.2** For each entry it returns: entry date, description, source name, fi_reference, status (`'Classified'` or `'Reviewed'`), total debits, total credits, and whether they are equal. Then each of its lines, debits before credits, each carrying: line type, amount, memo, account code and account name.
-  - *Why:* Status separates what the classifier decided from what the operator decided. The totals show an entry that will fail posting before posting is tried. (2026-09-27)
+  - *Why:* The review must show the whole of what the next post will write, no more and no less. It is for the operator's judgment, so it runs after shadow post and reconciliation come back clean (DataIngestion §8, §4 here): mechanical failures are fixed before anyone reads the list. (2026-09-27)
+- **REQ-RPT-7.2** For each entry it returns: entry date, description, source name, fi_reference, and status (`'Classified'` or `'Reviewed'`). Then each of its lines, debits before credits, each carrying: line type, amount, memo, account code and account name.
+  - *Why:* Status separates what the classifier decided from what the operator decided. Balance is not shown: shadow post has already proved every entry balances. (2026-09-27)
 - **REQ-RPT-7.3** Each line also carries the name of the classification rule that gave it its account: the rule recorded against the line in the most recent classification run that evaluated it (DataIngestion REQ-STG-5.10) whose account is the line's current account. When no such rule exists (the account came from the parser or the operator), the field is empty.
   - *Why:* A wrong account is usually a wrong rule. Naming the rule means fixing it once, not correcting the same line every week. (2026-09-27)
 - **REQ-RPT-7.4** When a line is linked to a Payment Agreement (CashFlow §12), the line carries the Payment Agreement's name and its Master Agreement's name. When a Payment references the line, the line also carries the Payment's amount, and its Invoice's invoice date, due date, amount and payment state, and its Instance's date. A linked line that no Payment references shows the agreement and nothing more.
   - *Why:* An obligation matched to the wrong line, or not matched at all, is visible before the cash posts. (2026-09-27)
-- **REQ-RPT-7.5** A line with no account is shown with an empty account code and name and is not an error.
-  - *Why:* Posting fails loudly on such a line (DataIngestion REQ-STG-9.4). The review is where the operator should find it first, so it reports rather than fails. (2026-09-27)
+- **REQ-RPT-7.5** A line with no account fails the review with a typed error naming its entry and line.
+  - *Why:* Shadow post has already failed on such a line (DataIngestion REQ-STG-9.4), so reaching the review with one means the order was skipped. (2026-09-27)
 - **REQ-RPT-7.6** Entries are ordered by entry date, then source name, then fi_reference.
 - **REQ-RPT-7.7** The pre-posting review is a read-only report (REQ-RPT-2.6) and supports the output modes of §2. Date interpolation (REQ-RPT-2.4) appends the date the report runs, and the rendered header (REQ-RPT-3.1) shows that date and the number of entries and lines.
 
