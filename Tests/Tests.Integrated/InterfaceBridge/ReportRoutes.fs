@@ -7,6 +7,7 @@ open Business.General
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.CrossDomainOrchestration
+open Ui.InterfaceBridge.InterfaceContracts.BalanceSheetIntegrityContracts
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Ui.InterfaceBridge.InterfaceContracts.ReconciliationContracts
 open App.Utility.Json.Json
@@ -65,6 +66,24 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             let! payload = { reportOutput = reportOutput } |> toJson<PrePostingReviewInput>
             let! returnPayload = routeReportingCommandForTesting "PrePostingReview" [] payload
             return! returnPayload |> fromJson<PrePostingReviewReturn>
+        }
+
+    let runIntegrity asOf (reportOutput: OutputSpecifier) =
+        result {
+            let input: BalanceSheetIntegrityInput = { asOf = ({ asOf = asOf }: ReportAsOf); reportOutput = reportOutput }
+            let! payload = input |> toJson<BalanceSheetIntegrityInput>
+            let! returnPayload = routeReportingCommandForTesting "BalanceSheetIntegrity" [] payload
+            return! returnPayload |> fromJson<BalanceSheetIntegrityReturn>
+        }
+
+    let integrityReportPath asOf interpolate fileName =
+        result {
+            let! returned =
+                runIntegrity asOf (OutputSpecifier.Report { baseDir = testOutputDir; interpolateAsOf = interpolate; fileName = fileName })
+            return!
+                match returned with
+                | BalanceSheetIntegrityReturn.Report pathReturn -> Ok pathReturn.fullyQualifiedPath
+                | BalanceSheetIntegrityReturn.DataOnly _ -> TestError.error (TestingError "Expected Report but got DataOnly")
         }
 
     [<Fact>]
@@ -252,18 +271,71 @@ type ReportRoutesTests(fixture: TestDataFixture) =
         }
         |> railroadWrapper
 
+    (* The fixture has entries dated today, so integrity as of yesterday differs from integrity as of today; the test
+       asserts that first, so a route that ignored the as-of date would fail it. *)
     [<Fact>]
     member _.``REQ-RPT-6.4 the integrity report route in data-only mode returns the same totals, equality flag, account-type net balances, net income and residual as the integrity computation for the same as-of date``() =
-        Assert.Fail "not implemented"
+        let yesterday = Calendar.today().PlusDays(-1)
+        let context = Context.create NoTransaction FetchOnly
+        result {
+            let! expected = BalanceSheetIntegrity.computeBalanceSheetIntegrity context yesterday
+            let! asOfToday = BalanceSheetIntegrity.computeBalanceSheetIntegrity context (Calendar.today())
+            Assert.NotEqual(asOfToday.totalDebits |> Money.amount, expected.totalDebits |> Money.amount)
+            let! returned = runIntegrity yesterday OutputSpecifier.DataOnly
+            return!
+                match returned with
+                | BalanceSheetIntegrityReturn.DataOnly row ->
+                    let amount = Money.amount
+                    Assert.Equal(yesterday, row.asOf)
+                    Assert.Equal(expected.totalDebits |> amount, row.totalDebits)
+                    Assert.Equal(expected.totalCredits |> amount, row.totalCredits)
+                    Assert.Equal(expected.debitsEqualCredits, row.debitsEqualCredits)
+                    Assert.Equal(expected.assets |> amount, row.assets)
+                    Assert.Equal(expected.liabilities |> amount, row.liabilities)
+                    Assert.Equal(expected.equity |> amount, row.equity)
+                    Assert.Equal(expected.revenue |> amount, row.revenue)
+                    Assert.Equal(expected.expenses |> amount, row.expenses)
+                    Assert.Equal(expected.netIncome |> amount, row.netIncome)
+                    Assert.Equal(expected.residual |> amount, row.residual)
+                    Ok ()
+                | BalanceSheetIntegrityReturn.Report _ -> TestError.error (TestingError "Expected DataOnly but got Report")
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-6.4 REQ-RPT-2.3 the integrity report route in report mode returns a fully qualified path at which an HTML file now exists``() =
-        Assert.Fail "not implemented"
+        // a file left behind by an earlier run would satisfy File.Exists, so it goes first
+        System.IO.File.Delete(System.IO.Path.Combine(testOutputDir, "rpt-6-4-integrity-exists.html"))
+        result {
+            let! path = integrityReportPath (Calendar.today()) false "rpt-6-4-integrity-exists"
+            Assert.True(System.IO.Path.IsPathFullyQualified path)
+            Assert.True(System.IO.File.Exists path)
+            let html = System.IO.File.ReadAllText path
+            System.IO.File.Delete path
+            Assert.StartsWith("<!DOCTYPE html>", html.TrimStart(), System.StringComparison.OrdinalIgnoreCase)
+            Assert.DoesNotContain("tag not implemented", html)
+            return ()
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-6.4 REQ-RPT-2.4 the integrity report file without date interpolation is the caller's base directory and file name with .html appended``() =
-        Assert.Fail "not implemented"
+        result {
+            let! path = integrityReportPath (Calendar.today()) false "rpt-6-4-integrity"
+            System.IO.File.Delete path
+            Assert.Equal(System.IO.Path.Combine(testOutputDir, "rpt-6-4-integrity.html"), path)
+            return ()
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-6.4 REQ-RPT-2.4 the integrity report file with date interpolation is the caller's base directory and file name followed by a hyphen, the as-of date as yyyy-MM-dd, and .html``() =
-        Assert.Fail "not implemented"
+        let asOf = Calendar.today().PlusDays(-3)
+        let expectedDateStr = asOf |> Calendar.localDateToString "yyyy-MM-dd"
+        result {
+            let! path = integrityReportPath asOf true "rpt-6-4-integrity-interpolated"
+            System.IO.File.Delete path
+            Assert.Equal(System.IO.Path.Combine(testOutputDir, $"rpt-6-4-integrity-interpolated-{expectedDateStr}.html"), path)
+            return ()
+        }
+        |> railroadWrapper

@@ -13,6 +13,9 @@ open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Ui.InterfaceBridge.BoundaryConverters.ReportConverters
 open Ui.InterfaceBridge.InterfaceContracts.ReconciliationContracts
 open Ui.InterfaceBridge.BoundaryConverters.ReconciliationConverters
+open Business.CrossDomainOrchestration.BalanceSheetIntegrity
+open Ui.InterfaceBridge.InterfaceContracts.BalanceSheetIntegrityContracts
+open Ui.InterfaceBridge.BoundaryConverters.BalanceSheetIntegrityConverters
 open Ui.InterfaceBridge.ReportWriters
 open Ui.InterfaceBridge.CommandRoute
 
@@ -58,6 +61,19 @@ let private reconciliation payload _ =
             |> Json.toJson<ReconciliationReturnRow list>
     }
 
+let private balanceSheetIntegrity payload _ =
+    let context = Context.create NoTransaction FetchOnly
+    result {
+        let! input = Json.fromJson<BalanceSheetIntegrityInput> payload
+        let! integrity = computeBalanceSheetIntegrity context input.asOf.asOf
+        let! (integrityReturn: BalanceSheetIntegrityReturn) =
+            match input.reportOutput with
+            | OutputSpecifier.DataOnly ->
+                Ok (BalanceSheetIntegrityReturn.DataOnly (integrity |> ``convert [BalanceSheetIntegrity] to [BalanceSheetIntegrityReturnRow]``))
+            | OutputSpecifier.Report outputPathInput -> integrity |> BalanceSheetIntegrityWriter.write outputPathInput
+        return! integrityReturn |> Json.toJson<BalanceSheetIntegrityReturn>
+    }
+
 let reportingRoutes: ReportRoute list =
     [
         { name = "TrialBalance"
@@ -75,4 +91,9 @@ let reportingRoutes: ReportRoute list =
           inputContract = typeof<ReconciliationInput>.Name
           outputContract = typeof<ReconciliationReturnRow list>.Name
           handler = reconciliation }
+        { name = "BalanceSheetIntegrity"
+          description = "As of a date: total debits and total credits across every non-voided journal entry line dated on or before it, and whether they are equal; the net balance of each account type (Asset, Liability, Equity, Revenue, Expense) in its normal-balance direction; net income (revenue minus expenses); and the residual, assets minus (liabilities plus equity plus net income). Unequal totals or a non-zero residual are returned, not raised. If data only, returns those figures; if Report, writes them and returns the full file path."
+          inputContract = typeof<BalanceSheetIntegrityInput>.Name
+          outputContract = typeof<BalanceSheetIntegrityReturn>.Name
+          handler = balanceSheetIntegrity }
     ]
