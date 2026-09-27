@@ -3,6 +3,10 @@ module Business.FinancialServices.DataIngestion.DataIngestionError
 open System
 open App.Utility.IAppError
 
+/// IngestionRejectedRecord is one failure in a rejected file: the line or lines it concerns (counted from 1, blank lines
+/// included), the group they belong to when that is known, and the error itself.
+type IngestionRejectedRecord = { lineNumbers: int list; groupId: string option; error: IAppError }
+
 type DataIngestionError = 
     | IngestionBaseStageEntryGroupIdIsEmpty of string
     | IngestionBaseStageEntryGroupIdTooLong of string * int
@@ -45,6 +49,7 @@ type DataIngestionError =
     | IngestionSourceNameNotFound of string
     | IngestionSourceNameAlreadyExists of string
     | IngestionStagedButFileNotMoved of string * string * string
+    | IngestionFileRejected of string * IngestionRejectedRecord list
     
     interface IAppError with
         member this.DomainName = nameof DataIngestionError
@@ -101,6 +106,18 @@ type DataIngestionError =
             | IngestionSourceNameNotFound str -> $"No ingestion source of {str} could be found."
             | IngestionSourceNameAlreadyExists str -> $"An ingestion source named {str} already exists. Source names must be unique."
             | IngestionStagedButFileNotMoved (filePath, targetPath, reason) -> $"The entries in {filePath} were staged and committed, but the file could not be moved to {targetPath} ({reason}). Move it by hand. Ingesting it again would stage the same entries a second time, which dedup would then flag."
+            | IngestionFileRejected (filePath, records) ->
+                let describe (record: IngestionRejectedRecord) =
+                    let lines =
+                        match record.lineNumbers with
+                        | [ one ] -> $"line {one}"
+                        | many -> many |> List.map string |> String.concat ", " |> sprintf "lines %s"
+                    let group = record.groupId |> Option.map (sprintf ", group %s") |> Option.defaultValue ""
+                    $"  {lines}{group}: {record.error.ToMessage()}"
+                let problems = if records.Length = 1 then "1 problem" else $"{records.Length} problems"
+                (records |> List.map describe)
+                |> String.concat Environment.NewLine
+                |> sprintf "%s was rejected and nothing was staged. %s:%s%s" filePath problems Environment.NewLine
             
 let toMessage (e: DataIngestionError) = (e :> IAppError).ToMessage()
 let toAppError (e: DataIngestionError) : IAppError = e :> IAppError

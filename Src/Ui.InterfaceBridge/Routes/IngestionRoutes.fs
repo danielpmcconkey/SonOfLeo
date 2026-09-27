@@ -32,16 +32,52 @@ let private ingestRawEntries payload _ =
                     do! confirmDirectoryExists input.processedDir
                     let! sourceFile = toBeProcessedPath |> SourceFile.create
                     let! linesStr = readTextFileLines toBeProcessedPath
-                    let! baseStageRawRowInputs =
+                    let rejected lineNumbers groupId error : DataIngestionError.IngestionRejectedRecord =
+                        { lineNumbers = lineNumbers; groupId = groupId; error = error }
+                    // every line is checked, so one rejection can name every failing record. Blank lines are not
+                    // records, but they are counted, so a line number matches what an editor shows
+                    let parsed =
                         linesStr
-                        |> List.map(fun l -> l |> Json.fromJson<BaseStageRawRowInput>)
-                        |> convertListOfResultsToResultsList
-                    let! baseStageRawRows =
-                        baseStageRawRowInputs
-                        |> ``convert [BaseStageRawRowInput list] to [BaseStageRawRow list]`` context
-                    let! staged =
-                        baseStageRawRows
-                        |> StageEntryOrchestration.ingestRawToStage context sourceFile
+                        |> List.mapi (fun index line -> index + 1, line)
+                        |> List.filter (fun (_, line) -> System.String.IsNullOrWhiteSpace line |> not)
+                        |> List.map (fun (lineNumber, line) ->
+                            match Json.fromJson<BaseStageRawRowInput> line with
+                            | Error e -> Error (rejected [ lineNumber ] None e)
+                            | Ok input ->
+                                input
+                                |> ``convert [BaseStageRawRowInput] to [BaseStageRawRow]`` context
+                                |> Result.map (fun row -> lineNumber, row)
+                                |> Result.mapError (rejected [ lineNumber ] (Some input.baseStageEntryGroupId)))
+                    let recordFailures = parsed |> List.choose (function Error r -> Some r | Ok _ -> None)
+                    let goodRows = parsed |> List.choose (function Ok row -> Some row | Error _ -> None)
+                    // a group that lost a record would fail its group checks only for that reason, so it is not checked
+                    let groupsWithFailedRecords = recordFailures |> List.choose _.groupId |> Set.ofList
+                    let checkableRows =
+                        goodRows
+                        |> List.filter (fun (_, row) ->
+                            groupsWithFailedRecords
+                            |> Set.contains (row.baseStageEntryGroupId |> BaseStageEntry.BaseStageEntryGroupId.value)
+                            |> not)
+                    let constructed =
+                        checkableRows |> List.map snd |> StageEntryOrchestration.constructFromRaw context sourceFile
+                    let groupFailures =
+                        match constructed with
+                        | Ok _ -> []
+                        | Error failures ->
+                            failures
+                            |> List.map (fun (groupId, e) ->
+                                let lineNumbers =
+                                    checkableRows
+                                    |> List.filter (fun (_, row) -> row.baseStageEntryGroupId = groupId)
+                                    |> List.map fst
+                                rejected lineNumbers (Some (groupId |> BaseStageEntry.BaseStageEntryGroupId.value)) e)
+                    let! entries =
+                        match recordFailures @ groupFailures, constructed with
+                        | [], Ok entries -> Ok entries
+                        | failures, _ ->
+                            let inFileOrder = failures |> List.sortBy (fun r -> r.lineNumbers |> List.min)
+                            DataIngestionError.error (DataIngestionError.IngestionFileRejected(toBeProcessedPath, inFileOrder))
+                    let! staged = entries |> StageEntryOrchestration.persistConstructed context
                     return!
                         staged
                         |> List.map (``convert [StageEntry] to [StageEntryReturn]`` context)

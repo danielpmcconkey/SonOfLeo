@@ -99,18 +99,24 @@ type IngestionRouteTests(fixture: TestDataFixture) =
         |> Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage()))
 
     /// Writes a one-defect file, asserts the route rejects it with the exact error, cleans up.
+    /// The route's rejection of a file: every failing record, in file order. Fails the test on any other outcome.
+    static let rejectionOf fileName : DataIngestionError.IngestionRejectedRecord list =
+        match routeUiCommandForTesting "Ingestion" "IngestRawFileToStage" [] (ingestPayload fileName) with
+        | Error (AsError (DataIngestionError.IngestionFileRejected (filePath, records))) ->
+            Assert.Equal(Path.Combine(importDir, fileName), filePath)
+            records
+        | Ok _ -> failwith "Expected the file to be rejected; it was staged. It may have been moved to the processed directory."
+        | Error e -> failwith $"Expected IngestionFileRejected; got {e.DomainName}.{e.CaseName}: {e.ToMessage()}"
+
+    (* A one-defect file. The defect may be on more than one record (the amount theory repeats the amount on both rows),
+       so every record the rejection names must carry the expected error. *)
     static let assertRouteRejects fileName rows expectedError =
         try
             writeImportFile fileName rows
-            result {
-                do!
-                    isCorrectErrorString
-                        (routeUiCommandForTesting "Ingestion" "IngestRawFileToStage" [] (ingestPayload fileName))
-                        expectedError
-                        (Some "The file may have been moved to the processed directory.")
-                return ()
-            }
-            |> railroadWrapper
+            let records = rejectionOf fileName
+            Assert.NotEmpty records
+            for record in records do
+                Assert.Equal(expectedError, record.error.CaseName)
         finally
             deleteImportFile fileName
 
@@ -219,6 +225,24 @@ type IngestionRouteTests(fixture: TestDataFixture) =
 
     static let stagedFrom (sourceFilePath: string) =
         fetchFilteredThroughRoute { noFilterInput with sourceFile = Some sourceFilePath }
+
+    (* REQ-STG-3.2.1 files. Each is written, rejected, and deleted; the rejection is compared as (lines, group_id, error
+       case) in file order, and nothing from the file may be staged or moved. *)
+    static let assertRejectsExactly fileName (rows: string list) expected =
+        try
+            writeImportFile fileName rows
+            let records = rejectionOf fileName
+            let actual = records |> List.map (fun r -> r.lineNumbers, r.groupId, r.error.CaseName)
+            Assert.Equal<(int list * string option * string) list>(expected, actual)
+            Assert.True(File.Exists(Path.Combine(importDir, fileName)), "the rejected file was moved")
+            match stagedFrom (Path.Combine(importDir, fileName)) with
+            | Ok staged -> Assert.Empty staged
+            | Error e -> failwith (e.ToMessage())
+        finally
+            deleteImportFile fileName
+
+    static let validRow groupId lineType =
+        rawRow groupId today $"Valid {groupId}" "TestBank" $"REF-{groupId}" "25.00" lineType (Some "F-5350") None
 
     static let headerIdsOf (entries: StageEntryReturn list) =
         entries |> List.map (fun entry -> entry.stageEntryHeader.stageEntryHeaderId |> StageEntryHeaderId.fromGuid |> Some)
@@ -850,16 +874,57 @@ type IngestionRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-STG-3.2 REQ-STG-3.2.1 a file mixing valid and invalid records is rejected with one error listing every failing record, and only those, by line number, group_id and violation`` () =
-        Assert.Fail "not implemented"
+        let rows =
+            [ validRow "grp-mix-a" "Debit"
+              validRow "grp-mix-a" "Credit"
+              rawRow "grp-mix-b" today "Bad type" "TestBank" "REF-MIX-B" "25.00" "Sideways" (Some "F-5350") None
+              validRow "grp-mix-b" "Credit"
+              rawRow "grp-mix-c" today "Bad amount" "TestBank" "REF-MIX-C" "32.475" "Debit" (Some "F-5350") None
+              rawRow "grp-mix-c" today "Bad amount" "TestBank" "REF-MIX-C" "32.47" "Credit" (Some "F-5350") None ]
+        assertRejectsExactly
+            "ingestion-route-mixed.jsonl"
+            rows
+            [ [ 3 ], Some "grp-mix-b", "JournalEntryLineTypeInvalid"
+              [ 5 ], Some "grp-mix-c", "MoneyFailedToConvertImproperPrecision" ]
 
     [<Fact>]
     member _.``REQ-STG-3.2.1 a line that is not valid JSON is reported by its line number alongside every other failing record, not instead of them`` () =
-        Assert.Fail "not implemented"
+        let rows =
+            [ "{ this line is not json"
+              validRow "grp-json-a" "Debit"
+              validRow "grp-json-a" "Credit"
+              rawRow "grp-json-b" today "Bad type" "TestBank" "REF-JSON-B" "25.00" "Sideways" (Some "F-5350") None
+              validRow "grp-json-b" "Credit" ]
+        assertRejectsExactly
+            "ingestion-route-bad-json.jsonl"
+            rows
+            [ [ 1 ], None, "JsonDeserializationFailed"
+              [ 4 ], Some "grp-json-b", "JournalEntryLineTypeInvalid" ]
 
     [<Fact>]
     member _.``REQ-STG-3.2.1 line numbers in a rejection count blank lines, so each matches the line an editor shows`` () =
-        Assert.Fail "not implemented"
+        let rows =
+            [ ""
+              validRow "grp-blank-a" "Debit"
+              "   "
+              validRow "grp-blank-a" "Credit"
+              ""
+              rawRow "grp-blank-b" today "Bad type" "TestBank" "REF-BLANK-B" "25.00" "Sideways" (Some "F-5350") None
+              validRow "grp-blank-b" "Credit" ]
+        assertRejectsExactly
+            "ingestion-route-blank-lines.jsonl"
+            rows
+            [ [ 6 ], Some "grp-blank-b", "JournalEntryLineTypeInvalid" ]
 
     [<Fact>]
     member _.``REQ-STG-3.2.1 a group that fails a group-level check is reported with its group_id and the check it failed, alongside every failing record in the same file`` () =
-        Assert.Fail "not implemented"
+        let rows =
+            [ rawRow "grp-level-a" today "Unbalanced" "TestBank" "REF-LEVEL-A" "100.00" "Debit" (Some "F-5350") None
+              rawRow "grp-level-a" today "Unbalanced" "TestBank" "REF-LEVEL-A" "99.99" "Credit" (Some "F-5350") None
+              rawRow "grp-level-b" today "Bad type" "TestBank" "REF-LEVEL-B" "25.00" "Sideways" (Some "F-5350") None
+              validRow "grp-level-b" "Credit" ]
+        assertRejectsExactly
+            "ingestion-route-group-level.jsonl"
+            rows
+            [ [ 1; 2 ], Some "grp-level-a", "IngestionStageEntryDebitCreditMismatch"
+              [ 3 ], Some "grp-level-b", "JournalEntryLineTypeInvalid" ]

@@ -159,14 +159,11 @@ let createStageEntry
         return stageEntry
     }
     
-let private constructSetFromRaw
+let private constructGroup
     (context: Context.Context)
     (sourceFile: SourceFile)
-    (rawRows: BaseStageRawRow list)
-    : Result<StageEntry list, IAppError> =
-    rawRows
-    |> List.groupBy(_.baseStageEntryGroupId)
-    |> List.map(fun (baseStageEntryGroupId, rawRowsAtGroupId) ->
+    (baseStageEntryGroupId: BaseStageEntryGroupId, rawRowsAtGroupId: BaseStageRawRow list)
+    : Result<StageEntry, IAppError> =
         let distinctHeadersList =
             rawRowsAtGroupId
             |> List.groupBy(fun x -> x.entryDate, x.description, x.fiSource, x.fiReference)
@@ -197,8 +194,21 @@ let private constructSetFromRaw
                                       None Ingested (context |> Context.getInitiationInstant) StageIngestion
                 return! createStageEntry context header lines [transition]
             }
-        )
-    |> convertListOfResultsToResultsList
+
+/// constructFromRaw builds one staged entry per group without writing anything. Every group is checked, and every group
+/// that fails is returned with its error, not only the first.
+let constructFromRaw
+    (context: Context.Context)
+    (sourceFile: SourceFile)
+    (rawRows: BaseStageRawRow list)
+    : Result<StageEntry list, (BaseStageEntryGroupId * IAppError) list> =
+    let constructed =
+        rawRows
+        |> List.groupBy(_.baseStageEntryGroupId)
+        |> List.map(fun group -> fst group, group |> constructGroup context sourceFile)
+    match constructed |> List.choose (fun (groupId, built) -> match built with Error e -> Some(groupId, e) | Ok _ -> None) with
+    | [] -> Ok (constructed |> List.choose (fun (_, built) -> match built with Ok entry -> Some entry | Error _ -> None))
+    | failures -> Error failures
 
 let private fetchAllLinesByHeaders
     (context: Context.Context)
@@ -395,13 +405,12 @@ let classifyAccounts
                  stagedEntries = stagedEntries }
     }
 
-let ingestRawToStage
+/// persistConstructed writes entries built by constructFromRaw.
+let persistConstructed
     (context: Context.Context)
-    (sourceFile: SourceFile)
-    (rawRows: BaseStageRawRow list)
+    (entries: StageEntry list)
     : Result<StageEntry list, IAppError> =
     result {
-        let! entries = rawRows |> constructSetFromRaw context sourceFile
         let! _ =
             entries
             |> List.map(fun e ->
@@ -415,6 +424,17 @@ let ingestRawToStage
             |> List.map(fun l -> l |> StageEntryLine.persist context )
             |> convertListOfResultsToResultsList
         return entries
+    }
+
+let ingestRawToStage
+    (context: Context.Context)
+    (sourceFile: SourceFile)
+    (rawRows: BaseStageRawRow list)
+    : Result<StageEntry list, IAppError> =
+    result {
+        // a caller handing over rows rather than a file gets the first failing group; the route reports every one
+        let! entries = rawRows |> constructFromRaw context sourceFile |> Result.mapError (List.head >> snd)
+        return! entries |> persistConstructed context
     }
 
 let private confirmUpdateLinesMatchUpdateHeader
