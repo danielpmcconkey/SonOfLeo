@@ -361,7 +361,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                           description = NoChange
                           ingestionSource = NoChange
                           fiReference = NoChange
-                          status = SetTo { newStatus = "Reviewed"; stageStatusChangeMechanism = "Operator" }
+                          status = SetTo { newStatus = "Reviewed" }
                           lines = [ overrideCodeWith "F-5650" ] }
                 Assert.Equal(Some "F-5650", afterReview |> codeOf)
                 Assert.Equal(Some "Reviewed", afterReview.stageEntryHeader.status)
@@ -797,9 +797,56 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             | Error e -> failwith (e.ToMessage())
 
 
-    [<Fact>]
-    member _.``REQ-STG-6.2.1 a manual update payload naming change mechanism Classifier or Deduplicator still records its status change as Operator`` () =
-        Assert.Fail "not implemented"
+    (* The contract has no mechanism field, so the serializer drops one a caller adds. The payload is written by hand to
+       carry it anyway, the way an old saved payload would. *)
+    [<Theory>]
+    [<InlineData("Classifier")>]
+    [<InlineData("Deduplicator")>]
+    member _.``REQ-STG-6.2.1 a manual update payload naming change mechanism Classifier or Deduplicator still records its status change as Operator`` (claimedMechanism: string) =
+        let fileName = $"ingestion-route-mechanism-{claimedMechanism}.jsonl"
+        let description = "Route ingest first group"
+        let mutable idsToCleanUp = []
+        try
+            result {
+                let! ingested =
+                    twoValidGroups $"REF-ROUTE-MECH-{claimedMechanism}-1" $"REF-ROUTE-MECH-{claimedMechanism}-2"
+                    |> ingestThroughRoute fileName
+                idsToCleanUp <- ingested |> headerIdsToCleanUp
+                let headerId =
+                    ingested.stagedEntries
+                    |> List.find (fun entry -> entry.stageEntryHeader.description = description)
+                    |> _.stageEntryHeader.stageEntryHeaderId
+                let! contractPayload =
+                    { stageEntryHeaderId = headerId
+                      sourceFileUpdate = NoChange
+                      entryDate = NoChange
+                      description = NoChange
+                      ingestionSource = NoChange
+                      fiReference = NoChange
+                      status = SetTo { newStatus = "Ignored" }
+                      lines = [] }
+                    |> toJson<UpdateStageEntryInput>
+                let statusField = "\"newStatus\":\"Ignored\""
+                Assert.Contains(statusField, contractPayload)
+                let payload =
+                    contractPayload.Replace(
+                        statusField, $"{statusField},\"stageStatusChangeMechanism\":\"{claimedMechanism}\"")
+                let! _ = routeUiCommandForTesting "Ingestion" "UpdateStageEntry" [] payload
+                let! refetched = refetchStageEntry headerId
+                let latest =
+                    refetched
+                    |> statusTransitions
+                    |> List.maxBy StageEntryStatusTransition.instant
+                Assert.Equal(Ignored, latest |> StageEntryStatusTransition.toStatus)
+                Assert.Equal(Operator, latest |> StageEntryStatusTransition.stageStatusChangeMechanism)
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            deleteImportFile fileName
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (e.ToMessage())
 
     [<Fact>]
     member _.``REQ-STG-3.2 REQ-STG-3.2.1 a file mixing valid and invalid records is rejected with one error listing every failing record, and only those, by line number, group_id and violation`` () =

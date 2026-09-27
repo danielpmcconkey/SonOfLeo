@@ -89,9 +89,7 @@ let private updateStageEntry payload _ =
                 | SetTo statusUpdateInput -> result {
                     let! newStatus = statusUpdateInput.newStatus
                                      |> StagedEntryStatus.fromString
-                    let! mechanism = statusUpdateInput.stageStatusChangeMechanism
-                                     |> StageStatusChangeMechanism.fromString
-                    return SetTo(newStatus, mechanism) }
+                    return SetTo newStatus }
             let (headerUpdates:StageEntryHeaderFieldUpdates) = {
                 headerIdToUpdate = input.stageEntryHeaderId |> StageEntryHeaderId.fromGuid
                 sourceFileUpdate = sourceFileUpdate

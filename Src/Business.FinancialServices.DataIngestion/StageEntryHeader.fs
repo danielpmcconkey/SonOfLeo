@@ -35,7 +35,8 @@ type StageEntryHeaderFieldUpdates = {
     ingestionSourceUpdate: FieldUpdate<IngestionSource>
     fiReferenceUpdate: FieldUpdate<JournalExternalReferenceText>
     journalEntryHeaderIdUpdate: FieldUpdate<JournalEntryHeaderId option>
-    statusUpdate: FieldUpdate<StagedEntryStatus * StageStatusChangeMechanism> }
+    // a status set through field updates is the operator's manual update, so it is always recorded as Operator
+    statusUpdate: FieldUpdate<StagedEntryStatus> }
 
 let sourceFile g = g.sourceFile
 let stageEntryHeaderId g = g.stageEntryHeaderId
@@ -442,8 +443,8 @@ let update
         do! if updates |> List.isEmpty && statusUpdate = NoChange then Error(IngestionStageEntryHeaderNoOp) else Ok()
         do! match statusUpdate with
             | NoChange -> Ok ()
-            | SetTo (newStatus, mechanism) ->
-                headerId |> updateHeaderStatus context newStatus mechanism
+            | SetTo newStatus ->
+                headerId |> updateHeaderStatus context newStatus StageStatusChangeMechanism.Operator
         let! _ =
             if updates |> List.isEmpty = false
             then executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne

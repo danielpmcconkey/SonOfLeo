@@ -87,9 +87,9 @@ type UpdateStageEntryLineInput = {
     memo: FieldUpdate<string option>
 }
 
+// no change mechanism: every status change made through the manual update is recorded as Operator (REQ-STG-6.2.1)
 type StageEntryStatusUpdateInput = {
     newStatus: string
-    stageStatusChangeMechanism: string
 }
 
 type UpdateStageEntryInput = {

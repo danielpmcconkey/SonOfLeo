@@ -130,7 +130,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let contextForUpdate = context |> Context.updateInitiationInstant
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "HARRIS TEETER 0381 ANYTOWN US"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo (Reviewed, Operator) }
+                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
                 let! updated = updateStageEntry contextForUpdate headerUpdates []
                 Assert.Equal(Reviewed, StageTestData.latestStatus updated)
             })
@@ -146,7 +146,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let firstLine = entry |> seLines |> List.head
                 let lineId = firstLine |> StageEntryLine.stageEntryLineId
                 let! badAmount = 999.99M |> Money.fromDecimal
-                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo (Reviewed, Operator) }
+                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with amountUpdate = SetTo badAmount } ]
                 return!
                     match updateStageEntry context headerUpdates lineUpdates with
@@ -166,7 +166,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let firstLine = entry |> seLines |> List.head
                 let lineId = firstLine |> StageEntryLine.stageEntryLineId
                 let bogusAccountId = AccountId.create()
-                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo (Reviewed, Operator) }
+                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with accountIdUpdate = SetTo (Some bogusAccountId) } ]
                 return!
                     match updateStageEntry context headerUpdates lineUpdates with
@@ -184,7 +184,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "HARRIS TEETER 0381 ANYTOWN US"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 // Classified → Ingested is not a valid transition
-                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo (Ingested, Operator) }
+                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Ingested }
                 return!
                     match updateStageEntry context headerUpdates [] with
                     | Error (AsError (IngestionInvalidStageStatusTransition _)) -> Ok ()
@@ -208,7 +208,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let dupEntry = fullResult.stagedEntries |> StageTestData.findByDescription "Fixture JE with reference"
                 Assert.Equal(Duplicate, StageTestData.latestStatus dupEntry)
                 let headerId = dupEntry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo (Reviewed, Operator) }
+                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
                 let! updated = updateStageEntry contextForUpdate headerUpdates []
                 Assert.Equal(Reviewed, StageTestData.latestStatus updated)
             })
@@ -228,7 +228,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "HARRIS TEETER 0381 ANYTOWN US"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let transitionCountBefore = entry |> statusTransitions |> List.length
-                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo (Reviewed, Operator) }
+                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
                 let! updated = updateStageEntry contextForUpdate headerUpdates []
                 let transitionCountAfter = updated |> statusTransitions |> List.length
                 Assert.Equal(transitionCountBefore + 1, transitionCountAfter)
@@ -244,9 +244,42 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
     // Plan defects 8–17 (2026-09-27)
     // =========================================================================
 
-    [<Fact>]
-    member _.``REQ-STG-6.2.1 every status transition the manual update makes, to each target status it allows, is recorded with change mechanism Operator and no other`` () =
-        Assert.Fail "not implemented"
+    // every status the transition table lets an entry move to; Ingested is only ever a first status
+    [<Theory>]
+    [<InlineData("Duplicate")>]
+    [<InlineData("Classified")>]
+    [<InlineData("NoMatch")>]
+    [<InlineData("Conflict")>]
+    [<InlineData("Reviewed")>]
+    [<InlineData("Posted")>]
+    [<InlineData("Ignored")>]
+    member _.``REQ-STG-6.2.1 every status transition the manual update makes, to each target status it allows, is recorded with change mechanism Operator and no other`` (targetStr: string) =
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let! target = targetStr |> StagedEntryStatus.fromString
+                let! fullResult = StageTestData.runPipeline context
+                let contextForUpdate = context |> Context.updateInitiationInstant
+                // any entry the pipeline left in a status from which the target is a legal move
+                let entry =
+                    fullResult.stagedEntries
+                    |> List.tryFind (fun candidate ->
+                        Some (StageTestData.latestStatus candidate)
+                        |> StageEntryStatusTransition.validTransitions
+                        |> List.contains target)
+                    |> Option.defaultWith (fun () -> failwith $"the pipeline left no entry that can move to {targetStr}")
+                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo target }
+                let! updated = updateStageEntry contextForUpdate headerUpdates []
+                let fromThisUpdate =
+                    updated
+                    |> statusTransitions
+                    |> List.filter (fun t ->
+                        t |> StageEntryStatusTransition.instant = (contextForUpdate |> Context.getInitiationInstant))
+                let transition = fromThisUpdate |> List.exactlyOne
+                Assert.Equal(target, transition |> StageEntryStatusTransition.toStatus)
+                Assert.Equal(Operator, transition |> StageEntryStatusTransition.stageStatusChangeMechanism)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-6.2 updating a staged entry by an ID no entry holds fails with a typed not-found error naming the kind of record and the ID`` () =
