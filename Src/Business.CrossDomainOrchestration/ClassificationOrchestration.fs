@@ -159,7 +159,7 @@ let fetchRulesFiltered
               |> Option.map(fun x ->
                   let ruleName = x |> ClassificationRuleName.value
                   ("cr.rule_name like @rule_name",
-                   { name = "@rule_name"; value = CharString $"%%{ruleName}%%"}))
+                   { name = "@rule_name"; value = CharString(containsPattern ruleName) }))
         
               filter.accountAtMatch
               |> Option.map(fun x ->
@@ -173,7 +173,7 @@ let fetchRulesFiltered
 
               filter.sourceLike
               |> Option.map(fun x ->
-                  (sourcePredicate, { name = "@source_like"; value = CharString $"%%{x}%%" }))
+                  (sourcePredicate, { name = "@source_like"; value = CharString(containsPattern x) }))
             ]
             |> List.choose id
         let whereClauses = whereClausesAndParams |> List.map fst |> String.concat $" and {Environment.NewLine}"        

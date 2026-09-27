@@ -410,6 +410,42 @@ type AccountActivityTests(fixture: TestDataFixture) =
     // Plan defects 8–17 (2026-09-27)
     // =========================================================================
 
-    [<Fact>]
-    member _.``REQ-SYS-1.4 account activity description filter returns every record containing search text with a literal %, _ or \ and no record lacking it`` () =
-        Assert.Fail "not implemented"
+    [<Theory>]
+    [<InlineData("%")>]
+    [<InlineData("_")>]
+    [<InlineData(@"\")>]
+    member _.``REQ-SYS-1.4 account activity description filter returns every record containing search text with a literal %, _ or \ and no record lacking it`` (special: string) =
+        Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoRollback FetchOnly (fun context ->
+            result {
+                let case = LiteralSearch.case "sys14activity" special
+                let post description =
+                    EntityFunctions.createTestJournalEntryFromPrimitives
+                        context description None (App.Utility.Calendar.today())
+                        [ (fixture.Data.food5350Id, 10.00M, "Debit", None)
+                          (fixture.Data.moneyMarket1270Id, 10.00M, "Credit", None) ]
+                        [] []
+                let! _ = post case.containing
+                let! _ = post case.decoy
+                let! description = case.search |> JournalEntryDescription.create
+                let filter: AccountActivityFilter =
+                    { accountId = None
+                      temporalFilter = None
+                      source = None
+                      accountType = None
+                      accountSubtype = None
+                      accountParentId = None
+                      journalEntryId = None
+                      amount = None
+                      description = Some description
+                      unVoidedOnly = false }
+                let! activities = AccountActivity.fetchFiltered context filter None
+                Assert.All(activities, fun a -> Assert.True(a.activityDetail.IsSome, "an activity row without a line"))
+                let descriptions =
+                    activities
+                    |> List.choose _.activityDetail
+                    |> List.map (fun d -> d.journalEntryDescription |> JournalEntryDescription.value)
+                Assert.Contains(case.containing, descriptions)
+                Assert.DoesNotContain(case.decoy, descriptions)
+                Assert.All(descriptions, fun d -> Assert.Contains(case.search, d))
+            })
+        |> railroadWrapper

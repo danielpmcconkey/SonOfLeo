@@ -165,7 +165,7 @@ let createAgreementNamesPredicateAndParameters
         [ 1 .. (names |> List.length) ]
         |> List.zip names
         |> List.map(fun (name, iterator) ->
-            let likeStr = $"%%{name |> AgreementName.value}%%"
+            let likeStr = name |> AgreementName.value |> containsPattern
             let paramName = $"@{parameterPrefix}_{iterator}"
             ($"ma.agreement_name like {paramName}",
              { name = paramName; value = CharString likeStr }))
@@ -252,19 +252,27 @@ let createBasicPredicateAndParameters<'T>
         ]
     predicate, parameters
 
-let createStringLikePredicateAndParameters<'T>
-    (valueFunc: 'T -> string)
-    (parameterName: string)
-    (columnReference: string)
-    (stringLikeFilterOption: 'T option)
+/// createBlockerPredicateAndParameters matches the blocker's kind exactly and, for the kinds that carry a note, the note
+/// as a contains filter taken literally (REQ-SYS-1.4). The kind and the note live in separate columns.
+let createBlockerPredicateAndParameters
+    (stateParameterName: string)
+    (noteParameterName: string)
+    (blockerOption: Blocker option)
     : string option * QueryParameter list =
-    if stringLikeFilterOption |> Option.isNone then None, [] else
-    let nonPrimitiveValue = stringLikeFilterOption |> Option.get
-    let predicate = $"{columnReference} like @{parameterName}" |> Some    
-    let stringVal = $"%%{nonPrimitiveValue |> valueFunc}%%"
-    let parameters =
-        [
-            { name = $"@{parameterName}"; value = CharString stringVal }
-        ]
-    predicate, parameters
+    match blockerOption with
+    | None -> None, []
+    | Some blocker ->
+        let state, noteOption =
+            match blocker with
+            | NoFunds -> "NoFunds", None
+            | Irresponsible -> "Irresponsible", None
+            | NeedsDecision note -> "NeedsDecision", Some note
+            | Other note -> "Other", Some note
+        let stateParameter = { name = $"@{stateParameterName}"; value = CharString state }
+        match noteOption with
+        | None -> Some $"inv.blocker_state = @{stateParameterName}", [ stateParameter ]
+        | Some note ->
+            Some $"(inv.blocker_state = @{stateParameterName} and inv.blocker_note like @{noteParameterName})",
+            [ stateParameter
+              { name = $"@{noteParameterName}"; value = CharString(note |> BlockerNote.value |> containsPattern) } ]
     

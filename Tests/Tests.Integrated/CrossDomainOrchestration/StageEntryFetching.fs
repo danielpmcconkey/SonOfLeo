@@ -672,6 +672,27 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
     // Plan defects 8–17 (2026-09-27)
     // =========================================================================
 
-    [<Fact>]
-    member _.``REQ-SYS-1.4 staged entry description filter returns every record containing search text with a literal %, _ or \ and no record lacking it`` () =
-        Assert.Fail "not implemented"
+    [<Theory>]
+    [<InlineData("%")>]
+    [<InlineData("_")>]
+    [<InlineData(@"\")>]
+    member _.``REQ-SYS-1.4 staged entry description filter returns every record containing search text with a literal %, _ or \ and no record lacking it`` (special: string) =
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                let case = LiteralSearch.case "sys14stage" special
+                let group groupId description reference =
+                    [ StageTestData.makeRawRow context groupId today description "TestBank" reference 10.00M "Debit" (Some "F-5350") None
+                      StageTestData.makeRawRow context groupId today description "TestBank" reference 10.00M "Credit" (Some "F-1270") None ]
+                let! rows =
+                    group "grp-sys14-containing" case.containing "REF-SYS14-C" @ group "grp-sys14-decoy" case.decoy "REF-SYS14-D"
+                    |> convertListOfResultsToResultsList
+                let! sourceFile = "/tmp/sys14-literal-search.jsonl" |> SourceFile.create
+                let! _ = rows |> StageEntryOrchestration.ingestRawToStage context sourceFile
+                let! description = case.search |> JournalEntryDescription.create
+                let! fetched = { noFilter with description = Some description } |> fetchFiltered context None
+                let descriptions = fetched |> List.map descriptionOf
+                Assert.Contains(case.containing, descriptions)
+                Assert.DoesNotContain(case.decoy, descriptions)
+                Assert.All(descriptions, fun d -> Assert.Contains(case.search, d))
+            })
+        |> railroadWrapper

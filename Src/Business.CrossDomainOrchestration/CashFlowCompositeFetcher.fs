@@ -104,7 +104,7 @@ let createPredicateAndParameters
                (fun x -> CharString(x |> PostedState.toString)) "inv_posted_state" "inv.posted_state"
     let invoiceBlockerPredicate, invoiceBlockerParameters =
         filter.invoiceBlocker
-        |> createStringLikePredicateAndParameters Blocker.toString "inv_blocker_state" "inv.blocker_state"
+        |> createBlockerPredicateAndParameters "inv_blocker_state" "inv_blocker_note"
     let journalEntryLineIdPredicate, journalEntryLineIdParameters =
         filter.journalEntryLineId
         |> createBasicPredicateAndParameters (fun x ->

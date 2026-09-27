@@ -698,7 +698,7 @@ let fetchFiltered
           
           filter.description
           |> Option.map(fun x ->
-              let likeStr = $"%%{x |> JournalEntryDescription.value}%%"
+              let likeStr = x |> JournalEntryDescription.value |> containsPattern
               ("stage_entry_description like @stage_entry_description",
                { name = "@stage_entry_description"; value = CharString(likeStr) }))
 

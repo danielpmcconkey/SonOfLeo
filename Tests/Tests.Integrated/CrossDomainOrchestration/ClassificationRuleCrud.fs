@@ -782,13 +782,63 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
     // Plan defects 8–17 (2026-09-27)
     // =========================================================================
 
-    [<Fact>]
-    member _.``REQ-SYS-1.4 classification rule name filter returns every record containing search text with a literal %, _ or \ and no record lacking it`` () =
-        Assert.Fail "not implemented"
+    [<Theory>]
+    [<InlineData("%")>]
+    [<InlineData("_")>]
+    [<InlineData(@"\")>]
+    member _.``REQ-SYS-1.4 classification rule name filter returns every record containing search text with a literal %, _ or \ and no record lacking it`` (special: string) =
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
+            result {
+                let case = LiteralSearch.case "sys14rule" special
+                let! pattern = "sys14 rule name search" |> StringSearchPattern.create
+                let create name =
+                    EntityFunctions.createClassificationRuleForTest
+                        context name "F-5350" 5000 [ ("And", [ FieldMatch.Source pattern ], None) ]
+                let! _ = create case.containing
+                let! _ = create case.decoy
+                let! found =
+                    ClassificationOrchestration.fetchRulesFiltered
+                        context { noFilter with nameLike = Some(ruleNameOf case.search) } None
+                let names = found |> namesOf
+                Assert.Contains(case.containing, names)
+                Assert.DoesNotContain(case.decoy, names)
+                Assert.All(names, fun n -> Assert.Contains(case.search, n))
+            })
+        |> railroadWrapper
 
-    [<Fact>]
-    member _.``REQ-SYS-1.4 classification rule source filter returns every record containing search text with a literal %, _ or \ and no record lacking it`` () =
-        Assert.Fail "not implemented"
+    // the source filter searches regular expression text, so the backslash case uses \. (a literal dot) to stay valid
+    [<Theory>]
+    [<InlineData("%")>]
+    [<InlineData("_")>]
+    [<InlineData(@"\.")>]
+    member _.``REQ-SYS-1.4 classification rule source filter returns every record containing search text with a literal %, _ or \ and no record lacking it`` (special: string) =
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
+            result {
+                let case = LiteralSearch.case "sys14source" special
+                let create name patternText =
+                    result {
+                        let! pattern = patternText |> StringSearchPattern.create
+                        return!
+                            EntityFunctions.createClassificationRuleForTest
+                                context name "F-5350" 5000 [ ("And", [ FieldMatch.Source pattern ], None) ]
+                    }
+                let! _ = create "sys14 source containing" case.containing
+                let! _ = create "sys14 source decoy" case.decoy
+                let! found =
+                    ClassificationOrchestration.fetchRulesFiltered context { noFilter with sourceLike = Some case.search } None
+                let names = found |> namesOf
+                Assert.Contains("sys14 source containing", names)
+                Assert.DoesNotContain("sys14 source decoy", names)
+                let sourcePatterns rule =
+                    rule
+                    |> ClassificationRule.ruleGroups
+                    |> List.collect (fun g -> (g |> chainOne) :: (g |> chainTwo |> Option.toList))
+                    |> List.collect FieldMatchChain.chain
+                    |> List.choose (function FieldMatch.Source p -> Some(p |> StringSearchPattern.value) | _ -> None)
+                Assert.All(found, fun rule ->
+                    Assert.Contains(sourcePatterns rule, fun p -> p.Contains case.search))
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-6.2 updating a classification rule by an ID no rule holds fails with a typed not-found error naming the kind of record and the ID`` () =

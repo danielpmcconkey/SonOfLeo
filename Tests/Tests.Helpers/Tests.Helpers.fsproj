@@ -17,6 +17,7 @@
     <Compile Include="TestDataStage.fs" />
     <Compile Include="RouteResolver.fs" />
     <Compile Include="CliExecutor.fs" />
+    <Compile Include="LiteralSearch.fs" />
   </ItemGroup>
 
   <ItemGroup>
