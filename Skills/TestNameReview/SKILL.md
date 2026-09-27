@@ -3,14 +3,15 @@ name: SonOfLeo:TestNameReview
 description: >
   Grade draft test names against the requirements they claim to cover, and find requirement
   clauses that no name covers. Step 6 of the slice loop, run after drafting names and before
-  showing them to Dan. Triggers on "check my test names", "grade these names", "review the
+  committing them. Triggers on "check my test names", "grade these names", "review the
   test names", or finishing a batch of stubs.
 ---
 
 # SonOfLeo TestNameReview
 
 Step 6 of the loop in the root `README.md`. Names are drafted from the spec (step 5), graded
-here, then approved by Dan (step 7). Nothing is written until they survive both.
+here, then committed as failing placeholders (step 7). Nothing is written until they survive
+this check; Dan no longer approves them (retired 2026-09-27).
 
 ## Why this is a separate agent and not a checklist
 
@@ -70,12 +71,12 @@ For each uncovered clause, either draft the missing name or establish that the c
 no test. A clause with no name is the expensive miss: a hollow name reads wrong to a reviewer,
 an absent one is invisible.
 
-Then present names and the agent's findings to Dan together. He is approving the names, not
-the grades.
+Then commit the names. Report the agent's findings, and how you addressed each, in the
+hand-off.
 
 ## Iterating
 
-When Dan's step 7 review catches something this agent should have caught, that is a gap in
+When a name this check passed later proves to be aimed wrong (step 8 or 10), that is a gap in
 the rubric. Add the case to the calibration section of `references/grader-prompt.md` with the
 ruling, so the next run has it. The calibration is the part that improves; the guidelines are
 mostly settled.

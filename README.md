@@ -35,8 +35,8 @@ will clarify for you.
 | 4 | Hand BD a **business** description of what changed and the shape of the spec — not the implementation mechanisms | Hobson |
 | 5 | Read the spec only, not the new code, and draft the test names | BD |
 | 6 | Run the name-quality check over the draft names | BD |
-| 7 | Review and approve the test names | Dan |
-| 8 | *Now* read the Src, and raise any concern that an approved test is aimed wrong. Discuss; return to 6 or continue to 9 | BD + Dan |
+| 7 | Commit the test names as failing placeholders | BD |
+| 8 | *Now* read the Src, and raise any concern that a committed test is aimed wrong. Discuss; return to 6 or continue to 9 | BD + Dan |
 | 9 | Write the tests | BD |
 | 10 | A test fails: work out together whether it's a bug in the Src or a spec that steered the test wrong. Hobson joins when useful. This is usually the first careful read of the spec. Dan dispositions | Dan + BD |
 | 11 | All tests pass and all three agree the slice is complete → merge to `main` | Dan |
@@ -66,15 +66,14 @@ gone green and stayed wrong.
 This is also why step 4 is a *business* description. A hand-off that explains how the code
 works reintroduces exactly the bias the step is there to prevent.
 
-**2. Approved names are a contract (step 7 precedes step 8).**
+**2. Committed names are a contract (step 7 precedes step 8).**
 
 Because the claims are fixed before BD reads the implementation, Src knowledge can only
 inform *how* a test reaches a behavior — never *what* it asserts. Step 8 can send a name back
 to step 6 to be renegotiated out loud; it can never quietly soften one. This turns a rule
-that used to depend on discipline into something the order of operations enforces.
-
-Step 7 is also Dan's one unskimmable step. It is the only place in the loop where his intent
-is checked against the claims being made, and roughly thirty names is a five-minute read.
+that used to depend on discipline into something the order of operations enforces. The commit
+is the contract: Dan no longer approves names (retired 2026-09-27); the name-quality check
+(step 6) and the rule that names are committed before Src is read carry it.
 
 **3. No test is done until it has been seen to fail.**
 

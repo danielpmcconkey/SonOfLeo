@@ -29,7 +29,7 @@ skill's whole job.
 The phases exist to keep one thing true: **the spec decides what you assert; the Src decides
 only how you reach it.** Reading the implementation before you have committed to a claim is
 how a suite ends up describing what the code does instead of what it owes. Once names are
-approved they are a contract — phase 2 may send you back to renegotiate one out loud, never
+committed they are a contract — phase 2 may send you back to renegotiate one out loud, never
 to soften one quietly.
 
 Never skip phase 1.
@@ -67,9 +67,10 @@ knowledge that would have let a wrong spec pass unnoticed.
 10. Check every name against the hollow-names table in
     `references/bullshit-test-specimens.md` before showing it to anyone. A name that
     describes the call rather than the outcome licenses a body that asserts nothing, and
-    it will be approved because nothing looks wrong with it.
-11. Present the stubs to Dan for approval before proceeding — **and with them, any fixture
-    archetype step 7 identified as missing.** A fixture addition is a change to shared
+    it will pass review because nothing looks wrong with it.
+11. Commit the stubs as failing placeholders before proceeding; the commit is the contract.
+    Dan no longer approves names (retired 2026-09-27). **Any fixture archetype step 7
+    identified as missing still goes to Dan first:** a fixture addition is a change to shared
     state every other test reads; it gets reviewed before it gets written, not after.
 12. If a requirement cannot be named honestly — it describes an unreachable failure, or a
     behavior the system has no way to exhibit — stop and say so. Four of those surfaced in
@@ -99,8 +100,8 @@ member _.``REQ-XX-N.N description — exceeds max length`` () =
 
 ### Phase 2 — Read the Src
 
-Only after the names are approved. Read the production code for the module under test and
-ask one question: *does anything here suggest one of my approved tests is aimed wrong?*
+Only after the names are committed. Read the production code for the module under test and
+ask one question: *does anything here suggest one of my committed tests is aimed wrong?*
 
 Style is the other half of it — match Dan's naming and pipeline idiom, not generic F#
 convention.
