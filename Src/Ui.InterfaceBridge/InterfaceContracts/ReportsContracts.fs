@@ -7,7 +7,9 @@ type ReportAsOf = { asOf: LocalDate }
 
 type OutputPathInput = {
     baseDir: string
-    interpolateAsOf: bool // if true, write the as-of in YYYY.MM.DD format between the fileName and file extension
+    // if true, the file is named fileName, a hyphen and the as-of date in yyyy-MM-dd format, then .html; if false,
+    // fileName then .html. The writer appends .html either way, so fileName carries no extension.
+    interpolateAsOf: bool
     fileName: string
 }
 type OutputPathReturn = { fullyQualifiedPath: string }

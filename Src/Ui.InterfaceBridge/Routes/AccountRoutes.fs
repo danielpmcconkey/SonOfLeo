@@ -207,7 +207,7 @@ let accountDomainCommandRoutes: CommandRoute list =
       // update
       { domain = "Account"
         verb = "Deactivate"
-        description = "Updates an account's active end parameter to a specific instant"
+        description = "Ends an account's active period on the given date, or on today's date when none is given"
         inputContract = typeof<AccountDeactivationInput>.Name
         outputContract = typeof<AccountReturn>.Name
         handler = accountDeactivate }
