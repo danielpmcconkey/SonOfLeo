@@ -250,6 +250,42 @@ Grading adjustments, made from the spec:
 
 Mutation, k = 1 to 4: no mutant survived.
 
+### §14 maintenance operations
+
+File: `Tests/Tests.Integrated/CrossDomainOrchestration/MaintenanceOperations.fs` (19 names, 22 cases). All pass.
+
+REQ-CF-14.2 was already covered. Every test goes through the routes, which commit. The setup commits too, and a
+finally deletes the agreements (links included), then the staged entries, then the journal entries. An agreement made
+through CreateAgreement is found for clean-up by name.
+
+Four names were re-aimed after the placeholders were committed, and the re-aimed names went back through
+TestNameReview and were committed as placeholders again (f0cc596) before any body was written. The first pass
+assumed that Payments summing to more than an Invoice's amount make the Instance invalid. The spec says otherwise:
+REQ-CF-9.8 derives PartiallyPaid for any sum not equal to the amount, REQ-CF-13.1 speaks of Invoices whose Payments
+"already exceed the Invoice amount", and REQ-CF-13.6 reports an overpayment without refusing it. So:
+- The CreateInstance, CreateInvoice and UpdateInvoice rejections now use REQ-CF-9.3 (FullyPaid while blocked) and
+  REQ-CF-9.4 (a blocker set on a FullyPaid Invoice).
+- The CreatePayment overpayment case now asserts what the spec says happens: the Payment is stored, the Invoice goes
+  from FullyPaid to PartiallyPaid, and its Instance is no longer fulfilled (REQ-CF-9.10). It passes.
+- The grader also proposed a CreatePayment rejection under REQ-CF-9.3. The adopted list already had one.
+
+Other grading adjustments from the first pass:
+- The grader's generic "valid on its own but violates an Instance-level rule" name was made concrete with REQ-CF-9.3.
+- CreatePayment was dropped from the Payment Agreement name routes of REQ-CF-14.7. Its payload names an Invoice ID,
+  not a Payment Agreement.
+
+For REQ-CF-14.6, "the line is a linkage candidate again" is shown by running linkage and matching (rolled back) with a
+rule claiming the line: after the delete it links again. With a second Payment on the line, the original link is kept
+and a run with a rule for another Payment Agreement leaves it the line's only link. The agreements are daily, dated
+today, so the line falls inside the Invoice's dates and the run does not fail on it as an orphan (REQ-CF-13.7).
+
+Each refusal was checked for its reason. The four REQ-CF-9.3 and 9.4 rejections all give "cannot be FullyPaid while a
+Blocker is set". The unknown account code gives `AccountCodeDoesntMatchAccountId` with the code; the unknown Payment ID
+gives `CashflowPaymentIdDoesntExist` with the ID; unknown names give `CashflowAgreementNameDoesntMatchId` and
+`CashflowPaymentAgreementNameDoesntMatchId` with the name.
+
+Mutation, k = 1 to 5: no mutant survived. Two mutants at k = 1 were not run by the harness.
+
 ## Findings
 
 Each finding gives the requirement, the test, what the spec says, what the code does, and where the bug probably lies.
@@ -355,6 +391,7 @@ These are cited by passing tests unless noted.
 - §5: REQ-CF-5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 5.13, 5.14, 5.15, 5.16.
 - §6: REQ-CF-6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.9, 6.10, 6.11.
 - §8: REQ-CF-8.1, 8.2, 8.4, 8.5, 8.6, 8.7, 8.8.
+- §14: REQ-CF-14.1, 14.3, 14.4, 14.5, 14.6, 14.7 (with more cases for REQ-CF-9.3, 9.4, 9.8, 9.10).
 - §7: REQ-CF-7.1, 7.2, 7.3, 7.4, 7.6, 7.7, 7.8, 7.9, 7.10, 7.12, 7.14, 7.15, 7.16 (fails, F-4), plus REQ-CF-4.8.
 
 ## Requirements still uncovered
