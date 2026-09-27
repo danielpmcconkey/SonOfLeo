@@ -51,7 +51,7 @@ a diagnostics-only classifier the code no longer uses).
 | 4 | Enter variable bills as invoices (utility bills parsed outside) | `CashFlow CreateInvoice` / `UpdateInvoice` |
 | 5 | Generate tenant invoices for the prior month (billed in arrears; utility share derives from step 4) | `CashFlow CreateInvoice` |
 | 6 | Classify accounts | `Classification ClassifyAccounts` |
-| 7 | Transfer pairing | **new** (REQ-STG-7.6–7.12) |
+| 7 | ~~Transfer pairing~~ *Withdrawn 2026-09-27 (R-13): transfers post through a clearing account; no step.* | — |
 | 8 | Operator review: assign unknowns, **split lines**, resolve conflicts, mark Reviewed | `Ingestion UpdateStageEntry` (**extend**: REQ-STG-6.4–6.6) |
 | 9 | Link payment agreements + match invoices | `Classification ClassifyPaymentAgreements` (**fix**: §3 below) |
 | 10 | Shadow post + mechanical reconciliation, loop until clean | `Ingestion PostStageEntries {isShadow:true}` + **new** reconciliation (REQ-RPT-4.4) |
@@ -63,8 +63,7 @@ a diagnostics-only classifier the code no longer uses).
 
 Order matters in Src in three places, none of which the code enforces: dedup
 before classification (or duplicates get classified and posted); account
-classification before transfer pairing and before payment-agreement linkage
-(both read line accounts); splits before linkage (a lumped line can't be
+classification before payment-agreement linkage (linkage reads line accounts); splits before linkage (a lumped line can't be
 linked to two agreements). Tenant invoices must exist before linkage, or a
 tenant payment arriving the same week trips the hard stop in REQ-CF-13.7.
 
@@ -228,7 +227,7 @@ Do these first. Most are small; #1 breaks agreement creation outright.
 22. **Orphaned links: report all, not the first.** The hard stop stays (it's
     Dan's rule) but must name every orphaned line and its agreement.
     (REQ-CF-13.7)
-23. **Transfer pairing.** New operation and route. Two staged entries from
+23. ~~**Transfer pairing.**~~ *Withdrawn 2026-09-27 (R-13). Do not build.* New operation and route. Two staged entries from
     different sources that would produce identical journal entry lines
     (same accounts, line types, amounts) with entry dates within a
     caller-supplied window are one movement recorded twice. Survivor by
@@ -236,7 +235,7 @@ Do these first. Most are small; #1 breaks agreement creation outright.
     goes to `'Duplicate'` (mechanism `'Deduplicator'`); ambiguous groups are
     reported, never guessed. Candidates are `'Classified'`/`'Reviewed'`;
     counterparts may also be `'Posted'`. (REQ-STG-7.6–7.12)
-24. **Void unwinds staging and cash flow.** `JournalEntryVoiding.fs`
+24. *Superseded 2026-09-27 by R-17: the void leaves staging untouched and is refused while a Payment references its lines (REQ-JE-4.13, 4.14).* ~~**Void unwinds staging and cash flow.**~~ `JournalEntryVoiding.fs`
     currently touches neither. When the voided entry came from staging:
     staged entry `'Posted'` → `'Reviewed'` (mechanism `'Operator'`), clear
     the header's and lines' journal-entry back-links; Payments pointing at
@@ -590,7 +589,7 @@ The observation that prompted this, for the discussion: as rewritten,
 REQ-STG-7.9 reports every same-date pair and resolves none. Both exports of
 a transfer usually carry the same date, so even if pairing is built, the
 common case would go to the operator anyway.
-*Response:*
+*Response (Hobson, 2026-09-27): **Withdrawn, with a better answer than pairing.** Dan asked how larger ledgers do it: a transfer whose two sides are recorded by independent processes goes through a clearing (cash-in-transit) account, one journal entry per side, and the clearing balance is the control. That fits SonOfLeo exactly, since each source is ingested and classified on its own. Item 23 is withdrawn and REQ-STG-7.6–7.12 with it (Withdrawn table). No Src and no tests for pairing; delete any placeholders citing those IDs. The R-11 order change is dropped too, and step 7 is gone from §1. Transfers need no code: a classification rule per source sends transfer lines to the clearing account (cutover data, outside this repo), and the reconciliation input carries the clearing account with an external balance of zero (Reporting §4 note). REQ-STG-6.7 no longer mentions pairing. Transfers where only one side is imported keep the equity treatment and never touch clearing.*
 
 **R-14. Split before link is enforced only by the order of operations.**
 Dan notes this. REQ-STG-6.5 forbids changing the amount of a linked line.

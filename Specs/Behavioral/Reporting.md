@@ -45,6 +45,8 @@ Behavioral specs for the reporting domain. Reports are read-only computations ov
 
 Reconciliation compares ledger balances to balances captured from each institution at extract time. The comparison is arithmetic, so it is computed, not judged; judgment applies only to explaining a non-zero delta.
 
+A clearing account, such as the one transfers between imported accounts post through (DataIngestion, Transfers), is reconciled by supplying an external balance of zero. A non-zero delta is a transfer still in transit, or a side that is missing or doubled. (2026-09-27)
+
 - **REQ-RPT-4.1** The system must provide a reconciliation computation. Input: a list of (account code, external balance, as-of Calendar Date). Output, one row per input: account code, account name, as-of date, external balance, ledger net balance as of that date, and delta (external minus ledger).
 - **REQ-RPT-4.2** The ledger net balance follows the trial balance rules: voided entries excluded (REQ-RPT-1.8), entries dated after the as-of date excluded (REQ-RPT-1.9), net computed in the account's normal-balance direction (REQ-RPT-1.10). A parent account's balance includes its descendants (REQ-RPT-1.5). External balances are supplied in the same direction — for example, a credit card balance owed is positive.
 - **REQ-RPT-4.3** An account code that does not resolve to an existing account, or that appears more than once in the input, fails the computation with a typed error naming the code.
