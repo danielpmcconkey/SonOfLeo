@@ -41,6 +41,19 @@ under the direction default, and a test covers that case. The grader for the nex
 which read the clause as reachable, so the placeholder was dropped rather than renamed. Dan may want the spec to say
 that the zero case applies only to the default.
 
+### §10 payments-to-posted
+
+File: `Tests/Tests.Integrated/CrossDomainOrchestration/PaymentsToPosted.fs`. There are 11 tests, and all pass. The
+mutation pass ran k = 1 through 7 with no survivors.
+
+REQ-CF-10.6 ("a deterministic [DET] operation") has no test. It is proposed for the Unenforceable table, along with
+REQ-CF-7.13 and REQ-CF-8.5, because nothing observable separates a deterministic operation from one that is
+deterministic by accident. Dan needs to approve that.
+
+The grader asked for one more name: what happens when an Invoice's re-derived state fails §9 validation during the
+transition. No name was drafted for it. Posted state is derived, and a journal entry line posted from a staged line
+sits on the same account, so the transition has no reachable way to produce an invalid composite.
+
 ## Findings
 
 Each finding gives the requirement, the test, what the spec says, what the code does, and where the bug probably lies.
@@ -81,6 +94,7 @@ Each finding gives the requirement, the test, what the spec says, what the code 
 These are cited by passing tests unless noted.
 - §12–§13: REQ-CF-12.1, 12.2, 12.3 (more cases), 12.4 (one case fails, F-1), 12.5, 12.6, 12.7, 12.8, 13.1 (more
   cases), 13.2 (more cases), 13.3, 13.4, 13.5, 13.6, 13.8, 13.9.
+- §10: REQ-CF-10.1, 10.2, 10.3, 10.4, 10.5, 10.7.
 
 ## Requirements still uncovered
 
