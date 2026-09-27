@@ -68,6 +68,7 @@
     <Compile Include="CrossDomainOrchestration\SweepBehaviour.fs" />
     <Compile Include="CrossDomainOrchestration\DerivedStateRules.fs" />
     <Compile Include="CrossDomainOrchestration\MasterAgreementDataStates.fs" />
+    <Compile Include="CrossDomainOrchestration\PaymentAgreementDataStates.fs" />
     <Compile Include="CrossDomainOrchestration\BalanceSheetIntegrity.fs" />
     <Compile Include="CrossDomainOrchestration\PeriodActivity.fs" />
     <Compile Include="Model\Ledger\JournalEntryHeader.fs" />
