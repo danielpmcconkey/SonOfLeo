@@ -227,4 +227,24 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-FP-2.7 the ensure fiscal periods route, given a start and end month, returns the periods it created`` () =
-        Assert.Fail "not implemented"
+        let expectedKeys = [ "2065-01"; "2065-02" ]
+        let payload =
+            { FiscalPeriodEnsureInput.startPeriodKey = "2065-01"; endPeriodKey = "2065-02" }
+            |> toJson<FiscalPeriodEnsureInput>
+            |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
+        try
+            result {
+                let! resultPayload = routeUiCommandForTesting "FiscalPeriod" "Ensure" [] payload
+                let! returned = fromJson<FiscalPeriodReturn list> resultPayload
+                Assert.Equal<string list>(expectedKeys, returned |> List.map (fun fp -> fp.periodKey) |> List.sort)
+                Assert.All(returned, fun fp -> Assert.True(fp.isOpen))
+                // a second call finds nothing missing
+                let! againPayload = routeUiCommandForTesting "FiscalPeriod" "Ensure" [] payload
+                let! again = fromJson<FiscalPeriodReturn list> againPayload
+                Assert.Empty(again)
+            }
+            |> railroadWrapper
+        finally
+            match expectedKeys |> List.map Some |> cleanUpFiscalPeriodKeysList with
+            | Ok() -> ()
+            | Error e -> failwith(e.ToMessage())

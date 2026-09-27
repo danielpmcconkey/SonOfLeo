@@ -8,6 +8,7 @@ type LedgerAuditableAction =
     | AccountUpdateExtReference
     | AccountDeactivate
     | FiscalPeriodCreate
+    | FiscalPeriodEnsure
     | FiscalPeriodClose
     | FiscalPeriodReopen
     | JournalEntryPostNew

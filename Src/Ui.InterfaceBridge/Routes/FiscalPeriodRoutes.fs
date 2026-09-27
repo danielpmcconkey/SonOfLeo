@@ -23,6 +23,17 @@ let private create payload _ =
         return! Json.toJson<FiscalPeriodReturn> returnVal
     }
 
+let private ensure payload _ =
+    let context = Context.create NoTransaction FiscalPeriodEnsure
+    result {
+        let! input = Json.fromJson<FiscalPeriodEnsureInput> payload
+        let! startKey = input.startPeriodKey |> FiscalPeriodKey.fromString
+        let! endKey = input.endPeriodKey |> FiscalPeriodKey.fromString
+        let! created = ensureFiscalPeriods context startKey endKey
+        let returnVal = created |> List.map ``convert FiscalPeriod to FiscalPeriodReturn``
+        return! Json.toJson<FiscalPeriodReturn list> returnVal
+    }
+
 let private fetch payload _ =
     let context = Context.create NoTransaction FetchOnly
     result {
@@ -71,6 +82,13 @@ let fiscalPeriodDomainCommandRoutes =
         inputContract = typeof<FiscalPeriodCreateInput>.Name
         outputContract = typeof<FiscalPeriodReturn>.Name
         handler = create }
+      { domain = "FiscalPeriod"
+        verb = "Ensure"
+        description =
+          "Create an open fiscal period for every month from startPeriodKey through endPeriodKey that has none, and return the periods created. Existing periods, open or closed, are left alone; when none are missing it succeeds and returns an empty list."
+        inputContract = typeof<FiscalPeriodEnsureInput>.Name
+        outputContract = typeof<FiscalPeriodReturn list>.Name
+        handler = ensure }
       // read
       { domain = "FiscalPeriod"
         verb = "FetchByKey"

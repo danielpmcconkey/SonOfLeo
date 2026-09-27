@@ -12,6 +12,7 @@ type FiscalPeriodReturn =
       modifiedAt: Instant }
 
 type FiscalPeriodCreateInput = { periodKey: string }
+type FiscalPeriodEnsureInput = { startPeriodKey: string; endPeriodKey: string }
 type FiscalPeriodFetchByKeyInput = { periodKey: string }
 type FiscalPeriodCloseInput = { periodKey: string }
 type FiscalPeriodReopenInput = { periodKey: string }

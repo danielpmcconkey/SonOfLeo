@@ -31,6 +31,7 @@ type LedgerError =
     | AccountSubtypeInvalid of string
     | AccountTypeInvalid of string
     | AccountUpdateNoOp
+    | FiscalPeriodEnsureStartAfterEnd of string * string
     | FiscalPeriodInvalidKeyString of string
     | FiscalPeriodNoPeriodMatchingId of Guid
     | FiscalPeriodNoPeriodMatchingKey of string
@@ -104,6 +105,8 @@ type LedgerError =
             | AccountSubtypeInvalid subtype -> $"Provided string of '{subtype}' is not a valid account subtype."
             | AccountTypeInvalid typeString -> $"Provided string of '{typeString}' is not a valid account type."
             | AccountUpdateNoOp -> "Updating the account record failed because at least one updatable parameter must be set."
+            | FiscalPeriodEnsureStartAfterEnd(startKey, endKey) ->
+                $"Cannot ensure fiscal periods from {startKey} to {endKey}: the start month is later than the end month."
             | FiscalPeriodInvalidKeyString key -> $"Passed string \"{key}\" is invalid as a Period Key."
             | FiscalPeriodNoPeriodMatchingId uuid -> $"No Fiscal Period matching the id {uuid} could be found in the database."
             | FiscalPeriodNoPeriodMatchingKey key -> $"No Fiscal Period matching the key {key} could be found in the database."
