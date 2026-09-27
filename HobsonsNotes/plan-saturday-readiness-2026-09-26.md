@@ -272,6 +272,8 @@ Do these first. Most are small; #1 breaks agreement creation outright.
     existing trial balance report's patterns. (REQ-RPT-6.4, §2)
 29.5. **Pre-posting review.** *(Added 2026-09-27, Dan.)* A read-only report of every postable staged entry, line by line: account, the rule that assigned it, and any linked agreement, Payment, Invoice and Instance. It runs after step 10's shadow-post and reconciliation loop is clean, before step 11 posts: Dan reviews only what has passed the mechanical checks. Report CLI, data-only and HTML. (**REQ-RPT-7.1–7.7**)
 
+29.6. **Connection-pool helper is test code.** *(Added 2026-09-27, Dan.)* `App.DataAccessLayer/ConnectionPool.fs` (from `91b4672`) exists only so tests can read the driver's connections-in-use count; nothing in Src calls it. Move it into `Tests.Integrated` as a test helper and delete it from Src (fsproj too). It names the driver's meter by the literal "Npgsql", so add its new path to the allowlist in `Checks/check-npgsql.sh` with a one-line reason (test code reading the driver's metrics). Then use it as a leak guard on every integrated test: the shared fixture records connections in use before each test and fails the test if the count has not returned to that baseline afterwards. Why: Monte Carlo will be a long-lived process, so REQ-DAL-2.4 must hold on every path, not only the ones given a dedicated leak test. The `LookupCache` and `DbTransaction` fixes stay as they are. (**REQ-DAL-2.4**)
+
 ### D. Tests
 
 30. Every requirement added or revised on 2026-09-26 needs a citing test
