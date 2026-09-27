@@ -286,6 +286,28 @@ gives `CashflowPaymentIdDoesntExist` with the ID; unknown names give `CashflowAg
 
 Mutation, k = 1 to 5: no mutant survived. Two mutants at k = 1 were not run by the harness.
 
+### Accounts (create, activity, balances)
+
+File: `Tests/Tests.Integrated/CrossDomainOrchestration/AccountCreateActivityBalance.fs` (28 names, 53 cases). All pass.
+
+Covers REQ-AC-2.22, 2.23, 3.11, 3.12, 3.12.1 to 3.12.4, 3.13, 3.13.1 to 3.13.3. Every test commits its own accounts
+(codes are "Z" plus seven hex characters, so they cannot collide with fixture data) and journal entries through a
+small local ledger, and a finally deletes them. The activity tests build one tree of parent, child, grandchild,
+no-lines and liability accounts with five entries, one of them voided.
+
+The single-filter theory for REQ-AC-3.12.1 does not restate the filter logic from Src. It compares the filtered route
+result with the unfiltered result under a predicate written from the spec, and it asserts that the unfiltered rows
+include some that fail the predicate, so the filter has something to exclude. Separate cases pin the date range's
+inclusive ends, the case-sensitive description substring, and source equality.
+
+For REQ-AC-3.11, an unknown parent account code in a filter is refused with `AccountParentCodeInvalid` naming the
+code; the test accepts that or `AccountCodeDoesntMatchAccountId`, since both are typed refusals naming the code. The
+REQ-AC-3.13.3 refusal gives "fetchByAccountIdList requires at least one account ID".
+
+Mutation, k = 1 to 4: no mutant survived. The harness could not run the mutants in the two filter theories
+(REQ-AC-3.12.1 and 3.12.3). Those were perturbed by hand instead (the set equality inverted, and the no-lines account
+asserted present), and every case of both theories failed.
+
 ## Findings
 
 Each finding gives the requirement, the test, what the spec says, what the code does, and where the bug probably lies.
@@ -392,6 +414,7 @@ These are cited by passing tests unless noted.
 - §6: REQ-CF-6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.9, 6.10, 6.11.
 - §8: REQ-CF-8.1, 8.2, 8.4, 8.5, 8.6, 8.7, 8.8.
 - §14: REQ-CF-14.1, 14.3, 14.4, 14.5, 14.6, 14.7 (with more cases for REQ-CF-9.3, 9.4, 9.8, 9.10).
+- Accounts: REQ-AC-2.22, 2.23, 3.11, 3.12, 3.12.1, 3.12.2, 3.12.3, 3.12.4, 3.13, 3.13.1, 3.13.2, 3.13.3.
 - §7: REQ-CF-7.1, 7.2, 7.3, 7.4, 7.6, 7.7, 7.8, 7.9, 7.10, 7.12, 7.14, 7.15, 7.16 (fails, F-4), plus REQ-CF-4.8.
 
 ## Requirements still uncovered
