@@ -74,6 +74,8 @@
     <Compile Include="CrossDomainOrchestration\InstanceDataStates.fs" />
     <Compile Include="CrossDomainOrchestration\InvoiceDataStates.fs" />
     <Compile Include="CrossDomainOrchestration\PaymentDataStates.fs" />
+    <Compile Include="CrossDomainOrchestration\ProjectionRules.fs" />
+    <Compile Include="CrossDomainOrchestration\MaintenanceOperations.fs" />
     <Compile Include="CrossDomainOrchestration\BalanceSheetIntegrity.fs" />
     <Compile Include="CrossDomainOrchestration\PeriodActivity.fs" />
     <Compile Include="Model\Ledger\JournalEntryHeader.fs" />
