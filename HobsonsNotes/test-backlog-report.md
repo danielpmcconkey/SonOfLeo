@@ -15,6 +15,11 @@ transition. So the rule that names come before Src was broken for §7, §8 and �
 were already committed when the file was read. Those names were still drafted from the spec text alone and graded by
 an agent that never saw Src. The read is recorded here so the names can be weighed with that in mind.
 
+The same thing happened on a smaller scale for §9. The §9 names were drafted and graded before any Src was read. Then,
+while the §7 tests were being written, parts of `InstanceOrchestration.fs` were read, including the fulfilment
+derivation and the names of its composite checks. The §9 placeholders were committed after that read, with the names
+exactly as graded.
+
 ## Mutation
 
 The brief requires every new assertion to be seen to fail. Each batch is run through a mutation harness. For each k,
