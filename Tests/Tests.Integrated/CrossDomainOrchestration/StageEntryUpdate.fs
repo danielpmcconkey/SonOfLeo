@@ -28,6 +28,7 @@ open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.DataIngestion.DataIngestionError
+open App.DataAccessLayer.DalError
 
 
 [<Collection("SharedTestData")>]
@@ -148,8 +149,9 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let! badAmount = 999.99M |> Money.fromDecimal
                 let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with amountUpdate = SetTo badAmount } ]
+                let contextForUpdate = context |> Context.updateInitiationInstant
                 return!
-                    match updateStageEntry context headerUpdates lineUpdates with
+                    match updateStageEntry contextForUpdate headerUpdates lineUpdates with
                     | Error (AsError (IngestionStageEntryDebitCreditMismatch _)) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error: {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected failure; got success")
@@ -317,9 +319,56 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-STG-4.1.2 a second status transition for a staged entry within one operation is rejected with a typed error, and the entry holds exactly one transition from that operation, the first`` () =
-        Assert.Fail "not implemented"
+    member _.``REQ-STG-4.1.2 recording a second status transition for a staged entry at an instant it already holds fails loudly, naming the database constraint that forbids it`` () =
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let! fullResult = StageTestData.runPipeline context
+                let entry = fullResult.stagedEntries |> StageTestData.findByDescription "MARATHON PETRO 7218 ANYTOWN US"
+                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let contextForReview = context |> Context.updateInitiationInstant
+                let instant = contextForReview |> Context.getInitiationInstant
+                let transitionAt fromStatus toStatus =
+                    StageEntryStatusTransition.create
+                        (StageEntryStatusTransitionId.create ()) headerId (Some fromStatus) toStatus instant Operator
+                do! transitionAt Classified Reviewed |> persistStatusTransition contextForReview
+                return!
+                    match transitionAt Reviewed Ignored |> persistStatusTransition contextForReview with
+                    | Error (AsError (DalErrorDuringNonQueryExecution ex)) ->
+                        Assert.Contains("staged_entry_audit_entry_id_modified_at_key", ex.Message)
+                        Ok ()
+                    | Error e -> Error (TestingError $"Wrong error: {e.DomainName}.{e.CaseName}: {e.ToMessage()}")
+                    | Ok _ -> Error (TestingError "Expected failure; got success")
+            })
+        |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-STG-4.1.2 a second status transition for a staged entry within one operation is rejected even when the two transitions would carry different instants, and the entry keeps exactly one transition from that operation`` () =
-        Assert.Fail "not implemented"
+    member _.``REQ-STG-4.1.2 two different staged entries can each record a status transition at the same instant`` () =
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let! fullResult = StageTestData.runPipeline context
+                let headerIdOf description =
+                    fullResult.stagedEntries
+                    |> StageTestData.findByDescription description
+                    |> stageEntryHeader
+                    |> StageEntryHeader.stageEntryHeaderId
+                let headerIds =
+                    [ headerIdOf "MARATHON PETRO 7218 ANYTOWN US"; headerIdOf "PAYROLL DEPOSIT ACME CORP" ]
+                let contextForReview = context |> Context.updateInitiationInstant
+                let instant = contextForReview |> Context.getInitiationInstant
+                do!
+                    headerIds
+                    |> List.map (fun headerId ->
+                        StageEntryStatusTransition.create
+                            (StageEntryStatusTransitionId.create ()) headerId (Some Classified) Reviewed instant Operator
+                        |> persistStatusTransition contextForReview)
+                    |> convertListOfResultsToResultsList
+                    |> Result.map ignore
+                let! recorded = headerIds |> StageEntryStatusTransition.fetchByHeaderIdList contextForReview
+                let atInstant =
+                    recorded
+                    |> List.filter (fun t -> t |> StageEntryStatusTransition.instant = instant)
+                    |> List.map StageEntryStatusTransition.stageEntryHeaderId
+                    |> List.sortBy StageEntryHeaderId.value
+                Assert.Equal<StageEntryHeaderId list>(headerIds |> List.sortBy StageEntryHeaderId.value, atInstant)
+            })
+        |> railroadWrapper

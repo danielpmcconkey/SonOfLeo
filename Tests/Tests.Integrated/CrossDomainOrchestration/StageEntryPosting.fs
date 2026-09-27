@@ -204,7 +204,8 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 Assert.NotEmpty(accountIdsReceivingPostings)
                 let asOf = Calendar.today()
                 let! trialBalanceBefore = fetchTrialBalanceData context asOf
-                do! Business.CrossDomainOrchestration.StageEntryOrchestration.post context
+                let contextForPost = context |> Context.updateInitiationInstant
+                do! Business.CrossDomainOrchestration.StageEntryOrchestration.post contextForPost
                 let! trialBalanceAfter = fetchTrialBalanceData context asOf
                 let rowFor accountCode (rows: TrialBalanceRowFlattened list) =
                     rows |> List.find (fun row -> row.accountCode = accountCode)

@@ -1030,9 +1030,12 @@ type TestDataFixture() =
                     createLinkedLine legAId "Fixture agreement A payment" (firstOfLastMonth.PlusDays(25)) classified
                 let! paidPostedLineBId =
                     createLinkedLine legBId "Fixture agreement B payment" firstOfLastMonth classified
-                let! _ = CashFlowOps.classifyPaymentAgreements context
-                do! StageEntryOrchestration.post context
-                let! _ = CashFlowOps.transitionPaymentsToPosted context
+                (* posting is a later operation than staging: the staged entries already hold an Ingested transition
+                   at this context's instant, and one entry cannot hold two transitions at one instant (REQ-STG-4.1.2) *)
+                let postingContext = context |> Context.updateInitiationInstant
+                let! _ = CashFlowOps.classifyPaymentAgreements postingContext
+                do! StageEntryOrchestration.post postingContext
+                let! _ = CashFlowOps.transitionPaymentsToPosted postingContext
 
                 let! postedHeaders =
                     [ paidPostedLineAId; paidPostedLineBId ]
