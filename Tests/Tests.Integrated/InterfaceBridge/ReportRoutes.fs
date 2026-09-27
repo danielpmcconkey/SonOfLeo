@@ -251,3 +251,19 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             return ()
         }
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-RPT-6.4 the integrity report route in data-only mode returns the same totals, equality flag, account-type net balances, net income and residual as the integrity computation for the same as-of date``() =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-6.4 REQ-RPT-2.3 the integrity report route in report mode returns a fully qualified path at which an HTML file now exists``() =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-6.4 REQ-RPT-2.4 the integrity report file without date interpolation is the caller's base directory and file name with .html appended``() =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-6.4 REQ-RPT-2.4 the integrity report file with date interpolation is the caller's base directory and file name followed by a hyphen, the as-of date as yyyy-MM-dd, and .html``() =
+        Assert.Fail "not implemented"
