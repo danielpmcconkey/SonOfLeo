@@ -9,7 +9,6 @@
   <ItemGroup>
     <Compile Include="DalError.fs" />
     <Compile Include="DbConnection.fs" />
-    <Compile Include="ConnectionPool.fs" />
     <Compile Include="DbTransaction.fs" />
     <Compile Include="QueryParameter.fs" />
     <Compile Include="ExecuteReader.fs" />

@@ -26,6 +26,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="ConnectionPool.fs" />
+    <Compile Include="ConnectionLeakGuard.fs" />
     <Compile Include="Model\Ledger\Account.fs" />
     <Compile Include="Model\Ledger\FiscalPeriod.fs" />
     <Compile Include="SharedTestDataCollection.fs" />

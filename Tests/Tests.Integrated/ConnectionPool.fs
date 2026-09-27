@@ -1,4 +1,4 @@
-module App.DataAccessLayer.ConnectionPool
+module Tests.Integrated.ConnectionPool
 
 open System
 open System.Collections.Generic

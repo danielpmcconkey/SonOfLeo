@@ -202,10 +202,10 @@ let ``whenNoRows swaps DalNoOp for the caller's domain error and passes every ot
    whether the connection came back to the pool. Tests run one at a time, so nothing else holds a connection while
    these read. *)
 
-let private connectionsInUse = App.DataAccessLayer.ConnectionPool.connectionsInUse
+let private connectionsInUse = Tests.Integrated.ConnectionPool.connectionsInUse
 
 let private poolMaximum () : int64 =
-    App.DataAccessLayer.ConnectionPool.maximumConnections ()
+    Tests.Integrated.ConnectionPool.maximumConnections ()
     |> Option.defaultWith (fun () -> failwith "no connection pool has been built yet")
 
 let private sessionsIdleInTransaction () : Result<int64, IAppError> =
