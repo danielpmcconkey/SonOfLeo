@@ -1674,6 +1674,11 @@ An error of an account code / account ID mismatch may be specific enough for a J
       <element xsi:type="archimate:Principle" name="Infallible Create, Orchestrator Validates" id="id-8742bfb562224b2f81e02bf7cca6b4f3">
         <documentation>Create (construct) functions in Entity-level type modules never fail. They accept all inputs. Validation lives in the orchestrator, not the entity. No exceptions in constructors.</documentation>
       </element>
+      <element xsi:type="archimate:Constraint" name="Reconstitute never reads state outside the row it is given" id="id-e91fb0ad636e4a808d67dbb55ea70e6c">
+        <documentation>Reconstitute runs while the database reader is still open. It builds the entity from the row it is given and nothing else: no database calls, no clock, no config.
+
+Create, which reconstitute calls, is bound by the same rule as a consequence.</documentation>
+      </element>
       <element xsi:type="archimate:Constraint" name="Persist functions should only return unit" id="id-ffc4cc9bf17142cbb4780d60c9e35348">
         <documentation>The caller should already have the record they are persisting. 
 
@@ -1767,6 +1772,7 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
   <folder name="Implementation &amp; Migration" id="id-20317dee23d94410ba0bc93ae47becdd" type="implementation_migration"/>
   <folder name="Other" id="id-4f39f83be6824a339cf8b19d21ca7274" type="other"/>
   <folder name="Relations" id="id-c5e8eba6e8c44e6693f093baa24638e0" type="relations">
+    <element xsi:type="archimate:AssociationRelationship" id="id-dc6f854d053947fa83af0d4391caa6e3" source="id-e91fb0ad636e4a808d67dbb55ea70e6c" target="id-a33134be83c749a090815b09e9f5a997"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-78dd60cc504d420d9af05ff106c5151b" source="id-a8ee7ba6b73c41a3b56bc7baa7e34be1" target="id-7b218b67c2d84de7b4743a67457b7b06"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-317a4f334bf64b0b850672d26e9a0e2a" source="id-d052138710cf407fa525224e8f23b91d" target="id-7c1c3299273c4c538dc4825d22a8fb5d"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-4fc300782af347e48808d39956544ead" source="id-d2fcb2dda36c4cd387e60755cd1fc77d" target="id-14d42338c35f4fc9bf408ca2e64aed59"/>
