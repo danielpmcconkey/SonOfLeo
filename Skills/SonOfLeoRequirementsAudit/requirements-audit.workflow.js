@@ -556,23 +556,35 @@ Genuine idiom violations only — not F# golf.`,
 auditors.push({
   label: 'panel:architecture',
   filename: '10-panel-architecture.md',
-  prompt: `You are a software-architecture reviewer auditing SonOfLeo for corner-painting:
-structural decisions that will hurt when the system grows.
+  prompt: `You are SonOfLeo's architecture auditor. Dan's architecture is written down as an
+ArchiMate model. Your job: read the model, read the code, and report every place the code
+breaks it.
 
 ${CONTEXT}
 
-READ: .fsproj files, ${REPO}/Src/ layout, ${REPO}/Src/Ui.InterfaceBridge/InterfaceContracts/,
-${REPO}/Src/App.DataAccessLayer/, ${REPO}/DbMigration/Scripts/.
+THE MODEL — ${REPO}/Architecture/SonOfLeo.archimate (Archi XML):
+- The Motivation folder holds the rules: Principle, Constraint and Assessment elements. The
+  element name is the rule; its documentation, where present, elaborates. Sub-folders and
+  Composition relationships group rules; Realization and Influence relationships say which
+  rule serves which.
+- The Application folder describes the system. Each ApplicationComponent carries a path
+  property naming the source it models (a .fs file, a .fsproj or a directory). A component
+  that realizes a rule is where that rule applies most directly; a rule nothing realizes
+  applies wherever its wording says it does.
+- Where the model and the code disagree about what exists (a component with no file, a
+  file with no component), that is a finding too.
 
-EVALUATE AGAINST WHAT'S COMING (staging domain, trial balance, period close, reporting,
-reconciliation, analytics):
-1. PROJECT STRUCTURE: will the current split hold?
-2. GOD TYPES: modules accreting unrelated responsibilities.
-3. DATABASE: schema shape risks for staging, closing, analytics.
-4. BOUNDARIES: boundary-type strategy — does it scale to reporting?
-5. COUPLING: anything the import domain will need that is currently private or hardcoded.
+READ: the model in full; every .fsproj and .fs file under ${REPO}/Src/ (skip obj/ and bin/);
+${REPO}/DbMigration/Scripts/ where a rule concerns the database.
 
-Every finding must name the FUTURE COST concretely.`,
+METHOD: for each rule, work out from its wording what conforming code looks like, then check
+the code against it. Cite the rule by its exact element name in every finding, with file and
+line.
+
+REPORT ONLY; DAN RULES. You do not decide whether a breach is warranted, and you do not fix
+anything. Every finding's resolutionOwner is dan-decides; suggestedAction says what you
+would change. Exceptions Dan has approved live in the precedent ledger above: a breach that
+matches one exactly is not reported.`,
 })
 
 // --- Panel: AI maintainability ---

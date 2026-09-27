@@ -70,6 +70,9 @@ The *Why* line is optional and reserved for requirements where a reasonable revi
 ask "wait, why?" — annotating the obvious is noise. Withdrawn-table rows carry their why in
 the Reason column.
 
+A requirement is written in operator concepts: it says what the system does, never how the
+code is structured.
+
 A requirement that cannot or should not be verified by a test is in exactly one of two
 non-tested states:
 

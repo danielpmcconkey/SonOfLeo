@@ -106,15 +106,10 @@ one per compiled `.fs` file.
 
 ### Properties
 
-Use `<property key="..." value="..."/>` on elements for metadata the model schema
-doesn't capture:
-
-- `enforcement` — how strictly this principle/constraint is enforced
-  (`absolute`, `strong`, `advisory`)
-- `source` — where this principle is documented in prose
-  (e.g., `standing-corrections`, `CompoundedLearnings/architecture.md`)
-- `auditable` — whether an automated auditor can check this (`true`/`false`)
-- `audit-strategy` — how an auditor would check this (free text, brief)
+The only property in use is `path` on application components (see above). Motivation
+elements carry none: the name is the rule, the documentation elaborates, and the auditor
+works out how to check it. Enforcement levels, sources and audit strategies were removed on
+2026-09-27 — they restated the documentation and went stale. Don't add them back.
 
 ### Sub-folders
 

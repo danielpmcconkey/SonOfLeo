@@ -1531,17 +1531,9 @@
         <element xsi:type="archimate:Principle" name="Src structural architecture principles" id="id-6b3dbae4c22c49f5a3a492a28235b5d9"/>
         <element xsi:type="archimate:Constraint" name="Build Order Follows the Hierarchy" id="id-a5f95c974acd427883151d19c8ca7627">
           <documentation>In Src, project references and each .fsproj's Compile Include list follow the rungs: a file compiles after everything below it and before everything above it, foundations first. Where siblings are unordered peers, their relative order is free.</documentation>
-          <property key="enforcement" value="strong"/>
-          <property key="source" value="app-tier-refactor-2026-09-26"/>
-          <property key="auditable" value="true"/>
-          <property key="audit-strategy" value="Walk each .fsproj Compile Include list and report any file that compiles before a sibling on a lower rung (e.g. a *AuditableAction after entity modules; a classification orchestrator before the data ingestion orchestrator)."/>
         </element>
         <element xsi:type="archimate:Constraint" name="Opens Follow Build Order" id="id-1b37530d544d4acb9c5ba711963cd0f4">
           <documentation>Within each Src file, open statements for Src modules list them in build order: baser modules first, more specialised ones after. An open that has to break that order is reported to Dan, not a formatting choice.</documentation>
-          <property key="enforcement" value="strong"/>
-          <property key="source" value="app-tier-refactor-2026-09-26"/>
-          <property key="auditable" value="true"/>
-          <property key="audit-strategy" value="For each file, map every SonOfLeo open to its module and compare the sequence against build order (project order, then Compile Include order). Report every out-of-order pair; do not auto-correct."/>
         </element>
         <element xsi:type="archimate:Principle" name="UI Layers Build Upward" id="id-9e3560f326954a6db086953a55ac710d">
           <documentation>Within the Ui tier the layers are ordered, basest first:
@@ -1553,10 +1545,6 @@ The visualization assets and report writers are converters: specialised ones tha
 Reports and operator UI are sibling sides at the top two layers only. The report CLI does not touch the operator CLI or its routes, and the operator CLI does not touch the report CLI or its routes; report routes and operator routes do not touch each other. Contracts and converters are a shared pool: either side's routes may use any of them.
 
 Within each layer the business concept order applies (see Domains Build Upward), with that layer's foundation at the bottom (see Foundations Are the Base of Their Container).</documentation>
-          <property key="enforcement" value="strong"/>
-          <property key="source" value="app-tier-refactor-2026-09-26"/>
-          <property key="auditable" value="true"/>
-          <property key="audit-strategy" value="Place each Ui module on its layer (and, for routes and interfaces, its side). Report any reference from a lower layer to a higher one, and any reference between the reports and operator sides at the route or interface layer."/>
         </element>
         <element xsi:type="archimate:Principle" name="Foundations Are the Base of Their Container" id="id-8e032f4523fa44838b3e510933718422">
           <documentation>Every container has foundations that sit below everything else in it:
@@ -1565,17 +1553,9 @@ Within each layer the business concept order applies (see Domains Build Upward),
 - SharedContracts is the base of the UI contracts layer; CommandRoute is the base of the UI routes layer; FetchFilters is the base of Business.CrossDomainOrchestration.
 
 Foundations compile first in their container and reference nothing in it that sits above them.</documentation>
-          <property key="enforcement" value="strong"/>
-          <property key="source" value="app-tier-refactor-2026-09-26"/>
-          <property key="auditable" value="true"/>
-          <property key="audit-strategy" value="In each .fsproj (and each Ui layer), the foundation files come before every other file in the Compile Include list, in the order given, and reference nothing in their container above them. Report any file that compiles before a foundation, and any foundation that references a sibling above it."/>
         </element>
         <element xsi:type="archimate:Principle" name="Tiers Build Upward" id="id-204abe28f2434088bea3cc371ee1275c">
           <documentation>The three tiers are ordered App &lt; Business &lt; Ui. A tier may reference anything in any tier below it, including skipping a tier: Ui may use App directly without going through Business, and may use any module there, internals included. App references nothing in Business or Ui; Business references nothing in Ui.</documentation>
-          <property key="enforcement" value="absolute"/>
-          <property key="source" value="app-tier-refactor-2026-09-26"/>
-          <property key="auditable" value="true"/>
-          <property key="audit-strategy" value="Check each .fsproj ProjectReference and each open/qualified reference in Src: no App.* project or module references Business.* or Ui.*, and no Business.* references Ui.*."/>
         </element>
         <element xsi:type="archimate:Principle" name="Domains Build Upward" id="id-2042ff5d257b4f2ebb67a50e953b2590">
           <documentation>The business concepts are ordered, basest first:
@@ -1591,17 +1571,9 @@ The order applies at every zoom level where a container holds more than one conc
 - Inside every Ui layer (contracts, converters, routes): account pieces first, then fiscal period, journal entry, data ingestion, cash flow, classification. The account routes are more base than the journal entry routes.
 
 Within such a container a piece may use its own concept and lower ones, never a higher sibling. The rule binds siblings only: a container may use anything in a container below it. Closing an account is an account use case that needs a journal-entry fact (a zero balance); Ledger's account pieces may not reach up to journal entries, so the use case is owned by orchestration, which sits above Ledger and may use any Ledger module. Were that account orchestrator to use a journal-entry orchestrator (a sibling), the alarm goes off and Dan decides whether it is warranted.</documentation>
-          <property key="enforcement" value="strong"/>
-          <property key="source" value="app-tier-refactor-2026-09-26"/>
-          <property key="auditable" value="true"/>
-          <property key="audit-strategy" value="In each multi-concept container (Ledger, the FinancialServices projects, CrossDomainOrchestration, each Ui layer) assign every module to a concept from the business concept it serves. Report any reference to a sibling of a higher concept, and any Compile Include or open order that lists a higher concept's sibling before a lower one."/>
         </element>
         <element xsi:type="archimate:Principle" name="Out-of-Order Is a Design Smell" id="id-010d670603bb420f974a8b744577bc35">
           <documentation>If code in Src needs to reach something out of the hierarchy's order (a higher rung, a higher sibling, the other UI side's routes or CLI, or an open out of build order), the likeliest cause is a design mistake in that code; the next likeliest is that the architecture itself is wrong. Either way the alarm reports it to Dan, who decides whether it is warranted; it is never quietly accommodated or auto-judged. Dan may approve a specific exception (a namespace collision, for instance); an approval covers that case only.</documentation>
-          <property key="enforcement" value="absolute"/>
-          <property key="source" value="app-tier-refactor-2026-09-26"/>
-          <property key="auditable" value="true"/>
-          <property key="audit-strategy" value="Every out-of-order finding is reported to Dan with the file, the reference, and the rungs involved, unless it matches an exception Dan has approved."/>
         </element>
         <element xsi:type="archimate:Principle" name="This application is structured in domain tiers and we are strictly forbidden from altering or circumventing the tier hierarchy" id="id-ac5c0f586fba42409935f772e5c9a768">
           <documentation>As an F# application, we are strictly prohibited from circular references. But F# doesn't prevent you from loading a module from domain A between two modules of domain B, presuming they're all in the same fsproj. This app has been broken into a more rigid structure on purpose and we *do* strictly enforce that no lower tier has any understanding of higher tier modules, types, or even labels. Other principles in this model define those tiers and their hierarchy.</documentation>
@@ -1615,11 +1587,7 @@ The rungs govern two things: what may reference what (a lower rung never referen
 
 A container may freely use anything in a container below it; the ordering among siblings binds only siblings. An orchestrator in Business.CrossDomainOrchestration may use any Ledger, DataIngestion, CashFlow or Classification module, because all of Business.FinancialServices is below orchestration; but inside orchestration, an account-level orchestrator may not use a journal-entry-level orchestrator.
 
-This principle only answers &quot;does the reference go down the ladder?&quot; Other principles may forbid a reference that goes down (for example, the UI reaching straight into the data access layer); that is not this alarm's concern.</documentation>
-          <property key="enforcement" value="strong"/>
-          <property key="source" value="app-tier-refactor-2026-09-26"/>
-          <property key="auditable" value="true"/>
-          <property key="audit-strategy" value="For every reference between Src modules (open statements, qualified references, project references), place both ends on the rungs defined by the composed principles. Report any reference from a lower rung to a higher one, any reference between the reports and operator sides at the route or interface layer, and any listing (project reference, Compile Include, open) that puts a higher rung before a lower one. Report only; Dan rules."/>
+This principle judges direction only. A reference that goes down the ladder satisfies it, but satisfying it is not a licence. A downward reference can still break another principle: a UI route that writes its own SELECT and calls the data access layer's ExecuteReader goes down the ladder correctly, yet breaks encapsulation and domain ownership. Every principle is judged independently; passing this one clears nothing else.</documentation>
         </element>
       </folder>
       <element xsi:type="archimate:Principle" name="Structural architecture principles" id="id-522ac489709b4d1c8c8fd7ce9e0d5727"/>
@@ -1669,6 +1637,7 @@ Instead, create tuples of the primitives that the domain types would need to cre
       </folder>
       <folder name="Encapsulation" id="id-353446e2c50242e2b087f8446c382dd0">
         <element xsi:type="archimate:Principle" name="Encapsulation conventions are enforced" id="id-7b218b67c2d84de7b4743a67457b7b06"/>
+        <element xsi:type="archimate:Constraint" name="The UI tier issues no SQL" id="id-a8ee7ba6b73c41a3b56bc7baa7e34be1"/>
         <element xsi:type="archimate:Constraint" name="Entity, component, and composite type definitions are private" id="id-390b6abd1d6d4a268701e744a49c7b4d">
           <documentation>This is to encapsulate instantiation within the module</documentation>
         </element>
@@ -1695,22 +1664,15 @@ Ex 2: An error that cites that an account cannot be deactivated because it is re
 An error of an account code / account ID mismatch may be specific enough for a Journal Entry function that matches an account to a JE line. But that same error is not specific enough in any function that deals with both an account's primary ID and an account's parent ID</documentation>
         </element>
       </folder>
+      <element xsi:type="archimate:Constraint" name="SQL values are always passed as parameters, never interpolated into the SQL" id="id-d052138710cf407fa525224e8f23b91d"/>
       <element xsi:type="archimate:Principle" name="F# conventions are enforced" id="id-7c1c3299273c4c538dc4825d22a8fb5d">
         <documentation>There are exceptions to this, but each should be called out to Dan or cross-referenced to a known exceptions list</documentation>
       </element>
       <element xsi:type="archimate:Principle" name="IDs are used in the Business tier while human-readable strings are used at the UI boundary" id="id-9c04721a3d32403a82ebfb97bedaccbb">
         <documentation>All entity-leve types define an ID, which is a type-wrapped UUID. The business tier and lower should always use these ID fields for identification (e.g., the Business tier function for updating an account should take an account ID as its identifier). However, the operator using the SonOfLeo CLI is not expected to memorize UUIDs. We therefore translate IDs to easier to remember strings (e.g. when the operator wants to update an account, they pass in an account code). The UI tier is expected to translate that code and pass the ID down to the Business tier for affecting the use case.</documentation>
-        <property key="enforcement" value="absolute"/>
-        <property key="source" value="standing-corrections"/>
-        <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Grep Model/ for account code strings; grep InterfaceBridge/ for account ID-to-code conversion"/>
       </element>
       <element xsi:type="archimate:Principle" name="Infallible Create, Orchestrator Validates" id="id-8742bfb562224b2f81e02bf7cca6b4f3">
         <documentation>Create (construct) functions in Entity-level type modules never fail. They accept all inputs. Validation lives in the orchestrator, not the entity. No exceptions in constructors.</documentation>
-        <property key="enforcement" value="absolute"/>
-        <property key="source" value="standing-corrections"/>
-        <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Scan construct functions for Result returns or exceptions; verify orchestrator functions perform validation before persistence"/>
       </element>
       <element xsi:type="archimate:Constraint" name="Persist functions should only return unit" id="id-ffc4cc9bf17142cbb4780d60c9e35348">
         <documentation>The caller should already have the record they are persisting. 
@@ -1738,10 +1700,6 @@ Note: this is obviously a Result&lt;unit, some type of error> return</documentat
       <element xsi:type="archimate:Principle" name="The Classification domain owns classification capabilities" id="id-6ad1302329324f449613c84cddb4b1b8"/>
       <element xsi:type="archimate:Principle" name="Domain Owns Its Bookkeeping" id="id-c60e5ee28f8241959a6fe03186d4a70e">
         <documentation>A domain records its own bookkeeping on its own table. No domain writes to another domain's tables.</documentation>
-        <property key="enforcement" value="absolute"/>
-        <property key="source" value="standing-corrections"/>
-        <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Check that each Model/ domain folder's DAL functions only reference tables in that domain's schema"/>
       </element>
       <element xsi:type="archimate:Principle" name="A domain is not a file, a module, or a project. It is a business concept" id="id-5df6f6a40c1a4c83b66047f96f27b460">
         <documentation>We do have projects named after domains, but we also have projects, like the cross-domain orchestration, that operates across domains as needed.</documentation>
@@ -1756,14 +1714,10 @@ Example 2: the process of decativating an account requires knowledge of the Acco
       <element xsi:type="archimate:Principle" name="The Fiscal Period domain is a lower tier than the Journal Entry domain" id="id-90cbc0b3ffa248a3ac0f6e7234b205fe"/>
       <element xsi:type="archimate:Principle" name="The Journal Entry domain is a lower tier than the Data Ingestion domain" id="id-c2387ff4571447cb8672d0dfdcceb518"/>
       <element xsi:type="archimate:Principle" name="The Data Ingestion domain is a lower tier than the Cash Flow domain" id="id-c84b1aeaf42d469a8f710515c05a465f"/>
-      <element xsi:type="archimate:Principle" name="The Cash Flow domain is a lower tier than the Classification domain (copy)" id="id-c4e5a4bbb96d41c6b3d500380a0a3689"/>
+      <element xsi:type="archimate:Principle" name="The Cash Flow domain is a lower tier than the Classification domain" id="id-c4e5a4bbb96d41c6b3d500380a0a3689"/>
     </folder>
     <folder name="Heirearchy of authority" id="id-fc32fa5c39ec41708dcd5fbfd7f986c6">
       <element xsi:type="archimate:Principle" name="There is a hierarchy of authority that is strictly enforced" id="id-9e5e7bd771a64009bd854f9ba5a9e60d">
-        <property key="enforcement" value="absolute"/>
-        <property key="source" value="standing-corrections"/>
-        <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Check that classifier never overwrites manual categorizations; import scripts never overwrite Hobson's corrections"/>
       </element>
       <element xsi:type="archimate:Constraint" name="A data value set by a higher authority is never overridden by a lower one." id="id-6827ece3868148adb71af626c25e45a1"/>
       <element xsi:type="archimate:Principle" name="Dan's decisions are a higher authority than the operator's, import scripts, and our business logic" id="id-aac4a8ce48d749de9ff6d96592d324de"/>
@@ -1787,22 +1741,25 @@ Ex 2: It is presumed that the script that parses Dan's paycheck very deliberatel
     <folder name="Privacy" id="id-e7713305510e4791a61cd03817e03def">
       <element xsi:type="archimate:Constraint" name="Public Repo — No PII" id="id-0587fa9a15364f3a973e0852ad476eee">
         <documentation>This is a public repo. No FI names, account numbers, or PII in any file.</documentation>
-        <property key="enforcement" value="absolute"/>
-        <property key="source" value="standing-corrections"/>
-        <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Grep for known FI name patterns, account number formats, email addresses"/>
       </element>
       <element xsi:type="archimate:Principle" name="Privacy conventions are enforced" id="id-626a250d7ded4ccab4b16fb11d43a693"/>
       <element xsi:type="archimate:Constraint" name="Debug builds must never reach production" id="id-9801c729c7b14a56855a306ec2afceb6"/>
       <element xsi:type="archimate:Constraint" name="LLM agents must never modify config" id="id-ce0a773808a245feaab353613c8e0840"/>
     </folder>
-    <element xsi:type="archimate:Constraint" name="Spec Language — Operator Concepts Only" id="id-72d2e3a3addf4f63837e60a864f97f42">
-      <documentation>Specs use operator concepts, not implementation details. REQs describe what the system does, not how the code is structured.</documentation>
-      <property key="enforcement" value="strong"/>
-      <property key="source" value="standing-corrections"/>
+    <element xsi:type="archimate:Constraint" name="A validation is answered by a SQL query only when it is a pure data question that domain types cannot practically answer" id="id-d2fcb2dda36c4cd387e60755cd1fc77d">
+      <documentation>F# may answer a validation with a SQL query, rather than through domain types, only when both hold:
+1. It is a pure data question: dates, counts or existence, with no validated types involved. Doing it through domain types would rebuild domain objects only to throw them away.
+2. Doing it through domain types would cost something real: exceptional complexity (new fetch functions nothing else would use) or a significant performance cost.
+
+If existing F# infrastructure answers it without meaningful cost, it stays in F#. SQL is not the escape hatch for inconvenience.
+
+Ex 1 (SQL): no journal entries dated after an account's deactivation date. A yes/no existence question comparing dates; no domain type adds anything.
+Ex 2 (F#): an account's balance is zero before deactivation. Money's precision rules do real work, so the lines are summed through domain types.</documentation>
     </element>
     <element xsi:type="archimate:Principle" name="Type is enforced in F#, not the database" id="id-14d42338c35f4fc9bf408ca2e64aed59">
-      <documentation>We do not want the database to mirror the application business logic through triggers and the like. Only standard DB constraints belong in the database.</documentation>
+      <documentation>We do not want the database to mirror the application business logic through triggers and the like. Only standard DB constraints belong in the database.
+
+A SQL query that F# writes and runs is not business logic in the database: F# still owns it. A trigger that checks a journal entry header has at least two lines would be.</documentation>
     </element>
     <element xsi:type="archimate:Constraint" name="Business logic is not allowed in the UI tier" id="id-adeba6d206ec4318ae512cb08b7c7daa"/>
     <element xsi:type="archimate:Constraint" name="No reference to Npgsql outside of the Data Access Layer" id="id-e65f424ef247426588fbebef87c47550"/>
@@ -1810,6 +1767,9 @@ Ex 2: It is presumed that the script that parses Dan's paycheck very deliberatel
   <folder name="Implementation &amp; Migration" id="id-20317dee23d94410ba0bc93ae47becdd" type="implementation_migration"/>
   <folder name="Other" id="id-4f39f83be6824a339cf8b19d21ca7274" type="other"/>
   <folder name="Relations" id="id-c5e8eba6e8c44e6693f093baa24638e0" type="relations">
+    <element xsi:type="archimate:RealizationRelationship" id="id-78dd60cc504d420d9af05ff106c5151b" source="id-a8ee7ba6b73c41a3b56bc7baa7e34be1" target="id-7b218b67c2d84de7b4743a67457b7b06"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-317a4f334bf64b0b850672d26e9a0e2a" source="id-d052138710cf407fa525224e8f23b91d" target="id-7c1c3299273c4c538dc4825d22a8fb5d"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-4fc300782af347e48808d39956544ead" source="id-d2fcb2dda36c4cd387e60755cd1fc77d" target="id-14d42338c35f4fc9bf408ca2e64aed59"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-cc5f388c5b5f4fb8a1a4c0b85f594710" source="id-c9952561e4774c89891b4103fa405ce6" target="id-eba512ac9974487dafe9cb9d946025b5"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-965bc697995441ddb3086e3fa6dc7254" source="id-c9952561e4774c89891b4103fa405ce6" target="id-b014385ee7444b689d2f4fb16ca49c4c"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-1e3b490cdf5e41109aaf3b2b3c57d04b" source="id-81711318d0f74f4cb002bc5fd843d1ee" target="id-2224f7a8b5e24edc928b88a393ab0882"/>
@@ -3822,6 +3782,8 @@ Ex 2: It is presumed that the script that parses Dan's paycheck very deliberatel
     <element xsi:type="archimate:AssociationRelationship" id="id-eea92737e6304a74a9c7effe937ba407" source="id-cd410503350f49ff97e9c5a1bf4f7409" target="id-c0dfda9814294986839894463e7ac420"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-a8e869d97fc14bcb8a91c2945d5da379" source="id-7c1c3299273c4c538dc4825d22a8fb5d" target="id-c0dfda9814294986839894463e7ac420"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-ceae5b635efc422084e0c9212cac8654" source="id-cd410503350f49ff97e9c5a1bf4f7409" target="id-7c1c3299273c4c538dc4825d22a8fb5d"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-e540d7ab487f45eca098e1fb258c0c5d" source="id-30fa21c471624afcbf6f949ee7856611" target="id-dc34df44b6b142838a208113cc8322c4"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-58553008a0a547d085c24c16a7153f3c" source="id-30fa21c471624afcbf6f949ee7856611" target="id-7b218b67c2d84de7b4743a67457b7b06"/>
   </folder>
   <folder name="Views" id="id-75e0717f00f244fe89d04a8b9e32fac9" type="diagrams">
     <element xsi:type="archimate:ArchimateDiagramModel" name="Application tiers" id="id-398726ae0f1d4b0a896928395ae87a15">
@@ -6132,8 +6094,8 @@ Ex 2: It is presumed that the script that parses Dan's paycheck very deliberatel
             </child>
           </child>
         </child>
-        <child xsi:type="archimate:DiagramObject" id="id-ecf2cf4a73e94903821ccd9ed367e66d" targetConnections="id-54f3eb3d3a9b4992b52a9556ac181f4a id-272ab313bda3434d946fc483b508b966 id-9d2a89e5e3654a6f9175d3c514932f10 id-dd179c8b01654314b0d4b2ac859576a1 id-cc060452ff7e44ccbb28d77950dc0dc3" archimateElement="id-7b218b67c2d84de7b4743a67457b7b06">
-          <bounds x="10" y="473" width="531" height="88"/>
+        <child xsi:type="archimate:DiagramObject" id="id-ecf2cf4a73e94903821ccd9ed367e66d" targetConnections="id-54f3eb3d3a9b4992b52a9556ac181f4a id-272ab313bda3434d946fc483b508b966 id-9d2a89e5e3654a6f9175d3c514932f10 id-dd179c8b01654314b0d4b2ac859576a1 id-cc060452ff7e44ccbb28d77950dc0dc3 id-ca04e69065b1464d8e5b85abf1159611" archimateElement="id-7b218b67c2d84de7b4743a67457b7b06">
+          <bounds x="10" y="473" width="735" height="88"/>
           <child xsi:type="archimate:DiagramObject" id="id-4812eb9b4b304f32b17e52ca8a0db508" archimateElement="id-390b6abd1d6d4a268701e744a49c7b4d">
             <bounds x="10" y="25" width="120" height="55"/>
             <sourceConnection xsi:type="archimate:Connection" id="id-272ab313bda3434d946fc483b508b966" source="id-4812eb9b4b304f32b17e52ca8a0db508" target="id-ecf2cf4a73e94903821ccd9ed367e66d" archimateRelationship="id-b955b41b65cd4314bba711c4e301f4e5"/>
@@ -6149,6 +6111,11 @@ Ex 2: It is presumed that the script that parses Dan's paycheck very deliberatel
           <child xsi:type="archimate:DiagramObject" id="id-5db53223a01d464d91e50a9d217f0684" archimateElement="id-f5e2db9329b44493b38cc7e43aec4cbc">
             <bounds x="395" y="25" width="120" height="55"/>
             <sourceConnection xsi:type="archimate:Connection" id="id-cc060452ff7e44ccbb28d77950dc0dc3" source="id-5db53223a01d464d91e50a9d217f0684" target="id-ecf2cf4a73e94903821ccd9ed367e66d" archimateRelationship="id-57f5b4ffedcb4825bbc2781830e29e53"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-6ab8bc1333d84b76905dc8b80731780d" archimateElement="id-30fa21c471624afcbf6f949ee7856611">
+            <bounds x="520" y="25" width="120" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-a7c3164e6d4a438d82e0877de2aa51a6" source="id-6ab8bc1333d84b76905dc8b80731780d" target="id-ce416a3f922f481191cbfe1c30a97064" archimateRelationship="id-e540d7ab487f45eca098e1fb258c0c5d"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-ca04e69065b1464d8e5b85abf1159611" source="id-6ab8bc1333d84b76905dc8b80731780d" target="id-ecf2cf4a73e94903821ccd9ed367e66d" archimateRelationship="id-58553008a0a547d085c24c16a7153f3c"/>
           </child>
         </child>
         <child xsi:type="archimate:DiagramObject" id="id-ffa1dfcd1f84402dbb78554fc956d3a9" archimateElement="id-ffc4cc9bf17142cbb4780d60c9e35348">
@@ -6186,7 +6153,7 @@ Ex 2: It is presumed that the script that parses Dan's paycheck very deliberatel
           <sourceConnection xsi:type="archimate:Connection" id="id-02a41b333ad54066982da0bb99d92179" source="id-77b8b026042d44e0a080ec40525667cb" target="id-94ccd8f7111f4e34bb6ebf56e7edd4b9" archimateRelationship="id-ceae5b635efc422084e0c9212cac8654"/>
         </child>
       </child>
-      <child xsi:type="archimate:DiagramObject" id="id-ce416a3f922f481191cbfe1c30a97064" archimateElement="id-dc34df44b6b142838a208113cc8322c4">
+      <child xsi:type="archimate:DiagramObject" id="id-ce416a3f922f481191cbfe1c30a97064" targetConnections="id-a7c3164e6d4a438d82e0877de2aa51a6" archimateElement="id-dc34df44b6b142838a208113cc8322c4">
         <bounds x="660" y="60" width="811" height="366"/>
         <sourceConnection xsi:type="archimate:Connection" id="id-6b5ecc642c684421b95339fc2b3526d7" source="id-ce416a3f922f481191cbfe1c30a97064" target="id-bec69a19dc8c487ab4af9fbcda0d450b" archimateRelationship="id-ca437217d77c42848c225bf646211478"/>
         <sourceConnection xsi:type="archimate:Connection" id="id-ccd2e7e263114c13baaed684374fbe1a" source="id-ce416a3f922f481191cbfe1c30a97064" target="id-85d630333e6648fb850f5a9752313707" archimateRelationship="id-65ca1d26595f464694c57dd575d1acc8"/>
@@ -6282,9 +6249,6 @@ Ex 2: It is presumed that the script that parses Dan's paycheck very deliberatel
       </child>
       <child xsi:type="archimate:DiagramObject" id="id-55c6931c34604038adb01aea0e5bfd49" archimateElement="id-0587fa9a15364f3a973e0852ad476eee">
         <bounds x="960" y="450" width="120" height="55"/>
-      </child>
-      <child xsi:type="archimate:DiagramObject" id="id-fe0c7b37bee24ca2bfc6f1c410791952" archimateElement="id-72d2e3a3addf4f63837e60a864f97f42">
-        <bounds x="960" y="525" width="120" height="55"/>
       </child>
       <child xsi:type="archimate:DiagramObject" id="id-d5e43fdaf93a42c8b5ed347b45d43441" targetConnections="id-05cc4761aae14fcb9712da0bba1666d8 id-974ad8a9950e45aabb26e0404c01c24b" archimateElement="id-9e5e7bd771a64009bd854f9ba5a9e60d">
         <bounds x="1115" y="450" width="281" height="236"/>
