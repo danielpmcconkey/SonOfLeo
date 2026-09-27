@@ -818,8 +818,12 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback ClassifyPaymentAgreements (fun context ->
             result {
                 let scenario = Scenario(fixture, context)
-                let! _, legXId = scenario.agreement "CF-12.8 X" Outgo
-                let! _, legYId = scenario.agreement "CF-12.8 Y" Outgo
+                let! agreementXId, legXId = scenario.agreement "CF-12.8 X" Outgo
+                let! agreementYId, legYId = scenario.agreement "CF-12.8 Y" Outgo
+                (* Each agreement has an open Invoice covering this month, so a line either run links has somewhere to
+                   go; otherwise the run fails on it as an orphan (REQ-CF-13.7) before its matches can be fetched. *)
+                let! _ = scenario.outgoInvoice agreementXId legXId scenario.firstOfThisMonth 30
+                let! _ = scenario.outgoInvoice agreementYId legYId scenario.firstOfThisMonth 30
                 (* An earlier run matches a line of its own, so its match is in the table when the later run is fetched. *)
                 let! earlierRule = scenario.paymentAgreementRuleWith legYId "CF-12.8 earlier" 250 None
                 let! _, earlierLineId, _ = scenario.outgoEntry "CF-12.8 earlier" scenario.firstOfThisMonth "Classified"

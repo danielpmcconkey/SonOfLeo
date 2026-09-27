@@ -385,10 +385,9 @@ let private matchInvoicesAndCreatePayments
             openInvoices
             |> List.filter (fun (_, _, _, overpaid) -> overpaid)
             |> List.map (fun (_, masterAgreementId, invoice, _) -> masterAgreementId, invoice)
-        if openInvoices |> List.isEmpty then return [] else
-        let agreementIds =
-            openInvoices |> List.map (fun (_, _, invoice, _) -> invoice |> Invoice.paymentAgreementId) |> List.distinct
-        let! links = agreementIds |> PaymentAgreementLink.fetchByPaymentAgreementIdList context
+        // every link, not only those on agreements with an open Invoice: a line whose agreement has no open Invoice at
+        // all, or no Instances yet, is an orphan too (REQ-CF-13.7)
+        let! links = PaymentAgreementLink.fetchAll context
         if links |> List.isEmpty then return [] else
         let linkedLineIds = links |> List.map PaymentAgreementLink.stageEntryLineId |> List.distinct
         let! linkedLines = linkedLineIds |> StageEntryLine.fetchByIdList context

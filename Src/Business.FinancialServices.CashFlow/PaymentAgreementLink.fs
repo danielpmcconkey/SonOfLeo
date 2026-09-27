@@ -118,6 +118,11 @@ let private fetchAny
         """
     query context None select None predicate limit None None parameters expectedRows
 
+/// fetchAll returns every link. Invoice matching checks every eligible linked line, whether or not its agreement has
+/// an open Invoice (REQ-CF-13.7), so it cannot start from the open Invoices.
+let fetchAll (context: Context.Context) : Result<PaymentAgreementLink list, IAppError> =
+    fetchAny context None None [] AnyQuantityIsAcceptable
+
 let fetchById
     (context: Context.Context)
     (linkId: PaymentAgreementLinkId)

@@ -162,6 +162,22 @@ let private orphansIn (run: Result<'T, IAppError>) =
 let private lineUuid (lineId: StageEntryLineId) = lineId |> StageEntryLineId.value
 let private legUuid (legId: PaymentAgreementId) = legId |> PaymentAgreementId.value
 
+
+/// The Instance and Invoice IDs an agreement has, so a failed run can be shown to have created neither.
+let private instancesAndInvoicesOf context agreementId =
+    result {
+        let! instances = [ agreementId ] |> Instance.fetchByMasterAgreementIdList context
+        let! composites =
+            instances
+            |> List.map (Instance.instanceId >> InstanceOrchestration.fetchCompositeByInstanceId context)
+            |> convertListOfResultsToResultsList
+        let invoiceIds =
+            composites
+            |> List.collect InstanceOrchestration.invoiceComposites
+            |> List.map (InstanceOrchestration.invoice >> Invoice.invoiceId)
+        return (instances |> List.map Instance.instanceId |> Set.ofList), (invoiceIds |> Set.ofList)
+    }
+
 [<Collection("SharedTestData")>]
 type InvoiceMatchingTests(fixture: TestDataFixture) =
 
@@ -376,15 +392,66 @@ type InvoiceMatchingTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CF-13.7 an eligible linked line on a Payment Agreement with no Instances fails the run, the error names the line and its Payment Agreement with the no-open-Invoice reason, and no Instance or Invoice is created`` () =
-        Assert.Fail "not implemented"
+        runCommandRouteAndAutoRollback ClassifyPaymentAgreements (fun context ->
+            result {
+                let scenario = Scenario(fixture, context)
+                let! agreementId, legId = scenario.agreement "CF-13.7 no Instances"
+                (* The agreement has no Instance at all, so no Invoice of any state. *)
+                let! _, lineId =
+                    scenario.linkedLine legId "CF-13.7 no Instances payment" (scenario.firstOfLastMonth.PlusDays(10))
+                let! before = instancesAndInvoicesOf context agreementId
+                let orphans = CashFlowOps.classifyPaymentAgreements context |> orphansIn
+                let orphanLine, orphanLeg, reason = Assert.Single(orphans)
+                Assert.Equal(lineUuid lineId, orphanLine)
+                Assert.Equal(legUuid legId, orphanLeg)
+                Assert.Equal(CashFlowError.NoOpenInvoiceCoversDate, reason)
+                let! after = instancesAndInvoicesOf context agreementId
+                Assert.Equal(before, after)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-CF-13.7 an eligible linked line on a Payment Agreement whose Invoices are all exactly FullyPaid, none overpaid and one covering the line's date, fails the run, the error names the line and its Payment Agreement with the no-open-Invoice reason, and no Instance or Invoice is created`` () =
-        Assert.Fail "not implemented"
+        runCommandRouteAndAutoRollback ClassifyPaymentAgreements (fun context ->
+            result {
+                let scenario = Scenario(fixture, context)
+                let! agreementId, legId = scenario.agreement "CF-13.7 all FullyPaid"
+                (* Its only Invoice is 100.00 with exactly 100.00 paid, and its window covers the line's date: not
+                   open, and not overpaid either, so the overpaid reason would be wrong. *)
+                let! _ = scenario.invoice agreementId legId scenario.firstOfLastMonth 30 [ 100.00M ]
+                let! _, lineId =
+                    scenario.linkedLine legId "CF-13.7 all FullyPaid payment" (scenario.firstOfLastMonth.PlusDays(10))
+                let! before = instancesAndInvoicesOf context agreementId
+                let orphans = CashFlowOps.classifyPaymentAgreements context |> orphansIn
+                let orphanLine, orphanLeg, reason = Assert.Single(orphans)
+                Assert.Equal(lineUuid lineId, orphanLine)
+                Assert.Equal(legUuid legId, orphanLeg)
+                Assert.Equal(CashFlowError.NoOpenInvoiceCoversDate, reason)
+                let! after = instancesAndInvoicesOf context agreementId
+                Assert.Equal(before, after)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-CF-13.7 an eligible linked line on a Payment Agreement whose open Invoices do not cover its date fails the run, the error names the line and its Payment Agreement with the no-open-Invoice reason, and no Instance or Invoice is created`` () =
-        Assert.Fail "not implemented"
+        runCommandRouteAndAutoRollback ClassifyPaymentAgreements (fun context ->
+            result {
+                let scenario = Scenario(fixture, context)
+                let! agreementId, legId = scenario.agreement "CF-13.7 open elsewhere"
+                (* Its open Invoice, due on this month's 1st, takes lines within a week of that date only. *)
+                let! _ = scenario.invoice agreementId legId scenario.firstOfThisMonth 0 []
+                let! _, lineId =
+                    scenario.linkedLine legId "CF-13.7 open elsewhere payment" (scenario.firstOfLastMonth.PlusDays(10))
+                let! before = instancesAndInvoicesOf context agreementId
+                let orphans = CashFlowOps.classifyPaymentAgreements context |> orphansIn
+                let orphanLine, orphanLeg, reason = Assert.Single(orphans)
+                Assert.Equal(lineUuid lineId, orphanLine)
+                Assert.Equal(legUuid legId, orphanLeg)
+                Assert.Equal(CashFlowError.NoOpenInvoiceCoversDate, reason)
+                let! after = instancesAndInvoicesOf context agreementId
+                Assert.Equal(before, after)
+            })
+        |> railroadWrapper
 
     (* This one commits its setup, because what it checks is what a failed run leaves behind once its transaction is
        gone, and a test that rolls back its own transaction can't see that. It runs the operation the way its route
