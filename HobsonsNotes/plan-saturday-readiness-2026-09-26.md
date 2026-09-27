@@ -195,11 +195,14 @@ Do these first. Most are small; #1 breaks agreement creation outright.
     `JournalEntryCommentOrchestration.fs` ~80,
     `JournalEntryExternalReferenceOrchestration.fs` ~83. Audit every
     update/delete-by-ID path. (**REQ-SYS-6.2, 6.3**)
-17. **Two status transitions for one entry in one operation would tie.**
+17. **Two status transitions for one entry at one instant would tie.**
     `StageEntryHeader.fs` ~136 stamps every transition with the operation's
-    instant. Guarantee one transition per entry per operation (the void
-    reversal and transfer pairing below must respect this).
-    (**REQ-STG-4.1.2**)
+    instant. *(Revised 2026-09-27, Dan's ruling.)* No operation id, no guard
+    in the application, no database-generated tie-break column: add a unique
+    constraint on `ingestion.staged_entry_audit (entry_id, modified_at)` in a
+    new migration. Tests assert the constraint rejects a second transition
+    at the same instant; the two "within one operation" placeholders are
+    renamed to match. (**REQ-STG-4.1.2**)
 18. Cosmetic: the Deactivate route's description in `AccountRoutes.fs` ~210
     says it takes an instant (it takes an optional date);
     `InterfaceContracts/ReportsContracts.fs` ~10 comment says `YYYY.MM.DD`
