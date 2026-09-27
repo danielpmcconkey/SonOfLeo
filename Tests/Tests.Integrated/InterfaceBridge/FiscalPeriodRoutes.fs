@@ -224,3 +224,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
             return ()
         }
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-FP-2.7 the ensure fiscal periods route, given a start and end month, returns the periods it created`` () =
+        Assert.Fail "not implemented"

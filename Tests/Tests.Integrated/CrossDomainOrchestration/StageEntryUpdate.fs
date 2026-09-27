@@ -372,3 +372,51 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 Assert.Equal<StageEntryHeaderId list>(headerIds |> List.sortBy StageEntryHeaderId.value, atInstant)
             })
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-STG-6.4 a manual update that lowers a line's amount and adds lines for the difference, in one operation, leaves the entry with exactly those lines, balanced`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-6.4 a manual update removes a line the operator added, in the same operation as a field edit`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-6.4 an update that would leave the entry with fewer than two lines is rejected with a typed error, and nothing is changed`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-6.4 an update whose added lines leave the entry unbalanced is rejected with a typed error, and nothing is changed`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-6.4 an added line that fails a staged-line rule is rejected with a typed error, and nothing is changed`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-6.5 removing a line linked to a payment agreement is rejected with a typed error naming the line and the reason, and nothing is changed`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-6.5 removing a line a Payment references is rejected with a typed error naming the line and the reason, and nothing is changed`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-6.5 removing a line a classification run recorded is rejected with a typed error naming the line and the reason, and nothing is changed`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-6.5 changing the amount, line type or account of a line linked to a payment agreement is rejected with a typed error naming the line and the reason, and nothing is changed`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-6.5 changing the amount, line type or account of a line a Payment references is rejected with a typed error naming the line and the reason, and nothing is changed`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-6.6 a manual update on a Posted entry is rejected with a typed error, whether it edits a field, adds a line or removes one, and nothing is changed`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-4.8 the manual update rejects setting an entry's status to Posted with a typed error, and nothing is changed`` () =
+        Assert.Fail "not implemented"

@@ -49,3 +49,19 @@ let ``REQ-FP-1.4 REQ-FP-1.5 REQ-FP-2.3 fiscal period runs from the first of the 
             Assert.Equal(expectedEndDay, endDate.Day)
         })
     |> railroadWrapper
+
+[<Fact>]
+let ``REQ-FP-2.7 ensuring periods from one month to another creates each missing month, open, and returns exactly the periods it created`` () =
+    Assert.Fail "not implemented"
+
+[<Fact>]
+let ``REQ-FP-2.7 periods already in the range are left unchanged and are not returned, whether open or closed`` () =
+    Assert.Fail "not implemented"
+
+[<Fact>]
+let ``REQ-FP-2.7 when every month in the range already has a period, the operation succeeds and returns an empty list`` () =
+    Assert.Fail "not implemented"
+
+[<Fact>]
+let ``REQ-FP-2.7 a start month later than the end month fails with a typed error, and nothing is created`` () =
+    Assert.Fail "not implemented"
