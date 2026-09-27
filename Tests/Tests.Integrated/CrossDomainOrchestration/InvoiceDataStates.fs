@@ -138,16 +138,23 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
     [<Theory>]
     [<InlineData("NoFunds")>]
     [<InlineData("Irresponsible")>]
-    [<InlineData(null)>]
-    member _.``REQ-CF-5.14 for each of NoFunds, Irresponsible and no blocker, a CreateInvoice payload giving a blocker note is rejected with a typed error and no Invoice is stored`` (blocker:string) =
+    member _.``REQ-CF-5.14 for each of NoFunds and Irresponsible, a CreateInvoice payload giving that blocker with a note attached is rejected with a typed error and no Invoice is stored`` (blocker:string) =
         Assert.Fail "not implemented"
 
     [<Fact>]
     member _.``REQ-CF-5.14 an UpdateInvoice payload setting the blocker to NeedsDecision without a note is rejected with a typed error and the Invoice is unchanged`` () =
         Assert.Fail "not implemented"
 
-    [<Fact>]
-    member _.``REQ-CF-5.14 an UpdateInvoice payload that clears the blocker of an Invoice with a note while keeping the note is rejected with a typed error and the Invoice is unchanged`` () =
+    [<Theory>]
+    [<InlineData("NeedsDecision")>]
+    [<InlineData("Other")>]
+    member _.``REQ-CF-5.14 for each of NeedsDecision and Other, an UpdateInvoice payload clearing the blocker of an Invoice holding that blocker with a note is accepted, and the Invoice read back from the store has no blocker and no note`` (blocker:string) =
+        Assert.Fail "not implemented"
+
+    [<Theory>]
+    [<InlineData("NoFunds")>]
+    [<InlineData("Irresponsible")>]
+    member _.``REQ-CF-5.14 for each of NoFunds and Irresponsible, an UpdateInvoice payload setting that blocker with a note attached is rejected with a typed error and the Invoice is unchanged`` (blocker:string) =
         Assert.Fail "not implemented"
 
     [<Fact>]
