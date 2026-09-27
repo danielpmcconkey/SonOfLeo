@@ -14,8 +14,8 @@ Note: the LookupCache is designed to support an easy translation between UUIDs u
 keys used by the callers of our public user interfaces. It is designed currently to support short-burst CLI invocations
 where the cache lifetime only needs to be the life of any single route. Therefore, there is no invalidation by design.
 
-We also intentionally fail loudly using failwith on init load. That tells the caller that something is wrong and they
-need to triage before proceeding. This is deliberate.
+Each cache loads in full the first time it is asked for a key. A load that fails is returned to that caller as its
+error, and the next fetch tries the load again.
 
 Any future usages for this application that will carry longer life cycles will need to re-design this cache if it plans
 to also involve any CRUD operations of core module entities.
@@ -23,16 +23,21 @@ to also involve any CRUD operations of core module entities.
 
 type Cache<'K, 'V when 'K: comparison>
     (loadAll: unit -> Result<Map<'K, 'V>, IAppError>, loadOne: DbTransaction -> 'K -> Result<'V, IAppError>) =
-    let mutable cache = loadAll() |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
+    let mutable cache : Map<'K, 'V> option = None
     member _.fetch context (key: 'K) : Result<'V, IAppError> =
-        match cache |> Map.tryFind key with
-        | Some v -> Ok v
-        | None ->
-            match key |> loadOne context with
-            | Ok v ->
-                cache <- cache |> Map.add key v
-                Ok v
-            | Error e -> Error e
+        result {
+            let! loaded =
+                match cache with
+                | Some loaded -> Ok loaded
+                | None -> loadAll()
+            cache <- Some loaded
+            match loaded |> Map.tryFind key with
+            | Some v -> return v
+            | None ->
+                let! v = key |> loadOne context
+                cache <- Some(loaded |> Map.add key v)
+                return v
+        }
 
 type idAndString = { id: Guid; key: string }
 

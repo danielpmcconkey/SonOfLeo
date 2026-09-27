@@ -259,52 +259,64 @@ let private confirmReleased (inUseBefore: int64) : Result<unit, IAppError> =
         Assert.False(probeExists, "the probe table exists, so the transaction committed instead of rolling back")
     }
 
-[<Fact>]
-let ``REQ-DAL-2.4 after every lookup cache has loaded, no session this process opened is idle in a transaction and the pool's in-use count is back where it started`` () =
-    let inUseBefore = connectionsInUse()
-    // naming each cache forces the module to load all nine
-    let caches : obj list =
-        [ box App.DataAccessLayer.LookupCache.accountCodeToId
-          box App.DataAccessLayer.LookupCache.accountIdToCode
-          box App.DataAccessLayer.LookupCache.accountIdToName
-          box App.DataAccessLayer.LookupCache.fiscalPeriodKeyToId
-          box App.DataAccessLayer.LookupCache.fiscalPeriodIdToKey
-          box App.DataAccessLayer.LookupCache.masterAgreementNameToId
-          box App.DataAccessLayer.LookupCache.masterAgreementIdToName
-          box App.DataAccessLayer.LookupCache.paymentAgreementNameToId
-          box App.DataAccessLayer.LookupCache.paymentAgreementIdToName ]
-    Assert.All(caches, fun cache -> Assert.NotNull cache)
-    result {
-        let! idle = sessionsIdleInTransaction()
-        Assert.Equal(0L, idle)
-        Assert.Equal(inUseBefore, connectionsInUse())
-    }
-    |> railroadWrapper
+(* The caches are process-wide and never invalidated, so these run inside the shared fixture's collection: a cache
+   loaded before the fixture truncates and restages the tables would hand later tests the previous run's IDs. *)
+[<Collection("SharedTestData")>]
+type ConnectionReleaseTests(fixture: Tests.Helpers.TestDataFixture) =
 
-[<Fact>]
-let ``REQ-DAL-2.4 an operation that ends in a typed error mid-transaction rolls back, leaves no session idle in a transaction, and returns its connection to the pool`` () =
-    let inUseBefore = connectionsInUse()
-    match Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoCompleteTransaction FetchOnly failWithTypedError with
-    | Error (AsError (TestingError message)) -> Assert.Equal("typed failure mid-transaction", message)
-    | other -> Assert.Fail $"Expected the operation's own typed error; got {other}"
-    confirmReleased inUseBefore |> railroadWrapper
+    [<Fact>]
+    member _.``REQ-DAL-2.4 after every lookup cache has loaded, no session this process opened is idle in a transaction and the pool's in-use count is back where it started`` () =
+        let inUseBefore = connectionsInUse()
+        // each cache loads in full on its first fetch; the keys need not exist
+        let noTransaction = Context.create NoTransaction FetchOnly |> Context.getDatabaseTransaction
+        let missingName = "REQ-DAL-2.4 no such key"
+        let missingId = Guid.NewGuid()
+        let fetches : Result<unit, IAppError> list =
+            [ App.DataAccessLayer.LookupCache.accountCodeToId.fetch noTransaction missingName |> Result.map ignore
+              App.DataAccessLayer.LookupCache.accountIdToCode.fetch noTransaction missingId |> Result.map ignore
+              App.DataAccessLayer.LookupCache.accountIdToName.fetch noTransaction missingId |> Result.map ignore
+              App.DataAccessLayer.LookupCache.fiscalPeriodKeyToId.fetch noTransaction missingName |> Result.map ignore
+              App.DataAccessLayer.LookupCache.fiscalPeriodIdToKey.fetch noTransaction missingId |> Result.map ignore
+              App.DataAccessLayer.LookupCache.masterAgreementNameToId.fetch noTransaction missingName |> Result.map ignore
+              App.DataAccessLayer.LookupCache.masterAgreementIdToName.fetch noTransaction missingId |> Result.map ignore
+              App.DataAccessLayer.LookupCache.paymentAgreementNameToId.fetch noTransaction missingName |> Result.map ignore
+              App.DataAccessLayer.LookupCache.paymentAgreementIdToName.fetch noTransaction missingId |> Result.map ignore ]
+        // a missing key is DalNoOp from the single-row read that follows the load; anything else means the load failed
+        for fetched in fetches do
+            match fetched with
+            | Error (AsError (DalNoOp _)) -> ()
+            | other -> Assert.Fail $"Expected the cache to load and then miss; got {other}"
+        result {
+            let! idle = sessionsIdleInTransaction()
+            Assert.Equal(0L, idle)
+            Assert.Equal(inUseBefore, connectionsInUse())
+        }
+        |> railroadWrapper
 
-[<Fact>]
-let ``REQ-DAL-2.4 an operation that throws mid-transaction rolls back, leaves no session idle in a transaction, and returns its connection to the pool`` () =
-    let inUseBefore = connectionsInUse()
-    match Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoCompleteTransaction FetchOnly failByThrowing with
-    | Error (AsError (DalErrorDuringAutoCompleteTransactionRun ex)) -> Assert.Equal("thrown mid-transaction", ex.Message)
-    | other -> Assert.Fail $"Expected the thrown exception wrapped as a typed error; got {other}"
-    confirmReleased inUseBefore |> railroadWrapper
+    [<Fact>]
+    member _.``REQ-DAL-2.4 an operation that ends in a typed error mid-transaction rolls back, leaves no session idle in a transaction, and returns its connection to the pool`` () =
+        let inUseBefore = connectionsInUse()
+        match Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoCompleteTransaction FetchOnly failWithTypedError with
+        | Error (AsError (TestingError message)) -> Assert.Equal("typed failure mid-transaction", message)
+        | other -> Assert.Fail $"Expected the operation's own typed error; got {other}"
+        confirmReleased inUseBefore |> railroadWrapper
 
-[<Fact>]
-let ``REQ-DAL-2.4 running more failing operations than the pool holds connections never exhausts the pool`` () =
-    let inUseBefore = connectionsInUse()
-    let operations = int (poolMaximum()) + 5
-    for i in 1 .. operations do
-        let operation = if i % 2 = 0 then failWithTypedError else failByThrowing
-        match Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoCompleteTransaction FetchOnly operation with
-        | Error (AsError (TestingError _))
-        | Error (AsError (DalErrorDuringAutoCompleteTransactionRun _)) -> ()
-        | other -> Assert.Fail $"Operation {i} of {operations} should have failed with its own error; got {other}"
-    confirmReleased inUseBefore |> railroadWrapper
+    [<Fact>]
+    member _.``REQ-DAL-2.4 an operation that throws mid-transaction rolls back, leaves no session idle in a transaction, and returns its connection to the pool`` () =
+        let inUseBefore = connectionsInUse()
+        match Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoCompleteTransaction FetchOnly failByThrowing with
+        | Error (AsError (DalErrorDuringAutoCompleteTransactionRun ex)) -> Assert.Equal("thrown mid-transaction", ex.Message)
+        | other -> Assert.Fail $"Expected the thrown exception wrapped as a typed error; got {other}"
+        confirmReleased inUseBefore |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-DAL-2.4 running more failing operations than the pool holds connections never exhausts the pool`` () =
+        let inUseBefore = connectionsInUse()
+        let operations = int (poolMaximum()) + 5
+        for i in 1 .. operations do
+            let operation = if i % 2 = 0 then failWithTypedError else failByThrowing
+            match Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoCompleteTransaction FetchOnly operation with
+            | Error (AsError (TestingError _))
+            | Error (AsError (DalErrorDuringAutoCompleteTransactionRun _)) -> ()
+            | other -> Assert.Fail $"Operation {i} of {operations} should have failed with its own error; got {other}"
+        confirmReleased inUseBefore |> railroadWrapper

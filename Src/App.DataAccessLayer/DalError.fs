@@ -11,6 +11,7 @@ type DalError =
     | DalConnectionStringEnvVarContainsConnectionString
     | DalConnectionStringEnvVarNotFound
     | DalConnectionStringIsEmpty
+    | DalConnectionStringInvalid of string
     | DalDecimalUnboxingReturnedNull
     | DalEnvVarNotSet of string
     | DalErrorDuringAutoCompleteTransactionRun of exn
@@ -54,8 +55,10 @@ type DalError =
             | DalCantUseTransactionOfNoneInAutoCommit -> "Error. You cannot send a transaction of None into the auto-commit pipeline."
             | DalConnectionStringConfigRetrievalError s -> $"Error reading the config for the connection string. Message: {s}"
             | DalConnectionStringEnvVarContainsConnectionString -> "ConnectionStringEnvVar contains a connection string, not an env var name."
-            | DalConnectionStringEnvVarNotFound -> "ConnectionStringEnvVar not found in appsettings.json."
+            | DalConnectionStringEnvVarNotFound ->
+                "The ConnectionStringEnvVar setting in appsettings.json is empty. It must name the environment variable that holds the connection string."
             | DalConnectionStringIsEmpty -> "Connection string is empty."
+            | DalConnectionStringInvalid reason -> $"The connection string cannot be used: {reason}"
             | DalDecimalUnboxingReturnedNull -> "Decimal unboxing returned DB null"
             | DalEnvVarNotSet envVarName -> $"Environment variable {envVarName} not set or empty."
             | DalErrorDuringAutoCompleteTransactionRun ex -> $"Database error during runWithAutoCompleteTransaction. {ex.Message}{Environment.NewLine}{ex.StackTrace}"

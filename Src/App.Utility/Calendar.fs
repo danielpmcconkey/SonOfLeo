@@ -6,12 +6,7 @@ open App.Utility
 open App.Utility.UtilityError
 open App.Utility.Config
 
-let timeZoneLocal =
-    match getConfigValue<string> "LocalizedTimeZone" with
-    Ok x -> DateTimeZoneProviders.Tzdb[x]
-    | Error e -> failwith (e.ToMessage())
-
-let dateFromInstant (i: Instant) : LocalDate = i.InZone(timeZoneLocal).Date
+let dateFromInstant (i: Instant) : LocalDate = i.InZone(Clock.timeZoneLocal()).Date
 
 let today () : LocalDate = Clock.now() |> dateFromInstant
 

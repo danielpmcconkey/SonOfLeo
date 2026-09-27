@@ -20,14 +20,12 @@ let route domain verb rest payload : Result<string, IAppError> =
 
 [<EntryPoint>]
 let main args =
-    let argList = args |> Array.toList
-    let domain, verb, payload, rest =
-        match argList with
-        | domain :: verb :: "--file" :: filePath :: rest -> domain, verb , System.IO.File.ReadAllText(filePath), rest
-        | domain :: verb :: rest  -> domain, verb, Console.In.ReadToEnd(), rest
-        | _ ->
-            eprintfn "Usage: SonOfLeoCli <domain> <verb> [--file <path>] [args...]"
-            exit 1; failwith ""
-    match route domain verb rest payload with 
-    | Ok n -> n |> printfn "%s"; 0
-    | Error e -> e.ToMessage() |> eprintfn "%s"; 1
+    match args |> Array.toList with
+    | domain :: verb :: "--file" :: filePath :: rest ->
+        Ui.InterfaceBridge.Startup.run "SonOfLeoCli" (fun () ->
+            route domain verb rest (System.IO.File.ReadAllText(filePath)))
+    | domain :: verb :: rest ->
+        Ui.InterfaceBridge.Startup.run "SonOfLeoCli" (fun () -> route domain verb rest (Console.In.ReadToEnd()))
+    | _ ->
+        eprintfn "Usage: SonOfLeoCli <domain> <verb> [--file <path>] [args...]"
+        1

@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Include="BridgeError.fs" />
     <Compile Include="CommandRoute.fs" />
+    <Compile Include="Startup.fs" />
     <Compile Include="InterfaceContracts\SharedContracts.fs" />
     <Compile Include="InterfaceContracts\AccountContracts.fs" />
     <Compile Include="InterfaceContracts\FiscalPeriodContracts.fs" />

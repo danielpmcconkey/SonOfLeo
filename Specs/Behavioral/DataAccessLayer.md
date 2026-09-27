@@ -54,7 +54,6 @@ construction pattern) but deliberately not verified by tests.
 
 | ID | Reason testing is waived | Approved |
 |---|---|---|
-| REQ-DAL-1.3 | Enforced in code (fails with a typed AppError), but impossible to provoke from the test harness without corrupting the environment | Dan, 2026-08-02 |
 | REQ-DAL-1.14 | Enforced in code (fails with a typed AppError), but impossible to provoke from the test harness without corrupting the environment | Dan, 2026-08-02 |
 | REQ-DAL-1.15 | Enforced in code (fails with a typed AppError), but impossible to provoke from the test harness without corrupting the environment | Dan, 2026-08-02 |
 | REQ-DAL-1.16 | Enforced in code (fails with a typed AppError), but impossible to provoke from the test harness without corrupting the environment | Dan, 2026-08-02 |
