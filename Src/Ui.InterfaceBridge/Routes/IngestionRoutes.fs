@@ -22,38 +22,41 @@ open Ui.InterfaceBridge.BoundaryConverters.ReportConverters
 open Ui.InterfaceBridge.CommandRoute
 
 let private ingestRawEntries payload _ =
-    runCommandRouteAndAutoCompleteTransaction IngestRawEntries (fun context ->
-        result {
-            let! input = Json.fromJson<IngestRawFileToStageInput> payload
-            let! toBeProcessedPath = createFullPath input.importDir input.fileName
-            do! confirmFileExists toBeProcessedPath
-            let processedDir = input.processedDir
-            do! confirmDirectoryExists processedDir
-            let! sourceFile = toBeProcessedPath |> SourceFile.create
-            let! linesStr = readTextFileLines toBeProcessedPath
-            let! baseStageRawRowInputs =
-                linesStr
-                |> List.map(fun l -> l |> Json.fromJson<BaseStageRawRowInput>)
-                |> convertListOfResultsToResultsList
-            let! baseStageRawRows =
-                baseStageRawRowInputs
-                |> ``convert [BaseStageRawRowInput list] to [BaseStageRawRow list]`` context
-            let! staged =
-                baseStageRawRows
-                |> StageEntryOrchestration.ingestRawToStage context sourceFile
-            let timeStamp = Clock.now() |> Clock.instantToString "yyyy-MM-dd.HHmmss.fff"
-            let! moveToPath = createFullPath processedDir $"{timeStamp}-{input.fileName}"
-            do! moveFile toBeProcessedPath moveToPath
-            let! converted =
-                staged
-                |> List.map (``convert [StageEntry] to [StageEntryReturn]`` context)
-                |> convertListOfResultsToResultsList
-            return! Json.toJson<StageEntryReturn list> converted })
-
-
-
-
-
+    result {
+        let! input = Json.fromJson<IngestRawFileToStageInput> payload
+        let! toBeProcessedPath = createFullPath input.importDir input.fileName
+        let! converted =
+            runCommandRouteAndAutoCompleteTransaction IngestRawEntries (fun context ->
+                result {
+                    do! confirmFileExists toBeProcessedPath
+                    do! confirmDirectoryExists input.processedDir
+                    let! sourceFile = toBeProcessedPath |> SourceFile.create
+                    let! linesStr = readTextFileLines toBeProcessedPath
+                    let! baseStageRawRowInputs =
+                        linesStr
+                        |> List.map(fun l -> l |> Json.fromJson<BaseStageRawRowInput>)
+                        |> convertListOfResultsToResultsList
+                    let! baseStageRawRows =
+                        baseStageRawRowInputs
+                        |> ``convert [BaseStageRawRowInput list] to [BaseStageRawRow list]`` context
+                    let! staged =
+                        baseStageRawRows
+                        |> StageEntryOrchestration.ingestRawToStage context sourceFile
+                    return!
+                        staged
+                        |> List.map (``convert [StageEntry] to [StageEntryReturn]`` context)
+                        |> convertListOfResultsToResultsList })
+        // the file moves only once its entries have committed. moved earlier, a failed commit would leave a file that
+        // looks processed with nothing staged, and the next run would skip it
+        let timeStamp = Clock.now() |> Clock.instantToString "yyyy-MM-dd.HHmmss.fff"
+        let! moveToPath = createFullPath input.processedDir $"{timeStamp}-{input.fileName}"
+        do!
+            moveFile toBeProcessedPath moveToPath
+            |> Result.mapError (fun e ->
+                DataIngestionError.IngestionStagedButFileNotMoved(
+                    toBeProcessedPath, moveToPath, e.ToMessage()) :> IAppError)
+        return! Json.toJson<StageEntryReturn list> converted
+    }
 
 let private createNewSource payload _ =
     let context = Context.create NoTransaction IngestNewSource

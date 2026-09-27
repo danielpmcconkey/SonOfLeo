@@ -211,6 +211,18 @@ type IngestionRouteTests(fixture: TestDataFixture) =
 
 
 
+    static let runSql (sql: string) =
+        let context = Context.create NoTransaction FetchOnly
+        App.DataAccessLayer.ExecuteNonQuery.executeNonQuery
+            (context |> Context.getDatabaseTransaction) sql [] App.DataAccessLayer.ExecuteReader.AnyQuantityIsAcceptable
+        |> Result.map ignore
+
+    static let stagedFrom (sourceFilePath: string) =
+        fetchFilteredThroughRoute { noFilterInput with sourceFile = Some sourceFilePath }
+
+    static let headerIdsOf (entries: StageEntryReturn list) =
+        entries |> List.map (fun entry -> entry.stageEntryHeader.stageEntryHeaderId |> StageEntryHeaderId.fromGuid |> Some)
+
     [<Fact>]
     member _.``REQ-STG-3.1 IngestRawFileToStage route ingests valid file and returns result`` () =
         let fileName = "ingestion-route-happy-path.jsonl"
@@ -677,20 +689,113 @@ type IngestionRouteTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     // =========================================================================
-    // Plan defects 8–17 (2026-09-27)
+    // REQ-STG-3.12 — the file moves only after its entries commit
     // =========================================================================
 
+    (* The failure has to land after the entries are written, so a deferred constraint trigger fails the commit
+       itself when it meets a line carrying a marker memo. The trigger exists only for this test. *)
     [<Fact>]
     member _.``REQ-STG-3.12 an ingestion that fails after some of its entries were written leaves the file in the import directory and stages none of its entries`` () =
-        Assert.Fail "not implemented"
+        let fileName = "ingestion-route-commit-fails.jsonl"
+        let marker = "REQ-STG-3.12 fail at commit"
+        try
+            result {
+                do! runSql """
+                    create or replace function public.test_fail_commit() returns trigger language plpgsql as
+                    $$ begin raise exception 'test: commit refused'; end $$;"""
+                do! runSql $"""
+                    create constraint trigger test_fail_commit after insert on ingestion.staged_entry_line
+                    deferrable initially deferred for each row when (new.memo = '{marker}')
+                    execute function public.test_fail_commit();"""
+                writeImportFile fileName
+                    [ rawRow "grp-commit-a" today "Commit fails first group" "TestBank" "REF-COMMIT-001" "12.00" "Debit" (Some "F-5300") None
+                      rawRow "grp-commit-a" today "Commit fails first group" "TestBank" "REF-COMMIT-001" "12.00" "Credit" (Some "F-1270") None
+                      rawRow "grp-commit-b" today "Commit fails second group" "TestBank" "REF-COMMIT-002" "7.00" "Debit" (Some "F-5300") None
+                      rawRow "grp-commit-b" today "Commit fails second group" "TestBank" "REF-COMMIT-002" "7.00" "Credit" (Some "F-1270") (Some marker) ]
+                let ingested = routeUiCommandForTesting "Ingestion" "IngestRawFileToStage" [] (ingestPayload fileName)
+                Assert.True(ingested |> Result.isError, "the route should fail when its commit is refused")
+                Assert.True(File.Exists(Path.Combine(importDir, fileName)))
+                Assert.Empty(Directory.GetFiles(processedDir, $"*-{fileName}"))
+                let! staged = stagedFrom (Path.Combine(importDir, fileName))
+                Assert.Empty(staged)
+            }
+            |> railroadWrapper
+        finally
+            deleteImportFile fileName
+            runSql "drop trigger if exists test_fail_commit on ingestion.staged_entry_line;" |> railroadWrapper
+            runSql "drop function if exists public.test_fail_commit();" |> railroadWrapper
 
+
+    (* A file name with a directory in it lands in a subdirectory of the import directory, and its processed name
+       then points into a subdirectory of the processed directory that doesn't exist, so the move is refused after
+       the entries have committed. *)
     [<Fact>]
     member _.``REQ-STG-3.12 when the entries commit but the file cannot be moved, the ingestion fails with the staged-but-not-moved error naming the file and telling the operator to move it by hand, the entries stay staged, and the file stays in the import directory`` () =
-        Assert.Fail "not implemented"
+        let subdirectory = "move-refused"
+        let fileName = $"{subdirectory}/ingestion-route-move-fails.jsonl"
+        let importPath = Path.Combine(importDir, fileName)
+        let mutable idsToCleanUp = []
+        try
+            Directory.CreateDirectory(Path.Combine(importDir, subdirectory)) |> ignore
+            writeImportFile fileName
+                [ rawRow "grp-move-a" today "Move fails group" "TestBank" "REF-MOVE-001" "9.00" "Debit" (Some "F-5300") None
+                  rawRow "grp-move-a" today "Move fails group" "TestBank" "REF-MOVE-001" "9.00" "Credit" (Some "F-1270") None ]
+            result {
+                let ingested = routeUiCommandForTesting "Ingestion" "IngestRawFileToStage" [] (ingestPayload fileName)
+                let! staged = stagedFrom importPath
+                idsToCleanUp <- staged |> headerIdsOf
+                let () =
+                  match ingested with
+                  | Error (AsError (DataIngestionError.IngestionStagedButFileNotMoved(filePath, _, _) as e)) ->
+                      Assert.Equal(importPath, filePath)
+                      Assert.Contains("by hand", (e :> IAppError).ToMessage())
+                  | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                  | Ok _ -> Assert.Fail "Expected the move to fail; the route succeeded"
+                Assert.Equal(1, staged |> List.length)
+                Assert.True(File.Exists importPath)
+            }
+            |> railroadWrapper
+        finally
+            File.Delete importPath
+            Directory.Delete(Path.Combine(importDir, subdirectory))
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (e.ToMessage())
+
 
     [<Fact>]
     member _.``REQ-STG-3.12 a successful ingestion leaves its entries staged and the file only in the processed directory, named with its original name prefixed by the ingestion timestamp as yyyy-MM-dd.HHmmss.fff-`` () =
-        Assert.Fail "not implemented"
+        let fileName = "ingestion-route-moved-after-commit.jsonl"
+        let importPath = Path.Combine(importDir, fileName)
+        let mutable idsToCleanUp = []
+        try
+            writeImportFile fileName
+                [ rawRow "grp-moved-a" today "Moved after commit group" "TestBank" "REF-MOVED-001" "5.00" "Debit" (Some "F-5300") None
+                  rawRow "grp-moved-a" today "Moved after commit group" "TestBank" "REF-MOVED-001" "5.00" "Credit" (Some "F-1270") None ]
+            result {
+                let stampOf (instant: NodaTime.Instant) = instant |> Clock.instantToString "yyyy-MM-dd.HHmmss.fff"
+                let before = Clock.now() |> stampOf
+                let! _ = routeUiCommandForTesting "Ingestion" "IngestRawFileToStage" [] (ingestPayload fileName)
+                let after = Clock.now() |> stampOf
+                let! staged = stagedFrom importPath
+                idsToCleanUp <- staged |> headerIdsOf
+                Assert.Equal(1, staged |> List.length)
+                Assert.False(File.Exists importPath)
+                let processed = Directory.GetFiles(processedDir, $"*-{fileName}") |> Array.map Path.GetFileName
+                let processedName = Assert.Single(processed)
+                let pattern = $"""^(\d{{4}}-\d{{2}}-\d{{2}}\.\d{{6}}\.\d{{3}})-{Text.RegularExpressions.Regex.Escape fileName}$"""
+                let matched = Text.RegularExpressions.Regex.Match(processedName, pattern)
+                Assert.True(matched.Success, $"processed name {processedName} does not carry a yyyy-MM-dd.HHmmss.fff- prefix")
+                let stamp = matched.Groups[1].Value
+                Assert.InRange(stamp, before, after)
+            }
+            |> railroadWrapper
+        finally
+            deleteImportFile fileName
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (e.ToMessage())
+
 
     [<Fact>]
     member _.``REQ-STG-6.2.1 a manual update payload naming change mechanism Classifier or Deduplicator still records its status change as Operator`` () =
