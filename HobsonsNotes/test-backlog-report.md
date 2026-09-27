@@ -261,6 +261,15 @@ behaviour holds.**
 - The operator reading that message would look for a memo, not a blocker note. The text looks copied from the memo
   errors in `CashFlowError`.
 
+**Q-1. REQ-CF-6.4 "both may be present" at creation. Spec question.**
+- REQ-CF-6.4 says a Payment may carry both a staged line and a journal entry line, with the journal entry line taking
+  precedence.
+- The create contracts' `TransactionPointerContract` is `Posted | Staged`, one or the other. So no payload can create a
+  Payment with both, and both appear only after payments transition to posted (§10).
+- The §6 grader proposed "a CreatePayment payload carrying both … is stored with both". It was not adopted, because no
+  payload can express it. Dan should say whether creation with both is meant to be possible, or whether the spec should
+  say that both arise only from the transition.
+
 **Observation, not tested in this batch:**
 - `PaymentAgreementLink.update` (operator re-point) sets `payment_agreement_id` but not `modified_at`. That looks like
   it breaks REQ-SYS-3.3. It will get a test when the SystemWide requirements come up.
