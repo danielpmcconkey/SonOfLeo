@@ -123,6 +123,51 @@ The mutation harness now also finds tests declared as module-level `let`s and as
 before. The earlier batches had no `member this.` tests, so their results still stand. The isolated file ran k = 1 and 2,
 and the integrated file k = 1 through 3. No mutant survived.
 
+### §3 Payment Agreement data states
+
+File: `Tests/Tests.Integrated/CrossDomainOrchestration/PaymentAgreementDataStates.fs` (25 names, 34 cases). All pass.
+
+Most tests send a CreateAgreement payload through the route and read back from a fresh context. The route commits, so
+every agreement they name is deleted in a finally. No route creates a Payment Agreement apart from its agreement, so
+two tests go below it: the REQ-CF-3.3 orphan test writes a Payment Agreement with `PaymentAgreement.persist` under an
+unknown Master Agreement ID, and the REQ-CF-3.11 theory calls `constructNewAndPersist` with an unknown account on
+either side.
+
+Each refusal was checked for its reason:
+- A non-positive or over-precise expected amount, a blank or over-long memo, a blank or over-long name and an
+  out-of-range days-due are refused by the model's own typed errors.
+- A null name is refused by the JSON reader.
+- A duplicate Payment Agreement name, whether in another agreement, padded, or twice in the same payload, is refused by
+  the database's unique constraint (`payment_agreement_payment_agreement_name_key`). So is the orphan write, by the
+  foreign key `payment_agreement_master_agreement_id_fkey`. The caller gets a database error, not a cash-flow one.
+- The unknown account refusals name the side, as REQ-CF-3.11 requires.
+
+Mutation, k = 1 to 3: no mutant survived.
+
+### §4 Instance data states
+
+File: `Tests/Tests.Integrated/CrossDomainOrchestration/InstanceDataStates.fs` (17 names, 23 cases). All pass.
+
+Tests call `InstanceOrchestration` in a transaction that rolls back. The REQ-CF-4.5 test also sends a CreateInstance
+payload through the route, which commits, so it deletes its agreement in a finally. Dates are in March 2027, which no
+sweep reaches.
+
+Each refusal was checked for its reason:
+- A date off the cadence gives the cadence's own error, naming the date and the rule. A date on or before the latest
+  Instance gives `CashflowInstanceDateNotAfterLatestInstance`, naming the latest date.
+- Two Invoices for one leg give `CashflowInstanceManyInvoicesForPaymentAgreement`. An Invoice for another agreement's
+  leg gives `CashflowInvoiceDiamondMismatch`.
+- Every attempt to set is-fulfilled, true or false, is refused as a derived field
+  (`CashflowInstanceCompositeDerivedFieldSet`). So REQ-CF-4.9 holds because the flag can't be set at all, not because
+  the orchestration checks the value.
+- An Instance for an unknown Master Agreement ID is refused with the DAL's generic "zero rows" error.
+  `createInstanceCompositeAndSaveToDb` doesn't wrap the lookup with `whenNoRows`, so the caller never sees
+  `CashflowMasterAgreementIdDoesntExist`. That still satisfies REQ-CF-4.3, but the message is poor.
+
+The batch's names define "nothing is stored" as no Instance and an unchanged next-instance date, so the refusal tests
+check both. Mutation, k = 1 to 4: no mutant survived. The next-instance assertions were added afterwards and were each
+seen to fail when perturbed (10 cases).
+
 ## Findings
 
 Each finding gives the requirement, the test, what the spec says, what the code does, and where the bug probably lies.
@@ -193,6 +238,8 @@ These are cited by passing tests unless noted.
 - §2: REQ-CF-2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 2.11, 2.12, 2.13, 2.14, 2.15, 2.16, 2.17, 2.18, 2.19, 2.23, 2.25,
   2.26, 2.27.
 - §9: REQ-CF-9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.10, 9.11.
+- §3: REQ-CF-3.3, 3.4, 3.5, 3.7, 3.8, 3.9, 3.10, 3.11.
+- §4: REQ-CF-4.3, 4.5, 4.6, 4.7, 4.9, 4.10.
 - §7: REQ-CF-7.1, 7.2, 7.3, 7.4, 7.6, 7.7, 7.8, 7.9, 7.10, 7.12, 7.14, 7.15, 7.16 (fails, F-4), plus REQ-CF-4.8.
 
 ## Requirements still uncovered
