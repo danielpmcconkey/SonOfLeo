@@ -297,6 +297,12 @@ let createNewSource
     (name: JournalRefFinancialInstitution)
     : Result<IngestionSource.IngestionSource, IAppError> =
     result {
+        // records resolve their source by name, so a second holder of a name would make every file from it unresolvable.
+        // the unique constraint backs this up; checking first is what gives the caller a typed error
+        let! holders = name |> IngestionSource.fetchAllByName context
+        do!
+            if holders |> List.isEmpty then Ok ()
+            else Error(DataIngestionError.IngestionSourceNameAlreadyExists(name |> JournalRefFinancialInstitution.value))
         let instant = context |> Context.getInitiationInstant
         let uuid = IngestionSourceId.create()
         let newSource = IngestionSource.create uuid name instant instant

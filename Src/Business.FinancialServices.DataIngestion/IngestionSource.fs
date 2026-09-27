@@ -111,3 +111,9 @@ let fetchByName (context: Context.Context) (name: JournalRefFinancialInstitution
     |> Result.map List.head
 
         
+
+/// fetchAllByName hands back every source holding the name, which is none or one while names stay unique.
+let fetchAllByName (context: Context.Context) (name: JournalRefFinancialInstitution) : Result<IngestionSource list, IAppError> =
+    let predicate = "src.source_name = @source_name"
+    let parameters = [ { name = "@source_name"; value = CharString(name |> JournalRefFinancialInstitution.value) } ]
+    query context (Some predicate) None parameters AnyQuantityIsAcceptable

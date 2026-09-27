@@ -803,8 +803,49 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-STG-2.28 creating an ingestion source with a name an existing source already holds is rejected with a typed error naming that name, and the existing source stays its only holder`` () =
-        Assert.Fail "not implemented"
+        let incumbent =
+            fixture.Data.ingestionSources
+            |> List.find (fun source -> source |> IngestionSource.name |> JournalRefFinancialInstitution.value = "TestBank")
+        runCommandRouteAndAutoRollback IngestNewSource (fun context ->
+            result {
+                let! name = "TestBank" |> JournalRefFinancialInstitution.create
+                let () =
+                    match name |> StageEntryOrchestration.createNewSource context with
+                    | Error (AsError (IngestionSourceNameAlreadyExists nameStr)) -> Assert.Equal("TestBank", nameStr)
+                    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                    | Ok _ -> Assert.Fail "Expected the duplicate name to be rejected; the source was created"
+                let! holders = name |> IngestionSource.fetchAllByName context
+                let holder = Assert.Single(holders)
+                Assert.Equal(incumbent |> IngestionSource.ingestionSourceId, holder |> IngestionSource.ingestionSourceId)
+            })
+        |> railroadWrapper
 
+    (* Runs on a NoTransaction context: a refused statement aborts an open transaction, and nothing could then be
+       read back. If the insert is wrongly accepted, the finally removes the row it wrote. *)
     [<Fact>]
     member _.``REQ-STG-2.28 a direct insert of an ingestion source whose name another source holds violates the unique constraint on name, and that name still has exactly one source`` () =
-        Assert.Fail "not implemented"
+        let intruderId = System.Guid.NewGuid()
+        let context = Context.create App.DataAccessLayer.DbTransaction.NoTransaction IngestNewSource
+        let runSql sql =
+            App.DataAccessLayer.ExecuteNonQuery.executeNonQuery
+                (context |> Context.getDatabaseTransaction) sql
+                [ { App.DataAccessLayer.QueryParameter.name = "@unique_id"
+                    App.DataAccessLayer.QueryParameter.value = App.DataAccessLayer.QueryParameter.UniqueId intruderId } ]
+                App.DataAccessLayer.ExecuteReader.AnyQuantityIsAcceptable
+        try
+            result {
+                let inserted =
+                    runSql "insert into ingestion.source (unique_id, source_name, created_at, modified_at) values (@unique_id, 'TestBank', now(), now());"
+                let () =
+                    match inserted with
+                    | Error (AsError (App.DataAccessLayer.DalError.DalErrorDuringNonQueryExecution ex)) ->
+                        Assert.Contains("source_source_name_key", ex.Message)
+                    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                    | Ok _ -> Assert.Fail "Expected the database to refuse a second TestBank; it accepted it"
+                let! name = "TestBank" |> JournalRefFinancialInstitution.create
+                let! holders = name |> IngestionSource.fetchAllByName context
+                Assert.Single(holders) |> ignore
+            }
+            |> railroadWrapper
+        finally
+            runSql "delete from ingestion.source where unique_id = @unique_id;" |> Result.map ignore |> railroadWrapper

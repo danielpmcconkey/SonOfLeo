@@ -40,6 +40,7 @@ type DataIngestionError =
     | IngestionNoneAccount of Guid
     | IngestionUpdateStageEntryNoOp
     | IngestionSourceNameNotFound of string
+    | IngestionSourceNameAlreadyExists of string
     | IngestionStagedButFileNotMoved of string * string * string
     
     interface IAppError with
@@ -92,6 +93,7 @@ type DataIngestionError =
             | IngestionNoneAccount uuid -> $"Stage Entry Line with an account of None is not allowed at this phase of the ingestion pipeline. Line ID: {uuid}"
             | IngestionUpdateStageEntryNoOp -> "updateStageEntry failed because at least one updatable parameter must be set."
             | IngestionSourceNameNotFound str -> $"No ingestion source of {str} could be found."
+            | IngestionSourceNameAlreadyExists str -> $"An ingestion source named {str} already exists. Source names must be unique."
             | IngestionStagedButFileNotMoved (filePath, targetPath, reason) -> $"The entries in {filePath} were staged and committed, but the file could not be moved to {targetPath} ({reason}). Move it by hand. Ingesting it again would stage the same entries a second time, which dedup would then flag."
             
 let toMessage (e: DataIngestionError) = (e :> IAppError).ToMessage()
