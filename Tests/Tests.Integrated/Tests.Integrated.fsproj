@@ -63,6 +63,7 @@
     <Compile Include="CrossDomainOrchestration\CashFlowProjection.fs" />
     <Compile Include="CrossDomainOrchestration\CashFlowMaintenance.fs" />
     <Compile Include="CrossDomainOrchestration\PrePostingReview.fs" />
+    <Compile Include="CrossDomainOrchestration\LinkageAndMatching.fs" />
     <Compile Include="Model\Ledger\JournalEntryHeader.fs" />
     <Compile Include="Model\Ledger\JournalEntryExternalReference.fs" />
     <Compile Include="Model\Ledger\JournalEntryComment.fs" />
