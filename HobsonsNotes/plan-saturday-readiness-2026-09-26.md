@@ -270,6 +270,7 @@ Do these first. Most are small; #1 breaks agreement creation outright.
     ordering. This is the report Dan reads every week. (REQ-RPT-6.1–6.3)
 29. All three support data-only JSON and rendered HTML, following the
     existing trial balance report's patterns. (REQ-RPT-6.4, §2)
+29.5. **Pre-posting review.** *(Added 2026-09-27, Dan.)* A read-only report of every postable staged entry, line by line: account, the rule that assigned it, and any linked agreement, Payment, Invoice and Instance. Step 10 of §1 runs it before shadow posting. Report CLI, data-only and HTML. (**REQ-RPT-7.1–7.7**)
 
 ### D. Tests
 
