@@ -1527,41 +1527,6 @@
   </folder>
   <folder name="Motivation" id="id-1c13acda58bd4e568f336e7ad12d50d7" type="motivation">
     <folder name="Principles" id="id-b042a9edb3b34032ab090f5e4241946f">
-      <element xsi:type="archimate:Principle" name="Authority Hierarchy" id="id-9e5e7bd771a64009bd854f9ba5a9e60d">
-        <documentation>Dan > Hobson > import script > classifier. A value written by a higher authority is never overridden by a lower one.</documentation>
-        <property key="enforcement" value="absolute"/>
-        <property key="source" value="standing-corrections"/>
-        <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Check that classifier never overwrites manual categorizations; import scripts never overwrite Hobson's corrections"/>
-      </element>
-      <element xsi:type="archimate:Principle" name="Infallible Create, Orchestrator Validates" id="id-8742bfb562224b2f81e02bf7cca6b4f3">
-        <documentation>Create (construct) functions never fail. They accept all inputs. Validation lives in the orchestrator, not the entity. No exceptions in constructors.</documentation>
-        <property key="enforcement" value="absolute"/>
-        <property key="source" value="standing-corrections"/>
-        <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Scan construct functions for Result returns or exceptions; verify orchestrator functions perform validation before persistence"/>
-      </element>
-      <element xsi:type="archimate:Principle" name="Account IDs in Model, Codes at Boundary" id="id-9c04721a3d32403a82ebfb97bedaccbb">
-        <documentation>The model layer uses typed account IDs. Human-readable account codes appear only at the InterfaceBridge boundary.</documentation>
-        <property key="enforcement" value="absolute"/>
-        <property key="source" value="standing-corrections"/>
-        <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Grep Model/ for account code strings; grep InterfaceBridge/ for account ID-to-code conversion"/>
-      </element>
-      <element xsi:type="archimate:Principle" name="Domain Owns Its Bookkeeping" id="id-c60e5ee28f8241959a6fe03186d4a70e">
-        <documentation>A domain records its own bookkeeping on its own table. No domain writes to another domain's tables.</documentation>
-        <property key="enforcement" value="absolute"/>
-        <property key="source" value="standing-corrections"/>
-        <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Check that each Model/ domain folder's DAL functions only reference tables in that domain's schema"/>
-      </element>
-      <element xsi:type="archimate:Principle" name="No Backstop Creation" id="id-535200a97d604bbcb012f6c0b3f4f5b9">
-        <documentation>If a required entity is missing, hard stop with rollback. Never silently create a placeholder to keep going.</documentation>
-        <property key="enforcement" value="absolute"/>
-        <property key="source" value="standing-corrections"/>
-        <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Scan orchestrator functions for create calls inside error/missing branches"/>
-      </element>
       <element xsi:type="archimate:Principle" name="Dumb Orchestrator, Smart Agents, Fresh Contexts" id="id-6e1174fc8c2d46f4954c3253e1e98b52">
         <documentation>The pipeline engine is a deterministic state machine with zero LLM. All intelligence lives in agent blueprints. Every agent gets a fresh context.</documentation>
         <property key="enforcement" value="absolute"/>
@@ -1569,30 +1534,60 @@
         <property key="auditable" value="true"/>
         <property key="audit-strategy" value="Verify Pipeline/engine.py has no LLM calls; verify agent invocations pass --no-session-persistence"/>
       </element>
-      <element xsi:type="archimate:Principle" name="Dependencies Build From the Base Up" id="id-34b9a65763214347bf93a2fae4fffc11">
-        <documentation>Scope: Src/ only. Nothing outside Src/ is judged by this principle.
+    </folder>
+    <folder name="Structural architecture principles" id="id-afa98719001646f180a577063603997c">
+      <folder name="Src structural architecture principles" id="id-6b116a20400d46aaaed701713574b1a6">
+        <element xsi:type="archimate:Principle" name="Src structural architecture principles" id="id-6b3dbae4c22c49f5a3a492a28235b5d9"/>
+        <element xsi:type="archimate:Constraint" name="Build Order Follows the Hierarchy" id="id-a5f95c974acd427883151d19c8ca7627">
+          <documentation>In Src, project references and each .fsproj's Compile Include list follow the rungs: a file compiles after everything below it and before everything above it, foundations first. Where siblings are unordered peers, their relative order is free.</documentation>
+          <property key="enforcement" value="strong"/>
+          <property key="source" value="app-tier-refactor-2026-09-26"/>
+          <property key="auditable" value="true"/>
+          <property key="audit-strategy" value="Walk each .fsproj Compile Include list and report any file that compiles before a sibling on a lower rung (e.g. a *AuditableAction after entity modules; a classification orchestrator before the data ingestion orchestrator)."/>
+        </element>
+        <element xsi:type="archimate:Constraint" name="Opens Follow Build Order" id="id-1b37530d544d4acb9c5ba711963cd0f4">
+          <documentation>Within each Src file, open statements for Src modules list them in build order: baser modules first, more specialised ones after. An open that has to break that order is reported to Dan, not a formatting choice.</documentation>
+          <property key="enforcement" value="strong"/>
+          <property key="source" value="app-tier-refactor-2026-09-26"/>
+          <property key="auditable" value="true"/>
+          <property key="audit-strategy" value="For each file, map every SonOfLeo open to its module and compare the sequence against build order (project order, then Compile Include order). Report every out-of-order pair; do not auto-correct."/>
+        </element>
+        <element xsi:type="archimate:Principle" name="UI Layers Build Upward" id="id-9e3560f326954a6db086953a55ac710d">
+          <documentation>Within the Ui tier the layers are ordered, basest first:
 
-Every part of Src sits on a rung, and a part may reference only parts at or below its own rung. The rungs nest, outermost first: tier; then, inside any container that holds more than one business concept, the concept order; inside the Ui tier, the UI layer; and inside every container, that container's foundations at the very bottom.
+  contracts &lt; converters &lt; routes &lt; interface (CLI, API, web interface, ...)
 
-The rungs govern two things: what may reference what (a lower rung never references a higher one), and the order things are listed in (project references, the Compile Include order of each .fsproj, and the open statements of each file all run base first). The two constraints that realize this principle cover the listing order.
+The visualization assets and report writers are converters: specialised ones that only reporting uses.
 
-A container may freely use anything in a container below it; the ordering among siblings binds only siblings. An orchestrator in Business.CrossDomainOrchestration may use any Ledger, DataIngestion, CashFlow or Classification module, because all of Business.FinancialServices is below orchestration; but inside orchestration, an account-level orchestrator may not use a journal-entry-level orchestrator.
+Reports and operator UI are sibling sides at the top two layers only. The report CLI does not touch the operator CLI or its routes, and the operator CLI does not touch the report CLI or its routes; report routes and operator routes do not touch each other. Contracts and converters are a shared pool: either side's routes may use any of them.
 
-This principle only answers &quot;does the reference go down the ladder?&quot; Other principles may forbid a reference that goes down (for example, the UI reaching straight into the data access layer); that is not this alarm's concern.</documentation>
-        <property key="enforcement" value="strong"/>
-        <property key="source" value="app-tier-refactor-2026-09-26"/>
-        <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="For every reference between Src modules (open statements, qualified references, project references), place both ends on the rungs defined by the composed principles. Report any reference from a lower rung to a higher one, any reference between the reports and operator sides at the route or interface layer, and any listing (project reference, Compile Include, open) that puts a higher rung before a lower one. Report only; Dan rules."/>
-      </element>
-      <element xsi:type="archimate:Principle" name="Tiers Build Upward" id="id-204abe28f2434088bea3cc371ee1275c">
-        <documentation>The three tiers are ordered App &lt; Business &lt; Ui. A tier may reference anything in any tier below it, including skipping a tier: Ui may use App directly without going through Business, and may use any module there, internals included. App references nothing in Business or Ui; Business references nothing in Ui.</documentation>
-        <property key="enforcement" value="absolute"/>
-        <property key="source" value="app-tier-refactor-2026-09-26"/>
-        <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Check each .fsproj ProjectReference and each open/qualified reference in Src: no App.* project or module references Business.* or Ui.*, and no Business.* references Ui.*."/>
-      </element>
-      <element xsi:type="archimate:Principle" name="Domains Build Upward" id="id-2042ff5d257b4f2ebb67a50e953b2590">
-        <documentation>The business concepts are ordered, basest first:
+Within each layer the business concept order applies (see Domains Build Upward), with that layer's foundation at the bottom (see Foundations Are the Base of Their Container).</documentation>
+          <property key="enforcement" value="strong"/>
+          <property key="source" value="app-tier-refactor-2026-09-26"/>
+          <property key="auditable" value="true"/>
+          <property key="audit-strategy" value="Place each Ui module on its layer (and, for routes and interfaces, its side). Report any reference from a lower layer to a higher one, and any reference between the reports and operator sides at the route or interface layer."/>
+        </element>
+        <element xsi:type="archimate:Principle" name="Foundations Are the Base of Their Container" id="id-8e032f4523fa44838b3e510933718422">
+          <documentation>Every container has foundations that sit below everything else in it:
+- Its error vocabulary and its auditable actions (e.g. LedgerError and LedgerAuditableAction in Ledger, DalError in App.DataAccessLayer). Nothing else in the container is below them.
+- Where the interfaces themselves are defined, the definition is the very bottom and the container's own implementation sits just above it: IAppError below UtilityError in App.Utility; IAuditableAction below CoreAuditableAction in App.Operation.
+- SharedContracts is the base of the UI contracts layer; CommandRoute is the base of the UI routes layer; FetchFilters is the base of Business.CrossDomainOrchestration.
+
+Foundations compile first in their container and reference nothing in it that sits above them.</documentation>
+          <property key="enforcement" value="strong"/>
+          <property key="source" value="app-tier-refactor-2026-09-26"/>
+          <property key="auditable" value="true"/>
+          <property key="audit-strategy" value="In each .fsproj (and each Ui layer), the foundation files come before every other file in the Compile Include list, in the order given, and reference nothing in their container above them. Report any file that compiles before a foundation, and any foundation that references a sibling above it."/>
+        </element>
+        <element xsi:type="archimate:Principle" name="Tiers Build Upward" id="id-204abe28f2434088bea3cc371ee1275c">
+          <documentation>The three tiers are ordered App &lt; Business &lt; Ui. A tier may reference anything in any tier below it, including skipping a tier: Ui may use App directly without going through Business, and may use any module there, internals included. App references nothing in Business or Ui; Business references nothing in Ui.</documentation>
+          <property key="enforcement" value="absolute"/>
+          <property key="source" value="app-tier-refactor-2026-09-26"/>
+          <property key="auditable" value="true"/>
+          <property key="audit-strategy" value="Check each .fsproj ProjectReference and each open/qualified reference in Src: no App.* project or module references Business.* or Ui.*, and no Business.* references Ui.*."/>
+        </element>
+        <element xsi:type="archimate:Principle" name="Domains Build Upward" id="id-2042ff5d257b4f2ebb67a50e953b2590">
+          <documentation>The business concepts are ordered, basest first:
 
   account &lt; fiscal period &lt; journal entry &lt; data ingestion &lt; cash flow &lt; classification
 
@@ -1605,84 +1600,137 @@ The order applies at every zoom level where a container holds more than one conc
 - Inside every Ui layer (contracts, converters, routes): account pieces first, then fiscal period, journal entry, data ingestion, cash flow, classification. The account routes are more base than the journal entry routes.
 
 Within such a container a piece may use its own concept and lower ones, never a higher sibling. The rule binds siblings only: a container may use anything in a container below it. Closing an account is an account use case that needs a journal-entry fact (a zero balance); Ledger's account pieces may not reach up to journal entries, so the use case is owned by orchestration, which sits above Ledger and may use any Ledger module. Were that account orchestrator to use a journal-entry orchestrator (a sibling), the alarm goes off and Dan decides whether it is warranted.</documentation>
-        <property key="enforcement" value="strong"/>
-        <property key="source" value="app-tier-refactor-2026-09-26"/>
-        <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="In each multi-concept container (Ledger, the FinancialServices projects, CrossDomainOrchestration, each Ui layer) assign every module to a concept from the business concept it serves. Report any reference to a sibling of a higher concept, and any Compile Include or open order that lists a higher concept's sibling before a lower one."/>
+          <property key="enforcement" value="strong"/>
+          <property key="source" value="app-tier-refactor-2026-09-26"/>
+          <property key="auditable" value="true"/>
+          <property key="audit-strategy" value="In each multi-concept container (Ledger, the FinancialServices projects, CrossDomainOrchestration, each Ui layer) assign every module to a concept from the business concept it serves. Report any reference to a sibling of a higher concept, and any Compile Include or open order that lists a higher concept's sibling before a lower one."/>
+        </element>
+        <element xsi:type="archimate:Principle" name="Out-of-Order Is a Design Smell" id="id-010d670603bb420f974a8b744577bc35">
+          <documentation>If code in Src needs to reach something out of the hierarchy's order (a higher rung, a higher sibling, the other UI side's routes or CLI, or an open out of build order), the likeliest cause is a design mistake in that code; the next likeliest is that the architecture itself is wrong. Either way the alarm reports it to Dan, who decides whether it is warranted; it is never quietly accommodated or auto-judged. Dan may approve a specific exception (a namespace collision, for instance); an approval covers that case only.</documentation>
+          <property key="enforcement" value="absolute"/>
+          <property key="source" value="app-tier-refactor-2026-09-26"/>
+          <property key="auditable" value="true"/>
+          <property key="audit-strategy" value="Every out-of-order finding is reported to Dan with the file, the reference, and the rungs involved, unless it matches an exception Dan has approved."/>
+        </element>
+        <element xsi:type="archimate:Principle" name="This application is structured in domain tiers and we are strictly forbidden from altering or circumventing the tier hierarchy" id="id-ac5c0f586fba42409935f772e5c9a768">
+          <documentation>As an F# application, we are strictly prohibited from circular references. But F# doesn't prevent you from loading a module from domain A between two modules of domain B, presuming they're all in the same fsproj. This app has been broken into a more rigid structure on purpose and we *do* strictly enforce that no lower tier has any understanding of higher tier modules, types, or even labels. Other principles in this model define those tiers and their hierarchy.</documentation>
+        </element>
+        <element xsi:type="archimate:Principle" name="Dependencies Build From the Base Up" id="id-34b9a65763214347bf93a2fae4fffc11">
+          <documentation>Scope: Src/ only. Nothing outside Src/ is judged by this principle.
+
+Every part of Src sits on a rung, and a part may reference only parts at or below its own rung. The rungs nest, outermost first: tier; then, inside any container that holds more than one business concept, the concept order; inside the Ui tier, the UI layer; and inside every container, that container's foundations at the very bottom.
+
+The rungs govern two things: what may reference what (a lower rung never references a higher one), and the order things are listed in (project references, the Compile Include order of each .fsproj, and the open statements of each file all run base first). The two constraints that realize this principle cover the listing order.
+
+A container may freely use anything in a container below it; the ordering among siblings binds only siblings. An orchestrator in Business.CrossDomainOrchestration may use any Ledger, DataIngestion, CashFlow or Classification module, because all of Business.FinancialServices is below orchestration; but inside orchestration, an account-level orchestrator may not use a journal-entry-level orchestrator.
+
+This principle only answers &quot;does the reference go down the ladder?&quot; Other principles may forbid a reference that goes down (for example, the UI reaching straight into the data access layer); that is not this alarm's concern.</documentation>
+          <property key="enforcement" value="strong"/>
+          <property key="source" value="app-tier-refactor-2026-09-26"/>
+          <property key="auditable" value="true"/>
+          <property key="audit-strategy" value="For every reference between Src modules (open statements, qualified references, project references), place both ends on the rungs defined by the composed principles. Report any reference from a lower rung to a higher one, any reference between the reports and operator sides at the route or interface layer, and any listing (project reference, Compile Include, open) that puts a higher rung before a lower one. Report only; Dan rules."/>
+        </element>
+      </folder>
+      <element xsi:type="archimate:Principle" name="Structural architecture principles" id="id-522ac489709b4d1c8c8fd7ce9e0d5727"/>
+    </folder>
+    <folder name="F# conventions" id="id-b806c25dd3364cfca3101ecfac935fad">
+      <folder name="Reuse common function names" id="id-23633a1a3ce543d59c78f97a34952864">
+        <element xsi:type="archimate:Principle" name="Reuse common function names" id="id-446c6285250f4af183d83f668f6a10ce"/>
+        <element xsi:type="archimate:Principle" name="Name functions that instantiate entities from a complete set of domain types &quot;create&quot;" id="id-6f29d67515c846dab707b039a7d25c07"/>
+        <element xsi:type="archimate:Principle" name="Name functions that instantiate entities from database primitives &quot;reconstitute&quot;" id="id-a33134be83c749a090815b09e9f5a997"/>
+        <element xsi:type="archimate:Principle" name="Name functions that provide a map between database primitives and domain types &quot;mapRawForDbRead&quot;" id="id-daa0fcb3e88e469481eaa805144f4cee">
+          <documentation>Used as a bridge between reconstitute and create
+</documentation>
+        </element>
+        <element xsi:type="archimate:Principle" name="Name functions that provide the basic database read &quot;backbone&quot; for an entity type &quot;query&quot;" id="id-f25fc19a395f4890abee0d2cc8e09723"/>
+        <element xsi:type="archimate:Principle" name="Name functions that provide the basic database update &quot;backbone&quot; for an entity type &quot;update&quot;" id="id-462dad7c3ba34142bcb93943b69bc5df"/>
+        <element xsi:type="archimate:Principle" name="Name functions that write a single new row to the DB &quot;persist&quot;" id="id-3b52ed7fa8374d678cf8442af86b1255"/>
+        <element xsi:type="archimate:Principle" name="Prefix function names with &quot;fetch&quot; when they call their module's query function to read rows from the DB that match specific criteria" id="id-fe05cdee5e0a4c4dbbae4982e78f1844"/>
+        <element xsi:type="archimate:Principle" name="Prefix function names with &quot;update&quot; when they call their module's update function to update DB rows in specific manners" id="id-3936b093982942a784bddde27ef77ff0"/>
+        <element xsi:type="archimate:Principle" name="Prefix function names with &quot;confirm&quot; that validate a type and return only a unit result" id="id-4e7c4952b9d7463cbb388c480238a2fa"/>
+        <element xsi:type="archimate:Principle" name="Name orchestration functions that both validate an entity and save it to the DB &quot;constructNewAndPersist&quot;" id="id-440f120eac1b4eb9a07465de05848cdf"/>
+      </folder>
+      <element xsi:type="archimate:Principle" name="F# conventions are enforced" id="id-7c1c3299273c4c538dc4825d22a8fb5d">
+        <documentation>There are exceptions to this, but each should be called out to Dan or cross-referenced to a known exceptions list</documentation>
       </element>
-      <element xsi:type="archimate:Principle" name="Foundations Are the Base of Their Container" id="id-8e032f4523fa44838b3e510933718422">
-        <documentation>Every container has foundations that sit below everything else in it:
-- Its error vocabulary and its auditable actions (e.g. LedgerError and LedgerAuditableAction in Ledger, DalError in App.DataAccessLayer). Nothing else in the container is below them.
-- Where the interfaces themselves are defined, the definition is the very bottom and the container's own implementation sits just above it: IAppError below UtilityError in App.Utility; IAuditableAction below CoreAuditableAction in App.Operation.
-- SharedContracts is the base of the UI contracts layer; CommandRoute is the base of the UI routes layer; FetchFilters is the base of Business.CrossDomainOrchestration.
-
-Foundations compile first in their container and reference nothing in it that sits above them.</documentation>
-        <property key="enforcement" value="strong"/>
-        <property key="source" value="app-tier-refactor-2026-09-26"/>
-        <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="In each .fsproj (and each Ui layer), the foundation files come before every other file in the Compile Include list, in the order given, and reference nothing in their container above them. Report any file that compiles before a foundation, and any foundation that references a sibling above it."/>
-      </element>
-      <element xsi:type="archimate:Principle" name="UI Layers Build Upward" id="id-9e3560f326954a6db086953a55ac710d">
-        <documentation>Within the Ui tier the layers are ordered, basest first:
-
-  contracts &lt; converters &lt; routes &lt; interface (CLI, API, web interface, ...)
-
-The visualization assets and report writers are converters: specialised ones that only reporting uses.
-
-Reports and operator UI are sibling sides at the top two layers only. The report CLI does not touch the operator CLI or its routes, and the operator CLI does not touch the report CLI or its routes; report routes and operator routes do not touch each other. Contracts and converters are a shared pool: either side's routes may use any of them.
-
-Within each layer the business concept order applies (see Domains Build Upward), with that layer's foundation at the bottom (see Foundations Are the Base of Their Container).</documentation>
-        <property key="enforcement" value="strong"/>
-        <property key="source" value="app-tier-refactor-2026-09-26"/>
-        <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Place each Ui module on its layer (and, for routes and interfaces, its side). Report any reference from a lower layer to a higher one, and any reference between the reports and operator sides at the route or interface layer."/>
-      </element>
-      <element xsi:type="archimate:Principle" name="Out-of-Order Is a Design Smell" id="id-010d670603bb420f974a8b744577bc35">
-        <documentation>If code in Src needs to reach something out of the hierarchy's order (a higher rung, a higher sibling, the other UI side's routes or CLI, or an open out of build order), the likeliest cause is a design mistake in that code; the next likeliest is that the architecture itself is wrong. Either way the alarm reports it to Dan, who decides whether it is warranted; it is never quietly accommodated or auto-judged. Dan may approve a specific exception (a namespace collision, for instance); an approval covers that case only.</documentation>
+      <element xsi:type="archimate:Principle" name="IDs are used in the Business tier while human-readable strings are used at the UI boundary" id="id-9c04721a3d32403a82ebfb97bedaccbb">
+        <documentation>All entity-leve types define an ID, which is a type-wrapped UUID. The business tier and lower should always use these ID fields for identification (e.g., the Business tier function for updating an account should take an account ID as its identifier). However, the operator using the SonOfLeo CLI is not expected to memorize UUIDs. We therefore translate IDs to easier to remember strings (e.g. when the operator wants to update an account, they pass in an account code). The UI tier is expected to translate that code and pass the ID down to the Business tier for affecting the use case.</documentation>
         <property key="enforcement" value="absolute"/>
-        <property key="source" value="app-tier-refactor-2026-09-26"/>
+        <property key="source" value="standing-corrections"/>
         <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Every out-of-order finding is reported to Dan with the file, the reference, and the rungs involved, unless it matches an exception Dan has approved."/>
+        <property key="audit-strategy" value="Grep Model/ for account code strings; grep InterfaceBridge/ for account ID-to-code conversion"/>
+      </element>
+      <element xsi:type="archimate:Principle" name="Infallible Create, Orchestrator Validates" id="id-8742bfb562224b2f81e02bf7cca6b4f3">
+        <documentation>Create (construct) functions never fail. They accept all inputs. Validation lives in the orchestrator, not the entity. No exceptions in constructors.</documentation>
+        <property key="enforcement" value="absolute"/>
+        <property key="source" value="standing-corrections"/>
+        <property key="auditable" value="true"/>
+        <property key="audit-strategy" value="Scan construct functions for Result returns or exceptions; verify orchestrator functions perform validation before persistence"/>
       </element>
     </folder>
-    <folder name="Constraints" id="id-04af52c597504a32b69436188c984910">
-      <element xsi:type="archimate:Constraint" name="TransactionPointer Is Line-Level" id="id-6b50deb65e8043f390e64ad26bf456f3">
-        <documentation>TransactionPointer carries line-level granularity on both the stage side and the ledger side. Never transaction-level only.</documentation>
-        <property key="enforcement" value="absolute"/>
-        <property key="source" value="standing-corrections"/>
-      </element>
-      <element xsi:type="archimate:Constraint" name="Stage Entries Carry Back-Linkage" id="id-9dbfb773f600479485a33553b1e9f298">
-        <documentation>Stage entries carry back-linkage to the ledger. The ledger does not point forward to staging.</documentation>
-        <property key="enforcement" value="absolute"/>
-        <property key="source" value="standing-corrections"/>
-      </element>
-      <element xsi:type="archimate:Constraint" name="Public Repo — No PII" id="id-0587fa9a15364f3a973e0852ad476eee">
-        <documentation>This is a public repo. No FI names, account numbers, or PII in any file.</documentation>
+    <folder name="Business domains" id="id-265ba28e2a584d60a73bf13069f50f36">
+      <element xsi:type="archimate:Principle" name="Business domains are real boundaries" id="id-dc34df44b6b142838a208113cc8322c4"/>
+      <element xsi:type="archimate:Principle" name="The Account domain owns account capabilities" id="id-8be86e95722647669d20942e14db0cde"/>
+      <element xsi:type="archimate:Principle" name="The Fiscal Period domain owns fiscal period capabilities" id="id-4bffd26f45234154b3d3d491875b1432"/>
+      <element xsi:type="archimate:Principle" name="The Journal Entry domain owns journal entry capabilities" id="id-6e3ebceb8c6640ccb6baa2a858a6aa0b"/>
+      <element xsi:type="archimate:Principle" name="The Data Ingestion domain owns data ingestion capabilities" id="id-aea2663290264d0687fb6c4bf18101e1"/>
+      <element xsi:type="archimate:Principle" name="The Cash Flow domain owns cash flow capabilities" id="id-9a6b42373e744fa28b6d9b9a7385aae1"/>
+      <element xsi:type="archimate:Principle" name="The Classification domain owns classification capabilities" id="id-6ad1302329324f449613c84cddb4b1b8"/>
+      <element xsi:type="archimate:Principle" name="Domain Owns Its Bookkeeping" id="id-c60e5ee28f8241959a6fe03186d4a70e">
+        <documentation>A domain records its own bookkeeping on its own table. No domain writes to another domain's tables.</documentation>
         <property key="enforcement" value="absolute"/>
         <property key="source" value="standing-corrections"/>
         <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Grep for known FI name patterns, account number formats, email addresses"/>
+        <property key="audit-strategy" value="Check that each Model/ domain folder's DAL functions only reference tables in that domain's schema"/>
       </element>
-      <element xsi:type="archimate:Constraint" name="Spec Language — Operator Concepts Only" id="id-72d2e3a3addf4f63837e60a864f97f42">
-        <documentation>Specs use operator concepts, not implementation details. REQs describe what the system does, not how the code is structured.</documentation>
-        <property key="enforcement" value="strong"/>
+      <element xsi:type="archimate:Principle" name="A domain is not a file, a module, or a project. It is a business concept" id="id-5df6f6a40c1a4c83b66047f96f27b460">
+        <documentation>We do have projects named after domains, but we also have projects, like the cross-domain orchestration, that operates across domains as needed.</documentation>
+      </element>
+      <element xsi:type="archimate:Principle" name="For cross domain use cases, the use case should be considered to be a component of the domain tier that best aligns to the use case. " id="id-21e9b694251d43b59dc71861d3e72c8d">
+        <documentation>Example 1: the process of assigning an account to a staged entry requires knowledge of the Account, Data Ingestion, and Classification, but it is hard to name that use case with the primary verb being &quot;classify&quot;. This is part of the Classification domain.
+Example 2: the process of decativating an account requires knowledge of the Account and Journal Entry domains, but the use case would never include &quot;Journal Entry&quot; in its name. It would be &quot;Deactivate Account&quot;. This is part of the Account domain.</documentation>
+      </element>
+      <element xsi:type="archimate:Constraint" name="If a cross-domain use case requires write operations to multiple domains, the orchestrator will invoke functions from each domain separately" id="id-3a27140299c14b56b09f79d3a829e2b6"/>
+      <element xsi:type="archimate:Principle" name="Business domains have a tiered hierarchy" id="id-e2751a6b9de94d41836604fb2489dfa6"/>
+      <element xsi:type="archimate:Principle" name="The Account domain is a lower tier than the Fiscal Period domain" id="id-26c6d6cb32aa45bcabe5c48ee803d028"/>
+      <element xsi:type="archimate:Principle" name="The Fiscal Period domain is a lower tier than the Journal Entry domain" id="id-90cbc0b3ffa248a3ac0f6e7234b205fe"/>
+      <element xsi:type="archimate:Principle" name="The Journal Entry domain is a lower tier than the Data Ingestion domain" id="id-c2387ff4571447cb8672d0dfdcceb518"/>
+      <element xsi:type="archimate:Principle" name="The Data Ingestion domain is a lower tier than the Classification domain" id="id-c84b1aeaf42d469a8f710515c05a465f"/>
+    </folder>
+    <folder name="Heirearchy of authority" id="id-fc32fa5c39ec41708dcd5fbfd7f986c6">
+      <element xsi:type="archimate:Principle" name="There is a hierarchy of authority that is strictly enforced" id="id-9e5e7bd771a64009bd854f9ba5a9e60d">
+        <documentation>Dan > Hobson > import script > classifier. </documentation>
+        <property key="enforcement" value="absolute"/>
         <property key="source" value="standing-corrections"/>
-      </element>
-      <element xsi:type="archimate:Constraint" name="Build Order Follows the Hierarchy" id="id-a5f95c974acd427883151d19c8ca7627">
-        <documentation>In Src, project references and each .fsproj's Compile Include list follow the rungs: a file compiles after everything below it and before everything above it, foundations first. Where siblings are unordered peers, their relative order is free.</documentation>
-        <property key="enforcement" value="strong"/>
-        <property key="source" value="app-tier-refactor-2026-09-26"/>
         <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="Walk each .fsproj Compile Include list and report any file that compiles before a sibling on a lower rung (e.g. a *AuditableAction after entity modules; a classification orchestrator before the data ingestion orchestrator)."/>
+        <property key="audit-strategy" value="Check that classifier never overwrites manual categorizations; import scripts never overwrite Hobson's corrections"/>
       </element>
-      <element xsi:type="archimate:Constraint" name="Opens Follow Build Order" id="id-1b37530d544d4acb9c5ba711963cd0f4">
-        <documentation>Within each Src file, open statements for Src modules list them in build order: baser modules first, more specialised ones after. An open that has to break that order is reported to Dan, not a formatting choice.</documentation>
-        <property key="enforcement" value="strong"/>
-        <property key="source" value="app-tier-refactor-2026-09-26"/>
-        <property key="auditable" value="true"/>
-        <property key="audit-strategy" value="For each file, map every SonOfLeo open to its module and compare the sequence against build order (project order, then Compile Include order). Report every out-of-order pair; do not auto-correct."/>
+      <element xsi:type="archimate:Constraint" name="A data value set by a higher authority is never overridden by a lower one." id="id-6827ece3868148adb71af626c25e45a1"/>
+      <element xsi:type="archimate:Principle" name="Dan's decisions are a higher authority than the operator's, import scripts, and our business logic" id="id-aac4a8ce48d749de9ff6d96592d324de"/>
+      <element xsi:type="archimate:Principle" name="Deterministic scripts that are outside of this system, who have provided a specific data point have a higher authority than the business logic in this system" id="id-c3806c872d41440bb7dc5fe4ed387eb9">
+        <documentation>Ex 1: It is presumed that a script that pulls transactions from an FI knows which FI it's pulling from
+Ex 2: It is presumed that the script that parses Dan's paycheck very deliberately assigned the account code for dental insurance, because we programmed it to have that knowledge
+</documentation>
+      </element>
+      <element xsi:type="archimate:Principle" name="The operator's decisions are a higher authority than both the import scripts and our business logic" id="id-1130249c02af4328a6bcbdd814013b0f">
+        <documentation>Ex: If the operator hand-linked a stage entry line to a payment, nothing in our code should over-write that</documentation>
+      </element>
+      <element xsi:type="archimate:Constraint" name="Prior decisions should be honored by the system" id="id-20611bce76dd4da8bd28501f230826e6">
+        <documentation>Ex: the classifier should not try to re-classify already classified rows.</documentation>
       </element>
     </folder>
+    <element xsi:type="archimate:Constraint" name="Public Repo — No PII" id="id-0587fa9a15364f3a973e0852ad476eee">
+      <documentation>This is a public repo. No FI names, account numbers, or PII in any file.</documentation>
+      <property key="enforcement" value="absolute"/>
+      <property key="source" value="standing-corrections"/>
+      <property key="auditable" value="true"/>
+      <property key="audit-strategy" value="Grep for known FI name patterns, account number formats, email addresses"/>
+    </element>
+    <element xsi:type="archimate:Constraint" name="Spec Language — Operator Concepts Only" id="id-72d2e3a3addf4f63837e60a864f97f42">
+      <documentation>Specs use operator concepts, not implementation details. REQs describe what the system does, not how the code is structured.</documentation>
+      <property key="enforcement" value="strong"/>
+      <property key="source" value="standing-corrections"/>
+    </element>
   </folder>
   <folder name="Implementation &amp; Migration" id="id-20317dee23d94410ba0bc93ae47becdd" type="implementation_migration"/>
   <folder name="Other" id="id-4f39f83be6824a339cf8b19d21ca7274" type="other"/>
@@ -3619,6 +3667,51 @@ Within each layer the business concept order applies (see Domains Build Upward),
     <element xsi:type="archimate:RealizationRelationship" id="id-44af8b706d8c466bb40fd24a9fb9e814" source="id-482e6cba43ba4e9fb82aaf36c1640015" target="id-8e032f4523fa44838b3e510933718422"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-6696bd4d8cff4b3f8a9b6fe335af2d26" source="id-93157bb88042403ea12abcf5b4f6cbe8" target="id-9e3560f326954a6db086953a55ac710d"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-2f8c724290c845f3beecc426d4b581db" source="id-086000a2a5a741b2aab0b8cba1053569" target="id-8e032f4523fa44838b3e510933718422"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-5b58826658a3487ba7040b17f41e8999" source="id-522ac489709b4d1c8c8fd7ce9e0d5727" target="id-6b3dbae4c22c49f5a3a492a28235b5d9"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-3762f8a27aa74cfb9fc437ebee676c14" source="id-6b3dbae4c22c49f5a3a492a28235b5d9" target="id-ac5c0f586fba42409935f772e5c9a768"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-5b583198d7014f7e95e93e1b3066f2c5" source="id-6b3dbae4c22c49f5a3a492a28235b5d9" target="id-34b9a65763214347bf93a2fae4fffc11"/>
+    <element xsi:type="archimate:SpecializationRelationship" id="id-f88f1b18f4a240059212b6c833bd2e1d" source="id-34b9a65763214347bf93a2fae4fffc11" target="id-ac5c0f586fba42409935f772e5c9a768"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-44ce91c7df1b46f68e9854fd3bbe6a16" source="id-6b3dbae4c22c49f5a3a492a28235b5d9" target="id-010d670603bb420f974a8b744577bc35"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-13600e3ed6ec48f08ae631cd60976491" source="id-7c1c3299273c4c538dc4825d22a8fb5d" target="id-9c04721a3d32403a82ebfb97bedaccbb"/>
+    <element xsi:type="archimate:InfluenceRelationship" id="id-ca437217d77c42848c225bf646211478" source="id-dc34df44b6b142838a208113cc8322c4" target="id-2042ff5d257b4f2ebb67a50e953b2590"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-65ca1d26595f464694c57dd575d1acc8" source="id-dc34df44b6b142838a208113cc8322c4" target="id-8be86e95722647669d20942e14db0cde"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-6c492826eeaa4202b7541c0f72cf8d35" source="id-a1690119289043169e3e8258590a51f1" target="id-8be86e95722647669d20942e14db0cde"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-d7bcb6d3a79c4249b0084a2d9f3c5199" source="id-dc34df44b6b142838a208113cc8322c4" target="id-4bffd26f45234154b3d3d491875b1432"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-cb0ad35812424b6597135af2b21f1e13" source="id-0cc01f9d2691450393e6cca41ce48288" target="id-4bffd26f45234154b3d3d491875b1432"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-e26f47896bb04c2d8e2e51343fb05534" source="id-dc34df44b6b142838a208113cc8322c4" target="id-6e3ebceb8c6640ccb6baa2a858a6aa0b"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-f36d26ca360b4fe8a7ea50d69b65233d" source="id-6cd96ace557e4b49910c011e7bcef02c" target="id-6e3ebceb8c6640ccb6baa2a858a6aa0b"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-cb483539a2da41d2b23f7d8f3a42233a" source="id-dc34df44b6b142838a208113cc8322c4" target="id-aea2663290264d0687fb6c4bf18101e1"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-39ce9160583e4db09b74df72478460ab" source="id-36ac97d70705433a9598b367a0a37588" target="id-aea2663290264d0687fb6c4bf18101e1"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-2ef046914137404fbc9476d45bfcc075" source="id-dc34df44b6b142838a208113cc8322c4" target="id-9a6b42373e744fa28b6d9b9a7385aae1"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-56a3c4c4b18449d4b97c93e1ce3974c5" source="id-8caa490eafca4592894d0ecb5896e2f5" target="id-9a6b42373e744fa28b6d9b9a7385aae1"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-8cb4353e753040e99f503ee3f554c272" source="id-dc34df44b6b142838a208113cc8322c4" target="id-6ad1302329324f449613c84cddb4b1b8"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-28ec56f157a0464cac694668ce9b94a6" source="id-2cd1a6b0f4f14c808fb6e150aff6e050" target="id-6ad1302329324f449613c84cddb4b1b8"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-4a27b55a82e844bfb7b960a87b37f4ed" source="id-dc34df44b6b142838a208113cc8322c4" target="id-c60e5ee28f8241959a6fe03186d4a70e"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-36cd34dc2f9140f9bf07ed9b35cf9cbc" source="id-dc34df44b6b142838a208113cc8322c4" target="id-5df6f6a40c1a4c83b66047f96f27b460"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-086e8a51f397416981edd870322bcc6d" source="id-dc34df44b6b142838a208113cc8322c4" target="id-21e9b694251d43b59dc71861d3e72c8d"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-e4d76d4993654a9fb8fa05b35599f466" source="id-3a27140299c14b56b09f79d3a829e2b6" target="id-c60e5ee28f8241959a6fe03186d4a70e"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-5b61f9534e1a46d8a1e86af89ce14928" source="id-e2751a6b9de94d41836604fb2489dfa6" target="id-26c6d6cb32aa45bcabe5c48ee803d028"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-1bc0250c19d649cdb18107d7e7ba70c5" source="id-e2751a6b9de94d41836604fb2489dfa6" target="id-90cbc0b3ffa248a3ac0f6e7234b205fe"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-bf7abcf892de47af8ef862fddd7f6c5e" source="id-e2751a6b9de94d41836604fb2489dfa6" target="id-c84b1aeaf42d469a8f710515c05a465f"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-42d3706bcb244bcbad120e95f2fea6e8" source="id-e2751a6b9de94d41836604fb2489dfa6" target="id-c2387ff4571447cb8672d0dfdcceb518"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-13241052394542beb59170240dddea17" source="id-dc34df44b6b142838a208113cc8322c4" target="id-e2751a6b9de94d41836604fb2489dfa6"/>
+    <element xsi:type="archimate:InfluenceRelationship" id="id-af7d7669ae504e448a682678f35d01ca" source="id-e2751a6b9de94d41836604fb2489dfa6" target="id-2042ff5d257b4f2ebb67a50e953b2590"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-6a6666ba15fc47d48ff7e732e91d18a5" source="id-7c1c3299273c4c538dc4825d22a8fb5d" target="id-446c6285250f4af183d83f668f6a10ce"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-34a5a125855a43b9a0670a91ebd2bd5a" source="id-446c6285250f4af183d83f668f6a10ce" target="id-6f29d67515c846dab707b039a7d25c07"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-4fb692e52f08498c99dd4d7e24599253" source="id-446c6285250f4af183d83f668f6a10ce" target="id-a33134be83c749a090815b09e9f5a997"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-e43a899b0f2c4671b7b2ce80baee1602" source="id-446c6285250f4af183d83f668f6a10ce" target="id-daa0fcb3e88e469481eaa805144f4cee"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-74832aed788c4989b6e70891c9378574" source="id-446c6285250f4af183d83f668f6a10ce" target="id-f25fc19a395f4890abee0d2cc8e09723"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-987cc2591b254b0b8495e1a70f1c453d" source="id-446c6285250f4af183d83f668f6a10ce" target="id-3b52ed7fa8374d678cf8442af86b1255"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-95803459862b41a7a7e6803a3f444b57" source="id-446c6285250f4af183d83f668f6a10ce" target="id-fe05cdee5e0a4c4dbbae4982e78f1844"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-aa86da92da254997977b43e71d919ad2" source="id-446c6285250f4af183d83f668f6a10ce" target="id-462dad7c3ba34142bcb93943b69bc5df"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-74e9f4b33d8648d89e5fa3847a1c4501" source="id-446c6285250f4af183d83f668f6a10ce" target="id-3936b093982942a784bddde27ef77ff0"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-3bb14129c2884cfa83b36556c7f6d733" source="id-446c6285250f4af183d83f668f6a10ce" target="id-4e7c4952b9d7463cbb388c480238a2fa"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-20cc6df54e57472b91242e5f8ce16feb" source="id-446c6285250f4af183d83f668f6a10ce" target="id-440f120eac1b4eb9a07465de05848cdf"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-764aae07646d4385bbf5b374663267d5" source="id-7c1c3299273c4c538dc4825d22a8fb5d" target="id-8742bfb562224b2f81e02bf7cca6b4f3"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-ca3233daf5dc4ea193a3af99565f62a2" source="id-6827ece3868148adb71af626c25e45a1" target="id-9e5e7bd771a64009bd854f9ba5a9e60d"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-aaf9be9896fe444f893adcc1422eb36e" source="id-9e5e7bd771a64009bd854f9ba5a9e60d" target="id-c3806c872d41440bb7dc5fe4ed387eb9"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-aefca732a85c4e78aa3491e927f0ab1f" source="id-9e5e7bd771a64009bd854f9ba5a9e60d" target="id-1130249c02af4328a6bcbdd814013b0f"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-91e4052f2d964f9cb1443c14d2de33a8" source="id-9e5e7bd771a64009bd854f9ba5a9e60d" target="id-aac4a8ce48d749de9ff6d96592d324de"/>
   </folder>
   <folder name="Views" id="id-75e0717f00f244fe89d04a8b9e32fac9" type="diagrams">
     <element xsi:type="archimate:ArchimateDiagramModel" name="Application tiers" id="id-398726ae0f1d4b0a896928395ae87a15">
@@ -5778,6 +5871,225 @@ Within each layer the business concept order applies (see Domains Build Upward),
       </child>
       <child xsi:type="archimate:DiagramObject" id="id-007cf1625a304fe29912391f7353b6ec" archimateElement="id-95843fd1284b4eff9b88dd3e7e4a8220">
         <bounds x="2148" y="2908" width="120" height="55"/>
+      </child>
+    </element>
+    <element xsi:type="archimate:ArchimateDiagramModel" name="Principles" id="id-0d2333453e5e4a4bb106b94ee3194567">
+      <child xsi:type="archimate:DiagramObject" id="id-1f938f472ad54729b580e72aa49b8ebb" archimateElement="id-522ac489709b4d1c8c8fd7ce9e0d5727">
+        <bounds x="115" y="60" width="519" height="341"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-1ddf5c72e3014f608f45d879a2d5ebae" source="id-1f938f472ad54729b580e72aa49b8ebb" target="id-627a52d8e1724198b8c0d4c26923b893" archimateRelationship="id-5b58826658a3487ba7040b17f41e8999"/>
+        <child xsi:type="archimate:DiagramObject" id="id-627a52d8e1724198b8c0d4c26923b893" targetConnections="id-1ddf5c72e3014f608f45d879a2d5ebae" archimateElement="id-6b3dbae4c22c49f5a3a492a28235b5d9">
+          <bounds x="10" y="25" width="491" height="306"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dd1ab795ed3f4c17aa2b24fe81e44b21" source="id-627a52d8e1724198b8c0d4c26923b893" target="id-5bf540b0151245e29972e70e79460b87" archimateRelationship="id-3762f8a27aa74cfb9fc437ebee676c14"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-ff7ec7a775284a4a9496b51718f63b2f" source="id-627a52d8e1724198b8c0d4c26923b893" target="id-1633c45ef8004d2ba0ff6868b16db057" archimateRelationship="id-5b583198d7014f7e95e93e1b3066f2c5"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-aead6d518ace4b838a5088cbe55441d5" source="id-627a52d8e1724198b8c0d4c26923b893" target="id-a03c9cc3b019445b8eccd090e917a626" archimateRelationship="id-44ce91c7df1b46f68e9854fd3bbe6a16"/>
+          <child xsi:type="archimate:DiagramObject" id="id-5bf540b0151245e29972e70e79460b87" targetConnections="id-dd1ab795ed3f4c17aa2b24fe81e44b21 id-534002ff04f247739279e8ada233a0cc" archimateElement="id-ac5c0f586fba42409935f772e5c9a768">
+            <bounds x="10" y="30" width="120" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-ac018fe93fde480483a24986b0d4e93d" archimateElement="id-a5f95c974acd427883151d19c8ca7627">
+            <bounds x="85" y="215" width="120" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-d7377d8071194469972b38e142e1d406" source="id-ac018fe93fde480483a24986b0d4e93d" target="id-1633c45ef8004d2ba0ff6868b16db057" archimateRelationship="id-41e0e168f86d454da44dea4bb37ca3c1"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-58db04be6cfa4abd8145fbf9d4bcf555" archimateElement="id-1b37530d544d4acb9c5ba711963cd0f4">
+            <bounds x="220" y="215" width="120" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-daff5c0f972b4f64b2efaf3d70dcba6c" source="id-58db04be6cfa4abd8145fbf9d4bcf555" target="id-1633c45ef8004d2ba0ff6868b16db057" archimateRelationship="id-d5da31cd334148a1a143d3669b8e725f"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-1633c45ef8004d2ba0ff6868b16db057" targetConnections="id-daff5c0f972b4f64b2efaf3d70dcba6c id-d7377d8071194469972b38e142e1d406 id-ff7ec7a775284a4a9496b51718f63b2f id-998d218597c94b2ca7a45f5963847e6b" archimateElement="id-34b9a65763214347bf93a2fae4fffc11">
+            <bounds x="156" y="30" width="320" height="156"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-534002ff04f247739279e8ada233a0cc" source="id-1633c45ef8004d2ba0ff6868b16db057" target="id-5bf540b0151245e29972e70e79460b87" archimateRelationship="id-f88f1b18f4a240059212b6c833bd2e1d"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-aa36948ad66b4fbbb147443d2367772d" source="id-1633c45ef8004d2ba0ff6868b16db057" target="id-bec69a19dc8c487ab4af9fbcda0d450b" archimateRelationship="id-da85d5e3d62a43069b41606e02ee8bea"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-adb7fd4b2ebe4f979b516da75ce9b1b8" source="id-1633c45ef8004d2ba0ff6868b16db057" target="id-487f25d9ddfc4abf82dfe7fe33fc7018" archimateRelationship="id-e03f93ac616944eeb39be3196b4fdda1"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-f5ae24e7c53d4035b618b30052bc9b76" source="id-1633c45ef8004d2ba0ff6868b16db057" target="id-e3b5e45acd8849cabd7516882c5bce2e" archimateRelationship="id-642e8a557f8a47349994169c7b05cfb7"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-f8265dd3bdf94777b8b569297692010b" source="id-1633c45ef8004d2ba0ff6868b16db057" target="id-90bddc5445ad48bc8143105f5c9af90b" archimateRelationship="id-563b659d75c64987a6a8eb1339798a91"/>
+            <child xsi:type="archimate:DiagramObject" id="id-bec69a19dc8c487ab4af9fbcda0d450b" targetConnections="id-aa36948ad66b4fbbb147443d2367772d id-6b5ecc642c684421b95339fc2b3526d7 id-20a5aa0806be47d08135b060efff8f0f" archimateElement="id-2042ff5d257b4f2ebb67a50e953b2590">
+              <bounds x="25" y="25" width="120" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-487f25d9ddfc4abf82dfe7fe33fc7018" targetConnections="id-adb7fd4b2ebe4f979b516da75ce9b1b8" archimateElement="id-8e032f4523fa44838b3e510933718422">
+              <bounds x="155" y="25" width="120" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-e3b5e45acd8849cabd7516882c5bce2e" targetConnections="id-f5ae24e7c53d4035b618b30052bc9b76" archimateElement="id-204abe28f2434088bea3cc371ee1275c">
+              <bounds x="25" y="90" width="120" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-90bddc5445ad48bc8143105f5c9af90b" targetConnections="id-f8265dd3bdf94777b8b569297692010b" archimateElement="id-9e3560f326954a6db086953a55ac710d">
+              <bounds x="155" y="90" width="120" height="55"/>
+            </child>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-a03c9cc3b019445b8eccd090e917a626" targetConnections="id-aead6d518ace4b838a5088cbe55441d5" archimateElement="id-010d670603bb420f974a8b744577bc35">
+            <bounds x="356" y="215" width="120" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-998d218597c94b2ca7a45f5963847e6b" source="id-a03c9cc3b019445b8eccd090e917a626" target="id-1633c45ef8004d2ba0ff6868b16db057" archimateRelationship="id-13c205bbb78745c08e4f59fbd3f5627d"/>
+          </child>
+        </child>
+      </child>
+      <child xsi:type="archimate:DiagramObject" id="id-94ccd8f7111f4e34bb6ebf56e7edd4b9" archimateElement="id-7c1c3299273c4c538dc4825d22a8fb5d">
+        <bounds x="115" y="450" width="816" height="256"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-5893cbb6c1354f4ebe14bda390689dee" source="id-94ccd8f7111f4e34bb6ebf56e7edd4b9" target="id-7edeae7b75a84b7f94d7b3b544b94973" archimateRelationship="id-13600e3ed6ec48f08ae631cd60976491"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-8a64d950bb1d4792a6a07f9056d77580" source="id-94ccd8f7111f4e34bb6ebf56e7edd4b9" target="id-6614f0ba7e64423e9675749979db0d71" archimateRelationship="id-6a6666ba15fc47d48ff7e732e91d18a5"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-db44decba8e74f5ebcb47386690a66d4" source="id-94ccd8f7111f4e34bb6ebf56e7edd4b9" target="id-7a582dfdef2c4735b872331e0a0b0fb2" archimateRelationship="id-764aae07646d4385bbf5b374663267d5"/>
+        <child xsi:type="archimate:DiagramObject" id="id-7edeae7b75a84b7f94d7b3b544b94973" targetConnections="id-5893cbb6c1354f4ebe14bda390689dee" archimateElement="id-9c04721a3d32403a82ebfb97bedaccbb">
+          <bounds x="550" y="25" width="120" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-6614f0ba7e64423e9675749979db0d71" targetConnections="id-8a64d950bb1d4792a6a07f9056d77580" archimateElement="id-446c6285250f4af183d83f668f6a10ce">
+          <bounds x="10" y="25" width="531" height="211"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-f8554b76559c4f679fc1b9a9d5b6266d" source="id-6614f0ba7e64423e9675749979db0d71" target="id-b4377d0a784b456a893df2bf9e78bc10" archimateRelationship="id-34a5a125855a43b9a0670a91ebd2bd5a"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-c6027ca71f844af08ff5e25dfc39c166" source="id-6614f0ba7e64423e9675749979db0d71" target="id-29f4c8e9de4c4ab3827f14919f3cca28" archimateRelationship="id-4fb692e52f08498c99dd4d7e24599253"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-5d3c300328da45179b8d0091601ed736" source="id-6614f0ba7e64423e9675749979db0d71" target="id-bd88cb4f87334f5eb3d8aea021feaeb8" archimateRelationship="id-e43a899b0f2c4671b7b2ce80baee1602"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-aa6c2257dfdf40169e7bbbf2e97260da" source="id-6614f0ba7e64423e9675749979db0d71" target="id-89f45ab4d39e4399a0b824689183b812" archimateRelationship="id-74832aed788c4989b6e70891c9378574"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-09e89d90b31d4910aee7a08194bf1759" source="id-6614f0ba7e64423e9675749979db0d71" target="id-1383cab81d774d80a90987a364261ffb" archimateRelationship="id-987cc2591b254b0b8495e1a70f1c453d"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-be75f9109cf4429fa997f701940f74e8" source="id-6614f0ba7e64423e9675749979db0d71" target="id-8b19f19086e34259a8b7315870cdc755" archimateRelationship="id-95803459862b41a7a7e6803a3f444b57"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-d64e4dd53a0f45079e977d290c99e6db" source="id-6614f0ba7e64423e9675749979db0d71" target="id-034cd6ade6624d4bbbcf8782a7c2d78f" archimateRelationship="id-aa86da92da254997977b43e71d919ad2"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-b68f7d21b6c64c6892906a833fdec5b9" source="id-6614f0ba7e64423e9675749979db0d71" target="id-90b383ae9174496c98e2a93c89c3c9b3" archimateRelationship="id-74e9f4b33d8648d89e5fa3847a1c4501"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-601986dd23ed4bdb8ebf52c8c64145d1" source="id-6614f0ba7e64423e9675749979db0d71" target="id-01644cea0b094616a797826027b3dded" archimateRelationship="id-3bb14129c2884cfa83b36556c7f6d733"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-c13be63039f04284917f3851e8de8738" source="id-6614f0ba7e64423e9675749979db0d71" target="id-642b2e74b0f64f17b85d92a97a6d3c2a" archimateRelationship="id-20cc6df54e57472b91242e5f8ce16feb"/>
+          <child xsi:type="archimate:DiagramObject" id="id-b4377d0a784b456a893df2bf9e78bc10" targetConnections="id-f8554b76559c4f679fc1b9a9d5b6266d" archimateElement="id-6f29d67515c846dab707b039a7d25c07">
+            <bounds x="15" y="25" width="120" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-29f4c8e9de4c4ab3827f14919f3cca28" targetConnections="id-c6027ca71f844af08ff5e25dfc39c166" archimateElement="id-a33134be83c749a090815b09e9f5a997">
+            <bounds x="145" y="85" width="120" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-bd88cb4f87334f5eb3d8aea021feaeb8" targetConnections="id-5d3c300328da45179b8d0091601ed736" archimateElement="id-daa0fcb3e88e469481eaa805144f4cee">
+            <bounds x="15" y="85" width="120" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-89f45ab4d39e4399a0b824689183b812" targetConnections="id-aa6c2257dfdf40169e7bbbf2e97260da" archimateElement="id-f25fc19a395f4890abee0d2cc8e09723">
+            <bounds x="145" y="25" width="120" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-1383cab81d774d80a90987a364261ffb" targetConnections="id-09e89d90b31d4910aee7a08194bf1759" archimateElement="id-3b52ed7fa8374d678cf8442af86b1255">
+            <bounds x="275" y="25" width="120" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-8b19f19086e34259a8b7315870cdc755" targetConnections="id-be75f9109cf4429fa997f701940f74e8" archimateElement="id-fe05cdee5e0a4c4dbbae4982e78f1844">
+            <bounds x="145" y="146" width="120" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-034cd6ade6624d4bbbcf8782a7c2d78f" targetConnections="id-d64e4dd53a0f45079e977d290c99e6db" archimateElement="id-462dad7c3ba34142bcb93943b69bc5df">
+            <bounds x="405" y="25" width="120" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-90b383ae9174496c98e2a93c89c3c9b3" targetConnections="id-b68f7d21b6c64c6892906a833fdec5b9" archimateElement="id-3936b093982942a784bddde27ef77ff0">
+            <bounds x="15" y="146" width="120" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-01644cea0b094616a797826027b3dded" targetConnections="id-601986dd23ed4bdb8ebf52c8c64145d1" archimateElement="id-4e7c4952b9d7463cbb388c480238a2fa">
+            <bounds x="275" y="146" width="120" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-642b2e74b0f64f17b85d92a97a6d3c2a" targetConnections="id-c13be63039f04284917f3851e8de8738" archimateElement="id-440f120eac1b4eb9a07465de05848cdf">
+            <bounds x="275" y="85" width="120" height="55"/>
+          </child>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-7a582dfdef2c4735b872331e0a0b0fb2" targetConnections="id-db44decba8e74f5ebcb47386690a66d4" archimateElement="id-8742bfb562224b2f81e02bf7cca6b4f3">
+          <bounds x="550" y="85" width="120" height="55"/>
+        </child>
+      </child>
+      <child xsi:type="archimate:DiagramObject" id="id-ce416a3f922f481191cbfe1c30a97064" archimateElement="id-dc34df44b6b142838a208113cc8322c4">
+        <bounds x="660" y="60" width="811" height="366"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-6b5ecc642c684421b95339fc2b3526d7" source="id-ce416a3f922f481191cbfe1c30a97064" target="id-bec69a19dc8c487ab4af9fbcda0d450b" archimateRelationship="id-ca437217d77c42848c225bf646211478"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-ccd2e7e263114c13baaed684374fbe1a" source="id-ce416a3f922f481191cbfe1c30a97064" target="id-85d630333e6648fb850f5a9752313707" archimateRelationship="id-65ca1d26595f464694c57dd575d1acc8"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-c6d8645ea4aa417dbe2b535f80e2ccc8" source="id-ce416a3f922f481191cbfe1c30a97064" target="id-0769b3d7f89343b58b68b3207f31459c" archimateRelationship="id-d7bcb6d3a79c4249b0084a2d9f3c5199"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-d53fd47f57de45af853c1ec619c9e2da" source="id-ce416a3f922f481191cbfe1c30a97064" target="id-390e6b131b574201ae9a441c3c2a2b36" archimateRelationship="id-e26f47896bb04c2d8e2e51343fb05534"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-f1829cfe6ad84060b534906f1ec13610" source="id-ce416a3f922f481191cbfe1c30a97064" target="id-b480b88381344513918b8e6376b5de7f" archimateRelationship="id-cb483539a2da41d2b23f7d8f3a42233a"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-d160550726eb4e73833694d82b63e89a" source="id-ce416a3f922f481191cbfe1c30a97064" target="id-28943a44ed7b46c2bd752dee5ebbd8d3" archimateRelationship="id-2ef046914137404fbc9476d45bfcc075"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-c80a6dafc0b946adb618b3579ed686f3" source="id-ce416a3f922f481191cbfe1c30a97064" target="id-3312b6741ca640c085597aac243af2ef" archimateRelationship="id-8cb4353e753040e99f503ee3f554c272"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-11dcbac8122a49598d533d1575dfd6c5" source="id-ce416a3f922f481191cbfe1c30a97064" target="id-927502df099a4ebea2d8bd0f0f71bf1d" archimateRelationship="id-4a27b55a82e844bfb7b960a87b37f4ed"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-19314abeb44f4701a175531dc8a00120" source="id-ce416a3f922f481191cbfe1c30a97064" target="id-af4d240c8edd4e90835c304f17c6e66d" archimateRelationship="id-36cd34dc2f9140f9bf07ed9b35cf9cbc"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-43dfa56aea044fd7989dba68b3ad1c05" source="id-ce416a3f922f481191cbfe1c30a97064" target="id-d7dde48beb3646b486143f6770b5dfe3" archimateRelationship="id-086e8a51f397416981edd870322bcc6d"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-9d0882e8b3f1499bb6adfa3b78de0b15" source="id-ce416a3f922f481191cbfe1c30a97064" target="id-8826b462304c41218e0da3f98ad0dcfa" archimateRelationship="id-13241052394542beb59170240dddea17"/>
+        <child xsi:type="archimate:DiagramObject" id="id-85d630333e6648fb850f5a9752313707" targetConnections="id-ccd2e7e263114c13baaed684374fbe1a id-8e752567feac4f55bcc14c6f2994350b" archimateElement="id-8be86e95722647669d20942e14db0cde">
+          <bounds x="20" y="30" width="120" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-5ab0216f343845e2b510dfb137a909d7" archimateElement="id-a1690119289043169e3e8258590a51f1">
+          <bounds x="20" y="100" width="120" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-8e752567feac4f55bcc14c6f2994350b" source="id-5ab0216f343845e2b510dfb137a909d7" target="id-85d630333e6648fb850f5a9752313707" archimateRelationship="id-6c492826eeaa4202b7541c0f72cf8d35"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-0769b3d7f89343b58b68b3207f31459c" targetConnections="id-c6d8645ea4aa417dbe2b535f80e2ccc8 id-a1d77d58cd534170ae439b94803872ee" archimateElement="id-4bffd26f45234154b3d3d491875b1432">
+          <bounds x="150" y="30" width="120" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-01fc6a99f8dd4d368c1347d379e5515a" archimateElement="id-0cc01f9d2691450393e6cca41ce48288">
+          <bounds x="150" y="100" width="120" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-a1d77d58cd534170ae439b94803872ee" source="id-01fc6a99f8dd4d368c1347d379e5515a" target="id-0769b3d7f89343b58b68b3207f31459c" archimateRelationship="id-cb0ad35812424b6597135af2b21f1e13"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-390e6b131b574201ae9a441c3c2a2b36" targetConnections="id-d53fd47f57de45af853c1ec619c9e2da id-a8a0a0a5cdea4fdaaa25f9a286f270f3" archimateElement="id-6e3ebceb8c6640ccb6baa2a858a6aa0b">
+          <bounds x="280" y="30" width="120" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-7e25546887af478a8bbdef8217d0772b" archimateElement="id-6cd96ace557e4b49910c011e7bcef02c">
+          <bounds x="285" y="100" width="120" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-a8a0a0a5cdea4fdaaa25f9a286f270f3" source="id-7e25546887af478a8bbdef8217d0772b" target="id-390e6b131b574201ae9a441c3c2a2b36" archimateRelationship="id-f36d26ca360b4fe8a7ea50d69b65233d"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-b480b88381344513918b8e6376b5de7f" targetConnections="id-f1829cfe6ad84060b534906f1ec13610 id-ab7a9e91dbcc4c86a6153c00c3388591" archimateElement="id-aea2663290264d0687fb6c4bf18101e1">
+          <bounds x="415" y="30" width="120" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-1e6b655263c44a959c4809c783bf00ef" archimateElement="id-36ac97d70705433a9598b367a0a37588">
+          <bounds x="415" y="100" width="120" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-ab7a9e91dbcc4c86a6153c00c3388591" source="id-1e6b655263c44a959c4809c783bf00ef" target="id-b480b88381344513918b8e6376b5de7f" archimateRelationship="id-39ce9160583e4db09b74df72478460ab"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-28943a44ed7b46c2bd752dee5ebbd8d3" targetConnections="id-d160550726eb4e73833694d82b63e89a id-324aece3d3e044e0b051f30d7bae4734" archimateElement="id-9a6b42373e744fa28b6d9b9a7385aae1">
+          <bounds x="545" y="30" width="120" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-8abf3dd8035045ce80c1b4dd02af0737" archimateElement="id-8caa490eafca4592894d0ecb5896e2f5">
+          <bounds x="545" y="100" width="120" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-324aece3d3e044e0b051f30d7bae4734" source="id-8abf3dd8035045ce80c1b4dd02af0737" target="id-28943a44ed7b46c2bd752dee5ebbd8d3" archimateRelationship="id-56a3c4c4b18449d4b97c93e1ce3974c5"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-3312b6741ca640c085597aac243af2ef" targetConnections="id-c80a6dafc0b946adb618b3579ed686f3 id-5e1b3ea19dd843dd87f0a3b86ac8b8c8" archimateElement="id-6ad1302329324f449613c84cddb4b1b8">
+          <bounds x="675" y="30" width="120" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-6c0ed7340d22456bb7412088270458e5" archimateElement="id-2cd1a6b0f4f14c808fb6e150aff6e050">
+          <bounds x="675" y="100" width="120" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-5e1b3ea19dd843dd87f0a3b86ac8b8c8" source="id-6c0ed7340d22456bb7412088270458e5" target="id-3312b6741ca640c085597aac243af2ef" archimateRelationship="id-28ec56f157a0464cac694668ce9b94a6"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-927502df099a4ebea2d8bd0f0f71bf1d" targetConnections="id-11dcbac8122a49598d533d1575dfd6c5 id-b04ce3feca874a389457b718244061f0" archimateElement="id-c60e5ee28f8241959a6fe03186d4a70e">
+          <bounds x="20" y="175" width="120" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-af4d240c8edd4e90835c304f17c6e66d" targetConnections="id-19314abeb44f4701a175531dc8a00120" archimateElement="id-5df6f6a40c1a4c83b66047f96f27b460">
+          <bounds x="310" y="175" width="120" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-d7dde48beb3646b486143f6770b5dfe3" targetConnections="id-43dfa56aea044fd7989dba68b3ad1c05" archimateElement="id-21e9b694251d43b59dc71861d3e72c8d">
+          <bounds x="440" y="175" width="120" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-08ac03923c384a6297b4d57e84b92af7" archimateElement="id-3a27140299c14b56b09f79d3a829e2b6">
+          <bounds x="161" y="175" width="120" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-b04ce3feca874a389457b718244061f0" source="id-08ac03923c384a6297b4d57e84b92af7" target="id-927502df099a4ebea2d8bd0f0f71bf1d" archimateRelationship="id-e4d76d4993654a9fb8fa05b35599f466"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-8826b462304c41218e0da3f98ad0dcfa" targetConnections="id-9d0882e8b3f1499bb6adfa3b78de0b15" archimateElement="id-e2751a6b9de94d41836604fb2489dfa6">
+          <bounds x="20" y="240" width="527" height="105"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-6a6bd6dc16d34ec7b5b3ee9591478e4a" source="id-8826b462304c41218e0da3f98ad0dcfa" target="id-5f2dea6d77d941e5ab2a718ac4c8583e" archimateRelationship="id-5b61f9534e1a46d8a1e86af89ce14928"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-72424acad09c4775895e5536f3649cf9" source="id-8826b462304c41218e0da3f98ad0dcfa" target="id-dd1d9c2b526d459885ad006a62e9934d" archimateRelationship="id-1bc0250c19d649cdb18107d7e7ba70c5"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-37aa789749d74768832e4d6679b9f5aa" source="id-8826b462304c41218e0da3f98ad0dcfa" target="id-879b92d81ef74dab8e8185e7f41af7e9" archimateRelationship="id-bf7abcf892de47af8ef862fddd7f6c5e"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-2e7722fe1cf146be8bbb5940e3a590ea" source="id-8826b462304c41218e0da3f98ad0dcfa" target="id-e2b67db757344750adf526737d39f6da" archimateRelationship="id-42d3706bcb244bcbad120e95f2fea6e8"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-20a5aa0806be47d08135b060efff8f0f" source="id-8826b462304c41218e0da3f98ad0dcfa" target="id-bec69a19dc8c487ab4af9fbcda0d450b" archimateRelationship="id-af7d7669ae504e448a682678f35d01ca"/>
+          <child xsi:type="archimate:DiagramObject" id="id-5f2dea6d77d941e5ab2a718ac4c8583e" targetConnections="id-6a6bd6dc16d34ec7b5b3ee9591478e4a" archimateElement="id-26c6d6cb32aa45bcabe5c48ee803d028">
+            <bounds x="10" y="30" width="120" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dd1d9c2b526d459885ad006a62e9934d" targetConnections="id-72424acad09c4775895e5536f3649cf9" archimateElement="id-90cbc0b3ffa248a3ac0f6e7234b205fe">
+            <bounds x="137" y="30" width="120" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-879b92d81ef74dab8e8185e7f41af7e9" targetConnections="id-37aa789749d74768832e4d6679b9f5aa" archimateElement="id-c84b1aeaf42d469a8f710515c05a465f">
+            <bounds x="392" y="30" width="120" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-e2b67db757344750adf526737d39f6da" targetConnections="id-2e7722fe1cf146be8bbb5940e3a590ea" archimateElement="id-c2387ff4571447cb8672d0dfdcceb518">
+            <bounds x="263" y="30" width="120" height="55"/>
+          </child>
+        </child>
+      </child>
+      <child xsi:type="archimate:DiagramObject" id="id-55c6931c34604038adb01aea0e5bfd49" archimateElement="id-0587fa9a15364f3a973e0852ad476eee">
+        <bounds x="960" y="450" width="120" height="55"/>
+      </child>
+      <child xsi:type="archimate:DiagramObject" id="id-fe0c7b37bee24ca2bfc6f1c410791952" archimateElement="id-72d2e3a3addf4f63837e60a864f97f42">
+        <bounds x="960" y="525" width="120" height="55"/>
+      </child>
+      <child xsi:type="archimate:DiagramObject" id="id-d5e43fdaf93a42c8b5ed347b45d43441" targetConnections="id-05cc4761aae14fcb9712da0bba1666d8" archimateElement="id-9e5e7bd771a64009bd854f9ba5a9e60d">
+        <bounds x="1115" y="450" width="356" height="256"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-23ab127732684e3d8d688b51d3965eed" source="id-d5e43fdaf93a42c8b5ed347b45d43441" target="id-7c64af01046c44f0b33e65ca492cffa9" archimateRelationship="id-aaf9be9896fe444f893adcc1422eb36e"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-4a26b8c0f9c54be9956b3c82aaab21d4" source="id-d5e43fdaf93a42c8b5ed347b45d43441" target="id-c2a6815cfa6c4d3d8e860aa6048a3c43" archimateRelationship="id-aefca732a85c4e78aa3491e927f0ab1f"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-57ffe7d54b174777897cb0e9d1474ebb" source="id-d5e43fdaf93a42c8b5ed347b45d43441" target="id-37a33a7c1e164cdb8004777163d22c02" archimateRelationship="id-91e4052f2d964f9cb1443c14d2de33a8"/>
+        <child xsi:type="archimate:DiagramObject" id="id-498a5d93649c4476ae69ca0124fecadb" archimateElement="id-6827ece3868148adb71af626c25e45a1">
+          <bounds x="15" y="35" width="120" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-05cc4761aae14fcb9712da0bba1666d8" source="id-498a5d93649c4476ae69ca0124fecadb" target="id-d5e43fdaf93a42c8b5ed347b45d43441" archimateRelationship="id-ca3233daf5dc4ea193a3af99565f62a2"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-7c64af01046c44f0b33e65ca492cffa9" targetConnections="id-23ab127732684e3d8d688b51d3965eed" archimateElement="id-c3806c872d41440bb7dc5fe4ed387eb9">
+          <bounds x="15" y="100" width="120" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-c2a6815cfa6c4d3d8e860aa6048a3c43" targetConnections="id-4a26b8c0f9c54be9956b3c82aaab21d4" archimateElement="id-1130249c02af4328a6bcbdd814013b0f">
+          <bounds x="145" y="100" width="120" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-37a33a7c1e164cdb8004777163d22c02" targetConnections="id-57ffe7d54b174777897cb0e9d1474ebb" archimateElement="id-aac4a8ce48d749de9ff6d96592d324de">
+          <bounds x="15" y="165" width="120" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-5c9313ec1cbf435c9b337947f339262a" archimateElement="id-20611bce76dd4da8bd28501f230826e6">
+          <bounds x="145" y="35" width="120" height="55"/>
+        </child>
       </child>
     </element>
   </folder>
