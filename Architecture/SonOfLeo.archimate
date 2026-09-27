@@ -595,6 +595,9 @@
             <element xsi:type="archimate:ApplicationFunction" name="Compute a trial balance with parent roll-up" id="id-30d160060dda4137a8bf206acc8dac4e">
               <documentation>Produce every account's debits, credits and net, with children rolled up into their parents.</documentation>
             </element>
+            <element xsi:type="archimate:ApplicationFunction" name="Reconcile ledger balances to external balances" id="id-0eccf18772f945e6898b0c2177d23ff5">
+              <documentation>For each account code, external balance and as-of date, compare the balance an institution reports with the ledger's net balance as of that date, by the trial balance rules, and report the delta (external minus ledger). A non-zero delta is data; an unknown or repeated account code is an error.</documentation>
+            </element>
           </folder>
           <element xsi:type="archimate:ApplicationFunction" name="Ledger functions" id="id-02a684e5afd946a8949031f15694a733">
             <documentation>Behaviours that define and maintain the structure and content of the general ledger — accounts, fiscal periods, journal entries, and the rules that govern them. Members of this clade share a defining characteristic: they operate on the permanent record of financial activity.</documentation>
@@ -606,6 +609,9 @@
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Compute the pre-posting review" id="id-341bd6d751d14af2b07deb7e17244ab1">
             <documentation>List every staged entry the next batch post would post, line by line, with its account, the classification rule that assigned it, and any linked payment agreement with the Payments, Invoices and Instances behind it.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Reconcile against a simulated post of staged entries" id="id-1f31291efc374e1facf2fda4d16a747e">
+            <documentation>Reconcile external balances against the ledger as it would stand after posting every postable staged entry, simulating the post exactly as shadow post does, inside a transaction that is always rolled back.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Define what &quot;staged entry&quot; means in data ingestion" id="id-343a12b25bec4a47ac71464fc0d62918">
             <documentation>Establish the canonical representation of a staged entry — its identity types, the lifecycle statuses it moves through from ingestion to posting, the classification of actors that cause status changes, and the constraints on source file identification.</documentation>
@@ -1331,6 +1337,9 @@
             <element xsi:type="archimate:ApplicationComponent" name="PrePostingReview" id="id-032e286d3249470a878d6b7a3715bc02">
               <property key="path" value="Src/Business.CrossDomainOrchestration/PrePostingReview.fs"/>
             </element>
+            <element xsi:type="archimate:ApplicationComponent" name="Reconciliation" id="id-123b6d36a4d24cb28e1efb9ced9807d1">
+              <property key="path" value="Src/Business.CrossDomainOrchestration/Reconciliation.fs"/>
+            </element>
             <element xsi:type="archimate:ApplicationComponent" name="ClassificationOrchestration" id="id-bfa0097578dc4adeae612056ec2a844f">
               <property key="path" value="Src/Business.CrossDomainOrchestration/ClassificationOrchestration.fs"/>
             </element>
@@ -1384,6 +1393,9 @@
               <element xsi:type="archimate:ApplicationComponent" name="ReportsContracts" id="id-20a955130ff74131966c96b5ee1bd3ae">
                 <property key="path" value="Src/Ui.InterfaceBridge/InterfaceContracts/ReportsContracts.fs"/>
               </element>
+              <element xsi:type="archimate:ApplicationComponent" name="ReconciliationContracts" id="id-9f12c59bef4f4a25b91da110e2a34701">
+                <property key="path" value="Src/Ui.InterfaceBridge/InterfaceContracts/ReconciliationContracts.fs"/>
+              </element>
             </folder>
             <folder name="BoundaryConverters" id="id-dfcefbc86ece4294b4e8d1cad465620c">
               <element xsi:type="archimate:ApplicationComponent" name="BoundaryConverters" id="id-24b0f2ccb7474804a4f6046f10a23f3b">
@@ -1418,6 +1430,9 @@
               </element>
               <element xsi:type="archimate:ApplicationComponent" name="ReportConverters" id="id-730b79fef9c444ebb6c8283d4726dde9">
                 <property key="path" value="Src/Ui.InterfaceBridge/BoundaryConverters/ReportConverters.fs"/>
+              </element>
+              <element xsi:type="archimate:ApplicationComponent" name="ReconciliationConverters" id="id-607fb92823ff4da2a71f1afb8aed7caf">
+                <property key="path" value="Src/Ui.InterfaceBridge/BoundaryConverters/ReconciliationConverters.fs"/>
               </element>
             </folder>
             <folder name="ReportVisualizationAssets" id="id-39f99212bf27433994d61438961e4e39">
@@ -3905,6 +3920,39 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:RealizationRelationship" id="id-ceae5b635efc422084e0c9212cac8654" source="id-cd410503350f49ff97e9c5a1bf4f7409" target="id-7c1c3299273c4c538dc4825d22a8fb5d"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-e540d7ab487f45eca098e1fb258c0c5d" source="id-30fa21c471624afcbf6f949ee7856611" target="id-dc34df44b6b142838a208113cc8322c4"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-58553008a0a547d085c24c16a7153f3c" source="id-30fa21c471624afcbf6f949ee7856611" target="id-7b218b67c2d84de7b4743a67457b7b06"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-503edf95e3864a93a38e29bf12e3a08c" source="id-1432d98bd0e54feebfc8249427edfc34" target="id-0eccf18772f945e6898b0c2177d23ff5"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-e4879fe30fcb45ae8b4bfe06dcb6cb41" source="id-36ac97d70705433a9598b367a0a37588" target="id-1f31291efc374e1facf2fda4d16a747e"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-5418f8668d14483ba7950a730eb66c62" source="id-086000a2a5a741b2aab0b8cba1053569" target="id-123b6d36a4d24cb28e1efb9ced9807d1"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-8d847c53a49046d5afa259829f2af7e9" source="id-3f1873e423174403bcc308c142a79d3f" target="id-9f12c59bef4f4a25b91da110e2a34701"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-684f3a5a35734e18b468126c79cd013d" source="id-24b0f2ccb7474804a4f6046f10a23f3b" target="id-607fb92823ff4da2a71f1afb8aed7caf"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-9a56eca5c22946d4aec40eb2fbf26a8a" source="id-123b6d36a4d24cb28e1efb9ced9807d1" target="id-0eccf18772f945e6898b0c2177d23ff5"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-5afe36fcb3c743c1b22cc3bf43501c9b" source="id-123b6d36a4d24cb28e1efb9ced9807d1" target="id-1f31291efc374e1facf2fda4d16a747e"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-da89bda5dc4c4809bae992cfaa63013b" source="id-9f12c59bef4f4a25b91da110e2a34701" target="id-bdf8e1de36cc41cf9328712cefa66068"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-c216e29a9650437c998a3082f715e69f" source="id-607fb92823ff4da2a71f1afb8aed7caf" target="id-f6b342fbee2a48a0b244c29d6f922517"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-1c67c57f6d3e4c6a91c84450f25369f5" source="id-607fb92823ff4da2a71f1afb8aed7caf" target="id-7ab29727dd884711ae7ae55418d07364"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-76410747040b4d5aa0cb224c734d8417" source="id-c9952561e4774c89891b4103fa405ce6" target="id-123b6d36a4d24cb28e1efb9ced9807d1"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-3e6a489213e643a1bb6b1421c500dc98" source="id-2224f7a8b5e24edc928b88a393ab0882" target="id-123b6d36a4d24cb28e1efb9ced9807d1"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-283fbe9bec684f6ab6a90868d66742b3" source="id-2224f7a8b5e24edc928b88a393ab0882" target="id-607fb92823ff4da2a71f1afb8aed7caf"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-db96212734204e18b8c77cff28dbf081" source="id-33f6c476f50e47e79f9d8362a77e9573" target="id-123b6d36a4d24cb28e1efb9ced9807d1"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-daa33ce976e648448bd033fd11494c48" source="id-33f6c476f50e47e79f9d8362a77e9573" target="id-607fb92823ff4da2a71f1afb8aed7caf"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-6210d88aa73b4ff886271b74c20ec93a" source="id-123b6d36a4d24cb28e1efb9ced9807d1" target="id-607fb92823ff4da2a71f1afb8aed7caf"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-fa1d8bffd4e1475ebb2e6e4cbe850fd9" source="id-123b6d36a4d24cb28e1efb9ced9807d1" target="id-dbb69ba2db65482c9bdb7835dc128521"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-926f84fcf2bc4e0baab738faadc5d6f4" source="id-123b6d36a4d24cb28e1efb9ced9807d1" target="id-9a61707a675948739877f2025209de61"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-d68f82ce51684c999a514c25ecd423a7" source="id-0291cbfd15ac4f31b25938e5183214dd" target="id-123b6d36a4d24cb28e1efb9ced9807d1"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-70233c2050ce43fc90ba07e41a08f8a5" source="id-10dd754cd5a040a3a262433add0b8437" target="id-123b6d36a4d24cb28e1efb9ced9807d1"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-55276066208a4ddaac4a9828bd10d97b" source="id-f49ed1bb242a4977b8fd54d25706c5d4" target="id-123b6d36a4d24cb28e1efb9ced9807d1"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-e071a44dd0fd476a90cd9eddc286c2ac" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-123b6d36a4d24cb28e1efb9ced9807d1"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-b88c7fd2257841ae82430a0bdec621a0" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-607fb92823ff4da2a71f1afb8aed7caf"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-3e3ac3c6e77a48fdac09f187119e115f" source="id-711461035eb14920a1028dd0df286572" target="id-123b6d36a4d24cb28e1efb9ced9807d1"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-fd61a090425f4298b454f11dc9b04373" source="id-8240122486e742a7be9833bce247abb0" target="id-123b6d36a4d24cb28e1efb9ced9807d1"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-01a7169b74744a528de0d37ad06f44f5" source="id-8240122486e742a7be9833bce247abb0" target="id-607fb92823ff4da2a71f1afb8aed7caf"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-602bd846a8ff4904aae9f49b2d994e60" source="id-607fb92823ff4da2a71f1afb8aed7caf" target="id-dbb69ba2db65482c9bdb7835dc128521"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-2cb728bf576447e18c945f8089ae2a9e" source="id-607fb92823ff4da2a71f1afb8aed7caf" target="id-9a61707a675948739877f2025209de61"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-6f7b8845bb1244ee9b225adbc3519d63" source="id-9f12c59bef4f4a25b91da110e2a34701" target="id-607fb92823ff4da2a71f1afb8aed7caf"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-037bd1c504054bbe98c0c983c0edf030" source="id-9f12c59bef4f4a25b91da110e2a34701" target="id-dbb69ba2db65482c9bdb7835dc128521"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-ce5c180e3adc497ebe34b4c30cc8d8b2" source="id-9f12c59bef4f4a25b91da110e2a34701" target="id-9a61707a675948739877f2025209de61"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-7c6382ca94ed4de9bb766e1fd817d71a" source="id-3db442d9a5464358b9f0aeb9a7d10c13" target="id-123b6d36a4d24cb28e1efb9ced9807d1"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-e0529664121e471a912bf97c0db13ba3" source="id-3db442d9a5464358b9f0aeb9a7d10c13" target="id-9f12c59bef4f4a25b91da110e2a34701"/>
   </folder>
   <folder name="Views" id="id-75e0717f00f244fe89d04a8b9e32fac9" type="diagrams">
     <element xsi:type="archimate:ArchimateDiagramModel" name="Application tiers" id="id-398726ae0f1d4b0a896928395ae87a15">
