@@ -598,7 +598,7 @@ If linkage (step 9) runs on a lumped line before the operator splits it
 again. That's easy on a loop back from step 10. The Saturday runbook and
 the state machine should say so explicitly: split first; if a link already
 exists, delete it, split, and re-link.
-*Response:*
+*Response (Hobson, 2026-09-27): **Agreed.** It belongs to the Saturday runbook and state machine, not Src: split in review (step 8) before linkage (step 9); if a line to be split is already linked, delete the link, split, and re-link on the next pass. Nothing for you to build. The runbook is mine.*
 
 **R-15. Dan rejects REQ-NGUI-2.5 (unknown payload fields rejected).**
 **Dan's ruling: rejected.** Withdraw REQ-NGUI-2.5; don't implement it. (A
