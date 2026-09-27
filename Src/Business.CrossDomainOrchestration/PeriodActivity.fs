@@ -1,16 +1,16 @@
 module Business.CrossDomainOrchestration.PeriodActivity
 
-open System
 open NodaTime
 open App.Utility.IAppError
 open App.Utility.Result
-open App.DataAccessLayer.QueryParameter
-open App.DataAccessLayer.ExecuteReader
 open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.CrossDomainOrchestration.FetchFilters
+open Business.CrossDomainOrchestration.AccountActivity
+open Business.CrossDomainOrchestration.TrialBalanceReport
 
 type PeriodActivityLine =
     { entryDate: LocalDate
@@ -27,42 +27,30 @@ type PeriodActivityAccount =
       netTotal: Money.Money
       lines: PeriodActivityLine list }
 
-let private mapRawForDbRead (row: RowReader) : Guid * Guid * LocalDate * string * string * decimal * string option =
-    (row |> RowReader.getUuid "account_id"),
-    (row |> RowReader.getUuid "journal_entry_id"),
-    (row |> RowReader.getDate "entry_date"),
-    (row |> RowReader.getString "description"),
-    (row |> RowReader.getString "line_type"),
-    (row |> RowReader.getNumeric "amount"),
-    (row |> RowReader.getStringOption "memo")
-
-let private reconstitute raw : Result<AccountId * PeriodActivityLine, IAppError> =
-    let accountUuid, journalEntryUuid, entryDate, description, lineType, amount, memo = raw
-    result {
-        let! description = description |> JournalEntryDescription.create
-        let! lineType = lineType |> JournalEntryLineType.fromString
-        let! amount = amount |> Money.fromDecimal
-        let! memo = memo |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
-        return
-            accountUuid |> AccountId.fromGuid,
-            { entryDate = entryDate
-              journalEntryId = journalEntryUuid |> JournalEntryHeaderId.fromGuid
-              description = description
-              lineType = lineType
-              amount = amount
-              memo = memo }
-    }
-
-/// REQ-RPT-1.6's depth-first order: top-level accounts by code, each parent immediately before its children.
-let private depthFirstOrder (accounts: Account.Account list) : AccountId list =
-    let childrenOf parentId =
-        accounts
-        |> List.filter (fun a -> a |> Account.parentId = parentId)
-        |> List.sortBy (fun a -> a |> Account.code |> AccountCode.value)
-    let rec crawl (account: Account.Account) =
-        let accountId = account |> Account.accountId
-        accountId :: (childrenOf (Some accountId) |> List.collect crawl)
-    childrenOf None |> List.collect crawl
+/// The non-voided lines on accounts of one type dated in the range, each with the account it is on.
+let private fetchLinesOfType context (range: FilterDateRange) (accountType: AccountType) =
+    let filter =
+        { accountId = None
+          temporalFilter = Some (DateRange range)
+          source = None
+          accountType = Some accountType
+          accountSubtype = None
+          accountParentId = None
+          journalEntryId = None
+          amount = None
+          description = None
+          unVoidedOnly = true }
+    fetchFiltered context filter None
+    |> Result.map (List.choose (fun activity ->
+        activity.activityDetail
+        |> Option.map (fun detail ->
+            activity.accountId,
+            { entryDate = detail.entryDate
+              journalEntryId = detail.journalEntryHeaderId
+              description = detail.journalEntryDescription
+              lineType = detail.lineType
+              amount = detail.amount
+              memo = detail.lineMemo })))
 
 let private netTotal (accountType: AccountType) (lines: PeriodActivityLine list) : Result<Money.Money, IAppError> =
     let sumOf lineType = lines |> List.filter (fun l -> l.lineType = lineType) |> List.map _.amount |> Money.sumList
@@ -80,49 +68,21 @@ let fetchPeriodActivity
     (beginDate: LocalDate)
     (endDate: LocalDate)
     : Result<PeriodActivityAccount list, IAppError> =
-    let queryStatement =
-        $"""
-        select
-            a.unique_id as account_id,
-            je.unique_id as journal_entry_id,
-            je.entry_date,
-            je.description,
-            jel.line_type,
-            jel.amount,
-            jel.memo
-        from ledger.journal_entry_line jel
-        join ledger.journal_entry je on jel.journal_entry_id = je.unique_id
-        join ledger.account a on jel.account_id = a.unique_id
-        where je.voided_at is null
-            and je.entry_date >= @begin_date
-            and je.entry_date <= @end_date
-            and a.account_type in ('{Revenue |> AccountType.toString}', '{Expense |> AccountType.toString}')
-        """
-    let parameters =
-        [ { name = "@begin_date"; value = DbLocalDate beginDate }
-          { name = "@end_date"; value = DbLocalDate endDate } ]
+    let range = { beginDate = beginDate; endInclusive = endDate }
     result {
-        let! accountLines =
-            executeReaderQuery
-                (context |> Context.getDatabaseTransaction)
-                queryStatement
-                parameters
-                mapRawForDbRead
-                reconstitute
-                AnyQuantityIsAcceptable
+        let! revenueLines = fetchLinesOfType context range Revenue
+        let! expenseLines = fetchLinesOfType context range Expense
+        let linesByAccount = revenueLines @ expenseLines |> List.groupBy fst |> Map.ofList
         let! accounts = Account.fetchAll context false
-        let accountsById = accounts |> List.map (fun a -> Account.accountId a, a) |> Map.ofList
-        let linesByAccount = accountLines |> List.groupBy fst |> Map.ofList
         return!
             accounts
-            |> depthFirstOrder
-            |> List.choose (fun accountId -> linesByAccount |> Map.tryFind accountId |> Option.map (fun ls -> accountId, ls))
-            |> List.map (fun (accountId, accountAndLines) ->
-                let account = accountsById[accountId]
-                let lines =
-                    accountAndLines
-                    |> List.map snd
-                    |> List.sortBy (fun l -> l.entryDate, l.journalEntryId |> JournalEntryHeaderId.value)
+            |> accountsInTrialBalanceOrder
+            |> List.choose (fun account ->
+                linesByAccount
+                |> Map.tryFind (account |> Account.accountId)
+                |> Option.map (fun accountAndLines -> account, accountAndLines |> List.map snd))
+            |> List.map (fun (account, lines) ->
+                let lines = lines |> List.sortBy (fun l -> l.entryDate, l.journalEntryId |> JournalEntryHeaderId.value)
                 netTotal (account |> Account.accountType) lines
                 |> Result.map (fun net ->
                     { accountCode = account |> Account.code

@@ -4,7 +4,8 @@ open App.Utility.IAppError
 
 type BridgeError =
     | InterfaceBridgeConversionFailure of string * string * string * string
-    // anything a command throws, caught at the interfaces' outermost frame; REQ-NGUI-1.3.2 wants the stack trace
+    // anything a command throws, caught at the interfaces' outermost frame; REQ-NGUI-1.3.2 wants the full stack
+    // trace, so the message renders the exception whole, inner exceptions and their traces included
     | InterfaceCommandThrew of string * exn
     
     interface IAppError with
@@ -14,7 +15,7 @@ type BridgeError =
             match this with
             | InterfaceBridgeConversionFailure(originalType, originalValue, desiredType, childError) -> $"Failed conversion in InterfaceBridge. Original type: {originalType}. Desired type: {desiredType}. Original value: {originalValue}. Additional details: {childError}"
             | InterfaceCommandThrew(programName, ex) ->
-                $"{programName} stopped on an unexpected error: {ex.Message}{System.Environment.NewLine}{ex.StackTrace}"
+                $"{programName} stopped on an unexpected error: {ex}"
             
 let toMessage (e: BridgeError) = (e :> IAppError).ToMessage()
 let toAppError (e: BridgeError) : IAppError = e :> IAppError

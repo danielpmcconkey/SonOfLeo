@@ -25,6 +25,19 @@ type TrialBalanceRowFlattened =
       totalDebits: Money.Money
       netBalance: Money.Money }
     
+/// childrenInTrialBalanceOrder is REQ-RPT-1.6's sibling rule: the accounts under parentId (None for top level), by code.
+let childrenInTrialBalanceOrder (allAccounts: Account.Account list) (parentId: AccountId option) : Account.Account list =
+    allAccounts
+    |> List.filter(fun a -> a |> Account.parentId = parentId)
+    |> List.sortBy(fun a -> a |> Account.code |> AccountCode.value)
+
+/// accountsInTrialBalanceOrder is REQ-RPT-1.6's depth-first order: top-level accounts by code, each parent
+/// immediately before its children.
+let accountsInTrialBalanceOrder (allAccounts: Account.Account list) : Account.Account list =
+    let rec crawl (account: Account.Account) =
+        account :: (childrenInTrialBalanceOrder allAccounts (account |> Account.accountId |> Some) |> List.collect crawl)
+    childrenInTrialBalanceOrder allAccounts None |> List.collect crawl
+
 let rec private crawlAndCompile
     (accountToCrawl: Account.Account)
     (allAccounts: Account.Account list)
@@ -35,10 +48,7 @@ let rec private crawlAndCompile
     let creditsForThisAccount = balanceRowForThisAccount.totalCredits
     let debitsForThisAccount = balanceRowForThisAccount.totalDebits
     let netForThisAccount = balanceRowForThisAccount.netBalance
-    let children =
-        allAccounts
-        |> List.filter(fun a -> a |> Account.parentId = (accountToCrawl |> Account.accountId |> Some))
-        |> List.sortBy(fun a -> a |> Account.code |> AccountCode.value)
+    let children = childrenInTrialBalanceOrder allAccounts (accountToCrawl |> Account.accountId |> Some)
     if children |> List.isEmpty
     then
         // you're a bottom rung, just add your own tallies
@@ -100,10 +110,7 @@ let fetchTrialBalanceData
     result {
         let! accountBalances = AccountBalance.fetchByAccountIdList context None (Some asOf)
         let! allAccounts = Account.fetchAll context false
-        let topLevelParents =
-            allAccounts
-            |> List.filter(fun a -> a |> Account.parentId |> Option.isNone)
-            |> List.sortBy(fun a -> a |> Account.code |> AccountCode.value)
+        let topLevelParents = childrenInTrialBalanceOrder allAccounts None
         let! nestedAndSeparated =
             topLevelParents
             |> List.map (fun a -> crawlAndCompile a allAccounts accountBalances 0)
