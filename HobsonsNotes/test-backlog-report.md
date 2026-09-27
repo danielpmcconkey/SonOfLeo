@@ -57,7 +57,7 @@ File: `Tests/Tests.Integrated/CrossDomainOrchestration/PaymentsToPosted.fs`. The
 mutation pass ran k = 1 through 7 with no survivors.
 
 REQ-CF-10.6 ("a deterministic [DET] operation") has no test. It is proposed for the Unenforceable table, along with
-REQ-CF-7.13 and REQ-CF-8.5, because nothing observable separates a deterministic operation from one that is
+REQ-CF-7.13, because nothing observable separates a deterministic operation from one that is
 deterministic by accident. Dan needs to approve that.
 
 The grader asked for one more name: what happens when an Invoice's re-derived state fails §9 validation during the
@@ -223,6 +223,33 @@ that pointer and no pointer of the other kind". Its two cases take different bra
 assertion. So a mutant touches one case only, and the harness counts a name as surviving when any of its cases passes.
 Each branch's assertion was perturbed by hand and failed its own case. No other mutant survived.
 
+### §8 cash-flow projection
+
+File: `Tests/Tests.Integrated/CrossDomainOrchestration/ProjectionRules.fs` (18 names, 21 cases). All pass.
+
+REQ-CF-8.3, 8.9 and 8.10 were already cited by `CashFlowProjection.fs`, so this batch covers the rest of §8. Each test
+builds its own Cash-subtype account and Daily agreements, so the fixture's cash accounts and other tests' Invoices
+cannot change the numbers it reads. Most tests call the projection inside a rolled-back transaction. The REQ-CF-8.1
+horizon tests and the REQ-CF-8.8 read-only test go through the ProjectCashFlow route. The read-only test takes an md5
+digest of the account, journal entry, journal entry line, Master Agreement, Payment Agreement, Instance, Invoice and
+Payment tables before and after the call.
+
+REQ-CF-8.5 ("deterministic [DET]") got a test after all: two projections over the same data must give identical
+results, order included. It does not prove determinism, but it catches the observable failure. The Unenforceable
+proposal for 8.5 is withdrawn.
+
+Refusals: a horizon of 0, -1 or 366 gives `CashflowProjectionHorizonInDaysBelowMin` or `…ExceededMax`, carrying the
+value sent and the bound.
+
+Grading adjustments, made from the spec:
+- The grader's "an unpaid Income Invoice on a fulfilled Instance adds nothing" was dropped. REQ-CF-4.9 makes an
+  Instance fulfilled only when every Invoice is FullyPaid, so the case can't be built; the FullyPaid test covers it.
+- The grader's "a fulfilled Instance with no Invoices yields no bill" was re-aimed. REQ-CF-4.9 forbids a fulfilled
+  Instance with no Invoices. The reachable case is a fulfilled Instance whose one Invoice is FullyPaid and whose other
+  leg has no Invoice.
+
+Mutation, k = 1 to 4: no mutant survived.
+
 ## Findings
 
 Each finding gives the requirement, the test, what the spec says, what the code does, and where the bug probably lies.
@@ -327,6 +354,7 @@ These are cited by passing tests unless noted.
 - §4: REQ-CF-4.3, 4.5, 4.6, 4.7, 4.9, 4.10.
 - §5: REQ-CF-5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 5.13, 5.14, 5.15, 5.16.
 - §6: REQ-CF-6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.9, 6.10, 6.11.
+- §8: REQ-CF-8.1, 8.2, 8.4, 8.5, 8.6, 8.7, 8.8.
 - §7: REQ-CF-7.1, 7.2, 7.3, 7.4, 7.6, 7.7, 7.8, 7.9, 7.10, 7.12, 7.14, 7.15, 7.16 (fails, F-4), plus REQ-CF-4.8.
 
 ## Requirements still uncovered
