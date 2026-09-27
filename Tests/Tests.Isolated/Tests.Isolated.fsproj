@@ -32,6 +32,7 @@
     <Compile Include="Model\DataIngestion\ClassificationRuleGroupEvaluation.fs" />
     <Compile Include="Model\DataIngestion\ClassificationRuleMatching.fs" />
     <Compile Include="Model\DataIngestion\Classifier.fs" />
+    <Compile Include="Model\CashFlow\CashFlowComponent.fs" />
   </ItemGroup>
 
   <ItemGroup>
