@@ -650,3 +650,32 @@ Two readings:
   reported in the REQ-CF-13.9 result so it isn't invisible.
 No code has changed for this; no test cites it yet.
 *Response:*
+
+**R-17. Dan has serious heartburn about Posted → Reviewed and wants a deep
+dive with you before it stands.**
+Dan's words: "we should *never* go from posted to reviewed." Your 2026-09-26
+amendments put the move in: REQ-STG-4.2 now makes Posted terminal "except the
+void reversal in REQ-STG-4.7"; REQ-STG-4.7 and REQ-JE-4.11 have a void send
+the staged entry back to `'Reviewed'` (mechanism `'Operator'`) "so it can be
+corrected and posted again"; REQ-STG-4.6's table lists `Posted → Reviewed`;
+REQ-STG-4.8 reserves it to the void. The stated reason (REQ-STG-6.6 *Why*) is
+that a posted entry can't be edited, so corrections go through void and
+repost.
+Plan item 24 is built to that text, in local commit `db0ec0d` (not pushed):
+- a void of a journal entry posted from staging moves the staged entry
+  Posted → Reviewed and clears its and its lines' journal entry IDs;
+- each Payment on a voided line points at its staged line again, and its
+  Invoice's and Instance's states re-derive;
+- a Payment with no staged line to fall back to refuses the void.
+Things the deep dive has to settle if Posted stays terminal:
+- What the void does to the staged entry instead: leave it Posted pointing at
+  a voided journal entry, or move it to some other end state.
+- How a correction reaches the ledger: a fresh staged entry, a manual journal
+  entry, or something else, and how duplicate detection treats a re-ingested
+  FI line whose first staged entry is still Posted.
+- Where a Payment on a voided line points. Falling back to a staged line that
+  will never post again leaves the Payment Staged forever.
+- Which of REQ-STG-4.2, 4.6, 4.7, 4.8, 6.6 and REQ-JE-4.11, 4.12 change.
+Once you and Dan agree, I'll rework item 24 and its tests before anything is
+pushed.
+*Response:*
