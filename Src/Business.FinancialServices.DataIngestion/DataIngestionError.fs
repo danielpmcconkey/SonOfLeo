@@ -23,6 +23,9 @@ type DataIngestionError =
     | IngestionInvalidStageStatusTransition of string option * string
     | IngestionSearchPatternIsEmpty of string
     | IngestionSearchPatternTooLong of string * int
+    | IngestionSearchPatternInvalidRegex of string * string
+    | IngestionClassificationRuleStoredPatternInvalid of Guid * string * string
+    | IngestionClassificationRulePatternTimedOut of Guid * string
     | IngestionStageLineNonPositiveAmount of decimal
     | IngestionStageEntryDebitCreditMismatch of decimal * decimal
     | IngestionStageEntryInsufficientLines of int
@@ -76,6 +79,9 @@ type DataIngestionError =
             | IngestionInvalidStageStatusTransition (fromStr, toStr) -> $"Invalid stage status transition. Cannot move from {fromStr} to {toStr}."
             | IngestionSearchPatternIsEmpty str -> $"SearchPattern cannot be empty. Provided value is {str}."
             | IngestionSearchPatternTooLong (str, max) -> $"SearchPattern cannot exceed {max} characters. Provided value is {str}."
+            | IngestionSearchPatternInvalidRegex (pattern, reason) -> $"Search pattern {pattern} is not a valid regular expression: {reason}"
+            | IngestionClassificationRuleStoredPatternInvalid (ruleUuid, pattern, reason) -> $"Classification rule {ruleUuid} is stored with search pattern {pattern}, which is not a valid regular expression: {reason} Correct the rule before running classification."
+            | IngestionClassificationRulePatternTimedOut (ruleUuid, pattern) -> $"Classification rule {ruleUuid}'s search pattern {pattern} took too long to evaluate and was stopped. Simplify the pattern; the classification run did not complete."
             | IngestionStageEntryHeaderIdDoesntExist uuid -> $"Could not locate a stage entry header with the id of {uuid}."
             | IngestionStageEntryLineIdDoesntExist uuid -> $"Could not locate a stage entry line with the id of {uuid}."
             | IngestionStageEntryLineIdListCannotBeEmpty -> "The stageEntryLineIds list must contain at least 1 ID."

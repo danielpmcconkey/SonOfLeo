@@ -264,7 +264,7 @@ let classifyMatchCandidatesAndRecordMatches
             activeOnly = true }
         let! rules = fetchRulesFiltered context ruleFilter None
         let runId = ClassificationRunId.create ()
-        let classificationResults = Classifier.classify rules candidates
+        let! classificationResults = Classifier.classify rules candidates
         do! classificationResults |> recordRuleMatches context runId
         return { runId = runId; results = classificationResults }
     }

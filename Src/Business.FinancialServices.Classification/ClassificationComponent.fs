@@ -87,7 +87,13 @@ module StringSearchPattern =
         elif raw.Length > maxLength then
             Error(IngestionSearchPatternTooLong(raw, maxLength))
         else
-            Ok(StringSearchPattern raw)
+            // a pattern that won't compile would otherwise be accepted here and fail mid-run, aborting classification
+            // for every entry
+            try
+                Text.RegularExpressions.Regex(raw) |> ignore
+                Ok(StringSearchPattern raw)
+            with :? ArgumentException as ex ->
+                Error(IngestionSearchPatternInvalidRegex(raw, ex.Message))
 
     
 type ClassificationGroupConnector =

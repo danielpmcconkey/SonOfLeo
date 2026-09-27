@@ -284,6 +284,42 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
     // Plan defects 8–17 (2026-09-27)
     // =========================================================================
 
+    (* A nested quantifier against a long run of one letter with a mismatch at the end backtracks for far longer than
+       the match time limit. The candidate never touches the database: the run fails before any match is recorded. *)
     [<Fact>]
     member _.``REQ-CR-1.26 a classification run whose valid pattern exceeds the match time limit on an entry fails with a typed error naming the rule, and raises no exception`` () =
-        Assert.Fail "not implemented"
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                let slowPattern = "^(a+)+$"
+                let! pattern = slowPattern |> StringSearchPattern.create
+                let! ruleName = "CR-1.26 slow pattern" |> ClassificationRuleName.create
+                let! rule =
+                    ClassificationOrchestration.createNewClassificationRule
+                        context ruleName (ClassificationClaimant.Account fixture.Data.food5350Id) 783
+                        [ ClassificationRuleGroup.create And (FieldMatchChain.create [ FieldMatch.Description pattern ]) None ]
+                let! description = (String.replicate 40 "a" + "!") |> JournalEntryDescription.create
+                let! source = "TestBank" |> JournalRefFinancialInstitution.create
+                let! amount = Money.fromDecimal 1.00M
+                let candidate: MatchCandidate =
+                    { headerIdOfCandidate = StageEntryHeaderId.create ()
+                      lineIdOfCandidate = StageEntryLineId.create ()
+                      ingestionSource = source
+                      description = description
+                      amount = amount
+                      lineType = Debit
+                      memo = None }
+                let run =
+                    try
+                        ClassificationOrchestration.classifyMatchCandidatesAndRecordMatches context AccountClaimant [ candidate ]
+                        |> Ok
+                    with ex -> Error ex
+                return
+                    match run with
+                    | Ok (Error (AsError (Business.FinancialServices.DataIngestion.DataIngestionError.IngestionClassificationRulePatternTimedOut(uuid, timedOutPattern)))) ->
+                        Assert.Equal(rule |> ClassificationRule.classificationRuleId |> ClassificationRuleId.value, uuid)
+                        Assert.Equal(slowPattern, timedOutPattern)
+                    | Ok (Error e) -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                    | Ok (Ok _) -> Assert.Fail "Expected the run to fail on the slow pattern; it completed"
+                    | Error ex -> Assert.Fail $"The run raised {ex.GetType().Name} instead of returning a typed error"
+            })
+        |> railroadWrapper

@@ -783,18 +783,6 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-CR-1.26 creating a rule whose Source, Description or Memo pattern is not a valid regular expression is rejected with a typed error naming the pattern, and no rule is written`` () =
-        Assert.Fail "not implemented"
-
-    [<Fact>]
-    member _.``REQ-CR-1.26 updating a rule's Source, Description or Memo pattern to one that is not a valid regular expression is rejected with a typed error naming the pattern, and the stored rule keeps its old pattern`` () =
-        Assert.Fail "not implemented"
-
-    [<Fact>]
-    member _.``REQ-CR-1.26 reading a stored rule whose Source, Description or Memo pattern is not a valid regular expression fails with a typed error naming the rule and the pattern`` () =
-        Assert.Fail "not implemented"
-
-    [<Fact>]
     member _.``REQ-SYS-1.4 classification rule name filter returns every record containing search text with a literal %, _ or \ and no record lacking it`` () =
         Assert.Fail "not implemented"
 
@@ -805,3 +793,42 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-SYS-6.2 updating a classification rule by an ID no rule holds fails with a typed not-found error naming the kind of record and the ID`` () =
         Assert.Fail "not implemented"
+
+    (* A stored pattern can only turn invalid by being written outside the application, so the test does exactly
+       that, inside its own rolled-back transaction, and then reads the rule back. *)
+    [<Theory>]
+    [<InlineData("Source")>]
+    [<InlineData("Description")>]
+    [<InlineData("Memo")>]
+    member _.``REQ-CR-1.26 reading a stored rule whose Source, Description or Memo pattern is not a valid regular expression fails with a typed error naming the rule and the pattern`` (field: string) =
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
+            result {
+                let validPattern = $"CR-1.26 stored valid {field}"
+                let fieldMatch =
+                    match field with
+                    | "Source" -> Source(patternOf validPattern)
+                    | "Description" -> Description(patternOf validPattern)
+                    | _ -> Memo(patternOf validPattern)
+                let! created =
+                    ClassificationOrchestration.createNewClassificationRule
+                        context (ruleNameOf $"CR-1.26 stored {field}")
+                        (ClassificationClaimant.Account fixture.Data.food5350Id) 782 [ groupOf [ fieldMatch ] ]
+                let ruleUuid = created |> idOf |> ClassificationRuleId.value
+                let brokenPattern = "CR-1.26 [unclosed"
+                let! _ =
+                    App.DataAccessLayer.ExecuteNonQuery.executeNonQuery
+                        (context |> Context.getDatabaseTransaction)
+                        "update classification.classification_rule set rule_groups = replace(rule_groups::text, @valid, @broken)::jsonb where unique_id = @unique_id;"
+                        [ { App.DataAccessLayer.QueryParameter.name = "@valid"; App.DataAccessLayer.QueryParameter.value = App.DataAccessLayer.QueryParameter.CharString validPattern }
+                          { App.DataAccessLayer.QueryParameter.name = "@broken"; App.DataAccessLayer.QueryParameter.value = App.DataAccessLayer.QueryParameter.CharString brokenPattern }
+                          { App.DataAccessLayer.QueryParameter.name = "@unique_id"; App.DataAccessLayer.QueryParameter.value = App.DataAccessLayer.QueryParameter.UniqueId ruleUuid } ]
+                        App.DataAccessLayer.ExecuteReader.ExactlyOne
+                return
+                    match created |> idOf |> ClassificationRule.fetchById context with
+                    | Error (AsError (Business.FinancialServices.DataIngestion.DataIngestionError.IngestionClassificationRuleStoredPatternInvalid(uuid, pattern, _))) ->
+                        Assert.Equal(ruleUuid, uuid)
+                        Assert.Equal(brokenPattern, pattern)
+                    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                    | Ok _ -> Assert.Fail "Expected reading the rule to fail on its stored pattern; it was read"
+            })
+        |> railroadWrapper

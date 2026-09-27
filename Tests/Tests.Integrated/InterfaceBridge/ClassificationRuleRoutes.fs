@@ -29,6 +29,21 @@ open Tests.Helpers.SadPath
    already covers. What only exists here is the boundary work: JSON in and out, the account
    code the caller speaks resolved to the AccountId the model speaks, and the rule-group
    contract converted in both directions. That layer is what these tests are for. *)
+(* The invalid pattern is an unclosed group. It reaches the route as a plain string in the payload, which is the
+   only way a caller can hand the system one. *)
+let private invalidPattern = "CR-1.26 (unclosed"
+
+let private groupMatching (field: string) (pattern: string) : ClassificationRuleGroupContract =
+    let fieldMatch =
+        match field with
+        | "Source" -> FieldMatchContract.Source pattern
+        | "Description" -> FieldMatchContract.Description pattern
+        | "Memo" -> FieldMatchContract.Memo pattern
+        | other -> failwith $"no string field {other}"
+    { connector = "And"
+      chainOne = ({ chain = [ fieldMatch ] }: FieldMatchChainContract)
+      chainTwo = None }
+
 [<Collection("SharedTestData")>]
 type ClassificationRuleRouteTests(fixture: TestDataFixture) =
 
@@ -310,3 +325,69 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
                 Assert.Equal(Some(expectedNameFor rule), returned.claimantAtMatch |> claimantAccountNameOf))
         }
         |> railroadWrapper
+
+    // =========================================================================
+    // REQ-CR-1.26 — a pattern must be a valid regular expression
+    // =========================================================================
+
+    [<Theory>]
+    [<InlineData("Source")>]
+    [<InlineData("Description")>]
+    [<InlineData("Memo")>]
+    member this.``REQ-CR-1.26 creating a rule whose Source, Description or Memo pattern is not a valid regular expression is rejected with a typed error naming the pattern, and no rule is written`` (field: string) =
+        let ruleName = $"CR-1.26 create invalid {field}"
+        let mutable idToCleanUp = None
+        try
+            result {
+                let created = createThroughRoute ruleName accountCodeForNewRules 780 [ groupMatching field invalidPattern ]
+                let () =
+                    match created with
+                    | Error (AsError (Business.FinancialServices.DataIngestion.DataIngestionError.IngestionSearchPatternInvalidRegex(pattern, _))) ->
+                        Assert.Equal(invalidPattern, pattern)
+                    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                    | Ok rule ->
+                        idToCleanUp <- Some(rule.classificationRuleId |> ClassificationRuleId.fromGuid)
+                        Assert.Fail "Expected the invalid pattern to be rejected; the rule was created"
+                let! name = ruleName |> ClassificationRuleName.create
+                let written = name |> ClassificationRule.fetchByName (Context.create App.DataAccessLayer.DbTransaction.NoTransaction App.Operation.CoreAuditableAction.FetchOnly)
+                Assert.True(written |> Result.isError, "no rule should have been written under that name")
+            }
+            |> railroadWrapper
+        finally
+            cleanUpClassificationRuleId idToCleanUp |> ignore
+
+    [<Theory>]
+    [<InlineData("Source")>]
+    [<InlineData("Description")>]
+    [<InlineData("Memo")>]
+    member this.``REQ-CR-1.26 updating a rule's Source, Description or Memo pattern to one that is not a valid regular expression is rejected with a typed error naming the pattern, and the stored rule keeps its old pattern`` (field: string) =
+        let mutable idToCleanUp = None
+        let validGroups = [ groupMatching field $"CR-1.26 update valid {field}" ]
+        try
+            result {
+                let! created = createThroughRoute $"CR-1.26 update {field}" accountCodeForNewRules 781 validGroups
+                idToCleanUp <- Some(created.classificationRuleId |> ClassificationRuleId.fromGuid)
+                let! payload =
+                    { classificationRuleId = created.classificationRuleId
+                      classificationRuleNameUpdate = NoChange
+                      claimantAtMatchUpdate = NoChange
+                      priorityUpdate = NoChange
+                      ruleGroupsUpdate = SetTo [ groupMatching field invalidPattern ]
+                      isActiveUpdate = NoChange }
+                    |> toJson<UpdateClassificationRuleInput>
+                let () =
+                    match routeUiCommandForTesting "Classification" "UpdateClassificationRule" [] payload with
+                    | Error (AsError (Business.FinancialServices.DataIngestion.DataIngestionError.IngestionSearchPatternInvalidRegex(pattern, _))) ->
+                        Assert.Equal(invalidPattern, pattern)
+                    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                    | Ok _ -> Assert.Fail "Expected the invalid pattern to be rejected; the update succeeded"
+                let! byIdPayload =
+                    { FetchClassificationRuleByIdInput.classificationRuleId = created.classificationRuleId }
+                    |> toJson<FetchClassificationRuleByIdInput>
+                let! refetchedPayload = routeUiCommandForTesting "Classification" "FetchClassificationRuleById" [] byIdPayload
+                let! refetched = fromJson<ClassificationRuleReturn> refetchedPayload
+                Assert.Equal<ClassificationRuleGroupContract list>(validGroups, refetched.ruleGroups)
+            }
+            |> railroadWrapper
+        finally
+            cleanUpClassificationRuleId idToCleanUp |> ignore

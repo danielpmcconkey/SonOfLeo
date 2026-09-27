@@ -100,6 +100,30 @@ let persist (context: Context.Context) (classificationRule: ClassificationRule) 
         return! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
     }
     
+let private confirmStoredPatternsAreValid (ruleUuid: System.Guid) (ruleGroups: ClassificationRuleGroup list) =
+    ruleGroups
+    |> List.collect (fun ruleGroup -> (ruleGroup |> chainOne) :: (ruleGroup |> chainTwo |> Option.toList))
+    |> List.collect FieldMatchChain.chain
+    |> List.choose (fun fieldMatch ->
+        match fieldMatch with
+        | FieldMatch.Source pattern
+        | FieldMatch.Description pattern
+        | FieldMatch.Memo pattern -> Some(pattern |> StringSearchPattern.value)
+        | FieldMatch.LineType _
+        | FieldMatch.Amount _ -> None)
+    |> List.map (fun patternStr ->
+        patternStr
+        |> StringSearchPattern.create
+        |> Result.map ignore
+        |> Result.mapError (fun e ->
+            let reason =
+                match e with
+                | AsError (IngestionSearchPatternInvalidRegex(_, reason)) -> reason
+                | other -> other.ToMessage()
+            IngestionClassificationRuleStoredPatternInvalid(ruleUuid, patternStr, reason) :> IAppError))
+    |> convertListOfResultsToResultsList
+    |> Result.map ignore
+
 let private reconstitute raw =
     result {
         let (uuid,
@@ -123,6 +147,8 @@ let private reconstitute raw =
                 Ok (ClassificationClaimant.PaymentAgreement pmtId)
             | _ -> Error (IngestionClassificationRuleInvalidClaimant(uuid, accountUuidOpt, paymentAgreementUuidOpt))
         let! ruleGroups = ruleGroupsStr |> fromJson<ClassificationRuleGroup list>
+        // stored patterns are deserialised straight into the pattern type and skip its create, so they are checked here
+        do! ruleGroups |> confirmStoredPatternsAreValid uuid
         return
             create
                 classificationRuleId

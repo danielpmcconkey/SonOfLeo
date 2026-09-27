@@ -17,6 +17,14 @@ open Tests.Helpers.SadPath
 open Xunit
 open Business.FinancialServices.Classification.ClassificationComponent
 
+(* The classifier returns a Result so that a pattern past its time limit is a typed error, not an exception. None of
+   these tests reaches that path, so an Error here is a test failure. *)
+let private classifyCandidate rules candidate =
+    Classifier.classifyCandidate rules candidate |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
+
+let private classify rules candidates =
+    Classifier.classify rules candidates |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
+
 let private makeCandidate descriptionStr sourceStr amount lineType =
     let description =
         descriptionStr |> JournalEntryDescription.create
