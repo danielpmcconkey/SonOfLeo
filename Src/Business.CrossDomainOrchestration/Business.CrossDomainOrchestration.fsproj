@@ -38,6 +38,7 @@
     <Compile Include="InstanceOrchestration.fs" />
     <Compile Include="AgreementOrchestration.fs" />
     <Compile Include="CashFlowOps.fs" />
+    <Compile Include="PrePostingReview.fs" />
   </ItemGroup>
 
 </Project>

@@ -25,3 +25,45 @@ type TrialBalanceReportReturn =
     | Report of OutputPathReturn
     
 
+
+type PrePostingReviewInput = {
+    // with Report and interpolateAsOf, the date appended to the file name is the date the report runs
+    reportOutput: OutputSpecifier
+}
+
+type PrePostingPaymentReturnRow = {
+    paymentAmount: decimal
+    invoiceDate: LocalDate
+    dueDate: LocalDate
+    invoiceAmount: decimal
+    paymentState: string
+    instanceDate: LocalDate
+}
+
+type PrePostingLineReturnRow = {
+    stageEntryLineId: System.Guid
+    lineType: string
+    amount: decimal
+    memo: string option
+    accountCode: string
+    accountName: string
+    // the classification rule that assigned the account; None when the parser or the operator did
+    ruleName: string option
+    paymentAgreementName: string option
+    masterAgreementName: string option
+    payments: PrePostingPaymentReturnRow list
+}
+
+type PrePostingEntryReturnRow = {
+    stageEntryHeaderId: System.Guid
+    entryDate: LocalDate
+    description: string
+    sourceName: string
+    fiReference: string
+    status: string
+    lines: PrePostingLineReturnRow list
+}
+
+type PrePostingReviewReturn =
+    | DataOnly of PrePostingEntryReturnRow list
+    | Report of OutputPathReturn

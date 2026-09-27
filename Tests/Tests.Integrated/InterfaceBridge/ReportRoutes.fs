@@ -22,6 +22,11 @@ open Tests.Helpers.TestError
 open App.Utility.Result
 open Xunit
 open Ui.ReportCli.ReportCliError
+open App.Operation.CoreAuditableAction
+open Business.FinancialServices.DataIngestion
+open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Ui.InterfaceBridge.CommandRoute
+open Tests.Integrated.CrossDomainOrchestration
 
 [<Collection("SharedTestData")>]
 type ReportRoutesTests(fixture: TestDataFixture) =
@@ -34,6 +39,30 @@ type ReportRoutesTests(fixture: TestDataFixture) =
         let dir = "/tmp/son-of-leo-test-output"
         System.IO.Directory.CreateDirectory dir |> ignore
         dir
+
+    (* Form 4: the route reads through its own connection, so the staged entry it reports on is committed first and
+       deleted in finally. *)
+    let withCommittedClassifiedEntry (description: string) (test: StageEntryHeaderId -> Result<unit, IAppError>) =
+        let mutable headerToCleanUp = None
+        try
+            result {
+                let! entry =
+                    runCommandRouteAndAutoCompleteTransaction FetchOnly (fun context ->
+                        PrePostingScenario(fixture, context).classifiedEntry description)
+                let headerId = entry |> StageEntryOrchestration.stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                headerToCleanUp <- Some headerId
+                return! test headerId
+            }
+            |> railroadWrapper
+        finally
+            Cleanup.cleanUpStageEntryHeaderId headerToCleanUp |> railroadWrapper
+
+    let runPrePostingReview (reportOutput: OutputSpecifier) =
+        result {
+            let! payload = { reportOutput = reportOutput } |> toJson<PrePostingReviewInput>
+            let! returnPayload = routeReportingCommandForTesting "PrePostingReview" [] payload
+            return! returnPayload |> fromJson<PrePostingReviewReturn>
+        }
 
     [<Fact>]
     member _.``REQ-RPT-2.2 data-only mode returns boundary-type rows with expected field types``() =
@@ -134,12 +163,56 @@ type ReportRoutesTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-7.7 pre-posting review data-only mode returns every entry and its lines as boundary types``() =
-        Assert.Fail "not implemented"
+        withCommittedClassifiedEntry "Pre-posting review route 7.7 data-only" (fun headerId ->
+            result {
+                let! returned = runPrePostingReview OutputSpecifier.DataOnly
+                return!
+                    match returned with
+                    | PrePostingReviewReturn.DataOnly entries ->
+                        let entry = entries |> List.find (fun e -> e.stageEntryHeaderId = (headerId |> StageEntryHeaderId.value))
+                        Assert.Equal("Pre-posting review route 7.7 data-only", entry.description)
+                        Assert.Equal("TestBank", entry.sourceName)
+                        Assert.Equal("Classified", entry.status)
+                        Assert.Equal<string list>([ "Debit"; "Credit" ], entry.lines |> List.map _.lineType)
+                        Assert.Equal<string list>([ "F-2230"; "F-1280" ], entry.lines |> List.map _.accountCode)
+                        Assert.All(entry.lines, fun l -> Assert.Equal(100.00M, l.amount))
+                        Ok ()
+                    | PrePostingReviewReturn.Report _ -> TestError.error (TestingError "Expected DataOnly but got Report")
+            })
 
     [<Fact>]
     member _.``REQ-RPT-7.7 pre-posting review report mode writes an HTML file and returns its path``() =
-        Assert.Fail "not implemented"
+        withCommittedClassifiedEntry "Pre-posting review route 7.7 report" (fun _ ->
+            result {
+                let! returned =
+                    runPrePostingReview
+                        (OutputSpecifier.Report { baseDir = testOutputDir; interpolateAsOf = false; fileName = "rpt-7-7-test" })
+                return!
+                    match returned with
+                    | PrePostingReviewReturn.Report pathReturn ->
+                        Assert.Equal(System.IO.Path.Combine(testOutputDir, "rpt-7-7-test.html"), pathReturn.fullyQualifiedPath)
+                        let html = System.IO.File.ReadAllText pathReturn.fullyQualifiedPath
+                        System.IO.File.Delete pathReturn.fullyQualifiedPath
+                        Assert.Contains("Pre-posting review route 7.7 report", html)
+                        Assert.DoesNotContain("tag not implemented", html)
+                        Ok ()
+                    | PrePostingReviewReturn.DataOnly _ -> TestError.error (TestingError "Expected Report but got DataOnly")
+            })
 
     [<Fact>]
     member _.``REQ-RPT-7.7 pre-posting review date interpolation appends today's date as yyyy-MM-dd to the file name before the extension``() =
-        Assert.Fail "not implemented"
+        let expectedDateStr = Calendar.today() |> Calendar.localDateToString "yyyy-MM-dd"
+        let expectedPath = System.IO.Path.Combine(testOutputDir, $"rpt-7-7-interpolated-{expectedDateStr}.html")
+        result {
+            let! returned =
+                runPrePostingReview
+                    (OutputSpecifier.Report { baseDir = testOutputDir; interpolateAsOf = true; fileName = "rpt-7-7-interpolated" })
+            return!
+                match returned with
+                | PrePostingReviewReturn.Report pathReturn ->
+                    Assert.Equal(expectedPath, pathReturn.fullyQualifiedPath)
+                    System.IO.File.Delete pathReturn.fullyQualifiedPath
+                    Ok ()
+                | PrePostingReviewReturn.DataOnly _ -> TestError.error (TestingError "Expected Report but got DataOnly")
+        }
+        |> railroadWrapper

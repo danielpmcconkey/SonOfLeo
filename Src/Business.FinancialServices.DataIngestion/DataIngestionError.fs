@@ -58,6 +58,7 @@ type DataIngestionError =
     | IngestionStatusTransitionList
     | IngestionUpdateStageEntryLinesMustMatchHeader of Guid * Guid
     | IngestionNoneAccount of Guid
+    | IngestionPrePostingReviewLineHasNoAccount of Guid * Guid
     | IngestionUpdateStageEntryNoOp
     | IngestionSourceNameNotFound of string
     | IngestionSourceNameAlreadyExists of string
@@ -119,6 +120,7 @@ type DataIngestionError =
             | IngestionStatusTransitionList -> "StageEntryStatusTransition list cannot be empty."
             | IngestionUpdateStageEntryLinesMustMatchHeader (headerId, lineId) -> $"Error updating StageEntry {headerId}. Line {lineId} is for a different header."
             | IngestionNoneAccount uuid -> $"Stage Entry Line with an account of None is not allowed at this phase of the ingestion pipeline. Line ID: {uuid}"
+            | IngestionPrePostingReviewLineHasNoAccount (entryId, lineId) -> $"Staged entry {entryId} is postable but its line {lineId} has no account. Shadow post fails on such a line, so run it and fix the line before the pre-posting review."
             | IngestionUpdateStageEntryNoOp -> "updateStageEntry failed because at least one updatable parameter must be set."
             | IngestionSourceNameNotFound str -> $"No ingestion source of {str} could be found."
             | IngestionSourceNameAlreadyExists str -> $"An ingestion source named {str} already exists. Source names must be unique."
