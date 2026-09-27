@@ -69,6 +69,7 @@
     <Compile Include="CrossDomainOrchestration\DerivedStateRules.fs" />
     <Compile Include="CrossDomainOrchestration\MasterAgreementDataStates.fs" />
     <Compile Include="CrossDomainOrchestration\BalanceSheetIntegrity.fs" />
+    <Compile Include="CrossDomainOrchestration\PeriodActivity.fs" />
     <Compile Include="Model\Ledger\JournalEntryHeader.fs" />
     <Compile Include="Model\Ledger\JournalEntryExternalReference.fs" />
     <Compile Include="Model\Ledger\JournalEntryComment.fs" />

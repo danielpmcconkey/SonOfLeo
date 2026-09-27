@@ -339,3 +339,23 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             return ()
         }
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-RPT-6.4 the period activity report route in data-only mode returns, for a range with activity on several Revenue and Expense accounts, the same non-empty accounts, net totals and lines, in the same order, as the period activity computation for the same begin and end dates``() =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-6.4 REQ-RPT-2.3 the period activity report route in report mode writes a new HTML file that did not exist before the call and returns its fully qualified path``() =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-6.4 REQ-RPT-2.4 the period activity report file without date interpolation is the caller's base directory and file name with .html appended``() =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-6.4 REQ-RPT-2.4 the period activity report file with date interpolation is the caller's base directory and file name followed by a hyphen, the begin date and end date as yyyy-MM-dd_yyyy-MM-dd, and .html``() =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-6.4 REQ-RPT-3.1 the period activity rendered report header shows the begin and end dates of the range``() =
+        Assert.Fail "not implemented"
