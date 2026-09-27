@@ -131,3 +131,15 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             ReportingUnknownReportName
             None
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-RPT-7.7 pre-posting review data-only mode returns every entry and its lines as boundary types``() =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-7.7 pre-posting review report mode writes an HTML file and returns its path``() =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-7.7 pre-posting review date interpolation appends today's date as yyyy-MM-dd to the file name before the extension``() =
+        Assert.Fail "not implemented"
