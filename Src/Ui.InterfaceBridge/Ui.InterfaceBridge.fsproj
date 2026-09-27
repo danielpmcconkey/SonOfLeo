@@ -20,6 +20,7 @@
     <Compile Include="InterfaceContracts\ReportsContracts.fs" />
     <Compile Include="InterfaceContracts\ReconciliationContracts.fs" />
     <Compile Include="InterfaceContracts\BalanceSheetIntegrityContracts.fs" />
+    <Compile Include="InterfaceContracts\PeriodActivityContracts.fs" />
     <Compile Include="BoundaryConverters\SharedContractConverters.fs" />
     <Compile Include="BoundaryConverters\MoneyFieldConverters.fs" />
     <Compile Include="BoundaryConverters\AccountFieldConverters.fs" />
@@ -32,6 +33,7 @@
     <Compile Include="BoundaryConverters\ReportConverters.fs" />
     <Compile Include="BoundaryConverters\ReconciliationConverters.fs" />
     <Compile Include="BoundaryConverters\BalanceSheetIntegrityConverters.fs" />
+    <Compile Include="BoundaryConverters\PeriodActivityConverters.fs" />
     <Compile Include="ReportVisualizationAssets\HtmlComponents.fs" />
     <Compile Include="ReportVisualizationAssets\BaseCssDeclarations.fs" />
     <Compile Include="ReportVisualizationAssets\ReportHeader.fs" />
@@ -40,6 +42,7 @@
     <Compile Include="ReportWriters\TrialBalanceWriter.fs" />
     <Compile Include="ReportWriters\PrePostingReviewWriter.fs" />
     <Compile Include="ReportWriters\BalanceSheetIntegrityWriter.fs" />
+    <Compile Include="ReportWriters\PeriodActivityWriter.fs" />
     <Compile Include="Routes\AccountRoutes.fs" />
     <Compile Include="Routes\FiscalPeriodRoutes.fs" />
     <Compile Include="Routes\JournalEntryRoutes.fs" />

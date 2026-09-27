@@ -16,6 +16,9 @@ open Ui.InterfaceBridge.BoundaryConverters.ReconciliationConverters
 open Business.CrossDomainOrchestration.BalanceSheetIntegrity
 open Ui.InterfaceBridge.InterfaceContracts.BalanceSheetIntegrityContracts
 open Ui.InterfaceBridge.BoundaryConverters.BalanceSheetIntegrityConverters
+open Business.CrossDomainOrchestration.PeriodActivity
+open Ui.InterfaceBridge.InterfaceContracts.PeriodActivityContracts
+open Ui.InterfaceBridge.BoundaryConverters.PeriodActivityConverters
 open Ui.InterfaceBridge.ReportWriters
 open Ui.InterfaceBridge.CommandRoute
 
@@ -74,6 +77,20 @@ let private balanceSheetIntegrity payload _ =
         return! integrityReturn |> Json.toJson<BalanceSheetIntegrityReturn>
     }
 
+let private periodActivity payload _ =
+    let context = Context.create NoTransaction FetchOnly
+    result {
+        let! input = Json.fromJson<PeriodActivityInput> payload
+        let! accounts = fetchPeriodActivity context input.beginDate input.endDate
+        let! (periodActivityReturn: PeriodActivityReturn) =
+            match input.reportOutput with
+            | OutputSpecifier.DataOnly ->
+                Ok (PeriodActivityReturn.DataOnly (accounts |> List.map ``convert [PeriodActivityAccount] to [PeriodActivityAccountReturnRow]``))
+            | OutputSpecifier.Report outputPathInput ->
+                accounts |> PeriodActivityWriter.write outputPathInput input.beginDate input.endDate
+        return! periodActivityReturn |> Json.toJson<PeriodActivityReturn>
+    }
+
 let reportingRoutes: ReportRoute list =
     [
         { name = "TrialBalance"
@@ -96,4 +113,9 @@ let reportingRoutes: ReportRoute list =
           inputContract = typeof<BalanceSheetIntegrityInput>.Name
           outputContract = typeof<BalanceSheetIntegrityReturn>.Name
           handler = balanceSheetIntegrity }
+        { name = "PeriodActivity"
+          description = "The spending view. For a begin and end date (inclusive), every Revenue and Expense account with non-voided activity in the range, in trial balance order: code, name, net total for the range in the account's normal-balance direction, and each contributing line (entry date, journal entry ID, description, line type, amount, memo) ordered by entry date then journal entry ID. If data only, returns the accounts; if Report, writes them and returns the full file path; date interpolation appends -begin_end."
+          inputContract = typeof<PeriodActivityInput>.Name
+          outputContract = typeof<PeriodActivityReturn>.Name
+          handler = periodActivity }
     ]

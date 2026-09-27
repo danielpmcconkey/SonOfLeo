@@ -8,6 +8,7 @@ open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.CrossDomainOrchestration
 open Ui.InterfaceBridge.InterfaceContracts.BalanceSheetIntegrityContracts
+open Ui.InterfaceBridge.InterfaceContracts.PeriodActivityContracts
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Ui.InterfaceBridge.InterfaceContracts.ReconciliationContracts
 open App.Utility.Json.Json
@@ -66,6 +67,29 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             let! payload = { reportOutput = reportOutput } |> toJson<PrePostingReviewInput>
             let! returnPayload = routeReportingCommandForTesting "PrePostingReview" [] payload
             return! returnPayload |> fromJson<PrePostingReviewReturn>
+        }
+
+    (* Period activity routes read the committed fixture; a wide range takes in all of its Revenue and Expense activity. *)
+    let activityBegin = Calendar.today().PlusDays(-400)
+    let activityEnd = Calendar.today().PlusDays(100)
+
+    let runPeriodActivity beginDate endDate (reportOutput: OutputSpecifier) =
+        result {
+            let input: PeriodActivityInput = { beginDate = beginDate; endDate = endDate; reportOutput = reportOutput }
+            let! payload = input |> toJson<PeriodActivityInput>
+            let! returnPayload = routeReportingCommandForTesting "PeriodActivity" [] payload
+            return! returnPayload |> fromJson<PeriodActivityReturn>
+        }
+
+    let periodActivityReportPath interpolate fileName =
+        result {
+            let! returned =
+                runPeriodActivity activityBegin activityEnd
+                    (OutputSpecifier.Report { baseDir = testOutputDir; interpolateAsOf = interpolate; fileName = fileName })
+            return!
+                match returned with
+                | PeriodActivityReturn.Report pathReturn -> Ok pathReturn.fullyQualifiedPath
+                | PeriodActivityReturn.DataOnly _ -> TestError.error (TestingError "Expected Report but got DataOnly")
         }
 
     let runIntegrity asOf (reportOutput: OutputSpecifier) =
@@ -342,20 +366,97 @@ type ReportRoutesTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-6.4 the period activity report route in data-only mode returns, for a range with activity on several Revenue and Expense accounts, the same non-empty accounts, net totals and lines, in the same order, as the period activity computation for the same begin and end dates``() =
-        Assert.Fail "not implemented"
+        let context = Context.create NoTransaction FetchOnly
+        result {
+            let! expected = PeriodActivity.fetchPeriodActivity context activityBegin activityEnd
+            Assert.True(expected |> List.length >= 2)
+            Assert.All(expected, fun a -> Assert.NotEmpty a.lines)
+            let! returned = runPeriodActivity activityBegin activityEnd OutputSpecifier.DataOnly
+            return!
+                match returned with
+                | PeriodActivityReturn.DataOnly rows ->
+                    let expectedRows =
+                        expected
+                        |> List.map (fun a ->
+                            a.accountCode |> AccountCode.value,
+                            a.accountName |> AccountName.value,
+                            a.netTotal |> Money.amount,
+                            a.lines
+                            |> List.map (fun l ->
+                                l.entryDate,
+                                l.journalEntryId |> JournalEntryHeaderId.value,
+                                l.description |> JournalEntryDescription.value,
+                                l.lineType |> JournalEntryLineType.toString,
+                                l.amount |> Money.amount,
+                                l.memo |> Option.map JournalEntryLineMemo.value))
+                    let actualRows =
+                        rows
+                        |> List.map (fun r ->
+                            r.accountCode,
+                            r.accountName,
+                            r.netTotal,
+                            r.lines
+                            |> List.map (fun l -> l.entryDate, l.journalEntryId, l.description, l.lineType, l.amount, l.memo))
+                    Assert.Equal<_ list>(expectedRows, actualRows)
+                    Ok ()
+                | PeriodActivityReturn.Report _ -> TestError.error (TestingError "Expected DataOnly but got Report")
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-6.4 REQ-RPT-2.3 the period activity report route in report mode writes a new HTML file that did not exist before the call and returns its fully qualified path``() =
-        Assert.Fail "not implemented"
+        let expectedPath = System.IO.Path.Combine(testOutputDir, "rpt-6-4-activity-new.html")
+        System.IO.File.Delete expectedPath
+        result {
+            Assert.False(System.IO.File.Exists expectedPath)
+            let! path = periodActivityReportPath false "rpt-6-4-activity-new"
+            Assert.True(System.IO.Path.IsPathFullyQualified path)
+            Assert.Equal(expectedPath, path)
+            Assert.True(System.IO.File.Exists path)
+            let html = System.IO.File.ReadAllText path
+            System.IO.File.Delete path
+            Assert.StartsWith("<!doctype html>", html.TrimStart(), System.StringComparison.OrdinalIgnoreCase)
+            Assert.DoesNotContain("tag not implemented", html)
+            return ()
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-6.4 REQ-RPT-2.4 the period activity report file without date interpolation is the caller's base directory and file name with .html appended``() =
-        Assert.Fail "not implemented"
+        result {
+            let! path = periodActivityReportPath false "rpt-6-4-activity"
+            System.IO.File.Delete path
+            Assert.Equal(System.IO.Path.Combine(testOutputDir, "rpt-6-4-activity.html"), path)
+            return ()
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-6.4 REQ-RPT-2.4 the period activity report file with date interpolation is the caller's base directory and file name followed by a hyphen, the begin date and end date as yyyy-MM-dd_yyyy-MM-dd, and .html``() =
-        Assert.Fail "not implemented"
+        let b = activityBegin |> Calendar.localDateToString "yyyy-MM-dd"
+        let e = activityEnd |> Calendar.localDateToString "yyyy-MM-dd"
+        result {
+            let! path = periodActivityReportPath true "rpt-6-4-activity-interpolated"
+            System.IO.File.Delete path
+            Assert.Equal(System.IO.Path.Combine(testOutputDir, $"rpt-6-4-activity-interpolated-{b}_{e}.html"), path)
+            return ()
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-6.4 REQ-RPT-3.1 the period activity rendered report header shows the begin and end dates of the range``() =
-        Assert.Fail "not implemented"
+        let b = activityBegin |> Calendar.localDateToString "yyyy-MM-dd"
+        let e = activityEnd |> Calendar.localDateToString "yyyy-MM-dd"
+        result {
+            let! path = periodActivityReportPath false "rpt-6-4-activity-header"
+            let html = System.IO.File.ReadAllText path
+            System.IO.File.Delete path
+            let headerStart = html.IndexOf("<header")
+            let headerEnd = html.IndexOf("</header>")
+            Assert.True(headerStart >= 0 && headerEnd > headerStart)
+            let header = html.Substring(headerStart, headerEnd - headerStart)
+            Assert.Contains(b, header)
+            Assert.Contains(e, header)
+            return ()
+        }
+        |> railroadWrapper

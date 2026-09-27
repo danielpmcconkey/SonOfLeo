@@ -36,6 +36,7 @@
     <Compile Include="StageEntryOrchestration.fs" />
     <Compile Include="Reconciliation.fs" />
     <Compile Include="BalanceSheetIntegrity.fs" />
+    <Compile Include="PeriodActivity.fs" />
     <Compile Include="CashFlowCompositeFetcher.fs" />
     <Compile Include="InstanceOrchestration.fs" />
     <Compile Include="AgreementOrchestration.fs" />
