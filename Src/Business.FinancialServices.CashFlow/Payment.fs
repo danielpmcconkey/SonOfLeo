@@ -294,6 +294,23 @@ let fetchByStageEntryLineIdList
     let predicate = $"pmt.stage_entry_line_id in ({names})"
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
+/// fetchByJournalEntryLineIdList returns every Payment whose transaction pointer names one of the given journal entry
+/// lines. An empty list names no line, so no Payment.
+let fetchByJournalEntryLineIdList
+    (context: Context.Context)
+    (lineIds: JournalEntryLineId list)
+    : Result<Payment list, IAppError> =
+    if lineIds |> List.isEmpty then Ok [] else
+    let namesAndParameters =
+        List.zip [ 1 .. lineIds.Length ] lineIds
+        |> List.map (fun (ordinal, id) ->
+            let name = $"@journalEntryLineId{ordinal}"
+            name, { name = name; value = UniqueId(id |> JournalEntryLineId.value) })
+    let names = namesAndParameters |> List.map fst |> String.concat ", "
+    let parameters = namesAndParameters |> List.map snd
+    let predicate = $"pmt.journal_entry_line_id in ({names})"
+    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
+
 /// fetchStageEntryLineIdById reads the column rather than the Payment, because a posted payment's TransactionPointer
 /// resolves to the journal entry line and hides the stage line it was created from.
 let fetchStageEntryLineIdById

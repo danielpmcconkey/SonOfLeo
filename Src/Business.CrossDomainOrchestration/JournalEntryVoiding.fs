@@ -12,6 +12,7 @@ open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.Ledger.LedgerError
+open Business.FinancialServices.CashFlow
 
 let private confirmJournalEntryIdIsReal
     (context: Context.Context)
@@ -86,6 +87,26 @@ let private insertReason
         commentText
     |> Result.map ignore
 
+/// A void is refused while any Payment points at one of the entry's lines: voiding it would leave the Invoice paid and
+/// posted on cash the ledger no longer records (REQ-JE-4.14). It runs before anything is written, the reason comment
+/// included. Nothing here touches staging (REQ-JE-4.13).
+let private confirmNoPaymentReferencesEntry
+    (context: Context.Context)
+    (journalEntryHeaderId: JournalEntryHeaderId)
+    : Result<unit, IAppError> =
+    result {
+        let! lines = journalEntryHeaderId |> JournalEntryLine.fetchByJournalEntryHeaderId context
+        let! payments = lines |> List.map JournalEntryLine.journalEntryLineId |> Payment.fetchByJournalEntryLineIdList context
+        return!
+            match payments with
+            | [] -> Ok ()
+            | _ ->
+                let paymentUuids = payments |> List.map (Payment.paymentId >> CashFlowComponent.PaymentId.value)
+                CashFlowError.error(
+                    CashFlowError.CashflowPaymentsReferenceEntryBeingVoided(
+                        paymentUuids, journalEntryHeaderId |> JournalEntryHeaderId.value))
+    }
+
 let voidJournalEntry
     (context: Context.Context)
     (secondaryJournalEntryIdForComment: JournalEntryHeaderId option)
@@ -94,6 +115,7 @@ let voidJournalEntry
     : Result<JournalEntry, IAppError> =
     result {
         do! journalEntryHeaderId |> confirmJournalEntryIdIsReal context // validate here so the error message is helpful
+        do! journalEntryHeaderId |> confirmNoPaymentReferencesEntry context
         do! insertReason context journalEntryHeaderId secondaryJournalEntryIdForComment commentText
         do!
             journalEntryHeaderId

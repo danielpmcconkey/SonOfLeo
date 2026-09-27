@@ -82,6 +82,7 @@ type CashFlowError =
     | CashflowPaymentAgreementUpdateNoOp
     | CashflowPaymentAgreementsListCannotBeEmpty
     | CashflowPaymentIdDoesntExist of Guid
+    | CashflowPaymentsReferenceEntryBeingVoided of Guid list * Guid
     | CashflowPaymentLineNotOnAgreementAccount of Guid * Guid option * Guid
     | CashflowPaymentMemoIsEmpty of string
     | CashflowPaymentMemoTooLong of string * int
@@ -182,6 +183,9 @@ type CashFlowError =
             | CashflowPaymentAgreementUpdateNoOp -> "Updating the PaymentAgreement record failed because at least one updatable parameter must be set."
             | CashflowPaymentAgreementsListCannotBeEmpty -> "A MasterAgreement must have at least one PaymentAgreement."
             | CashflowPaymentIdDoesntExist uuid -> $"Could not locate a Payment with the id of {uuid}."
+            | CashflowPaymentsReferenceEntryBeingVoided (paymentUuids, journalEntryUuid) ->
+                let payments = paymentUuids |> List.map string |> String.concat ", "
+                $"Journal entry {journalEntryUuid} cannot be voided while Payments point at its lines: {payments}. Re-point or remove each Payment first, or correct the entry with an adjusting entry instead."
             | CashflowPaymentLineNotOnAgreementAccount(paymentUuid, actualAccountUuid, expectedAccountUuid) ->
                 let actualStr =
                     match actualAccountUuid with
