@@ -308,6 +308,30 @@ Mutation, k = 1 to 4: no mutant survived. The harness could not run the mutants 
 (REQ-AC-3.12.1 and 3.12.3). Those were perturbed by hand instead (the set equality inverted, and the no-lines account
 asserted present), and every case of both theories failed.
 
+### Classification Rules (claimants and runs)
+
+File: `Tests/Tests.Integrated/CrossDomainOrchestration/ClassificationClaimantsAndRuns.fs` (20 names, 25 cases). All pass.
+
+Covers REQ-CR-1.23, 1.24, 1.25, 3.7, 3.8, 5.6, 8.1, 8.2, 8.3, 8.5. REQ-CR-5.4 was dropped from the batch because it
+already had a citing test. Staged entries come from TestCreditCardCo, whose only fixture rule needs an "REI REI Co-op"
+description, so no fixture rule matches unless a test means it to. Most tests run inside a rolled-back transaction.
+The REQ-CR-8.3 duplicate-row test and the REQ-CR-8.5 tests read through the routes, so their setup commits, and a
+finally deletes the run's match rows, then the rules, then the staged entries.
+
+A run advances the context's instant before it starts. A staged entry created and then classified at the same instant
+is refused by the audit table's key on entry and instant (REQ-STG-4.1.2), which is the same thing the fixture does
+between staging and posting.
+
+Refusals are pinned to their typed errors: a rule row whose claimant columns are both null, or both set, reads back
+as `IngestionClassificationRuleInvalidClaimant` naming the rule's ID, by ID, by name and through the filter. For
+REQ-CR-5.6, an unknown account code gives `AccountCodeDoesntMatchAccountId`, an unknown payment agreement name gives
+`CashflowPaymentAgreementNameDoesntMatchId`, and an unknown claimant type gives
+`IngestionInvalidClassificationClaimantType`, each naming the value. (The first run of the account-code case used an
+11-character code and got `AccountCodeTooLong`. That was the test's mistake, so the case now uses a well-formed code.)
+
+Mutation, k = 1 to 6: no mutant survived. The harness could not run the mutants in the REQ-CR-1.25 theory or the
+REQ-CR-8.3 duplicate-row test. Both were perturbed by hand and every case failed.
+
 ## Findings
 
 Each finding gives the requirement, the test, what the spec says, what the code does, and where the bug probably lies.
@@ -414,6 +438,7 @@ These are cited by passing tests unless noted.
 - §6: REQ-CF-6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.9, 6.10, 6.11.
 - §8: REQ-CF-8.1, 8.2, 8.4, 8.5, 8.6, 8.7, 8.8.
 - §14: REQ-CF-14.1, 14.3, 14.4, 14.5, 14.6, 14.7 (with more cases for REQ-CF-9.3, 9.4, 9.8, 9.10).
+- Classification Rules: REQ-CR-1.23, 1.24, 1.25, 3.7, 3.8, 5.6, 8.1, 8.2, 8.3, 8.5.
 - Accounts: REQ-AC-2.22, 2.23, 3.11, 3.12, 3.12.1, 3.12.2, 3.12.3, 3.12.4, 3.13, 3.13.1, 3.13.2, 3.13.3.
 - §7: REQ-CF-7.1, 7.2, 7.3, 7.4, 7.6, 7.7, 7.8, 7.9, 7.10, 7.12, 7.14, 7.15, 7.16 (fails, F-4), plus REQ-CF-4.8.
 
