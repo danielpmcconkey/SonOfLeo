@@ -47,6 +47,7 @@
     <Compile Include="CrossDomainOrchestration\JournalEntryHeaderOrchestration.fs" />
     <Compile Include="CrossDomainOrchestration\JournalEntryOrchestration.fs" />
     <Compile Include="CrossDomainOrchestration\TrialBalance.fs" />
+    <Compile Include="CrossDomainOrchestration\Reconciliation.fs" />
     <Compile Include="CrossDomainOrchestration\StageEntryIngestion.fs" />
     <Compile Include="CrossDomainOrchestration\StageEntryClassification.fs" />
     <Compile Include="CrossDomainOrchestration\ClassificationRuleCrud.fs" />

@@ -216,3 +216,7 @@ type ReportRoutesTests(fixture: TestDataFixture) =
                 | PrePostingReviewReturn.DataOnly _ -> TestError.error (TestingError "Expected Report but got DataOnly")
         }
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-RPT-4.1 REQ-RPT-6.4 the Reconciliation report route returns one data-only row per input row``() =
+        Assert.Fail "not implemented"

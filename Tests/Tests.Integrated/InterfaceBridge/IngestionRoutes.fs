@@ -934,3 +934,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             rows
             [ [ 1; 2 ], Some "grp-level-a", "IngestionStageEntryDebitCreditMismatch"
               [ 3 ], Some "grp-level-b", "JournalEntryLineTypeInvalid" ]
+
+    [<Fact>]
+    member _.``REQ-RPT-4.4 REQ-RPT-4.6 the shadow reconciliation route returns reconciliation rows and leaves ledger and staging untouched`` () =
+        Assert.Fail "not implemented"
