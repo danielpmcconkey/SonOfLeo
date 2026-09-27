@@ -374,6 +374,18 @@ type InvoiceMatchingTests(fixture: TestDataFixture) =
             })
         |> railroadWrapper
 
+    [<Fact>]
+    member _.``REQ-CF-13.7 an eligible linked line on a Payment Agreement with no Instances fails the run, the error names the line and its Payment Agreement with the no-open-Invoice reason, and no Instance or Invoice is created`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-13.7 an eligible linked line on a Payment Agreement whose Invoices are all exactly FullyPaid, none overpaid and one covering the line's date, fails the run, the error names the line and its Payment Agreement with the no-open-Invoice reason, and no Instance or Invoice is created`` () =
+        Assert.Fail "not implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-13.7 an eligible linked line on a Payment Agreement whose open Invoices do not cover its date fails the run, the error names the line and its Payment Agreement with the no-open-Invoice reason, and no Instance or Invoice is created`` () =
+        Assert.Fail "not implemented"
+
     (* This one commits its setup, because what it checks is what a failed run leaves behind once its transaction is
        gone, and a test that rolls back its own transaction can't see that. It runs the operation the way its route
        does, under a transaction that commits on success and rolls back on failure, then reads back from a fresh

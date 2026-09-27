@@ -145,21 +145,11 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-4.11 REQ-STG-4.7 voiding a journal entry posted from a staged entry moves that staged entry from Posted to Reviewed, with change mechanism Operator`` () =
+    member _.``REQ-JE-4.13 voiding a journal entry posted from a staged entry leaves the staged entry and every one of its lines exactly as they were before the void: still Posted with no new status transition, and keeping their journal entry and journal entry line IDs`` () =
         Assert.Fail "not implemented"
 
-    [<Fact>]
-    member _.``REQ-JE-4.11 voiding a journal entry posted from a staged entry clears the staged entry's journal entry ID and every one of its lines' journal entry line IDs`` () =
-        Assert.Fail "not implemented"
-
-    [<Fact>]
-    member _.``REQ-JE-4.12 voiding a journal entry whose line a Payment with a staged line points at clears the Payment's journal entry line so it points at its staged line again, and re-derives the Invoice's and the Instance's states`` () =
-        Assert.Fail "not implemented"
-
-    [<Fact>]
-    member _.``REQ-JE-4.12 voiding a journal entry whose line a Payment with no staged line points at is rejected with a typed error naming the Payment, nothing is changed, and the reason comment is not written`` () =
-        Assert.Fail "not implemented"
-
-    [<Fact>]
-    member _.``REQ-JE-4.11 voiding a journal entry that was not posted from staging changes no staged entry and no Payment`` () =
+    [<Theory>]
+    [<InlineData(true)>]
+    [<InlineData(false)>]
+    member _.``REQ-JE-4.14 voiding a journal entry when a Payment's transaction pointer references one of its lines is rejected with a typed error naming that Payment, and the journal entry stays unvoided with no reason comment written, whether or not the Payment also has a staged line`` (paymentHasStagedLine: bool) =
         Assert.Fail "not implemented"
