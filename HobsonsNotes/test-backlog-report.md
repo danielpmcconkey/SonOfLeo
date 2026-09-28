@@ -704,4 +704,41 @@ These are cited by passing tests unless noted.
 - REQ-CF-2.3 and REQ-CF-2.17 (a null name or counterparty) have no waiver. Instead, they each have a payload test,
   because a null can arrive at run time through a deserialized payload.
 
+**Proposed for the Unenforceable table, pending Dan's approval.**
+- REQ-CF-10.6 and REQ-CF-7.13 ("a deterministic [DET] operation"): nothing observable separates a deterministic
+  operation from one that happens to give the same answer twice. The §8 tests repeat each operation and compare the
+  results, which catches the visible failure but doesn't prove the property. See the §10 and §7 batch notes.
+- The "current date" clause of REQ-SYS-3.4, and the "not the UTC date" clause of REQ-AC-4.1: both need a clock the test
+  can set, and there isn't one. The rest of each requirement has a passing test. See the SystemWide and item 30 notes.
+
+**Not mine.** REQ-JE-4.13 and REQ-JE-4.14 (void rework) belong to the plan agent.
+
+**Stale waivers, for Dan.** The audit lists REQ-NGUI-3.10, REQ-STG-1.4, REQ-RPT-3.1 and REQ-SYS-6.1.1 as waived but
+tested. My item 30 tests made the first two stale: each waiver covers a clause that still can't be tested, so it
+should be narrowed to that clause rather than removed. The other two predate this work.
+
+**Invariant 1 (withdrawn references).** REQ-DAL-1.3, REQ-JE-4.11, REQ-JE-4.12, REQ-NGUI-1.3.2 and REQ-STG-4.7 are
+cited by tests the plan agent owns (`Configuration.fs`, `JournalEntryVoiding.fs`, `StartupErrorReporting.fs`). "REQ-RPT-5
+defined nowhere" comes from a Src XML doc comment copied into `bin/`, not from a test.
+
 ## Suites run
+
+All runs were on 2026-09-28, in the cloud container, against the throwaway Postgres database `sonofleo_test` on
+localhost (built with `Tests/Tests.Integrated/setup-throwaway-test-db.sh`), at commit 65a24ee.
+- `dotnet test Tests/Tests.Isolated`: 349 passed, 0 failed.
+- `dotnet test Tests/Tests.Integrated`: 1217 passed, 17 failed, of 1234. Every failure is accounted for:
+  - 12 are my tests failing against Src, as recorded: F-1 (REQ-CF-12.4), F-4 (REQ-CF-7.16), F-7 (REQ-STG-1.17),
+    F-8 (REQ-STG-6.3.2), F-9 (REQ-STG-6.7, three cases), F-10 (REQ-STG-3.13), F-12 (REQ-SYS-3.3), F-13 (REQ-CR-5.3,
+    two cases) and F-14 (REQ-CF-14.2).
+  - 5 are the plan agent's "not implemented" placeholders for the withdrawn REQ-JE-4.11 and REQ-JE-4.12, in
+    `JournalEntryVoiding.fs`.
+- F-11's intermittent failures didn't show up in this run. The fixture fix it needs is in `Tests.Helpers`, which
+  belongs to the plan thread.
+
+## Traceability audit result
+
+`bash Skills/SonOfLeoRequirementsAudit/traceability-audit.sh .` exits 1. Invariant 2 lists 15 of 666 active
+requirements, down from about 120 when this work started. All 15 are listed above: 11 proposed waivers (REQ-CF-2.1,
+2.2, 3.1, 3.2, 4.1, 4.2, 4.4, 5.1, 5.11, 5.12, 6.1), two proposed Unenforceable entries (REQ-CF-10.6, 7.13), and the
+plan agent's REQ-JE-4.13 and 4.14. Once Dan rules on the proposals, only the plan agent's two remain. Invariant 1 and
+the stale waivers are as described above.
