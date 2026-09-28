@@ -958,12 +958,17 @@ type TestDataFixture() =
                 let outgoLines amount =
                     [ (amount, "Debit", Some loanCode, None, None)
                       (amount, "Credit", Some cashCode, None, None) ]
+                (* An entry's current status is its latest transition. Staging these entries also writes an Ingested
+                   transition at the context's instant, so these are stamped just after it; the posting below waits
+                   until they are all in the past, or one stamped after the Posted transition would become the entry's
+                   status and a later batch post would post it again. *)
+                let transitionStep = Duration.FromMilliseconds 10L
                 let transitionsTo (statuses: (string * string) list) =
-                    let start = Clock.now()
+                    let start = context |> Context.getInitiationInstant
                     (("Ingested", "StageIngestion") :: statuses)
                     |> List.mapi (fun i (status, mechanism) ->
                         let prior = if i = 0 then None else Some(fst ((("Ingested", "") :: statuses).[i - 1]))
-                        (prior, status, start.Plus(Duration.FromMilliseconds(int64 (i * 10))), mechanism))
+                        (prior, status, start.Plus(transitionStep * int64 (i + 1)), mechanism))
                 let leglineOf (entry: StageEntryOrchestration.StageEntry) =
                     entry
                     |> StageEntryOrchestration.seLines
@@ -1032,6 +1037,10 @@ type TestDataFixture() =
                     createLinkedLine legBId "Fixture agreement B payment" firstOfLastMonth classified
                 (* posting is a later operation than staging: the staged entries already hold an Ingested transition
                    at this context's instant, and one entry cannot hold two transitions at one instant (REQ-STG-4.1.2) *)
+                let waitUntilAfter (instant: Instant) =
+                    while Clock.now() <= instant do
+                        System.Threading.Thread.Sleep 5
+                waitUntilAfter ((context |> Context.getInitiationInstant).Plus(transitionStep * 3L))
                 let postingContext = context |> Context.updateInitiationInstant
                 let! _ = CashFlowOps.classifyPaymentAgreements postingContext
                 do! StageEntryOrchestration.post postingContext
