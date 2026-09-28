@@ -52,8 +52,9 @@ domain-level decision, made in each entity's spec (for Accounts, see REQ-AC-5.1)
 
 ## 7. Time zone
 
-- **REQ-SYS-7.1** Converting an Instant to a calendar Date uses one configured local time zone, system-wide. When the time zone is not configured or is not a recognised time zone identifier, the system refuses to run rather than falling back to a default.
-  - *Why:* Per the Date definition, mapping an Instant to a Date always requires a declared time zone. A silent fallback (UTC, or the host's zone) would shift late-evening activity into the next day. (2026-09-26)
+- **REQ-SYS-7.1** Converting an Instant to a calendar Date uses one configured local time zone, system-wide. (Revised 2026-09-28)
+  - *Why:* Per the Date definition, mapping an Instant to a Date always requires a declared time zone; late-evening activity must land on the local date, not UTC's. (2026-09-26)
+  - *Why no "refuses to run" clause:* it guarded against a silent fallback to UTC or the host's zone that the code never had. A missing or unrecognised time zone already throws. (2026-09-28)
 
 ## 8. Operation atomicity
 

@@ -8,7 +8,7 @@ Applies to command line, importing, reporting, API, etc. Any use case where an e
 - **REQ-NGUI-1.2** Some use cases may require additional inputs beyond domain, verb, and payload and the system must support extending the input.
 - **REQ-NGUI-1.3** The system will respond to all interface triggers with a code denoting failure / success and a payload. Ex: 0 {...}
 - **REQ-NGUI-1.3.1** In the event of an error, the payload will comprise the error message.
-- **REQ-NGUI-1.3.2** In the event of a system exception, the error payload will additionally include the full stack trace.
+- **REQ-NGUI-1.3.2** *(Withdrawn 2026-09-28 — an uncaught exception already reports its message and stack trace; see the Withdrawn table.)*
 - **REQ-NGUI-1.4** The user interface must never force the actor to interact with Account UUIDs. All interface capabilities must present an option for the actor to reference accounts by code and all return payloads must include account codes when identifying an account.
 - **REQ-NGUI-1.5** When a UI-facing operation references an Account entity by code and that code does not correspond to an existing Account entity, the operation must fail with an error.
 - **REQ-NGUI-1.6** All interface return payloads that identify an account must include the account name alongside the account code.
@@ -86,3 +86,4 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 | REQ-NGUI-2.3 | UI domain types will provide a 1:1 map to the primary domain types. Example, if the primary domain type for Account has an accountType field, the UI domain type will have an accountType field. | Moved to an interface contract paradigm |
 | REQ-NGUI-2.3.1 | For compound types (e.g.: the Account type's activityPeriod), feature designers have the latitude to represent them as multiple peer fields in the UI domain type or as a compound "nested" type within the domain type. | Moved to an interface contract paradigm |
 | REQ-NGUI-2.5 | A payload containing a field that the operation's input contract does not define is rejected with a typed error naming the field. | Rejected by Dan (2026-09-26). Deserialisation already enforces the contract's types and fails on any missing field, so a misspelt field fails too. The only case left is a caller sending a field the contract doesn't define, which is dropped harmlessly; tolerant reading of extra fields is the common default. |
+| REQ-NGUI-1.3.2 | In the event of a system exception, the error payload will additionally include the full stack trace. | Withdrawn by Dan (2026-09-28). An exception nothing catches already ends the process with a non-zero exit and its message and full stack trace on stderr. The interface need not catch, wrap or re-print it; there is nothing to specify. |

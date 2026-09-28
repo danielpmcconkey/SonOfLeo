@@ -6,8 +6,7 @@ Generic database functions: connecting, executing queries, parameterization, and
 
 - **REQ-DAL-1.1** stricken
 - **REQ-DAL-1.2** stricken
-- **REQ-DAL-1.3** If the external configuration file cannot be read, or a required setting in it is missing or invalid, no data access is attempted. The interface reports an error message naming the file or setting and exits with a non-zero code; it must not terminate with an unhandled exception. (Revised 2026-09-26)
-  - *Why:* Configuration is read once at start-up, so the realistic failure is "the program cannot start," not "one data access call fails." What matters is that the operator gets an actionable message, not a stack trace. (2026-09-26)
+- **REQ-DAL-1.3** *(Withdrawn 2026-09-28 — a missing or bad configuration already fails loudly; see the Withdrawn table.)*
 - **REQ-DAL-1.4** stricken
 - **REQ-DAL-1.5** stricken
 - **REQ-DAL-1.6** stricken
@@ -96,4 +95,5 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 | REQ-DAL-1.11 | If the trimmed LEOBLOOM_DB_PASSWORD environment variable is empty, all data access functions must fail with an error | rearchitected the connection string process |
 | REQ-DAL-1.12 | The system will trim leading and trailing white space from the LEOBLOOM_ENV environment variable | rearchitected the connection string process |
 | REQ-DAL-1.13 | If the trimmed LEOBLOOM_ENV environment variable is empty, all data access functions must fail with an error | rearchitected the connection string process |
+| REQ-DAL-1.3 | If the external configuration file cannot be read, or a required setting in it is missing or invalid, no data access is attempted. The interface reports an error message naming the file or setting and exits with a non-zero code; it must not terminate with an unhandled exception. | Withdrawn by Dan (2026-09-28). Without a readable configuration there is no connection string, so no data access can happen, and the program already stops with an exception naming what is missing. Converting that exception into a tidy message guards a failure that cannot be silent; a loud crash is the house pattern for "something is deeply wrong." |
 | REQ-DAL-3.2.2 | An exception to REQ-DAL-3.2 is that customer-facing applications (e.g.: SonOfLeoCli) will need to create RDBMS-specific connection strings in their external configurations | Connection strings moved to environment variables; config files no longer hold them |
