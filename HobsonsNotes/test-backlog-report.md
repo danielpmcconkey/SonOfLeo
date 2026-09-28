@@ -414,6 +414,24 @@ perturbations). Each failed the case it belongs to (the REQ-SYS-3.3 created-at a
 four cases and the three passing cases). UsageMessages has its asserts in a shared helper, so the harness had nothing
 to mutate. Each of its three asserts was perturbed by hand and all three cases failed each time.
 
+### Plan item 30: revised requirements
+
+These tests cover the clauses of requirements revised since 2026-09-26 that no earlier test reached (an earlier test
+may cite the requirement for an older clause). The names were drafted from the spec, graded (9 of 32 revised, 9
+added), and committed as placeholders in eaeb56c.
+
+**Accounts and Journal Entries.** File: `Tests/Tests.Integrated/CrossDomainOrchestration/RevisedRequirementsLedger.fs`
+(11 names, 12 cases). All pass. Covers REQ-AC-4.1, REQ-JE-2.11, 3.1, 3.4, 3.5, 4.4. The account test runs in a
+transaction that rolls back. The journal entry tests go through the routes, which commit, and a finally deletes their
+entries (newest first) and any account they made. The REQ-JE-3.4 tests post to a fresh account, so its lines are
+exactly the test's. Refusals are pinned: a dangling secondary on a post or a void gives
+`JournalEntryCommentSecondaryJeHeaderIdNotFound` naming it, and voiding an entry twice gives `JournalEntryVoidingNoOp`
+naming the entry. REQ-AC-4.1's expected date is computed from the context's instant in America/New_York, taken from the
+tz database rather than the app's configured zone. Soft edge: the Eastern date and the UTC date differ only between
+20:00 and midnight Eastern, and the instant can't be set (no clock seam), so the test tells Eastern from UTC only when it
+runs in those hours. The "not the UTC date" part the grader asked for is therefore proposed for the Unenforceable table
+along with REQ-SYS-3.4's current-date clause. Mutation, k = 1 to 5: no mutant survived.
+
 ## Findings
 
 Each finding gives the requirement, the test, what the spec says, what the code does, and where the bug probably lies.
@@ -591,6 +609,7 @@ These are cited by passing tests unless noted.
 - DataIngestion: REQ-STG-1.17 (one case fails, F-7), 2.25, 2.26, 2.27, 3.11, 3.13 (fails, F-10), 3.14, 3.15, 4.1.1,
   5.11, 6.3.1, 6.3.2 (one case fails, F-8), 6.7 (fails, F-9), 7.5.1, 8.5, 9.10, 9.11.
 - Classification Rules: REQ-CR-1.23, 1.24, 1.25, 3.7, 3.8, 5.6, 8.1, 8.2, 8.3, 8.5.
+- Item 30 (revised clauses): REQ-AC-4.1; REQ-JE-2.11, 3.1, 3.4, 3.5, 4.4.
 - SystemWide: REQ-SYS-3.3 (one case fails, F-12), 3.4, 8.1.
 - CLI: REQ-NGUI-3.11, 4.6.
 - Journal Entries: REQ-JE-2.15, 3.1.1, 3.5.1, 3.7, 3.7.1, 5.8.
