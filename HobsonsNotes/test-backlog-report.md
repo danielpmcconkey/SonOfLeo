@@ -432,6 +432,52 @@ tz database rather than the app's configured zone. Soft edge: the Eastern date a
 runs in those hours. The "not the UTC date" part the grader asked for is therefore proposed for the Unenforceable table
 along with REQ-SYS-3.4's current-date clause. Mutation, k = 1 to 5: no mutant survived.
 
+**Classification Rules.** File: `Tests/Tests.Integrated/CrossDomainOrchestration/RevisedRequirementsClassification.fs`
+(11 names, 20 cases). 18 pass and 2 fail (F-13). Covers REQ-CR-1.5, 1.14, 3.4, 4.3, 5.3 (two cases fail, F-13), 5.5,
+6.1, 6.3. The rule tests go through the Classification routes, which commit. Each test makes its own payment
+agreements and rules with a fresh tag, and a finally deletes the rules, then the agreements. The stored claimant is
+read back through the model, which refuses a row holding both claimants or neither, so "no account" and "exactly one"
+are checked on the stored row. The REQ-CR-1.14 tests evaluate field matches directly against a candidate. The
+REQ-CR-3.4 test runs the classifier over a payment agreement rule and a non-matching account rule, made in a
+transaction that rolls back. Refusals are pinned: an unknown payment agreement name, on create or on update, gives
+`CashflowPaymentAgreementNameDoesntMatchId` naming the name.
+
+**DataIngestion.** File: `Tests/Tests.Integrated/CrossDomainOrchestration/RevisedRequirementsStaging.fs` (12 names,
+25 cases). All pass. Covers REQ-STG-1.4, 1.6, 2.6, 5.1, 5.2, 7.2, 9.3, 10.2, 10.3. The file tests (1.4, 1.6) go
+through the Ingestion route and clean up the file's staged entries. The rest run in a transaction that rolls back.
+The posting tests run the real batch post inside that transaction, so the journal entry is fetched back from the same
+transaction. The REQ-STG-1.4 refusal comes back as `IngestionFileRejected`, a file with invalid records being refused
+as a whole, and every record in it carries `IngestionBaseStageEntryGroupIdTooLong` naming the value and the limit of
+36. The REQ-STG-2.6 refusal is `IngestionSourceFileTooLong` with the limit of 150. REQ-STG-7.2's "every status counts
+when establishing the original" was already covered for Posted, Reviewed and Duplicate originals; the new test adds
+Ignored.
+
+**CLI.** File: `Tests/Tests.Integrated/SonOfLeoCli/FileArgumentPosition.fs` (1 name, 2 cases). Both pass. Covers
+REQ-NGUI-3.10's position rule. Each case also runs the file straight after the verb or report name, to show the file
+is read there and would change the outcome: for the main CLI the file looks up a different account; for the Reports
+CLI it isn't JSON.
+
+**CashFlow.** File: `Tests/Tests.Integrated/CrossDomainOrchestration/RevisedRequirementsCashFlow.fs` (6 names, 11
+cases). 10 pass and 1 fails (F-14). Covers REQ-CF-8.3, 8.9, 14.2 (one case fails, F-14). All run in a transaction
+that rolls back. The REQ-CF-8.3 tests check the account's itemised invoices as well as its known outflows. A fully
+paid Invoice contributes nothing to the sum either way, so only the itemised list can show it was left out. The fully
+paid Invoice sits on an Instance beside an unpaid one, so that Instance is not fulfilled; a second Instance has every
+Invoice paid. REQ-CF-8.9 is observable through the projection because an overpaid Invoice derives PartiallyPaid, not
+FullyPaid (REQ-CF-9.8). The flow-direction update test uses an agreement with no Invoices: no Outgo Invoice state is
+valid for Income (REQ-CF-5.10), so "every invoice's state is valid for the new direction" is reachable only with no
+Invoices.
+
+Stale waivers: the traceability audit now lists REQ-NGUI-3.10 and REQ-STG-1.4 as waived but tested. Their waivers
+predate the 2026-09-26 amendments (the position rule and the 36-character limit), so the waiver entries in Specs/ need
+narrowing or removing. That is Dan's call; I haven't touched Specs/.
+
+Mutation, k = 1 to 4, over the four files: no mutant survived, apart from one expected case. In the REQ-CF-14.2
+no-op test, which already fails at its first assert (F-14), inverting that assert lets the rest pass. The harness
+could not isolate theory cases, or tests whose names hold brackets and commas, so each of those was perturbed by
+hand, one assert at a time (34 perturbations over the REQ-CR-5.3 claimant filter and REQ-CR-6.1 theories, REQ-STG-1.4,
+2.6 and 5.1, REQ-NGUI-3.10, REQ-CF-8.3 and the REQ-CF-14.2 field theory). Each failed the case it belongs to. In the
+REQ-CF-14.2 field theory, dropping the update call itself failed all six cases.
+
 ## Findings
 
 Each finding gives the requirement, the test, what the spec says, what the code does, and where the bug probably lies.
@@ -565,6 +611,27 @@ question.**
   its SET clause from the field updates alone and never adds `modified_at = @modified_at`.
 - Fix: add the modified-at clause from the context's instant, as the other updates do.
 
+**F-13. REQ-CR-5.3: the payment agreement claimant filter, given a name no payment agreement has, returns an error instead of no rules. Src or spec; Dan to decide.**
+- Test: `RevisedRequirementsClassification.fs`, "REQ-CR-5.3 the payment agreement claimant filter given only part of a
+  payment agreement's name, or the full name in the wrong case, returns no rule". Both cases fail the same way.
+- Spec: rules are retrieved by "payment agreement claimant (by payment agreement name, exact)". A filter nothing meets
+  returns no rules.
+- Code: the route converts the name to a payment agreement ID before filtering
+  (`Src/Ui.InterfaceBridge/BoundaryConverters/ClassificationFieldConverters.fs:259`), and an unknown name fails there
+  with `CashflowPaymentAgreementNameDoesntMatchId`. The account code filter goes through the same kind of conversion.
+  The exact-match part holds: partial and wrong-case names don't match anything.
+- My view: this is a Src bug if a filter should behave like a filter; the error is defensible as a guard against a
+  typo. If Dan prefers the error, the spec should say so and the test name changes.
+
+**F-14. REQ-CF-14.2 (with REQ-SYS-6.1): an update setting every master agreement field to its current value is accepted. Bug in Src.**
+- Test: `RevisedRequirementsCashFlow.fs`, "REQ-CF-14.2 an update to a master agreement that sets every field to its
+  current value is rejected with the no-op error and the agreement is unchanged". The update returns Ok.
+- Spec: REQ-CF-14.2 says "An update that changes nothing is rejected (REQ-SYS-6.1)".
+- Code: `isThereAMasterAgreementUpdate` (`Src/Business.CrossDomainOrchestration/AgreementOrchestration.fs:350`) only
+  checks whether any field is `SetTo`, not whether the value differs. This is the same pattern as F-8 for staged
+  entries.
+- Fix: compare each `SetTo` value with the stored one and treat equal values as no change.
+
 **Q-1. REQ-CF-6.4 "both may be present" at creation. Spec question.**
 - REQ-CF-6.4 says a Payment may carry both a staged line and a journal entry line, with the journal entry line taking
   precedence.
@@ -609,7 +676,9 @@ These are cited by passing tests unless noted.
 - DataIngestion: REQ-STG-1.17 (one case fails, F-7), 2.25, 2.26, 2.27, 3.11, 3.13 (fails, F-10), 3.14, 3.15, 4.1.1,
   5.11, 6.3.1, 6.3.2 (one case fails, F-8), 6.7 (fails, F-9), 7.5.1, 8.5, 9.10, 9.11.
 - Classification Rules: REQ-CR-1.23, 1.24, 1.25, 3.7, 3.8, 5.6, 8.1, 8.2, 8.3, 8.5.
-- Item 30 (revised clauses): REQ-AC-4.1; REQ-JE-2.11, 3.1, 3.4, 3.5, 4.4.
+- Item 30 (revised clauses): REQ-AC-4.1; REQ-JE-2.11, 3.1, 3.4, 3.5, 4.4; REQ-CR-1.5, 1.14, 3.4, 4.3, 5.3 (two cases
+  fail, F-13), 5.5, 6.1, 6.3; REQ-STG-1.4, 1.6, 2.6, 5.1, 5.2, 7.2, 9.3, 10.2, 10.3; REQ-NGUI-3.10; REQ-CF-8.3, 8.9,
+  14.2 (one case fails, F-14).
 - SystemWide: REQ-SYS-3.3 (one case fails, F-12), 3.4, 8.1.
 - CLI: REQ-NGUI-3.11, 4.6.
 - Journal Entries: REQ-JE-2.15, 3.1.1, 3.5.1, 3.7, 3.7.1, 5.8.
