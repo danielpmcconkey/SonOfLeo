@@ -366,6 +366,24 @@ REQ-CR-5.6, an unknown account code gives `AccountCodeDoesntMatchAccountId`, an 
 Mutation, k = 1 to 6: no mutant survived. The harness could not run the mutants in the REQ-CR-1.25 theory or the
 REQ-CR-8.3 duplicate-row test. Both were perturbed by hand and every case failed.
 
+### Journal Entries (comments and reads)
+
+File: `Tests/Tests.Integrated/CrossDomainOrchestration/JournalEntryCommentsAndReads.fs` (10 names, 15 cases). All pass.
+
+Covers REQ-JE-2.15, 3.1.1, 3.5.1, 3.7, 3.7.1, 5.8. The tests go through the JournalEntry routes, which commit, so each
+test posts its entries through a local `withEntries` helper and a finally deletes them (and their comments), newest
+first. Every entry carries a fresh tag in its description, so a test only ever reads its own rows.
+
+Refusal reasons are pinned to their typed errors: whitespace-only comment text gives `JournalEntryCommentIsEmpty`,
+2001 characters `JournalEntryCommentTooLong`, and a dangling secondary `JournalEntryCommentSecondaryJeHeaderIdNotFound`
+naming the missing ID (the same for REQ-JE-5.8, with `JournalEntryCommentPrimaryJeHeaderIdNotFound` for the primary).
+A reference lookup with neither argument gives `JournalEntryFetchByReferenceBothArgumentsNull`, and a date range
+starting after it ends gives `JournalEntryFetchByDateRangeBeginAfterEnd` naming both dates.
+
+Mutation, k = 1 to 5: no mutant survived. The harness could not run the mutants in the REQ-JE-2.15 invalid-comment
+theory. It was perturbed by hand twice: with the refusal matches inverted, all three cases failed; with the bad
+comment dropped and the refusal assert disabled, the "nothing is stored" assert failed in all three.
+
 ## Findings
 
 Each finding gives the requirement, the test, what the spec says, what the code does, and where the bug probably lies.
@@ -514,6 +532,7 @@ These are cited by passing tests unless noted.
 - DataIngestion: REQ-STG-1.17 (one case fails, F-7), 2.25, 2.26, 2.27, 3.11, 3.13 (fails, F-10), 3.14, 3.15, 4.1.1,
   5.11, 6.3.1, 6.3.2 (one case fails, F-8), 6.7 (fails, F-9), 7.5.1, 8.5, 9.10, 9.11.
 - Classification Rules: REQ-CR-1.23, 1.24, 1.25, 3.7, 3.8, 5.6, 8.1, 8.2, 8.3, 8.5.
+- Journal Entries: REQ-JE-2.15, 3.1.1, 3.5.1, 3.7, 3.7.1, 5.8.
 - Accounts: REQ-AC-2.22, 2.23, 3.11, 3.12, 3.12.1, 3.12.2, 3.12.3, 3.12.4, 3.13, 3.13.1, 3.13.2, 3.13.3.
 - §7: REQ-CF-7.1, 7.2, 7.3, 7.4, 7.6, 7.7, 7.8, 7.9, 7.10, 7.12, 7.14, 7.15, 7.16 (fails, F-4), plus REQ-CF-4.8.
 
