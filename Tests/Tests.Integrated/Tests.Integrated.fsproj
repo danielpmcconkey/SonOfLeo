@@ -33,6 +33,7 @@
     <Compile Include="SharedTestDataCollection.fs" />
     <Compile Include="SonOfLeoCli\Program.fs" />
     <Compile Include="SonOfLeoCli\Configuration.fs" />
+    <Compile Include="SonOfLeoCli\UsageMessages.fs" />
     <Content Include="SonOfLeoCli\README.md" />
     <Compile Include="CrossDomainOrchestration\AccountDeactivation.fs" />
     <Compile Include="CrossDomainOrchestration\JournalEntryCreation.fs" />
@@ -79,6 +80,8 @@
     <Compile Include="CrossDomainOrchestration\AccountCreateActivityBalance.fs" />
     <Compile Include="CrossDomainOrchestration\ClassificationClaimantsAndRuns.fs" />
     <Compile Include="CrossDomainOrchestration\StagingIngestionRules.fs" />
+    <Compile Include="CrossDomainOrchestration\JournalEntryCommentsAndReads.fs" />
+    <Compile Include="CrossDomainOrchestration\OperationInstantAndAtomicity.fs" />
     <Compile Include="CrossDomainOrchestration\BalanceSheetIntegrity.fs" />
     <Compile Include="CrossDomainOrchestration\PeriodActivity.fs" />
     <Compile Include="Model\Ledger\JournalEntryHeader.fs" />
