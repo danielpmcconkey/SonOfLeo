@@ -308,6 +308,40 @@ Mutation, k = 1 to 4: no mutant survived. The harness could not run the mutants 
 (REQ-AC-3.12.1 and 3.12.3). Those were perturbed by hand instead (the set equality inverted, and the no-lines account
 asserted present), and every case of both theories failed.
 
+### DataIngestion (staging)
+
+File: `Tests/Tests.Integrated/CrossDomainOrchestration/StagingIngestionRules.fs` (28 names, 44 cases). 38 pass and 6
+fail against Src (findings F-7 to F-10).
+
+Covers REQ-STG-1.17, 2.25, 2.26, 2.27, 3.11, 3.13, 3.14, 3.15, 4.1.1, 5.11, 6.3.1, 6.3.2, 6.7, 7.5.1, 8.5, 9.10, 9.11.
+The file, source and post-result tests go through the Ingestion routes, which commit. Files are written to a scratch
+import directory under the system temp directory, and a finally deletes every staged entry from the file, the file
+itself, and any journal entries, rules, sources and accounts the test made. The rest run in a rolled-back transaction
+and advance the context's instant between operations, because one staged entry cannot hold two status transitions at
+one instant (REQ-STG-4.1.2).
+
+Some tests check that their setup does bite, so that a pass isn't vacuous. The REQ-STG-3.14 test runs classification
+and dedup afterwards (rolled back) and sees the rule assign its account and the repeat flagged Duplicate. The
+REQ-STG-6.7 dedup test has an unpaid repeat beside the paid one, and the unpaid one is flagged. The REQ-STG-8.5 test
+creates two fresh accounts, so a trial balance row moves only because of the test's own entries, and runs the shadow
+post twice: once before and once after committing a ledger entry dated tomorrow.
+
+Refusal reasons: each column-name spelling is rejected with `IngestionFileRejected`, naming the missing property for
+both records. The directory cases give `FileIoDirectoryDoesntExist` or `FileIoFileDoesntExist`. An empty or
+whitespace-only source name gives `JournalRefFinancialInstitutionIsEmpty` and a 101-character one
+`JournalRefFinancialInstitutionTooLong`. A null name is refused earlier, as `JsonDeserializationFailed`. An update
+naming no fields gives `IngestionUpdateStageEntryNoOp`. The REQ-STG-6.3.1 refusal is pinned to
+`IngestionUpdateStageEntryLinesMustMatchHeader` with both IDs.
+
+REQ-STG-9.10's clause "including when the staged lines are not in the order the journal entry lines are created in"
+is only partly reachable. Posting builds the journal entry lines from the staged lines as read, so a test can't force
+the two orders apart. The test stages the lines Credit, Debit, Debit and checks the pairing by account, line type and
+amount, whatever the order.
+
+Mutation, k = 1 to 6: no mutant survived. The harness could not run the mutants in the padding theory (REQ-STG-1.17)
+or the REQ-STG-6.3.2 theory. One case of each already fails against Src (F-7, F-8), so their other cases are what
+the mutants would have shown.
+
 ### Classification Rules (claimants and runs)
 
 File: `Tests/Tests.Integrated/CrossDomainOrchestration/ClassificationClaimantsAndRuns.fs` (20 names, 25 cases). All pass.
@@ -397,6 +431,45 @@ behaviour holds.**
 - The operator reading that message would look for a memo, not a blocker note. The text looks copied from the memo
   errors in `CashFlowError`.
 
+**F-7. REQ-STG-1.17: a padded account code in a file is not trimmed. Bug in Src.**
+- Test: `StagingIngestionRules.fs`, the padding theory, case `accountCode`. The file is rejected: "Account code of
+  `   F-2230` doesn't match an Account ID in the database".
+- Spec: "Text fields are trimmed before validation (REQ-SYS-1.1)."
+- Code: `convert AccountCodeString Option to AccountId Option` looks the code up as it arrived. `AccountCode.create`
+  trims, but that path doesn't go through it. The other six text properties are trimmed; their cases pass.
+
+**F-8. REQ-STG-6.3.2: a manual update that sets fields to the values they already hold is accepted. Bug in Src.**
+- Test: `StagingIngestionRules.fs`, the REQ-STG-6.3.2 theory, case "setting every named field to its current value".
+  The update sets the description, reference and entry date, and one line's amount, account and memo, each to its
+  current value. It succeeds.
+- Spec: "A manual update that changes nothing is rejected, per REQ-SYS-6.1." Only a status-only update to the current
+  status is excepted.
+- Code: `updateStageEntry` rejects an update only when every field is `NoChange`
+  (`IngestionUpdateStageEntryNoOp`). A field set to its own value counts as a change, and the header and line updates
+  are written. The "naming no fields" case is rejected with `IngestionUpdateStageEntryNoOp` and passes.
+
+**F-9. REQ-STG-6.7: an entry with a paid line can be made Duplicate or Ignored. Bug in Src.**
+- Tests: `StagingIngestionRules.fs`, the REQ-STG-6.7 theory (Duplicate and Ignored both succeed) and the dedup test
+  (the paid repeat is flagged Duplicate; an unpaid repeat beside it is flagged too, as it should be).
+- Spec: "A staged entry with any line referenced by a Payment cannot transition to 'Duplicate' or 'Ignored', by any
+  operation. The attempt fails with a typed error (manual update) or is reported without flagging (dedup)."
+- Code: `updateStageEntry` checks Payments only when a line is removed or its amount, line type or account changes
+  (`protectionsOf`). A status change isn't checked. `StageEntryHeader.fetchDuplicates` doesn't look at Payments, so
+  `deduplicateStagedEntries` flags the entry.
+- Test gap: "reported without flagging" can only be checked in part. The dedup result is a list of the entries still
+  Ingested and carries no reason, so the test asserts only that the paid entry keeps its status and is listed. If Dan
+  wants the report to say why, the result contract needs a field for it.
+
+**F-10. REQ-STG-3.13: ingestion returns a status transition that was never stored. Bug in Src.**
+- Test: `StagingIngestionRules.fs`, "ingestion returns every staged entry it created and no other...". The entries,
+  headers and lines match what was stored. The one returned transition per entry has an ID that isn't in the database.
+- Spec: "Ingestion returns every staged entry it created, each with its full composition (header, lines, status
+  transitions)."
+- Code: `constructGroup` builds an Ingested transition with its own ID and returns it on the entry. `persistConstructed`
+  never writes that transition. `StageEntryHeader.persist` calls `updateHeaderStatus`, which writes a second Ingested
+  transition with a new ID at the same instant. The route returns the constructed entries, not what was stored.
+- Fix: return the entries as read back after the write, or persist the constructed transition.
+
 **Q-1. REQ-CF-6.4 "both may be present" at creation. Spec question.**
 - REQ-CF-6.4 says a Payment may carry both a staged line and a journal entry line, with the journal entry line taking
   precedence.
@@ -438,6 +511,8 @@ These are cited by passing tests unless noted.
 - §6: REQ-CF-6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.9, 6.10, 6.11.
 - §8: REQ-CF-8.1, 8.2, 8.4, 8.5, 8.6, 8.7, 8.8.
 - §14: REQ-CF-14.1, 14.3, 14.4, 14.5, 14.6, 14.7 (with more cases for REQ-CF-9.3, 9.4, 9.8, 9.10).
+- DataIngestion: REQ-STG-1.17 (one case fails, F-7), 2.25, 2.26, 2.27, 3.11, 3.13 (fails, F-10), 3.14, 3.15, 4.1.1,
+  5.11, 6.3.1, 6.3.2 (one case fails, F-8), 6.7 (fails, F-9), 7.5.1, 8.5, 9.10, 9.11.
 - Classification Rules: REQ-CR-1.23, 1.24, 1.25, 3.7, 3.8, 5.6, 8.1, 8.2, 8.3, 8.5.
 - Accounts: REQ-AC-2.22, 2.23, 3.11, 3.12, 3.12.1, 3.12.2, 3.12.3, 3.12.4, 3.13, 3.13.1, 3.13.2, 3.13.3.
 - §7: REQ-CF-7.1, 7.2, 7.3, 7.4, 7.6, 7.7, 7.8, 7.9, 7.10, 7.12, 7.14, 7.15, 7.16 (fails, F-4), plus REQ-CF-4.8.
