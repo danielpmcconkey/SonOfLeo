@@ -384,6 +384,36 @@ Mutation, k = 1 to 5: no mutant survived. The harness could not run the mutants 
 theory. It was perturbed by hand twice: with the refusal matches inverted, all three cases failed; with the bad
 comment dropped and the refusal assert disabled, the "nothing is stored" assert failed in all three.
 
+### SystemWide (one instant per operation, atomicity) and CLI usage messages
+
+Files: `Tests/Tests.Integrated/CrossDomainOrchestration/OperationInstantAndAtomicity.fs` (9 names, 13 cases; 12 pass,
+1 fails, F-12) and `Tests/Tests.Integrated/SonOfLeoCli/UsageMessages.fs` (2 names, 3 cases; all pass).
+
+Covers REQ-SYS-3.3 (one case fails, F-12), 3.4, 8.1, REQ-NGUI-3.11, 4.6. The REQ-SYS-3.3 and 3.4 tests read the
+context's initiation instant from its audit envelope and check that every row the operation wrote carries it. The
+update tests set up in one context and update in a second made with `Context.updateInitiationInstant`, so created-at
+and modified-at must differ. The REQ-SYS-8.1 tests commit: each builds an operation whose last step fails after
+earlier writes were issued (a journal entry whose last comment names a missing secondary; a batch post whose last
+staged entry, a Classified one, is dated in the closed fiscal period, behind a Reviewed one dated today), then checks
+that none of the earlier writes are in the database. A finally deletes whatever the test made.
+
+**Names re-aimed after the placeholder commit (ea3a17d).** Two things changed once I saw how the behaviour is reached.
+Both were regraded before the bodies were written.
+- The REQ-SYS-8.1 failure name now names the two triggers, and a success-side sibling was added ("when every step is
+  valid, all of the operation's writes are in the database"). The old name said "a failure part-way through", which
+  a test could satisfy with a failure that happens before anything is written.
+- The midnight REQ-SYS-3.4 name ("the date of an operation spanning midnight is the date of its instant") was
+  dropped. The instant comes from `Clock.now()` inside `AuditEnvelope.create`, and nothing lets a test set it. I
+  propose the "current date" clause of REQ-SYS-3.4 for the Unenforceable table: "untestable without a settable clock
+  seam on the audit envelope".
+
+Mutation, k = 1 to 4: every mutant in the facts was killed. The harness counts a theory as surviving if any case
+passes, so the two REQ-SYS-8.1 theories showed as survivors: each assert sits in one case's branch, and the other case
+still passes. The REQ-SYS-3.3 theory could not be run. All three were perturbed by hand, one assert at a time (14
+perturbations). Each failed the case it belongs to (the REQ-SYS-3.3 created-at and modified-at asserts failed all
+four cases and the three passing cases). UsageMessages has its asserts in a shared helper, so the harness had nothing
+to mutate. Each of its three asserts was perturbed by hand and all three cases failed each time.
+
 ## Findings
 
 Each finding gives the requirement, the test, what the spec says, what the code does, and where the bug probably lies.
@@ -508,6 +538,15 @@ question.**
   status history leads to a double post rather than a refusal. REQ-STG / R-17 says Posted is terminal; a guard on the
   header's journal entry ID would make that hold even when the audit order is wrong.
 
+**F-12. REQ-SYS-3.3: re-pointing a payment agreement link leaves its modified-at unchanged. Bug in Src.**
+- Test: `OperationInstantAndAtomicity.fs`, "REQ-SYS-3.3 for each update (...)", case "re-pointing a payment agreement
+  link". The link's created-at is right. Its modified-at is still the creating instant, not the updating one
+  (assert at line 150).
+- Spec: every update sets the record's modified-at to the operation's initiation instant; created-at is unchanged.
+- Code: `PaymentAgreementLink.update` (Src/Business.FinancialServices.CashFlow/PaymentAgreementLink.fs:180) builds
+  its SET clause from the field updates alone and never adds `modified_at = @modified_at`.
+- Fix: add the modified-at clause from the context's instant, as the other updates do.
+
 **Q-1. REQ-CF-6.4 "both may be present" at creation. Spec question.**
 - REQ-CF-6.4 says a Payment may carry both a staged line and a journal entry line, with the journal entry line taking
   precedence.
@@ -552,6 +591,8 @@ These are cited by passing tests unless noted.
 - DataIngestion: REQ-STG-1.17 (one case fails, F-7), 2.25, 2.26, 2.27, 3.11, 3.13 (fails, F-10), 3.14, 3.15, 4.1.1,
   5.11, 6.3.1, 6.3.2 (one case fails, F-8), 6.7 (fails, F-9), 7.5.1, 8.5, 9.10, 9.11.
 - Classification Rules: REQ-CR-1.23, 1.24, 1.25, 3.7, 3.8, 5.6, 8.1, 8.2, 8.3, 8.5.
+- SystemWide: REQ-SYS-3.3 (one case fails, F-12), 3.4, 8.1.
+- CLI: REQ-NGUI-3.11, 4.6.
 - Journal Entries: REQ-JE-2.15, 3.1.1, 3.5.1, 3.7, 3.7.1, 5.8.
 - Accounts: REQ-AC-2.22, 2.23, 3.11, 3.12, 3.12.1, 3.12.2, 3.12.3, 3.12.4, 3.13, 3.13.1, 3.13.2, 3.13.3.
 - §7: REQ-CF-7.1, 7.2, 7.3, 7.4, 7.6, 7.7, 7.8, 7.9, 7.10, 7.12, 7.14, 7.15, 7.16 (fails, F-4), plus REQ-CF-4.8.
