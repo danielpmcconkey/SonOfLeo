@@ -31,7 +31,7 @@ open Xunit
 module Contracts = Ui.InterfaceBridge.InterfaceContracts.AccountContracts
 module Shared = Ui.InterfaceBridge.InterfaceContracts.SharedContracts
 
-(* Every test builds its own accounts, with codes "Z" plus seven random hex digits, active since 1 January 2026, and
+(* Every test builds its own accounts, with codes "Z" plus seven random hex digits, active since a year before today, and
    its own journal entries, dated inside the fixture's open fiscal periods. The account routes read and write outside
    any test transaction, so the setup commits; a finally deletes the journal entries, then the accounts, children
    before parents. Activity and balance results cover the whole ledger, so tests either pick their own rows out of
@@ -132,7 +132,7 @@ type private Ledger(fixture: TestDataFixture) =
     member _.account (accountType: string) (subtype: string option) (parent: AccountId option) (reference: string option) =
         let code = newCode ()
         runCommandRouteAndAutoCompleteTransaction AccountCreate (fun context ->
-            createTestAccountFromPrimitives context code $"Account test {code}" accountType (LocalDate(2026, 1, 1)) None
+            createTestAccountFromPrimitives context code $"Account test {code}" accountType ((Calendar.today ()).PlusYears(-1)) None
                 subtype parent reference)
         |> Result.map (fun (_, id) -> accounts.Add id; code, id)
 
@@ -216,7 +216,7 @@ type AccountCreateActivityBalanceTests(fixture: TestDataFixture) =
         { code = code
           name = $"Account test {code}"
           accountTypeSt = "Asset"
-          activeBegin = LocalDate(2026, 1, 1)
+          activeBegin = (Calendar.today ()).PlusYears(-1)
           activeEnd = None
           subType = None
           parentCode = None
@@ -262,9 +262,9 @@ type AccountCreateActivityBalanceTests(fixture: TestDataFixture) =
         withLedger (fun ledger ->
             result {
                 let code = ledger.routeCode (newCode ())
-                let! _ = { createInput code with activeEnd = Some(LocalDate(2027, 6, 30)) } |> send "Create"
+                let! _ = { createInput code with activeEnd = Some(LocalDate(2049, 6, 30)) } |> send "Create"
                 let! stored = fetchByCode code
-                Assert.Equal(Some(LocalDate(2027, 6, 30)), stored.activeEnd)
+                Assert.Equal(Some(LocalDate(2049, 6, 30)), stored.activeEnd)
             })
 
     [<Fact>]
@@ -293,7 +293,7 @@ type AccountCreateActivityBalanceTests(fixture: TestDataFixture) =
             match operation with
             | "FetchByCode" -> ({ code = missing } : Contracts.AccountFetchByCodeInput) |> send operation
             | "UpdateName" -> ({ code = missing; newName = "A new name" } : Contracts.AccountUpdateNameInput) |> send operation
-            | "Deactivate" -> ({ code = missing; activeEnd = Some(LocalDate(2027, 6, 30)) } : Contracts.AccountDeactivationInput) |> send operation
+            | "Deactivate" -> ({ code = missing; activeEnd = Some(LocalDate(2049, 6, 30)) } : Contracts.AccountDeactivationInput) |> send operation
             | "FetchActivity" -> activity { noFilter with accountCode = Some missing } None |> Result.map ignore |> Result.map string
             | _ -> balances [ missing ] None |> Result.map ignore |> Result.map string
         let namesIt =

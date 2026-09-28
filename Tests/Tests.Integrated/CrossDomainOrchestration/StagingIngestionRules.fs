@@ -874,7 +874,7 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                 let account (accountType: string) =
                     let code = newCode ()
                     runCommandRouteAndAutoCompleteTransaction AccountCreate (fun context ->
-                        createTestAccountFromPrimitives context code $"Staging rules {code}" accountType (LocalDate(2026, 1, 1)) None None None None)
+                        createTestAccountFromPrimitives context code $"Staging rules {code}" accountType ((Calendar.today ()).PlusYears(-1)) None None None None)
                     |> Result.map (fun (_, id) -> accounts.Add id; code, id)
                 let! debitCode, debitId = account "Expense"
                 let! creditCode, creditId = account "Liability"

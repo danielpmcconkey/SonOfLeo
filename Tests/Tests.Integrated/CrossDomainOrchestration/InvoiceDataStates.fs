@@ -31,7 +31,7 @@ open Xunit
 module Contracts = Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
 
 (* Every test builds its own agreements, monthly on the 1st, with 100.00 legs: Outgo on F-2230 and F-1280, Income on
-   F-1280 and F-4290. Each has an Instance dated 1 March 2027, holding a 100.00 Invoice for each leg the test asks for.
+   F-1280 and F-4290. Each has an Instance dated 1 March 2049, holding a 100.00 Invoice for each leg the test asks for.
    The routes commit, so the setup commits too; tests read back from a fresh context and delete every agreement they
    built, with everything under it, in a finally. The two model-level tests run in a transaction that rolls back.
    "No Invoice is stored" means the leg has no Invoice anywhere and the Instance's Invoices are as before the call.
@@ -39,9 +39,9 @@ module Contracts = Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
 
 let private fresh () = Context.create NoTransaction FetchOnly
 
-let private march (day: int) = LocalDate(2027, 3, day)
+let private march (day: int) = LocalDate(2049, 3, day)
 
-let private april1 = LocalDate(2027, 4, 1)
+let private april1 = LocalDate(2049, 4, 1)
 
 type private Made =
     { agreementId: MasterAgreementId
@@ -63,7 +63,7 @@ let private build
         let! first = 1 |> Cadence.DateInMonthNumber.fromInt
         let! counterparty = "Invoice data state test counterparty" |> Counterparty.create
         let! activityPeriod =
-            ActivityPeriod.create (LocalDate(2026, 1, 1)) None ActivityPeriod.ConsideredAvailableBeforeBeginDate
+            ActivityPeriod.create ((Calendar.today ()).PlusYears(-1)) None ActivityPeriod.ConsideredAvailableBeforeBeginDate
         let debit, credit =
             match direction with
             | Outgo -> accountIdOf "F-2230", accountIdOf "F-1280"

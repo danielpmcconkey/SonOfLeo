@@ -35,16 +35,16 @@ module Contracts = Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
 
 (* Every test builds its own agreements, monthly on the 1st, with 100.00 legs: Outgo on F-2230 (debit, where its
    Payments land) and F-1280, Income on F-1280 and F-4290 (credit, where its Payments land). Each agreement has an
-   Instance dated 1 March 2027 with a 100.00 Invoice on each leg the test asks for. The lines Payments point at are
+   Instance dated 1 March 2049 with a 100.00 Invoice on each leg the test asks for. The lines Payments point at are
    journal entries dated today and Classified staged entries, built by the test. The routes commit, so the setup
    commits too; tests read back from a fresh context, and a finally deletes the agreements, then the staged entries,
    then the journal entries. "No Payment is stored" means the Invoice's Payments are as before the call. *)
 
 let private fresh () = Context.create NoTransaction FetchOnly
 
-let private march (day: int) = LocalDate(2027, 3, day)
+let private march (day: int) = LocalDate(2049, 3, day)
 
-let private april1 = LocalDate(2027, 4, 1)
+let private april1 = LocalDate(2049, 4, 1)
 
 let private direction (name: string) = if name = "Income" then Income else Outgo
 
@@ -76,7 +76,7 @@ let private build
         let! first = 1 |> Cadence.DateInMonthNumber.fromInt
         let! counterparty = "Payment data state test counterparty" |> Counterparty.create
         let! activityPeriod =
-            ActivityPeriod.create (LocalDate(2026, 1, 1)) None ActivityPeriod.ConsideredAvailableBeforeBeginDate
+            ActivityPeriod.create ((Calendar.today ()).PlusYears(-1)) None ActivityPeriod.ConsideredAvailableBeforeBeginDate
         let debit, credit =
             match direction with
             | Outgo -> accountIdOf "F-2230", accountIdOf "F-1280"

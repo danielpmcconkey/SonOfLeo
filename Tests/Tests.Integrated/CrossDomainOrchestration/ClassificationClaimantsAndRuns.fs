@@ -137,11 +137,11 @@ type private Scenario(fixture: TestDataFixture, initialContext: Context.Context)
             let! agreementName = name |> AgreementName.create
             let! first = 1 |> Cadence.DateInMonthNumber.fromInt
             let! counterparty = "Classification test counterparty" |> Counterparty.create
-            let! activityPeriod = ActivityPeriod.create (LocalDate(2026, 1, 1)) None ActivityPeriod.ConsideredAvailableBeforeBeginDate
+            let! activityPeriod = ActivityPeriod.create ((Calendar.today ()).PlusYears(-1)) None ActivityPeriod.ConsideredAvailableBeforeBeginDate
             let! legName = $"{name} leg" |> PaymentAgreementName.create
             let! agreement =
                 AgreementOrchestration.constructNewAndPersist
-                    context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first)) { nextInstance = LocalDate(2027, 3, 1) }
+                    context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first)) { nextInstance = LocalDate(2049, 3, 1) }
                     counterparty activityPeriod None
                     [ (legName, DebitAccount(idOfCode "F-2230"), CreditAccount(idOfCode "F-1280"), None, None, None) ]
             return agreement |> AgreementOrchestration.paymentAgreements |> List.head |> PaymentAgreement.paymentAgreementId

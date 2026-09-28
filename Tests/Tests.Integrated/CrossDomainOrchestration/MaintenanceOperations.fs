@@ -37,7 +37,7 @@ open Xunit
 module Contracts = Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
 
 (* Every test builds its own Outgo agreements with 100.00 legs on F-2230 (debit, where Payments land) and F-1280.
-   A "monthly" agreement is due on the 1st and has an Instance dated 1 March 2027; a "daily" one has an Instance dated
+   A "monthly" agreement is due on the 1st and has an Instance dated 1 March 2049; a "daily" one has an Instance dated
    today, so a staged line dated today falls inside its Invoices' dates for linkage (REQ-CF-13.2). Each Instance has a
    100.00 Invoice on each leg the test asks for. Payments point at journal entry lines or Classified staged lines dated
    today. The routes commit, so the setup commits too; tests read back from a fresh context, and a finally deletes the
@@ -45,9 +45,9 @@ module Contracts = Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
 
 let private fresh () = Context.create NoTransaction FetchOnly
 
-let private march (day: int) = LocalDate(2027, 3, day)
+let private march (day: int) = LocalDate(2049, 3, day)
 
-let private april1 = LocalDate(2027, 4, 1)
+let private april1 = LocalDate(2049, 4, 1)
 
 let private unique (label: string) = $"{label} {Guid.NewGuid():N}"
 
@@ -70,7 +70,7 @@ let private build (fixture: TestDataFixture) (context: Context.Context) (daily: 
         let! first = 1 |> Cadence.DateInMonthNumber.fromInt
         let! counterparty = "Maintenance operations test counterparty" |> Counterparty.create
         let! activityPeriod =
-            ActivityPeriod.create (LocalDate(2026, 1, 1)) None ActivityPeriod.ConsideredAvailableBeforeBeginDate
+            ActivityPeriod.create ((Calendar.today ()).PlusYears(-1)) None ActivityPeriod.ConsideredAvailableBeforeBeginDate
         let instanceDate = if daily then Calendar.today () else march 1
         let cadence = if daily then Cadence.Daily else Cadence.Monthly(Cadence.DateInMonth first)
         let legNames = List.init legCount (fun i -> $"{name} leg {i + 1}")
@@ -259,7 +259,7 @@ let private agreementInput (name: string) (legs: Contracts.CreatePaymentAgreemen
         { cadenceType = Contracts.CadenceTypeContract.Monthly(Contracts.MonthDayContract.DateInMonth 1)
           nextInstance = march 1 }
       counterparty = "Maintenance operations test counterparty"
-      activeBegin = LocalDate(2026, 1, 1)
+      activeBegin = (Calendar.today ()).PlusYears(-1)
       activeEnd = None
       memo = None
       paymentAgreements = legs }

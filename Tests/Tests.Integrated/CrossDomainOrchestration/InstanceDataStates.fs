@@ -31,13 +31,13 @@ module Contracts = Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
 
 (* "Nothing is stored" means no Instance and an unchanged next-instance date.
    Every test builds its own Outgo agreements (debit F-2230, credit F-1280) with 100.00 legs, and its own Instances,
-   through the orchestration, in a transaction that rolls back. Dates are in March 2027, where the 1st, 8th and 15th are
+   through the orchestration, in a transaction that rolls back. Dates are in March 2049, where the 1st, 8th and 15th are
    Mondays and the 31st is the last day, so no sweep a test runs reaches them. The CreateInstance route commits, so the
    one test that uses it reads back from a fresh context and deletes what it made in a finally. *)
 
 let private fresh () = Context.create NoTransaction FetchOnly
 
-let private march (day: int) = LocalDate(2027, 3, day)
+let private march (day: int) = LocalDate(2049, 3, day)
 
 type private Scenario(fixture: TestDataFixture, context: Context.Context) =
     let accountIdOf code =
@@ -55,7 +55,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! agreementName = name |> AgreementName.create
             let! counterparty = "Instance data state test counterparty" |> Counterparty.create
             let! activityPeriod =
-                ActivityPeriod.create (LocalDate(2026, 1, 1)) None ActivityPeriod.ConsideredAvailableBeforeBeginDate
+                ActivityPeriod.create ((Calendar.today ()).PlusYears(-1)) None ActivityPeriod.ConsideredAvailableBeforeBeginDate
             let legNames = List.init legCount (fun i -> $"{name} leg {i + 1}")
             let! legs =
                 legNames

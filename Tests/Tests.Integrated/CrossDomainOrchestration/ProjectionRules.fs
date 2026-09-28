@@ -48,7 +48,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let name = $"Projection rules test cash {code}"
             let! _, accountId =
                 createTestAccountFromPrimitives
-                    context code name "Asset" (LocalDate(2025, 1, 1)) activeEnd (Some "Cash") None None
+                    context code name "Asset" ((Calendar.today ()).PlusYears(-2)) activeEnd (Some "Cash") None None
             return accountId, code, name
         }
 
@@ -59,7 +59,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! agreementName = name |> AgreementName.create
             let! counterparty = "Projection rules test counterparty" |> Counterparty.create
             let! activityPeriod =
-                ActivityPeriod.create (LocalDate(2025, 1, 1)) None ActivityPeriod.ConsideredAvailableBeforeBeginDate
+                ActivityPeriod.create ((Calendar.today ()).PlusYears(-2)) None ActivityPeriod.ConsideredAvailableBeforeBeginDate
             let debit, credit =
                 match direction with
                 | Outgo -> accountIdOf "F-2230", cashId
