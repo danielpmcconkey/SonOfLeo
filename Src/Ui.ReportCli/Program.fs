@@ -13,8 +13,8 @@ let route name rest payload : Result<string, IAppError> =
 let main args =
     match args |> Array.toList with
     | name :: "--file" :: filePath :: rest ->
-        Ui.InterfaceBridge.Startup.run "Reports" (fun () -> route name rest (System.IO.File.ReadAllText(filePath)))
-    | name :: rest -> Ui.InterfaceBridge.Startup.run "Reports" (fun () -> route name rest (Console.In.ReadToEnd()))
+        Ui.InterfaceBridge.Startup.run (fun () -> route name rest (System.IO.File.ReadAllText(filePath)))
+    | name :: rest -> Ui.InterfaceBridge.Startup.run (fun () -> route name rest (Console.In.ReadToEnd()))
     | _ ->
         eprintfn "Usage: Reports <name> [--file <path>] [args...]"
         1

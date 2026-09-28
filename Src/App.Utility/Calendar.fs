@@ -6,7 +6,7 @@ open App.Utility
 open App.Utility.UtilityError
 open App.Utility.Config
 
-let dateFromInstant (i: Instant) : LocalDate = i.InZone(Clock.timeZoneLocal()).Date
+let dateFromInstant (i: Instant) : LocalDate = i.InZone(Clock.timeZoneLocal).Date
 
 let today () : LocalDate = Clock.now() |> dateFromInstant
 

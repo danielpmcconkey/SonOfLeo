@@ -6,9 +6,6 @@ open App.Utility.IAppError
 type UtilityError =
     | ConfigReadError of string * exn
     | ConfigNotFound of string
-    | ConfigFileNotFound of string
-    | ConfigFileUnreadable of string * string
-    | ConfigTimeZoneNotRecognised of string * string
     | FileIoDirectoryDoesntExist of string
     | FileIoFileDoesntExist of string
     | FileIoError of exn
@@ -22,10 +19,6 @@ type UtilityError =
             match this with        
             | ConfigReadError (keyString, ex) -> $"Cannot resolve config with key {keyString}. It likely cannot be parsed as the requested type. Full error: {ex.Message}{Environment.NewLine}{ex.StackTrace}"
             | ConfigNotFound keyString -> $"Cannot find config with key {keyString}."
-            | ConfigFileNotFound path -> $"The configuration file {path} does not exist. Nothing was run."
-            | ConfigFileUnreadable (path, reason) -> $"The configuration file {path} cannot be read: {reason} Nothing was run."
-            | ConfigTimeZoneNotRecognised (keyString, value) ->
-                $"The {keyString} setting \"{value}\" is not a recognised time zone identifier (for example America/New_York). Nothing was run."
             | FileIoDirectoryDoesntExist str -> $"Directory {str} doesn't exist."
             | FileIoFileDoesntExist str -> $"No file exists at path \"{str}\"."
             | FileIoError ex -> $"Error in File I/O operation. Error message: {ex.Message}{Environment.NewLine} {ex.StackTrace}"

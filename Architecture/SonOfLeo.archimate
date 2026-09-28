@@ -109,8 +109,8 @@
           <element xsi:type="archimate:ApplicationFunction" name="Dispatch a report request to its route" id="id-b813c24c6ed84f1db4a1c0afc8508927">
             <documentation>Parse a report name and JSON input from the command line and run the matching report route.</documentation>
           </element>
-          <element xsi:type="archimate:ApplicationFunction" name="Confirm configuration and run a command with clean failure reporting" id="id-1c230dc6898544d098b03e45656b55b5">
-            <documentation>Before any command runs, confirm every setting it depends on can be read. Run the command, and end it with one exit code and a payload on every path: its output, its error message, or an unexpected exception with its stack trace.</documentation>
+          <element xsi:type="archimate:ApplicationFunction" name="Run a command and report its result" id="id-1c230dc6898544d098b03e45656b55b5">
+            <documentation>Run the command and end it with an exit code and a payload: its output on stdout with exit code 0, or its typed error's message on stderr with exit code 1.</documentation>
           </element>
         </folder>
         <element xsi:type="archimate:ApplicationFunction" name="Define interface contracts" id="id-bdf8e1de36cc41cf9328712cefa66068">
@@ -1829,17 +1829,11 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
   <folder name="Relations" id="id-c5e8eba6e8c44e6693f093baa24638e0" type="relations">
     <element xsi:type="archimate:ServingRelationship" id="id-1a5bb1468ddc484fbe8c167b303db482" source="id-b0888d3ca8444c7bb03350365e3bceee" target="id-73beb61a7786474da68c3b4428d515ee"/>
     <element xsi:type="archimate:ServingRelationship" id="id-d177b13d3bca41db976769bf04e8a4e4" source="id-b0888d3ca8444c7bb03350365e3bceee" target="id-a14775aac4f448c7ae9a6ca867898800"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-1bbaa6393bc740919a7260ca200f4db6" source="id-bb9d1dd7d6c64ca9b2da2f0bf36e7112" target="id-11a6069a87a547999d8338d68dbb9460"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-f9b2f97d1a02440dadd091f888d0a6e8" source="id-7848e00799394ec69a975dbb0504f133" target="id-11a6069a87a547999d8338d68dbb9460"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-077760c2caf44b579c84e846d4afd29e" source="id-d1a9505473b74308aeba03538e7f7392" target="id-11a6069a87a547999d8338d68dbb9460"/>
     <element xsi:type="archimate:ServingRelationship" id="id-5578257a43c44675bcde606bc44194d7" source="id-dce47c12a92646c9ab1b65c898f9fb84" target="id-248203dd619a4da0be876a5b9b7c7434"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-cc872de01c55434fa1f6a9631868d5dd" source="id-2224f7a8b5e24edc928b88a393ab0882" target="id-7848e00799394ec69a975dbb0504f133"/>
     <element xsi:type="archimate:ServingRelationship" id="id-d1b482009653482e8cd492010e081e0e" source="id-2224f7a8b5e24edc928b88a393ab0882" target="id-42ce503424164a36ae31d16dd377d9e3"/>
     <element xsi:type="archimate:ServingRelationship" id="id-93bb1d4205d842f8aadabfb31207cc58" source="id-2224f7a8b5e24edc928b88a393ab0882" target="id-11a6069a87a547999d8338d68dbb9460"/>
     <element xsi:type="archimate:ServingRelationship" id="id-2f2a630eb81f45bd8581b4c6ee84e393" source="id-33f6c476f50e47e79f9d8362a77e9573" target="id-ed34af980b2e486ea5771bf8d2786582"/>
     <element xsi:type="archimate:ServingRelationship" id="id-28ef4fd0af5e4d1c960e640409df530d" source="id-33f6c476f50e47e79f9d8362a77e9573" target="id-42ce503424164a36ae31d16dd377d9e3"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-6b9b7e21f946457f9e05b2e4364ccc3c" source="id-33f6c476f50e47e79f9d8362a77e9573" target="id-11a6069a87a547999d8338d68dbb9460"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-62e595962b584006a3eb0b668312b463" source="id-41d5cafd9e98405f8f6a20cc1960c0c0" target="id-11a6069a87a547999d8338d68dbb9460"/>
     <element xsi:type="archimate:ServingRelationship" id="id-c13139b13e0b4c529cddaccfddb19043" source="id-1694657833c44d4db27afa22dafbb540" target="id-8a5a9839498744a789c03ed01212c9db"/>
     <element xsi:type="archimate:ServingRelationship" id="id-427fe26cbc944506b271591eadd54177" source="id-9f3698c585ab451ba872a231119afba6" target="id-00408678ca0e46dbb40cbff22f6d5e35"/>
     <element xsi:type="archimate:ServingRelationship" id="id-be51db13ed54437996f0f67c8ad72407" source="id-799e585b79b940dcaf6207015e9b47b4" target="id-dbb69ba2db65482c9bdb7835dc128521"/>

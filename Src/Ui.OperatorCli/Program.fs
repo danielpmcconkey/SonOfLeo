@@ -22,10 +22,10 @@ let route domain verb rest payload : Result<string, IAppError> =
 let main args =
     match args |> Array.toList with
     | domain :: verb :: "--file" :: filePath :: rest ->
-        Ui.InterfaceBridge.Startup.run "SonOfLeoCli" (fun () ->
+        Ui.InterfaceBridge.Startup.run (fun () ->
             route domain verb rest (System.IO.File.ReadAllText(filePath)))
     | domain :: verb :: rest ->
-        Ui.InterfaceBridge.Startup.run "SonOfLeoCli" (fun () -> route domain verb rest (Console.In.ReadToEnd()))
+        Ui.InterfaceBridge.Startup.run (fun () -> route domain verb rest (Console.In.ReadToEnd()))
     | _ ->
         eprintfn "Usage: SonOfLeoCli <domain> <verb> [--file <path>] [args...]"
         1

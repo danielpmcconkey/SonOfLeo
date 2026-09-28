@@ -45,15 +45,7 @@ let private getConnectionString () : Result<string, IAppError> =
 let internal dataSource: Lazy<Result<NpgsqlDataSource, IAppError>> =
     lazy
         (getConnectionString()
-         |> Result.bind(fun cs ->
-             try
-                 let b = NpgsqlDataSourceBuilder(cs)
-                 b.UseNodaTime() |> ignore
-                 Ok(b.Build())
-             with ex ->
-                 Error(DalConnectionStringInvalid ex.Message)))
-
-/// confirmConfigured is Ok when the connection string can be found and a data source built from it. It does not
-/// connect.
-let confirmConfigured () : Result<unit, IAppError> =
-    dataSource.Value |> Result.map ignore
+         |> Result.map(fun cs ->
+             let b = NpgsqlDataSourceBuilder(cs)
+             b.UseNodaTime() |> ignore
+             b.Build()))

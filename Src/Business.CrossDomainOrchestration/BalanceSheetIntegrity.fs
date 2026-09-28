@@ -23,7 +23,7 @@ type BalanceSheetIntegrity =
       // assets minus (liabilities plus equity plus net income)
       residual: Money.Money }
 
-/// REQ-RPT-5: an imbalance or a non-zero residual is data, not an error; the caller decides whether to stop.
+/// REQ-RPT-5.3: an imbalance or a non-zero residual is data, not an error; the caller decides whether to stop.
 let computeBalanceSheetIntegrity (context: Context.Context) (asOf: LocalDate) : Result<BalanceSheetIntegrity, IAppError> =
     result {
         // each account's own lines, not rolled up to its parent, so summing across accounts counts every line once
