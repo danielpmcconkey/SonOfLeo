@@ -339,8 +339,8 @@ the two orders apart. The test stages the lines Credit, Debit, Debit and checks 
 amount, whatever the order.
 
 Mutation, k = 1 to 6: no mutant survived. The harness could not run the mutants in the padding theory (REQ-STG-1.17)
-or the REQ-STG-6.3.2 theory. One case of each already fails against Src (F-7, F-8), so their other cases are what
-the mutants would have shown.
+or the REQ-STG-6.3.2 theory. Both were perturbed by hand (the line count and the refusal inverted) and all nine cases
+failed.
 
 ### Classification Rules (claimants and runs)
 
