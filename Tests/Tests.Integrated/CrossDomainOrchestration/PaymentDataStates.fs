@@ -389,7 +389,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                     result {
                         let! json = createPaymentPayload invoiceId (paymentFor line 100.00M)
                         let node = JsonNode.Parse(json)
-                        node["payment"]["transactionPointer"] <- null
+                        node["payment"].["transactionPointer"] <- null
                         return! send "CreatePayment" (node.ToJsonString())
                     }
                 let! payments = paymentsOf invoiceId

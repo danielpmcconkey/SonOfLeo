@@ -346,7 +346,7 @@ type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
             result {
                 let! json = createInput name [ leg "placeholder" ] |> Json.toJson
                 let node = JsonNode.Parse(json)
-                node["paymentAgreements"][0]["paymentAgreementName"] <- (if isNull text then null else JsonValue.Create(text) :> JsonNode)
+                node["paymentAgreements"].[0].["paymentAgreementName"] <- (if isNull text then null else JsonValue.Create(text) :> JsonNode)
                 let attempt = createRoute (node.ToJsonString())
                 let! stored = storedNamed (fresh ()) name
                 Assert.True(attempt |> Result.isError)

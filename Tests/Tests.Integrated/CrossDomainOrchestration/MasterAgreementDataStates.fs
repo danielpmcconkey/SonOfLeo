@@ -220,7 +220,7 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
         cleaningUp [ name ] (fun () ->
             result {
                 let! node = createInput name Contracts.Daily (today ()) |> toNode
-                node["cadence"]["cadenceType"] <- JsonNode.Parse("""{"Case":"Fortnightly","Fields":["Monday"]}""")
+                node["cadence"].["cadenceType"] <- JsonNode.Parse("""{"Case":"Fortnightly","Fields":["Monday"]}""")
                 let attempt = createRoute (node.ToJsonString())
                 let! stored = storedNamed (fresh ()) name
                 Assert.True(attempt |> Result.isError)
@@ -324,7 +324,7 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
     member private _.brokenThenWhole (name: string) (nextInstance: LocalDate) (broken: string) (whole: Contracts.CadenceTypeContract) =
         result {
             let! node = createInput name whole nextInstance |> toNode
-            node["cadence"]["cadenceType"] <- JsonNode.Parse(broken)
+            node["cadence"].["cadenceType"] <- JsonNode.Parse(broken)
             let attempt = createRoute (node.ToJsonString())
             let! afterBroken = storedNamed (fresh ()) name
             let! json = createInput name whole nextInstance |> Json.toJson
@@ -410,7 +410,7 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
             result {
                 let nextInstance = LocalDate.FromYearMonthWeekAndDay(nextMonth.Year, nextMonth.Month, 2, IsoDayOfWeek.Tuesday)
                 let! node = createInput name (Contracts.Monthly(Contracts.NthWeekDay(2, "Tuesday"))) nextInstance |> toNode
-                node["cadence"]["cadenceType"] <- JsonNode.Parse("""{"Case":"Monthly","Fields":[{"Case":"NthWeekDay","Fields":[2]}]}""")
+                node["cadence"].["cadenceType"] <- JsonNode.Parse("""{"Case":"Monthly","Fields":[{"Case":"NthWeekDay","Fields":[2]}]}""")
                 let attempt = createRoute (node.ToJsonString())
                 let! stored = storedNamed (fresh ()) name
                 Assert.True(attempt |> Result.isError)
@@ -453,7 +453,7 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
         cleaningUp [ name ] (fun () ->
             result {
                 let! node = createInput name Contracts.Daily (today ()) |> toNode
-                Assert.Equal<string>("""{"Case":"Daily"}""", (node["cadence"]["cadenceType"]).ToJsonString())
+                Assert.Equal<string>("""{"Case":"Daily"}""", (node["cadence"].["cadenceType"]).ToJsonString())
                 let! _ = createRoute (node.ToJsonString())
                 let! stored = storedNamed (fresh ()) name
                 Assert.Equal(Cadence.Daily, stored |> List.exactlyOne |> MasterAgreement.cadence |> Cadence.cadenceType)
