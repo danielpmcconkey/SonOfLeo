@@ -488,6 +488,26 @@ behaviour holds.**
   transition with a new ID at the same instant. The route returns the constructed entries, not what was stored.
 - Fix: return the entries as read back after the write, or persist the constructed transition.
 
+**F-11. Intermittent full-run failures: the shared fixture stamps a staged entry's Classified transition after its
+Posted transition, so a later batch post posts it a second time. Bug in the test fixture (Tests.Helpers), with a Src
+question.**
+- Symptom: in 2 of 3 full runs, 5 tests fail with counts one entry (two lines) too high: AccountActivity's "by account
+  returns all" (55 vs 57), "by amount" (12 vs 14) and "unVoidedOnly", JournalEntryFetching's "fetchByReference with FI
+  only" (7 vs 8), and the JournalEntry PostNew route test (21 vs 22). Each passes on its own. Test class order is
+  shuffled per run, so it depends on what ran first.
+- Cause, seen by polling `ledger.journal_entry` during a failing run: a second journal entry "Fixture agreement B
+  payment" appears mid-run. Its staged entry's audit trail reads Ingested (13:21:28.060756), Classified to Posted
+  (28.070004), Ingested to Classified (28.070756), then Classified to Posted again (46.738772, a test's batch post).
+- `Tests/Tests.Helpers/TestDataStage.fs:961` `transitionsTo` stamps the transitions at `Clock.now()` plus 10 ms per
+  step, in the future. The fixture posts in `postingContext` straight after. When that happens within 10 ms, the
+  Posted transition is older than the Classified one, the entry's current status reads as Classified, and any later
+  committed batch post (`fetchAllForPosting`) posts it again. Whether it happens depends on timing, hence the flicker.
+- Fix (not mine to make; Tests.Helpers belongs to the plan work): stamp `transitionsTo` in the past (`start.Minus`),
+  or take the posting instant after the last stamped transition.
+- Src question for Dan: posting accepts a staged entry that already has a `journal_entry_header_id`, so corrupt
+  status history leads to a double post rather than a refusal. REQ-STG / R-17 says Posted is terminal; a guard on the
+  header's journal entry ID would make that hold even when the audit order is wrong.
+
 **Q-1. REQ-CF-6.4 "both may be present" at creation. Spec question.**
 - REQ-CF-6.4 says a Payment may carry both a staged line and a journal entry line, with the journal entry line taking
   precedence.
