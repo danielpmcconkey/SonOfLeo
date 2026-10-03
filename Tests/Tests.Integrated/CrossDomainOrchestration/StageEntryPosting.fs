@@ -206,7 +206,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 Assert.NotEmpty(accountIdsReceivingPostings)
                 let asOf = Calendar.today()
                 let! trialBalanceBefore = fetchTrialBalanceData context asOf
-                let contextForPost = context |> Context.updateInitiationInstant
+                let contextForPost = context |> TestContext.updateInitiationInstant
                 do! Business.CrossDomainOrchestration.StageEntryOrchestration.post contextForPost
                 let! trialBalanceAfter = fetchTrialBalanceData context asOf
                 let rowFor accountCode (rows: TrialBalanceRowFlattened list) =
@@ -249,7 +249,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 let! row4 = StageTestData.makeRawRow context "grp-1je" today "One JE per group" "TestBank" "REF-1JE-001" 300.00M "Credit" (Some "F-5650") (Some "401k contribution")
                 let! _ =
                     [ row1; row2; row3; row4 ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile
-                let contextForPost = context |> Context.updateInitiationInstant
+                let contextForPost = context |> TestContext.updateInitiationInstant
                 do! Business.CrossDomainOrchestration.StageEntryOrchestration.post contextForPost
                 let! fi = "TestBank" |> JournalRefFinancialInstitution.create
                 let! fiReference = "REF-1JE-001" |> JournalExternalReferenceText.create
@@ -275,7 +275,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                    run on a later one. Status is derived from the latest audit row by
                    modified_at, and a Posted row stamped behind the pipeline's own Classified
                    row would leave the entry looking unposted. *)
-                let contextForPost = context |> Context.updateInitiationInstant
+                let contextForPost = context |> TestContext.updateInitiationInstant
                 do! Business.CrossDomainOrchestration.StageEntryOrchestration.post contextForPost
                 let! postablesAfter = fetchAllForPosting contextForPost
                 Assert.Equal(0, postablesAfter |> List.length)
@@ -324,7 +324,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 let! staged =
                     [ bankDebit; bankCredit; savingsDebit; savingsCredit ]
                     |> StageTestData.ingestDeduplicateAndClassify context sourceFile
-                let contextForPost = context |> Context.updateInitiationInstant
+                let contextForPost = context |> TestContext.updateInitiationInstant
                 do! Business.CrossDomainOrchestration.StageEntryOrchestration.post contextForPost
                 let sourceOfPosted description =
                     result {
@@ -461,7 +461,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestPostStageEntries (fun context ->
             result {
                 let! _ = StageTestData.runPipeline context
-                let contextForPost = context |> Context.updateInitiationInstant
+                let contextForPost = context |> TestContext.updateInitiationInstant
                 let! postablesBefore = fetchAllForPosting contextForPost
                 Assert.NotEmpty(postablesBefore)
                 (* Every entry the batch took, not whichever one the fetch happened to return

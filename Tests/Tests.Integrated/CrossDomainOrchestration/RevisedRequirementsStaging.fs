@@ -141,7 +141,7 @@ type private Scenario(fixture: TestDataFixture, initialContext: Context.Context)
         fixture.Data.accounts |> List.find (fun a -> a |> Account.code |> AccountCode.value = code) |> Account.accountId
 
     member _.Context = context
-    member _.advance () = context <- context |> Context.updateInitiationInstant
+    member _.advance () = context <- context |> TestContext.updateInitiationInstant
     member _.accountIdOf code = idOf code
 
     /// A 100.00 TestCreditCardCo entry with the description, reference and date, a Debit and a Credit on F-2230 and

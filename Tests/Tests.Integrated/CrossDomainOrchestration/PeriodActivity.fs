@@ -115,7 +115,7 @@ type PeriodActivityTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
                 let! accounts = createAccounts context
-                return! test (context |> Context.updateInitiationInstant) accounts
+                return! test (context |> TestContext.updateInitiationInstant) accounts
             })
         |> railroadWrapper
 

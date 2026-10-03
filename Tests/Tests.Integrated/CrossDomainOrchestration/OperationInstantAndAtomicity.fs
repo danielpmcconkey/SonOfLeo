@@ -116,7 +116,7 @@ type OperationInstantAndAtomicityTests(fixture: TestDataFixture) =
                     legLine |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit) |> StageEntryLine.stageEntryLineId
                 let! link = CashFlowOps.constructNewPaymentAgreementLinkAndPersist creating fixture.Data.cashFlow.legAId lineId
                 let linkId = link |> PaymentAgreementLink.paymentAgreementLinkId
-                let updating = creating |> Context.updateInitiationInstant
+                let updating = creating |> TestContext.updateInitiationInstant
                 let! createdAt, modifiedAt =
                     match update with
                     | "amending a comment's text" ->
@@ -160,7 +160,7 @@ type OperationInstantAndAtomicityTests(fixture: TestDataFixture) =
                 let! text = $"note {tag}" |> CommentText.create
                 let! note = JournalEntryCommentOrchestration.constructNewAndPersist creating targetId None text
                 let noteId = note |> JournalEntryComment.journalEntryCommentId
-                let updating = creating |> Context.updateInitiationInstant
+                let updating = creating |> TestContext.updateInitiationInstant
                 // a comment can't name its own primary as its secondary (REQ-JE-1.53)
                 let attempt = JournalEntryCommentOrchestration.updateComment updating noteId NoChange (SetTo(Some targetId))
                 Assert.True(attempt |> Result.isError)
@@ -207,7 +207,7 @@ type OperationInstantAndAtomicityTests(fixture: TestDataFixture) =
                 let tag = newTag ()
                 let! first = stagedEntry fixture staging $"Batch1-{tag}" (Calendar.today ()) [ "Classified" ]
                 let! second = stagedEntry fixture staging $"Batch2-{tag}" (Calendar.today ()) [ "Classified"; "Reviewed" ]
-                let posting = staging |> Context.updateInitiationInstant
+                let posting = staging |> TestContext.updateInitiationInstant
                 do! post posting
                 let instant = instantOf posting
                 [ first; second ]

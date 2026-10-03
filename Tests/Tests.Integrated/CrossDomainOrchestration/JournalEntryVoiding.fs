@@ -97,7 +97,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
     /// entry's id and the Payment's id, if any.
     let createPostedStagedEntry (context: Context.Context) (description: string) (withPayment: bool) =
         result {
-            let classifyContext = context |> Context.updateInitiationInstant
+            let classifyContext = context |> TestContext.updateInitiationInstant
             let! entry =
                 createStageEntryForTest context "/tmp/void-staging.dat" description (Guid.NewGuid().ToString())
                     (fixture.Data.ingestionSources |> List.head) (Calendar.today())
@@ -107,7 +107,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
                 if withPayment then
                     addPayment classifyContext (CashFlowComponent.Staged(entry |> debitLineIdOf)) |> Result.map Some
                 else Ok None
-            let postingContext = classifyContext |> Context.updateInitiationInstant
+            let postingContext = classifyContext |> TestContext.updateInitiationInstant
             let! jeSource =
                 Some "Data ingestion import"
                 |> convertOptionToDesiredTypeWithFallibleConverter JournalEntrySource.create
@@ -259,7 +259,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
                 // the posting really did link them, so an unchanged link is the void leaving it alone
                 Assert.Equal(Some jeId, before |> stageEntryHeader |> StageEntryHeader.journalEntryHeaderId)
                 Assert.All(before |> seLines, fun l -> Assert.True(l |> StageEntryLine.journalEntryLineId |> Option.isSome))
-                let voidContext = postingContext |> Context.updateInitiationInstant
+                let voidContext = postingContext |> TestContext.updateInitiationInstant
                 let! voided = jeId |> voidJournalEntry voidContext None commentText
                 Assert.True(voided |> header |> JournalEntryHeader.voidedAt |> Option.isSome)
                 let! after = headerId |> StageEntryOrchestration.fetchByStageEntryHeaderId voidContext
@@ -289,7 +289,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
                     match paymentBefore |> Payment.transactionPointer with
                     | CashFlowComponent.Posted _ -> true
                     | CashFlowComponent.Staged _ -> false)
-                let voidContext = setupContext |> Context.updateInitiationInstant
+                let voidContext = setupContext |> TestContext.updateInitiationInstant
                 let expectedPayments = [ paymentId |> CashFlowComponent.PaymentId.value ]
                 let expectedJe = jeId |> JournalEntryHeaderId.value
                 do!

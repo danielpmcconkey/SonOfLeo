@@ -765,7 +765,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 // modified_at is stamped from the context's initiation instant, not the wall
                 // clock, so without a fresh instant the update writes the same value back and
                 // the comparison below can never move.
-                let laterContext = context |> Context.updateInitiationInstant
+                let laterContext = context |> TestContext.updateInitiationInstant
                 let! updated =
                     ClassificationOrchestration.updateClassificationRule
                         laterContext

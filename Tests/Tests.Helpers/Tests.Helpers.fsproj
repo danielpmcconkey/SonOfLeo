@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <Compile Include="TestError.fs" />
+    <Compile Include="TestContext.fs" />
     <Compile Include="SadPath.fs" />
     <Compile Include="Cleanup.fs" />
     <Compile Include="Railroad.fs" />

@@ -114,7 +114,7 @@ module StageTestData =
             let headerIdOf entry = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
             let! ingested = rawRows |> ingestRawToStage context sourceFile
             let ingestedIds = ingested |> List.map headerIdOf
-            let contextAfterLoad = context |> Context.updateInitiationInstant
+            let contextAfterLoad = context |> TestContext.updateInitiationInstant
             let! duplicatesBefore = [ StagedEntryStatus.Duplicate ] |> fetchByStatusList contextAfterLoad
             let! _ = deduplicateStagedEntries contextAfterLoad
             let! duplicatesAfter = [ StagedEntryStatus.Duplicate ] |> fetchByStatusList contextAfterLoad
@@ -123,7 +123,7 @@ module StageTestData =
                 duplicatesAfter
                 |> List.filter (fun e -> priorDuplicateIds |> List.contains (headerIdOf e) |> not)
                 |> List.map stageEntryHeader
-            let contextAfterDedup = contextAfterLoad |> Context.updateInitiationInstant
+            let contextAfterDedup = contextAfterLoad |> TestContext.updateInitiationInstant
             let! classification = classifyAccounts contextAfterDedup
             let classificationResults =
                 classification.classificationResults
@@ -329,7 +329,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! firstRow1 = StageTestData.makeRawRow context "grp-reused" today "First file event" "TestBank" "REF-REUSED-001" 25.00M "Debit" (Some "F-5350") None
                 let! firstRow2 = StageTestData.makeRawRow context "grp-reused" today "First file event" "TestBank" "REF-REUSED-001" 25.00M "Credit" (Some "F-1270") None
                 let! firstResult = [ firstRow1; firstRow2 ] |> StageTestData.ingestDeduplicateAndClassify context firstFile
-                let contextForSecondFile = context |> Context.updateInitiationInstant
+                let contextForSecondFile = context |> TestContext.updateInitiationInstant
                 let! secondFile = "/tmp/test-grouping-file-two.jsonl" |> SourceFile.create
                 let! secondRow1 = StageTestData.makeRawRow context "grp-reused" today "Second file event" "TestBank" "REF-REUSED-002" 61.00M "Debit" (Some "F-5350") None
                 let! secondRow2 = StageTestData.makeRawRow context "grp-reused" today "Second file event" "TestBank" "REF-REUSED-002" 61.00M "Credit" (Some "F-1270") None
@@ -519,11 +519,11 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
 
                 (* The operator reviews it. Classified -> Reviewed is the transition that puts
                    it beyond the dedup engine's authority. *)
-                let contextForReview = context |> Context.updateInitiationInstant
+                let contextForReview = context |> TestContext.updateInitiationInstant
                 do! firstHeaderId
                     |> StageEntryHeader.updateHeaderStatus contextForReview Reviewed Operator
 
-                let contextForReimport = contextForReview |> Context.updateInitiationInstant
+                let contextForReimport = contextForReview |> TestContext.updateInitiationInstant
                 let! sourceFile2 = "/tmp/test-reviewed-second.jsonl" |> SourceFile.create
                 let! row3 = StageTestData.makeRawRow context "grp-rev2" today "Reviewed dedup rerun" "TestBank" "REF-REVIEWED-001" 61.00M "Debit" (Some "F-5650") None
                 let! row4 = StageTestData.makeRawRow context "grp-rev2" today "Reviewed dedup rerun" "TestBank" "REF-REVIEWED-001" 61.00M "Credit" (Some "F-1270") None
@@ -572,7 +572,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 Assert.Equal(Classified, StageTestData.latestStatus firstEntry)
                 Assert.Equal(0, StageTestData.duplicateTransitionCount firstEntry)
                 System.Threading.Thread.Sleep(10)
-                let contextForPost = context |> Context.updateInitiationInstant
+                let contextForPost = context |> TestContext.updateInitiationInstant
                 (* Batch post rather than postStageEntry: postStageEntry writes the journal
                    entry but leaves the status alone, and this test needs both halves — the
                    ledger row that makes the entry matchable and the Posted status that is
@@ -581,7 +581,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 do! Business.CrossDomainOrchestration.StageEntryOrchestration.post contextForPost
 
                 System.Threading.Thread.Sleep(10)
-                let contextForReimport = contextForPost |> Context.updateInitiationInstant
+                let contextForReimport = contextForPost |> TestContext.updateInitiationInstant
                 let! sourceFile2 = "/tmp/test-posted-second.jsonl" |> SourceFile.create
                 let! row3 = StageTestData.makeRawRow context "grp-post2" today "Posted dedup rerun" "TestBank" "REF-POSTED-001" 63.00M "Debit" (Some "F-5650") None
                 let! row4 = StageTestData.makeRawRow context "grp-post2" today "Posted dedup rerun" "TestBank" "REF-POSTED-001" 63.00M "Credit" (Some "F-1270") None
@@ -619,13 +619,13 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 Assert.Equal(0, StageTestData.duplicateTransitionCount first)
 
                 System.Threading.Thread.Sleep(10)
-                let contextSecond = context |> Context.updateInitiationInstant
+                let contextSecond = context |> TestContext.updateInitiationInstant
                 let! second = ingestOne "second" "grp-redup2" contextSecond
                 Assert.Equal(Duplicate, StageTestData.latestStatus second)
                 let secondHeaderId = second |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
 
                 System.Threading.Thread.Sleep(10)
-                let contextThird = contextSecond |> Context.updateInitiationInstant
+                let contextThird = contextSecond |> TestContext.updateInitiationInstant
                 let! third = ingestOne "third" "grp-redup3" contextThird
                 Assert.Equal(Duplicate, StageTestData.latestStatus third)
 
@@ -786,9 +786,9 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! firstResult = [ row1; row2 ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile1
                 let firstEntry = firstResult.stagedEntries |> List.head
                 let headerId = firstEntry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-                let contextForIgnore = context |> Context.updateInitiationInstant
+                let contextForIgnore = context |> TestContext.updateInitiationInstant
                 do! headerId |> Business.FinancialServices.DataIngestion.StageEntryHeader.updateHeaderStatus contextForIgnore Ignored Operator
-                let contextForReimport = contextForIgnore |> Context.updateInitiationInstant
+                let contextForReimport = contextForIgnore |> TestContext.updateInitiationInstant
                 let! sourceFile2 = "/tmp/test-ignored-reimport.jsonl" |> SourceFile.create
                 let! row3 = StageTestData.makeRawRow context "grp-ign2" today "Reimport of ignored" "TestBank" "REF-IGNORED-001" 30.00M "Debit" (Some "F-5350") None
                 let! row4 = StageTestData.makeRawRow context "grp-ign2" today "Reimport of ignored" "TestBank" "REF-IGNORED-001" 30.00M "Credit" (Some "F-1270") None

@@ -187,7 +187,7 @@ type private Scenario(fixture: TestDataFixture, initialContext: Context.Context)
         |> List.find (fun source -> source |> IngestionSource.name |> JournalRefFinancialInstitution.value = "TestCreditCardCo")
 
     member _.Context = context
-    member _.advance () = context <- context |> Context.updateInitiationInstant
+    member _.advance () = context <- context |> TestContext.updateInitiationInstant
     member _.card = cardSource
     member _.accountIdOf (code: string) =
         fixture.Data.accounts |> List.find (fun a -> a |> Account.code |> AccountCode.value = code) |> Account.accountId
@@ -622,11 +622,11 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                     // the rule and the reference do bite when their own operations run
                     runCommandRouteAndAutoRollback IngestDeduplicateStageEntries (fun context ->
                         result {
-                            let later = context |> Context.updateInitiationInstant
+                            let later = context |> TestContext.updateInitiationInstant
                             let! _ = classifyAccounts later
                             let! line = matchedLine |> StageEntryLine.stageEntryLineId |> StageEntryLine.fetchById later
                             Assert.Equal(Some(accountIdOf "F-5300"), line |> StageEntryLine.accountId)
-                            let evenLater = later |> Context.updateInitiationInstant
+                            let evenLater = later |> TestContext.updateInitiationInstant
                             let! _ = deduplicateStagedEntries evenLater
                             let! seenAfter = refetch evenLater seen
                             Assert.Equal(Some StagedEntryStatus.Duplicate, seenAfter |> statusOf)

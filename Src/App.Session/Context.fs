@@ -24,9 +24,3 @@ let getDatabaseTransaction c = c.dataContext.dbTransaction
 
 let getInitiationInstant c =
     c.loggingContext.envelope |> AuditEnvelope.instant
-
-/// updateInitiationInstant is used for long orchestrated events where you need tasks to show the order of operations
-/// through their logging
-let updateInitiationInstant oldContext =
-    let newEnvelope = oldContext.loggingContext.envelope |> AuditEnvelope.action |> AuditEnvelope.create
-    { dataContext = oldContext.dataContext; loggingContext = { envelope = newEnvelope } }

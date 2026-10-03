@@ -289,7 +289,7 @@ type RevisedRequirementsCashFlowTests(fixture: TestDataFixture) =
                             { noChange agreementId with memoUpdate = SetTo(Some m) },
                             (name, direction, cadenceType, next, counterparty, activeBegin, activeEnd, Some "A new memo"))
                 s.Context |> ignore
-                let updating = s.Context |> Context.updateInitiationInstant
+                let updating = s.Context |> TestContext.updateInitiationInstant
                 let! _ = AgreementOrchestration.updateAgreement updating [] [] updates
                 let! after = agreementId |> AgreementOrchestration.fetchByMasterAgreementId updating
                 Assert.NotEqual(fieldsOf before, expected)
@@ -316,7 +316,7 @@ type RevisedRequirementsCashFlowTests(fixture: TestDataFixture) =
                 let! cashId = s.cashAccount ()
                 let! agreementId, _ = s.agreement Outgo cashId 1
                 let! before = agreementId |> AgreementOrchestration.fetchByMasterAgreementId s.Context
-                let updating = s.Context |> Context.updateInitiationInstant
+                let updating = s.Context |> TestContext.updateInitiationInstant
                 let attempt = AgreementOrchestration.updateAgreement updating [] [] (noChange agreementId)
                 let refused =
                     match attempt with

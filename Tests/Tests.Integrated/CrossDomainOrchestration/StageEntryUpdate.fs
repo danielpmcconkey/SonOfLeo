@@ -213,7 +213,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
-                let contextForUpdate = context |> Context.updateInitiationInstant
+                let contextForUpdate = context |> TestContext.updateInitiationInstant
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "HARRIS TEETER 0381 ANYTOWN US"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
@@ -234,7 +234,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let! badAmount = 999.99M |> Money.fromDecimal
                 let headerUpdates = { (noChangeHeaderUpdates headerId) with statusUpdate = SetTo Reviewed }
                 let lineUpdates = [ { (noChangeLineUpdates lineId) with amountUpdate = SetTo badAmount } ]
-                let contextForUpdate = context |> Context.updateInitiationInstant
+                let contextForUpdate = context |> TestContext.updateInitiationInstant
                 return!
                     match updateStageEntry contextForUpdate headerUpdates lineUpdates [] [] with
                     | Error (AsError (IngestionStageEntryDebitCreditMismatch _)) -> Ok ()
@@ -290,7 +290,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
-                let contextForUpdate = context |> Context.updateInitiationInstant
+                let contextForUpdate = context |> TestContext.updateInitiationInstant
                 // grp-008 is a ledger dup
                 let dupEntry = fullResult.stagedEntries |> StageTestData.findByDescription "Fixture JE with reference"
                 Assert.Equal(Duplicate, StageTestData.latestStatus dupEntry)
@@ -311,7 +311,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
-                let contextForUpdate = context |> Context.updateInitiationInstant
+                let contextForUpdate = context |> TestContext.updateInitiationInstant
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "HARRIS TEETER 0381 ANYTOWN US"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let transitionCountBefore = entry |> statusTransitions |> List.length
@@ -344,7 +344,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
             result {
                 let! target = targetStr |> StagedEntryStatus.fromString
                 let! fullResult = StageTestData.runPipeline context
-                let contextForUpdate = context |> Context.updateInitiationInstant
+                let contextForUpdate = context |> TestContext.updateInitiationInstant
                 // any entry the pipeline left in a status from which the target is a legal move
                 let entry =
                     fullResult.stagedEntries
@@ -409,7 +409,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let! fullResult = StageTestData.runPipeline context
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "MARATHON PETRO 7218 ANYTOWN US"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-                let contextForReview = context |> Context.updateInitiationInstant
+                let contextForReview = context |> TestContext.updateInitiationInstant
                 let instant = contextForReview |> Context.getInitiationInstant
                 let transitionAt fromStatus toStatus =
                     StageEntryStatusTransition.create
@@ -437,7 +437,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                     |> StageEntryHeader.stageEntryHeaderId
                 let headerIds =
                     [ headerIdOf "MARATHON PETRO 7218 ANYTOWN US"; headerIdOf "PAYROLL DEPOSIT ACME CORP" ]
-                let contextForReview = context |> Context.updateInitiationInstant
+                let contextForReview = context |> TestContext.updateInitiationInstant
                 let instant = contextForReview |> Context.getInitiationInstant
                 do!
                     headerIds
@@ -466,7 +466,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let debitLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
                 let creditLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
-                let contextForUpdate = context |> Context.updateInitiationInstant
+                let contextForUpdate = context |> TestContext.updateInitiationInstant
                 let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
                 let! lowered = Money.fromDecimal 30.00M
                 let! difference = Money.fromDecimal 18.12M
@@ -495,7 +495,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let debitLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
                 let creditLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
-                let contextForUpdate = context |> Context.updateInitiationInstant
+                let contextForUpdate = context |> TestContext.updateInitiationInstant
                 let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
                 let debitLineId = debitLine |> StageEntryLine.stageEntryLineId
                 let! lowered = Money.fromDecimal 30.00M
@@ -505,7 +505,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                         [ { (noChangeLineUpdates debitLineId) with amountUpdate = SetTo lowered } ]
                         [ addition difference Debit (Some fixture.Data.entertainment5650Id) ] []
                 let addedLineId = split |> lineIdsOf |> List.except (before |> lineIdsOf) |> List.exactlyOne
-                let contextForUndo = contextForUpdate |> Context.updateInitiationInstant
+                let contextForUndo = contextForUpdate |> TestContext.updateInitiationInstant
                 let! description = "MARATHON PETRO, split undone" |> JournalEntryDescription.create
                 let! restored =
                     updateStageEntry contextForUndo
@@ -527,7 +527,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let debitLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
                 let creditLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
-                let contextForUpdate = context |> Context.updateInitiationInstant
+                let contextForUpdate = context |> TestContext.updateInitiationInstant
                 let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
                 return!
                     updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [] []
@@ -546,7 +546,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let debitLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
                 let creditLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
-                let contextForUpdate = context |> Context.updateInitiationInstant
+                let contextForUpdate = context |> TestContext.updateInitiationInstant
                 let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
                 let! extra = Money.fromDecimal 10.00M
                 return!
@@ -566,7 +566,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let debitLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
                 let creditLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
-                let contextForUpdate = context |> Context.updateInitiationInstant
+                let contextForUpdate = context |> TestContext.updateInitiationInstant
                 let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
                 let! extra = Money.fromDecimal 10.00M
                 let missingAccountId = AccountId.create ()
@@ -585,7 +585,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
     member _.``REQ-STG-6.5 removing a line linked to a payment agreement is rejected with a typed error naming the line and the reason, and nothing is changed`` () =
         runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
             result {
-                let contextForUpdate = context |> Context.updateInitiationInstant
+                let contextForUpdate = context |> TestContext.updateInitiationInstant
                 let! entry, debitLineId = createOutgoEntry context "REQ-STG-6.5 linked line removal"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let! _ = CashFlowOps.constructNewPaymentAgreementLinkAndPersist context fixture.Data.cashFlow.legAId debitLineId
@@ -604,7 +604,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
     member _.``REQ-STG-6.5 removing a line a Payment references is rejected with a typed error naming the line and the reason, and nothing is changed`` () =
         runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
             result {
-                let contextForUpdate = context |> Context.updateInitiationInstant
+                let contextForUpdate = context |> TestContext.updateInitiationInstant
                 let! entry, debitLineId = createOutgoEntry context "REQ-STG-6.5 paid line removal"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 do! payWithLine context debitLineId
@@ -628,7 +628,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let debitLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
                 let creditLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
-                let contextForUpdate = context |> Context.updateInitiationInstant
+                let contextForUpdate = context |> TestContext.updateInitiationInstant
                 let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
                 let debitLineId = debitLine |> StageEntryLine.stageEntryLineId
                 // the classifier assigned this line's account, so the run recorded it
@@ -651,7 +651,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
     member _.``REQ-STG-6.5 changing the amount, line type or account of a line linked to a payment agreement is rejected with a typed error naming the line and the reason, and nothing is changed`` (field: string) =
         runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
             result {
-                let contextForUpdate = context |> Context.updateInitiationInstant
+                let contextForUpdate = context |> TestContext.updateInitiationInstant
                 let! entry, debitLineId = createOutgoEntry context "REQ-STG-6.5 linked line change"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let! _ = CashFlowOps.constructNewPaymentAgreementLinkAndPersist context fixture.Data.cashFlow.legAId debitLineId
@@ -679,7 +679,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
     member _.``REQ-STG-6.5 changing the amount, line type or account of a line a Payment references is rejected with a typed error naming the line and the reason, and nothing is changed`` (field: string) =
         runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
             result {
-                let contextForUpdate = context |> Context.updateInitiationInstant
+                let contextForUpdate = context |> TestContext.updateInitiationInstant
                 let! entry, debitLineId = createOutgoEntry context "REQ-STG-6.5 paid line change"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 do! payWithLine context debitLineId
@@ -712,9 +712,9 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let creditLineId =
                     entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit) |> StageEntryLine.stageEntryLineId
-                let contextForPost = context |> Context.updateInitiationInstant
+                let contextForPost = context |> TestContext.updateInitiationInstant
                 do! post contextForPost
-                let contextForUpdate = contextForPost |> Context.updateInitiationInstant
+                let contextForUpdate = contextForPost |> TestContext.updateInitiationInstant
                 let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
                 Assert.Equal(Posted, StageTestData.latestStatus before)
                 let! description = "MARATHON PETRO, edited after posting" |> JournalEntryDescription.create
@@ -747,7 +747,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let debitLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit)
                 let creditLine = entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
-                let contextForUpdate = context |> Context.updateInitiationInstant
+                let contextForUpdate = context |> TestContext.updateInitiationInstant
                 let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
                 Assert.Equal(Classified, StageTestData.latestStatus before)
                 return!

@@ -19,6 +19,7 @@ open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 open App.Utility.Result
 open Business.FinancialServices.Ledger.LedgerError
+open Tests.Helpers
 
 (* REQ-FP-1.5 singles out February and leap years, so the derivation is exercised across
    all three month-end lengths rather than the one 30-day month it used to use. *)
@@ -85,7 +86,7 @@ let ``REQ-FP-2.7 periods already in the range are left unchanged and are not ret
             let! _ = closing |> FiscalPeriod.fiscalPeriodId |> FiscalPeriod.closeFiscalPeriod context
             let! openBefore = fetchByKey context "2062-05"
             let! closedBefore = fetchByKey context "2062-06"
-            let ensureContext = context |> Context.updateInitiationInstant
+            let ensureContext = context |> TestContext.updateInitiationInstant
             let! created = FiscalPeriodCreation.ensureFiscalPeriods ensureContext (keyOf "2062-04") (keyOf "2062-07")
             Assert.Equal<string list>([ "2062-04"; "2062-07" ], created |> keysOf |> List.sort)
             let! openAfter = fetchByKey ensureContext "2062-05"

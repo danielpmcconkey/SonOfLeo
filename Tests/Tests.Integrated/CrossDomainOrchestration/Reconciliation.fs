@@ -122,7 +122,7 @@ type ReconciliationTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
                 let! ledger = buildLedger context
-                return! test (context |> Context.updateInitiationInstant) ledger
+                return! test (context |> TestContext.updateInitiationInstant) ledger
             })
         |> railroadWrapper
 
@@ -248,7 +248,7 @@ type ReconciliationTests(fixture: TestDataFixture) =
                 let! staged = [ debit; credit ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile
                 Assert.Equal(Classified, staged.stagedEntries |> List.exactlyOne |> StageTestData.latestStatus)
                 let! input = requests context [ ledger.childCode, 0.00M, today; ledger.parentCode, 0.00M, today ]
-                let! rows = input |> reconcileAfterPostingStagedEntries (context |> Context.updateInitiationInstant)
+                let! rows = input |> reconcileAfterPostingStagedEntries (context |> TestContext.updateInitiationInstant)
                 Assert.Equal(140.00M, rows |> ledgerBalanceOf ledger.childCode)
                 Assert.Equal(170.00M, rows |> ledgerBalanceOf ledger.parentCode)
             })
@@ -328,7 +328,7 @@ type ReconciliationTests(fixture: TestDataFixture) =
                 let! _ = [ debit; credit ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile
                 let! input = requests context [ ledger.childCode, 0.00M, today ]
                 return!
-                    match input |> reconcileAfterPostingStagedEntries (context |> Context.updateInitiationInstant) with
+                    match input |> reconcileAfterPostingStagedEntries (context |> TestContext.updateInitiationInstant) with
                     | Error (AsError (JournalEntryHeaderEntryDateInvalid _)) -> Ok ()
                     | Error e -> Error (TestingError $"Wrong error. {e.ToMessage()}")
                     | Ok _ -> Error (TestingError "Expected the closed-period entry to fail the shadow reconciliation; got success")

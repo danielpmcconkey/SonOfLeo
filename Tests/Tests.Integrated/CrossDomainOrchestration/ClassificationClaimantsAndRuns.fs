@@ -158,10 +158,10 @@ type private Scenario(fixture: TestDataFixture, initialContext: Context.Context)
             (withTransitions status)
 
     member _.accountRun () =
-        context <- context |> Context.updateInitiationInstant
+        context <- context |> TestContext.updateInitiationInstant
         StageEntryOrchestration.classifyAccounts context
     member _.paymentAgreementRun () =
-        context <- context |> Context.updateInitiationInstant
+        context <- context |> TestContext.updateInitiationInstant
         CashFlowOps.classifyPaymentAgreements context
     member _.rowsOf (runId: ClassificationRunId) = runId |> RuleMatch.fetchByRunId context
 
