@@ -135,6 +135,20 @@ let persist
         return! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
     }
 
+let confirmDebitDiffersFromCredit (paymentAgreement: PaymentAgreement) : Result<unit, IAppError> =
+    let (DebitAccount debitAccountId) = paymentAgreement.debitAccount
+    let (CreditAccount creditAccountId) = paymentAgreement.creditAccount
+    if debitAccountId <> creditAccountId then Ok ()
+    else Error (CashflowPaymentAgreementDebitEqualsCredit(debitAccountId |> AccountId.value))
+
+let confirmExpectedAmountIsPositive (paymentAgreement: PaymentAgreement) : Result<unit, IAppError> =
+    match paymentAgreement.expectedAmount with
+    | None -> Ok ()
+    | Some money when money |> Money.isPositive -> Ok ()
+    | Some money ->
+        let paymentAgreementUuid = paymentAgreement.paymentAgreementId |> PaymentAgreementId.value
+        Error(CashflowPaymentAgreementNonPositiveExpectedAmount(paymentAgreementUuid, money |> Money.amount))
+
 let private reconstitute raw =
     result {
         let (uuid,
@@ -158,7 +172,7 @@ let private reconstitute raw =
             daysDueAfterInvoiceDateInt
             |> convertOptionToDesiredTypeWithFallibleConverter DaysDueAfterInvoiceDate.create
         let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter PaymentAgreementMemo.create
-        return
+        let paymentAgreement =
             create
                 paymentAgreementId
                 masterAgreementID
@@ -170,6 +184,9 @@ let private reconstitute raw =
                 memo
                 createdAt
                 modifiedAt
+        do! paymentAgreement |> confirmDebitDiffersFromCredit
+        do! paymentAgreement |> confirmExpectedAmountIsPositive
+        return paymentAgreement
     }
 
 let private mapRawForDbRead (row: RowReader) =

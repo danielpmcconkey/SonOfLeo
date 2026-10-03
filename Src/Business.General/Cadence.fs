@@ -327,21 +327,43 @@ let reconstitute
     (cadenceMonth: string option)
     (nextInstance: LocalDate)
     : Result<Cadence, IAppError> =
+    // a column the cadence doesn't use must be empty, or the row says two things at once
+    let confirmUnused (columnName: string) (value: 'a option) : Result<unit, IAppError> =
+        match value with
+        | None -> Ok ()
+        | Some v -> Error(InvalidCadenceRow $"{cadenceName} cadence does not use {columnName}, but it holds {v}")
+    let confirmNoMonthDay () =
+        result {
+            do! cadenceDateInMonth |> confirmUnused "cadence_date_in_month"
+            do! cadenceWeekInMonth |> confirmUnused "cadence_week_in_month"
+            do! cadenceMonth |> confirmUnused "cadence_month"
+        }
     result {
-        let! cadenceType =  
+        let! cadenceType =
             match cadenceName with
-            | "Daily" -> Ok Daily
+            | "Daily" ->
+                result {
+                    do! cadenceWeekDay |> confirmUnused "cadence_week_day"
+                    do! confirmNoMonthDay ()
+                    return Daily
+                }
             | "Weekly" ->
                 match cadenceWeekDay with
-                | Some wd -> wd |> WeekDay.fromString |> Result.map Weekly
+                | Some wd ->
+                    confirmNoMonthDay () |> Result.bind (fun () -> wd |> WeekDay.fromString |> Result.map Weekly)
                 | None -> Error(InvalidCadenceRow "Weekly cadence requires cadence_week_day")
             | "EveryOtherWeek" ->
                 match cadenceWeekDay with
-                | Some wd -> wd |> WeekDay.fromString |> Result.map EveryOtherWeek
+                | Some wd ->
+                    confirmNoMonthDay ()
+                    |> Result.bind (fun () -> wd |> WeekDay.fromString |> Result.map EveryOtherWeek)
                 | None -> Error(InvalidCadenceRow "EveryOtherWeek cadence requires cadence_week_day")
             | "Monthly" ->
-                monthDayFromColumns cadenceDateInMonth cadenceWeekInMonth cadenceWeekDay
-                |> Result.map Monthly
+                result {
+                    do! cadenceMonth |> confirmUnused "cadence_month"
+                    let! monthDay = monthDayFromColumns cadenceDateInMonth cadenceWeekInMonth cadenceWeekDay
+                    return Monthly monthDay
+                }
             | "Annually" ->
                 result {
                     let! cadenceMonth =
@@ -353,7 +375,9 @@ let reconstitute
                     return Annually(month, monthDay)
                 }
             | other -> Error(InvalidCadenceRow $"unrecognized cadence \"{other}\"")
-        return { cadenceType = cadenceType; nextInstance = {nextInstance = nextInstance} }
+        let cadence = { cadenceType = cadenceType; nextInstance = { nextInstance = nextInstance } }
+        do! cadence |> confirmNextInstance
+        return cadence
     }
 
 let private incrementDaily

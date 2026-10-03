@@ -23,6 +23,16 @@ module FiscalPeriodKey =
         | false -> Error(FiscalPeriodInvalidKeyString raw)
         | true -> Ok(FiscalPeriodKey trimmed)
 
-    let internal reconstitute (raw: string) = raw |> FiscalPeriodKey
-
     let value (FiscalPeriodKey pk) = pk
+
+    /// the key's month, built from a date
+    let ofDate (date: NodaTime.LocalDate) : FiscalPeriodKey =
+        FiscalPeriodKey $"{date.Year:D4}-{date.Month:D2}"
+
+    /// the first day of the key's month
+    let startDate (FiscalPeriodKey pk) : NodaTime.LocalDate =
+        NodaTime.LocalDate(int pk[0..3], int pk[5..6], 1)
+
+    /// the last day of the key's month
+    let endDate (key: FiscalPeriodKey) : NodaTime.LocalDate =
+        (key |> startDate).PlusMonths(1).PlusDays(-1)

@@ -30,16 +30,6 @@ let private confirmParentAndChildAccountTypesMatch
             )
         )
 
-let private confirmParentAndChildAreDistinct
-    (parentId: AccountId option)
-    (childId: AccountId)
-    : Result<unit, IAppError> =
-    match parentId with
-    | None -> Ok()
-    | Some x when x = childId ->
-        Error(AccountParentAndChildAreSame(parentId |> Option.map AccountId.value, childId |> AccountId.value))
-    | _ -> Ok()
-
 let private confirmParentChildRelationship
     (context: Context.Context)
     (parentId: AccountId option)
@@ -63,20 +53,9 @@ let private confirmParentChildRelationship
             let parentType = validParent |> Account.accountType
             do! confirmParentAccountIsActive validParent referenceDate
             do! confirmParentAndChildAccountTypesMatch parentType childType
-            do! confirmParentAndChildAreDistinct parentId childId
+            do! Account.confirmParentAndChildAreDistinct parentId childId
             return ()
         }
-
-let private confirmTypeAndSubtypeAreValid (accountType: AccountType) (subType: AccountSubtype option) : Result<unit, IAppError> =
-    if AccountSubtype.validTypeSubtypeCombination accountType subType then
-        Ok()
-    else
-        Error(
-            AccountInvalidTypeSubtypeCombo(
-                accountType |> AccountType.toString,
-                subType |> Option.map(AccountSubtype.toString)
-            )
-        )
 
 let constructNewAndPersist
     (context: Context.Context)
@@ -107,7 +86,7 @@ let constructNewAndPersist
                 modifiedAt
         let referenceDate = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
         do! confirmParentChildRelationship context parentId accountId accountType referenceDate
-        do! confirmTypeAndSubtypeAreValid accountType subType
+        do! Account.confirmTypeAndSubtypeAreValid accountType subType
         do! validAccount |> Account.persist context
         return validAccount
     }

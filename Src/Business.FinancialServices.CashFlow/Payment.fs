@@ -186,6 +186,11 @@ let private reconstitute raw =
         let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter PaymentMemo.create
         let postedToFiDate = postedToFiLocalDateOpt |> Option.map(fun x ->{ PostedToFiDate.localDate = x })
         let postedToLedgerDate = postedToLedgerLocalDateOpt |> Option.map(fun x -> { PostedToLedgerDate.localDate = x })
+        // a posted-to-ledger date belongs to a journal entry, so a Payment still pointing at a staged line can't have one
+        do!
+            match transactionPointer, postedToLedgerDate with
+            | Staged _, Some _ -> Error(CashflowPaymentPostedToLedgerDateWithoutJournalEntry uuid)
+            | _ -> Ok ()
         return
             create
                 paymentId

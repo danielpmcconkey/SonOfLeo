@@ -63,6 +63,27 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
+let confirmParentAndChildAreDistinct
+    (parentId: AccountId option)
+    (childId: AccountId)
+    : Result<unit, IAppError> =
+    match parentId with
+    | None -> Ok()
+    | Some x when x = childId ->
+        Error(AccountParentAndChildAreSame(parentId |> Option.map AccountId.value, childId |> AccountId.value))
+    | _ -> Ok()
+
+let confirmTypeAndSubtypeAreValid (accountType: AccountType) (subType: AccountSubtype option) : Result<unit, IAppError> =
+    if AccountSubtype.validTypeSubtypeCombination accountType subType then
+        Ok()
+    else
+        Error(
+            AccountInvalidTypeSubtypeCombo(
+                accountType |> AccountType.toString,
+                subType |> Option.map(AccountSubtype.toString)
+            )
+        )
+
 let private reconstitute raw =
     result {
         let (uuid,
@@ -91,6 +112,8 @@ let private reconstitute raw =
             |> Option.map(fun x -> x |> AccountSubtype.fromString |> Result.map Some)
             |> Option.defaultValue(Ok None)
         let parentAccountId = parentUuid |> Option.map AccountId.fromGuid
+        do! confirmTypeAndSubtypeAreValid accountType subtype
+        do! confirmParentAndChildAreDistinct parentAccountId accountId
         let! externalReference =
             extRefString
             |> Option.map(fun x -> x |> AccountExternalReference.create |> Result.map Some)

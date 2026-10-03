@@ -32,6 +32,7 @@ type LedgerError =
     | AccountTypeInvalid of string
     | AccountUpdateNoOp
     | FiscalPeriodEnsureStartAfterEnd of string * string
+    | FiscalPeriodDatesDontMatchKey of string * LocalDate * LocalDate
     | FiscalPeriodInvalidKeyString of string
     | FiscalPeriodNoPeriodMatchingId of Guid
     | FiscalPeriodNoPeriodMatchingKey of string
@@ -108,6 +109,7 @@ type LedgerError =
             | AccountUpdateNoOp -> "Updating the account record failed because at least one updatable parameter must be set."
             | FiscalPeriodEnsureStartAfterEnd(startKey, endKey) ->
                 $"Cannot ensure fiscal periods from {startKey} to {endKey}: the start month is later than the end month."
+            | FiscalPeriodDatesDontMatchKey(key, startDate, endDate) -> $"Fiscal Period {key} is stored with start date {startDate} and end date {endDate}, which are not the first and last days of its month."
             | FiscalPeriodInvalidKeyString key -> $"Passed string \"{key}\" is invalid as a Period Key."
             | FiscalPeriodNoPeriodMatchingId uuid -> $"No Fiscal Period matching the id {uuid} could be found in the database."
             | FiscalPeriodNoPeriodMatchingKey key -> $"No Fiscal Period matching the key {key} could be found in the database."

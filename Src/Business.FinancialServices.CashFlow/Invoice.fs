@@ -190,6 +190,34 @@ let persist
         return! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
     }
 
+let confirmAmountIsPositive
+    (invoice: Invoice)
+    : Result<unit, IAppError> =
+    let invoiceAmount = invoice |> amount
+    if invoiceAmount.money |> Money.isPositive then Ok ()
+    else
+        let invoiceUuid = invoice |> invoiceId |> InvoiceId.value
+        Error(CashflowInvoiceNonPositiveAmount(invoiceUuid, invoiceAmount.money |> Money.amount))
+
+let confirmPostedToLedgerRequiresFullyPaid
+    (invoice: Invoice)
+    : Result<unit, IAppError> =
+    let lifeCycleState = invoice |> invoiceLifeCycleState
+    if lifeCycleState.postedState <> CashFlowComponent.PostedToLedger
+       || lifeCycleState.paymentState = CashFlowComponent.FullyPaid then Ok ()
+    else
+        let invoiceUuid = invoice |> invoiceId |> InvoiceId.value
+        Error(CashflowInvoicePostedToLedgerRequiresFullyPaid invoiceUuid)
+
+let confirmFullyPaidHasNoBlocker
+    (invoice: Invoice)
+    : Result<unit, IAppError> =
+    let lifeCycleState = invoice |> invoiceLifeCycleState
+    if lifeCycleState.paymentState <> CashFlowComponent.FullyPaid || lifeCycleState.blocker |> Option.isNone then Ok ()
+    else
+        let invoiceUuid = invoice |> invoiceId |> InvoiceId.value
+        Error(CashflowInvoiceFullyPaidWithBlocker invoiceUuid)
+
 let private reconstitute raw =
     result {
         let (uuid,
@@ -240,6 +268,9 @@ let private reconstitute raw =
                 memo
                 createdAt
                 modifiedAt
+        do! invoice |> confirmAmountIsPositive
+        do! invoice |> confirmPostedToLedgerRequiresFullyPaid
+        do! invoice |> confirmFullyPaidHasNoBlocker
         return { invoice with cancellationReasonNote = cancellationReasonNote }
     }
 

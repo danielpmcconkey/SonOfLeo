@@ -117,15 +117,6 @@ let confirmPayment
                         paymentUuid, providedDate.localDate, actualDate))
     }
 
-let private confirmInvoiceAmountIsPositive
-    (invoice: Invoice.Invoice)
-    : Result<unit, IAppError> =
-    let invoiceAmount = invoice |> Invoice.amount
-    if invoiceAmount.money |> Money.isPositive then Ok ()
-    else
-        let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
-        Error(CashFlowError.CashflowInvoiceNonPositiveAmount(invoiceUuid, invoiceAmount.money |> Money.amount))
-
 let private confirmFullyPaidAmountMatches
     (invoice: Invoice.Invoice)
     (payments: Payment.Payment list)
@@ -143,25 +134,6 @@ let private confirmFullyPaidAmountMatches
                 let invoiceDec = invoiceAmount.money |> Money.amount
                 Error(CashFlowError.CashflowInvoiceFullyPaidAmountMismatch(invoiceUuid, paidDec, invoiceDec))
     }
-
-let private confirmPostedToLedgerRequiresFullyPaid
-    (invoice: Invoice.Invoice)
-    : Result<unit, IAppError> =
-    let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
-    if lifeCycleState.postedState <> CashFlowComponent.PostedToLedger
-       || lifeCycleState.paymentState = CashFlowComponent.FullyPaid then Ok ()
-    else
-        let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
-        Error(CashFlowError.CashflowInvoicePostedToLedgerRequiresFullyPaid invoiceUuid)
-
-let private confirmFullyPaidHasNoBlocker
-    (invoice: Invoice.Invoice)
-    : Result<unit, IAppError> =
-    let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
-    if lifeCycleState.paymentState <> CashFlowComponent.FullyPaid || lifeCycleState.blocker |> Option.isNone then Ok ()
-    else
-        let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
-        Error(CashFlowError.CashflowInvoiceFullyPaidWithBlocker invoiceUuid)
 
 let private confirmPartiallyPaidHasPayments
     (invoice: Invoice.Invoice)
@@ -233,10 +205,10 @@ let private confirmInvoiceComposite
         // the state check comes before anything that reads the direction, so a direction change that strands an
         // invoice's state is reported as that, not as whatever the new direction breaks downstream
         do! invoice |> confirmInvoiceStateSuitsDirection direction
-        do! invoice |> confirmInvoiceAmountIsPositive
+        do! invoice |> Invoice.confirmAmountIsPositive
         do! confirmFullyPaidAmountMatches invoice payments
-        do! confirmPostedToLedgerRequiresFullyPaid invoice
-        do! confirmFullyPaidHasNoBlocker invoice
+        do! invoice |> Invoice.confirmPostedToLedgerRequiresFullyPaid
+        do! invoice |> Invoice.confirmFullyPaidHasNoBlocker
         do! confirmPartiallyPaidHasPayments invoice payments
         do! confirmPostedToLedgerRequiresAllPaymentsPosted invoice payments
         do! confirmPartiallyPostedHasAPostedPayment invoice payments

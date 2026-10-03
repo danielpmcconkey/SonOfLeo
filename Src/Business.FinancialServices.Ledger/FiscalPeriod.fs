@@ -75,14 +75,21 @@ let private mapRawForDbRead (row: RowReader) =
 
 let private reconstitute raw =
     let id, key, startDate, endDate, isOpen, createdAt, modifiedAt = raw
-    Ok
-        { fiscalPeriodId = id |> FiscalPeriodId.fromGuid
-          periodKey = key |> FiscalPeriodKey.reconstitute
-          startDate = startDate
-          endDate = endDate
-          isOpen = isOpen
-          createdAt = createdAt
-          modifiedAt = modifiedAt }
+    result {
+        let! periodKey = key |> FiscalPeriodKey.fromString
+        do!
+            if startDate = (periodKey |> FiscalPeriodKey.startDate) && endDate = (periodKey |> FiscalPeriodKey.endDate)
+            then Ok ()
+            else Error(FiscalPeriodDatesDontMatchKey(key, startDate, endDate))
+        return
+            { fiscalPeriodId = id |> FiscalPeriodId.fromGuid
+              periodKey = periodKey
+              startDate = startDate
+              endDate = endDate
+              isOpen = isOpen
+              createdAt = createdAt
+              modifiedAt = modifiedAt }
+    }
 
 let private query
     (context: Context.Context)

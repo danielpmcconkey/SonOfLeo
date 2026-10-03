@@ -126,20 +126,8 @@ let private confirmPaymentAgreement
             | Error (AsError (LedgerError.AccountIdDoesntMatch uuid)) ->
                 Error (CashFlowError.CashflowPaymentAgreementCreditAccountInvalid uuid)
             | other -> other
-        do!
-            if debitAccountId <> creditAccountId then Ok ()
-            else Error (CashFlowError.CashflowPaymentAgreementDebitEqualsCredit(debitAccountId |> AccountId.value))
-        return!
-            match paymentAgreement |> PaymentAgreement.expectedAmount with
-            | None -> Ok ()
-            | Some money when money |> Money.isPositive -> Ok ()
-            | Some money ->
-                let paymentAgreementUuid =
-                    paymentAgreement
-                    |> PaymentAgreement.paymentAgreementId
-                    |> CashFlowComponent.PaymentAgreementId.value
-                let amount = money |> Money.amount
-                Error(CashFlowError.CashflowPaymentAgreementNonPositiveExpectedAmount(paymentAgreementUuid, amount))
+        do! paymentAgreement |> PaymentAgreement.confirmDebitDiffersFromCredit
+        return! paymentAgreement |> PaymentAgreement.confirmExpectedAmountIsPositive
     }
 
 let private confirmPaymentAgreements
