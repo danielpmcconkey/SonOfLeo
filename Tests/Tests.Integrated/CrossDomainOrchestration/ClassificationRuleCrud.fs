@@ -410,10 +410,11 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                     fixtureRules ()
                     |> List.filter (fun r -> (r |> nameOf).Contains sourceFragment)
                     |> namesOf
+                let! source = sourceFragment |> JournalEntryComponent.JournalRefFinancialInstitution.create
                 let! found =
                     ClassificationOrchestration.fetchRulesFiltered
                         context
-                        { noFilter with sourceLike = Some sourceFragment }
+                        { noFilter with sourceLike = Some source }
                         None
                 Assert.NotEmpty(expected)
                 Assert.NotEqual<string list>(fixtureRules () |> namesOf, expected)
@@ -825,8 +826,9 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                     }
                 let! _ = create "sys14 source containing" case.containing
                 let! _ = create "sys14 source decoy" case.decoy
+                let! search = case.search |> JournalEntryComponent.JournalRefFinancialInstitution.create
                 let! found =
-                    ClassificationOrchestration.fetchRulesFiltered context { noFilter with sourceLike = Some case.search } None
+                    ClassificationOrchestration.fetchRulesFiltered context { noFilter with sourceLike = Some search } None
                 let names = found |> namesOf
                 Assert.Contains("sys14 source containing", names)
                 Assert.DoesNotContain("sys14 source decoy", names)

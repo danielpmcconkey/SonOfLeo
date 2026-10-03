@@ -59,7 +59,7 @@ type ClassificationRuleFilter =
       accountAtMatch: AccountId option
       paymentAgreementAtMatch: PaymentAgreementId option
       claimantType: ClassificationClaimantType option
-      sourceLike: string option
+      sourceLike: JournalRefFinancialInstitution option
       activeOnly: bool }
 
 type FetchSortClassificationRule =

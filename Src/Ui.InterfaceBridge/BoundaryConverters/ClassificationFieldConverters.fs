@@ -257,13 +257,16 @@ let ``convert [ClassificationRuleFilterInput] to [ClassificationRuleFilter]``
     let! claimantType =
         filterInput.claimantType
         |> convertOptionToDesiredTypeWithFallibleConverter ClassificationClaimantType.fromString
+    let! sourceLike =
+        filterInput.sourceLike
+        |> convertOptionToDesiredTypeWithFallibleConverter JournalRefFinancialInstitution.create
     return {
         ruleId = ruleId
         nameLike = nameLike
         accountAtMatch = accountAtMatch
         paymentAgreementAtMatch = paymentAgreementAtMatch
         claimantType = claimantType
-        sourceLike = filterInput.sourceLike
+        sourceLike = sourceLike
         activeOnly = filterInput.activeOnly
     } }
 

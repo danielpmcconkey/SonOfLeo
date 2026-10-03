@@ -13,6 +13,7 @@ open App.DataAccessLayer.QueryParameter
 open App.Session
 open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion.DataIngestionError
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.CashFlow.CashFlowError
@@ -160,7 +161,7 @@ let fetchRulesFiltered
 
               filter.sourceLike
               |> Option.map(fun x ->
-                  (sourcePredicate, { name = "@source_like"; value = CharString(containsPattern x) }))
+                  (sourcePredicate, { name = "@source_like"; value = CharString(containsPattern (x |> JournalRefFinancialInstitution.value)) }))
             ]
             |> List.choose id
         let whereClauses = whereClausesAndParams |> List.map fst |> String.concat $" and {Environment.NewLine}"        

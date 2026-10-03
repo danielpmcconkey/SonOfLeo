@@ -13,9 +13,14 @@ let ``convert FiscalPeriodKeyString to FiscalPeriodId``
     (context: Context.Context)
     (key: string)
     : Result<FiscalPeriodId, IAppError> =
-    key |> LookupCache.fiscalPeriodKeyToId.fetch (context |> Context.getDatabaseTransaction)
-    |> whenNoRows (LedgerError.FiscalPeriodNoPeriodMatchingKey key)
-    |> Result.map FiscalPeriodId.fromGuid
+    result {
+        let! periodKey = key |> FiscalPeriodKey.fromString
+        let keyValue = periodKey |> FiscalPeriodKey.value
+        return!
+            keyValue |> LookupCache.fiscalPeriodKeyToId.fetch (context |> Context.getDatabaseTransaction)
+            |> whenNoRows (LedgerError.FiscalPeriodNoPeriodMatchingKey keyValue)
+            |> Result.map FiscalPeriodId.fromGuid
+    }
 
 let ``convert [FiscalPeriodKeyString] to FiscalPeriod``
     (context: Context.Context)

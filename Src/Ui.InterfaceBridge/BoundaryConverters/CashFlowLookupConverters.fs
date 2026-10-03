@@ -10,11 +10,11 @@ open Business.FinancialServices.CashFlow.CashFlowComponent
 
 let private fallibleConverterAgreementNameStringToMasterAgreementUuid context nameString =
     result {
-        // see if the string represents a valid name first
-        let! _ = nameString |> AgreementName.create
-        // now see if it matches a master agreement ID
+        // see if the string represents a valid name first, then look up the trimmed name it gives
+        let! name = nameString |> AgreementName.create
         return!
-            nameString
+            name
+            |> AgreementName.value
             |> LookupCache.masterAgreementNameToId.fetch (context |> Context.getDatabaseTransaction)
             |> whenNoRows (CashflowAgreementNameDoesntMatchId nameString)
     }
@@ -38,11 +38,11 @@ let ``convert [MasterAgreementId] to [AgreementNameString]``
 
 let private fallibleConverterPaymentAgreementNameStringToPaymentAgreementUuid context nameString =
     result {
-        // see if the string represents a valid name first
-        let! _ = nameString |> PaymentAgreementName.create
-        // now see if it matches a payment agreement ID
+        // see if the string represents a valid name first, then look up the trimmed name it gives
+        let! name = nameString |> PaymentAgreementName.create
         return!
-            nameString
+            name
+            |> PaymentAgreementName.value
             |> LookupCache.paymentAgreementNameToId.fetch (context |> Context.getDatabaseTransaction)
             |> whenNoRows (CashflowPaymentAgreementNameDoesntMatchId nameString)
     }
