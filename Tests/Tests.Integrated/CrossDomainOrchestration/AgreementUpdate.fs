@@ -89,3 +89,17 @@ type AgreementUpdateTests(fixture: TestDataFixture) =
                     | Ok _ -> Assert.Fail "Expected failure; got success"
             })
         |> railroadWrapper
+
+    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+    [<Fact>]
+    member _.``REQ-CF-14.2 REQ-CF-4.6 changing a Master Agreement's cadence leaves its existing Instances, whose dates no longer fit the new cadence, unchanged`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-14.2 for each of the latest existing Instance's date and a date before it, an update setting the next-instance date to it is rejected with a typed error naming the latest Instance date, and the agreement is unchanged`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-14.2 an update setting the next-instance date to the first cadence date after the latest existing Instance is stored`` () =
+        Assert.Fail "Not yet implemented"

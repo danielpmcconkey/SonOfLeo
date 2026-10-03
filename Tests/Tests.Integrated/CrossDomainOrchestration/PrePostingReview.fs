@@ -410,3 +410,33 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 Assert.Equal<StageEntryHeaderId list>(expected, actual)
                 return ()
             })
+
+    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+    [<Fact>]
+    member _.``REQ-RPT-7.3 when two rules in the line's latest run claim its current account at different priorities, the line names the rule with the lower priority value`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-7.3 when two rules in the line's latest run claim its current account at the same priority, the line names the one first by rule name`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-7.3 when two runs both matched the line's current account with different rules, the line names the rule from the later run`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-7.3 a later run that recorded the line only against a different account does not displace an earlier run's match with the line's current account`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-7.3 when a payment-agreement claimant and an account claimant both match the line in its latest run, the line names the account claimant, whatever their priorities`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-7.4 a line referenced by several Payments carries each with its amount, its Invoice's invoice date, due date, amount and payment state, and its Instance's date`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-7.4 Payments on a line are ordered by Instance date, and those sharing an Instance date by Invoice due date, whatever order they were created in`` () =
+        Assert.Fail "Not yet implemented"

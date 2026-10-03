@@ -474,3 +474,13 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             return ()
         }
         |> railroadWrapper
+
+    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+    [<Fact>]
+    member _.``REQ-SYS-3.4 a rendered report's footer instant is the operation's initiation instant, not a later clock read`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-SYS-3.4 REQ-RPT-7.7 the pre-posting review's run date, in its file name and its header, is the calendar date of the operation's initiation instant`` () =
+        Assert.Fail "Not yet implemented"

@@ -275,3 +275,21 @@ type BalanceSheetIntegrityTests(fixture: TestDataFixture) =
                 Assert.Equal(7.00M, (delta before after).residual)
                 return ()
             })
+
+    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+    [<Fact>]
+    member _.``REQ-RPT-5.4 a journal entry backdated onto an account after the account was deactivated lists that account with its code, name, active-end date, its non-zero balance and that entry, and no entry posted before its active end`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-5.4 voiding, after an account was deactivated, an entry that zeroed it lists the account with the residue balance and the voided entry`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-5.4 a deactivated account whose balance is zero is not listed, and an active account with a non-zero balance is not listed`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-5.4 an account whose active end is today, with a non-zero balance, is not listed`` () =
+        Assert.Fail "Not yet implemented"

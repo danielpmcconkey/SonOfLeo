@@ -17,3 +17,17 @@ let ``REQ-CF-7.1 for each of 0, -1 and 366, a sweep horizon of that many days is
         | Error (AsError (CashflowProjectionHorizonInDaysExceededMax (raw, 365))) -> days > 365 && raw = days
         | _ -> false
     Assert.True(rejectedWithTheBound)
+
+// Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+[<Fact>]
+let ``REQ-CF-4.11 REQ-CF-5.17 a cancellation reason note of exactly 500 characters is accepted and one of 501 characters is rejected as too long`` () =
+    Assert.Fail "Not yet implemented"
+
+[<Fact>]
+let ``REQ-CF-4.11 REQ-CF-5.17 for each of an empty string and a whitespace-only string, a cancellation reason note is rejected as empty`` () =
+    Assert.Fail "Not yet implemented"
+
+[<Fact>]
+let ``REQ-CF-4.11 REQ-CF-5.17 REQ-SYS-1.1 a cancellation reason note with leading and trailing whitespace holds the trimmed text`` () =
+    Assert.Fail "Not yet implemented"

@@ -755,3 +755,9 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                         (function AsError (IngestionManualUpdateCannotSetStatus "Posted") -> true | _ -> false) before
             })
         |> railroadWrapper
+
+    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+    [<Fact>]
+    member _.``REQ-STG-6.5 after a classification run, an unmatched line of a NoMatch entry can be removed`` () =
+        Assert.Fail "Not yet implemented"

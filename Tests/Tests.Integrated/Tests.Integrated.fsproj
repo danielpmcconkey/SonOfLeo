@@ -99,6 +99,12 @@
     <Compile Include="InterfaceBridge\IngestionRoutes.fs" />
     <Compile Include="InterfaceBridge\ClassificationRuleRoutes.fs" />
     <Compile Include="InterfaceBridge\StartupErrorReporting.fs" />
+    <Compile Include="CrossDomainOrchestration\Cancellation.fs" />
+    <Compile Include="CrossDomainOrchestration\PaymentAgreementLinkGuard.fs" />
+    <Compile Include="CrossDomainOrchestration\PaymentAgreementUpdate.fs" />
+    <Compile Include="CrossDomainOrchestration\CashFlowListings.fs" />
+    <Compile Include="InterfaceBridge\SameValueUpdates.fs" />
+    <Compile Include="InterfaceBridge\AccountNamesInPayloads.fs" />
     <Compile Include="DataAccessLayer\DalTests.fs" />
   </ItemGroup>
 

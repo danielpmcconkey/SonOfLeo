@@ -760,3 +760,9 @@ type AccountCreateActivityBalanceTests(fixture: TestDataFixture) =
     member _.``REQ-AC-3.13.3 a balance query with an empty list of account codes fails with a typed error`` () =
         let attempt = balances [] None
         Assert.True(attempt |> Result.isError)
+
+    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+    [<Fact>]
+    member _.``REQ-AC-3.12.3 with the unvoided-only flag set, an Account whose every line belongs to a voided entry is omitted, while an Account with no lines at all is still returned`` () =
+        Assert.Fail "Not yet implemented"

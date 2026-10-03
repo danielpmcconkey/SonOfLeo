@@ -123,3 +123,17 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
 // todo: we need a test for AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate
+
+    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+    [<Fact>]
+    member _.``REQ-AC-4.5 deactivating an Account whose active end was scheduled in the future at creation is rejected with a typed error and the scheduled end is unchanged`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-AC-4.6 an Account referenced only by a line of a voided entry dated after the requested active end deactivates, its active end reading back as the requested date`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-AC-4.6 an Account with an unvoided entry dated exactly on the requested active end deactivates, its active end reading back as the requested date`` () =
+        Assert.Fail "Not yet implemented"

@@ -358,3 +358,25 @@ type CashFlowMaintenanceTests(fixture: TestDataFixture) =
                 Assert.Equal(created, after)
             })
         |> railroadWrapper
+
+    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+    [<Fact>]
+    member _.``REQ-SYS-6.2 updating a Master Agreement by an ID no agreement holds fails with a typed not-found error naming the kind of record and the ID`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-SYS-6.2 updating a Payment Agreement by an ID no agreement holds fails with a typed not-found error naming the kind of record and the ID`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-SYS-6.2 an UpdateInvoice payload whose Invoice ID names no Invoice fails with a typed not-found error naming the kind of record and the ID, and nothing is changed`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-SYS-6.3 a CreatePayment payload whose Invoice ID names no Invoice fails with a typed not-found error naming the missing Invoice, and no Payment is stored`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-SYS-6.2 a payload deleting a Payment Agreement Link by an ID no link holds fails with a typed not-found error naming the kind of record and the ID`` () =
+        Assert.Fail "Not yet implemented"

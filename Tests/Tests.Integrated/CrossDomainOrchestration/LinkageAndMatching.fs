@@ -1306,3 +1306,57 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 Assert.Equal<Set<InstanceId>>(expected, listed)
             })
         |> railroadWrapper
+
+    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+    [<Fact>]
+    member _.``REQ-CF-12.4 for each of Income and Outgo, a claiming rule with only description and source criteria matches every line of the entry alike, and the expected-account default links the one line on the expected account with the expected line type`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-12.4 a split tenant payment whose two claiming rules match the rent line and the utility-share line by amount links each line to its own Payment Agreement`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-12.4 an Outgo agreement whose claiming rule matches the Credit line of a refund links that Credit line, although the expected-account default would want a Debit line on the debit account`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-12.4 a single matched line on an account the Payment Agreement does not name is linked, the expected-account default not vetoing it`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-12.4 for each of Income and Outgo, when the claiming rule matches several lines and exactly one is on the expected account with the expected line type, the claim links that one line`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-12.4 for each of Income and Outgo, when the claiming rule matches several lines and more than one is on the expected account with the expected line type, the claim creates no link and is reported unlinked with the reason that the default left several lines`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-12.4 for each of Income and Outgo, when the claiming rule matches several lines and none is on the expected account with the expected line type, the claim creates no link and is reported unlinked with the reason that the default left no line`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-13.1 when two open Invoices share a due date, a linked line both windows cover is paid to the Invoice entered first, whichever of the two is entered first`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-13.4 a Payment created by matching carries its staged entry's date as its posted-to-FI date`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-13.4 REQ-CF-13.9 when matching brings a blocked Invoice to FullyPaid, the Invoice reads back with no blocker state and no blocker note, and the result reports the cleared blocker`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-13.4 when matching leaves a blocked Invoice PartiallyPaid, the blocker state and note are kept and the result reports no cleared blocker`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-13.9 the result lists every link the run created with that link's stored ID, and each decision that produced a link carries the ID of that link`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-12.7 creating a link for a line that is already linked is rejected with a typed error naming the existing link's ID and its Payment Agreement's name, and the existing link is unchanged`` () =
+        Assert.Fail "Not yet implemented"

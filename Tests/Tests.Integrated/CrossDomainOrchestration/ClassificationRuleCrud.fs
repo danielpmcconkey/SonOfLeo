@@ -895,3 +895,9 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                     | Ok _ -> Assert.Fail "Expected reading the rule to fail on its stored pattern; it was read"
             })
         |> railroadWrapper
+
+    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+    [<Fact>]
+    member _.``REQ-CR-5.4 sorted by account code, ascending or descending, every payment-agreement-claimant rule comes after every account-claimant rule, and the payment-agreement-claimant rules are ordered among themselves by name`` () =
+        Assert.Fail "Not yet implemented"

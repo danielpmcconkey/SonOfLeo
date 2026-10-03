@@ -696,3 +696,9 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                 Assert.All(descriptions, fun d -> Assert.Contains(case.search, d))
             })
         |> railroadWrapper
+
+    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+    [<Fact>]
+    member _.``REQ-STG-10.2 for each exact-match filter (source file, ingestion source, FI reference, memo), a value that is only a fragment of the stored value matches no entry, while the full value matches exactly the entries carrying it`` () =
+        Assert.Fail "Not yet implemented"

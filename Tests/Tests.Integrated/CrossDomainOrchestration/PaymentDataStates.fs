@@ -682,3 +682,9 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 Assert.True(attempt |> Result.isError)
                 Assert.Empty(payments)
             })
+
+    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+    [<Fact>]
+    member _.``REQ-CF-6.4 for each of Income and Outgo, a CreatePayment payload pointing at a line on an account the Payment Agreement does not name is stored with that pointer`` () =
+        Assert.Fail "Not yet implemented"

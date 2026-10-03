@@ -353,3 +353,9 @@ type PeriodActivityTests(fixture: TestDataFixture) =
                     (rows |> rowFor "PA-4500").lines |> List.map _.journalEntryId)
                 return ()
             })
+
+    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+    [<Fact>]
+    member _.``REQ-RPT-6.1 a parent Expense account with no lines of its own in the range is absent from period activity even when its children have lines in the range, and no child's lines appear under it`` () =
+        Assert.Fail "Not yet implemented"

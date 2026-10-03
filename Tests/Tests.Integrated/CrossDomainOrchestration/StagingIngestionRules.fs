@@ -999,3 +999,13 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                 Assert.Equal(2, recorded |> List.distinct |> List.length)
                 Assert.All(recorded, fun id -> Assert.Contains(id, journalLineIds))
             })
+
+    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+    [<Fact>]
+    member _.``REQ-STG-7.5.1 REQ-STG-6.7 for each of Ingested, Classified, NoMatch and Conflict, a paid repeat that deduplication declines to flag is in the result's declined list and keeps its status`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-7.5.1 deduplication's declined list holds no repeat without a Payment, which is flagged Duplicate instead, no paid Reviewed repeat, which dedup never flags, and no entry that is not a repeat`` () =
+        Assert.Fail "Not yet implemented"

@@ -414,3 +414,17 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 Assert.Equal(2, moved |> List.length)
             })
         |> railroadWrapper
+
+    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+    [<Fact>]
+    member _.``REQ-CF-10.8 when the staged lines of two Payments were posted and both journal entries were then voided, the transition fails with a typed error naming each Payment with its journal entry`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-10.8 a transition refused for a voided target writes nothing: a Payment in the same run whose line posted to an unvoided entry still has no journal entry line ID, and every Invoice keeps its posted state`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-6.4 batch post alone leaves a Payment whose staged line it posted Staged, with no journal entry line ID, and its Invoice's posted state unchanged`` () =
+        Assert.Fail "Not yet implemented"

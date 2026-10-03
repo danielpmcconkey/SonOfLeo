@@ -345,3 +345,13 @@ let ``REQ-MON-2.9.1 sum list rejects results lesser than minMoney`` () =
     | Error (AsError (MoneyFailedToConvertBelowMin _)) -> ()
     | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
+
+// Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+[<Fact>]
+let ``REQ-MON-2.10 for each pair of Money values (equal, one cent apart in either order, zero against plus and minus one cent, the maximum against the minimum), each of the equal, less-than, greater-than, less-or-equal and greater-or-equal comparisons gives its expected verdict, and a is less than b exactly when b is greater than a`` () =
+    Assert.Fail "Not yet implemented"
+
+[<Fact>]
+let ``REQ-MON-2.11 for each of the maximum, one cent, zero, minus one cent and the minimum, exactly one of positive, zero and negative holds, and it is the expected one`` () =
+    Assert.Fail "Not yet implemented"

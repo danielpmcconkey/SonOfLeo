@@ -952,3 +952,17 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             match cleanUpStageEntryHeaderIdList idsToCleanUp with
             | Ok () -> ()
             | Error e -> failwith (e.ToMessage())
+
+    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+
+    [<Fact>]
+    member _.``REQ-SYS-3.4 a processed file's name prefix is the ingest operation's initiation instant, not a later clock read`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-3.4 an ingested entry's source file is the full path the file was read from in the import directory, not the processed path it was moved to`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-STG-6.2 a manual update payload carrying a journal entry ID and journal entry line IDs applies its other fields and leaves the entry and its lines with no journal entry IDs`` () =
+        Assert.Fail "Not yet implemented"
