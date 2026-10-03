@@ -905,8 +905,9 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             [ rawRow "grp-route-shadow-recon" today "Route shadow reconcile" "TestBank" reference "25.00" "Debit" (Some "F-5650") None
               rawRow "grp-route-shadow-recon" today "Route shadow reconcile" "TestBank" reference "25.00" "Credit" (Some "F-1270") None ]
         let reconciliationPayload =
-            { ReconciliationInput.rows = [ { accountCode = "F-5650"; externalBalance = 0.00M; asOf = Calendar.today() } ] }
-            |> toJson<ReconciliationInput>
+            { ShadowReconcileInput.rows =
+                [ { ShadowReconcileInputRow.accountCode = "F-5650"; externalBalance = 0.00M; asOf = Calendar.today() } ] }
+            |> toJson<ShadowReconcileInput>
             |> Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage()))
         let ledgerBalanceIn payload =
             payload

@@ -149,3 +149,9 @@ type StageEntryFetchFilterInput =
       journalEntryLineId: Guid option }
     
 type StageEntryFetchFilteredInput = { filter: StageEntryFetchFilterInput; sort: FetchStageEntrySort option }
+
+/// One balance captured from an institution, reconciled against the ledger as it would stand after posting, in the
+/// account's normal-balance direction. A clearing account is reconciled by supplying zero.
+type ShadowReconcileInputRow = { accountCode: string; externalBalance: decimal; asOf: LocalDate }
+
+type ShadowReconcileInput = { rows: ShadowReconcileInputRow list }

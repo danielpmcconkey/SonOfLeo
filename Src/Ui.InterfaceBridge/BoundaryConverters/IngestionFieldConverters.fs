@@ -250,3 +250,18 @@ let ``convert [StageEntryFetchFilterInput] to [StageEntryFetchFilter]``
             journalEntryHeaderId = journalEntryHeaderId
             journalEntryLineId = journalEntryLineId
         } }
+
+/// Resolves each row's account code to its account, failing with the code of the first that resolves to none.
+let ``convert [ShadowReconcileInput] to [(AccountId * Money * LocalDate) list]``
+    (context: Context.Context)
+    (input: ShadowReconcileInput)
+    : Result<(Business.FinancialServices.Ledger.AccountComponent.AccountId * Money.Money * NodaTime.LocalDate) list,
+             IAppError> =
+    input.rows
+    |> List.map (fun inputRow ->
+        result {
+            let! accountId = inputRow.accountCode |> fallibleConverterAccountCodeToAccountId context
+            let! externalBalance = inputRow.externalBalance |> Money.fromDecimal
+            return accountId, externalBalance, inputRow.asOf
+        })
+    |> convertListOfResultsToResultsList

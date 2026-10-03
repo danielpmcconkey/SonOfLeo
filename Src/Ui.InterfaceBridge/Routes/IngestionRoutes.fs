@@ -195,11 +195,11 @@ let private post payload _ =
 /// rolled back (REQ-RPT-4.6).
 let private shadowReconcile payload _ =
     result {
-        let! input = Json.fromJson<ReconciliationInput> payload
+        let! input = Json.fromJson<ShadowReconcileInput> payload
         return!
             runCommandRouteAndAutoRollback IngestShadowReconcile (fun context ->
                 result {
-                    let! requests = input |> ``convert [ReconciliationInput] to [(AccountId * Money * LocalDate) list]`` context
+                    let! requests = input |> ``convert [ShadowReconcileInput] to [(AccountId * Money * LocalDate) list]`` context
                     let! rows = requests |> reconcileAfterPostingStagedEntries context
                     return!
                         rows
@@ -274,7 +274,7 @@ let ingestionDomainCommandRoutes: CommandRoute list =
       { domain = "Ingestion"
         verb = "ShadowReconcile"
         description = "Reconciles as the Reconciliation report does, but against the ledger as it would stand after posting every Classified and Reviewed stage entry. The posting is simulated exactly as in a shadow post and always rolled back, so neither ledger nor staging changes. Fails if the shadow post would."
-        inputContract = typeof<ReconciliationInput>.Name
+        inputContract = typeof<ShadowReconcileInput>.Name
         outputContract = typeof<ReconciliationReturnRow list>.Name
         handler = shadowReconcile }
       
