@@ -582,7 +582,7 @@ behaviour holds.**
   transition with a new ID at the same instant. The route returns the constructed entries, not what was stored.
 - Fix: return the entries as read back after the write, or persist the constructed transition.
 
-**F-11. Intermittent full-run failures: the shared fixture stamps a staged entry's Classified transition after its
+**F-11. Intermittent full-run failures: the shared fixture stamps a staged entry's Classified transition after its **Fixed in the fixture by the plan thread, c8a175f.**
 Posted transition, so a later batch post posts it a second time. Bug in the test fixture (Tests.Helpers), with a Src
 question.**
 - Symptom: in 2 of 3 full runs, 5 tests fail with counts one entry (two lines) too high: AccountActivity's "by account
@@ -732,8 +732,8 @@ localhost (built with `Tests/Tests.Integrated/setup-throwaway-test-db.sh`), at c
     two cases) and F-14 (REQ-CF-14.2).
   - 5 are the plan agent's "not implemented" placeholders for the withdrawn REQ-JE-4.11 and REQ-JE-4.12, in
     `JournalEntryVoiding.fs`.
-- F-11's intermittent failures didn't show up in this run. The fixture fix it needs is in `Tests.Helpers`, which
-  belongs to the plan thread.
+- F-11's intermittent failures didn't show up in this run. The plan thread has since fixed the fixture in
+  `Tests.Helpers` (c8a175f, 2026-10-03).
 
 ## Traceability audit result
 
