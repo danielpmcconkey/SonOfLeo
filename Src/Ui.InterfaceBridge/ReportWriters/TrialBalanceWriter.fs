@@ -226,6 +226,7 @@ let createAccountRowDomElement
 
 let write
     (pathInfo: OutputPathInput)
+    (generatedAt: Instant)
     (asOf: LocalDate)
     (sortedRows: TrialBalanceRowFlattened list)
     : Result<TrialBalanceReportReturn, IAppError> =
@@ -244,7 +245,7 @@ let write
         |> List.map(fun (row, iterator) ->
             row |> createAccountRowDomElement iterator)
     let reportBody = createReportBody accountRows
-    let footer = createReportFooter()
+    let footer = createReportFooter generatedAt
     let section = {
             ordinal = 10; elementType = Section; identifierType = (Class "report"); contents =
                 [

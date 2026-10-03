@@ -86,6 +86,7 @@ let private block ordinal title figures : DomElement =
 
 let write
     (pathInfo: OutputPathInput)
+    (generatedAt: Instant)
     (integrity: BalanceSheetIntegrity)
     : Result<BalanceSheetIntegrityReturn, IAppError> =
     let asOf = integrity.asOf
@@ -113,7 +114,7 @@ let write
               moneyFigure 60 "figure" "Net income (revenue minus expenses)" integrity.netIncome
               moneyFigure 70 "figure check" "Residual: assets minus (liabilities + equity + net income)" integrity.residual ]
     let reportBody = createReportBody [ totals; accountTypes ]
-    let footer = createReportFooter()
+    let footer = createReportFooter generatedAt
     let section = { ordinal = 10; elementType = Section; identifierType = (Class "report"); contents = [ header; reportBody; footer ] }
     let htmlWrapper: HtmlWrapper = {
         language = "en"

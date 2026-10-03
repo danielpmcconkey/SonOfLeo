@@ -27,7 +27,7 @@ let private ingestRawEntries payload _ =
     result {
         let! input = Json.fromJson<IngestRawFileToStageInput> payload
         let! toBeProcessedPath = createFullPath input.importDir input.fileName
-        let! converted =
+        let! converted, initiationInstant =
             runCommandRouteAndAutoCompleteTransaction IngestRawEntries (fun context ->
                 result {
                     do! confirmFileExists toBeProcessedPath
@@ -80,13 +80,14 @@ let private ingestRawEntries payload _ =
                             let inFileOrder = failures |> List.sortBy (fun r -> r.lineNumbers |> List.min)
                             DataIngestionError.error (DataIngestionError.IngestionFileRejected(toBeProcessedPath, inFileOrder))
                     let! staged = entries |> StageEntryOrchestration.persistConstructed context
-                    return!
+                    let! converted =
                         staged
                         |> List.map (``convert [StageEntry] to [StageEntryReturn]`` context)
-                        |> convertListOfResultsToResultsList })
+                        |> convertListOfResultsToResultsList
+                    return converted, context |> Context.getInitiationInstant })
         // the file moves only once its entries have committed. moved earlier, a failed commit would leave a file that
         // looks processed with nothing staged, and the next run would skip it
-        let timeStamp = Clock.now() |> Clock.instantToString "yyyy-MM-dd.HHmmss.fff"
+        let timeStamp = initiationInstant |> Clock.instantToString "yyyy-MM-dd.HHmmss.fff"
         let! moveToPath = createFullPath input.processedDir $"{timeStamp}-{input.fileName}"
         do!
             moveFile toBeProcessedPath moveToPath

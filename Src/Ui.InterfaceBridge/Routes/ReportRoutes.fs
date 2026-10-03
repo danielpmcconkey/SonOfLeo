@@ -28,7 +28,7 @@ let private trialBalance payload _ =
             match input.reportOutput with
             | OutputSpecifier.DataOnly -> Ok (TrialBalanceReportReturn.DataOnly trialBalanceRows) 
             | OutputSpecifier.Report outputPathInput ->
-                trialBalanceData |> TrialBalanceWriter.write outputPathInput input.asOf.asOf
+                trialBalanceData |> TrialBalanceWriter.write outputPathInput (context |> Context.getInitiationInstant) input.asOf.asOf
         return! trialBalanceReturn |> Json.toJson<TrialBalanceReportReturn>
     }
     
@@ -42,7 +42,9 @@ let private prePostingReview payload _ =
             | OutputSpecifier.DataOnly ->
                 Ok (PrePostingReviewReturn.DataOnly (entries |> ``convert [PrePostingEntry list] to [PrePostingEntryReturnRow list]``))
             | OutputSpecifier.Report outputPathInput ->
-                entries |> PrePostingReviewWriter.write outputPathInput (Calendar.today())
+                let initiationInstant = context |> Context.getInitiationInstant
+                let runDate = initiationInstant |> Calendar.dateFromInstant
+                entries |> PrePostingReviewWriter.write outputPathInput initiationInstant runDate
         return! prePostingReviewReturn |> Json.toJson<PrePostingReviewReturn>
     }
 
@@ -67,7 +69,7 @@ let private balanceSheetIntegrity payload _ =
             match input.reportOutput with
             | OutputSpecifier.DataOnly ->
                 Ok (BalanceSheetIntegrityReturn.DataOnly (integrity |> ``convert [BalanceSheetIntegrity] to [BalanceSheetIntegrityReturnRow]``))
-            | OutputSpecifier.Report outputPathInput -> integrity |> BalanceSheetIntegrityWriter.write outputPathInput
+            | OutputSpecifier.Report outputPathInput -> integrity |> BalanceSheetIntegrityWriter.write outputPathInput (context |> Context.getInitiationInstant)
         return! integrityReturn |> Json.toJson<BalanceSheetIntegrityReturn>
     }
 
@@ -81,7 +83,7 @@ let private periodActivity payload _ =
             | OutputSpecifier.DataOnly ->
                 Ok (PeriodActivityReturn.DataOnly (accounts |> List.map ``convert [PeriodActivityAccount] to [PeriodActivityAccountReturnRow]``))
             | OutputSpecifier.Report outputPathInput ->
-                accounts |> PeriodActivityWriter.write outputPathInput input.beginDate input.endDate
+                accounts |> PeriodActivityWriter.write outputPathInput (context |> Context.getInitiationInstant) input.beginDate input.endDate
         return! periodActivityReturn |> Json.toJson<PeriodActivityReturn>
     }
 

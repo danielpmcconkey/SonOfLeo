@@ -144,6 +144,7 @@ let private entryElement ordinal (entry: PrePostingEntry) : DomElement =
 
 let write
     (pathInfo: OutputPathInput)
+    (generatedAt: Instant)
     (runDate: LocalDate)
     (entries: PrePostingEntry list)
     : Result<PrePostingReviewReturn, IAppError> =
@@ -163,7 +164,7 @@ let write
               { ordinal = 30; elementType = NoTag $" · {entries.Length} entries, {lineCount} lines"; identifierType = NoIdentifier; contents = [] } ]
     let header = createReportHeader "Pre-Posting Review" subtitle
     let reportBody = createReportBody (entries |> List.mapi (fun i e -> entryElement (i + 1) e))
-    let footer = createReportFooter()
+    let footer = createReportFooter generatedAt
     let section = { ordinal = 10; elementType = Section; identifierType = (Class "report"); contents = [ header; reportBody; footer ] }
     let htmlWrapper: HtmlWrapper = {
         language = "en"

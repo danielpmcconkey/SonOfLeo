@@ -129,6 +129,7 @@ let private accountElement ordinal (account: PeriodActivityAccount) : DomElement
 
 let write
     (pathInfo: OutputPathInput)
+    (generatedAt: Instant)
     (beginDate: LocalDate)
     (endDate: LocalDate)
     (accounts: PeriodActivityAccount list)
@@ -151,7 +152,7 @@ let write
               { ordinal = 40; elementType = Bold endString; identifierType = NoIdentifier; contents = [] } ]
     let header = createReportHeader "Period Activity" subtitle
     let reportBody = createReportBody (accounts |> List.mapi (fun i a -> accountElement (i + 1) a))
-    let footer = createReportFooter()
+    let footer = createReportFooter generatedAt
     let section = { ordinal = 10; elementType = Section; identifierType = (Class "report"); contents = [ header; reportBody; footer ] }
     let htmlWrapper: HtmlWrapper = {
         language = "en"
