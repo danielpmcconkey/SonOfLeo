@@ -2,12 +2,12 @@ module Business.FinancialServices.CashFlow.MasterAgreement
 
 open NodaTime
 open App.Utility.IAppError
-open App.Utility.FieldUpdate
 open App.Utility.Result
-open App.DataAccessLayer.ExecuteNonQuery
+open App.Utility.FieldUpdate
 open App.DataAccessLayer.DalError
-open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
+open App.DataAccessLayer.ExecuteReader
+open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
 open Business.General
 open Business.FinancialServices.CashFlow.CashFlowError

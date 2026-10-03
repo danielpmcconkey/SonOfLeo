@@ -3,9 +3,9 @@ module Business.FinancialServices.Classification.RuleMatch
 open NodaTime
 open App.Utility.IAppError
 open App.Utility.Result
-open App.DataAccessLayer.ExecuteNonQuery
-open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
+open App.DataAccessLayer.ExecuteReader
+open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.Classification.ClassificationComponent

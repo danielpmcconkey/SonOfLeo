@@ -1,10 +1,10 @@
 module Business.CrossDomainOrchestration.AccountCreation
 
 open NodaTime
-open App.DataAccessLayer.DalError
 open App.Utility
 open App.Utility.IAppError
 open App.Utility.Result
+open App.DataAccessLayer.DalError
 open App.Session
 open Business.General
 open Business.FinancialServices.Ledger

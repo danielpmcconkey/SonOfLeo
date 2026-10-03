@@ -1,9 +1,9 @@
 module App.Operation.AuditEnvelope
 
 open System
-open App.Operation.IAuditableAction
 open NodaTime
 open App.Utility
+open App.Operation.IAuditableAction
 
 type AuditEnvelope =
     private

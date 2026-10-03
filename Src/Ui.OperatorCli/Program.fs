@@ -1,12 +1,12 @@
 ﻿open System
 open App.Utility.IAppError
+open Ui.InterfaceBridge.CommandRoute
 open Ui.InterfaceBridge.Routes.AccountRoutes
 open Ui.InterfaceBridge.Routes.FiscalPeriodRoutes
 open Ui.InterfaceBridge.Routes.JournalEntryRoutes
 open Ui.InterfaceBridge.Routes.IngestionRoutes
 open Ui.InterfaceBridge.Routes.CashFlowRoutes
 open Ui.InterfaceBridge.Routes.ClassificationRoutes
-open Ui.InterfaceBridge.CommandRoute
 open Ui.OperatorCli.OperatorCliError
 
 

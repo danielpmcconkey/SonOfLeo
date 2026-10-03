@@ -3,9 +3,9 @@ module Business.CrossDomainOrchestration.AccountBalance
 open System
 open NodaTime
 open App.Utility.IAppError
+open App.Utility.Result
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
-open App.Utility.Result
 open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger.LedgerError
@@ -58,8 +58,8 @@ let fetchByAccountIdList
     let accountIdsInString = accountFilters |> List.map fst |> String.concat ", "
     let accountPredicate = if accountIdFilter |> Option.isNone then "" else $"where a.unique_id in ({accountIdsInString})"
     let lineTypeParameters =
-        [ { name = "@credit"; value = CharString(Credit |> JournalEntryLineType.toString) }
-          { name = "@debit"; value = CharString(Debit |> JournalEntryLineType.toString) } ]
+        [ { name = "@credit"; value = CharString(JournalEntryLineType.Credit |> JournalEntryLineType.toString) }
+          { name = "@debit"; value = CharString(JournalEntryLineType.Debit |> JournalEntryLineType.toString) } ]
     let parameters = asOfParam @ (accountFilters |> List.map snd) @ lineTypeParameters
     let queryStatement =
         $"""
@@ -110,12 +110,12 @@ let fetchByAccountIdList
             |> List.map(fun ((accountId, accountType), rows) ->
                 let credits =
                     rows
-                    |> List.tryFind(fun r -> r.lineType = Credit)
+                    |> List.tryFind(fun r -> r.lineType = JournalEntryLineType.Credit)
                     |> Option.map(fun r -> r.sumAtType)
                     |> Option.defaultValue moneyZero
                 let debits =
                     rows
-                    |> List.tryFind(fun r -> r.lineType = Debit)
+                    |> List.tryFind(fun r -> r.lineType = JournalEntryLineType.Debit)
                     |> Option.map(fun r -> r.sumAtType)
                     |> Option.defaultValue moneyZero
                 if

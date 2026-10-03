@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <Compile Include="CashFlowError.fs" />
+    <Compile Include="CashFlowAuditableAction.fs" />
     <Compile Include="CashFlowComponent.fs" />
     <Compile Include="Instance.fs" />
     <Compile Include="Invoice.fs" />
@@ -15,15 +16,14 @@
     <Compile Include="Payment.fs" />
     <Compile Include="PaymentAgreement.fs" />
     <Compile Include="PaymentAgreementLink.fs" />
-    <Compile Include="CashFlowAuditableAction.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Business.FinancialServices.DataIngestion\Business.FinancialServices.DataIngestion.fsproj" />
-    <ProjectReference Include="..\Business.FinancialServices.Ledger\Business.FinancialServices.Ledger.fsproj" />
     <ProjectReference Include="..\App.Utility\App.Utility.fsproj" />
-    <ProjectReference Include="..\Business.FinancialServices\Business.FinancialServices.fsproj" />
     <ProjectReference Include="..\Business.General\Business.General.fsproj" />
+    <ProjectReference Include="..\Business.FinancialServices\Business.FinancialServices.fsproj" />
+    <ProjectReference Include="..\Business.FinancialServices.Ledger\Business.FinancialServices.Ledger.fsproj" />
+    <ProjectReference Include="..\Business.FinancialServices.DataIngestion\Business.FinancialServices.DataIngestion.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

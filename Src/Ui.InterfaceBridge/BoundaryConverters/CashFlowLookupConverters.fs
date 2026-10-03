@@ -1,9 +1,9 @@
 module Ui.InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
 
 open App.Utility.IAppError
-open App.DataAccessLayer.DalError
 open App.Utility.Result
 open App.DataAccessLayer
+open App.DataAccessLayer.DalError
 open App.Session
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.CashFlow.CashFlowError

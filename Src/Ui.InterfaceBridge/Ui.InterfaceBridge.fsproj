@@ -7,8 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="CommandRoute.fs" />
-    <Compile Include="Startup.fs" />
     <Compile Include="InterfaceContracts\SharedContracts.fs" />
     <Compile Include="InterfaceContracts\AccountContracts.fs" />
     <Compile Include="InterfaceContracts\FiscalPeriodContracts.fs" />
@@ -36,6 +34,7 @@
     <Compile Include="ReportWriters\PrePostingReviewWriter.fs" />
     <Compile Include="ReportWriters\BalanceSheetIntegrityWriter.fs" />
     <Compile Include="ReportWriters\PeriodActivityWriter.fs" />
+    <Compile Include="CommandRoute.fs" />
     <Compile Include="Routes\AccountRoutes.fs" />
     <Compile Include="Routes\FiscalPeriodRoutes.fs" />
     <Compile Include="Routes\JournalEntryRoutes.fs" />
@@ -43,13 +42,14 @@
     <Compile Include="Routes\CashFlowRoutes.fs" />
     <Compile Include="Routes\ClassificationRoutes.fs" />
     <Compile Include="Routes\ReportRoutes.fs" />
+    <Compile Include="Startup.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\App.Session\App.Session.fsproj" />
-    <ProjectReference Include="..\App.DataAccessLayer\App.DataAccessLayer.fsproj" />
-    <ProjectReference Include="..\Business.CrossDomainOrchestration\Business.CrossDomainOrchestration.fsproj" />
     <ProjectReference Include="..\App.Utility\App.Utility.fsproj" />
+    <ProjectReference Include="..\App.DataAccessLayer\App.DataAccessLayer.fsproj" />
+    <ProjectReference Include="..\App.Session\App.Session.fsproj" />
+    <ProjectReference Include="..\Business.CrossDomainOrchestration\Business.CrossDomainOrchestration.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

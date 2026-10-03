@@ -1,11 +1,11 @@
 module Business.CrossDomainOrchestration.AgreementOrchestration
 
 open App.Utility.IAppError
-open App.DataAccessLayer.DalError
+open App.Utility.Result
 open App.Utility.Calendar
 open App.Utility.FieldUpdate
-open App.Utility.Result
 open App.DataAccessLayer
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.ExecuteReader
 open App.Session
 open Business.General
@@ -13,8 +13,8 @@ open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.CashFlow
-open Business.CrossDomainOrchestration.CashFlowCompositeFetcher
 open Business.CrossDomainOrchestration.FetchFilters
+open Business.CrossDomainOrchestration.CashFlowCompositeFetcher
 
 type Agreement = private {
     masterAgreement: MasterAgreement.MasterAgreement

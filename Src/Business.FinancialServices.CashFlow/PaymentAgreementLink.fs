@@ -1,15 +1,15 @@
 module Business.FinancialServices.CashFlow.PaymentAgreementLink
 
-open Business.FinancialServices.DataIngestion
 open NodaTime
 open App.Utility
 open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer.DalError
-open App.DataAccessLayer.ExecuteNonQuery
-open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
+open App.DataAccessLayer.ExecuteReader
+open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
+open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.CashFlow.CashFlowError
 open Business.FinancialServices.CashFlow.CashFlowComponent

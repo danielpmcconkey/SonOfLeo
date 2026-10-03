@@ -4,8 +4,8 @@ open System
 open NodaTime
 open App.Utility.FieldUpdate
 open Business.CrossDomainOrchestration.FetchFilters
-open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 open Ui.InterfaceBridge.InterfaceContracts.SharedContracts
+open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 
 // ****************************************
 // Return

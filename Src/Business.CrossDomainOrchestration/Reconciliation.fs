@@ -6,8 +6,8 @@ open App.Utility.Result
 open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
-open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.LedgerError
+open Business.FinancialServices.Ledger.AccountComponent
 open Business.CrossDomainOrchestration.TrialBalanceReport
 
 type ReconciliationRow =

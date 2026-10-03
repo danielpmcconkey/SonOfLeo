@@ -3,8 +3,8 @@ module App.DataAccessLayer.DbConnection
 open System
 open Npgsql
 open App.Utility.IAppError
-open App.Utility.Config
 open App.Utility.Result
+open App.Utility.Config
 open App.DataAccessLayer.DalError
 
 let private getConnectionStringConfig () : Result<string, IAppError> =

@@ -1,10 +1,10 @@
 module Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
 
 open System
-open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
-open Business.CrossDomainOrchestration.FetchFilters
 open NodaTime
 open App.Utility.FieldUpdate
+open Business.CrossDomainOrchestration.FetchFilters
+open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
 open Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
 open Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
 

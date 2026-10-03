@@ -36,8 +36,8 @@ module JournalEntryOrchestration =
 
     let private confirmAmountEquality (lines: JournalEntryLine.JournalEntryLine list) : Result<unit, IAppError> =
         result {
-            let! totalDebits = lines |> JournalEntryLine.sumLinesByType Debit
-            let! totalCredits = lines |> JournalEntryLine.sumLinesByType Credit
+            let! totalDebits = lines |> JournalEntryLine.sumLinesByType JournalEntryLineType.Debit
+            let! totalCredits = lines |> JournalEntryLine.sumLinesByType JournalEntryLineType.Credit
             return!
                 if Money.isEqual totalCredits totalDebits then
                     Ok()

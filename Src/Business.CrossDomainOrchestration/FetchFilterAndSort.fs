@@ -7,11 +7,11 @@ open App.DataAccessLayer.QueryParameter
 open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
-open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.Classification.ClassificationComponent
 
 type FetchSort =

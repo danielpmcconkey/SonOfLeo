@@ -3,8 +3,8 @@ module Business.FinancialServices.DataIngestion.StageEntryStatusTransition
 open NodaTime
 open App.Utility.IAppError
 open App.Utility.Result
-open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
+open App.DataAccessLayer.ExecuteReader
 open App.Session
 open Business.FinancialServices.DataIngestion.DataIngestionError
 open Business.FinancialServices.DataIngestion.StageEntryComponent

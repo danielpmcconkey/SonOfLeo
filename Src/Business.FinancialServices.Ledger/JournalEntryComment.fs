@@ -1,10 +1,10 @@
 module Business.FinancialServices.Ledger.JournalEntryComment
 
 open NodaTime
-open App.DataAccessLayer.ExecuteNonQuery
 open App.Utility.IAppError
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
+open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
 open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Ledger.JournalEntryComponent

@@ -8,8 +8,8 @@
 
   <ItemGroup>
     <Compile Include="IAuditableAction.fs" />
-    <Compile Include="AuditEnvelope.fs" />
     <Compile Include="CoreAuditableAction.fs" />
+    <Compile Include="AuditEnvelope.fs" />
   </ItemGroup>
 
   <ItemGroup>

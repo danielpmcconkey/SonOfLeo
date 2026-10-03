@@ -2,20 +2,20 @@ module Business.FinancialServices.Classification.ClassificationRule
 
 open NodaTime
 open App.Utility.IAppError
-open App.Utility.Json.Json
 open App.Utility.Result
-open App.DataAccessLayer.ExecuteNonQuery
-open App.DataAccessLayer.ExecuteReader
+open App.Utility.Json.Json
 open App.DataAccessLayer.QueryParameter
+open App.DataAccessLayer.ExecuteReader
+open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion.DataIngestionError
 open Business.FinancialServices.CashFlow
+open Business.FinancialServices.Classification.ClassificationError
 open Business.FinancialServices.Classification.ClassificationComponent
 open Business.FinancialServices.Classification.ClassificationRuleGroup
-open Business.FinancialServices.Classification.ClassificationError
 
 /// ClassificationRule: The top-level classification rule. All groups must resolve to true for the rule to resolve to
 /// true.

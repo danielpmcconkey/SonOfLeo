@@ -6,15 +6,15 @@ open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
-open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteScalar
+open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
 open Business.General
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.LedgerError
-open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.JournalEntryComponent
 
 let private updateActiveEnd (context: Context.Context) (activeEndUpdate: LocalDate) (account: Account) : Result<Account, IAppError> =
@@ -69,8 +69,8 @@ let private confirmZeroBalanceBeforeDeactivation (context: Context.Context) (acc
     let accountId = account |> Account.accountId
     result {
         let! nonVoidedLines = accountId |> JournalEntryLine.fetchByAccountId context true
-        let! debits = nonVoidedLines |> JournalEntryLine.sumLinesByType Debit
-        let! credits = nonVoidedLines |> JournalEntryLine.sumLinesByType Credit
+        let! debits = nonVoidedLines |> JournalEntryLine.sumLinesByType JournalEntryLineType.Debit
+        let! credits = nonVoidedLines |> JournalEntryLine.sumLinesByType JournalEntryLineType.Credit
         let! diff = Money.subtractVal1FromVal2 debits credits
         return!
             if diff |> Money.isZero |> not then

@@ -1,9 +1,9 @@
 module Ui.InterfaceBridge.BoundaryConverters.FiscalPeriodFieldConverters
 
 open App.Utility.IAppError
-open App.DataAccessLayer.DalError
 open App.Utility.Result
 open App.DataAccessLayer
+open App.DataAccessLayer.DalError
 open App.Session
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.FiscalPeriodComponent

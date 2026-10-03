@@ -1,18 +1,18 @@
 module Business.FinancialServices.CashFlow.Payment
 
 open System
-open App.DataAccessLayer.DalError
-open Business.FinancialServices.DataIngestion
 open NodaTime
 open App.Utility
 open App.Utility.IAppError
 open App.Utility.Result
-open App.DataAccessLayer.ExecuteNonQuery
-open App.DataAccessLayer.ExecuteReader
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.QueryParameter
+open App.DataAccessLayer.ExecuteReader
+open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.CashFlow.CashFlowError
 open Business.FinancialServices.CashFlow.CashFlowComponent
@@ -172,7 +172,7 @@ let private reconstitute raw =
         // a posted-to-ledger date belongs to a journal entry, so a Payment still pointing at a staged line can't have one
         do!
             match transactionPointer, postedToLedgerDate with
-            | Staged _, Some _ -> Error(CashflowPaymentPostedToLedgerDateWithoutJournalEntry uuid)
+            | TransactionPointer.Staged _, Some _ -> Error(CashflowPaymentPostedToLedgerDateWithoutJournalEntry uuid)
             | _ -> Ok ()
         return
             create

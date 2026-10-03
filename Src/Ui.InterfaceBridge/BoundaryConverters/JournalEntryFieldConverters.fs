@@ -7,14 +7,14 @@ open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
 open Business.CrossDomainOrchestration.FetchFilters
 open Business.CrossDomainOrchestration.AccountActivity
-open Business.CrossDomainOrchestration.JournalEntryOrchestration
+open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
+open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 open Ui.InterfaceBridge.BoundaryConverters.SharedContractConverters
 open Ui.InterfaceBridge.BoundaryConverters.MoneyFieldConverters
 open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
-open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
-open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 
 let ``convert JeDescriptionString Option to JeDescription Option``
     (stringOption: string option)

@@ -1,13 +1,13 @@
 module Business.FinancialServices.DataIngestion.StageEntryLine
 
 open App.Utility.IAppError
-open App.DataAccessLayer.DalError
-open App.DataAccessLayer
-open App.DataAccessLayer.ExecuteNonQuery
-open App.DataAccessLayer.ExecuteReader
-open App.DataAccessLayer.QueryParameter
-open App.Utility.FieldUpdate
 open App.Utility.Result
+open App.Utility.FieldUpdate
+open App.DataAccessLayer
+open App.DataAccessLayer.DalError
+open App.DataAccessLayer.QueryParameter
+open App.DataAccessLayer.ExecuteReader
+open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger

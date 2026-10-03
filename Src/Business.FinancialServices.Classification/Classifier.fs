@@ -4,9 +4,9 @@ open System.Text.RegularExpressions
 open App.Utility.IAppError
 open App.Utility.Result
 open Business.FinancialServices.DataIngestion.DataIngestionError
-open Business.FinancialServices.Classification.ClassificationRule
-open Business.FinancialServices.Classification.ClassificationComponent
 open Business.FinancialServices.Classification.ClassificationError
+open Business.FinancialServices.Classification.ClassificationComponent
+open Business.FinancialServices.Classification.ClassificationRule
 
 /// A pattern that runs past its time limit fails the run with a typed error naming the rule, never an exception.
 let private ruleMatches (candidate: MatchCandidate) (rule: ClassificationRule) : Result<bool, IAppError> =

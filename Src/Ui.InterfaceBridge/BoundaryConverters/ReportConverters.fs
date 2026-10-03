@@ -7,17 +7,17 @@ open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.CashFlow.CashFlowComponent
+open Business.FinancialServices.Classification.ClassificationComponent
 open Business.CrossDomainOrchestration.TrialBalanceReport
 open Business.CrossDomainOrchestration.BalanceSheetIntegrity
 open Business.CrossDomainOrchestration.PeriodActivity
 open Business.CrossDomainOrchestration.Reconciliation
+open Business.CrossDomainOrchestration.PrePostingReview
 open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
-open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.Classification.ClassificationComponent
-open Business.FinancialServices.CashFlow.CashFlowComponent
-open Business.CrossDomainOrchestration.PrePostingReview
 open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
 
 let ``convert [TrialBalanceRowFlattened] to [TrialBalanceReturnRow]``

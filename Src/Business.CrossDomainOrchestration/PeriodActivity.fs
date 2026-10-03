@@ -55,8 +55,8 @@ let private fetchLinesOfType context (range: FilterDateRange) (accountType: Acco
 let private netTotal (accountType: AccountType) (lines: PeriodActivityLine list) : Result<Money.Money, IAppError> =
     let sumOf lineType = lines |> List.filter (fun l -> l.lineType = lineType) |> List.map _.amount |> Money.sumList
     result {
-        let! debits = sumOf Debit
-        let! credits = sumOf Credit
+        let! debits = sumOf JournalEntryLineType.Debit
+        let! credits = sumOf JournalEntryLineType.Credit
         return!
             match accountType |> AccountType.normalBalance with
             | AccountTypeNormalBalance.Debit -> Money.subtractVal1FromVal2 credits debits

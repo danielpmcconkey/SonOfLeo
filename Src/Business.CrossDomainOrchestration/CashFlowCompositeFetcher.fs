@@ -3,8 +3,8 @@ module Business.CrossDomainOrchestration.CashFlowCompositeFetcher
 open System
 open App.Utility
 open App.Utility.IAppError
-open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
+open App.DataAccessLayer.ExecuteReader
 open App.Session
 open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.CashFlow.MasterAgreement

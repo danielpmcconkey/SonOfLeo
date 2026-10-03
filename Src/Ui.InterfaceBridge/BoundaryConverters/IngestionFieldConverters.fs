@@ -1,8 +1,8 @@
 module Ui.InterfaceBridge.BoundaryConverters.IngestionFieldConverters
 
 open App.Utility.IAppError
-open App.Utility.FieldUpdate
 open App.Utility.Result
+open App.Utility.FieldUpdate
 open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger.JournalEntryComponent

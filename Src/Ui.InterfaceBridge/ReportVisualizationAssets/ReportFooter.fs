@@ -1,7 +1,7 @@
 module Ui.InterfaceBridge.ReportVisualizationAssets.ReportFooter
 
-open App.Utility
 open NodaTime
+open App.Utility
 open Ui.InterfaceBridge.ReportVisualizationAssets.HtmlComponents
 
 let createReportFooter (generatedAt: Instant) =

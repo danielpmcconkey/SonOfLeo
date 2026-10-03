@@ -3,9 +3,9 @@ module App.DataAccessLayer.LookupCache
 open System
 open App.Utility.IAppError
 open App.Utility.Result
-open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.DbTransaction
 open App.DataAccessLayer.QueryParameter
+open App.DataAccessLayer.ExecuteReader
 
 (*
 Note: the LookupCache is designed to support an easy translation between UUIDs used in the model and string codes and

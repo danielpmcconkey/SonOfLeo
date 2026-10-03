@@ -1,9 +1,9 @@
 module Business.CrossDomainOrchestration.BalanceSheetIntegrity
 
 open NodaTime
+open App.Utility
 open App.Utility.IAppError
 open App.Utility.Result
-open App.Utility
 open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger

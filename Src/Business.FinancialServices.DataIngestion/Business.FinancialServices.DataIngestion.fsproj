@@ -8,19 +8,19 @@
 
   <ItemGroup>
     <Compile Include="DataIngestionError.fs" />
+    <Compile Include="DataIngestionAuditableAction.fs" />
     <Compile Include="StageEntryComponent.fs" />
     <Compile Include="BaseStageEntry.fs" />
     <Compile Include="IngestionSource.fs" />
     <Compile Include="StageEntryStatusTransition.fs" />
     <Compile Include="StageEntryHeader.fs" />
     <Compile Include="StageEntryLine.fs" />
-    <Compile Include="DataIngestionAuditableAction.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Business.FinancialServices.Ledger\Business.FinancialServices.Ledger.fsproj" />
     <ProjectReference Include="..\App.Utility\App.Utility.fsproj" />
     <ProjectReference Include="..\Business.FinancialServices\Business.FinancialServices.fsproj" />
+    <ProjectReference Include="..\Business.FinancialServices.Ledger\Business.FinancialServices.Ledger.fsproj" />
     
   </ItemGroup>
 

@@ -7,9 +7,9 @@ open Npgsql
 open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer.DalError
+open App.DataAccessLayer.DbConnection
 open App.DataAccessLayer.DbTransaction
 open App.DataAccessLayer.QueryParameter
-open App.DataAccessLayer.DbConnection
 
 type AcceptableExpectedRows =
     | Zero

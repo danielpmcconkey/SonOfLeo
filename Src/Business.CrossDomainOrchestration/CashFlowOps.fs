@@ -1,11 +1,11 @@
 module Business.CrossDomainOrchestration.CashFlowOps
 
 open NodaTime
-open App.DataAccessLayer.DalError
 open App.Utility
 open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer
+open App.DataAccessLayer.DalError
 open App.Session
 open Business.General
 open Business.FinancialServices

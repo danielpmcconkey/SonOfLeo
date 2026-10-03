@@ -1,24 +1,24 @@
 module Ui.InterfaceBridge.Routes.ClassificationRoutes
 
-open App.Utility.FieldUpdate
-open App.Utility.Json
 open App.Utility.Result
-open App.DataAccessLayer.DbTransaction
+open App.Utility.Json
+open App.Utility.FieldUpdate
 open App.Operation.CoreAuditableAction
+open App.DataAccessLayer.DbTransaction
 open App.Session
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.Classification
-open Business.FinancialServices.Classification.ClassificationComponent
 open Business.FinancialServices.Classification.ClassificationAuditableAction
+open Business.FinancialServices.Classification.ClassificationComponent
 open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.ClassificationOrchestration
-open Ui.InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
+open Ui.InterfaceBridge.InterfaceContracts.SharedContracts
 open Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
+open Ui.InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
 open Ui.InterfaceBridge.BoundaryConverters.ClassificationFieldConverters
 open Ui.InterfaceBridge.CommandRoute
-open Ui.InterfaceBridge.InterfaceContracts.SharedContracts
 
 let private newClassificationRule payload _ =
     let context = Context.create NoTransaction ClassificationNewRule

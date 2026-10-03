@@ -14,11 +14,11 @@ open Business.FinancialServices.Classification.ClassificationComponent
 open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.FetchFilters
 open Business.CrossDomainOrchestration.StageEntryOrchestration
+open Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
 open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open Ui.InterfaceBridge.BoundaryConverters.IngestionFieldConverters
-open Ui.InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
 open Ui.InterfaceBridge.BoundaryConverters.CashFlowLookupConverters
-open Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
+open Ui.InterfaceBridge.BoundaryConverters.CashFlowFieldConverters
 
 let ``convert [FieldMatch] to [FieldMatchContract]``
     (fieldMatch: FieldMatch.FieldMatch)

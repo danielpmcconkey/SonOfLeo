@@ -1,10 +1,10 @@
 module Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
 
 open System
-open App.DataAccessLayer.DalError
 open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer
+open App.DataAccessLayer.DalError
 open App.Session
 open Business.General
 open Business.FinancialServices

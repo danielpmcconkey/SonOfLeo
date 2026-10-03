@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <Compile Include="LedgerError.fs" />
+    <Compile Include="LedgerAuditableAction.fs" />
     <Compile Include="AccountComponent.fs" />
     <Compile Include="Account.fs" />
     <Compile Include="FiscalPeriodComponent.fs" />
@@ -17,15 +18,14 @@
     <Compile Include="JournalEntryLine.fs" />
     <Compile Include="JournalEntryExternalReference.fs" />
     <Compile Include="JournalEntryComment.fs" />
-    <Compile Include="LedgerAuditableAction.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\App.Session\App.Session.fsproj" />
-    <ProjectReference Include="..\App.DataAccessLayer\App.DataAccessLayer.fsproj" />
     <ProjectReference Include="..\App.Utility\App.Utility.fsproj" />
-    <ProjectReference Include="..\Business.FinancialServices\Business.FinancialServices.fsproj" />
+    <ProjectReference Include="..\App.DataAccessLayer\App.DataAccessLayer.fsproj" />
+    <ProjectReference Include="..\App.Session\App.Session.fsproj" />
     <ProjectReference Include="..\Business.General\Business.General.fsproj" />
+    <ProjectReference Include="..\Business.FinancialServices\Business.FinancialServices.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

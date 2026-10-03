@@ -8,8 +8,8 @@ open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Ledger.AccountComponent
-open Business.FinancialServices.Ledger.JournalEntryLine
 open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger.JournalEntryLine
 
 let private confirmAmountIsPositive (m: Money.Money) : Result<unit, IAppError> =
     if

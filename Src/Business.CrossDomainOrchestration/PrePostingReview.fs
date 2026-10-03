@@ -10,10 +10,10 @@ open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.Classification
-open Business.FinancialServices.Classification.ClassificationComponent
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.CashFlow.CashFlowComponent
+open Business.FinancialServices.Classification
+open Business.FinancialServices.Classification.ClassificationComponent
 
 /// One Payment referencing a staged line, with the Invoice it pays and that Invoice's Instance (REQ-RPT-7.4).
 type PrePostingPayment =
@@ -155,8 +155,8 @@ let fetchPrePostingReview (context: Context.Context) : Result<PrePostingEntry li
             payments
             |> List.choose (fun p ->
                 match p |> Payment.transactionPointer with
-                | Staged lineId -> Some (lineId, p)
-                | Posted _ -> None)
+                | TransactionPointer.Staged lineId -> Some (lineId, p)
+                | TransactionPointer.Posted _ -> None)
             |> List.groupBy fst
             |> List.map (fun (lineId, ps) ->
                 lineId,
@@ -192,7 +192,7 @@ let fetchPrePostingReview (context: Context.Context) : Result<PrePostingEntry li
               agreement = agreementByLine |> Map.tryFind lineId
               payments = paymentsByLine |> Map.tryFind lineId |> Option.defaultValue [] }
 
-        let lineTypeOrder = function Debit -> 0 | Credit -> 1
+        let lineTypeOrder = function JournalEntryLineType.Debit -> 0 | JournalEntryLineType.Credit -> 1
         return
             entries
             |> List.map (fun se ->

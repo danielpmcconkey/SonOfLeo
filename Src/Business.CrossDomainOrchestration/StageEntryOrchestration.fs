@@ -1,24 +1,24 @@
 module Business.CrossDomainOrchestration.StageEntryOrchestration
 
 open System
-open App.DataAccessLayer.DalError
 open App.Utility.IAppError
-open App.Utility.FieldUpdate
 open App.Utility.Result
+open App.Utility.FieldUpdate
 open App.DataAccessLayer
-open App.DataAccessLayer.ExecuteReader
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.QueryParameter
+open App.DataAccessLayer.ExecuteReader
 open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion
-open Business.FinancialServices.DataIngestion.BaseStageEntry
 open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.DataIngestion.BaseStageEntry
 open Business.FinancialServices.Classification.ClassificationComponent
-open Business.CrossDomainOrchestration.FetchFilters
 open Business.CrossDomainOrchestration.JournalEntryOrchestration
+open Business.CrossDomainOrchestration.FetchFilters
 
 type StageEntry =
     private {
@@ -59,8 +59,8 @@ let private sumLinesByType
     
 let private confirmAmountEquality (lines: StageEntryLine.StageEntryLine list) : Result<unit, IAppError> =
     result {
-        let! totalDebits = lines |> sumLinesByType Debit
-        let! totalCredits = lines |> sumLinesByType Credit
+        let! totalDebits = lines |> sumLinesByType JournalEntryLineType.Debit
+        let! totalCredits = lines |> sumLinesByType JournalEntryLineType.Credit
         return!
             if Money.isEqual totalCredits totalDebits then
                 Ok()

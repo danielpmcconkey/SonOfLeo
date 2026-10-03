@@ -1,23 +1,23 @@
 module Business.CrossDomainOrchestration.InstanceOrchestration
 
 open NodaTime
-open App.DataAccessLayer.DalError
 open App.Utility.IAppError
-open App.Utility.FieldUpdate
 open App.Utility.Result
+open App.Utility.FieldUpdate
 open App.DataAccessLayer
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.ExecuteReader
 open App.Session
 open Business.General
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.FinancialServices.CashFlow
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.CashFlow
 open Business.FinancialServices.Classification
-open Business.CrossDomainOrchestration.CashFlowCompositeFetcher
 open Business.CrossDomainOrchestration.FetchFilters
+open Business.CrossDomainOrchestration.CashFlowCompositeFetcher
 
 type InvoiceComposite = private {
     invoice: Invoice.Invoice

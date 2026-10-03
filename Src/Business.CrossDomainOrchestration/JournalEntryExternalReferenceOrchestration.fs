@@ -10,8 +10,8 @@ open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.LedgerError
-open Business.FinancialServices.Ledger.JournalEntryExternalReference
 open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.Ledger.JournalEntryExternalReference
 
 let private confirmJournalEntryHeader (context: Context.Context) (journalEntryHeaderId: JournalEntryHeaderId) : Result<unit, IAppError> =
     journalEntryHeaderId |> JournalEntryHeader.fetchById context

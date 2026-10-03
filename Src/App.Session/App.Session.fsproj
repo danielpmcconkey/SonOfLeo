@@ -11,9 +11,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\App.Utility\App.Utility.fsproj" />
     <ProjectReference Include="..\App.DataAccessLayer\App.DataAccessLayer.fsproj" />
     <ProjectReference Include="..\App.Operation\App.Operation.fsproj" />
-    <ProjectReference Include="..\App.Utility\App.Utility.fsproj" />
   </ItemGroup>
 
 </Project>

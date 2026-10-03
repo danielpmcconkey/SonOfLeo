@@ -2,18 +2,18 @@ module Ui.InterfaceBridge.ReportWriters.TrialBalanceWriter
 
 open NodaTime
 open App.Utility.IAppError
-open App.Utility.Calendar
-open App.Utility.File
 open App.Utility.Result
+open App.Utility.File
+open App.Utility.Calendar
 open Business.FinancialServices
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.CrossDomainOrchestration.TrialBalanceReport
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Ui.InterfaceBridge.ReportVisualizationAssets.HtmlComponents
 open Ui.InterfaceBridge.ReportVisualizationAssets.BaseCssDeclarations
+open Ui.InterfaceBridge.ReportVisualizationAssets.ReportHeader
 open Ui.InterfaceBridge.ReportVisualizationAssets.ReportBody
 open Ui.InterfaceBridge.ReportVisualizationAssets.ReportFooter
-open Ui.InterfaceBridge.ReportVisualizationAssets.ReportHeader
 
 
 let specificCss = [
