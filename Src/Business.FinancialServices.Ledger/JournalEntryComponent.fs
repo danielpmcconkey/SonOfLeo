@@ -5,6 +5,7 @@ open NodaTime
 open App.Utility.IAppError
 open App.Utility.Result
 open App.Session
+open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
@@ -136,6 +137,25 @@ module JournalEntryLineType =
         match s with
         | Debit -> "Debit"
         | Credit -> "Credit"
+
+/// BalancedLines is the one balanced double-entry rule, shared by journal entries and staged entries so ledger and
+/// staging can't disagree: at least two lines, and debits sum to credits. Each caller names its own typed errors.
+module BalancedLines =
+    let confirm
+        (insufficientLines: int -> IAppError)
+        (debitCreditMismatch: decimal * decimal -> IAppError)
+        (lines: (JournalEntryLineType * Money.Money) list)
+        : Result<unit, IAppError> =
+        let sumOf lineType = lines |> List.filter (fun (t, _) -> t = lineType) |> List.map snd |> Money.sumList
+        result {
+            do! if lines |> List.length < 2 then Error(insufficientLines (lines |> List.length)) else Ok()
+            let! totalDebits = sumOf JournalEntryLineType.Debit
+            let! totalCredits = sumOf JournalEntryLineType.Credit
+            return!
+                if Money.isEqual totalCredits totalDebits then Ok()
+                else
+                    Error(debitCreditMismatch(totalDebits |> Money.amount, totalCredits |> Money.amount))
+        }
 
 type JournalEntryLineMemo = private LineMemo of string
 

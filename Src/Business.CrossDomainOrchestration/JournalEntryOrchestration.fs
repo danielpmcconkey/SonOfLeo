@@ -34,29 +34,12 @@ module JournalEntryOrchestration =
     // validating JE as a collection
     // =============================================================================
 
-    let private confirmAmountEquality (lines: JournalEntryLine.JournalEntryLine list) : Result<unit, IAppError> =
-        result {
-            let! totalDebits = lines |> JournalEntryLine.sumLinesByType JournalEntryLineType.Debit
-            let! totalCredits = lines |> JournalEntryLine.sumLinesByType JournalEntryLineType.Credit
-            return!
-                if Money.isEqual totalCredits totalDebits then
-                    Ok()
-                else
-                    Error(JournalEntryDebitCreditMismatch(totalDebits |> Money.amount, totalCredits |> Money.amount))
-        }
-
-    let private confirmLineCount (lines: JournalEntryLine.JournalEntryLine list) : Result<unit, IAppError> =
-        if lines |> List.length < 2 then
-            Error(JournalEntryInsufficientLines(lines |> List.length))
-        else
-            Ok()
-
     let confirmLineList (lines: JournalEntryLine.JournalEntryLine list) : Result<unit, IAppError> =
-        result {
-            let! _ = confirmLineCount lines
-            let! _ = confirmAmountEquality lines
-            return ()
-        }
+        lines
+        |> List.map (fun line -> (line |> JournalEntryLine.lineType), (line |> JournalEntryLine.amount))
+        |> BalancedLines.confirm
+            (fun count -> JournalEntryInsufficientLines count)
+            (fun (debits, credits) -> JournalEntryDebitCreditMismatch(debits, credits))
 
     // =============================================================================
     // Create

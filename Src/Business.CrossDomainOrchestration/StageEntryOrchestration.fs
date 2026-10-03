@@ -46,31 +46,12 @@ let stageEntryHeader se = se.stageEntryHeader
 let seLines se = se.seLines
 let statusTransitions se = se.statusTransitions
 
-let private sumLinesByType
-    (debitOrCredit: JournalEntryLineType)
-    (lines: StageEntryLine.StageEntryLine list)
-    : Result<Money.Money, IAppError> =
+let private confirmLinesBalance (lines: StageEntryLine.StageEntryLine list) : Result<unit, IAppError> =
     lines
-    |> List.filter(fun x -> x |> StageEntryLine.lineType = debitOrCredit)
-    |> List.map(fun x -> x |> StageEntryLine.amount) |> Money.sumList
-    
-let private confirmAmountEquality (lines: StageEntryLine.StageEntryLine list) : Result<unit, IAppError> =
-    result {
-        let! totalDebits = lines |> sumLinesByType JournalEntryLineType.Debit
-        let! totalCredits = lines |> sumLinesByType JournalEntryLineType.Credit
-        return!
-            if Money.isEqual totalCredits totalDebits then
-                Ok()
-            else
-                Error(DataIngestionError.IngestionStageEntryDebitCreditMismatch(
-                    totalDebits |> Money.amount, totalCredits |> Money.amount))
-    }
-
-let private confirmLineCount (lines: StageEntryLine.StageEntryLine list) : Result<unit, IAppError> =
-    if lines |> List.length < 2 then
-        Error(DataIngestionError.IngestionStageEntryInsufficientLines(lines |> List.length))
-    else
-        Ok()
+    |> List.map (fun line -> (line |> StageEntryLine.lineType), (line |> StageEntryLine.amount))
+    |> BalancedLines.confirm
+        (fun count -> DataIngestionError.IngestionStageEntryInsufficientLines count)
+        (fun (debits, credits) -> DataIngestionError.IngestionStageEntryDebitCreditMismatch(debits, credits))
 
 let private confirmLinesAreAllPositive (lines: StageEntryLine.StageEntryLine list) : Result<unit, IAppError> =
     let checkedLines =
@@ -119,8 +100,7 @@ let private confirmLines
     (lines: StageEntryLine.StageEntryLine list)
     : Result<unit, IAppError> =
     result {
-        do! lines |> confirmLineCount
-        do! lines |> confirmAmountEquality
+        do! lines |> confirmLinesBalance
         do! lines |> confirmLinesAreAllPositive
         do! lines |> confirmLinesAccountCodes context accountCodeValidationType // do the expensive one last
     }
