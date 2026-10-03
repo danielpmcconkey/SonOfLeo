@@ -136,6 +136,7 @@ let ``convert [Invoice] to [InvoiceReturn]``
             invoiceLifeCycleState =
                 invoice |> Invoice.invoiceLifeCycleState |> ``convert [InvoiceLifeCycleState] to [InvoiceLifeCycleStateContract]``
             memo = invoice |> Invoice.memo |> Option.map InvoiceMemo.value
+            cancellationReasonNote = invoice |> Invoice.cancellationReasonNote |> Option.map CancellationReasonNote.value
             createdAt = invoice |> Invoice.createdAt
             modifiedAt = invoice |> Invoice.modifiedAt } }
 
@@ -144,6 +145,7 @@ let ``convert [Instance] to [InstanceReturn]`` (instance: Instance.Instance) : I
     masterAgreementName = instance |> Instance.masterAgreementName |> AgreementName.value
     instanceDate = instance |> Instance.instanceDate
     isFulfilled = instance |> Instance.isFulfilled
+    cancellationReasonNote = instance |> Instance.cancellationReasonNote |> Option.map CancellationReasonNote.value
     createdAt = instance |> Instance.createdAt
     modifiedAt = instance |> Instance.modifiedAt }
 

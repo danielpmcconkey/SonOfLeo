@@ -215,6 +215,9 @@ let fetchById (context: Context.Context) (agreementID: MasterAgreementId) : Resu
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
     fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
 
+let fetchAll (context: Context.Context) : Result<MasterAgreement list, IAppError> =
+    fetchAny context None None [] AnyQuantityIsAcceptable
+
 let fetchByMasterAgreementIdList
     (context: Context.Context)
     (agreementIds: MasterAgreementId list)

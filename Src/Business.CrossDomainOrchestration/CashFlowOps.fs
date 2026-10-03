@@ -101,7 +101,7 @@ let createUpcomingInstances
     result {
         let! agreements = AgreementOrchestration.fetchAllActiveAgreements context
         do! agreements |> spawnInstancesFromAgreements context daysOut
-        return! false |> InstanceOrchestration.fetchCompositesByIsFulfilled context
+        return! InstanceOrchestration.fetchOpenComposites context
     }
 
 // a tie claims every agreement it tied across; a clear winner claims only the winner, since the losers lost
@@ -352,7 +352,8 @@ let private matchInvoicesAndCreatePayments
     (openInstances: InstanceOrchestration.InstanceComposite list)
     : Result<CashFlowComponent.InvoiceDecision list, IAppError> =
     result {
-        // a fully paid invoice has nothing left to match. its instance can still be open, waiting on a sibling leg
+        // a fully paid invoice has nothing left to match. its instance can still be open, waiting on a sibling leg. a
+        // cancelled invoice is never matched
         let! openInvoices =
             openInstances
             |> List.collect (fun instanceComposite ->
@@ -362,8 +363,9 @@ let private matchInvoicesAndCreatePayments
                 instanceComposite
                 |> InstanceOrchestration.invoiceComposites
                 |> List.filter (fun invoiceComposite ->
-                    let lifeCycleState = invoiceComposite |> InstanceOrchestration.invoice |> Invoice.invoiceLifeCycleState
-                    lifeCycleState.paymentState <> CashFlowComponent.FullyPaid)
+                    let invoice = invoiceComposite |> InstanceOrchestration.invoice
+                    let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
+                    lifeCycleState.paymentState <> CashFlowComponent.FullyPaid && invoice |> Invoice.isCancelled |> not)
                 |> List.map (fun invoiceComposite ->
                     let invoice = invoiceComposite |> InstanceOrchestration.invoice
                     instanceComposite
@@ -575,10 +577,10 @@ let classifyPaymentAgreements
             classificationResults |> selectLegsOfClaimedEntries agreementsById linesById
         let! linksCreated, linkageDecisions =
             selectedClaims |> pivotClaimsByPaymentAgreement |> writeLinkagesForClaimClusters context
-        let! openInstancesToMatch = false |> InstanceOrchestration.fetchCompositesByIsFulfilled context
+        let! openInstancesToMatch = InstanceOrchestration.fetchOpenComposites context
         let! invoiceDecisionLog = openInstancesToMatch |> matchInvoicesAndCreatePayments context
         // re-read rather than reuse: the invoice phase above creates payments against these instances
-        let! openInstances = false |> InstanceOrchestration.fetchCompositesByIsFulfilled context
+        let! openInstances = InstanceOrchestration.fetchOpenComposites context
         let classificationResult: InstanceOrchestration.PaymentAgreementClassificationResult =
             { runId = classificationRun.runId
               classificationResults = classificationResults
@@ -737,7 +739,7 @@ let projectCashFlowNDaysForward
             balances
             |> List.map (fun (balance: AccountBalance.AccountBalance) -> balance.accountId, balance.netBalance)
             |> Map.ofList
-        let! openInstances = InstanceOrchestration.fetchCompositesByIsFulfilled context false
+        let! openInstances = InstanceOrchestration.fetchOpenComposites context
         let masterAgreementIds =
             openInstances
             |> List.map (fun composite -> composite |> InstanceOrchestration.instance |> Instance.masterAgreementID)
@@ -775,6 +777,7 @@ let projectCashFlowNDaysForward
             |> List.filter (fun (_, invoice, _) ->
                 let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
                 lifeCycleState.paymentState <> CashFlowComponent.FullyPaid
+                && invoice |> Invoice.isCancelled |> not
                 && (invoice |> Invoice.dueDate).localDate <= horizonEnd)
             |> List.map (fun (masterAgreementId, invoice, payments) -> result {
                 // what is still owed, not what was billed: a part-paid bill must not be counted twice. an overpaid

@@ -225,15 +225,15 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
     /// Every Instance and every Invoice in the book, fulfilled or not.
     member _.instanceAndInvoiceIds () =
         result {
-            let! openOnes = false |> InstanceOrchestration.fetchCompositesByIsFulfilled context
-            let! fulfilledOnes = true |> InstanceOrchestration.fetchCompositesByIsFulfilled context
-            let all = openOnes @ fulfilledOnes
-            let instanceIds = all |> List.map (InstanceOrchestration.instance >> Instance.instanceId) |> Set.ofList
-            let invoiceIds =
-                all
-                |> List.collect InstanceOrchestration.invoiceComposites
-                |> List.map (InstanceOrchestration.invoice >> Invoice.invoiceId)
-                |> Set.ofList
+            let! masterAgreements = MasterAgreement.fetchAll context
+            let! instances =
+                if masterAgreements |> List.isEmpty then Ok []
+                else masterAgreements |> List.map MasterAgreement.agreementID |> Instance.fetchByMasterAgreementIdList context
+            let instanceIds = instances |> List.map Instance.instanceId |> Set.ofList
+            let! invoices =
+                if instances |> List.isEmpty then Ok []
+                else instances |> List.map Instance.instanceId |> Invoice.fetchByInstanceIdList context
+            let invoiceIds = invoices |> List.map Invoice.invoiceId |> Set.ofList
             return instanceIds, invoiceIds
         }
 
@@ -1303,7 +1303,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let listed = run.openInstances |> List.map (InstanceOrchestration.instance >> Instance.instanceId) |> Set.ofList
                 Assert.DoesNotContain(fulfilledByRunId, listed)
                 Assert.Contains(leftOpenId, listed)
-                let! unfulfilledNow = false |> InstanceOrchestration.fetchCompositesByIsFulfilled context
+                let! unfulfilledNow = InstanceOrchestration.fetchOpenComposites context
                 let expected = unfulfilledNow |> List.map (InstanceOrchestration.instance >> Instance.instanceId) |> Set.ofList
                 Assert.Equal<Set<InstanceId>>(expected, listed)
             })

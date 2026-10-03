@@ -263,6 +263,21 @@ module InvoiceMemo =
         else
             Ok(InvoiceMemo trimmed)
 
+/// CancellationReasonNote says why an Instance or Invoice was cancelled. Its presence is what makes it cancelled.
+type CancellationReasonNote = private CancellationReasonNote of string
+
+module CancellationReasonNote =
+    let maxLength = 500
+    let value (CancellationReasonNote note) = note
+    let create (raw: string) : Result<CancellationReasonNote, IAppError> =
+        let trimmed = raw.Trim()
+        if String.IsNullOrWhiteSpace trimmed then
+            Error(CashflowCancellationReasonNoteIsEmpty raw)
+        elif trimmed.Length > maxLength then
+            Error(CashflowCancellationReasonNoteTooLong(raw, maxLength))
+        else
+            Ok(CancellationReasonNote trimmed)
+
 type PaymentMemo = private PaymentMemo of string
 
 module PaymentMemo =

@@ -114,6 +114,28 @@ let private createInvoice payload _ =
             return! Json.toJson<InstanceCompositeReturn> converted
         })
 
+let private cancelInstance payload _ =
+    runCommandRouteAndAutoCompleteTransaction CashFlowCancelInstance (fun context ->
+        result {
+            let! input = Json.fromJson<CancelInstanceInput> payload
+            let! note = input.cancellationReasonNote |> CancellationReasonNote.create
+            let! instanceComposite =
+                input.instanceId |> InstanceId.fromGuid |> InstanceOrchestration.cancelInstance context note
+            let! converted = instanceComposite |> ``convert [InstanceComposite] to [InstanceCompositeReturn]`` context
+            return! Json.toJson<InstanceCompositeReturn> converted
+        })
+
+let private cancelInvoice payload _ =
+    runCommandRouteAndAutoCompleteTransaction CashFlowCancelInvoice (fun context ->
+        result {
+            let! input = Json.fromJson<CancelInvoiceInput> payload
+            let! note = input.cancellationReasonNote |> CancellationReasonNote.create
+            let! instanceComposite =
+                input.invoiceId |> InvoiceId.fromGuid |> InstanceOrchestration.cancelInvoice context note
+            let! converted = instanceComposite |> ``convert [InstanceComposite] to [InstanceCompositeReturn]`` context
+            return! Json.toJson<InstanceCompositeReturn> converted
+        })
+
 let private updateInvoice payload _ =
     runCommandRouteAndAutoCompleteTransaction CashFlowUpdateInvoice (fun context ->
         result {
@@ -186,7 +208,7 @@ let cashFlowDomainCommandRoutes: CommandRoute list =
 
       { domain = "CashFlow"
         verb = "UpdateAgreement"
-        description = "Update any of a master agreement's fields. Its payment agreements are not touched."
+        description = "Update any of a master agreement's fields, update any of its payment agreements' fields, and add new payment agreements. No payment agreement is removed, and existing invoices and payments are untouched."
         inputContract = typeof<UpdateAgreementInput>.Name
         outputContract = typeof<AgreementReturn>.Name
         handler = updateAgreement }
@@ -211,6 +233,20 @@ let cashFlowDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<UpdateInvoiceInput>.Name
         outputContract = typeof<InstanceCompositeReturn>.Name
         handler = updateInvoice }
+
+      { domain = "CashFlow"
+        verb = "CancelInstance"
+        description = "Cancel an instance and every invoice it holds, with a reason note. Refused while any of its invoices has a payment. Cancellation is permanent."
+        inputContract = typeof<CancelInstanceInput>.Name
+        outputContract = typeof<InstanceCompositeReturn>.Name
+        handler = cancelInstance }
+
+      { domain = "CashFlow"
+        verb = "CancelInvoice"
+        description = "Cancel one invoice, with a reason note. Refused while it has a payment. Cancellation is permanent. Returns the whole instance, whose fulfillment the cancellation may have changed."
+        inputContract = typeof<CancelInvoiceInput>.Name
+        outputContract = typeof<InstanceCompositeReturn>.Name
+        handler = cancelInvoice }
 
       { domain = "CashFlow"
         verb = "CreatePayment"

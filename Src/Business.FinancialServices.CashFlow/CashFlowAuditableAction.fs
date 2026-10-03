@@ -3,6 +3,8 @@ module Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open App.Operation.IAuditableAction
 
 type CashFlowAuditableAction = 
+    | CashFlowCancelInstance
+    | CashFlowCancelInvoice
     | CashFlowCreateAgreement
     | CashFlowCreateInstance
     | CashFlowCreateInvoice

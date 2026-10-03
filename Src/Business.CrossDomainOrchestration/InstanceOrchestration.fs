@@ -320,7 +320,7 @@ let private confirmFulfilledInstanceInvoicesAreFullyPaid
     invoices
     |> List.map (fun invoice ->
         let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
-        if lifeCycleState.paymentState = CashFlowComponent.FullyPaid then Ok ()
+        if lifeCycleState.paymentState = CashFlowComponent.FullyPaid || invoice |> Invoice.isCancelled then Ok ()
         else
             let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
             CashFlowError.error(CashFlowError.CashflowInstanceFulfilledWithUnpaidInvoice(instanceUuid, invoiceUuid)))
@@ -430,12 +430,12 @@ let fetchCompositeByInstanceId
         return { instance = instance; invoiceComposites = compileInvoiceCompositesFromSubLists invoices payments }
     }
 
-let fetchCompositesByIsFulfilled
+/// fetchOpenComposites returns every open Instance (neither fulfilled nor cancelled) with its Invoices and Payments.
+let fetchOpenComposites
     (context: Context.Context)
-    (isFulfilled: bool)
     : Result<InstanceComposite list, IAppError> =
     result {
-        let! instances = isFulfilled |> Instance.fetchByIsFulfilled context
+        let! instances = Instance.fetchOpen context
         if instances |> List.isEmpty then return [] else
         let instanceIds = instances |> List.map Instance.instanceId
         let! invoices = instanceIds |> Invoice.fetchByInstanceIdList context
@@ -533,12 +533,13 @@ let private derivePostedState
         CashFlowComponent.PostedToLedger
     else CashFlowComponent.PartiallyPosted
 
+/// deriveIsFulfilled: at least one Invoice FullyPaid, and every Invoice FullyPaid or cancelled.
 let private deriveIsFulfilled (invoiceComposites: InvoiceComposite list) : bool =
-    if invoiceComposites |> List.isEmpty then false else
-    invoiceComposites
-    |> List.forall (fun invoiceComposite ->
-        let lifeCycleState = invoiceComposite.invoice |> Invoice.invoiceLifeCycleState
-        lifeCycleState.paymentState = CashFlowComponent.FullyPaid)
+    let isFullyPaid (invoiceComposite: InvoiceComposite) =
+        (invoiceComposite.invoice |> Invoice.invoiceLifeCycleState).paymentState = CashFlowComponent.FullyPaid
+    invoiceComposites |> List.exists isFullyPaid
+    && invoiceComposites
+       |> List.forall (fun invoiceComposite -> isFullyPaid invoiceComposite || invoiceComposite.invoice |> Invoice.isCancelled)
 
 let private withDerivedStates
     (paymentState: CashFlowComponent.PaymentState)
@@ -676,6 +677,25 @@ let updateInstanceComposite
             instanceId
             |> fetchCompositeByInstanceId context
             |> whenNoRows (CashFlowError.CashflowInstanceIdDoesntExist (instanceId |> CashFlowComponent.InstanceId.value))
+        // cancellation is terminal: a cancelled Instance takes no change at all, and a cancelled Invoice takes no
+        // update and no Payment
+        do!
+            if current.instance |> Instance.isCancelled |> not then Ok () else
+            CashFlowError.error (CashFlowError.CashflowInstanceCancelled (instanceId |> CashFlowComponent.InstanceId.value))
+        do!
+            compositeUpdate.invoiceCompositeUpdates
+            |> List.map (fun invoiceCompositeUpdate ->
+                let invoiceId = invoiceCompositeUpdate.invoiceUpdates.invoiceIdToUpdate
+                let isCancelled =
+                    current.invoiceComposites
+                    |> List.exists (fun invoiceComposite ->
+                        invoiceComposite.invoice |> Invoice.invoiceId = invoiceId
+                        && invoiceComposite.invoice |> Invoice.isCancelled)
+                if isCancelled then
+                    CashFlowError.error (CashFlowError.CashflowInvoiceCancelled (invoiceId |> CashFlowComponent.InvoiceId.value))
+                else Ok ())
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
         let! preConstructed =
             compositeUpdate.invoiceCompositeUpdates
             |> List.map (preConstructInvoiceComposite context current.invoiceComposites)
@@ -822,4 +842,80 @@ let createInstanceCompositeAndSaveToDb
     }
     
 
+/// cancelInstance cancels an Instance and every Invoice it holds, each with the Instance's reason note. It is refused
+/// while any of its Invoices has a Payment, naming those Invoices. An Invoice already cancelled keeps its own note.
+let cancelInstance
+    (context: Context.Context)
+    (note: CashFlowComponent.CancellationReasonNote)
+    (instanceId: CashFlowComponent.InstanceId)
+    : Result<InstanceComposite, IAppError> =
+    result {
+        let instanceUuid = instanceId |> CashFlowComponent.InstanceId.value
+        let! current =
+            instanceId
+            |> fetchCompositeByInstanceId context
+            |> whenNoRows (CashFlowError.CashflowInstanceIdDoesntExist instanceUuid)
+        do!
+            if current.instance |> Instance.isCancelled then
+                CashFlowError.error (CashFlowError.CashflowInstanceCancelled instanceUuid)
+            else Ok ()
+        let paidInvoiceUuids =
+            current.invoiceComposites
+            |> List.filter (fun invoiceComposite -> invoiceComposite.payments |> List.isEmpty |> not)
+            |> List.map (fun invoiceComposite -> invoiceComposite.invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value)
+        do!
+            if paidInvoiceUuids |> List.isEmpty then Ok ()
+            else CashFlowError.error (CashFlowError.CashflowInstanceCancellationBlockedByPayments(instanceUuid, paidInvoiceUuids))
+        do! instanceId |> Instance.cancel context note
+        do!
+            current.invoiceComposites
+            |> List.map (fun invoiceComposite -> invoiceComposite.invoice)
+            |> List.filter (Invoice.isCancelled >> not)
+            |> List.map (fun invoice -> invoice |> Invoice.invoiceId |> Invoice.cancel context note)
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
+        let! fetched = instanceId |> fetchCompositeByInstanceId context
+        do! fetched |> confirmInstanceComposite context
+        return fetched
+    }
 
+/// cancelInvoice cancels one Invoice with its reason note, refused while it has a Payment. Its Instance's is-fulfilled
+/// is re-derived, since a cancelled Invoice no longer holds the Instance open.
+let cancelInvoice
+    (context: Context.Context)
+    (note: CashFlowComponent.CancellationReasonNote)
+    (invoiceId: CashFlowComponent.InvoiceId)
+    : Result<InstanceComposite, IAppError> =
+    result {
+        let invoiceUuid = invoiceId |> CashFlowComponent.InvoiceId.value
+        let! invoiceComposite =
+            invoiceId
+            |> fetchCompositeByInvoiceId context
+            |> whenNoRows (CashFlowError.CashflowInvoiceIdDoesntExist invoiceUuid)
+        let instanceId = invoiceComposite.invoice |> Invoice.instanceId
+        let! current = instanceId |> fetchCompositeByInstanceId context
+        do!
+            if current.instance |> Instance.isCancelled then
+                CashFlowError.error (CashFlowError.CashflowInstanceCancelled (instanceId |> CashFlowComponent.InstanceId.value))
+            else Ok ()
+        do!
+            if invoiceComposite.invoice |> Invoice.isCancelled then
+                CashFlowError.error (CashFlowError.CashflowInvoiceCancelled invoiceUuid)
+            else Ok ()
+        do!
+            if invoiceComposite.payments |> List.isEmpty then Ok ()
+            else CashFlowError.error (CashFlowError.CashflowInvoiceCancellationBlockedByPayments invoiceUuid)
+        do! invoiceId |> Invoice.cancel context note
+        let! cancelled = instanceId |> fetchCompositeByInstanceId context
+        let isFulfilled = cancelled.invoiceComposites |> deriveIsFulfilled
+        let fulfilledUpdate: Instance.InstanceFieldUpdates =
+            { instanceIdToUpdate = instanceId
+              instanceDateUpdate = FieldUpdate.NoChange
+              isFulfilledUpdate = FieldUpdate.SetTo isFulfilled }
+        do!
+            if isFulfilled = (cancelled.instance |> Instance.isFulfilled) then Ok ()
+            else fulfilledUpdate |> Instance.update context |> Result.map ignore
+        let! fetched = instanceId |> fetchCompositeByInstanceId context
+        do! fetched |> confirmInstanceComposite context
+        return fetched
+    }

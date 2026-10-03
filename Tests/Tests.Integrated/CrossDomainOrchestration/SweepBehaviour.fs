@@ -237,9 +237,11 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
 /// by id, read through the given context.
 let private everything (context: Context.Context) =
     result {
-        let! unfulfilled = Instance.fetchByIsFulfilled context false
-        let! fulfilled = Instance.fetchByIsFulfilled context true
-        let instances = unfulfilled @ fulfilled |> List.sortBy (Instance.instanceId >> InstanceId.value)
+        let! masterAgreements = MasterAgreement.fetchAll context
+        let! allInstances =
+            if masterAgreements |> List.isEmpty then Ok []
+            else masterAgreements |> List.map MasterAgreement.agreementID |> Instance.fetchByMasterAgreementIdList context
+        let instances = allInstances |> List.sortBy (Instance.instanceId >> InstanceId.value)
         let! invoices =
             if instances |> List.isEmpty then Ok []
             else instances |> List.map Instance.instanceId |> Invoice.fetchByInstanceIdList context

@@ -46,6 +46,12 @@ type CashFlowError =
     | CashflowInvoiceFullyPaidWithBlocker of Guid
     | CashflowInvoiceIdDoesntExist of Guid
     | CashflowInvoiceIdListCannotBeEmpty
+    | CashflowCancellationReasonNoteIsEmpty of string
+    | CashflowCancellationReasonNoteTooLong of string * int
+    | CashflowInstanceCancelled of Guid
+    | CashflowInstanceCancellationBlockedByPayments of Guid * Guid list
+    | CashflowInvoiceCancelled of Guid
+    | CashflowInvoiceCancellationBlockedByPayments of Guid
     | CashflowInvoiceMemoIsEmpty of string
     | CashflowInvoiceMemoTooLong of string * int
     | CashflowInvoiceNonPositiveAmount of Guid * decimal
@@ -136,6 +142,14 @@ type CashFlowError =
             | CashflowInvoiceFullyPaidWithBlocker invoiceId -> $"Invoice {invoiceId} cannot be FullyPaid while a Blocker is set."
             | CashflowInvoiceIdDoesntExist uuid -> $"Could not locate an Invoice with the id of {uuid}."
             | CashflowInvoiceIdListCannotBeEmpty -> "The invoiceIds list must contain at least 1 ID."
+            | CashflowCancellationReasonNoteIsEmpty note -> $"A cancellation reason note cannot be empty. Provided note is {note}."
+            | CashflowCancellationReasonNoteTooLong(note, max) -> $"A cancellation reason note cannot exceed {max} characters. Provided note is {note}."
+            | CashflowInstanceCancelled uuid -> $"Instance {uuid} is cancelled. A cancelled Instance cannot be cancelled again, changed, or given anything new."
+            | CashflowInstanceCancellationBlockedByPayments(instanceUuid, invoiceUuids) ->
+                let invoices = invoiceUuids |> List.map string |> String.concat ", "
+                $"Instance {instanceUuid} cannot be cancelled while these Invoices have Payments: {invoices}. Delete the Payments first."
+            | CashflowInvoiceCancelled uuid -> $"Invoice {uuid} is cancelled. A cancelled Invoice cannot be cancelled again, updated, or given a Payment."
+            | CashflowInvoiceCancellationBlockedByPayments uuid -> $"Invoice {uuid} cannot be cancelled while it has a Payment. Delete the Payment first."
             | CashflowInvoiceMemoIsEmpty memo -> $"InvoiceMemo cannot be empty. Provided Memo is {memo}."
             | CashflowInvoiceMemoTooLong(memo, max) -> $"InvoiceMemo cannot exceed {max} characters. Provided Memo is {memo}."
             | CashflowInvoiceNonPositiveAmount(invoiceId, amount) -> $"Invoice {invoiceId} amount ({amount}) must be greater than 0."

@@ -16,7 +16,7 @@ open Business.FinancialServices.CashFlow.CashFlowComponent
 let invoiceSelectFields = """
     inv.unique_id, inv.instance_id, inv.payment_agreement_id, inv.external_invoice_id, inv.invoice_date,
     inv.due_date, inv.amount, inv.invoice_state, inv.payment_state, inv.posted_state, inv.blocker_state,
-    inv.blocker_note, inv.memo, inv.created_at, inv.modified_at
+    inv.blocker_note, inv.memo, inv.cancellation_reason_note, inv.created_at, inv.modified_at
     """
 
 type Invoice = private {
@@ -29,6 +29,8 @@ type Invoice = private {
     amount: InvoiceAmount
     invoiceLifeCycleState: InvoiceLifeCycleState
     memo: InvoiceMemo option
+    // present exactly when the Invoice is cancelled
+    cancellationReasonNote: CancellationReasonNote option
     createdAt: Instant
     modifiedAt: Instant
 }
@@ -55,6 +57,8 @@ let dueDate i = i.dueDate
 let amount i = i.amount
 let invoiceLifeCycleState i = i.invoiceLifeCycleState
 let memo i = i.memo
+let cancellationReasonNote i = i.cancellationReasonNote
+let isCancelled i = i.cancellationReasonNote |> Option.isSome
 let createdAt i = i.createdAt
 let modifiedAt i = i.modifiedAt
 
@@ -80,6 +84,7 @@ let create
       amount = amount
       invoiceLifeCycleState = invoiceLifeCycleState
       memo = memo
+      cancellationReasonNote = None
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
@@ -146,11 +151,12 @@ let persist
             """
             insert into cashflow.invoice(
 	            unique_id, instance_id, payment_agreement_id, external_invoice_id, invoice_date, due_date, amount,
-                invoice_state, payment_state, posted_state, blocker_state, blocker_note, memo, created_at, modified_at)
+                invoice_state, payment_state, posted_state, blocker_state, blocker_note, memo, cancellation_reason_note,
+                created_at, modified_at)
             values (
 	            @unique_id, @instance_id, @payment_agreement_id, @external_invoice_id, @invoice_date, @due_date, @amount,
-                @invoice_state, @payment_state, @posted_state, @blocker_state, @blocker_note, @memo, @created_at,
-                @modified_at);"""
+                @invoice_state, @payment_state, @posted_state, @blocker_state, @blocker_note, @memo,
+                @cancellation_reason_note, @created_at, @modified_at);"""
         let uuid = invoice.invoiceId |> InvoiceId.value
         let instanceUuid = invoice.instanceId |> InstanceId.value
         let paymentAgreementUuid = invoice.paymentAgreementId |> PaymentAgreementId.value
@@ -176,6 +182,8 @@ let persist
               { name = "@blocker_state"; value = NullableCharString(blockerState) }
               { name = "@blocker_note"; value = NullableCharString(blockerNote) }
               { name = "@memo"; value = NullableCharString(memo) }
+              { name = "@cancellation_reason_note"
+                value = NullableCharString(invoice.cancellationReasonNote |> Option.map CancellationReasonNote.value) }
               { name = "@created_at"; value = DbInstant(invoice.createdAt) }
               { name = "@modified_at"; value = DbInstant(invoice.modifiedAt) }
             ]
@@ -197,6 +205,7 @@ let private reconstitute raw =
              blockerState,
              blockerNote,
              memoStr,
+             cancellationReasonNoteStr,
              createdAt,
              modifiedAt) =
             raw
@@ -216,7 +225,9 @@ let private reconstitute raw =
               postedState = postedState
               blocker = blocker }
         let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter InvoiceMemo.create
-        return
+        let! cancellationReasonNote =
+            cancellationReasonNoteStr |> convertOptionToDesiredTypeWithFallibleConverter CancellationReasonNote.create
+        let invoice =
             create
                 invoiceId
                 instanceId
@@ -229,6 +240,7 @@ let private reconstitute raw =
                 memo
                 createdAt
                 modifiedAt
+        return { invoice with cancellationReasonNote = cancellationReasonNote }
     }
 
 let private mapRawForDbRead (row: RowReader) =
@@ -245,6 +257,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getStringOption "blocker_state"),
     (row |> RowReader.getStringOption "blocker_note"),
     (row |> RowReader.getStringOption "memo"),
+    (row |> RowReader.getStringOption "cancellation_reason_note"),
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
@@ -385,3 +398,23 @@ let update
             |> whenNoRows (CashflowInvoiceIdDoesntExist (invoiceId |> InvoiceId.value))
         return! invoiceId |> fetchById context
     }
+
+/// cancel records the Invoice as cancelled with its reason note. The caller decides whether it may be cancelled.
+let cancel
+    (context: Context.Context)
+    (note: CancellationReasonNote)
+    (invoiceId: InvoiceId)
+    : Result<unit, IAppError> =
+    let uuid = invoiceId |> InvoiceId.value
+    let queryStatement =
+        """
+        UPDATE cashflow.invoice
+        set cancellation_reason_note = @cancellation_reason_note, modified_at = @modified
+        WHERE unique_id = @unique_id;
+        """
+    let parameters =
+        [ { name = "@unique_id"; value = UniqueId uuid }
+          { name = "@cancellation_reason_note"; value = CharString(note |> CancellationReasonNote.value) }
+          { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) } ]
+    executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+    |> whenNoRows (CashflowInvoiceIdDoesntExist uuid)

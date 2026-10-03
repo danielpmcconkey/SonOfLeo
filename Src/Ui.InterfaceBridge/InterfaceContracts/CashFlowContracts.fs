@@ -68,6 +68,7 @@ type InvoiceReturn = {
     amount: decimal
     invoiceLifeCycleState: InvoiceLifeCycleStateContract
     memo: string option
+    cancellationReasonNote: string option
     createdAt: Instant
     modifiedAt: Instant
 }
@@ -82,6 +83,7 @@ type InstanceReturn = {
     masterAgreementName: string
     instanceDate: LocalDate
     isFulfilled: bool
+    cancellationReasonNote: string option
     createdAt: Instant
     modifiedAt: Instant
 }
@@ -222,6 +224,10 @@ type CreatePaymentInput = {
 }
 
 type DeletePaymentInput = { paymentId: Guid }
+
+type CancelInstanceInput = { instanceId: Guid; cancellationReasonNote: string }
+
+type CancelInvoiceInput = { invoiceId: Guid; cancellationReasonNote: string }
 
 type FetchAgreementSummaryInput = { agreementName: string }
 

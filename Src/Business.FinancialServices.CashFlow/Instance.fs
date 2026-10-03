@@ -17,6 +17,8 @@ type Instance = private {
     masterAgreementName: AgreementName // not separately tracked in the database; here for read convenience
     instanceDate: LocalDate
     isFulfilled: bool
+    // present exactly when the Instance is cancelled
+    cancellationReasonNote: CancellationReasonNote option
     createdAt: Instant
     modifiedAt: Instant
 }
@@ -32,6 +34,8 @@ let masterAgreementID i = i.masterAgreementID
 let masterAgreementName i = i.masterAgreementName
 let instanceDate i = i.instanceDate
 let isFulfilled i = i.isFulfilled
+let cancellationReasonNote i = i.cancellationReasonNote
+let isCancelled i = i.cancellationReasonNote |> Option.isSome
 let createdAt i = i.createdAt
 let modifiedAt i = i.modifiedAt
 
@@ -49,6 +53,7 @@ let create
       masterAgreementName = masterAgreementName
       instanceDate = instanceDate
       isFulfilled = isFulfilled
+      cancellationReasonNote = None
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
@@ -65,9 +70,11 @@ let persist
         let queryStatement =
             """
             insert into cashflow.instance(
-	            unique_id, master_agreement_id, instance_date, is_fulfilled, created_at, modified_at)
+	            unique_id, master_agreement_id, instance_date, is_fulfilled, cancellation_reason_note, created_at,
+                modified_at)
             values (
-	            @unique_id, @master_agreement_id, @instance_date, @is_fulfilled, @created_at, @modified_at);"""
+	            @unique_id, @master_agreement_id, @instance_date, @is_fulfilled, @cancellation_reason_note,
+                @created_at, @modified_at);"""
         let uuid = instance.instanceId |> InstanceId.value
         let masterAgreementUuid = instance.masterAgreementID |> MasterAgreementId.value
         let parameters =
@@ -76,6 +83,8 @@ let persist
               { name = "@master_agreement_id"; value = UniqueId(masterAgreementUuid) }
               { name = "@instance_date"; value = DbLocalDate(instance.instanceDate) }
               { name = "@is_fulfilled"; value = Boolean(instance.isFulfilled) }
+              { name = "@cancellation_reason_note"
+                value = NullableCharString(instance.cancellationReasonNote |> Option.map CancellationReasonNote.value) }
               { name = "@created_at"; value = DbInstant(instance.createdAt) }
               { name = "@modified_at"; value = DbInstant(instance.modifiedAt) }
             ]
@@ -89,13 +98,16 @@ let private reconstitute raw =
              masterAgreementNameStr,
              instanceDate,
              isFulfilled,
+             cancellationReasonNoteStr,
              createdAt,
              modifiedAt) =
             raw
         let instanceId = uuid |> InstanceId.fromGuid
         let masterAgreementID = masterAgreementUuid |> MasterAgreementId.fromGuid
         let! masterAgreementName = masterAgreementNameStr |> AgreementName.create
-        return
+        let! cancellationReasonNote =
+            cancellationReasonNoteStr |> convertOptionToDesiredTypeWithFallibleConverter CancellationReasonNote.create
+        let instance =
             create
                 instanceId
                 masterAgreementID
@@ -104,6 +116,7 @@ let private reconstitute raw =
                 isFulfilled
                 createdAt
                 modifiedAt
+        return { instance with cancellationReasonNote = cancellationReasonNote }
     }
 
 let private mapRawForDbRead (row: RowReader) =
@@ -112,6 +125,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getString "agreement_name"),
     (row |> RowReader.getDate "instance_date"),
     (row |> RowReader.getBool "is_fulfilled"),
+    (row |> RowReader.getStringOption "cancellation_reason_note"),
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
@@ -146,7 +160,7 @@ let private fetchAny
     : Result<Instance list, IAppError> =
     let select = """
         ins.unique_id, ins.master_agreement_id, ma.agreement_name, ins.instance_date, ins.is_fulfilled,
-        ins.created_at, ins.modified_at
+        ins.cancellation_reason_note, ins.created_at, ins.modified_at
         """
     let joinList = [ "join cashflow.master_agreement ma on ins.master_agreement_id = ma.unique_id" ]
     query context None select (Some joinList) predicate limit None None parameters expectedRows
@@ -172,13 +186,30 @@ let fetchByMasterAgreementIdList
     let predicate = $"ins.master_agreement_id in ({names})"
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
-let fetchByIsFulfilled
+/// fetchOpen returns every open Instance: neither fulfilled nor cancelled.
+let fetchOpen (context: Context.Context) : Result<Instance list, IAppError> =
+    let predicate = "ins.is_fulfilled = false and ins.cancellation_reason_note is null"
+    fetchAny context (Some predicate) None [] AnyQuantityIsAcceptable
+
+/// cancel records the Instance as cancelled with its reason note. The caller decides whether it may be cancelled.
+let cancel
     (context: Context.Context)
-    (isFulfilled: bool)
-    : Result<Instance list, IAppError> =
-    let predicate = "ins.is_fulfilled = @is_fulfilled"
-    let parameters = [ { name = "@is_fulfilled"; value = Boolean isFulfilled } ]
-    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
+    (note: CancellationReasonNote)
+    (instanceId: InstanceId)
+    : Result<unit, IAppError> =
+    let uuid = instanceId |> InstanceId.value
+    let queryStatement =
+        """
+        UPDATE cashflow.instance
+        set cancellation_reason_note = @cancellation_reason_note, modified_at = @modified
+        WHERE unique_id = @unique_id;
+        """
+    let parameters =
+        [ { name = "@unique_id"; value = UniqueId uuid }
+          { name = "@cancellation_reason_note"; value = CharString(note |> CancellationReasonNote.value) }
+          { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) } ]
+    executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+    |> App.DataAccessLayer.DalError.whenNoRows (CashflowInstanceIdDoesntExist uuid)
 
 let update
     (context: Context.Context)
