@@ -84,6 +84,7 @@ type CashFlowError =
     | CashflowPaymentAgreementsListCannotBeEmpty
     | CashflowPaymentIdDoesntExist of Guid
     | CashflowPaymentsReferenceEntryBeingVoided of Guid list * Guid
+    | CashflowPaymentsTargetVoidedEntries of (Guid * Guid) list
     | CashflowPaymentMemoIsEmpty of string
     | CashflowPaymentMemoTooLong of string * int
     | CashflowPaymentNotUnderInvoice of Guid * Guid
@@ -187,6 +188,12 @@ type CashFlowError =
             | CashflowPaymentAgreementUpdateNoOp -> "Updating the PaymentAgreement record failed because at least one updatable parameter must be set."
             | CashflowPaymentAgreementsListCannotBeEmpty -> "A MasterAgreement must have at least one PaymentAgreement."
             | CashflowPaymentIdDoesntExist uuid -> $"Could not locate a Payment with the id of {uuid}."
+            | CashflowPaymentsTargetVoidedEntries paymentsAndEntries ->
+                let pairs =
+                    paymentsAndEntries
+                    |> List.map (fun (paymentUuid, journalEntryUuid) -> $"Payment {paymentUuid} (journal entry {journalEntryUuid})")
+                    |> String.concat ", "
+                $"Payments cannot move to posted because the journal entries their staged lines were posted as have been voided: {pairs}. Delete each Payment or re-post its cash, then run the transition again."
             | CashflowPaymentsReferenceEntryBeingVoided (paymentUuids, journalEntryUuid) ->
                 let payments = paymentUuids |> List.map string |> String.concat ", "
                 $"Journal entry {journalEntryUuid} cannot be voided while Payments point at its lines: {payments}. Re-point or remove each Payment first, or correct the entry with an adjusting entry instead."

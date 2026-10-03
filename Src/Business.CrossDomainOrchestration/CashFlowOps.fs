@@ -907,6 +907,36 @@ let private transitionOneInstancesPaymentsToPosted
                   journalEntryLineId = journalEntryLineId })
     }
 
+/// confirmNoPaymentTargetsAVoidedEntry fails the whole transition when any staged line was posted as a journal entry
+/// that has since been voided, naming every such Payment and its journal entry.
+let private confirmNoPaymentTargetsAVoidedEntry
+    (context: Context.Context)
+    (paymentsAndJournalEntryLines: (Payment.Payment * JournalEntryComponent.JournalEntryLineId) list)
+    : Result<unit, IAppError> =
+    result {
+        let! voided =
+            paymentsAndJournalEntryLines
+            |> List.map (fun (payment, journalEntryLineId) -> result {
+                let journalEntryLineUuid = journalEntryLineId |> JournalEntryComponent.JournalEntryLineId.value
+                let! line =
+                    journalEntryLineId |> JournalEntryLine.fetchById context
+                    |> whenNoRows (LedgerError.JournalEntryLineIdDoesntExist journalEntryLineUuid)
+                let headerId = line |> JournalEntryLine.journalEntryHeaderId
+                let headerUuid = headerId |> JournalEntryComponent.JournalEntryHeaderId.value
+                let! header =
+                    headerId |> JournalEntryHeader.fetchById context
+                    |> whenNoRows (LedgerError.JournalEntryHeaderIdDoesntExist headerUuid)
+                return
+                    match header |> JournalEntryHeader.voidedAt with
+                    | Some _ -> Some (payment |> Payment.paymentId |> CashFlowComponent.PaymentId.value, headerUuid)
+                    | None -> None })
+            |> convertListOfResultsToResultsList
+            |> Result.map (List.choose id)
+        return!
+            if voided |> List.isEmpty then Ok ()
+            else CashFlowError.error (CashFlowError.CashflowPaymentsTargetVoidedEntries voided)
+    }
+
 let transitionPaymentsToPosted (context: Context.Context) : Result<CashFlowComponent.PaymentPostingTransition list, IAppError> =
     result {
         let! stagedPayments = Payment.fetchByStagedTransactionPointer context
@@ -935,6 +965,7 @@ let transitionPaymentsToPosted (context: Context.Context) : Result<CashFlowCompo
                 |> List.tryFind (fun (lineId, _) -> lineId = stageEntryLineId)
                 |> Option.map (fun (_, journalEntryLineId) -> payment, journalEntryLineId))
         if paymentsAndJournalEntryLines |> List.isEmpty then return [] else
+        do! paymentsAndJournalEntryLines |> confirmNoPaymentTargetsAVoidedEntry context
         let! invoices =
             paymentsAndJournalEntryLines
             |> List.map (fun (payment, _) -> payment |> Payment.invoiceId)
