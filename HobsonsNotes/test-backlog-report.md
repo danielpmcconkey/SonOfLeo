@@ -582,9 +582,10 @@ behaviour holds.**
   transition with a new ID at the same instant. The route returns the constructed entries, not what was stored.
 - Fix: return the entries as read back after the write, or persist the constructed transition.
 
-**F-11. Intermittent full-run failures: the shared fixture stamps a staged entry's Classified transition after its **Fixed in the fixture by the plan thread, c8a175f.**
+**F-11. Intermittent full-run failures: the shared fixture stamps a staged entry's Classified transition after its
 Posted transition, so a later batch post posts it a second time. Bug in the test fixture (Tests.Helpers), with a Src
 question.**
+- Status: fixed in the fixture by the plan thread (c8a175f, 2026-10-03). The Src question below is still open.
 - Symptom: in 2 of 3 full runs, 5 tests fail with counts one entry (two lines) too high: AccountActivity's "by account
   returns all" (55 vs 57), "by amount" (12 vs 14) and "unVoidedOnly", JournalEntryFetching's "fetchByReference with FI
   only" (7 vs 8), and the JournalEntry PostNew route test (21 vs 22). Each passes on its own. Test class order is
