@@ -709,3 +709,22 @@ Your four questions:
 - **Spec changes (done):** REQ-STG-4.2 has no exception; the `Posted → Reviewed` row is gone from REQ-STG-4.6; REQ-STG-4.7, REQ-JE-4.11 and REQ-JE-4.12 are withdrawn; REQ-STG-4.8 reserves only `→ 'Posted'`; REQ-STG-6.6's Why and DataIngestion's scope notes 2 and 5 are amended; REQ-JE-4.13 and 4.14 are new.
 **For item 24:** it was pushed as `275ff20`, so revert that commit's staging unwind, Payment fall-back and `Posted → Reviewed` transition rather than dropping a local commit (correction 2026-09-27). Item 24 becomes the REQ-JE-4.14 refusal plus the REQ-JE-4.13 guarantee. Retire or rename the tests citing the withdrawn IDs (`JournalEntryVoiding.fs`, and the REQ-STG-4.2 comment in the isolated transition tests); add tests for REQ-JE-4.13 and 4.14, and one showing `Posted → Reviewed` is now rejected.
 Separately, Dan noted a reporting gap: nothing lets him review the classification recommendations on staged entries before posting. Not part of this item; I'll spec it with him.*
+
+### 8.10 Item 29.9 report — 2026-10-03 (Claude Code, `cash-flow`)
+
+**Implemented.**
+- **F-1 (REQ-CF-12.4), partly.** `selectLegsOfClaimedEntries` keeps only the claims a line-type rule matched when there are any, and falls back to the direction default otherwise. Equal-priority rules that name the same agreement now claim it once instead of tying (`paymentAgreementsClaimedBy` dedupes; a tie needs two different agreements). The test still fails; see below.
+- **F-4 (REQ-CF-7.16).** The cadence walk stops at the earlier of the horizon end and the agreement's end date. The model gains the ActivityPeriod → CashFlowOps serving edge.
+- **F-5 (REQ-CF-9.11).** `UpdateInvoiceInput` no longer carries payment state or posted state. `confirmNoDerivedFieldIsSet` and `CashflowInstanceCompositeDerivedFieldSet` are gone. The domain `InvoiceFieldUpdates` keeps both fields, because the orchestration writes the derived states through them.
+- **F-6 (REQ-CF-5.14).** The blocker note errors say "BlockerNote".
+- **F-7 (REQ-STG-1.17).** Ingestion looks up the trimmed account code.
+- **F-9 (REQ-STG-6.7).** A manual update to `'Duplicate'` or `'Ignored'` is refused with `IngestionPaidStageEntryCannotBeExcluded` when a Payment references any of the entry's lines. Dedup leaves those entries out of what it flags.
+- **F-10 (REQ-STG-3.13).** Ingestion writes the header row (`StageEntryHeader.persistRow`), then persists the transitions it built. It no longer writes a second Ingested transition.
+- **F-12 (REQ-SYS-3.3).** `PaymentAgreementLink.update` stamps `modified_at`.
+- **Payment amount (REQ-CF-6.5, 9.8).** `CreatePaymentFieldsInput` has no amount. The boundary converter takes the amount from the line the pointer names (`InstanceOrchestration.lineAmount`). The domain tuples still carry a `PaymentAmount`, because about fifteen test files build them directly. Moving the lookup into the orchestration would mean editing those files, and that is beyond the ruling on record literals.
+
+**Tests changed** (own commit, per Dan's ruling): the removed fields are deleted from record literals in `DerivedStateRules.fs`, `InvoiceDataStates.fs`, `MaintenanceOperations.fs` and `PaymentDataStates.fs`. One test is deleted: `DerivedStateRules` "REQ-CF-9.11 an UpdateInvoice payload supplying FullyPaid and PostedToLedger…". It existed only to send the derived states through `UpdateInvoiceInput`, which can no longer express them. The CreateInstance and CreatePayment REQ-CF-9.11 tests remain.
+
+**Not done: F-1's test.** "REQ-CF-12.4 when one claiming rule constrains line type and another does not…" now links the right line. The run then fails in invoice matching. The test gives the agreement an open Invoice, which REQ-CF-13.7 requires since 033daff. Matching therefore creates a Payment on the linked Credit line, but that line is on cash (F-1280), not the Outgo leg's debit account (F-2230). REQ-CF-6.9 refuses that Payment (`CashflowPaymentLineNotOnAgreementAccount`). Taken together, REQ-CF-12.4, REQ-CF-13.7 and REQ-CF-6.9 can't all pass this scenario. Dan needs to pick which one gives.
+
+**Test status** (fresh `sonofleo_test`, this container): Tests.Isolated has 349 passed. Tests.Integrated has 1229 passed and 1 failed (the F-1 test above). The build has no warnings. `Checks/run-all.sh` passes 9 of 9. The traceability audit has 0 findings. ArchiMate validate is VALID. Drift lists four JournalEntryVoiding references with no serving edge; they come from the item 24 rework and were already there before 29.9.
