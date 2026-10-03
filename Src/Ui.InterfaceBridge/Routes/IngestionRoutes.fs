@@ -79,9 +79,9 @@ let private ingestRawEntries payload _ =
                         | failures, _ ->
                             let inFileOrder = failures |> List.sortBy (fun r -> r.lineNumbers |> List.min)
                             DataIngestionError.error (DataIngestionError.IngestionFileRejected(toBeProcessedPath, inFileOrder))
-                    let! staged = entries |> StageEntryOrchestration.persistConstructed context
+                    do! entries |> StageEntryOrchestration.persistConstructed context
                     let! converted =
-                        staged
+                        entries
                         |> List.map (``convert [StageEntry] to [StageEntryReturn]`` context)
                         |> convertListOfResultsToResultsList
                     return converted, context |> Context.getInitiationInstant })

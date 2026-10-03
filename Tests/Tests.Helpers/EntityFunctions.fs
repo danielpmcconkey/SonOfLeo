@@ -245,7 +245,8 @@ let createStageEntryHeaderForTest
         let header =
             StageEntryHeader.create sourceFile stageEntryHeaderId
                 entryDate description ingestionSource fiReference None (Some Ingested)
-        do! header |> StageEntryHeader.persist context Ingested StageIngestion
+        do! header |> StageEntryHeader.persist context
+        do! header |> StageEntryHeader.stageEntryHeaderId |> StageEntryHeader.updateHeaderStatus context Ingested StageIngestion
         return header
         }
 

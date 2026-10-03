@@ -438,13 +438,13 @@ let applyAccountClassification
 let persistConstructed
     (context: Context.Context)
     (entries: StageEntry list)
-    : Result<StageEntry list, IAppError> =
+    : Result<unit, IAppError> =
     result {
-        // the transitions written are the ones constructFromRaw built, so the entries returned match what is stored
+        // the transitions written are the ones constructFromRaw built, so the entries handed in match what is stored
         // (REQ-STG-3.13)
         let! _ =
             entries
-            |> List.map(fun e -> e |> stageEntryHeader |> StageEntryHeader.persistRow context)
+            |> List.map(fun e -> e |> stageEntryHeader |> StageEntryHeader.persist context)
             |> convertListOfResultsToResultsList
         let! _ =
             entries
@@ -456,7 +456,7 @@ let persistConstructed
             |> List.collect seLines
             |> List.map(fun l -> l |> StageEntryLine.persist context )
             |> convertListOfResultsToResultsList
-        return entries
+        return ()
     }
 
 let ingestRawToStage
@@ -467,7 +467,8 @@ let ingestRawToStage
     result {
         // a caller handing over rows rather than a file gets the first failing group; the route reports every one
         let! entries = rawRows |> constructFromRaw context sourceFile |> Result.mapError (List.head >> snd)
-        return! entries |> persistConstructed context
+        do! entries |> persistConstructed context
+        return entries
     }
 
 let private confirmUpdateLinesMatchUpdateHeader

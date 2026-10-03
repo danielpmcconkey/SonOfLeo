@@ -143,7 +143,8 @@ let updateHeaderStatus
     }
 
 /// persistRow writes the header row alone; the caller writes its status transitions.
-let persistRow
+/// persist writes the header's own row. Its status transitions are written separately.
+let persist
     (context: Context.Context)
     (stageEntryHeader: StageEntryHeader)
     : Result<unit, IAppError> =
@@ -180,18 +181,6 @@ let persistRow
     }
 
 /// persist writes the header row and a first transition to initialStatus at the context's instant.
-let persist
-    (context: Context.Context)
-    (initialStatus: StagedEntryStatus)
-    (statusChangeMechanism: StageStatusChangeMechanism)
-    (stageEntryHeader: StageEntryHeader)
-    : Result<unit, IAppError> =
-    result {
-        do! stageEntryHeader |> persistRow context
-        return! stageEntryHeader.stageEntryHeaderId
-            |> updateHeaderStatus context initialStatus statusChangeMechanism
-    }
-        
 let private reconstitute raw =
     result {
         let (sourceFileStr,
