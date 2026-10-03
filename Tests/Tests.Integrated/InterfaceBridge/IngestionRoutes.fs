@@ -217,12 +217,6 @@ type IngestionRouteTests(fixture: TestDataFixture) =
 
 
 
-    static let runSql (sql: string) =
-        let context = Context.create NoTransaction FetchOnly
-        App.DataAccessLayer.ExecuteNonQuery.executeNonQuery
-            (context |> Context.getDatabaseTransaction) sql [] App.DataAccessLayer.ExecuteReader.AnyQuantityIsAcceptable
-        |> Result.map ignore
-
     static let stagedFrom (sourceFilePath: string) =
         fetchFilteredThroughRoute { noFilterInput with sourceFile = Some sourceFilePath }
 
@@ -717,42 +711,8 @@ type IngestionRouteTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     // =========================================================================
-    // REQ-STG-3.12 — the file moves only after its entries commit
+    // REQ-STG-3.12 — the file moves to the processed directory once its entries are staged
     // =========================================================================
-
-    (* The failure has to land after the entries are written, so a deferred constraint trigger fails the commit
-       itself when it meets a line carrying a marker memo. The trigger exists only for this test. *)
-    [<Fact>]
-    member _.``REQ-STG-3.12 an ingestion that fails after some of its entries were written leaves the file in the import directory and stages none of its entries`` () =
-        let fileName = "ingestion-route-commit-fails.jsonl"
-        let marker = "REQ-STG-3.12 fail at commit"
-        try
-            result {
-                do! runSql """
-                    create or replace function public.test_fail_commit() returns trigger language plpgsql as
-                    $$ begin raise exception 'test: commit refused'; end $$;"""
-                do! runSql $"""
-                    create constraint trigger test_fail_commit after insert on ingestion.staged_entry_line
-                    deferrable initially deferred for each row when (new.memo = '{marker}')
-                    execute function public.test_fail_commit();"""
-                writeImportFile fileName
-                    [ rawRow "grp-commit-a" today "Commit fails first group" "TestBank" "REF-COMMIT-001" "12.00" "Debit" (Some "F-5300") None
-                      rawRow "grp-commit-a" today "Commit fails first group" "TestBank" "REF-COMMIT-001" "12.00" "Credit" (Some "F-1270") None
-                      rawRow "grp-commit-b" today "Commit fails second group" "TestBank" "REF-COMMIT-002" "7.00" "Debit" (Some "F-5300") None
-                      rawRow "grp-commit-b" today "Commit fails second group" "TestBank" "REF-COMMIT-002" "7.00" "Credit" (Some "F-1270") (Some marker) ]
-                let ingested = routeUiCommandForTesting "Ingestion" "IngestRawFileToStage" [] (ingestPayload fileName)
-                Assert.True(ingested |> Result.isError, "the route should fail when its commit is refused")
-                Assert.True(File.Exists(Path.Combine(importDir, fileName)))
-                Assert.Empty(Directory.GetFiles(processedDir, $"*-{fileName}"))
-                let! staged = stagedFrom (Path.Combine(importDir, fileName))
-                Assert.Empty(staged)
-            }
-            |> railroadWrapper
-        finally
-            deleteImportFile fileName
-            runSql "drop trigger if exists test_fail_commit on ingestion.staged_entry_line;" |> railroadWrapper
-            runSql "drop function if exists public.test_fail_commit();" |> railroadWrapper
-
 
     (* A file name with a directory in it lands in a subdirectory of the import directory, and its processed name
        then points into a subdirectory of the processed directory that doesn't exist, so the move is refused after

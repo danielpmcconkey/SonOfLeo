@@ -219,34 +219,32 @@ let private sessionsIdleInTransaction () : Result<int64, IAppError> =
         []
         longUnboxing
 
-let private probeTable = "public.dal_2_4_probe"
+// A fiscal period at a sentinel month stands in for any write an operation makes before it fails. It exists afterwards
+// only if the transaction committed.
+let private probeKey = "2071-04"
 
-let private probeTableExists () : Result<bool, IAppError> =
+let private probeRecordExists () : Result<bool, IAppError> =
     let context = Context.create NoTransaction FetchOnly
-    executeScalar
-        (context |> Context.getDatabaseTransaction)
-        $"select to_regclass('{probeTable}') is not null"
-        []
-        (fun raw -> Ok (unbox<bool> raw))
+    match FiscalPeriod.fetchIdByKey context probeKey with
+    | Ok _ -> Ok true
+    | Error (AsError (LedgerError.FiscalPeriodNoPeriodMatchingKey _)) -> Ok false
+    | Error e -> Error e
 
-// the probe table is created inside the transaction, so it exists afterwards only if the transaction committed
-let private createProbeTable (context: Context.Context) : Result<unit, IAppError> =
-    executeNonQuery
-        (context |> Context.getDatabaseTransaction)
-        $"create table {probeTable} (x int)"
-        []
-        AnyQuantityIsAcceptable
+let private writeProbeRecord (context: Context.Context) : Result<unit, IAppError> =
+    probeKey
+    |> FiscalPeriodComponent.FiscalPeriodKey.fromString
+    |> Result.bind (FiscalPeriodCreation.constructNewAndPersist context)
     |> Result.map ignore
 
 let private failWithTypedError (context: Context.Context) : Result<unit, IAppError> =
     result {
-        do! createProbeTable context
+        do! writeProbeRecord context
         return! Error (TestingError "typed failure mid-transaction")
     }
 
 let private failByThrowing (context: Context.Context) : Result<unit, IAppError> =
     result {
-        do! createProbeTable context
+        do! writeProbeRecord context
         return failwith "thrown mid-transaction"
     }
 
@@ -255,8 +253,8 @@ let private confirmReleased (inUseBefore: int64) : Result<unit, IAppError> =
         let! idle = sessionsIdleInTransaction()
         Assert.Equal(0L, idle)
         Assert.Equal(inUseBefore, connectionsInUse())
-        let! probeExists = probeTableExists()
-        Assert.False(probeExists, "the probe table exists, so the transaction committed instead of rolling back")
+        let! probeExists = probeRecordExists()
+        Assert.False(probeExists, "the probe fiscal period exists, so the transaction committed instead of rolling back")
     }
 
 (* The caches are process-wide and never invalidated, so these run inside the shared fixture's collection: a cache
@@ -296,7 +294,7 @@ type ConnectionReleaseTests(fixture: Tests.Helpers.TestDataFixture) =
     [<Fact>]
     member _.``REQ-DAL-2.4 an operation that ends in a typed error mid-transaction rolls back, leaves no session idle in a transaction, and returns its connection to the pool`` () =
         let inUseBefore = connectionsInUse()
-        match Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoCompleteTransaction FetchOnly failWithTypedError with
+        match Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoCompleteTransaction FiscalPeriodCreate failWithTypedError with
         | Error (AsError (TestingError message)) -> Assert.Equal("typed failure mid-transaction", message)
         | other -> Assert.Fail $"Expected the operation's own typed error; got {other}"
         confirmReleased inUseBefore |> railroadWrapper
@@ -304,7 +302,7 @@ type ConnectionReleaseTests(fixture: Tests.Helpers.TestDataFixture) =
     [<Fact>]
     member _.``REQ-DAL-2.4 an operation that throws mid-transaction rolls back, leaves no session idle in a transaction, and returns its connection to the pool`` () =
         let inUseBefore = connectionsInUse()
-        match Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoCompleteTransaction FetchOnly failByThrowing with
+        match Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoCompleteTransaction FiscalPeriodCreate failByThrowing with
         | Error (AsError (DalErrorDuringAutoCompleteTransactionRun ex)) -> Assert.Equal("thrown mid-transaction", ex.Message)
         | other -> Assert.Fail $"Expected the thrown exception wrapped as a typed error; got {other}"
         confirmReleased inUseBefore |> railroadWrapper
@@ -315,7 +313,7 @@ type ConnectionReleaseTests(fixture: Tests.Helpers.TestDataFixture) =
         let operations = int (poolMaximum()) + 5
         for i in 1 .. operations do
             let operation = if i % 2 = 0 then failWithTypedError else failByThrowing
-            match Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoCompleteTransaction FetchOnly operation with
+            match Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoCompleteTransaction FiscalPeriodCreate operation with
             | Error (AsError (TestingError _))
             | Error (AsError (DalErrorDuringAutoCompleteTransactionRun _)) -> ()
             | other -> Assert.Fail $"Operation {i} of {operations} should have failed with its own error; got {other}"

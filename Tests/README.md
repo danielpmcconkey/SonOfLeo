@@ -181,6 +181,7 @@ anywhere in the suite — that last one is where the mitigation is actually thin
 - Do not test all possible failure vectors at all levels. All vectors should be tested, but only once, at their lowest possible level. Count vectors as user interactions before you decide a route-level case is redundant — see the hierarchy section above.
 - Do not assert failure without asserting an exact error. The wrong error code may be "only unhelpful" but it could also be masking a deeper problem.
 - Do not assert imprecise counts (number on Asset accounts > 2). I want to know that you know you should have 6 and expect exactly 6.
+- Do not create database objects (tables, functions, triggers, schemas) the migrations don't. A test that has to build its own database objects to provoke a failure is testing a state the application cannot produce; question the requirement instead. To prove a rollback, make a real application write and check it is gone.
 - Do not write tests unless you have a behavioral REQ to cite. If the code you are testing does something uncited by the REQs, stop and point that out. Likely an REQ needs to be added.
 
 Worked before-and-after examples of each: `Skills/TestWriter/references/bullshit-test-specimens.md`.
