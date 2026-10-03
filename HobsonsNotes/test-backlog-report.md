@@ -483,6 +483,10 @@ REQ-CF-14.2 field theory, dropping the update call itself failed all six cases.
 Each finding gives the requirement, the test, what the spec says, what the code does, and where the bug probably lies.
 
 **Dan's rulings, 2026-10-03 (commit 366b75d).** The findings below are kept as written; this is where each one ended up.
+- F-1, ruled again later on 2026-10-03: the spec holds and the test's scenario was wrong. Its entry was an ordinary
+  payment, so the Credit-constrained rule claimed the cash leg, which REQ-CF-6.9 rightly refuses at matching. The
+  mixed-rules test now uses a refund-shaped entry (Debit F-1280, Credit F-2230) under the same name, and passes against
+  the F-1 fix. Removing the constrained rule, or pointing either assertion at the other line, makes it fail.
 - Src bugs, now plan item 29.9 (the plan agent's): F-1, F-4, F-5, F-6, F-7, F-9, F-10, F-12, and the payment amount
   observation. Their tests stay red until 29.9 lands, and they don't change.
 - F-2: REQ-CF-12.8 now reads each rule's priority as it stands at retrieval, as REQ-CR-8.5 does. The REQ-CF-12.8
@@ -679,7 +683,7 @@ created with.**
 ## Requirements covered
 
 These are cited by passing tests unless noted.
-- §12–§13: REQ-CF-12.1, 12.2, 12.3 (more cases), 12.4 (one case fails, F-1), 12.5, 12.6, 12.7, 12.8, 13.1 (more
+- §12–§13: REQ-CF-12.1, 12.2, 12.3 (more cases), 12.4 (the F-1 mixed-rules case, rewritten to a refund), 12.5, 12.6, 12.7, 12.8, 13.1 (more
   cases), 13.2 (more cases), 13.3, 13.4, 13.5, 13.6, 13.8, 13.9.
 - §10: REQ-CF-10.1, 10.2, 10.3, 10.4, 10.5, 10.7.
 - §2: REQ-CF-2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 2.11, 2.12, 2.13, 2.14, 2.15, 2.16, 2.17, 2.18, 2.19, 2.23, 2.25,
@@ -707,8 +711,8 @@ These are cited by passing tests unless noted.
 
 ## Requirements still uncovered
 
-As of 2026-10-03, after Dan's rulings (366b75d), the audit's Invariant 2 lists only REQ-JE-4.13 and REQ-JE-4.14. Both
-are the void rework, which belongs to the plan agent.
+None. After Dan's rulings (366b75d) the audit's Invariant 2 listed only REQ-JE-4.13 and REQ-JE-4.14, the plan agent's
+void rework; by the end of 2026-10-03's runs those are covered too and Invariant 2 is clean.
 
 - **Waivers:** Dan approved all eleven proposed CashFlow waivers: REQ-CF-2.1, 2.2, 3.1, 3.2, 4.1, 4.2, 4.4, 5.1, 5.11,
   5.12 and 6.1.
@@ -719,8 +723,7 @@ are the void rework, which belongs to the plan agent.
 - **Untested clause:** REQ-STG-6.3.2 and REQ-CF-14.2 now say a field set to its current value counts as named. No test
   asserts that such an update succeeds, because Dan said to drop the same-value cases rather than flip them.
 
-**Invariant 1 (withdrawn references).** The withdrawn REQ-JE-4.11, REQ-JE-4.12 and REQ-STG-4.7 are still cited, by the
-plan agent's placeholders in `JournalEntryVoiding.fs`. Item 29.8 removed the REQ-DAL-1.3 and REQ-NGUI-1.3.2 citations.
+**Invariant 1 (withdrawn references).** Clean: the plan agent removed the last citations of withdrawn requirements.
 
 **Contract fields that item 29.9 removes.** The Payment amount fix takes `amount` off the create-Payment contracts, and
 the F-5 fix takes `paymentStateUpdate` and `postedStateUpdate` off `UpdateInvoiceInput`. Several existing test files
@@ -732,18 +735,19 @@ stays the same. The new REQ-CF-6.5/9.8 test sends its payload as JSON, so it com
 ## Suites run
 
 All runs were on 2026-10-03, in the cloud container, against the throwaway Postgres database `sonofleo_test` on
-localhost (rebuilt with `Tests/Tests.Integrated/setup-throwaway-test-db.sh`), at commit 41a23c4.
+localhost (rebuilt with `Tests/Tests.Integrated/setup-throwaway-test-db.sh`), after the plan agent's item 29.9 (e03a428)
+and the F-1 test rewrite.
 - `dotnet test Tests/Tests.Isolated`: 349 passed, 0 failed.
-- `dotnet test Tests/Tests.Integrated`: 1213 passed, 17 failed, of 1230. The build has no warnings. Every failure is
-  accounted for:
-  - 12 are tests waiting on plan item 29.9: F-1 (REQ-CF-12.4), F-4 (REQ-CF-7.16), F-7 (REQ-STG-1.17), F-9 (REQ-STG-6.7,
-    three cases), F-10 (REQ-STG-3.13), F-12 (REQ-SYS-3.3), and the payment amount (REQ-CF-6.5/9.8, four cases).
-  - 5 are the plan agent's "not implemented" placeholders for the withdrawn REQ-JE-4.11 and REQ-JE-4.12.
-- The new tests from Dan's rulings were each perturbed and failed every time. The payment amount test passes when its
-  payload claims the line's own amount, so the setup is sound and only the payload amount makes it fail.
+- `dotnet test Tests/Tests.Integrated`: 1229 passed, 1 failed, of 1230. The build has no warnings. Every 29.9 test now
+  passes, the payment amount cases included. The plan agent's placeholders for the withdrawn REQ-JE-4.11/4.12 are gone.
+- The one failure is not from this backlog. `Reports/Program.fs`, "REQ-NGUI-1.3.1, REQ-NGUI-4.4 The stderr will comprise
+  the error message", compares the CLI's stderr, stack trace included, with the same error raised in the test process.
+  In the full run the two traces differ inside .NET's file-opening frames (`SafeFileHandle.Open(String fullPath,
+  FileMode ...` against `Open(String path, OpenFlags ...`). Run on their own, all six `Reports.Program` tests pass,
+  twice. So the test depends on run order through runtime internals; it doesn't show a Src bug. I haven't touched it.
 
 ## Traceability audit result
 
-`bash Skills/SonOfLeoRequirementsAudit/traceability-audit.sh .` exits 1. Invariant 2 lists 2 of 666 active
-requirements, REQ-JE-4.13 and REQ-JE-4.14, both the plan agent's. Invariant 1 lists only the withdrawn REQ-JE-4.11,
-REQ-JE-4.12 and REQ-STG-4.7 citations above. There are no stale waivers.
+`bash Skills/SonOfLeoRequirementsAudit/traceability-audit.sh .` reports Invariant 1 clean and Invariant 2 clean, with no
+stale waivers. Every active requirement has a citing test, a waiver or an Unenforceable entry, and no test cites a
+withdrawn or unknown requirement.

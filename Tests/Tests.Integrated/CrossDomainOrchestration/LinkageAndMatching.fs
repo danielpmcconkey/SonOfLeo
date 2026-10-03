@@ -544,7 +544,13 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 (* Equal priority, same Payment Agreement: both rules claim, neither wins over the other's claimant. *)
                 let! _ = scenario.paymentAgreementRuleWith legId "CF-12.4 mixed" 500 (Some "Credit")
                 let! _ = scenario.paymentAgreementRuleWith legId "CF-12.4 mixed" 500 None
-                let! _, debitLineId, creditLineId = scenario.outgoEntry "CF-12.4 mixed" scenario.firstOfThisMonth "Classified"
+                (* A refund: cash comes back, the liability goes up. The Credit line sits on the agreement's debit
+                   account (REQ-CF-6.9); without the constraint the default would look for a Debit line there and find
+                   none. *)
+                let! _, lines =
+                    scenario.stagedEntryWithLines "CF-12.4 mixed" scenario.firstOfThisMonth "Classified"
+                        [ (100.00M, "Debit", "F-1280"); (100.00M, "Credit", "F-2230") ]
+                let debitLineId, creditLineId = lines.[0], lines.[1]
                 let! _ = CashFlowOps.classifyPaymentAgreements context
                 let! links = legId |> PaymentAgreementLink.fetchByPaymentAgreementId context
                 let link = Assert.Single(links)
