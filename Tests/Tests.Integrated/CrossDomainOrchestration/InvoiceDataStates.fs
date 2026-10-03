@@ -177,8 +177,6 @@ let private noInvoiceChange (invoiceId: InvoiceId) : Contracts.UpdateInvoiceInpu
       dueDateUpdate = NoChange
       amountUpdate = NoChange
       invoiceStateUpdate = NoChange
-      paymentStateUpdate = NoChange
-      postedStateUpdate = NoChange
       blockerUpdate = NoChange
       memoUpdate = NoChange }
 

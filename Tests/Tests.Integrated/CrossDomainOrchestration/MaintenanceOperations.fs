@@ -192,7 +192,6 @@ let private toContract (pointer: TransactionPointer) =
 
 let private paymentFor (pointer: TransactionPointer) (amount: decimal) : Contracts.CreatePaymentFieldsInput =
     { transactionPointer = pointer |> toContract
-      amount = amount
       postedToFiDate = None
       postedToLedgerDate = None
       memo = None }
@@ -229,8 +228,6 @@ let private noInvoiceChange (invoiceId: InvoiceId) : Contracts.UpdateInvoiceInpu
       dueDateUpdate = NoChange
       amountUpdate = NoChange
       invoiceStateUpdate = NoChange
-      paymentStateUpdate = NoChange
-      postedStateUpdate = NoChange
       blockerUpdate = NoChange
       memoUpdate = NoChange }
 

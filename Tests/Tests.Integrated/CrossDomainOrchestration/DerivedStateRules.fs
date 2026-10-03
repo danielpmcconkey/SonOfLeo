@@ -511,36 +511,6 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 })
 
     [<Fact>]
-    member _.``REQ-CF-9.11 an UpdateInvoice payload supplying FullyPaid and PostedToLedger for an Invoice with no Payments leaves it NotYetPaid and NotHandled when re-fetched`` () =
-        committed
-            (fun s ->
-                result {
-                    let! agreementId, legIds, _ = s.agreement $"CF-9.11 update invoice {Guid.NewGuid()}"
-                    let! _, invoices = s.instance agreementId [ (legIds[0], None, []) ]
-                    return agreementId, fst invoices[0]
-                })
-            fst
-            (fun (_, invoiceId) ->
-                result {
-                    let input : Contracts.UpdateInvoiceInput =
-                        { invoiceId = invoiceId |> InvoiceId.value
-                          externalInvoiceIdUpdate = NoChange
-                          invoiceDateUpdate = NoChange
-                          dueDateUpdate = NoChange
-                          amountUpdate = NoChange
-                          invoiceStateUpdate = NoChange
-                          paymentStateUpdate = SetTo "FullyPaid"
-                          postedStateUpdate = SetTo "PostedToLedger"
-                          blockerUpdate = NoChange
-                          memoUpdate = NoChange }
-                    let! json = Json.toJson input
-                    let _ = routeUiCommandForTesting "CashFlow" "UpdateInvoice" [] json
-                    let! invoice = invoiceId |> Invoice.fetchById (fresh ())
-                    let state = invoice |> Invoice.invoiceLifeCycleState
-                    Assert.Equal((NotYetPaid, NotHandled), (state.paymentState, state.postedState))
-                })
-
-    [<Fact>]
     member _.``REQ-CF-9.11 a CreatePayment payload supplying payment state and posted state for its Invoice leaves the Invoice with the states its Payments derive when re-fetched`` () =
         (* A Posted 40.00 Payment on a 100.00 Invoice derives PartiallyPaid and PartiallyPosted; the payload claims
            FullyPaid and PostedToLedger. *)
@@ -561,7 +531,6 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                         { invoiceId = invoiceId |> InvoiceId.value
                           payment =
                             { transactionPointer = Contracts.TransactionPointerContract.Posted(line |> JournalEntryLineId.value)
-                              amount = 40.00M
                               postedToFiDate = None
                               postedToLedgerDate = None
                               memo = None } }

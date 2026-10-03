@@ -162,7 +162,6 @@ let private toContract (pointer: TransactionPointer) =
 
 let private paymentFor (pointer: TransactionPointer) (amount: decimal) : Contracts.CreatePaymentFieldsInput =
     { transactionPointer = pointer |> toContract
-      amount = amount
       postedToFiDate = None
       postedToLedgerDate = None
       memo = None }
