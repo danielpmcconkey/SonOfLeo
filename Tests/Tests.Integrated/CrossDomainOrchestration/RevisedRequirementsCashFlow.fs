@@ -1,6 +1,7 @@
 module Tests.Integrated.CrossDomainOrchestration.RevisedRequirementsCashFlow
 
 open System
+open App.DataAccessLayer.DbTransaction
 open App.Operation.CoreAuditableAction
 open App.Session
 open App.Utility
@@ -11,6 +12,9 @@ open Business.General
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.DataIngestion
+open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.CashFlow.CashFlowAuditableAction
@@ -21,6 +25,7 @@ open NodaTime
 open Tests.Helpers
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
+open Tests.Helpers.RouteResolver
 open Xunit
 
 (* Plan item 30: the clauses of revised CashFlow requirements that no earlier test reached. Every test runs in a
@@ -306,7 +311,23 @@ type RevisedRequirementsCashFlowTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CF-14.2 an update to a master agreement that names no field to change is rejected with a typed error and the agreement is unchanged`` () =
-        failwith "not implemented"
+        rolledBack fixture (fun s ->
+            result {
+                let! cashId = s.cashAccount ()
+                let! agreementId, _ = s.agreement Outgo cashId 1
+                let! before = agreementId |> AgreementOrchestration.fetchByMasterAgreementId s.Context
+                let updating = s.Context |> Context.updateInitiationInstant
+                let attempt = AgreementOrchestration.updateAgreement updating [] (noChange agreementId)
+                let refused =
+                    match attempt with
+                    | Error (AsError CashFlowError.CashflowAgreementUpdateNoOp) -> true
+                    | _ -> false
+                Assert.True(refused, $"%A{attempt |> Result.mapError (fun e -> e.ToMessage())}")
+                let! after = agreementId |> AgreementOrchestration.fetchByMasterAgreementId updating
+                Assert.Equal(fieldsOf before, fieldsOf after)
+                Assert.Equal(before |> AgreementOrchestration.masterAgreement |> MasterAgreement.modifiedAt,
+                             after |> AgreementOrchestration.masterAgreement |> MasterAgreement.modifiedAt)
+            })
 
     // =========================================================================
     // REQ-CF-6.5, REQ-CF-9.8 — a Payment's amount is its line's
@@ -318,5 +339,83 @@ type RevisedRequirementsCashFlowTests(fixture: TestDataFixture) =
     [<InlineData("journal entry line", "below")>]
     [<InlineData("journal entry line", "above")>]
     member _.``REQ-CF-6.5 REQ-CF-9.8 for each transaction pointer (staged line, journal entry line) and each payload amount (below and above the line's), creating a Payment against a line whose amount equals the amount of an Invoice with no other Payments leaves the Invoice FullyPaid and the Payment's amount reads back as the line's`` (pointer: string, payloadAmount: string) =
-        failwith "not implemented"
+        (* CreatePayment goes through its route, which commits, so this test commits what it builds and deletes it
+           afterwards. The payload is written as JSON so that it can claim an amount whether or not the contract still
+           carries one: a property the contract doesn't have is ignored on reading. *)
+        let agreements = ResizeArray<MasterAgreementId>()
+        let stageEntries = ResizeArray<StageEntryHeaderId>()
+        let journalEntries = ResizeArray<JournalEntryHeaderId>()
+        let committed body = runCommandRouteAndAutoCompleteTransaction CashFlowCreatePayment body
+        let idOf code =
+            fixture.Data.accounts |> List.find (fun a -> a |> Account.code |> AccountCode.value = code) |> Account.accountId
+        let fresh () = Context.create NoTransaction FetchOnly
+        let cleanUpFailures = ResizeArray<string>()
+        try
+            result {
+                let! invoiceId =
+                    committed (fun context ->
+                        result {
+                            let s = Scenario(fixture, context)
+                            let! agreementId, legIds = s.agreement Outgo (idOf "F-1280") 1
+                            agreements.Add agreementId
+                            return! s.invoice Outgo (idOf "F-1280") agreementId legIds[0] s.today s.today []
+                        })
+                (* An Outgo Payment lands on the leg's debit account, F-2230. *)
+                let lines = [ (100.00M, "Debit", Some "F-2230", None, None); (100.00M, "Credit", Some "F-1280", None, None) ]
+                let! pointerJson =
+                    committed (fun context ->
+                        result {
+                            let today = Calendar.today ()
+                            match pointer with
+                            | "staged line" ->
+                                let testBank =
+                                    fixture.Data.ingestionSources
+                                    |> List.find (fun source -> source |> IngestionSource.name |> JournalRefFinancialInstitution.value = "TestBank")
+                                let start = Clock.now ()
+                                let! staged =
+                                    createStageEntryForTest context "/tmp/revised-cash-flow.dat" $"Revised cash flow {Guid.NewGuid()}"
+                                        (Guid.NewGuid().ToString()) testBank today lines
+                                        [ (None, "Ingested", start, "StageIngestion")
+                                          (Some "Ingested", "Classified", start.Plus(Duration.FromMilliseconds(10L)), "Classifier") ]
+                                stageEntries.Add(staged |> StageEntryOrchestration.stageEntryHeader |> StageEntryHeader.stageEntryHeaderId)
+                                let lineId =
+                                    staged
+                                    |> StageEntryOrchestration.seLines
+                                    |> List.find (fun l -> l |> StageEntryLine.accountId = Some(idOf "F-2230"))
+                                    |> StageEntryLine.stageEntryLineId
+                                    |> StageEntryLineId.value
+                                return $"{{\"Case\":\"Staged\",\"Fields\":[\"{lineId}\"]}}"
+                            | _ ->
+                                let! entry, headerId =
+                                    createTestJournalEntryFromPrimitives context $"Revised cash flow {Guid.NewGuid()}" None today
+                                        [ (idOf "F-2230", 100.00M, "Debit", None); (idOf "F-1280", 100.00M, "Credit", None) ] [] []
+                                journalEntries.Add headerId
+                                let lineId =
+                                    entry
+                                    |> JournalEntryOrchestration.jeLines
+                                    |> List.find (fun l -> l |> JournalEntryLine.accountId = idOf "F-2230")
+                                    |> JournalEntryLine.journalEntryLineId
+                                    |> JournalEntryLineId.value
+                                return $"{{\"Case\":\"Posted\",\"Fields\":[\"{lineId}\"]}}"
+                        })
+                let claimed = if payloadAmount = "below" then "60.00" else "140.00"
+                let payload =
+                    $"{{\"invoiceId\":\"{invoiceId |> InvoiceId.value}\",\"payment\":{{\"transactionPointer\":{pointerJson},"
+                    + $"\"amount\":{claimed},\"postedToFiDate\":null,\"postedToLedgerDate\":null,\"memo\":null}}}}"
+                let! _ = routeUiCommandForTesting "CashFlow" "CreatePayment" [] payload
+                let! invoice = invoiceId |> Invoice.fetchById (fresh ())
+                Assert.Equal(FullyPaid, (invoice |> Invoice.invoiceLifeCycleState).paymentState)
+                let! payments = [ invoiceId ] |> Payment.fetchByInvoiceIdList (fresh ())
+                let payment = Assert.Single(payments)
+                Assert.Equal(100.00M, (payment |> Payment.amount).money |> Money.amount)
+            }
+            |> railroadWrapper
+        finally
+            [ for id in agreements do yield Cleanup.cleanUpMasterAgreementTree (Some(id |> MasterAgreementId.value))
+              for id in stageEntries do yield Cleanup.cleanUpStageEntryHeaderId (Some id)
+              for id in journalEntries do yield Cleanup.cleanUpJournalEntryId (Some id) ]
+            |> List.iter (function
+                | Ok () -> ()
+                | Error e -> cleanUpFailures.Add(e.ToMessage()))
+        Assert.Empty(cleanUpFailures)
 

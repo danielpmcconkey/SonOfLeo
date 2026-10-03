@@ -748,7 +748,21 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-STG-6.3.2 a manual update naming no fields is rejected with a typed error and nothing is written`` () =
-        failwith "not implemented"
+        rolledBack fixture IngestUpdateStageEntry (fun s ->
+            result {
+                let! entry = s.staged s.card $"NoOp-{newTag ()}" (Calendar.today ())
+                                 [ (60.00M, "Debit", Some "F-2230"); (60.00M, "Credit", Some "F-1280") ] [ "Classified" ]
+                s.advance ()
+                let! before = refetch s.Context entry
+                let attempt = s.update (entry |> headerIdOf |> noHeaderUpdates) []
+                let refused =
+                    match attempt with
+                    | Error (AsError IngestionUpdateStageEntryNoOp) -> true
+                    | _ -> false
+                Assert.True(refused, $"%A{attempt |> Result.mapError (fun e -> e.ToMessage())}")
+                let! after = refetch s.Context entry
+                Assert.Equal(before, after)
+            })
 
     [<Fact>]
     member _.``REQ-STG-6.3.2 a manual update that sets only the status, to the entry's current status, succeeds and writes nothing: no new status transition and no change to the entry or its lines`` () =

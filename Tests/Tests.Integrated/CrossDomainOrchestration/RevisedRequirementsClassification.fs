@@ -286,7 +286,22 @@ type RevisedRequirementsClassificationTests(fixture: TestDataFixture) =
     [<InlineData("part of the name")>]
     [<InlineData("the name in the wrong case")>]
     member _.``REQ-CR-5.6 the payment agreement claimant filter given part of an agreement's name, or the name in the wrong case, fails with a typed error`` (given: string) =
-        failwith "not implemented"
+        withCommitted fixture (fun c ->
+            result {
+                let tag = newTag ()
+                let legName, _ = c.leg tag
+                let! _ = c.rule (newRuleInput $"Exact {tag}" (ClassificationClaimantInput.PaymentAgreement legName) (describedAsGroups tag))
+                (* The full name resolves, so only the change to it can make the filter fail. *)
+                let! exact = fetchFiltered { noFilter with paymentAgreementNameAtMatch = Some legName }
+                Assert.NotEmpty(exact)
+                let value = if given = "part of the name" then legName.Substring(0, legName.Length - 4) else legName.ToUpperInvariant()
+                let attempt = fetchFiltered { noFilter with paymentAgreementNameAtMatch = Some value }
+                let namesIt =
+                    match attempt with
+                    | Error (AsError (CashflowPaymentAgreementNameDoesntMatchId name)) -> name = value
+                    | _ -> false
+                Assert.True(namesIt, $"%A{attempt |> Result.map List.length |> Result.mapError (fun e -> e.ToMessage())}")
+            })
 
     [<Theory>]
     [<InlineData("name")>]
