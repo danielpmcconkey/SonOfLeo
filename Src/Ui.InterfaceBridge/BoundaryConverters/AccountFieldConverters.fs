@@ -16,12 +16,13 @@ open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
 
 let fallibleConverterAccountCodeStringToAccountUuid context codeString =
     result {
-        // see if the string represents a valid code first
-        let! _ = codeString |> AccountCode.create
+        // see if the string represents a valid code first; the code is looked up trimmed, as it is stored
+        let! accountCode = codeString |> AccountCode.create
+        let code = accountCode |> AccountCode.value
         // now see if it matches an account ID
         return!
-            codeString |> LookupCache.accountCodeToId.fetch (context |> Context.getDatabaseTransaction)
-            |> whenNoRows (LedgerError.AccountCodeDoesntMatchAccountId codeString)
+            code |> LookupCache.accountCodeToId.fetch (context |> Context.getDatabaseTransaction)
+            |> whenNoRows (LedgerError.AccountCodeDoesntMatchAccountId code)
     }
 
 let fallibleConverterAccountCodeToAccountId context codeString =

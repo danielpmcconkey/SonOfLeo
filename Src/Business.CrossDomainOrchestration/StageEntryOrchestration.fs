@@ -319,11 +319,36 @@ let createNewSource
         do! newSource |> IngestionSource.persist context
         return newSource }
 
+/// headerIdsWithAPaidLine returns which of the given staged entries have a line a Payment references, Staged or Posted.
+let private headerIdsWithAPaidLine
+    (context: Context.Context)
+    (headerIds: StageEntryHeaderId list)
+    : Result<StageEntryHeaderId list, IAppError> =
+    if headerIds |> List.isEmpty then Ok [] else
+    result {
+        let! lines = headerIds |> StageEntryLine.fetchByHeaderIdList context
+        if lines |> List.isEmpty then return [] else
+        let! paidLineIds =
+            lines |> List.map StageEntryLine.stageEntryLineId |> CashFlow.Payment.fetchReferencedStageEntryLineIds context
+        return
+            lines
+            |> List.filter (fun line -> paidLineIds |> List.contains (line |> StageEntryLine.stageEntryLineId))
+            |> List.map StageEntryLine.stageEntryHeaderId
+            |> List.distinct
+    }
+
 let deduplicateStagedEntries
     (context: Context.Context)
     : Result<StageEntry list, IAppError> =
     result {
-        let! duplicateHeaders = StageEntryHeader.fetchDuplicates context
+        let! repeatedHeaders = StageEntryHeader.fetchDuplicates context
+        // an entry a Payment references is never flagged; it stays at its status and so appears in the result below
+        // (REQ-STG-6.7)
+        let! paidHeaderIds =
+            repeatedHeaders |> List.map StageEntryHeader.stageEntryHeaderId |> headerIdsWithAPaidLine context
+        let duplicateHeaders =
+            repeatedHeaders
+            |> List.filter (fun header -> paidHeaderIds |> List.contains (header |> StageEntryHeader.stageEntryHeaderId) |> not)
         let toStatus = StagedEntryStatus.Duplicate
         let mechanism = StageStatusChangeMechanism.Deduplicator
         let! _ = duplicateHeaders
@@ -411,12 +436,16 @@ let persistConstructed
     (entries: StageEntry list)
     : Result<StageEntry list, IAppError> =
     result {
+        // the transitions written are the ones constructFromRaw built, so the entries returned match what is stored
+        // (REQ-STG-3.13)
         let! _ =
             entries
-            |> List.map(fun e ->
-                e
-                |> stageEntryHeader
-                |> StageEntryHeader.persist context Ingested StageIngestion )
+            |> List.map(fun e -> e |> stageEntryHeader |> StageEntryHeader.persistRow context)
+            |> convertListOfResultsToResultsList
+        let! _ =
+            entries
+            |> List.collect statusTransitions
+            |> List.map (StageEntryHeader.persistStatusTransition context)
             |> convertListOfResultsToResultsList
         let! _ =
             entries
@@ -556,6 +585,18 @@ let updateStageEntry
             if current.stageEntryHeader |> StageEntryHeader.currentStatus = Some Posted
             then Error(DataIngestionError.IngestionPostedStageEntryCannotBeModified headerUuid)
             else Ok ()
+        // an entry a Payment references cannot leave the set that posts (REQ-STG-6.7)
+        do!
+            match headerUpdates.statusUpdate with
+            | SetTo (StagedEntryStatus.Duplicate | Ignored as excluded) ->
+                headerIdsWithAPaidLine context [ headerId ]
+                |> Result.bind (fun paid ->
+                    if paid.IsEmpty then Ok ()
+                    else
+                        DataIngestionError.error(
+                            DataIngestionError.IngestionPaidStageEntryCannotBeExcluded(
+                                headerUuid, excluded |> StagedEntryStatus.toString)))
+            | _ -> Ok ()
         // only batch post moves an entry to Posted (REQ-STG-4.8)
         do!
             match headerUpdates.statusUpdate with

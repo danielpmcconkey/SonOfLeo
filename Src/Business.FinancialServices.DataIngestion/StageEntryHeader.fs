@@ -142,10 +142,9 @@ let updateHeaderStatus
         return! newTransition |> persistStatusTransition context
     }
 
-let persist
+/// persistRow writes the header row alone; the caller writes its status transitions.
+let persistRow
     (context: Context.Context)
-    (initialStatus: StagedEntryStatus)
-    (statusChangeMechanism: StageStatusChangeMechanism)
     (stageEntryHeader: StageEntryHeader)
     : Result<unit, IAppError> =
     result {
@@ -177,7 +176,18 @@ let persist
               { name = "@source_file"; value = CharString(sourceFile) }
               { name = "@journal_entry_header_id"; value = NullableUniqueId(journalEntryHeaderUuid) }
             ]
-        do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+        return! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+    }
+
+/// persist writes the header row and a first transition to initialStatus at the context's instant.
+let persist
+    (context: Context.Context)
+    (initialStatus: StagedEntryStatus)
+    (statusChangeMechanism: StageStatusChangeMechanism)
+    (stageEntryHeader: StageEntryHeader)
+    : Result<unit, IAppError> =
+    result {
+        do! stageEntryHeader |> persistRow context
         return! stageEntryHeader.stageEntryHeaderId
             |> updateHeaderStatus context initialStatus statusChangeMechanism
     }

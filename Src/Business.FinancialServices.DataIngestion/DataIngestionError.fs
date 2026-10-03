@@ -67,6 +67,7 @@ type DataIngestionError =
     | IngestionStageEntryLineCannotBeRemoved of Guid * StageLineProtection
     | IngestionStageEntryLineCannotBeChanged of Guid * StageLineProtection
     | IngestionPostedStageEntryCannotBeModified of Guid
+    | IngestionPaidStageEntryCannotBeExcluded of Guid * string
     | IngestionManualUpdateCannotSetStatus of string
     
     interface IAppError with
@@ -131,6 +132,8 @@ type DataIngestionError =
                 $"Staged line {uuid} cannot have its amount, line type or account changed because {protection |> describeProtection}."
             | IngestionPostedStageEntryCannotBeModified uuid ->
                 $"Staged entry {uuid} is Posted and cannot be modified. Void its journal entry to return it to review."
+            | IngestionPaidStageEntryCannotBeExcluded (uuid, status) ->
+                $"Staged entry {uuid} cannot become {status}: a Payment references one of its lines."
             | IngestionManualUpdateCannotSetStatus status ->
                 $"The manual update cannot set a staged entry's status to {status}; only batch post does that."
             | IngestionFileRejected (filePath, records) ->

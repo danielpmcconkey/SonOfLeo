@@ -201,12 +201,15 @@ let update
         |> List.choose id
         |> List.collect id
     let setClauses = updates |> List.map fst |> String.concat ", "
-    let parameters = baseParams @ (updates |> List.map snd)
+    // the operation's instant, so modified-at moves with every change (REQ-SYS-3.3)
+    let modified = { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
+    let parameters = baseParams @ (updates |> List.map snd) @ [ modified ]
     let queryStatement =
         $"""
         UPDATE cashflow.payment_agreement_link
         set
-            {setClauses}
+            {setClauses},
+            modified_at = @modified
         WHERE unique_id = @unique_id;
     """
     result {

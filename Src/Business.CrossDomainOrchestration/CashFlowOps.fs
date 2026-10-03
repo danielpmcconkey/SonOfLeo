@@ -32,8 +32,13 @@ let private spawnInstancesFromAgreement
     : Result<unit, IAppError> =
     result {
         let today = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
-        let cutOffDate = today.PlusDays(daysOut |> CashFlowComponent.ProjectionHorizonInDays.value)
+        let horizonEnd = today.PlusDays(daysOut |> CashFlowComponent.ProjectionHorizonInDays.value)
         let master = agreement |> AgreementOrchestration.masterAgreement
+        // no Instance after the agreement's end date, even inside the horizon (REQ-CF-7.16)
+        let cutOffDate =
+            match master |> MasterAgreement.activityPeriod |> ActivityPeriod.activeEnd with
+            | Some endDate when endDate < horizonEnd -> endDate
+            | _ -> horizonEnd
         let agreementId = master |> MasterAgreement.agreementID
         let cadence = master |> MasterAgreement.cadence
         let cadenceType = cadence |> Cadence.cadenceType
@@ -112,7 +117,8 @@ let private claimingMatches
 let private paymentAgreementsClaimedBy
     (result: ClassificationComponent.ClassificationResult)
     : CashFlowComponent.PaymentAgreementId list =
-    result |> claimingMatches |> List.choose _.paymentAgreementId
+    // equal-priority rules naming the same agreement claim it once
+    result |> claimingMatches |> List.choose _.paymentAgreementId |> List.distinct
 
 let private matchesClaimingPaymentAgreement
     (paymentAgreementId: CashFlowComponent.PaymentAgreementId)
@@ -122,9 +128,12 @@ let private matchesClaimingPaymentAgreement
     |> claimingMatches
     |> List.filter (fun prioritizedMatch -> prioritizedMatch.paymentAgreementId = Some paymentAgreementId)
 
+// equal-priority rules that all name the same payment agreement agree with each other; only a tie across different
+// claimants is one code may not break
 let private isTiedClaimant (result: ClassificationComponent.ClassificationResult) : bool =
     match result.outcome with
-    | ClassificationComponent.ManyMatchesTied _ -> true
+    | ClassificationComponent.ManyMatchesTied ties ->
+        ties |> List.map _.paymentAgreementId |> List.distinct |> List.length > 1
     | _ -> false
 
 let private decisionFor
@@ -201,12 +210,14 @@ let private selectLegsOfClaimedEntries
         match direction with
         | CashFlowComponent.FlowDirection.Income -> JournalEntryComponent.Credit
         | CashFlowComponent.FlowDirection.Outgo -> JournalEntryComponent.Debit
-    let doesAnyClaimingRuleConstrainLineType
+    /// isClaimedByLineTypeRule is true when a rule that constrains line type matched this claim's line for the
+    /// payment agreement.
+    let isClaimedByLineTypeRule
         (paymentAgreementId: CashFlowComponent.PaymentAgreementId)
-        (claims: (CashFlowComponent.PaymentAgreementId * ClassificationComponent.ClassificationResult) list)
+        ((_, result): CashFlowComponent.PaymentAgreementId * ClassificationComponent.ClassificationResult)
         : Result<bool, IAppError> =
-        claims
-        |> List.collect (fun (_, result) -> result |> matchesClaimingPaymentAgreement paymentAgreementId)
+        result
+        |> matchesClaimingPaymentAgreement paymentAgreementId
         |> List.map (fun prioritizedMatch ->
             match rulesById |> Map.tryFind prioritizedMatch.ruleId with
             | Some rule -> Ok (rule |> ClassificationRule.constrainsLineType)
@@ -223,11 +234,17 @@ let private selectLegsOfClaimedEntries
             |> List.groupBy (fun (paymentAgreementId, result) ->
                 paymentAgreementId, result.candidate.headerIdOfCandidate)
             |> List.map (fun ((paymentAgreementId, _), claims) -> result {
-                let! ruleChoseTheLeg = claims |> doesAnyClaimingRuleConstrainLineType paymentAgreementId
+                let! lineTypeRuleClaims =
+                    claims
+                    |> List.map (fun claim ->
+                        claim |> isClaimedByLineTypeRule paymentAgreementId |> Result.map (fun chose -> claim, chose))
+                    |> convertListOfResultsToResultsList
+                    |> Result.map (List.filter snd >> List.map fst)
                 let! survivors =
                     // the rule's author knew something the direction default doesn't -- an Outgo agreement taking a
-                    // refund matches a Credit line, which the default would throw away
-                    if ruleChoseTheLeg then Ok claims else
+                    // refund matches a Credit line, which the default would throw away. Only the lines such a rule
+                    // matched survive; another rule's match on the entry's other line does not (REQ-CF-12.4)
+                    if not lineTypeRuleClaims.IsEmpty then Ok lineTypeRuleClaims else
                     match agreementsById |> Map.tryFind paymentAgreementId with
                     | None ->
                         let agreementUuid = paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
