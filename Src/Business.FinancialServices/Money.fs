@@ -67,3 +67,13 @@ let subtractVal1FromVal2 (val1: Money) (val2: Money) : Result<Money, IAppError> 
 let sumList (l: Money list) : Result<Money, IAppError> =
     let sum_d = l |> List.sumBy amount
     fromDecimal sum_d
+
+let isEqual (m: Money) (n: Money) : bool = m.amount = n.amount
+let isLessThan (m: Money) (n: Money) : bool = m.amount < n.amount
+let isGreaterThan (m: Money) (n: Money) : bool = m.amount > n.amount
+let isLessThanOrEqual (m: Money) (n: Money) : bool = m.amount <= n.amount
+let isGreaterThanOrEqual (m: Money) (n: Money) : bool = m.amount >= n.amount
+
+let isPositive (m: Money) : bool = m.amount > 0M
+let isZero (m: Money) : bool = m.amount = 0M
+let isNegative (m: Money) : bool = m.amount < 0M

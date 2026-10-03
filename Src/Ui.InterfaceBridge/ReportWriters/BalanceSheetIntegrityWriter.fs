@@ -6,6 +6,9 @@ open App.Utility.Calendar
 open App.Utility.File
 open App.Utility.Result
 open Business.FinancialServices
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.CrossDomainOrchestration.BalanceSheetIntegrity
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Ui.InterfaceBridge.ReportVisualizationAssets.HtmlComponents
@@ -75,14 +78,33 @@ let private figure ordinal className label valueClass value : DomElement =
 
 let private moneyFigure ordinal className label (m: Money.Money) : DomElement =
     let signClass =
-        match m |> Money.amount with
-        | a when a < 0M -> "val neg"
-        | a when a = 0M -> "val zero"
-        | _ -> "val"
+        if m |> Money.isNegative then "val neg"
+        elif m |> Money.isZero then "val zero"
+        else "val"
     figure ordinal className label signClass (m |> Money.toAccountingString)
 
 let private block ordinal title figures : DomElement =
     div ordinal "block" (div 1 "block-head" [ { ordinal = 10; elementType = Span (encode title); identifierType = NoIdentifier; contents = [] } ] :: figures)
+
+let private dateString (d: LocalDate) = d |> localDateToString "yyyy-MM-dd"
+
+let private deactivatedAccountBlock ordinal (account: DeactivatedAccountWithBalance) : DomElement =
+    let code = account.code |> AccountCode.value
+    let name = account.accountName |> AccountName.value
+    let entryFigure i (je: JournalEntryHeader.JournalEntryHeader) =
+        let entryDate = je |> JournalEntryHeader.entryDate |> EntryDate.entryDate
+        let description = je |> JournalEntryHeader.description |> JournalEntryDescription.value
+        let timeString = App.Utility.Clock.instantToString "yyyy-MM-dd HH:mm"
+        let posted = je |> JournalEntryHeader.createdAt |> timeString
+        let voided =
+            je |> JournalEntryHeader.voidedAt
+            |> Option.map (fun v -> $", voided {timeString v}")
+            |> Option.defaultValue ""
+        figure (100 + i) "figure" $"Entry dated {dateString entryDate}: {description}" "val" $"posted {posted}{voided}"
+    block ordinal $"{code} {name}"
+        ([ figure 10 "figure" "Active end" "val" (dateString account.activeEnd)
+           moneyFigure 20 "figure check" "Balance" account.balance ]
+         @ (account.entriesAfterActiveEnd |> List.mapi entryFigure))
 
 let write
     (pathInfo: OutputPathInput)
@@ -113,7 +135,13 @@ let write
               moneyFigure 50 "figure" "Expenses" integrity.expenses
               moneyFigure 60 "figure" "Net income (revenue minus expenses)" integrity.netIncome
               moneyFigure 70 "figure check" "Residual: assets minus (liabilities + equity + net income)" integrity.residual ]
-    let reportBody = createReportBody [ totals; accountTypes ]
+    let deactivated =
+        match integrity.deactivatedAccountsWithBalance with
+        | [] ->
+            [ block 3 "Deactivated accounts holding a balance"
+                [ figure 10 "figure" "Every deactivated account holds a zero balance" "val" "None" ] ]
+        | accounts -> accounts |> List.mapi (fun i account -> deactivatedAccountBlock (3 + i) account)
+    let reportBody = createReportBody ([ totals; accountTypes ] @ deactivated)
     let footer = createReportFooter generatedAt
     let section = { ordinal = 10; elementType = Section; identifierType = (Class "report"); contents = [ header; reportBody; footer ] }
     let htmlWrapper: HtmlWrapper = {

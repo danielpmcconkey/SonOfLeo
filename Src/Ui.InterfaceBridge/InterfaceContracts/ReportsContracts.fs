@@ -6,6 +6,23 @@ open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 // Declaration order matters here: F# infers an unannotated record literal's type from the last type declared with its
 // labels. So a report's types that share labels with ReportAsOf or TrialBalanceReportInput come before them.
 
+/// A journal entry touching a deactivated account, posted or voided after the account's active end.
+type DeactivatedAccountEntryReturnRow = {
+    journalEntryId: System.Guid
+    entryDate: LocalDate
+    description: string
+    postedAt: NodaTime.Instant
+    voidedAt: NodaTime.Instant option
+}
+
+type DeactivatedAccountWithBalanceReturnRow = {
+    accountCode: string
+    accountName: string
+    activeEnd: LocalDate
+    balance: decimal
+    entriesAfterActiveEnd: DeactivatedAccountEntryReturnRow list
+}
+
 type BalanceSheetIntegrityReturnRow = {
     asOf: LocalDate
     totalDebits: decimal
@@ -20,6 +37,8 @@ type BalanceSheetIntegrityReturnRow = {
     netIncome: decimal
     // assets minus (liabilities plus equity plus net income)
     residual: decimal
+    // as of the date the report runs; empty when every deactivated account holds zero
+    deactivatedAccountsWithBalance: DeactivatedAccountWithBalanceReturnRow list
 }
 
 /// One balance captured from an institution, in the account's normal-balance direction (a credit card balance owed is

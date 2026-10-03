@@ -5,6 +5,7 @@ open App.Utility.IAppError
 open App.Utility.Result
 open App.Session
 open Business.FinancialServices
+open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.CrossDomainOrchestration.TrialBalanceReport
 open Business.CrossDomainOrchestration.BalanceSheetIntegrity
@@ -92,6 +93,22 @@ let ``convert [ReconciliationRow] to [ReconciliationReturnRow]``
       ledgerBalance = row.ledgerBalance |> Money.amount
       delta = row.delta |> Money.amount }
 
+let ``convert [DeactivatedAccountWithBalance] to [DeactivatedAccountWithBalanceReturnRow]``
+    (account: DeactivatedAccountWithBalance)
+    : DeactivatedAccountWithBalanceReturnRow =
+    { accountCode = account.code |> AccountCode.value
+      accountName = account.accountName |> AccountName.value
+      activeEnd = account.activeEnd
+      balance = account.balance |> Money.amount
+      entriesAfterActiveEnd =
+        account.entriesAfterActiveEnd
+        |> List.map (fun je ->
+            { journalEntryId = je |> JournalEntryHeader.journalEntryHeaderId |> JournalEntryHeaderId.value
+              entryDate = je |> JournalEntryHeader.entryDate |> EntryDate.entryDate
+              description = je |> JournalEntryHeader.description |> JournalEntryDescription.value
+              postedAt = je |> JournalEntryHeader.createdAt
+              voidedAt = je |> JournalEntryHeader.voidedAt }) }
+
 let ``convert [BalanceSheetIntegrity] to [BalanceSheetIntegrityReturnRow]``
     (integrity: BalanceSheetIntegrity)
     : BalanceSheetIntegrityReturnRow =
@@ -105,7 +122,10 @@ let ``convert [BalanceSheetIntegrity] to [BalanceSheetIntegrityReturnRow]``
       revenue = integrity.revenue |> Money.amount
       expenses = integrity.expenses |> Money.amount
       netIncome = integrity.netIncome |> Money.amount
-      residual = integrity.residual |> Money.amount }
+      residual = integrity.residual |> Money.amount
+      deactivatedAccountsWithBalance =
+        integrity.deactivatedAccountsWithBalance
+        |> List.map ``convert [DeactivatedAccountWithBalance] to [DeactivatedAccountWithBalanceReturnRow]`` }
 
 let ``convert [PeriodActivityLine] to [PeriodActivityLineReturnRow]``
     (line: PeriodActivityLine)

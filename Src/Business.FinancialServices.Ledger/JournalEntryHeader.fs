@@ -7,6 +7,7 @@ open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
+open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 
@@ -135,3 +136,16 @@ let fetchByPeriod
         let parameters = [ { name = "@fiscal_period_id"; value = UniqueId uuid } ]
         return! query context None predicate None orderBy parameters AnyQuantityIsAcceptable
     }
+
+/// fetchByAccountId returns every journal entry, voided or not, with at least one line on the account, in posting order.
+let fetchByAccountId
+    (context: Context.Context)
+    (accountId: AccountId)
+    : Result<JournalEntryHeader list, IAppError> =
+    let predicate =
+        Some
+            """exists (
+                select 1 from ledger.journal_entry_line jel
+                where jel.journal_entry_id = je.unique_id and jel.account_id = @account_id)"""
+    let parameters = [ { name = "@account_id"; value = UniqueId(accountId |> AccountId.value) } ]
+    query context None predicate None (Some "je.created_at") parameters AnyQuantityIsAcceptable

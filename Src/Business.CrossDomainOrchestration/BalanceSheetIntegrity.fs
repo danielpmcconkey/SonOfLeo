@@ -3,10 +3,19 @@ module Business.CrossDomainOrchestration.BalanceSheetIntegrity
 open NodaTime
 open App.Utility.IAppError
 open App.Utility.Result
+open App.Utility
 open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
+
+/// A deactivated Account still holding money, with the journal entries posted or voided after its active end.
+type DeactivatedAccountWithBalance =
+    { code: AccountCode
+      accountName: AccountName
+      activeEnd: LocalDate
+      balance: Money.Money
+      entriesAfterActiveEnd: JournalEntryHeader.JournalEntryHeader list }
 
 type BalanceSheetIntegrity =
     { asOf: LocalDate
@@ -21,7 +30,50 @@ type BalanceSheetIntegrity =
       expenses: Money.Money
       netIncome: Money.Money
       // assets minus (liabilities plus equity plus net income)
-      residual: Money.Money }
+      residual: Money.Money
+      // as of the operation's date, whatever asOf says; empty when every deactivated account holds zero
+      deactivatedAccountsWithBalance: DeactivatedAccountWithBalance list }
+
+let private deactivatedAccountsWithBalance
+    (context: Context.Context)
+    (accounts: Account.Account list)
+    : Result<DeactivatedAccountWithBalance list, IAppError> =
+    let today = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
+    let deactivated =
+        accounts
+        |> List.choose (fun a ->
+            a |> Account.activityPeriod |> Business.General.ActivityPeriod.activeEnd
+            |> Option.filter (fun activeEnd -> activeEnd < today)
+            |> Option.map (fun activeEnd -> a, activeEnd))
+        |> List.sortBy (fun (a, _) -> a |> Account.code |> AccountCode.value)
+    if deactivated |> List.isEmpty then Ok [] else
+    result {
+        let! balances =
+            AccountBalance.fetchByAccountIdList context (Some (deactivated |> List.map (fst >> Account.accountId))) (Some today)
+        let balanceOf accountId = balances |> List.find (fun b -> b.accountId = accountId) |> _.netBalance
+        let holdingMoney =
+            deactivated |> List.filter (fun (a, _) -> a |> Account.accountId |> balanceOf |> Money.isZero |> not)
+        let! reported =
+            holdingMoney
+            |> List.map (fun (account, activeEnd) ->
+                result {
+                    let! entries = account |> Account.accountId |> JournalEntryHeader.fetchByAccountId context
+                    let after (instant: Instant) = (instant |> Calendar.dateFromInstant) > activeEnd
+                    let entriesAfterActiveEnd =
+                        entries
+                        |> List.filter (fun je ->
+                            (je |> JournalEntryHeader.createdAt |> after)
+                            || (je |> JournalEntryHeader.voidedAt |> Option.exists after))
+                    return
+                        { code = account |> Account.code
+                          accountName = account |> Account.accountName
+                          activeEnd = activeEnd
+                          balance = account |> Account.accountId |> balanceOf
+                          entriesAfterActiveEnd = entriesAfterActiveEnd }
+                })
+            |> convertListOfResultsToResultsList
+        return reported
+    }
 
 /// REQ-RPT-5.3: an imbalance or a non-zero residual is data, not an error; the caller decides whether to stop.
 let computeBalanceSheetIntegrity (context: Context.Context) (asOf: LocalDate) : Result<BalanceSheetIntegrity, IAppError> =
@@ -46,6 +98,7 @@ let computeBalanceSheetIntegrity (context: Context.Context) (asOf: LocalDate) : 
         let! liabilitiesAndEquity = Money.add liabilities equity
         let! claims = Money.add liabilitiesAndEquity netIncome
         let! residual = Money.subtractVal1FromVal2 claims assets
+        let! deactivatedWithBalance = deactivatedAccountsWithBalance context accounts
         return
             { asOf = asOf
               totalDebits = totalDebits
@@ -57,5 +110,6 @@ let computeBalanceSheetIntegrity (context: Context.Context) (asOf: LocalDate) : 
               revenue = revenue
               expenses = expenses
               netIncome = netIncome
-              residual = residual }
+              residual = residual
+              deactivatedAccountsWithBalance = deactivatedWithBalance }
     }
