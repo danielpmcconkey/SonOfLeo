@@ -24,15 +24,16 @@ let private create payload _ =
     }
 
 let private ensure payload _ =
-    let context = Context.create NoTransaction FiscalPeriodEnsure
-    result {
-        let! input = Json.fromJson<FiscalPeriodEnsureInput> payload
-        let! startKey = input.startPeriodKey |> FiscalPeriodKey.fromString
-        let! endKey = input.endPeriodKey |> FiscalPeriodKey.fromString
-        let! created = ensureFiscalPeriods context startKey endKey
-        let returnVal = created |> List.map ``convert FiscalPeriod to FiscalPeriodReturn``
-        return! Json.toJson<FiscalPeriodReturn list> returnVal
-    }
+    // one transaction, so a failure part way through leaves none of the range behind
+    runCommandRouteAndAutoCompleteTransaction FiscalPeriodEnsure (fun context ->
+        result {
+            let! input = Json.fromJson<FiscalPeriodEnsureInput> payload
+            let! startKey = input.startPeriodKey |> FiscalPeriodKey.fromString
+            let! endKey = input.endPeriodKey |> FiscalPeriodKey.fromString
+            let! created = ensureFiscalPeriods context startKey endKey
+            let returnVal = created |> List.map ``convert FiscalPeriod to FiscalPeriodReturn``
+            return! Json.toJson<FiscalPeriodReturn list> returnVal
+        })
 
 let private fetch payload _ =
     let context = Context.create NoTransaction FetchOnly
