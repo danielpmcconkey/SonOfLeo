@@ -10,7 +10,6 @@ let private configRoot = // this is intentionally static
     ConfigurationBuilder()
         .SetBasePath(AppContext.BaseDirectory)
         .AddJsonFile("appsettings.json", optional = false)
-        .AddEnvironmentVariables()
         .Build()
 
 let mutable private cache: Map<string, obj> = Map.empty
