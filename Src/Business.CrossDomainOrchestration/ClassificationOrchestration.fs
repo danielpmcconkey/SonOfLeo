@@ -127,8 +127,9 @@ let fetchRulesFiltered
         let orderBy =
             match sort with
             | None -> None
-            | Some AccountCodeAsc -> Some "a.code asc"
-            | Some AccountCodeDesc -> Some "a.code desc"
+            // payment-agreement claimants have no account code: last in either direction, by name among themselves
+            | Some AccountCodeAsc -> Some "a.code asc nulls last, case when a.code is null then cr.rule_name end asc"
+            | Some AccountCodeDesc -> Some "a.code desc nulls last, case when a.code is null then cr.rule_name end asc"
             | Some PriorityAsc -> Some "cr.priority asc"
             | Some PriorityDesc -> Some "cr.priority desc"
         
