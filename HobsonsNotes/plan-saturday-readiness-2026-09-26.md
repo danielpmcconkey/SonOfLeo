@@ -732,3 +732,62 @@ Separately, Dan noted a reporting gap: nothing lets him review the classificatio
 *Response (Dan, 2026-10-03):*
 - **F-1:** the spec holds, and the test's scenario is wrong. It has a Credit-constrained rule claim the cash leg of an ordinary payment. REQ-CF-12.4's Credit case is a refund, and a refund's Credit line sits on the agreement's own account. So the run failing under REQ-CF-6.9 is correct. The F-1 Src fix stays, and the test-backlog agent will rewrite the test.
 - **Payment amount:** the internal amount tuples stay as they are. The boundary taking the amount from the line closes the bug.
+
+## 9. Final report — 2026-10-03 (Claude Code, `cash-flow`)
+
+How each item was verified: the item's requirements each have citing tests (by test name), and those tests pass in the suite run below. Items with something extra to check say what was checked.
+
+**§4A Defects**
+1. Done (REQ-CF-2.20–2.25, REQ-SYS-5.1).
+2. Done (REQ-CF-8.2, 8.3, 8.9).
+3. Done (REQ-CF-7.2).
+4. Done (REQ-CF-7.10).
+5. Done (REQ-CF-5.10).
+6. Done (REQ-CF-3.6).
+7. Done (REQ-CF-9.8–9.11). F-5 in 29.9 finished the UpdateInvoice side.
+8. Done (REQ-STG-3.12).
+9. Done (REQ-STG-2.28). The migration is `202609271200-UniqueIngestionSourceName.sql`.
+10. Done (REQ-CR-1.26).
+11. Done (REQ-DAL-2.4).
+12. Superseded by 29.8. REQ-DAL-1.3 is withdrawn.
+13. Done (REQ-STG-6.2.1).
+14. Done (REQ-STG-3.2, 3.2.1).
+15. Done (REQ-SYS-1.4).
+16. Done (REQ-SYS-6.2, 6.3).
+17. Done (REQ-STG-4.1.2). The migration is `202609271400-UniqueStagedEntryTransitionInstant.sql`.
+18. Done. The Deactivate route's description now says "on the given date, or on today's date when none is given", and `ReportsContracts.fs` says `yyyy-MM-dd`.
+
+**§4B Saturday blockers**
+19. Done (REQ-STG-6.4–6.6).
+20. Done (REQ-CF-12.3).
+21. Done (REQ-CF-13.1).
+22. Done (REQ-CF-13.7). The later orphan fix landed at 033daff.
+23. Withdrawn (R-13). Not built.
+24. Rebuilt per R-17 as the void refusal plus "staging untouched" (REQ-JE-4.13, 4.14). The original unwind is superseded.
+25. Done (REQ-FP-2.7).
+
+**§4C Reconciliation and reports**
+26. Done (REQ-RPT-4.1–4.6).
+27. Done (REQ-RPT-5.1–5.3).
+28. Done (REQ-RPT-6.1–6.3).
+29. Done for balance-sheet integrity and period activity (REQ-RPT-6.4). Reconciliation is data-only, because REQ-RPT-6.4 says so. The spec governs over this item's "all three".
+29.5. Done (REQ-RPT-7.1–7.6).
+29.6. Done. `ConnectionPool.fs` now lives in `Tests.Integrated`, and nothing in Src references it.
+29.7. Superseded by 29.8. REQ-NGUI-1.3.2 is withdrawn.
+29.8. Done (REQ-NGUI-1.3, 1.3.1, REQ-SYS-7.1 trimmed). The audit has no phantom citations of the withdrawn requirements.
+29.9. Done. See §8.10. Under Dan's ruling, the F-1 test was rewritten by the test-backlog thread (b5eb54f) and now passes.
+
+**§4D Tests**
+30. Done, by the "Missing cash-flow tests" thread. Its report is `HobsonsNotes/test-backlog-report.md`. Traceability audit Invariant 2 (active requirements with no test or waiver) is clean.
+31. Left for Dan, as instructed. The REQ-CR-8.4 row now carries "Dan 2026-09-26".
+
+**Model.** The four JournalEntryVoiding serving edges are added. `validate.py` reports VALID, and `model_drift.py` reports no drift.
+
+**Test status.** This is `cash-flow` with the model commit on top of b5eb54f, in a cloud container with a freshly rebuilt `sonofleo_test`.
+- `dotnet build` has no warnings or errors.
+- Tests.Isolated: 349 passed, 0 failed.
+- Tests.Integrated: 1230 passed, 0 failed.
+- `Checks/run-all.sh` passes 9 of 9.
+- The traceability audit shows Invariants 1 and 2 clean.
+
+**Spec I believe is wrong.** None. Only one plan item disagreed with the spec, item 29 on reconciliation HTML, and the spec governs there.
