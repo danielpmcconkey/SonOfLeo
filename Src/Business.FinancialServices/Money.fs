@@ -77,3 +77,6 @@ let isGreaterThanOrEqual (m: Money) (n: Money) : bool = m.amount >= n.amount
 let isPositive (m: Money) : bool = m.amount > 0M
 let isZero (m: Money) : bool = m.amount = 0M
 let isNegative (m: Money) : bool = m.amount < 0M
+
+/// floorAtZero returns zero for a negative value and the value itself otherwise.
+let floorAtZero (m: Money) : Money = if m.amount < 0M then create 0M else m

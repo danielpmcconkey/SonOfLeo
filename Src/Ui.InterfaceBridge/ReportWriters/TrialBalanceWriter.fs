@@ -169,10 +169,9 @@ type LabelType =
 let createAccountLabel labelType amount ordinal   =
     let fAmount = amount |> Money.toCurrencyString
     let className =
-        match amount |> Money.amount with
-        | 0M -> "val zero"
-        | x when x > 0M -> "val pos"
-        | _ -> "val neg"
+        if amount |> Money.isZero then "val zero"
+        elif amount |> Money.isPositive then "val pos"
+        else "val neg"
     let label =
         match labelType with
         | Credits -> "Credits"

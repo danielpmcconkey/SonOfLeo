@@ -348,7 +348,7 @@ let private isOverpaid
         let payments = invoiceComposite |> InstanceOrchestration.payments
         let! paidTotal = payments |> List.map Payment.amount |> List.map _.money |> Money.sumList
         let invoiceAmount = invoiceComposite |> InstanceOrchestration.invoice |> Invoice.amount
-        return paidTotal > invoiceAmount.money
+        return Money.isGreaterThan paidTotal invoiceAmount.money
     }
 
 let private matchInvoicesAndCreatePayments
@@ -486,7 +486,7 @@ let private matchInvoicesAndCreatePayments
                         let! paidAfter = Money.add paidSoFar amount.money
                         let blockerToClear =
                             match (invoice |> Invoice.invoiceLifeCycleState).blocker with
-                            | Some blocker when paidAfter = (invoice |> Invoice.amount).money -> Some blocker
+                            | Some blocker when Money.isEqual paidAfter (invoice |> Invoice.amount).money -> Some blocker
                             | Some _
                             | None -> None
                         let! updated =
@@ -804,9 +804,9 @@ let projectCashFlowNDaysForward
             |> List.map (fun (masterAgreementId, invoice, payments) -> result {
                 // what is still owed, not what was billed: a part-paid bill must not be counted twice. an overpaid
                 // bill owes nothing
-                let paid = payments |> List.sumBy (fun payment -> (payment |> Payment.amount).money |> Money.amount)
-                let! outstanding = Money.fromDecimal (max 0M (((invoice |> Invoice.amount).money |> Money.amount) - paid))
-                return masterAgreementId, invoice, outstanding })
+                let! paid = payments |> List.map (fun payment -> (payment |> Payment.amount).money) |> Money.sumList
+                let! owed = Money.subtractVal1FromVal2 paid (invoice |> Invoice.amount).money
+                return masterAgreementId, invoice, owed |> Money.floorAtZero })
             |> convertListOfResultsToResultsList
         let projectedInvoicesByAccountId =
             invoicesWithOutstanding

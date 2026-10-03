@@ -73,7 +73,7 @@ let private confirmZeroBalanceBeforeDeactivation (context: Context.Context) (acc
         let! credits = nonVoidedLines |> JournalEntryLine.sumLinesByType Credit
         let! diff = Money.subtractVal1FromVal2 debits credits
         return!
-            if diff |> Money.amount <> 0M then
+            if diff |> Money.isZero |> not then
                 Error(
                     AccountNonZeroBalanceBeforeDeactivation(
                         account |> Account.accountId |> AccountId.value,

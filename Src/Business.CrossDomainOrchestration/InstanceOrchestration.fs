@@ -121,11 +121,10 @@ let private confirmInvoiceAmountIsPositive
     (invoice: Invoice.Invoice)
     : Result<unit, IAppError> =
     let invoiceAmount = invoice |> Invoice.amount
-    let invoiceAmountDecimal = invoiceAmount.money |> Money.amount
-    if invoiceAmountDecimal > 0M then Ok ()
+    if invoiceAmount.money |> Money.isPositive then Ok ()
     else
         let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
-        Error(CashFlowError.CashflowInvoiceNonPositiveAmount(invoiceUuid, invoiceAmountDecimal))
+        Error(CashFlowError.CashflowInvoiceNonPositiveAmount(invoiceUuid, invoiceAmount.money |> Money.amount))
 
 let private confirmFullyPaidAmountMatches
     (invoice: Invoice.Invoice)
@@ -137,7 +136,7 @@ let private confirmFullyPaidAmountMatches
         let! paidTotal = payments |> List.map Payment.amount |> List.map _.money |> Money.sumList
         let invoiceAmount = invoice |> Invoice.amount
         return!
-            if paidTotal = invoiceAmount.money then Ok ()
+            if Money.isEqual paidTotal invoiceAmount.money then Ok ()
             else
                 let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
                 let paidDec = paidTotal |> Money.amount
@@ -520,11 +519,9 @@ let private derivePaymentState
     if payments |> List.isEmpty then Ok CashFlowComponent.NotYetPaid else
     result {
         let! paidTotal = payments |> List.map Payment.amount |> List.map _.money |> Money.sumList
-        let paidDecimal = paidTotal |> Money.amount
         let invoiceAmount = invoice |> Invoice.amount
-        let invoiceDecimal = invoiceAmount.money |> Money.amount
         return
-            if paidDecimal = invoiceDecimal then CashFlowComponent.FullyPaid
+            if Money.isEqual paidTotal invoiceAmount.money then CashFlowComponent.FullyPaid
             else CashFlowComponent.PartiallyPaid
     }
 

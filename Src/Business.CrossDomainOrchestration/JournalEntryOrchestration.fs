@@ -39,7 +39,7 @@ module JournalEntryOrchestration =
             let! totalDebits = lines |> JournalEntryLine.sumLinesByType Debit
             let! totalCredits = lines |> JournalEntryLine.sumLinesByType Credit
             return!
-                if totalCredits = totalDebits then
+                if Money.isEqual totalCredits totalDebits then
                     Ok()
                 else
                     Error(JournalEntryDebitCreditMismatch(totalDebits |> Money.amount, totalCredits |> Money.amount))

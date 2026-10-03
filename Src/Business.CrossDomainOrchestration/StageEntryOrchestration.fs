@@ -62,7 +62,7 @@ let private confirmAmountEquality (lines: StageEntryLine.StageEntryLine list) : 
         let! totalDebits = lines |> sumLinesByType Debit
         let! totalCredits = lines |> sumLinesByType Credit
         return!
-            if totalCredits = totalDebits then
+            if Money.isEqual totalCredits totalDebits then
                 Ok()
             else
                 Error(DataIngestionError.IngestionStageEntryDebitCreditMismatch(
@@ -79,9 +79,9 @@ let private confirmLinesAreAllPositive (lines: StageEntryLine.StageEntryLine lis
     let checkedLines =
         lines
         |> List.map(fun x ->
-            let amountDec = x |> StageEntryLine.amount |> Money.amount
-            if amountDec <= 0M
-            then DataIngestionError.error(DataIngestionError.IngestionStageLineNonPositiveAmount(amountDec))
+            let amount = x |> StageEntryLine.amount
+            if amount |> Money.isPositive |> not
+            then DataIngestionError.error(DataIngestionError.IngestionStageLineNonPositiveAmount(amount |> Money.amount))
             else Ok ()
             )
         |> convertListOfResultsToResultsList
@@ -716,11 +716,11 @@ let private isSameLine
     : bool =
     let stageAccountId = stageEntryLine |> StageEntryLine.accountId
     let journalAccountId = journalEntryLine |> JournalEntryLine.accountId
-    let stageAmount = stageEntryLine |> StageEntryLine.amount |> Money.amount
-    let journalAmount = journalEntryLine |> JournalEntryLine.amount |> Money.amount
+    let stageAmount = stageEntryLine |> StageEntryLine.amount
+    let journalAmount = journalEntryLine |> JournalEntryLine.amount
     let stageLineType = stageEntryLine |> StageEntryLine.lineType
     let journalLineType = journalEntryLine |> JournalEntryLine.lineType
-    stageAccountId = Some journalAccountId && stageAmount = journalAmount && stageLineType = journalLineType
+    stageAccountId = Some journalAccountId && Money.isEqual stageAmount journalAmount && stageLineType = journalLineType
 
 /// pairStageLinesToJournalEntryLines matches on account, line type, and amount rather than trusting the two lists to
 /// arrive in the same order. A matched journal entry line leaves the pool, so two identical staged lines still pair

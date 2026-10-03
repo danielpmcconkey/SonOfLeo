@@ -132,7 +132,7 @@ let private confirmPaymentAgreement
         return!
             match paymentAgreement |> PaymentAgreement.expectedAmount with
             | None -> Ok ()
-            | Some money when money |> Money.amount > 0M -> Ok ()
+            | Some money when money |> Money.isPositive -> Ok ()
             | Some money ->
                 let paymentAgreementUuid =
                     paymentAgreement

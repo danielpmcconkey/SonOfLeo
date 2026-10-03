@@ -107,10 +107,9 @@ let private tab ordinal label valueClass value : DomElement =
 
 let private moneyTab ordinal label (m: Money.Money) : DomElement =
     let valueClass =
-        match m |> Money.amount with
-        | a when a < 0M -> "val neg"
-        | a when a = 0M -> "val zero"
-        | _ -> "val"
+        if m |> Money.isNegative then "val neg"
+        elif m |> Money.isZero then "val zero"
+        else "val"
     tab ordinal label valueClass (m |> Money.toAccountingString)
 
 let private lineElement ordinal (line: PeriodActivityLine) : DomElement =

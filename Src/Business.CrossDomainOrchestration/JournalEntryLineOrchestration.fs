@@ -13,7 +13,7 @@ open Business.FinancialServices.Ledger.JournalEntryComponent
 
 let private confirmAmountIsPositive (m: Money.Money) : Result<unit, IAppError> =
     if
-        m |> Money.amount <= 0M
+        m |> Money.isPositive |> not
     then
         Error(JournalEntryLineNonPositiveAmount(m |> Money.amount))
     else

@@ -103,7 +103,7 @@ let computeBalanceSheetIntegrity (context: Context.Context) (asOf: LocalDate) : 
             { asOf = asOf
               totalDebits = totalDebits
               totalCredits = totalCredits
-              debitsEqualCredits = (totalDebits |> Money.amount) = (totalCredits |> Money.amount)
+              debitsEqualCredits = Money.isEqual totalDebits totalCredits
               assets = assets
               liabilities = liabilities
               equity = equity

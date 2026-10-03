@@ -23,14 +23,12 @@ let private isRegexMatch (source:string) (pattern:string) : bool =
     rx.IsMatch(source)
 
 let private isMoneyMatch (source: Money.Money) (pattern: MoneySearchPattern): bool =
-    let valueToCompare = source |> Money.amount
-    let valueToCompareAgainst = pattern.amount |> Money.amount
     match pattern.numericSearchOperator with
-    | GreaterThan -> valueToCompare > valueToCompareAgainst
-    | LessThan -> valueToCompare < valueToCompareAgainst
-    | GreaterThanOrEqualTo -> valueToCompare >= valueToCompareAgainst
-    | LessThanOrEqualTo -> valueToCompare <= valueToCompareAgainst
-    | ExactlyEqual -> valueToCompare = valueToCompareAgainst
+    | GreaterThan -> Money.isGreaterThan source pattern.amount
+    | LessThan -> Money.isLessThan source pattern.amount
+    | GreaterThanOrEqualTo -> Money.isGreaterThanOrEqual source pattern.amount
+    | LessThanOrEqualTo -> Money.isLessThanOrEqual source pattern.amount
+    | ExactlyEqual -> Money.isEqual source pattern.amount
 
 let doesMatch
     (candidate: MatchCandidate)
