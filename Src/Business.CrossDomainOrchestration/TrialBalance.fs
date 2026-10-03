@@ -44,10 +44,13 @@ let rec private crawlAndCompile
     (allAccountBalances: AccountBalance.AccountBalance list)
     (thisGeneration: int)
     : Result<TrialBalanceRowNested, IAppError> =
-    let balanceRowForThisAccount = allAccountBalances |> List.filter(fun ab -> ab.accountId = (accountToCrawl |> Account.accountId)) |> List.head
-    let creditsForThisAccount = balanceRowForThisAccount.totalCredits
-    let debitsForThisAccount = balanceRowForThisAccount.totalDebits
-    let netForThisAccount = balanceRowForThisAccount.netBalance
+    let balanceRowForThisAccount =
+        allAccountBalances
+        |> List.filter(fun ab -> (ab |> AccountBalance.accountId) = (accountToCrawl |> Account.accountId))
+        |> List.head
+    let creditsForThisAccount = balanceRowForThisAccount |> AccountBalance.totalCredits
+    let debitsForThisAccount = balanceRowForThisAccount |> AccountBalance.totalDebits
+    let netForThisAccount = balanceRowForThisAccount |> AccountBalance.netBalance
     let children = childrenInTrialBalanceOrder allAccounts (accountToCrawl |> Account.accountId |> Some)
     if children |> List.isEmpty
     then

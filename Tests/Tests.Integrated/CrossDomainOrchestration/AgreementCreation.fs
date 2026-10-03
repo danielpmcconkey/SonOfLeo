@@ -39,8 +39,8 @@ let private createAndReadBack
         let! legName = $"{name} leg" |> PaymentAgreementName.create
         let leg =
             (legName,
-             DebitAccount fixture.Data.mortgage2210Id,
-             CreditAccount fixture.Data.moneyMarket1270Id,
+             (DebitAccount.create fixture.Data.mortgage2210Id),
+             (CreditAccount.create fixture.Data.moneyMarket1270Id),
              None, None, None)
         let! created =
             AgreementOrchestration.constructNewAndPersist
@@ -113,7 +113,7 @@ type AgreementCreationTests(fixture: TestDataFixture) =
                     AgreementOrchestration.constructNewAndPersist
                         context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first))
                         { nextInstance = firstOfNextMonth () } counterparty activityPeriod None
-                        [ (legName, DebitAccount sameAccount, CreditAccount sameAccount, None, None, None) ]
+                        [ (legName, (DebitAccount.create sameAccount), (CreditAccount.create sameAccount), None, None, None) ]
                 return
                     match created with
                     | Error (AsError (CashFlowError.CashflowPaymentAgreementDebitEqualsCredit uuid)) ->

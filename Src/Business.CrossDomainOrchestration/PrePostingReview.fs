@@ -167,11 +167,11 @@ let fetchPrePostingReview (context: Context.Context) : Result<PrePostingEntry li
                     let instance = instancesById[invoice |> Invoice.instanceId]
                     { paymentId = p |> Payment.paymentId
                       invoiceId = invoice |> Invoice.invoiceId
-                      paymentAmount = (p |> Payment.amount).money
-                      invoiceDate = (invoice |> Invoice.invoiceDate).localDate
-                      dueDate = (invoice |> Invoice.dueDate).localDate
-                      invoiceAmount = (invoice |> Invoice.amount).money
-                      paymentState = (invoice |> Invoice.invoiceLifeCycleState).paymentState
+                      paymentAmount = ((p |> Payment.amount) |> PaymentAmount.value)
+                      invoiceDate = ((invoice |> Invoice.invoiceDate) |> InvoiceDate.value)
+                      dueDate = ((invoice |> Invoice.dueDate) |> DueDate.value)
+                      invoiceAmount = ((invoice |> Invoice.amount) |> InvoiceAmount.value)
+                      paymentState = ((invoice |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.paymentState)
                       instanceDate = instance |> Instance.instanceDate })
                 |> List.sortBy (fun p -> p.instanceDate, p.dueDate))
             |> Map.ofList

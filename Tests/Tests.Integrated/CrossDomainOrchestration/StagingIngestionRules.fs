@@ -223,9 +223,9 @@ type private Scenario(fixture: TestDataFixture, initialContext: Context.Context)
                 [ (CashFlowComponent.Staged lineId, None, None, None) ]
             let! _ =
                 InstanceOrchestration.constructNewAndPersist context cashFlow.agreementAId date
-                    [ (cashFlow.legAId, None, ({ localDate = date } : CashFlowComponent.InvoiceDate),
-                       ({ localDate = date.PlusDays(30) } : CashFlowComponent.DueDate),
-                       ({ money = amount } : CashFlowComponent.InvoiceAmount), CashFlowComponent.InvoiceReceived, None, None,
+                    [ (cashFlow.legAId, None, (CashFlowComponent.InvoiceDate.create date),
+                       (CashFlowComponent.DueDate.create (date.PlusDays(30))),
+                       (CashFlowComponent.InvoiceAmount.create amount), CashFlowComponent.InvoiceReceived, None, None,
                        payments) ]
             return ()
         }

@@ -67,7 +67,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                 AgreementOrchestration.constructNewAndPersist
                     context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first))
                     { nextInstance = this.firstOfThisMonth.PlusMonths(1) } counterparty activityPeriod None
-                    [ (legName, DebitAccount loanId, CreditAccount cashId, Some expected, Some due, None) ]
+                    [ (legName, (DebitAccount.create loanId), (CreditAccount.create cashId), Some expected, Some due, None) ]
             let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
             let legId =
                 agreement |> AgreementOrchestration.paymentAgreements |> List.head |> PaymentAgreement.paymentAgreementId
@@ -130,8 +130,8 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! created =
                 InstanceOrchestration.constructNewAndPersist
                     context agreementId invoiceDate
-                    [ (legId, None, { localDate = invoiceDate }, { localDate = invoiceDate.PlusDays(30) },
-                       { money = amount }, InvoiceReceived, None, None, newPayments) ]
+                    [ (legId, None, InvoiceDate.create(invoiceDate), DueDate.create(invoiceDate.PlusDays(30)),
+                       InvoiceAmount.create(amount), InvoiceReceived, None, None, newPayments) ]
             let invoiceComposite = created |> InstanceOrchestration.invoiceComposites |> List.head
             let invoiceId = invoiceComposite |> InstanceOrchestration.invoice |> Invoice.invoiceId
             let createdPayments = invoiceComposite |> InstanceOrchestration.payments
@@ -147,7 +147,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
         invoiceId
         |> InstanceOrchestration.fetchCompositeByInvoiceId context
         |> Result.map (fun composite ->
-            (composite |> InstanceOrchestration.invoice |> Invoice.invoiceLifeCycleState).postedState)
+            ((composite |> InstanceOrchestration.invoice |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.postedState))
 
     member _.payment (paymentId: PaymentId) = paymentId |> Payment.fetchById context
 
@@ -401,7 +401,7 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 let listed =
                     moved
                     |> List.map (fun t ->
-                        t.paymentId, (t.agreementName |> AgreementName.value), (t.invoiceAmount.money |> Money.amount), t.journalEntryLineId)
+                        t.paymentId, (t.agreementName |> AgreementName.value), ((t.invoiceAmount |> CashFlowComponent.InvoiceAmount.value) |> Money.amount), t.journalEntryLineId)
                     |> Set.ofList
                 let expected =
                     set [ xPayments.[0], "CF-10.7 listed X", 100.00M, jeX

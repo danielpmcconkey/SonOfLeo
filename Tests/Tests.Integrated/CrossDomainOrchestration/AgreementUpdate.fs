@@ -53,7 +53,7 @@ type AgreementUpdateTests(fixture: TestDataFixture) =
                 let updated =
                     AgreementOrchestration.updateAgreement
                         context
-                        [ { noLegChange cashFlow.legAId with creditAccountUpdate = FieldUpdate.SetTo(CreditAccount debitAccountId) } ]
+                        [ { noLegChange cashFlow.legAId with creditAccountUpdate = FieldUpdate.SetTo(CreditAccount.create debitAccountId) } ]
                         []
                         (noMasterAgreementChange cashFlow.agreementAId)
                 return

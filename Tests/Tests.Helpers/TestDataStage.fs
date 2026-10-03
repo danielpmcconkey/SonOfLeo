@@ -990,7 +990,7 @@ type TestDataFixture() =
                             AgreementOrchestration.constructNewAndPersist
                                 context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first))
                                 { nextInstance = firstOfLastMonth } counterparty activityPeriod None
-                                [ (legName, DebitAccount loanPayable2230Id, CreditAccount operatingCash1280Id,
+                                [ (legName, (DebitAccount.create loanPayable2230Id), (CreditAccount.create operatingCash1280Id),
                                    Some expected, Some due, None) ]
                         let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
                         let legId =
@@ -1005,8 +1005,8 @@ type TestDataFixture() =
                         let! created =
                             InstanceOrchestration.constructNewAndPersist
                                 context agreementId instanceDate
-                                [ (legId, None, { localDate = instanceDate }, { localDate = instanceDate.PlusDays(daysDue) },
-                                   { money = amount }, InvoiceReceived, None, None, []) ]
+                                [ (legId, None, InvoiceDate.create(instanceDate), DueDate.create(instanceDate.PlusDays(daysDue)),
+                                   InvoiceAmount.create(amount), InvoiceReceived, None, None, []) ]
                         let instanceId = created |> InstanceOrchestration.instance |> Instance.instanceId
                         let invoiceId =
                             created |> InstanceOrchestration.invoiceComposites |> List.head
@@ -1101,8 +1101,8 @@ type TestDataFixture() =
                         let! created =
                             InstanceOrchestration.constructNewAndPersist
                                 context agreementCId firstOfThisMonth
-                                [ (legCId, None, { localDate = firstOfThisMonth }, { localDate = firstOfThisMonth.PlusDays(30) },
-                                   { money = amount }, InvoiceReceived, None, None,
+                                [ (legCId, None, InvoiceDate.create(firstOfThisMonth), DueDate.create(firstOfThisMonth.PlusDays(30)),
+                                   InvoiceAmount.create(amount), InvoiceReceived, None, None,
                                    [ (Posted partPaymentLineId, None, None, None) ]) ]
                         return
                             created |> InstanceOrchestration.invoiceComposites |> List.head
@@ -1124,7 +1124,7 @@ type TestDataFixture() =
                             AgreementOrchestration.constructNewAndPersist
                                 context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first))
                                 { nextInstance = firstOfThisMonth.PlusMonths(1) } counterparty activityPeriod None
-                                [ (legName, DebitAccount loanPayable2230Id, CreditAccount operatingCash1280Id,
+                                [ (legName, (DebitAccount.create loanPayable2230Id), (CreditAccount.create operatingCash1280Id),
                                    Some expected, Some due, None) ]
                         return agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
                     }

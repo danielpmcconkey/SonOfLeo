@@ -91,13 +91,11 @@ let create
 let applyFieldUpdates (fieldUpdates: InvoiceFieldUpdates) (invoice: Invoice) : Invoice =
     let currentLifeCycleState = invoice.invoiceLifeCycleState
     let invoiceLifeCycleState: InvoiceLifeCycleState =
-        { invoiceState =
-            fieldUpdates.invoiceStateUpdate |> valueOrCurrent currentLifeCycleState.invoiceState
-          paymentState =
-            fieldUpdates.paymentStateUpdate |> valueOrCurrent currentLifeCycleState.paymentState
-          postedState =
-            fieldUpdates.postedStateUpdate |> valueOrCurrent currentLifeCycleState.postedState
-          blocker = fieldUpdates.blockerUpdate |> valueOrCurrent currentLifeCycleState.blocker }
+        InvoiceLifeCycleState.create
+            (fieldUpdates.invoiceStateUpdate |> valueOrCurrent (currentLifeCycleState |> InvoiceLifeCycleState.invoiceState))
+            (fieldUpdates.paymentStateUpdate |> valueOrCurrent (currentLifeCycleState |> InvoiceLifeCycleState.paymentState))
+            (fieldUpdates.postedStateUpdate |> valueOrCurrent (currentLifeCycleState |> InvoiceLifeCycleState.postedState))
+            (fieldUpdates.blockerUpdate |> valueOrCurrent (currentLifeCycleState |> InvoiceLifeCycleState.blocker))
     { invoice with
         externalInvoiceId =
             fieldUpdates.externalInvoiceIdUpdate |> valueOrCurrent invoice.externalInvoiceId
@@ -161,11 +159,11 @@ let persist
         let instanceUuid = invoice.instanceId |> InstanceId.value
         let paymentAgreementUuid = invoice.paymentAgreementId |> PaymentAgreementId.value
         let externalInvoiceId = invoice.externalInvoiceId |> Option.map ExternalInvoiceId.value
-        let amount = invoice.amount.money |> Money.amount
-        let invoiceState = invoice.invoiceLifeCycleState.invoiceState |> InvoiceState.toString
-        let paymentState = invoice.invoiceLifeCycleState.paymentState |> PaymentState.toString
-        let postedState = invoice.invoiceLifeCycleState.postedState |> PostedState.toString
-        let blockerState, blockerNote = invoice.invoiceLifeCycleState.blocker |> blockerToColumns
+        let amount = invoice.amount |> InvoiceAmount.value |> Money.amount
+        let invoiceState = invoice.invoiceLifeCycleState |> InvoiceLifeCycleState.invoiceState |> InvoiceState.toString
+        let paymentState = invoice.invoiceLifeCycleState |> InvoiceLifeCycleState.paymentState |> PaymentState.toString
+        let postedState = invoice.invoiceLifeCycleState |> InvoiceLifeCycleState.postedState |> PostedState.toString
+        let blockerState, blockerNote = invoice.invoiceLifeCycleState |> InvoiceLifeCycleState.blocker |> blockerToColumns
         let memo = invoice.memo |> Option.map InvoiceMemo.value
         let parameters =
             [
@@ -173,8 +171,8 @@ let persist
               { name = "@instance_id"; value = UniqueId(instanceUuid) }
               { name = "@payment_agreement_id"; value = UniqueId(paymentAgreementUuid) }
               { name = "@external_invoice_id"; value = NullableCharString(externalInvoiceId) }
-              { name = "@invoice_date"; value = DbLocalDate(invoice.invoiceDate.localDate) }
-              { name = "@due_date"; value = DbLocalDate(invoice.dueDate.localDate) }
+              { name = "@invoice_date"; value = DbLocalDate(invoice.invoiceDate |> InvoiceDate.value) }
+              { name = "@due_date"; value = DbLocalDate(invoice.dueDate |> DueDate.value) }
               { name = "@amount"; value = Numeric(amount) }
               { name = "@invoice_state"; value = CharString(invoiceState) }
               { name = "@payment_state"; value = CharString(paymentState) }
@@ -194,17 +192,17 @@ let confirmAmountIsPositive
     (invoice: Invoice)
     : Result<unit, IAppError> =
     let invoiceAmount = invoice |> amount
-    if invoiceAmount.money |> Money.isPositive then Ok ()
+    if (invoiceAmount |> InvoiceAmount.value) |> Money.isPositive then Ok ()
     else
         let invoiceUuid = invoice |> invoiceId |> InvoiceId.value
-        Error(CashflowInvoiceNonPositiveAmount(invoiceUuid, invoiceAmount.money |> Money.amount))
+        Error(CashflowInvoiceNonPositiveAmount(invoiceUuid, (invoiceAmount |> InvoiceAmount.value) |> Money.amount))
 
 let confirmPostedToLedgerRequiresFullyPaid
     (invoice: Invoice)
     : Result<unit, IAppError> =
     let lifeCycleState = invoice |> invoiceLifeCycleState
-    if lifeCycleState.postedState <> CashFlowComponent.PostedToLedger
-       || lifeCycleState.paymentState = CashFlowComponent.FullyPaid then Ok ()
+    if (lifeCycleState |> InvoiceLifeCycleState.postedState) <> CashFlowComponent.PostedToLedger
+       || (lifeCycleState |> InvoiceLifeCycleState.paymentState) = CashFlowComponent.FullyPaid then Ok ()
     else
         let invoiceUuid = invoice |> invoiceId |> InvoiceId.value
         Error(CashflowInvoicePostedToLedgerRequiresFullyPaid invoiceUuid)
@@ -213,7 +211,7 @@ let confirmFullyPaidHasNoBlocker
     (invoice: Invoice)
     : Result<unit, IAppError> =
     let lifeCycleState = invoice |> invoiceLifeCycleState
-    if lifeCycleState.paymentState <> CashFlowComponent.FullyPaid || lifeCycleState.blocker |> Option.isNone then Ok ()
+    if (lifeCycleState |> InvoiceLifeCycleState.paymentState) <> CashFlowComponent.FullyPaid || (lifeCycleState |> InvoiceLifeCycleState.blocker) |> Option.isNone then Ok ()
     else
         let invoiceUuid = invoice |> invoiceId |> InvoiceId.value
         Error(CashflowInvoiceFullyPaidWithBlocker invoiceUuid)
@@ -248,10 +246,7 @@ let private reconstitute raw =
         let! postedState = postedStateStr |> PostedState.fromString
         let! blocker = blockerFromColumns blockerState blockerNote
         let invoiceLifeCycleState =
-            { invoiceState = invoiceState
-              paymentState = paymentState
-              postedState = postedState
-              blocker = blocker }
+            InvoiceLifeCycleState.create invoiceState paymentState postedState blocker
         let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter InvoiceMemo.create
         let! cancellationReasonNote =
             cancellationReasonNoteStr |> convertOptionToDesiredTypeWithFallibleConverter CancellationReasonNote.create
@@ -261,9 +256,9 @@ let private reconstitute raw =
                 instanceId
                 paymentAgreementId
                 externalInvoiceId
-                { localDate = invoiceDate }
-                { localDate = dueDate }
-                { money = amount }
+                (InvoiceDate.create invoiceDate)
+                (DueDate.create dueDate)
+                (InvoiceAmount.create amount)
                 invoiceLifeCycleState
                 memo
                 createdAt
@@ -378,15 +373,15 @@ let update
 
               fieldUpdates.invoiceDateUpdate
               |> mapNoChangeToOptionWithConversion(fun n ->
-                  [ ("invoice_date = @invoice_date", { name = "@invoice_date"; value = DbLocalDate(n.localDate) }) ])
+                  [ ("invoice_date = @invoice_date", { name = "@invoice_date"; value = DbLocalDate(n |> InvoiceDate.value) }) ])
 
               fieldUpdates.dueDateUpdate
               |> mapNoChangeToOptionWithConversion(fun n ->
-                  [ ("due_date = @due_date", { name = "@due_date"; value = DbLocalDate(n.localDate) }) ])
+                  [ ("due_date = @due_date", { name = "@due_date"; value = DbLocalDate(n |> DueDate.value) }) ])
 
               fieldUpdates.amountUpdate
               |> mapNoChangeToOptionWithConversion(fun n ->
-                  [ ("amount = @amount", { name = "@amount"; value = Numeric(n.money |> Money.amount) }) ])
+                  [ ("amount = @amount", { name = "@amount"; value = Numeric((n |> InvoiceAmount.value) |> Money.amount) }) ])
 
               fieldUpdates.invoiceStateUpdate
               |> mapNoChangeToOptionWithConversion(fun n ->

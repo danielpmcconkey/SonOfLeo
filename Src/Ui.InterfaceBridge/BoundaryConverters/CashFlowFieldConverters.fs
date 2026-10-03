@@ -25,10 +25,10 @@ let ``convert [Blocker] to [BlockerContract]`` (blocker: Blocker) : BlockerContr
 let ``convert [InvoiceLifeCycleState] to [InvoiceLifeCycleStateContract]``
     (lifeCycleState: InvoiceLifeCycleState)
     : InvoiceLifeCycleStateContract = {
-        invoiceState = lifeCycleState.invoiceState |> InvoiceState.toString
-        paymentState = lifeCycleState.paymentState |> PaymentState.toString
-        postedState = lifeCycleState.postedState |> PostedState.toString
-        blocker = lifeCycleState.blocker |> Option.map ``convert [Blocker] to [BlockerContract]`` }
+        invoiceState = lifeCycleState |> CashFlowComponent.InvoiceLifeCycleState.invoiceState |> InvoiceState.toString
+        paymentState = lifeCycleState |> CashFlowComponent.InvoiceLifeCycleState.paymentState |> PaymentState.toString
+        postedState = lifeCycleState |> CashFlowComponent.InvoiceLifeCycleState.postedState |> PostedState.toString
+        blocker = lifeCycleState |> CashFlowComponent.InvoiceLifeCycleState.blocker |> Option.map ``convert [Blocker] to [BlockerContract]`` }
 
 let ``convert [TransactionPointer] to [TransactionPointerContract]``
     (transactionPointer: TransactionPointer)
@@ -111,9 +111,9 @@ let ``convert [Payment] to [PaymentReturn]`` (payment: Payment.Payment) : Paymen
     invoiceId = payment |> Payment.invoiceId |> InvoiceId.value
     transactionPointer =
         payment |> Payment.transactionPointer |> ``convert [TransactionPointer] to [TransactionPointerContract]``
-    amount = (payment |> Payment.amount).money |> Money.amount
-    postedToFiDate = payment |> Payment.postedToFiDate |> Option.map _.localDate
-    postedToLedgerDate = payment |> Payment.postedToLedgerDate |> Option.map _.localDate
+    amount = ((payment |> Payment.amount) |> CashFlowComponent.PaymentAmount.value) |> Money.amount
+    postedToFiDate = payment |> Payment.postedToFiDate |> Option.map CashFlowComponent.PostedToFiDate.value
+    postedToLedgerDate = payment |> Payment.postedToLedgerDate |> Option.map CashFlowComponent.PostedToLedgerDate.value
     memo = payment |> Payment.memo |> Option.map PaymentMemo.value
     createdAt = payment |> Payment.createdAt
     modifiedAt = payment |> Payment.modifiedAt }
@@ -130,9 +130,9 @@ let ``convert [Invoice] to [InvoiceReturn]``
             instanceId = invoice |> Invoice.instanceId |> InstanceId.value
             paymentAgreementName = paymentAgreementName
             externalInvoiceId = invoice |> Invoice.externalInvoiceId |> Option.map ExternalInvoiceId.value
-            invoiceDate = (invoice |> Invoice.invoiceDate).localDate
-            dueDate = (invoice |> Invoice.dueDate).localDate
-            amount = (invoice |> Invoice.amount).money |> Money.amount
+            invoiceDate = ((invoice |> Invoice.invoiceDate) |> CashFlowComponent.InvoiceDate.value)
+            dueDate = ((invoice |> Invoice.dueDate) |> CashFlowComponent.DueDate.value)
+            amount = ((invoice |> Invoice.amount) |> CashFlowComponent.InvoiceAmount.value) |> Money.amount
             invoiceLifeCycleState =
                 invoice |> Invoice.invoiceLifeCycleState |> ``convert [InvoiceLifeCycleState] to [InvoiceLifeCycleStateContract]``
             memo = invoice |> Invoice.memo |> Option.map InvoiceMemo.value
@@ -216,8 +216,8 @@ let ``convert [PaymentAgreement] to [PaymentAgreementReturn]``
             paymentAgreement
             |> PaymentAgreement.masterAgreementID
             |> ``convert [MasterAgreementId] to [AgreementNameString]`` context
-        let (DebitAccount debitAccountId) = paymentAgreement |> PaymentAgreement.debitAccount
-        let (CreditAccount creditAccountId) = paymentAgreement |> PaymentAgreement.creditAccount
+        let debitAccountId = paymentAgreement |> PaymentAgreement.debitAccount |> DebitAccount.value
+        let creditAccountId = paymentAgreement |> PaymentAgreement.creditAccount |> CreditAccount.value
         let! debitAccountCode = debitAccountId |> ``convert AccountId to AccountCodeString`` context
         let! creditAccountCode = creditAccountId |> ``convert AccountId to AccountCodeString`` context
         let! debitAccountName = debitAccountId |> ``convert AccountId to AccountNameString`` context
@@ -288,7 +288,7 @@ let ``convert [PaymentPostingTransition] to [PaymentPostingTransitionReturn]``
     : PaymentPostingTransitionReturn =
     { paymentId = transition.paymentId |> PaymentId.value
       agreementName = transition.agreementName |> AgreementName.value
-      invoiceAmount = transition.invoiceAmount.money |> Money.amount
+      invoiceAmount = transition.invoiceAmount |> CashFlowComponent.InvoiceAmount.value |> Money.amount
       journalEntryLineId = transition.journalEntryLineId |> JournalEntryLineId.value }
 
 let ``convert [PaymentPostingTransition list] to [PaymentPostingTransitionReturn list]``
@@ -303,8 +303,8 @@ let ``convert [ProjectedInvoice] to [ProjectedInvoiceReturn]`` (invoice: Project
     { invoiceId = invoice.invoiceId |> InvoiceId.value
       agreementName = invoice.agreementName |> AgreementName.value
       direction = invoice.direction |> FlowDirection.toString
-      dueDate = invoice.dueDate.localDate
-      amount = invoice.amount.money |> Money.amount
+      dueDate = invoice.dueDate |> CashFlowComponent.DueDate.value
+      amount = invoice.amount |> CashFlowComponent.InvoiceAmount.value |> Money.amount
       outstandingAmount = invoice.outstanding |> Money.amount }
 
 let ``convert [ProjectedAccount] to [ProjectedAccountReturn]`` (account: ProjectedAccount) : ProjectedAccountReturn =
@@ -317,7 +317,7 @@ let ``convert [ProjectedAccount] to [ProjectedAccountReturn]`` (account: Project
       invoices =
         account.invoices
         |> List.sortBy (fun (invoice: ProjectedInvoice) ->
-            invoice.dueDate.localDate, (invoice.invoiceId |> InvoiceId.value))
+            (invoice.dueDate |> CashFlowComponent.DueDate.value), (invoice.invoiceId |> InvoiceId.value))
         |> List.map ``convert [ProjectedInvoice] to [ProjectedInvoiceReturn]`` }
 
 let ``convert [BillToChase] to [BillToChaseReturn]`` (bill: BillToChase) : BillToChaseReturn =
@@ -366,10 +366,10 @@ let ``convert [CreatePaymentFieldsInput] to [PaymentPrimitives]``
         let transactionPointer =
             input.transactionPointer |> ``convert [TransactionPointerContract] to [TransactionPointer]``
         let postedToFiDate =
-            input.postedToFiDate |> Option.map (fun localDate -> ({ localDate = localDate } : PostedToFiDate))
+            input.postedToFiDate |> Option.map (fun localDate -> (PostedToFiDate.create localDate))
         let postedToLedgerDate =
             input.postedToLedgerDate
-            |> Option.map (fun localDate -> ({ localDate = localDate } : PostedToLedgerDate))
+            |> Option.map (fun localDate -> (PostedToLedgerDate.create localDate))
         let! memo = input.memo |> convertOptionToDesiredTypeWithFallibleConverter PaymentMemo.create
         return transactionPointer, postedToFiDate, postedToLedgerDate, memo
     }
@@ -396,10 +396,10 @@ let ``convert [NewInvoiceFieldsInput] to [NewInvoicePrimitives]``
             input.paymentAgreementName |> ``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context
         let! externalInvoiceId =
             input.externalInvoiceId |> convertOptionToDesiredTypeWithFallibleConverter ExternalInvoiceId.create
-        let invoiceDate : InvoiceDate = { localDate = input.invoiceDate }
-        let dueDate : DueDate = { localDate = input.dueDate }
+        let invoiceDate = InvoiceDate.create input.invoiceDate
+        let dueDate = DueDate.create input.dueDate
         let! money = input.amount |> Money.fromDecimal
-        let amount : InvoiceAmount = { money = money }
+        let amount = InvoiceAmount.create money
         let! invoiceState = input.invoiceState |> InvoiceState.fromString
         let! blocker =
             input.blocker |> convertOptionToDesiredTypeWithFallibleConverter ``convert [BlockerContract] to [Blocker]``
@@ -462,13 +462,13 @@ let ``convert [UpdateInvoiceInput] to [InstanceCompositeUpdate]``
             input.externalInvoiceIdUpdate
             |> FieldUpdate.convertFieldUpdateOptionToNewTypeOptionFallible ExternalInvoiceId.create
         let invoiceDateUpdate =
-            input.invoiceDateUpdate |> FieldUpdate.map (fun localDate -> ({ localDate = localDate } : InvoiceDate))
+            input.invoiceDateUpdate |> FieldUpdate.map (fun localDate -> (InvoiceDate.create localDate))
         let dueDateUpdate =
-            input.dueDateUpdate |> FieldUpdate.map (fun localDate -> ({ localDate = localDate } : DueDate))
+            input.dueDateUpdate |> FieldUpdate.map (fun localDate -> (DueDate.create localDate))
         let! amountUpdate =
             input.amountUpdate
             |> FieldUpdate.convertFieldUpdateToNewTypeFallible (fun amount ->
-                amount |> Money.fromDecimal |> Result.map (fun money -> ({ money = money } : InvoiceAmount)))
+                amount |> Money.fromDecimal |> Result.map (fun money -> (InvoiceAmount.create money)))
         let! invoiceStateUpdate = input.invoiceStateUpdate
                                   |> FieldUpdate.convertFieldUpdateToNewTypeFallible InvoiceState.fromString
         let! blockerUpdate =
@@ -534,8 +534,8 @@ let ``convert [CreatePaymentAgreementFieldsInput] to [PaymentAgreementPrimitives
         let! memo = input.memo |> convertOptionToDesiredTypeWithFallibleConverter PaymentAgreementMemo.create
         return
             paymentAgreementName,
-            DebitAccount debitAccountId,
-            CreditAccount creditAccountId,
+            DebitAccount.create debitAccountId,
+            CreditAccount.create creditAccountId,
             expectedAmount,
             daysDueAfterInvoiceDate,
             memo
@@ -563,11 +563,11 @@ let ``convert [UpdatePaymentAgreementInput] to [PaymentAgreementFieldUpdates]``
         let! debitAccountUpdate =
             input.debitAccountCodeUpdate
             |> FieldUpdate.convertFieldUpdateToNewTypeFallible (fun code ->
-                code |> ``convert AccountCodeString to Id`` context |> Result.map DebitAccount)
+                code |> ``convert AccountCodeString to Id`` context |> Result.map DebitAccount.create)
         let! creditAccountUpdate =
             input.creditAccountCodeUpdate
             |> FieldUpdate.convertFieldUpdateToNewTypeFallible (fun code ->
-                code |> ``convert AccountCodeString to Id`` context |> Result.map CreditAccount)
+                code |> ``convert AccountCodeString to Id`` context |> Result.map CreditAccount.create)
         let! expectedAmountUpdate =
             input.expectedAmountUpdate |> FieldUpdate.convertFieldUpdateOptionToNewTypeOptionFallible Money.fromDecimal
         let! daysDueAfterInvoiceDateUpdate =

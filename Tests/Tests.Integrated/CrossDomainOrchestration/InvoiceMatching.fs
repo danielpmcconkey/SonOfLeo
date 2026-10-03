@@ -79,7 +79,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                 AgreementOrchestration.constructNewAndPersist
                     context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first))
                     { nextInstance = this.firstOfThisMonth.PlusMonths(1) } counterparty activityPeriod None
-                    [ (legName, DebitAccount loanId, CreditAccount cashId, Some expected, Some due, None) ]
+                    [ (legName, (DebitAccount.create loanId), (CreditAccount.create cashId), Some expected, Some due, None) ]
             let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
             let legId =
                 agreement |> AgreementOrchestration.paymentAgreements |> List.head |> PaymentAgreement.paymentAgreementId
@@ -109,8 +109,8 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! created =
                 InstanceOrchestration.constructNewAndPersist
                     context agreementId invoiceDate
-                    [ (legId, None, { localDate = invoiceDate }, { localDate = invoiceDate.PlusDays(daysDue) },
-                       { money = amount }, InvoiceReceived, None, None, payments) ]
+                    [ (legId, None, InvoiceDate.create(invoiceDate), DueDate.create(invoiceDate.PlusDays(daysDue)),
+                       InvoiceAmount.create(amount), InvoiceReceived, None, None, payments) ]
             return
                 created |> InstanceOrchestration.invoiceComposites |> List.head
                 |> InstanceOrchestration.invoice |> Invoice.invoiceId

@@ -89,7 +89,7 @@ let private build
                     let! paName = legName |> PaymentAgreementName.create
                     let! expected = Money.fromDecimal 100.00M
                     let! due = 0 |> DaysDueAfterInvoiceDate.create
-                    return (paName, DebitAccount debit, CreditAccount credit, Some expected, Some due, None)
+                    return (paName, (DebitAccount.create debit), (CreditAccount.create credit), Some expected, Some due, None)
                 })
             |> convertListOfResultsToResultsList
         let! agreement =
@@ -109,8 +109,8 @@ let private build
         let invoices =
             invoiced
             |> List.map (fun i ->
-                (legIds[i], None, { InvoiceDate.localDate = march 1 }, { DueDate.localDate = march 31 },
-                 { InvoiceAmount.money = amount }, state, None, None, []))
+                (legIds[i], None, (InvoiceDate.create (march 1)), (DueDate.create (march 31)),
+                 (InvoiceAmount.create amount), state, None, None, []))
         let! created = InstanceOrchestration.constructNewAndPersist context agreementId (march 1) invoices
         let invoiceIds =
             invoiced
@@ -410,8 +410,8 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let stagedLineId = match stagedLine with | Staged l -> Some l | Posted _ -> None
                 Assert.Equal(jeLine, payment |> Payment.transactionPointer)
                 Assert.Equal(stagedLineId, stagedColumn)
-                Assert.Equal(40.00M, (payment |> Payment.amount).money |> Money.amount)
-                Assert.Equal(Some entryDate, payment |> Payment.postedToLedgerDate |> Option.map _.localDate)
+                Assert.Equal(40.00M, ((payment |> Payment.amount) |> CashFlowComponent.PaymentAmount.value) |> Money.amount)
+                Assert.Equal(Some entryDate, payment |> Payment.postedToLedgerDate |> Option.map CashFlowComponent.PostedToLedgerDate.value)
             })
 
     [<Theory>]
@@ -428,7 +428,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                     | _ -> w.stagedLine "F-2230" "Debit" 40.00M
                 (* Both amounts leave the 100.00 Invoice PartiallyPaid, so only the read-back amount can differ. *)
                 let! stored = createPayment invoiceId line (paymentFor line 30.00M)
-                Assert.Equal(40.00M, (stored |> Payment.amount).money |> Money.amount)
+                Assert.Equal(40.00M, ((stored |> Payment.amount) |> CashFlowComponent.PaymentAmount.value) |> Money.amount)
             })
 
     [<Fact>]
@@ -450,7 +450,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let invoiceId = made.invoiceIds[0]
                 let! line, _ = w.jeLine "F-2230" "Debit" 100.00M
                 let! stored = createPayment invoiceId line { paymentFor line 100.00M with postedToFiDate = Some(march 5) }
-                Assert.Equal(Some(march 5), stored |> Payment.postedToFiDate |> Option.map _.localDate)
+                Assert.Equal(Some(march 5), stored |> Payment.postedToFiDate |> Option.map CashFlowComponent.PostedToFiDate.value)
             })
 
     [<Fact>]
@@ -616,7 +616,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! made = w.make Outgo 1 [ 0 ]
                 let! line, entryDate = w.jeLine "F-2230" "Debit" 100.00M
                 let! stored = createPayment made.invoiceIds[0] line { paymentFor line 100.00M with postedToLedgerDate = None }
-                Assert.Equal(Some entryDate, stored |> Payment.postedToLedgerDate |> Option.map _.localDate)
+                Assert.Equal(Some entryDate, stored |> Payment.postedToLedgerDate |> Option.map CashFlowComponent.PostedToLedgerDate.value)
             })
 
     [<Fact>]
@@ -636,7 +636,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! made = w.make Outgo 1 [ 0 ]
                 let! line, entryDate = w.jeLine "F-2230" "Debit" 100.00M
                 let! stored = createPayment made.invoiceIds[0] line { paymentFor line 100.00M with postedToLedgerDate = Some entryDate }
-                Assert.Equal(Some entryDate, stored |> Payment.postedToLedgerDate |> Option.map _.localDate)
+                Assert.Equal(Some entryDate, stored |> Payment.postedToLedgerDate |> Option.map CashFlowComponent.PostedToLedgerDate.value)
             })
 
     [<Fact>]

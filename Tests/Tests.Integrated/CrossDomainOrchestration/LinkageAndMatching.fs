@@ -86,7 +86,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! agreement =
                 AgreementOrchestration.constructNewAndPersist
                     context agreementName direction cadence { nextInstance = nextInstance } counterparty activityPeriod None
-                    [ (legName, DebitAccount debit, CreditAccount credit, Some expected, Some due, None) ]
+                    [ (legName, (DebitAccount.create debit), (CreditAccount.create credit), Some expected, Some due, None) ]
             let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
             let legId =
                 agreement |> AgreementOrchestration.paymentAgreements |> List.head |> PaymentAgreement.paymentAgreementId
@@ -112,8 +112,8 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! created =
                 InstanceOrchestration.constructNewAndPersist
                     context agreementId invoiceDate
-                    [ (legId, None, { localDate = invoiceDate }, { localDate = invoiceDate.PlusDays(daysDue) },
-                       { money = amount }, state, None, None, newPayments) ]
+                    [ (legId, None, InvoiceDate.create(invoiceDate), DueDate.create(invoiceDate.PlusDays(daysDue)),
+                       InvoiceAmount.create(amount), state, None, None, newPayments) ]
             let instanceId = created |> InstanceOrchestration.instance |> Instance.instanceId
             let invoiceId =
                 created |> InstanceOrchestration.invoiceComposites |> List.head
@@ -906,7 +906,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                         [ (TransactionPointer.Staged paidLineId, 100.00M) ]
                 let! paidComposite = paidInvoiceId |> InstanceOrchestration.fetchCompositeByInvoiceId context
                 let paidState = paidComposite |> InstanceOrchestration.invoice |> Invoice.invoiceLifeCycleState
-                Assert.Equal(FullyPaid, paidState.paymentState)
+                Assert.Equal(FullyPaid, (paidState |> CashFlowComponent.InvoiceLifeCycleState.paymentState))
                 let! _, newerInvoiceId = scenario.outgoInvoice agreementId legId scenario.firstOfThisMonth 30
                 let! lineId = scenario.linkedLine legId "CF-13.1 fully paid payment" scenario.firstOfThisMonth
                 let! _ = ClassificationOrchestration.classifyPaymentAgreements context

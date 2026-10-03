@@ -81,7 +81,7 @@ let private build (fixture: TestDataFixture) (context: Context.Context) (daily: 
                     let! paName = legName |> PaymentAgreementName.create
                     let! expected = Money.fromDecimal 100.00M
                     let! due = 0 |> DaysDueAfterInvoiceDate.create
-                    return (paName, DebitAccount(accountIdOf "F-2230"), CreditAccount(accountIdOf "F-1280"), Some expected, Some due, None)
+                    return (paName, DebitAccount.create(accountIdOf "F-2230"), CreditAccount.create(accountIdOf "F-1280"), Some expected, Some due, None)
                 })
             |> convertListOfResultsToResultsList
         let! agreement =
@@ -99,8 +99,8 @@ let private build (fixture: TestDataFixture) (context: Context.Context) (daily: 
         let invoices =
             invoiced
             |> List.map (fun i ->
-                (legIds[i], None, { InvoiceDate.localDate = instanceDate }, { DueDate.localDate = instanceDate.PlusDays(30) },
-                 { InvoiceAmount.money = amount }, InvoiceReceived, None, None, []))
+                (legIds[i], None, (InvoiceDate.create instanceDate), (DueDate.create (instanceDate.PlusDays(30))),
+                 (InvoiceAmount.create amount), InvoiceReceived, None, None, []))
         let! created = InstanceOrchestration.constructNewAndPersist context agreementId instanceDate invoices
         let invoiceIds =
             invoiced
@@ -585,7 +585,7 @@ type MaintenanceOperationsTests(fixture: TestDataFixture) =
                 Assert.True(attempt |> Result.isError)
                 Assert.Empty(payments)
                 Assert.Empty(onLine)
-                Assert.Equal(NotYetPaid, (stored |> Invoice.invoiceLifeCycleState).paymentState)
+                Assert.Equal(NotYetPaid, ((stored |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.paymentState))
             })
 
     [<Fact>]
@@ -608,11 +608,11 @@ type MaintenanceOperationsTests(fixture: TestDataFixture) =
                 let state = stored |> Invoice.invoiceLifeCycleState
                 let! note = "which account" |> BlockerNote.create
                 Assert.Equal(Some "EXT-14.5", stored |> Invoice.externalInvoiceId |> Option.map ExternalInvoiceId.value)
-                Assert.Equal(march 2, (stored |> Invoice.invoiceDate).localDate)
-                Assert.Equal(march 20, (stored |> Invoice.dueDate).localDate)
-                Assert.Equal(150.00M, (stored |> Invoice.amount).money |> Money.amount)
-                Assert.Equal(InvoiceExpected, state.invoiceState)
-                Assert.Equal(Some(Blocker.NeedsDecision note), state.blocker)
+                Assert.Equal(march 2, ((stored |> Invoice.invoiceDate) |> CashFlowComponent.InvoiceDate.value))
+                Assert.Equal(march 20, ((stored |> Invoice.dueDate) |> CashFlowComponent.DueDate.value))
+                Assert.Equal(150.00M, ((stored |> Invoice.amount) |> CashFlowComponent.InvoiceAmount.value) |> Money.amount)
+                Assert.Equal(InvoiceExpected, (state |> CashFlowComponent.InvoiceLifeCycleState.invoiceState))
+                Assert.Equal(Some(Blocker.NeedsDecision note), (state |> CashFlowComponent.InvoiceLifeCycleState.blocker))
                 Assert.Equal(Some "updated memo", stored |> Invoice.memo |> Option.map InvoiceMemo.value)
             })
 
@@ -632,9 +632,9 @@ type MaintenanceOperationsTests(fixture: TestDataFixture) =
                     |> sendInput "UpdateInvoice"
                 let! after = storedInvoice invoiceId
                 Assert.True(attempt |> Result.isError)
-                Assert.Equal(FullyPaid, (before |> Invoice.invoiceLifeCycleState).paymentState)
+                Assert.Equal(FullyPaid, ((before |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.paymentState))
                 Assert.Equal(None, after |> Invoice.memo)
-                Assert.Equal(None, (after |> Invoice.invoiceLifeCycleState).blocker)
+                Assert.Equal(None, ((after |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.blocker))
                 Assert.Equal(before, after)
             })
 
@@ -667,10 +667,10 @@ type MaintenanceOperationsTests(fixture: TestDataFixture) =
                 let! pointers = pointersOf invoiceId
                 let! stored = storedInvoice invoiceId
                 let! instance = made.instanceId |> Instance.fetchById (fresh ())
-                Assert.Equal(FullyPaid, (paidInvoice |> Invoice.invoiceLifeCycleState).paymentState)
+                Assert.Equal(FullyPaid, ((paidInvoice |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.paymentState))
                 Assert.True(paidInstance |> Instance.isFulfilled)
                 Assert.Equal<Set<Guid>>(set [ pointerUuid full; pointerUuid extra ], pointers)
-                Assert.Equal(PartiallyPaid, (stored |> Invoice.invoiceLifeCycleState).paymentState)
+                Assert.Equal(PartiallyPaid, ((stored |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.paymentState))
                 Assert.False(instance |> Instance.isFulfilled)
             })
 

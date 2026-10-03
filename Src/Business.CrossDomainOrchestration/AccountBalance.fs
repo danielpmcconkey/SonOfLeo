@@ -13,14 +13,17 @@ open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 
 
-type AccountBalance = {
-    accountId: AccountId; totalCredits: Money.Money; totalDebits: Money.Money; netBalance: Money.Money
-}
-type AccountBalanceComponent =
-    private {
-        accountId: AccountId; lineType: JournalEntryLineType
-        accountType: AccountType; sumAtType: Money.Money
-    }
+type AccountBalance =
+    private
+        { accountId: AccountId
+          totalCredits: Money.Money
+          totalDebits: Money.Money
+          netBalance: Money.Money }
+
+let accountId (balance: AccountBalance) = balance.accountId
+let totalCredits (balance: AccountBalance) = balance.totalCredits
+let totalDebits (balance: AccountBalance) = balance.totalDebits
+let netBalance (balance: AccountBalance) = balance.netBalance
 
 let private mapRawForDbRead (row: RowReader) : Guid * string * string * decimal =
     (row |> RowReader.getUuid "account_id"),
@@ -28,14 +31,17 @@ let private mapRawForDbRead (row: RowReader) : Guid * string * string * decimal 
     (row |> RowReader.getString "account_type"),
     (row |> RowReader.getNumeric "sum_at_type")
 
-let private reconstitute (raw: Guid * string * string * decimal) : Result<AccountBalanceComponent, IAppError> =
+/// reconstitute reads one (account, line type) sum: the account, the line type, the account's type and the sum.
+let private reconstitute
+    (raw: Guid * string * string * decimal)
+    : Result<AccountId * JournalEntryLineType * AccountType * Money.Money, IAppError> =
     let accountIdGuid, lineType, accountType, sumAtType = raw
     result {
         let accountId = accountIdGuid |> AccountId.fromGuid
         let! jeLineType = lineType |> JournalEntryLineType.fromString
         let! accountType = accountType |> AccountType.fromString
         let! sumAtTypeM = sumAtType |> Money.fromDecimal
-        return { accountId = accountId; lineType = jeLineType; accountType = accountType; sumAtType = sumAtTypeM }
+        return accountId, jeLineType, accountType, sumAtTypeM
     }
 
 let fetchByAccountIdList
@@ -106,18 +112,15 @@ let fetchByAccountIdList
                 AnyQuantityIsAcceptable
         let balances =
             components
-            |> List.groupBy(fun c -> c.accountId, c.accountType)
+            |> List.groupBy(fun (accountId, _, accountType, _) -> accountId, accountType)
             |> List.map(fun ((accountId, accountType), rows) ->
-                let credits =
+                let sumAt lineType =
                     rows
-                    |> List.tryFind(fun r -> r.lineType = JournalEntryLineType.Credit)
-                    |> Option.map(fun r -> r.sumAtType)
+                    |> List.tryFind(fun (_, rowLineType, _, _) -> rowLineType = lineType)
+                    |> Option.map(fun (_, _, _, sumAtType) -> sumAtType)
                     |> Option.defaultValue moneyZero
-                let debits =
-                    rows
-                    |> List.tryFind(fun r -> r.lineType = JournalEntryLineType.Debit)
-                    |> Option.map(fun r -> r.sumAtType)
-                    |> Option.defaultValue moneyZero
+                let credits = sumAt JournalEntryLineType.Credit
+                let debits = sumAt JournalEntryLineType.Debit
                 if
                     accountType |> AccountType.normalBalance = AccountTypeNormalBalance.Debit
                 then

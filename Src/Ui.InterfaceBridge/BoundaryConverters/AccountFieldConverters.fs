@@ -162,14 +162,14 @@ let ``convert AccountBalance to AccountBalanceReturn``
     (balance: AccountBalance)
     : Result<AccountBalanceReturn, IAppError> =
     result {
-        let! codeString = balance.accountId |> ``convert AccountId to AccountCodeString`` context
-        let! nameString = balance.accountId |> ``convert AccountId to AccountNameString`` context
+        let! codeString = balance |> Business.CrossDomainOrchestration.AccountBalance.accountId |> ``convert AccountId to AccountCodeString`` context
+        let! nameString = balance |> Business.CrossDomainOrchestration.AccountBalance.accountId |> ``convert AccountId to AccountNameString`` context
         return
             { accountCode = codeString
               accountName = nameString
-              totalCredits = balance.totalCredits |> Money.amount
-              totalDebits = balance.totalDebits |> Money.amount
-              netBalance = balance.netBalance |> Money.amount }
+              totalCredits = balance |> Business.CrossDomainOrchestration.AccountBalance.totalCredits |> Money.amount
+              totalDebits = balance |> Business.CrossDomainOrchestration.AccountBalance.totalDebits |> Money.amount
+              netBalance = balance |> Business.CrossDomainOrchestration.AccountBalance.netBalance |> Money.amount }
     }
 
 let ``convert [Account Reference String Option] to [AccountExternalReference Option]``

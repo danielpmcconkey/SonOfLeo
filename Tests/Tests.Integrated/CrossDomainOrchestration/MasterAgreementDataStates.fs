@@ -136,7 +136,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                         let! legName = $"{name} leg {i + 1}" |> PaymentAgreementName.create
                         let! expected = Money.fromDecimal 100.00M
                         let! due = 0 |> DaysDueAfterInvoiceDate.create
-                        return (legName, DebitAccount(accountIdOf "F-2230"), CreditAccount(accountIdOf "F-1280"), Some expected, Some due, None)
+                        return (legName, DebitAccount.create(accountIdOf "F-2230"), CreditAccount.create(accountIdOf "F-1280"), Some expected, Some due, None)
                     })
                 |> convertListOfResultsToResultsList
             return!

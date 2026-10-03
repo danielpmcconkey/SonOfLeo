@@ -50,7 +50,7 @@ let private deactivatedAccountsWithBalance
     result {
         let! balances =
             AccountBalance.fetchByAccountIdList context (Some (deactivated |> List.map (fst >> Account.accountId))) (Some today)
-        let balanceOf accountId = balances |> List.find (fun b -> b.accountId = accountId) |> _.netBalance
+        let balanceOf accountId = balances |> List.find (fun b -> (b |> AccountBalance.accountId) = accountId) |> AccountBalance.netBalance
         let holdingMoney =
             deactivated |> List.filter (fun (a, _) -> a |> Account.accountId |> balanceOf |> Money.isZero |> not)
         let! reported =
@@ -84,11 +84,11 @@ let computeBalanceSheetIntegrity (context: Context.Context) (asOf: LocalDate) : 
         let accountTypes = accounts |> List.map (fun a -> Account.accountId a, Account.accountType a) |> Map.ofList
         let netBalanceOf accountType =
             balances
-            |> List.filter (fun b -> accountTypes[b.accountId] = accountType)
-            |> List.map _.netBalance
+            |> List.filter (fun b -> accountTypes[b |> AccountBalance.accountId] = accountType)
+            |> List.map AccountBalance.netBalance
             |> Money.sumList
-        let! totalDebits = balances |> List.map _.totalDebits |> Money.sumList
-        let! totalCredits = balances |> List.map _.totalCredits |> Money.sumList
+        let! totalDebits = balances |> List.map AccountBalance.totalDebits |> Money.sumList
+        let! totalCredits = balances |> List.map AccountBalance.totalCredits |> Money.sumList
         let! assets = netBalanceOf Asset
         let! liabilities = netBalanceOf Liability
         let! equity = netBalanceOf Equity

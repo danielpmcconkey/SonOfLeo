@@ -46,8 +46,15 @@ module InvoiceId =
     let fromGuid g = InvoiceId g
     let value (InvoiceId g) : Guid = g
 
-type DebitAccount = DebitAccount of AccountId
-type CreditAccount = CreditAccount of AccountId
+type DebitAccount = private DebitAccount of AccountId
+module DebitAccount =
+    let create (accountId: AccountId) : DebitAccount = DebitAccount accountId
+    let value (DebitAccount accountId) : AccountId = accountId
+
+type CreditAccount = private CreditAccount of AccountId
+module CreditAccount =
+    let create (accountId: AccountId) : CreditAccount = CreditAccount accountId
+    let value (CreditAccount accountId) : AccountId = accountId
 
 type FlowDirection =
     | Income
@@ -150,12 +157,14 @@ type Blocker =
     | NeedsDecision of BlockerNote
     | Other of BlockerNote
 
-type InvoiceLifeCycleState = {
-    invoiceState: InvoiceState
-    paymentState: PaymentState
-    postedState: PostedState
-    blocker: Blocker option
-}
+type InvoiceLifeCycleState = private InvoiceLifeCycleState of InvoiceState * PaymentState * PostedState * Blocker option
+module InvoiceLifeCycleState =
+    let create invoiceState paymentState postedState blocker : InvoiceLifeCycleState =
+        InvoiceLifeCycleState(invoiceState, paymentState, postedState, blocker)
+    let invoiceState (InvoiceLifeCycleState(invoiceState, _, _, _)) : InvoiceState = invoiceState
+    let paymentState (InvoiceLifeCycleState(_, paymentState, _, _)) : PaymentState = paymentState
+    let postedState (InvoiceLifeCycleState(_, _, postedState, _)) : PostedState = postedState
+    let blocker (InvoiceLifeCycleState(_, _, _, blocker)) : Blocker option = blocker
 
 type AgreementName = private AgreementName of string
 
@@ -312,12 +321,35 @@ module DaysDueAfterInvoiceDate =
         | x when x < min -> Error(CashflowDaysDueAfterInvoiceDateBelowMin(raw, min))
         | _ -> Ok({daysAfter = raw})
 
-type InvoiceDate = { localDate: LocalDate }
-type DueDate = { localDate: LocalDate }
-type PostedToFiDate = { localDate: LocalDate }
-type PostedToLedgerDate = { localDate: LocalDate }
-type InvoiceAmount = { money: Money.Money }
-type PaymentAmount = { money: Money.Money }
+type InvoiceDate = private InvoiceDate of LocalDate
+module InvoiceDate =
+    let create (date: LocalDate) : InvoiceDate = InvoiceDate date
+    let value (InvoiceDate date) : LocalDate = date
+
+type DueDate = private DueDate of LocalDate
+module DueDate =
+    let create (date: LocalDate) : DueDate = DueDate date
+    let value (DueDate date) : LocalDate = date
+
+type PostedToFiDate = private PostedToFiDate of LocalDate
+module PostedToFiDate =
+    let create (date: LocalDate) : PostedToFiDate = PostedToFiDate date
+    let value (PostedToFiDate date) : LocalDate = date
+
+type PostedToLedgerDate = private PostedToLedgerDate of LocalDate
+module PostedToLedgerDate =
+    let create (date: LocalDate) : PostedToLedgerDate = PostedToLedgerDate date
+    let value (PostedToLedgerDate date) : LocalDate = date
+
+type InvoiceAmount = private InvoiceAmount of Money.Money
+module InvoiceAmount =
+    let create (money: Money.Money) : InvoiceAmount = InvoiceAmount money
+    let value (InvoiceAmount money) : Money.Money = money
+
+type PaymentAmount = private PaymentAmount of Money.Money
+module PaymentAmount =
+    let create (money: Money.Money) : PaymentAmount = PaymentAmount money
+    let value (PaymentAmount money) : Money.Money = money
 
 type InvoiceDecisionOutcome =
     | PaymentCreated of StageEntryLineId

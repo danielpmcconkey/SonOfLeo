@@ -68,11 +68,11 @@ let lineAmount
     | CashFlowComponent.Posted journalEntryLineId ->
         journalEntryLineId |> JournalEntryLine.fetchById context
         |> whenNoRows (LedgerError.JournalEntryLineIdDoesntExist (journalEntryLineId |> JournalEntryLineId.value))
-        |> Result.map (fun line -> ({ money = line |> JournalEntryLine.amount } : CashFlowComponent.PaymentAmount))
+        |> Result.map (fun line -> (CashFlowComponent.PaymentAmount.create (line |> JournalEntryLine.amount)))
     | CashFlowComponent.Staged stageEntryLineId ->
         stageEntryLineId |> StageEntryLine.fetchById context
         |> whenNoRows (DataIngestionError.IngestionStageEntryLineIdDoesntExist (stageEntryLineId |> StageEntryLineId.value))
-        |> Result.map (fun line -> ({ money = line |> StageEntryLine.amount } : CashFlowComponent.PaymentAmount))
+        |> Result.map (fun line -> (CashFlowComponent.PaymentAmount.create (line |> StageEntryLine.amount)))
 
 /// confirmPayment checks that the line a Payment points at exists, and that a posted-to-ledger date agrees with the
 /// journal entry. The line may sit on any account: a Payment Agreement's accounts are an expectation, not a constraint.
@@ -110,11 +110,11 @@ let confirmPayment
                 Error(CashFlowError.CashflowPaymentPostedToLedgerDateWithoutJournalEntry paymentUuid)
             | Some providedDate, Some header ->
                 let actualDate = header |> JournalEntryHeader.entryDate |> EntryDate.entryDate
-                if providedDate.localDate = actualDate then Ok ()
+                if (providedDate |> CashFlowComponent.PostedToLedgerDate.value) = actualDate then Ok ()
                 else
                     let paymentUuid = payment |> Payment.paymentId |> CashFlowComponent.PaymentId.value
                     Error(CashFlowError.CashflowPaymentPostedToLedgerDateMismatch(
-                        paymentUuid, providedDate.localDate, actualDate))
+                        paymentUuid, (providedDate |> CashFlowComponent.PostedToLedgerDate.value), actualDate))
     }
 
 let private confirmFullyPaidAmountMatches
@@ -122,16 +122,16 @@ let private confirmFullyPaidAmountMatches
     (payments: Payment.Payment list)
     : Result<unit, IAppError> =
     let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
-    if lifeCycleState.paymentState <> CashFlowComponent.FullyPaid then Ok () else
+    if (lifeCycleState |> CashFlowComponent.InvoiceLifeCycleState.paymentState) <> CashFlowComponent.FullyPaid then Ok () else
     result {
-        let! paidTotal = payments |> List.map Payment.amount |> List.map _.money |> Money.sumList
+        let! paidTotal = payments |> List.map Payment.amount |> List.map CashFlowComponent.PaymentAmount.value |> Money.sumList
         let invoiceAmount = invoice |> Invoice.amount
         return!
-            if Money.isEqual paidTotal invoiceAmount.money then Ok ()
+            if Money.isEqual paidTotal (invoiceAmount |> CashFlowComponent.InvoiceAmount.value) then Ok ()
             else
                 let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
                 let paidDec = paidTotal |> Money.amount
-                let invoiceDec = invoiceAmount.money |> Money.amount
+                let invoiceDec = invoiceAmount |> CashFlowComponent.InvoiceAmount.value |> Money.amount
                 Error(CashFlowError.CashflowInvoiceFullyPaidAmountMismatch(invoiceUuid, paidDec, invoiceDec))
     }
 
@@ -140,7 +140,7 @@ let private confirmPartiallyPaidHasPayments
     (payments: Payment.Payment list)
     : Result<unit, IAppError> =
     let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
-    if lifeCycleState.paymentState <> CashFlowComponent.PartiallyPaid || (payments |> List.isEmpty |> not) then Ok ()
+    if (lifeCycleState |> CashFlowComponent.InvoiceLifeCycleState.paymentState) <> CashFlowComponent.PartiallyPaid || (payments |> List.isEmpty |> not) then Ok ()
     else
         let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
         Error(CashFlowError.CashflowInvoicePartiallyPaidWithNoPayments invoiceUuid)
@@ -150,7 +150,7 @@ let private confirmPostedToLedgerRequiresAllPaymentsPosted
     (payments: Payment.Payment list)
     : Result<unit, IAppError> =
     let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
-    if lifeCycleState.postedState <> CashFlowComponent.PostedToLedger
+    if (lifeCycleState |> CashFlowComponent.InvoiceLifeCycleState.postedState) <> CashFlowComponent.PostedToLedger
        || (payments |> List.forall isPostedPayment) then Ok ()
     else
         let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
@@ -161,7 +161,7 @@ let private confirmPartiallyPostedHasAPostedPayment
     (payments: Payment.Payment list)
     : Result<unit, IAppError> =
     let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
-    if lifeCycleState.postedState <> CashFlowComponent.PartiallyPosted
+    if (lifeCycleState |> CashFlowComponent.InvoiceLifeCycleState.postedState) <> CashFlowComponent.PartiallyPosted
        || (payments |> List.exists isPostedPayment) then Ok ()
     else
         let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
@@ -171,7 +171,7 @@ let private confirmInvoiceStateSuitsDirection
     (direction: CashFlowComponent.FlowDirection)
     (invoice: Invoice.Invoice)
     : Result<unit, IAppError> =
-    let invoiceState = (invoice |> Invoice.invoiceLifeCycleState).invoiceState
+    let invoiceState = ((invoice |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.invoiceState)
     if invoiceState |> CashFlowComponent.InvoiceState.isValidFlowDirectionInvoiceStateCombination direction then Ok ()
     else
         let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
@@ -291,7 +291,7 @@ let private confirmFulfilledInstanceInvoicesAreFullyPaid
     invoices
     |> List.map (fun invoice ->
         let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
-        if lifeCycleState.paymentState = CashFlowComponent.FullyPaid || invoice |> Invoice.isCancelled then Ok ()
+        if (lifeCycleState |> CashFlowComponent.InvoiceLifeCycleState.paymentState) = CashFlowComponent.FullyPaid || invoice |> Invoice.isCancelled then Ok ()
         else
             let invoiceUuid = invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value
             CashFlowError.error(CashFlowError.CashflowInstanceFulfilledWithUnpaidInvoice(instanceUuid, invoiceUuid)))
@@ -470,10 +470,10 @@ let private derivePaymentState
     : Result<CashFlowComponent.PaymentState, IAppError> =
     if payments |> List.isEmpty then Ok CashFlowComponent.NotYetPaid else
     result {
-        let! paidTotal = payments |> List.map Payment.amount |> List.map _.money |> Money.sumList
+        let! paidTotal = payments |> List.map Payment.amount |> List.map CashFlowComponent.PaymentAmount.value |> Money.sumList
         let invoiceAmount = invoice |> Invoice.amount
         return
-            if Money.isEqual paidTotal invoiceAmount.money then CashFlowComponent.FullyPaid
+            if Money.isEqual paidTotal (invoiceAmount |> CashFlowComponent.InvoiceAmount.value) then CashFlowComponent.FullyPaid
             else CashFlowComponent.PartiallyPaid
     }
 
@@ -490,7 +490,7 @@ let private derivePostedState
 /// deriveIsFulfilled: at least one Invoice FullyPaid, and every Invoice FullyPaid or cancelled.
 let private deriveIsFulfilled (invoiceComposites: InvoiceComposite list) : bool =
     let isFullyPaid (invoiceComposite: InvoiceComposite) =
-        (invoiceComposite.invoice |> Invoice.invoiceLifeCycleState).paymentState = CashFlowComponent.FullyPaid
+        ((invoiceComposite.invoice |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.paymentState) = CashFlowComponent.FullyPaid
     invoiceComposites |> List.exists isFullyPaid
     && invoiceComposites
        |> List.forall (fun invoiceComposite -> isFullyPaid invoiceComposite || invoiceComposite.invoice |> Invoice.isCancelled)
@@ -607,18 +607,12 @@ let private preConstructNewInvoiceComposite
                 lifeCycleState memo now now
         let preDerivation =
             invoiceWithLifeCycleState
-                { invoiceState = invoiceState
-                  paymentState = CashFlowComponent.NotYetPaid
-                  postedState = CashFlowComponent.NotHandled
-                  blocker = blocker }
+                (CashFlowComponent.InvoiceLifeCycleState.create invoiceState CashFlowComponent.NotYetPaid CashFlowComponent.NotHandled blocker)
         let! paymentState = derivePaymentState preDerivation payments
         let postedState = derivePostedState paymentState payments
         let invoice =
             invoiceWithLifeCycleState
-                { invoiceState = invoiceState
-                  paymentState = paymentState
-                  postedState = postedState
-                  blocker = blocker }
+                (CashFlowComponent.InvoiceLifeCycleState.create invoiceState paymentState postedState blocker)
         return { invoice = invoice; payments = payments }
     }
 
@@ -691,7 +685,7 @@ let updateInstanceComposite
                 let lifeCycleState = preConstructedInvoiceComposite.invoice |> Invoice.invoiceLifeCycleState
                 let invoiceUpdates =
                     invoiceCompositeUpdate.invoiceUpdates
-                    |> withDerivedStates lifeCycleState.paymentState lifeCycleState.postedState
+                    |> withDerivedStates (lifeCycleState |> CashFlowComponent.InvoiceLifeCycleState.paymentState) (lifeCycleState |> CashFlowComponent.InvoiceLifeCycleState.postedState)
                 do! invoiceUpdates |> Invoice.update context |> Result.map ignore
                 do!
                     invoiceCompositeUpdate.paymentUpdates

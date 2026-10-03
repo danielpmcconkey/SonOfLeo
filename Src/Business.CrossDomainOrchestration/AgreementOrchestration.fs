@@ -114,13 +114,13 @@ let private confirmPaymentAgreement
                     |> CashFlowComponent.PaymentAgreementId.value
                 let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
                 Error(CashFlowError.CashflowPaymentAgreementNotUnderMasterAgreement(paymentAgreementUuid, agreementUuid))
-        let (CashFlowComponent.DebitAccount debitAccountId) = paymentAgreement |> PaymentAgreement.debitAccount
+        let debitAccountId = paymentAgreement |> PaymentAgreement.debitAccount |> CashFlowComponent.DebitAccount.value
         do!
             match debitAccountId |> confirmValidAccountId context with
             | Error (AsError (LedgerError.AccountIdDoesntMatch uuid)) ->
                 Error (CashFlowError.CashflowPaymentAgreementDebitAccountInvalid uuid)
             | other -> other
-        let (CashFlowComponent.CreditAccount creditAccountId) = paymentAgreement |> PaymentAgreement.creditAccount
+        let creditAccountId = paymentAgreement |> PaymentAgreement.creditAccount |> CashFlowComponent.CreditAccount.value
         do!
             match creditAccountId |> confirmValidAccountId context with
             | Error (AsError (LedgerError.AccountIdDoesntMatch uuid)) ->

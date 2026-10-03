@@ -70,7 +70,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                         let! paName = legName |> PaymentAgreementName.create
                         let! expected = Money.fromDecimal 100.00M
                         let! due = 0 |> DaysDueAfterInvoiceDate.create
-                        return (paName, DebitAccount debit, CreditAccount credit, Some expected, Some due, None)
+                        return (paName, (DebitAccount.create debit), (CreditAccount.create credit), Some expected, Some due, None)
                     })
                 |> convertListOfResultsToResultsList
             let! agreement =
@@ -121,7 +121,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                                 })
                             |> convertListOfResultsToResultsList
                         return
-                            (legId, None, { InvoiceDate.localDate = date }, { DueDate.localDate = due }, { InvoiceAmount.money = amount },
+                            (legId, None, (InvoiceDate.create date), (DueDate.create due), (InvoiceAmount.create amount),
                              state, None, None, payments)
                     })
                 |> convertListOfResultsToResultsList
@@ -404,10 +404,10 @@ type RevisedRequirementsCashFlowTests(fixture: TestDataFixture) =
                     + $"\"amount\":{claimed},\"postedToFiDate\":null,\"postedToLedgerDate\":null,\"memo\":null}}}}"
                 let! _ = routeUiCommandForTesting "CashFlow" "CreatePayment" [] payload
                 let! invoice = invoiceId |> Invoice.fetchById (fresh ())
-                Assert.Equal(FullyPaid, (invoice |> Invoice.invoiceLifeCycleState).paymentState)
+                Assert.Equal(FullyPaid, ((invoice |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.paymentState))
                 let! payments = [ invoiceId ] |> Payment.fetchByInvoiceIdList (fresh ())
                 let payment = Assert.Single(payments)
-                Assert.Equal(100.00M, (payment |> Payment.amount).money |> Money.amount)
+                Assert.Equal(100.00M, ((payment |> Payment.amount) |> CashFlowComponent.PaymentAmount.value) |> Money.amount)
             }
             |> railroadWrapper
         finally

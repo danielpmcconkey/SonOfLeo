@@ -102,7 +102,7 @@ type private Committed(fixture: TestDataFixture) =
                     AgreementOrchestration.constructNewAndPersist
                         context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first)) { nextInstance = LocalDate(2049, 3, 1) }
                         counterparty activityPeriod None
-                        [ (paName, DebitAccount(idOf "F-2230"), CreditAccount(idOf "F-1280"), None, None, None) ]
+                        [ (paName, DebitAccount.create(idOf "F-2230"), CreditAccount.create(idOf "F-1280"), None, None, None) ]
                 agreements.Add(agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID |> MasterAgreementId.value)
                 let legId = agreement |> AgreementOrchestration.paymentAgreements |> List.head |> PaymentAgreement.paymentAgreementId
                 return legName, legId
@@ -225,7 +225,7 @@ type RevisedRequirementsClassificationTests(fixture: TestDataFixture) =
                     AgreementOrchestration.constructNewAndPersist
                         context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first)) { nextInstance = LocalDate(2049, 3, 1) }
                         counterparty activityPeriod None
-                        [ (paName, DebitAccount(accountIdOf "F-2230"), CreditAccount(accountIdOf "F-1280"), None, None, None) ]
+                        [ (paName, DebitAccount.create(accountIdOf "F-2230"), CreditAccount.create(accountIdOf "F-1280"), None, None, None) ]
                 let legId = agreement |> AgreementOrchestration.paymentAgreements |> List.head |> PaymentAgreement.paymentAgreementId
                 let groupsFor (text: string) =
                     [ ("And", [ fieldMatch "Description" text ], None) ] |> createClassificationRuleGroupListForTest |> orFail

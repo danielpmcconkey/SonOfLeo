@@ -29,8 +29,8 @@ type DerivedInvoiceStateTests(fixture: TestDataFixture) =
             let! created =
                 InstanceOrchestration.constructNewAndPersist
                     context cashFlow.agreementAId instanceDate
-                    [ (cashFlow.legAId, None, { localDate = instanceDate }, { localDate = instanceDate.PlusDays(30) },
-                       { money = amount }, InvoiceReceived, None, None, payments) ]
+                    [ (cashFlow.legAId, None, InvoiceDate.create(instanceDate), DueDate.create(instanceDate.PlusDays(30)),
+                       InvoiceAmount.create(amount), InvoiceReceived, None, None, payments) ]
             let instanceId = created |> InstanceOrchestration.instance |> Instance.instanceId
             let! readBack = instanceId |> InstanceOrchestration.fetchCompositeByInstanceId context
             let lifecycle =
@@ -48,8 +48,8 @@ type DerivedInvoiceStateTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback CashFlowCreateInstance (fun context ->
             result {
                 let! lifecycle, isFulfilled = createAndReadBack context 100.00M true
-                Assert.Equal(FullyPaid, lifecycle.paymentState)
-                Assert.Equal(PostedToLedger, lifecycle.postedState)
+                Assert.Equal(FullyPaid, (lifecycle |> CashFlowComponent.InvoiceLifeCycleState.paymentState))
+                Assert.Equal(PostedToLedger, (lifecycle |> CashFlowComponent.InvoiceLifeCycleState.postedState))
                 Assert.True(isFulfilled)
             })
         |> railroadWrapper
@@ -59,8 +59,8 @@ type DerivedInvoiceStateTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback CashFlowCreateInstance (fun context ->
             result {
                 let! lifecycle, isFulfilled = createAndReadBack context 150.00M true
-                Assert.Equal(PartiallyPaid, lifecycle.paymentState)
-                Assert.Equal(PartiallyPosted, lifecycle.postedState)
+                Assert.Equal(PartiallyPaid, (lifecycle |> CashFlowComponent.InvoiceLifeCycleState.paymentState))
+                Assert.Equal(PartiallyPosted, (lifecycle |> CashFlowComponent.InvoiceLifeCycleState.postedState))
                 Assert.False(isFulfilled)
             })
         |> railroadWrapper
@@ -70,7 +70,7 @@ type DerivedInvoiceStateTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback CashFlowCreateInstance (fun context ->
             result {
                 let! lifecycle, isFulfilled = createAndReadBack context 100.00M false
-                Assert.Equal(NotYetPaid, lifecycle.paymentState)
+                Assert.Equal(NotYetPaid, (lifecycle |> CashFlowComponent.InvoiceLifeCycleState.paymentState))
                 Assert.False(isFulfilled)
             })
         |> railroadWrapper

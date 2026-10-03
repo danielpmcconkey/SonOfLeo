@@ -41,7 +41,7 @@ let private createAgreement (fixture: TestDataFixture) (context: Context.Context
             AgreementOrchestration.constructNewAndPersist
                 context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first))
                 { nextInstance = firstOfThisMonth.PlusMonths(1) } counterparty activityPeriod None
-                [ (legName, DebitAccount(accountIdOf "F-2230"), CreditAccount(accountIdOf "F-1280"), Some expected, Some due, None) ]
+                [ (legName, DebitAccount.create(accountIdOf "F-2230"), CreditAccount.create(accountIdOf "F-1280"), Some expected, Some due, None) ]
         let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
         let legId = agreement |> AgreementOrchestration.paymentAgreements |> List.head |> PaymentAgreement.paymentAgreementId
         return agreementId, legId
@@ -57,7 +57,7 @@ let private createBlockedInvoice context agreementId legId (monthsAgo: int) (blo
         let! created =
             InstanceOrchestration.constructNewAndPersist
                 context agreementId invoiceDate
-                [ (legId, None, { localDate = invoiceDate }, { localDate = invoiceDate }, { money = amount },
+                [ (legId, None, InvoiceDate.create(invoiceDate), DueDate.create(invoiceDate), InvoiceAmount.create(amount),
                    InvoiceReceived, Some blocker, None, []) ]
         return created |> InstanceOrchestration.invoiceComposites |> List.head |> InstanceOrchestration.invoice |> Invoice.invoiceId
     }
@@ -73,7 +73,7 @@ let private createInvoicedInstance (fixture: TestDataFixture) context (name: str
         let! created =
             InstanceOrchestration.constructNewAndPersist
                 context agreementId invoiceDate
-                [ (legId, None, { localDate = invoiceDate }, { localDate = invoiceDate }, { money = amount },
+                [ (legId, None, InvoiceDate.create(invoiceDate), DueDate.create(invoiceDate), InvoiceAmount.create(amount),
                    InvoiceReceived, None, None, []) ]
         return agreementId, legId, created
     }
@@ -115,8 +115,8 @@ let private newInvoiceFor legId =
         let invoiceDate = LocalDate(today.Year, today.Month, 1)
         let! amount = Money.fromDecimal 100.00M
         return
-            (legId, None, ({ localDate = invoiceDate }: InvoiceDate), ({ localDate = invoiceDate }: DueDate),
-             ({ money = amount }: InvoiceAmount), InvoiceReceived, None, None, [])
+            (legId, None, (InvoiceDate.create invoiceDate), (DueDate.create invoiceDate),
+             (InvoiceAmount.create amount), InvoiceReceived, None, None, [])
     }
 
 /// expectNotFound passes when the result is the expected error carrying the expected id, and fails otherwise.

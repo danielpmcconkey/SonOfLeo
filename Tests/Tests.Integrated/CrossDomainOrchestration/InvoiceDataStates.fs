@@ -76,7 +76,7 @@ let private build
                     let! paName = legName |> PaymentAgreementName.create
                     let! expected = Money.fromDecimal 100.00M
                     let! due = 0 |> DaysDueAfterInvoiceDate.create
-                    return (paName, DebitAccount debit, CreditAccount credit, Some expected, Some due, None)
+                    return (paName, (DebitAccount.create debit), (CreditAccount.create credit), Some expected, Some due, None)
                 })
             |> convertListOfResultsToResultsList
         let! agreement =
@@ -96,8 +96,8 @@ let private build
         let invoices =
             invoiced
             |> List.map (fun i ->
-                (legIds[i], None, { InvoiceDate.localDate = march 1 }, { DueDate.localDate = march 31 },
-                 { InvoiceAmount.money = amount }, state, None, None, []))
+                (legIds[i], None, (InvoiceDate.create (march 1)), (DueDate.create (march 31)),
+                 (InvoiceAmount.create amount), state, None, None, []))
         let! created = InstanceOrchestration.constructNewAndPersist context agreementId (march 1) invoices
         let invoiceIds =
             invoiced
@@ -268,8 +268,8 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let! made = build fixture context Outgo 1 []
                 let! amount = Money.fromDecimal 100.00M
                 let invoice =
-                    (made.legIds[0], None, { InvoiceDate.localDate = march 1 }, { DueDate.localDate = march 31 },
-                     { InvoiceAmount.money = amount }, InvoiceReceived, None, None, [])
+                    (made.legIds[0], None, (InvoiceDate.create (march 1)), (DueDate.create (march 31)),
+                     (InvoiceAmount.create amount), InvoiceReceived, None, None, [])
                 let update : InstanceOrchestration.InstanceCompositeUpdate =
                     { instanceUpdates =
                         { instanceIdToUpdate = InstanceId.create (); isFulfilledUpdate = NoChange }
@@ -310,8 +310,8 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let! made = build fixture context Outgo 1 []
                 let! amount = Money.fromDecimal 100.00M
                 let invoice =
-                    (PaymentAgreementId.create (), None, { InvoiceDate.localDate = march 1 }, { DueDate.localDate = march 31 },
-                     { InvoiceAmount.money = amount }, InvoiceReceived, None, None, [])
+                    (PaymentAgreementId.create (), None, (InvoiceDate.create (march 1)), (DueDate.create (march 31)),
+                     (InvoiceAmount.create amount), InvoiceReceived, None, None, [])
                 let update : InstanceOrchestration.InstanceCompositeUpdate =
                     { instanceUpdates =
                         { instanceIdToUpdate = made.instanceId; isFulfilledUpdate = NoChange }
@@ -391,7 +391,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
             result {
                 let! made = make Outgo 1 []
                 let! stored = createInvoice made.instanceId { invoiceFor made.legNames[0] with amount = 0.01M }
-                Assert.Equal(0.01M, (stored |> Invoice.amount).money |> Money.amount)
+                Assert.Equal(0.01M, ((stored |> Invoice.amount) |> CashFlowComponent.InvoiceAmount.value) |> Money.amount)
             })
 
     [<Theory>]
@@ -432,8 +432,8 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let! made = make Outgo 1 []
                 let! stored =
                     createInvoice made.instanceId { invoiceFor made.legNames[0] with invoiceDate = march 3; dueDate = march 20 }
-                Assert.Equal(march 3, (stored |> Invoice.invoiceDate).localDate)
-                Assert.Equal(march 20, (stored |> Invoice.dueDate).localDate)
+                Assert.Equal(march 3, ((stored |> Invoice.invoiceDate) |> CashFlowComponent.InvoiceDate.value))
+                Assert.Equal(march 20, ((stored |> Invoice.dueDate) |> CashFlowComponent.DueDate.value))
             })
 
     [<Theory>]
@@ -483,7 +483,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                     | _ -> Outgo, InvoiceReceived
                 let! made = make direction 1 []
                 let! stored = createInvoice made.instanceId { invoiceFor made.legNames[0] with invoiceState = state }
-                Assert.Equal(expected, (stored |> Invoice.invoiceLifeCycleState).invoiceState)
+                Assert.Equal(expected, ((stored |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.invoiceState))
             })
 
     [<Theory>]
@@ -508,7 +508,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
             result {
                 let! made = make Outgo 1 []
                 let! stored = createInvoice made.instanceId (invoiceFor made.legNames[0])
-                Assert.Equal(None, (stored |> Invoice.invoiceLifeCycleState).blocker)
+                Assert.Equal(None, ((stored |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.blocker))
             })
 
     [<Theory>]
@@ -527,7 +527,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                     | "NeedsDecision" -> Contracts.BlockerContract.NeedsDecision "a note", Blocker.NeedsDecision(blockerNote "a note")
                     | _ -> Contracts.BlockerContract.Other "a note", Blocker.Other(blockerNote "a note")
                 let! stored = createInvoice made.instanceId { invoiceFor made.legNames[0] with blocker = Some given }
-                Assert.Equal(Some expected, (stored |> Invoice.invoiceLifeCycleState).blocker)
+                Assert.Equal(Some expected, ((stored |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.blocker))
             })
 
     [<Theory>]
@@ -585,7 +585,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 Assert.Empty(leg)
                 let! stored = createInvoice made.instanceId { invoiceFor made.legNames[0] with blocker = Some(noted 500) }
                 let storedNote =
-                    match (stored |> Invoice.invoiceLifeCycleState).blocker with
+                    match ((stored |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.blocker) with
                     | Some(Blocker.NeedsDecision note) | Some(Blocker.Other note) -> note |> BlockerNote.value
                     | _ -> ""
                 Assert.Equal<string>(noteOf 500, storedNote)
@@ -635,7 +635,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let! _ = updateInvoice { noInvoiceChange invoiceId with blockerUpdate = SetTo None }
                 (* The store refuses to read back a note without a blocker, so a clean read shows the note is gone too. *)
                 let! stored = storedInvoice invoiceId
-                Assert.Equal(None, (stored |> Invoice.invoiceLifeCycleState).blocker)
+                Assert.Equal(None, ((stored |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.blocker))
             })
 
     [<Theory>]

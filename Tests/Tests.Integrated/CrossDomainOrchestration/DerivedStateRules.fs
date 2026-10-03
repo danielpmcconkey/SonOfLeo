@@ -74,7 +74,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                         let! paName = legName |> PaymentAgreementName.create
                         let! expected = Money.fromDecimal 100.00M
                         let! due = 0 |> DaysDueAfterInvoiceDate.create
-                        return (paName, DebitAccount loanId, CreditAccount cash, Some expected, Some due, None)
+                        return (paName, (DebitAccount.create loanId), (CreditAccount.create cash), Some expected, Some due, None)
                     })
                 |> convertListOfResultsToResultsList
             let! agreement =
@@ -147,8 +147,8 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                     result {
                         let! payments = pays |> List.map this.newPayment |> convertListOfResultsToResultsList
                         return
-                            (legId, None, { InvoiceDate.localDate = date }, { DueDate.localDate = date.PlusDays(30) },
-                             { InvoiceAmount.money = amount }, InvoiceReceived, blocker, None, payments)
+                            (legId, None, (InvoiceDate.create date), (DueDate.create (date.PlusDays(30))),
+                             (InvoiceAmount.create amount), InvoiceReceived, blocker, None, payments)
                     })
                 |> convertListOfResultsToResultsList
             let! created = InstanceOrchestration.constructNewAndPersist context agreementId date invoiceFields
@@ -174,7 +174,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
         |> Invoice.fetchById context
         |> Result.map (fun invoice ->
             let state = invoice |> Invoice.invoiceLifeCycleState
-            state.paymentState, state.postedState)
+            (state |> CashFlowComponent.InvoiceLifeCycleState.paymentState), (state |> CashFlowComponent.InvoiceLifeCycleState.postedState))
 
     member _.invoiceOf (invoiceId: InvoiceId) = invoiceId |> Invoice.fetchById context
 
@@ -321,11 +321,11 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 let update =
                     invoiceUpdate instanceId invoiceId
                     |> withInvoiceChange (fun u ->
-                        { u with invoiceUpdates = { u.invoiceUpdates with amountUpdate = SetTo { money = sixty } } })
+                        { u with invoiceUpdates = { u.invoiceUpdates with amountUpdate = SetTo(InvoiceAmount.create sixty) } })
                 let attempt = update |> InstanceOrchestration.updateInstanceComposite s.Context
                 Assert.True(attempt |> isFullyPaidWithBlocker)
                 let! invoice = s.invoiceOf invoiceId
-                Assert.Equal(100.00M, (invoice |> Invoice.amount).money |> Money.amount)
+                Assert.Equal(100.00M, ((invoice |> Invoice.amount) |> CashFlowComponent.InvoiceAmount.value) |> Money.amount)
             })
 
     [<Fact>]
@@ -342,7 +342,7 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 let attempt = update |> InstanceOrchestration.updateInstanceComposite s.Context
                 Assert.True(attempt |> isFullyPaidWithBlocker)
                 let! invoice = s.invoiceOf invoiceId
-                Assert.Equal(None, (invoice |> Invoice.invoiceLifeCycleState).blocker)
+                Assert.Equal(None, ((invoice |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.blocker))
             })
 
     // =========================================================================
@@ -505,7 +505,7 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                         |> InstanceOrchestration.fetchCompositeByInstanceId (fresh ())
                     let invoice = stored |> InstanceOrchestration.invoiceComposites |> List.exactlyOne |> InstanceOrchestration.invoice
                     let state = invoice |> Invoice.invoiceLifeCycleState
-                    Assert.Equal((NotYetPaid, NotHandled), (state.paymentState, state.postedState))
+                    Assert.Equal((NotYetPaid, NotHandled), ((state |> CashFlowComponent.InvoiceLifeCycleState.paymentState), (state |> CashFlowComponent.InvoiceLifeCycleState.postedState)))
                     Assert.False(stored |> InstanceOrchestration.instance |> Instance.isFulfilled)
                 })
 
@@ -543,5 +543,5 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                     let! _ = routeUiCommandForTesting "CashFlow" "CreatePayment" [] (node.ToJsonString())
                     let! invoice = invoiceId |> Invoice.fetchById (fresh ())
                     let state = invoice |> Invoice.invoiceLifeCycleState
-                    Assert.Equal((PartiallyPaid, PartiallyPosted), (state.paymentState, state.postedState))
+                    Assert.Equal((PartiallyPaid, PartiallyPosted), ((state |> CashFlowComponent.InvoiceLifeCycleState.paymentState), (state |> CashFlowComponent.InvoiceLifeCycleState.postedState)))
                 })

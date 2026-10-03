@@ -40,9 +40,6 @@ type AccountClassificationResult = {
     stagedEntries: StageEntry list
 }
 
-type AccountValidationType =
-    | AllowNone
-    | DisallowNone
     
 
 let stageEntryHeader se = se.stageEntryHeader
@@ -99,8 +96,8 @@ let private confirmLinesAccountCodes
         |> List.map(fun x ->
             let accountIdOption = x |> StageEntryLine.accountId
             match accountValidationType, accountIdOption with
-            | AllowNone, None -> Ok ()
-            | DisallowNone, None ->
+            | AccountValidationType.AllowNone, None -> Ok ()
+            | AccountValidationType.DisallowNone, None ->
                 DataIngestionError.error (
                     DataIngestionError.IngestionNoneAccount (x |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value))
             | _, Some accountId ->
@@ -162,7 +159,7 @@ let createStageEntry
             stageEntryHeader = header
             seLines = lines
             statusTransitions = transitions }
-        do! stageEntry |> confirmStageEntryCompositeIsValid context AllowNone
+        do! stageEntry |> confirmStageEntryCompositeIsValid context AccountValidationType.AllowNone
         return stageEntry
     }
     
@@ -672,7 +669,7 @@ let updateStageEntry
                  |> List.filter (fun lineUpdate -> lineUpdate.lineIdToUpdate = (line |> StageEntryLine.stageEntryLineId))
                  |> List.fold (fun updated lineUpdate -> updated |> StageEntryLine.applyFieldUpdates lineUpdate) line))
             @ addedLines
-        do! finalLines |> confirmLines context AllowNone
+        do! finalLines |> confirmLines context AccountValidationType.AllowNone
         do! if shouldUpdateLines
             then
                 lineUpdates
@@ -693,7 +690,7 @@ let updateStageEntry
             else Ok ()
         // now that we updated everything, we should read it back and ensure it still meets composite requirements
         let! fetched = headerId |> fetchByStageEntryHeaderId context
-        do! fetched |> confirmStageEntryCompositeIsValid context AllowNone
+        do! fetched |> confirmStageEntryCompositeIsValid context AccountValidationType.AllowNone
         return fetched
     }
 
@@ -817,7 +814,7 @@ let post
         // check the lines one last time just to be sure we're not trying to post any records whose accounts aren't set
         do! stageEntries
             |> List.map(fun stageEntry ->
-                stageEntry.seLines |> confirmLinesAccountCodes context DisallowNone
+                stageEntry.seLines |> confirmLinesAccountCodes context AccountValidationType.DisallowNone
                 )
             |> convertListOfResultsToResultsList
             |> Result.map ignore

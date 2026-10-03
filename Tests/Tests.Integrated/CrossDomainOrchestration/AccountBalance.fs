@@ -53,14 +53,14 @@ type AccountBalanceTests(fixture: TestDataFixture) =
             // first check that we got the right number of rows
             Assert.Equal(accountsList |> List.length, balances |> List.length)
             // now check the values
-            let row1 = balances |> List.filter(fun ab -> ab.accountId = id1) |> List.head
-            let row2 = balances |> List.filter(fun ab -> ab.accountId = id2) |> List.head
-            Assert.Equal(expectedCredits1, row1.totalCredits |> Money.amount)
-            Assert.Equal(expectedCredits2, row2.totalCredits |> Money.amount)
-            Assert.Equal(expectedDebits1, row1.totalDebits |> Money.amount)
-            Assert.Equal(expectedDebits2, row2.totalDebits |> Money.amount)
-            Assert.Equal(expectedBal1, row1.netBalance |> Money.amount)
-            Assert.Equal(expectedBal2, row2.netBalance |> Money.amount)
+            let row1 = balances |> List.filter(fun ab -> (ab |> Business.CrossDomainOrchestration.AccountBalance.accountId) = id1) |> List.head
+            let row2 = balances |> List.filter(fun ab -> (ab |> Business.CrossDomainOrchestration.AccountBalance.accountId) = id2) |> List.head
+            Assert.Equal(expectedCredits1, (row1 |> Business.CrossDomainOrchestration.AccountBalance.totalCredits) |> Money.amount)
+            Assert.Equal(expectedCredits2, (row2 |> Business.CrossDomainOrchestration.AccountBalance.totalCredits) |> Money.amount)
+            Assert.Equal(expectedDebits1, (row1 |> Business.CrossDomainOrchestration.AccountBalance.totalDebits) |> Money.amount)
+            Assert.Equal(expectedDebits2, (row2 |> Business.CrossDomainOrchestration.AccountBalance.totalDebits) |> Money.amount)
+            Assert.Equal(expectedBal1, (row1 |> Business.CrossDomainOrchestration.AccountBalance.netBalance) |> Money.amount)
+            Assert.Equal(expectedBal2, (row2 |> Business.CrossDomainOrchestration.AccountBalance.netBalance) |> Money.amount)
             Ok()
         | Error e -> Error e
         |> railroadWrapper
@@ -87,14 +87,14 @@ type AccountBalanceTests(fixture: TestDataFixture) =
             // first check that we got the right number of rows
             Assert.Equal(accountsList |> List.length, balances |> List.length)
             // now check the values
-            let row1 = balances |> List.filter(fun ab -> ab.accountId = id1) |> List.head
-            let row2 = balances |> List.filter(fun ab -> ab.accountId = id2) |> List.head
-            Assert.Equal(expectedCredits1, row1.totalCredits |> Money.amount)
-            Assert.Equal(expectedCredits2, row2.totalCredits |> Money.amount)
-            Assert.Equal(expectedDebits1, row1.totalDebits |> Money.amount)
-            Assert.Equal(expectedDebits2, row2.totalDebits |> Money.amount)
-            Assert.Equal(expectedBal1, row1.netBalance |> Money.amount)
-            Assert.Equal(expectedBal2, row2.netBalance |> Money.amount)
+            let row1 = balances |> List.filter(fun ab -> (ab |> Business.CrossDomainOrchestration.AccountBalance.accountId) = id1) |> List.head
+            let row2 = balances |> List.filter(fun ab -> (ab |> Business.CrossDomainOrchestration.AccountBalance.accountId) = id2) |> List.head
+            Assert.Equal(expectedCredits1, (row1 |> Business.CrossDomainOrchestration.AccountBalance.totalCredits) |> Money.amount)
+            Assert.Equal(expectedCredits2, (row2 |> Business.CrossDomainOrchestration.AccountBalance.totalCredits) |> Money.amount)
+            Assert.Equal(expectedDebits1, (row1 |> Business.CrossDomainOrchestration.AccountBalance.totalDebits) |> Money.amount)
+            Assert.Equal(expectedDebits2, (row2 |> Business.CrossDomainOrchestration.AccountBalance.totalDebits) |> Money.amount)
+            Assert.Equal(expectedBal1, (row1 |> Business.CrossDomainOrchestration.AccountBalance.netBalance) |> Money.amount)
+            Assert.Equal(expectedBal2, (row2 |> Business.CrossDomainOrchestration.AccountBalance.netBalance) |> Money.amount)
             Ok()
         | Error e -> Error e
         |> railroadWrapper
@@ -107,9 +107,9 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         | Ok balances ->
             Assert.Equal(1, balances |> List.length)
             let bal = balances |> List.head
-            Assert.Equal(0M, bal.totalDebits |> Money.amount)
-            Assert.Equal(0M, bal.totalCredits |> Money.amount)
-            Assert.Equal(0M, bal.netBalance |> Money.amount)
+            Assert.Equal(0M, (bal |> Business.CrossDomainOrchestration.AccountBalance.totalDebits) |> Money.amount)
+            Assert.Equal(0M, (bal |> Business.CrossDomainOrchestration.AccountBalance.totalCredits) |> Money.amount)
+            Assert.Equal(0M, (bal |> Business.CrossDomainOrchestration.AccountBalance.netBalance) |> Money.amount)
         | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
@@ -145,8 +145,8 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         | Ok balances ->
             Assert.Equal(1, balances |> List.length)
             let bal = balances |> List.head
-            Assert.Equal(expectedDebits, bal.totalDebits |> Money.amount)
-            Assert.Equal(expectedCredits, bal.totalCredits |> Money.amount)
+            Assert.Equal(expectedDebits, (bal |> Business.CrossDomainOrchestration.AccountBalance.totalDebits) |> Money.amount)
+            Assert.Equal(expectedCredits, (bal |> Business.CrossDomainOrchestration.AccountBalance.totalCredits) |> Money.amount)
             Assert.True(linesBeforeCutoff |> List.length > 0)
         | Error e -> Assert.Fail(e.ToMessage())
 
@@ -161,9 +161,9 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         | Ok balances ->
             Assert.Equal(1, balances |> List.length)
             let bal = balances |> List.head
-            Assert.Equal(0M, bal.totalDebits |> Money.amount)
-            Assert.Equal(0M, bal.totalCredits |> Money.amount)
-            Assert.Equal(0M, bal.netBalance |> Money.amount)
+            Assert.Equal(0M, (bal |> Business.CrossDomainOrchestration.AccountBalance.totalDebits) |> Money.amount)
+            Assert.Equal(0M, (bal |> Business.CrossDomainOrchestration.AccountBalance.totalCredits) |> Money.amount)
+            Assert.Equal(0M, (bal |> Business.CrossDomainOrchestration.AccountBalance.netBalance) |> Money.amount)
         | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
@@ -190,14 +190,14 @@ type AccountBalanceTests(fixture: TestDataFixture) =
                         [] []
                 let! balances = fetchByAccountIdList context (Some [expenseId; revenueId]) None
                 Assert.Equal(2, balances |> List.length)
-                let expenseBal = balances |> List.find(fun b -> b.accountId = expenseId)
-                let revenueBal = balances |> List.find(fun b -> b.accountId = revenueId)
-                Assert.Equal(amount, expenseBal.totalDebits |> Money.amount)
-                Assert.Equal(zero, expenseBal.totalCredits |> Money.amount)
-                Assert.True(expenseBal.netBalance |> Money.amount > zero)
-                Assert.Equal(zero, revenueBal.totalDebits |> Money.amount)
-                Assert.Equal(amount, revenueBal.totalCredits |> Money.amount)
-                Assert.True(revenueBal.netBalance |> Money.amount > zero)
+                let expenseBal = balances |> List.find(fun b -> (b |> Business.CrossDomainOrchestration.AccountBalance.accountId) = expenseId)
+                let revenueBal = balances |> List.find(fun b -> (b |> Business.CrossDomainOrchestration.AccountBalance.accountId) = revenueId)
+                Assert.Equal(amount, (expenseBal |> Business.CrossDomainOrchestration.AccountBalance.totalDebits) |> Money.amount)
+                Assert.Equal(zero, (expenseBal |> Business.CrossDomainOrchestration.AccountBalance.totalCredits) |> Money.amount)
+                Assert.True((expenseBal |> Business.CrossDomainOrchestration.AccountBalance.netBalance) |> Money.amount > zero)
+                Assert.Equal(zero, (revenueBal |> Business.CrossDomainOrchestration.AccountBalance.totalDebits) |> Money.amount)
+                Assert.Equal(amount, (revenueBal |> Business.CrossDomainOrchestration.AccountBalance.totalCredits) |> Money.amount)
+                Assert.True((revenueBal |> Business.CrossDomainOrchestration.AccountBalance.netBalance) |> Money.amount > zero)
                 return ()
             })
         |> railroadWrapper

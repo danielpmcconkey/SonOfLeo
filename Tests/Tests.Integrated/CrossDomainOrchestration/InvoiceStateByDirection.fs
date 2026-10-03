@@ -43,8 +43,8 @@ type InvoiceStateByDirectionTests(fixture: TestDataFixture) =
                 let created =
                     InstanceOrchestration.constructNewAndPersist
                         context cashFlow.agreementAId instanceDate
-                        [ (cashFlow.legAId, None, { localDate = instanceDate }, { localDate = instanceDate.PlusDays(30) },
-                           { money = amount }, invoiceState, None, None, []) ]
+                        [ (cashFlow.legAId, None, InvoiceDate.create(instanceDate), DueDate.create(instanceDate.PlusDays(30)),
+                           InvoiceAmount.create(amount), invoiceState, None, None, []) ]
                 return created |> expectStateRejected state
             })
         |> railroadWrapper

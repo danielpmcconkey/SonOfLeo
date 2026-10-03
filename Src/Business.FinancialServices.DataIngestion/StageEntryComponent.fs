@@ -100,3 +100,8 @@ module StageEntryHeaderId =
     let create () : StageEntryHeaderId = StageEntryHeaderId(Guid.NewGuid())
     let fromGuid g = StageEntryHeaderId g
     let value (StageEntryHeaderId g) : Guid = g
+
+/// AccountValidationType says whether a staged line may still lack an account: allowed while staging, not at posting.
+type AccountValidationType =
+    | AllowNone
+    | DisallowNone

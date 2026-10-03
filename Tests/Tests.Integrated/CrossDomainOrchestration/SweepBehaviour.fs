@@ -97,7 +97,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                             match due with
                             | Some days -> DaysDueAfterInvoiceDate.create days |> Result.map Some
                             | None -> Ok None
-                        return (paName, DebitAccount debit, CreditAccount credit, expectedMoney, daysDue, None)
+                        return (paName, (DebitAccount.create debit), (CreditAccount.create credit), expectedMoney, daysDue, None)
                     })
                 |> convertListOfResultsToResultsList
             let! agreement =
@@ -185,7 +185,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let invoices =
                 match legId with
                 | Some leg ->
-                    [ (leg, None, { InvoiceDate.localDate = date }, { DueDate.localDate = date.PlusDays(30) }, { InvoiceAmount.money = amount },
+                    [ (leg, None, (InvoiceDate.create date), (DueDate.create (date.PlusDays(30))), (InvoiceAmount.create amount),
                        InvoiceReceived, None, None, payments) ]
                 | None -> []
             let! created = InstanceOrchestration.constructNewAndPersist context agreementId date invoices
@@ -221,10 +221,10 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                 |> List.map (fun invoice ->
                     dateOf[invoice |> Invoice.instanceId],
                     invoice |> Invoice.paymentAgreementId,
-                    (invoice |> Invoice.amount).money |> Money.amount,
-                    (invoice |> Invoice.invoiceDate).localDate,
-                    (invoice |> Invoice.dueDate).localDate,
-                    (invoice |> Invoice.invoiceLifeCycleState).invoiceState)
+                    ((invoice |> Invoice.amount) |> CashFlowComponent.InvoiceAmount.value) |> Money.amount,
+                    ((invoice |> Invoice.invoiceDate) |> CashFlowComponent.InvoiceDate.value),
+                    ((invoice |> Invoice.dueDate) |> CashFlowComponent.DueDate.value),
+                    ((invoice |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.invoiceState))
                 |> List.sortBy (fun (instanceDate, _, amount, _, _, _) -> instanceDate, amount)
         }
 

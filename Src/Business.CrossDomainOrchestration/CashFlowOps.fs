@@ -62,12 +62,12 @@ let private spawnInstancesFromAgreement
                     | Some expectedAmount, Some daysDueAfterInvoiceDate ->
                         let paId = paymentAgreement |> PaymentAgreement.paymentAgreementId
                         let extInvoiceId = None
-                        let invoiceDate = {CashFlowComponent.InvoiceDate.localDate = neededDate}
+                        let invoiceDate = (CashFlowComponent.InvoiceDate.create neededDate)
                         let daysPastInvDateForDueDate =
                             daysDueAfterInvoiceDate |> CashFlowComponent.DaysDueAfterInvoiceDate.value
                         let dueDate =
-                            {CashFlowComponent.DueDate.localDate = neededDate.PlusDays(daysPastInvDateForDueDate)}
-                        let amount = { CashFlowComponent.InvoiceAmount.money = expectedAmount }
+                            (CashFlowComponent.DueDate.create (neededDate.PlusDays(daysPastInvDateForDueDate)))
+                        let amount = (CashFlowComponent.InvoiceAmount.create expectedAmount)
                         let direction = master |> MasterAgreement.direction
                         let invoiceState =
                             if direction = CashFlowComponent.Income
@@ -324,7 +324,7 @@ let private createPaymentForInvoice
           paymentUpdates = []
           paymentIdsToDelete = []
           newPayments =
-            [ CashFlowComponent.Staged lineId, Some { localDate = entryDate }, None, None ] }
+            [ CashFlowComponent.Staged lineId, Some(CashFlowComponent.PostedToFiDate.create entryDate), None, None ] }
     let compositeUpdate: InstanceOrchestration.InstanceCompositeUpdate =
         { instanceUpdates =
             { instanceIdToUpdate = instanceId
@@ -344,9 +344,9 @@ let private isOverpaid
             |> List.find (fun invoiceComposite ->
                 invoiceComposite |> InstanceOrchestration.invoice |> Invoice.invoiceId = invoiceId)
         let payments = invoiceComposite |> InstanceOrchestration.payments
-        let! paidTotal = payments |> List.map Payment.amount |> List.map _.money |> Money.sumList
+        let! paidTotal = payments |> List.map Payment.amount |> List.map CashFlowComponent.PaymentAmount.value |> Money.sumList
         let invoiceAmount = invoiceComposite |> InstanceOrchestration.invoice |> Invoice.amount
-        return Money.isGreaterThan paidTotal invoiceAmount.money
+        return Money.isGreaterThan paidTotal (invoiceAmount |> CashFlowComponent.InvoiceAmount.value)
     }
 
 let private matchInvoicesAndCreatePayments
@@ -367,12 +367,12 @@ let private matchInvoicesAndCreatePayments
                 |> List.filter (fun invoiceComposite ->
                     let invoice = invoiceComposite |> InstanceOrchestration.invoice
                     let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
-                    lifeCycleState.paymentState <> CashFlowComponent.FullyPaid && invoice |> Invoice.isCancelled |> not)
+                    (lifeCycleState |> CashFlowComponent.InvoiceLifeCycleState.paymentState) <> CashFlowComponent.FullyPaid && invoice |> Invoice.isCancelled |> not)
                 |> List.map (fun invoiceComposite -> result {
                     let invoice = invoiceComposite |> InstanceOrchestration.invoice
                     let! overpaid = instanceComposite |> isOverpaid (invoice |> Invoice.invoiceId)
                     let! paidSoFar =
-                        invoiceComposite |> InstanceOrchestration.payments |> List.map (Payment.amount >> _.money)
+                        invoiceComposite |> InstanceOrchestration.payments |> List.map (Payment.amount >> CashFlowComponent.PaymentAmount.value)
                         |> Money.sumList
                     return instanceId, masterAgreementId, invoice, paidSoFar, overpaid }))
             |> convertListOfResultsToResultsList
@@ -386,7 +386,7 @@ let private matchInvoicesAndCreatePayments
             // the oldest bill gets first claim on a line two invoices could both take, and fetch order never decides
             // it; a due-date tie goes to the Invoice entered first
             |> List.sortBy (fun (_, _, invoice, _) ->
-                (invoice |> Invoice.dueDate).localDate, (invoice |> Invoice.createdAt))
+                ((invoice |> Invoice.dueDate) |> CashFlowComponent.DueDate.value), (invoice |> Invoice.createdAt))
         let overpaidInvoices =
             openInvoices
             |> List.filter (fun (_, _, _, _, overpaid) -> overpaid)
@@ -448,8 +448,8 @@ let private matchInvoicesAndCreatePayments
                 match cadenceTypeByAgreementId |> Map.tryFind masterAgreementId with
                 | Some cadenceType -> cadenceType |> gracePeriodInDaysFromCadenceType
                 | None -> 0
-            let windowStart = (invoice |> Invoice.invoiceDate).localDate.PlusDays(-graceInDays)
-            let windowEnd = (invoice |> Invoice.dueDate).localDate.PlusDays(graceInDays)
+            let windowStart = ((invoice |> Invoice.invoiceDate) |> CashFlowComponent.InvoiceDate.value).PlusDays(-graceInDays)
+            let windowEnd = ((invoice |> Invoice.dueDate) |> CashFlowComponent.DueDate.value).PlusDays(graceInDays)
             match lineId |> entryDateOfLine with
             | None -> false
             | Some entryDate -> entryDate >= windowStart && entryDate <= windowEnd
@@ -478,13 +478,13 @@ let private matchInvoicesAndCreatePayments
                     | [ lineId ] ->
                         let line = lineById |> Map.find lineId
                         let entryDate = entryDateByHeaderId |> Map.find (line |> StageEntryLine.stageEntryHeaderId)
-                        let amount: CashFlowComponent.PaymentAmount = { money = line |> StageEntryLine.amount }
+                        let amount = line |> StageEntryLine.amount |> CashFlowComponent.PaymentAmount.create
                         // cash arriving resolves whatever blocked the bill, so a Payment that brings a blocked Invoice
                         // to FullyPaid clears the blocker and says so
-                        let! paidAfter = Money.add paidSoFar amount.money
+                        let! paidAfter = Money.add paidSoFar (amount |> CashFlowComponent.PaymentAmount.value)
                         let blockerToClear =
-                            match (invoice |> Invoice.invoiceLifeCycleState).blocker with
-                            | Some blocker when Money.isEqual paidAfter (invoice |> Invoice.amount).money -> Some blocker
+                            match ((invoice |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.blocker) with
+                            | Some blocker when Money.isEqual paidAfter ((invoice |> Invoice.amount) |> CashFlowComponent.InvoiceAmount.value) -> Some blocker
                             | Some _
                             | None -> None
                         let! updated =
@@ -722,7 +722,7 @@ let projectCashFlowNDaysForward
             else AccountBalance.fetchByAccountIdList context (Some cashAccountIds) (Some runDate)
         let balanceByAccountId =
             balances
-            |> List.map (fun (balance: AccountBalance.AccountBalance) -> balance.accountId, balance.netBalance)
+            |> List.map (fun balance -> (balance |> AccountBalance.accountId), (balance |> AccountBalance.netBalance))
             |> Map.ofList
         let! openInstances = InstanceOrchestration.fetchOpenComposites context
         let masterAgreementIds =
@@ -761,14 +761,14 @@ let projectCashFlowNDaysForward
             invoicesWithAgreementId
             |> List.filter (fun (_, invoice, _) ->
                 let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
-                lifeCycleState.paymentState <> CashFlowComponent.FullyPaid
+                (lifeCycleState |> CashFlowComponent.InvoiceLifeCycleState.paymentState) <> CashFlowComponent.FullyPaid
                 && invoice |> Invoice.isCancelled |> not
-                && (invoice |> Invoice.dueDate).localDate <= horizonEnd)
+                && ((invoice |> Invoice.dueDate) |> CashFlowComponent.DueDate.value) <= horizonEnd)
             |> List.map (fun (masterAgreementId, invoice, payments) -> result {
                 // what is still owed, not what was billed: a part-paid bill must not be counted twice. an overpaid
                 // bill owes nothing
-                let! paid = payments |> List.map (fun payment -> (payment |> Payment.amount).money) |> Money.sumList
-                let! owed = Money.subtractVal1FromVal2 paid (invoice |> Invoice.amount).money
+                let! paid = payments |> List.map (fun payment -> ((payment |> Payment.amount) |> CashFlowComponent.PaymentAmount.value)) |> Money.sumList
+                let! owed = Money.subtractVal1FromVal2 paid ((invoice |> Invoice.amount) |> CashFlowComponent.InvoiceAmount.value)
                 return masterAgreementId, invoice, owed |> Money.floorAtZero })
             |> convertListOfResultsToResultsList
         let projectedInvoicesByAccountId =

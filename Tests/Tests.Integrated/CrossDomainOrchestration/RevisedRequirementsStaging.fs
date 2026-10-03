@@ -185,7 +185,7 @@ type private Scenario(fixture: TestDataFixture, initialContext: Context.Context)
                 AgreementOrchestration.constructNewAndPersist
                     context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first)) { nextInstance = LocalDate(2049, 3, 1) }
                     counterparty activityPeriod None
-                    [ (legName, DebitAccount(idOf "F-2230"), CreditAccount(idOf "F-1280"), None, None, None) ]
+                    [ (legName, DebitAccount.create(idOf "F-2230"), CreditAccount.create(idOf "F-1280"), None, None, None) ]
             return agreement |> AgreementOrchestration.paymentAgreements |> List.head |> PaymentAgreement.paymentAgreementId
         }
 

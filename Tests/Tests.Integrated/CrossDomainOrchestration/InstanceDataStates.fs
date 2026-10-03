@@ -64,7 +64,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                         let! paName = legName |> PaymentAgreementName.create
                         let! expected = Money.fromDecimal 100.00M
                         let! due = 0 |> DaysDueAfterInvoiceDate.create
-                        return (paName, DebitAccount loanId, CreditAccount cash, Some expected, Some due, None)
+                        return (paName, (DebitAccount.create loanId), (CreditAccount.create cash), Some expected, Some due, None)
                     })
                 |> convertListOfResultsToResultsList
             let! agreement =
@@ -102,8 +102,8 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
         result {
             let! amount = Money.fromDecimal 100.00M
             return
-                (legId, None, { InvoiceDate.localDate = date }, { DueDate.localDate = date.PlusDays(30) },
-                 { InvoiceAmount.money = amount }, InvoiceReceived, None, None, payments)
+                (legId, None, (InvoiceDate.create date), (DueDate.create (date.PlusDays(30))),
+                 (InvoiceAmount.create amount), InvoiceReceived, None, None, payments)
         }
 
     /// Creates an Instance on the date with a 100.00 Invoice per leg given, none paid.

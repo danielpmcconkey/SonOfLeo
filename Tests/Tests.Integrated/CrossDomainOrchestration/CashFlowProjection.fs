@@ -41,7 +41,7 @@ type CashFlowProjectionTests(fixture: TestDataFixture) =
         result {
             let! account = projectOperatingCash context
             Assert.Contains(cashFlow.partlyPaidInvoiceCId, account.invoices |> List.map _.invoiceId)
-            let fullAmounts = account.invoices |> List.sumBy (fun invoice -> invoice.amount.money |> Money.amount)
+            let fullAmounts = account.invoices |> List.sumBy (fun invoice -> invoice.amount |> CashFlowComponent.InvoiceAmount.value |> Money.amount)
             Assert.Equal(fullAmounts - partPayment, account.knownOutflows |> Money.amount)
         }
         |> railroadWrapper
@@ -52,7 +52,7 @@ type CashFlowProjectionTests(fixture: TestDataFixture) =
         result {
             let! account = projectOperatingCash context
             let partlyPaid = account.invoices |> List.find (fun invoice -> invoice.invoiceId = cashFlow.partlyPaidInvoiceCId)
-            Assert.Equal(100.00M, partlyPaid.amount.money |> Money.amount)
+            Assert.Equal(100.00M, (partlyPaid.amount |> CashFlowComponent.InvoiceAmount.value) |> Money.amount)
             Assert.Equal(100.00M - 40.00M, partlyPaid.outstanding |> Money.amount)
         }
         |> railroadWrapper

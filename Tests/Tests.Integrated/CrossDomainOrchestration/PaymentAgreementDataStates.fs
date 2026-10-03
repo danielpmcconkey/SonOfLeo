@@ -143,7 +143,7 @@ type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
                         let now = context |> Context.getInitiationInstant
                         return!
                             PaymentAgreement.create paymentAgreementId (MasterAgreementId.create ()) name
-                                (DebitAccount(accountIdOf "F-2230")) (CreditAccount(accountIdOf "F-1280")) None None None now now
+                                (DebitAccount.create(accountIdOf "F-2230")) (CreditAccount.create(accountIdOf "F-1280")) None None None now now
                             |> PaymentAgreement.persist context
                     })
             let! stored = PaymentAgreement.fetchByPaymentAgreementIdList (fresh ()) [ paymentAgreementId ]
@@ -160,8 +160,8 @@ type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
                 let! _ = create name [ { leg (unique "CF-3.4 leg") with debitAccountCode = "F-1280"; creditAccountCode = "F-4290" } ]
                 let! legs = storedLegsOf name
                 let stored = legs |> List.exactlyOne
-                Assert.Equal(DebitAccount(accountIdOf "F-1280"), stored |> PaymentAgreement.debitAccount)
-                Assert.Equal(CreditAccount(accountIdOf "F-4290"), stored |> PaymentAgreement.creditAccount)
+                Assert.Equal(DebitAccount.create(accountIdOf "F-1280"), stored |> PaymentAgreement.debitAccount)
+                Assert.Equal(CreditAccount.create(accountIdOf "F-4290"), stored |> PaymentAgreement.creditAccount)
             })
 
     (* Below the route, because the route takes account codes and a code that names no account never becomes an ID.
@@ -184,7 +184,7 @@ type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
                 let attempt =
                     AgreementOrchestration.constructNewAndPersist
                         context agreementName Outgo Cadence.Daily { nextInstance = today } counterparty period None
-                        [ (legName, DebitAccount debit, CreditAccount credit, None, None, None) ]
+                        [ (legName, (DebitAccount.create debit), (CreditAccount.create credit), None, None, None) ]
                 let missingUuid = missing |> AccountId.value
                 let namesTheSide =
                     match side, attempt with

@@ -77,10 +77,10 @@ let create
 let accountIdForFlowDirection (direction: FlowDirection) (paymentAgreement: PaymentAgreement) : AccountId =
     match direction with
     | Income ->
-        let (CreditAccount accountId) = paymentAgreement.creditAccount
+        let accountId = paymentAgreement.creditAccount |> CreditAccount.value
         accountId
     | Outgo ->
-        let (DebitAccount accountId) = paymentAgreement.debitAccount
+        let accountId = paymentAgreement.debitAccount |> DebitAccount.value
         accountId
 
 /// cashAccountIdForFlowDirection is deliberately the opposite leg to accountIdForFlowDirection: money leaving on an
@@ -89,10 +89,10 @@ let accountIdForFlowDirection (direction: FlowDirection) (paymentAgreement: Paym
 let cashAccountIdForFlowDirection (direction: FlowDirection) (paymentAgreement: PaymentAgreement) : AccountId =
     match direction with
     | Income ->
-        let (DebitAccount accountId) = paymentAgreement.debitAccount
+        let accountId = paymentAgreement.debitAccount |> DebitAccount.value
         accountId
     | Outgo ->
-        let (CreditAccount accountId) = paymentAgreement.creditAccount
+        let accountId = paymentAgreement.creditAccount |> CreditAccount.value
         accountId
 
 let persist
@@ -111,8 +111,8 @@ let persist
         let uuid = paymentAgreement.paymentAgreementId |> PaymentAgreementId.value
         let masterAgreementUuid = paymentAgreement.masterAgreementID |> MasterAgreementId.value
         let paymentAgreementName = paymentAgreement.paymentAgreementName |> PaymentAgreementName.value
-        let (DebitAccount debitAccountId) = paymentAgreement.debitAccount
-        let (CreditAccount creditAccountId) = paymentAgreement.creditAccount
+        let debitAccountId = paymentAgreement.debitAccount |> DebitAccount.value
+        let creditAccountId = paymentAgreement.creditAccount |> CreditAccount.value
         let debitAccountUuid = debitAccountId |> AccountId.value
         let creditAccountUuid = creditAccountId |> AccountId.value
         let expectedAmount = paymentAgreement.expectedAmount |> Option.map Money.amount
@@ -136,8 +136,8 @@ let persist
     }
 
 let confirmDebitDiffersFromCredit (paymentAgreement: PaymentAgreement) : Result<unit, IAppError> =
-    let (DebitAccount debitAccountId) = paymentAgreement.debitAccount
-    let (CreditAccount creditAccountId) = paymentAgreement.creditAccount
+    let debitAccountId = paymentAgreement.debitAccount |> DebitAccount.value
+    let creditAccountId = paymentAgreement.creditAccount |> CreditAccount.value
     if debitAccountId <> creditAccountId then Ok ()
     else Error (CashflowPaymentAgreementDebitEqualsCredit(debitAccountId |> AccountId.value))
 
@@ -165,8 +165,8 @@ let private reconstitute raw =
         let paymentAgreementId = uuid |> PaymentAgreementId.fromGuid
         let masterAgreementID = masterAgreementUuid |> MasterAgreementId.fromGuid
         let! paymentAgreementName = paymentAgreementNameStr |> PaymentAgreementName.create
-        let debitAccount = debitAccountUuid |> AccountId.fromGuid |> DebitAccount
-        let creditAccount = creditAccountUuid |> AccountId.fromGuid |> CreditAccount
+        let debitAccount = debitAccountUuid |> AccountId.fromGuid |> DebitAccount.create
+        let creditAccount = creditAccountUuid |> AccountId.fromGuid |> CreditAccount.create
         let! expectedAmount = expectedAmountDec |> convertOptionToDesiredTypeWithFallibleConverter Money.fromDecimal
         let! daysDueAfterInvoiceDate =
             daysDueAfterInvoiceDateInt
@@ -291,13 +291,13 @@ let update
 
               fieldUpdates.debitAccountUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  let (DebitAccount accountId) = n
+                  let accountId = n |> DebitAccount.value
                   [ ("debit_account = @debit_account",
                      { name = "@debit_account"; value = UniqueId(accountId |> AccountId.value) }) ])
 
               fieldUpdates.creditAccountUpdate
               |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  let (CreditAccount accountId) = n
+                  let accountId = n |> CreditAccount.value
                   [ ("credit_account = @credit_account",
                      { name = "@credit_account"; value = UniqueId(accountId |> AccountId.value) }) ])
 

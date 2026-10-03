@@ -26,14 +26,14 @@ type ProjectionSweepTests(fixture: TestDataFixture) =
                 unfulfilled
                 |> List.collect InstanceOrchestration.invoiceComposites
                 |> List.map InstanceOrchestration.invoice
-                |> List.filter (fun invoice -> (invoice |> Invoice.invoiceDate).localDate >= cashFlow.nextInstanceDateA)
+                |> List.filter (fun invoice -> ((invoice |> Invoice.invoiceDate) |> CashFlowComponent.InvoiceDate.value) >= cashFlow.nextInstanceDateA)
         }
 
     let assertIncludesAgreementANextInstance (invoices: Invoice.Invoice list) =
         Assert.Contains(
             (cashFlow.legAId, cashFlow.nextInstanceDateA),
             invoices |> List.map (fun invoice ->
-                (invoice |> Invoice.paymentAgreementId), (invoice |> Invoice.invoiceDate).localDate))
+                (invoice |> Invoice.paymentAgreementId), ((invoice |> Invoice.invoiceDate) |> CashFlowComponent.InvoiceDate.value)))
 
     // =========================================================================
     // REQ-CF-7.10, 7.11 — the lifecycle of an Invoice the sweep creates
@@ -46,7 +46,7 @@ type ProjectionSweepTests(fixture: TestDataFixture) =
                 let! swept = sweptInvoices context
                 swept |> assertIncludesAgreementANextInstance
                 Assert.All(swept, fun invoice ->
-                    Assert.Equal(InvoiceExpected, (invoice |> Invoice.invoiceLifeCycleState).invoiceState))
+                    Assert.Equal(InvoiceExpected, ((invoice |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.invoiceState)))
             })
         |> railroadWrapper
 
@@ -58,7 +58,7 @@ type ProjectionSweepTests(fixture: TestDataFixture) =
                 swept |> assertIncludesAgreementANextInstance
                 Assert.All(swept, fun invoice ->
                     let lifecycle = invoice |> Invoice.invoiceLifeCycleState
-                    Assert.Equal((NotYetPaid, NotHandled), (lifecycle.paymentState, lifecycle.postedState)))
+                    Assert.Equal((NotYetPaid, NotHandled), ((lifecycle |> CashFlowComponent.InvoiceLifeCycleState.paymentState), (lifecycle |> CashFlowComponent.InvoiceLifeCycleState.postedState))))
             })
         |> railroadWrapper
 

@@ -109,7 +109,7 @@ let persist
         let invoiceUuid = payment.invoiceId |> InvoiceId.value
         let journalEntryLineUuid, stageEntryLineUuid = payment.transactionPointer |> transactionPointerToColumns
         let memo = payment.memo |> Option.map PaymentMemo.value
-        let postedToFiDate = payment.postedToFiDate |> Option.map _.localDate
+        let postedToFiDate = payment.postedToFiDate |> Option.map PostedToFiDate.value
         let parameters =
             [
               { name = "@unique_id"; value = UniqueId(uuid) }
@@ -167,8 +167,8 @@ let private reconstitute raw =
                         "the computed amount column was null; neither the journal entry line nor the staged line \
                          the payment points at was found.")
         let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter PaymentMemo.create
-        let postedToFiDate = postedToFiLocalDateOpt |> Option.map(fun x ->{ PostedToFiDate.localDate = x })
-        let postedToLedgerDate = postedToLedgerLocalDateOpt |> Option.map(fun x -> { PostedToLedgerDate.localDate = x })
+        let postedToFiDate = postedToFiLocalDateOpt |> Option.map(fun x ->(PostedToFiDate.create x))
+        let postedToLedgerDate = postedToLedgerLocalDateOpt |> Option.map(fun x -> (PostedToLedgerDate.create x))
         // a posted-to-ledger date belongs to a journal entry, so a Payment still pointing at a staged line can't have one
         do!
             match transactionPointer, postedToLedgerDate with
@@ -179,7 +179,7 @@ let private reconstitute raw =
                 paymentId
                 invoiceId
                 transactionPointer
-                { money = amount }
+                (PaymentAmount.create amount)
                 postedToFiDate
                 postedToLedgerDate
                 memo
