@@ -111,7 +111,9 @@ let private noUpdate (name: string) : Contracts.UpdateAgreementInput =
       counterpartyUpdate = NoChange
       activeBeginUpdate = NoChange
       activeEndUpdate = NoChange
-      memoUpdate = NoChange }
+      memoUpdate = NoChange
+      paymentAgreementUpdates = []
+      newPaymentAgreements = [] }
 
 /// The next date on or after `from` that falls on the week day.
 let private nextOn (day: IsoDayOfWeek) (from: LocalDate) =
@@ -538,7 +540,7 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                 let! agreement = s.daily name (s.today.PlusDays(30)) None
                 let! counterparty = "Updated before its start" |> Counterparty.create
                 let! _ =
-                    AgreementOrchestration.updateAgreement s.Context []
+                    AgreementOrchestration.updateAgreement s.Context [] []
                         { agreementIdToUpdate = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
                           agreementNameUpdate = NoChange
                           directionUpdate = NoChange

@@ -290,7 +290,7 @@ type RevisedRequirementsCashFlowTests(fixture: TestDataFixture) =
                             (name, direction, cadenceType, next, counterparty, activeBegin, activeEnd, Some "A new memo"))
                 s.Context |> ignore
                 let updating = s.Context |> Context.updateInitiationInstant
-                let! _ = AgreementOrchestration.updateAgreement updating [] updates
+                let! _ = AgreementOrchestration.updateAgreement updating [] [] updates
                 let! after = agreementId |> AgreementOrchestration.fetchByMasterAgreementId updating
                 Assert.NotEqual(fieldsOf before, expected)
                 Assert.Equal(expected, fieldsOf after)
@@ -304,7 +304,7 @@ type RevisedRequirementsCashFlowTests(fixture: TestDataFixture) =
             result {
                 let! cashId = s.cashAccount ()
                 let! agreementId, _ = s.agreement Outgo cashId 1
-                let! _ = AgreementOrchestration.updateAgreement s.Context [] { noChange agreementId with directionUpdate = SetTo Income }
+                let! _ = AgreementOrchestration.updateAgreement s.Context [] [] { noChange agreementId with directionUpdate = SetTo Income }
                 let! after = agreementId |> AgreementOrchestration.fetchByMasterAgreementId s.Context
                 Assert.Equal(Income, after |> AgreementOrchestration.masterAgreement |> MasterAgreement.direction)
             })
@@ -317,7 +317,7 @@ type RevisedRequirementsCashFlowTests(fixture: TestDataFixture) =
                 let! agreementId, _ = s.agreement Outgo cashId 1
                 let! before = agreementId |> AgreementOrchestration.fetchByMasterAgreementId s.Context
                 let updating = s.Context |> Context.updateInitiationInstant
-                let attempt = AgreementOrchestration.updateAgreement updating [] (noChange agreementId)
+                let attempt = AgreementOrchestration.updateAgreement updating [] [] (noChange agreementId)
                 let refused =
                     match attempt with
                     | Error (AsError CashFlowError.CashflowAgreementUpdateNoOp) -> true

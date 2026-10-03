@@ -75,7 +75,16 @@ let private updateAgreement payload _ =
             let! input = Json.fromJson<UpdateAgreementInput> payload
             let! masterAgreementUpdates =
                 input |> ``convert [UpdateAgreementInput] to [MasterAgreementFieldUpdates]`` context
-            let! agreement = masterAgreementUpdates |> AgreementOrchestration.updateAgreement context []
+            let! paymentAgreementUpdates =
+                input.paymentAgreementUpdates
+                |> List.map (``convert [UpdatePaymentAgreementInput] to [PaymentAgreementFieldUpdates]`` context)
+                |> convertListOfResultsToResultsList
+            let! newPaymentAgreements =
+                input.newPaymentAgreements
+                |> ``convert [CreatePaymentAgreementFieldsInput list] to [PaymentAgreementPrimitives list]`` context
+            let! agreement =
+                masterAgreementUpdates
+                |> AgreementOrchestration.updateAgreement context paymentAgreementUpdates newPaymentAgreements
             let! converted = agreement |> ``convert [Agreement] to [AgreementReturn]`` context
             return! Json.toJson<AgreementReturn> converted
         })

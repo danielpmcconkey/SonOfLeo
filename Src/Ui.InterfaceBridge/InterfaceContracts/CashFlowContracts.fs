@@ -245,6 +245,18 @@ type CreateAgreementInput = {
     paymentAgreements: CreatePaymentAgreementFieldsInput list
 }
 
+/// UpdatePaymentAgreementInput names an existing Payment Agreement of the agreement being updated, by name, and the
+/// fields to change on it. Accounts are given by account code.
+type UpdatePaymentAgreementInput = {
+    paymentAgreementName: string
+    paymentAgreementNameUpdate: FieldUpdate<string>
+    debitAccountCodeUpdate: FieldUpdate<string>
+    creditAccountCodeUpdate: FieldUpdate<string>
+    expectedAmountUpdate: FieldUpdate<decimal option>
+    daysDueAfterInvoiceDateUpdate: FieldUpdate<int option>
+    memoUpdate: FieldUpdate<string option>
+}
+
 type UpdateAgreementInput = {
     agreementName: string
     agreementNameUpdate: FieldUpdate<string>
@@ -254,4 +266,6 @@ type UpdateAgreementInput = {
     activeBeginUpdate: FieldUpdate<LocalDate>
     activeEndUpdate: FieldUpdate<LocalDate option>
     memoUpdate: FieldUpdate<string option>
+    paymentAgreementUpdates: UpdatePaymentAgreementInput list
+    newPaymentAgreements: CreatePaymentAgreementFieldsInput list
 }

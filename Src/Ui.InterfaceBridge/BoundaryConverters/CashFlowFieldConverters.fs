@@ -536,6 +536,39 @@ let ``convert [CreatePaymentAgreementFieldsInput list] to [PaymentAgreementPrimi
     |> List.map (``convert [CreatePaymentAgreementFieldsInput] to [PaymentAgreementPrimitives]`` context)
     |> convertListOfResultsToResultsList
 
+let ``convert [UpdatePaymentAgreementInput] to [PaymentAgreementFieldUpdates]``
+    (context: Context.Context)
+    (input: UpdatePaymentAgreementInput)
+    : Result<PaymentAgreement.PaymentAgreementFieldUpdates, IAppError> =
+    result {
+        let! paymentAgreementId =
+            input.paymentAgreementName |> ``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context
+        let! paymentAgreementNameUpdate =
+            input.paymentAgreementNameUpdate |> FieldUpdate.convertFieldUpdateToNewTypeFallible PaymentAgreementName.create
+        let! debitAccountUpdate =
+            input.debitAccountCodeUpdate
+            |> FieldUpdate.convertFieldUpdateToNewTypeFallible (fun code ->
+                code |> ``convert AccountCodeString to Id`` context |> Result.map DebitAccount)
+        let! creditAccountUpdate =
+            input.creditAccountCodeUpdate
+            |> FieldUpdate.convertFieldUpdateToNewTypeFallible (fun code ->
+                code |> ``convert AccountCodeString to Id`` context |> Result.map CreditAccount)
+        let! expectedAmountUpdate =
+            input.expectedAmountUpdate |> FieldUpdate.convertFieldUpdateOptionToNewTypeOptionFallible Money.fromDecimal
+        let! daysDueAfterInvoiceDateUpdate =
+            input.daysDueAfterInvoiceDateUpdate
+            |> FieldUpdate.convertFieldUpdateOptionToNewTypeOptionFallible DaysDueAfterInvoiceDate.create
+        let! memoUpdate =
+            input.memoUpdate |> FieldUpdate.convertFieldUpdateOptionToNewTypeOptionFallible PaymentAgreementMemo.create
+        return {
+            paymentAgreementIdToUpdate = paymentAgreementId
+            paymentAgreementNameUpdate = paymentAgreementNameUpdate
+            debitAccountUpdate = debitAccountUpdate
+            creditAccountUpdate = creditAccountUpdate
+            expectedAmountUpdate = expectedAmountUpdate
+            daysDueAfterInvoiceDateUpdate = daysDueAfterInvoiceDateUpdate
+            memoUpdate = memoUpdate } }
+
 let ``convert [UpdateAgreementInput] to [MasterAgreementFieldUpdates]``
     (context: Context.Context)
     (input: UpdateAgreementInput)

@@ -239,7 +239,9 @@ let private noAgreementChange (name: string) : Contracts.UpdateAgreementInput =
       counterpartyUpdate = NoChange
       activeBeginUpdate = NoChange
       activeEndUpdate = NoChange
-      memoUpdate = NoChange }
+      memoUpdate = NoChange
+      paymentAgreementUpdates = []
+      newPaymentAgreements = [] }
 
 let private legInput (name: string) (debitCode: string) (creditCode: string) : Contracts.CreatePaymentAgreementFieldsInput =
     { paymentAgreementName = name

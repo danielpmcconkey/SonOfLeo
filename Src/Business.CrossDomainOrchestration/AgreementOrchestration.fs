@@ -24,6 +24,15 @@ type Agreement = private {
     payments: Payment.Payment list
 }
 
+/// PaymentAgreementPrimitives are the validated fields of a Payment Agreement not yet created.
+type PaymentAgreementPrimitives =
+    CashFlowComponent.PaymentAgreementName *
+    CashFlowComponent.DebitAccount *
+    CashFlowComponent.CreditAccount *
+    Money.Money option *
+    CashFlowComponent.DaysDueAfterInvoiceDate option *
+    CashFlowComponent.PaymentAgreementMemo option
+
 let masterAgreement (agreement:Agreement) = agreement.masterAgreement
 let paymentAgreements (agreement:Agreement) = agreement.paymentAgreements
 let instances (agreement:Agreement) = agreement.instances
@@ -194,6 +203,16 @@ let private confirmComposite
             |> Result.map ignore
     }
 
+let private newPaymentAgreement
+    (now: NodaTime.Instant)
+    (agreementId: CashFlowComponent.MasterAgreementId)
+    ((paymentAgreementName, debitAccount, creditAccount, expectedAmount, daysDueAfterInvoiceDate, memo):
+        PaymentAgreementPrimitives)
+    : PaymentAgreement.PaymentAgreement =
+    let paymentAgreementId = CashFlowComponent.PaymentAgreementId.create()
+    PaymentAgreement.create paymentAgreementId agreementId paymentAgreementName debitAccount
+        creditAccount expectedAmount daysDueAfterInvoiceDate memo now now
+
 let constructNewAndPersist
     (context: Context.Context)
     (agreementName: CashFlowComponent.AgreementName)
@@ -203,13 +222,7 @@ let constructNewAndPersist
     (counterparty: CashFlowComponent.Counterparty)
     (agreementActivityPeriod: ActivityPeriod.ActivityPeriod)
     (memo: CashFlowComponent.AgreementMemo option)
-    (paymentAgreementComponentsList:
-        (CashFlowComponent.PaymentAgreementName *
-         CashFlowComponent.DebitAccount *
-         CashFlowComponent.CreditAccount *
-         Money.Money option *
-         CashFlowComponent.DaysDueAfterInvoiceDate option *
-         CashFlowComponent.PaymentAgreementMemo option) list)
+    (paymentAgreementComponentsList: PaymentAgreementPrimitives list)
     : Result<Agreement, IAppError> =
     result {
         let now = context |> Context.getInitiationInstant
@@ -219,13 +232,7 @@ let constructNewAndPersist
             MasterAgreement.create agreementId agreementName direction cadence counterparty
                 agreementActivityPeriod memo now now
         do! masterAgreement |> confirmMasterAgreement context
-        let paymentAgreements =
-            paymentAgreementComponentsList
-            |> List.map(fun (paymentAgreementName, debitAccount, creditAccount, expectedAmount,
-                             daysDueAfterInvoiceDate, memo) ->
-                let paymentAgreementId = CashFlowComponent.PaymentAgreementId.create()
-                PaymentAgreement.create paymentAgreementId agreementId paymentAgreementName debitAccount
-                    creditAccount expectedAmount daysDueAfterInvoiceDate memo now now )
+        let paymentAgreements = paymentAgreementComponentsList |> List.map (newPaymentAgreement now agreementId)
         do! paymentAgreements |> confirmPaymentAgreements context (masterAgreement |> MasterAgreement.agreementID)
         let agreement =
             { masterAgreement = masterAgreement
@@ -370,20 +377,24 @@ let private isThereAPaymentAgreementUpdate
         || u.memoUpdate <> FieldUpdate.NoChange)
     |> List.exists id
 
-/// updateAgreement changes the master agreement and its legs only. Instances, Invoices and Payments change through
-/// the instance composite, which derives payment state, posted state and is-fulfilled (REQ-CF-9.11).
+/// updateAgreement changes the master agreement and its legs, and adds new legs. No leg is removed. Instances, Invoices
+/// and Payments change through the instance composite, which derives payment state, posted state and is-fulfilled
+/// (REQ-CF-9.11); a leg's new amount or accounts leave its existing Invoices and Payments as they are.
 /// Note to caller, the updates are sent to the DB *before* aggregate validation. Make sure you wrap this in a
 /// transaction you can roll back
 let updateAgreement
     (context: Context.Context)
     (paymentAgreementUpdates: PaymentAgreement.PaymentAgreementFieldUpdates list)
+    (newPaymentAgreements: PaymentAgreementPrimitives list)
     (masterAgreementUpdates: MasterAgreement.MasterAgreementFieldUpdates)
     : Result<Agreement, IAppError> =
     result {
         let shouldUpdateMasterAgreement = masterAgreementUpdates |> isThereAMasterAgreementUpdate
         let shouldUpdatePaymentAgreements = paymentAgreementUpdates |> isThereAPaymentAgreementUpdate
         do!
-            if shouldUpdateMasterAgreement = false && shouldUpdatePaymentAgreements = false
+            if shouldUpdateMasterAgreement = false
+               && shouldUpdatePaymentAgreements = false
+               && newPaymentAgreements |> List.isEmpty
             then Error CashFlowError.CashflowAgreementUpdateNoOp
             else Ok ()
         do! confirmAuthorityAndCohesion context paymentAgreementUpdates masterAgreementUpdates
@@ -397,6 +408,16 @@ let updateAgreement
                 |> convertListOfResultsToResultsList
                 |> Result.map ignore
             else Ok ()
+        let agreementId = masterAgreementUpdates.agreementIdToUpdate
+        let addedLegs =
+            newPaymentAgreements |> List.map (newPaymentAgreement (context |> Context.getInitiationInstant) agreementId)
+        do!
+            addedLegs
+            |> List.map (fun leg -> result {
+                do! leg |> confirmPaymentAgreement context agreementId
+                return! leg |> PaymentAgreement.persist context })
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
         // fetch the composite to ensure it passes all validations. hopefully the caller rolls back on error
         let! fetched = masterAgreementUpdates.agreementIdToUpdate |> fetchByMasterAgreementId context
         do! fetched |> confirmComposite context
