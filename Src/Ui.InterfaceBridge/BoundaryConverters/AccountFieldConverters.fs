@@ -21,7 +21,7 @@ let fallibleConverterAccountCodeStringToAccountUuid context codeString =
         let code = accountCode |> AccountCode.value
         // now see if it matches an account ID
         return!
-            code |> LookupCache.accountCodeToId.fetch (context |> Context.getDatabaseTransaction)
+            code |> Account.codeToId.fetch (context |> Context.getDatabaseTransaction)
             |> whenNoRows (LedgerError.AccountCodeDoesntMatchAccountId code)
     }
 
@@ -32,10 +32,10 @@ let fallibleConverterAccountCodeToAccountId context codeString =
     }
 
 let ``convert AccountId to AccountCodeString`` (context: Context.Context) (id: AccountId) : Result<string, IAppError> =
-    id |> AccountId.value |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction)
+    id |> AccountId.value |> Account.idToCode.fetch (context |> Context.getDatabaseTransaction)
 
 let ``convert AccountId to AccountNameString`` (context: Context.Context) (id: AccountId) : Result<string, IAppError> =
-    id |> AccountId.value |> LookupCache.accountIdToName.fetch (context |> Context.getDatabaseTransaction)
+    id |> AccountId.value |> Account.idToName.fetch (context |> Context.getDatabaseTransaction)
 
 let ``convert AccountId to AccountCode`` (context: Context.Context) (id: AccountId) : Result<AccountCode, IAppError> =
     id |> ``convert AccountId to AccountCodeString`` context |> Result.bind AccountCode.create
@@ -48,7 +48,7 @@ let ``convert AccountId Option to AccountCode Option``
         (fun id ->
         let uuid = id |> AccountId.value
         uuid
-        |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction)
+        |> Account.idToCode.fetch (context |> Context.getDatabaseTransaction)
         |> whenNoRows (LedgerError.AccountIdDoesntMatch uuid)
         |> Result.bind AccountCode.create)
     idOption |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
@@ -142,7 +142,7 @@ let ``convert AccountUuId Option to AccountCode Option``
     (uuidOption: Guid option)
     : Result<AccountCode option, IAppError> =
     let fallibleConverter =
-        (fun id -> id |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction) |> Result.bind AccountCode.create)
+        (fun id -> id |> Account.idToCode.fetch (context |> Context.getDatabaseTransaction) |> Result.bind AccountCode.create)
     uuidOption |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
 let ``convert AccountTypeString Option to AccountType Option``

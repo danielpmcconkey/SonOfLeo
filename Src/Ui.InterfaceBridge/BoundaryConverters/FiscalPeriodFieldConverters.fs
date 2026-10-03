@@ -17,7 +17,7 @@ let ``convert FiscalPeriodKeyString to FiscalPeriodId``
         let! periodKey = key |> FiscalPeriodKey.fromString
         let keyValue = periodKey |> FiscalPeriodKey.value
         return!
-            keyValue |> LookupCache.fiscalPeriodKeyToId.fetch (context |> Context.getDatabaseTransaction)
+            keyValue |> FiscalPeriod.keyToId.fetch (context |> Context.getDatabaseTransaction)
             |> whenNoRows (LedgerError.FiscalPeriodNoPeriodMatchingKey keyValue)
             |> Result.map FiscalPeriodId.fromGuid
     }

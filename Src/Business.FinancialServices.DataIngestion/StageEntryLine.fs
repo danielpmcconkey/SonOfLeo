@@ -76,7 +76,7 @@ let confirmAccountId
     | None -> Ok ()
     | Some accountCode ->
         let uuid = accountCode |> AccountId.value
-        uuid |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction)
+        uuid |> Account.idToCode.fetch (context |> Context.getDatabaseTransaction)
         |> whenNoRows (LedgerError.AccountIdDoesntMatch uuid)
         |> Result.map ignore
 

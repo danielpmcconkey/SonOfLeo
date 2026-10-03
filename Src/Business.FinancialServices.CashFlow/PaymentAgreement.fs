@@ -338,3 +338,6 @@ let update
         return! paymentAgreementID |> fetchById context
     }
 
+/// Route-lifetime lookups between a Payment Agreement's ID and its name; see App.DataAccessLayer.LookupCache.
+let nameToId = App.DataAccessLayer.LookupCache.stringToIdCache "cashflow.payment_agreement" "payment_agreement_name"
+let idToName = App.DataAccessLayer.LookupCache.idToStringCache "cashflow.payment_agreement" "payment_agreement_name"

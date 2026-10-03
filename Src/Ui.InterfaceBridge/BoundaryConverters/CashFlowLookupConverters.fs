@@ -5,6 +5,7 @@ open App.DataAccessLayer.DalError
 open App.Utility.Result
 open App.DataAccessLayer
 open App.Session
+open Business.FinancialServices.CashFlow
 open Business.FinancialServices.CashFlow.CashFlowError
 open Business.FinancialServices.CashFlow.CashFlowComponent
 
@@ -15,7 +16,7 @@ let private fallibleConverterAgreementNameStringToMasterAgreementUuid context na
         return!
             name
             |> AgreementName.value
-            |> LookupCache.masterAgreementNameToId.fetch (context |> Context.getDatabaseTransaction)
+            |> MasterAgreement.nameToId.fetch (context |> Context.getDatabaseTransaction)
             |> whenNoRows (CashflowAgreementNameDoesntMatchId nameString)
     }
 
@@ -34,7 +35,7 @@ let ``convert [MasterAgreementId] to [AgreementNameString]``
     : Result<string, IAppError> =
     masterAgreementId
     |> MasterAgreementId.value
-    |> LookupCache.masterAgreementIdToName.fetch (context |> Context.getDatabaseTransaction)
+    |> MasterAgreement.idToName.fetch (context |> Context.getDatabaseTransaction)
 
 let private fallibleConverterPaymentAgreementNameStringToPaymentAgreementUuid context nameString =
     result {
@@ -43,7 +44,7 @@ let private fallibleConverterPaymentAgreementNameStringToPaymentAgreementUuid co
         return!
             name
             |> PaymentAgreementName.value
-            |> LookupCache.paymentAgreementNameToId.fetch (context |> Context.getDatabaseTransaction)
+            |> PaymentAgreement.nameToId.fetch (context |> Context.getDatabaseTransaction)
             |> whenNoRows (CashflowPaymentAgreementNameDoesntMatchId nameString)
     }
 
@@ -70,7 +71,7 @@ let ``convert [PaymentAgreementId] to [PaymentAgreementNameString]``
     : Result<string, IAppError> =
     paymentAgreementId
     |> PaymentAgreementId.value
-    |> LookupCache.paymentAgreementIdToName.fetch (context |> Context.getDatabaseTransaction)
+    |> PaymentAgreement.idToName.fetch (context |> Context.getDatabaseTransaction)
 
 let ``convert [PaymentAgreementId option] to [PaymentAgreementNameString option]``
     (context: Context.Context)

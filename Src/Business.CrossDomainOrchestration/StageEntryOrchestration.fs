@@ -106,7 +106,7 @@ let private confirmLinesAccountCodes
             | _, Some accountId ->
                 let accountUuid = accountId |> AccountId.value
                 let lookupResult =
-                    accountUuid |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction) // we don't need the code; we just check that the ID is in the DB this way 
+                    accountUuid |> Account.idToCode.fetch (context |> Context.getDatabaseTransaction) // we don't need the code; we just check that the ID is in the DB this way 
                 lookupResult
                 |> whenNoRows (LedgerError.AccountIdDoesntMatch accountUuid)
                 |> Result.map ignore

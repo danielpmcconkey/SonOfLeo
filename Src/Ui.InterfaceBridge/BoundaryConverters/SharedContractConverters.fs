@@ -23,7 +23,7 @@ let ``convert TemporalFilterInput to TemporalFilter``
             let! _ = periodKey |> FiscalPeriodKey.fromString
             let! uuid =
                 periodKey
-                |> LookupCache.fiscalPeriodKeyToId.fetch (context |> Context.getDatabaseTransaction)
+                |> Business.FinancialServices.Ledger.FiscalPeriod.keyToId.fetch (context |> Context.getDatabaseTransaction)
                 |> Result.mapError(fun _ -> FiscalPeriodNoPeriodMatchingKey periodKey)
             return uuid |> FiscalPeriodId.fromGuid |> TemporalFilter.FiscalPeriodIdentifier
         }

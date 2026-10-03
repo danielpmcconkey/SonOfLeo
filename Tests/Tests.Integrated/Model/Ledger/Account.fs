@@ -381,7 +381,7 @@ type AccountTests(fixture: TestDataFixture) =
             |> List.find(fun a -> a |> Account.accountId = fixture.Data.mortgage2210Id)
         let expectedCode = expectedAccount |> Account.code
         result {
-            let! id = expectedCode |> AccountCode.value |> LookupCache.accountCodeToId.fetch (context |> Context.getDatabaseTransaction)
+            let! id = expectedCode |> AccountCode.value |> Business.FinancialServices.Ledger.Account.codeToId.fetch (context |> Context.getDatabaseTransaction)
             let! account = id |> AccountId.fromGuid |> Account.fetchById context
             Assert.Equal(expectedCode, account |> Account.code)
             Assert.Equal(expectedAccount |> Account.accountId, account |> Account.accountId)

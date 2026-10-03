@@ -7,8 +7,6 @@ open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.DbTransaction
 open App.DataAccessLayer.QueryParameter
 
-// todo: make this an interface so that lower tier doesn't need to have higher tier awareness
-
 (*
 Note: the LookupCache is designed to support an easy translation between UUIDs used in the model and string codes and
 keys used by the callers of our public user interfaces. It is designed currently to support short-burst CLI invocations
@@ -19,6 +17,9 @@ error, and the next fetch tries the load again.
 
 Any future usages for this application that will carry longer life cycles will need to re-design this cache if it plans
 to also involve any CRUD operations of core module entities.
+
+This module holds only the machinery. Each concrete cache lives in the Business module that owns its table, so this tier
+knows no upper tier's tables or columns.
 *)
 
 type Cache<'K, 'V when 'K: comparison>
@@ -70,22 +71,12 @@ let private fetchOne table keyColumn whereColumn paramValue dbTransaction =
       (mapRawForDbRead "unique_id" keyColumn) reconstitute ExactlyOne
   |> Result.map List.head
 
-let private stringToIdCache table keyColumn =
+let stringToIdCache table keyColumn =
   Cache<string, Guid>(
       (fun _ -> fetchAll table keyColumn |> Result.map (List.map (fun x -> x.key, x.id) >> Map.ofList)),
       (fun context key -> fetchOne table keyColumn keyColumn (CharString key) context |> Result.map (fun r -> r.id)))
 
-let private idToStringCache table keyColumn =
+let idToStringCache table keyColumn =
   Cache<Guid, string>(
       (fun _ -> fetchAll table keyColumn |> Result.map (List.map (fun x -> x.id, x.key) >> Map.ofList)),
       (fun context id -> fetchOne table keyColumn "unique_id" (UniqueId id) context |> Result.map (fun r -> r.key)))
-
-let accountCodeToId = stringToIdCache "ledger.account" "code"
-let accountIdToCode = idToStringCache "ledger.account" "code"
-let accountIdToName = idToStringCache "ledger.account" "account_name"
-let fiscalPeriodKeyToId = stringToIdCache "ledger.fiscal_period" "period_key"
-let fiscalPeriodIdToKey = idToStringCache "ledger.fiscal_period" "period_key"
-let masterAgreementNameToId = stringToIdCache "cashflow.master_agreement" "agreement_name"
-let masterAgreementIdToName = idToStringCache "cashflow.master_agreement" "agreement_name"
-let paymentAgreementNameToId = stringToIdCache "cashflow.payment_agreement" "payment_agreement_name"
-let paymentAgreementIdToName = idToStringCache "cashflow.payment_agreement" "payment_agreement_name"

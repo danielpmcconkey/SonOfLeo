@@ -45,7 +45,7 @@ let private confirmValidAccountId
     : Result<unit, IAppError> =
     let accountUuid = accountId |> AccountId.value
     let lookupResult = // we don't need the code; we just check that the ID is in the DB this way
-        accountUuid |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction)
+        accountUuid |> Account.idToCode.fetch (context |> Context.getDatabaseTransaction)
     lookupResult
     |> whenNoRows (LedgerError.AccountIdDoesntMatch accountUuid)
     |> Result.map ignore

@@ -48,7 +48,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
                 let! payload = accountInput |> toJson<AccountCreateInput>
                 let! resultPayload = routeUiCommandForTesting "Account" "Create" [] payload
                 let! accountReturn = fromJson<AccountReturn> resultPayload
-                let! cleanUpId = accountReturn.code |> LookupCache.accountCodeToId.fetch (context |> Context.getDatabaseTransaction)
+                let! cleanUpId = accountReturn.code |> Business.FinancialServices.Ledger.Account.codeToId.fetch (context |> Context.getDatabaseTransaction)
                 accountIdToCleanup <- (cleanUpId |> AccountId.fromGuid |> Some)
                 return ()
             }

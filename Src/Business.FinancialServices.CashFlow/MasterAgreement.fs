@@ -321,3 +321,6 @@ let updateCadence context newCadence masterAgreement =
     }
     fieldUpdates |> update context
 
+/// Route-lifetime lookups between a Master Agreement's ID and its name; see App.DataAccessLayer.LookupCache.
+let nameToId = App.DataAccessLayer.LookupCache.stringToIdCache "cashflow.master_agreement" "agreement_name"
+let idToName = App.DataAccessLayer.LookupCache.idToStringCache "cashflow.master_agreement" "agreement_name"

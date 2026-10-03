@@ -22,7 +22,6 @@ open Xunit
 open Tests.Helpers
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
-open App.DataAccessLayer.LookupCache
 open Business.CrossDomainOrchestration.JournalEntryOrchestration
 open Business.CrossDomainOrchestration.JournalEntryOrchestration.JournalEntryOrchestration
 open App.Utility
@@ -108,7 +107,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let periodKey = $"{today.Year}-{monthF}"
         let context = Context.create NoTransaction FetchOnly
         result {
-            let! fpUuid = periodKey |> fiscalPeriodKeyToId.fetch (context |> Context.getDatabaseTransaction)
+            let! fpUuid = periodKey |> Business.FinancialServices.Ledger.FiscalPeriod.keyToId.fetch (context |> Context.getDatabaseTransaction)
             let fpId = fpUuid |> FiscalPeriodId.fromGuid
             let expected =
                 fixture.Data.journalEntries
@@ -135,7 +134,7 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let periodKey = $"{farDate.Year}-{monthF}"
         let context = Context.create NoTransaction FetchOnly
         result {
-            let! uuid = periodKey |> fiscalPeriodKeyToId.fetch (context |> Context.getDatabaseTransaction)
+            let! uuid = periodKey |> Business.FinancialServices.Ledger.FiscalPeriod.keyToId.fetch (context |> Context.getDatabaseTransaction)
             let! fp = uuid |> FiscalPeriodId.fromGuid |> FiscalPeriod.fetchById context
             let! entries = fp |> fetchByPeriod context
             Assert.Equal(0, entries |> List.length)

@@ -270,15 +270,15 @@ type ConnectionReleaseTests(fixture: Tests.Helpers.TestDataFixture) =
         let missingName = "REQ-DAL-2.4 no such key"
         let missingId = Guid.NewGuid()
         let fetches : Result<unit, IAppError> list =
-            [ App.DataAccessLayer.LookupCache.accountCodeToId.fetch noTransaction missingName |> Result.map ignore
-              App.DataAccessLayer.LookupCache.accountIdToCode.fetch noTransaction missingId |> Result.map ignore
-              App.DataAccessLayer.LookupCache.accountIdToName.fetch noTransaction missingId |> Result.map ignore
-              App.DataAccessLayer.LookupCache.fiscalPeriodKeyToId.fetch noTransaction missingName |> Result.map ignore
-              App.DataAccessLayer.LookupCache.fiscalPeriodIdToKey.fetch noTransaction missingId |> Result.map ignore
-              App.DataAccessLayer.LookupCache.masterAgreementNameToId.fetch noTransaction missingName |> Result.map ignore
-              App.DataAccessLayer.LookupCache.masterAgreementIdToName.fetch noTransaction missingId |> Result.map ignore
-              App.DataAccessLayer.LookupCache.paymentAgreementNameToId.fetch noTransaction missingName |> Result.map ignore
-              App.DataAccessLayer.LookupCache.paymentAgreementIdToName.fetch noTransaction missingId |> Result.map ignore ]
+            [ Business.FinancialServices.Ledger.Account.codeToId.fetch noTransaction missingName |> Result.map ignore
+              Business.FinancialServices.Ledger.Account.idToCode.fetch noTransaction missingId |> Result.map ignore
+              Business.FinancialServices.Ledger.Account.idToName.fetch noTransaction missingId |> Result.map ignore
+              Business.FinancialServices.Ledger.FiscalPeriod.keyToId.fetch noTransaction missingName |> Result.map ignore
+              Business.FinancialServices.Ledger.FiscalPeriod.idToKey.fetch noTransaction missingId |> Result.map ignore
+              Business.FinancialServices.CashFlow.MasterAgreement.nameToId.fetch noTransaction missingName |> Result.map ignore
+              Business.FinancialServices.CashFlow.MasterAgreement.idToName.fetch noTransaction missingId |> Result.map ignore
+              Business.FinancialServices.CashFlow.PaymentAgreement.nameToId.fetch noTransaction missingName |> Result.map ignore
+              Business.FinancialServices.CashFlow.PaymentAgreement.idToName.fetch noTransaction missingId |> Result.map ignore ]
         // a missing key is DalNoOp from the single-row read that follows the load; anything else means the load failed
         for fetched in fetches do
             match fetched with

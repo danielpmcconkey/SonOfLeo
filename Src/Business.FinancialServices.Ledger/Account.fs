@@ -304,3 +304,8 @@ let updateExternalReferenceById
         let! newAccount = update context accountId NoChange (SetTo validRef)
         return newAccount
     }
+
+/// Route-lifetime lookups between an account's ID and its code or name; see App.DataAccessLayer.LookupCache.
+let codeToId = App.DataAccessLayer.LookupCache.stringToIdCache "ledger.account" "code"
+let idToCode = App.DataAccessLayer.LookupCache.idToStringCache "ledger.account" "code"
+let idToName = App.DataAccessLayer.LookupCache.idToStringCache "ledger.account" "account_name"

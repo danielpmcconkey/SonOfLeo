@@ -180,3 +180,7 @@ let reopenFiscalPeriod
     (fpId: FiscalPeriodId)
     : Result<FiscalPeriod, IAppError> =
     toggleOpenFlagById context fpId true
+
+/// Route-lifetime lookups between a fiscal period's ID and its key; see App.DataAccessLayer.LookupCache.
+let keyToId = App.DataAccessLayer.LookupCache.stringToIdCache "ledger.fiscal_period" "period_key"
+let idToKey = App.DataAccessLayer.LookupCache.idToStringCache "ledger.fiscal_period" "period_key"

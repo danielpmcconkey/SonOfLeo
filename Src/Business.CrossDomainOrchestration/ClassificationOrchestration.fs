@@ -30,7 +30,7 @@ let private confirmAccount
     (accountId: AccountId)
     : Result<unit, IAppError> =
     let uuid = accountId |> AccountId.value
-    let confirmed = uuid |> LookupCache.accountIdToCode.fetch (context |> Context.getDatabaseTransaction) // we don't need the code. we just want to know that the accountId exists
+    let confirmed = uuid |> Business.FinancialServices.Ledger.Account.idToCode.fetch (context |> Context.getDatabaseTransaction) // we don't need the code. we just want to know that the accountId exists
     confirmed
     |> whenNoRows (AccountIdDoesntMatch uuid)
     |> Result.map ignore
