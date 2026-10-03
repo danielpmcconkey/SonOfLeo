@@ -48,6 +48,11 @@ type StageEntryReturn = {
         statusTransitions: StageEntryStatusTransitionReturn list
 }
 
+type DeduplicationReturn = {
+        ingested: StageEntryReturn list
+        declinedForPayment: StageEntryReturn list
+}
+
 type IngestionSourceReturn = {
         ingestionSourceId: Guid
         name: string

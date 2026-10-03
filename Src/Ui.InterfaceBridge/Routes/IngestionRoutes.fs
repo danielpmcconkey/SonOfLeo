@@ -224,20 +224,23 @@ let private fetchStageEntryFiltered payload _ =
 let private deduplicateStageEntries _ _ =
     runCommandRouteAndAutoCompleteTransaction IngestDeduplicateStageEntries (fun context ->
         result {
-            let! remaining = StageEntryOrchestration.deduplicateStagedEntries context
-            let! converted =
-                remaining
+            let! deduplication = StageEntryOrchestration.deduplicateStagedEntries context
+            let convertAll entries =
+                entries
                 |> List.map (``convert [StageEntry] to [StageEntryReturn]`` context)
                 |> convertListOfResultsToResultsList
-            return! Json.toJson<StageEntryReturn list> converted })
+            let! ingested = deduplication.ingested |> convertAll
+            let! declinedForPayment = deduplication.declinedForPayment |> convertAll
+            return!
+                Json.toJson<DeduplicationReturn> { ingested = ingested; declinedForPayment = declinedForPayment } })
 
 let ingestionDomainCommandRoutes: CommandRoute list =
     [
       { domain = "Ingestion"
         verb = "DeduplicateStageEntries"
-        description = "Mark every staged entry that duplicates one already in the database, and return everything still Ingested."
+        description = "Mark every staged entry that duplicates one already in the database, and return everything still Ingested and every repeat left unflagged because a Payment references it."
         inputContract = typeof<Ui.InterfaceBridge.InterfaceContracts.SharedContracts.NoInput>.Name
-        outputContract = typeof<StageEntryReturn list>.Name
+        outputContract = typeof<DeduplicationReturn>.Name
         handler = deduplicateStageEntries }
 
       { domain = "Ingestion"

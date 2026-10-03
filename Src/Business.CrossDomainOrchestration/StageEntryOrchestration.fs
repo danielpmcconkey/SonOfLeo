@@ -27,6 +27,13 @@ type StageEntry =
         statusTransitions: StageEntryStatusTransition.StageEntryStatusTransition list
     }
 
+/// DeduplicationResult is every entry still Ingested after the pass, and every repeat the pass declined to flag
+/// because a Payment references one of its lines, whatever its status.
+type DeduplicationResult = {
+    ingested: StageEntry list
+    declinedForPayment: StageEntry list
+}
+
 type AccountClassificationResult = {
     runId: ClassificationRunId
     classificationResults: ClassificationResult list
@@ -339,11 +346,10 @@ let private headerIdsWithAPaidLine
 
 let deduplicateStagedEntries
     (context: Context.Context)
-    : Result<StageEntry list, IAppError> =
+    : Result<DeduplicationResult, IAppError> =
     result {
         let! repeatedHeaders = StageEntryHeader.fetchDuplicates context
-        // an entry a Payment references is never flagged; it stays at its status and so appears in the result below
-        // (REQ-STG-6.7)
+        // an entry a Payment references is never flagged; it stays at its status and is reported (REQ-STG-6.7)
         let! paidHeaderIds =
             repeatedHeaders |> List.map StageEntryHeader.stageEntryHeaderId |> headerIdsWithAPaidLine context
         let duplicateHeaders =
@@ -358,7 +364,19 @@ let deduplicateStagedEntries
                      |> StageEntryHeader.updateHeaderStatus context toStatus mechanism
                      )
                  |> convertListOfResultsToResultsList
-        return! [ StagedEntryStatus.Ingested ] |> fetchByStatusList context
+        let declinedHeaders =
+            repeatedHeaders
+            |> List.filter (fun header -> paidHeaderIds |> List.contains (header |> StageEntryHeader.stageEntryHeaderId))
+        let! declined =
+            if declinedHeaders |> List.isEmpty then Ok [] else
+            result {
+                let headerIds = declinedHeaders |> List.map StageEntryHeader.stageEntryHeaderId
+                let! lines = headerIds |> StageEntryLine.fetchByHeaderIdList context
+                let! statusTransitions = headerIds |> StageEntryStatusTransition.fetchByHeaderIdList context
+                return compileFromSubLists declinedHeaders lines statusTransitions
+            }
+        let! ingested = [ StagedEntryStatus.Ingested ] |> fetchByStatusList context
+        return { ingested = ingested; declinedForPayment = declined }
     }
 
 let classifyAccounts

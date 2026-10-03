@@ -815,7 +815,7 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                 // a repeat without a Payment is flagged, so the pass did find these repeats
                 Assert.Equal(Some StagedEntryStatus.Duplicate, unpaidAfter |> statusOf)
                 Assert.Equal(Some StagedEntryStatus.Ingested, paidAfter |> statusOf)
-                Assert.Contains(paid |> headerIdOf, remaining |> List.map headerIdOf)
+                Assert.Contains(paid |> headerIdOf, remaining.ingested |> List.map headerIdOf)
             })
 
     // =========================================================================
@@ -835,13 +835,13 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                 let! remaining = deduplicateStagedEntries s.Context
                 let! ingested = [ StagedEntryStatus.Ingested ] |> fetchByStatusList s.Context
                 let! repeatAfter = refetch s.Context repeat
-                let returnedIds = remaining |> List.map headerIdOf |> Set.ofList
+                let returnedIds = remaining.ingested |> List.map headerIdOf |> Set.ofList
                 Assert.Equal(Some StagedEntryStatus.Duplicate, repeatAfter |> statusOf)
                 Assert.Equal<Set<StageEntryHeaderId>>(ingested |> List.map headerIdOf |> Set.ofList, returnedIds)
                 Assert.Contains(original |> headerIdOf, returnedIds)
                 Assert.DoesNotContain(repeat |> headerIdOf, returnedIds)
                 Assert.DoesNotContain(classified |> headerIdOf, returnedIds)
-                Assert.All(remaining, fun entry -> Assert.Equal(Some StagedEntryStatus.Ingested, entry |> statusOf))
+                Assert.All(remaining.ingested, fun entry -> Assert.Equal(Some StagedEntryStatus.Ingested, entry |> statusOf))
             })
 
     // =========================================================================
