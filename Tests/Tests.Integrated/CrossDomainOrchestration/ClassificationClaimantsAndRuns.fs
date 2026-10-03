@@ -35,6 +35,7 @@ open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
 open Xunit
+open Business.FinancialServices.Classification.ClassificationError
 
 module Contracts = Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts
 
@@ -252,7 +253,7 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                       ClassificationOrchestration.fetchRulesFiltered s.Context { noRuleFilter with nameLike = Some ruleName } None |> Result.map ignore ]
                 let namesTheRule (read: Result<unit, IAppError>) =
                     match read with
-                    | Error (AsError (IngestionClassificationRuleInvalidClaimant(id, _, _))) -> id = ruleUuid
+                    | Error (AsError (ClassificationRuleInvalidClaimant(id, _, _))) -> id = ruleUuid
                     | _ -> false
                 Assert.All(reads, fun read -> Assert.True(namesTheRule read))
             })
@@ -391,7 +392,7 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
             match attempt with
             | Error (AsError (LedgerError.AccountCodeDoesntMatchAccountId n))
             | Error (AsError (CashFlowError.CashflowPaymentAgreementNameDoesntMatchId n))
-            | Error (AsError (IngestionInvalidClassificationClaimantType n)) -> n = missing
+            | Error (AsError (ClassificationInvalidClaimantType n)) -> n = missing
             | _ -> false
         Assert.True(namesIt)
 

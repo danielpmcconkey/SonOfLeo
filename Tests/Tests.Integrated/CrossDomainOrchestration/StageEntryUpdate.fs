@@ -33,6 +33,7 @@ open Tests.Helpers.EntityFunctions
 open NodaTime
 open App.Utility
 open App.DataAccessLayer.DalError
+open Business.FinancialServices.Classification.ClassificationError
 
 
 [<Collection("SharedTestData")>]
@@ -593,7 +594,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                     updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [] [] [ debitLineId ]
                     |> expectRejection contextForUpdate headerId
                         (function
-                         | AsError (IngestionStageEntryLineCannotBeRemoved (uuid, LinkedToPaymentAgreement)) ->
+                         | AsError (ClassificationStageEntryLineCannotBeRemoved (uuid, LinkedToPaymentAgreement)) ->
                              uuid = (debitLineId |> StageEntryLineId.value)
                          | _ -> false) before
             })
@@ -612,7 +613,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                     updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [] [] [ debitLineId ]
                     |> expectRejection contextForUpdate headerId
                         (function
-                         | AsError (IngestionStageEntryLineCannotBeRemoved (uuid, ReferencedByPayment)) ->
+                         | AsError (ClassificationStageEntryLineCannotBeRemoved (uuid, ReferencedByPayment)) ->
                              uuid = (debitLineId |> StageEntryLineId.value)
                          | _ -> false) before
             })
@@ -637,7 +638,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                     updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [] [] [ debitLineId ]
                     |> expectRejection contextForUpdate headerId
                         (function
-                         | AsError (IngestionStageEntryLineCannotBeRemoved (uuid, RecordedInClassificationRun)) ->
+                         | AsError (ClassificationStageEntryLineCannotBeRemoved (uuid, RecordedInClassificationRun)) ->
                              uuid = (debitLineId |> StageEntryLineId.value)
                          | _ -> false) before
             })
@@ -665,7 +666,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                     updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [ lineUpdate ] [] []
                     |> expectRejection contextForUpdate headerId
                         (function
-                         | AsError (IngestionStageEntryLineCannotBeChanged (uuid, LinkedToPaymentAgreement)) ->
+                         | AsError (ClassificationStageEntryLineCannotBeChanged (uuid, LinkedToPaymentAgreement)) ->
                              uuid = (debitLineId |> StageEntryLineId.value)
                          | _ -> false) before
             })
@@ -693,7 +694,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                     updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [ lineUpdate ] [] []
                     |> expectRejection contextForUpdate headerId
                         (function
-                         | AsError (IngestionStageEntryLineCannotBeChanged (uuid, ReferencedByPayment)) ->
+                         | AsError (ClassificationStageEntryLineCannotBeChanged (uuid, ReferencedByPayment)) ->
                              uuid = (debitLineId |> StageEntryLineId.value)
                          | _ -> false) before
             })

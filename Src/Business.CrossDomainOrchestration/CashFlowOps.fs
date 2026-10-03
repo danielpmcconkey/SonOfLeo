@@ -223,7 +223,7 @@ let private selectLegsOfClaimedEntries
             | Some rule -> Ok (rule |> ClassificationRule.constrainsLineType)
             | None ->
                 let ruleUuid = prioritizedMatch.ruleId |> ClassificationComponent.ClassificationRuleId.value
-                DataIngestionError.error (DataIngestionError.IngestionClassificationRuleIdDoesntExist ruleUuid))
+                ClassificationError.error (ClassificationError.ClassificationRuleIdDoesntExist ruleUuid))
         |> convertListOfResultsToResultsList
         |> Result.map (List.exists id)
     result {

@@ -13,6 +13,7 @@ open Business.FinancialServices.DataIngestion.DataIngestionError
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.Classification.ClassificationComponent
 open Business.FinancialServices.Classification.ClassificationRuleGroup
+open Business.FinancialServices.Classification.ClassificationError
 
 /// ClassificationRule: The top-level classification rule. All groups must resolve to true for the rule to resolve to
 /// true.
@@ -118,9 +119,9 @@ let private confirmStoredPatternsAreValid (ruleUuid: System.Guid) (ruleGroups: C
         |> Result.mapError (fun e ->
             let reason =
                 match e with
-                | AsError (IngestionSearchPatternInvalidRegex(_, reason)) -> reason
+                | AsError (ClassificationSearchPatternInvalidRegex(_, reason)) -> reason
                 | other -> other.ToMessage()
-            IngestionClassificationRuleStoredPatternInvalid(ruleUuid, patternStr, reason) :> IAppError))
+            ClassificationRuleStoredPatternInvalid(ruleUuid, patternStr, reason) :> IAppError))
     |> convertListOfResultsToResultsList
     |> Result.map ignore
 
@@ -145,7 +146,7 @@ let private reconstitute raw =
                 let pmtId:CashFlowComponent.PaymentAgreementId =
                     paymentAgreementUuid |> CashFlowComponent.PaymentAgreementId.fromGuid
                 Ok (ClassificationClaimant.PaymentAgreement pmtId)
-            | _ -> Error (IngestionClassificationRuleInvalidClaimant(uuid, accountUuidOpt, paymentAgreementUuidOpt))
+            | _ -> Error (ClassificationRuleInvalidClaimant(uuid, accountUuidOpt, paymentAgreementUuidOpt))
         let! ruleGroups = ruleGroupsStr |> fromJson<ClassificationRuleGroup list>
         // stored patterns are deserialised straight into the pattern type and skip its create, so they are checked here
         do! ruleGroups |> confirmStoredPatternsAreValid uuid
@@ -206,7 +207,7 @@ let fetchByIdList
     (context: Context.Context)
     (ruleIds: ClassificationRuleId list)
     : Result<ClassificationRule list, IAppError> =
-    if ruleIds |> List.isEmpty then Error IngestionClassificationRuleIdListCannotBeEmpty else
+    if ruleIds |> List.isEmpty then Error ClassificationRuleIdListCannotBeEmpty else
     let namesAndParameters =
         List.zip [ 1 .. ruleIds.Length ] ruleIds
         |> List.map (fun (ordinal, id) ->

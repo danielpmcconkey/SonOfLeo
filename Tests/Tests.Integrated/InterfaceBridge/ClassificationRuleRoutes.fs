@@ -23,6 +23,7 @@ open Business.FinancialServices.Classification.ClassificationComponent
 open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
+open Business.FinancialServices.Classification.ClassificationError
 
 
 (* Every route below reaches the same orchestrator functions ClassificationRuleCrud.fs
@@ -342,7 +343,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
                 let created = createThroughRoute ruleName accountCodeForNewRules 780 [ groupMatching field invalidPattern ]
                 let () =
                     match created with
-                    | Error (AsError (Business.FinancialServices.DataIngestion.DataIngestionError.IngestionSearchPatternInvalidRegex(pattern, _))) ->
+                    | Error (AsError (Business.FinancialServices.Classification.ClassificationError.ClassificationSearchPatternInvalidRegex(pattern, _))) ->
                         Assert.Equal(invalidPattern, pattern)
                     | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
                     | Ok rule ->
@@ -377,7 +378,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
                     |> toJson<UpdateClassificationRuleInput>
                 let () =
                     match routeUiCommandForTesting "Classification" "UpdateClassificationRule" [] payload with
-                    | Error (AsError (Business.FinancialServices.DataIngestion.DataIngestionError.IngestionSearchPatternInvalidRegex(pattern, _))) ->
+                    | Error (AsError (Business.FinancialServices.Classification.ClassificationError.ClassificationSearchPatternInvalidRegex(pattern, _))) ->
                         Assert.Equal(invalidPattern, pattern)
                     | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
                     | Ok _ -> Assert.Fail "Expected the invalid pattern to be rejected; the update succeeded"

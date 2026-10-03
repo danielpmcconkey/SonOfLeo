@@ -25,6 +25,7 @@ open App.Utility.Result
 open Xunit
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.Classification.ClassificationComponent
+open Business.FinancialServices.Classification.ClassificationError
 
 
 [<Collection("SharedTestData")>]
@@ -315,7 +316,7 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                     with ex -> Error ex
                 return
                     match run with
-                    | Ok (Error (AsError (Business.FinancialServices.DataIngestion.DataIngestionError.IngestionClassificationRulePatternTimedOut(uuid, timedOutPattern)))) ->
+                    | Ok (Error (AsError (Business.FinancialServices.Classification.ClassificationError.ClassificationRulePatternTimedOut(uuid, timedOutPattern)))) ->
                         Assert.Equal(rule |> ClassificationRule.classificationRuleId |> ClassificationRuleId.value, uuid)
                         Assert.Equal(slowPattern, timedOutPattern)
                     | Ok (Error e) -> Assert.Fail $"Wrong error. {e.ToMessage()}"

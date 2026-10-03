@@ -22,6 +22,7 @@ open Business.FinancialServices.Classification.ClassificationComponent
 open Business.FinancialServices.Classification.ClassificationRuleGroup
 open Business.FinancialServices.Classification.FieldMatchChain
 open Business.CrossDomainOrchestration.FetchFilters
+open Business.FinancialServices.Classification.ClassificationError
 
 let private confirmAccount
     (context: Context.Context)
@@ -55,7 +56,7 @@ let private confirmFieldMatchChain
     (fieldMatchChain: FieldMatchChain)
     : Result<unit, IAppError> =
     let chain = fieldMatchChain |> FieldMatchChain.chain
-    if chain |> List.isEmpty then Error IngestionFieldMatchChainEmpty else Ok ()
+    if chain |> List.isEmpty then Error ClassificationFieldMatchChainEmpty else Ok ()
     
 let private confirmRuleGroup
     (ruleGroup: ClassificationRuleGroup)
@@ -70,7 +71,7 @@ let private confirmRuleGroup
 let private confirmRuleGroups
     (ruleGroups: ClassificationRuleGroup list)
     : Result<unit, IAppError> = 
-    if ruleGroups |> List.isEmpty then Error IngestionClassificationRuleGroupsEmpty
+    if ruleGroups |> List.isEmpty then Error ClassificationRuleGroupsEmpty
     else
         ruleGroups
         |> List.map(confirmRuleGroup)
@@ -243,8 +244,8 @@ let fetchRunMatchesWithRules
                 | Some rule -> Ok(ruleMatch, rule)
                 | None ->
                     let ruleUuid = ruleId |> ClassificationRuleId.value
-                    Business.FinancialServices.DataIngestion.DataIngestionError.error(
-                        IngestionClassificationRuleIdDoesntExist ruleUuid))
+                    ClassificationError.error(
+                        ClassificationRuleIdDoesntExist ruleUuid))
             |> convertListOfResultsToResultsList
     }
 
@@ -350,9 +351,9 @@ let updateClassificationRule
                 modified_at = @modified
             WHERE unique_id = @unique_id;
         """
-        do! if updates.IsEmpty then Error(IngestionClassificationRuleUpdateNoOp) else Ok()
+        do! if updates.IsEmpty then Error(ClassificationRuleUpdateNoOp) else Ok()
         let! () =
             executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
-            |> whenNoRows (IngestionClassificationRuleIdDoesntExist uuid)
+            |> whenNoRows (ClassificationRuleIdDoesntExist uuid)
         return! classificationRuleId |> ClassificationRule.fetchById context
     }

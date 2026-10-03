@@ -8,6 +8,7 @@ open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion.DataIngestionError
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.CashFlow
+open Business.FinancialServices.Classification.ClassificationError
 
 type ClassificationRuleId = private ClassificationRuleId of Guid
 
@@ -53,7 +54,7 @@ module NumericSearchOperator =
         | "GreaterThanOrEqualTo" -> Ok GreaterThanOrEqualTo
         | "LessThanOrEqualTo" -> Ok LessThanOrEqualTo
         | "ExactlyEqual" -> Ok ExactlyEqual
-        | _ -> error (IngestionInvalidNumericSearchOperator str)
+        | _ -> error (ClassificationInvalidNumericSearchOperator str)
     
 type MoneySearchPattern = {
         numericSearchOperator: NumericSearchOperator
@@ -68,9 +69,9 @@ module ClassificationRuleName =
     let create (raw: string) : Result<ClassificationRuleName, IAppError> =
         let trimmed = raw.Trim()
         if trimmed = String.Empty then
-            Error(IngestionClassificationRuleNameIsEmpty raw)
+            Error(ClassificationRuleNameIsEmpty raw)
         elif trimmed.Length > maxLength then
-            Error(IngestionClassificationRuleNameTooLong(raw, maxLength))
+            Error(ClassificationRuleNameTooLong(raw, maxLength))
         else
             Ok(ClassificationRuleName trimmed)
 
@@ -83,9 +84,9 @@ module StringSearchPattern =
         // Note, every other string-to-type create function trims the inbound string. Here, we should not. We use
         // StringSearchPattern in a regex string comparison and white space is probably meaningful in that context.
         if raw = String.Empty then
-            Error(IngestionSearchPatternIsEmpty raw)
+            Error(ClassificationSearchPatternIsEmpty raw)
         elif raw.Length > maxLength then
-            Error(IngestionSearchPatternTooLong(raw, maxLength))
+            Error(ClassificationSearchPatternTooLong(raw, maxLength))
         else
             // a pattern that won't compile would otherwise be accepted here and fail mid-run, aborting classification
             // for every entry
@@ -93,7 +94,7 @@ module StringSearchPattern =
                 Text.RegularExpressions.Regex(raw) |> ignore
                 Ok(StringSearchPattern raw)
             with :? ArgumentException as ex ->
-                Error(IngestionSearchPatternInvalidRegex(raw, ex.Message))
+                Error(ClassificationSearchPatternInvalidRegex(raw, ex.Message))
 
     
 type ClassificationGroupConnector =
@@ -111,7 +112,7 @@ module ClassificationGroupConnector =
         match str with
         | "And" -> Ok And
         | "Or" -> Ok Or
-        | _ -> error (IngestionInvalidClassificationGroupConnector str)
+        | _ -> error (ClassificationInvalidGroupConnector str)
 
 type MatchCandidate = {
         headerIdOfCandidate: StageEntryHeaderId
@@ -196,4 +197,4 @@ module ClassificationClaimantType =
         match str with
         | "AccountClaimant" -> Ok AccountClaimant
         | "PaymentAgreementClaimant" -> Ok PaymentAgreementClaimant
-        | _ -> Error (IngestionInvalidClassificationClaimantType str)
+        | _ -> Error (ClassificationInvalidClaimantType str)

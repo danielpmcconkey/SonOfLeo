@@ -531,7 +531,7 @@ type StageEntryLineAddition = {
 let private protectionsOf
     (context: Context.Context)
     (lineIds: StageEntryLineId list)
-    : Result<(StageEntryLineId * DataIngestionError.StageLineProtection) list, IAppError> =
+    : Result<(StageEntryLineId * Classification.ClassificationError.StageLineProtection) list, IAppError> =
     if lineIds |> List.isEmpty then Ok [] else
     result {
         let! links = lineIds |> CashFlow.PaymentAgreementLink.fetchByStageEntryLineIdList context
@@ -540,9 +540,9 @@ let private protectionsOf
         let linkedLineIds = links |> List.map CashFlow.PaymentAgreementLink.stageEntryLineId
         let recordedLineIds = ruleMatches |> List.map Classification.RuleMatch.stageEntryLineId
         return
-            [ yield! linkedLineIds |> List.map (fun id -> id, DataIngestionError.LinkedToPaymentAgreement)
-              yield! paidLineIds |> List.map (fun id -> id, DataIngestionError.ReferencedByPayment)
-              yield! recordedLineIds |> List.map (fun id -> id, DataIngestionError.RecordedInClassificationRun) ]
+            [ yield! linkedLineIds |> List.map (fun id -> id, Classification.ClassificationError.LinkedToPaymentAgreement)
+              yield! paidLineIds |> List.map (fun id -> id, Classification.ClassificationError.ReferencedByPayment)
+              yield! recordedLineIds |> List.map (fun id -> id, Classification.ClassificationError.RecordedInClassificationRun) ]
             |> List.distinct
     }
 
@@ -593,8 +593,8 @@ let updateStageEntry
                 |> Result.bind (fun paid ->
                     if paid.IsEmpty then Ok ()
                     else
-                        DataIngestionError.error(
-                            DataIngestionError.IngestionPaidStageEntryCannotBeExcluded(
+                        Classification.ClassificationError.error(
+                            Classification.ClassificationError.ClassificationPaidStageEntryCannotBeExcluded(
                                 headerUuid, excluded |> StagedEntryStatus.toString)))
             | _ -> Ok ()
         // only batch post moves an entry to Posted (REQ-STG-4.8)
@@ -633,8 +633,8 @@ let updateStageEntry
             |> List.map (fun lineId ->
                 match firstProtectionOf lineId with
                 | Some protection ->
-                    DataIngestionError.error(
-                        DataIngestionError.IngestionStageEntryLineCannotBeRemoved(lineId |> StageEntryLineId.value, protection))
+                    Classification.ClassificationError.error(
+                        Classification.ClassificationError.ClassificationStageEntryLineCannotBeRemoved(lineId |> StageEntryLineId.value, protection))
                 | None -> Ok ())
             |> convertListOfResultsToResultsList
             |> Result.map ignore
@@ -645,11 +645,11 @@ let updateStageEntry
                 match
                     protections
                     |> List.tryFind (fun (id, protection) ->
-                        id = lineId && protection <> DataIngestionError.RecordedInClassificationRun)
+                        id = lineId && protection <> Classification.ClassificationError.RecordedInClassificationRun)
                 with
                 | Some (_, protection) ->
-                    DataIngestionError.error(
-                        DataIngestionError.IngestionStageEntryLineCannotBeChanged(lineId |> StageEntryLineId.value, protection))
+                    Classification.ClassificationError.error(
+                        Classification.ClassificationError.ClassificationStageEntryLineCannotBeChanged(lineId |> StageEntryLineId.value, protection))
                 | None -> Ok ())
             |> convertListOfResultsToResultsList
             |> Result.map ignore

@@ -6,6 +6,7 @@ open App.Utility.Result
 open Business.FinancialServices.DataIngestion.DataIngestionError
 open Business.FinancialServices.Classification.ClassificationRule
 open Business.FinancialServices.Classification.ClassificationComponent
+open Business.FinancialServices.Classification.ClassificationError
 
 /// A pattern that runs past its time limit fails the run with a typed error naming the rule, never an exception.
 let private ruleMatches (candidate: MatchCandidate) (rule: ClassificationRule) : Result<bool, IAppError> =
@@ -13,7 +14,7 @@ let private ruleMatches (candidate: MatchCandidate) (rule: ClassificationRule) :
         Ok(rule |> doesMatch candidate)
     with :? RegexMatchTimeoutException as ex ->
         let ruleUuid = rule |> classificationRuleId |> ClassificationRuleId.value
-        Error(IngestionClassificationRulePatternTimedOut(ruleUuid, ex.Pattern))
+        Error(ClassificationRulePatternTimedOut(ruleUuid, ex.Pattern))
 
 let classifyCandidate
     (rules: ClassificationRule list)

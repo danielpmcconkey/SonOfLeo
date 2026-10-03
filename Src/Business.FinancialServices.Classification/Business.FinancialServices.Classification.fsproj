@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="ClassificationError.fs" />
     <Compile Include="ClassificationComponent.fs" />
     <Compile Include="FieldMatch.fs" />
     <Compile Include="FieldMatchChain.fs" />

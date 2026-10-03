@@ -31,6 +31,7 @@ open Business.FinancialServices.Classification.FieldMatch
 open Business.FinancialServices.Ledger.LedgerError
 open App.DataAccessLayer.DalError
 open Business.FinancialServices.DataIngestion.DataIngestionError
+open Business.FinancialServices.Classification.ClassificationError
 
 let private unwrap result =
     result |> Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage()))
@@ -268,7 +269,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 (ClassificationClaimant.Account fixture.Data.food5350Id)
                 781
                 []
-            |> fun r -> isCorrectErrorEmpty r IngestionClassificationRuleGroupsEmpty None)
+            |> fun r -> isCorrectErrorEmpty r ClassificationRuleGroupsEmpty None)
         |> railroadWrapper
 
     // Position 0: the only group's chainOne. Position 1: the second group's chainOne — an
@@ -295,7 +296,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 (ClassificationClaimant.Account fixture.Data.food5350Id)
                 782
                 groups
-            |> fun r -> isCorrectErrorEmpty r IngestionFieldMatchChainEmpty None)
+            |> fun r -> isCorrectErrorEmpty r ClassificationFieldMatchChainEmpty None)
         |> railroadWrapper
 
     // =========================================================================
@@ -697,7 +698,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 do!
                     ClassificationOrchestration.updateClassificationRule
                         context NoChange NoChange NoChange NoChange NoChange ruleId
-                    |> fun r -> isCorrectErrorEmpty r IngestionClassificationRuleUpdateNoOp None
+                    |> fun r -> isCorrectErrorEmpty r ClassificationRuleUpdateNoOp None
                 let! after = ruleId |> ClassificationRule.fetchById context
                 Assert.Equal(before |> nameOf, after |> nameOf)
                 Assert.Equal(before |> ClassificationRule.classificationClaimant, after |> ClassificationRule.classificationClaimant)
@@ -725,7 +726,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 context
                 NoChange NoChange NoChange (SetTo []) NoChange
                 (this.TwoGroupRule() |> idOf)
-            |> fun r -> isCorrectErrorEmpty r IngestionClassificationRuleGroupsEmpty None)
+            |> fun r -> isCorrectErrorEmpty r ClassificationRuleGroupsEmpty None)
         |> railroadWrapper
 
     [<Theory>]
@@ -747,7 +748,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 context
                 NoChange NoChange NoChange (SetTo groups) NoChange
                 (this.TwoGroupRule() |> idOf)
-            |> fun r -> isCorrectErrorEmpty r IngestionFieldMatchChainEmpty None)
+            |> fun r -> isCorrectErrorEmpty r ClassificationFieldMatchChainEmpty None)
         |> railroadWrapper
 
     [<Fact>]
@@ -850,7 +851,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                     (SetTo(ruleNameOf "REQ-SYS-6.2 no such rule")) NoChange NoChange NoChange NoChange
                     missingId
             with
-            | Error (AsError (IngestionClassificationRuleIdDoesntExist uuid)) ->
+            | Error (AsError (ClassificationRuleIdDoesntExist uuid)) ->
                 Assert.Equal(missingId |> ClassificationRuleId.value, uuid)
                 Ok ()
             | Error e -> Error (TestingError $"Wrong error: {e.DomainName}.{e.CaseName}: {e.ToMessage()}")
@@ -888,7 +889,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                         App.DataAccessLayer.ExecuteReader.ExactlyOne
                 return
                     match created |> idOf |> ClassificationRule.fetchById context with
-                    | Error (AsError (Business.FinancialServices.DataIngestion.DataIngestionError.IngestionClassificationRuleStoredPatternInvalid(uuid, pattern, _))) ->
+                    | Error (AsError (Business.FinancialServices.Classification.ClassificationError.ClassificationRuleStoredPatternInvalid(uuid, pattern, _))) ->
                         Assert.Equal(ruleUuid, uuid)
                         Assert.Equal(brokenPattern, pattern)
                     | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
