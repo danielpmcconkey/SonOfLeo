@@ -143,7 +143,7 @@ let private updateStageEntry payload _ =
                 |> ``convert [UpdateStageEntryLineInput list] to [StageEntryLineFieldUpdates list]`` context
             let! linesToAdd =
                 input.linesToAdd
-                |> List.map (``convert [AddStageEntryLineInput] to [StageEntryLineAddition]`` context)
+                |> List.map (``convert [AddStageEntryLineInput] to [StageEntryLinePrimitives]`` context)
                 |> convertListOfResultsToResultsList
             let lineIdsToRemove = input.lineIdsToRemove |> List.map StageEntryLineId.fromGuid
             let! model =

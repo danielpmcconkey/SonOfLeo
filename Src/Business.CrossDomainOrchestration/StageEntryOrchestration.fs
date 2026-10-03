@@ -521,13 +521,6 @@ let isThereALineUpdate
         )
     |> List.exists id
     
-/// StageEntryLineAddition is a line the operator adds to a staged entry in a manual update (REQ-STG-6.4).
-type StageEntryLineAddition = {
-    amount: Money.Money
-    lineType: JournalEntryLineType
-    accountId: AccountId option
-    memo: JournalEntryLineMemo option }
-
 /// protectionsOf says, for each of the given lines, whatever keeps it from being removed or having its amount, line type
 /// or account changed (REQ-STG-6.5): a payment agreement link, a Payment, or a classification run's record of it.
 let private protectionsOf
@@ -566,7 +559,8 @@ let updateStageEntry
     (context: Context.Context)
     (headerUpdates: StageEntryHeader.StageEntryHeaderFieldUpdates)
     (lineUpdates: StageEntryLine.StageEntryLineFieldUpdates list)
-    (linesToAdd: StageEntryLineAddition list)
+    // each line the operator adds: amount, line type, account and memo
+    (linesToAdd: (Money.Money * JournalEntryLineType * AccountId option * JournalEntryLineMemo option) list)
     (lineIdsToRemove: StageEntryLineId list)
     : Result<StageEntry, IAppError> =
     result {
@@ -657,10 +651,8 @@ let updateStageEntry
             |> Result.map ignore
         let addedLines =
             linesToAdd
-            |> List.map (fun addition ->
-                StageEntryLine.create
-                    (StageEntryLineId.create ()) headerId addition.amount addition.lineType addition.accountId
-                    addition.memo None)
+            |> List.map (fun (amount, lineType, accountId, memo) ->
+                StageEntryLine.create (StageEntryLineId.create ()) headerId amount lineType accountId memo None)
         let finalLines =
             (current.seLines
              |> List.filter (fun line -> lineIdsToCheck |> List.contains (line |> StageEntryLine.stageEntryLineId) |> not)

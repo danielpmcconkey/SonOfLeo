@@ -62,8 +62,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
         |> List.find (fun a -> a |> Account.code |> AccountCode.value = code)
         |> Account.accountId
 
-    let addition amount lineType accountId : StageEntryLineAddition =
-        { amount = amount; lineType = lineType; accountId = accountId; memo = None }
+    let addition amount lineType accountId = amount, lineType, accountId, None
 
     let lineIdsOf entry = entry |> seLines |> List.map StageEntryLine.stageEntryLineId
 
