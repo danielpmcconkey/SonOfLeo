@@ -242,6 +242,7 @@ let ``convert AccountActivity to AccountActivityReturn``
     result {
         let! parentCodeOptionId = input.accountParentId |> ``convert AccountId Option to AccountCode Option`` context
         let parentCodeOptionString = parentCodeOptionId |> Option.map(AccountCode.value)
+        let! parentName = input.accountParentId |> ``convert [AccountId option] to [AccountName option]`` context
         let detail =
             input.activityDetail |> Option.map(``convert AccountActivityDetail to AccountActivityDetailReturn``)
         return
@@ -250,6 +251,7 @@ let ``convert AccountActivity to AccountActivityReturn``
               accountType = input.accountType |> AccountType.toString
               accountSubtype = input.accountSubtype |> Option.map(AccountSubtype.toString)
               accountParentCode = parentCodeOptionString
+              accountParentName = parentName |> Option.map AccountName.value
               accountExternalRef = input.accountExternalRef |> Option.map(AccountExternalReference.value)
               activityDetail = detail }
     }

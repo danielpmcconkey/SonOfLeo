@@ -90,6 +90,7 @@ let ``convert AccountCodeString Option to AccountUuidOption``
 let ``convert Account to AccountReturn`` (context: Context.Context) (a: Account.Account) : Result<AccountReturn, IAppError> =
     result {
         let! parentCode = a |> Account.parentId |> ``convert AccountId Option to AccountCodeString Option`` context
+        let! parentName = a |> Account.parentId |> ``convert [AccountId option] to [AccountName option]`` context
         let activityPeriod = a |> Account.activityPeriod
         let activeBegin = activityPeriod |> ActivityPeriod.activeBegin
         let activeEnd = activityPeriod |> ActivityPeriod.activeEnd
@@ -101,6 +102,7 @@ let ``convert Account to AccountReturn`` (context: Context.Context) (a: Account.
               activeEnd = activeEnd
               subType = Account.accountSubType a |> Option.map AccountSubtype.toString
               parentCode = parentCode
+              parentName = parentName |> Option.map AccountName.value
               reference = Account.externalReference a |> Option.map AccountExternalReference.value
               createdAt = Account.createdAt a
               modifiedAt = Account.modifiedAt a }

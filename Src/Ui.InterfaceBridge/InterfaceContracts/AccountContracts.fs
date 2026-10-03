@@ -23,6 +23,7 @@ type AccountReturn =
       activeEnd: LocalDate option
       subType: string option
       parentCode: string option
+      parentName: string option
       reference: string option
       createdAt: Instant
       modifiedAt: Instant }
@@ -46,6 +47,7 @@ type AccountActivityReturn =
       accountType: string
       accountSubtype: string option
       accountParentCode: string option
+      accountParentName: string option
       accountExternalRef: string option
       activityDetail: AccountActivityDetailReturn option }
     

@@ -557,6 +557,7 @@ type AccountCreateActivityBalanceTests(fixture: TestDataFixture) =
                            accountType = "Asset"
                            accountSubtype = Some "FixedAsset"
                            accountParentCode = Some(fst t.p)
+                           accountParentName = Some $"Account test {fst t.p}"
                            accountExternalRef = Some "ref-n"
                            activityDetail = None } : Contracts.AccountActivityReturn),
                         row))
