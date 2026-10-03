@@ -82,7 +82,6 @@ type CashFlowError =
     | CashflowPaymentAgreementsListCannotBeEmpty
     | CashflowPaymentIdDoesntExist of Guid
     | CashflowPaymentsReferenceEntryBeingVoided of Guid list * Guid
-    | CashflowPaymentLineNotOnAgreementAccount of Guid * Guid option * Guid
     | CashflowPaymentMemoIsEmpty of string
     | CashflowPaymentMemoTooLong of string * int
     | CashflowPaymentNotUnderInvoice of Guid * Guid
@@ -184,12 +183,6 @@ type CashFlowError =
             | CashflowPaymentsReferenceEntryBeingVoided (paymentUuids, journalEntryUuid) ->
                 let payments = paymentUuids |> List.map string |> String.concat ", "
                 $"Journal entry {journalEntryUuid} cannot be voided while Payments point at its lines: {payments}. Re-point or remove each Payment first, or correct the entry with an adjusting entry instead."
-            | CashflowPaymentLineNotOnAgreementAccount(paymentUuid, actualAccountUuid, expectedAccountUuid) ->
-                let actualStr =
-                    match actualAccountUuid with
-                    | Some uuid -> uuid.ToString()
-                    | None -> "unassigned"
-                $"Payment {paymentUuid} points at a line on account {actualStr}, but its PaymentAgreement is satisfied on account {expectedAccountUuid}."
             | CashflowPaymentMemoIsEmpty memo -> $"PaymentMemo cannot be empty. Provided Memo is {memo}."
             | CashflowPaymentMemoTooLong(memo, max) -> $"PaymentMemo cannot exceed {max} characters. Provided Memo is {memo}."
             | CashflowPaymentNotUnderInvoice(paymentId, invoiceId) -> $"Payment {paymentId} does not belong to Invoice {invoiceId}."

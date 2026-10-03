@@ -441,25 +441,26 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CF-9.10 a Payment change whose composite validation fails leaves the Payment, the Invoice's derived states and the Instance's is-fulfilled exactly as before`` () =
-        (* The new Payment would complete the Invoice, but its line sits on the cash account, not the leg's F-2230. *)
+        (* The new Payment would complete the Invoice, but the journal entry line it points at does not exist. *)
         rolledBack (fun s ->
             result {
                 let! agreementId, legIds, _ = s.agreement "CF-9.10 failed change"
                 let! instanceId, invoices = s.instance agreementId [ (legIds[0], None, [ PostedPay 60.00M ]) ]
                 let invoiceId, _ = invoices[0]
                 let! before = s.compositeOf instanceId
-                let! wrongLine = s.ledgerLineOn s.cashId 40.00M
+                let missingLine = JournalEntryLineId.create ()
                 let! forty = Money.fromDecimal 40.00M
                 let attempt =
                     invoiceUpdate instanceId invoiceId
                     |> withInvoiceChange (fun u ->
-                        { u with newPayments = [ (Posted wrongLine, { PaymentAmount.money = forty }, None, None, None) ] })
+                        { u with newPayments = [ (Posted missingLine, { PaymentAmount.money = forty }, None, None, None) ] })
                     |> InstanceOrchestration.updateInstanceComposite s.Context
-                let rejectedForAccount =
+                let rejectedForMissingLine =
                     match attempt with
-                    | Error (AsError (CashFlowError.CashflowPaymentLineNotOnAgreementAccount _)) -> true
+                    | Error (AsError (LedgerError.JournalEntryLineIdDoesntExist uuid)) ->
+                        uuid = (missingLine |> JournalEntryLineId.value)
                     | _ -> false
-                Assert.True(rejectedForAccount)
+                Assert.True(rejectedForMissingLine)
                 let! after = s.compositeOf instanceId
                 Assert.Equal(before, after)
             })

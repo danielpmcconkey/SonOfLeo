@@ -73,18 +73,16 @@ let lineAmount
         |> whenNoRows (DataIngestionError.IngestionStageEntryLineIdDoesntExist (stageEntryLineId |> StageEntryLineId.value))
         |> Result.map (fun line -> ({ money = line |> StageEntryLine.amount } : CashFlowComponent.PaymentAmount))
 
-/// confirmPayment checks the account its line sits on, not the line type. A classification rule may deliberately claim
-/// the opposite leg -- an Outgo agreement taking a refund matches a Credit line -- and an operator repointing a payment
-/// by hand can do the same.
+/// confirmPayment checks that the line a Payment points at exists, and that a posted-to-ledger date agrees with the
+/// journal entry. The line may sit on any account: a Payment Agreement's accounts are an expectation, not a constraint.
 let confirmPayment
     (context: Context.Context)
-    (expectedAccountId: AccountComponent.AccountId)
     (payment: Payment.Payment)
     : Result<unit, IAppError> =
     result {
         // JE and SE existence is checked below via whichever half of the transactionPointer is actually populated;
         // the other half isn't reachable off a reconstituted Payment (see transactionPointerFromColumns).
-        let! journalEntryHeader, lineAccountId =
+        let! journalEntryHeader =
             match payment |> Payment.transactionPointer with
             | CashFlowComponent.Posted journalEntryLineId ->
                 // the pointer names a line, but the date checked below lives on the header, so this branch resolves
@@ -94,24 +92,15 @@ let confirmPayment
                 |> whenNoRows (LedgerError.JournalEntryLineIdDoesntExist journalEntryLineUuid)
                 |> Result.bind (fun line ->
                     let headerId = line |> JournalEntryLine.journalEntryHeaderId
-                    let accountId = line |> JournalEntryLine.accountId
                     let journalEntryHeaderUuid = headerId |> JournalEntryHeaderId.value
                     headerId |> JournalEntryHeader.fetchById context
                     |> whenNoRows (LedgerError.JournalEntryHeaderIdDoesntExist journalEntryHeaderUuid)
-                    |> Result.map (fun header -> Some header, Some accountId))
+                    |> Result.map Some)
             | CashFlowComponent.Staged stageEntryLineId ->
                 let stageEntryLineUuid = stageEntryLineId |> StageEntryLineId.value
                 stageEntryLineId |> StageEntryLine.fetchById context
                 |> whenNoRows (DataIngestionError.IngestionStageEntryLineIdDoesntExist stageEntryLineUuid)
-                |> Result.map (fun line -> None, line |> StageEntryLine.accountId)
-        do!
-            if lineAccountId = Some expectedAccountId then Ok ()
-            else
-                let paymentUuid = payment |> Payment.paymentId |> CashFlowComponent.PaymentId.value
-                let actualAccountUuid = lineAccountId |> Option.map AccountComponent.AccountId.value
-                let expectedAccountUuid = expectedAccountId |> AccountComponent.AccountId.value
-                Error(CashFlowError.CashflowPaymentLineNotOnAgreementAccount(
-                    paymentUuid, actualAccountUuid, expectedAccountUuid))
+                |> Result.map (fun _ -> None)
         return!
             match payment |> Payment.postedToLedgerDate, journalEntryHeader with
             | None, _ -> Ok ()
@@ -251,10 +240,9 @@ let private confirmInvoiceComposite
         do! confirmPartiallyPaidHasPayments invoice payments
         do! confirmPostedToLedgerRequiresAllPaymentsPosted invoice payments
         do! confirmPartiallyPostedHasAPostedPayment invoice payments
-        let expectedAccountId = paymentAgreement |> PaymentAgreement.accountIdForFlowDirection direction
         return!
             payments
-            |> List.map (confirmPayment context expectedAccountId)
+            |> List.map (confirmPayment context)
             |> convertListOfResultsToResultsList
             |> Result.map ignore
     }
