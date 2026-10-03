@@ -283,6 +283,18 @@ Do these first. Most are small; #1 breaks agreement creation outright.
     - Tests: in `Tests.Integrated/SonOfLeoCli/Configuration.fs` delete the six REQ-DAL-1.3 / REQ-SYS-7.1 refusal tests and everything only they use (the listener, `runBothCliesWith`, `copyDirectory` and its `cp` workaround, `confirmRefused`, `settings`). Keep the REQ-SYS-7.1 late-evening conversion test. In `InterfaceBridge/StartupErrorReporting.fs` delete the thrown-exception test; the typed-error test stays, citing REQ-NGUI-1.3 and 1.3.1 only. Remove any `CliExecutor` additions that only the deleted tests use.
     - Nothing new gets a test. Run the traceability audit afterwards: there must be no phantom citations of the three changed requirements.
 
+29.9. **Src fixes from the test backlog.** *(Added 2026-10-03, Dan; findings in `HobsonsNotes/test-backlog-report.md`.)* Each has a failing test already, written by the test-backlog agent; make it pass, don't change the test. Do these after item 24.
+    - **F-1 (REQ-CF-12.4).** `CashFlowOps.selectLegsOfClaimedEntries`: when a claiming rule constrains line type, keep only the lines a constraining rule matched, not every claimed line on the entry.
+    - **F-4 (REQ-CF-7.16).** `CashFlowOps.spawnInstancesFromAgreement`: stop the cadence walk at the earlier of the horizon end and the agreement's end date.
+    - **F-5 (REQ-CF-9.11).** Remove `paymentStateUpdate` and `postedStateUpdate` from `UpdateInvoiceInput`, and the check that rejected them.
+    - **F-6 (REQ-CF-5.14).** Blocker note errors name the blocker note, not the memo.
+    - **F-7 (REQ-STG-1.17).** Ingestion trims the account code before looking it up (go through `AccountCode.create`).
+    - **F-9 (REQ-STG-6.7).** A staged entry with any line a Payment references cannot go to `'Duplicate'` or `'Ignored'`: the manual update refuses with a typed error, and dedup leaves it out of what it flags. No new field on the dedup result.
+    - **F-10 (REQ-STG-3.13).** Ingestion persists the Ingested transition it built and returns it; no second transition with a different ID.
+    - **F-12 (REQ-SYS-3.3).** `PaymentAgreementLink.update` sets `modified_at` to the operation's instant.
+    - **Payment amount (REQ-CF-6.5, 9.8).** A Payment's amount is its line's; the create contracts must not carry one, and the Invoice's payment state at creation is derived from the line amount, not a payload amount. Today a payload amount below the line's leaves a fully paid Invoice `PartiallyPaid`. The test-backlog agent is adding the test.
+    - Not Src bugs, already settled in the spec (2026-10-03): F-2, F-3, F-8, F-13, F-14, Q-1. No guard against posting an entry that already has a journal entry ID (F-11's Src question): reconciliation surfaces a double post.
+
 ### D. Tests
 
 30. Every requirement added or revised on 2026-09-26 needs a citing test

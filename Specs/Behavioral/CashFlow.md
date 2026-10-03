@@ -168,7 +168,7 @@ References: Payment Agreement, staged entry line.
 - **REQ-CF-6.1** Payment ID cannot be null
 - **REQ-CF-6.2** Payment ID must be unique
 - **REQ-CF-6.3** Payment must reference a valid Invoice ID
-- **REQ-CF-6.4** Payment must have a transaction pointer. At least one of a staged entry line ID or a journal entry line ID must be present. Both may be present: a Payment is created pointing to a staged line, and after posting, the journal entry line ID is added while the staged line ID is retained as provenance. When both are present, the journal entry line (Posted) takes precedence.
+- **REQ-CF-6.4** Payment must have a transaction pointer. At least one of a staged entry line ID or a journal entry line ID must be present. Both may be present: a Payment is created pointing to a staged line, and after posting, the journal entry line ID is added while the staged line ID is retained as provenance. When both are present, the journal entry line (Posted) takes precedence. At creation a Payment carries exactly one of the two; both are present only once the payments-to-posted transition (§10) adds the journal entry line. (Amended 2026-10-03)
   - *Why:* The staged line is provenance (the FI export that proved cash moved). The journal entry line is current truth (the ledger record). Both are worth keeping. Line-level rather than header-level because one entry can satisfy several legs — a split tenant payment carries a rent line and a utility line, each paying a different invoice. (2026-08-28, revised 2026-08-29, moved to line level 2026-09-26)
 - **REQ-CF-6.5** Payment amount is derived, not stored. It is the amount of the journal entry line the transaction pointer references when Posted, or of the staged line when Staged.
   - *Why:* The cash amount lives in the ledger/stage data, not duplicated on the Payment record. The Payment is a link, not a copy. A line-level pointer names the leg directly, so no account filtering is needed to find it. (2026-08-29, revised 2026-09-26)
@@ -289,11 +289,12 @@ Linkage answers "which staged line is the cash movement for which Payment Agreem
   - *Why:* Account assignment and obligation linkage are independent questions about the same line. `'Reviewed'` is included because splitting a line (REQ-STG-6.4) is an operator review action and must happen before linkage — a split tenant payment is exactly the entry that most needs linking. (2026-09-26)
 - **REQ-CF-12.4** Leg selection. A rule matches an entry's description, source and amount, none of which distinguishes one line of the entry from another. For each (Payment Agreement, staged entry) claim, the claimed line is chosen as follows: when any claiming rule constrains line type, the lines that rule matched are kept; otherwise the kept line is the one on the Payment Agreement's credit account with line type Credit (Income agreements) or on its debit account with line type Debit (Outgo agreements). Exactly one kept line proceeds to REQ-CF-12.5. Zero or more than one kept line means no link, and the claim is reported with the reason.
   - *Why:* The rule author knew something the direction default doesn't — an Outgo agreement taking a refund matches a Credit line, which the default would discard. (2026-09-26)
-- **REQ-CF-12.5** Resolution is by Payment Agreement, not by line. A Payment Agreement claimed by exactly one line, where that line's claim is not a tie between rules of equal priority, is linked. A Payment Agreement claimed by more than one line, or by any tied claim, is not linked, and every claimant is reported as contested.
+- **REQ-CF-12.5** Resolution is by Payment Agreement, not by line. A Payment Agreement claimed by exactly one line, where that line's claim is not a tie between rules of equal priority, is linked. A Payment Agreement claimed by more than one line, or by any tied claim, is not linked, and every claimant is reported as contested. When one line is claimed for different Payment Agreements by rules of different priority, only the highest-priority rule's Payment Agreement counts as claimed by that line; the others are not. (Amended 2026-10-03)
+  - *Why:* Otherwise both agreements would read as claimed by exactly one line and both would link, breaking REQ-CF-12.2. (2026-10-03)
   - *Why:* The dangerous case is one obligation claimed by two cash movements — two $150 lines both claiming the water bill looks like a paid bill and a spare $150. One line ambiguously matching two obligations is merely inconvenient. Code never breaks a tie. (2026-09-26)
 - **REQ-CF-12.6** Linkage does not change any staged entry's status.
 - **REQ-CF-12.7** The system must provide a means for the operator to create a link, re-point a link to a different Payment Agreement, and delete a link. Creating a link for a line that is already linked is rejected with a typed error naming the existing link's Payment Agreement.
-- **REQ-CF-12.8** The classification run's matches, including the rules that matched each line and their priorities, are recorded under a run ID and retrievable by that ID.
+- **REQ-CF-12.8** The classification run's matches, including the rules that matched each line, are recorded under a run ID and retrievable by that ID. Each rule reads back with its priority as it stands at retrieval (REQ-CR-8.5). (Revised 2026-10-03)
   - *Why:* The operator reviewing a contested claim needs to see what matched, not re-run the classifier. (2026-09-26)
 
 
@@ -322,7 +323,8 @@ Matching turns links into Payments. It runs in the same operation as linkage (§
 The operator-facing operations on agreements and their events. Master and Payment Agreements are addressed by name at the boundary.
 
 - **REQ-CF-14.1** The system must provide a means to create a Master Agreement together with its Payment Agreements in one atomic operation. Payment Agreement accounts are given by account code.
-- **REQ-CF-14.2** The system must provide a means to update a Master Agreement's name, flow direction, cadence (including next-instance date), counterparty, start date, end date, and memo. An update that changes nothing is rejected (REQ-SYS-6.1). A flow-direction change is rejected when any existing Invoice's invoice state is not valid for the new direction (REQ-CF-5.10). (Amended 2026-09-26)
+- **REQ-CF-14.2** The system must provide a means to update a Master Agreement's name, flow direction, cadence (including next-instance date), counterparty, start date, end date, and memo. An update that names no field to change is rejected (REQ-SYS-6.1); a field set to the value it already holds counts as named. (Amended 2026-10-03) A flow-direction change is rejected when any existing Invoice's invoice state is not valid for the new direction (REQ-CF-5.10). (Amended 2026-09-26)
+  - *Why an unchanged value is not a no-op:* REQ-SYS-6.1 exists to surface a caller who believes the system is in a different state. A caller re-sending a value the record already holds believes nothing wrong, and comparing every field to its stored value buys nothing. (2026-10-03)
 - **REQ-CF-14.3** The system must provide a means to fetch one Master Agreement, by name, with its whole tree: Payment Agreements, Instances, Invoices, and Payments.
 - **REQ-CF-14.4** The system must provide a means to create an Instance for a Master Agreement, optionally with Invoices and their Payments, in one atomic operation.
 - **REQ-CF-14.5** The system must provide a means to add an Invoice, optionally with Payments, to an existing Instance; to update an Invoice's external invoice ID, invoice date, due date, amount, invoice state, blocker and memo; and to add a Payment to an existing Invoice. Each validates the Instance as a whole (§4, §5, §9) before anything is written.
@@ -345,10 +347,21 @@ The operator-facing operations on agreements and their events. Master and Paymen
 
 | ID | Reason | Approved |
 |---|---|---|
-| *(none yet)* | | |
+| REQ-CF-2.1 | The Master Agreement ID is a Guid, a value type; it cannot be null (REQ-AC-1.21 precedent) | Dan, 2026-10-03 |
+| REQ-CF-2.2 | The ID is generated by the system; no create or update contract lets a caller supply one | Dan, 2026-10-03 |
+| REQ-CF-3.1 | The Payment Agreement ID is a Guid, a value type; it cannot be null (as REQ-CF-2.1) | Dan, 2026-10-03 |
+| REQ-CF-3.2 | The ID is generated by the system; no contract lets a caller supply one (as REQ-CF-2.2) | Dan, 2026-10-03 |
+| REQ-CF-4.1 | The Instance ID is a Guid, a value type; it cannot be null | Dan, 2026-10-03 |
+| REQ-CF-4.2 | The Instance ID is generated by the system, so unique by construction (REQ-AC-1.22 precedent) | Dan, 2026-10-03 |
+| REQ-CF-4.4 | The Instance date is a NodaTime LocalDate, a value type; it cannot be null | Dan, 2026-10-03 |
+| REQ-CF-5.1 | The Invoice ID is a Guid, a value type; it cannot be null | Dan, 2026-10-03 |
+| REQ-CF-5.11 | Payment state is a closed union that is only ever derived (REQ-CF-9.8–9.11), never read from a caller | Dan, 2026-10-03 |
+| REQ-CF-5.12 | Posted state is a closed union that is only ever derived (REQ-CF-9.8–9.11), never read from a caller | Dan, 2026-10-03 |
+| REQ-CF-6.1 | The Payment ID is a Guid, a value type; it cannot be null (Guid.Empty is covered by REQ-CF-6.2) | Dan, 2026-10-03 |
 
 ## Unenforceable
 
 | ID | Why | Approved |
 |---|---|---|
-| *(none yet)* | | |
+| REQ-CF-7.13 | "Deterministic" is not observable: nothing separates it from an operation that happens to give the same answer twice. Repeat-and-compare tests catch the visible failure | Dan, 2026-10-03 |
+| REQ-CF-10.6 | As REQ-CF-7.13 | Dan, 2026-10-03 |

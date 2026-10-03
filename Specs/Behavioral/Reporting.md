@@ -103,7 +103,6 @@ construction pattern) but deliberately not verified by tests.
 | REQ-RPT-2.1 | Too broadly scoped — the data-only and report-mode tests exercise both branches | Dan, 2026-08-07 |
 | REQ-RPT-2.5 | File I/O failure depends on OS state; verified by code review of the error-handling branch | Dan, 2026-08-07 |
 | REQ-RPT-2.6 | Architectural constraint (NoTransaction, FetchOnly context) — verified by code review | Dan, 2026-08-07 |
-| REQ-RPT-3.1 | HTML structure verified by code review and visual inspection of rendered output | Dan, 2026-08-07 |
 | REQ-RPT-3.2 | HTML structure verified by code review and visual inspection of rendered output | Dan, 2026-08-07 |
 | REQ-RPT-3.3 | CSS class assignment verified by code review and visual inspection of rendered output | Dan, 2026-08-07 |
 | REQ-RPT-3.4 | CSS class assignment verified by code review and visual inspection of rendered output | Dan, 2026-08-07 |
