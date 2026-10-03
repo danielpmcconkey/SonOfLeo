@@ -9,7 +9,7 @@ let createFullPath
     (fileName: string)
     : Result<string, IAppError> =
     try
-        Path.Combine(baseDir, fileName) |> Ok
+        Path.GetFullPath(Path.Combine(baseDir, fileName)) |> Ok
     with ex ->
         Error(FileIoError ex)
 

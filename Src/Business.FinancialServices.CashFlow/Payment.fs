@@ -129,12 +129,9 @@ let private transactionPointerFromColumns
     (stageEntryLineUuid: Guid option)
     : Result<TransactionPointer, IAppError> =
     // Note: it is not an illegal state for the database to have both a stage reference and a ledger reference. Both
-    // being populated is the normal end state, not corruption. The standard lifecycle is for the data ingestion to load
-    // the FI transaction into stage and run the classifier. Then the operator will review obligations to see if any of
-    // the staged transactions represent a new payment. At which point, the operator will add a new payment record into
-    // the database with the link to stage. The operator will use this knowledge to update the account code in stage
-    // before posting to the ledger. Once posted, the ledger's JournalEntryLineId will be known and the operator will
-    // close the loop by updating the payment record. Terminal state on happy path includes both values.
+    // being populated is the normal end state, not corruption. Invoice matching creates the Payment pointing at the
+    // staged line it matched. Once that line is posted, the transition to posted sets the journal entry line the line
+    // became and keeps the staged reference. Terminal state on happy path includes both values.
     match journalEntryLineUuid, stageEntryLineUuid with
     | Some journalEntryLineUuid, _ ->
         journalEntryLineUuid |> JournalEntryLineId.fromGuid |> CashFlowComponent.Posted |> Ok
@@ -167,8 +164,8 @@ let private reconstitute raw =
             | None ->
                 Error(
                     CashflowInvalidPaymentAmountRow
-                        "the computed amount column was null; no matching journal_entry_line/staged_entry_line was \
-                         found for this payment's flow direction and account.")
+                        "the computed amount column was null; neither the journal entry line nor the staged line \
+                         the payment points at was found.")
         let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter PaymentMemo.create
         let postedToFiDate = postedToFiLocalDateOpt |> Option.map(fun x ->{ PostedToFiDate.localDate = x })
         let postedToLedgerDate = postedToLedgerLocalDateOpt |> Option.map(fun x -> { PostedToLedgerDate.localDate = x })

@@ -10,13 +10,8 @@ open Business.FinancialServices.Ledger.FiscalPeriodComponent
 
 let constructNewAndPersist (context: Context.Context) (periodKey: FiscalPeriodKey) : Result<FiscalPeriod.FiscalPeriod, IAppError> =
     let fiscalPeriodId = FiscalPeriodId.create()
-    let keyString = periodKey |> FiscalPeriodKey.value
-    let year = keyString[0..3]
-    let yearNum = Int32.Parse(year) // we already validated via regex that this won't throw
-    let month = keyString[5..6]
-    let monthNum = Int32.Parse(month) // we already validated via regex that this won't throw
-    let startDate = LocalDate(yearNum, monthNum, 1)
-    let endDate = startDate.PlusMonths(1).PlusDays(-1)
+    let startDate = periodKey |> FiscalPeriodKey.startDate
+    let endDate = periodKey |> FiscalPeriodKey.endDate
     let isOpen = true
     let now = context |> Context.getInitiationInstant
     let createdAt = now
@@ -38,7 +33,6 @@ let ensureFiscalPeriods
     : Result<FiscalPeriod.FiscalPeriod list, IAppError> =
     let startStr = startKey |> FiscalPeriodKey.value
     let endStr = endKey |> FiscalPeriodKey.value
-    let firstOfMonth (keyStr: string) = LocalDate(Int32.Parse(keyStr[0..3]), Int32.Parse(keyStr[5..6]), 1)
     result {
         do!
             // keys are zero-padded yyyy-MM, so they order as strings the way the months do
@@ -47,15 +41,13 @@ let ensureFiscalPeriods
             else Ok ()
         let! existing = FiscalPeriod.fetchAll context false
         let existingKeys = existing |> List.map (FiscalPeriod.periodKey >> FiscalPeriodKey.value) |> Set.ofList
-        let lastMonth = endStr |> firstOfMonth
-        let! missingKeys =
-            startStr
-            |> firstOfMonth
+        let lastMonth = endKey |> FiscalPeriodKey.startDate
+        let missingKeys =
+            startKey
+            |> FiscalPeriodKey.startDate
             |> List.unfold (fun month -> if month > lastMonth then None else Some(month, month.PlusMonths 1))
-            |> List.map (fun month -> month.ToString("yyyy-MM", Globalization.CultureInfo.InvariantCulture))
-            |> List.filter (fun keyStr -> existingKeys |> Set.contains keyStr |> not)
-            |> List.map FiscalPeriodKey.fromString
-            |> convertListOfResultsToResultsList
+            |> List.map FiscalPeriodKey.ofDate
+            |> List.filter (fun key -> existingKeys |> Set.contains (key |> FiscalPeriodKey.value) |> not)
         return!
             missingKeys
             |> List.map (constructNewAndPersist context)

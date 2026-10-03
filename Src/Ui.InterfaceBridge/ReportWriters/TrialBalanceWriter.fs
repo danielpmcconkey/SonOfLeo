@@ -198,8 +198,8 @@ let createAccountRowDomElement
     (ordinal:int)
     (row:TrialBalanceRowFlattened)
     : DomElement =
-    let code:string = row.accountCode |> AccountCode.value
-    let accountName = row.accountName |> AccountName.value
+    let code = row.accountCode |> AccountCode.value |> System.Net.WebUtility.HtmlEncode
+    let accountName = row.accountName |> AccountName.value |> System.Net.WebUtility.HtmlEncode
     let accountLabelName = {
         ordinal = 10
         elementType = (Span $"{code} &middot; {accountName}")

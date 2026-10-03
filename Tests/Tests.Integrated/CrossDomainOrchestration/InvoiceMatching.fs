@@ -103,8 +103,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                             |> JournalEntryOrchestration.jeLines
                             |> List.find (fun l -> l |> JournalEntryLine.accountId = loanId)
                             |> JournalEntryLine.journalEntryLineId
-                        let! money = Money.fromDecimal paid
-                        return (TransactionPointer.Posted lineId, { money = money }, None, None, None)
+                        return (TransactionPointer.Posted lineId, None, None, None)
                     })
                 |> convertListOfResultsToResultsList
             let! created =

@@ -78,7 +78,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
                             memoUpdate = NoChange }
                         paymentUpdates = []
                         paymentIdsToDelete = []
-                        newPayments = [ (pointer, { money = amount }, None, None, None) ] } ]
+                        newPayments = [ (pointer, None, None, None) ] } ]
                   newInvoices = [] }
             let! composite = InstanceOrchestration.updateInstanceComposite context update
             return

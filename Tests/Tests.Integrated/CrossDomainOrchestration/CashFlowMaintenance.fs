@@ -205,12 +205,11 @@ type CashFlowMaintenanceTests(fixture: TestDataFixture) =
             result {
                 let! _, _, created = createInvoicedInstance fixture context "sys63 staged pointer"
                 let instanceId = created |> instanceIdOf
-                let! amount = Money.fromDecimal 40.00M
                 let update =
                     { instanceCompositeUpdate instanceId with
                         invoiceCompositeUpdates =
                             [ { invoiceCompositeUpdate (created |> invoiceIdOf) with
-                                  newPayments = [ (Staged missingId, { money = amount }, None, None, None) ] } ] }
+                                  newPayments = [ (Staged missingId, None, None, None) ] } ] }
                 do!
                     InstanceOrchestration.updateInstanceComposite context update
                     |> expectNotFound
@@ -228,12 +227,11 @@ type CashFlowMaintenanceTests(fixture: TestDataFixture) =
             result {
                 let! _, _, created = createInvoicedInstance fixture context "sys63 posted pointer"
                 let instanceId = created |> instanceIdOf
-                let! amount = Money.fromDecimal 40.00M
                 let update =
                     { instanceCompositeUpdate instanceId with
                         invoiceCompositeUpdates =
                             [ { invoiceCompositeUpdate (created |> invoiceIdOf) with
-                                  newPayments = [ (Posted missingId, { money = amount }, None, None, None) ] } ] }
+                                  newPayments = [ (Posted missingId, None, None, None) ] } ] }
                 do!
                     InstanceOrchestration.updateInstanceComposite context update
                     |> expectNotFound

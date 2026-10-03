@@ -198,9 +198,8 @@ let update
         return! linkId |> fetchById context
     }
 
-/// delete removes the row outright. This is the only hard delete in Src/ -- the ledger's indelibility rules do not
-/// reach here, because a link is a belief about which obligation a bank row belongs to, and a wrong belief is removed
-/// rather than voided. The classification diagnostic that produced it survives and is where the trail lives.
+/// delete removes the row outright. The ledger's indelibility rules do not reach here, because a link is a belief
+/// about which obligation a bank row belongs to, and a wrong belief is removed rather than voided.
 let delete (context: Context.Context) (linkId: PaymentAgreementLinkId) : Result<unit, IAppError> =
     let queryStatement = "delete from cashflow.payment_agreement_link where unique_id = @unique_id;"
     let uuid = linkId |> PaymentAgreementLinkId.value

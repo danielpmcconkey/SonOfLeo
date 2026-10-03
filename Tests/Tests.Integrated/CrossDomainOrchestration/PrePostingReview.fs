@@ -133,20 +133,18 @@ type PrePostingScenario(fixture: TestDataFixture, context: Context.Context) =
         CashFlowOps.constructNewPaymentAgreementLinkAndPersist context legId (line |> StageEntryLine.stageEntryLineId)
         |> Result.map ignore
 
-    /// An Invoice of invoiceAmount on its own Instance dated instanceDate, with one Payment of paid on the staged line.
+    /// An Invoice of invoiceAmount on its own Instance dated instanceDate, with one Payment on the staged line.
     member _.invoicePaidByLine
         agreementId legId (instanceDate: LocalDate) (invoiceDate: LocalDate) (dueDate: LocalDate)
-        (invoiceAmount: decimal) (paid: decimal) (line: StageEntryLine.StageEntryLine) =
+        (invoiceAmount: decimal) (line: StageEntryLine.StageEntryLine) =
         result {
             let! amount = Money.fromDecimal invoiceAmount
-            let! paidMoney = Money.fromDecimal paid
             let! _ =
                 InstanceOrchestration.createInstanceCompositeAndSaveToDb
                     context agreementId instanceDate
                     [ (legId, None, { localDate = invoiceDate }, { localDate = dueDate }, { money = amount },
                        InvoiceReceived, None, None,
-                       [ (TransactionPointer.Staged (line |> StageEntryLine.stageEntryLineId), { money = paidMoney },
-                          None, None, None) ]) ]
+                       [ (TransactionPointer.Staged (line |> StageEntryLine.stageEntryLineId), None, None, None) ]) ]
             return ()
         }
 
@@ -342,7 +340,7 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 let instanceDate = LocalDate(s.Today.Year, s.Today.Month, 1)
                 let invoiceDate = instanceDate.PlusDays(-5)
                 let dueDate = instanceDate.PlusDays(10)
-                do! s.invoicePaidByLine agreementId legId instanceDate invoiceDate dueDate 120.00M 100.00M line
+                do! s.invoicePaidByLine agreementId legId instanceDate invoiceDate dueDate 120.00M line
                 let! review = fetchPrePostingReview context
                 let! reviewed = reviewedLine review entry line
                 Assert.True(reviewed.agreement.IsSome, "Expected the line to carry its agreement")

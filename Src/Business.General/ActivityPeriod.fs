@@ -63,14 +63,8 @@ let isAvailable
     | _ -> false
 
 /// insistBeginValidationBehavior is used by model create functions to insist that the flag is set correctly when sent
-/// in from their constituent calling functions
+/// in from their constituent calling functions. Only the flag changes, so the period stays valid.
 let insistBeginValidationBehavior
     (beginValidationBehavior: BeginValidationBehavior)
     (ap: ActivityPeriod) =
-    // any failure here means we have a major code failure because the passed in activity period was already a valid
-    // type. We're just (maybe) changing a DU that has no bearing on the type validity
-    let beginDate = ap |> activeBegin
-    let endDate = ap |> activeEnd
-    create beginDate endDate beginValidationBehavior
-    |> Result.defaultWith(fun e -> failwith(e.ToMessage()))  
-
+    { ap with beginValidationBehavior = beginValidationBehavior }

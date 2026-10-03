@@ -156,7 +156,7 @@ let write
         script = ""
     }
     let lineCount = entries |> List.sumBy (fun e -> e.lines |> List.length)
-    // REQ-RPT-7.7: the header shows the run date and the number of entries and lines
+    // the header shows the run date and the number of entries and lines
     let subtitle =
         div 20 "range"
             [ { ordinal = 10; elementType = NoTag "Run on "; identifierType = NoIdentifier; contents = [] }

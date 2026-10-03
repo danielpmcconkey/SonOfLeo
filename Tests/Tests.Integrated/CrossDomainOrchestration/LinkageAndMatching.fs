@@ -108,11 +108,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             (payments: (TransactionPointer * decimal) list) =
         result {
             let! amount = Money.fromDecimal 100.00M
-            let! newPayments =
-                payments
-                |> List.map (fun (pointer, paid) ->
-                    Money.fromDecimal paid |> Result.map (fun money -> (pointer, { money = money }, None, None, None)))
-                |> convertListOfResultsToResultsList
+            let newPayments = payments |> List.map (fun (pointer, _) -> (pointer, None, None, None))
             let! created =
                 InstanceOrchestration.createInstanceCompositeAndSaveToDb
                     context agreementId invoiceDate

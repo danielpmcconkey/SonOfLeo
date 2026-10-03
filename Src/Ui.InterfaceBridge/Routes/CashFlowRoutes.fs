@@ -252,7 +252,7 @@ let cashFlowDomainCommandRoutes: CommandRoute list =
 
       { domain = "CashFlow"
         verb = "UpdateInvoice"
-        description = "Update an invoice's fields and its invoice state or blocker. Payment state and posted state are derived, so a package that sets either is rejected. Returns the whole instance."
+        description = "Update an invoice's fields and its invoice state or blocker. Payment state and posted state are always derived: the contract has no fields for them, and any such field in a payload is ignored. Returns the whole instance."
         inputContract = typeof<UpdateInvoiceInput>.Name
         outputContract = typeof<InstanceCompositeReturn>.Name
         handler = updateInvoice }

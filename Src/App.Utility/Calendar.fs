@@ -3,8 +3,6 @@ module App.Utility.Calendar
 open System.Globalization
 open NodaTime
 open App.Utility
-open App.Utility.UtilityError
-open App.Utility.Config
 
 let dateFromInstant (i: Instant) : LocalDate = i.InZone(Clock.timeZoneLocal).Date
 

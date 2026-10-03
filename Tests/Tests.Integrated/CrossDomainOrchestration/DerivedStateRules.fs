@@ -128,12 +128,11 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
 
     member this.newPayment (pay: Pay) =
         result {
-            let! pointer, amount =
+            let! pointer =
                 match pay with
-                | PostedPay amount -> this.ledgerLineOn loanId amount |> Result.map (fun line -> Posted line, amount)
-                | StagedPay amount -> this.stagedLine amount |> Result.map (fun line -> Staged line, amount)
-            let! money = Money.fromDecimal amount
-            return (pointer, { PaymentAmount.money = money }, None, None, None)
+                | PostedPay amount -> this.ledgerLineOn loanId amount |> Result.map Posted
+                | StagedPay amount -> this.stagedLine amount |> Result.map Staged
+            return (pointer, None, None, None)
         }
 
     /// An Instance dated the 1st of this month with a 100.00 Invoice for each (leg, blocker, Payments) given. Returns the
@@ -163,7 +162,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                     let createdPayments = composite |> InstanceOrchestration.payments
                     let paymentIds =
                         payments
-                        |> List.map (fun (pointer, _, _, _, _) ->
+                        |> List.map (fun (pointer, _, _, _) ->
                             createdPayments |> List.find (fun p -> p |> Payment.transactionPointer = pointer) |> Payment.paymentId)
                     (composite |> InstanceOrchestration.invoice |> Invoice.invoiceId), paymentIds)
             return instanceId, perInvoice
@@ -449,11 +448,10 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 let invoiceId, _ = invoices[0]
                 let! before = s.compositeOf instanceId
                 let missingLine = JournalEntryLineId.create ()
-                let! forty = Money.fromDecimal 40.00M
                 let attempt =
                     invoiceUpdate instanceId invoiceId
                     |> withInvoiceChange (fun u ->
-                        { u with newPayments = [ (Posted missingLine, { PaymentAmount.money = forty }, None, None, None) ] })
+                        { u with newPayments = [ (Posted missingLine, None, None, None) ] })
                     |> InstanceOrchestration.updateInstanceComposite s.Context
                 let rejectedForMissingLine =
                     match attempt with

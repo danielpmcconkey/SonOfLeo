@@ -313,7 +313,6 @@ let private createPaymentForInvoice
     (instanceId: CashFlowComponent.InstanceId)
     (invoiceId: CashFlowComponent.InvoiceId)
     (lineId: StageEntryComponent.StageEntryLineId)
-    (amount: CashFlowComponent.PaymentAmount)
     (entryDate: LocalDate)
     (clearBlocker: bool)
     : Result<InstanceOrchestration.InstanceComposite, IAppError> =
@@ -325,7 +324,7 @@ let private createPaymentForInvoice
           paymentUpdates = []
           paymentIdsToDelete = []
           newPayments =
-            [ CashFlowComponent.Staged lineId, amount, Some { localDate = entryDate }, None, None ] }
+            [ CashFlowComponent.Staged lineId, Some { localDate = entryDate }, None, None ] }
     let compositeUpdate: InstanceOrchestration.InstanceCompositeUpdate =
         { instanceUpdates =
             { instanceIdToUpdate = instanceId
@@ -490,7 +489,7 @@ let private matchInvoicesAndCreatePayments
                             | None -> None
                         let! updated =
                             createPaymentForInvoice
-                                context instanceId invoiceId lineId amount entryDate (blockerToClear |> Option.isSome)
+                                context instanceId invoiceId lineId entryDate (blockerToClear |> Option.isSome)
                         let! overpaid = updated |> isOverpaid invoiceId
                         let created =
                             { CashFlowComponent.invoiceId = invoiceId

@@ -112,7 +112,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                             memoUpdate = NoChange }
                         paymentUpdates = []
                         paymentIdsToDelete = []
-                        newPayments = [ (CashFlowComponent.Staged lineId, { money = amount }, None, None, None) ] } ]
+                        newPayments = [ (CashFlowComponent.Staged lineId, None, None, None) ] } ]
                   newInvoices = [] }
             let! _ = InstanceOrchestration.updateInstanceComposite context update
             return ()

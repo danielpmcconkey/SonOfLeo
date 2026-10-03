@@ -1098,13 +1098,12 @@ type TestDataFixture() =
                 let! partlyPaidInvoiceCId =
                     result {
                         let! amount = Money.fromDecimal 100.00M
-                        let! paid = Money.fromDecimal 40.00M
                         let! created =
                             InstanceOrchestration.createInstanceCompositeAndSaveToDb
                                 context agreementCId firstOfThisMonth
                                 [ (legCId, None, { localDate = firstOfThisMonth }, { localDate = firstOfThisMonth.PlusDays(30) },
                                    { money = amount }, InvoiceReceived, None, None,
-                                   [ (Posted partPaymentLineId, { money = paid }, None, None, None) ]) ]
+                                   [ (Posted partPaymentLineId, None, None, None) ]) ]
                         return
                             created |> InstanceOrchestration.invoiceComposites |> List.head
                             |> InstanceOrchestration.invoice |> Invoice.invoiceId

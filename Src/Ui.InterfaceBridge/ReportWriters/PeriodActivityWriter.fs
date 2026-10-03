@@ -142,7 +142,7 @@ let write
         specificCss = specificCss
         script = ""
     }
-    // REQ-RPT-6.4: the header shows the range
+    // the header shows the range
     let subtitle =
         div 20 "range"
             [ { ordinal = 10; elementType = NoTag "From "; identifierType = NoIdentifier; contents = [] }

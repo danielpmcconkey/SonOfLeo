@@ -57,13 +57,16 @@ let fetchByAccountIdList
             ($"@account_id_{iterator}", { name = $"@account_id_{iterator}"; value = UniqueId accountIdGuid }))
     let accountIdsInString = accountFilters |> List.map fst |> String.concat ", "
     let accountPredicate = if accountIdFilter |> Option.isNone then "" else $"where a.unique_id in ({accountIdsInString})"
-    let parameters = asOfParam @ (accountFilters |> List.map snd)
+    let lineTypeParameters =
+        [ { name = "@credit"; value = CharString(Credit |> JournalEntryLineType.toString) }
+          { name = "@debit"; value = CharString(Debit |> JournalEntryLineType.toString) } ]
+    let parameters = asOfParam @ (accountFilters |> List.map snd) @ lineTypeParameters
     let queryStatement =
         $"""
         with line_types as (
-            select '{Credit |> JournalEntryLineType.toString}' as line_type
+            select @credit::text as line_type
             union all
-            select '{Debit |> JournalEntryLineType.toString}' as line_type
+            select @debit::text as line_type
         ), account_and_types as (
             select
                 a.unique_id as account_id,

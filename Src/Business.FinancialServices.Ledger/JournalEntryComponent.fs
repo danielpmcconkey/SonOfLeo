@@ -97,13 +97,17 @@ module EntryDate =
     let entryDate (e: EntryDate) : LocalDate = e.entryDate
     let fiscalPeriodId (e: EntryDate) : FiscalPeriodId = e.fiscalPeriodId
     let create (context: Context.Context) (entryDate: LocalDate) : Result<EntryDate, IAppError> =
-        let monthF = entryDate.Month.ToString("D2")
         result {
-            let key = $"{entryDate.Year}-{monthF}"
             let! id =
-                key
+                entryDate
+                |> FiscalPeriodKey.ofDate
+                |> FiscalPeriodKey.value
                 |> FiscalPeriod.fetchIdByKey context
-                |> Result.mapError(fun _ -> (JournalEntryDateNotInFiscalPeriod entryDate))
+                // only a missing period means the date is outside every period; anything else passes through
+                |> Result.mapError(fun e ->
+                    match e with
+                    | AsError (FiscalPeriodNoPeriodMatchingKey _) -> JournalEntryDateNotInFiscalPeriod entryDate :> IAppError
+                    | other -> other)
             return { entryDate = entryDate; fiscalPeriodId = id }
         }
 

@@ -220,7 +220,7 @@ type private Scenario(fixture: TestDataFixture, initialContext: Context.Context)
             let date = cashFlow.nextInstanceDateA
             let! amount = Money.fromDecimal 100.00M
             let payments =
-                [ (CashFlowComponent.Staged lineId, ({ money = amount } : CashFlowComponent.PaymentAmount), None, None, None) ]
+                [ (CashFlowComponent.Staged lineId, None, None, None) ]
             let! _ =
                 InstanceOrchestration.createInstanceCompositeAndSaveToDb context cashFlow.agreementAId date
                     [ (cashFlow.legAId, None, ({ localDate = date } : CashFlowComponent.InvoiceDate),

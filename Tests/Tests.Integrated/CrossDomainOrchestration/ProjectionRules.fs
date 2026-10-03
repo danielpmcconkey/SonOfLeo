@@ -126,7 +126,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                                 result {
                                     let! pointer = this.paymentLine direction cashId p
                                     let! money = Money.fromDecimal p
-                                    return (pointer, { PaymentAmount.money = money }, None, None, None)
+                                    return (pointer, None, None, None)
                                 })
                             |> convertListOfResultsToResultsList
                         return

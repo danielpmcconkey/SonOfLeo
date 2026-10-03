@@ -318,21 +318,23 @@ let fetchBySourceFile
     (statusFilter: StagedEntryStatus list option)
     (sourceFile: SourceFile)
     : Result<StageEntryHeader list, IAppError> =
+    let statusParameters =
+        statusFilter
+        |> Option.defaultValue []
+        |> List.mapi (fun i status ->
+            { name = $"@status_{i}"; value = CharString(status |> StagedEntryStatus.toString) })
     let statusListClause =
         match statusFilter with
         | None -> ""
-        | Some l ->
-            let strings =
-                l
-                |> List.map(fun x -> $"'{x |> StagedEntryStatus.toString}'") // direct interpolation is okay since this is directly pulled from the DU
-                |> String.concat ","
-            $"and latest_statuses.to_status in ({strings})"
+        | Some _ ->
+            let names = statusParameters |> List.map _.name |> String.concat ", "
+            $"and latest_statuses.to_status in ({names})"
     let predicate = $"""
         se.source_file = @source_file
         {statusListClause}
     """
     let fileStr = sourceFile |> SourceFile.value
-    let parameters = [ { name = "@source_file"; value = CharString fileStr } ]
+    let parameters = { name = "@source_file"; value = CharString fileStr } :: statusParameters
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
 let fetchDuplicates (context: Context.Context) : Result<StageEntryHeader list, IAppError> =

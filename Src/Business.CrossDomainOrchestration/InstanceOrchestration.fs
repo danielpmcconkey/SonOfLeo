@@ -431,7 +431,6 @@ type InvoiceCompositeUpdate = {
     paymentIdsToDelete: CashFlowComponent.PaymentId list
     newPayments: (
         CashFlowComponent.TransactionPointer *
-        CashFlowComponent.PaymentAmount *
         CashFlowComponent.PostedToFiDate option *
         CashFlowComponent.PostedToLedgerDate option *
         CashFlowComponent.PaymentMemo option) list
@@ -451,7 +450,6 @@ type InstanceCompositeUpdate = {
         CashFlowComponent.InvoiceMemo option *
         ( // payments
             CashFlowComponent.TransactionPointer *
-            CashFlowComponent.PaymentAmount *
             CashFlowComponent.PostedToFiDate option *
             CashFlowComponent.PostedToLedgerDate option *
             CashFlowComponent.PaymentMemo option) list) list
@@ -552,12 +550,16 @@ let private preConstructInvoiceComposite
             |> convertListOfResultsToResultsList
             |> Result.map ignore
         let now = context |> Context.getInitiationInstant
-        let newPayments =
+        let! newPayments =
             invoiceCompositeUpdate.newPayments
-            |> List.map (fun (transactionPointer, amount, postedToFiDate, postedToLedgerDate, memo) ->
-                let paymentId = CashFlowComponent.PaymentId.create ()
-                Payment.create paymentId invoiceId transactionPointer amount postedToFiDate postedToLedgerDate memo
-                    now now)
+            |> List.map (fun (transactionPointer, postedToFiDate, postedToLedgerDate, memo) ->
+                transactionPointer
+                |> lineAmount context
+                |> Result.map (fun amount ->
+                    let paymentId = CashFlowComponent.PaymentId.create ()
+                    Payment.create paymentId invoiceId transactionPointer amount postedToFiDate postedToLedgerDate memo
+                        now now))
+            |> convertListOfResultsToResultsList
         let payments = updatedPayments @ newPayments
         let updatedInvoice = current.invoice |> Invoice.applyFieldUpdates invoiceCompositeUpdate.invoiceUpdates
         let! paymentState = derivePaymentState updatedInvoice payments
@@ -581,7 +583,6 @@ let private preConstructNewInvoiceComposite
         CashFlowComponent.Blocker option *
         CashFlowComponent.InvoiceMemo option *
         ( CashFlowComponent.TransactionPointer *
-          CashFlowComponent.PaymentAmount *
           CashFlowComponent.PostedToFiDate option *
           CashFlowComponent.PostedToLedgerDate option *
           CashFlowComponent.PaymentMemo option) list)
@@ -591,12 +592,16 @@ let private preConstructNewInvoiceComposite
     result {
         let now = context |> Context.getInitiationInstant
         let invoiceId = CashFlowComponent.InvoiceId.create ()
-        let payments =
+        let! payments =
             paymentFieldsList
-            |> List.map (fun (transactionPointer, paymentAmount, postedToFiDate, postedToLedgerDate, paymentMemo) ->
-                let paymentId = CashFlowComponent.PaymentId.create ()
-                Payment.create paymentId invoiceId transactionPointer paymentAmount postedToFiDate postedToLedgerDate
-                    paymentMemo now now)
+            |> List.map (fun (transactionPointer, postedToFiDate, postedToLedgerDate, paymentMemo) ->
+                transactionPointer
+                |> lineAmount context
+                |> Result.map (fun paymentAmount ->
+                    let paymentId = CashFlowComponent.PaymentId.create ()
+                    Payment.create paymentId invoiceId transactionPointer paymentAmount postedToFiDate
+                        postedToLedgerDate paymentMemo now now))
+            |> convertListOfResultsToResultsList
         let invoiceWithLifeCycleState (lifeCycleState: CashFlowComponent.InvoiceLifeCycleState) =
             Invoice.create invoiceId instanceId paymentAgreementId externalInvoiceId invoiceDate dueDate amount
                 lifeCycleState memo now now
@@ -755,7 +760,6 @@ let createInstanceCompositeAndSaveToDb
         CashFlowComponent.InvoiceMemo option *
         ( // payments
             CashFlowComponent.TransactionPointer *
-            CashFlowComponent.PaymentAmount *
             CashFlowComponent.PostedToFiDate option *
             CashFlowComponent.PostedToLedgerDate option *
             CashFlowComponent.PaymentMemo option) list
