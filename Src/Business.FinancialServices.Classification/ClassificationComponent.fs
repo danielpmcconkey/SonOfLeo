@@ -174,6 +174,8 @@ module PaymentAgreementDecisionOutcome =
 type PaymentAgreementDecision = {
     stageEntryLineId: StageEntryLineId
     paymentAgreementId: CashFlowComponent.PaymentAgreementId option
+    // the link the decision produced, when it produced one
+    paymentAgreementLinkId: CashFlowComponent.PaymentAgreementLinkId option
     ruleIds: ClassificationRuleId list
     outcome: PaymentAgreementDecisionOutcome
 }

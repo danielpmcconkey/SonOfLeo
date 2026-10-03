@@ -147,6 +147,7 @@ let private decisionFor
         |> List.map (fun prioritizedMatch -> prioritizedMatch.ruleId)
     { stageEntryLineId = result.candidate.lineIdOfCandidate
       paymentAgreementId = Some paymentAgreementId
+      paymentAgreementLinkId = None
       ruleIds = ruleIds
       outcome = outcome }
 
@@ -254,9 +255,9 @@ let private selectLegsOfClaimedEntries
 let private writeLinkagesForClaimClusters
     (context: Context.Context)
     (clusters: ClassificationComponent.PaymentAgreementClaimCluster list)
-    : Result<ClassificationComponent.PaymentAgreementDecision list, IAppError> =
+    : Result<PaymentAgreementLink.PaymentAgreementLink list * ClassificationComponent.PaymentAgreementDecision list, IAppError> =
     result {
-        let! decisionsByCluster =
+        let! linksAndDecisionsByCluster =
             clusters
             |> List.map (fun cluster -> result {
                 let paymentAgreementId = cluster.paymentAgreementId
@@ -267,11 +268,13 @@ let private writeLinkagesForClaimClusters
                     let linkId = CashFlowComponent.PaymentAgreementLinkId.create ()
                     let link = PaymentAgreementLink.create linkId paymentAgreementId lineId now now
                     do! link |> PaymentAgreementLink.persist context
-                    return [ claimant |> decisionFor paymentAgreementId ClassificationComponent.Linked ]
+                    let decision = claimant |> decisionFor paymentAgreementId ClassificationComponent.Linked
+                    return [ link ], [ { decision with paymentAgreementLinkId = Some linkId } ]
                 // code is not allowed to break a tie, so a tied claimant contests its agreement however few rows
                 // claimed it
                 | claimants ->
                     return
+                        [],
                         claimants
                         |> List.map (fun claimant ->
                             let outcome =
@@ -279,7 +282,9 @@ let private writeLinkagesForClaimClusters
                                 else ClassificationComponent.ContestedAgreement
                             claimant |> decisionFor paymentAgreementId outcome) })
             |> convertListOfResultsToResultsList
-        return decisionsByCluster |> List.concat
+        return
+            linksAndDecisionsByCluster |> List.collect fst,
+            linksAndDecisionsByCluster |> List.collect snd
     }
 
 // how many days past an invoice's due date a payment may land and still be considered a match for it
@@ -568,7 +573,7 @@ let classifyPaymentAgreements
             |> Map.ofList
         let! selectedClaims, legDecisions =
             classificationResults |> selectLegsOfClaimedEntries agreementsById linesById
-        let! linkageDecisions =
+        let! linksCreated, linkageDecisions =
             selectedClaims |> pivotClaimsByPaymentAgreement |> writeLinkagesForClaimClusters context
         let! openInstancesToMatch = false |> InstanceOrchestration.fetchCompositesByIsFulfilled context
         let! invoiceDecisionLog = openInstancesToMatch |> matchInvoicesAndCreatePayments context
@@ -577,6 +582,7 @@ let classifyPaymentAgreements
         let classificationResult: InstanceOrchestration.PaymentAgreementClassificationResult =
             { runId = classificationRun.runId
               classificationResults = classificationResults
+              linksCreated = linksCreated
               decisionLog = legDecisions @ linkageDecisions
               invoiceDecisionLog = invoiceDecisionLog
               openInstances = openInstances }
@@ -598,14 +604,68 @@ let constructNewPaymentAgreementLinkAndPersist
             match existingLinks with
             | [] -> Ok ()
             | existingLink :: _ ->
-                let lineUuid = stageEntryLineId |> StageEntryComponent.StageEntryLineId.value
-                let agreementUuid =
-                    existingLink |> PaymentAgreementLink.paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
-                Error(CashFlowError.CashflowPaymentAgreementLinkLineAlreadyLinked(lineUuid, agreementUuid))
+                result {
+                    let lineUuid = stageEntryLineId |> StageEntryComponent.StageEntryLineId.value
+                    let linkUuid =
+                        existingLink
+                        |> PaymentAgreementLink.paymentAgreementLinkId
+                        |> CashFlowComponent.PaymentAgreementLinkId.value
+                    let! linkedAgreement =
+                        existingLink |> PaymentAgreementLink.paymentAgreementId |> PaymentAgreement.fetchById context
+                    let agreementName =
+                        linkedAgreement
+                        |> PaymentAgreement.paymentAgreementName
+                        |> CashFlowComponent.PaymentAgreementName.value
+                    return!
+                        CashFlowError.error (
+                            CashFlowError.CashflowPaymentAgreementLinkLineAlreadyLinked(lineUuid, linkUuid, agreementName))
+                }
         let now = context |> Context.getInitiationInstant
         let linkId = CashFlowComponent.PaymentAgreementLinkId.create ()
         let link = PaymentAgreementLink.create linkId paymentAgreementId stageEntryLineId now now
         do! link |> PaymentAgreementLink.persist context
+        return link
+    }
+
+/// confirmLinkLineHasNoPayments rejects re-pointing or deleting a link whose staged line a Payment references: the
+/// Payment would go on paying an obligation its link no longer names. Deleting the Payment removes the link instead.
+let private confirmLinkLineHasNoPayments
+    (context: Context.Context)
+    (link: PaymentAgreementLink.PaymentAgreementLink)
+    : Result<unit, IAppError> =
+    result {
+        let! payments = [ link |> PaymentAgreementLink.stageEntryLineId ] |> Payment.fetchByStageEntryLineIdList context
+        if payments |> List.isEmpty then return () else
+        let linkUuid = link |> PaymentAgreementLink.paymentAgreementLinkId |> CashFlowComponent.PaymentAgreementLinkId.value
+        let paymentUuids = payments |> List.map (Payment.paymentId >> CashFlowComponent.PaymentId.value)
+        return! CashFlowError.error (CashFlowError.CashflowPaymentAgreementLinkLineHasPayments(linkUuid, paymentUuids))
+    }
+
+let private fetchLink (context: Context.Context) (linkId: CashFlowComponent.PaymentAgreementLinkId) =
+    let linkUuid = linkId |> CashFlowComponent.PaymentAgreementLinkId.value
+    linkId |> PaymentAgreementLink.fetchById context
+    |> whenNoRows (CashFlowError.CashflowPaymentAgreementLinkIdDoesntExist linkUuid)
+
+/// updatePaymentAgreementLink re-points a link to a different Payment Agreement, unless a Payment references its line.
+let updatePaymentAgreementLink
+    (context: Context.Context)
+    (fieldUpdates: PaymentAgreementLink.PaymentAgreementLinkFieldUpdates)
+    : Result<PaymentAgreementLink.PaymentAgreementLink, IAppError> =
+    result {
+        let! link = fieldUpdates.linkIdToUpdate |> fetchLink context
+        do! link |> confirmLinkLineHasNoPayments context
+        return! fieldUpdates |> PaymentAgreementLink.update context
+    }
+
+/// deletePaymentAgreementLink removes a link, unless a Payment references its line. It returns the removed link.
+let deletePaymentAgreementLink
+    (context: Context.Context)
+    (linkId: CashFlowComponent.PaymentAgreementLinkId)
+    : Result<PaymentAgreementLink.PaymentAgreementLink, IAppError> =
+    result {
+        let! link = linkId |> fetchLink context
+        do! link |> confirmLinkLineHasNoPayments context
+        do! linkId |> PaymentAgreementLink.delete context
         return link
     }
 

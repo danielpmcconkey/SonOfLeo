@@ -757,11 +757,13 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _, legYId = scenario.agreement "CF-12.7 already Y" Outgo
                 let! _, lineId, _ = scenario.outgoEntry "CF-12.7 already payment" scenario.firstOfThisMonth "Classified"
                 let! existing = CashFlowOps.constructNewPaymentAgreementLinkAndPersist context legXId lineId
+                let! legX = legXId |> PaymentAgreement.fetchById context
                 let! _ =
                     match CashFlowOps.constructNewPaymentAgreementLinkAndPersist context legYId lineId with
-                    | Error (AsError (CashFlowError.CashflowPaymentAgreementLinkLineAlreadyLinked (namedLine, namedAgreement))) ->
+                    | Error (AsError (CashFlowError.CashflowPaymentAgreementLinkLineAlreadyLinked (namedLine, namedLink, namedAgreement))) ->
                         Assert.Equal(lineId |> StageEntryLineId.value, namedLine)
-                        Assert.Equal(legXId |> PaymentAgreementId.value, namedAgreement)
+                        Assert.Equal(existing |> PaymentAgreementLink.paymentAgreementLinkId |> PaymentAgreementLinkId.value, namedLink)
+                        Assert.Equal(legX |> PaymentAgreement.paymentAgreementName |> PaymentAgreementName.value, namedAgreement)
                         Ok ()
                     | Error e -> TestError.error (TestingError $"Wrong error. {e.ToMessage()}")
                     | Ok _ -> TestError.error (TestingError "Expected failure; got success")

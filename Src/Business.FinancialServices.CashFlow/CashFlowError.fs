@@ -67,7 +67,8 @@ type CashFlowError =
     | CashflowPaymentAgreementDebitAccountInvalid of Guid
     | CashflowPaymentAgreementIdDoesntExist of Guid
     | CashflowPaymentAgreementIdListCannotBeEmpty
-    | CashflowPaymentAgreementLinkLineAlreadyLinked of Guid * Guid
+    | CashflowPaymentAgreementLinkLineAlreadyLinked of Guid * Guid * string
+    | CashflowPaymentAgreementLinkLineHasPayments of Guid * Guid list
     | CashflowPaymentAgreementLinksOrphaned of (Guid * Guid * OrphanedLineReason) list
     | CashflowPaymentAgreementLinkUpdateNoOp
     | CashflowPaymentAgreementLinkIdDoesntExist of Guid
@@ -160,7 +161,10 @@ type CashFlowError =
             | CashflowPaymentAgreementDebitAccountInvalid uuid -> $"PaymentAgreement's debit account ({uuid}) does not match an Account in the database."
             | CashflowPaymentAgreementIdDoesntExist uuid -> $"Could not locate a PaymentAgreement with the id of {uuid}."
             | CashflowPaymentAgreementIdListCannotBeEmpty -> "The paymentAgreementIds list must contain at least 1 ID."
-            | CashflowPaymentAgreementLinkLineAlreadyLinked(stageEntryLineId, paymentAgreementId) -> $"Stage entry line {stageEntryLineId} is already linked to PaymentAgreement {paymentAgreementId}. Repoint that linkage or remove it rather than adding a second one."
+            | CashflowPaymentAgreementLinkLineAlreadyLinked(stageEntryLineId, linkId, paymentAgreementName) -> $"Stage entry line {stageEntryLineId} is already linked to Payment Agreement {paymentAgreementName} by link {linkId}. Re-point that link or delete it rather than adding a second one."
+            | CashflowPaymentAgreementLinkLineHasPayments(linkId, paymentIds) ->
+                let payments = paymentIds |> List.map string |> String.concat ", "
+                $"Payment Agreement Link {linkId} cannot be re-pointed or deleted while Payments reference its staged line: {payments}. Delete the Payment instead; that also removes the link."
             | CashflowPaymentAgreementLinksOrphaned orphans ->
                 let describe (stageEntryLineId: Guid, paymentAgreementId: Guid, reason) =
                     match reason with

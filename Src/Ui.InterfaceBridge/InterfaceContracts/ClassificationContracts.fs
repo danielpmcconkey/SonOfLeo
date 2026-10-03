@@ -115,6 +115,7 @@ type PaymentAgreementLinkReturn = {
 type PaymentAgreementDecisionReturn = {
     stageEntryLineId: Guid
     paymentAgreementName: string option
+    paymentAgreementLinkId: Guid option
     ruleIds: Guid list
     outcome: string
 }
@@ -132,6 +133,7 @@ type InvoiceDecisionReturn = {
 type PaymentAgreementClassificationResultReturn = {
     runId: Guid
     classificationResults: ClassificationResultReturn list
+    linksCreated: PaymentAgreementLinkReturn list
     decisionLog: PaymentAgreementDecisionReturn list
     invoiceDecisionLog: InvoiceDecisionReturn list
     openInstances: InstanceCompositeReturn list

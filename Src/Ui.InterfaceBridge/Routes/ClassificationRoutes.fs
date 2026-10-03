@@ -143,7 +143,7 @@ let private updatePaymentAgreementLink payload _ =
             let! input = Json.fromJson<UpdatePaymentAgreementLinkInput> payload
             let! fieldUpdates =
                 input |> ``convert [UpdatePaymentAgreementLinkInput] to [PaymentAgreementLinkFieldUpdates]`` context
-            let! link = fieldUpdates |> PaymentAgreementLink.update context
+            let! link = fieldUpdates |> CashFlowOps.updatePaymentAgreementLink context
             let! converted = link |> ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]`` context
             return! Json.toJson<PaymentAgreementLinkReturn> converted
         })
@@ -153,8 +153,7 @@ let private deletePaymentAgreementLink payload _ =
         result {
             let! input = Json.fromJson<DeletePaymentAgreementLinkInput> payload
             let linkId = input.paymentAgreementLinkId |> PaymentAgreementLinkId.fromGuid
-            let! link = linkId |> PaymentAgreementLink.fetchById context
-            do! linkId |> PaymentAgreementLink.delete context
+            let! link = linkId |> CashFlowOps.deletePaymentAgreementLink context
             let! converted = link |> ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]`` context
             return! Json.toJson<PaymentAgreementLinkReturn> converted
         })

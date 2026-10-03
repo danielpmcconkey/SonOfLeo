@@ -316,6 +316,7 @@ let ``convert [PaymentAgreementDecision] to [PaymentAgreementDecisionReturn]``
         return {
             stageEntryLineId = decision.stageEntryLineId |> StageEntryLineId.value
             paymentAgreementName = paymentAgreementName
+            paymentAgreementLinkId = decision.paymentAgreementLinkId |> Option.map PaymentAgreementLinkId.value
             ruleIds = decision.ruleIds |> List.map ClassificationRuleId.value
             outcome = decision.outcome |> PaymentAgreementDecisionOutcome.toString } }
 
@@ -328,39 +329,6 @@ let ``convert [InvoiceDecision] to [InvoiceDecisionReturn]`` (decision: InvoiceD
             InvoiceDecisionOutcomeReturn.ManyCandidateEntries(lineIds |> List.map StageEntryLineId.value)
         | CashFlowComponent.Overpayment -> InvoiceDecisionOutcomeReturn.Overpayment
     { invoiceId = decision.invoiceId |> InvoiceId.value; outcome = outcome }
-
-let ``convert [PaymentAgreementClassificationResult] to [PaymentAgreementClassificationResultReturn]``
-    (context: Context.Context)
-    (classificationResult: InstanceOrchestration.PaymentAgreementClassificationResult)
-    : Result<PaymentAgreementClassificationResultReturn, IAppError> =
-    result {
-        let! classificationResults =
-            classificationResult.classificationResults
-            |> ``convert [ClassificationResult list] to [ClassificationResultReturn list]`` context
-        let! decisionLog =
-            classificationResult.decisionLog
-            |> List.map (``convert [PaymentAgreementDecision] to [PaymentAgreementDecisionReturn]`` context)
-            |> convertListOfResultsToResultsList
-        let! openInstances =
-            classificationResult.openInstances
-            |> ``convert [InstanceComposite list] to [InstanceCompositeReturn list]`` context
-        let sortedResults =
-            classificationResults
-            |> List.sortBy (fun result -> result.candidate.stageEntryHeaderId, result.candidate.stageEntryLineId)
-        let sortedDecisionLog =
-            decisionLog
-            |> List.sortBy (fun (decision: PaymentAgreementDecisionReturn) ->
-                decision.paymentAgreementName, decision.stageEntryLineId)
-        let sortedInvoiceDecisionLog =
-            classificationResult.invoiceDecisionLog
-            |> List.map ``convert [InvoiceDecision] to [InvoiceDecisionReturn]``
-            |> List.sortBy (fun (decision: InvoiceDecisionReturn) -> decision.invoiceId, decision.outcome)
-        return {
-            runId = classificationResult.runId |> ClassificationRunId.value
-            classificationResults = sortedResults
-            decisionLog = sortedDecisionLog
-            invoiceDecisionLog = sortedInvoiceDecisionLog
-            openInstances = openInstances } }
 
 let ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]``
     (context: Context.Context)
@@ -378,6 +346,46 @@ let ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]``
             stageEntryLineId = link |> PaymentAgreementLink.stageEntryLineId |> StageEntryLineId.value
             createdAt = link |> PaymentAgreementLink.createdAt
             modifiedAt = link |> PaymentAgreementLink.modifiedAt } }
+
+let ``convert [PaymentAgreementClassificationResult] to [PaymentAgreementClassificationResultReturn]``
+    (context: Context.Context)
+    (classificationResult: InstanceOrchestration.PaymentAgreementClassificationResult)
+    : Result<PaymentAgreementClassificationResultReturn, IAppError> =
+    result {
+        let! classificationResults =
+            classificationResult.classificationResults
+            |> ``convert [ClassificationResult list] to [ClassificationResultReturn list]`` context
+        let! decisionLog =
+            classificationResult.decisionLog
+            |> List.map (``convert [PaymentAgreementDecision] to [PaymentAgreementDecisionReturn]`` context)
+            |> convertListOfResultsToResultsList
+        let! openInstances =
+            classificationResult.openInstances
+            |> ``convert [InstanceComposite list] to [InstanceCompositeReturn list]`` context
+        let! linksCreated =
+            classificationResult.linksCreated
+            |> List.map (``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]`` context)
+            |> convertListOfResultsToResultsList
+        let sortedResults =
+            classificationResults
+            |> List.sortBy (fun result -> result.candidate.stageEntryHeaderId, result.candidate.stageEntryLineId)
+        let sortedDecisionLog =
+            decisionLog
+            |> List.sortBy (fun (decision: PaymentAgreementDecisionReturn) ->
+                decision.paymentAgreementName, decision.stageEntryLineId)
+        let sortedInvoiceDecisionLog =
+            classificationResult.invoiceDecisionLog
+            |> List.map ``convert [InvoiceDecision] to [InvoiceDecisionReturn]``
+            |> List.sortBy (fun (decision: InvoiceDecisionReturn) -> decision.invoiceId, decision.outcome)
+        return {
+            runId = classificationResult.runId |> ClassificationRunId.value
+            classificationResults = sortedResults
+            linksCreated =
+                linksCreated
+                |> List.sortBy (fun (link: PaymentAgreementLinkReturn) -> link.paymentAgreementName, link.stageEntryLineId)
+            decisionLog = sortedDecisionLog
+            invoiceDecisionLog = sortedInvoiceDecisionLog
+            openInstances = openInstances } }
 
 let ``convert [UpdatePaymentAgreementLinkInput] to [PaymentAgreementLinkFieldUpdates]``
     (context: Context.Context)

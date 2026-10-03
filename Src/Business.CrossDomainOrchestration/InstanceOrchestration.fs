@@ -37,6 +37,7 @@ let invoiceComposites (instanceComposite: InstanceComposite) = instanceComposite
 type PaymentAgreementClassificationResult = {
     runId: ClassificationComponent.ClassificationRunId
     classificationResults: ClassificationComponent.ClassificationResult list
+    linksCreated: PaymentAgreementLink.PaymentAgreementLink list
     decisionLog: ClassificationComponent.PaymentAgreementDecision list
     invoiceDecisionLog: CashFlowComponent.InvoiceDecision list
     openInstances: InstanceComposite list
