@@ -19,7 +19,7 @@ safeguard:
    (`Assert.Fail "Not yet implemented"`). **Open nothing under `Src/` until
    that commit is pushed.** Existing tests may be read for naming and
    fixture conventions.
-2. **Implement** Part A of this plan, then Part B. Commit as you go.
+2. **Implement** Part A of this plan, then Part B, then Part C. Commit as you go.
 3. **Test.** Brief Part A: now read Src; if a committed name is aimed wrong,
    say so in your report and renegotiate it out loud (never quietly soften
    it). Write each test and watch every assertion fail before it passes
@@ -116,8 +116,9 @@ item — the ruling is the instruction.
 
 File references are where the problem was found on 2026-10-03; **verify
 before editing**. Do Part A first, in order where an item says it depends on
-another. Part B can follow in any order. **Do not start Part C until Dan
-says.**
+another. Part B can follow in any order. Part C comes last: it moves and
+reshapes code that A and B touch, so finishing A and B first avoids doing
+them twice. All three parts are in scope for this branch.
 
 ### A. Cutover — Saturday needs these
 
@@ -280,7 +281,7 @@ says.**
 19. **ClassificationError.** (#018, #065, #151, #154, #174, #191, #236, #283,
     #308, #322.) Create a `ClassificationError` DU in the Classification
     project. Move the classification cases out of `DataIngestionError`, plus
-    the DataIngestion cases that name upper-tier concepts. Not post-cutover.
+    the DataIngestion cases that name upper-tier concepts.
 
 20. **Money comparison and sign.** (#264, #194; REQ-MON-2.1, 2.10, 2.11.) Add
     compare (equal, <, >, ≤, ≥) and sign (positive, zero, negative)
@@ -368,7 +369,7 @@ says.**
     included. `check-result-iserror` is report-only until the brief's
     §B.10 sweep brings it to zero; then switch it to `exit 1` (the brief says how).
 
-### C. Post-cutover — do not start until Dan says
+### C. Architecture — after A and B
 
 31. **Lookup caches move to their owning Business modules.** (#001, #155,
     #286.)
