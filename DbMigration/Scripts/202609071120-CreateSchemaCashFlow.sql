@@ -1,9 +1,5 @@
-create schema cashflow authorization sonofleo_{ENV};
+create schema cashflow authorization sonofleo_migrator;
 
 GRANT USAGE ON SCHEMA cashflow TO leobloom_hobson;
 
-GRANT ALL ON SCHEMA cashflow TO sonofleo_{ENV};
-
-GRANT ALL ON SCHEMA cashflow TO sonofleo_migrator;
-
-GRANT USAGE, CREATE ON SCHEMA cashflow TO sonofleo_migrator;
+GRANT USAGE ON SCHEMA cashflow TO sonofleo_{ENV};

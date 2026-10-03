@@ -26,15 +26,13 @@ CREATE TABLE IF NOT EXISTS classification.classification_rule
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS classification.classification_rule
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE classification.classification_rule FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE classification.classification_rule TO leobloom_hobson;
 
-GRANT ALL ON TABLE classification.classification_rule TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE classification.classification_rule TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE classification.classification_rule TO sonofleo_{ENV};
 
 -- Table: classification.rule_match
 
@@ -61,15 +59,13 @@ CREATE TABLE IF NOT EXISTS classification.rule_match
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS classification.rule_match
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE classification.rule_match FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE classification.rule_match TO leobloom_hobson;
 
-GRANT ALL ON TABLE classification.rule_match TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE classification.rule_match TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE classification.rule_match TO sonofleo_{ENV};
 
 -- Index: ix_rule_match_run_id_stage_entry_line_id
 

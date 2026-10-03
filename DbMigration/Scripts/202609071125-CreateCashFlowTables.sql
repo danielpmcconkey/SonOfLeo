@@ -24,15 +24,13 @@ CREATE TABLE IF NOT EXISTS cashflow.master_agreement
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS cashflow.master_agreement
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE cashflow.master_agreement FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE cashflow.master_agreement TO leobloom_hobson;
 
-GRANT ALL ON TABLE cashflow.master_agreement TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE cashflow.master_agreement TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE cashflow.master_agreement TO sonofleo_{ENV};
 
 -- Table: cashflow.payment_agreement
 
@@ -67,15 +65,13 @@ CREATE TABLE IF NOT EXISTS cashflow.payment_agreement
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS cashflow.payment_agreement
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE cashflow.payment_agreement FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE cashflow.payment_agreement TO leobloom_hobson;
 
-GRANT ALL ON TABLE cashflow.payment_agreement TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE cashflow.payment_agreement TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE cashflow.payment_agreement TO sonofleo_{ENV};
 
 -- Table: cashflow.instance
 
@@ -97,15 +93,13 @@ CREATE TABLE IF NOT EXISTS cashflow.instance
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS cashflow.instance
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE cashflow.instance FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE cashflow.instance TO leobloom_hobson;
 
-GRANT ALL ON TABLE cashflow.instance TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE cashflow.instance TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE cashflow.instance TO sonofleo_{ENV};
 
 -- Table: cashflow.invoice
 
@@ -140,15 +134,13 @@ CREATE TABLE IF NOT EXISTS cashflow.invoice
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS cashflow.invoice
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE cashflow.invoice FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE cashflow.invoice TO leobloom_hobson;
 
-GRANT ALL ON TABLE cashflow.invoice TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE cashflow.invoice TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE cashflow.invoice TO sonofleo_{ENV};
 
 -- Table: cashflow.payment
 
@@ -180,15 +172,13 @@ CREATE TABLE IF NOT EXISTS cashflow.payment
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS cashflow.payment
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE cashflow.payment FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE cashflow.payment TO leobloom_hobson;
 
-GRANT ALL ON TABLE cashflow.payment TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE cashflow.payment TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE cashflow.payment TO sonofleo_{ENV};
 
 -- Table: cashflow.payment_agreement_link
 
@@ -214,12 +204,10 @@ CREATE TABLE IF NOT EXISTS cashflow.payment_agreement_link
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS cashflow.payment_agreement_link
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE cashflow.payment_agreement_link FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE cashflow.payment_agreement_link TO leobloom_hobson;
 
-GRANT ALL ON TABLE cashflow.payment_agreement_link TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE cashflow.payment_agreement_link TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE cashflow.payment_agreement_link TO sonofleo_{ENV};

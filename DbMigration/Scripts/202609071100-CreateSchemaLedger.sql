@@ -1,9 +1,5 @@
-create schema ledger authorization sonofleo_{ENV};
+create schema ledger authorization sonofleo_migrator;
 
 GRANT USAGE ON SCHEMA ledger TO leobloom_hobson;
 
-GRANT ALL ON SCHEMA ledger TO sonofleo_{ENV};
-
-GRANT ALL ON SCHEMA ledger TO sonofleo_migrator;
-
-GRANT USAGE, CREATE ON SCHEMA ledger TO sonofleo_migrator;
+GRANT USAGE ON SCHEMA ledger TO sonofleo_{ENV};

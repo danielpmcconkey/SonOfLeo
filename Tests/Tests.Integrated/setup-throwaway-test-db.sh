@@ -27,7 +27,8 @@ for role in sonofleo_test sonofleo_migrator leobloom_hobson; do
 done
 
 psql_su "-c 'drop database if exists sonofleo_test'"
-psql_su "-c 'create database sonofleo_test owner sonofleo_test'"
+# Owned by postgres, as in every environment: the test role owns nothing and can create nothing.
+psql_su "-c 'create database sonofleo_test owner postgres'"
 
 # Every schema script after the one-off CreateDatabase script, in timestamp order.
 for f in DbMigration/Scripts/*.sql; do

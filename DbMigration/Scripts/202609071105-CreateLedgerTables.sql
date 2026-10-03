@@ -24,15 +24,13 @@ CREATE TABLE IF NOT EXISTS ledger.account
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS ledger.account
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE ledger.account FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE ledger.account TO leobloom_hobson;
 
-GRANT ALL ON TABLE ledger.account TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE ledger.account TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE ledger.account TO sonofleo_{ENV};
 
 -- Table: ledger.fiscal_period
 
@@ -52,15 +50,13 @@ CREATE TABLE IF NOT EXISTS ledger.fiscal_period
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS ledger.fiscal_period
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE ledger.fiscal_period FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE ledger.fiscal_period TO leobloom_hobson;
 
-GRANT ALL ON TABLE ledger.fiscal_period TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE ledger.fiscal_period TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE ledger.fiscal_period TO sonofleo_{ENV};
 
 -- Table: ledger.journal_entry
 
@@ -84,15 +80,13 @@ CREATE TABLE IF NOT EXISTS ledger.journal_entry
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS ledger.journal_entry
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE ledger.journal_entry FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE ledger.journal_entry TO leobloom_hobson;
 
-GRANT ALL ON TABLE ledger.journal_entry TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE ledger.journal_entry TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE ledger.journal_entry TO sonofleo_{ENV};
 
 -- Table: ledger.journal_entry_line
 
@@ -120,15 +114,13 @@ CREATE TABLE IF NOT EXISTS ledger.journal_entry_line
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS ledger.journal_entry_line
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE ledger.journal_entry_line FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE ledger.journal_entry_line TO leobloom_hobson;
 
-GRANT ALL ON TABLE ledger.journal_entry_line TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE ledger.journal_entry_line TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE ledger.journal_entry_line TO sonofleo_{ENV};
 
 -- Table: ledger.journal_entry_comment
 
@@ -154,15 +146,13 @@ CREATE TABLE IF NOT EXISTS ledger.journal_entry_comment
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS ledger.journal_entry_comment
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE ledger.journal_entry_comment FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE ledger.journal_entry_comment TO leobloom_hobson;
 
-GRANT ALL ON TABLE ledger.journal_entry_comment TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE ledger.journal_entry_comment TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE ledger.journal_entry_comment TO sonofleo_{ENV};
 
 -- Table: ledger.journal_entry_ext_reference
 
@@ -184,12 +174,10 @@ CREATE TABLE IF NOT EXISTS ledger.journal_entry_ext_reference
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS ledger.journal_entry_ext_reference
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE ledger.journal_entry_ext_reference FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE ledger.journal_entry_ext_reference TO leobloom_hobson;
 
-GRANT ALL ON TABLE ledger.journal_entry_ext_reference TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE ledger.journal_entry_ext_reference TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE ledger.journal_entry_ext_reference TO sonofleo_{ENV};

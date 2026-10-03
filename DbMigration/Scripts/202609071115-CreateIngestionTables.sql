@@ -12,15 +12,13 @@ CREATE TABLE IF NOT EXISTS ingestion.source
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS ingestion.source
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE ingestion.source FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE ingestion.source TO leobloom_hobson;
 
-GRANT ALL ON TABLE ingestion.source TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE ingestion.source TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE ingestion.source TO sonofleo_{ENV};
 
 -- Table: ingestion.staged_entry
 
@@ -47,15 +45,13 @@ CREATE TABLE IF NOT EXISTS ingestion.staged_entry
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS ingestion.staged_entry
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE ingestion.staged_entry FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE ingestion.staged_entry TO leobloom_hobson;
 
-GRANT ALL ON TABLE ingestion.staged_entry TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE ingestion.staged_entry TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE ingestion.staged_entry TO sonofleo_{ENV};
 
 -- Table: ingestion.staged_entry_line
 
@@ -86,15 +82,13 @@ CREATE TABLE IF NOT EXISTS ingestion.staged_entry_line
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS ingestion.staged_entry_line
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE ingestion.staged_entry_line FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE ingestion.staged_entry_line TO leobloom_hobson;
 
-GRANT ALL ON TABLE ingestion.staged_entry_line TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE ingestion.staged_entry_line TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE ingestion.staged_entry_line TO sonofleo_{ENV};
 
 -- Table: ingestion.staged_entry_audit
 
@@ -116,15 +110,13 @@ CREATE TABLE IF NOT EXISTS ingestion.staged_entry_audit
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS ingestion.staged_entry_audit
-    OWNER to sonofleo_{ENV};
+    OWNER to sonofleo_migrator;
 
 REVOKE ALL ON TABLE ingestion.staged_entry_audit FROM leobloom_hobson;
 
 GRANT SELECT ON TABLE ingestion.staged_entry_audit TO leobloom_hobson;
 
-GRANT ALL ON TABLE ingestion.staged_entry_audit TO sonofleo_{ENV};
-
-GRANT TRUNCATE, INSERT, DELETE, SELECT, TRIGGER, UPDATE, REFERENCES ON TABLE ingestion.staged_entry_audit TO sonofleo_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE ingestion.staged_entry_audit TO sonofleo_{ENV};
 
 -- Index: ix_staged_entry_audit_entry_id_modified_at
 
