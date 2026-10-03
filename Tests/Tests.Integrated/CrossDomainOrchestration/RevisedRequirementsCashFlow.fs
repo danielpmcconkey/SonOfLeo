@@ -303,32 +303,3 @@ type RevisedRequirementsCashFlowTests(fixture: TestDataFixture) =
                 let! after = agreementId |> AgreementOrchestration.fetchByMasterAgreementId s.Context
                 Assert.Equal(Income, after |> AgreementOrchestration.masterAgreement |> MasterAgreement.direction)
             })
-
-    [<Fact>]
-    member _.``REQ-CF-14.2 an update to a master agreement that sets every field to its current value is rejected with the no-op error and the agreement is unchanged`` () =
-        rolledBack fixture (fun s ->
-            result {
-                let! cashId = s.cashAccount ()
-                let! agreementId, _ = s.agreement Outgo cashId 1
-                let! before = agreementId |> AgreementOrchestration.fetchByMasterAgreementId s.Context
-                let m = before |> AgreementOrchestration.masterAgreement
-                let sameValues =
-                    { agreementIdToUpdate = agreementId
-                      agreementNameUpdate = SetTo(m |> MasterAgreement.agreementName)
-                      directionUpdate = SetTo(m |> MasterAgreement.direction)
-                      cadenceUpdate = SetTo(m |> MasterAgreement.cadence)
-                      counterpartyUpdate = SetTo(m |> MasterAgreement.counterparty)
-                      activityPeriodUpdate = SetTo(m |> MasterAgreement.activityPeriod)
-                      memoUpdate = SetTo(m |> MasterAgreement.memo) } : MasterAgreement.MasterAgreementFieldUpdates
-                let updating = s.Context |> Context.updateInitiationInstant
-                let attempt = AgreementOrchestration.updateAgreement updating [] sameValues
-                let refused =
-                    match attempt with
-                    | Error (AsError CashFlowError.CashflowMasterAgreementUpdateNoOp)
-                    | Error (AsError CashFlowError.CashflowAgreementUpdateNoOp) -> true
-                    | _ -> false
-                Assert.True(refused, $"%A{attempt |> Result.mapError (fun e -> e.ToMessage())}")
-                let! after = agreementId |> AgreementOrchestration.fetchByMasterAgreementId updating
-                Assert.Equal(fieldsOf before, fieldsOf after)
-                Assert.Equal(m |> MasterAgreement.modifiedAt, after |> AgreementOrchestration.masterAgreement |> MasterAgreement.modifiedAt)
-            })

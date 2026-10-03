@@ -482,6 +482,23 @@ REQ-CF-14.2 field theory, dropping the update call itself failed all six cases.
 
 Each finding gives the requirement, the test, what the spec says, what the code does, and where the bug probably lies.
 
+**Dan's rulings, 2026-10-03 (commit 366b75d).** The findings below are kept as written; this is where each one ended up.
+- Src bugs, now plan item 29.9 (the plan agent's): F-1, F-4, F-5, F-6, F-7, F-9, F-10, F-12, and the payment amount
+  observation. Their tests stay red until 29.9 lands, and they don't change.
+- F-2: REQ-CF-12.8 now reads each rule's priority as it stands at retrieval, as REQ-CR-8.5 does. The REQ-CF-12.8
+  test still matches. The REQ-CR-8.5 test that re-prioritises a rule after the run covers the new clause.
+- F-3: REQ-CF-12.5 now says only the highest-priority rule's agreement counts as claimed by the line. The
+  REQ-CF-12.2/12.5 test already asserts exactly that, and it passes.
+- F-8 and F-14: REQ-STG-6.3.2 and REQ-CF-14.2 now say a field set to its current value counts as named, so it is not
+  a no-op. The same-value cases are dropped. The "names no field" case stays for REQ-STG-6.3.2, and REQ-CF-14.2 gets
+  one.
+- F-11: the plan thread fixed the fixture (c8a175f). There is no guard against posting an entry that already has a
+  journal entry ID; reconciliation surfaces a double post.
+- F-13: the code is right. REQ-CR-5.6 says a payment agreement name that doesn't resolve fails with a typed error. The
+  two cases now expect that error.
+- Q-1: REQ-CF-6.4 now says a Payment carries exactly one pointer at creation. The existing REQ-CF-6.4 tests already
+  assert that.
+
 **F-1. REQ-CF-12.4: a constrained rule does not narrow the lines when an unconstrained rule also claims. Bug in Src.**
 - Test: `LinkageAndMatching.fs`, "when one claiming rule constrains line type and another does not, the claim links
   the line the constraining rule matched". It fails with `Assert.Single() Failure: The collection was empty`, which
