@@ -23,7 +23,7 @@ output (the statement-delta section).
 
 ## Running it
 
-From a Claude Code session (Hobson or BD), invoke the `Workflow` tool:
+From a Claude Code session (Hobson's, or a cloud session on a clone of the repo), invoke the `Workflow` tool:
 
 ```
 Workflow({
@@ -52,6 +52,8 @@ in the run folder, then runs auditors 1–5. Subsequent batches load the cache a
 run the next slice. The final batch also writes the disposition template. Invoke
 with `batch: 2`, `batch: 3`, etc. to continue — the return value tells you the
 next batch number and total count.
+
+In a cloud session, commit and push `runDir` after each batch: the session's clone is thrown away when it ends.
 
 The run is read-only against the repo except for `runDir`. Auditors run
 sequentially within each batch — ~20 auditors total, split across batches, plus

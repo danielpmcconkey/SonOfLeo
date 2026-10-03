@@ -484,7 +484,8 @@ operator of the predecessor (LeoBloom) and intended primary user of this one.
 ${CONTEXT}
 
 READ FIRST:
-- Weekly routine: /home/dan/.claude/skills/leobloom:saturday/SKILL.md
+- Weekly routine: ${REPO}/HobsonsNotes/plan-saturday-readiness-2026-09-26.md, section 1 ("Target order of operations"):
+  the Saturday routine as SonOfLeo will run it, step by step, with the route each step calls
 - Real usage data: ${REPO}/HobsonsNotes/cli-requirements-from-leobloom-usage.md
 - Current CLI: ${REPO}/Src/Ui.OperatorCli/, ${REPO}/Src/Ui.ReportCli/ and ${REPO}/Src/Ui.InterfaceBridge/InterfaceContracts/
 - ${REPO}/Specs/Behavioral/NonGraphicalInterface.md
@@ -604,13 +605,14 @@ matches one exactly is not reported.`,
 auditors.push({
   label: 'panel:ai-maintainability',
   filename: '10-panel-ai-maintainability.md',
-  prompt: `You are an expert in AI-agent-maintained codebases. SonOfLeo is hand-written by Dan
-today, but the coding agent ("BD") will progressively take over — currently tests only,
-later code proper.
+  prompt: `You are an expert in AI-agent-maintained codebases. SonOfLeo is now built by Claude Code
+agents: they write Src, tests and model updates from plans and specs, working several at
+once on one branch, and Dan reviews and merges. Hobson (Dan's host-side Claude) writes the
+specs and plans and rules on agents' findings.
 
 ${CONTEXT}
 
-READ: Specs/ in full, Src/, Tests/ (BD's current territory),
+READ: Specs/ in full, Src/, Tests/, Checks/, the README's slice loop,
 Skills/SonOfLeoRequirementsAudit/.
 
 EVALUATE:
@@ -620,7 +622,7 @@ EVALUATE:
 4. FAILURE AMPLIFICATION: small wrong edit passes build+tests but corrupts semantics.
 5. SLICING: is work decomposable into agent-sized, verifiable slices?
 
-Ranked by how badly BD could hurt the books before anyone noticed.`,
+Ranked by how badly an agent could hurt the books before anyone noticed.`,
 })
 
 // --- Slice for this batch ---
