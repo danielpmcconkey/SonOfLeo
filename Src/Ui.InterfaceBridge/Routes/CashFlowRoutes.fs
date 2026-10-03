@@ -176,6 +176,29 @@ let private fetchAgreementSummary payload _ =
         return! Json.toJson<AgreementReturn> converted
     }
 
+let private listAgreements _ _ =
+    let context = Context.create NoTransaction FetchOnly
+    result {
+        let! listings = AgreementOrchestration.listAgreements context
+        let! converted =
+            listings
+            |> List.map (``convert [AgreementListing] to [AgreementListingReturn]`` context)
+            |> convertListOfResultsToResultsList
+        return! Json.toJson<AgreementListingReturn list> converted
+    }
+
+let private fetchOpenInstances _ _ =
+    let context = Context.create NoTransaction FetchOnly
+    result {
+        let! openInstances = InstanceOrchestration.fetchOpenComposites context
+        // one at a time, so the list keeps the order the orchestration gave it
+        let! converted =
+            openInstances
+            |> List.map (``convert [InstanceComposite] to [InstanceCompositeReturn]`` context)
+            |> convertListOfResultsToResultsList
+        return! Json.toJson<InstanceCompositeReturn list> converted
+    }
+
 let cashFlowDomainCommandRoutes: CommandRoute list =
     [
       { domain = "CashFlow"
@@ -268,4 +291,18 @@ let cashFlowDomainCommandRoutes: CommandRoute list =
         inputContract = typeof<FetchAgreementSummaryInput>.Name
         outputContract = typeof<AgreementReturn>.Name
         handler = fetchAgreementSummary }
+
+      { domain = "CashFlow"
+        verb = "ListAgreements"
+        description = "List every master agreement, ordered by name, each with its payment agreements ordered by name and their accounts by code and name. Read-only."
+        inputContract = typeof<NoInput>.Name
+        outputContract = typeof<AgreementListingReturn list>.Name
+        handler = listAgreements }
+
+      { domain = "CashFlow"
+        verb = "FetchOpenInstances"
+        description = "Fetch every open instance (neither fulfilled nor cancelled) across all agreements, with its invoices and their payments, ordered by instance date, then agreement name. Read-only."
+        inputContract = typeof<NoInput>.Name
+        outputContract = typeof<InstanceCompositeReturn list>.Name
+        handler = fetchOpenInstances }
     ]

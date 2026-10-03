@@ -111,12 +111,20 @@ type PaymentAgreementReturn = {
     masterAgreementName: string
     paymentAgreementName: string
     debitAccountCode: string
+    debitAccountName: string
     creditAccountCode: string
+    creditAccountName: string
     expectedAmount: decimal option
     daysDueAfterInvoiceDate: int option
     memo: string option
     createdAt: Instant
     modifiedAt: Instant
+}
+
+/// A Master Agreement with its Payment Agreements, and nothing below them.
+type AgreementListingReturn = {
+    masterAgreement: MasterAgreementReturn
+    paymentAgreements: PaymentAgreementReturn list
 }
 
 type AgreementReturn = {

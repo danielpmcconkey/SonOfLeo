@@ -354,6 +354,33 @@ let fetchAllActiveAgreements
           paymentPostedToLedgerTemporalFilter = None }
     filter |> fetchFiltered context AnyQuantityIsAcceptable
 
+/// A Master Agreement with its Payment Agreements, and nothing below them.
+type AgreementListing = {
+    masterAgreement: MasterAgreement.MasterAgreement
+    paymentAgreements: PaymentAgreement.PaymentAgreement list
+}
+
+/// listAgreements returns every Master Agreement, ordered by name, each with its Payment Agreements ordered by name.
+let listAgreements (context: Context.Context) : Result<AgreementListing list, IAppError> =
+    result {
+        let! masterAgreements = MasterAgreement.fetchAll context
+        if masterAgreements |> List.isEmpty then return [] else
+        let! paymentAgreements =
+            masterAgreements |> List.map MasterAgreement.agreementID
+            |> PaymentAgreement.fetchByMasterAgreementIdList context
+        return
+            masterAgreements
+            |> List.sortBy (MasterAgreement.agreementName >> CashFlowComponent.AgreementName.value)
+            |> List.map (fun masterAgreement ->
+                { masterAgreement = masterAgreement
+                  paymentAgreements =
+                    paymentAgreements
+                    |> List.filter (fun pa ->
+                        PaymentAgreement.masterAgreementID pa = MasterAgreement.agreementID masterAgreement)
+                    |> List.sortBy (
+                        PaymentAgreement.paymentAgreementName >> CashFlowComponent.PaymentAgreementName.value) })
+    }
+
 /// confirmNextInstanceAfterExistingInstances rejects a cadence update whose next-instance date is on or before an
 /// existing Instance's date: the next sweep would try to create that Instance again. A cadence change does not
 /// re-check existing Instances against the new cadence.

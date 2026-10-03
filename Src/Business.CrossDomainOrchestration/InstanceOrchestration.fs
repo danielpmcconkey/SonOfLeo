@@ -430,7 +430,8 @@ let fetchCompositeByInstanceId
         return { instance = instance; invoiceComposites = compileInvoiceCompositesFromSubLists invoices payments }
     }
 
-/// fetchOpenComposites returns every open Instance (neither fulfilled nor cancelled) with its Invoices and Payments.
+/// fetchOpenComposites returns every open Instance (neither fulfilled nor cancelled) with its Invoices and Payments,
+/// ordered by Instance date, then Master Agreement name.
 let fetchOpenComposites
     (context: Context.Context)
     : Result<InstanceComposite list, IAppError> =
@@ -442,7 +443,11 @@ let fetchOpenComposites
         let invoiceIds = invoices |> List.map Invoice.invoiceId
         let! payments =
             if invoiceIds |> List.isEmpty then Ok [] else invoiceIds |> Payment.fetchByInvoiceIdList context
-        return compileInstanceCompositesFromSubLists instances invoices payments
+        return
+            compileInstanceCompositesFromSubLists instances invoices payments
+            |> List.sortBy (fun composite ->
+                composite.instance |> Instance.instanceDate,
+                composite.instance |> Instance.masterAgreementName |> CashFlowComponent.AgreementName.value)
     }
 
 let private isThereAnInvoiceUpdate

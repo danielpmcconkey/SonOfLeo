@@ -220,13 +220,17 @@ let ``convert [PaymentAgreement] to [PaymentAgreementReturn]``
         let (CreditAccount creditAccountId) = paymentAgreement |> PaymentAgreement.creditAccount
         let! debitAccountCode = debitAccountId |> ``convert AccountId to AccountCodeString`` context
         let! creditAccountCode = creditAccountId |> ``convert AccountId to AccountCodeString`` context
+        let! debitAccountName = debitAccountId |> ``convert AccountId to AccountNameString`` context
+        let! creditAccountName = creditAccountId |> ``convert AccountId to AccountNameString`` context
         return {
             paymentAgreementId = paymentAgreement |> PaymentAgreement.paymentAgreementId |> PaymentAgreementId.value
             masterAgreementName = masterAgreementName
             paymentAgreementName =
                 paymentAgreement |> PaymentAgreement.paymentAgreementName |> PaymentAgreementName.value
             debitAccountCode = debitAccountCode
+            debitAccountName = debitAccountName
             creditAccountCode = creditAccountCode
+            creditAccountName = creditAccountName
             expectedAmount = paymentAgreement |> PaymentAgreement.expectedAmount |> Option.map Money.amount
             daysDueAfterInvoiceDate =
                 paymentAgreement
@@ -235,6 +239,19 @@ let ``convert [PaymentAgreement] to [PaymentAgreementReturn]``
             memo = paymentAgreement |> PaymentAgreement.memo |> Option.map PaymentAgreementMemo.value
             createdAt = paymentAgreement |> PaymentAgreement.createdAt
             modifiedAt = paymentAgreement |> PaymentAgreement.modifiedAt } }
+
+let ``convert [AgreementListing] to [AgreementListingReturn]``
+    (context: Context.Context)
+    (listing: AgreementOrchestration.AgreementListing)
+    : Result<AgreementListingReturn, IAppError> =
+    result {
+        let! paymentAgreements =
+            listing.paymentAgreements
+            |> List.map (``convert [PaymentAgreement] to [PaymentAgreementReturn]`` context)
+            |> convertListOfResultsToResultsList
+        return
+            { masterAgreement = listing.masterAgreement |> ``convert [MasterAgreement] to [MasterAgreementReturn]``
+              paymentAgreements = paymentAgreements } }
 
 let ``convert [Agreement] to [AgreementReturn]``
     (context: Context.Context)
