@@ -8,7 +8,9 @@ open App.DataAccessLayer.ExecuteNonQuery
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
 open App.Session
+open Business.FinancialServices
 open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion.DataIngestionError
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.Classification.ClassificationComponent
@@ -58,6 +60,135 @@ let create
         modifiedAt = modifiedAt
     }
     
+/// StoredFieldMatch is how a field match is written to the database. Stored rule JSON outlives changes to the domain
+/// types, so it is plain strings and numbers under fixed names, and every value goes back through its smart constructor
+/// on read.
+type StoredFieldMatch =
+    { field: string
+      pattern: string option
+      lineType: string option
+      numericOperator: string option
+      amount: decimal option }
+
+type StoredRuleGroup =
+    { connector: string
+      chainOne: StoredFieldMatch list
+      chainTwo: StoredFieldMatch list option }
+
+/// sourcePatternLikePredicate is true for a rule with a Source field match, in any chain of any group, whose pattern is
+/// LIKE the given parameter.
+let sourcePatternLikePredicate (parameterName: string) =
+    $"""
+    EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements(cr.rule_groups) AS rg,
+             jsonb_array_elements(
+                (rg.value -> 'chainOne') || COALESCE(NULLIF(rg.value -> 'chainTwo', 'null'::jsonb), '[]'::jsonb)
+             ) AS fm
+        WHERE fm.value ->> 'field' = 'Source'
+        AND fm.value ->> 'pattern' LIKE {parameterName}
+    )
+    """
+
+let private toStoredFieldMatch (fieldMatch: FieldMatch.FieldMatch) : StoredFieldMatch =
+    let blank = { field = ""; pattern = None; lineType = None; numericOperator = None; amount = None }
+    match fieldMatch with
+    | FieldMatch.Source pattern ->
+        { blank with field = "Source"; pattern = Some(pattern |> StringSearchPattern.value) }
+    | FieldMatch.Description pattern ->
+        { blank with field = "Description"; pattern = Some(pattern |> StringSearchPattern.value) }
+    | FieldMatch.LineType lineType ->
+        { blank with field = "LineType"; lineType = Some(lineType |> JournalEntryLineType.toString) }
+    | FieldMatch.Amount moneyPattern ->
+        { blank with
+            field = "Amount"
+            numericOperator = Some(moneyPattern.numericSearchOperator |> NumericSearchOperator.toString)
+            amount = Some(moneyPattern.amount |> Money.amount) }
+
+let private toStoredRuleGroup (ruleGroup: ClassificationRuleGroup) : StoredRuleGroup =
+    let storedChain chain = chain |> FieldMatchChain.chain |> List.map toStoredFieldMatch
+    { connector = ruleGroup |> connector |> ClassificationGroupConnector.toString
+      chainOne = ruleGroup |> chainOne |> storedChain
+      chainTwo = ruleGroup |> chainTwo |> Option.map storedChain }
+
+/// ruleGroupsToJson is the rule_groups column's value for the given groups.
+let ruleGroupsToJson (ruleGroups: ClassificationRuleGroup list) : Result<string, IAppError> =
+    ruleGroups |> List.map toStoredRuleGroup |> toJson<StoredRuleGroup list>
+
+let private storedGroupsInvalid (ruleUuid: System.Guid) (e: IAppError) : IAppError =
+    ClassificationRuleStoredGroupsInvalid(ruleUuid, e.ToMessage())
+
+let private requiredStoredValue (ruleUuid: System.Guid) (field: string) (valueName: string) (value: 'a option) =
+    match value with
+    | Some x -> Ok x
+    | None -> Error(ClassificationRuleStoredGroupsInvalid(ruleUuid, $"a {field} match has no {valueName}.") :> IAppError)
+
+let private fromStoredPattern (ruleUuid: System.Guid) (field: string) (pattern: string option) =
+    result {
+        let! patternStr = pattern |> requiredStoredValue ruleUuid field "pattern"
+        return!
+            patternStr
+            |> StringSearchPattern.create
+            |> Result.mapError (fun e ->
+                let reason =
+                    match e with
+                    | AsError (ClassificationSearchPatternInvalidRegex(_, reason)) -> reason
+                    | other -> other.ToMessage()
+                ClassificationRuleStoredPatternInvalid(ruleUuid, patternStr, reason) :> IAppError)
+    }
+
+let private fromStoredFieldMatch (ruleUuid: System.Guid) (stored: StoredFieldMatch) =
+    match stored.field with
+    | "Source" -> stored.pattern |> fromStoredPattern ruleUuid stored.field |> Result.map FieldMatch.Source
+    | "Description" -> stored.pattern |> fromStoredPattern ruleUuid stored.field |> Result.map FieldMatch.Description
+    | "LineType" ->
+        result {
+            let! lineTypeStr = stored.lineType |> requiredStoredValue ruleUuid stored.field "line type"
+            let! lineType =
+                lineTypeStr |> JournalEntryLineType.fromString |> Result.mapError (storedGroupsInvalid ruleUuid)
+            return FieldMatch.LineType lineType
+        }
+    | "Amount" ->
+        result {
+            let! operatorStr = stored.numericOperator |> requiredStoredValue ruleUuid stored.field "operator"
+            let! amount = stored.amount |> requiredStoredValue ruleUuid stored.field "amount"
+            let! numericOperator =
+                operatorStr |> NumericSearchOperator.fromString |> Result.mapError (storedGroupsInvalid ruleUuid)
+            let! money = amount |> Money.fromDecimal |> Result.mapError (storedGroupsInvalid ruleUuid)
+            return FieldMatch.Amount { numericSearchOperator = numericOperator; amount = money }
+        }
+    | other ->
+        Error(ClassificationRuleStoredGroupsInvalid(ruleUuid, $"\"{other}\" is not a field match target.") :> IAppError)
+
+let private fromStoredChain (ruleUuid: System.Guid) (stored: StoredFieldMatch list) =
+    if stored |> List.isEmpty then Error(storedGroupsInvalid ruleUuid ClassificationFieldMatchChainEmpty) else
+    stored
+    |> List.map (fromStoredFieldMatch ruleUuid)
+    |> convertListOfResultsToResultsList
+    |> Result.map FieldMatchChain.create
+
+let private fromStoredRuleGroup (ruleUuid: System.Guid) (stored: StoredRuleGroup) =
+    result {
+        let! groupConnector =
+            stored.connector |> ClassificationGroupConnector.fromString |> Result.mapError (storedGroupsInvalid ruleUuid)
+        let! storedChainOne = stored.chainOne |> fromStoredChain ruleUuid
+        let! storedChainTwo =
+            match stored.chainTwo with
+            | None -> Ok None
+            | Some chain -> chain |> fromStoredChain ruleUuid |> Result.map Some
+        return ClassificationRuleGroup.create groupConnector storedChainOne storedChainTwo
+    }
+
+let private ruleGroupsFromJson (ruleUuid: System.Guid) (json: string) =
+    result {
+        let! stored = json |> fromJson<StoredRuleGroup list> |> Result.mapError (storedGroupsInvalid ruleUuid)
+        if stored |> List.isEmpty then return! Error(storedGroupsInvalid ruleUuid ClassificationRuleGroupsEmpty) else
+        return!
+            stored
+            |> List.map (fromStoredRuleGroup ruleUuid)
+            |> convertListOfResultsToResultsList
+    }
+
 let persist (context: Context.Context) (classificationRule: ClassificationRule) : Result<unit, IAppError> =
     let queryStatement =
         """
@@ -85,7 +216,7 @@ let persist (context: Context.Context) (classificationRule: ClassificationRule) 
     let createdAt = classificationRule.createdAt
     let modifiedAt = classificationRule.modifiedAt
     result {
-        let! ruleGroups = classificationRule.ruleGroups |> toJson<ClassificationRuleGroup list>
+        let! ruleGroups = classificationRule.ruleGroups |> ruleGroupsToJson
         let parameters =
             [
               { name = "@unique_id"; value = UniqueId(uuid) }
@@ -101,30 +232,6 @@ let persist (context: Context.Context) (classificationRule: ClassificationRule) 
         return! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
     }
     
-let private confirmStoredPatternsAreValid (ruleUuid: System.Guid) (ruleGroups: ClassificationRuleGroup list) =
-    ruleGroups
-    |> List.collect (fun ruleGroup -> (ruleGroup |> chainOne) :: (ruleGroup |> chainTwo |> Option.toList))
-    |> List.collect FieldMatchChain.chain
-    |> List.choose (fun fieldMatch ->
-        match fieldMatch with
-        | FieldMatch.Source pattern
-        | FieldMatch.Description pattern
-        | FieldMatch.Memo pattern -> Some(pattern |> StringSearchPattern.value)
-        | FieldMatch.LineType _
-        | FieldMatch.Amount _ -> None)
-    |> List.map (fun patternStr ->
-        patternStr
-        |> StringSearchPattern.create
-        |> Result.map ignore
-        |> Result.mapError (fun e ->
-            let reason =
-                match e with
-                | AsError (ClassificationSearchPatternInvalidRegex(_, reason)) -> reason
-                | other -> other.ToMessage()
-            ClassificationRuleStoredPatternInvalid(ruleUuid, patternStr, reason) :> IAppError))
-    |> convertListOfResultsToResultsList
-    |> Result.map ignore
-
 let private reconstitute raw =
     result {
         let (uuid,
@@ -147,9 +254,7 @@ let private reconstitute raw =
                     paymentAgreementUuid |> CashFlowComponent.PaymentAgreementId.fromGuid
                 Ok (ClassificationClaimant.PaymentAgreement pmtId)
             | _ -> Error (ClassificationRuleInvalidClaimant(uuid, accountUuidOpt, paymentAgreementUuidOpt))
-        let! ruleGroups = ruleGroupsStr |> fromJson<ClassificationRuleGroup list>
-        // stored patterns are deserialised straight into the pattern type and skip its create, so they are checked here
-        do! ruleGroups |> confirmStoredPatternsAreValid uuid
+        let! ruleGroups = ruleGroupsStr |> ruleGroupsFromJson uuid
         return
             create
                 classificationRuleId

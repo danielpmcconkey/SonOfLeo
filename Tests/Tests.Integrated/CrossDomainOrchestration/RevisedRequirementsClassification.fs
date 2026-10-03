@@ -140,15 +140,13 @@ let private fieldMatch (field: string) (pattern: string) =
     let p = pattern |> StringSearchPattern.create |> orFail
     match field with
     | "Source" -> FieldMatch.Source p
-    | "Description" -> FieldMatch.Description p
-    | _ -> FieldMatch.Memo p
+    | _ -> FieldMatch.Description p
 
 /// A candidate whose one field under test holds the value; the other two hold text no pattern here matches.
 let private candidateWith (field: string) (value: string) =
     match field with
     | "Source" -> candidate value "unrelated description" "unrelated memo"
-    | "Description" -> candidate "UnrelatedSource" value "unrelated memo"
-    | _ -> candidate "UnrelatedSource" "unrelated description" value
+    | _ -> candidate "UnrelatedSource" value "unrelated memo"
 
 [<Collection("SharedTestData")>]
 type RevisedRequirementsClassificationTests(fixture: TestDataFixture) =
@@ -192,8 +190,7 @@ type RevisedRequirementsClassificationTests(fixture: TestDataFixture) =
     [<Theory>]
     [<InlineData("Source")>]
     [<InlineData("Description")>]
-    [<InlineData("Memo")>]
-    member _.``REQ-CR-1.14 for each of the Source, Description and Memo field matches, a pattern matches the same text in its own case and does not match it in the other case`` (field: string) =
+    member _.``REQ-CR-1.14 for each of the Source and Description field matches, a pattern matches the same text in its own case and does not match it in the other case`` (field: string) =
         let pattern = fieldMatch field "CaseText"
         Assert.True(FieldMatch.doesMatch (candidateWith field "CaseText") pattern)
         Assert.False(FieldMatch.doesMatch (candidateWith field "casetext") pattern)
@@ -202,8 +199,7 @@ type RevisedRequirementsClassificationTests(fixture: TestDataFixture) =
     [<Theory>]
     [<InlineData("Source")>]
     [<InlineData("Description")>]
-    [<InlineData("Memo")>]
-    member _.``REQ-CR-1.14 for each of the Source, Description and Memo field matches, a pattern is satisfied by a value containing it mid-string, and the same pattern anchored with ^ and $ is not`` (field: string) =
+    member _.``REQ-CR-1.14 for each of the Source and Description field matches, a pattern is satisfied by a value containing it mid-string, and the same pattern anchored with ^ and $ is not`` (field: string) =
         let value = "Before Needle After"
         Assert.True(FieldMatch.doesMatch (candidateWith field value) (fieldMatch field "Needle"))
         Assert.False(FieldMatch.doesMatch (candidateWith field value) (fieldMatch field "^Needle$"))

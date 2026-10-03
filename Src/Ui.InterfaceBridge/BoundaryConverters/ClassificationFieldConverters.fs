@@ -26,7 +26,6 @@ let ``convert [FieldMatch] to [FieldMatchContract]``
     match fieldMatch with
     | FieldMatch.Source pattern -> FieldMatchContract.Source (pattern |> StringSearchPattern.value)
     | FieldMatch.Description pattern -> FieldMatchContract.Description (pattern |> StringSearchPattern.value)
-    | FieldMatch.Memo pattern -> FieldMatchContract.Memo (pattern |> StringSearchPattern.value)
     | FieldMatch.LineType pattern -> FieldMatchContract.LineType (pattern |> JournalEntryLineType.toString)
     | FieldMatch.Amount pattern ->
         let numericSearchOperator = pattern.numericSearchOperator |> NumericSearchOperator.toString
@@ -76,10 +75,6 @@ let ``convert [FieldMatchContract] to [FieldMatch]``
             match patternStr |> StringSearchPattern.create with
             | Error e -> Error e
             | Ok x -> FieldMatch.Description x |> Ok
-        | FieldMatchContract.Memo patternStr ->
-            match patternStr |> StringSearchPattern.create with
-            | Error e -> Error e
-            | Ok x -> FieldMatch.Memo x |> Ok
         | FieldMatchContract.LineType patternStr ->
             match patternStr |> JournalEntryLineType.fromString with
             | Error e -> Error e

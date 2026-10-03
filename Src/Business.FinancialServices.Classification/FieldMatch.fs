@@ -8,7 +8,6 @@ open Business.FinancialServices.Classification.ClassificationComponent
 type FieldMatch =
     | Source of StringSearchPattern
     | Description of StringSearchPattern
-    | Memo of StringSearchPattern
     | LineType of JournalEntryLineType
     | Amount of MoneySearchPattern
 
@@ -46,13 +45,6 @@ let doesMatch
         let source = candidate.description |> JournalEntryDescription.value
         let pattern = stringPattern |> StringSearchPattern.value
         isRegexMatch source pattern
-    | Memo stringPattern ->
-        match candidate.memo with
-        | None -> false
-        | Some x ->
-            let source = x |> JournalEntryLineMemo.value
-            let pattern = stringPattern |> StringSearchPattern.value
-            isRegexMatch source pattern
     | LineType lineType ->
         candidate.lineType = lineType
     | Amount pattern -> isMoneyMatch candidate.amount pattern

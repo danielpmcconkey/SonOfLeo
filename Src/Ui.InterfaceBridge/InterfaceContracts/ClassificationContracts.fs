@@ -20,7 +20,6 @@ type MoneySearchPatternContract = {
 type FieldMatchContract =
     | Source of string
     | Description of string
-    | Memo of string
     | LineType of string
     | Amount of MoneySearchPatternContract
 

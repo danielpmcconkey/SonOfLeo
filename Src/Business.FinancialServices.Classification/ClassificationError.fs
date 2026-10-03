@@ -32,6 +32,7 @@ type ClassificationError =
     | ClassificationSearchPatternTooLong of string * int
     | ClassificationSearchPatternInvalidRegex of string * string
     | ClassificationRuleStoredPatternInvalid of Guid * string * string
+    | ClassificationRuleStoredGroupsInvalid of Guid * string
     | ClassificationRulePatternTimedOut of Guid * string
     | ClassificationStageEntryLineCannotBeRemoved of Guid * StageLineProtection
     | ClassificationStageEntryLineCannotBeChanged of Guid * StageLineProtection
@@ -66,6 +67,7 @@ type ClassificationError =
             | ClassificationSearchPatternTooLong (str, max) -> $"SearchPattern cannot exceed {max} characters. Provided value is {str}."
             | ClassificationSearchPatternInvalidRegex (pattern, reason) -> $"Search pattern {pattern} is not a valid regular expression: {reason}"
             | ClassificationRuleStoredPatternInvalid (ruleUuid, pattern, reason) -> $"Classification rule {ruleUuid} is stored with search pattern {pattern}, which is not a valid regular expression: {reason} Correct the rule before running classification."
+            | ClassificationRuleStoredGroupsInvalid (ruleUuid, reason) -> $"Classification rule {ruleUuid} is stored with rule groups that cannot be read: {reason} Correct the rule before running classification."
             | ClassificationRulePatternTimedOut (ruleUuid, pattern) -> $"Classification rule {ruleUuid}'s search pattern {pattern} took too long to evaluate and was stopped. Simplify the pattern; the classification run did not complete."
             | ClassificationStageEntryLineCannotBeRemoved (uuid, protection) ->
                 $"Staged line {uuid} cannot be removed because {protection |> describeProtection}."

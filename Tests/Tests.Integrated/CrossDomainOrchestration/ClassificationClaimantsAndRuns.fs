@@ -201,7 +201,7 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
         |> Result.bind Json.fromJson<Contracts.ClassificationRunReturn>
 
     // =========================================================================
-    // REQ-CR-1.23, 1.24, 1.25 — claimants and line-type constraints
+    // REQ-CR-1.23, 1.24 — claimants
     // =========================================================================
 
     [<Fact>]
@@ -257,26 +257,6 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                     | _ -> false
                 Assert.All(reads, fun read -> Assert.True(namesTheRule read))
             })
-
-    [<Theory>]
-    [<InlineData("the first chain of the only group")>]
-    [<InlineData("the second chain of an Or group")>]
-    [<InlineData("a later group")>]
-    member _.``REQ-CR-1.25 for each place a LineType field match can sit (the first chain of the only group, the second chain of an Or group, a later group), the rule counts as constraining line type, and a rule whose field matches are all on other fields does not`` (place: string) =
-        let described = describedAs "anything"
-        let build (pinned: FieldMatch) =
-            let ruleGroups =
-                match place with
-                | "the first chain of the only group" -> groups [ ("And", [ described; pinned ], None) ]
-                | "the second chain of an Or group" -> groups [ ("Or", [ described ], Some [ pinned ]) ]
-                | _ -> groups [ ("And", [ described ], None); ("And", [ pinned ], None) ]
-            let name = "Line type rule" |> ClassificationRuleName.create |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
-            ClassificationRule.create (ClassificationRuleId.create ()) name (ClassificationClaimant.Account(AccountId.fromGuid (Guid.NewGuid())))
-                100 ruleGroups true (Clock.now ()) (Clock.now ())
-        let withLineType = build (FieldMatch.LineType Debit)
-        let withMemoInstead = build (FieldMatch.Memo(pattern "a memo"))
-        Assert.True(withLineType |> ClassificationRule.constrainsLineType)
-        Assert.False(withMemoInstead |> ClassificationRule.constrainsLineType)
 
     // =========================================================================
     // REQ-CR-3.7, 3.8 — which rules a run uses, and what the classifier ignores

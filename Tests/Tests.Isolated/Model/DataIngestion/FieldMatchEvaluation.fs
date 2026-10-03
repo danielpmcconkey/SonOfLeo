@@ -78,31 +78,6 @@ let ``REQ-CR-1.14 a Description field match evaluates its pattern as a regex`` (
 
 
 // =============================================================================
-// Memo
-// =============================================================================
-
-[<Fact>]
-let ``REQ-CR-2.1 REQ-CR-1.14 a Memo field match is true when the candidate's memo matches the pattern regex`` () =
-    let candidate = makeCandidate "DoorDash Order" "TestBank" 45.00M "Debit" (Some "tip included")
-    Assert.True(Memo(pattern "^tip") |> FieldMatch.doesMatch candidate)
-
-[<Fact>]
-let ``REQ-CR-2.1 REQ-CR-1.14 a Memo field match is false when the candidate's memo is present but does not match the pattern regex`` () =
-    let candidate = makeCandidate "DoorDash Order" "TestBank" 45.00M "Debit" (Some "no tip")
-    Assert.False(Memo(pattern "^tip") |> FieldMatch.doesMatch candidate)
-
-[<Fact>]
-let ``REQ-CR-2.2 a Memo field match is false when the candidate has no memo, even for a pattern that matches everything`` () =
-    let matchEverything = pattern ".*"
-    let withMemo = makeCandidate "DoorDash Order" "TestBank" 45.00M "Debit" (Some "anything at all")
-    // The pattern matches when a memo is present, so the absent-memo result
-    // below cannot be explained by the pattern simply failing.
-    Assert.True(Memo matchEverything |> FieldMatch.doesMatch withMemo)
-    let withoutMemo = makeCandidate "DoorDash Order" "TestBank" 45.00M "Debit" None
-    Assert.False(Memo matchEverything |> FieldMatch.doesMatch withoutMemo)
-
-
-// =============================================================================
 // LineType
 // =============================================================================
 

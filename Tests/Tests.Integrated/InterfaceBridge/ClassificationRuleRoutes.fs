@@ -39,7 +39,6 @@ let private groupMatching (field: string) (pattern: string) : ClassificationRule
         match field with
         | "Source" -> FieldMatchContract.Source pattern
         | "Description" -> FieldMatchContract.Description pattern
-        | "Memo" -> FieldMatchContract.Memo pattern
         | other -> failwith $"no string field {other}"
     { connector = "And"
       chainOne = ({ chain = [ fieldMatch ] }: FieldMatchChainContract)
@@ -334,8 +333,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
     [<Theory>]
     [<InlineData("Source")>]
     [<InlineData("Description")>]
-    [<InlineData("Memo")>]
-    member this.``REQ-CR-1.26 creating a rule whose Source, Description or Memo pattern is not a valid regular expression is rejected with a typed error naming the pattern, and no rule is written`` (field: string) =
+    member this.``REQ-CR-1.26 creating a rule whose Source or Description pattern is not a valid regular expression is rejected with a typed error naming the pattern, and no rule is written`` (field: string) =
         let ruleName = $"CR-1.26 create invalid {field}"
         let mutable idToCleanUp = None
         try
@@ -360,8 +358,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
     [<Theory>]
     [<InlineData("Source")>]
     [<InlineData("Description")>]
-    [<InlineData("Memo")>]
-    member this.``REQ-CR-1.26 updating a rule's Source, Description or Memo pattern to one that is not a valid regular expression is rejected with a typed error naming the pattern, and the stored rule keeps its old pattern`` (field: string) =
+    member this.``REQ-CR-1.26 updating a rule's Source or Description pattern to one that is not a valid regular expression is rejected with a typed error naming the pattern, and the stored rule keeps its old pattern`` (field: string) =
         let mutable idToCleanUp = None
         let validGroups = [ groupMatching field $"CR-1.26 update valid {field}" ]
         try

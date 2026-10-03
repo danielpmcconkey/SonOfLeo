@@ -110,22 +110,7 @@ let fetchRulesFiltered
     (sort: FetchSortClassificationRule option)
     : Result<ClassificationRule.ClassificationRule list, IAppError> =
     result {
-        let sourcePredicate = """
-            EXISTS (
-                SELECT 1
-                FROM jsonb_array_elements(cr.rule_groups) AS rg,
-                     jsonb_array_elements(
-                        CASE
-                            WHEN rg.value -> 'chainTwo' IS NOT NULL
-                                AND rg.value -> 'chainTwo' != 'null'::jsonb
-                            THEN (rg.value -> 'chainOne' -> 'chain') || (rg.value -> 'chainTwo' -> 'chain')
-                            ELSE rg.value -> 'chainOne' -> 'chain'
-                        END
-                ) AS fm
-                WHERE fm.value ->> 'Case' = 'Source'
-                AND fm.value -> 'Fields' ->> 0 LIKE @source_like
-            )
-            """
+        let sourcePredicate = ClassificationRule.sourcePatternLikePredicate "@source_like"
         
         let activeClause =
             match filter.activeOnly with
@@ -312,7 +297,7 @@ let updateClassificationRule
         let! groupStr =
             match ruleGroupsUpdate with
             | FieldUpdate.NoChange -> Ok ""
-            | FieldUpdate.SetTo x -> x |> Json.toJson<ClassificationRuleGroup list> 
+            | FieldUpdate.SetTo x -> x |> ClassificationRule.ruleGroupsToJson
         let accountAtMatchUpdate, paymentAtMatchUpdate =
             classificationClaimantUpdate |> classificationClaimantToJointUpdates
         let updates =

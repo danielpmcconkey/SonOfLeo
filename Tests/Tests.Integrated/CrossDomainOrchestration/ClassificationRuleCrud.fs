@@ -863,16 +863,14 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
     [<Theory>]
     [<InlineData("Source")>]
     [<InlineData("Description")>]
-    [<InlineData("Memo")>]
-    member _.``REQ-CR-1.26 reading a stored rule whose Source, Description or Memo pattern is not a valid regular expression fails with a typed error naming the rule and the pattern`` (field: string) =
+    member _.``REQ-CR-1.26 reading a stored rule whose Source or Description pattern is not a valid regular expression fails with a typed error naming the rule and the pattern`` (field: string) =
         runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let validPattern = $"CR-1.26 stored valid {field}"
                 let fieldMatch =
                     match field with
                     | "Source" -> Source(patternOf validPattern)
-                    | "Description" -> Description(patternOf validPattern)
-                    | _ -> Memo(patternOf validPattern)
+                    | _ -> Description(patternOf validPattern)
                 let! created =
                     ClassificationOrchestration.createNewClassificationRule
                         context (ruleNameOf $"CR-1.26 stored {field}")
