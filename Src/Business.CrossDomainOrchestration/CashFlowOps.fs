@@ -315,9 +315,13 @@ let private createPaymentForInvoice
     (lineId: StageEntryComponent.StageEntryLineId)
     (amount: CashFlowComponent.PaymentAmount)
     (entryDate: LocalDate)
+    (clearBlocker: bool)
     : Result<InstanceOrchestration.InstanceComposite, IAppError> =
+    let invoiceUpdates =
+        if clearBlocker then { (invoiceId |> noChangeInvoiceUpdates) with blockerUpdate = FieldUpdate.SetTo None }
+        else invoiceId |> noChangeInvoiceUpdates
     let invoiceCompositeUpdate: InstanceOrchestration.InvoiceCompositeUpdate =
-        { invoiceUpdates = invoiceId |> noChangeInvoiceUpdates
+        { invoiceUpdates = invoiceUpdates
           paymentUpdates = []
           paymentIdsToDelete = []
           newPayments =
@@ -366,26 +370,29 @@ let private matchInvoicesAndCreatePayments
                     let invoice = invoiceComposite |> InstanceOrchestration.invoice
                     let lifeCycleState = invoice |> Invoice.invoiceLifeCycleState
                     lifeCycleState.paymentState <> CashFlowComponent.FullyPaid && invoice |> Invoice.isCancelled |> not)
-                |> List.map (fun invoiceComposite ->
+                |> List.map (fun invoiceComposite -> result {
                     let invoice = invoiceComposite |> InstanceOrchestration.invoice
-                    instanceComposite
-                    |> isOverpaid (invoice |> Invoice.invoiceId)
-                    |> Result.map (fun overpaid -> instanceId, masterAgreementId, invoice, overpaid)))
+                    let! overpaid = instanceComposite |> isOverpaid (invoice |> Invoice.invoiceId)
+                    let! paidSoFar =
+                        invoiceComposite |> InstanceOrchestration.payments |> List.map (Payment.amount >> _.money)
+                        |> Money.sumList
+                    return instanceId, masterAgreementId, invoice, paidSoFar, overpaid }))
             |> convertListOfResultsToResultsList
         // an overpaid invoice derives PartiallyPaid, so the state alone doesn't keep it from absorbing more payments.
         // it is kept aside only to explain the orphans it would otherwise have taken
         let unpaidInvoices =
             openInvoices
-            |> List.filter (fun (_, _, _, overpaid) -> not overpaid)
-            |> List.map (fun (instanceId, masterAgreementId, invoice, _) -> instanceId, masterAgreementId, invoice)
-            // the oldest bill gets first claim on a line two invoices could both take, and fetch order never decides it
-            |> List.sortBy (fun (_, _, invoice) ->
-                (invoice |> Invoice.dueDate).localDate,
-                (invoice |> Invoice.invoiceId |> CashFlowComponent.InvoiceId.value))
+            |> List.filter (fun (_, _, _, _, overpaid) -> not overpaid)
+            |> List.map (fun (instanceId, masterAgreementId, invoice, paidSoFar, _) ->
+                instanceId, masterAgreementId, invoice, paidSoFar)
+            // the oldest bill gets first claim on a line two invoices could both take, and fetch order never decides
+            // it; a due-date tie goes to the Invoice entered first
+            |> List.sortBy (fun (_, _, invoice, _) ->
+                (invoice |> Invoice.dueDate).localDate, (invoice |> Invoice.createdAt))
         let overpaidInvoices =
             openInvoices
-            |> List.filter (fun (_, _, _, overpaid) -> overpaid)
-            |> List.map (fun (_, masterAgreementId, invoice, _) -> masterAgreementId, invoice)
+            |> List.filter (fun (_, _, _, _, overpaid) -> overpaid)
+            |> List.map (fun (_, masterAgreementId, invoice, _, _) -> masterAgreementId, invoice)
         // every link, not only those on agreements with an open Invoice: a line whose agreement has no open Invoice at
         // all, or no Instances yet, is an orphan too (REQ-CF-13.7)
         let! links = PaymentAgreementLink.fetchAll context
@@ -420,7 +427,7 @@ let private matchInvoicesAndCreatePayments
             |> List.map StageEntryLine.stageEntryLineId
         // an ineligible line is neither offered to an invoice nor counted as an orphan
         let ineligibleLineIds = paidLineIds @ setAsideLineIds |> Set.ofList
-        let masterAgreementIds = openInvoices |> List.map (fun (_, maId, _, _) -> maId) |> List.distinct
+        let masterAgreementIds = openInvoices |> List.map (fun (_, maId, _, _, _) -> maId) |> List.distinct
         let! masterAgreements = masterAgreementIds |> MasterAgreement.fetchByMasterAgreementIdList context
         let cadenceTypeByAgreementId =
             masterAgreements
@@ -463,7 +470,7 @@ let private matchInvoicesAndCreatePayments
         let! decisions, claimedLineIds, consideredLineIds =
             unpaidInvoices
             |> List.fold
-                (fun accumulator (instanceId, masterAgreementId, invoice) -> result {
+                (fun accumulator (instanceId, masterAgreementId, invoice, paidSoFar) -> result {
                     let! decisionsSoFar, claimedSoFar, consideredSoFar = accumulator
                     let invoiceId = invoice |> Invoice.invoiceId
                     let candidates = candidatesForInvoice masterAgreementId invoice claimedSoFar
@@ -474,18 +481,33 @@ let private matchInvoicesAndCreatePayments
                         let line = lineById |> Map.find lineId
                         let entryDate = entryDateByHeaderId |> Map.find (line |> StageEntryLine.stageEntryHeaderId)
                         let amount: CashFlowComponent.PaymentAmount = { money = line |> StageEntryLine.amount }
+                        // cash arriving resolves whatever blocked the bill, so a Payment that brings a blocked Invoice
+                        // to FullyPaid clears the blocker and says so
+                        let! paidAfter = Money.add paidSoFar amount.money
+                        let blockerToClear =
+                            match (invoice |> Invoice.invoiceLifeCycleState).blocker with
+                            | Some blocker when paidAfter = (invoice |> Invoice.amount).money -> Some blocker
+                            | Some _
+                            | None -> None
                         let! updated =
-                            entryDate |> createPaymentForInvoice context instanceId invoiceId lineId amount
+                            createPaymentForInvoice
+                                context instanceId invoiceId lineId amount entryDate (blockerToClear |> Option.isSome)
                         let! overpaid = updated |> isOverpaid invoiceId
                         let created =
                             { CashFlowComponent.invoiceId = invoiceId
                               CashFlowComponent.outcome = CashFlowComponent.PaymentCreated lineId }
+                        let cleared =
+                            blockerToClear
+                            |> Option.map (fun blocker ->
+                                { CashFlowComponent.invoiceId = invoiceId
+                                  CashFlowComponent.outcome = CashFlowComponent.BlockerCleared blocker })
+                            |> Option.toList
                         let overpayment =
                             if overpaid then [ { CashFlowComponent.invoiceId = invoiceId
                                                  CashFlowComponent.outcome = CashFlowComponent.Overpayment } ]
                             else []
                         return
-                            decisionsSoFar @ [ created ] @ overpayment,
+                            decisionsSoFar @ [ created ] @ cleared @ overpayment,
                             claimedSoFar |> Set.add lineId,
                             consideredSoFar
                     | manyLineIds ->

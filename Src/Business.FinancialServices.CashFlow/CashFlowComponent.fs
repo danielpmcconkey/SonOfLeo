@@ -331,6 +331,8 @@ type InvoiceDecisionOutcome =
     | PaymentCreated of StageEntryLineId
     | ManyCandidateEntries of StageEntryLineId list
     | Overpayment
+    // the matched Payment brought a blocked Invoice to FullyPaid, so matching cleared this blocker
+    | BlockerCleared of Blocker
 
 type InvoiceDecision = {
     invoiceId: InvoiceId

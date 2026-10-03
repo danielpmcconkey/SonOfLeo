@@ -35,7 +35,8 @@ let private linesOfferedIn (result: InstanceOrchestration.PaymentAgreementClassi
         match decision.outcome with
         | PaymentCreated lineId -> [ lineId ]
         | ManyCandidateEntries lineIds -> lineIds
-        | Overpayment -> [])
+        | Overpayment -> []
+        | BlockerCleared _ -> [])
 
 let private paymentsReferencing context (lineId: StageEntryLineId) =
     [ lineId ] |> Payment.fetchByStageEntryLineIdList context |> Result.map List.length

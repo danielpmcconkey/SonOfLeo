@@ -328,6 +328,8 @@ let ``convert [InvoiceDecision] to [InvoiceDecisionReturn]`` (decision: InvoiceD
         | CashFlowComponent.ManyCandidateEntries lineIds ->
             InvoiceDecisionOutcomeReturn.ManyCandidateEntries(lineIds |> List.map StageEntryLineId.value)
         | CashFlowComponent.Overpayment -> InvoiceDecisionOutcomeReturn.Overpayment
+        | CashFlowComponent.BlockerCleared blocker ->
+            InvoiceDecisionOutcomeReturn.BlockerCleared(blocker |> ``convert [Blocker] to [BlockerContract]``)
     { invoiceId = decision.invoiceId |> InvoiceId.value; outcome = outcome }
 
 let ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]``

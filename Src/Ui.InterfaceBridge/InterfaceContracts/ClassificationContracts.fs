@@ -124,6 +124,7 @@ type InvoiceDecisionOutcomeReturn =
     | PaymentCreated of Guid
     | ManyCandidateEntries of Guid list
     | Overpayment
+    | BlockerCleared of BlockerContract
 
 type InvoiceDecisionReturn = {
     invoiceId: Guid
