@@ -4018,6 +4018,10 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-bffce045a94b4ee1aec2614ad8f90019" source="id-123b6d36a4d24cb28e1efb9ced9807d1" target="id-730b79fef9c444ebb6c8283d4726dde9"/>
     <element xsi:type="archimate:ServingRelationship" id="id-bbb94f431c6c4c62ae41304120bdfde6" source="id-cb82c2537d9945b682def7e169b221c2" target="id-730b79fef9c444ebb6c8283d4726dde9"/>
     <element xsi:type="archimate:ServingRelationship" id="id-153d59d6df9c47f39fca541a3578a2b0" source="id-20a955130ff74131966c96b5ee1bd3ae" target="id-dbb69ba2db65482c9bdb7835dc128521"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-879e5809d4f149a7946126415e5630fc" source="id-7f48c39a5f754019abde0129a8004327" target="id-a0f94d6e9580443d8b8f3d137fe4a9f6"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-08696bd7f16545f28a5b3c51ff54ec21" source="id-4898a4f475a24f47b2214b3c3c12a21f" target="id-a0f94d6e9580443d8b8f3d137fe4a9f6"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-a943d674b3064951aa854a86af97440e" source="id-1694657833c44d4db27afa22dafbb540" target="id-a0f94d6e9580443d8b8f3d137fe4a9f6"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-d05ea0c03b144f5995c48ae5f88b47ed" source="id-b2453322e8ee4fce8e95d88897fcb2e5" target="id-a0f94d6e9580443d8b8f3d137fe4a9f6"/>
   </folder>
   <folder name="Views" id="id-75e0717f00f244fe89d04a8b9e32fac9" type="diagrams">
     <element xsi:type="archimate:ArchimateDiagramModel" name="Application tiers" id="id-398726ae0f1d4b0a896928395ae87a15">
