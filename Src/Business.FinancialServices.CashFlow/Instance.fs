@@ -5,6 +5,7 @@ open App.Utility.IAppError
 open App.Utility.FieldUpdate
 open App.Utility.Result
 open App.DataAccessLayer.ExecuteNonQuery
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
 open App.Session
@@ -169,7 +170,9 @@ let fetchById (context: Context.Context) (instanceId: InstanceId) : Result<Insta
     let predicate = "ins.unique_id = @unique_id"
     let uuid = instanceId |> InstanceId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+    fetchAny context (Some predicate) None parameters ExactlyOne
+    |> whenNoRows (CashflowInstanceIdDoesntExist uuid)
+    |> Result.map List.head
 
 let fetchByMasterAgreementIdList
     (context: Context.Context)
@@ -209,7 +212,7 @@ let cancel
           { name = "@cancellation_reason_note"; value = CharString(note |> CancellationReasonNote.value) }
           { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) } ]
     executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
-    |> App.DataAccessLayer.DalError.whenNoRows (CashflowInstanceIdDoesntExist uuid)
+    |> whenNoRows (CashflowInstanceIdDoesntExist uuid)
 
 let update
     (context: Context.Context)
@@ -244,6 +247,8 @@ let update
     """
     result {
         do! if updates |> List.isEmpty then Error(CashflowInstanceUpdateNoOp) else Ok()
-        do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+        do!
+            executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+            |> whenNoRows (CashflowInstanceIdDoesntExist uuid)
         return! instanceId |> fetchById context
     }

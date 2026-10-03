@@ -258,7 +258,9 @@ let fetchById (context: Context.Context) (paymentId: PaymentId) : Result<Payment
     let predicate = "pmt.unique_id = @unique_id"
     let uuid = paymentId |> PaymentId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+    fetchAny context (Some predicate) None parameters ExactlyOne
+    |> whenNoRows (CashflowPaymentIdDoesntExist uuid)
+    |> Result.map List.head
 
 let fetchByInvoiceIdList
     (context: Context.Context)

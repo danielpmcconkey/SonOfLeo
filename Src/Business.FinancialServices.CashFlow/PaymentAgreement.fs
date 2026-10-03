@@ -5,6 +5,7 @@ open App.Utility
 open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer.ExecuteNonQuery
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
 open App.Session
@@ -222,7 +223,9 @@ let fetchById (context: Context.Context) (paymentAgreementID: PaymentAgreementId
     let predicate = "pa.unique_id = @unique_id"
     let uuid = paymentAgreementID |> PaymentAgreementId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+    fetchAny context (Some predicate) None parameters ExactlyOne
+    |> whenNoRows (CashflowPaymentAgreementIdDoesntExist uuid)
+    |> Result.map List.head
 
 let fetchByName
     (context: Context.Context)
@@ -321,7 +324,9 @@ let update
     """
     result {
         do! if updates |> List.isEmpty then Error(CashflowPaymentAgreementUpdateNoOp) else Ok()
-        do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+        do!
+            executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+            |> whenNoRows (CashflowPaymentAgreementIdDoesntExist uuid)
         return! paymentAgreementID |> fetchById context
     }
 

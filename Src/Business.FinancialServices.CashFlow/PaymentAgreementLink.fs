@@ -130,7 +130,9 @@ let fetchById
     let predicate = "pal.unique_id = @unique_id"
     let uuid = linkId |> PaymentAgreementLinkId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+    fetchAny context (Some predicate) None parameters ExactlyOne
+    |> whenNoRows (CashflowPaymentAgreementLinkIdDoesntExist uuid)
+    |> Result.map List.head
 
 let fetchByPaymentAgreementId
     (context: Context.Context)

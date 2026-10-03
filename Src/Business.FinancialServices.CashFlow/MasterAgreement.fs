@@ -5,6 +5,7 @@ open App.Utility.IAppError
 open App.Utility.FieldUpdate
 open App.Utility.Result
 open App.DataAccessLayer.ExecuteNonQuery
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.QueryParameter
 open App.Session
@@ -213,7 +214,9 @@ let fetchById (context: Context.Context) (agreementID: MasterAgreementId) : Resu
     let predicate = "ma.unique_id = @unique_id"
     let uuid = agreementID |> MasterAgreementId.value
     let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
+    fetchAny context (Some predicate) None parameters ExactlyOne
+    |> whenNoRows (CashflowMasterAgreementIdDoesntExist uuid)
+    |> Result.map List.head
 
 let fetchAll (context: Context.Context) : Result<MasterAgreement list, IAppError> =
     fetchAny context None None [] AnyQuantityIsAcceptable
@@ -300,7 +303,9 @@ let update
     """
     result {
         do! if updates |> List.isEmpty then Error(CashflowMasterAgreementUpdateNoOp) else Ok()
-        do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+        do!
+            executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+            |> whenNoRows (CashflowMasterAgreementIdDoesntExist uuid)
         return! agreementID |> fetchById context
     }
 
