@@ -303,3 +303,20 @@ type RevisedRequirementsCashFlowTests(fixture: TestDataFixture) =
                 let! after = agreementId |> AgreementOrchestration.fetchByMasterAgreementId s.Context
                 Assert.Equal(Income, after |> AgreementOrchestration.masterAgreement |> MasterAgreement.direction)
             })
+
+    [<Fact>]
+    member _.``REQ-CF-14.2 an update to a master agreement that names no field to change is rejected with a typed error and the agreement is unchanged`` () =
+        failwith "not implemented"
+
+    // =========================================================================
+    // REQ-CF-6.5, REQ-CF-9.8 — a Payment's amount is its line's
+    // =========================================================================
+
+    [<Theory>]
+    [<InlineData("staged line", "below")>]
+    [<InlineData("staged line", "above")>]
+    [<InlineData("journal entry line", "below")>]
+    [<InlineData("journal entry line", "above")>]
+    member _.``REQ-CF-6.5 REQ-CF-9.8 for each transaction pointer (staged line, journal entry line) and each payload amount (below and above the line's), creating a Payment against a line whose amount equals the amount of an Invoice with no other Payments leaves the Invoice FullyPaid and the Payment's amount reads back as the line's`` (pointer: string, payloadAmount: string) =
+        failwith "not implemented"
+
