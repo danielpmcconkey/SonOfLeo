@@ -379,32 +379,18 @@ let deduplicateStagedEntries
         return { ingested = ingested; declinedForPayment = declined }
     }
 
-let classifyAccounts
+/// accountClassificationStatuses are the statuses of the entries an account classification run considers.
+let accountClassificationStatuses = [ Ingested; StagedEntryStatus.NoMatch; Conflict ]
+
+/// applyAccountClassification writes each clear winner's account to its line, then sets every considered entry's
+/// status from the accounts it now holds and the run's ties.
+let applyAccountClassification
     (context: Context.Context)
+    (classificationRun: ClassificationRun)
     : Result<AccountClassificationResult, IAppError> =
     result {
-        let rosterStatuses = [ Ingested; StagedEntryStatus.NoMatch; Conflict ]
-        let! roster = rosterStatuses |> fetchByStatusList context
         let isFullyAssigned (entry: StageEntry) : bool =
             entry |> seLines |> List.forall (fun line -> line |> StageEntryLine.accountId |> Option.isSome)
-        let (matchCandidates: MatchCandidate list) =
-            roster
-            |> List.collect (fun entry ->
-                let header = entry.stageEntryHeader
-                entry
-                |> seLines
-                |> List.filter (fun line -> line |> StageEntryLine.accountId |> Option.isNone)
-                |> List.map (fun line -> {
-                    headerIdOfCandidate = header |> StageEntryHeader.stageEntryHeaderId
-                    lineIdOfCandidate = line |> StageEntryLine.stageEntryLineId
-                    ingestionSource = header |> StageEntryHeader.ingestionSource |> IngestionSource.name
-                    description = header |> StageEntryHeader.description
-                    amount = line |> StageEntryLine.amount
-                    lineType = line |> StageEntryLine.lineType
-                    memo = line |> StageEntryLine.memo }))
-        let! classificationRun =
-            matchCandidates
-            |> ClassificationOrchestration.classifyMatchCandidatesAndRecordMatches context AccountClaimant
         let classificationResults = classificationRun.results
         let winningAccountId (outcome: ClassifierOutcome) : AccountId option =
             match outcome with
@@ -429,7 +415,7 @@ let classifyAccounts
             |> List.map (fun result -> result.candidate.headerIdOfCandidate)
             |> List.distinct
         // re-read so the status below is derived from the accounts just written rather than the pre-write roster
-        let! rosterAfterWrites = rosterStatuses |> fetchByStatusList context
+        let! rosterAfterWrites = accountClassificationStatuses |> fetchByStatusList context
         let! _ =
             rosterAfterWrites
             |> List.map (fun entry ->

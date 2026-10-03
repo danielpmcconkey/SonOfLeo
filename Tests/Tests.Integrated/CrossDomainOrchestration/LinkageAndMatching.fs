@@ -304,7 +304,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _ = scenario.outgoInvoice agreementId legId scenario.firstOfThisMonth 30
                 let! _ = scenario.paymentAgreementRule legId "CF-12.1 run payment"
                 let! _, lineId, _ = scenario.outgoEntry "CF-12.1 run payment" scenario.firstOfThisMonth "Classified"
-                let! _ = CashFlowOps.classifyPaymentAgreements context
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 let! links = scenario.linksOf lineId
                 let link = Assert.Single(links)
                 let initiation = context |> Context.getInitiationInstant
@@ -330,7 +330,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _ = scenario.outgoInvoice agreementXId legXId scenario.firstOfThisMonth 30
                 let! lineId = scenario.linkedLine legXId "CF-12.2 existing payment" scenario.firstOfThisMonth
                 let! _ = scenario.paymentAgreementRule legYId "CF-12.2 existing payment"
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let! links = scenario.linksOf lineId
                 let link = Assert.Single(links)
                 Assert.Equal(legXId, link |> PaymentAgreementLink.paymentAgreementId)
@@ -351,7 +351,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _ = scenario.paymentAgreementRuleWith legXId "CF-12.2 priority payment" 100 None
                 let! _ = scenario.paymentAgreementRuleWith legYId "CF-12.2 priority payment" 200 None
                 let! _, lineId, _ = scenario.outgoEntry "CF-12.2 priority payment" scenario.firstOfThisMonth "Classified"
-                let! _ = CashFlowOps.classifyPaymentAgreements context
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 let! links = scenario.linksOf lineId
                 let link = Assert.Single(links)
                 Assert.Equal(legXId, link |> PaymentAgreementLink.paymentAgreementId)
@@ -377,7 +377,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _ = scenario.outgoInvoice agreementId legId scenario.firstOfThisMonth 30
                 let! _ = scenario.paymentAgreementRule legId $"CF-12.3 {status} payment"
                 let! _, lineId, _ = scenario.outgoEntry $"CF-12.3 {status} payment" scenario.firstOfThisMonth status
-                let! _ = CashFlowOps.classifyPaymentAgreements context
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 let! links = scenario.linksOf lineId
                 let link = Assert.Single(links)
                 Assert.Equal(legId, link |> PaymentAgreementLink.paymentAgreementId)
@@ -397,7 +397,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _ = scenario.paymentAgreementRule legId $"CF-12.3 {status} payment"
                 let! _, debitLineId, creditLineId =
                     scenario.outgoEntry $"CF-12.3 {status} payment" scenario.firstOfThisMonth status
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let! debitLinks = scenario.linksOf debitLineId
                 let! creditLinks = scenario.linksOf creditLineId
                 Assert.Empty(debitLinks)
@@ -418,12 +418,12 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! inactive = rule |> scenario.setRuleActive false
                 Assert.False(inactive |> ClassificationRule.isActive)
                 let! _, lineId, _ = scenario.outgoEntry "CF-12.3 inactive payment" scenario.firstOfThisMonth "Classified"
-                let! firstRun = CashFlowOps.classifyPaymentAgreements context
+                let! firstRun = ClassificationOrchestration.classifyPaymentAgreements context
                 let! linksAfterFirst = scenario.linksOf lineId
                 Assert.Empty(linksAfterFirst)
                 Assert.Empty(firstRun |> decisionsNaming lineId)
                 let! _ = rule |> scenario.setRuleActive true
-                let! _ = CashFlowOps.classifyPaymentAgreements context
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 let! linksAfterSecond = scenario.linksOf lineId
                 let link = Assert.Single(linksAfterSecond)
                 Assert.Equal(legId, link |> PaymentAgreementLink.paymentAgreementId)
@@ -442,7 +442,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! lines = [ lineId ] |> StageEntryLine.fetchByIdList context
                 let line = Assert.Single(lines)
                 Assert.Equal(Some scenario.loanId, line |> StageEntryLine.accountId)
-                let! _ = CashFlowOps.classifyPaymentAgreements context
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 let! links = scenario.linksOf lineId
                 let link = Assert.Single(links)
                 Assert.Equal(legId, link |> PaymentAgreementLink.paymentAgreementId)
@@ -460,7 +460,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                         [ ("And", [ FieldMatch.Description pattern ], None) ]
                 let! _, debitLineId, creditLineId =
                     scenario.outgoEntry "CF-12.3 account claimant payment" scenario.firstOfThisMonth "Classified"
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let! debitLinks = scenario.linksOf debitLineId
                 let! creditLinks = scenario.linksOf creditLineId
                 Assert.Empty(debitLinks)
@@ -484,7 +484,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _ = scenario.paymentAgreementRule legId "CF-12.4 outgo default payment"
                 let! _, debitLineId, creditLineId =
                     scenario.outgoEntry "CF-12.4 outgo default payment" scenario.firstOfThisMonth "Classified"
-                let! _ = CashFlowOps.classifyPaymentAgreements context
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 let! links = linksTo context [ legId ]
                 let link = Assert.Single(links)
                 Assert.Equal(debitLineId, link |> PaymentAgreementLink.stageEntryLineId)
@@ -505,7 +505,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                     scenario.stagedEntryWithLines "CF-12.4 income default receipt" scenario.firstOfThisMonth "Classified"
                         [ (100.00M, "Debit", "F-1280"); (100.00M, "Credit", "F-4290") ]
                 let debitLineId, creditLineId = lines.[0], lines.[1]
-                let! _ = CashFlowOps.classifyPaymentAgreements context
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 let! links = linksTo context [ legId ]
                 let link = Assert.Single(links)
                 Assert.Equal(creditLineId, link |> PaymentAgreementLink.stageEntryLineId)
@@ -527,7 +527,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                     scenario.stagedEntryWithLines "CF-12.4 refund" scenario.firstOfThisMonth "Classified"
                         [ (100.00M, "Debit", "F-1280"); (100.00M, "Credit", "F-2230") ]
                 let debitLineId, creditLineId = lines.[0], lines.[1]
-                let! _ = CashFlowOps.classifyPaymentAgreements context
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 let! links = linksTo context [ legId ]
                 let link = Assert.Single(links)
                 Assert.Equal(creditLineId, link |> PaymentAgreementLink.stageEntryLineId)
@@ -553,7 +553,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                     scenario.stagedEntryWithLines "CF-12.4 mixed" scenario.firstOfThisMonth "Classified"
                         [ (100.00M, "Debit", "F-1280"); (100.00M, "Credit", "F-2230") ]
                 let debitLineId, creditLineId = lines.[0], lines.[1]
-                let! _ = CashFlowOps.classifyPaymentAgreements context
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 let! links = linksTo context [ legId ]
                 let link = Assert.Single(links)
                 Assert.Equal(creditLineId, link |> PaymentAgreementLink.stageEntryLineId)
@@ -573,7 +573,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _, lines =
                     scenario.stagedEntryWithLines "CF-12.4 no line payment" scenario.firstOfThisMonth "Classified"
                         [ (100.00M, "Debit", "F-5350"); (100.00M, "Credit", "F-1280") ]
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let! links = linksTo context [ legId ]
                 Assert.Empty(links)
                 let decisions = run.decisionLog |> List.filter (fun d -> d.paymentAgreementId = Some legId)
@@ -594,7 +594,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                     scenario.stagedEntryWithLines "CF-12.4 two lines payment" scenario.firstOfThisMonth "Classified"
                         [ (60.00M, "Debit", "F-2230"); (40.00M, "Debit", "F-2230"); (100.00M, "Credit", "F-1280") ]
                 let debitLineIds = set [ lines.[0]; lines.[1] ]
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let! links = linksTo context [ legId ]
                 Assert.Empty(links)
                 let decisions = run.decisionLog |> List.filter (fun d -> d.paymentAgreementId = Some legId)
@@ -614,7 +614,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                     scenario.stagedEntryWithLines "CF-12.4 constrained two" scenario.firstOfThisMonth "Classified"
                         [ (60.00M, "Debit", "F-2230"); (40.00M, "Debit", "F-5350"); (100.00M, "Credit", "F-1280") ]
                 let debitLineIds = set [ lines.[0]; lines.[1] ]
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let! links = linksTo context [ legId ]
                 Assert.Empty(links)
                 let decisions = run.decisionLog |> List.filter (fun d -> d.paymentAgreementId = Some legId)
@@ -636,7 +636,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _ = scenario.paymentAgreementRule legId "CF-12.5 contested payment"
                 let! _, firstLineId, _ = scenario.outgoEntry "CF-12.5 contested payment one" scenario.firstOfThisMonth "Classified"
                 let! _, secondLineId, _ = scenario.outgoEntry "CF-12.5 contested payment two" scenario.firstOfThisMonth "Classified"
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let! links = linksTo context [ legId ]
                 Assert.Empty(links)
                 let decisions =
@@ -659,7 +659,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _ = scenario.paymentAgreementRuleWith legXId "CF-12.5 tie payment" 300 None
                 let! _ = scenario.paymentAgreementRuleWith legYId "CF-12.5 tie payment" 300 None
                 let! _, lineId, _ = scenario.outgoEntry "CF-12.5 tie payment" scenario.firstOfThisMonth "Classified"
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let! links = scenario.linksOf lineId
                 Assert.Empty(links)
                 let decisions =
@@ -712,7 +712,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                         |> Result.map (fun (headerId, _, _) -> headerId, status))
                     |> convertListOfResultsToResultsList
                 let expected = (linkedHeader, "Classified") :: noLineHeaders @ contestedHeaders @ unclaimedHeaders
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 (* The run did what the cases claim: one link, unlinked no-line claims, contested claims. *)
                 let! links = linksTo context [ legId ]
                 Assert.Single(links) |> ignore
@@ -811,7 +811,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! afterDelete = scenario.linksOf lineId
                 Assert.Empty(afterDelete)
                 let! _ = scenario.paymentAgreementRule legId "CF-12.7 delete payment"
-                let! _ = CashFlowOps.classifyPaymentAgreements context
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 let! afterRun = scenario.linksOf lineId
                 let relinked = Assert.Single(afterRun)
                 Assert.Equal(legId, relinked |> PaymentAgreementLink.paymentAgreementId)
@@ -837,7 +837,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 (* An earlier run matches a line of its own, so its match is in the table when the later run is fetched. *)
                 let! earlierRule = scenario.paymentAgreementRuleWith legYId "CF-12.8 earlier" 250 None
                 let! _, earlierLineId, _ = scenario.outgoEntry "CF-12.8 earlier" scenario.firstOfThisMonth "Classified"
-                let! earlierRun = CashFlowOps.classifyPaymentAgreements context
+                let! earlierRun = ClassificationOrchestration.classifyPaymentAgreements context
                 (* Retire the earlier rule, so the later run does not match the earlier entry's unlinked Credit line
                    again: every row the earlier run recorded stays in the table and must stay out of the later run. *)
                 let! earlierRows = earlierRun.runId |> ClassificationOrchestration.fetchRunMatchesWithRules context
@@ -847,7 +847,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! winner = scenario.paymentAgreementRuleWith legXId "CF-12.8 later" 150 None
                 let! loser = scenario.paymentAgreementRuleWith legXId "CF-12.8 later" 350 None
                 let! _, laterDebitId, laterCreditId = scenario.outgoEntry "CF-12.8 later" scenario.firstOfThisMonth "Classified"
-                let! laterRun = CashFlowOps.classifyPaymentAgreements context
+                let! laterRun = ClassificationOrchestration.classifyPaymentAgreements context
                 let! fetched = laterRun.runId |> ClassificationOrchestration.fetchRunMatchesWithRules context
                 let fetchedMatches =
                     fetched
@@ -883,7 +883,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 (* Created second: this month's, due on its date, so its due date is the earlier one. *)
                 let! _, earlierDueInvoiceId = scenario.outgoInvoice agreementId legId scenario.firstOfThisMonth 0
                 let! lineId = scenario.linkedLine legId "CF-13.1 order payment" scenario.firstOfThisMonth
-                let! _ = CashFlowOps.classifyPaymentAgreements context
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 let! payments = scenario.paymentsOn lineId
                 let payment = Assert.Single(payments)
                 Assert.Equal(earlierDueInvoiceId, payment |> Payment.invoiceId)
@@ -909,7 +909,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 Assert.Equal(FullyPaid, paidState.paymentState)
                 let! _, newerInvoiceId = scenario.outgoInvoice agreementId legId scenario.firstOfThisMonth 30
                 let! lineId = scenario.linkedLine legId "CF-13.1 fully paid payment" scenario.firstOfThisMonth
-                let! _ = CashFlowOps.classifyPaymentAgreements context
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 let! payments = scenario.paymentsOn lineId
                 let payment = Assert.Single(payments)
                 Assert.Equal(newerInvoiceId, payment |> Payment.invoiceId)
@@ -932,7 +932,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 Assert.True(fulfilled |> InstanceOrchestration.instance |> Instance.isFulfilled)
                 let! _, newerInvoiceId = scenario.outgoInvoice agreementId legId scenario.firstOfThisMonth 30
                 let! lineId = scenario.linkedLine legId "CF-13.1 fulfilled payment" scenario.firstOfThisMonth
-                let! _ = CashFlowOps.classifyPaymentAgreements context
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 let! payments = scenario.paymentsOn lineId
                 let payment = Assert.Single(payments)
                 Assert.Equal(newerInvoiceId, payment |> Payment.invoiceId)
@@ -957,7 +957,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                     scenario.invoiceWithPayments agreementId legId InvoiceReceived scenario.firstOfLastMonth 60
                         [ (TransactionPointer.Staged lineId, 100.00M) ]
                 let! _, openInvoiceId = scenario.outgoInvoice agreementId legId scenario.firstOfThisMonth 30
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let! payments = scenario.paymentsOn lineId
                 let payment = Assert.Single(payments)
                 Assert.Equal(paidInvoiceId, payment |> Payment.invoiceId)
@@ -979,7 +979,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _, otherInvoiceId = scenario.outgoInvoice agreementYId legYId scenario.firstOfThisMonth 0
                 let! _, ownInvoiceId = scenario.outgoInvoice agreementXId legXId scenario.firstOfThisMonth 30
                 let! lineId = scenario.linkedLine legXId "CF-13.2 own X payment" scenario.firstOfThisMonth
-                let! _ = CashFlowOps.classifyPaymentAgreements context
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 let! payments = scenario.paymentsOn lineId
                 let payment = Assert.Single(payments)
                 Assert.Equal(ownInvoiceId, payment |> Payment.invoiceId)
@@ -1011,7 +1011,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! agreementId, legId = scenario.agreementWithCadence $"CF-13.3 {cadence} early edge" Outgo cadenceType nextInstance
                 let! _, invoiceId = scenario.outgoInvoice agreementId legId invoiceDate 10
                 let! lineId = scenario.linkedLine legId $"CF-13.3 {cadence} early edge payment" (invoiceDate.PlusDays(-graceDays))
-                let! _ = CashFlowOps.classifyPaymentAgreements context
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 let! payments = scenario.paymentsOn lineId
                 let payment = Assert.Single(payments)
                 Assert.Equal(invoiceId, payment |> Payment.invoiceId)
@@ -1033,7 +1033,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! agreementId, legId = scenario.agreementWithCadence $"CF-13.3 {cadence} late edge" Outgo cadenceType nextInstance
                 let! _, invoiceId = scenario.outgoInvoice agreementId legId invoiceDate 10
                 let! lineId = scenario.linkedLine legId $"CF-13.3 {cadence} late edge payment" (invoiceDate.PlusDays(10 + graceDays))
-                let! _ = CashFlowOps.classifyPaymentAgreements context
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 let! payments = scenario.paymentsOn lineId
                 let payment = Assert.Single(payments)
                 Assert.Equal(invoiceId, payment |> Payment.invoiceId)
@@ -1055,7 +1055,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! agreementId, legId = scenario.agreementWithCadence $"CF-13.3 {cadence} too early" Outgo cadenceType nextInstance
                 let! _ = scenario.outgoInvoice agreementId legId invoiceDate 10
                 let! lineId = scenario.linkedLine legId $"CF-13.3 {cadence} too early payment" (invoiceDate.PlusDays(-graceDays - 1))
-                let! orphans = CashFlowOps.classifyPaymentAgreements context |> orphansIn
+                let! orphans = ClassificationOrchestration.classifyPaymentAgreements context |> orphansIn
                 let orphanLine, orphanLeg, reason = Assert.Single(orphans)
                 Assert.Equal(lineId |> StageEntryLineId.value, orphanLine)
                 Assert.Equal(legId |> PaymentAgreementId.value, orphanLeg)
@@ -1078,7 +1078,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! agreementId, legId = scenario.agreementWithCadence $"CF-13.3 {cadence} too late" Outgo cadenceType nextInstance
                 let! _ = scenario.outgoInvoice agreementId legId invoiceDate 10
                 let! lineId = scenario.linkedLine legId $"CF-13.3 {cadence} too late payment" (invoiceDate.PlusDays(10 + graceDays + 1))
-                let! orphans = CashFlowOps.classifyPaymentAgreements context |> orphansIn
+                let! orphans = ClassificationOrchestration.classifyPaymentAgreements context |> orphansIn
                 let orphanLine, orphanLeg, reason = Assert.Single(orphans)
                 Assert.Equal(lineId |> StageEntryLineId.value, orphanLine)
                 Assert.Equal(legId |> PaymentAgreementId.value, orphanLeg)
@@ -1098,7 +1098,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! agreementId, legId = scenario.agreement "CF-13.4 single" Outgo
                 let! _, invoiceId = scenario.outgoInvoice agreementId legId scenario.firstOfThisMonth 30
                 let! lineId = scenario.linkedLine legId "CF-13.4 single payment" scenario.firstOfThisMonth
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let! payments = scenario.paymentsOnInvoice invoiceId
                 let payment = Assert.Single(payments)
                 Assert.Equal(TransactionPointer.Staged lineId, payment |> Payment.transactionPointer)
@@ -1122,7 +1122,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! earlyLineId = scenario.linkedLine legId "CF-13.4 lost then won early" scenario.firstOfLastMonth
                 (* The shared line: both windows cover it. *)
                 let! sharedLineId = scenario.linkedLine legId "CF-13.4 lost then won shared" scenario.firstOfThisMonth
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let contested = Assert.Single(run |> invoiceDecisionsFor contestedInvoiceId)
                 let! candidates = contested |> manyCandidatesOf
                 Assert.Equal<Set<StageEntryLineId>>(set [ earlyLineId; sharedLineId ], candidates)
@@ -1144,7 +1144,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! firstLineId = scenario.linkedLine legId "CF-13.5 many one" scenario.firstOfThisMonth
                 let! secondLineId = scenario.linkedLine legId "CF-13.5 many two" (scenario.firstOfThisMonth.PlusDays(1))
                 let! thirdLineId = scenario.linkedLine legId "CF-13.5 many three" (scenario.firstOfThisMonth.PlusDays(2))
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let! payments = scenario.paymentsOnInvoice invoiceId
                 Assert.Empty(payments)
                 let decision = Assert.Single(run |> invoiceDecisionsFor invoiceId)
@@ -1168,7 +1168,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _ = CashFlowOps.constructNewPaymentAgreementLinkAndPersist context legId lineId
                 let! journalEntriesBefore = scenario.journalEntryCount ()
                 let! instancesBefore, invoicesBefore = scenario.instanceAndInvoiceIds ()
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let outcomes = run |> invoiceDecisionsFor invoiceId |> List.map _.outcome
                 Assert.Equal<InvoiceDecisionOutcome list>([ PaymentCreated lineId; Overpayment ], outcomes)
                 let! journalEntriesAfter = scenario.journalEntryCount ()
@@ -1196,7 +1196,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! firstLineId = scenario.linkedLine legId "CF-13.8 lost one" scenario.firstOfThisMonth
                 let! secondLineId = scenario.linkedLine legId "CF-13.8 lost two" scenario.firstOfThisMonth
                 (* An orphan fails the whole run, so a run that returns at all has no orphan. *)
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let decision = Assert.Single(run |> invoiceDecisionsFor invoiceId)
                 let! candidates = decision |> manyCandidatesOf
                 Assert.Equal<Set<StageEntryLineId>>(set [ firstLineId; secondLineId ], candidates)
@@ -1218,7 +1218,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _, lineId, _ = scenario.outgoEntry "CF-13.9 same run payment" scenario.firstOfThisMonth "Classified"
                 let! linksBefore = scenario.linksOf lineId
                 Assert.Empty(linksBefore)
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 Assert.Contains(run.decisionLog, fun d -> d.stageEntryLineId = lineId && d.outcome = Linked)
                 let! payments = scenario.paymentsOn lineId
                 let payment = Assert.Single(payments)
@@ -1239,7 +1239,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _ = scenario.outgoEntry "CF-13.9 run id linked payment" scenario.firstOfThisMonth "Classified"
                 let! _ = scenario.outgoEntry "CF-13.9 run id contested payment one" scenario.firstOfThisMonth "Classified"
                 let! _ = scenario.outgoEntry "CF-13.9 run id contested payment two" scenario.firstOfThisMonth "Classified"
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let listedLines = run.decisionLog |> List.map _.stageEntryLineId |> Set.ofList
                 Assert.Contains(run.decisionLog, fun d -> d.outcome = Linked)
                 Assert.Contains(run.decisionLog, fun d -> d.outcome = ContestedAgreement)
@@ -1269,7 +1269,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _ =
                     scenario.invoiceWithPayments oldAgreementId legOldId InvoiceReceived scenario.firstOfLastMonth 0
                         [ (TransactionPointer.Staged oldLineId, 100.00M) ]
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let linkedInRun =
                     run.decisionLog |> List.filter (fun d -> d.outcome = Linked) |> List.map _.stageEntryLineId |> Set.ofList
                 let paidInRun =
@@ -1301,7 +1301,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! fulfilledByRunId, _ = scenario.outgoInvoice agreementId legId scenario.firstOfLastMonth 0
                 let! leftOpenId, _ = scenario.outgoInvoice agreementId legId scenario.firstOfThisMonth 0
                 let! _ = scenario.linkedLine legId "CF-13.9 open payment" scenario.firstOfLastMonth
-                let! run = CashFlowOps.classifyPaymentAgreements context
+                let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let listed = run.openInstances |> List.map (InstanceOrchestration.instance >> Instance.instanceId) |> Set.ofList
                 Assert.DoesNotContain(fulfilledByRunId, listed)
                 Assert.Contains(leftOpenId, listed)

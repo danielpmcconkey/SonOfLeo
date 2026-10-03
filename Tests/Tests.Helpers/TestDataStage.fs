@@ -1042,7 +1042,7 @@ type TestDataFixture() =
                         System.Threading.Thread.Sleep 5
                 waitUntilAfter ((context |> Context.getInitiationInstant).Plus(transitionStep * 3L))
                 let postingContext = context |> TestContext.updateInitiationInstant
-                let! _ = CashFlowOps.classifyPaymentAgreements postingContext
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements postingContext
                 do! StageEntryOrchestration.post postingContext
                 let! _ = CashFlowOps.transitionPaymentsToPosted postingContext
 

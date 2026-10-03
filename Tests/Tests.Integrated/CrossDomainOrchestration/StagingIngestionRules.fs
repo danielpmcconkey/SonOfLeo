@@ -623,7 +623,7 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                     runCommandRouteAndAutoRollback IngestDeduplicateStageEntries (fun context ->
                         result {
                             let later = context |> TestContext.updateInitiationInstant
-                            let! _ = classifyAccounts later
+                            let! _ = ClassificationOrchestration.classifyAccounts later
                             let! line = matchedLine |> StageEntryLine.stageEntryLineId |> StageEntryLine.fetchById later
                             Assert.Equal(Some(accountIdOf "F-5300"), line |> StageEntryLine.accountId)
                             let evenLater = later |> TestContext.updateInitiationInstant
@@ -695,7 +695,7 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                 let! ignored = entryIn "Ignored" false [ "Ignored" ]
                 let! posted = entryIn "Posted" true [ "Classified"; "Posted" ]
                 s.advance ()
-                let! run = classifyAccounts s.Context
+                let! run = ClassificationOrchestration.classifyAccounts s.Context
                 let! expected =
                     [ StagedEntryStatus.Ingested; StagedEntryStatus.Classified; StagedEntryStatus.NoMatch; StagedEntryStatus.Conflict; StagedEntryStatus.Reviewed ]
                     |> fetchByStatusList s.Context

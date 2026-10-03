@@ -159,10 +159,10 @@ type private Scenario(fixture: TestDataFixture, initialContext: Context.Context)
 
     member _.accountRun () =
         context <- context |> TestContext.updateInitiationInstant
-        StageEntryOrchestration.classifyAccounts context
+        ClassificationOrchestration.classifyAccounts context
     member _.paymentAgreementRun () =
         context <- context |> TestContext.updateInitiationInstant
-        CashFlowOps.classifyPaymentAgreements context
+        ClassificationOrchestration.classifyPaymentAgreements context
     member _.rowsOf (runId: ClassificationRunId) = runId |> RuleMatch.fetchByRunId context
 
 let private rolledBack (fixture: TestDataFixture) (body: Scenario -> Result<unit, IAppError>) =

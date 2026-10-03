@@ -32,16 +32,16 @@
     <Compile Include="JournalEntryOrchestration.fs" />
     <Compile Include="JournalEntryVoiding.fs" />
     <Compile Include="TrialBalance.fs" />
-    <Compile Include="ClassificationOrchestration.fs" />
-    <Compile Include="StageEntryOrchestration.fs" />
-    <Compile Include="Reconciliation.fs" />
     <Compile Include="BalanceSheetIntegrity.fs" />
     <Compile Include="PeriodActivity.fs" />
+    <Compile Include="StageEntryOrchestration.fs" />
+    <Compile Include="Reconciliation.fs" />
+    <Compile Include="PrePostingReview.fs" />
     <Compile Include="CashFlowCompositeFetcher.fs" />
     <Compile Include="InstanceOrchestration.fs" />
     <Compile Include="AgreementOrchestration.fs" />
     <Compile Include="CashFlowOps.fs" />
-    <Compile Include="PrePostingReview.fs" />
+    <Compile Include="ClassificationOrchestration.fs" />
   </ItemGroup>
 
 </Project>

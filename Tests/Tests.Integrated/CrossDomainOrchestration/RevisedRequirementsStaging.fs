@@ -189,7 +189,7 @@ type private Scenario(fixture: TestDataFixture, initialContext: Context.Context)
             return agreement |> AgreementOrchestration.paymentAgreements |> List.head |> PaymentAgreement.paymentAgreementId
         }
 
-    member this.accountRun () = this.advance (); classifyAccounts context
+    member this.accountRun () = this.advance (); ClassificationOrchestration.classifyAccounts context
     member this.dedup () = this.advance (); deduplicateStagedEntries context
     member this.post () = this.advance (); post context
 

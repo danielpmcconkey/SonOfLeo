@@ -352,7 +352,7 @@ type private World(fixture: TestDataFixture) =
                 let! _ =
                     ClassificationOrchestration.createNewClassificationRule
                         context name (ClassificationClaimant.PaymentAgreement legId) 500 groups
-                let! _ = CashFlowOps.classifyPaymentAgreements context
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 return! lineId |> PaymentAgreementLink.fetchByStageEntryLineId context
             })
 

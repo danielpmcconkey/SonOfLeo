@@ -117,7 +117,7 @@ let private fetchClassificationRun payload _ =
 let private classifyAccounts _ _ =
     runCommandRouteAndAutoCompleteTransaction ClassifyAccounts (fun context ->
         result {
-            let! classificationResult = StageEntryOrchestration.classifyAccounts context
+            let! classificationResult = ClassificationOrchestration.classifyAccounts context
             let! converted =
                 classificationResult
                 |> ``convert [AccountClassificationResult] to [AccountClassificationResultReturn]`` context
@@ -161,7 +161,7 @@ let private deletePaymentAgreementLink payload _ =
 let private classifyPaymentAgreements _ _ =
     runCommandRouteAndAutoCompleteTransaction ClassifyPaymentAgreements (fun context ->
         result {
-            let! classificationResult = CashFlowOps.classifyPaymentAgreements context
+            let! classificationResult = ClassificationOrchestration.classifyPaymentAgreements context
             let! converted =
                 classificationResult
                 |> ``convert [PaymentAgreementClassificationResult] to [PaymentAgreementClassificationResultReturn]`` context

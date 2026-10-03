@@ -124,7 +124,7 @@ module StageTestData =
                 |> List.filter (fun e -> priorDuplicateIds |> List.contains (headerIdOf e) |> not)
                 |> List.map stageEntryHeader
             let contextAfterDedup = contextAfterLoad |> TestContext.updateInitiationInstant
-            let! classification = classifyAccounts contextAfterDedup
+            let! classification = ClassificationOrchestration.classifyAccounts contextAfterDedup
             let classificationResults =
                 classification.classificationResults
                 |> List.filter (fun r -> ingestedIds |> List.contains r.candidate.headerIdOfCandidate)

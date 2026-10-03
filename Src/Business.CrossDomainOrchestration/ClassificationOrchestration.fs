@@ -14,6 +14,7 @@ open App.Session
 open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
+open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.DataIngestionError
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.CashFlow.CashFlowError
@@ -343,4 +344,77 @@ let updateClassificationRule
             executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
             |> whenNoRows (ClassificationRuleIdDoesntExist uuid)
         return! classificationRuleId |> ClassificationRule.fetchById context
+    }
+
+/// matchCandidateOf is the classifier's view of one staged line.
+let private matchCandidateOf
+    (header: StageEntryHeader.StageEntryHeader)
+    (line: StageEntryLine.StageEntryLine)
+    : MatchCandidate =
+    { headerIdOfCandidate = header |> StageEntryHeader.stageEntryHeaderId
+      lineIdOfCandidate = line |> StageEntryLine.stageEntryLineId
+      ingestionSource = header |> StageEntryHeader.ingestionSource |> IngestionSource.name
+      description = header |> StageEntryHeader.description
+      amount = line |> StageEntryLine.amount
+      lineType = line |> StageEntryLine.lineType
+      memo = line |> StageEntryLine.memo }
+
+/// classifyAccounts runs the account rules over every line still without an account on the entries awaiting one, and
+/// hands the run to data ingestion to write the winners and the entries' statuses.
+let classifyAccounts
+    (context: Context.Context)
+    : Result<StageEntryOrchestration.AccountClassificationResult, IAppError> =
+    result {
+        let! roster =
+            StageEntryOrchestration.accountClassificationStatuses
+            |> StageEntryOrchestration.fetchByStatusList context
+        let matchCandidates =
+            roster
+            |> List.collect (fun entry ->
+                let header = entry |> StageEntryOrchestration.stageEntryHeader
+                entry
+                |> StageEntryOrchestration.seLines
+                |> List.filter (fun line -> line |> StageEntryLine.accountId |> Option.isNone)
+                |> List.map (matchCandidateOf header))
+        let! classificationRun =
+            matchCandidates |> classifyMatchCandidatesAndRecordMatches context AccountClaimant
+        return! classificationRun |> StageEntryOrchestration.applyAccountClassification context
+    }
+
+/// classifyPaymentAgreements runs the payment agreement rules over every not-yet-linked line of every staged entry
+/// short of posting, and hands the run to cash flow to link lines and match Invoices.
+let classifyPaymentAgreements
+    (context: Context.Context)
+    : Result<InstanceOrchestration.PaymentAgreementClassificationResult, IAppError> =
+    result {
+        let rosterStatuses =
+            [ StageEntryComponent.Ingested
+              StageEntryComponent.Classified
+              StageEntryComponent.NoMatch
+              StageEntryComponent.Conflict
+              StageEntryComponent.Reviewed ]
+        let! roster = rosterStatuses |> StageEntryOrchestration.fetchByStatusList context
+        let rosterLineIds =
+            roster
+            |> List.collect StageEntryOrchestration.seLines
+            |> List.map StageEntryLine.stageEntryLineId
+        let! existingLinks =
+            if rosterLineIds |> List.isEmpty then Ok []
+            else rosterLineIds |> PaymentAgreementLink.fetchByStageEntryLineIdList context
+        let linkedLineIds =
+            existingLinks |> List.map PaymentAgreementLink.stageEntryLineId |> Set.ofList
+        // an entry whose lines all carry an account is still a candidate here. account assignment and obligation
+        // linkage are independent questions about the same row
+        let matchCandidates =
+            roster
+            |> List.collect (fun entry ->
+                let header = entry |> StageEntryOrchestration.stageEntryHeader
+                entry
+                |> StageEntryOrchestration.seLines
+                |> List.filter (fun line ->
+                    linkedLineIds |> Set.contains (line |> StageEntryLine.stageEntryLineId) |> not)
+                |> List.map (matchCandidateOf header))
+        let! classificationRun =
+            matchCandidates |> classifyMatchCandidatesAndRecordMatches context PaymentAgreementClaimant
+        return! classificationRun |> CashFlowOps.applyPaymentAgreementClassification context roster
     }

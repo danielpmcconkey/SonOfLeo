@@ -541,49 +541,15 @@ let private matchInvoicesAndCreatePayments
         return decisions
     }
 
-/// classifyPaymentAgreements does not update a stage entry's status. That belongs to the data ingestion domain.
-let classifyPaymentAgreements
+/// applyPaymentAgreementClassification turns a payment agreement classification run over the roster's lines into
+/// linkages, then matches open Invoices to linked lines. It does not update a stage entry's status. That belongs to
+/// the data ingestion domain.
+let applyPaymentAgreementClassification
     (context: Context.Context)
+    (roster: StageEntryOrchestration.StageEntry list)
+    (classificationRun: ClassificationComponent.ClassificationRun)
     : Result<InstanceOrchestration.PaymentAgreementClassificationResult, IAppError> =
     result {
-        let rosterStatuses =
-            [ StageEntryComponent.Ingested
-              StageEntryComponent.Classified
-              StageEntryComponent.NoMatch
-              StageEntryComponent.Conflict
-              StageEntryComponent.Reviewed ]
-        let! roster = rosterStatuses |> StageEntryOrchestration.fetchByStatusList context
-        let rosterLineIds =
-            roster
-            |> List.collect StageEntryOrchestration.seLines
-            |> List.map StageEntryLine.stageEntryLineId
-        let! existingLinks =
-            if rosterLineIds |> List.isEmpty then Ok []
-            else rosterLineIds |> PaymentAgreementLink.fetchByStageEntryLineIdList context
-        let linkedLineIds =
-            existingLinks |> List.map PaymentAgreementLink.stageEntryLineId |> Set.ofList
-        // an entry whose lines all carry an account is still a candidate here. account assignment and obligation
-        // linkage are independent questions about the same row
-        let (matchCandidates: ClassificationComponent.MatchCandidate list) =
-            roster
-            |> List.collect(fun entry ->
-                let header = entry |> StageEntryOrchestration.stageEntryHeader
-                entry
-                |> StageEntryOrchestration.seLines
-                |> List.filter (fun line ->
-                    linkedLineIds |> Set.contains (line |> StageEntryLine.stageEntryLineId) |> not)
-                |> List.map (fun line -> {
-                    headerIdOfCandidate = header |> StageEntryHeader.stageEntryHeaderId
-                    lineIdOfCandidate = line |> StageEntryLine.stageEntryLineId
-                    ingestionSource = header |> StageEntryHeader.ingestionSource |> IngestionSource.name
-                    description = header |> StageEntryHeader.description
-                    amount = line |> StageEntryLine.amount
-                    lineType = line |> StageEntryLine.lineType
-                    memo = line |> StageEntryLine.memo }))
-        let! classificationRun =
-            matchCandidates
-            |> ClassificationOrchestration.classifyMatchCandidatesAndRecordMatches
-                context ClassificationComponent.PaymentAgreementClaimant
         let classificationResults = classificationRun.results
         let claimedAgreementIds =
             classificationResults |> List.collect paymentAgreementsClaimedBy |> List.distinct
