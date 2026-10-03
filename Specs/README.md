@@ -87,19 +87,19 @@ non-tested states:
 Every active requirement is therefore in exactly one of three states: **tested**, **waived**,
 or **unenforceable**.
 
-## Commit gate
+## Traceability gate
 
-A new REQ ships in the same commit as a citing test. A placeholder
-`Assert.Fail "Not yet implemented"` satisfies the gate — the point is that an
-untested requirement is loud (red in every run) until the real test lands.
+Every active requirement on `main` is tested, waived, or unenforceable, and no test cites a
+requirement that is withdrawn or does not exist. Mid-slice this cannot hold — the spec lands
+on the branch before its tests — so the gate runs on `main` after merge (README slice-loop
+step 13), not per commit.
 
-The gate checks existence only. Whether a test is meaningful is the audit's job
-and code review's job, not the gate's.
+The gate checks existence only. Whether a test is meaningful is the audit's job and code
+review's job, not the gate's.
 
-Enforced by `Checks/check-traceability.sh` (Invariant 2 of the traceability
-audit). It is a slow check, so the pre-commit hook (`Checks/run-all.sh --quick`)
-skips it, and it only enforces on `main`. Run the full `Checks/run-all.sh`
-before proposing a merge to `main`.
+Enforced by `Checks/check-traceability.sh`, which runs
+`Skills/SonOfLeoRequirementsAudit/traceability-audit.sh` over git-tracked test files. Off
+`main` it reports SKIP. Run the full `Checks/run-all.sh` before proposing a merge to `main`.
 
 ## Linkage rules (the star chart)
 

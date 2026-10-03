@@ -1,3 +1,7 @@
+> **Retired 2026-10-03 (audit 2026-10-03a, #153).** History only, not guidance. It describes the
+> BD / Rider / one-branch-per-task era. The current process is the slice loop in `README.md`:
+> several agents share one branch and rebase before each commit, and Dan does not review code.
+
 # Release-Candidate Merge Flow
 
 **Source:** Dan's directive, session 2026-07-31, after BD verified three task branches

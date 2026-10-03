@@ -18,8 +18,8 @@ per entity. Generic requirements state policy and scope, not vague aspiration.
 ## 2. Legal data-state enforcement
 
 - **REQ-SYS-2.1** Every operation that constructs, persists, or reconstitutes an entity — create, update, and read-from-persistence alike — must enforce that entity's legal data-state rules (the "valid and invalid data states" section of that entity's spec). No operation may produce, persist, or return an entity in an illegal data state.
-- **REQ-SYS-2.1.1 Rejections determinable from the entity's own properties must occur before any database write. 
-- **REQ-SYS-2.1.2 Rejections requiring database state may fall through to database constraints.
+- **REQ-SYS-2.1.1** Rejections determinable from the entity's own properties must occur before any database write.
+- **REQ-SYS-2.1.2** Rejections requiring database state may fall through to database constraints. The deliberate exceptions are a missing record (REQ-SYS-6.2) and a missing referent (REQ-SYS-6.3), which fail with typed not-found errors. (Amended 2026-10-03)
 - **REQ-SYS-2.2** stricken
 
 ## 3. Audit
@@ -27,7 +27,7 @@ per entity. Generic requirements state policy and scope, not vague aspiration.
 - **REQ-SYS-3.1** Every persisted entity must carry a "created at" and a "modified at" timestamp.
 - **REQ-SYS-3.2** When a record is created, both "created at" and "modified at" Instant properties must be set to the initiation instant of the operation creating it (REQ-SYS-3.4). (Reworded 2026-09-26)
 - **REQ-SYS-3.3** Every successful update to a record must set its "modified at" timestamp to the initiation instant of the operation performing the update (REQ-SYS-3.4). (Amended 2026-09-26 — was "the system clock at time of the update")
-- **REQ-SYS-3.4** Every operation carries an auditable action identifying what the operation is, and a single initiation instant read from the system clock when the operation begins. Every timestamp the operation writes, and every "current date" it derives (e.g. the reference date for account activity, the start of a projection horizon), uses that instant.
+- **REQ-SYS-3.4** Every operation carries an auditable action identifying what the operation is, and a single initiation instant read from the system clock when the operation begins. A read-only operation carries the fetch-only auditable action. Every timestamp the operation writes, and every "current date" it derives (e.g. the reference date for account activity, the start of a projection horizon, a report's run date), uses that instant. "Writes" covers database rows, report contents (including the creation instant in a report footer, REQ-RPT-3.2) and file names alike. (Amended 2026-10-03)
   - *Why:* One operation, one moment. A batch that writes hundreds of rows records them as happening together, and date-dependent logic cannot straddle midnight partway through a run. (2026-09-26)
 todo: add a requirement for logging audit activities to an external log
 
@@ -45,6 +45,8 @@ domain-level decision, made in each entity's spec (for Accounts, see REQ-AC-5.1)
 ## 6. State transitions
 
 - **REQ-SYS-6.1** No state-transition operation may silently succeed as a no-op. When a requested operation would change nothing — because the target entity is already in the requested state, or because the record the operation would create already exists — the operation must produce an error rather than update or insert nothing. A silent no-op masks a caller that believes the system is in a different state than it is, hiding an upstream problem the system should surface. Per-entity instances cite this rule (e.g., REQ-FP-4.1.1 close-already-closed, REQ-FP-4.2.1 reopen-already-open, REQ-AC-2.9 / REQ-FP-2.2 duplicate creation, and journal-entry void-already-voided).
+  - For an update, "would change nothing" means the request names no field to change. A field set to the value it already holds counts as named, and the update succeeds. This is the system default for every update operation; an entity spec need not restate it. (Amended 2026-10-03)
+  - *Why an unchanged value is not a no-op:* REQ-SYS-6.1 exists to surface a caller who believes the system is in a different state. A caller re-sending a value the record already holds believes nothing wrong, and comparing every field to its stored value buys nothing. (2026-10-03)
 - **REQ-SYS-6.1.1** Any exception to REQ-SYS-6.1 (an operation deliberately permitted to be idempotent) must be stated explicitly in the relevant entity spec; absent such a statement, the no-op rejection applies.
 - **REQ-SYS-6.2** An operation that updates or deletes a record identified by ID, where no record has that ID, fails with a typed not-found error naming the kind of record and the ID. It must not surface as a generic database or row-count error.
 - **REQ-SYS-6.3** When an operation sets a reference to another record (for example, a comment's secondary journal entry), the referenced record must exist. A missing referent fails with a typed not-found error before any write, on update as well as on create.
@@ -72,6 +74,7 @@ construction pattern) but deliberately not verified by tests.
 | REQ-SYS-2.1.1 | it's too general for a test and you can't test that there isn't a violation | Dan, 2026-07-06 |
 | REQ-SYS-2.1.2 | it's too general for a test and you can't test that there isn't a violation | Dan, 2026-07-06 |
 | REQ-SYS-6.1 | This is a general requirement. Testing should be enforced by every individual write operation with a no-op possibility | Dan, 2026-07-06 |
+| REQ-SYS-6.1.1 | simply untestable | Dan, 2026-07-06 |
 | REQ-SYS-2.1 | Too general for a dedicated test — enforced per-entity by each entity's data-state tests and REQ-SYS-2.1.1/2.1.2 | Dan, 2026-08-02 |
 
 ## Unenforceable

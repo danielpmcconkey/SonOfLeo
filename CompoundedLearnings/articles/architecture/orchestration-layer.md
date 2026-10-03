@@ -2,18 +2,24 @@
 
 **Source:** Specs/Archive/Decisions.md, 2026-06-11; Dan's clarification 2026-07-11; read-only
 join clarification added 2026-08-28 from the `CashFlow.Payment` CRUD session; Dan's full
-definition (five reasons) added 2026-08-28 from a `Src/ModelOrchestrator` pattern-review session.
+definition (five reasons) added 2026-08-28 from an orchestration-layer pattern-review session.
+Project names and the Payment join example updated 2026-10-03 (audit 2026-10-03a, #200/#310).
 
-The orchestration layer (`ModelOrchestrator/`) is for any function that coordinates multiple distinct activities. Domain modules own single-concern operations on their own types; orchestration composes.
+**Layer names.** The orchestration layer was once the `ModelOrchestrator/` folder; it is now the
+`Business.CrossDomainOrchestration` project. "Domain modules" (once `Model/`) are the entity
+files in `Business.General` and the `Business.FinancialServices.*` projects. Dan's quotes below
+keep the old words.
 
-## Dan's five reasons `ModelOrchestrator` exists (in his words)
+The orchestration layer (`Business.CrossDomainOrchestration`) is for any function that coordinates multiple distinct activities. Domain modules own single-concern operations on their own types; orchestration composes.
 
-1. **Where domains combine, in the direction the model can't.** `Model/` modules can depend on
+## Dan's five reasons the orchestration layer exists (in his words)
+
+1. **Where domains combine, in the direction the model can't.** Domain modules can depend on
    each other one-way when the relationship is intrinsic — `JournalEntryLine` depends on
    `Account` because "you can't have a line without an account." But you can't close an account
    without ensuring its balance is zero, and checking that requires reading `JournalEntry` data
    — the reverse dependency, which would be circular if handled in the model. That's why
-   `deactivateAccount` lives in `ModelOrchestrator/AccountDeactivation.fs`, not in `Account.fs`.
+   `deactivateAccount` lives in `Business.CrossDomainOrchestration/AccountDeactivation.fs`, not in `Account.fs`.
 2. **Composite validation.** A `JournalEntryHeader` isn't valid unless at least 2 lines
    reference it with equal debits and credits — but you can't validate that in the model,
    because the lines need a `JournalEntryHeaderId` to exist in the first place, and that id
@@ -56,9 +62,9 @@ F# compile order makes cross-domain composition structural rather than optional.
 
 ## Example
 
-`deactivateAccount` started in the Account module. When it needed JournalEntry data for its checks (REQ-AC-4.4, REQ-AC-4.6), it moved to `ModelOrchestrator/AccountDeactivation.fs`. The `constructNewAndSaveToDb` functions follow the same principle — they orchestrate construction + persistence.
+`deactivateAccount` started in the Account module. When it needed JournalEntry data for its checks (REQ-AC-4.4, REQ-AC-4.6), it moved to `AccountDeactivation.fs` in the orchestration layer. The `constructNewAndSaveToDb` functions follow the same principle — they orchestrate construction + persistence.
 
-*Post-refactor note (2026-07-25): ModelOrchestrator also owns cross-entity business validation and read-model types; `InterfaceBridge` now sits above it as the boundary layer.*
+*Post-refactor note (2026-07-25): the orchestration layer also owns cross-entity business validation and read-model types; `InterfaceBridge` now sits above it as the boundary layer.*
 
 ## A read-only join across domains is not, by itself, orchestration
 
@@ -74,14 +80,17 @@ than one thing? A join that computes a scalar for the caller's own entity, deter
 without needing a second F# module's logic to interpret the result, is still one thing.
 
 **Example:** `CashFlow.Payment.amount` and `.postedToLedgerDate` are marked "not separately
-tracked in the database" — they don't exist as `cashflow.payment` columns. `Payment.fs`'s
-`fetchGenericRead` joins to `ledger.journal_entry`/`journal_entry_line` and
-`ingestion.staged_entry`/`staged_entry_line`, pinned by `payment_agreement`'s debit/credit
-account and `master_agreement`'s flow direction so exactly one line matches per payment (no
-aggregation). `reconstitute` never sees any of that — it only reads the already-computed
-`amount`/`posted_to_ledger_date` columns the query produced, same as any other column. This
-stayed inside `Model/CashFlow/Payment.fs`; it did not move to `ModelOrchestrator`, because the
-whole thing is still exactly one read, scoped to `Payment`'s own rows.
+tracked in the database" — they don't exist as `cashflow.payment` columns. A Payment points at
+one line: its staged entry line, and once posted its journal entry line. `Payment.fs`'s read
+left-joins `ledger.journal_entry_line` (and its `journal_entry`) on the Payment's journal entry
+line pointer, and `ingestion.staged_entry_line` on its staged line pointer. The amount is the
+journal entry line's when that pointer is set, else the staged line's; the posted-to-ledger date
+is the journal entry's entry date. Each pointer names exactly one line, so there is no
+aggregation and no need to pin by account or flow direction. `reconstitute` never sees any of
+that — it only reads the already-computed `amount`/`posted_to_ledger_date` columns the query
+produced, same as any other column. This stayed inside `Payment.fs` in the CashFlow project; it
+did not move to the orchestration layer, because the whole thing is still exactly one read,
+scoped to `Payment`'s own rows.
 
 Contrast with `Flow.paymentAgreements` (type-taxonomy.md, Component types): that case needed a
 *child list*, which a single-table `reconstitute` cannot honestly populate no matter how the

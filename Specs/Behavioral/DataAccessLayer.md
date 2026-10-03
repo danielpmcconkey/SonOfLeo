@@ -2,11 +2,13 @@
 
 Generic database functions: connecting, executing queries, parameterization, and architectural constraints.
 
+**Scope.** §1 and §2 govern the application's data access: the data access layer and everything that calls it. The database migration tool is out of scope for them; it is run by hand and manages its own connections. §3's database-level requirements (REQ-DAL-3.3 to 3.7) bind the database whichever tool touches it. The Npgsql boundary check enforcing REQ-DAL-3.2 covers application and test source, not the migration tool. (2026-10-03)
+
 ## 1. Connection string handling
 
 - **REQ-DAL-1.1** stricken
 - **REQ-DAL-1.2** stricken
-- **REQ-DAL-1.3** *(Withdrawn 2026-09-28 — a missing or bad configuration already fails loudly; see the Withdrawn table.)*
+- **REQ-DAL-1.3** *(Withdrawn 2026-09-28 — a missing or bad configuration already fails loudly, with a typed error or an exception; see the Withdrawn table.)*
 - **REQ-DAL-1.4** stricken
 - **REQ-DAL-1.5** stricken
 - **REQ-DAL-1.6** stricken
@@ -23,7 +25,7 @@ Generic database functions: connecting, executing queries, parameterization, and
 - **REQ-DAL-1.17** All data access functions must fail with an error if the value of ConnectionStringEnvVar is not the name of a an actual environment variable, resolvable at runtime
 - **REQ-DAL-1.18** All data access functions must fail with an error if the resolved value of the ConnectionStringEnvVar environment variable is white-space only
 - **REQ-DAL-1.19** The system must trim the final connection string before attempting connection
-- **REQ-DAL-1.20** Each build configuration must define a unique ConnectionStringEnvVar value. The env var name used in Debug/Development must differ from the one used in Release/Production.
+- **REQ-DAL-1.20** Each build configuration of an interface executable (the operator CLI and the report CLI) must define a unique ConnectionStringEnvVar value. The env var name used in Debug/Development must differ from the one used in Release/Production. The integration test suite and the development data stager are single-environment by design: the test suite always uses the test database's env var, and the stager always uses the development database's. (Scoped 2026-10-03)
 
 ## 2. Query execution
 
@@ -61,7 +63,6 @@ construction pattern) but deliberately not verified by tests.
 | REQ-DAL-1.19 | Enforced in code (trim before connection), but impossible to provoke — the test harness always connects with the correctly configured env var | Dan, 2026-08-02 |
 | REQ-DAL-1.20 | It's a build-configuration fact, not something we can dynamically test. I've manually verified it works | Dan, 2026-07-06 |
 | REQ-DAL-2.1 | Negative existence claim — "all inserted data must be parameterized." Enforced by code review and the parameterization pattern in ExecuteReader/ExecuteScalar/ExecuteNonQuery | Dan, 2026-08-02 |
-| REQ-DAL-2.2 | Enforced in code (typed AppError, exercised by DalTests). Behavior proven; waived from REQ-ID citation because the test exercises the mechanism, not the requirement by name | Dan, 2026-08-02 |
 | REQ-DAL-2.3 | Negative existence claim — "all user-input values must be parameterized." Enforced by code review and the parameterization pattern | Dan, 2026-08-02 |
 | REQ-DAL-3.1 | Architectural fact — every integration test proves the DAL interfaces with PostgreSQL | Dan, 2026-08-02 |
 | REQ-DAL-3.2 | Enforced by module structure — callers reference `DataAccessLayer.*` modules, never Npgsql directly. Checked by `check-npgsql.sh` | Dan, 2026-08-02 |
@@ -95,5 +96,5 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 | REQ-DAL-1.11 | If the trimmed LEOBLOOM_DB_PASSWORD environment variable is empty, all data access functions must fail with an error | rearchitected the connection string process |
 | REQ-DAL-1.12 | The system will trim leading and trailing white space from the LEOBLOOM_ENV environment variable | rearchitected the connection string process |
 | REQ-DAL-1.13 | If the trimmed LEOBLOOM_ENV environment variable is empty, all data access functions must fail with an error | rearchitected the connection string process |
-| REQ-DAL-1.3 | If the external configuration file cannot be read, or a required setting in it is missing or invalid, no data access is attempted. The interface reports an error message naming the file or setting and exits with a non-zero code; it must not terminate with an unhandled exception. | Withdrawn by Dan (2026-09-28). Without a readable configuration there is no connection string, so no data access can happen, and the program already stops with an exception naming what is missing. Converting that exception into a tidy message guards a failure that cannot be silent; a loud crash is the house pattern for "something is deeply wrong." |
-| REQ-DAL-3.2.2 | An exception to REQ-DAL-3.2 is that customer-facing applications (e.g.: SonOfLeoCli) will need to create RDBMS-specific connection strings in their external configurations | Connection strings moved to environment variables; config files no longer hold them |
+| REQ-DAL-1.3 | If the external configuration file cannot be read, or a required setting in it is missing or invalid, no data access is attempted. The interface reports an error message naming the file or setting and exits with a non-zero code; it must not terminate with an unhandled exception. | Withdrawn by Dan (2026-09-28). A missing or bad configuration already fails loudly (typed error or exception): a missing or invalid ConnectionStringEnvVar fails with the typed errors of REQ-DAL-1.14 to 1.18, and an unreadable configuration file stops the program with an exception naming it. Either way no data access happens, and neither can fail silently, so 1.3 adds no guarantee. A throw satisfies "fail with an error". (Reason corrected 2026-10-03) |
+| REQ-DAL-3.2.2 | An exception to REQ-DAL-3.2 is that customer-facing applications (e.g.: SonOfLeoCli) will need to create RDBMS-specific connection strings in their external configurations | The runtime interfaces take connection strings from environment variables named in their config (REQ-DAL-1.14 to 1.18). The database migration tool, which is out of scope for §1 (see Scope), keeps passwordless connection strings in its own config and prompts for the password. (Reason corrected 2026-10-03) |

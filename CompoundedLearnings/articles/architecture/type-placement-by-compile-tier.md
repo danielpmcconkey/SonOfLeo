@@ -1,7 +1,7 @@
 # Type Placement by Compile Tier
 
 **Source:** CashFlow scaffolding session, 2026-09-08 — five return types declared at the top of
-`CashFlowOps.fs` that belonged in `Model/`.
+`CashFlowOps.fs` that belonged in a domain project's component tier (then called `Model/`).
 
 The type-taxonomy article decides *what kind* of type you are building. This one decides *which
 file it lives in*: a type belongs in the lowest compile tier that can see every type it
@@ -12,11 +12,11 @@ references. Find that by walking the tier order, not by asking which domain owns
 - Read the `<Compile Include>` order in the `.fsproj` and work down it. The first file that
   already sees every dependency is the home.
 - When a slice's own component file can't see one of the dependencies, check the slice *below* it
-  before concluding `Model/` is closed. `ClassificationComponent.fs` is the last
+  before concluding the domain tier is closed. `ClassificationComponent.fs` is the last
   component tier and sees `AccountId`, `PaymentAgreementId`, and `StageEntryLineId` — which is
   why `PaymentAgreementClaimCluster` lives there rather than in `CashFlowComponent.fs`.
 - Only a type that references an orchestrator-level type — a composite — is genuinely forced up
-  into `ModelOrchestrator/`. Declare that one beside the composite it depends on.
+  into `Business.CrossDomainOrchestration`. Declare that one beside the composite it depends on.
 
 ## What doesn't
 
@@ -33,7 +33,7 @@ references. Find that by walking the tier order, not by asking which domain owns
 
 The scaffolding step declared `PaymentAgreementDecision`, `InvoiceDecision`, their two outcome
 DUs, and `PaymentAgreementClassificationResult` at the top of `CashFlowOps.fs`. It built clean.
-Four of the five belonged in `Model/`: the payment agreement decision log in
+Four of the five belonged in the domain tier: the payment agreement decision log in
 `ClassificationComponent.fs` beside `PaymentAgreementClaimCluster`, and the invoice
 decision log in `CashFlowComponent.fs`, which already opens `StageEntryComponent` and uses
 `StageEntryLineId` for `TransactionPointer`. Only `PaymentAgreementClassificationResult` was
@@ -41,4 +41,4 @@ orchestrator-bound — it holds `InstanceComposite list` — and it went under `
 `InstanceOrchestration.fs`.
 
 The wrong turn was one unasked question: `CashFlowComponent.fs` can't see `ClassificationRuleId`,
-so `Model/` was declared closed without testing the tier below it.
+so the domain tier was declared closed without testing the tier below it.

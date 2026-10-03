@@ -45,8 +45,11 @@ A record in `ingestion.staged_entry` representing one economic event held in the
 ## Staged line
 A record in `ingestion.staged_entry_line` representing one future journal entry line. A staged line belongs to exactly one staged entry and carries an amount, direction (line_type), and an account that may be null until classification or manual review fills it in. Like its parent staged entry, a staged line is **not an entity** — entity-level policies do not apply.
 
+## Insert-only log records
+A record the system appends as a historical log and never updates: a classification match row (`classification.rule_match`, REQ-CR-8.4) and a staged entry status transition (`ingestion.staged_entry_audit`). An insert-only log record is **not an entity** per this document's Entity definition, although a user action inserts it: it has no life after insertion, so a "modified at" would always equal "created at". Entity-level policies (e.g. REQ-SYS-3.1 timestamps) do not apply. (2026-10-03)
+
 ## Postable (staged entry)
-A staged entry whose status is `'Classified'` or `'Reviewed'`. Only postable entries are eligible for shadow post or batch post. The posting process validates that every staged line has a non-null account; a postable entry that fails this validation is a broken upstream invariant, surfaced loudly at posting time (REQ-STG-9.4), not silently excluded.
+A staged entry whose status is `'Classified'` or `'Reviewed'`. Only postable entries are eligible for shadow post or batch post. The posting process validates that every staged line has a non-null account. A manual update can make an entry postable while a line's account is still null (REQ-STG-4.4); such an entry fails shadow post, review and posting loudly (REQ-STG-9.4), and is never silently excluded.
 
 ## Interface
 The set of features, functions, services, windows, or reports that actors outside the system will trigger or consume.

@@ -530,12 +530,14 @@ generic — each composite owns its own copy.
 
 **DAL errors are backstops, not operator-facing errors — and translating one is a matter of
 which layer first has enough use-case context, not always the orchestrator's job specifically.**
-`Model/` < `ModelOrchestrator/` < `InterfaceBridge` in how much use-case context each has;
-translate at whichever layer first knows what the error should actually mean, and it's fine to
-pass a DAL error through untranslated if this layer genuinely doesn't have that context yet —
-that's `InterfaceBridge`'s job then, not a bug here. When you do translate here: only
-`actual = 0` becomes a domain "doesn't exist" error, any other mismatch re-raises unchanged
-(that's corruption, not absence). Full reasoning:
+A domain module < `Business.CrossDomainOrchestration` < `Ui.InterfaceBridge` in how much
+use-case context each has; translate at whichever layer first knows what the error should
+actually mean, and it's fine to pass a DAL error through untranslated if this layer genuinely
+doesn't have that context yet — that's `InterfaceBridge`'s job then, not a bug here. When you do
+translate here: the DAL reports zero rows as `DalNoOp`, and `|> whenNoRows <domain error>` swaps
+it for the "doesn't exist" error. `DalResultantRowsDidntMatchExpectation` now means a non-zero
+mismatch; let it pass unchanged (that's corruption, not absence). Never match it with
+`actual = 0` — that branch is dead. Full reasoning:
 `CompoundedLearnings/articles/architecture/dal-errors-are-backstops.md`.
 
 **`Context.getInitiationInstant` is the only source of "now" here — never create a timestamp
@@ -622,8 +624,7 @@ but it still has to earn its place under the Commenting section, and most don't.
 ## Mechanical checks
 
 `bash Checks/run-all.sh --quick` runs the fast subset of everything above as one command — run it
-before committing rather than discovering it in the pre-commit hook, which runs it automatically
-and will reject the commit. The one check with a gotcha for
+before every commit; there is no pre-commit hook to catch you. The one check with a gotcha for
 new files rather than edits to existing ones: **`check-compile-order.sh`** verifies every `.fs`
 on disk has a matching hand-maintained `<Compile Include>` entry in its `.fsproj`, in both
 directions. The moment a task creates a brand-new file (not just edits an existing one), it

@@ -28,7 +28,10 @@ machine that calls Claude only for judgment steps — then:
    invoices.
 5. Shadow-posts, reconciles the simulated ledger against the recon balances,
    fixes, repeats until clean.
-6. Posts for real. Marks payments posted. Checks ledger integrity.
+6. Posts for real (a closed-period entry stops the whole post). Then, as its
+   own step, marks payments posted (refused if the target line was voided).
+   Checks ledger integrity, including deactivated accounts that have
+   drifted off zero.
 7. Generates tenant invoices, projects cash flow ("money you need to move",
    "bills to chase"), renders reports, writes a summary for Dan.
 
@@ -55,11 +58,15 @@ a diagnostics-only classifier the code no longer uses).
 | 8 | Operator review: assign unknowns, **split lines**, resolve conflicts, mark Reviewed | `Ingestion UpdateStageEntry` (**extend**: REQ-STG-6.4–6.6) |
 | 9 | Link payment agreements + match invoices | `Classification ClassifyPaymentAgreements` (**fix**: §3 below) |
 | 10 | Shadow post + mechanical reconciliation, loop until clean | `Ingestion PostStageEntries {isShadow:true}` + **new** reconciliation (REQ-RPT-4.4) |
-| 11 | Post | `Ingestion PostStageEntries {isShadow:false}` |
-| 12 | Payments to posted | `CashFlow TransitionPaymentsToPosted` |
-| 13 | Integrity check + reconciliation against the real ledger | **new** (REQ-RPT-5, REQ-RPT-4.1) |
+| 11 | Post. **Hard stop:** an entry dated in a closed fiscal period fails the whole post loudly; nothing posts. The operator resolves it (reopen the period, or redate/ignore the entry) and reruns 10–11 | `Ingestion PostStageEntries {isShadow:false}` |
+| 12 | Payments to posted — **a separate, explicit step**, never folded into 11 (that would bleed CashFlow into DataIngestion). **Hard stop:** the transition fails loudly if the journal entry line it would set belongs to a voided entry (REQ-CF-10) | `CashFlow TransitionPaymentsToPosted` |
+| 13 | Integrity check + reconciliation against the real ledger. The integrity check includes the **look-back**: every deactivated account has a zero balance as of the operation date; any that doesn't is reported with its balance and the entries that moved it. Late posts are not blocked | **new** (REQ-RPT-5, REQ-RPT-4.1) |
 | 14 | Projection | `CashFlow ProjectCashFlow` (**fix**: REQ-CF-8.9) |
 | 15 | Reports | **new** period activity (REQ-RPT-6); trial balance exists |
+
+*Steps 11–13 amended 2026-10-03 per audit 2026-10-03a (#028, #202, #204, #205 and duplicates). A
+Payment gains its journal entry line only at step 12; between 11 and 12 a posted entry's
+Payments still point at staged lines only.*
 
 Order matters in Src in three places, none of which the code enforces: dedup
 before classification (or duplicates get classified and posted); account

@@ -8,6 +8,9 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 - **overruled**: Dan reviewed and explicitly rejected the finding. Do not re-flag.
 - **deferred**: Dan acknowledged the gap but chose not to act yet. Do not re-flag unless
   the "revisit when" trigger has been met.
+- **retired**: the ruling no longer governs — a later requirement superseded it, or the code
+  it described is gone. Kept for history. Do not cite it as precedent, either to suppress a
+  finding or to support one; judge the finding against the current specs.
 
 ---
 
@@ -24,7 +27,8 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 - **Ruling:** fromDecimal is a deliberate exception — it's validating the boundard conversion, not a plain wrap, so the create-vs-from rule doesn't cleanly map.
 
 ## AMB-4: REQ-DAL-2.1 vs REQ-DAL-2.3 Overlapping Scope
-- **Status:** overruled
+- **Status:** retired (2026-10-03)
+- **Retired because:** Absorbed. REQ-DAL-2.3's own text now carries the type-safe-interpolation carve-out (e.g. `limit: int option`), and the `readRowsFromDb` cited below no longer exists. Don't propose merging 2.1 and 2.3.
 - **Date:** 2026-06-13
 - **Scope:** Whether DAL-2.1 and DAL-2.3 should be consolidated
 - **Ruling:** These are two separate concepts. DAL-2.1 covers data inserted into the database (parameterized values). DAL-2.3 covers user-originated input specifically. The distinction exists to avoid requiring parameterization of structural query elements like LIMIT clauses in the flexible multipurpose read pattern (Account.fs readRowsFromDb).
@@ -85,7 +89,8 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 - **Ruling:** Dan added the explicit check anyway (as a middle finger to the auditors), but the probabilistic argument was never a real concern. The finding was horseshit at medium severity.
 
 ## IE-AC-1: REQ-AC-3.9 Instant Source for Reads
-- **Status:** overruled
+- **Status:** retired (2026-10-03)
+- **Retired because:** Superseded 2026-09-26 by REQ-SYS-3.4: reads derive "current date" from the operation's initiation instant, the same as mutations. A read that takes a fresh `Calendar.today()` is now a finding.
 - **Date:** 2026-07-06
 - **Scope:** Whether read-time "current date" must source from AuditEnvelope
 - **Ruling:** AuditEnvelope is for mutations with audit timestamps. Reads use Calendar.today() (Clock.now() through US Eastern Time). The mechanism differs from mutation-path checks by design, not by accident. Different operations using different instant sources is not a contradiction.
@@ -97,7 +102,8 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 - **Ruling:** "Balance" is standard GAAP terminology meaning the cumulative net of all posted (non-voided) entries since inception. It does not require a date qualifier. "At the time of the request" modifies when the check occurs, not what is summed. Standard accounting terms should not be flagged as ambiguous.
 
 ## SYS-CLK-1: REQ-SYS-3.3 "System Clock" vs AuditEnvelope Wording
-- **Status:** overruled
+- **Status:** retired (2026-10-03)
+- **Retired because:** Moot. The 2026-09-26 amendment to REQ-SYS-3.3 replaced "system clock at time of update" with the operation's initiation instant (REQ-SYS-3.4).
 - **Date:** 2026-07-06
 - **Scope:** Whether REQ-SYS-3.3's "system clock" contradicts the AuditEnvelope decision
 - **Ruling:** The AuditEnvelope's system instant IS the system clock captured at request time. "System clock at time of the update" and "AuditEnvelope system instant property" describe the same value from different angles. The distinction is pedantic — all reasonable interpretations land within a second of each other, which is fine for an audit timestamp.
@@ -154,7 +160,7 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 - **Status:** overruled
 - **Date:** 2026-08-02
 - **Scope:** Whether a CLAUDE.md (or equivalent) should exist at the SonOfLeo repo root
-- **Ruling:** Vetoed repeatedly. Agents enter via wakeups and prompts, not a repo-root file. The harness launches from its own root (`~/penthouse-pete/` for Hobson, `~/` for BD); a CLAUDE.md at the SonOfLeo repo root would never load. The imagined problem (agents lacking context) doesn't exist — the wakeup protocol provides it. Do not re-flag.
+- **Ruling:** Vetoed repeatedly, and re-affirmed 2026-10-03. Agents enter via wakeups and prompts, not a repo-root file. (The original rationale — that the harness launches from its own root, so a repo-root CLAUDE.md would never load — is stale: cloud agents now start at the repo root. The veto does not rest on it.) The imagined problem (agents lacking context) doesn't exist — the wakeup protocol provides it. Do not re-flag.
 
 ## JE-COMPOSITE-ORDER: Composite Validation Runs After Component Writes
 - **Status:** overruled
@@ -164,13 +170,14 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 
 ## DAL-EFFICACY: DAL Test Efficacy Not Applicable
 - **Status:** overruled
-- **Date:** 2026-08-20 (verbiage corrected 2026-08-22)
+- **Date:** 2026-08-20 (verbiage corrected 2026-08-22; rewritten 2026-10-03)
 - **Scope:** Whether the DAL needs a test-efficacy audit pass
-- **Ruling:** The DAL has a behavioral spec (DataAccessLayer.md, 19 active REQ-DAL requirements), but all 19 are either waived from testing or classified as unenforceable. Its correctness is validated transitively through the domain tests that exercise it (every account/JE/staging operation hits the DAL). A test-efficacy auditor scoped to the DAL will always return "no findings" because there are no tested REQ IDs to audit against. This is by design, not a gap. Do not flag the absence of DAL-specific efficacy findings. This ruling covers test-efficacy only — it does not suppress spec-quality, ambiguity, or contradiction audits against DataAccessLayer.md.
+- **Ruling:** REQ-DAL-1.14–1.20, 2.1–2.3 and 3.1–3.7 (including 3.2.1) are waived from testing or unenforceable, and are validated transitively through the domain tests that exercise the DAL. Do not flag the absence of efficacy findings for those IDs. REQ-DAL-2.4 (added 2026-09-26) is tested directly and is in scope for test-efficacy passes. If a waiver on any of the IDs above is removed (audit 2026-10-03a moves REQ-DAL-2.2 to tested once its tests are cited), that ID is in scope too — check the Waived table, not this list. This ruling covers test-efficacy only — it does not suppress spec-quality, ambiguity, or contradiction audits against DataAccessLayer.md.
 
 ## IDIOM-JE-1: REQ-JE-3.6.1 Net Balance Sign Test
-- **Status:** overruled
+- **Status:** retired (2026-10-03)
 - **Date:** 2026-08-20
+- **Retired:** REQ-JE-3.6.x was withdrawn on 2026-10-03, superseded by REQ-AC-3.13/3.13.1, and its tests are being retired or re-cited. If a sign-direction test is re-cited to REQ-AC-3.13, the reasoning below still applies to it.
 - **Scope:** Whether the REQ-JE-3.6.1 net-balance test's `> zero` assertion is a cowardly inequality
 - **Ruling:** The rest of the 3.6 suite asserts correct amounts; this specific test is about sign direction (net balance is positive when debits exceed credits). The `> zero` assertion is appropriate for a sign-direction test. Do not re-flag.
 
@@ -193,7 +200,14 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 - **Ruling:** "Too broadly scoped" means the requirement describes something so general that no single test can specifically satisfy it. These requirements describe structural input-format truths (first arg is domain, second is verb, payload via stdin) that are exercised implicitly by every CLI test but cannot be meaningfully isolated into a dedicated test. The waiver reason is appropriate. Do not re-flag waiver reasons without understanding Dan's usage of the phrase.
 
 ## MAINT-TZ-1: Clock.fs / Calendar.fs Duplicate Time Zone Binding
-- **Status:** overruled
+- **Status:** retired (2026-10-03)
+- **Retired because:** Moot. Clock.fs now holds the only time-zone binding, Calendar depends on Clock, and REQ-SYS-7.1 (2026-09-28) requires one zone system-wide.
 - **Date:** 2026-08-25
 - **Scope:** Whether the localized time zone binding duplicated between Clock.fs and Calendar.fs is a maintainability defect
 - **Ruling:** Deliberate design. Clock and Calendar are independent modules with distinct responsibilities — Clock provides instants, Calendar provides local dates. Each reads the configured time zone independently. This is not accidental duplication; it is intentional module independence. Coupling them to share a single binding would create a dependency between modules that currently have none. Overruled repeatedly across multiple audit rounds (2026-07-06a, 2026-08-22a, 2026-08-24a). Do not re-flag.
+
+## ROUTE-ORACLE: Route Tests May Use the Tested Computation as Oracle
+- **Status:** overruled
+- **Date:** 2026-10-03
+- **Scope:** Whether a route-level happy-path test that takes its expected value from the same orchestrator computation the route calls (e.g. trial balance data, balance-sheet integrity, period activity) is Specimen 6
+- **Ruling:** Not Specimen 6 when both hold: (1) the test is a route test, whose job is routing and conversion, not the computation; and (2) the computation has its own tests that derive their expected values from fixtures, independently of the code under test. Then the orchestrator is an independently verified oracle. A precondition such as `>= 2` rows is a non-vacuity guard, not the asserted value. Specimen 6 still applies when the computation has no independent test, or when the test is the computation's own test.

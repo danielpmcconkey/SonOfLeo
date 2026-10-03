@@ -1,18 +1,22 @@
 # DAL Errors Are Backstops, Not Operator-Facing Errors
 
-**Source:** Dan's clarification, 2026-08-28, from a `Src/ModelOrchestrator` pattern-review
-session; layered-authority correction added the same day.
+**Source:** Dan's clarification, 2026-08-28, from a pattern-review session on the
+orchestration layer (then `Src/ModelOrchestrator`, now `Business.CrossDomainOrchestration`);
+layered-authority correction added the same day. "What works" rewritten 2026-10-03 for
+`DalNoOp` / `whenNoRows` (audit 2026-10-03a, #287).
 
-A generic `DataAccessLayer` error like `DalResultantRowsDidntMatchExpectation` is a mechanical
-signal ("the query returned a different row count than expected"), not a meaningful error for
+A generic `DataAccessLayer` error like `DalNoOp` ("the query returned no rows") or
+`DalResultantRowsDidntMatchExpectation` ("it returned a non-zero row count other than the one
+expected") is a mechanical signal, not a meaningful error for
 the person using the app. Translating it into something meaningful is a matter of *use-case
 context* — and use-case context increases as you go up the layers, not just at one designated
 translation point.
 
 ## A chain of increasing authority, not a single choke point
 
-`Model/` has the least use-case context — it only knows about its own row. `ModelOrchestrator`
-knows more — it knows what composite or multi-step operation is underway. `InterfaceBridge`
+A domain module (an entity's own file in `Business.General` or a
+`Business.FinancialServices.*` project) has the least use-case context — it only knows about
+its own row. `Business.CrossDomainOrchestration` knows more — it knows what composite or multi-step operation is underway. `InterfaceBridge`
 knows the most — it knows which actual UI or CLI operation the user invoked. Each layer is a
 *higher authority* than the one below it, and each is free to translate a lower layer's error
 into something more meaningful if — and only if — it actually has enough context to do so
@@ -23,17 +27,17 @@ knows what the user was trying to do.
 
 The same DAL error can mean completely different things depending on which call produced it.
 "Account code not found" is a fine, complete error for a `JournalEntryLine` construction — there's
-only one account reference to be wrong, and `Model/` itself has enough context to say so.
+only one account reference to be wrong, and the domain module itself has enough context to say so.
 It's a bad error, unresolved, for an `Account` fetch that involves both a primary account and a
 parent account lookup — "not found" doesn't say *which* lookup failed, and the orchestrator is
 the first layer with enough context to disambiguate. This is why the DAL-error-to-domain-error
-match arm shows up repeatedly across `ModelOrchestrator/*.fs` — it's not boilerplate to
+translation shows up repeatedly across the domain modules and the orchestration layer — it's not boilerplate to
 eliminate, it's the same generic signal getting a different, specific meaning at whichever layer
 first has enough context to give it one.
 
 ## The rule
 
-If a raw `DalResultantRowsDidntMatchExpectation` (or any other DAL-level error) ever reaches the
+If a raw `DalNoOp` (or any other DAL-level error) ever reaches the
 operator, *unretranslated by any layer*, that means one of two things: some layer that had
 enough context to translate it didn't do its job, or something has gone seriously wrong with the
 data itself. Neither is an acceptable steady state. It does not mean "the orchestrator must
@@ -45,21 +49,24 @@ operator rather than DAL backstops leaking through — see the `TestWriter` skil
 
 ## What works
 
-The repeated shape, seen throughout `ModelOrchestrator`:
+The DAL reports "no rows came back" as its own case, `DalNoOp`, for an `ExactlyOne` or
+`OneOrMany` expectation. Whichever layer first knows what an empty result means swaps it for
+the domain error with `whenNoRows`:
 
 ```fsharp
-match id |> Entity.fetchById context with
-| Ok _ -> Ok ()
-| Error (DalResultantRowsDidntMatchExpectation(expected, actual)) ->
-    if actual = 0 then Error (EntityIdDoesntExist (id |> Id.value))
-    else Error (DalResultantRowsDidntMatchExpectation(expected, actual))
-| Error e -> Error e
+executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+|> whenNoRows (CashflowPaymentIdDoesntExist (paymentId |> PaymentId.value))
 ```
 
-Only `actual = 0` becomes a friendly, specific "doesn't exist" error. Any other row-count
-mismatch re-raises the raw DAL error unchanged — that's not "not found," that's a genuine
-integrity problem, and it should surface as loudly and unhelpfully as it deserves rather than
-being papered over with a wrong-sounding "not found."
+`whenNoRows` replaces `DalNoOp` only. Every other error passes through untouched — including
+`DalResultantRowsDidntMatchExpectation`, which now means a *non-zero* row count other than the
+one expected. That is not "not found", it is a genuine integrity problem, and it should surface
+as loudly and unhelpfully as it deserves rather than being papered over with a wrong-sounding
+"not found."
+
+Do not match `DalResultantRowsDidntMatchExpectation` with `actual = 0` to detect absence. That
+was the shape before `DalNoOp` existed; the DAL no longer produces it for zero rows, so the
+branch is dead and the absence leaks through as `DalNoOp`.
 
 ## What doesn't
 

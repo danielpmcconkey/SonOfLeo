@@ -314,7 +314,11 @@ foundations) are defined by the "Dependencies Build From the Base Up" principle 
 `Architecture/SonOfLeo.archimate`. That model is the source of truth; don't restate it here.
 
 A new file goes at its correct position in `<Compile Include>`, never appended.
-`Checks/check-compile-order.sh` guards this.
+`Checks/check-compile-order.sh` checks membership only (every file declared, every declaration
+on disk), and `dotnet build` catches only an order that breaks a reference. An order that
+compiles but violates the principle — e.g. a container foundation such as `*AuditableAction.fs`
+compiled after the files that should build on it — is caught by nothing but this review.
+Check it.
 
 ---
 

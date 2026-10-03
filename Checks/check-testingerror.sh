@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # Enforces: TestingError exists solely for test plumbing and is banned in Src/.
-# Allowlist: Src/Utilities/AppError.fs — the case's own definition and toMessage arm.
+# It is defined in Tests/Tests.Helpers/TestError.fs, outside Src/, so Src/ has no allowlist.
 set -u
 cd "$(dirname "$0")/.."
 
-hits=$(grep -rn --include='*.fs' 'TestingError' Src |
-    grep -v '^Src/Utilities/AppError\.fs:')
+hits=$(grep -rn --include='*.fs' 'TestingError' Src)
 
 if [[ -n "$hits" ]]; then
     echo "$hits"

@@ -23,6 +23,7 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-1.17** Account types with name of 'Liability','Equity','Revenue' must have a normal balance of 'Credit'
 - **REQ-AC-1.18** Account subtype must be constrained to ['Cash','CurrentLiability','FixedAsset','Investment','LongTermLiability','OperatingExpense','OperatingRevenue','OtherRevenue','OtherExpense']
 - **REQ-AC-1.19** Account subtype can be null and a null subtype can be paired with any type
+- **REQ-AC-1.19.1** stricken
 - **REQ-AC-1.20** Account external reference length must not exceed 50 characters
 - **REQ-AC-1.21** Account ID cannot be null
 - **REQ-AC-1.22** Account ID must be unique
@@ -52,7 +53,7 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-1.46** An account record's "active end" may not be earlier than its "active begin". Equality is permitted and represents an account active for exactly one day (the inclusive single-day window).
 - **REQ-AC-1.47** An Account record's parent ID can never reference one of its descendent accounts.
 - **REQ-AC-1.48** An Account record is considered not active relative to a reference Calendar Date when its "active end" is non-null and is earlier than that reference date (the active-end date itself is still active — the boundary is inclusive).
-  - **REQ-AC-1.48.1** The reference point is a Calendar Date and is context-dependent: it may be the current date (the Eastern calendar date of the AuditEnvelope's system instant) or a date specific to the operation (e.g., a transaction's entry date). Each requirement that references activity status must specify which reference point applies.
+  - **REQ-AC-1.48.1** The reference point is a Calendar Date and is context-dependent: it may be the current date (the calendar date (REQ-SYS-7.1) of the operation's initiation instant (REQ-SYS-3.4)) or a date specific to the operation (e.g., a transaction's entry date). Each requirement that references activity status must specify which reference point applies.
 - **REQ-AC-1.49** Account external reference cannot be whitespace only (pre-trimmed) or empty
 - **REQ-AC-1.50** An Account record is considered "active" relative to a reference Calendar Date when its "active begin" is earlier than or equal to that reference date AND (its "active end" is null OR its "active end" is later than or equal to that reference date). Both boundaries are inclusive.
 
@@ -66,7 +67,7 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-2.5** stricken
 - **REQ-AC-2.6** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the ID maps to an existing Account in the database.
 - **REQ-AC-2.6.1** Note, since moving to code-based UI, the "caller of the function" in the above is an internal application layer function only. The requirement still applies.
-- **REQ-AC-2.7** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the parent account is active as of the current date (the Eastern calendar date of the AuditEnvelope's system instant). 
+- **REQ-AC-2.7** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the parent account is active as of the current date (the calendar date (REQ-SYS-7.1) of the operation's initiation instant (REQ-SYS-3.4)). (Amended 2026-10-03)
 - **REQ-AC-2.7.1** Note, since moving to code-based UI, the "caller of the function" in the above is an internal application layer function only. The requirement still applies.
 - **REQ-AC-2.8** When creating an Account record, the system must reject any duplicated ID
 - **REQ-AC-2.9** When creating an Account record, the system must reject any duplicated account code
@@ -74,7 +75,7 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-2.11** stricken
 - **REQ-AC-2.12** stricken
 - **REQ-AC-2.13** When creating an Account record, the creation function must generate a unique UUID for the ID (new UUIDs may not be passed in).
-- **REQ-AC-2.14** When creating an Account record, if the calling system specifies that the record should be saved to the DB, and if all validations pass and the passed in arguments represent a valid data state, the creation function must persist the fully validated account record in the database and return an account record with the created ID and created/modified timestamps
+- **REQ-AC-2.14** When creating an Account record, if all validations pass and the passed in arguments represent a valid data state, the creation function must persist the fully validated account record in the database and return an account record with the created ID and created/modified timestamps. (Amended 2026-10-03)
 - **REQ-AC-2.15** stricken
 - **REQ-AC-2.16** When creating an Account record, if the caller of the function provided a parent ID, the system must confirm that the parent account is not already a descendent (no circular relationships).
 - **REQ-AC-2.17** When creating an Account record, it is the responsibility of the calling function to provide an accurate "active begin" Calendar Date. There is no validation to confirm that the caller provided a correct begin date.
@@ -101,13 +102,13 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-3.6.1** stricken
 - **REQ-AC-3.7** The system must be able to retrieve all Account records without filter
 - **REQ-AC-3.8** stricken
-- **REQ-AC-3.9** The system must be able to retrieve all active Account records relative to the current date (anchored to a US Eastern Time interpretation of the calendar date associated to the system run time)
+- **REQ-AC-3.9** The system must be able to retrieve all active Account records relative to the current date (the calendar date (REQ-SYS-7.1) of the operation's initiation instant (REQ-SYS-3.4)). (Amended 2026-10-03)
 - **REQ-AC-3.10** The system must be able to retrieve all child records of an Account by the caller providing that parent record's Account Code string.
 - **REQ-AC-3.11** Any operation that identifies an Account by account code must fail with a typed error when the code does not match an existing Account. This applies to retrieve, update, deactivate, activity, and balance operations.
 - **REQ-AC-3.12** The system must provide a means to retrieve account activity: Account records joined to their journal entry lines. Each result row carries the account's code, name, type, subtype, parent code and external reference, and — when the row represents a line — the line's ID, amount, line type, memo, created/modified Instants, and its journal entry's ID, entry date, description, source and voided-at Instant.
 - **REQ-AC-3.12.1** Activity filters are optional and applied as a conjunction (AND): account code; a temporal filter given as either a fiscal period key or an inclusive date range on entry date; journal entry source (exact match); account type; account subtype; parent account code; journal entry ID; exact line amount; journal entry description (case-sensitive partial match); and an unvoided-only flag.
 - **REQ-AC-3.12.2** Lines of voided journal entries are included, with their voided-at Instant, unless the unvoided-only flag is set.
-- **REQ-AC-3.12.3** An Account with no journal entry lines is returned once, without line detail, provided no filter on journal entry properties (temporal, source, journal entry ID, amount, description) is applied.
+- **REQ-AC-3.12.3** An Account with no journal entry lines is returned once, without line detail, provided no filter on journal entry properties (temporal, source, journal entry ID, amount, description) is applied. The unvoided-only flag is not a filter on journal entry properties for this purpose: a line-less Account is still returned when it is set. An Account that has lines, all of them excluded by the unvoided-only flag or by a journal entry filter, is omitted. (Amended 2026-10-03)
 - **REQ-AC-3.12.4** Activity results may be sorted by account code, entry date, or amount, each ascending or descending. With no sort specified, order is unspecified.
 - **REQ-AC-3.13** The system must provide a means to retrieve balances for a caller-provided list of account codes, optionally as of a Calendar Date. Each result carries account code, account name, total debits, total credits, and net balance in the account's normal-balance direction (debits minus credits for debit-normal accounts; credits minus debits for credit-normal accounts).
 - **REQ-AC-3.13.1** Balances exclude voided journal entries. When an as-of date is given, entries dated after it are excluded. An Account with no qualifying lines has zero totals.
@@ -116,12 +117,12 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 
 ## 4. Update behaviors
 
-- **REQ-AC-4.1** The system must provide a means to deactivate an Account, using a provided "active end" Calendar Date. When no date is provided, the "active end" is the current date (the Eastern calendar date of the AuditEnvelope's system instant). (Amended 2026-09-26)
+- **REQ-AC-4.1** The system must provide a means to deactivate an Account, using a provided "active end" Calendar Date. When no date is provided, the "active end" is the current date (the calendar date (REQ-SYS-7.1) of the operation's initiation instant (REQ-SYS-3.4)). (Amended 2026-09-26, 2026-10-03)
 - **REQ-AC-4.2** When an Account deactivation is requested, the system must reject any request where the "active end" date would be earlier than the "active begin" date (equality permitted, per REQ-AC-1.46).
-- **REQ-AC-4.3** When an Account deactivation is requested, the system must reject any request where the Account to be deactivated has active children accounts (reference as-of the current date — the Eastern calendar date of the AuditEnvelope's system instant).
+- **REQ-AC-4.3** When an Account deactivation is requested, the system must reject any request where the Account to be deactivated has active children accounts (reference as-of the current date — the calendar date (REQ-SYS-7.1) of the operation's initiation instant (REQ-SYS-3.4)). (Amended 2026-10-03)
 - **REQ-AC-4.4** When an Account deactivation is requested, the system must reject any request where the Account has a non-zero balance at the time of the request.
-- **REQ-AC-4.5** When an Account deactivation is requested, the system must reject any request where the Account already has a non-null "active end" date.
-- **REQ-AC-4.6** When an Account deactivation is requested, the system must reject any request where the Account is referenced by a journal entry line whose entry date is later than the provided "active end" date (a pure Calendar Date comparison; the inclusive boundary means an entry dated on the active-end date is permitted).
+- **REQ-AC-4.5** When an Account deactivation is requested, the system must reject any request where the Account already has a non-null "active end" date, including a future end scheduled at creation (REQ-AC-2.23). There is no means to move a scheduled end earlier. (Amended 2026-10-03)
+- **REQ-AC-4.6** When an Account deactivation is requested, the system must reject any request where the Account is referenced by a line of an unvoided journal entry whose entry date is later than the provided "active end" date (a pure Calendar Date comparison; the inclusive boundary means an entry dated on the active-end date is permitted). Lines of voided entries do not block deactivation. (Amended 2026-10-03)
 - **REQ-AC-4.7** stricken
 - **REQ-AC-4.8** The system must provide a means to update an Account record's "name" field.
 - **REQ-AC-4.9** The system must provide a means to update an Account record's "external reference" field, including clearing it to null. (Amended 2026-09-26)
@@ -190,7 +191,7 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 
 | ID          | Original Requirement | Reason |
 |-------------|----------------------|--------|
-| REQ-AC-1.19.1 | A null subtype can be paired with any type | Verbatim duplicate of the second clause of REQ-AC-1.19. Five tests cite 1.19.1 — rename to cite 1.19 (BD). |
+| REQ-AC-1.19.1 | A null subtype can be paired with any type | Verbatim duplicate of the second clause of REQ-AC-1.19. |
 | REQ-AC-1.11 | Account type name of 'Asset' must map to the database ID of 1 | Removed Account Type as a separate DB lookup |
 | REQ-AC-1.12 | Account type name of 'Liability' must map to the database ID of 2 | Removed Account Type as a separate DB lookup |
 | REQ-AC-1.13 | Account type name of 'Equity' must map to the database ID of 3 | Removed Account Type as a separate DB lookup |
@@ -200,10 +201,10 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 | REQ-AC-1.25  | Account created at should default to the current runtime timestamp at time of database creation of the record | Superseded by REQ-SYS-3.2 |
 | REQ-AC-1.26  | Account modified at should default to the current runtime timestamp at time of database creation of the record | Superseded by REQ-SYS-3.2 |
 | REQ-AC-1.27  | Account modified at should be updated to the current runtime timestamp at time of database update of the record | Superseded by REQ-SYS-3.3 |
-| REQ-AC-1.38  | An account record with the is active flag set to true may not have a parent ID that references an account record with the is active flag set to false | Deemed too computationally expensive at every Account construction event. Superseded by REQ-AC-2.7 and REQ-AC-4.3. |
+| REQ-AC-1.38  | An account record with the is active flag set to true may not have a parent ID that references an account record with the is active flag set to false | Dropped, not superseded: deemed too computationally expensive at every Account construction event. REQ-AC-2.7 and REQ-AC-4.3 check parent and child activity only as of the current date, so an active child under an inactive parent remains reachable (e.g. via a scheduled active end, REQ-AC-2.23). Accepted cost. (Reason corrected 2026-10-03) |
 | REQ-AC-2.1   | When creating an Account record, either through primitive types or through defined types, all raw string values must be trimmed of any leading or trailing white space before being added to the persistence layer or being returned to the caller of the function. | Superseded by REQ-SYS-1.1 |
 | REQ-AC-2.2   | When creating an Account record, the database must be able to persist strings with full UTF-8 support. | Moved to DAL-level requirement (REQ-DAL-3.4) |
-| REQ-AC-2.3   | When creating an Account record, any string field must be stored in the database with case-perfect fidelity (post-trim). | Moved to DAL-level requirement |
+| REQ-AC-2.3   | When creating an Account record, any string field must be stored in the database with case-perfect fidelity (post-trim). | Superseded by REQ-SYS-5.1 |
 | REQ-AC-2.5   | When creating an Account record, if the provided "is active" value is null, the newly created Account record will be active. | Replaced by `active_begin` and `active_end` timestamps |
 | REQ-AC-2.11  | When creating an Account record, the system must generate a "created at" timestamp that represents the system clock at time of creation. | Superseded by REQ-SYS-3.2 |
 | REQ-AC-2.12  | When creating an Account record, the system must generate a "modified at" timestamp that represents the system clock at time of creation. | Superseded by REQ-SYS-3.2 |

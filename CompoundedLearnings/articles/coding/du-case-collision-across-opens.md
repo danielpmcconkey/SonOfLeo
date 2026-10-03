@@ -23,17 +23,18 @@ neutral. It isn't: the later `open` wins for any bare identifier both modules de
 
 ## Example
 
-`Model.CashFlow.CashFlowComponent.TransactionPointer` has cases `Posted of JournalEntryHeaderId`
-and `Staged of StageEntryHeaderId`. `Model.DataIngestion` (via `StageEntryComponent.fs`)
+`Business.FinancialServices.CashFlow.CashFlowComponent.TransactionPointer` has cases
+`Posted of JournalEntryLineId` and `Staged of StageEntryLineId` (header IDs when this was
+written). `Business.FinancialServices.DataIngestion.StageEntryComponent`
 separately declares `StagedEntryStatus` with a no-arg `Posted` case. A file that does
-`open Model.CashFlow.CashFlowComponent` followed by `open Model.DataIngestion` and then writes
-a bare `| Posted journalEntryHeaderId -> ...` match arm gets misresolved: the compiler binds
+`open ...CashFlow.CashFlowComponent` followed by `open ...DataIngestion.StageEntryComponent` and
+then writes a bare `| Posted journalEntryLineId -> ...` match arm gets misresolved: the compiler binds
 `Posted` to `StagedEntryStatus.Posted` (the later-opened module), which takes no arguments, and
 reports a type mismatch that never mentions `TransactionPointer` at all — confusing to debug
-from the error alone. The fix, applied in `Src/Model/CashFlow/Payment.fs`, was fully qualifying
+from the error alone. The fix, applied in the CashFlow `Payment.fs` (then under `Src/Model/`), was fully qualifying
 both arms as `CashFlowComponent.Posted`/`CashFlowComponent.Staged`.
 
 This is worth rechecking any time a new file opens both `CashFlowComponent` and
-`Model.DataIngestion` (or any two component files) together — the specific `Posted` collision
+`StageEntryComponent` (or any two component files) together — the specific `Posted` collision
 above will recur verbatim, and a similarly generic case name in a future component file could
 introduce a new one.

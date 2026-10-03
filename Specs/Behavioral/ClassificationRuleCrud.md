@@ -4,7 +4,7 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 
 **Design note — evaluation domain.** Classification rules are evaluated in F#, not in SQL. The rule body is stored as JSONB and reconstituted into a typed domain model at read time. This eliminates the SQL injection surface that would exist if patterns were interpolated into queries.
 
-**Design note — authority hierarchy.** Account-claimant classification rules occupy the middle tier of the account-assignment authority hierarchy defined in DataIngestion.md: parser (highest) > classifier > operator (lowest, but can override all). The classifier only fills null account assignments; it never overrides parser assignments (REQ-STG-5.3).
+**Design note — authority hierarchy.** Account-claimant classification rules occupy the middle tier of the account-assignment authority hierarchy defined in DataIngestion.md: parser (highest) > classifier > operator (lowest, but can override all). Filling only null account assignments, and never overriding a parser assignment, is the account-classification caller's rule (REQ-STG-5.2, REQ-STG-5.3), not the classifier's: the classifier reports which rules matched and does not look at a line's existing account (REQ-CR-3.8). The payment-agreement caller deliberately evaluates lines that already have an account (REQ-CF-12.3).
 
 
 ## 1. Valid and invalid data states for the ClassificationRule type and related types
@@ -21,11 +21,10 @@ Service-level behavioral specs for creating, reading, and managing classificatio
   - *Why:* One rule engine serves two questions — which account a line belongs to, and which obligation a line pays. A rule answers exactly one of them. (2026-09-26)
 - **REQ-CR-1.23** A rule's claimant type is `'AccountClaimant'` when its claimant is an account and `'PaymentAgreementClaimant'` when its claimant is a payment agreement.
 - **REQ-CR-1.24** A stored rule with both or neither claimant set is invalid; reading it fails with a typed error identifying the rule.
-- **REQ-CR-1.25** A rule "constrains line type" when any field match anywhere in any of its rule groups is a `LineType` field match.
-  - *Why:* Payment-agreement leg selection (REQ-CF-12.4) defers to a rule that constrains line type instead of applying the direction default. The test is "present anywhere", not "present on every path": a rule whose `'Or'` group has one chain without a `LineType` match still counts as constraining. (2026-09-26)
+- **REQ-CR-1.25** *(Withdrawn 2026-10-03 — see the Withdrawn table.)*
 - **REQ-CR-1.6** Classification rule priority is an integer. Lower values represent higher priority — when multiple rules match a candidate, the rule with the lowest priority value wins.
 - **REQ-CR-1.7** Classification rule must contain at least one rule group.
-- **REQ-CR-1.8** Classification rule has an `isActive` boolean flag. Only active rules participate in classification (REQ-STG-5.1, enforced by the classifier filtering to active rules before evaluation).
+- **REQ-CR-1.8** Classification rule has an `isActive` boolean flag. Only active rules participate in classification (REQ-STG-5.2, REQ-CF-12.3, REQ-CR-3.2).
 
 ### ClassificationRuleGroup
 
@@ -39,18 +38,19 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 
 ### FieldMatch
 
-- **REQ-CR-1.13** A field match targets exactly one of: `Source`, `Description`, `Memo`, `LineType`, or `Amount`.
-- **REQ-CR-1.14** `Source`, `Description`, and `Memo` field matches carry a `StringSearchPattern` evaluated as a regex against the candidate's corresponding field value. Matching is case-sensitive and unanchored (the pattern may match anywhere in the value) unless the pattern itself says otherwise. (Clarified 2026-09-26)
+- **REQ-CR-1.13** A field match targets exactly one of: `Source`, `Description`, `LineType`, or `Amount`. (Amended 2026-10-03 — `Memo` withdrawn as a match target; see REQ-CR-2.2 in the Withdrawn table.)
+  - *Why:* Dan ruled Memo out of the match criteria. Amount and LineType stay because they are how a split payment (rent on one line, a utility share on another) matches each line separately (REQ-CF-12.4). (2026-10-03)
+- **REQ-CR-1.14** `Source` and `Description` field matches carry a `StringSearchPattern` evaluated as a regex against the candidate's corresponding field value. Matching is case-sensitive and unanchored (the pattern may match anywhere in the value) unless the pattern itself says otherwise. (Clarified 2026-09-26; `Memo` removed 2026-10-03)
 - **REQ-CR-1.15** `LineType` field matches carry a `JournalEntryLineType` value and evaluate by exact equality against the candidate's line type.
 - **REQ-CR-1.16** `Amount` field matches carry a `MoneySearchPattern` (a `NumericSearchOperator` and a `Money` value) and evaluate by comparing the candidate's amount against the pattern's amount using the specified operator.
 
 ### StringSearchPattern
 
 - **REQ-CR-1.17** String search pattern cannot be null.
-- **REQ-CR-1.18** String search pattern cannot be empty. Whitespace is not trimmed — REQ-SYS-1.1 does not apply because whitespace is meaningful in regex patterns.
+- **REQ-CR-1.18** String search pattern cannot be empty. Whitespace is not trimmed, and a whitespace-only pattern is legal — neither REQ-SYS-1.1 nor REQ-SYS-1.2 applies, because whitespace is meaningful in regex patterns. (Amended 2026-10-03)
 - **REQ-CR-1.19** String search pattern length cannot exceed 500 characters.
-- **REQ-CR-1.26** String search pattern must be a valid regular expression. An invalid pattern is rejected with a typed error when the rule is created or updated, and when a stored rule is read. Evaluating a valid pattern never raises an exception.
-  - *Why:* An invalid pattern accepted at save time fails mid-run and aborts the whole classification for every entry. The pattern is data from the operator; it is validated at the boundary like any other input. (2026-09-26)
+- **REQ-CR-1.26** String search pattern must be a valid regular expression. An invalid pattern is rejected with a typed error when the rule is created or updated, and when a stored rule is read. Evaluating a valid pattern never raises an exception. Pattern evaluation is time-limited: a pattern that exceeds the limit fails the whole classification run with a typed error naming the rule. A timeout is never treated as no match. (Amended 2026-10-03)
+  - *Why:* The pattern is data from the operator; it is validated at the boundary like any other input, so an invalid one is caught when it is saved rather than discovered mid-run. A valid pattern can still be pathologically slow. Failing the run loudly is the right outcome there: reading a timeout as no match would silently leave lines unclassified, or hand them to a lower-priority rule, with nothing to show why. (2026-09-26, revised 2026-10-03)
 
 ### NumericSearchOperator
 
@@ -58,13 +58,14 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 
 ### MoneySearchPattern
 
-- **REQ-CR-1.21** The amount field within a money search pattern must satisfy all Money data state requirements (REQ-MON-1.*).
+- **REQ-CR-1.21** The amount field within a money search pattern must satisfy all Money data state requirements (REQ-MON-1.*). It is enforced when a rule is created or updated, and again when a stored rule is read (REQ-SYS-2.1), the same as stored text patterns (REQ-CR-1.26). (Amended 2026-10-03)
+  - *Why:* Every write path builds the amount through the validating Money conversion, so an invalid stored amount can only come from a direct database edit — an unreachable state for the system. (2026-10-03)
 
 
 ## 2. Rule evaluation behaviors
 
 - **REQ-CR-2.1** A field match evaluates to true when the candidate's field value satisfies the match criterion: regex match for string fields, exact equality for `LineType`, numeric comparison for `Amount`.
-- **REQ-CR-2.2** A `Memo` field match evaluates to false when the candidate's memo is absent (None).
+- **REQ-CR-2.2** *(Withdrawn 2026-10-03 — see the Withdrawn table.)*
 - **REQ-CR-2.3** A field match chain evaluates to true only when every field match in the chain evaluates to true.
 - **REQ-CR-2.4** When a rule group has no secondary chain (`chainTwo` is None), the group evaluates to the result of `chainOne` alone.
 - **REQ-CR-2.5** When a rule group's connector is `'And'`, the group evaluates to true only when both `chainOne` and `chainTwo` evaluate to true.
@@ -106,7 +107,7 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 - **REQ-CR-5.2** The system must be able to retrieve a classification rule by its name (exact match).
 - **REQ-CR-5.3** The system must be able to retrieve classification rules by a combination of optional filter criteria: rule ID, name (case-sensitive partial match), account claimant (by account code, exact), payment agreement claimant (by payment agreement name, exact), claimant type, source pattern (case-sensitive partial match against the text of any `Source` field match in the rule), and active-only flag. (Revised 2026-09-26)
 - **REQ-CR-5.6** A filter naming an account code, payment agreement name, or claimant type that does not resolve fails with a typed error.
-- **REQ-CR-5.4** Filtered retrieval must support optional sort ordering by account code (ascending or descending, resolved via the account table) or priority (ascending or descending).
+- **REQ-CR-5.4** Filtered retrieval must support optional sort ordering by account code (ascending or descending, resolved via the account table) or priority (ascending or descending). Under an account-code sort, rules with no account code (payment-agreement claimants) come after every account-claimant rule in both directions, ordered among themselves by rule name. (Amended 2026-10-03)
 - **REQ-CR-5.5** The returned classification rule must identify its claimant in human-readable form: the account's code and name for an account claimant, or the payment agreement's name for a payment agreement claimant.
   - *Why:* The CLI display layer needs the human-readable account name without a second round-trip. The rule stores an ID internally; the boundary layer resolves the name at read time. (2026-08-25, payment agreement claimant added 2026-09-26)
 
@@ -114,7 +115,8 @@ Service-level behavioral specs for creating, reading, and managing classificatio
 ## 6. Update behaviors
 
 - **REQ-CR-6.1** The system must provide a means to update a classification rule's name, claimant, priority, rule groups, and isActive flag. Each field is independently updatable via a FieldUpdate (NoChange or SetTo). Updating the claimant may change its type (account to payment agreement or the reverse); the rule always ends with exactly one claimant (REQ-CR-1.5). (Revised 2026-09-26)
-- **REQ-CR-6.2** When updating a classification rule, if all fields are NoChange, the update must fail (no-op rejection).
+- **REQ-CR-6.2** An update that names no field to change is rejected (REQ-SYS-6.1); a field set to the value it already holds counts as named. (Amended 2026-10-03)
+  - *Why:* As REQ-CF-14.2: re-sending a value the rule already holds hides no wrong belief about its state. (2026-10-03)
 - **REQ-CR-6.3** When updating the claimant, the system must validate that the new value resolves to an existing account or payment agreement. If it does not, the update must fail. (Revised 2026-09-26)
 - **REQ-CR-6.4** When updating `ruleGroups`, the system must validate that the new list is not empty and that every field match chain within every rule group is not empty. If either condition fails, the update must fail.
 - **REQ-CR-6.5** On successful update, the system must update the `modified_at` timestamp and return the updated rule.
@@ -133,7 +135,7 @@ Every classification run leaves a durable record of what matched, so an operator
 - **REQ-CR-8.2** For every candidate line, the run records one match row per rule that matched it — including losing and tied rules, not only the winner. A line with no match produces no row. Each row carries: a system-generated ID, the run ID, the staged line ID, the rule ID, and the run's Instant.
 - **REQ-CR-8.3** A given (run, staged line, rule) combination is recorded at most once.
 - **REQ-CR-8.4** Match rows are a historical record. The system provides no means to update or delete them.
-- **REQ-CR-8.5** The system must be able to retrieve all match rows for a run ID. Each returned row includes the rule's name, claimant, and priority as they stand at retrieval time, sorted by staged line, then priority, then rule name. A run ID with no rows returns an empty list.
+- **REQ-CR-8.5** The system must be able to retrieve all match rows for a run ID. Each returned row includes the rule's name, claimant, and priority as they stand at retrieval time, grouped by staged line ID (the order between lines is unspecified), then sorted by priority, then rule name. (Amended 2026-10-03) A run ID with no rows returns an empty list.
   - *Why:* The match row stores only the rule ID. Renaming, re-pointing, or re-prioritizing a rule after the run therefore changes how an old run reads back; the run records *which* rules matched, not *what they said* at the time. (2026-09-26)
 
 
@@ -142,12 +144,20 @@ Every classification run leaves a durable record of what matched, so an operator
 | ID | Reason testing is waived | Approved |
 |---|---|---|
 | REQ-CR-1.1 | UUID is a value type; uniqueness enforced by PK constraint. Same rationale as REQ-AC-1.21/1.22. | Dan, 2026-08-21 |
-| REQ-CR-1.2 | Solution won't build if you try to pass a null value to ClassificationRuleName.create. | Dan, 2026-08-21 |
-| REQ-CR-1.17 | Solution won't build if you try to pass a null value to StringSearchPattern.create. | Dan, 2026-08-21 |
+| REQ-CR-1.2 | A null name fails loudly: the interface rejects a null or missing name before it reaches the domain, and a null passed to the name constructor throws. Under the no-bubblewrap rule a loud failure needs no test. (Reason restated 2026-10-03; the earlier "won't build" reason was false.) | Dan, 2026-08-21 |
+| REQ-CR-1.17 | A null pattern fails loudly: the interface rejects a null or missing pattern before it reaches the domain, and a null passed to the pattern constructor throws. Under the no-bubblewrap rule a loud failure needs no test. (Reason restated 2026-10-03; the earlier "won't build" reason was false.) | Dan, 2026-08-21 |
 | REQ-CR-1.10 | chainOne is a non-optional record field — a group cannot be constructed without one. | Dan, 2026-08-21 |
-| REQ-CR-1.13 | FieldMatch is a five-case DU — exactly-one targeting is the DU's structural exclusivity. | Dan, 2026-08-21 |
-| REQ-CR-1.21 | The only code path that writes this column validates through `Money.fromDecimal`; read-path validation is not performed by design (see Journaling slice precedent). | Dan, 2026-08-21 |
+| REQ-CR-1.13 | A field match is one of four mutually exclusive cases — exactly-one targeting is structural. (Four since `Memo` was withdrawn, 2026-10-03.) | Dan, 2026-08-21 |
+| REQ-CR-1.21 | Every write path builds the amount through the validating Money conversion, and the read path re-checks it. An invalid stored amount needs a direct database edit, which is an unreachable state, so no test can provoke the read-side rejection. (Reason restated 2026-10-03.) | Dan, 2026-08-21 |
 | REQ-CR-4.2 | UUID generation via Guid.NewGuid() in create; uniqueness enforced by PK constraint. Same rationale as REQ-CR-1.1. | Dan, 2026-08-21 |
 | REQ-CR-4.8 | A negative existence claim over the entire API surface cannot be proven by a unit test; enforced by code review and periodic adversarial audit. Same rationale as REQ-CR-7.1. | Dan, 2026-08-21 |
 | REQ-CR-7.1 | A negative existence claim over the entire API surface cannot be proven by a unit test; enforced by code review and periodic adversarial audit. Same rationale as REQ-AC-5.1. | Dan, 2026-08-21 |
 | REQ-CR-8.4 | A negative existence claim over the API surface; the match record type has no update path. Enforced by code review. | Dan 2026-09-26 |
+
+
+## Withdrawn
+
+| ID | Original Requirement | Reason |
+|---|---|---|
+| REQ-CR-1.25 | A rule "constrains line type" when any field match anywhere in any of its rule groups is a `LineType` field match. | Leg selection no longer asks whether a rule constrains line type: the kept lines are the lines the claiming rule matched (REQ-CF-12.4, rewritten 2026-10-03). |
+| REQ-CR-2.2 | A `Memo` field match evaluates to false when the candidate's memo is absent (None). | `Memo` is no longer a match target (REQ-CR-1.13). Dan, 2026-10-03: Memo removed from the match criteria. Amount and LineType remain the line-level criteria. |

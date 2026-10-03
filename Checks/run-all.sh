@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SonOfLeo guardrails — deterministic checks runner.
 # Usage: run-all.sh [--quick]
-#   --quick skips checks marked "# SLOW" (used by the pre-commit hook).
+#   --quick skips checks marked "# SLOW".
 # Exit codes per check script: 0 = pass, 1 = fail, 2 = skipped.
 set -u
 cd "$(dirname "$0")/.."

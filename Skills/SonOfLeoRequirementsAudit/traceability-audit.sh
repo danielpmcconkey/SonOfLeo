@@ -18,7 +18,10 @@ SPEC_FILES=(Specs/Behavioral/*.md)
 # Source and migrations carry no REQ annotations (retired 2026-07-31 — see
 # CompoundedLearnings/articles/architecture/no-req-annotations-in-source.md). Tests are
 # the only destination, so they are the only thing scanned.
-TEST_DIRS=(Tests)
+# Only git-tracked *.fs files count. A plain recursive grep once read git-ignored
+# Tests/**/bin XML doc output and reported an untested REQ as tested (2026-10-03).
+# A new test file is therefore invisible here until it is `git add`ed.
+mapfile -t TEST_FILES < <(git ls-files -- 'Tests/*.fs' | grep -vE '/(bin|obj)/')
 
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 
@@ -57,7 +60,7 @@ approved_waiver_ids                > "$tmp/waived"
 section_ids "Unenforceable"       > "$tmp/unenforceable"
 
 # ---- scan destinations ------------------------------------------------------
-grep -rhoE "$ID_RE" "${TEST_DIRS[@]}" 2>/dev/null | sort > "$tmp/test_all" || true
+grep -hoE "$ID_RE" "${TEST_FILES[@]}" 2>/dev/null | sort > "$tmp/test_all" || true
 sort -u "$tmp/test_all" > "$tmp/test_refs"
 cp "$tmp/test_refs" "$tmp/all_refs"
 
@@ -70,7 +73,7 @@ echo "=== Invariant 1: phantom references (tests -> nonexistent or withdrawn req
 if [[ -s "$tmp/phantoms" ]]; then
     show_refs() {  # exact-ID match: not followed by another digit or sub-number
         local esc; esc=$(sed 's/\./\\./g' <<< "$1")
-        grep -rnE "${esc}([^.0-9]|\$)" "${TEST_DIRS[@]}" 2>/dev/null | sed 's/^/    /'
+        grep -nE "${esc}([^.0-9]|\$)" "${TEST_FILES[@]}" 2>/dev/null | sed 's/^/    /'
     }
     while read -r id; do
         echo "WITHDRAWN: $id is referenced but withdrawn:"

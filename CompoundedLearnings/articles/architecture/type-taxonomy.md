@@ -12,7 +12,7 @@ Domain primitives exist to serve composites — don't invent a new one unless it
 
 ## Entity types
 
-Private records with a same-named companion module providing accessors, `create` (over already-validated component types), and persistence. `Account`, `FiscalPeriod`. These are what `Specs/Definitions.md` (Entity) defines. Owned by domain modules in `Model/`.
+Private records with a same-named companion module providing accessors, `create` (over already-validated component types), and persistence. `Account`, `FiscalPeriod`. These are what `Specs/Definitions.md` (Entity) defines. Owned by domain modules (`Business.General`, `Business.FinancialServices.*`).
 
 ## Composite types
 

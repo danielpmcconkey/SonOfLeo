@@ -8,13 +8,15 @@ Behavioral specs for the cash flow domain — the mechanism by which the system 
 
 The template/event split is the organizing principle. Template entities own the "what and how" — accounts, expected amounts, cadences. Event entities own the "when and whether" — dates, actual amounts, lifecycle states. The two sides meet through foreign-key references from event to template; the template never references its events.
 
-**Design note — relationship to the ledger.** Cash flow is an operational layer, not an accounting layer. Under cash-basis accounting, revenue and expense are recognized when cash moves, not when an obligation is incurred. Cash flow entities therefore do not create journal entries at instantiation. A Payment record is created when cash has been identified as having moved — initially linked to a staged entry (the FI export proves the movement), and later linked to a journal entry after posting. Before a Payment exists, the obligation exists for planning, forecasting, and Saturday review — but it has no ledger footprint. This is by design: the ledger records what happened; cash flow tracks what is expected to happen.
+One exception: the Master Agreement's cadence carries a next-instance date (REQ-CF-2.24), which advances every time an Instance is created (REQ-CF-4.8). It is the one piece of per-period progress state a template holds, and it lives there on purpose — it is how the projection sweep knows where to resume without searching the events. (2026-10-03)
+
+**Design note — relationship to the ledger.** Cash flow is an operational layer, not an accounting layer. Under cash-basis accounting, revenue and expense are recognized when cash moves, not when an obligation is incurred. Cash flow entities therefore do not create journal entries at instantiation. A Payment record is created when cash has been identified as having moved — initially pointing at a staged line (the FI export proves the movement), and later at the journal entry line that line produced on posting. Before a Payment exists, the obligation exists for planning, forecasting, and Saturday review — but it has no ledger footprint. This is by design: the ledger records what happened; cash flow tracks what is expected to happen.
 
 **Design note — naming.** Identifiers in this spec (e.g. `master_agreement`, `payment_agreement`, `invoice`) name domain concepts for readability. They do not prescribe variable names, function names, property names, or any other naming convention in the code or tests.
 
 **Design note — one word, one meaning.** This domain introduces "Payment" as a noun (a receipt record proving that cash moved against an invoice). This is distinct from "posting" (the act of creating a journal entry in the ledger) and from "payment state" (a lifecycle dimension on the Invoice entity). "Transaction" is deliberately avoided as an entity name — it is overloaded across financial systems and this codebase already uses it informally for journal entries.
 
-**Design note — diamond relation.** Invoice references both Instance (an event) and Payment Agreement (a template). Instance and Payment Agreement each independently reference Master Agreement. This creates a diamond in the entity graph. The implicit constraint — that an Invoice's Instance and Payment Agreement must belong to the same Master Agreement — is validated by the orchestrator at creation time, consistent with the infallible-create pattern used throughout SonOfLeo. The schema does not enforce this constraint.
+**Design note — diamond relation.** Invoice references both Instance (an event) and Payment Agreement (a template). Instance and Payment Agreement each independently reference Master Agreement. This creates a diamond in the entity graph. The implicit constraint — that an Invoice's Instance and Payment Agreement must belong to the same Master Agreement — is validated whenever the Instance or any of its Invoices or Payments is created or changed (REQ-CF-4.10), consistent with the infallible-create pattern used throughout SonOfLeo. The schema does not enforce this constraint.
 
 **Design note — partial payments.** A single Invoice may have more than one Payment. When an obligation is partially fulfilled (e.g. $70 paid against a $120 invoice), a second Payment record is created for the remainder. The business rule is: the Invoice's payment state cannot transition to 'FullyPaid' unless the sum of all derived Payment amounts equals the Invoice's amount (§9). This is an Invoice lifecycle constraint, not a Payment creation constraint — Payments record facts about cash movement and are not validated against the Invoice amount at creation time. Consistent with the project's philosophy of structural integrity in the schema and business rules in the app layer.
 
@@ -33,7 +35,7 @@ The cadence carries a next-instance date: where the next occurrence falls. Creat
 
 A child of Master Agreement. Defines one leg of the payment structure — which accounts to debit and credit, and optionally the expected amount per period. Every Master Agreement has at least one Payment Agreement. Multi-leg arrangements (e.g. a tenant agreement with separate rent and utility-share legs) have one Payment Agreement per leg.
 
-The Payment Agreement's accounts say which ledger lines satisfy it: an Income agreement is satisfied by a line on its credit account and lands cash on its debit account; an Outgo agreement is satisfied by a line on its debit account and pays from its credit account. Payment Agreements do not create journal entries — the ledger lines come from staged entries (DataIngestion) and are recognised against the agreement.
+The Payment Agreement's accounts say which ledger lines are *expected* to satisfy it: an Income agreement is normally satisfied by a line on its credit account and lands cash on its debit account; an Outgo agreement is normally satisfied by a line on its debit account and pays from its credit account. The expectation is not a constraint — a tenant's check can land in a different cash account than the one the lease names. The Payment's pointer to the actual line is the only hard link between an obligation and the ledger. Payment Agreements do not create journal entries — the ledger lines come from staged entries (DataIngestion) and are recognised against the agreement. (Amended 2026-10-03)
 
 References: Master Agreement, Account (debit), Account (credit).
 
@@ -57,7 +59,7 @@ References: Instance, Payment Agreement.
 
 ### Payment (Event)
 
-A receipt record. A Payment is created when cash has been identified as having moved — either in the staging area (linked to a staged entry) or in the ledger (linked to a journal entry). A Payment always has a transaction pointer: at least one of a staged entry line ID or a journal entry line ID must be present. Both may be present — the staged line is provenance, the journal entry line is current truth. The pointer resolves to one value (Posted takes precedence). A Payment progresses from Staged to Posted as the underlying data moves through the ingestion pipeline.
+A receipt record. A Payment is created when cash has been identified as having moved — either in the staging area (pointing at a staged line) or in the ledger (pointing at a journal entry line). A Payment always has a transaction pointer: at least one of a staged entry line ID or a journal entry line ID must be present. Both may be present — the staged line is provenance, the journal entry line is current truth. The pointer resolves to one value (Posted takes precedence). A Payment progresses from Staged to Posted as the underlying data moves through the ingestion pipeline.
 
 Payment amount is derived, not stored: it is the amount of the line the transaction pointer references. When both pointers are present, the journal entry line is authoritative.
 
@@ -131,13 +133,20 @@ References: Payment Agreement, staged entry line.
 - **REQ-CF-4.3** Instance must reference a valid Master Agreement ID
 - **REQ-CF-4.4** Instance date cannot be null. Instance date is a Calendar Date.
 - **REQ-CF-4.5** Is-fulfilled is a boolean. Default is false.
-- **REQ-CF-4.6** An Instance's date must fit its Master Agreement's cadence (the rule in REQ-CF-2.25).
+- **REQ-CF-4.6** When an Instance is created, its date must fit its Master Agreement's cadence (the rule in REQ-CF-2.25). The rule binds creation only: a later cadence change does not make existing Instances invalid (REQ-CF-14.2). (Amended 2026-10-03)
+  - *Why:* A biller moving a due date is a routine cadence edit. The Instances already created record the periods as they were billed; history is not rewritten to fit the new schedule. (2026-10-03)
 - **REQ-CF-4.7** An Instance's date must be later than the date of every existing Instance of the same Master Agreement. An earlier or equal date is rejected with a typed error naming the latest existing date.
   - *Why:* Instances only move forward. Back-filling a missed period is not a supported operation; a gap indicates the sweep or cadence is wrong. (2026-09-26)
 - **REQ-CF-4.8** Creating an Instance advances its Master Agreement's next-instance date to the cadence date following the new Instance's date.
   - *Why:* The next-instance date is how the sweep knows where to resume. Advancing it on every creation is what makes the sweep idempotent without searching for existing Instances. (2026-09-26)
-- **REQ-CF-4.9** An Instance's is-fulfilled flag may be true only when it has at least one Invoice and every Invoice is 'FullyPaid' (see REQ-CF-9.10).
+- **REQ-CF-4.9** An Instance's is-fulfilled flag may be true only when it has at least one 'FullyPaid' Invoice and every Invoice is either 'FullyPaid' or cancelled (see REQ-CF-9.10). (Amended 2026-10-03)
 - **REQ-CF-4.10** An Instance may hold at most one Invoice per Payment Agreement, and every Invoice it holds must belong to a Payment Agreement of the Instance's own Master Agreement (REQ-CF-5.5, REQ-CF-5.16). These are validated whenever the Instance or any of its Invoices or Payments is created or changed.
+- **REQ-CF-4.11** An Instance may be cancelled. A cancelled Instance carries a cancellation reason note, which is required, cannot be whitespace only (post-trim, per REQ-SYS-1.1) and cannot exceed 500 characters. An Instance that is not cancelled has no cancellation reason note.
+  - *Why:* Some obligations will never be paid: an Instance created by mistake, one spawned under a wrong cadence, a variable leg with nothing billed that period. Cash basis means an unpaid bill never touched the ledger, so there is nothing to write down — the obligation is simply retired. Cancelled rather than deleted, so the reason is kept. (2026-10-03)
+- **REQ-CF-4.12** An Instance cannot be cancelled while any of its Invoices has a Payment. Such a cancellation is rejected with a typed error naming the Invoice. Cancelling an Instance also cancels every Invoice it holds, each carrying the Instance's cancellation reason note.
+  - *Why:* A Payment is proof that cash moved. Cancelling the obligation it paid would hide that cash from every obligation view. Delete the Payment first (REQ-CF-14.6) if the match was wrong. (2026-10-03)
+- **REQ-CF-4.13** Cancellation is terminal. A cancelled Instance cannot be un-cancelled, and nothing can be added to it.
+- **REQ-CF-4.14** An *open* Instance is one that is neither fulfilled nor cancelled.
 
 
 ## 5. Valid and invalid data states — Invoice
@@ -147,7 +156,7 @@ References: Payment Agreement, staged entry line.
 - **REQ-CF-5.3** Invoice must reference a valid Instance ID
 - **REQ-CF-5.4** Invoice must reference a valid Payment Agreement ID
 - **REQ-CF-5.5** The Invoice's Instance and Payment Agreement must belong to the same Master Agreement
-  - *Why:* Diamond-relation consistency. Validated by the orchestrator at creation time. (2026-08-27)
+  - *Why:* Diamond-relation consistency. Validated whenever the Instance or any of its Invoices or Payments is created or changed (REQ-CF-4.10). (2026-08-27, scope corrected 2026-10-03)
 - **REQ-CF-5.6** Invoice amount cannot be null. Invoice amount must be a valid positive Money value.
 - **REQ-CF-5.7** Invoice date cannot be null. Invoice date is a Calendar Date.
 - **REQ-CF-5.8** Due date cannot be null. Due date is a Calendar Date.
@@ -161,6 +170,10 @@ References: Payment Agreement, staged entry line.
 - **REQ-CF-5.15** Invoice memo may be null. When non-null, memo length cannot exceed 2000 characters and cannot be whitespace only (post-trim, per REQ-SYS-1.1).
 - **REQ-CF-5.16** For a given (Instance, Payment Agreement) pair, there must be at most one Invoice
   - *Why:* One Invoice per leg per period. Multiple Invoices for the same leg would create ambiguity about what is owed. (2026-08-27)
+- **REQ-CF-5.17** An Invoice may be cancelled. A cancelled Invoice carries a cancellation reason note, which is required, cannot be whitespace only (post-trim, per REQ-SYS-1.1) and cannot exceed 500 characters. An Invoice that is not cancelled has no cancellation reason note.
+  - *Why:* A forgiven tenant charge or a bill settled outside the imported accounts will never be matched to cash. Without a way to retire it, it sits in the projection every week, because the projection deliberately has no lower date bound. (2026-10-03)
+- **REQ-CF-5.18** An Invoice cannot be cancelled while it has a Payment. Such a cancellation is rejected with a typed error naming the Invoice.
+- **REQ-CF-5.19** Cancellation is terminal. A cancelled Invoice cannot be un-cancelled, cannot be updated, and cannot be given a Payment. It still occupies its (Instance, Payment Agreement) pair under REQ-CF-5.16.
 
 
 ## 6. Valid and invalid data states — Payment
@@ -174,8 +187,7 @@ References: Payment Agreement, staged entry line.
   - *Why:* The cash amount lives in the ledger/stage data, not duplicated on the Payment record. The Payment is a link, not a copy. A line-level pointer names the leg directly, so no account filtering is needed to find it. (2026-08-29, revised 2026-09-26)
 - **REQ-CF-6.6** Posted-to-FI date may be null. When non-null, it is a Calendar Date representing when the financial institution processed the payment.
 - **REQ-CF-6.7** Payment memo may be null. When non-null, memo length cannot exceed 2000 characters and cannot be whitespace only (post-trim, per REQ-SYS-1.1).
-- **REQ-CF-6.9** The line a Payment's transaction pointer references must sit on the Payment Agreement's credit account (Income agreements) or debit account (Outgo agreements). The line type is not checked.
-  - *Why:* A rule or the operator may deliberately claim the opposite leg — an Outgo agreement taking a refund matches a Credit line. The account is what ties the cash to the obligation. (2026-09-26)
+- **REQ-CF-6.9** *(Withdrawn 2026-10-03 — a Payment Agreement's accounts are an expectation, not a constraint. See the Withdrawn table.)*
 - **REQ-CF-6.10** Posted-to-ledger date is derived, not stored: it is the entry date of the journal entry whose line the Payment references. A Payment without a journal entry line has no posted-to-ledger date. A caller-supplied posted-to-ledger date that differs from the journal entry's date, or that is supplied for a Payment with no journal entry line, is rejected.
 - **REQ-CF-6.11** The transaction pointer must reference an existing staged line or journal entry line. A reference that does not resolve is rejected with a typed error.
 - **REQ-CF-6.8** *(Withdrawn 2026-08-29 — replaced by REQ-CF-9.1. The sum constraint is an Invoice lifecycle check, not a Payment creation constraint.)*
@@ -202,7 +214,7 @@ The projection sweep is a deterministic operation that ensures the event side of
 - **REQ-CF-7.11** Invoices created by the sweep must set payment state to 'NotYetPaid' and posted state to 'NotHandled'.
 - **REQ-CF-7.12** The sweep is idempotent. Running it again with the same horizon on the same date creates nothing and changes no existing record. (Revised 2026-09-26)
 - **REQ-CF-7.13** The sweep is a deterministic `[DET]` operation. It requires no judgment and makes no classification or matching decisions.
-- **REQ-CF-7.14** The sweep returns every unfulfilled Instance, with its Invoices and their Payments, after it has run — not only those it created.
+- **REQ-CF-7.14** The sweep returns every open Instance (REQ-CF-4.14), with its Invoices and their Payments, after it has run — not only those it created. (Amended 2026-10-03)
   - *Why:* The caller needs the whole open book for the Saturday review; what was just created is a subset of it. (2026-09-26)
 - **REQ-CF-7.15** The sweep is atomic: if any Instance or Invoice cannot be created, nothing the run created is kept.
 - **REQ-CF-7.16** The sweep never creates an Instance dated after its Master Agreement's end date, even when that date falls inside the horizon.
@@ -213,10 +225,10 @@ The projection sweep is a deterministic operation that ensures the event side of
 The cash-flow projection is a read-only, deterministic operation that computes the projected cash position per managed account over the planning horizon. It reads Instances, Invoices, and Payments created by the projection sweep and the obligation routine, and produces the "money you need to move" output.
 
 - **REQ-CF-8.1** The projection accepts a horizon in days, from 1 to 365 inclusive, and computes, for every managed cash account, the projected low balance: `projected_low = current_balance + known_inflows − known_outflows`. Current balance is the account's net balance as of the current date. (Revised 2026-09-26)
-- **REQ-CF-8.2** Known inflows for an account are the outstanding amounts (REQ-CF-8.9) of Income Invoices on unfulfilled Instances, with payment state not 'FullyPaid' and due date on or before the horizon end, whose Payment Agreement's debit account is that account. There is no lower bound on the due date. (Revised 2026-09-26)
+- **REQ-CF-8.2** Known inflows for an account are the outstanding amounts (REQ-CF-8.9) of Income Invoices that are not cancelled, on open Instances (REQ-CF-4.14), with payment state not 'FullyPaid' and due date on or before the horizon end, whose Payment Agreement's debit account is that account. There is no lower bound on the due date. (Revised 2026-09-26, amended 2026-10-03)
   - *Why:* An already-overdue bill is the most urgent money to move, so the window has no start. (2026-09-26)
-- **REQ-CF-8.3** Known outflows for an account are the outstanding amounts (REQ-CF-8.9) of Outgo Invoices on unfulfilled Instances, with payment state not 'FullyPaid' and due date on or before the horizon end, whose Payment Agreement's credit account is that account. There is no lower bound on the due date. (Revised 2026-09-26)
-- **REQ-CF-8.4** Payment agreements on unfulfilled Instances dated on or before the horizon end that have no Invoice must be surfaced as known upcoming obligations with unknown magnitude — the "bills to chase." An Instance may carry invoices for some of its payment agreements while others are still missing; each missing agreement is a separate bill to chase, reported with its agreement name, payment agreement name, Instance date and cadence. There is no lower bound on the Instance date. (Revised 2026-09-26)
+- **REQ-CF-8.3** Known outflows for an account are the outstanding amounts (REQ-CF-8.9) of Outgo Invoices that are not cancelled, on open Instances (REQ-CF-4.14), with payment state not 'FullyPaid' and due date on or before the horizon end, whose Payment Agreement's credit account is that account. There is no lower bound on the due date. (Revised 2026-09-26, amended 2026-10-03)
+- **REQ-CF-8.4** Payment agreements on open Instances (REQ-CF-4.14) dated on or before the horizon end that have no Invoice must be surfaced as known upcoming obligations with unknown magnitude — the "bills to chase." An Instance may carry invoices for some of its payment agreements while others are still missing; each missing agreement is a separate bill to chase, reported with its agreement name, payment agreement name, Instance date and cadence. There is no lower bound on the Instance date. A Payment Agreement whose Invoice on that Instance is cancelled has an Invoice, so it is not a bill to chase. (Revised 2026-09-26, amended 2026-10-03)
 - **REQ-CF-8.9** An Invoice's outstanding amount is its amount minus the sum of its Payment amounts, floored at zero.
   - *Why:* A partially paid bill still owes only the remainder. Counting the full amount double-counts cash that has already left (or arrived), overstating the money that needs moving. (2026-09-26)
 - **REQ-CF-8.10** Each projected Invoice in the result carries both its amount and its outstanding amount.
@@ -242,13 +254,13 @@ These constraints are validated by the orchestrator after any Invoice creation o
   - *Why:* The reverse of REQ-CF-9.3. If it's fully paid, there is nothing to block. (2026-08-29)
 - **REQ-CF-9.5** Payment state cannot be 'PartiallyPaid' unless at least one Payment exists for the Invoice.
   - *Why:* "Partially paid" requires evidence of at least one cash movement. (2026-08-29)
-- **REQ-CF-9.6** Posted state cannot be 'PostedToLedger' unless all Payments for the Invoice have a journal entry header ID (i.e. all transaction pointers resolve to Posted).
+- **REQ-CF-9.6** Posted state cannot be 'PostedToLedger' unless all Payments for the Invoice have a journal entry line ID (i.e. all transaction pointers resolve to Posted). (Corrected 2026-10-03; read 'header ID' before the pointer moved to line level)
   - *Why:* Full ledger posting means every Payment has been promoted from staging to the ledger. A Payment still pointing only at a staged entry is not posted. (2026-08-29)
-- **REQ-CF-9.7** Posted state cannot be 'PartiallyPosted' unless at least one Payment for the Invoice has a journal entry header ID.
+- **REQ-CF-9.7** Posted state cannot be 'PartiallyPosted' unless at least one Payment for the Invoice has a journal entry line ID. (Corrected 2026-10-03; read 'header ID' before the pointer moved to line level)
   - *Why:* "Partially posted" requires evidence that at least one Payment has reached the ledger. (2026-08-29)
 - **REQ-CF-9.8** Payment state is derived: 'NotYetPaid' when the Invoice has no Payments; 'FullyPaid' when the sum of its Payment amounts equals the Invoice amount; otherwise 'PartiallyPaid'.
 - **REQ-CF-9.9** Posted state is derived: 'NotHandled' when no Payment is Posted; 'PostedToLedger' when every Payment is Posted and payment state is 'FullyPaid'; otherwise 'PartiallyPosted'.
-- **REQ-CF-9.10** Any operation that creates, re-points, or removes a Payment must re-derive the payment state and posted state of the affected Invoice, and the is-fulfilled flag of its Instance, in the same transaction. An Instance is fulfilled when it has at least one Invoice and every Invoice is 'FullyPaid'.
+- **REQ-CF-9.10** Any operation that creates, re-points, or removes a Payment must re-derive the payment state and posted state of the affected Invoice, and the is-fulfilled flag of its Instance, in the same transaction. An Instance is fulfilled when it has at least one 'FullyPaid' Invoice and every Invoice is either 'FullyPaid' or cancelled (REQ-CF-5.17). (Amended 2026-10-03)
   - *Why:* Derived state that is recomputed only by some operations drifts. Every Saturday decision (bills to chase, cash coverage, what still needs matching) reads these three values. (2026-09-26)
 - **REQ-CF-9.11** No create or update contract carries payment state, posted state, or is-fulfilled. The system always derives them (REQ-CF-9.8–9.10); a caller has no means to set them. (Revised 2026-09-26)
   - *Why:* Originally "rejected with a typed error." Unknown payload fields are dropped rather than rejected (REQ-NGUI-2.5 withdrawn), so the guarantee comes from the contract not having the fields. (2026-09-26)
@@ -256,7 +268,9 @@ These constraints are validated by the orchestrator after any Invoice creation o
 
 ## 10. Payment-to-posted transition
 
-A deterministic batch operation that runs after staged entries have been posted to the ledger (Phase 7 of the Saturday routine). It ensures that Payments tracking cash movement through staging are updated to reflect the corresponding journal entries, and that Invoice posted states are updated accordingly.
+A deterministic batch operation the operator runs as its own step after staged entries have been batch-posted (DataIngestion §9). It ensures that Payments tracking cash movement through staging are updated to reflect the corresponding journal entry lines, and that Invoice posted states are updated accordingly.
+
+Batch post does not touch Payments. Until this transition runs, a Payment whose staged line has been posted still resolves to Staged, and its Invoice's posted state does not yet reflect the posting. The transition is deliberately a separate operation, not part of batch post: folding it in would make posting staged data depend on obligation tracking. (Amended 2026-10-03)
 
 - **REQ-CF-10.1** The transition identifies all Payments whose transaction pointer resolves to Staged (staged line ID present, journal entry line ID absent). (Revised to line level 2026-09-26)
 - **REQ-CF-10.2** For each such Payment, the transition checks whether the staged line has been posted — that is, whether it records the journal entry line it produced (REQ-STG-9.10).
@@ -266,6 +280,8 @@ A deterministic batch operation that runs after staged entries have been posted 
 - **REQ-CF-10.6** The transition is a deterministic `[DET]` operation.
 - **REQ-CF-10.7** The transition returns the list of updated Payments with their agreement name, invoice amount, and journal entry line ID.
   - *Why:* The caller (Hobson) needs this for the Saturday summary's review stack without re-querying. (2026-08-29)
+- **REQ-CF-10.8** When the journal entry line a staged line records belongs to a voided journal entry, the transition fails and rolls back in full, with a typed error naming every such Payment and its journal entry, not only the first.
+  - *Why:* The void guard on journal entries (REQ-JE-4.14) can only see Payments that already point at the ledger. An entry voided between batch post and this transition would otherwise have a Payment attached to cash the ledger no longer records, and the Invoice would read paid. The window is small, so the transition refuses loudly rather than the void guard being widened; the operator deletes the Payment (REQ-CF-14.6) or re-posts the cash, then runs the transition again. (2026-10-03)
 
 
 ## 11. Staged entry match candidates
@@ -287,50 +303,63 @@ Linkage answers "which staged line is the cash movement for which Payment Agreem
   - *Why:* One leg, one obligation. A cash movement that serves two obligations is split into two lines first (REQ-STG-6.4), and each line is linked separately. (2026-09-26)
 - **REQ-CF-12.3** The system must provide a means to classify staged lines against the active rules whose claimant is a Payment Agreement, and to create links from the result. Candidates are the lines of staged entries with status `'Ingested'`, `'Classified'`, `'NoMatch'`, `'Conflict'` or `'Reviewed'` that are not already linked. A line's account assignment does not exclude it.
   - *Why:* Account assignment and obligation linkage are independent questions about the same line. `'Reviewed'` is included because splitting a line (REQ-STG-6.4) is an operator review action and must happen before linkage — a split tenant payment is exactly the entry that most needs linking. (2026-09-26)
-- **REQ-CF-12.4** Leg selection. A rule matches an entry's description, source and amount, none of which distinguishes one line of the entry from another. For each (Payment Agreement, staged entry) claim, the claimed line is chosen as follows: when any claiming rule constrains line type, the lines that rule matched are kept; otherwise the kept line is the one on the Payment Agreement's credit account with line type Credit (Income agreements) or on its debit account with line type Debit (Outgo agreements). Exactly one kept line proceeds to REQ-CF-12.5. Zero or more than one kept line means no link, and the claim is reported with the reason.
-  - *Why:* The rule author knew something the direction default doesn't — an Outgo agreement taking a refund matches a Credit line, which the default would discard. (2026-09-26)
+- **REQ-CF-12.4** Leg selection. For each (Payment Agreement, staged entry) claim, the kept lines are the lines of the entry that a claiming rule matched. A rule's description and source criteria apply to every line of the entry alike; its amount and line-type criteria pick out individual lines. When exactly one line is kept, it proceeds to REQ-CF-12.5. When more than one line is kept, the expected-account default breaks the tie: only a kept line on the Payment Agreement's credit account with line type Credit (Income agreements), or on its debit account with line type Debit (Outgo agreements), survives. Exactly one surviving line proceeds to REQ-CF-12.5. No kept line, or no single survivor of the default, means no link, and the claim is reported with the reason. (Rewritten 2026-10-03)
+  - *Why:* What the rule matched is the evidence; the rule author knew something the default doesn't — an Outgo agreement taking a refund matches a Credit line, and a split tenant payment's rent and utility lines are told apart by amount. The Payment Agreement's accounts are an expectation, not a constraint (REQ-CF-6.9 withdrawn), so the default only chooses among lines the rule could not tell apart; it never vetoes a line the rule singled out. (2026-09-26, rewritten 2026-10-03)
 - **REQ-CF-12.5** Resolution is by Payment Agreement, not by line. A Payment Agreement claimed by exactly one line, where that line's claim is not a tie between rules of equal priority, is linked. A Payment Agreement claimed by more than one line, or by any tied claim, is not linked, and every claimant is reported as contested. When one line is claimed for different Payment Agreements by rules of different priority, only the highest-priority rule's Payment Agreement counts as claimed by that line; the others are not. (Amended 2026-10-03)
   - *Why:* Otherwise both agreements would read as claimed by exactly one line and both would link, breaking REQ-CF-12.2. (2026-10-03)
   - *Why:* The dangerous case is one obligation claimed by two cash movements — two $150 lines both claiming the water bill looks like a paid bill and a spare $150. One line ambiguously matching two obligations is merely inconvenient. Code never breaks a tie. (2026-09-26)
 - **REQ-CF-12.6** Linkage does not change any staged entry's status.
-- **REQ-CF-12.7** The system must provide a means for the operator to create a link, re-point a link to a different Payment Agreement, and delete a link. Creating a link for a line that is already linked is rejected with a typed error naming the existing link's Payment Agreement.
+- **REQ-CF-12.7** The system must provide a means for the operator to create a link, re-point a link to a different Payment Agreement, and delete a link. Creating a link for a line that is already linked is rejected with a typed error naming the existing link's ID and its Payment Agreement by name. (Amended 2026-10-03)
 - **REQ-CF-12.8** The classification run's matches, including the rules that matched each line, are recorded under a run ID and retrievable by that ID. Each rule reads back with its priority as it stands at retrieval (REQ-CR-8.5). (Revised 2026-10-03)
   - *Why:* The operator reviewing a contested claim needs to see what matched, not re-run the classifier. (2026-09-26)
+- **REQ-CF-12.9** Re-pointing or deleting a Payment Agreement Link whose staged line is referenced by a Payment is rejected with a typed error naming the Payment. To undo a paid match, the operator deletes the Payment (REQ-CF-14.6), which also removes the link.
+  - *Why:* A re-pointed or deleted link would leave the Payment paying an obligation its link no longer names, and the two would disagree silently. Mirrors the staging rule that a line already recorded elsewhere cannot be removed (REQ-STG-6.5). (2026-10-03)
 
 
 ## 13. Invoice matching
 
 Matching turns links into Payments. It runs in the same operation as linkage (§12), immediately after links are written.
 
-- **REQ-CF-13.1** Candidate invoices are those on unfulfilled Instances whose payment state is not 'FullyPaid' and whose Payments do not already exceed the Invoice amount. They are considered in order of due date, oldest first.
-  - *Why:* The oldest bill gets first claim on a line two invoices could both take. Fetch order must never decide it. An overpaid invoice is excluded so it doesn't absorb further payments. (2026-09-26)
+- **REQ-CF-13.1** Candidate invoices are those that are not cancelled, on open Instances (REQ-CF-4.14), whose payment state is not 'FullyPaid' and whose Payments do not already exceed the Invoice amount. They are considered in order of due date, oldest first; Invoices with the same due date are considered in the order they were entered (the Invoice's created instant), first entered first. (Amended 2026-10-03)
+  - *Why:* The oldest bill gets first claim on a line two invoices could both take. Fetch order must never decide it, and neither may an arbitrary identifier: a tie is broken by something the operator can see and explain. An overpaid invoice is excluded so it doesn't absorb further payments. (2026-09-26, tie-break added 2026-10-03)
 - **REQ-CF-13.2** A linked line is a candidate for an Invoice when: it is linked to the Invoice's Payment Agreement; its staged entry's status is neither `'Duplicate'` nor `'Ignored'`; no Payment references it, whether that Payment's pointer is still Staged or has moved to Posted (the Payment retains the staged line as provenance, REQ-CF-6.4); no earlier Invoice in this run claimed it; and its entry date falls between the Invoice date minus the grace period and the due date plus the grace period, inclusive. (Revised 2026-09-26)
   - *Why:* Links outlive posting. A line already paid must never be offered again, or a second Saturday re-pays last week's bill. (2026-09-26)
 - **REQ-CF-13.3** The grace period is derived from the Master Agreement's cadence: Daily 0 days, Weekly 2, EveryOtherWeek 4, Monthly 7, Annually 7.
-- **REQ-CF-13.4** When an Invoice has exactly one candidate line, a Payment is created against it with a Staged pointer to that line, and the line is claimed.
+- **REQ-CF-13.4** When an Invoice has exactly one candidate line, a Payment is created against it with a Staged pointer to that line, and the line is claimed. The Payment's posted-to-FI date is the line's staged entry date. When the Payment brings the Invoice to 'FullyPaid' and the Invoice carries a blocker, matching clears the blocker (state and note) so that REQ-CF-9.3 holds, and reports the cleared blocker. (Amended 2026-10-03)
+  - *Why (posted-to-FI date):* The staged entry date is the date the financial institution recorded the movement. (2026-10-03)
+  - *Why (blocker):* Cash arriving resolves whatever was blocking the bill. Refusing would fail the whole run over one bill and hide the cause; skipping the bill would leave paid cash unmatched. Reporting the cleared blocker keeps the operator informed. (2026-10-03)
 - **REQ-CF-13.5** When an Invoice has more than one candidate line, no Payment is created for it and the Invoice is reported with every candidate.
 - **REQ-CF-13.6** When a Payment brings an Invoice's paid total above its amount, the Invoice is reported as an overpayment. The system takes no ledger action and creates no further records.
   - *Why:* Under GAAP the excess is a credit that needs a ledger-level treatment this system does not model yet. The operator decides. (2026-09-26)
 - **REQ-CF-13.7** When a linked line that is still eligible (not referenced by any Payment; staged entry not `'Duplicate'` or `'Ignored'`) is not a candidate for any Invoice in the run, the operation fails and rolls back in full. It must not create an Instance or Invoice to absorb the line. The error must identify every such line and its Payment Agreement, not only the first, and must give each a reason: no open Invoice on that agreement covers the line's date, or the only Invoices that would cover it are excluded as overpaid (REQ-CF-13.1). Every eligible linked line is checked, including lines on an agreement that has no open Invoice at all or no Instances yet; those take the first reason. (Amended 2026-09-27)
   - *Why:* A linked line with nowhere to go means an upstream gap: the sweep did not run far enough, a cadence is wrong, a bill has not been entered, or an earlier payment was misapplied. Creating records on the fly masks it. Naming every orphan at once, with the reason, means one fix cycle, not one per orphan. (2026-09-26)
-  - *Why no carve-out for a line that arrives before its Invoice:* the Saturday order creates Instances and Invoices (sweep, variable bills, tenant invoices) before linkage precisely so that a line with no Invoice is a gap, not a timing quirk. Waiting silently would hide it until some later Invoice happened to open. (2026-09-27)
+  - *Why no carve-out for a line that arrives before its Invoice:* Instances and Invoices (the sweep, variable bills, tenant invoices) are meant to be in place before matching runs on the cash that pays them, so a line with no Invoice is a gap, not a timing quirk. Waiting silently would hide it until some later Invoice happened to open. (2026-09-27, reworded 2026-10-03)
 - **REQ-CF-13.8** A line that was a candidate and lost (REQ-CF-13.5) is not an orphan under REQ-CF-13.7.
-- **REQ-CF-13.9** The linkage-and-matching operation returns: the classification run ID; every link created; every claim not linked, with its reason (REQ-CF-12.4, REQ-CF-12.5); every Payment created; every Invoice with multiple candidates; every overpayment; and the open Instances after matching.
-  - *Why:* This result is the Saturday review stack for obligations. Everything the operator must decide is in it; nothing requires a second query. (2026-09-26)
+- **REQ-CF-13.9** The linkage-and-matching operation returns: the classification run ID; every link created, with its ID; every decision on a claimed line, with the ID of the link it produced when it produced one; every claim not linked, with its reason (REQ-CF-12.4, REQ-CF-12.5); every Payment created; every Invoice with multiple candidates; every overpayment; every blocker cleared (REQ-CF-13.4); and the open Instances (REQ-CF-4.14) after matching. (Amended 2026-10-03)
+  - *Why:* This result is the Saturday review stack for obligations. Everything the operator must decide is in it; nothing requires a second query. The link ID is there because re-pointing or deleting a link (REQ-CF-12.7) is addressed by it. (2026-09-26, link ID 2026-10-03)
 
 ## 14. Maintenance operations
 
 The operator-facing operations on agreements and their events. Master and Payment Agreements are addressed by name at the boundary.
 
 - **REQ-CF-14.1** The system must provide a means to create a Master Agreement together with its Payment Agreements in one atomic operation. Payment Agreement accounts are given by account code.
-- **REQ-CF-14.2** The system must provide a means to update a Master Agreement's name, flow direction, cadence (including next-instance date), counterparty, start date, end date, and memo. An update that names no field to change is rejected (REQ-SYS-6.1); a field set to the value it already holds counts as named. (Amended 2026-10-03) A flow-direction change is rejected when any existing Invoice's invoice state is not valid for the new direction (REQ-CF-5.10). (Amended 2026-09-26)
+- **REQ-CF-14.2** The system must provide a means to update a Master Agreement's name, flow direction, cadence (including next-instance date), counterparty, start date, end date, and memo. An update that names no field to change is rejected (REQ-SYS-6.1); a field set to the value it already holds counts as named. (Amended 2026-10-03) A flow-direction change is rejected when any existing Invoice's invoice state is not valid for the new direction (REQ-CF-5.10). (Amended 2026-09-26) A cadence change leaves existing Instances as they are; REQ-CF-4.6 binds Instance creation only. An updated next-instance date must be later than the date of every existing Instance of the agreement; an earlier or equal date is rejected with a typed error naming the latest existing date. (Amended 2026-10-03)
+  - *Why (next-instance date):* A next-instance date at or before an existing Instance would make the next sweep try to create that Instance again and fail REQ-CF-4.7, and the sweep is atomic, so every other agreement's Instances would be lost with it. Rejecting the update keeps the failure next to its cause. (2026-10-03)
   - *Why an unchanged value is not a no-op:* REQ-SYS-6.1 exists to surface a caller who believes the system is in a different state. A caller re-sending a value the record already holds believes nothing wrong, and comparing every field to its stored value buys nothing. (2026-10-03)
 - **REQ-CF-14.3** The system must provide a means to fetch one Master Agreement, by name, with its whole tree: Payment Agreements, Instances, Invoices, and Payments.
 - **REQ-CF-14.4** The system must provide a means to create an Instance for a Master Agreement, optionally with Invoices and their Payments, in one atomic operation.
-- **REQ-CF-14.5** The system must provide a means to add an Invoice, optionally with Payments, to an existing Instance; to update an Invoice's external invoice ID, invoice date, due date, amount, invoice state, blocker and memo; and to add a Payment to an existing Invoice. Each validates the Instance as a whole (§4, §5, §9) before anything is written.
+- **REQ-CF-14.5** The system must provide a means to add an Invoice, optionally with Payments, to an existing Instance; to update an Invoice's external invoice ID, invoice date, due date, amount, invoice state, blocker and memo; and to add a Payment to an existing Invoice. Each validates the Instance as a whole (§4, §5, §9); the operation is atomic, so a failed validation leaves nothing written (REQ-SYS-8.1). (Amended 2026-10-03; read "before anything is written", which contradicted the validate-after-persist order in §9)
 - **REQ-CF-14.6** The system must provide a means to delete a Payment. Deleting a Payment also deletes the Payment Agreement Link that produced it, unless another Payment still references the same line; the line then becomes a candidate for linkage again (REQ-CF-12.3).
   - *Why:* A wrong automatic match is undone by deleting its Payment. Leaving the link would re-create the same Payment on the next matching run. (2026-09-26)
 - **REQ-CF-14.7** A Master Agreement or Payment Agreement name that does not match an existing record fails with a typed error naming it.
+- **REQ-CF-14.8** The system must provide a means to update a Payment Agreement's name, expected amount, days-due-after-invoice-date, memo, debit account and credit account (accounts given by account code), each subject to §3. An update that names no field to change is rejected (REQ-SYS-6.1); a field set to the value it already holds counts as named. Existing Invoices and Payments are unchanged: an Invoice keeps the amount it was created with, and a Payment keeps its pointer.
+  - *Why:* Rents rise, premiums change, and a wrong account or days-due typed at creation would otherwise mean correcting every swept Invoice by hand, or ending the agreement and rebuilding it and every rule that claims it under a new name. The accounts are an expectation, not a constraint (REQ-CF-6.9 withdrawn), so changing them cannot strand existing Payments. (2026-10-03)
+- **REQ-CF-14.9** The system must provide a means to add a Payment Agreement to an existing Master Agreement, subject to §3. There is no means to remove one.
+- **REQ-CF-14.10** The system must provide a means to cancel an Instance or an Invoice, with its cancellation reason note (REQ-CF-4.11–4.13, REQ-CF-5.17–5.19). A cancelled Instance or Invoice drops out of the projection's known inflows and outflows and its bills to chase (§8), out of invoice matching (REQ-CF-13.1), and out of every list of open Instances.
+- **REQ-CF-14.11** The system must provide a read-only means to list every Master Agreement, each with its name, flow direction, counterparty, cadence, start date and end date, and its Payment Agreements with their names, debit and credit accounts (code and name), expected amounts and days-due values. The list is ordered by Master Agreement name, and each agreement's Payment Agreements by name.
+  - *Why:* Agreements are addressed by name (§14 preamble). Without a listing the operator has to remember the names, and the only cross-agreement views are operations that write. (2026-10-03)
+- **REQ-CF-14.12** The system must provide a read-only means to fetch every open Instance (REQ-CF-4.14) across all Master Agreements, each with its Master Agreement name, its Invoices and their Payments, ordered by Instance date, then Master Agreement name.
+  - *Why:* "What is still open" is a weekly question. Answering it should not require running the sweep or the matching operation, both of which write. (2026-10-03)
 
 ## Withdrawn
 
@@ -342,6 +371,7 @@ The operator-facing operations on agreements and their events. Master and Paymen
 | REQ-CF-11.2 | Superseded by REQ-CF-12.4 and REQ-CF-13.2. | 2026-09-26 |
 | REQ-CF-11.3 | Superseded by §12–§13, which do create links and Payments. | 2026-09-26 |
 | REQ-CF-11.4 | Superseded by §12–§13. | 2026-09-26 |
+| REQ-CF-6.9 | A Payment Agreement's accounts are an expectation, not a constraint: a tenant's check can land in a different account than the lease names. The Payment's pointer to the actual line is the only hard link (REQ-CF-6.4). Leg selection now trusts what the rule matched (REQ-CF-12.4). | 2026-10-03 |
 
 ## Waived from testing
 
@@ -358,10 +388,5 @@ The operator-facing operations on agreements and their events. Master and Paymen
 | REQ-CF-5.11 | Payment state is a closed union that is only ever derived (REQ-CF-9.8–9.11), never read from a caller | Dan, 2026-10-03 |
 | REQ-CF-5.12 | Posted state is a closed union that is only ever derived (REQ-CF-9.8–9.11), never read from a caller | Dan, 2026-10-03 |
 | REQ-CF-6.1 | The Payment ID is a Guid, a value type; it cannot be null (Guid.Empty is covered by REQ-CF-6.2) | Dan, 2026-10-03 |
-
-## Unenforceable
-
-| ID | Why | Approved |
-|---|---|---|
-| REQ-CF-7.13 | "Deterministic" is not observable: nothing separates it from an operation that happens to give the same answer twice. Repeat-and-compare tests catch the visible failure | Dan, 2026-10-03 |
-| REQ-CF-10.6 | As REQ-CF-7.13 | Dan, 2026-10-03 |
+| REQ-CF-7.13 | "Deterministic" is not observable: nothing separates it from an operation that happens to give the same answer twice. The visible failure is caught by the repeat-and-compare tests of REQ-CF-7.12 | Dan, 2026-10-03 (moved from Unenforceable) |
+| REQ-CF-10.6 | As REQ-CF-7.13; the visible failure is caught by the idempotence tests of REQ-CF-10.5 | Dan, 2026-10-03 (moved from Unenforceable) |

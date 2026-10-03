@@ -11,7 +11,7 @@ Applies to command line, importing, reporting, API, etc. Any use case where an e
 - **REQ-NGUI-1.3.2** *(Withdrawn 2026-09-28 — an uncaught exception already reports its message and stack trace; see the Withdrawn table.)*
 - **REQ-NGUI-1.4** The user interface must never force the actor to interact with Account UUIDs. All interface capabilities must present an option for the actor to reference accounts by code and all return payloads must include account codes when identifying an account.
 - **REQ-NGUI-1.5** When a UI-facing operation references an Account entity by code and that code does not correspond to an existing Account entity, the operation must fail with an error.
-- **REQ-NGUI-1.6** All interface return payloads that identify an account must include the account name alongside the account code.
+- **REQ-NGUI-1.6** Every account reference in an interface return payload carries the account name alongside the account code. This covers every role an account plays in the payload — the account itself, its parent, and the debit and credit accounts of an agreement — not only the payload's main account. (Amended 2026-10-03)
 
 ## 2. UI domain types
 
@@ -66,7 +66,6 @@ construction pattern) but deliberately not verified by tests.
 | REQ-NGUI-3.3   | It's too broadly scoped | Dan, 2026-06-18  |
 | REQ-NGUI-3.4   | It's too broadly scoped | Dan, 2026-06-18  |
 | REQ-NGUI-3.5   | It's too broadly scoped | Dan, 2026-06-18  |
-| REQ-NGUI-1.6   | Negative existence claim — cannot prove every payload includes account name; enforced by code review and periodic audit | Dan, 2026-08-07 |
 | REQ-NGUI-4.1   | Architectural constraint — verified by the existence of the Reports project | Dan, 2026-08-07 |
 | REQ-NGUI-4.3   | Too broadly scoped | Dan, 2026-08-07 |
 
