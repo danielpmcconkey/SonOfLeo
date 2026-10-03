@@ -31,12 +31,7 @@ let classifyCandidate
         |> List.filter snd
         |> List.map fst
         |> List.map(fun matchCandidate ->
-            let accountIdOption, paymentAgreementIdOption =
-                match matchCandidate |> classificationClaimant with
-                | Account x -> Some x, None
-                | PaymentAgreement x -> None, Some x
-            { accountId = accountIdOption
-              paymentAgreementId = paymentAgreementIdOption
+            { claimant = matchCandidate |> classificationClaimant
               ruleId = matchCandidate |> classificationRuleId
               priority = matchCandidate |> priority })
     return

@@ -114,11 +114,18 @@ let private claimingMatches
     | ClassificationComponent.ManyMatchesClearWinner (winner, _) -> [ winner ]
     | ClassificationComponent.ManyMatchesTied ties -> ties
 
+let private claimedPaymentAgreementId
+    (prioritizedMatch: ClassificationComponent.PrioritizedMatch)
+    : CashFlowComponent.PaymentAgreementId option =
+    match prioritizedMatch.claimant with
+    | ClassificationComponent.ClassificationClaimant.PaymentAgreement paymentAgreementId -> Some paymentAgreementId
+    | ClassificationComponent.ClassificationClaimant.Account _ -> None
+
 let private paymentAgreementsClaimedBy
     (result: ClassificationComponent.ClassificationResult)
     : CashFlowComponent.PaymentAgreementId list =
     // equal-priority rules naming the same agreement claim it once
-    result |> claimingMatches |> List.choose _.paymentAgreementId |> List.distinct
+    result |> claimingMatches |> List.choose claimedPaymentAgreementId |> List.distinct
 
 let private matchesClaimingPaymentAgreement
     (paymentAgreementId: CashFlowComponent.PaymentAgreementId)
@@ -126,14 +133,14 @@ let private matchesClaimingPaymentAgreement
     : ClassificationComponent.PrioritizedMatch list =
     result
     |> claimingMatches
-    |> List.filter (fun prioritizedMatch -> prioritizedMatch.paymentAgreementId = Some paymentAgreementId)
+    |> List.filter (fun prioritizedMatch -> prioritizedMatch |> claimedPaymentAgreementId = Some paymentAgreementId)
 
 // equal-priority rules that all name the same payment agreement agree with each other; only a tie across different
 // claimants is one code may not break
 let private isTiedClaimant (result: ClassificationComponent.ClassificationResult) : bool =
     match result.outcome with
     | ClassificationComponent.ManyMatchesTied ties ->
-        ties |> List.map _.paymentAgreementId |> List.distinct |> List.length > 1
+        ties |> List.map _.claimant |> List.distinct |> List.length > 1
     | _ -> false
 
 let private decisionFor

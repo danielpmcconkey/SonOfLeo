@@ -97,7 +97,7 @@ let ``REQ-CR-3.4 when exactly one active rule matches, classifyCandidate returns
     let result = classifyCandidate [ rule ] candidate
     match result.outcome with
     | OneMatch pm ->
-        Assert.Equal(Some specificRuleAccountId, pm.accountId)
+        Assert.Equal(ClassificationClaimant.Account specificRuleAccountId, pm.claimant)
         Assert.Equal(rule |> ClassificationRule.classificationRuleId, pm.ruleId)
         Assert.Equal(100, pm.priority)
     | other -> Assert.Fail $"Expected OneMatch but got {other}"
@@ -116,7 +116,7 @@ let ``REQ-CR-3.5 REQ-CR-1.6 classifyCandidate returns ManyMatchesClearWinner nam
     match result.outcome with
     | ManyMatchesClearWinner (winner, _) ->
         Assert.Equal(specificRule |> ClassificationRule.classificationRuleId, winner.ruleId)
-        Assert.Equal(Some specificRuleAccountId, winner.accountId)
+        Assert.Equal(ClassificationClaimant.Account specificRuleAccountId, winner.claimant)
         Assert.Equal(100, winner.priority)
     | other -> Assert.Fail $"Expected ManyMatchesClearWinner but got {other}"
 
@@ -163,7 +163,7 @@ let ``REQ-CR-3.2 REQ-CR-1.8 classify returns OneMatch on the active rule when an
     let result = results |> List.head
     match result.outcome with
     | OneMatch pm ->
-        Assert.Equal(Some specificRuleAccountId, pm.accountId)
+        Assert.Equal(ClassificationClaimant.Account specificRuleAccountId, pm.claimant)
     | other -> Assert.Fail $"Expected OneMatch (inactive rule filtered out) but got {other}"
 
 

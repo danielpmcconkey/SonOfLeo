@@ -389,10 +389,14 @@ let applyAccountClassification
         let isFullyAssigned (entry: StageEntry) : bool =
             entry |> seLines |> List.forall (fun line -> line |> StageEntryLine.accountId |> Option.isSome)
         let classificationResults = classificationRun.results
+        let claimedAccountId (prioritizedMatch: PrioritizedMatch) : AccountId option =
+            match prioritizedMatch.claimant with
+            | ClassificationClaimant.Account accountId -> Some accountId
+            | ClassificationClaimant.PaymentAgreement _ -> None
         let winningAccountId (outcome: ClassifierOutcome) : AccountId option =
             match outcome with
-            | OneMatch prioritizedMatch -> prioritizedMatch.accountId
-            | ManyMatchesClearWinner (winner, _) -> winner.accountId
+            | OneMatch prioritizedMatch -> prioritizedMatch |> claimedAccountId
+            | ManyMatchesClearWinner (winner, _) -> winner |> claimedAccountId
             | ClassifierOutcome.NoMatch | ManyMatchesTied _ -> None
         let! _ =
             classificationResults

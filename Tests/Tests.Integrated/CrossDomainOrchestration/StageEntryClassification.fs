@@ -153,7 +153,11 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                     match (debitResults |> List.head).outcome with
                     | ManyMatchesClearWinner (winner, _) ->
                         result {
-                            let! codeStr = winner.accountId |> ``convert AccountId Option to AccountCodeString Option`` context
+                            let winnerAccountId =
+                                match winner.claimant with
+                                | ClassificationClaimant.Account accountId -> Some accountId
+                                | ClassificationClaimant.PaymentAgreement _ -> None
+                            let! codeStr = winnerAccountId |> ``convert AccountId Option to AccountCodeString Option`` context
                             Assert.Equal(Some "F-5350", codeStr)
                             Assert.Equal(Some fixture.Data.food5350Id, debitLine |> StageEntryLine.accountId)
                             (* The line no longer carries a rule id. The winner is named by the run's result, and

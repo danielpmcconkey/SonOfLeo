@@ -237,8 +237,7 @@ type RevisedRequirementsClassificationTests(fixture: TestDataFixture) =
                     ClassificationOrchestration.constructNewAndPersist context otherName (ClassificationClaimant.Account(accountIdOf "F-2230")) 1 (groupsFor $"elsewhere {tag}")
                 let! outcome = Classifier.classifyCandidate [ rule; other ] (candidateWith "Description" $"Paid {tag}")
                 let expectedMatch : PrioritizedMatch =
-                    { accountId = None
-                      paymentAgreementId = Some legId
+                    { claimant = ClassificationClaimant.PaymentAgreement legId
                       ruleId = rule |> ClassificationRule.classificationRuleId
                       priority = 37 }
                 let expected = ClassifierOutcome.OneMatch expectedMatch

@@ -189,13 +189,14 @@ let ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]``
     (context: Context.Context)
     (prioritizedMatch: PrioritizedMatch)
     : Result<PrioritizedMatchReturn, IAppError> = result {
-    let! accountCode =
-        prioritizedMatch.accountId |> ``convert AccountId Option to AccountCodeString Option`` context
-    let! accountName =
-        prioritizedMatch.accountId |> ``convert [AccountId option] to [AccountName string option]`` context
+    let accountId, paymentAgreementId =
+        match prioritizedMatch.claimant with
+        | ClassificationClaimant.Account accountId -> Some accountId, None
+        | ClassificationClaimant.PaymentAgreement paymentAgreementId -> None, Some paymentAgreementId
+    let! accountCode = accountId |> ``convert AccountId Option to AccountCodeString Option`` context
+    let! accountName = accountId |> ``convert [AccountId option] to [AccountName string option]`` context
     let! paymentAgreementName =
-        prioritizedMatch.paymentAgreementId
-        |> ``convert [PaymentAgreementId option] to [PaymentAgreementNameString option]`` context
+        paymentAgreementId |> ``convert [PaymentAgreementId option] to [PaymentAgreementNameString option]`` context
     return {    accountCode = accountCode
                 accountName = accountName
                 paymentAgreementName = paymentAgreementName
