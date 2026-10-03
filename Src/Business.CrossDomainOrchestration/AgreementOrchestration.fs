@@ -354,6 +354,31 @@ let fetchAllActiveAgreements
           paymentPostedToLedgerTemporalFilter = None }
     filter |> fetchFiltered context AnyQuantityIsAcceptable
 
+/// confirmNextInstanceAfterExistingInstances rejects a cadence update whose next-instance date is on or before an
+/// existing Instance's date: the next sweep would try to create that Instance again. A cadence change does not
+/// re-check existing Instances against the new cadence.
+let private confirmNextInstanceAfterExistingInstances
+    (context: Context.Context)
+    (masterAgreementUpdates: MasterAgreement.MasterAgreementFieldUpdates)
+    : Result<unit, IAppError> =
+    match masterAgreementUpdates.cadenceUpdate with
+    | FieldUpdate.NoChange -> Ok ()
+    | FieldUpdate.SetTo cadence ->
+        result {
+            let agreementId = masterAgreementUpdates.agreementIdToUpdate
+            let! instances = [ agreementId ] |> Instance.fetchByMasterAgreementIdList context
+            let nextInstance = (cadence |> Cadence.nextInstance).nextInstance
+            return!
+                match instances |> List.map Instance.instanceDate |> List.sortDescending |> List.tryHead with
+                | Some latest when nextInstance <= latest ->
+                    let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
+                    CashFlowError.error (
+                        CashFlowError.CashflowMasterAgreementNextInstanceNotAfterExistingInstances(
+                            agreementUuid, nextInstance, latest))
+                | Some _
+                | None -> Ok ()
+        }
+
 let private isThereAMasterAgreementUpdate
     (masterAgreementUpdates: MasterAgreement.MasterAgreementFieldUpdates)
     : bool =
@@ -398,6 +423,7 @@ let updateAgreement
             then Error CashFlowError.CashflowAgreementUpdateNoOp
             else Ok ()
         do! confirmAuthorityAndCohesion context paymentAgreementUpdates masterAgreementUpdates
+        do! masterAgreementUpdates |> confirmNextInstanceAfterExistingInstances context
         do!
             if shouldUpdateMasterAgreement then masterAgreementUpdates |> MasterAgreement.update context |> Result.map ignore
             else Ok ()

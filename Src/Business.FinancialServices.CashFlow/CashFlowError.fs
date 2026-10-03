@@ -60,6 +60,7 @@ type CashFlowError =
     | CashflowMasterAgreementIdDoesntExist of Guid
     | CashflowMasterAgreementIdListCannotBeEmpty
     | CashflowMasterAgreementUnavailable of Guid * LocalDate * LocalDate * LocalDate option
+    | CashflowMasterAgreementNextInstanceNotAfterExistingInstances of Guid * LocalDate * LocalDate
     | CashflowMasterAgreementUpdateNoOp
     | CashflowPaymentAgreementCreditAccountInvalid of Guid
     | CashflowPaymentAgreementDebitEqualsCredit of Guid
@@ -146,6 +147,8 @@ type CashFlowError =
             | CashflowInvoiceUpdateNoOp -> "Updating the Invoice record failed because at least one updatable parameter must be set."
             | CashflowMasterAgreementIdDoesntExist uuid -> $"Could not locate a MasterAgreement with the id of {uuid}."
             | CashflowMasterAgreementIdListCannotBeEmpty -> "The masterAgreementIds list must contain at least 1 ID."
+            | CashflowMasterAgreementNextInstanceNotAfterExistingInstances(uuid, nextInstance, latestInstance) ->
+                $"Master Agreement {uuid} cannot take next-instance date {nextInstance}: it already has an Instance dated {latestInstance}, and the next-instance date must be later than every existing Instance."
             | CashflowMasterAgreementUnavailable(uuid, referenceDate, beginDate, endDate) ->
                 let endDateStr = match endDate with
                                     | Some x -> x.ToString()
