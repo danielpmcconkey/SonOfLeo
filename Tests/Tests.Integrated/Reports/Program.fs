@@ -57,14 +57,19 @@ type ProgramTests(fixture: TestDataFixture) =
             do! match textToWrite |> File.writeTextFile path with
                 | Ok _ -> Error (TestingError "expected failure but got success")
                 | Error intendedError -> 
-                    let expectedErrorMessage = $"{intendedError.ToMessage()}{Environment.NewLine}"
+                    (* Only the first line is SonOfLeo's. The stack trace after it comes from the runtime, and its
+                       internal frames differ between the CLI's process and this one, so it is checked only for being
+                       there. *)
+                    let firstLine (text: string) = text.Split(Environment.NewLine).[0]
+                    let expectedFirstLine = intendedError.ToMessage() |> firstLine
                     let args = [ "TrialBalance" ]
                     let payload =
                         badPathInput
                         |> toJson<TrialBalanceReportInput>
                         |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
                     let _, _, e = runCli Reports args payload
-                    Assert.Equal(expectedErrorMessage, e)
+                    Assert.Equal(expectedFirstLine, firstLine e)
+                    Assert.Matches(@"(?m)^\s+at \S", e)
                     Ok()
             return ()
         }

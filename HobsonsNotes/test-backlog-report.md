@@ -740,11 +740,12 @@ and the F-1 test rewrite.
 - `dotnet test Tests/Tests.Isolated`: 349 passed, 0 failed.
 - `dotnet test Tests/Tests.Integrated`: 1229 passed, 1 failed, of 1230. The build has no warnings. Every 29.9 test now
   passes, the payment amount cases included. The plan agent's placeholders for the withdrawn REQ-JE-4.11/4.12 are gone.
-- The one failure is not from this backlog. `Reports/Program.fs`, "REQ-NGUI-1.3.1, REQ-NGUI-4.4 The stderr will comprise
-  the error message", compares the CLI's stderr, stack trace included, with the same error raised in the test process.
-  In the full run the two traces differ inside .NET's file-opening frames (`SafeFileHandle.Open(String fullPath,
-  FileMode ...` against `Open(String path, OpenFlags ...`). Run on their own, all six `Reports.Program` tests pass,
-  twice. So the test depends on run order through runtime internals; it doesn't show a Src bug. I haven't touched it.
+- The one failure was not from this backlog. `Reports/Program.fs`, "REQ-NGUI-1.3.1, REQ-NGUI-4.4 The stderr will comprise
+  the error message", compared the CLI's whole stderr, stack trace included, with the same error raised in the test
+  process. The two traces differed inside .NET's own file-opening frames, depending on run order. On Dan's instruction
+  the test, under the same name, now compares only the first line of each and asserts that stack-trace frames follow
+  (a line matching `^\s+at \S`). Both assertions fail when perturbed.
+- After that fix, `dotnet test Tests/Tests.Integrated` ran twice in full: 1230 of 1230 passed both times.
 
 ## Traceability audit result
 
