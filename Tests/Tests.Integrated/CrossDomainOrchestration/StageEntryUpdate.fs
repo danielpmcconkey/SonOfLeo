@@ -97,7 +97,6 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
             let update : InstanceOrchestration.InstanceCompositeUpdate =
                 { instanceUpdates =
                     { instanceIdToUpdate = fixture.Data.cashFlow.openInstanceAId
-                      instanceDateUpdate = NoChange
                       isFulfilledUpdate = NoChange }
                   invoiceCompositeUpdates =
                     [ { invoiceUpdates =

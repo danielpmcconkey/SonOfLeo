@@ -438,7 +438,6 @@ let private noChangeInvoiceUpdates (invoiceId: InvoiceId) : Invoice.InvoiceField
 
 let private noChangeInstanceUpdates (instanceId: InstanceId) : Instance.InstanceFieldUpdates =
     { instanceIdToUpdate = instanceId
-      instanceDateUpdate = FieldUpdate.NoChange
       isFulfilledUpdate = FieldUpdate.NoChange }
 
 let ``convert [CreateInvoiceInput] to [InstanceCompositeUpdate]``

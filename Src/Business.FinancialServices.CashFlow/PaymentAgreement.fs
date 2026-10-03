@@ -244,15 +244,6 @@ let fetchById (context: Context.Context) (paymentAgreementID: PaymentAgreementId
     |> whenNoRows (CashflowPaymentAgreementIdDoesntExist uuid)
     |> Result.map List.head
 
-let fetchByName
-    (context: Context.Context)
-    (paymentAgreementName: PaymentAgreementName)
-    : Result<PaymentAgreement, IAppError> =
-    let predicate = "pa.payment_agreement_name = @payment_agreement_name"
-    let nameStr = paymentAgreementName |> PaymentAgreementName.value
-    let parameters = [ { name = "@payment_agreement_name"; value = CharString(nameStr) } ]
-    fetchAny context (Some predicate) None parameters ExactlyOne |> Result.map List.head
-
 let fetchByMasterAgreementIdList
     (context: Context.Context)
     (masterAgreementIds: MasterAgreementId list)

@@ -23,22 +23,17 @@ let executeNonQuery
             // we use a try/with block to convert their results into more
             // paradigmatic F# Result Ok/Error at the impure boundary
             try
-                match dbTransaction |> isNone with
-                | true ->
+                match dbTransaction |> transactionAndConnection with
+                | None ->
                     use connection = ds.OpenConnection()
                     use command = new NpgsqlCommand(queryStatement, connection)
                     parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
                     Ok(command.ExecuteNonQuery())
-                | false ->
-                    dbTransaction
-                    |> transactionAndConnection
-                    |> function
-                        | Error e -> Error e
-                        | Ok(tran, conn) ->
-                            use command = new NpgsqlCommand(queryStatement, conn)
-                            command.Transaction <- tran
-                            parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
-                            Ok(command.ExecuteNonQuery())
+                | Some(tran, conn) ->
+                    use command = new NpgsqlCommand(queryStatement, conn)
+                    command.Transaction <- tran
+                    parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
+                    Ok(command.ExecuteNonQuery())
             with ex ->
                 Error(DalErrorDuringNonQueryExecution ex)
         return! confirmNumRows numRows expectedRows

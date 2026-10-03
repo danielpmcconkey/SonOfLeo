@@ -5,7 +5,6 @@ open App.Utility.IAppError
 
 type DalError =
     | DalCantCompleteTransactionOfNone
-    | DalCantFetchTransactionOfNone
     | DalCantUseTransactionOfNoneInAutoCommit
     | DalConnectionStringConfigRetrievalError of string
     | DalConnectionStringEnvVarContainsConnectionString
@@ -42,7 +41,6 @@ type DalError =
     | DalResultantRowsDidntMatchExpectation of string * int
     | DalStringUnboxingReturnedNull
     | DalUuidUnboxingReturnedNull
-    | ReaderFailedToConvertRawRows of IAppError
     
     interface IAppError with
         member this.DomainName = nameof DalError
@@ -50,7 +48,6 @@ type DalError =
         member this.ToMessage() =
             match this with        
             | DalCantCompleteTransactionOfNone -> "Error. You cannot commit or rollback with a raw transaction of None."
-            | DalCantFetchTransactionOfNone -> "Error. You cannot fetch a connection with a raw transaction of None."
             | DalCantUseTransactionOfNoneInAutoCommit -> "Error. You cannot send a transaction of None into the auto-commit pipeline."
             | DalConnectionStringConfigRetrievalError s -> $"Error reading the config for the connection string. Message: {s}"
             | DalConnectionStringEnvVarContainsConnectionString -> "ConnectionStringEnvVar contains a connection string, not an env var name."
@@ -88,7 +85,6 @@ type DalError =
             | DalResultantRowsDidntMatchExpectation(expected, actual) -> $"Resultant rows didn't match expectation. Expected {expected}. Actual {actual}."
             | DalStringUnboxingReturnedNull -> "String unboxing returned DB null"
             | DalUuidUnboxingReturnedNull -> "UUID unboxing returned DB null"
-            | ReaderFailedToConvertRawRows appError -> $"Failure to convert raw rows on DB read. Message: {appError.ToMessage()}"
 
 let toMessage (e: DalError) = (e :> IAppError).ToMessage()
 let toAppError (e: DalError) : IAppError = e :> IAppError

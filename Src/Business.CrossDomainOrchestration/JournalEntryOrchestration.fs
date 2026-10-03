@@ -202,11 +202,6 @@ module JournalEntryOrchestration =
                 filter.temporalFilter
                 |> convertOptionToDesiredTypeWithFallibleConverter (getDateRangeFromTemporalFilter context)
             let dateRange = filterDateRangeOption |> Option.map (fun x -> x.beginDate, x.endInclusive)
-            let voidClause =
-                if filter.unVoidedOnly then
-                    "and je.voided_at is null"
-                else
-                    ""
             let whereClausesAndParams =
                 [ filter.journalEntryHeaderId
                   |> Option.map(fun x ->
@@ -220,11 +215,6 @@ module JournalEntryOrchestration =
                   dateRange
                   |> Option.map(fun (_, x) ->
                       ("and je.entry_date <= @end_date", { name = "@end_date"; value = DbLocalDate x }))
-
-                  filter.source
-                  |> Option.map(fun x ->
-                      ("and je.je_source = @je_source",
-                       { name = "@je_source"; value = CharString(x |> JournalEntrySource.value) }))
 
                   filter.financialInstitution
                   |> Option.map(fun x ->
@@ -244,7 +234,6 @@ module JournalEntryOrchestration =
                     $"""
                 1 = 1
                 {whereClauses}
-                {voidClause}
                 """
             let joins =
                 [
@@ -303,11 +292,9 @@ module JournalEntryOrchestration =
         : Result<JournalEntry, IAppError> =
         let filter =
             { journalEntryHeaderId = Some journalEntryHeaderId
-              source = None
               financialInstitution = None
               referenceText = None
-              temporalFilter = None
-              unVoidedOnly = false }
+              temporalFilter = None }
         // Note: expected rows of exactly one works here only because we don't
         // have any other filter conditions that would join other tables. In
         // future, if we ever expand this filter or use this function as a
@@ -324,12 +311,10 @@ module JournalEntryOrchestration =
         : Result<JournalEntry list, IAppError> =
         let filter =
             { journalEntryHeaderId = None
-              source = None
               financialInstitution = None
               referenceText = None
               temporalFilter =
-                Some(fiscalPeriod |> FiscalPeriod.fiscalPeriodId |> TemporalFilter.FiscalPeriodIdentifier)
-              unVoidedOnly = false }
+                Some(fiscalPeriod |> FiscalPeriod.fiscalPeriodId |> TemporalFilter.FiscalPeriodIdentifier) }
         let expectedRows = AnyQuantityIsAcceptable
         fetchFiltered context filter expectedRows
 
@@ -344,13 +329,11 @@ module JournalEntryOrchestration =
         else
             let filter =
                 { journalEntryHeaderId = None
-                  source = None
                   financialInstitution = None
                   referenceText = None
                   temporalFilter =
                       TemporalFilter.DateRange { beginDate = beginDate; endInclusive = endDateInclusive }
-                      |> Some
-                  unVoidedOnly = false }
+                      |> Some }
             let expectedRows = AnyQuantityIsAcceptable
             fetchFiltered context filter expectedRows
 
@@ -367,11 +350,9 @@ module JournalEntryOrchestration =
                     Ok()
             let filter =
                 { journalEntryHeaderId = None
-                  source = None
                   financialInstitution = financialInstitution
                   referenceText = referenceText
-                  temporalFilter = None
-                  unVoidedOnly = false }
+                  temporalFilter = None }
             let expectedRows = AnyQuantityIsAcceptable
             return! fetchFiltered context filter expectedRows
         }

@@ -69,7 +69,6 @@ type InvoiceStateByDirectionTests(fixture: TestDataFixture) =
                         context
                         { instanceUpdates =
                             { instanceIdToUpdate = cashFlow.openInstanceAId
-                              instanceDateUpdate = FieldUpdate.NoChange
                               isFulfilledUpdate = FieldUpdate.NoChange }
                           invoiceCompositeUpdates =
                             [ { invoiceUpdates = invoiceUpdates

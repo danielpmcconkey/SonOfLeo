@@ -3,7 +3,6 @@ module Business.FinancialServices.BizFinServError
 open App.Utility.IAppError
 
 type BizFinServError =
-    | FromDecimalListFailedConversion of IAppError
     | MoneyFailedToConvertBelowMin of decimal * decimal
     | MoneyFailedToConvertExceededMax of decimal * decimal
     | MoneyFailedToConvertImproperPrecision of decimal
@@ -20,7 +19,6 @@ type BizFinServError =
             | MoneyFailedToConvertImproperPrecision raw -> $"Failed to convert {raw} to Money record due to improper decimal precision."
             | MoneyImproperSplit n -> $"Improper Money split of {n}. Money can only be split by a positive integer, greater than 1."
             | MoneySplitFailedReconciliation(originalAmount, sumTotal) -> $"Sum of all shares {sumTotal} does not match original amount {originalAmount}."
-            | FromDecimalListFailedConversion appError -> $"Failure to convert raw one or more raw decimals to Money. Message: {appError.ToMessage()}"
 
 let toMessage (e: BizFinServError) = (e :> IAppError).ToMessage()
 let toAppError (e: BizFinServError) : IAppError = e :> IAppError

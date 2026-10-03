@@ -19,25 +19,9 @@ type CompletionAction =
     | Commit
     | Rollback
 
-type ManualTransactionResult<'T> =
-    | Failed of DalError * DbTransaction
-    | Success of 'T * DbTransaction
-    | TransactionCreateFail of DalError
-
-let internal isSome dbTransaction =
-    dbTransaction.npgTranAndConn |> Option.isSome
-
-let internal isNone dbTransaction =
-    dbTransaction.npgTranAndConn |> Option.isNone
-
+/// the open transaction and its connection, or None when the operation runs without a transaction
 let internal transactionAndConnection dbTransaction =
-    if dbTransaction.npgTranAndConn |> Option.isNone then
-        Error DalCantFetchTransactionOfNone
-    else
-        let npgTranAndConn = dbTransaction.npgTranAndConn |> Option.get
-        let tran = npgTranAndConn.transaction
-        let conn = npgTranAndConn.connection
-        Ok(tran, conn)
+    dbTransaction.npgTranAndConn |> Option.map (fun t -> t.transaction, t.connection)
 
 let createDbTransaction () : Result<DbTransaction, IAppError> =
     result {

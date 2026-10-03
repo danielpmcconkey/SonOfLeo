@@ -32,9 +32,6 @@ type Payment = private {
 type PaymentFieldUpdates = {
     paymentIdToUpdate: PaymentId
     journalEntryLineIdUpdate: FieldUpdate.FieldUpdate<JournalEntryLineId option>
-    stageEntryLineIdUpdate: FieldUpdate.FieldUpdate<StageEntryLineId option>
-    postedToFiDateUpdate: FieldUpdate.FieldUpdate<LocalDate option>
-    memoUpdate: FieldUpdate.FieldUpdate<PaymentMemo option>
 }
 
 let paymentId p = p.paymentId
@@ -68,9 +65,8 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
-/// applyFieldUpdates folds the two independent id updates back into one pointer on the same Posted-wins rule the row
-/// decode uses, so setting a stage line on an already-posted payment leaves the in-hand pointer Posted even though the
-/// write still sets the column.
+/// applyFieldUpdates folds the journal entry line update back into one pointer on the same Posted-wins rule the row
+/// decode uses.
 let applyFieldUpdates (fieldUpdates: PaymentFieldUpdates) (payment: Payment) : Result<Payment, IAppError> =
     let currentJournalEntryLineId, currentStageEntryLineId =
         match payment.transactionPointer with
@@ -78,16 +74,9 @@ let applyFieldUpdates (fieldUpdates: PaymentFieldUpdates) (payment: Payment) : R
         | CashFlowComponent.Staged stageEntryLineId -> None, Some stageEntryLineId
     let journalEntryLineId =
         fieldUpdates.journalEntryLineIdUpdate |> FieldUpdate.valueOrCurrent currentJournalEntryLineId
-    let stageEntryLineId =
-        fieldUpdates.stageEntryLineIdUpdate |> FieldUpdate.valueOrCurrent currentStageEntryLineId
-    let postedToFiDate =
-        fieldUpdates.postedToFiDateUpdate
-        |> FieldUpdate.convertFieldUpdateOptionToNewTypeOption (fun localDate ->
-            { PostedToFiDate.localDate = localDate })
-        |> FieldUpdate.valueOrCurrent payment.postedToFiDate
     result {
         let! transactionPointer =
-            match journalEntryLineId, stageEntryLineId with
+            match journalEntryLineId, currentStageEntryLineId with
             | Some journalEntryLineId, _ -> Ok(CashFlowComponent.Posted journalEntryLineId)
             | None, Some stageEntryLineId -> Ok(CashFlowComponent.Staged stageEntryLineId)
             | None, None ->
@@ -95,10 +84,7 @@ let applyFieldUpdates (fieldUpdates: PaymentFieldUpdates) (payment: Payment) : R
                     CashflowInvalidPaymentTransactionPointerRow
                         "neither journal_entry_line_id nor stage_entry_line_id was set; at least one must be set.")
         return
-            { payment with
-                transactionPointer = transactionPointer
-                postedToFiDate = postedToFiDate
-                memo = fieldUpdates.memoUpdate |> FieldUpdate.valueOrCurrent payment.memo }
+            { payment with transactionPointer = transactionPointer }
     }
 
 let private transactionPointerToColumns (transactionPointer: TransactionPointer) : Guid option * Guid option =
@@ -378,22 +364,6 @@ let update
                   [ ("journal_entry_line_id = @journal_entry_line_id",
                      { name = "@journal_entry_line_id"
                        value = NullableUniqueId(n |> Option.map JournalEntryLineId.value) }) ])
-
-              fieldUpdates.stageEntryLineIdUpdate
-              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  [ ("stage_entry_line_id = @stage_entry_line_id",
-                     { name = "@stage_entry_line_id"
-                       value = NullableUniqueId(n |> Option.map StageEntryLineId.value) }) ])
-
-              fieldUpdates.postedToFiDateUpdate
-              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  [ ("posted_to_fi_date = @posted_to_fi_date",
-                     { name = "@posted_to_fi_date"; value = NullableDbLocalDate(n) }) ])
-
-              fieldUpdates.memoUpdate
-              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                  [ ("memo = @memo",
-                     { name = "@memo"; value = NullableCharString(n |> Option.map PaymentMemo.value) }) ])
         ]
         |> List.choose id
         |> List.collect id

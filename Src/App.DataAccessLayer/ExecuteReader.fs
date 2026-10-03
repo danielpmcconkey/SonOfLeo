@@ -170,8 +170,8 @@ let executeReaderQuery
             // we use a try/with block to convert their results into more
             // paradigmatic F# Result Ok/Error at the impure boundary
             try
-                match dbTransaction |> isNone with
-                | true ->
+                match dbTransaction |> transactionAndConnection with
+                | None ->
                     let rawRows =
                         use connection = ds.OpenConnection()
                         use command = new NpgsqlCommand(queryStatement, connection)
@@ -179,19 +179,14 @@ let executeReaderQuery
                         use nReader = command.ExecuteReader()
                         readRawRows nReader mapRaw []
                     rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList
-                | false ->
-                    dbTransaction
-                    |> transactionAndConnection
-                    |> function
-                        | Error e -> Error e
-                        | Ok(tran, conn) ->
-                            let rawRows =
-                                use command = new NpgsqlCommand(queryStatement, conn)
-                                command.Transaction <- tran
-                                parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
-                                use nReader = command.ExecuteReader()
-                                readRawRows nReader mapRaw []
-                            rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList
+                | Some(tran, conn) ->
+                    let rawRows =
+                        use command = new NpgsqlCommand(queryStatement, conn)
+                        command.Transaction <- tran
+                        parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
+                        use nReader = command.ExecuteReader()
+                        readRawRows nReader mapRaw []
+                    rawRows |> List.map constructFromRaw |> convertListOfResultsToResultsList
             with ex ->
                 Error(DalErrorDuringReaderQueryExecution ex)
         let! () = confirmNumRows rows.Length expectedRows

@@ -364,20 +364,6 @@ let compileInstanceCompositesFromSubLists
             |> List.filter (fun composite -> composite.invoice |> Invoice.instanceId = instanceId)
         { instance = instance; invoiceComposites = compositesAtInstance })
 
-let fetchFiltered
-    (context: Context.Context)
-    (expectedRows: AcceptableExpectedRows)
-    (filter: AgreementFilter)
-    : Result<InvoiceComposite list, IAppError> =
-    result {
-        let! invoices =
-            filter |> fetchCompositeFiltered context expectedRows Invoice.query TargetComposite.Invoice
-        if invoices |> List.isEmpty then return [] else
-        let invoiceIds = invoices |> List.map Invoice.invoiceId
-        let! payments = invoiceIds |> Payment.fetchByInvoiceIdList context
-        return compileInvoiceCompositesFromSubLists invoices payments
-    }
-
 let fetchCompositeByInvoiceId
     (context: Context.Context)
     (invoiceId: CashFlowComponent.InvoiceId)
@@ -438,9 +424,6 @@ let private isThereAPaymentUpdate
     (paymentUpdates: Payment.PaymentFieldUpdates)
     : bool =
     paymentUpdates.journalEntryLineIdUpdate <> FieldUpdate.NoChange
-    || paymentUpdates.stageEntryLineIdUpdate <> FieldUpdate.NoChange
-    || paymentUpdates.postedToFiDateUpdate <> FieldUpdate.NoChange
-    || paymentUpdates.memoUpdate <> FieldUpdate.NoChange
 
 type InvoiceCompositeUpdate = {
     invoiceUpdates: Invoice.InvoiceFieldUpdates
@@ -475,8 +458,7 @@ type InstanceCompositeUpdate = {
 }
 
 let private isThereACompositeUpdate (compositeUpdate: InstanceCompositeUpdate) : bool =
-    compositeUpdate.instanceUpdates.instanceDateUpdate <> FieldUpdate.NoChange
-    || compositeUpdate.invoiceCompositeUpdates
+    compositeUpdate.invoiceCompositeUpdates
        |> List.exists (fun invoiceCompositeUpdate ->
            invoiceCompositeUpdate.invoiceUpdates |> isThereAnInvoiceUpdate
            || invoiceCompositeUpdate.paymentUpdates |> List.exists isThereAPaymentUpdate
@@ -695,8 +677,7 @@ let updateInstanceComposite
         let preConstructedComposite = { instance = instance; invoiceComposites = invoiceComposites }
         do! preConstructedComposite |> confirmInstanceComposite context
         do!
-            if instanceUpdates.instanceDateUpdate <> FieldUpdate.NoChange
-               || isFulfilled <> (current.instance |> Instance.isFulfilled)
+            if isFulfilled <> (current.instance |> Instance.isFulfilled)
             then instanceUpdates |> Instance.update context |> Result.map ignore
             else Ok ()
         do!
@@ -884,7 +865,6 @@ let cancelInvoice
         let isFulfilled = cancelled.invoiceComposites |> deriveIsFulfilled
         let fulfilledUpdate: Instance.InstanceFieldUpdates =
             { instanceIdToUpdate = instanceId
-              instanceDateUpdate = FieldUpdate.NoChange
               isFulfilledUpdate = FieldUpdate.SetTo isFulfilled }
         do!
             if isFulfilled = (cancelled.instance |> Instance.isFulfilled) then Ok ()

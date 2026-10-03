@@ -26,7 +26,6 @@ type Instance = private {
 
 type InstanceFieldUpdates = {
     instanceIdToUpdate: InstanceId
-    instanceDateUpdate: FieldUpdate<LocalDate>
     isFulfilledUpdate: FieldUpdate<bool>
 }
 
@@ -59,9 +58,7 @@ let create
       modifiedAt = modifiedAt }
 
 let applyFieldUpdates (fieldUpdates: InstanceFieldUpdates) (instance: Instance) : Instance =
-    { instance with
-        instanceDate = fieldUpdates.instanceDateUpdate |> valueOrCurrent instance.instanceDate
-        isFulfilled = fieldUpdates.isFulfilledUpdate |> valueOrCurrent instance.isFulfilled }
+    { instance with isFulfilled = fieldUpdates.isFulfilledUpdate |> valueOrCurrent instance.isFulfilled }
 
 let persist
     (context: Context.Context)
@@ -224,10 +221,6 @@ let update
         [ { name = "@unique_id"; value = UniqueId uuid } ]
     let updates =
         [
-              fieldUpdates.instanceDateUpdate
-              |> mapNoChangeToOptionWithConversion(fun n ->
-                  [ ("instance_date = @instance_date", { name = "@instance_date"; value = DbLocalDate(n) }) ])
-
               fieldUpdates.isFulfilledUpdate
               |> mapNoChangeToOptionWithConversion(fun n ->
                   [ ("is_fulfilled = @is_fulfilled", { name = "@is_fulfilled"; value = Boolean(n) }) ])

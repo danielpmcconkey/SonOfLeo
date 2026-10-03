@@ -115,20 +115,6 @@ module Month =
         | October -> 10
         | November -> 11
         | December -> 12
-    let toAbbreviation m =
-        match m with
-        | January -> "Jan"
-        | February -> "Feb"
-        | March -> "Mar"
-        | April -> "Apr"
-        | May -> "May"
-        | June -> "Jun"
-        | July -> "Jul"
-        | August -> "Aug"
-        | September -> "Sep"
-        | October -> "Oct"
-        | November -> "Nov"
-        | December -> "Dec"
 
 type DateInMonthNumber = private DateInMonthNumber of int
 

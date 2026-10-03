@@ -46,25 +46,7 @@ let private unique (label: string) = $"{label} {Guid.NewGuid():N}"
 let private fresh () = Context.create NoTransaction FetchOnly
 
 let private noFilter : AgreementFilter =
-    { agreementIds = None
-      agreementNames = None
-      direction = None
-      activeAgreementsOnly = false
-      accountIds = None
-      paymentAgreementExpectedAmount = None
-      instanceTemporalFilter = None
-      externalInvoiceId = None
-      invoiceDateTemporalFilter = None
-      invoiceDueTemporalFilter = None
-      invoiceAmount = None
-      invoiceState = None
-      invoicePaymentState = None
-      invoicePostedState = None
-      invoiceBlocker = None
-      journalEntryLineId = None
-      stageEntryLineId = None
-      paymentAmount = None
-      paymentPostedToLedgerTemporalFilter = None }
+    { agreementIds = None; activeAgreementsOnly = false }
 
 /// Every stored Master Agreement for which `pick` holds.
 let private storedWhere (context: Context.Context) (pick: MasterAgreement.MasterAgreement -> bool) =

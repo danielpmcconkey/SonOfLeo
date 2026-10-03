@@ -44,6 +44,12 @@ let private paymentsReferencing context (lineId: StageEntryLineId) =
 (* Each test below builds its own Outgo agreements on the fixture's cash flow accounts (debit F-2230, credit F-1280),
    monthly on the 1st, one 100.00 leg each. With a monthly cadence the grace period is 7 days, so an Invoice dated d
    and due d + n takes lines dated d - 7 through d + n + 7. *)
+
+/// every link to any of the given Payment Agreements
+let private linksTo context (agreementIds: PaymentAgreementId list) =
+    PaymentAgreementLink.fetchAll context
+    |> Result.map (List.filter (fun link -> agreementIds |> List.contains (link |> PaymentAgreementLink.paymentAgreementId)))
+
 type private Scenario(fixture: TestDataFixture, context: Context.Context) =
     let today = Calendar.today()
     let accountIdOf code =
@@ -497,7 +503,7 @@ type InvoiceMatchingTests(fixture: TestDataFixture) =
                             instances
                             |> List.map (Instance.instanceId >> InstanceOrchestration.fetchCompositeByInstanceId context)
                             |> convertListOfResultsToResultsList
-                        let! links = legs |> PaymentAgreementLink.fetchByPaymentAgreementIdList context
+                        let! links = linksTo context legs
                         return composites |> List.sortBy (InstanceOrchestration.instance >> Instance.instanceId >> InstanceId.value), links
                     }
                 let! before = snapshot ()

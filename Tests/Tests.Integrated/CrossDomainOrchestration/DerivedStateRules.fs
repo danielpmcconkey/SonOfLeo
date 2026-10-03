@@ -189,7 +189,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
 
 /// An update to one Invoice of the Instance that changes nothing unless the caller says so.
 let private invoiceUpdate (instanceId: InstanceId) (invoiceId: InvoiceId) : InstanceOrchestration.InstanceCompositeUpdate =
-    { instanceUpdates = { instanceIdToUpdate = instanceId; instanceDateUpdate = NoChange; isFulfilledUpdate = NoChange }
+    { instanceUpdates = { instanceIdToUpdate = instanceId; isFulfilledUpdate = NoChange }
       invoiceCompositeUpdates =
         [ { invoiceUpdates =
               { invoiceIdToUpdate = invoiceId

@@ -102,12 +102,6 @@ let query
         reconstitute
         expectedRows
 
-let fetchById (context: Context.Context) (matchId: ClassificationMatchId) : Result<RuleMatch, IAppError> =
-    let predicate = "rm.unique_id = @unique_id"
-    let uuid = matchId |> ClassificationMatchId.value
-    let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    query context None (Some predicate) None parameters None ExactlyOne |> Result.map List.head
-
 let fetchByRunId (context: Context.Context) (runId: ClassificationRunId) : Result<RuleMatch list, IAppError> =
     let predicate = "rm.run_id = @run_id"
     let runUuid = runId |> ClassificationRunId.value
@@ -129,19 +123,3 @@ let fetchByStageEntryLineIdList
     let parameters = namesAndParameters |> List.map snd
     let predicate = $"rm.stage_entry_line_id in ({names})"
     query context None (Some predicate) None parameters None AnyQuantityIsAcceptable
-
-let fetchByRunIdAndClaimantType
-    (context: Context.Context)
-    (runId: ClassificationRunId)
-    (claimantType: ClassificationClaimantType)
-    : Result<RuleMatch list, IAppError> =
-    let joinList =
-        [ "join classification.classification_rule cr on rm.classification_rule_id = cr.unique_id" ]
-    let claimantClause =
-        match claimantType with
-        | AccountClaimant -> "cr.account_at_match is not null"
-        | PaymentAgreementClaimant -> "cr.payment_agreement_at_match is not null"
-    let predicate = $"rm.run_id = @run_id and {claimantClause}"
-    let runUuid = runId |> ClassificationRunId.value
-    let parameters = [ { name = "@run_id"; value = UniqueId runUuid } ]
-    query context (Some joinList) (Some predicate) None parameters None AnyQuantityIsAcceptable

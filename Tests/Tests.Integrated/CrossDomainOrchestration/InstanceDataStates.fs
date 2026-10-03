@@ -147,7 +147,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
 
 /// An update to the Instance that changes only what the caller says.
 let private instanceUpdate (instanceId: InstanceId) : InstanceOrchestration.InstanceCompositeUpdate =
-    { instanceUpdates = { instanceIdToUpdate = instanceId; instanceDateUpdate = NoChange; isFulfilledUpdate = NoChange }
+    { instanceUpdates = { instanceIdToUpdate = instanceId; isFulfilledUpdate = NoChange }
       invoiceCompositeUpdates = []
       newInvoices = [] }
 

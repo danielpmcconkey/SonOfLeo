@@ -48,6 +48,12 @@ let private pathTo status =
     | "Posted" -> [ "Classified"; "Posted" ]
     | other -> failwith $"no path to status {other}"
 
+
+/// every link to any of the given Payment Agreements
+let private linksTo context (agreementIds: PaymentAgreementId list) =
+    PaymentAgreementLink.fetchAll context
+    |> Result.map (List.filter (fun link -> agreementIds |> List.contains (link |> PaymentAgreementLink.paymentAgreementId)))
+
 type private Scenario(fixture: TestDataFixture, context: Context.Context) =
     let today = Calendar.today()
     let accountIdOf code =
@@ -353,7 +359,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! links = scenario.linksOf lineId
                 let link = Assert.Single(links)
                 Assert.Equal(legXId, link |> PaymentAgreementLink.paymentAgreementId)
-                let! linksToY = legYId |> PaymentAgreementLink.fetchByPaymentAgreementId context
+                let! linksToY = linksTo context [ legYId ]
                 Assert.Empty(linksToY)
             })
         |> railroadWrapper
@@ -483,7 +489,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _, debitLineId, creditLineId =
                     scenario.outgoEntry "CF-12.4 outgo default payment" scenario.firstOfThisMonth "Classified"
                 let! _ = CashFlowOps.classifyPaymentAgreements context
-                let! links = legId |> PaymentAgreementLink.fetchByPaymentAgreementId context
+                let! links = linksTo context [ legId ]
                 let link = Assert.Single(links)
                 Assert.Equal(debitLineId, link |> PaymentAgreementLink.stageEntryLineId)
                 let! creditLinks = scenario.linksOf creditLineId
@@ -504,7 +510,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                         [ (100.00M, "Debit", "F-1280"); (100.00M, "Credit", "F-4290") ]
                 let debitLineId, creditLineId = lines.[0], lines.[1]
                 let! _ = CashFlowOps.classifyPaymentAgreements context
-                let! links = legId |> PaymentAgreementLink.fetchByPaymentAgreementId context
+                let! links = linksTo context [ legId ]
                 let link = Assert.Single(links)
                 Assert.Equal(creditLineId, link |> PaymentAgreementLink.stageEntryLineId)
                 let! debitLinks = scenario.linksOf debitLineId
@@ -526,7 +532,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                         [ (100.00M, "Debit", "F-1280"); (100.00M, "Credit", "F-2230") ]
                 let debitLineId, creditLineId = lines.[0], lines.[1]
                 let! _ = CashFlowOps.classifyPaymentAgreements context
-                let! links = legId |> PaymentAgreementLink.fetchByPaymentAgreementId context
+                let! links = linksTo context [ legId ]
                 let link = Assert.Single(links)
                 Assert.Equal(creditLineId, link |> PaymentAgreementLink.stageEntryLineId)
                 let! debitLinks = scenario.linksOf debitLineId
@@ -552,7 +558,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                         [ (100.00M, "Debit", "F-1280"); (100.00M, "Credit", "F-2230") ]
                 let debitLineId, creditLineId = lines.[0], lines.[1]
                 let! _ = CashFlowOps.classifyPaymentAgreements context
-                let! links = legId |> PaymentAgreementLink.fetchByPaymentAgreementId context
+                let! links = linksTo context [ legId ]
                 let link = Assert.Single(links)
                 Assert.Equal(creditLineId, link |> PaymentAgreementLink.stageEntryLineId)
                 let! debitLinks = scenario.linksOf debitLineId
@@ -572,7 +578,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                     scenario.stagedEntryWithLines "CF-12.4 no line payment" scenario.firstOfThisMonth "Classified"
                         [ (100.00M, "Debit", "F-5350"); (100.00M, "Credit", "F-1280") ]
                 let! run = CashFlowOps.classifyPaymentAgreements context
-                let! links = legId |> PaymentAgreementLink.fetchByPaymentAgreementId context
+                let! links = linksTo context [ legId ]
                 Assert.Empty(links)
                 let decisions = run.decisionLog |> List.filter (fun d -> d.paymentAgreementId = Some legId)
                 Assert.NotEmpty(decisions)
@@ -593,7 +599,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                         [ (60.00M, "Debit", "F-2230"); (40.00M, "Debit", "F-2230"); (100.00M, "Credit", "F-1280") ]
                 let debitLineIds = set [ lines.[0]; lines.[1] ]
                 let! run = CashFlowOps.classifyPaymentAgreements context
-                let! links = legId |> PaymentAgreementLink.fetchByPaymentAgreementId context
+                let! links = linksTo context [ legId ]
                 Assert.Empty(links)
                 let decisions = run.decisionLog |> List.filter (fun d -> d.paymentAgreementId = Some legId)
                 Assert.Equal<Set<StageEntryLineId>>(debitLineIds, decisions |> List.map _.stageEntryLineId |> Set.ofList)
@@ -613,7 +619,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                         [ (60.00M, "Debit", "F-2230"); (40.00M, "Debit", "F-5350"); (100.00M, "Credit", "F-1280") ]
                 let debitLineIds = set [ lines.[0]; lines.[1] ]
                 let! run = CashFlowOps.classifyPaymentAgreements context
-                let! links = legId |> PaymentAgreementLink.fetchByPaymentAgreementId context
+                let! links = linksTo context [ legId ]
                 Assert.Empty(links)
                 let decisions = run.decisionLog |> List.filter (fun d -> d.paymentAgreementId = Some legId)
                 Assert.Equal<Set<StageEntryLineId>>(debitLineIds, decisions |> List.map _.stageEntryLineId |> Set.ofList)
@@ -635,7 +641,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _, firstLineId, _ = scenario.outgoEntry "CF-12.5 contested payment one" scenario.firstOfThisMonth "Classified"
                 let! _, secondLineId, _ = scenario.outgoEntry "CF-12.5 contested payment two" scenario.firstOfThisMonth "Classified"
                 let! run = CashFlowOps.classifyPaymentAgreements context
-                let! links = legId |> PaymentAgreementLink.fetchByPaymentAgreementId context
+                let! links = linksTo context [ legId ]
                 Assert.Empty(links)
                 let decisions =
                     run.decisionLog
@@ -712,7 +718,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let expected = (linkedHeader, "Classified") :: noLineHeaders @ contestedHeaders @ unclaimedHeaders
                 let! run = CashFlowOps.classifyPaymentAgreements context
                 (* The run did what the cases claim: one link, unlinked no-line claims, contested claims. *)
-                let! links = legId |> PaymentAgreementLink.fetchByPaymentAgreementId context
+                let! links = linksTo context [ legId ]
                 Assert.Single(links) |> ignore
                 Assert.Contains(run.decisionLog, fun d -> d.outcome = NoLineOnAgreementAccounts)
                 Assert.Contains(run.decisionLog, fun d -> d.outcome = ContestedAgreement)
@@ -790,7 +796,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! after = scenario.linksOf lineId
                 let link = Assert.Single(after)
                 Assert.Equal(legYId, link |> PaymentAgreementLink.paymentAgreementId)
-                let! linksToX = legXId |> PaymentAgreementLink.fetchByPaymentAgreementId context
+                let! linksToX = linksTo context [ legXId ]
                 Assert.Empty(linksToX)
             })
         |> railroadWrapper

@@ -329,7 +329,6 @@ let private createPaymentForInvoice
     let compositeUpdate: InstanceOrchestration.InstanceCompositeUpdate =
         { instanceUpdates =
             { instanceIdToUpdate = instanceId
-              instanceDateUpdate = FieldUpdate.NoChange
               isFulfilledUpdate = FieldUpdate.NoChange }
           invoiceCompositeUpdates = [ invoiceCompositeUpdate ]
           newInvoices = [] }
@@ -734,7 +733,6 @@ let deletePaymentAndItsLinkage
         let compositeUpdate: InstanceOrchestration.InstanceCompositeUpdate =
             { instanceUpdates =
                 { instanceIdToUpdate = instanceId
-                  instanceDateUpdate = FieldUpdate.NoChange
                   isFulfilledUpdate = FieldUpdate.NoChange }
               invoiceCompositeUpdates = [ invoiceCompositeUpdate ]
               newInvoices = [] }
@@ -903,10 +901,7 @@ let private transitionOneInstancesPaymentsToPosted
                     |> List.map (fun (payment, journalEntryLineId, _) ->
                         let paymentUpdate: Payment.PaymentFieldUpdates =
                             { paymentIdToUpdate = payment |> Payment.paymentId
-                              journalEntryLineIdUpdate = FieldUpdate.SetTo(Some journalEntryLineId)
-                              stageEntryLineIdUpdate = FieldUpdate.NoChange
-                              postedToFiDateUpdate = FieldUpdate.NoChange
-                              memoUpdate = FieldUpdate.NoChange }
+                              journalEntryLineIdUpdate = FieldUpdate.SetTo(Some journalEntryLineId) }
                         paymentUpdate)
                 let invoiceCompositeUpdate: InstanceOrchestration.InvoiceCompositeUpdate =
                     { invoiceUpdates = invoiceId |> noChangeInvoiceUpdates
@@ -917,7 +912,6 @@ let private transitionOneInstancesPaymentsToPosted
         let compositeUpdate: InstanceOrchestration.InstanceCompositeUpdate =
             { instanceUpdates =
                 { instanceIdToUpdate = instanceId
-                  instanceDateUpdate = FieldUpdate.NoChange
                   isFulfilledUpdate = FieldUpdate.NoChange }
               invoiceCompositeUpdates = invoiceCompositeUpdates
               newInvoices = [] }

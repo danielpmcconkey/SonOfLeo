@@ -272,7 +272,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                      { InvoiceAmount.money = amount }, InvoiceReceived, None, None, [])
                 let update : InstanceOrchestration.InstanceCompositeUpdate =
                     { instanceUpdates =
-                        { instanceIdToUpdate = InstanceId.create (); instanceDateUpdate = NoChange; isFulfilledUpdate = NoChange }
+                        { instanceIdToUpdate = InstanceId.create (); isFulfilledUpdate = NoChange }
                       invoiceCompositeUpdates = []
                       newInvoices = [ invoice ] }
                 let attempt = update |> InstanceOrchestration.updateInstanceComposite context
@@ -314,7 +314,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                      { InvoiceAmount.money = amount }, InvoiceReceived, None, None, [])
                 let update : InstanceOrchestration.InstanceCompositeUpdate =
                     { instanceUpdates =
-                        { instanceIdToUpdate = made.instanceId; instanceDateUpdate = NoChange; isFulfilledUpdate = NoChange }
+                        { instanceIdToUpdate = made.instanceId; isFulfilledUpdate = NoChange }
                       invoiceCompositeUpdates = []
                       newInvoices = [ invoice ] }
                 let attempt = update |> InstanceOrchestration.updateInstanceComposite context

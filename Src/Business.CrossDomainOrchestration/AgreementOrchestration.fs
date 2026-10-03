@@ -271,7 +271,7 @@ let fetchFiltered
     : Result<Agreement list, IAppError> =
     result {
         let! masterAgreements =
-            filter |> fetchCompositeFiltered context expectedRows MasterAgreement.query TargetComposite.Agreement
+            filter |> fetchCompositeFiltered context expectedRows
         if masterAgreements |> List.isEmpty then return [] else
         let agreementIds = masterAgreements |> List.map MasterAgreement.agreementID
         let! paymentAgreements = agreementIds |> PaymentAgreement.fetchByMasterAgreementIdList context
@@ -291,25 +291,7 @@ let fetchByMasterAgreementId
     : Result<Agreement, IAppError> =
     result {
         let filter : AgreementFilter =
-            { agreementIds = Some [ agreementId ]
-              agreementNames = None
-              direction = None
-              activeAgreementsOnly = false
-              accountIds = None
-              paymentAgreementExpectedAmount = None
-              instanceTemporalFilter = None
-              externalInvoiceId = None
-              invoiceDateTemporalFilter = None
-              invoiceDueTemporalFilter = None
-              invoiceAmount = None
-              invoiceState = None
-              invoicePaymentState = None
-              invoicePostedState = None
-              invoiceBlocker = None
-              journalEntryLineId = None
-              stageEntryLineId = None
-              paymentAmount = None
-              paymentPostedToLedgerTemporalFilter = None }
+            { agreementIds = Some [ agreementId ]; activeAgreementsOnly = false }
         let agreementsResult = filter |> fetchFiltered context ExactlyOne
         let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
         return!
@@ -321,25 +303,7 @@ let fetchByMasterAgreementId
 let fetchAllActiveAgreements
     (context: Context.Context) =
     let filter : AgreementFilter =
-        { agreementIds = None
-          agreementNames = None
-          direction = None
-          activeAgreementsOnly = true
-          accountIds = None
-          paymentAgreementExpectedAmount = None
-          instanceTemporalFilter = None
-          externalInvoiceId = None
-          invoiceDateTemporalFilter = None
-          invoiceDueTemporalFilter = None
-          invoiceAmount = None
-          invoiceState = None
-          invoicePaymentState = None
-          invoicePostedState = None
-          invoiceBlocker = None
-          journalEntryLineId = None
-          stageEntryLineId = None
-          paymentAmount = None
-          paymentPostedToLedgerTemporalFilter = None }
+        { agreementIds = None; activeAgreementsOnly = true }
     filter |> fetchFiltered context AnyQuantityIsAcceptable
 
 /// A Master Agreement with its Payment Agreements, and nothing below them.

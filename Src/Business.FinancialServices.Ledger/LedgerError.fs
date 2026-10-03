@@ -47,8 +47,6 @@ type LedgerError =
     | JournalEntryDebitCreditMismatch of decimal * decimal
     | JournalEntryDescriptionIsEmpty of string
     | JournalEntryDescriptionTooLong of string * int
-    | JournalEntryExternalReferenceIsEmpty of string
-    | JournalEntryExternalReferenceTooLong of string * int
     | JournalEntryFetchByDateRangeBeginAfterEnd of LocalDate * LocalDate
     | JournalEntryFetchByReferenceBothArgumentsNull
     | JournalEntryHeaderEntryDateInvalid of LocalDate
@@ -124,8 +122,6 @@ type LedgerError =
             | JournalEntryDebitCreditMismatch(debits, credits) -> $"The sum of all debit line amounts ({debits}) must exactly equal the sum of all credit line amounts ({credits})."
             | JournalEntryDescriptionIsEmpty description -> $"Journal Entry Description cannot be empty. Provided string is {description}."
             | JournalEntryDescriptionTooLong (description, max) -> $"Journal Entry Description cannot exceed {max} characters. Provided string is {description}."
-            | JournalEntryExternalReferenceIsEmpty externalReference -> $"Journal Entry ExternalReference cannot be empty. Provided string is {externalReference}."
-            | JournalEntryExternalReferenceTooLong(externalReference, max) -> $"Journal Entry ExternalReference cannot exceed {max} characters. Provided string is {externalReference}."
             | JournalEntryFetchByDateRangeBeginAfterEnd (beginDate, endDate) -> $"Journal Entry Fetch By Date Range failed because begin date ({beginDate}) cannot be after end date ({endDate})."
             | JournalEntryFetchByReferenceBothArgumentsNull -> "FI and reference cannot both be null when fetching by reference"
             | JournalEntryHeaderEntryDateInvalid entryDate -> $"Entry date of {entryDate} is not associated to an open Fiscal Period."

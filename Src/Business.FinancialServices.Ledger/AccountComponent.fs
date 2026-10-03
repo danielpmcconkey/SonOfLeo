@@ -110,17 +110,6 @@ module AccountSubtype =
         | "OtherRevenue" -> Ok OtherRevenue
         | "OtherExpense" -> Ok OtherExpense
         | _ -> Error(AccountSubtypeInvalid subtype)
-    let validFor (subtype: AccountSubtype) : AccountType = // confirms that subtype A, B, C can only be associated to type Y
-        match subtype with
-        | Cash
-        | FixedAsset
-        | Investment -> Asset
-        | CurrentLiability
-        | LongTermLiability -> Liability
-        | OperatingRevenue
-        | OtherRevenue -> Revenue
-        | OperatingExpense
-        | OtherExpense -> Expense
 
     let validWith (``type``: AccountType) : AccountSubtype list = // confirms that type Y can only accept subtype A, B, C
         match ``type`` with

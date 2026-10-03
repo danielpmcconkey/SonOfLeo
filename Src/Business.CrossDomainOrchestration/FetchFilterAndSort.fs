@@ -28,11 +28,6 @@ type TemporalFilter =
     | FiscalPeriodIdentifier of FiscalPeriodId
     | DateRange of FilterDateRange
 
-type AmountRange = { inclusiveFloor: Money.Money; inclusiveCeiling: Money.Money }
-type AmountFilter =
-    | ExactAmount of Money.Money
-    | AmountRange of AmountRange
-
 type AccountActivityFilter =
     { accountId: AccountId option
       temporalFilter: TemporalFilter option
@@ -47,11 +42,9 @@ type AccountActivityFilter =
 
 type JournalEntryFetchFilter =
     { journalEntryHeaderId: JournalEntryHeaderId option
-      source: JournalEntrySource option
       financialInstitution: JournalRefFinancialInstitution option
       referenceText: JournalExternalReferenceText option
-      temporalFilter: TemporalFilter option
-      unVoidedOnly: bool }
+      temporalFilter: TemporalFilter option }
 
 type ClassificationRuleFilter =
     { ruleId: ClassificationRuleId option
@@ -96,24 +89,7 @@ type FetchStageEntrySort =
 
 type AgreementFilter = {
     agreementIds: MasterAgreementId list option
-    agreementNames: AgreementName list option
-    direction: FlowDirection option
     activeAgreementsOnly: bool
-    accountIds: AccountId list option // this will fetch payment agreements whose debit OR credit accounts match
-    paymentAgreementExpectedAmount: AmountFilter option
-    instanceTemporalFilter: TemporalFilter option
-    externalInvoiceId: ExternalInvoiceId option
-    invoiceDateTemporalFilter: TemporalFilter option
-    invoiceDueTemporalFilter: TemporalFilter option
-    invoiceAmount: AmountFilter option
-    invoiceState: InvoiceState option
-    invoicePaymentState: PaymentState option
-    invoicePostedState: PostedState option
-    invoiceBlocker: Blocker option
-    journalEntryLineId: JournalEntryLineId option
-    stageEntryLineId: StageEntryLineId option
-    paymentAmount: AmountFilter option
-    paymentPostedToLedgerTemporalFilter: TemporalFilter option
 }
 
 let getDateRangeFromTemporalFilter 
@@ -155,124 +131,3 @@ let createIdPredicateAndParameters<'T>
             $"({innerString})" |> Some
     let parameters = (filters |> List.map snd)
     predicate, parameters
-
-let createAgreementNamesPredicateAndParameters
-    (agreementNamesListOption: AgreementName list option) 
-    : string option * QueryParameter list =
-    let parameterPrefix = "agreement_name"
-    let names = agreementNamesListOption |> Option.defaultValue []
-    let filters =
-        [ 1 .. (names |> List.length) ]
-        |> List.zip names
-        |> List.map(fun (name, iterator) ->
-            let likeStr = name |> AgreementName.value |> containsPattern
-            let paramName = $"@{parameterPrefix}_{iterator}"
-            ($"ma.agreement_name like {paramName}",
-             { name = paramName; value = CharString likeStr }))
-    let predicate =
-        if agreementNamesListOption |> Option.isNone
-        then None
-        else
-            let innerString =
-                filters
-                |> List.map fst
-                |> String.concat $"{System.Environment.NewLine}    or "
-            $"({innerString})" |> Some
-    let parameters = (filters |> List.map snd)
-    predicate, parameters
-
-let createAmountPredicateAndParameters
-    (parameterPrefix: string)
-    (columnReference: string)
-    (amountFilterOption: AmountFilter option)
-    : string option * QueryParameter list =
-    match amountFilterOption with
-    | None -> None, []
-    | Some amountFilter -> 
-        let filters = 
-            match amountFilter with
-            | AmountRange range ->
-                let min = range.inclusiveFloor |> Money.amount
-                let max = range.inclusiveCeiling |> Money.amount
-                [
-                    ($"{columnReference} >= @{parameterPrefix}_min",
-                     { name = $"@{parameterPrefix}_min"; value = Numeric min })
-                    ($"{columnReference} >= @{parameterPrefix}_max",
-                     { name = $"@{parameterPrefix}_max"; value = Numeric max })
-                ]
-            | ExactAmount amount -> 
-                let amountDec = amount |> Money.amount
-                [
-                    ($"{columnReference} = @{parameterPrefix}",
-                     { name = $"@{parameterPrefix}"; value = Numeric amountDec })
-                ]
-        let predicate =
-            filters
-            |> List.map fst
-            |> String.concat $"{System.Environment.NewLine}and "
-            |> Some
-        let parameters = (filters |> List.map snd)
-        predicate, parameters
-
-let createTemporalPredicateAndParameters
-    (context: Context.Context)
-    (parameterPrefix: string)
-    (columnReference: string)
-    (temporalFilterOption: TemporalFilter option)
-    : Result<string option * QueryParameter list, IAppError> =
-    if temporalFilterOption |> Option.isNone then Ok (None, []) else
-    result {
-        let! filterDateRange =
-            temporalFilterOption
-            |> Option.get
-            |> getDateRangeFromTemporalFilter context
-        let predicate =
-            $"({columnReference} >= @{parameterPrefix}_begin and {columnReference} <= @{parameterPrefix}_end_inclusive)"
-            |> Some
-        let parameters =
-            [
-                { name = $"@{parameterPrefix}_begin"; value = DbLocalDate filterDateRange.beginDate }
-                { name = $"@{parameterPrefix}_end"; value = DbLocalDate filterDateRange.endInclusive }
-            ]
-        return predicate, parameters
-    }
-
-let createBasicPredicateAndParameters<'T>
-    (valueFunc: 'T -> QueryParameterValue)
-    (parameterName: string)
-    (columnReference: string)
-    (basicFilterOption: 'T option)
-    : string option * QueryParameter list =
-    if basicFilterOption |> Option.isNone then None, [] else
-    let nonPrimitiveValue = basicFilterOption |> Option.get
-    let predicate = $"{columnReference} = @{parameterName}" |> Some
-    let parameters =
-        [
-            { name = $"@{parameterName}"; value = nonPrimitiveValue |> valueFunc }
-        ]
-    predicate, parameters
-
-/// createBlockerPredicateAndParameters matches the blocker's kind exactly and, for the kinds that carry a note, the note
-/// as a contains filter taken literally (REQ-SYS-1.4). The kind and the note live in separate columns.
-let createBlockerPredicateAndParameters
-    (stateParameterName: string)
-    (noteParameterName: string)
-    (blockerOption: Blocker option)
-    : string option * QueryParameter list =
-    match blockerOption with
-    | None -> None, []
-    | Some blocker ->
-        let state, noteOption =
-            match blocker with
-            | NoFunds -> "NoFunds", None
-            | Irresponsible -> "Irresponsible", None
-            | NeedsDecision note -> "NeedsDecision", Some note
-            | Other note -> "Other", Some note
-        let stateParameter = { name = $"@{stateParameterName}"; value = CharString state }
-        match noteOption with
-        | None -> Some $"inv.blocker_state = @{stateParameterName}", [ stateParameter ]
-        | Some note ->
-            Some $"(inv.blocker_state = @{stateParameterName} and inv.blocker_note like @{noteParameterName})",
-            [ stateParameter
-              { name = $"@{noteParameterName}"; value = CharString(note |> BlockerNote.value |> containsPattern) } ]
-    

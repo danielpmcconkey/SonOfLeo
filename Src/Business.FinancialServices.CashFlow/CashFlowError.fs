@@ -40,7 +40,6 @@ type CashFlowError =
     | CashflowInvalidPaymentState of string
     | CashflowInvalidPaymentTransactionPointerRow of string
     | CashflowInvalidPostedState of string
-    | CashflowInvoiceCompositeUpdateNoOp
     | CashflowInvoiceDiamondMismatch of Guid * Guid * Guid
     | CashflowInvoiceFullyPaidAmountMismatch of Guid * decimal * decimal
     | CashflowInvoiceFullyPaidWithBlocker of Guid
@@ -56,7 +55,6 @@ type CashFlowError =
     | CashflowInvoiceMemoTooLong of string * int
     | CashflowInvoiceNonPositiveAmount of Guid * decimal
     | CashflowInvoiceNotUnderInstance of Guid * Guid
-    | CashflowInvoiceNotUnderMasterAgreement of Guid * Guid
     | CashflowInvoicePartiallyPaidWithNoPayments of Guid
     | CashflowInvoicePartiallyPostedWithNoPostedPayment of Guid
     | CashflowInvoicePostedToLedgerRequiresFullyPaid of Guid
@@ -94,7 +92,6 @@ type CashFlowError =
     | CashflowPaymentMemoIsEmpty of string
     | CashflowPaymentMemoTooLong of string * int
     | CashflowPaymentNotUnderInvoice of Guid * Guid
-    | CashflowPaymentNotUnderMasterAgreement of Guid * Guid
     | CashflowPaymentPostedToLedgerDateMismatch of Guid * LocalDate * LocalDate
     | CashflowPaymentPostedToLedgerDateWithoutJournalEntry of Guid
     | CashflowPaymentUpdateNoOp
@@ -136,7 +133,6 @@ type CashFlowError =
             | CashflowInvalidPaymentState str -> $"Invalid PaymentState of \"{str}\"."
             | CashflowInvalidPaymentTransactionPointerRow reason -> $"Invalid Payment transactionPointer row: {reason}."
             | CashflowInvalidPostedState str -> $"Invalid PostedState of \"{str}\"."
-            | CashflowInvoiceCompositeUpdateNoOp -> "Updating the Invoice composite failed because at least one updatable parameter must be set."
             | CashflowInvoiceDiamondMismatch(invoiceId, instanceAgreementId, paymentAgreementAgreementId) -> $"Invoice {invoiceId}'s Instance traces to MasterAgreement {instanceAgreementId} but its PaymentAgreement traces to MasterAgreement {paymentAgreementAgreementId}; both must trace to the same MasterAgreement."
             | CashflowInvoiceFullyPaidAmountMismatch(invoiceId, paidTotal, invoiceAmount) -> $"Invoice {invoiceId} is FullyPaid but its Payments sum to {paidTotal}, not its amount of {invoiceAmount}."
             | CashflowInvoiceFullyPaidWithBlocker invoiceId -> $"Invoice {invoiceId} cannot be FullyPaid while a Blocker is set."
@@ -154,7 +150,6 @@ type CashFlowError =
             | CashflowInvoiceMemoTooLong(memo, max) -> $"InvoiceMemo cannot exceed {max} characters. Provided Memo is {memo}."
             | CashflowInvoiceNonPositiveAmount(invoiceId, amount) -> $"Invoice {invoiceId} amount ({amount}) must be greater than 0."
             | CashflowInvoiceNotUnderInstance(invoiceId, instanceId) -> $"Invoice {invoiceId} does not belong to Instance {instanceId}."
-            | CashflowInvoiceNotUnderMasterAgreement(invoiceId, agreementId) -> $"Invoice {invoiceId} does not belong to MasterAgreement {agreementId}."
             | CashflowInvoicePartiallyPaidWithNoPayments invoiceId -> $"Invoice {invoiceId} is PartiallyPaid but has no Payments."
             | CashflowInvoicePartiallyPostedWithNoPostedPayment invoiceId -> $"Invoice {invoiceId} is PartiallyPosted but none of its Payments are posted to a journal entry."
             | CashflowInvoicePostedToLedgerRequiresFullyPaid invoiceId -> $"Invoice {invoiceId} cannot be PostedToLedger unless its PaymentState is FullyPaid."
@@ -214,7 +209,6 @@ type CashFlowError =
             | CashflowPaymentMemoIsEmpty memo -> $"PaymentMemo cannot be empty. Provided Memo is {memo}."
             | CashflowPaymentMemoTooLong(memo, max) -> $"PaymentMemo cannot exceed {max} characters. Provided Memo is {memo}."
             | CashflowPaymentNotUnderInvoice(paymentId, invoiceId) -> $"Payment {paymentId} does not belong to Invoice {invoiceId}."
-            | CashflowPaymentNotUnderMasterAgreement(paymentId, agreementId) -> $"Payment {paymentId} does not belong to MasterAgreement {agreementId}."
             | CashflowPaymentPostedToLedgerDateMismatch(paymentId, provided, actual) -> $"Payment {paymentId}'s postedToLedgerDate ({provided}) does not match its journal entry's entry date ({actual})."
             | CashflowPaymentPostedToLedgerDateWithoutJournalEntry paymentId -> $"Payment {paymentId} has a postedToLedgerDate set but its transactionPointer is not Posted to a journal entry."
             | CashflowPaymentUpdateNoOp -> "Updating the Payment record failed because at least one updatable parameter must be set."

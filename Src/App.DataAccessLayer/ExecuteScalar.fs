@@ -164,17 +164,13 @@ let executeScalar
             // paradigmatic F# Result Ok/Error at the impure boundary
             let objResult =
                 try
-                    match dbTransaction |> isNone with
-                    | true ->
+                    match dbTransaction |> transactionAndConnection with
+                    | None ->
                         use connection = ds.OpenConnection()
                         use command = new NpgsqlCommand(queryStatement, connection)
                         parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)
                         Ok (command.ExecuteScalar())
-                    | false ->
-                        let tran, conn =
-                            dbTransaction
-                            |> transactionAndConnection
-                            |> Result.defaultWith(fun e -> failwith(toMessage e)) // we do this because we're already inside the boundary of DB try / catch. Result railroad doesn't really work here.
+                    | Some(tran, conn) ->
                         use command = new NpgsqlCommand(queryStatement, conn)
                         command.Transaction <- tran
                         parameters |> List.iter(fun p -> command.Parameters.Add(p) |> ignore)

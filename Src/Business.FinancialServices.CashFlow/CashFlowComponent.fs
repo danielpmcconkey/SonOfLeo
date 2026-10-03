@@ -150,14 +150,6 @@ type Blocker =
     | NeedsDecision of BlockerNote
     | Other of BlockerNote
 
-module Blocker =
-    let toString b =
-        match b with
-        | NoFunds -> "NoFunds"
-        | Irresponsible -> "Irresponsible"
-        | NeedsDecision note -> $"NeedsDecision: {note}"
-        | Other note -> $"Other: {note}"
-    
 type InvoiceLifeCycleState = {
     invoiceState: InvoiceState
     paymentState: PaymentState
