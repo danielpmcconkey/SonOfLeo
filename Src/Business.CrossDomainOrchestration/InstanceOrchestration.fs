@@ -57,6 +57,22 @@ let private confirmPaymentIsUnderInvoice
         let invoiceUuid = invoiceId |> CashFlowComponent.InvoiceId.value
         Error(CashFlowError.CashflowPaymentNotUnderInvoice(paymentUuid, invoiceUuid))
 
+/// lineAmount is the amount of the line a transaction pointer names. A Payment's amount is its line's; no caller
+/// supplies one (REQ-CF-6.5, REQ-CF-9.8).
+let lineAmount
+    (context: Context.Context)
+    (transactionPointer: CashFlowComponent.TransactionPointer)
+    : Result<CashFlowComponent.PaymentAmount, IAppError> =
+    match transactionPointer with
+    | CashFlowComponent.Posted journalEntryLineId ->
+        journalEntryLineId |> JournalEntryLine.fetchById context
+        |> whenNoRows (LedgerError.JournalEntryLineIdDoesntExist (journalEntryLineId |> JournalEntryLineId.value))
+        |> Result.map (fun line -> ({ money = line |> JournalEntryLine.amount } : CashFlowComponent.PaymentAmount))
+    | CashFlowComponent.Staged stageEntryLineId ->
+        stageEntryLineId |> StageEntryLine.fetchById context
+        |> whenNoRows (DataIngestionError.IngestionStageEntryLineIdDoesntExist (stageEntryLineId |> StageEntryLineId.value))
+        |> Result.map (fun line -> ({ money = line |> StageEntryLine.amount } : CashFlowComponent.PaymentAmount))
+
 /// confirmPayment checks the account its line sits on, not the line type. A classification rule may deliberately claim
 /// the opposite leg -- an Outgo agreement taking a refund matches a Credit line -- and an operator repointing a payment
 /// by hand can do the same.
@@ -503,16 +519,6 @@ let private isThereACompositeUpdate (compositeUpdate: InstanceCompositeUpdate) :
            || invoiceCompositeUpdate.newPayments |> List.isEmpty |> not)
     || compositeUpdate.newInvoices |> List.isEmpty |> not
 
-let private confirmNoDerivedFieldIsSet (compositeUpdate: InstanceCompositeUpdate) : Result<unit, IAppError> =
-    let setDerivedFields =
-        [ if compositeUpdate.instanceUpdates.isFulfilledUpdate <> FieldUpdate.NoChange then "isFulfilled"
-          for invoiceCompositeUpdate in compositeUpdate.invoiceCompositeUpdates do
-              if invoiceCompositeUpdate.invoiceUpdates.paymentStateUpdate <> FieldUpdate.NoChange then "paymentState"
-              if invoiceCompositeUpdate.invoiceUpdates.postedStateUpdate <> FieldUpdate.NoChange then "postedState" ]
-    match setDerivedFields with
-    | [] -> Ok ()
-    | fieldName :: _ -> Error(CashFlowError.CashflowInstanceCompositeDerivedFieldSet fieldName)
-
 let private derivePaymentState
     (invoice: Invoice.Invoice)
     (payments: Payment.Payment list)
@@ -667,13 +673,12 @@ let private preConstructNewInvoiceComposite
 
 /// updateInstanceComposite is the single door for editing an Instance and anything hanging off it. It assembles the
 /// composite the package would produce, validates that, and only then writes -- payment state, posted state and
-/// isFulfilled are derived here, so a package that sets them is rejected rather than obeyed.
+/// isFulfilled are derived here; no contract carries them (REQ-CF-9.11).
 let updateInstanceComposite
     (context: Context.Context)
     (compositeUpdate: InstanceCompositeUpdate)
     : Result<InstanceComposite, IAppError> =
     result {
-        do! compositeUpdate |> confirmNoDerivedFieldIsSet
         do!
             if compositeUpdate |> isThereACompositeUpdate then Ok ()
             else CashFlowError.error CashFlowError.CashflowInstanceCompositeUpdateNoOp

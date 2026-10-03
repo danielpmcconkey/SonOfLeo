@@ -172,9 +172,9 @@ type CreateUpcomingInstancesInput = { projectionHorizonInDays: int }
 
 type ProjectCashFlowInput = { projectionHorizonInDays: int }
 
+// a payment names its line only: its amount is the line's (REQ-CF-6.5)
 type CreatePaymentFieldsInput = {
     transactionPointer: TransactionPointerContract
-    amount: decimal
     postedToFiDate: LocalDate option
     postedToLedgerDate: LocalDate option
     memo: string option
@@ -212,8 +212,6 @@ type UpdateInvoiceInput = {
     dueDateUpdate: FieldUpdate<LocalDate>
     amountUpdate: FieldUpdate<decimal>
     invoiceStateUpdate: FieldUpdate<string>
-    paymentStateUpdate: FieldUpdate<string>
-    postedStateUpdate: FieldUpdate<string>
     blockerUpdate: FieldUpdate<BlockerContract option>
     memoUpdate: FieldUpdate<string option>
 }

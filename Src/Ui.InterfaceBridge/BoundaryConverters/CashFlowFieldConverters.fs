@@ -339,6 +339,7 @@ let ``convert [TransactionPointerContract] to [TransactionPointer]``
         CashFlowComponent.Staged(stageEntryLineUuid |> StageEntryLineId.fromGuid)
 
 let ``convert [CreatePaymentFieldsInput] to [PaymentPrimitives]``
+    (context: Context.Context)
     (input: CreatePaymentFieldsInput)
     : Result<
         TransactionPointer * PaymentAmount * PostedToFiDate option * PostedToLedgerDate option * PaymentMemo option,
@@ -346,8 +347,7 @@ let ``convert [CreatePaymentFieldsInput] to [PaymentPrimitives]``
     result {
         let transactionPointer =
             input.transactionPointer |> ``convert [TransactionPointerContract] to [TransactionPointer]``
-        let! money = input.amount |> Money.fromDecimal
-        let amount : PaymentAmount = { money = money }
+        let! amount = transactionPointer |> InstanceOrchestration.lineAmount context
         let postedToFiDate =
             input.postedToFiDate |> Option.map (fun localDate -> ({ localDate = localDate } : PostedToFiDate))
         let postedToLedgerDate =
@@ -358,12 +358,13 @@ let ``convert [CreatePaymentFieldsInput] to [PaymentPrimitives]``
     }
 
 let ``convert [CreatePaymentFieldsInput list] to [PaymentPrimitives list]``
+    (context: Context.Context)
     (input: CreatePaymentFieldsInput list)
     : Result<
         (TransactionPointer * PaymentAmount * PostedToFiDate option * PostedToLedgerDate option * PaymentMemo option) list,
         IAppError> =
     input
-    |> List.map ``convert [CreatePaymentFieldsInput] to [PaymentPrimitives]``
+    |> List.map (``convert [CreatePaymentFieldsInput] to [PaymentPrimitives]`` context)
     |> convertListOfResultsToResultsList
 
 let ``convert [NewInvoiceFieldsInput] to [NewInvoicePrimitives]``
@@ -387,7 +388,7 @@ let ``convert [NewInvoiceFieldsInput] to [NewInvoicePrimitives]``
         let! blocker =
             input.blocker |> convertOptionToDesiredTypeWithFallibleConverter ``convert [BlockerContract] to [Blocker]``
         let! memo = input.memo |> convertOptionToDesiredTypeWithFallibleConverter InvoiceMemo.create
-        let! payments = input.payments |> ``convert [CreatePaymentFieldsInput list] to [PaymentPrimitives list]``
+        let! payments = input.payments |> ``convert [CreatePaymentFieldsInput list] to [PaymentPrimitives list]`` context
         return
             paymentAgreementId, externalInvoiceId, invoiceDate, dueDate, amount, invoiceState, blocker, memo, payments
     }
@@ -455,10 +456,6 @@ let ``convert [UpdateInvoiceInput] to [InstanceCompositeUpdate]``
                 amount |> Money.fromDecimal |> Result.map (fun money -> ({ money = money } : InvoiceAmount)))
         let! invoiceStateUpdate = input.invoiceStateUpdate
                                   |> FieldUpdate.convertFieldUpdateToNewTypeFallible InvoiceState.fromString
-        let! paymentStateUpdate = input.paymentStateUpdate
-                                  |> FieldUpdate.convertFieldUpdateToNewTypeFallible PaymentState.fromString
-        let! postedStateUpdate = input.postedStateUpdate
-                                 |> FieldUpdate.convertFieldUpdateToNewTypeFallible PostedState.fromString
         let! blockerUpdate =
             input.blockerUpdate
             |> FieldUpdate.convertFieldUpdateOptionToNewTypeOptionFallible
@@ -472,8 +469,8 @@ let ``convert [UpdateInvoiceInput] to [InstanceCompositeUpdate]``
             dueDateUpdate = dueDateUpdate
             amountUpdate = amountUpdate
             invoiceStateUpdate = invoiceStateUpdate
-            paymentStateUpdate = paymentStateUpdate
-            postedStateUpdate = postedStateUpdate
+            paymentStateUpdate = FieldUpdate.NoChange
+            postedStateUpdate = FieldUpdate.NoChange
             blockerUpdate = blockerUpdate
             memoUpdate = memoUpdate }
         let invoiceCompositeUpdate : InstanceOrchestration.InvoiceCompositeUpdate =
@@ -492,7 +489,7 @@ let ``convert [CreatePaymentInput] to [InstanceCompositeUpdate]``
         let invoiceId = input.invoiceId |> InvoiceId.fromGuid
         let! invoice = invoiceId |> Invoice.fetchById context
         let instanceId = invoice |> Invoice.instanceId
-        let! newPayment = input.payment |> ``convert [CreatePaymentFieldsInput] to [PaymentPrimitives]``
+        let! newPayment = input.payment |> ``convert [CreatePaymentFieldsInput] to [PaymentPrimitives]`` context
         let invoiceCompositeUpdate : InstanceOrchestration.InvoiceCompositeUpdate =
             { invoiceUpdates = invoiceId |> noChangeInvoiceUpdates
               paymentUpdates = []
