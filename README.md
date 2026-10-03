@@ -39,7 +39,7 @@ will clarify for you.
 | 8 | *Now* read the Src, and raise any concern that a committed test is aimed wrong. Discuss; return to 6 or continue to 9 | BD + Dan |
 | 9 | Write the tests | BD |
 | 10 | A test fails: work out together whether it's a bug in the Src or a spec that steered the test wrong. Hobson joins when useful. This is usually the first careful read of the spec. Dan dispositions | Dan + BD |
-| 11 | All tests pass and all three agree the slice is complete → merge to `main` | Dan |
+| 11 | All tests pass, `bash Checks/run-all.sh` passes, and all three agree the slice is complete → merge to `main` | Dan |
 | 12 | Run the traceability script | Dan or Hobson |
 | 13 | Run the audit process; it names the gaps we missed | Dan |
 

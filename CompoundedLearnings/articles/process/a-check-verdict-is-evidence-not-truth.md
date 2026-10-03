@@ -47,15 +47,11 @@ so contention between checks is not the explanation.
 **What it does not support:** any specific cause. Undiagnosed. Do not repeat a guess as
 though it were a finding.
 
-**Current status (2026-07-26): the pre-commit hook is switched off** by Dan's decision,
-precisely so this flake cannot refuse a commit that needs making.
-`Checks/install-hooks.sh` now requires `--force`. The checks themselves are unaffected
-and `bash Checks/run-all.sh` remains mandatory before presenting work. Reinstate the hook
-when the flake is diagnosed.
-
-**If you do have the hook installed: retry the commit once.** If it passes on the second
-attempt with nothing changed, you have met this flake; note it and carry on rather than
-investigating at the moment you are trying to commit something unrelated.
+**Current status (2026-10-03): the pre-commit hook is retired** by Dan's decision, and
+`Checks/install-hooks.sh` is deleted. A per-commit gate blocked a whole refactor over one
+stale allowlist path (2026-07-31), and agents' clones never had it anyway. The checks
+themselves stay: `bash Checks/run-all.sh` is mandatory before presenting work and at slice
+completion (README step 11).
 
 Both tempting responses were wrong: `--no-verify` would have masked a real defect if one
 existed, and running `fantomas` over the named files would have rewritten Dan's in-flight
