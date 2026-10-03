@@ -168,11 +168,14 @@ which have code, which have tests.`,
       { label: 'scout', phase: 'Baseline', schema: SCOUT_SCHEMA }
     ),
     () => agent(
-      `Run the mechanical traceability audit for SonOfLeo.
+      `Run the mechanical audits for SonOfLeo.
 
-Execute: bash ${AUDIT_SCRIPT} ${REPO}
+Execute, in order:
+1. bash ${AUDIT_SCRIPT} ${REPO}
+2. bash ${REPO}/Checks/run-all.sh
 
-Capture the complete raw stdout regardless of exit code. Return it verbatim.`,
+Capture the complete raw stdout of each regardless of exit code. Return both verbatim, each under a heading naming
+the command. A FAIL from run-all.sh is a finding, not an environment problem.`,
       { label: 'traceability-script', phase: 'Baseline' }
     ),
   ]
@@ -200,7 +203,7 @@ Read-only except for build output.`,
 
   const baselineWriteFiles = [
     { name: '00-scout-state.md', content: `# Scout — Derived Repo State\n\n${scout.stateSummary}` },
-    { name: '01-traceability.md', content: `# Traceability Script Output\n\n\`\`\`\n${traceability}\n\`\`\`` },
+    { name: '01-traceability.md', content: `# Traceability Script and Checks Output\n\n\`\`\`\n${traceability}\n\`\`\`` },
     { name: '02-test-run.md', content: `# Build & Test Run\n\n${testRun || (RUN_TESTS ? '(agent failed)' : '(skipped)')}` },
     { name: '03-dan-statement.md', content: `# Dan's Statement of Position\n\n${DAN_STATEMENT}` },
     { name: '.baseline-cache.json', content: JSON.stringify({
