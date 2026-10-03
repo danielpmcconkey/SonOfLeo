@@ -151,7 +151,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                              { InvoiceAmount.money = amount }, InvoiceReceived, blocker, None, payments)
                     })
                 |> convertListOfResultsToResultsList
-            let! created = InstanceOrchestration.createInstanceCompositeAndSaveToDb context agreementId date invoiceFields
+            let! created = InstanceOrchestration.constructNewAndPersist context agreementId date invoiceFields
             let instanceId = created |> InstanceOrchestration.instance |> Instance.instanceId
             let composites = created |> InstanceOrchestration.invoiceComposites
             let perInvoice =

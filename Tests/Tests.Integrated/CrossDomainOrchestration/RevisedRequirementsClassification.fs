@@ -231,10 +231,10 @@ type RevisedRequirementsClassificationTests(fixture: TestDataFixture) =
                     [ ("And", [ fieldMatch "Description" text ], None) ] |> createClassificationRuleGroupListForTest |> orFail
                 let! ruleName = $"OneMatch rule {tag}" |> ClassificationRuleName.create
                 let! rule =
-                    ClassificationOrchestration.createNewClassificationRule context ruleName (ClassificationClaimant.PaymentAgreement legId) 37 (groupsFor tag)
+                    ClassificationOrchestration.constructNewAndPersist context ruleName (ClassificationClaimant.PaymentAgreement legId) 37 (groupsFor tag)
                 let! otherName = $"Unmatched rule {tag}" |> ClassificationRuleName.create
                 let! other =
-                    ClassificationOrchestration.createNewClassificationRule context otherName (ClassificationClaimant.Account(accountIdOf "F-2230")) 1 (groupsFor $"elsewhere {tag}")
+                    ClassificationOrchestration.constructNewAndPersist context otherName (ClassificationClaimant.Account(accountIdOf "F-2230")) 1 (groupsFor $"elsewhere {tag}")
                 let! outcome = Classifier.classifyCandidate [ rule; other ] (candidateWith "Description" $"Paid {tag}")
                 let expectedMatch : PrioritizedMatch =
                     { accountId = None

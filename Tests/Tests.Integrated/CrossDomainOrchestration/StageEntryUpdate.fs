@@ -587,7 +587,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let contextForUpdate = context |> TestContext.updateInitiationInstant
                 let! entry, debitLineId = createOutgoEntry context "REQ-STG-6.5 linked line removal"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-                let! _ = CashFlowOps.constructNewPaymentAgreementLinkAndPersist context fixture.Data.cashFlow.legAId debitLineId
+                let! _ = CashFlowOps.constructNewAndPersist context fixture.Data.cashFlow.legAId debitLineId
                 let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
                 return!
                     updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [] [] [ debitLineId ]
@@ -653,7 +653,7 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let contextForUpdate = context |> TestContext.updateInitiationInstant
                 let! entry, debitLineId = createOutgoEntry context "REQ-STG-6.5 linked line change"
                 let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-                let! _ = CashFlowOps.constructNewPaymentAgreementLinkAndPersist context fixture.Data.cashFlow.legAId debitLineId
+                let! _ = CashFlowOps.constructNewAndPersist context fixture.Data.cashFlow.legAId debitLineId
                 let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
                 let! newAmount = Money.fromDecimal 90.00M
                 let lineUpdate =

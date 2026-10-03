@@ -41,7 +41,7 @@ type InvoiceStateByDirectionTests(fixture: TestDataFixture) =
                 let! invoiceState = state |> InvoiceState.fromString
                 let! amount = Money.fromDecimal 100.00M
                 let created =
-                    InstanceOrchestration.createInstanceCompositeAndSaveToDb
+                    InstanceOrchestration.constructNewAndPersist
                         context cashFlow.agreementAId instanceDate
                         [ (cashFlow.legAId, None, { localDate = instanceDate }, { localDate = instanceDate.PlusDays(30) },
                            { money = amount }, invoiceState, None, None, []) ]

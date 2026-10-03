@@ -128,7 +128,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! amount = Money.fromDecimal 100.00M
             let newPayments = payments |> List.map (fun (pointer, _) -> (pointer, None, None, None))
             let! created =
-                InstanceOrchestration.createInstanceCompositeAndSaveToDb
+                InstanceOrchestration.constructNewAndPersist
                     context agreementId invoiceDate
                     [ (legId, None, { localDate = invoiceDate }, { localDate = invoiceDate.PlusDays(30) },
                        { money = amount }, InvoiceReceived, None, None, newPayments) ]

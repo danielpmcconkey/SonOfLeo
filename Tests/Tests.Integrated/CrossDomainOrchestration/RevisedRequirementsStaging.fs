@@ -168,7 +168,7 @@ type private Scenario(fixture: TestDataFixture, initialContext: Context.Context)
             let! name = $"Revised staging rule {Guid.NewGuid():N}" |> ClassificationRuleName.create
             let! pattern = text |> StringSearchPattern.create
             let! groups = [ ("And", [ FieldMatch.Description pattern ], None) ] |> createClassificationRuleGroupListForTest
-            return! ClassificationOrchestration.createNewClassificationRule context name claimant priority groups
+            return! ClassificationOrchestration.constructNewAndPersist context name claimant priority groups
         }
 
     /// An Outgo agreement with one leg on F-2230 and F-1280; returns the leg's ID.

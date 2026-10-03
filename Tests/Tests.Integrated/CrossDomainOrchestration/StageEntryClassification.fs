@@ -295,7 +295,7 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                 let! pattern = slowPattern |> StringSearchPattern.create
                 let! ruleName = "CR-1.26 slow pattern" |> ClassificationRuleName.create
                 let! rule =
-                    ClassificationOrchestration.createNewClassificationRule
+                    ClassificationOrchestration.constructNewAndPersist
                         context ruleName (ClassificationClaimant.Account fixture.Data.food5350Id) 783
                         [ ClassificationRuleGroup.create And (FieldMatchChain.create [ FieldMatch.Description pattern ]) None ]
                 let! description = (String.replicate 40 "a" + "!") |> JournalEntryDescription.create

@@ -107,7 +107,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                     })
                 |> convertListOfResultsToResultsList
             let! created =
-                InstanceOrchestration.createInstanceCompositeAndSaveToDb
+                InstanceOrchestration.constructNewAndPersist
                     context agreementId invoiceDate
                     [ (legId, None, { localDate = invoiceDate }, { localDate = invoiceDate.PlusDays(daysDue) },
                        { money = amount }, InvoiceReceived, None, None, payments) ]
@@ -144,7 +144,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
     member this.linkedLine legId (description: string) (entryDate: LocalDate) =
         result {
             let! headerId, lineId = this.stagedEntry description entryDate [ ("Classified", "Classifier") ]
-            let! _ = CashFlowOps.constructNewPaymentAgreementLinkAndPersist context legId lineId
+            let! _ = CashFlowOps.constructNewAndPersist context legId lineId
             return headerId, lineId
         }
 
@@ -155,7 +155,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! pattern = description |> StringSearchPattern.create
             let! groups = [ ("And", [ FieldMatch.Description pattern ], None) ] |> createClassificationRuleGroupListForTest
             return!
-                ClassificationOrchestration.createNewClassificationRule
+                ClassificationOrchestration.constructNewAndPersist
                     context name (ClassificationClaimant.PaymentAgreement legId) 500 groups
         }
 

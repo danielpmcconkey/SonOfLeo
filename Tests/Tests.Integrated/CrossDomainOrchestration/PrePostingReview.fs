@@ -130,7 +130,7 @@ type PrePostingScenario(fixture: TestDataFixture, context: Context.Context) =
         }
 
     member _.link legId (line: StageEntryLine.StageEntryLine) =
-        CashFlowOps.constructNewPaymentAgreementLinkAndPersist context legId (line |> StageEntryLine.stageEntryLineId)
+        CashFlowOps.constructNewAndPersist context legId (line |> StageEntryLine.stageEntryLineId)
         |> Result.map ignore
 
     /// An Invoice of invoiceAmount on its own Instance dated instanceDate, with one Payment on the staged line.
@@ -140,7 +140,7 @@ type PrePostingScenario(fixture: TestDataFixture, context: Context.Context) =
         result {
             let! amount = Money.fromDecimal invoiceAmount
             let! _ =
-                InstanceOrchestration.createInstanceCompositeAndSaveToDb
+                InstanceOrchestration.constructNewAndPersist
                     context agreementId instanceDate
                     [ (legId, None, { localDate = invoiceDate }, { localDate = dueDate }, { money = amount },
                        InvoiceReceived, None, None,

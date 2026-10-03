@@ -1003,7 +1003,7 @@ type TestDataFixture() =
                     result {
                         let! amount = Money.fromDecimal 100.00M
                         let! created =
-                            InstanceOrchestration.createInstanceCompositeAndSaveToDb
+                            InstanceOrchestration.constructNewAndPersist
                                 context agreementId instanceDate
                                 [ (legId, None, { localDate = instanceDate }, { localDate = instanceDate.PlusDays(daysDue) },
                                    { money = amount }, InvoiceReceived, None, None, []) ]
@@ -1021,7 +1021,7 @@ type TestDataFixture() =
                                 (System.Guid.NewGuid().ToString()) testBankSource entryDate (outgoLines 100.00M)
                                 (transitionsTo statuses)
                         let lineId = entry |> leglineOf
-                        let! _ = CashFlowOps.constructNewPaymentAgreementLinkAndPersist context legId lineId
+                        let! _ = CashFlowOps.constructNewAndPersist context legId lineId
                         return lineId
                     }
 
@@ -1099,7 +1099,7 @@ type TestDataFixture() =
                     result {
                         let! amount = Money.fromDecimal 100.00M
                         let! created =
-                            InstanceOrchestration.createInstanceCompositeAndSaveToDb
+                            InstanceOrchestration.constructNewAndPersist
                                 context agreementCId firstOfThisMonth
                                 [ (legCId, None, { localDate = firstOfThisMonth }, { localDate = firstOfThisMonth.PlusDays(30) },
                                    { money = amount }, InvoiceReceived, None, None,

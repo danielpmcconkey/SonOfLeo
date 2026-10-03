@@ -188,7 +188,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                     [ (leg, None, { InvoiceDate.localDate = date }, { DueDate.localDate = date.PlusDays(30) }, { InvoiceAmount.money = amount },
                        InvoiceReceived, None, None, payments) ]
                 | None -> []
-            let! created = InstanceOrchestration.createInstanceCompositeAndSaveToDb context agreementId date invoices
+            let! created = InstanceOrchestration.constructNewAndPersist context agreementId date invoices
             let instanceId = created |> InstanceOrchestration.instance |> Instance.instanceId
             let composites = created |> InstanceOrchestration.invoiceComposites
             let invoiceIds = composites |> List.map (InstanceOrchestration.invoice >> Invoice.invoiceId)

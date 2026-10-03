@@ -98,7 +98,7 @@ let private createInstance payload _ =
             let! invoices =
                 input.invoices |> ``convert [NewInvoiceFieldsInput list] to [NewInvoicePrimitives list]`` context
             let! instanceComposite =
-                InstanceOrchestration.createInstanceCompositeAndSaveToDb
+                InstanceOrchestration.constructNewAndPersist
                     context masterAgreementId input.instanceDate invoices
             let! converted = instanceComposite |> ``convert [InstanceComposite] to [InstanceCompositeReturn]`` context
             return! Json.toJson<InstanceCompositeReturn> converted

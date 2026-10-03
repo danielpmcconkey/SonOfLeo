@@ -120,7 +120,7 @@ type private Scenario(fixture: TestDataFixture, initialContext: Context.Context)
     member _.rule (name: string) (claimant: ClassificationClaimant) (priority: int) (ruleGroups: ClassificationRuleGroup list) =
         result {
             let! ruleName = $"{name} {Guid.NewGuid():N}" |> ClassificationRuleName.create
-            return! ClassificationOrchestration.createNewClassificationRule context ruleName claimant priority ruleGroups
+            return! ClassificationOrchestration.constructNewAndPersist context ruleName claimant priority ruleGroups
         }
 
     /// An account rule claiming any line whose entry description matches the pattern.
@@ -333,7 +333,7 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                 let! unlinked = s.entry $"Linked {tag}" "Classified" true
                 let linkedLine = linked |> debitLineOf
                 let unlinkedLine = unlinked |> debitLineOf
-                let! _ = CashFlowOps.constructNewPaymentAgreementLinkAndPersist s.Context legId (linkedLine |> StageEntryLine.stageEntryLineId)
+                let! _ = CashFlowOps.constructNewAndPersist s.Context legId (linkedLine |> StageEntryLine.stageEntryLineId)
                 let! links = linkedLine |> StageEntryLine.stageEntryLineId |> PaymentAgreementLink.fetchByStageEntryLineId s.Context
                 let! run =
                     [ candidateOf linked linkedLine; candidateOf unlinked unlinkedLine ]

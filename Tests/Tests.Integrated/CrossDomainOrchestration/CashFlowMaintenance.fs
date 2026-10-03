@@ -55,7 +55,7 @@ let private createBlockedInvoice context agreementId legId (monthsAgo: int) (blo
         let invoiceDate = LocalDate(today.Year, today.Month, 1).PlusMonths(-monthsAgo)
         let! amount = Money.fromDecimal 100.00M
         let! created =
-            InstanceOrchestration.createInstanceCompositeAndSaveToDb
+            InstanceOrchestration.constructNewAndPersist
                 context agreementId invoiceDate
                 [ (legId, None, { localDate = invoiceDate }, { localDate = invoiceDate }, { money = amount },
                    InvoiceReceived, Some blocker, None, []) ]
@@ -71,7 +71,7 @@ let private createInvoicedInstance (fixture: TestDataFixture) context (name: str
         let invoiceDate = LocalDate(today.Year, today.Month, 1).PlusMonths(-1)
         let! amount = Money.fromDecimal 100.00M
         let! created =
-            InstanceOrchestration.createInstanceCompositeAndSaveToDb
+            InstanceOrchestration.constructNewAndPersist
                 context agreementId invoiceDate
                 [ (legId, None, { localDate = invoiceDate }, { localDate = invoiceDate }, { money = amount },
                    InvoiceReceived, None, None, []) ]

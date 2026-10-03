@@ -27,7 +27,7 @@ type DerivedInvoiceStateTests(fixture: TestDataFixture) =
                 if withPayment then [ (Posted cashFlow.unclaimedLedgerLineId, None, None, None) ]
                 else []
             let! created =
-                InstanceOrchestration.createInstanceCompositeAndSaveToDb
+                InstanceOrchestration.constructNewAndPersist
                     context cashFlow.agreementAId instanceDate
                     [ (cashFlow.legAId, None, { localDate = instanceDate }, { localDate = instanceDate.PlusDays(30) },
                        { money = amount }, InvoiceReceived, None, None, payments) ]

@@ -80,7 +80,7 @@ let private confirmRuleGroups
         |> convertListOfResultsToResultsList
         |> Result.map ignore
 
-let createNewClassificationRule
+let constructNewAndPersist
     (context: Context.Context)
     (classificationRuleName: ClassificationRuleName)
     (classificationClaimant: ClassificationClaimant)

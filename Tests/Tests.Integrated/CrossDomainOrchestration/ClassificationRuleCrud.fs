@@ -94,7 +94,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
             result {
                 let groups = [ groupOf [ Source(patternOf "TestReturnShape") ] ]
                 let! created =
-                    ClassificationOrchestration.createNewClassificationRule
+                    ClassificationOrchestration.constructNewAndPersist
                         context
                         (ruleNameOf "CR-4.1 return shape")
                         (ClassificationClaimant.Account fixture.Data.food5350Id)
@@ -129,7 +129,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                         (chainOf [ Description(patternOf "^ROUNDTRIP") ])
                         (Some(chainOf [ Amount({ numericSearchOperator = GreaterThanOrEqualTo; amount = amount }) ])) ]
                 let! created =
-                    ClassificationOrchestration.createNewClassificationRule
+                    ClassificationOrchestration.constructNewAndPersist
                         context
                         (ruleNameOf "CR-4.5 round trip")
                         (ClassificationClaimant.Account fixture.Data.entertainment5650Id)
@@ -145,7 +145,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let! created =
-                    ClassificationOrchestration.createNewClassificationRule
+                    ClassificationOrchestration.constructNewAndPersist
                         context
                         (ruleNameOf "CR-4.4 always active")
                         (ClassificationClaimant.Account fixture.Data.food5350Id)
@@ -162,7 +162,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             // Rule groups are valid, because confirmRuleGroups runs first and would otherwise
             // return its own error before the code is ever looked at.
-            ClassificationOrchestration.createNewClassificationRule
+            ClassificationOrchestration.constructNewAndPersist
                 context
                 (ruleNameOf "CR-4.3 bogus code")
                 (ClassificationClaimant.Account(AccountId.create()))
@@ -186,7 +186,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
         try
             result {
                 do!
-                    ClassificationOrchestration.createNewClassificationRule
+                    ClassificationOrchestration.constructNewAndPersist
                         context
                         (ruleNameOf takenName)
                         (ClassificationClaimant.Account fixture.Data.food5350Id)
@@ -231,7 +231,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                    the subject: the update path commits, and a wrongly-successful rename would
                    leave fixture data renamed for every later test. *)
                 let! subject =
-                    ClassificationOrchestration.createNewClassificationRule
+                    ClassificationOrchestration.constructNewAndPersist
                         context
                         (ruleNameOf subjectName)
                         (ClassificationClaimant.Account fixture.Data.food5350Id)
@@ -263,7 +263,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-CR-4.6 REQ-CR-1.7 create returns a validation error when the rule groups list is empty`` () =
         runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
-            ClassificationOrchestration.createNewClassificationRule
+            ClassificationOrchestration.constructNewAndPersist
                 context
                 (ruleNameOf "CR-4.6 no groups")
                 (ClassificationClaimant.Account fixture.Data.food5350Id)
@@ -290,7 +290,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                     [ ClassificationRuleGroup.create And populated None
                       ClassificationRuleGroup.create And empty None ]
                 | _ -> [ ClassificationRuleGroup.create Or populated (Some empty) ]
-            ClassificationOrchestration.createNewClassificationRule
+            ClassificationOrchestration.constructNewAndPersist
                 context
                 (ruleNameOf $"CR-4.7 empty chain at {emptyPosition}")
                 (ClassificationClaimant.Account fixture.Data.food5350Id)
@@ -329,7 +329,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 // A strict superstring of the target's name. An exact-match fetch must ignore it;
                 // a LIKE would return two rows and the fetch would fail outright.
                 let! _ =
-                    ClassificationOrchestration.createNewClassificationRule
+                    ClassificationOrchestration.constructNewAndPersist
                         context
                         (ruleNameOf "Source = TestBank then 5300 EXTENDED")
                         (ClassificationClaimant.Account fixture.Data.food5350Id)
@@ -757,7 +757,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let! created =
-                    ClassificationOrchestration.createNewClassificationRule
+                    ClassificationOrchestration.constructNewAndPersist
                         context
                         (ruleNameOf "CR-6.5 timestamp")
                         (ClassificationClaimant.Account fixture.Data.food5350Id)
@@ -874,7 +874,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                     | "Source" -> Source(patternOf validPattern)
                     | _ -> Description(patternOf validPattern)
                 let! created =
-                    ClassificationOrchestration.createNewClassificationRule
+                    ClassificationOrchestration.constructNewAndPersist
                         context (ruleNameOf $"CR-1.26 stored {field}")
                         (ClassificationClaimant.Account fixture.Data.food5350Id) 782 [ groupOf [ fieldMatch ] ]
                 let ruleUuid = created |> idOf |> ClassificationRuleId.value

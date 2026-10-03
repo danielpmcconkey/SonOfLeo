@@ -77,7 +77,7 @@ let private spawnInstancesFromAgreement
                         Some (paId, extInvoiceId, invoiceDate, dueDate, amount, invoiceState, None, invMemo, [])
                     | _ -> None
                     )
-                InstanceOrchestration.createInstanceCompositeAndSaveToDb
+                InstanceOrchestration.constructNewAndPersist
                         context agreementId neededDate invoiceCompositeFieldsList)
             |> convertListOfResultsToResultsList
             |> Result.map ignore
@@ -577,7 +577,7 @@ let applyPaymentAgreementClassification
         return classificationResult
     }
 
-let constructNewPaymentAgreementLinkAndPersist
+let constructNewAndPersist
     (context: Context.Context)
     (paymentAgreementId: CashFlowComponent.PaymentAgreementId)
     (stageEntryLineId: StageEntryComponent.StageEntryLineId)

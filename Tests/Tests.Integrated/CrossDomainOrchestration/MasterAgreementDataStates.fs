@@ -459,9 +459,9 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                 let nextInstanceNow () =
                     agreementId |> MasterAgreement.fetchById s.Context
                     |> Result.map (fun m -> (m |> MasterAgreement.cadence |> Cadence.nextInstance).nextInstance)
-                let! _ = InstanceOrchestration.createInstanceCompositeAndSaveToDb s.Context agreementId nextInstance []
+                let! _ = InstanceOrchestration.constructNewAndPersist s.Context agreementId nextInstance []
                 let! afterFirst = nextInstanceNow ()
-                let! _ = InstanceOrchestration.createInstanceCompositeAndSaveToDb s.Context agreementId afterFirst []
+                let! _ = InstanceOrchestration.constructNewAndPersist s.Context agreementId afterFirst []
                 let! afterSecond = nextInstanceNow ()
                 Assert.Equal<LocalDate list>([ nextInstance.PlusDays(14); nextInstance.PlusDays(28) ], [ afterFirst; afterSecond ])
             })

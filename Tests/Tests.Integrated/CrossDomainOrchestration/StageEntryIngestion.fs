@@ -810,7 +810,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
             result {
                 let! name = "TestBank" |> JournalRefFinancialInstitution.create
                 let () =
-                    match name |> StageEntryOrchestration.createNewSource context with
+                    match name |> StageEntryOrchestration.constructNewAndPersist context with
                     | Error (AsError (IngestionSourceNameAlreadyExists nameStr)) -> Assert.Equal("TestBank", nameStr)
                     | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
                     | Ok _ -> Assert.Fail "Expected the duplicate name to be rejected; the source was created"

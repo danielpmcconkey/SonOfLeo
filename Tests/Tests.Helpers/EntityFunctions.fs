@@ -207,7 +207,7 @@ let createClassificationRuleForTest
         let classificationClaimant = ClassificationClaimant.Account accountAtMatch
         let! ruleGroups = ruleGroupPrimitives |> createClassificationRuleGroupListForTest
         return!
-            ClassificationOrchestration.createNewClassificationRule
+            ClassificationOrchestration.constructNewAndPersist
                 context
                 classificationRuleName
                 classificationClaimant

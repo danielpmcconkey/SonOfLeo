@@ -110,7 +110,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
     member this.instance (agreementId: MasterAgreementId) (date: LocalDate) (legIds: PaymentAgreementId list) =
         result {
             let! invoices = legIds |> List.map (fun legId -> this.invoiceFields date legId []) |> convertListOfResultsToResultsList
-            return! InstanceOrchestration.createInstanceCompositeAndSaveToDb context agreementId date invoices
+            return! InstanceOrchestration.constructNewAndPersist context agreementId date invoices
         }
 
     member _.instancesOf (agreementId: MasterAgreementId) = [ agreementId ] |> Instance.fetchByMasterAgreementIdList context
@@ -206,7 +206,7 @@ type InstanceDataStatesTests(fixture: TestDataFixture) =
         rolledBack (fun s ->
             result {
                 let missing = MasterAgreementId.create ()
-                let attempt = InstanceOrchestration.createInstanceCompositeAndSaveToDb s.Context missing (march 1) []
+                let attempt = InstanceOrchestration.constructNewAndPersist s.Context missing (march 1) []
                 let! stored = s.instancesOf missing
                 Assert.True(attempt |> Result.isError)
                 Assert.Empty(stored)
@@ -413,7 +413,7 @@ type InstanceDataStatesTests(fixture: TestDataFixture) =
                 let! paidInvoice = s.invoiceFields (march 1) legIds[0] [ paid ]
                 let! unpaidInvoice = s.invoiceFields (march 1) legIds[1] []
                 let! created =
-                    InstanceOrchestration.createInstanceCompositeAndSaveToDb s.Context agreementId (march 1)
+                    InstanceOrchestration.constructNewAndPersist s.Context agreementId (march 1)
                         [ paidInvoice; unpaidInvoice ]
                 let update = instanceUpdate (idOf created)
                 let attempt =
@@ -432,7 +432,7 @@ type InstanceDataStatesTests(fixture: TestDataFixture) =
                 let! paid = s.postedPayment s.today
                 let! paidInvoice = s.invoiceFields (march 1) legIds[0] [ paid ]
                 let! created =
-                    InstanceOrchestration.createInstanceCompositeAndSaveToDb s.Context agreementId (march 1) [ paidInvoice ]
+                    InstanceOrchestration.constructNewAndPersist s.Context agreementId (march 1) [ paidInvoice ]
                 let update = instanceUpdate (idOf created)
                 let attempt =
                     { update with instanceUpdates = { update.instanceUpdates with isFulfilledUpdate = SetTo false } }

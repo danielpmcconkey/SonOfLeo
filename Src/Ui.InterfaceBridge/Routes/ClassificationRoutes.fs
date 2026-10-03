@@ -30,7 +30,7 @@ let private newClassificationRule payload _ =
         let priority = input.priority
         let! ruleGroups = input.ruleGroups |> ``convert [ClassificationRuleGroupContract list] to [ClassificationRuleGroup list]``
         let! model =
-            createNewClassificationRule
+            ClassificationOrchestration.constructNewAndPersist
                 context
                 name
                 claimantAtMatch
@@ -132,7 +132,7 @@ let private createPaymentAgreementLink payload _ =
             let stageEntryLineId =
                 input.stageEntryLineId |> StageEntryLineId.fromGuid
             let! link =
-                stageEntryLineId |> CashFlowOps.constructNewPaymentAgreementLinkAndPersist context paymentAgreementId
+                stageEntryLineId |> CashFlowOps.constructNewAndPersist context paymentAgreementId
             let! converted = link |> ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]`` context
             return! Json.toJson<PaymentAgreementLinkReturn> converted
         })

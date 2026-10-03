@@ -101,7 +101,7 @@ let private build (fixture: TestDataFixture) (context: Context.Context) (daily: 
             |> List.map (fun i ->
                 (legIds[i], None, { InvoiceDate.localDate = instanceDate }, { DueDate.localDate = instanceDate.PlusDays(30) },
                  { InvoiceAmount.money = amount }, InvoiceReceived, None, None, []))
-        let! created = InstanceOrchestration.createInstanceCompositeAndSaveToDb context agreementId instanceDate invoices
+        let! created = InstanceOrchestration.constructNewAndPersist context agreementId instanceDate invoices
         let invoiceIds =
             invoiced
             |> List.map (fun i ->
@@ -339,7 +339,7 @@ type private World(fixture: TestDataFixture) =
 
     member _.link (legId: PaymentAgreementId) (lineId: StageEntryLineId) =
         runCommandRouteAndAutoCompleteTransaction CreatePaymentAgreementLink (fun context ->
-            CashFlowOps.constructNewPaymentAgreementLinkAndPersist context legId lineId)
+            CashFlowOps.constructNewAndPersist context legId lineId)
 
     /// Runs linkage and matching with an active rule claiming entries of the description for the leg, rolls it all
     /// back, and returns the line's links as the run left them.
@@ -350,7 +350,7 @@ type private World(fixture: TestDataFixture) =
                 let! pattern = description |> StringSearchPattern.create
                 let! groups = [ ("And", [ FieldMatch.Description pattern ], None) ] |> createClassificationRuleGroupListForTest
                 let! _ =
-                    ClassificationOrchestration.createNewClassificationRule
+                    ClassificationOrchestration.constructNewAndPersist
                         context name (ClassificationClaimant.PaymentAgreement legId) 500 groups
                 let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 return! lineId |> PaymentAgreementLink.fetchByStageEntryLineId context

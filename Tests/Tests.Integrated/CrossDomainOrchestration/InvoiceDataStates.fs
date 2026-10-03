@@ -98,7 +98,7 @@ let private build
             |> List.map (fun i ->
                 (legIds[i], None, { InvoiceDate.localDate = march 1 }, { DueDate.localDate = march 31 },
                  { InvoiceAmount.money = amount }, state, None, None, []))
-        let! created = InstanceOrchestration.createInstanceCompositeAndSaveToDb context agreementId (march 1) invoices
+        let! created = InstanceOrchestration.constructNewAndPersist context agreementId (march 1) invoices
         let invoiceIds =
             invoiced
             |> List.map (fun i ->

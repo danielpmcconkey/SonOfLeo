@@ -102,7 +102,7 @@ let private createNewSource payload _ =
     result {
         let! input = Json.fromJson<CreateNewIngestionSourceInput> payload
         let! name = input.name |> JournalRefFinancialInstitution.create
-        let! model = name |> StageEntryOrchestration.createNewSource context
+        let! model = name |> StageEntryOrchestration.constructNewAndPersist context
         let returnVal = model |> ``convert [IngestionSource] to [IngestionSourceReturn]``
         return! Json.toJson<IngestionSourceReturn> returnVal
     }

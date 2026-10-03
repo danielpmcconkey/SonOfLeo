@@ -222,7 +222,7 @@ type private Scenario(fixture: TestDataFixture, initialContext: Context.Context)
             let payments =
                 [ (CashFlowComponent.Staged lineId, None, None, None) ]
             let! _ =
-                InstanceOrchestration.createInstanceCompositeAndSaveToDb context cashFlow.agreementAId date
+                InstanceOrchestration.constructNewAndPersist context cashFlow.agreementAId date
                     [ (cashFlow.legAId, None, ({ localDate = date } : CashFlowComponent.InvoiceDate),
                        ({ localDate = date.PlusDays(30) } : CashFlowComponent.DueDate),
                        ({ money = amount } : CashFlowComponent.InvoiceAmount), CashFlowComponent.InvoiceReceived, None, None,
@@ -502,7 +502,7 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                 let tag = newTag ()
                 let sourceName = nameOfLength 40
                 let! name = sourceName |> JournalRefFinancialInstitution.create
-                let! source = name |> createNewSource s.Context
+                let! source = name |> StageEntryOrchestration.constructNewAndPersist s.Context
                 let! first =
                     s.staged source $"P1-{tag}" (Calendar.today ()) [ (40.00M, "Debit", Some "F-2230"); (40.00M, "Credit", Some "F-1280") ] [ "Classified" ]
                 let! second =
@@ -523,7 +523,7 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
             result {
                 let sourceName = nameOfLength 40
                 let! name = sourceName |> JournalRefFinancialInstitution.create
-                let! created = name |> createNewSource s.Context
+                let! created = name |> StageEntryOrchestration.constructNewAndPersist s.Context
                 let! readBack = name |> IngestionSource.fetchByName s.Context
                 let instant = s.Context |> Context.getInitiationInstant
                 Assert.Equal<string>(sourceName, readBack |> IngestionSource.name |> JournalRefFinancialInstitution.value)
@@ -596,7 +596,7 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                     let! pattern = tag |> StringSearchPattern.create
                     let! ruleGroups = [ ("And", [ FieldMatch.Description pattern ], None) ] |> createClassificationRuleGroupListForTest
                     let! rule =
-                        ClassificationOrchestration.createNewClassificationRule s.Context name
+                        ClassificationOrchestration.constructNewAndPersist s.Context name
                             (ClassificationClaimant.Account(s.accountIdOf "F-5300")) 100 ruleGroups
                     let! existing = s.cardEntry reference true [ "Classified" ]
                     return rule, existing

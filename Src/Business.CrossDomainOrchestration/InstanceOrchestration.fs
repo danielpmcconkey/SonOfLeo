@@ -742,10 +742,10 @@ let private confirmInstanceDateIsAfterLatestInstance
         return! Error (CashFlowError.CashflowInstanceDateNotAfterLatestInstance(agreementUuid, instanceDate, latestDate))
     }
 
-/// createInstanceCompositeAndSaveToDb takes each Invoice's invoice state and blocker only. Payment state, posted state
+/// constructNewAndPersist takes each Invoice's invoice state and blocker only. Payment state, posted state
 /// and is-fulfilled are derived from the Payments (REQ-CF-9.8 through 9.11), the same way adding an Invoice to an
 /// existing Instance derives them.
-let createInstanceCompositeAndSaveToDb
+let constructNewAndPersist
     (context: Context.Context)
     (masterAgreementID: CashFlowComponent.MasterAgreementId)
     (instanceDate: LocalDate)

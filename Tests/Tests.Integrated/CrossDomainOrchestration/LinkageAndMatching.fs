@@ -110,7 +110,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! amount = Money.fromDecimal 100.00M
             let newPayments = payments |> List.map (fun (pointer, _) -> (pointer, None, None, None))
             let! created =
-                InstanceOrchestration.createInstanceCompositeAndSaveToDb
+                InstanceOrchestration.constructNewAndPersist
                     context agreementId invoiceDate
                     [ (legId, None, { localDate = invoiceDate }, { localDate = invoiceDate.PlusDays(daysDue) },
                        { money = amount }, state, None, None, newPayments) ]
@@ -174,7 +174,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
     member this.linkedLine legId (description: string) (entryDate: LocalDate) =
         result {
             let! _, debitLineId, _ = this.outgoEntry description entryDate "Classified"
-            let! _ = CashFlowOps.constructNewPaymentAgreementLinkAndPersist context legId debitLineId
+            let! _ = CashFlowOps.constructNewAndPersist context legId debitLineId
             return debitLineId
         }
 
@@ -191,7 +191,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                 [ ("And", (FieldMatch.Description pattern) :: lineTypeMatch, None) ]
                 |> createClassificationRuleGroupListForTest
             return!
-                ClassificationOrchestration.createNewClassificationRule
+                ClassificationOrchestration.constructNewAndPersist
                     context name (ClassificationClaimant.PaymentAgreement legId) priority groups
         }
 
@@ -284,7 +284,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let scenario = Scenario(fixture, context)
                 let! _, legId = scenario.agreement "CF-12.1 operator" Outgo
                 let! _, lineId, _ = scenario.outgoEntry "CF-12.1 operator payment" scenario.firstOfThisMonth "Classified"
-                let! created = CashFlowOps.constructNewPaymentAgreementLinkAndPersist context legId lineId
+                let! created = CashFlowOps.constructNewAndPersist context legId lineId
                 let! readBack = created |> PaymentAgreementLink.paymentAgreementLinkId |> PaymentAgreementLink.fetchById context
                 let initiation = context |> Context.getInitiationInstant
                 Assert.NotEqual(Guid.Empty, readBack |> PaymentAgreementLink.paymentAgreementLinkId |> PaymentAgreementLinkId.value)
@@ -743,7 +743,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _, lineId, _ = scenario.outgoEntry "CF-12.7 create payment" scenario.firstOfThisMonth "Classified"
                 let! before = scenario.linksOf lineId
                 Assert.Empty(before)
-                let! _ = CashFlowOps.constructNewPaymentAgreementLinkAndPersist context legId lineId
+                let! _ = CashFlowOps.constructNewAndPersist context legId lineId
                 let! after = scenario.linksOf lineId
                 let link = Assert.Single(after)
                 Assert.Equal(legId, link |> PaymentAgreementLink.paymentAgreementId)
@@ -758,10 +758,10 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _, legXId = scenario.agreement "CF-12.7 already X" Outgo
                 let! _, legYId = scenario.agreement "CF-12.7 already Y" Outgo
                 let! _, lineId, _ = scenario.outgoEntry "CF-12.7 already payment" scenario.firstOfThisMonth "Classified"
-                let! existing = CashFlowOps.constructNewPaymentAgreementLinkAndPersist context legXId lineId
+                let! existing = CashFlowOps.constructNewAndPersist context legXId lineId
                 let! legX = legXId |> PaymentAgreement.fetchById context
                 let! _ =
-                    match CashFlowOps.constructNewPaymentAgreementLinkAndPersist context legYId lineId with
+                    match CashFlowOps.constructNewAndPersist context legYId lineId with
                     | Error (AsError (CashFlowError.CashflowPaymentAgreementLinkLineAlreadyLinked (namedLine, namedLink, namedAgreement))) ->
                         Assert.Equal(lineId |> StageEntryLineId.value, namedLine)
                         Assert.Equal(existing |> PaymentAgreementLink.paymentAgreementLinkId |> PaymentAgreementLinkId.value, namedLink)
@@ -784,7 +784,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _, legXId = scenario.agreement "CF-12.7 repoint X" Outgo
                 let! _, legYId = scenario.agreement "CF-12.7 repoint Y" Outgo
                 let! _, lineId, _ = scenario.outgoEntry "CF-12.7 repoint payment" scenario.firstOfThisMonth "Classified"
-                let! existing = CashFlowOps.constructNewPaymentAgreementLinkAndPersist context legXId lineId
+                let! existing = CashFlowOps.constructNewAndPersist context legXId lineId
                 let! _ =
                     PaymentAgreementLink.update context
                         { linkIdToUpdate = existing |> PaymentAgreementLink.paymentAgreementLinkId
@@ -1165,7 +1165,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                     scenario.stagedEntryWithLines "CF-13.6 overpaid payment" scenario.firstOfThisMonth "Classified"
                         [ (150.00M, "Debit", "F-2230"); (150.00M, "Credit", "F-1280") ]
                 let lineId = lines.[0]
-                let! _ = CashFlowOps.constructNewPaymentAgreementLinkAndPersist context legId lineId
+                let! _ = CashFlowOps.constructNewAndPersist context legId lineId
                 let! journalEntriesBefore = scenario.journalEntryCount ()
                 let! instancesBefore, invoicesBefore = scenario.instanceAndInvoiceIds ()
                 let! run = ClassificationOrchestration.classifyPaymentAgreements context

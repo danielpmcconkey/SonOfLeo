@@ -309,7 +309,7 @@ let fetchByStageEntryHeaderId
                  statusTransitions = statusTransitions }
     }
 
-let createNewSource
+let constructNewAndPersist
     (context: Context.Context)
     (name: JournalRefFinancialInstitution)
     : Result<IngestionSource.IngestionSource, IAppError> =
