@@ -17,7 +17,9 @@ open Business.FinancialServices.CashFlow.CashFlowComponent
 
 /// One Payment referencing a staged line, with the Invoice it pays and that Invoice's Instance (REQ-RPT-7.4).
 type PrePostingPayment =
-    { paymentAmount: Money.Money
+    { paymentId: PaymentId
+      invoiceId: InvoiceId
+      paymentAmount: Money.Money
       invoiceDate: LocalDate
       dueDate: LocalDate
       invoiceAmount: Money.Money
@@ -49,34 +51,33 @@ type PrePostingEntry =
       status: StagedEntryStatus
       lines: PrePostingLine list }
 
-/// REQ-RPT-7.3. Only runs that matched a line leave a record, so "the most recent run that evaluated it" is the most
-/// recent run that recorded an account rule against it. Payment agreement runs are not account classification and are
-/// ignored. Within that run, the rule naming the line's current account is used; if more than one does, the highest
-/// priority wins, then the rule name.
+/// Only account-claimant matches with the line's current account count. Of the runs that recorded one, the latest
+/// names the rule; within it the lowest priority value wins, then the rule name.
 let private ruleNameForLine
     (matchesForLine: RuleMatch.RuleMatch list)
     (rulesById: Map<ClassificationRuleId, ClassificationRule.ClassificationRule>)
     (accountId: AccountId)
     : ClassificationRuleName option =
-    let accountMatches =
+    let currentAccountMatches =
         matchesForLine
         |> List.choose (fun m ->
             rulesById
             |> Map.tryFind (m |> RuleMatch.classificationRuleId)
             |> Option.bind (fun rule ->
                 match rule |> ClassificationRule.classificationClaimant with
-                | ClassificationClaimant.Account ruleAccount -> Some (m, rule, ruleAccount)
+                | ClassificationClaimant.Account ruleAccount when ruleAccount = accountId -> Some (m, rule)
+                | ClassificationClaimant.Account _
                 | ClassificationClaimant.PaymentAgreement _ -> None))
-    if accountMatches |> List.isEmpty then None else
+    if currentAccountMatches |> List.isEmpty then None else
     let latestRun =
-        accountMatches
-        |> List.maxBy (fun (m, _, _) -> m |> RuleMatch.createdAt)
-        |> fun (m, _, _) -> m |> RuleMatch.runId
-    accountMatches
-    |> List.filter (fun (m, _, ruleAccount) -> m |> RuleMatch.runId = latestRun && ruleAccount = accountId)
-    |> List.map (fun (_, rule, _) -> rule)
+        currentAccountMatches
+        |> List.maxBy (fun (m, _) -> m |> RuleMatch.createdAt)
+        |> fun (m, _) -> m |> RuleMatch.runId
+    currentAccountMatches
+    |> List.filter (fun (m, _) -> m |> RuleMatch.runId = latestRun)
+    |> List.map snd
     |> List.sortBy (fun rule ->
-        -(rule |> ClassificationRule.priority),
+        rule |> ClassificationRule.priority,
         rule |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value)
     |> List.tryHead
     |> Option.map ClassificationRule.classificationRuleName
@@ -164,7 +165,9 @@ let fetchPrePostingReview (context: Context.Context) : Result<PrePostingEntry li
                 |> List.map (fun p ->
                     let invoice = invoicesById[p |> Payment.invoiceId]
                     let instance = instancesById[invoice |> Invoice.instanceId]
-                    { paymentAmount = (p |> Payment.amount).money
+                    { paymentId = p |> Payment.paymentId
+                      invoiceId = invoice |> Invoice.invoiceId
+                      paymentAmount = (p |> Payment.amount).money
                       invoiceDate = (invoice |> Invoice.invoiceDate).localDate
                       dueDate = (invoice |> Invoice.dueDate).localDate
                       invoiceAmount = (invoice |> Invoice.amount).money

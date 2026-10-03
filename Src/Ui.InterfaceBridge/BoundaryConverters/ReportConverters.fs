@@ -39,7 +39,9 @@ let ``convert [PrePostingEntry list] to [PrePostingEntryReturnRow list]``
     (entries: PrePostingEntry list)
     : PrePostingEntryReturnRow list =
     let convertPayment (p: PrePostingPayment) : PrePostingPaymentReturnRow =
-        { paymentAmount = p.paymentAmount |> Money.amount
+        { paymentId = p.paymentId |> PaymentId.value
+          invoiceId = p.invoiceId |> InvoiceId.value
+          paymentAmount = p.paymentAmount |> Money.amount
           invoiceDate = p.invoiceDate
           dueDate = p.dueDate
           invoiceAmount = p.invoiceAmount |> Money.amount

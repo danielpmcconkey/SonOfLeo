@@ -96,6 +96,8 @@ type PrePostingReviewInput = {
 }
 
 type PrePostingPaymentReturnRow = {
+    paymentId: System.Guid
+    invoiceId: System.Guid
     paymentAmount: decimal
     invoiceDate: LocalDate
     dueDate: LocalDate
