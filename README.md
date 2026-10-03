@@ -9,41 +9,43 @@ called out below so that a future improvisation doesn't quietly remove one.
 
 ## Who does what
 
-Dan is the human; Hobson is a Claude instances on Dan's desktop. BD is a Claude instance 
-in a container. Hobson and Dan share a working tree. BD does not — BD's
-clone is separate, and everything reaches it through `origin`.
+Dan is the human. He has the idea, creates the branch, rules on what agents and audits
+raise, merges to `main`, and runs the audit. He no longer writes code here, and reviews it
+only when there is a strong reason to.
 
-Branch creation and merging to `main` are Dan's. `git-guard` refuses BD the working-tree
-destroying verbs — the restore family, the branch-switching family, `clean`, `stash`, hard
-reset.
+Hobson is a Claude instance on Dan's desktop. He writes the specs and the plans agents work
+from, makes product-level calls on agents' findings (Dan overrides), reviews code as needed,
+and keeps the architecture model in step with the code.
+
+Agents are Claude Code sessions, usually in the cloud, each on its own clone of the repo.
+One implements Src from a plan; another writes tests from the spec. Several can work on one
+branch at once, so each pulls with `--rebase` before every commit and keeps to the files its
+brief names.
 
 ## The slice loop
 
 A *slice* is one coherent piece of behavior: a spec section, the code that satisfies it, and
 the tests that hold it to account.
 
-Dan's note: much of this is in flux. With the advent of Opus 5.5, Dan is experimenting with 
-new agentic workflows. If an instruction from Dan seems to violate this process, ask once. Dan
-will clarify for you.
-
 | # | Step | Who |
 |---|---|---|
 | 0 | Create the branch | Dan |
 | 1 | Write the spec, fleshing out Dan's idea | Hobson |
-| 2 | Read enough of the spec to confirm its general shape and pick up specifics that Src must match | Dan |
-| 3 | Write the Src, checking edge cases and copy/paste slips with Hobson along the way | Dan |
-| 4 | Hand BD a **business** description of what changed and the shape of the spec — not the implementation mechanisms | Hobson |
-| 5 | Read the spec only, not the new code, and draft the test names | BD |
-| 6 | Run the name-quality check over the draft names | BD |
-| 7 | Commit the test names as failing placeholders | BD |
-| 8 | *Now* read the Src, and raise any concern that a committed test is aimed wrong. Discuss; return to 6 or continue to 9 | BD + Dan |
-| 9 | Write the tests | BD |
-| 10 | A test fails: work out together whether it's a bug in the Src or a spec that steered the test wrong. Hobson joins when useful. This is usually the first careful read of the spec. Dan dispositions | Dan + BD |
-| 11 | All tests pass, `bash Checks/run-all.sh` passes, and all three agree the slice is complete → merge to `main` | Dan |
-| 12 | Run the traceability script | Dan or Hobson |
-| 13 | Run the audit process; it names the gaps we missed | Dan |
+| 2 | Read enough of the spec to confirm its general shape | Dan |
+| 3 | Write the plan: work items, each naming the requirements it satisfies | Hobson |
+| 4 | Write the Src | Implementing agent |
+| 5 | Brief the test agent with a **business** description of what changed and the shape of the spec — not the implementation mechanisms | Hobson |
+| 6 | Read the spec only, not the new code, and draft the test names | Test agent |
+| 7 | Run the name-quality check over the draft names | Test agent |
+| 8 | Commit the test names as failing placeholders | Test agent |
+| 9 | *Now* read the Src, and raise any concern that a committed test is aimed wrong; Hobson rules. Return to 7 or continue to 10 | Test agent + Hobson |
+| 10 | Write the tests, seeing every assertion fail (constraint 3) | Test agent |
+| 11 | A test fails: the test agent records whether the bug is in the Src or the spec. Hobson rules; the implementing agent fixes Src, Hobson fixes specs. Dan overrides | Agents + Hobson |
+| 12 | All tests pass, `bash Checks/run-all.sh` passes, and the plan's final report is in → merge to `main` | Dan |
+| 13 | Run the traceability script on `main` | Dan or Hobson |
+| 14 | Run the audit process; it names the gaps we missed | Dan |
 
-Step 12 is manual on purpose. `Checks/check-traceability.sh` exits 0 on any branch that is
+Step 13 is manual on purpose. `Checks/check-traceability.sh` exits 0 on any branch that is
 not `main`, because the invariant it enforces — every active requirement tested or waived —
 *cannot* hold mid-slice: the spec lands before the tests exist. Gating every commit on it
 once produced a chicken-and-egg where nothing could be committed until dummy tests were
@@ -54,7 +56,7 @@ written first.
 Everything else in the loop is convenience. These three are the reason it works, and each
 one has already paid for itself.
 
-**1. BD names tests from the spec alone (step 5), before seeing Src (step 8).**
+**1. The test agent names tests from the spec alone (step 6), before seeing Src (step 9).**
 
 The friction is the detector. When a spec is wrong, the symptom is that a test cannot be
 written honestly against it — and that only surfaces if the person writing the test is
@@ -63,17 +65,17 @@ turned out to be wrong (`REQ-STG-4.4`, `9.3`, `9.4`, and a thin `8.3`), and ever
 surfaced this way. Had the tests been written from the implementation, all four would have
 gone green and stayed wrong.
 
-This is also why step 4 is a *business* description. A hand-off that explains how the code
+This is also why step 5 is a *business* description. A hand-off that explains how the code
 works reintroduces exactly the bias the step is there to prevent.
 
-**2. Committed names are a contract (step 7 precedes step 8).**
+**2. Committed names are a contract (step 8 precedes step 9).**
 
-Because the claims are fixed before BD reads the implementation, Src knowledge can only
-inform *how* a test reaches a behavior — never *what* it asserts. Step 8 can send a name back
-to step 6 to be renegotiated out loud; it can never quietly soften one. This turns a rule
+Because the claims are fixed before the test agent reads the implementation, Src knowledge can only
+inform *how* a test reaches a behavior — never *what* it asserts. Step 9 can send a name back
+to step 7 to be renegotiated out loud; it can never quietly soften one. This turns a rule
 that used to depend on discipline into something the order of operations enforces. The commit
 is the contract: Dan no longer approves names (retired 2026-09-27); the name-quality check
-(step 6) and the rule that names are committed before Src is read carry it.
+(step 7) and the rule that names are committed before Src is read carry it.
 
 **3. No test is done until it has been seen to fail.**
 
@@ -83,7 +85,7 @@ found three tests with no assertion at all, one asserting the opposite of its re
 and six concealing an unhandled error leak, all of them passing, all of them written by
 someone who believed they were fine.
 
-Steps 6 and 10 do not cover this. Step 6 checks names; step 10 fires when a test *fails*. A
+Steps 7 and 11 do not cover this. Step 7 checks names; step 11 fires when a test *fails*. A
 hollow body under a good name passes both.
 
 ## Where the rules live

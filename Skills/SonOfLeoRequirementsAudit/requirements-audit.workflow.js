@@ -536,9 +536,9 @@ Cash-basis simplifications Dan chose deliberately are decisions, not findings.`,
 auditors.push({
   label: 'panel:fsharp-ddd',
   filename: '10-panel-fsharp-ddd.md',
-  prompt: `You are an F# and domain-driven-design expert reviewing SonOfLeo. Dan is hand-writing
-this to TEACH HIMSELF to think functionally. For every finding, the "why" must articulate
-the FP/DDD principle at stake.
+  prompt: `You are an F# and domain-driven-design expert reviewing SonOfLeo. Agents write the code
+now; Dan reads these findings to keep his own functional-design judgement sharp, and rules on
+them. For every finding, the "why" must articulate the FP/DDD principle at stake.
 
 ${CONTEXT}
 
@@ -607,7 +607,8 @@ auditors.push({
   filename: '10-panel-ai-maintainability.md',
   prompt: `You are an expert in AI-agent-maintained codebases. SonOfLeo is now built by Claude Code
 agents: they write Src, tests and model updates from plans and specs, working several at
-once on one branch, and Dan reviews and merges. Hobson (Dan's host-side Claude) writes the
+once on one branch. Dan merges, and reviews code only when there is a strong reason to;
+this audit is his main check on what the agents built. Hobson (Dan's host-side Claude) writes the
 specs and plans and rules on agents' findings.
 
 ${CONTEXT}

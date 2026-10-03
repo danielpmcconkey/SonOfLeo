@@ -65,5 +65,5 @@ baseline and writer agents.
    (obligation-review style — one finding, discuss, next finding).
 2. Dan's rulings go into `99-disposition.md` in the run folder.
 3. Rulings that establish reusable precedent also go into `resolved-findings.md`.
-4. Accepted actions go wherever they belong (spec edit, code fix, BD task) —
+4. Accepted actions go wherever they belong (spec edit, code fix, agent task) —
    the audit itself changes nothing.
