@@ -258,25 +258,6 @@ let classifyMatchCandidatesAndRecordMatches
         return { runId = runId; results = classificationResults }
     }
     
-// both claimant columns are written on every change so any update must write a value to both and one must always be
-// null
-let private classificationClaimantToJointUpdates
-    (classificationClaimantUpdate: FieldUpdate.FieldUpdate<ClassificationClaimant>)
-    : (string * QueryParameter) option * (string * QueryParameter) option =
-    match classificationClaimantUpdate with
-    | FieldUpdate.NoChange -> None, None
-    | FieldUpdate.SetTo claimant ->
-        let accountUuid, paymentAgreementUuid =
-            match claimant with
-            | Account accountId ->
-                accountId |> AccountId.value |> Some, None
-            | PaymentAgreement paymentAgreementId ->
-                None, paymentAgreementId |> PaymentAgreementId.value |> Some
-        Some ("account_at_match = @account_at_match",
-                { name = "@account_at_match"; value = NullableUniqueId(accountUuid) }),
-        Some ("payment_agreement_at_match = @payment_agreement_at_match",
-                { name = "@payment_agreement_at_match"; value = NullableUniqueId(paymentAgreementUuid) })
-
 let updateClassificationRule
     (context: Context.Context)
     (classificationRuleNameUpdate: FieldUpdate.FieldUpdate<ClassificationRuleName>)
@@ -287,9 +268,6 @@ let updateClassificationRule
     (classificationRuleId: ClassificationRuleId)
     : Result<ClassificationRule.ClassificationRule, IAppError> =
     let uuid = classificationRuleId |> ClassificationRuleId.value
-    let baseParams =
-        [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
-          { name = "@unique_id"; value = UniqueId uuid } ]
     result {
         do! match classificationClaimantUpdate with
             | FieldUpdate.NoChange -> Ok ()
@@ -297,51 +275,9 @@ let updateClassificationRule
         do! match ruleGroupsUpdate with
             | FieldUpdate.NoChange -> Ok ()
             | FieldUpdate.SetTo x -> x |> confirmRuleGroups
-        let! groupStr =
-            match ruleGroupsUpdate with
-            | FieldUpdate.NoChange -> Ok ""
-            | FieldUpdate.SetTo x -> x |> ClassificationRule.ruleGroupsToJson
-        let accountAtMatchUpdate, paymentAtMatchUpdate =
-            classificationClaimantUpdate |> classificationClaimantToJointUpdates
-        let updates =
-            [
-                  classificationRuleNameUpdate
-                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                      ("rule_name = @rule_name",
-                       { name = "@rule_name"; value = CharString(n |> ClassificationRuleName.value) }))
-
-                  priorityUpdate
-                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                      ("priority = @priority",
-                       { name = "@priority"; value = Integer(n) }))
-
-                  ruleGroupsUpdate
-                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun _ ->
-                      ("rule_groups = @rule_groups",
-                       { name = "@rule_groups"; value = Jsonb(groupStr) }))
-
-                  isActiveUpdate
-                  |> FieldUpdate.mapNoChangeToOptionWithConversion(fun n ->
-                      ("is_active = @is_active",
-                       { name = "@is_active"; value = Boolean(n) }))
-                  
-                  accountAtMatchUpdate
-                  paymentAtMatchUpdate
-            ]
-            |> List.choose id
-        let setClauses = updates |> List.map fst |> String.concat ", "
-        let parameters = baseParams @ (updates |> List.map snd)
-        let queryStatement =
-            $"""
-            UPDATE classification.classification_rule
-            set
-                {setClauses},
-                modified_at = @modified
-            WHERE unique_id = @unique_id;
-        """
-        do! if updates.IsEmpty then Error(ClassificationRuleUpdateNoOp) else Ok()
-        let! () =
-            executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+        do!
+            ClassificationRule.update context classificationRuleId classificationRuleNameUpdate
+                classificationClaimantUpdate priorityUpdate ruleGroupsUpdate isActiveUpdate
             |> whenNoRows (ClassificationRuleIdDoesntExist uuid)
         return! classificationRuleId |> ClassificationRule.fetchById context
     }

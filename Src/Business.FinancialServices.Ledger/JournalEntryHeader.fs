@@ -2,6 +2,7 @@ module Business.FinancialServices.Ledger.JournalEntryHeader
 
 open NodaTime
 open App.Utility.IAppError
+open App.Utility.FieldUpdate
 open App.Utility.Result
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
@@ -149,3 +150,29 @@ let fetchByAccountId
                 where jel.journal_entry_id = je.unique_id and jel.account_id = @account_id)"""
     let parameters = [ { name = "@account_id"; value = UniqueId(accountId |> AccountId.value) } ]
     query context None predicate None (Some "je.created_at") parameters AnyQuantityIsAcceptable
+
+/// update writes the changed fields of one journal entry header. Only the voided instant ever changes.
+let update
+    (context: Context.Context)
+    (journalEntryHeaderId: JournalEntryHeaderId)
+    (voidedAtUpdate: FieldUpdate<Instant option>)
+    : Result<unit, IAppError> =
+    let updates =
+        [ voidedAtUpdate
+          |> mapNoChangeToOptionWithConversion (fun voidedAt ->
+              (", voided_at = @voided_at", [ { name = "@voided_at"; value = NullableDbInstant voidedAt } ])) ]
+        |> List.choose id
+    let setClauses = updates |> List.map fst |> String.concat ""
+    let parameters =
+        [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
+          { name = "@unique_id"; value = UniqueId(journalEntryHeaderId |> JournalEntryHeaderId.value) } ]
+        @ (updates |> List.collect snd)
+    let queryStatement =
+        $"""
+        UPDATE ledger.journal_entry
+        set
+            modified_at = @modified
+            {setClauses}
+        WHERE unique_id = @unique_id;
+    """
+    executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne

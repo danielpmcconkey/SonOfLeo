@@ -4,9 +4,7 @@ open App.Utility
 open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer.DalError
-open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
-open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.LedgerError
@@ -70,9 +68,6 @@ let updateComment
     (secondaryIdUpdate: FieldUpdate.FieldUpdate<JournalEntryHeaderId option>)
     : Result<JournalEntryComment, IAppError> =
     let commentUuid = journalEntryCommentId |> JournalEntryCommentId.value
-    let baseParams =
-        [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
-          { name = "@unique_id"; value = UniqueId commentUuid } ]
     result {
         let! existing =
             journalEntryCommentId |> fetchById context |> whenNoRows (JournalEntryCommentIdDoesntExist commentUuid)
@@ -90,33 +85,8 @@ let updateComment
                     return (FieldUpdate.SetTo x)
                 }
 
-        let updates =
-            [ commentUpdate
-              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun x ->
-                  (", comment_text = @comment_text",
-                   { name = "@comment_text"; value = CharString(x |> CommentText.value) }))
-
-              validSecondaryId
-              |> FieldUpdate.mapNoChangeToOptionWithConversion(fun x ->
-                  let validUuidOption = x |> Option.map JournalEntryHeaderId.value
-                  (", journal_secondary_entry_id = @journal_secondary_entry_id",
-                   { name = "@journal_secondary_entry_id"; value = NullableUniqueId validUuidOption })) ]
-            |> List.choose id
         do!
-            if updates.IsEmpty then
-                Error(JournalEntryCommentUpdateNoOp)
-            else
-                Ok()
-        let setClauses = updates |> List.map fst |> String.concat ""
-        let parameters = baseParams @ (updates |> List.map snd)
-        let queryStatement =
-            $"""    UPDATE ledger.journal_entry_comment
-                            set
-                                modified_at = @modified
-                                {setClauses}
-                            WHERE unique_id = @unique_id; """
-        let! _ =
-            executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+            JournalEntryComment.update context journalEntryCommentId commentUpdate validSecondaryId
             |> whenNoRows (JournalEntryCommentIdDoesntExist commentUuid)
         return! journalEntryCommentId |> fetchById context
     }

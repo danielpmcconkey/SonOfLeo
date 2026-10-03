@@ -17,27 +17,6 @@ open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.JournalEntryComponent
 
-let private updateActiveEnd (context: Context.Context) (activeEndUpdate: LocalDate) (account: Account) : Result<Account, IAppError> =
-    let accountId = account |> Account.accountId
-    let uuid = accountId |> AccountId.value
-    let parameters =
-        [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
-          { name = "@unique_id"; value = UniqueId uuid }
-          { name = "@active_end"; value = NullableDbLocalDate(Some activeEndUpdate) } ]
-
-    let queryStatement =
-        $"""
-        UPDATE ledger.account
-        set
-            modified_at = @modified
-            , active_end = @active_end
-        WHERE unique_id = @unique_id;
-    """
-    result {
-        let! () = executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
-        return! accountId |> Account.fetchById context
-    }
-
 let private confirmProposedDeactivationDateIsValid
     (proposedDate: LocalDate)
     (account: Account)
@@ -142,6 +121,10 @@ let deactivateAccount
         let! () = account |> confirmProposedDeactivationDateIsValid deactivationDate
         let! () = account |> confirmNoActiveChildrenBeforeDeactivation context
         let! () = account |> confirmJournalEntriesAreInProperState context deactivationDate
-        let! newAccount = account |> updateActiveEnd context deactivationDate
-        return newAccount
+        let! deactivatedPeriod =
+            ActivityPeriod.create
+                (account |> Account.activityPeriod |> ActivityPeriod.activeBegin)
+                (Some deactivationDate)
+                ActivityPeriod.NotConsideredAvailableBeforeBeginDate
+        return! Account.update context accountId FieldUpdate.NoChange FieldUpdate.NoChange (FieldUpdate.SetTo deactivatedPeriod)
     }

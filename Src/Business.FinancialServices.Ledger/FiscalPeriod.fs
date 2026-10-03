@@ -141,7 +141,7 @@ let fetchAll (context: Context.Context) (openOnly: bool) : Result<FiscalPeriod l
     let parameters = []
     query context predicate None parameters AnyQuantityIsAcceptable
 
-let private toggleOpenFlagById
+let private update
     (context: Context.Context)
     (fpId: FiscalPeriodId)
     (newValue: bool)
@@ -173,13 +173,13 @@ let closeFiscalPeriod
     (context: Context.Context)
     (fpId: FiscalPeriodId)
     : Result<FiscalPeriod, IAppError> =
-    toggleOpenFlagById context fpId false
+    update context fpId false
 
 let reopenFiscalPeriod
     (context: Context.Context)
     (fpId: FiscalPeriodId)
     : Result<FiscalPeriod, IAppError> =
-    toggleOpenFlagById context fpId true
+    update context fpId true
 
 /// Route-lifetime lookups between a fiscal period's ID and its key; see App.DataAccessLayer.LookupCache.
 let keyToId = App.DataAccessLayer.LookupCache.stringToIdCache "ledger.fiscal_period" "period_key"

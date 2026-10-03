@@ -1,11 +1,10 @@
 module Business.CrossDomainOrchestration.JournalEntryVoiding
 
 open App.Utility.IAppError
+open App.Utility.FieldUpdate
 open App.Utility.Result
 open App.DataAccessLayer.DalError
-open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
-open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.LedgerError
@@ -51,27 +50,15 @@ let private voidById
     (journalEntryHeaderId: JournalEntryHeaderId)
     : Result<unit, IAppError> =
     let uuid = journalEntryHeaderId |> JournalEntryHeaderId.value
-    let now = context |> Context.getInitiationInstant
-    let parameters =
-        [ { name = "@modified"; value = DbInstant(now) }
-          { name = "@newValue"; value = DbInstant(now) }
-          { name = "@unique_id"; value = UniqueId uuid } ]
-    let queryStatement =
-        $"""
-        UPDATE ledger.journal_entry
-        set
-            modified_at = @modified
-            , voided_at = @newValue
-        WHERE unique_id = @unique_id
-        and voided_at is null
-        ;
-    """
     result {
         let! je =
             journalEntryHeaderId |> JournalEntryHeader.fetchById context
             |> whenNoRows (JournalEntryHeaderIdDoesntExist uuid)
         do! je |> confirmFiscalPeriodIsStillOpenBeforeVoiding context
-        do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+        do! if je |> JournalEntryHeader.voidedAt |> Option.isNone then Ok () else Error(JournalEntryVoidingNoOp uuid)
+        do!
+            JournalEntryHeader.update context journalEntryHeaderId
+                (SetTo(Some(context |> Context.getInitiationInstant)))
     }
 
 let private insertReason
@@ -117,9 +104,6 @@ let voidJournalEntry
         do! journalEntryHeaderId |> confirmJournalEntryIdIsReal context // validate here so the error message is helpful
         do! journalEntryHeaderId |> confirmNoPaymentReferencesEntry context
         do! insertReason context journalEntryHeaderId secondaryJournalEntryIdForComment commentText
-        do!
-            journalEntryHeaderId
-            |> voidById context
-            |> whenNoRows (JournalEntryVoidingNoOp(journalEntryHeaderId |> JournalEntryHeaderId.value))
+        do! journalEntryHeaderId |> voidById context
         return! journalEntryHeaderId |> JournalEntryOrchestration.fetchById context
     }

@@ -246,11 +246,13 @@ let fetchAll (context: Context.Context) (activeOnly: bool) : Result<Account list
         else
             Ok allRows
 
-let private update
+/// update writes the changed fields of one account. An activity period change writes both of its dates.
+let update
     (context: Context.Context)
     (accountId: AccountId)
     (nameUpdate: FieldUpdate<AccountName>)
     (referenceUpdate: FieldUpdate<AccountExternalReference option>)
+    (activityPeriodUpdate: FieldUpdate<ActivityPeriod.ActivityPeriod>)
     : Result<Account, IAppError> =
     let accountIdGuid = accountId |> AccountId.value
     let baseParams =
@@ -260,15 +262,21 @@ let private update
         [ nameUpdate
           |> mapNoChangeToOptionWithConversion(fun n ->
               (", account_name = @account_name",
-               { name = "@account_name"; value = CharString(AccountName.value n) }))
+               [ { name = "@account_name"; value = CharString(AccountName.value n) } ]))
 
           referenceUpdate
           |> mapNoChangeToOptionWithConversion(fun r ->
               let value = r |> Option.map AccountExternalReference.value
-              (", external_ref = @external_ref", { name = "@external_ref"; value = NullableCharString value })) ]
+              (", external_ref = @external_ref", [ { name = "@external_ref"; value = NullableCharString value } ]))
+
+          activityPeriodUpdate
+          |> mapNoChangeToOptionWithConversion(fun ap ->
+              (", active_begin = @active_begin, active_end = @active_end",
+               [ { name = "@active_begin"; value = DbLocalDate(ap |> ActivityPeriod.activeBegin) }
+                 { name = "@active_end"; value = NullableDbLocalDate(ap |> ActivityPeriod.activeEnd) } ])) ]
         |> List.choose id
     let setClauses = updates |> List.map fst |> String.concat ""
-    let parameters = baseParams @ (updates |> List.map snd)
+    let parameters = baseParams @ (updates |> List.collect snd)
 
     let queryStatement =
         $"""
@@ -287,7 +295,7 @@ let private update
 let updateAccountNameById (context: Context.Context) (accountId: AccountId) (newName: string) : Result<Account, IAppError> =
     result {
         let! validAccountName = AccountName.create newName
-        let! newAccount = update context accountId (SetTo validAccountName) NoChange
+        let! newAccount = update context accountId (SetTo validAccountName) NoChange NoChange
         return newAccount
     }
 
@@ -301,7 +309,7 @@ let updateExternalReferenceById
             match newReference with
             | Some x -> AccountExternalReference.create x |> Result.map Some
             | None -> Ok None
-        let! newAccount = update context accountId NoChange (SetTo validRef)
+        let! newAccount = update context accountId NoChange (SetTo validRef) NoChange
         return newAccount
     }
 

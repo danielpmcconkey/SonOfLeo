@@ -2,6 +2,7 @@ module Business.FinancialServices.Classification.ClassificationRule
 
 open NodaTime
 open App.Utility.IAppError
+open App.Utility.FieldUpdate
 open App.Utility.Result
 open App.Utility.Json.Json
 open App.DataAccessLayer.QueryParameter
@@ -209,8 +210,8 @@ let persist (context: Context.Context) (classificationRule: ClassificationRule) 
     let ruleName = classificationRule.classificationRuleName |> ClassificationRuleName.value
     let accountId, paymentAgreementId =
         match classificationRule.classificationClaimant with
-        | Account accountId -> accountId |> AccountId.value |> Some, None
-        | PaymentAgreement paymentAgreementId -> None, paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value |> Some
+        | ClassificationClaimant.Account accountId -> accountId |> AccountId.value |> Some, None
+        | ClassificationClaimant.PaymentAgreement paymentAgreementId -> None, paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value |> Some
     let priority = classificationRule.priority
     let isActive = classificationRule.isActive
     let createdAt = classificationRule.createdAt
@@ -339,4 +340,77 @@ let doesMatch
         classificationRule.ruleGroups
         |> List.forall(fun ruleGroup ->
                 ruleGroup |> doesMatch candidate)
-        
+
+// both claimant columns are written on every change so any update must write a value to both and one must always be
+// null
+let private classificationClaimantToJointUpdates
+    (classificationClaimantUpdate: FieldUpdate<ClassificationClaimant>)
+    : (string * QueryParameter) option * (string * QueryParameter) option =
+    match classificationClaimantUpdate with
+    | NoChange -> None, None
+    | SetTo claimant ->
+        let accountUuid, paymentAgreementUuid =
+            match claimant with
+            | ClassificationClaimant.Account accountId ->
+                accountId |> AccountId.value |> Some, None
+            | ClassificationClaimant.PaymentAgreement paymentAgreementId ->
+                None, paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value |> Some
+        Some ("account_at_match = @account_at_match",
+                { name = "@account_at_match"; value = NullableUniqueId(accountUuid) }),
+        Some ("payment_agreement_at_match = @payment_agreement_at_match",
+                { name = "@payment_agreement_at_match"; value = NullableUniqueId(paymentAgreementUuid) })
+
+/// update writes the changed fields of one rule, and refuses a call that changes nothing.
+let update
+    (context: Context.Context)
+    (classificationRuleId: ClassificationRuleId)
+    (classificationRuleNameUpdate: FieldUpdate<ClassificationRuleName>)
+    (classificationClaimantUpdate: FieldUpdate<ClassificationClaimant>)
+    (priorityUpdate: FieldUpdate<int>)
+    (ruleGroupsUpdate: FieldUpdate<ClassificationRuleGroup list>)
+    (isActiveUpdate: FieldUpdate<bool>)
+    : Result<unit, IAppError> =
+    result {
+        let! groupStr =
+            match ruleGroupsUpdate with
+            | NoChange -> Ok ""
+            | SetTo x -> x |> ruleGroupsToJson
+        let accountAtMatchUpdate, paymentAtMatchUpdate =
+            classificationClaimantUpdate |> classificationClaimantToJointUpdates
+        let updates =
+            [ classificationRuleNameUpdate
+              |> mapNoChangeToOptionWithConversion(fun n ->
+                  ("rule_name = @rule_name",
+                   { name = "@rule_name"; value = CharString(n |> ClassificationRuleName.value) }))
+
+              priorityUpdate
+              |> mapNoChangeToOptionWithConversion(fun n ->
+                  ("priority = @priority", { name = "@priority"; value = Integer(n) }))
+
+              ruleGroupsUpdate
+              |> mapNoChangeToOptionWithConversion(fun _ ->
+                  ("rule_groups = @rule_groups", { name = "@rule_groups"; value = Jsonb(groupStr) }))
+
+              isActiveUpdate
+              |> mapNoChangeToOptionWithConversion(fun n ->
+                  ("is_active = @is_active", { name = "@is_active"; value = Boolean(n) }))
+
+              accountAtMatchUpdate
+              paymentAtMatchUpdate ]
+            |> List.choose id
+        do! if updates.IsEmpty then Error(ClassificationRuleUpdateNoOp) else Ok()
+        let setClauses = updates |> List.map fst |> String.concat ", "
+        let parameters =
+            [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
+              { name = "@unique_id"; value = UniqueId(classificationRuleId |> ClassificationRuleId.value) } ]
+            @ (updates |> List.map snd)
+        let queryStatement =
+            $"""
+            UPDATE classification.classification_rule
+            set
+                {setClauses},
+                modified_at = @modified
+            WHERE unique_id = @unique_id;
+        """
+        do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+    }

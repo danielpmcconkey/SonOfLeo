@@ -2,6 +2,7 @@ module Business.FinancialServices.Ledger.JournalEntryComment
 
 open NodaTime
 open App.Utility.IAppError
+open App.Utility.FieldUpdate
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteNonQuery
@@ -150,3 +151,38 @@ let fetchByJournalEntryHeaderIdList
     let parameters = namesAndParameters |> List.map snd
     let predicate = $"jec.journal_primary_entry_id in ({names})"
     query context (Some predicate) None None parameters AnyQuantityIsAcceptable
+
+/// update writes the changed fields of one comment, and refuses a call that changes nothing.
+let update
+    (context: Context.Context)
+    (journalEntryCommentId: JournalEntryCommentId)
+    (commentUpdate: FieldUpdate<CommentText>)
+    (secondaryIdUpdate: FieldUpdate<JournalEntryHeaderId option>)
+    : Result<unit, IAppError> =
+    let updates =
+        [ commentUpdate
+          |> mapNoChangeToOptionWithConversion(fun x ->
+              (", comment_text = @comment_text",
+               { name = "@comment_text"; value = CharString(x |> CommentText.value) }))
+
+          secondaryIdUpdate
+          |> mapNoChangeToOptionWithConversion(fun x ->
+              let validUuidOption = x |> Option.map JournalEntryHeaderId.value
+              (", journal_secondary_entry_id = @journal_secondary_entry_id",
+               { name = "@journal_secondary_entry_id"; value = NullableUniqueId validUuidOption })) ]
+        |> List.choose id
+    if updates.IsEmpty then Error(JournalEntryCommentUpdateNoOp) else
+    let setClauses = updates |> List.map fst |> String.concat ""
+    let parameters =
+        [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
+          { name = "@unique_id"; value = UniqueId(journalEntryCommentId |> JournalEntryCommentId.value) } ]
+        @ (updates |> List.map snd)
+    let queryStatement =
+        $"""
+        UPDATE ledger.journal_entry_comment
+        set
+            modified_at = @modified
+            {setClauses}
+        WHERE unique_id = @unique_id;
+    """
+    executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne

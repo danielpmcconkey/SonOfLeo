@@ -4,9 +4,7 @@ open App.Utility
 open App.Utility.IAppError
 open App.Utility.Result
 open App.DataAccessLayer.DalError
-open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
-open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.LedgerError
@@ -49,39 +47,9 @@ let updateFiAndReferenceText
     (journalEntryExternalReferenceId: JournalEntryExternalReferenceId)
     : Result<JournalEntryExternalReference, IAppError> =
     let uuid = journalEntryExternalReferenceId |> JournalEntryExternalReferenceId.value
-    let baseParams =
-        [ { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) }
-          { name = "@unique_id"; value = UniqueId uuid } ]
-    let updates =
-        [ fiUpdate
-          |> FieldUpdate.mapNoChangeToOptionWithConversion(fun fi ->
-              ", financial_institution = @financial_institution",
-              { name = "@financial_institution"; value = CharString(JournalRefFinancialInstitution.value fi) })
-
-          referenceUpdate
-          |> FieldUpdate.mapNoChangeToOptionWithConversion(fun referenceText ->
-              ", reference = @reference",
-              { name = "@reference"; value = CharString(JournalExternalReferenceText.value referenceText) }) ]
-        |> List.choose id
-    let setClauses = updates |> List.map fst |> String.concat ""
-    let parameters = baseParams @ (updates |> List.map snd)
-    let queryStatement =
-        $"""
-        UPDATE ledger.journal_entry_ext_reference
-        set
-            modified_at = @modified
-                {setClauses}
-            WHERE unique_id = @unique_id;
-        ;
-    """
     result {
         do!
-            if updates.IsEmpty then
-                Error(JournalEntryReferenceUpdateNoOp)
-            else
-                Ok()
-        let! _ =
-            executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+            JournalEntryExternalReference.update context journalEntryExternalReferenceId fiUpdate referenceUpdate
             |> whenNoRows (JournalEntryExternalReferenceIdDoesntExist uuid)
         return! journalEntryExternalReferenceId |> fetchById context
     }
