@@ -14,7 +14,7 @@ at runtime and feed that to the route.
 | grp-003 | HARRIS TEETER 0381 CONCORD NC | 1 null code, 1 parser-assigned | OneMatch: generic TestBank rule only → F-5300 |
 | grp-004 | SPECTRUM SOUTHEAST 800-892-2253 | 1 null code, 1 parser-assigned | OneMatch: generic TestBank rule only → F-5300 |
 | grp-005 | TOTALLY UNKNOWN MERCHANT NOWHERE | 1 null code, 1 parser-assigned | NoMatch: no description-specific rule, but generic TestBank matches. See note below. |
-| grp-006 | ALLSTATE INS AUTOPAY | 1 null code, 1 parser-assigned | Conflict: two rules at priority 500 both match (ALLSTATE→F-5300 and ALLSTATE→F-5650). Needs new rules. |
+| grp-006 | ACME INSURANCE AUTOPAY | 1 null code, 1 parser-assigned | Conflict: two rules at priority 500 both match (ACME INSURANCE→F-5300 and ACME INSURANCE→F-5650). Needs new rules. |
 | grp-007 | PAYROLL DEPOSIT ACME CORP | 4 lines, ALL parser-assigned | Skips classification entirely → auto-Classified (REQ-STG-5.8) |
 | grp-008 | Fixture JE with reference | fi_reference = "TXN-001" | Ledger dedup: matches jeWithRef's external reference. Never reaches classification. |
 | grp-009 | DD DoorDash Order 9917223 | 1 null code, 1 parser-assigned | OneMatch: DoorDash rule → F-5350 |
@@ -31,15 +31,15 @@ The generic TestBank rule (Source = "TestBank" → F-5300, priority 1000) matche
 
 ## Rules to add for Conflict testing (grp-006)
 
-Add two rules at the SAME priority (500) that both match "ALLSTATE":
+Add two rules at the SAME priority (500) that both match "ACME INSURANCE":
 
 ```
-Rule: "Allstate Insurance → F-5300" 
-  Source = TestBank, Description matches "^ALLSTATE"
+Rule: "Acme Insurance → F-5300" 
+  Source = TestBank, Description matches "^ACME INSURANCE"
   Priority 500, codeAtMatch = F-5300
 
-Rule: "Allstate Insurance → F-5650"
-  Source = TestBank, Description matches "^ALLSTATE"  
+Rule: "Acme Insurance → F-5650"
+  Source = TestBank, Description matches "^ACME INSURANCE"  
   Priority 500, codeAtMatch = F-5650
 ```
 

@@ -62,7 +62,7 @@ The matching must handle:
 
 Open questions:
 - Should rules also match on FI source? (e.g., "anything from SECU that
-  says ALLSTATE is the auto premium, but from Fidelity Visa it could be
+  says ACME INSURANCE is the auto premium, but from Fidelity Visa it could be
   homeowners")
 - Negative rules ("this pattern is NOT this category") — needed, or
   over-engineering?

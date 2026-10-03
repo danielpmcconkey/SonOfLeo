@@ -797,28 +797,28 @@ type TestDataFixture() =
                         sourceVisaDescReiRuleGroup
                 classificationRules <- sourceVisaDescRei5650Rule :: classificationRules
 
-                // Allstate conflict rules — two rules at same priority for grp-006 conflict testing
-                let! descAllstateMatchPattern = StringSearchPattern.create "^ALLSTATE"
-                let descAllstateMatch = FieldMatch.Description(descAllstateMatchPattern)
-                let (allstateRuleGroup: (string * FieldMatch list * FieldMatch list option) list) =
-                    [("And", [sourceCheckingAccountMatch; descAllstateMatch], None)]
-                let! allstate5300Rule =
+                // Acme Insurance conflict rules — two rules at same priority for grp-006 conflict testing
+                let! descAcmeInsuranceMatchPattern = StringSearchPattern.create "^ACME INSURANCE"
+                let descAcmeInsuranceMatch = FieldMatch.Description(descAcmeInsuranceMatchPattern)
+                let (acmeInsuranceRuleGroup: (string * FieldMatch list * FieldMatch list option) list) =
+                    [("And", [sourceCheckingAccountMatch; descAcmeInsuranceMatch], None)]
+                let! acmeInsurance5300Rule =
                     createClassificationRuleForTest
                         context
-                        "Allstate Insurance to 5300"
+                        "Acme Insurance to 5300"
                         (personalExpenses5300 |> Account.code |> AccountCode.value)
                         500
-                        allstateRuleGroup
-                classificationRules <- allstate5300Rule :: classificationRules
+                        acmeInsuranceRuleGroup
+                classificationRules <- acmeInsurance5300Rule :: classificationRules
 
-                let! allstate5650Rule =
+                let! acmeInsurance5650Rule =
                     createClassificationRuleForTest
                         context
-                        "Allstate Insurance to 5650"
+                        "Acme Insurance to 5650"
                         (entertainment5650 |> Account.code |> AccountCode.value)
                         500
-                        allstateRuleGroup
-                classificationRules <- allstate5650Rule :: classificationRules
+                        acmeInsuranceRuleGroup
+                classificationRules <- acmeInsurance5650Rule :: classificationRules
 
                 // Archetype A — the only inactive rule in the fixture.
                 // Created active and then deactivated, because the spec's negative-existence
@@ -898,7 +898,7 @@ type TestDataFixture() =
                 // nothing at all for Credit. One entry arriving with both lines null therefore
                 // produces a Conflict line and a NoMatch line at once, which is the only way to
                 // observe the precedence rule. TestSplitBank cannot serve: giving it a tied Debit
-                // rule turns grp-011 into a Conflict and REQ-STG-5.2's test with it. The Allstate
+                // rule turns grp-011 into a Conflict and REQ-STG-5.2's test with it. The Acme Insurance
                 // pair cannot either: they match on description, which both lines of an entry
                 // share, so both lines would conflict and no line would be left to no-match.
                 let! mixedSourcePattern = StringSearchPattern.create mixedOutcomeBankStr

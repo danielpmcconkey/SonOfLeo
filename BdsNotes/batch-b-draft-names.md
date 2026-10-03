@@ -200,7 +200,7 @@ request.
 - **#33 dropped.** It was guarding cross-entry contamination — a line picking up the rule that
   matched a *neighbouring* entry's description. The existing pipeline tests already close that as a
   side effect: they run the whole batch and then select entries by description, so DoorDash landing
-  on `F-5350` while Allstate goes to `Conflict` and TestSavings to `NoMatch` cannot all hold if the
+  on `F-5350` while Acme Insurance goes to `Conflict` and TestSavings to `NoMatch` cannot all hold if the
   loop is reading the wrong entry's description. A dedicated test adds nothing.
 
 ## Still open

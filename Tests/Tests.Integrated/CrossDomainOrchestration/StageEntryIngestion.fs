@@ -67,8 +67,8 @@ module StageTestData =
             makeRawRow context "grp-004" (today.PlusDays(-1)) "SPECTRUM SOUTHEAST 800-892-2253" "TestBank" "REF-CABLE-001" 79.99M "Credit" (Some "F-1270") None
             makeRawRow context "grp-005" (today.PlusDays(-1)) "TOTALLY UNKNOWN MERCHANT NOWHERE" "TestSavings" "REF-UNK-001" 15.00M "Debit" None None
             makeRawRow context "grp-005" (today.PlusDays(-1)) "TOTALLY UNKNOWN MERCHANT NOWHERE" "TestSavings" "REF-UNK-001" 15.00M "Credit" (Some "F-1270") None
-            makeRawRow context "grp-006" today "ALLSTATE INS AUTOPAY" "TestBank" "REF-INS-001" 142.50M "Debit" None None
-            makeRawRow context "grp-006" today "ALLSTATE INS AUTOPAY" "TestBank" "REF-INS-001" 142.50M "Credit" (Some "F-1270") None
+            makeRawRow context "grp-006" today "ACME INSURANCE AUTOPAY" "TestBank" "REF-INS-001" 142.50M "Debit" None None
+            makeRawRow context "grp-006" today "ACME INSURANCE AUTOPAY" "TestBank" "REF-INS-001" 142.50M "Credit" (Some "F-1270") None
             makeRawRow context "grp-007" (today.PlusDays(-3)) "PAYROLL DEPOSIT ACME CORP" "TestBank" "REF-PAY-001" 800.00M "Debit" (Some "F-1270") (Some "Net pay to checking")
             makeRawRow context "grp-007" (today.PlusDays(-3)) "PAYROLL DEPOSIT ACME CORP" "TestBank" "REF-PAY-001" 312.50M "Credit" (Some "F-5300") (Some "Federal withholding")
             makeRawRow context "grp-007" (today.PlusDays(-3)) "PAYROLL DEPOSIT ACME CORP" "TestBank" "REF-PAY-001" 187.50M "Credit" (Some "F-5350") (Some "State withholding")

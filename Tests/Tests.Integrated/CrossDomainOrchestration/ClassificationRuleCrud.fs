@@ -344,7 +344,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
     member _.``REQ-CR-5.3 fetchRulesFiltered by id returns exactly the one rule bearing that id`` () =
         runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
-                let target = fixtureRules () |> List.find (fun r -> r |> nameOf = "Allstate Insurance to 5300")
+                let target = fixtureRules () |> List.find (fun r -> r |> nameOf = "Acme Insurance to 5300")
                 let! found =
                     ClassificationOrchestration.fetchRulesFiltered
                         context
@@ -359,7 +359,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
     member _.``REQ-CR-5.3 fetchRulesFiltered by name fragment returns every rule whose name contains the fragment and no others`` () =
         runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
-                let fragment = "Allstate"
+                let fragment = "Acme Insurance"
                 let expected =
                     fixtureRules ()
                     |> List.filter (fun r -> (r |> nameOf).Contains fragment)
@@ -466,7 +466,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
     member _.``REQ-CR-5.3 fetchRulesFiltered given both a name fragment and an account returns only the rules satisfying both, not the union`` () =
         runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
-                let fragment = "Allstate"
+                let fragment = "Acme Insurance"
                 let code = "F-5650"
                 let both =
                     fixtureRules ()

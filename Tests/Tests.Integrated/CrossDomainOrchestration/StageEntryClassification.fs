@@ -178,8 +178,8 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
-                // grp-006 ALLSTATE: two rules at priority 500 → Conflict
-                let entry = fullResult.stagedEntries |> StageTestData.findByDescription "ALLSTATE INS AUTOPAY"
+                // grp-006 ACME INSURANCE: two rules at priority 500 → Conflict
+                let entry = fullResult.stagedEntries |> StageTestData.findByDescription "ACME INSURANCE AUTOPAY"
                 Assert.Equal(Conflict, StageTestData.latestStatus entry)
             })
         |> railroadWrapper

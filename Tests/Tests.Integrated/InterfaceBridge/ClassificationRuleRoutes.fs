@@ -200,11 +200,11 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CR-5.2 the fetch by name route returns the rule bearing that exact name and not another rule sharing its opening words``() =
-        (* Two fixture rules start "Allstate Insurance to ", so an implementation that matched
+        (* Two fixture rules start "Acme Insurance to ", so an implementation that matched
            on a prefix would have two candidates and could return either. *)
         let candidates =
             fixture.Data.classificationRules
-            |> List.filter(fun r -> (r |> ruleNameOf).StartsWith "Allstate Insurance to "
+            |> List.filter(fun r -> (r |> ruleNameOf).StartsWith "Acme Insurance to "
         )
         let expected = candidates |> List.find(fun r -> (r |> ruleNameOf).EndsWith "5650")
         result {
@@ -237,7 +237,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member this.``REQ-CR-5.3 the filtered fetch route returns every rule whose name contains the fragment and no rule that does not``() =
-        let fragment = "Allstate"
+        let fragment = "Acme Insurance"
         let expected =
             fixture.Data.classificationRules
             |> List.filter(fun r -> (r |> ruleNameOf).Contains fragment)
@@ -288,26 +288,26 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-CR-5.5 the fetch by id route resolves each of the two Allstate rules to the name of its own account at match, not to a shared or first-found account name``() =
+    member _.``REQ-CR-5.5 the fetch by id route resolves each of the two Acme Insurance rules to the name of its own account at match, not to a shared or first-found account name``() =
         (* Two fixture rules whose names differ only in their last four characters and which
            point at two different accounts. A resolver returning a constant, or the first
            account it found, or anything derived from the rule name satisfies one of these and
            fails the other. One rule could not tell those apart. *)
-        let allstateRules =
+        let acmeInsuranceRules =
             fixture.Data.classificationRules
-            |> List.filter(fun r -> (r |> ruleNameOf).StartsWith "Allstate Insurance to ")
+            |> List.filter(fun r -> (r |> ruleNameOf).StartsWith "Acme Insurance to ")
         let expectedNameFor (rule: ClassificationRule.ClassificationRule) =
             fixture.Data.accounts
             |> List.find(fun a -> ClassificationClaimant.Account(a |> Account.accountId) = (rule |> ClassificationRule.classificationClaimant))
             |> Account.accountName
             |> AccountName.value
         result {
-            Assert.Equal(2, allstateRules |> List.length)
+            Assert.Equal(2, acmeInsuranceRules |> List.length)
             (* If the fixture ever pointed both rules at one account the assertions below would
                still pass while proving nothing. *)
-            Assert.Equal(2, allstateRules |> List.map expectedNameFor |> List.distinct |> List.length)
+            Assert.Equal(2, acmeInsuranceRules |> List.map expectedNameFor |> List.distinct |> List.length)
             let! fetched =
-                allstateRules
+                acmeInsuranceRules
                 |> List.map(fun rule ->
                     result {
                         let! payload =
