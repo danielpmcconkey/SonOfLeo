@@ -193,17 +193,18 @@ let private dimensionValueNamesById (context: Context.Context) : Result<Map<Dime
         >> Map.ofList
     )
 
+let private viewWith (valueNames: Map<DimensionValueId, string>) (security: Security.Security) : SecurityView =
+    { security = security
+      dimensionValueNames = security |> Security.dimensionValues |> Map.map (fun _ valueId -> valueNames |> Map.find valueId) }
+
+let viewSecurity (context: Context.Context) (security: Security.Security) : Result<SecurityView, IAppError> =
+    dimensionValueNamesById context |> Result.map (fun valueNames -> viewWith valueNames security)
+
 let listSecurities (context: Context.Context) : Result<SecurityView list, IAppError> =
     result {
         let! securities = Security.fetchAll context
         let! valueNames = dimensionValueNamesById context
-        return
-            securities
-            |> List.sortBy (Security.securityName >> SecurityName.value)
-            |> List.map (fun security ->
-                { security = security
-                  dimensionValueNames =
-                    security |> Security.dimensionValues |> Map.map (fun _ valueId -> valueNames |> Map.find valueId) })
+        return securities |> List.sortBy (Security.securityName >> SecurityName.value) |> List.map (viewWith valueNames)
     }
 
 // ---- Investment Accounts ----
@@ -532,6 +533,16 @@ let changeHoldingBasisMethod
         return! holding |> Holding.holdingId |> Holding.updateBasisMethod context basisMethod
     }
 
+let viewHolding (context: Context.Context) (holding: Holding.Holding) : Result<HoldingView, IAppError> =
+    result {
+        let! account = holding |> Holding.investmentAccountId |> InvestmentAccount.fetchById context
+        let! security = holding |> Holding.securityId |> Security.fetchById context
+        return
+            { holding = holding
+              investmentAccountName = account |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value
+              securityName = security |> Security.securityName |> SecurityName.value }
+    }
+
 let listHoldings (context: Context.Context) (accountName: InvestmentAccountName option) : Result<HoldingView list, IAppError> =
     result {
         let! holdings =
@@ -540,17 +551,6 @@ let listHoldings (context: Context.Context) (accountName: InvestmentAccountName 
                 fetchInvestmentAccountByName context name
                 |> Result.bind (InvestmentAccount.investmentAccountId >> Holding.fetchByInvestmentAccount context)
             | None -> Holding.fetchAll context
-        let! views =
-            holdings
-            |> List.map (fun holding ->
-                result {
-                    let! account = holding |> Holding.investmentAccountId |> InvestmentAccount.fetchById context
-                    let! security = holding |> Holding.securityId |> Security.fetchById context
-                    return
-                        { holding = holding
-                          investmentAccountName = account |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value
-                          securityName = security |> Security.securityName |> SecurityName.value }
-                })
-            |> convertListOfResultsToResultsList
+        let! views = holdings |> List.map (viewHolding context) |> convertListOfResultsToResultsList
         return views |> List.sortBy (fun v -> v.investmentAccountName, v.securityName)
     }

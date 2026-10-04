@@ -6,12 +6,15 @@ open Ui.InterfaceBridge.Routes.FiscalPeriodRoutes
 open Ui.InterfaceBridge.Routes.JournalEntryRoutes
 open Ui.InterfaceBridge.Routes.IngestionRoutes
 open Ui.InterfaceBridge.Routes.CashFlowRoutes
+open Ui.InterfaceBridge.Routes.PersonRoutes
+open Ui.InterfaceBridge.Routes.PositionsRoutes
 open Ui.InterfaceBridge.Routes.ClassificationRoutes
 open Ui.OperatorCli.OperatorCliError
 
 
 let commandRoutes =
     accountDomainCommandRoutes @ fiscalPeriodDomainCommandRoutes @ journalEntryDomainCommandRoutes @ ingestionDomainCommandRoutes @ classificationDomainCommandRoutes @ cashFlowDomainCommandRoutes
+    @ personDomainCommandRoutes @ positionsDomainCommandRoutes
 
 let route domain verb rest payload : Result<string, IAppError> =
     match commandRoutes |> List.tryFind(fun r -> r.domain = domain && r.verb = verb) with

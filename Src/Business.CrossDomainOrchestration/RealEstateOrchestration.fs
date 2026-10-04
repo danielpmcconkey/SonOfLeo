@@ -295,12 +295,19 @@ let recordValuation
             return valuation
     }
 
-let deleteValuation (context: Context.Context) (propertyName: PropertyName) (valuationDate: LocalDate) : Result<unit, IAppError> =
+/// Deletes the Valuation and returns it as it stood before deletion.
+let deleteValuation
+    (context: Context.Context)
+    (propertyName: PropertyName)
+    (valuationDate: LocalDate)
+    : Result<Valuation.Valuation, IAppError> =
     result {
         let! property = fetchPropertyByName context propertyName
         let! existing = Valuation.fetchByPropertyAndDate context (property |> Property.propertyId) valuationDate
         match existing with
-        | Some valuation -> return! valuation |> Valuation.valuationId |> Valuation.delete context
+        | Some valuation ->
+            do! valuation |> Valuation.valuationId |> Valuation.delete context
+            return valuation
         | None -> return! error (PositionsValuationDoesntExist(propertyName |> PropertyName.value, valuationDate))
     }
 

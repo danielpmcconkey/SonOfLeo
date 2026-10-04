@@ -1,0 +1,223 @@
+module Ui.InterfaceBridge.InterfaceContracts.PositionsContracts
+
+open NodaTime
+open App.Utility.FieldUpdate
+
+// every ledger account in a return carries its name beside its code
+type LedgerAccountReturn = { code: string; name: string }
+
+// ---- Dimension Values ----
+
+type DimensionValueReturn = { dimension: string; valueName: string }
+
+type DimensionValueCreateInput = { dimension: string; valueName: string }
+
+type DimensionValueRenameInput = { dimension: string; currentName: string; newName: string }
+
+type DimensionValueListInput = { dimension: string }
+
+// ---- Securities ----
+
+type SecurityReturn = {
+    securityName: string
+    ticker: string option
+    // one entry per dimension that has a value, in the order of the seven dimensions
+    dimensionValues: DimensionValueReturn list
+    createdAt: Instant
+    modifiedAt: Instant
+}
+
+type SecurityCreateInput = {
+    securityName: string
+    ticker: string option
+    dimensionValues: DimensionValueReturn list
+}
+
+// a dimension given with a valueName is set to it; given with none, it is cleared; not given, it is unchanged
+type DimensionValueUpdateInput = { dimension: string; valueName: string option }
+
+// the Security is addressed by its current name
+type SecurityUpdateInput = {
+    securityName: string
+    securityNameUpdate: FieldUpdate<string>
+    tickerUpdate: FieldUpdate<string option>
+    dimensionValueUpdates: DimensionValueUpdateInput list
+}
+
+// ---- Investment Accounts ----
+
+type InvestmentAccountReturn = {
+    accountName: string
+    institution: string
+    accountGroup: string
+    taxTreatment: string
+    owners: string list
+    activeBegin: LocalDate
+    activeEnd: LocalDate option
+    ledgerAccount: LedgerAccountReturn option
+    createdAt: Instant
+    modifiedAt: Instant
+}
+
+type InvestmentAccountCreateInput = {
+    accountName: string
+    institution: string
+    accountGroup: string
+    taxTreatment: string
+    owners: string list
+    activeBegin: LocalDate
+    activeEnd: LocalDate option
+    ledgerAccountCode: string option
+}
+
+// the account is addressed by its current name; ownersUpdate carries the complete new set
+type InvestmentAccountUpdateInput = {
+    accountName: string
+    accountNameUpdate: FieldUpdate<string>
+    institutionUpdate: FieldUpdate<string>
+    accountGroupUpdate: FieldUpdate<string>
+    taxTreatmentUpdate: FieldUpdate<string>
+    ownersUpdate: FieldUpdate<string list>
+    activeBeginUpdate: FieldUpdate<LocalDate>
+    activeEndUpdate: FieldUpdate<LocalDate option>
+    ledgerAccountCodeUpdate: FieldUpdate<string option>
+}
+
+// ---- Holdings ----
+
+type HoldingReturn = {
+    accountName: string
+    securityName: string
+    basisMethod: string option
+    createdAt: Instant
+    modifiedAt: Instant
+}
+
+type HoldingCreateInput = { accountName: string; securityName: string; basisMethod: string option }
+
+type HoldingUpdateBasisMethodInput = { accountName: string; securityName: string; basisMethod: string option }
+
+type HoldingListInput = { accountName: string option }
+
+type HoldingFetchAsOfInput = { asOf: LocalDate }
+
+type HoldingsAsOfLineReturn = {
+    securityName: string
+    ticker: string option
+    dimensionValues: DimensionValueReturn list
+    basisMethod: string option
+    quantity: decimal
+    price: decimal
+    marketValue: decimal
+    reportedCostBasis: decimal option
+}
+
+type HoldingsAsOfAccountReturn = {
+    accountName: string
+    institution: string
+    accountGroup: string
+    taxTreatment: string
+    owners: string list
+    ledgerAccount: LedgerAccountReturn option
+    snapshotDate: LocalDate
+    provenance: string
+    contributionBasis: decimal option
+    lines: HoldingsAsOfLineReturn list
+}
+
+// ---- Account Snapshots ----
+
+type AccountSnapshotLineContract = {
+    securityName: string
+    quantity: decimal
+    price: decimal
+    marketValue: decimal
+    reportedCostBasis: decimal option
+}
+
+type AccountSnapshotInput = {
+    accountName: string
+    snapshotDate: LocalDate
+    provenance: string
+    contributionBasis: decimal option
+    lines: AccountSnapshotLineContract list
+}
+
+// every snapshot is recorded, or none is
+type AccountSnapshotRecordInput = { snapshots: AccountSnapshotInput list }
+
+type AccountSnapshotReturn = {
+    accountName: string
+    snapshotDate: LocalDate
+    provenance: string
+    contributionBasis: decimal option
+    lines: AccountSnapshotLineContract list
+    createdAt: Instant
+    modifiedAt: Instant
+}
+
+type RecordedAccountSnapshotReturn = { snapshot: AccountSnapshotReturn; replacedExisting: bool }
+
+type AccountSnapshotDeleteInput = { accountName: string; snapshotDate: LocalDate }
+
+type AccountSnapshotFetchInput = { accountName: string; snapshotDate: LocalDate }
+
+type AccountSnapshotListDatesInput = { accountName: string; beginDate: LocalDate; endDate: LocalDate }
+
+type AccountSnapshotDateReturn = { snapshotDate: LocalDate; provenance: string }
+
+// ---- Properties ----
+
+type PropertyReturn = {
+    propertyName: string
+    propertyUse: string
+    owners: string list
+    acquisitionDate: LocalDate
+    disposalDate: LocalDate option
+    purchaseBasis: decimal
+    assetAccount: LedgerAccountReturn option
+    mortgageAccounts: LedgerAccountReturn list
+    createdAt: Instant
+    modifiedAt: Instant
+}
+
+type PropertyCreateInput = {
+    propertyName: string
+    propertyUse: string
+    owners: string list
+    acquisitionDate: LocalDate
+    disposalDate: LocalDate option
+    purchaseBasis: decimal
+    assetAccountCode: string option
+    mortgageAccountCodes: string list
+}
+
+// the Property is addressed by its current name; ownersUpdate and mortgageAccountCodesUpdate carry complete new sets
+type PropertyUpdateInput = {
+    propertyName: string
+    propertyNameUpdate: FieldUpdate<string>
+    propertyUseUpdate: FieldUpdate<string>
+    ownersUpdate: FieldUpdate<string list>
+    acquisitionDateUpdate: FieldUpdate<LocalDate>
+    disposalDateUpdate: FieldUpdate<LocalDate option>
+    purchaseBasisUpdate: FieldUpdate<decimal>
+    assetAccountCodeUpdate: FieldUpdate<string option>
+    mortgageAccountCodesUpdate: FieldUpdate<string list>
+}
+
+// ---- Valuations ----
+
+type ValuationReturn = {
+    propertyName: string
+    valuationDate: LocalDate
+    value: decimal
+    basis: string
+    createdAt: Instant
+    modifiedAt: Instant
+}
+
+type ValuationRecordInput = { propertyName: string; valuationDate: LocalDate; value: decimal; basis: string }
+
+type ValuationDeleteInput = { propertyName: string; valuationDate: LocalDate }
+
+type ValuationListInput = { propertyName: string }

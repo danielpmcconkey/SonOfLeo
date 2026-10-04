@@ -11,6 +11,8 @@ open Business.CrossDomainOrchestration.BalanceSheetIntegrity
 open Business.CrossDomainOrchestration.PeriodActivity
 open Business.CrossDomainOrchestration.Reconciliation
 open Business.CrossDomainOrchestration.PrePostingReview
+open Business.CrossDomainOrchestration.NetWorth
+open Business.CrossDomainOrchestration.InvestmentWealthHistory
 open Ui.InterfaceBridge.ReportWriters
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Ui.InterfaceBridge.BoundaryConverters.ReportConverters
@@ -87,6 +89,36 @@ let private periodActivity payload _ =
         return! periodActivityReturn |> Json.toJson<PeriodActivityReturn>
     }
 
+let private netWorth payload _ =
+    let context = Context.create NoTransaction FetchOnly
+    result {
+        let! input = Json.fromJson<NetWorthInput> payload
+        let! computed = computeNetWorth context input.asOf.asOf
+        let! (netWorthReturn: NetWorthReturn) =
+            match input.reportOutput with
+            | OutputSpecifier.DataOnly -> Ok(NetWorthReturn.DataOnly(computed |> ``convert [NetWorth] to [NetWorthReturnRow]``))
+            | OutputSpecifier.Report outputPathInput ->
+                computed |> NetWorthWriter.write outputPathInput (context |> Context.getInitiationInstant)
+        return! netWorthReturn |> Json.toJson<NetWorthReturn>
+    }
+
+let private investmentWealthHistory payload _ =
+    let context = Context.create NoTransaction FetchOnly
+    result {
+        let! input = Json.fromJson<InvestmentWealthHistoryInput> payload
+        let! grouping = input.grouping |> WealthGrouping.fromString
+        let! points = computeInvestmentWealthHistory context input.beginDate input.endDate grouping
+        let! (historyReturn: InvestmentWealthHistoryReturn) =
+            match input.reportOutput with
+            | OutputSpecifier.DataOnly ->
+                Ok(InvestmentWealthHistoryReturn.DataOnly(points |> List.map ``convert [WealthPoint] to [WealthPointReturnRow]``))
+            | OutputSpecifier.Report outputPathInput ->
+                points
+                |> InvestmentWealthHistoryWriter.write
+                    outputPathInput (context |> Context.getInitiationInstant) input.beginDate input.endDate grouping
+        return! historyReturn |> Json.toJson<InvestmentWealthHistoryReturn>
+    }
+
 let reportingRoutes: ReportRoute list =
     [
         { name = "TrialBalance"
@@ -114,4 +146,14 @@ let reportingRoutes: ReportRoute list =
           inputContract = typeof<PeriodActivityInput>.Name
           outputContract = typeof<PeriodActivityReturn>.Name
           handler = periodActivity }
+        { name = "NetWorth"
+          description = "As of a date inside a fiscal period: every Asset account not linked to an Investment Account or a Property at its own ledger balance, every Investment Account at the market value of its latest snapshot on or before the date, every Property owned on the date at its value with its mortgage accounts and equity, and every other Liability account; then the totals, net worth, investable wealth (net worth less the primary residence's equity), and investments totalled by tax treatment and by account group. If data only, returns those figures; if Report, writes them and returns the full file path."
+          inputContract = typeof<NetWorthInput>.Name
+          outputContract = typeof<NetWorthReturn>.Name
+          handler = netWorth }
+        { name = "InvestmentWealthHistory"
+          description = "For every month-end from begin to end (inclusive), the market value of the holdings as of that date, totalled by the grouping given (Account, AccountGroup, TaxTreatment, Owners, or one of the seven dimensions) and in all; lines with no value in a dimension are totalled as unassigned. Not limited to fiscal periods. If data only, returns the points; if Report, writes a table of them and returns the full file path; date interpolation appends -begin_end."
+          inputContract = typeof<InvestmentWealthHistoryInput>.Name
+          outputContract = typeof<InvestmentWealthHistoryReturn>.Name
+          handler = investmentWealthHistory }
     ]

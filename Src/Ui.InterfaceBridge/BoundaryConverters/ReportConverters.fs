@@ -16,6 +16,8 @@ open Business.CrossDomainOrchestration.BalanceSheetIntegrity
 open Business.CrossDomainOrchestration.PeriodActivity
 open Business.CrossDomainOrchestration.Reconciliation
 open Business.CrossDomainOrchestration.PrePostingReview
+open Business.CrossDomainOrchestration.NetWorth
+open Business.CrossDomainOrchestration.InvestmentWealthHistory
 open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
@@ -144,3 +146,65 @@ let ``convert [PeriodActivityAccount] to [PeriodActivityAccountReturnRow]``
       accountName = account.accountName |> AccountName.value
       netTotal = account.netTotal |> Money.amount
       lines = account.lines |> List.map ``convert [PeriodActivityLine] to [PeriodActivityLineReturnRow]`` }
+
+let private ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
+    (row: LedgerAccountBalance)
+    : NetWorthLedgerAccountReturnRow =
+    { code = row.code; name = row.name; balance = row.balance |> Money.amount }
+
+let ``convert [NetWorth] to [NetWorthReturnRow]`` (netWorth: NetWorth) : NetWorthReturnRow =
+    let groupTotal (group, total) : NetWorthGroupTotalReturnRow = { group = group; marketValue = total |> Money.amount }
+    { asOf = netWorth.asOf
+      assetAccounts = netWorth.assetAccounts |> List.map ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
+      liabilityAccounts =
+        netWorth.liabilityAccounts |> List.map ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
+      investmentAccounts =
+        netWorth.investmentAccounts
+        |> List.map (fun a ->
+            { accountName = a.investmentAccountName
+              owners = a.ownerNames
+              accountGroup = a.accountGroup
+              taxTreatment = a.taxTreatment |> Business.FinancialServices.Positions.PositionsComponent.TaxTreatment.toString
+              snapshotDate = a.snapshotDate
+              provenance = a.provenance |> Business.FinancialServices.Positions.PositionsComponent.Provenance.toString
+              marketValue = a.marketValue |> Money.amount
+              contributionBasis = a.contributionBasis |> Option.map Money.amount })
+      properties =
+        netWorth.properties
+        |> List.map (fun p ->
+            { propertyName = p.propertyName
+              propertyUse = p.propertyUse |> Business.FinancialServices.Positions.PositionsComponent.PropertyUse.toString
+              owners = p.ownerNames
+              value = p.value |> Money.amount
+              valuationDate =
+                match p.valueSource with
+                | ValuationDated d -> Some d
+                | PurchaseBasisValue -> None
+              valueIsPurchaseBasis = (p.valueSource = PurchaseBasisValue)
+              mortgageAccounts = p.mortgageAccounts |> List.map ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
+              equity = p.equity |> Money.amount })
+      totalLedgerAssets = netWorth.totalLedgerAssets |> Money.amount
+      totalInvestments = netWorth.totalInvestments |> Money.amount
+      totalPropertyValues = netWorth.totalPropertyValues |> Money.amount
+      totalLiabilities = netWorth.totalLiabilities |> Money.amount
+      netWorth = netWorth.netWorth |> Money.amount
+      investableWealth = netWorth.investableWealth |> Money.amount
+      investmentsByTaxTreatment =
+        netWorth.investmentsByTaxTreatment
+        |> List.map (fun (t, total) ->
+            groupTotal (t |> Business.FinancialServices.Positions.PositionsComponent.TaxTreatment.toString, total))
+      investmentsByAccountGroup = netWorth.investmentsByAccountGroup |> List.map groupTotal }
+
+let ``convert [WealthGroup] to [WealthGroupContract]`` (group: WealthGroup) : WealthGroupContract =
+    match group with
+    | GroupName name -> WealthGroupContract.Named name
+    | GroupOwners owners -> WealthGroupContract.Owners owners
+    | WealthGroup.Unassigned -> WealthGroupContract.Unassigned
+
+let ``convert [WealthPoint] to [WealthPointReturnRow]`` (point: WealthPoint) : WealthPointReturnRow =
+    { monthEnd = point.monthEnd
+      totals =
+        point.totals
+        |> List.map (fun (group, total) ->
+            { group = group |> ``convert [WealthGroup] to [WealthGroupContract]``; marketValue = total |> Money.amount })
+      total = point.total |> Money.amount }

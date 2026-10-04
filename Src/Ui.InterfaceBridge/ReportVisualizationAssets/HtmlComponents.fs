@@ -104,6 +104,8 @@ module DomElement =
             | NoIdentifier -> ""
         match e.elementType with
         | H1 s -> createTagString "h1" identifier (ContentTag s)
+        | H2 s -> createTagString "h2" identifier (ContentTag s)
+        | H3 s -> createTagString "h3" identifier (ContentTag s)
         | Span s -> createTagString "span" identifier (ContentTag s)
         | Bold s -> createTagString "b" identifier (ContentTag s)
         | Footer s -> createTagString "footer" identifier (ContentTag s)
@@ -113,7 +115,10 @@ module DomElement =
         | Div -> createTagString "div" identifier (WrapperTag sortedSubElements)
         | Paragraph -> createTagString "p" identifier (WrapperTag sortedSubElements)
         | NestedSpan -> createTagString "span" identifier (WrapperTag sortedSubElements)
-        | _ -> "tag not implemented"
+        | Table -> createTagString "table" identifier (WrapperTag sortedSubElements)
+        | TableRow -> createTagString "tr" identifier (WrapperTag sortedSubElements)
+        | TableHeadCell s -> createTagString "th" identifier (ContentTag s)
+        | TableDataCell s -> createTagString "td" identifier (ContentTag s)
         
 type HtmlBody =
     internal 

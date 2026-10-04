@@ -228,16 +228,19 @@ let private fetchHeader
         | None -> return! error (PositionsSnapshotDoesntExist(accountName |> InvestmentAccountName.value, snapshotDate))
     }
 
+/// Deletes the snapshot and its lines, and returns it as it stood before deletion.
 let deleteSnapshot
     (context: Context.Context)
     (accountName: InvestmentAccountName)
     (snapshotDate: LocalDate)
-    : Result<unit, IAppError> =
+    : Result<SnapshotView, IAppError> =
     result {
         let! header = fetchHeader context accountName snapshotDate
+        let! view = viewSnapshot context (accountName |> InvestmentAccountName.value) header
         let accountSnapshotId = header |> AccountSnapshotHeader.accountSnapshotId
         do! AccountSnapshotLine.deleteByAccountSnapshot context accountSnapshotId
         do! AccountSnapshotHeader.delete context accountSnapshotId
+        return view
     }
 
 let fetchSnapshot

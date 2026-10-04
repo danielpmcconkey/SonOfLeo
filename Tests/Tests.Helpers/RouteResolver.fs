@@ -9,6 +9,8 @@ open Ui.InterfaceBridge.Routes.JournalEntryRoutes
 open Ui.InterfaceBridge.Routes.ReportRoutes
 open Ui.InterfaceBridge.Routes.ClassificationRoutes
 open Ui.InterfaceBridge.Routes.CashFlowRoutes
+open Ui.InterfaceBridge.Routes.PersonRoutes
+open Ui.InterfaceBridge.Routes.PositionsRoutes
 open Ui.OperatorCli.OperatorCliError
 open Ui.ReportCli.ReportCliError
 open App.Utility.IAppError
@@ -18,6 +20,7 @@ open Tests.Helpers.SadPath
 
 let commandRoutes =
     accountDomainCommandRoutes @ fiscalPeriodDomainCommandRoutes @ journalEntryDomainCommandRoutes @ ingestionDomainCommandRoutes @ classificationDomainCommandRoutes @ cashFlowDomainCommandRoutes
+    @ personDomainCommandRoutes @ positionsDomainCommandRoutes
 
 let routeUiCommandForTesting
     (domain: string)

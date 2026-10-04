@@ -92,6 +92,10 @@ type OutputSpecifier =
 // begin and end are inclusive; with Report and interpolateAsOf, the file name gets -yyyy-MM-dd_yyyy-MM-dd (begin_end)
 type PeriodActivityInput = { beginDate: LocalDate; endDate: LocalDate; reportOutput: OutputSpecifier }
 
+// with Report and interpolateAsOf, the date appended to the file name is the as-of date. Declared ahead of the
+// trial balance's input, which has the same fields, so that a bare record of those fields still reads as that one.
+type NetWorthInput = { asOf: ReportAsOf; reportOutput: OutputSpecifier }
+
 // with Report and interpolateAsOf, the date appended to the file name is the as-of date
 type BalanceSheetIntegrityInput = { asOf: ReportAsOf; reportOutput: OutputSpecifier }
 
@@ -151,4 +155,78 @@ type PrePostingEntryReturnRow = {
 
 type PrePostingReviewReturn =
     | DataOnly of PrePostingEntryReturnRow list
+    | Report of OutputPathReturn
+
+
+// every ledger account carries its name beside its code
+type NetWorthLedgerAccountReturnRow = { code: string; name: string; balance: decimal }
+
+type NetWorthInvestmentAccountReturnRow = {
+    accountName: string
+    owners: string list
+    accountGroup: string
+    taxTreatment: string
+    snapshotDate: LocalDate
+    provenance: string
+    marketValue: decimal
+    contributionBasis: decimal option
+}
+
+type NetWorthPropertyReturnRow = {
+    propertyName: string
+    propertyUse: string
+    owners: string list
+    value: decimal
+    // the date of the Valuation the value came from; None when the value is the purchase basis
+    valuationDate: LocalDate option
+    valueIsPurchaseBasis: bool
+    mortgageAccounts: NetWorthLedgerAccountReturnRow list
+    equity: decimal
+}
+
+type NetWorthGroupTotalReturnRow = { group: string; marketValue: decimal }
+
+type NetWorthReturnRow = {
+    asOf: LocalDate
+    assetAccounts: NetWorthLedgerAccountReturnRow list
+    liabilityAccounts: NetWorthLedgerAccountReturnRow list
+    investmentAccounts: NetWorthInvestmentAccountReturnRow list
+    properties: NetWorthPropertyReturnRow list
+    totalLedgerAssets: decimal
+    totalInvestments: decimal
+    totalPropertyValues: decimal
+    totalLiabilities: decimal
+    netWorth: decimal
+    investableWealth: decimal
+    investmentsByTaxTreatment: NetWorthGroupTotalReturnRow list
+    investmentsByAccountGroup: NetWorthGroupTotalReturnRow list
+}
+
+type NetWorthReturn =
+    | DataOnly of NetWorthReturnRow
+    | Report of OutputPathReturn
+
+// grouping is one of Account, AccountGroup, TaxTreatment, Owners, or a dimension name (InvestmentType, MarketCap,
+// IndexType, Sector, Region, Objective, Benchmark); with Report and interpolateAsOf, the file name gets
+// -yyyy-MM-dd_yyyy-MM-dd (begin_end)
+type InvestmentWealthHistoryInput = {
+    beginDate: LocalDate
+    endDate: LocalDate
+    grouping: string
+    reportOutput: OutputSpecifier
+}
+
+type WealthGroupContract =
+    | Named of string
+    // an account's complete owner set
+    | Owners of string list
+    // lines whose Security has no value in the dimension grouped by
+    | Unassigned
+
+type WealthGroupTotalReturnRow = { group: WealthGroupContract; marketValue: decimal }
+
+type WealthPointReturnRow = { monthEnd: LocalDate; totals: WealthGroupTotalReturnRow list; total: decimal }
+
+type InvestmentWealthHistoryReturn =
+    | DataOnly of WealthPointReturnRow list
     | Report of OutputPathReturn
