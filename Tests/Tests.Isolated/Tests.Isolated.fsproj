@@ -34,6 +34,7 @@
     <Compile Include="Model\DataIngestion\Classifier.fs" />
     <Compile Include="Model\CashFlow\CashFlowComponent.fs" />
     <Compile Include="Model\CashFlow\MasterAgreementDataStates.fs" />
+    <Compile Include="Model\CashFlow\TrimmedText.fs" />
   </ItemGroup>
 
   <ItemGroup>

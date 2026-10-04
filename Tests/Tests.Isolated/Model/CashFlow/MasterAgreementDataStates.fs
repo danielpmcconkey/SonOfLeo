@@ -240,6 +240,41 @@ let ``REQ-CF-2.25 an Annually cadence rejects a next-instance date on the right 
 [<Fact>]
 let ``REQ-CF-2.25 a Daily cadence accepts a next-instance date on every day of a week that spans a month end, including the 29th, 30th and 31st`` () =
     let week = [ 0 .. 6 ] |> List.map (fun i -> LocalDate(2026, 10, 28).PlusDays(i))
-    let rejectedDays = week |> List.filter (fitsCadence Cadence.Daily >> Result.isError)
+    let refusals =
+        week
+        |> List.choose (fun d ->
+            match fitsCadence Cadence.Daily d with
+            | Ok _ -> None
+            | Error e -> Some $"{d}: {e.DomainName}.{e.CaseName}")
     Assert.Contains(LocalDate(2026, 10, 31), week)
-    Assert.Empty(rejectedDays)
+    Assert.Empty(refusals)
+
+// =========================================================================
+// REQ-CF-2.22 — Master Agreement memo
+// =========================================================================
+
+/// Fails unless `attempt` was refused with an error `isExpected` accepts, naming whatever came back instead.
+let private expectRefusal (isExpected: IAppError -> bool) (attempt: Result<'a, IAppError>) =
+    match attempt with
+    | Error e when isExpected e -> ()
+    | Error e -> Assert.Fail $"Wrong error. {e.DomainName}.{e.CaseName}: {e.ToMessage()}"
+    | Ok _ -> Assert.Fail "Expected failure; got success"
+
+[<Fact>]
+let ``REQ-CF-2.22 a Master Agreement memo of exactly 2000 characters is accepted and one of 2001 characters is rejected with a typed error naming the limit`` () =
+    let atLimit = String('m', 2000)
+    Assert.Equal(Ok atLimit, AgreementMemo.create atLimit |> Result.map AgreementMemo.value)
+    AgreementMemo.create (atLimit + "m")
+    |> expectRefusal (function
+        | AsError (CashflowAgreementMemoTooLong(raw, limit)) -> raw = atLimit + "m" && limit = 2000
+        | _ -> false)
+
+[<Theory>]
+[<InlineData("")>]
+[<InlineData(" ")>]
+[<InlineData(" \t  ")>]
+let ``REQ-CF-2.22 for each of the empty string, a single space and a string of spaces and tabs, a Master Agreement memo is rejected with a typed error`` (text: string) =
+    AgreementMemo.create text
+    |> expectRefusal (function
+        | AsError (CashflowAgreementMemoIsEmpty raw) -> raw = text
+        | _ -> false)
