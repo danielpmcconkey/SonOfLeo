@@ -352,12 +352,51 @@ let ``REQ-MON-2.9.1 sum list rejects results lesser than minMoney`` () =
     | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
-// Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+// =============================================================================
+// compare and sign
+// =============================================================================
 
-[<Fact>]
-let ``REQ-MON-2.10 for each pair of Money values (equal, one cent apart in either order, zero against plus and minus one cent, the maximum against the minimum), each of the equal, less-than, greater-than, less-or-equal and greater-or-equal comparisons gives its expected verdict, and a is less than b exactly when b is greater than a`` () =
-    Assert.Fail "Not yet implemented"
+let private moneyOf (s: string) =
+    match s with
+    | "max" -> maxMoney
+    | "min" -> minMoney
+    | other -> Decimal.Parse(other, Globalization.CultureInfo.InvariantCulture)
+    |> fromDecimal
+    |> Result.defaultWith (fun (e: IAppError) -> failwith (e.ToMessage()))
 
-[<Fact>]
-let ``REQ-MON-2.11 for each of the maximum, one cent, zero, minus one cent and the minimum, exactly one of positive, zero and negative holds, and it is the expected one`` () =
-    Assert.Fail "Not yet implemented"
+[<Theory>]
+[<InlineData("5.00", "5.00", "equal")>]
+[<InlineData("5.00", "5.01", "less")>]
+[<InlineData("5.01", "5.00", "greater")>]
+[<InlineData("0.00", "0.01", "less")>]
+[<InlineData("0.00", "-0.01", "greater")>]
+[<InlineData("max", "min", "greater")>]
+[<InlineData("min", "max", "less")>]
+let ``REQ-MON-2.10 for each pair of Money values (equal, one cent apart in either order, zero against plus and minus one cent, the maximum against the minimum), each of the equal, less-than, greater-than, less-or-equal and greater-or-equal comparisons gives its expected verdict, and a is less than b exactly when b is greater than a`` (a: string, b: string, relation: string) =
+    let ma, mb = moneyOf a, moneyOf b
+    // (equal, less, greater, less-or-equal, greater-or-equal)
+    let expected =
+        match relation with
+        | "equal" -> (true, false, false, true, true)
+        | "less" -> (false, true, false, true, false)
+        | "greater" -> (false, false, true, false, true)
+        | other -> failwith $"Unknown relation {other}"
+    Assert.Equal(expected, (isEqual ma mb, isLessThan ma mb, isGreaterThan ma mb, isLessThanOrEqual ma mb, isGreaterThanOrEqual ma mb))
+    Assert.Equal(isLessThan ma mb, isGreaterThan mb ma)
+
+[<Theory>]
+[<InlineData("max", "positive")>]
+[<InlineData("0.01", "positive")>]
+[<InlineData("0.00", "zero")>]
+[<InlineData("-0.01", "negative")>]
+[<InlineData("min", "negative")>]
+let ``REQ-MON-2.11 for each of the maximum, one cent, zero, minus one cent and the minimum, exactly one of positive, zero and negative holds, and it is the expected one`` (value: string, sign: string) =
+    let m = moneyOf value
+    // (positive, zero, negative)
+    let expected =
+        match sign with
+        | "positive" -> (true, false, false)
+        | "zero" -> (false, true, false)
+        | "negative" -> (false, false, true)
+        | other -> failwith $"Unknown sign {other}"
+    Assert.Equal(expected, (isPositive m, isZero m, isNegative m))
