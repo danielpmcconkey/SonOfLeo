@@ -110,7 +110,6 @@ DalEnvVarNotSet). Therefore, we elect not to try testing them here*)
 [<InlineData("DalIntUnboxingReturnedNull")>]
 [<InlineData("DalLocalDateUnboxingReturnedNull")>]
 [<InlineData("DalLongUnboxingReturnedNull")>]
-[<InlineData("DalResultantRowsDidntMatchExpectation")>]
 [<InlineData("DalStringUnboxingReturnedNull")>]
 [<InlineData("DalUuidUnboxingReturnedNull")>]
 let ``DAL errors surface when they should`` expectedError = 
@@ -148,7 +147,6 @@ let ``DAL errors surface when they should`` expectedError =
             | "DalIntUnboxingReturnedNull" -> unBoxingNull intUnboxing
             | "DalLocalDateUnboxingReturnedNull" -> unBoxingNull localDateUnboxing
             | "DalLongUnboxingReturnedNull" -> unBoxingNull longUnboxing
-            | "DalResultantRowsDidntMatchExpectation" -> errorRowCount()
             | "DalStringUnboxingReturnedNull" -> unBoxingNull stringUnboxing
             | "DalUuidUnboxingReturnedNull" -> unBoxingNull uuidUnboxing
             | _ -> Error(TestingError "Some dipshit done goofed.")
@@ -161,11 +159,20 @@ let ``DAL errors surface when they should`` expectedError =
     }
     |> railroadWrapper
 
+[<Fact>]
+let ``REQ-DAL-2.2 a read requiring exactly one row that finds two returns DalResultantRowsDidntMatchExpectation carrying the expectation and the count`` () =
+    match errorRowCount() with
+    | Error (AsError (App.DataAccessLayer.DalError.DalResultantRowsDidntMatchExpectation (expectation, actual))) ->
+        Assert.Equal("ExactlyOne", expectation)
+        Assert.Equal(2, actual)
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+    | Ok _ -> Assert.Fail "Expected failure; got success"
+
 (* Zero rows where rows were required is one fact whether the statement read or wrote: DalNoOp. It is a backstop; the
    caller that knows what the empty result means swaps it for a domain error with whenNoRows. Any other wrong count is
    DalResultantRowsDidntMatchExpectation, above. *)
 [<Fact>]
-let ``a read requiring exactly one row that finds none returns DalNoOp`` () =
+let ``REQ-DAL-2.2 a read requiring exactly one row that finds none returns DalNoOp`` () =
     let context = Context.create NoTransaction FetchOnly
     let mapRaw _ = ("", "")
     let contructFromRaw _ = Ok ""
@@ -176,7 +183,7 @@ let ``a read requiring exactly one row that finds none returns DalNoOp`` () =
     |> railroadWrapper
 
 [<Fact>]
-let ``an update requiring exactly one row that touches none returns DalNoOp`` () =
+let ``REQ-DAL-2.2 an update requiring exactly one row that touches none returns DalNoOp`` () =
     let context = Context.create NoTransaction FetchOnly
     isCorrectErrorEmpty
         (executeNonQuery (context |> Context.getDatabaseTransaction) "update ledger.account set code = code where 1 = 2;" [] ExactlyOne)
@@ -185,7 +192,7 @@ let ``an update requiring exactly one row that touches none returns DalNoOp`` ()
     |> railroadWrapper
 
 [<Fact>]
-let ``whenNoRows swaps DalNoOp for the caller's domain error and passes every other error through`` () =
+let ``REQ-DAL-2.2 whenNoRows swaps DalNoOp for the caller's domain error and passes every other error through`` () =
     let specific = TestingError "the specific error"
     let noRows : Result<unit, IAppError> = App.DataAccessLayer.DalError.error (App.DataAccessLayer.DalError.DalNoOp ("ExactlyOne", 0))
     let wrongCount : Result<unit, IAppError> =
@@ -263,7 +270,7 @@ let private confirmReleased (inUseBefore: int64) : Result<unit, IAppError> =
 type ConnectionReleaseTests(fixture: Tests.Helpers.TestDataFixture) =
 
     [<Fact>]
-    member _.``REQ-DAL-2.4 after every lookup cache has loaded, no session this process opened is idle in a transaction and the pool's in-use count is back where it started`` () =
+    member _.``REQ-DAL-2.4 fetching through every lookup cache leaves no session idle in a transaction and the pool's in-use count where it started`` () =
         let inUseBefore = connectionsInUse()
         // each cache loads in full on its first fetch; the keys need not exist
         let noTransaction = Context.create NoTransaction FetchOnly |> Context.getDatabaseTransaction
@@ -290,6 +297,41 @@ type ConnectionReleaseTests(fixture: Tests.Helpers.TestDataFixture) =
             Assert.Equal(inUseBefore, connectionsInUse())
         }
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-DAL-2.4 an operation that succeeds commits its write, leaves no session idle in a transaction, and returns its connection to the pool`` () =
+        let inUseBefore = connectionsInUse()
+        try
+            result {
+                let! existedBefore = probeRecordExists()
+                Assert.False(existedBefore, "the probe fiscal period exists before the operation ran")
+                do! Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoCompleteTransaction FiscalPeriodCreate writeProbeRecord
+                let! idle = sessionsIdleInTransaction()
+                Assert.Equal(0L, idle)
+                Assert.Equal(inUseBefore, connectionsInUse())
+                // probeRecordExists reads through a fresh context, outside the operation's closed transaction
+                let! probeExists = probeRecordExists()
+                Assert.True(probeExists, "the probe fiscal period is missing, so the operation's transaction did not commit")
+            }
+            |> railroadWrapper
+        finally
+            // no row to delete means the operation never wrote it; the assertions above have already said so
+            match Tests.Helpers.Cleanup.cleanUpFiscalPeriodKey (Some probeKey) with
+            | Ok ()
+            | Error (AsError (DalNoOp _)) -> ()
+            | Error e -> failwith (e.ToMessage())
+
+    [<Fact>]
+    member _.``REQ-DAL-2.4 an operation run under the rollback runner that throws mid-transaction rolls back, leaves no session idle in a transaction, and returns its connection to the pool`` () =
+        let inUseBefore = connectionsInUse()
+        // this runner re-raises after rolling back, rather than wrapping the exception as a typed error
+        let thrown =
+            try
+                Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoRollback FiscalPeriodCreate failByThrowing |> ignore
+                None
+            with ex -> Some ex.Message
+        Assert.Equal(Some "thrown mid-transaction", thrown)
+        confirmReleased inUseBefore |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-DAL-2.4 an operation that ends in a typed error mid-transaction rolls back, leaves no session idle in a transaction, and returns its connection to the pool`` () =
