@@ -360,3 +360,35 @@ module PositionsFixture =
             let entries = [ brokerageEntry; cashEntry; residenceEntry; rentalEntry; mortgagePaymentEntry ]
             return data, accounts, (entries: JournalEntry list)
         }
+
+/// Constructors for the Positions slice's value types that fail the test on a construction error, for tests whose
+/// subject is not the construction itself.
+module PositionsValues =
+    let mustBe (r: Result<'a, IAppError>) = r |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
+    let toPersonName raw = PersonName.create raw |> mustBe
+    let toSecurityName raw = SecurityName.create raw |> mustBe
+    let toAccountName raw = InvestmentAccountName.create raw |> mustBe
+    let toPropertyName raw = PropertyName.create raw |> mustBe
+    let toDimensionValueName raw = DimensionValueName.create raw |> mustBe
+    let toTicker raw = Ticker.create raw |> mustBe
+    let toInstitution raw = Institution.create raw |> mustBe
+    let toAccountGroup raw = AccountGroup.create raw |> mustBe
+    let toMoney d = Money.fromDecimal d |> mustBe
+    let toQuantity d = Quantity.fromDecimal d |> mustBe
+    let toPrice d = Price.fromDecimal d |> mustBe
+    let toPurchaseBasis d = toMoney d |> PurchaseBasis.create |> mustBe
+    let toValuationValue d = toMoney d |> ValuationValue.create |> mustBe
+    let toValuationBasis raw = ValuationBasis.create raw |> mustBe
+    let toContributionBasis d = toMoney d |> ContributionBasis.create |> mustBe
+    let toActivityPeriod (activeBegin: LocalDate) (activeEnd: LocalDate option) =
+        ActivityPeriod.create activeBegin activeEnd ActivityPeriod.NotConsideredAvailableBeforeBeginDate |> mustBe
+    let toOwnedPeriod (acquired: LocalDate) (disposed: LocalDate option) = OwnedPeriod.create acquired disposed |> mustBe
+
+    /// Asserts the result failed with the error pick recognises, then checks that error's payload.
+    let expectError (pick: IAppError -> 'p option) (check: 'p -> unit) (result: Result<'a, IAppError>) : unit =
+        match result with
+        | Error e ->
+            match pick e with
+            | Some payload -> check payload
+            | None -> Xunit.Assert.Fail $"Wrong error. {e.ToMessage()}"
+        | Ok _ -> Xunit.Assert.Fail "Expected failure; got success"
