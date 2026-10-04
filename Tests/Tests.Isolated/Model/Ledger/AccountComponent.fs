@@ -37,8 +37,10 @@ let ``REQ-AC-1.3 AccountCode rejects strings exceeding 10 chars`` () =
 
 [<Fact>]
 let ``REQ-AC-1.3 AccountCode accepts string at exactly 10 chars`` () =
-    let result = AccountCode.create(String('A', 10))
-    Assert.True(Result.isOk result)
+    let input = String('A', 10)
+    match AccountCode.create input with
+    | Error e -> Assert.Fail(e.ToMessage())
+    | Ok v -> Assert.Equal(input, v |> AccountCode.value)
 
 [<Fact>]
 let ``REQ-SYS-1.1 AccountCode trims leading and trailing whitespace`` () =
@@ -50,8 +52,9 @@ let ``REQ-SYS-1.1 AccountCode trims leading and trailing whitespace`` () =
 
 [<Fact>]
 let ``REQ-AC-1.3 REQ-SYS-1.1 AccountCode length check applies post-trim`` () =
-    let result = AccountCode.create "   0123456789   "
-    Assert.True(Result.isOk result)
+    match AccountCode.create "   0123456789   " with
+    | Error e -> Assert.Fail(e.ToMessage())
+    | Ok v -> Assert.Equal("0123456789", v |> AccountCode.value)
 // =============================================================================
 // AccountName
 // =============================================================================
@@ -68,8 +71,10 @@ let ``REQ-AC-1.8 AccountName rejects strings exceeding 100 chars`` () =
 
 [<Fact>]
 let ``REQ-AC-1.8 AccountName accepts string at exactly 100 chars`` () =
-    let result = AccountName.create(String('A', 100))
-    Assert.True(Result.isOk result)
+    let input = String('A', 100)
+    match AccountName.create input with
+    | Error e -> Assert.Fail(e.ToMessage())
+    | Ok v -> Assert.Equal(input, v |> AccountName.value)
 
 [<Fact>]
 let ``REQ-SYS-1.1 AccountName trims leading and trailing whitespace`` () =
@@ -520,8 +525,10 @@ let ``REQ-AC-1.20 AccountExternalReference rejects strings exceeding 50 chars`` 
 
 [<Fact>]
 let ``REQ-AC-1.20 AccountExternalReference allows strings of exactly 50 chars`` () =
-    let result = AccountExternalReference.create(String('A', 50))
-    Assert.True(Result.isOk result)
+    let input = String('A', 50)
+    match AccountExternalReference.create input with
+    | Error e -> Assert.Fail(e.ToMessage())
+    | Ok v -> Assert.Equal(input, v |> AccountExternalReference.value)
 
 [<Fact>]
 let ``REQ-SYS-1.1 AccountExternalReference trims leading and trailing whitespace`` () =
@@ -547,19 +554,31 @@ let ``REQ-AC-1.46 ActivityPeriod rejects activeEnd earlier than activeBegin`` ()
 let ``REQ-AC-1.46 ActivityPeriod accepts activeEnd equal to activeBegin`` () =
     let ab = Calendar.today()
     let ae = Some ab
-    ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate |> Result.isOk |> Assert.True
+    match ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate with
+    | Error e -> Assert.Fail(e.ToMessage())
+    | Ok period ->
+        Assert.Equal(ab, period |> ActivityPeriod.activeBegin)
+        Assert.Equal(ae, period |> ActivityPeriod.activeEnd)
 
 [<Fact>]
 let ``REQ-AC-1.45 ActivityPeriod accepts null activeEnd`` () =
     let ab = Calendar.today()
     let ae = None
-    ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate |> Result.isOk |> Assert.True
+    match ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate with
+    | Error e -> Assert.Fail(e.ToMessage())
+    | Ok period ->
+        Assert.Equal(ab, period |> ActivityPeriod.activeBegin)
+        Assert.Equal(ae, period |> ActivityPeriod.activeEnd)
 
 [<Fact>]
 let ``REQ-AC-1.42 REQ-AC-1.43 ActivityPeriod accepts valid begin and end`` () =
     let ab = Calendar.today()
     let ae = Some(ab.PlusDays(1))
-    ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate |> Result.isOk |> Assert.True
+    match ActivityPeriod.create ab ae ActivityPeriod.NotConsideredAvailableBeforeBeginDate with
+    | Error e -> Assert.Fail(e.ToMessage())
+    | Ok period ->
+        Assert.Equal(ab, period |> ActivityPeriod.activeBegin)
+        Assert.Equal(ae, period |> ActivityPeriod.activeEnd)
 
 [<Fact>]
 let ``REQ-AC-1.50 isActive returns true when begin <= ref and no end`` () =
