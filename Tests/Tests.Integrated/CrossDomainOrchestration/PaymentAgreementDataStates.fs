@@ -110,8 +110,9 @@ let private expectRefusal (isExpected: IAppError -> bool) (attempt: Result<'a, I
 /// the constraint enforces them, and the violation is loud.
 let private constraintViolation (sqlState: string) (constraintName: string) (e: IAppError) =
     match e with
-    | AsError (App.DataAccessLayer.DalError.DalErrorDuringNonQueryExecution(:? Npgsql.PostgresException as pg)) ->
-        pg.SqlState = sqlState && pg.ConstraintName = constraintName
+    | AsError (App.DataAccessLayer.DalError.DalErrorDuringNonQueryExecution(:? System.Data.Common.DbException as db)) ->
+        // the provider-neutral exception names the constraint in its message
+        db.SqlState = sqlState && db.Message.Contains(constraintName)
     | _ -> false
 
 let private duplicateLegName = constraintViolation "23505" "payment_agreement_payment_agreement_name_key"

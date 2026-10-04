@@ -135,8 +135,9 @@ let private refusedAsJsonFor<'contract> (e: IAppError) =
 /// and the violation surfaces as the data access error carrying the constraint's name.
 let private uniqueViolationOf (constraintName: string) (e: IAppError) =
     match e with
-    | AsError (App.DataAccessLayer.DalError.DalErrorDuringNonQueryExecution(:? Npgsql.PostgresException as pg)) ->
-        pg.SqlState = "23505" && pg.ConstraintName = constraintName
+    | AsError (App.DataAccessLayer.DalError.DalErrorDuringNonQueryExecution(:? System.Data.Common.DbException as db)) ->
+        // the provider-neutral exception names the constraint in its message
+        db.SqlState = "23505" && db.Message.Contains(constraintName)
     | _ -> false
 
 type private Scenario(fixture: TestDataFixture, context: Context.Context) =
