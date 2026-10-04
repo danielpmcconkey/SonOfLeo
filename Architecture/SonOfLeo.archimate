@@ -974,6 +974,11 @@
             <documentation>Repoint every payment whose staged line has since posted at its journal entry line, and re-derive invoice posted states.</documentation>
           </element>
         </folder>
+        <folder name="Positions functions" id="id-db53dd9581784dbd9282c86708f55819">
+          <element xsi:type="archimate:ApplicationFunction" name="Positions functions" id="id-05d26ab59cae4a77850a00c0bca2fd44">
+            <documentation>Behaviours that record and read what is held: investment accounts and their owners and tax treatment, securities, holdings, and what each holding was reported to be worth on a date.</documentation>
+          </element>
+        </folder>
         <folder name="Classification functions" id="id-0782d06bcb0c4e42a17757d56d1eadb5">
           <element xsi:type="archimate:ApplicationFunction" name="Classification functions" id="id-2cd1a6b0f4f14c808fb6e150aff6e050">
             <documentation>Behaviours that match staged lines against operator-authored rules to decide which account or payment agreement each line belongs to.</documentation>
@@ -1201,6 +1206,11 @@
               </element>
               <element xsi:type="archimate:ApplicationComponent" name="CashFlowAuditableAction" id="id-b7a6510846bc45a4ad3d596da718f07f">
                 <property key="path" value="Src/Business.FinancialServices.CashFlow/CashFlowAuditableAction.fs"/>
+              </element>
+            </folder>
+            <folder name="Business.FinancialServices.Positions" id="id-d4e118f31b03492b92e4b2e0130636e4">
+              <element xsi:type="archimate:ApplicationComponent" name="Business.FinancialServices.Positions" id="id-98eeedd15ea9461e987d5a877ef678a9">
+                <property key="path" value="Src/Business.FinancialServices.Positions/Business.FinancialServices.Positions.fsproj"/>
               </element>
             </folder>
             <folder name="Business.FinancialServices.Classification" id="id-b936320460614508a6ba4da65e7c343d">
@@ -1621,15 +1631,16 @@ Foundations compile first in their container and reference nothing in it that si
         <element xsi:type="archimate:Principle" name="Domains Build Upward" id="id-2042ff5d257b4f2ebb67a50e953b2590">
           <documentation>The business concepts are ordered, basest first:
 
-  account &lt; fiscal period &lt; journal entry &lt; data ingestion &lt; cash flow &lt; classification
+  account &lt; fiscal period &lt; journal entry &lt; data ingestion &lt; cash flow &lt; positions &lt; classification
 
-These are business concepts, not files: &quot;account&quot; is the concept of an account, not Account.fs. Below all of them, but still in the Business tier, sit the business foundations: Business.General (ActivityPeriod, Cadence) and core financial services (Money).
+These are business concepts, not files: &quot;account&quot; is the concept of an account, not Account.fs. Below all of them, but still in the Business tier, sit the business foundations: Business.General (ActivityPeriod, Cadence, Person) and core financial services (Money). A Person is a human with a relationship to a financial account (an owner, say); it is not a User, an actor in this system.
 
 The order applies at every zoom level where a container holds more than one concept:
 - Inside Business.FinancialServices.Ledger: account, then fiscal period, then journal entry.
-- Across the FinancialServices projects: Ledger &lt; DataIngestion &lt; CashFlow &lt; Classification. Ledger holds the three basest concepts, so the whole project sits below the others.
+- Inside Business.FinancialServices.Positions: investments and real estate are unordered peers. Neither may use the other; anything that combines them (net worth, investable wealth) is orchestration.
+- Across the FinancialServices projects: Ledger &lt; DataIngestion &lt; CashFlow &lt; Positions &lt; Classification. Ledger holds the three basest concepts, so the whole project sits below the others.
 - Inside Business.CrossDomainOrchestration: the full order again, account-level orchestration basest, classification-level orchestration most specialised.
-- Inside every Ui layer (contracts, converters, routes): account pieces first, then fiscal period, journal entry, data ingestion, cash flow, classification. The account routes are more base than the journal entry routes.
+- Inside every Ui layer (contracts, converters, routes): account pieces first, then fiscal period, journal entry, data ingestion, cash flow, positions, classification. The account routes are more base than the journal entry routes.
 
 Within such a container a piece may use its own concept and lower ones, never a higher sibling. The rule binds siblings only: a container may use anything in a container below it. Closing an account is an account use case that needs a journal-entry fact (a zero balance); Ledger's account pieces may not reach up to journal entries, so the use case is owned by orchestration, which sits above Ledger and may use any Ledger module. Were that account orchestrator to use a journal-entry orchestrator (a sibling), the alarm goes off and Dan decides whether it is warranted.</documentation>
         </element>
@@ -1646,7 +1657,7 @@ Every part of Src sits on a rung, and a part may reference only parts at or belo
 
 The rungs govern two things: what may reference what (a lower rung never references a higher one), and the order things are listed in (project references, the Compile Include order of each .fsproj, and the open statements of each file all run base first). The two constraints that realize this principle cover the listing order.
 
-A container may freely use anything in a container below it; the ordering among siblings binds only siblings. An orchestrator in Business.CrossDomainOrchestration may use any Ledger, DataIngestion, CashFlow or Classification module, because all of Business.FinancialServices is below orchestration; but inside orchestration, an account-level orchestrator may not use a journal-entry-level orchestrator.
+A container may freely use anything in a container below it; the ordering among siblings binds only siblings. An orchestrator in Business.CrossDomainOrchestration may use any Ledger, DataIngestion, CashFlow, Positions or Classification module, because all of Business.FinancialServices is below orchestration; but inside orchestration, an account-level orchestrator may not use a journal-entry-level orchestrator.
 
 This principle judges direction only. A reference that goes down the ladder satisfies it, but satisfying it is not a licence. A downward reference can still break another principle: a UI route that writes its own SELECT and calls the data access layer's ExecuteReader goes down the ladder correctly, yet breaks encapsulation and domain ownership. Every principle is judged independently; passing this one clears nothing else.</documentation>
         </element>
@@ -1763,6 +1774,7 @@ Note: this is obviously a Result&lt;unit, some type of error> return</documentat
       <element xsi:type="archimate:Principle" name="The Journal Entry domain owns journal entry capabilities" id="id-6e3ebceb8c6640ccb6baa2a858a6aa0b"/>
       <element xsi:type="archimate:Principle" name="The Data Ingestion domain owns data ingestion capabilities" id="id-aea2663290264d0687fb6c4bf18101e1"/>
       <element xsi:type="archimate:Principle" name="The Cash Flow domain owns cash flow capabilities" id="id-9a6b42373e744fa28b6d9b9a7385aae1"/>
+      <element xsi:type="archimate:Principle" name="The Positions domain owns positions capabilities" id="id-62701f7bfdd8465b9d0dc0b395062bae"/>
       <element xsi:type="archimate:Principle" name="The Classification domain owns classification capabilities" id="id-6ad1302329324f449613c84cddb4b1b8"/>
       <element xsi:type="archimate:Principle" name="Domain Owns Its Bookkeeping" id="id-c60e5ee28f8241959a6fe03186d4a70e">
         <documentation>A domain records its own bookkeeping on its own table. No domain writes to another domain's tables.</documentation>
@@ -1780,7 +1792,8 @@ Example 2: the process of decativating an account requires knowledge of the Acco
       <element xsi:type="archimate:Principle" name="The Fiscal Period domain is a lower tier than the Journal Entry domain" id="id-90cbc0b3ffa248a3ac0f6e7234b205fe"/>
       <element xsi:type="archimate:Principle" name="The Journal Entry domain is a lower tier than the Data Ingestion domain" id="id-c2387ff4571447cb8672d0dfdcceb518"/>
       <element xsi:type="archimate:Principle" name="The Data Ingestion domain is a lower tier than the Cash Flow domain" id="id-c84b1aeaf42d469a8f710515c05a465f"/>
-      <element xsi:type="archimate:Principle" name="The Cash Flow domain is a lower tier than the Classification domain" id="id-c4e5a4bbb96d41c6b3d500380a0a3689"/>
+      <element xsi:type="archimate:Principle" name="The Cash Flow domain is a lower tier than the Positions domain" id="id-c4e5a4bbb96d41c6b3d500380a0a3689"/>
+      <element xsi:type="archimate:Principle" name="The Positions domain is a lower tier than the Classification domain" id="id-500929e7a8e34edd9bb9d82ec01c03f9"/>
     </folder>
     <folder name="Heirearchy of authority" id="id-fc32fa5c39ec41708dcd5fbfd7f986c6">
       <element xsi:type="archimate:Principle" name="There is a hierarchy of authority that is strictly enforced" id="id-9e5e7bd771a64009bd854f9ba5a9e60d">
@@ -1833,6 +1846,11 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
   <folder name="Implementation &amp; Migration" id="id-20317dee23d94410ba0bc93ae47becdd" type="implementation_migration"/>
   <folder name="Other" id="id-4f39f83be6824a339cf8b19d21ca7274" type="other"/>
   <folder name="Relations" id="id-c5e8eba6e8c44e6693f093baa24638e0" type="relations">
+    <element xsi:type="archimate:CompositionRelationship" id="id-817ec1c091a1413186aab1c49706708f" source="id-e2751a6b9de94d41836604fb2489dfa6" target="id-500929e7a8e34edd9bb9d82ec01c03f9"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-4ad821eb530b468b8ee306e15a8e51e7" source="id-dc34df44b6b142838a208113cc8322c4" target="id-62701f7bfdd8465b9d0dc0b395062bae"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-7ac8c4f901804eb0910c7368adb8f9df" source="id-30a03788e5be455c88954787a3153e59" target="id-05d26ab59cae4a77850a00c0bca2fd44"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-07c13c926ad549978a453b44bf41b91a" source="id-05d26ab59cae4a77850a00c0bca2fd44" target="id-62701f7bfdd8465b9d0dc0b395062bae"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-056c4f99955c43f4b4874910463d93d8" source="id-50a756b0340a425c860eefa704bca796" target="id-98eeedd15ea9461e987d5a877ef678a9"/>
     <element xsi:type="archimate:ServingRelationship" id="id-1a5bb1468ddc484fbe8c167b303db482" source="id-b0888d3ca8444c7bb03350365e3bceee" target="id-73beb61a7786474da68c3b4428d515ee"/>
     <element xsi:type="archimate:ServingRelationship" id="id-d177b13d3bca41db976769bf04e8a4e4" source="id-b0888d3ca8444c7bb03350365e3bceee" target="id-a14775aac4f448c7ae9a6ca867898800"/>
     <element xsi:type="archimate:ServingRelationship" id="id-5578257a43c44675bcde606bc44194d7" source="id-dce47c12a92646c9ab1b65c898f9fb84" target="id-248203dd619a4da0be876a5b9b7c7434"/>
