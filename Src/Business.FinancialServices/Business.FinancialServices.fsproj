@@ -9,6 +9,8 @@
   <ItemGroup>
     <Compile Include="BizFinServError.fs" />
     <Compile Include="Money.fs" />
+    <Compile Include="Quantity.fs" />
+    <Compile Include="Price.fs" />
   </ItemGroup>
 
   <ItemGroup>

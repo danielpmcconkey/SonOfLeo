@@ -8,12 +8,16 @@
 
   <ItemGroup>
     <Compile Include="BizGeneralError.fs" />
+    <Compile Include="BizGeneralAuditableAction.fs" />
     <Compile Include="ActivityPeriod.fs" />
     <Compile Include="Cadence.fs" />
+    <Compile Include="Person.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\App.Utility\App.Utility.fsproj" />
+    <ProjectReference Include="..\App.DataAccessLayer\App.DataAccessLayer.fsproj" />
+    <ProjectReference Include="..\App.Session\App.Session.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

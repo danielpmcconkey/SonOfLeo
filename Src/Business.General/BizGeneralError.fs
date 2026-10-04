@@ -1,5 +1,6 @@
 module Business.General.BizGeneralError
 
+open System
 open NodaTime
 open App.Utility.IAppError
 
@@ -16,6 +17,13 @@ type BizGeneralError =
     | InvalidMonth of string
     | InvalidWeekDay of string
     | InvalidWeekInMonthNumber of int
+    | PersonBirthdateLaterThanCurrentDate of LocalDate * LocalDate
+    | PersonIdDoesntExist of Guid
+    | PersonNameAlreadyExists of string
+    | PersonNameDoesntMatchId of string
+    | PersonNameIsEmpty of string
+    | PersonNameTooLong of string * int
+    | PersonUpdateNoOp
     
     interface IAppError with
         member this.DomainName = nameof BizGeneralError
@@ -34,6 +42,13 @@ type BizGeneralError =
             | InvalidMonth str -> $"Invalid Month of \"{str}\"."
             | InvalidWeekDay str -> $"Invalid WeekDay of \"{str}\"."
             | InvalidWeekInMonthNumber i -> $"Invalid WeekInMonthNumber of \"{i}\"."
+            | PersonBirthdateLaterThanCurrentDate(birthdate, currentDate) -> $"A Person's birthdate ({birthdate}) cannot be later than the current date ({currentDate})."
+            | PersonIdDoesntExist uuid -> $"No Person exists with ID {uuid}."
+            | PersonNameAlreadyExists name -> $"A Person named \"{name}\" already exists."
+            | PersonNameDoesntMatchId name -> $"No Person is named \"{name}\"."
+            | PersonNameIsEmpty raw -> $"Person name cannot be empty. Provided name is \"{raw}\"."
+            | PersonNameTooLong(raw, max) -> $"Person name cannot exceed {max} characters. Provided name is \"{raw}\"."
+            | PersonUpdateNoOp -> "Updating the Person record failed because at least one updatable parameter must be set."
 
 let toMessage (e: BizGeneralError) = (e :> IAppError).ToMessage()
 let toAppError (e: BizGeneralError) : IAppError = e :> IAppError
