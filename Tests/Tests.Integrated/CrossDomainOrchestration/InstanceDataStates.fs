@@ -82,18 +82,20 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
         }
 
     /// A 100.00 Payment pointing at the F-2230 line of a new journal entry on the date, which needs a fiscal period.
-    member _.postedPayment (date: LocalDate) =
+    member this.postedPayment (date: LocalDate) = this.postedPaymentOf date 100.00M
+
+    /// A Payment of the amount pointing at the F-2230 line of a new journal entry on the date.
+    member _.postedPaymentOf (date: LocalDate) (amount: decimal) =
         result {
             let! entry, _ =
                 createTestJournalEntryFromPrimitives
                     context $"Instance data state test payment {Guid.NewGuid()}" None date
-                    [ (loanId, 100.00M, "Debit", None); (cash, 100.00M, "Credit", None) ] [] []
+                    [ (loanId, amount, "Debit", None); (cash, amount, "Credit", None) ] [] []
             let line =
                 entry
                 |> JournalEntryOrchestration.jeLines
                 |> List.find (fun l -> l |> JournalEntryLine.accountId = loanId)
                 |> JournalEntryLine.journalEntryLineId
-            let! money = Money.fromDecimal 100.00M
             return (Posted(line, None), None, None, None)
         }
 
@@ -151,6 +153,39 @@ let private instanceUpdate (instanceId: InstanceId) : InstanceOrchestration.Inst
       invoiceCompositeUpdates = []
       newInvoices = [] }
 
+/// An update adding the Payment to the Invoice and changing nothing else.
+let private addPayment (instanceId: InstanceId) (invoiceId: InvoiceId) payment : InstanceOrchestration.InstanceCompositeUpdate =
+    { instanceUpdate instanceId with
+        invoiceCompositeUpdates =
+          [ { invoiceUpdates =
+                { invoiceIdToUpdate = invoiceId
+                  externalInvoiceIdUpdate = NoChange
+                  invoiceDateUpdate = NoChange
+                  dueDateUpdate = NoChange
+                  amountUpdate = NoChange
+                  invoiceStateUpdate = NoChange
+                  paymentStateUpdate = NoChange
+                  postedStateUpdate = NoChange
+                  blockerUpdate = NoChange
+                  memoUpdate = NoChange }
+              paymentUpdates = []
+              paymentIdsToDelete = []
+              newPayments = [ payment ] } ] }
+
+/// The ids of the composite's Invoices, in the order of the legs given.
+let private invoiceIdsByLeg (composite: InstanceOrchestration.InstanceComposite) (legIds: PaymentAgreementId list) =
+    legIds
+    |> List.map (fun legId ->
+        composite
+        |> InstanceOrchestration.invoiceComposites
+        |> List.map InstanceOrchestration.invoice
+        |> List.find (fun invoice -> invoice |> Invoice.paymentAgreementId = legId)
+        |> Invoice.invoiceId)
+
+let private wrongError (e: IAppError) : Result<unit, IAppError> =
+    Error (TestError.TestingError $"Wrong error. {e.DomainName}.{e.CaseName}: {e.ToMessage()}")
+let private unexpectedOk () : Result<unit, IAppError> = Error (TestError.TestingError "Expected failure; got success")
+
 let private idOf (composite: InstanceOrchestration.InstanceComposite) =
     composite |> InstanceOrchestration.instance |> Instance.instanceId
 
@@ -206,9 +241,14 @@ type InstanceDataStatesTests(fixture: TestDataFixture) =
         rolledBack (fun s ->
             result {
                 let missing = MasterAgreementId.create ()
-                let attempt = InstanceOrchestration.constructNewAndPersist s.Context missing (march 1) []
+                do!
+                    match InstanceOrchestration.constructNewAndPersist s.Context missing (march 1) [] with
+                    | Error (AsError (CashFlowError.CashflowMasterAgreementIdDoesntExist uuid)) ->
+                        Assert.Equal(missing |> MasterAgreementId.value, uuid)
+                        Ok ()
+                    | Error e -> wrongError e
+                    | Ok _ -> unexpectedOk ()
                 let! stored = s.instancesOf missing
-                Assert.True(attempt |> Result.isError)
                 Assert.Empty(stored)
             })
 
@@ -389,58 +429,100 @@ type InstanceDataStatesTests(fixture: TestDataFixture) =
     // REQ-CF-4.9 — is-fulfilled needs every Invoice FullyPaid
     // =========================================================================
 
+    (* Is-fulfilled is never set by a caller (REQ-CF-9.11): each test moves it by adding or deleting a real Payment,
+       or leaves it, and reads the stored flag back. *)
+
     [<Fact>]
-    member _.``REQ-CF-4.9 an Instance composite update that sets is-fulfilled to true on an Instance with no Invoices is rejected with a typed error and the stored flag stays false`` () =
+    member _.``REQ-CF-4.9 REQ-CF-9.10 an Instance with two unpaid Invoices stays unfulfilled when a Payment brings the first to FullyPaid, and is stored fulfilled once a second Payment brings the other`` () =
         rolledBack (fun s ->
             result {
-                let! agreementId, _ = s.agreement "CF-4.9 no invoices" (weekly ()) (march 1) 1
-                let! created = s.instance agreementId (march 1) []
-                let update = instanceUpdate (idOf created)
-                let attempt =
-                    { update with instanceUpdates = { update.instanceUpdates with isFulfilledUpdate = SetTo true } }
-                    |> InstanceOrchestration.updateInstanceComposite s.Context
-                let! flag = s.isFulfilled (idOf created)
-                Assert.True(attempt |> Result.isError)
-                Assert.False(flag)
+                let! agreementId, legIds = s.agreement "CF-4.9 two invoices" (weekly ()) (march 1) 2
+                let! created = s.instance agreementId (march 1) legIds
+                let instanceId = idOf created
+                let invoiceIds = invoiceIdsByLeg created legIds
+                let! first = s.postedPayment s.today
+                let! _ = addPayment instanceId invoiceIds[0] first |> InstanceOrchestration.updateInstanceComposite s.Context
+                let! afterFirst = s.isFulfilled instanceId
+                let! second = s.postedPayment s.today
+                let! _ = addPayment instanceId invoiceIds[1] second |> InstanceOrchestration.updateInstanceComposite s.Context
+                let! afterSecond = s.isFulfilled instanceId
+                Assert.False(afterFirst)
+                Assert.True(afterSecond)
             })
 
     [<Fact>]
-    member _.``REQ-CF-4.9 an Instance composite update that sets is-fulfilled to true on an Instance with at least one Invoice not FullyPaid is rejected with a typed error and the stored flag stays false`` () =
+    member _.``REQ-CF-4.9 REQ-CF-9.10 with one Invoice cancelled and the other paid in full the stored flag is true, and deleting that Payment stores it false`` () =
         rolledBack (fun s ->
             result {
-                let! agreementId, legIds = s.agreement "CF-4.9 unpaid" (weekly ()) (march 1) 2
-                let! paid = s.postedPayment s.today
-                let! paidInvoice = s.invoiceFields (march 1) legIds[0] [ paid ]
-                let! unpaidInvoice = s.invoiceFields (march 1) legIds[1] []
-                let! created =
-                    InstanceOrchestration.constructNewAndPersist s.Context agreementId (march 1)
-                        [ paidInvoice; unpaidInvoice ]
-                let update = instanceUpdate (idOf created)
-                let attempt =
-                    { update with instanceUpdates = { update.instanceUpdates with isFulfilledUpdate = SetTo true } }
-                    |> InstanceOrchestration.updateInstanceComposite s.Context
-                let! flag = s.isFulfilled (idOf created)
-                Assert.True(attempt |> Result.isError)
-                Assert.False(flag)
+                let! agreementId, legIds = s.agreement "CF-4.9 cancelled and paid" (weekly ()) (march 1) 2
+                let! created = s.instance agreementId (march 1) legIds
+                let instanceId = idOf created
+                let invoiceIds = invoiceIdsByLeg created legIds
+                let! note = "Nothing billed on this leg" |> CancellationReasonNote.create
+                let! _ = invoiceIds[1] |> InstanceOrchestration.cancelInvoice s.Context note
+                let! payment = s.postedPayment s.today
+                let! paid = addPayment instanceId invoiceIds[0] payment |> InstanceOrchestration.updateInstanceComposite s.Context
+                let! fulfilledAfterPayment = s.isFulfilled instanceId
+                let paymentId =
+                    paid
+                    |> InstanceOrchestration.invoiceComposites
+                    |> List.collect InstanceOrchestration.payments
+                    |> List.exactlyOne
+                    |> Payment.paymentId
+                let! _ = paymentId |> CashFlowOps.deletePaymentAndItsLinkage s.Context
+                let! fulfilledAfterDelete = s.isFulfilled instanceId
+                Assert.True(fulfilledAfterPayment)
+                Assert.False(fulfilledAfterDelete)
             })
 
     [<Fact>]
-    member _.``REQ-CF-4.9 REQ-CF-9.10 an Instance composite update that sets is-fulfilled to false on an Instance whose every Invoice is FullyPaid is rejected with a typed error and the stored flag stays true`` () =
+    member _.``REQ-CF-4.9 REQ-CF-9.10 a Payment that brings an Invoice only to PartiallyPaid leaves an Instance whose other Invoice is cancelled unfulfilled`` () =
         rolledBack (fun s ->
             result {
-                let! agreementId, legIds = s.agreement "CF-4.9 paid" (weekly ()) (march 1) 1
-                let! paid = s.postedPayment s.today
-                let! paidInvoice = s.invoiceFields (march 1) legIds[0] [ paid ]
-                let! created =
-                    InstanceOrchestration.constructNewAndPersist s.Context agreementId (march 1) [ paidInvoice ]
-                let update = instanceUpdate (idOf created)
-                let attempt =
-                    { update with instanceUpdates = { update.instanceUpdates with isFulfilledUpdate = SetTo false } }
-                    |> InstanceOrchestration.updateInstanceComposite s.Context
-                let! flag = s.isFulfilled (idOf created)
-                Assert.True(attempt |> Result.isError)
-                Assert.True(flag)
+                let! agreementId, legIds = s.agreement "CF-4.9 cancelled and part paid" (weekly ()) (march 1) 2
+                let! created = s.instance agreementId (march 1) legIds
+                let instanceId = idOf created
+                let invoiceIds = invoiceIdsByLeg created legIds
+                let! note = "Nothing billed on this leg" |> CancellationReasonNote.create
+                let! _ = invoiceIds[1] |> InstanceOrchestration.cancelInvoice s.Context note
+                let! partPayment = s.postedPaymentOf s.today 40.00M
+                let! _ = addPayment instanceId invoiceIds[0] partPayment |> InstanceOrchestration.updateInstanceComposite s.Context
+                let! partlyPaid = invoiceIds[0] |> Invoice.fetchById s.Context
+                let! flag = s.isFulfilled instanceId
+                Assert.Equal(PartiallyPaid, partlyPaid |> Invoice.invoiceLifeCycleState |> InvoiceLifeCycleState.paymentState)
+                Assert.False(flag)
             })
+
+    // =========================================================================
+    // REQ-SYS-6.1 — an Invoice update naming nothing
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-SYS-6.1 an UpdateInvoice payload that names no field to change is rejected with the no-op error and the Invoice is unchanged`` () =
+        (* The route commits, so it is pointed at the fixture's open Invoice on agreement A; a rejected update writes
+           nothing to clean up. *)
+        let invoiceId = fixture.Data.cashFlow.openInvoiceAId
+        result {
+            let! before = invoiceId |> Invoice.fetchById (fresh ())
+            let input : Contracts.UpdateInvoiceInput =
+                { invoiceId = invoiceId |> InvoiceId.value
+                  externalInvoiceIdUpdate = NoChange
+                  invoiceDateUpdate = NoChange
+                  dueDateUpdate = NoChange
+                  amountUpdate = NoChange
+                  invoiceStateUpdate = NoChange
+                  blockerUpdate = NoChange
+                  memoUpdate = NoChange }
+            let! json = Json.toJson input
+            do!
+                match routeUiCommandForTesting "CashFlow" "UpdateInvoice" [] json with
+                | Error (AsError CashFlowError.CashflowInstanceCompositeUpdateNoOp) -> Ok ()
+                | Error e -> wrongError e
+                | Ok _ -> unexpectedOk ()
+            let! after = invoiceId |> Invoice.fetchById (fresh ())
+            Assert.Equal(before, after)
+        }
+        |> railroadWrapper
 
     // =========================================================================
     // REQ-CF-4.10 — one Invoice per leg, and only its own agreement's legs
@@ -451,10 +533,16 @@ type InstanceDataStatesTests(fixture: TestDataFixture) =
         rolledBack (fun s ->
             result {
                 let! agreementId, legIds = s.agreement "CF-4.10 twice" (weekly ()) (march 1) 1
-                let attempt = s.instance agreementId (march 1) [ legIds[0]; legIds[0] ]
+                do!
+                    match s.instance agreementId (march 1) [ legIds[0]; legIds[0] ] with
+                    | Error (AsError (CashFlowError.CashflowInstanceManyInvoicesForPaymentAgreement(_, legUuid, count))) ->
+                        Assert.Equal(legIds[0] |> PaymentAgreementId.value, legUuid)
+                        Assert.Equal(2, count)
+                        Ok ()
+                    | Error e -> wrongError e
+                    | Ok _ -> unexpectedOk ()
                 let! stored = s.instancesOf agreementId
                 let! next = s.nextInstanceOf agreementId
-                Assert.True(attempt |> Result.isError)
                 Assert.Empty(stored)
                 Assert.Equal(march 1, next)
             })
@@ -466,11 +554,19 @@ type InstanceDataStatesTests(fixture: TestDataFixture) =
                 let! agreementId, legIds = s.agreement "CF-4.10 add twice" (weekly ()) (march 1) 1
                 let! created = s.instance agreementId (march 1) [ legIds[0] ]
                 let! again = s.invoiceFields (march 1) legIds[0] []
-                let attempt =
-                    { instanceUpdate (idOf created) with newInvoices = [ again ] }
-                    |> InstanceOrchestration.updateInstanceComposite s.Context
+                do!
+                    match
+                        { instanceUpdate (idOf created) with newInvoices = [ again ] }
+                        |> InstanceOrchestration.updateInstanceComposite s.Context
+                    with
+                    | Error (AsError (CashFlowError.CashflowInstanceManyInvoicesForPaymentAgreement(instanceUuid, legUuid, count))) ->
+                        Assert.Equal(idOf created |> InstanceId.value, instanceUuid)
+                        Assert.Equal(legIds[0] |> PaymentAgreementId.value, legUuid)
+                        Assert.Equal(2, count)
+                        Ok ()
+                    | Error e -> wrongError e
+                    | Ok _ -> unexpectedOk ()
                 let! legs = s.invoiceLegsOf (idOf created)
-                Assert.True(attempt |> Result.isError)
                 Assert.Equal<PaymentAgreementId list>([ legIds[0] ], legs)
             })
 
@@ -479,11 +575,17 @@ type InstanceDataStatesTests(fixture: TestDataFixture) =
         rolledBack (fun s ->
             result {
                 let! agreementId, _ = s.agreement "CF-4.10 own" (weekly ()) (march 1) 1
-                let! _, otherLegs = s.agreement "CF-4.10 foreign" (weekly ()) (march 1) 1
-                let attempt = s.instance agreementId (march 1) [ otherLegs[0] ]
+                let! otherId, otherLegs = s.agreement "CF-4.10 foreign" (weekly ()) (march 1) 1
+                do!
+                    match s.instance agreementId (march 1) [ otherLegs[0] ] with
+                    | Error (AsError (CashFlowError.CashflowInvoiceDiamondMismatch(_, instanceAgreementUuid, legAgreementUuid))) ->
+                        Assert.Equal(agreementId |> MasterAgreementId.value, instanceAgreementUuid)
+                        Assert.Equal(otherId |> MasterAgreementId.value, legAgreementUuid)
+                        Ok ()
+                    | Error e -> wrongError e
+                    | Ok _ -> unexpectedOk ()
                 let! stored = s.instancesOf agreementId
                 let! next = s.nextInstanceOf agreementId
-                Assert.True(attempt |> Result.isError)
                 Assert.Empty(stored)
                 Assert.Equal(march 1, next)
             })
@@ -493,14 +595,21 @@ type InstanceDataStatesTests(fixture: TestDataFixture) =
         rolledBack (fun s ->
             result {
                 let! agreementId, legIds = s.agreement "CF-4.10 own add" (weekly ()) (march 1) 1
-                let! _, otherLegs = s.agreement "CF-4.10 foreign add" (weekly ()) (march 1) 1
+                let! otherId, otherLegs = s.agreement "CF-4.10 foreign add" (weekly ()) (march 1) 1
                 let! created = s.instance agreementId (march 1) [ legIds[0] ]
                 let! foreign = s.invoiceFields (march 1) otherLegs[0] []
-                let attempt =
-                    { instanceUpdate (idOf created) with newInvoices = [ foreign ] }
-                    |> InstanceOrchestration.updateInstanceComposite s.Context
+                do!
+                    match
+                        { instanceUpdate (idOf created) with newInvoices = [ foreign ] }
+                        |> InstanceOrchestration.updateInstanceComposite s.Context
+                    with
+                    | Error (AsError (CashFlowError.CashflowInvoiceDiamondMismatch(_, instanceAgreementUuid, legAgreementUuid))) ->
+                        Assert.Equal(agreementId |> MasterAgreementId.value, instanceAgreementUuid)
+                        Assert.Equal(otherId |> MasterAgreementId.value, legAgreementUuid)
+                        Ok ()
+                    | Error e -> wrongError e
+                    | Ok _ -> unexpectedOk ()
                 let! legs = s.invoiceLegsOf (idOf created)
-                Assert.True(attempt |> Result.isError)
                 Assert.Equal<PaymentAgreementId list>([ legIds[0] ], legs)
             })
 
