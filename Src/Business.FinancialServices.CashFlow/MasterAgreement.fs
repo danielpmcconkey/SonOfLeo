@@ -37,7 +37,8 @@ type MasterAgreementFieldUpdates = {
     directionUpdate: FieldUpdate<FlowDirection>
     cadenceUpdate: FieldUpdate<Cadence.Cadence>
     counterpartyUpdate: FieldUpdate<Counterparty>
-    activityPeriodUpdate: FieldUpdate<ActivityPeriod.ActivityPeriod>
+    activeBeginUpdate: FieldUpdate<LocalDate>
+    activeEndUpdate: FieldUpdate<LocalDate option>
     memoUpdate: FieldUpdate<AgreementMemo option>
 }
         
@@ -277,12 +278,13 @@ let update
                   [ ("counterparty = @counterparty",
                      { name = "@counterparty"; value = CharString(Counterparty.value n) }) ])
 
-              fieldUpdates.activityPeriodUpdate
+              fieldUpdates.activeBeginUpdate
               |> mapNoChangeToOptionWithConversion(fun n ->
-                  let activeBegin = n |> ActivityPeriod.activeBegin
-                  let activeEnd = n |> ActivityPeriod.activeEnd
-                  [ ("start_date = @start_date", { name = "@start_date"; value = DbLocalDate(activeBegin) })
-                    ("end_date = @end_date", { name = "@end_date"; value = NullableDbLocalDate(activeEnd) }) ])
+                  [ ("start_date = @start_date", { name = "@start_date"; value = DbLocalDate(n) }) ])
+
+              fieldUpdates.activeEndUpdate
+              |> mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("end_date = @end_date", { name = "@end_date"; value = NullableDbLocalDate(n) }) ])
 
               fieldUpdates.memoUpdate
               |> mapNoChangeToOptionWithConversion(fun n ->
@@ -316,7 +318,8 @@ let updateCadence context newCadence masterAgreement =
         directionUpdate = NoChange
         cadenceUpdate = SetTo newCadence
         counterpartyUpdate = NoChange
-        activityPeriodUpdate = NoChange
+        activeBeginUpdate = NoChange
+        activeEndUpdate = NoChange
         memoUpdate = NoChange
     }
     fieldUpdates |> update context

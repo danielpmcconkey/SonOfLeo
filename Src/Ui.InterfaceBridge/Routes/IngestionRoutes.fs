@@ -36,50 +36,20 @@ let private ingestRawEntries payload _ =
                     let! linesStr = readTextFileLines toBeProcessedPath
                     let rejected lineNumbers groupId error : DataIngestionError.IngestionRejectedRecord =
                         { lineNumbers = lineNumbers; groupId = groupId; error = error }
-                    // every line is checked, so one rejection can name every failing record. Blank lines are not
-                    // records, but they are counted, so a line number matches what an editor shows
-                    let parsed =
+                    // blank lines are not records, but they are counted, so a line number matches what an editor shows
+                    let records =
                         linesStr
                         |> List.mapi (fun index line -> index + 1, line)
                         |> List.filter (fun (_, line) -> System.String.IsNullOrWhiteSpace line |> not)
                         |> List.map (fun (lineNumber, line) ->
+                            lineNumber,
                             match Json.fromJson<BaseStageRawRowInput> line with
                             | Error e -> Error (rejected [ lineNumber ] None e)
                             | Ok input ->
                                 input
                                 |> ``convert [BaseStageRawRowInput] to [BaseStageRawRow]`` context
-                                |> Result.map (fun row -> lineNumber, row)
                                 |> Result.mapError (rejected [ lineNumber ] (Some input.baseStageEntryGroupId)))
-                    let recordFailures = parsed |> List.choose (function Error r -> Some r | Ok _ -> None)
-                    let goodRows = parsed |> List.choose (function Ok row -> Some row | Error _ -> None)
-                    // a group that lost a record would fail its group checks only for that reason, so it is not checked
-                    let groupsWithFailedRecords = recordFailures |> List.choose _.groupId |> Set.ofList
-                    let checkableRows =
-                        goodRows
-                        |> List.filter (fun (_, row) ->
-                            groupsWithFailedRecords
-                            |> Set.contains (row.baseStageEntryGroupId |> BaseStageEntry.BaseStageEntryGroupId.value)
-                            |> not)
-                    let constructed =
-                        checkableRows |> List.map snd |> StageEntryOrchestration.constructFromRaw context sourceFile
-                    let groupFailures =
-                        match constructed with
-                        | Ok _ -> []
-                        | Error failures ->
-                            failures
-                            |> List.map (fun (groupId, e) ->
-                                let lineNumbers =
-                                    checkableRows
-                                    |> List.filter (fun (_, row) -> row.baseStageEntryGroupId = groupId)
-                                    |> List.map fst
-                                rejected lineNumbers (Some (groupId |> BaseStageEntry.BaseStageEntryGroupId.value)) e)
-                    let! entries =
-                        match recordFailures @ groupFailures, constructed with
-                        | [], Ok entries -> Ok entries
-                        | failures, _ ->
-                            let inFileOrder = failures |> List.sortBy (fun r -> r.lineNumbers |> List.min)
-                            DataIngestionError.error (DataIngestionError.IngestionFileRejected(toBeProcessedPath, inFileOrder))
-                    do! entries |> StageEntryOrchestration.persistConstructed context
+                    let! entries = records |> StageEntryOrchestration.ingestFile context sourceFile
                     let! converted =
                         entries
                         |> List.map (``convert [StageEntry] to [StageEntryReturn]`` context)
@@ -151,27 +121,6 @@ let private updateStageEntry payload _ =
             let! returnVal = model |> ``convert [StageEntry] to [StageEntryReturn]`` context
             return! Json.toJson<StageEntryReturn> returnVal })
     
-let private postWithExternallyManagedTransaction
-    (context: Context.Context)
-    : Result<PostStageEntriesTrialBalancesResult, IAppError> =
-    result {
-        let asOf = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
-        // get the "before" snapshot        
-        let! trialBalanceDataBefore = fetchTrialBalanceData context asOf
-        let trialBalanceRowsBefore =
-            trialBalanceDataBefore
-            |> ``convert [TrialBalanceRowFlattened list] to [TrialBalanceReturnRow list]``
-        // post
-        do! StageEntryOrchestration.post context
-        // get the "after" snapshot        
-        let! trialBalanceDataAfter = fetchTrialBalanceData context asOf
-        let trialBalanceRowsAfter =
-            trialBalanceDataAfter
-            |> ``convert [TrialBalanceRowFlattened list] to [TrialBalanceReturnRow list]``
-        return { trialBalanceBefore = trialBalanceRowsBefore
-                 trialBalanceAfter = trialBalanceRowsAfter } 
-    }
-    
 let private post payload _ =
     result {
         let! input = Json.fromJson<PostStageEntriesInput> payload
@@ -182,10 +131,10 @@ let private post payload _ =
         return!
             runner auditAction (fun context ->
                 result {
-                    let! trialBalancesResult = postWithExternallyManagedTransaction context
-                    let fullResult = {
-                          trialBalanceBefore = trialBalancesResult.trialBalanceBefore
-                          trialBalanceAfter = trialBalancesResult.trialBalanceAfter
+                    let! before, after = StageEntryOrchestration.postWithTrialBalances context
+                    let fullResult: PostStageEntriesFullResult = {
+                          trialBalanceBefore = before |> ``convert [TrialBalanceRowFlattened list] to [TrialBalanceReturnRow list]``
+                          trialBalanceAfter = after |> ``convert [TrialBalanceRowFlattened list] to [TrialBalanceReturnRow list]``
                           wasRolledBack = willBeRolledBack }
                     return! fullResult |> Json.toJson<PostStageEntriesFullResult>
                 })

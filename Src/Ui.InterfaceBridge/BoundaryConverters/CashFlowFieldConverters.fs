@@ -599,24 +599,6 @@ let ``convert [UpdateAgreementInput] to [MasterAgreementFieldUpdates]``
             |> FieldUpdate.convertFieldUpdateToNewTypeFallible ``convert [CadenceContract] to [Cadence]``
         let! counterpartyUpdate = input.counterpartyUpdate
                                   |> FieldUpdate.convertFieldUpdateToNewTypeFallible Counterparty.create
-        // the model holds the two dates as one ActivityPeriod, so setting either one has to carry the other over
-        let! activityPeriodUpdate =
-            if input.activeBeginUpdate = FieldUpdate.NoChange && input.activeEndUpdate = FieldUpdate.NoChange
-            then Ok FieldUpdate.NoChange
-            else
-                result {
-                    let! current = agreementId |> MasterAgreement.fetchById context
-                    let currentActivityPeriod = current |> MasterAgreement.activityPeriod
-                    let activeBegin =
-                        input.activeBeginUpdate
-                        |> FieldUpdate.valueOrCurrent (currentActivityPeriod |> ActivityPeriod.activeBegin)
-                    let activeEnd =
-                        input.activeEndUpdate
-                        |> FieldUpdate.valueOrCurrent (currentActivityPeriod |> ActivityPeriod.activeEnd)
-                    let! activityPeriod =
-                        ActivityPeriod.create activeBegin activeEnd ActivityPeriod.ConsideredAvailableBeforeBeginDate
-                    return FieldUpdate.SetTo activityPeriod
-                }
         let! memoUpdate = input.memoUpdate
                           |> FieldUpdate.convertFieldUpdateOptionToNewTypeOptionFallible AgreementMemo.create
         return {
@@ -625,5 +607,6 @@ let ``convert [UpdateAgreementInput] to [MasterAgreementFieldUpdates]``
             directionUpdate = directionUpdate
             cadenceUpdate = cadenceUpdate
             counterpartyUpdate = counterpartyUpdate
-            activityPeriodUpdate = activityPeriodUpdate
+            activeBeginUpdate = input.activeBeginUpdate
+            activeEndUpdate = input.activeEndUpdate
             memoUpdate = memoUpdate } }

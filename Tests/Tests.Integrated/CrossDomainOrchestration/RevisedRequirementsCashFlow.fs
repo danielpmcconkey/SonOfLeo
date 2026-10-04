@@ -156,7 +156,8 @@ let private noChange agreementId : MasterAgreement.MasterAgreementFieldUpdates =
       directionUpdate = NoChange
       cadenceUpdate = NoChange
       counterpartyUpdate = NoChange
-      activityPeriodUpdate = NoChange
+      activeBeginUpdate = NoChange
+      activeEndUpdate = NoChange
       memoUpdate = NoChange }
 
 /// The master agreement's updatable fields, in a form that compares by value.
@@ -273,16 +274,12 @@ type RevisedRequirementsCashFlowTests(fixture: TestDataFixture) =
                             (name, direction, cadenceType, next, "A different counterparty", activeBegin, activeEnd, memo))
                     | "start date" ->
                         let newBegin = activeBegin.PlusDays(-30)
-                        ActivityPeriod.create newBegin activeEnd ActivityPeriod.ConsideredAvailableBeforeBeginDate
-                        |> Result.map (fun p ->
-                            { noChange agreementId with activityPeriodUpdate = SetTo p },
-                            (name, direction, cadenceType, next, counterparty, newBegin, activeEnd, memo))
+                        Ok({ noChange agreementId with activeBeginUpdate = SetTo newBegin },
+                           (name, direction, cadenceType, next, counterparty, newBegin, activeEnd, memo))
                     | "end date" ->
                         let newEnd = Some(LocalDate(2049, 12, 31))
-                        ActivityPeriod.create activeBegin newEnd ActivityPeriod.ConsideredAvailableBeforeBeginDate
-                        |> Result.map (fun p ->
-                            { noChange agreementId with activityPeriodUpdate = SetTo p },
-                            (name, direction, cadenceType, next, counterparty, activeBegin, newEnd, memo))
+                        Ok({ noChange agreementId with activeEndUpdate = SetTo newEnd },
+                           (name, direction, cadenceType, next, counterparty, activeBegin, newEnd, memo))
                     | _ ->
                         "A new memo" |> AgreementMemo.create
                         |> Result.map (fun m ->

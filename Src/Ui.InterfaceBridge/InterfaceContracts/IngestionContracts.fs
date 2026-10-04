@@ -60,11 +60,6 @@ type IngestionSourceReturn = {
         modifiedAt: Instant
     }
 
-type PostStageEntriesTrialBalancesResult = {
-    trialBalanceBefore: TrialBalanceReturnRow list
-    trialBalanceAfter: TrialBalanceReturnRow list
-}
-
 type PostStageEntriesFullResult = {
     trialBalanceBefore: TrialBalanceReturnRow list
     trialBalanceAfter: TrialBalanceReturnRow list

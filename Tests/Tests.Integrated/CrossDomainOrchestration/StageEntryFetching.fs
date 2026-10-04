@@ -687,7 +687,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                     group "grp-sys14-containing" case.containing "REF-SYS14-C" @ group "grp-sys14-decoy" case.decoy "REF-SYS14-D"
                     |> convertListOfResultsToResultsList
                 let! sourceFile = "/tmp/sys14-literal-search.jsonl" |> SourceFile.create
-                let! _ = rows |> StageEntryOrchestration.ingestRawToStage context sourceFile
+                let! _ = rows |> StageTestData.ingestRows context sourceFile
                 let! description = case.search |> JournalEntryDescription.create
                 let! fetched = { noFilter with description = Some description } |> fetchFiltered context None
                 let descriptions = fetched |> List.map descriptionOf

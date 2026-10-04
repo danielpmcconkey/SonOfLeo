@@ -365,7 +365,8 @@ let private isThereAMasterAgreementUpdate
     || masterAgreementUpdates.directionUpdate <> FieldUpdate.NoChange
     || masterAgreementUpdates.cadenceUpdate <> FieldUpdate.NoChange
     || masterAgreementUpdates.counterpartyUpdate <> FieldUpdate.NoChange
-    || masterAgreementUpdates.activityPeriodUpdate <> FieldUpdate.NoChange
+    || masterAgreementUpdates.activeBeginUpdate <> FieldUpdate.NoChange
+    || masterAgreementUpdates.activeEndUpdate <> FieldUpdate.NoChange
     || masterAgreementUpdates.memoUpdate <> FieldUpdate.NoChange
 
 let private isThereAPaymentAgreementUpdate
@@ -386,6 +387,29 @@ let private isThereAPaymentAgreementUpdate
 /// (REQ-CF-9.11); a leg's new amount or accounts leave its existing Invoices and Payments as they are.
 /// Note to caller, the updates are sent to the DB *before* aggregate validation. Make sure you wrap this in a
 /// transaction you can roll back
+/// confirmActivityPeriodUpdate checks the activity period an update leaves the agreement with. Either date can be
+/// updated alone, so the other is carried over from the stored agreement.
+let private confirmActivityPeriodUpdate
+    (context: Context.Context)
+    (masterAgreementUpdates: MasterAgreement.MasterAgreementFieldUpdates)
+    : Result<unit, IAppError> =
+    if masterAgreementUpdates.activeBeginUpdate = FieldUpdate.NoChange
+       && masterAgreementUpdates.activeEndUpdate = FieldUpdate.NoChange
+    then Ok ()
+    else
+        result {
+            let! current = masterAgreementUpdates.agreementIdToUpdate |> MasterAgreement.fetchById context
+            let currentActivityPeriod = current |> MasterAgreement.activityPeriod
+            let activeBegin =
+                masterAgreementUpdates.activeBeginUpdate
+                |> App.Utility.FieldUpdate.valueOrCurrent (currentActivityPeriod |> ActivityPeriod.activeBegin)
+            let activeEnd =
+                masterAgreementUpdates.activeEndUpdate
+                |> App.Utility.FieldUpdate.valueOrCurrent (currentActivityPeriod |> ActivityPeriod.activeEnd)
+            let! _ = ActivityPeriod.create activeBegin activeEnd ActivityPeriod.ConsideredAvailableBeforeBeginDate
+            return ()
+        }
+
 let updateAgreement
     (context: Context.Context)
     (paymentAgreementUpdates: PaymentAgreement.PaymentAgreementFieldUpdates list)
@@ -401,6 +425,7 @@ let updateAgreement
                && newPaymentAgreements |> List.isEmpty
             then Error CashFlowError.CashflowAgreementUpdateNoOp
             else Ok ()
+        do! masterAgreementUpdates |> confirmActivityPeriodUpdate context
         do! confirmAuthorityAndCohesion context paymentAgreementUpdates masterAgreementUpdates
         do! masterAgreementUpdates |> confirmNextInstanceAfterExistingInstances context
         do!

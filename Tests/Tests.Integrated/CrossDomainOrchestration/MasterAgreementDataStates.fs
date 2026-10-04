@@ -528,7 +528,8 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                           directionUpdate = NoChange
                           cadenceUpdate = NoChange
                           counterpartyUpdate = SetTo counterparty
-                          activityPeriodUpdate = NoChange
+                          activeBeginUpdate = NoChange
+                          activeEndUpdate = NoChange
                           memoUpdate = NoChange }
                 let! stored = s.stored name
                 Assert.Equal<string>("Updated before its start", stored |> List.exactlyOne |> MasterAgreement.counterparty |> Counterparty.value)
@@ -592,7 +593,8 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                                       directionUpdate = NoChange
                                       cadenceUpdate = NoChange
                                       counterpartyUpdate = NoChange
-                                      activityPeriodUpdate = SetTo period
+                                      activeBeginUpdate = SetTo(period |> ActivityPeriod.activeBegin)
+                                      activeEndUpdate = SetTo(period |> ActivityPeriod.activeEnd)
                                       memoUpdate = NoChange }
                         })
                 let! before = storedNamed (fresh ()) name

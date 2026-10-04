@@ -20,7 +20,8 @@ let private noMasterAgreementChange agreementId : MasterAgreement.MasterAgreemen
       directionUpdate = FieldUpdate.NoChange
       cadenceUpdate = FieldUpdate.NoChange
       counterpartyUpdate = FieldUpdate.NoChange
-      activityPeriodUpdate = FieldUpdate.NoChange
+      activeBeginUpdate = FieldUpdate.NoChange
+      activeEndUpdate = FieldUpdate.NoChange
       memoUpdate = FieldUpdate.NoChange }
 
 let private noLegChange legId : PaymentAgreement.PaymentAgreementFieldUpdates =

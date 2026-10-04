@@ -102,6 +102,22 @@ module StageTestData =
           classificationResults: ClassificationResult list
           classificationRunId: ClassificationRunId }
 
+    /// ingestRows hands rows to the file-level ingestion as a file's records, numbered from 1. That ingestion rejects
+    /// the file naming every failing record; these tests check one failing group at a time, so a rejection is
+    /// narrowed to its first record's error.
+    let ingestRows
+        (context: Context.Context)
+        (sourceFile: SourceFile)
+        (rawRows: BaseStageRawRow list)
+        : Result<StageEntry list, IAppError> =
+        rawRows
+        |> List.mapi (fun index row -> index + 1, Ok row)
+        |> StageEntryOrchestration.ingestFile context sourceFile
+        |> Result.mapError (fun e ->
+            match e with
+            | AsError (IngestionFileRejected(_, first :: _)) -> first.error
+            | _ -> e)
+
     /// Ingest, dedup and account classification are three separate steps in Src, and classification now sweeps every
     /// unresolved staged entry rather than one file's. This runs the three in order, advancing the audit instant
     /// between them as the old single call did, and narrows the results back to the file just ingested.
@@ -112,7 +128,7 @@ module StageTestData =
         : Result<IngestionPipelineResult, IAppError> =
         result {
             let headerIdOf entry = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-            let! ingested = rawRows |> ingestRawToStage context sourceFile
+            let! ingested = rawRows |> ingestRows context sourceFile
             let ingestedIds = ingested |> List.map headerIdOf
             let contextAfterLoad = context |> TestContext.updateInitiationInstant
             let! duplicatesBefore = [ StagedEntryStatus.Duplicate ] |> fetchByStatusList contextAfterLoad

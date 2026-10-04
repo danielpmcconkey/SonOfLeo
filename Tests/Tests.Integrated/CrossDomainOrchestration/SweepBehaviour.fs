@@ -127,7 +127,8 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                       directionUpdate = NoChange
                       cadenceUpdate = NoChange
                       counterpartyUpdate = NoChange
-                      activityPeriodUpdate = SetTo period
+                      activeBeginUpdate = SetTo(period |> ActivityPeriod.activeBegin)
+                      activeEndUpdate = SetTo(period |> ActivityPeriod.activeEnd)
                       memoUpdate = NoChange }
             return ()
         }

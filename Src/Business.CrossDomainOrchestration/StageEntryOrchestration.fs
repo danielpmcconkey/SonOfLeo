@@ -441,14 +441,46 @@ let persistConstructed
         return ()
     }
 
-let ingestRawToStage
+/// ingestFile accepts a file's records as one unit. Each record arrives with its line number, already read into a row
+/// or already rejected. Every record and every group is checked, and if any fails nothing is written and the file is
+/// rejected naming every failure in file order. Otherwise every entry is written and returned.
+let ingestFile
     (context: Context.Context)
     (sourceFile: SourceFile)
-    (rawRows: BaseStageRawRow list)
+    (records: (int * Result<BaseStageRawRow, DataIngestionError.IngestionRejectedRecord>) list)
     : Result<StageEntry list, IAppError> =
     result {
-        // a caller handing over rows rather than a file gets the first failing group; the route reports every one
-        let! entries = rawRows |> constructFromRaw context sourceFile |> Result.mapError (List.head >> snd)
+        let rejected lineNumbers groupId error : DataIngestionError.IngestionRejectedRecord =
+            { lineNumbers = lineNumbers; groupId = groupId; error = error }
+        let recordFailures = records |> List.choose (function _, Error r -> Some r | _, Ok _ -> None)
+        let goodRows = records |> List.choose (function lineNumber, Ok row -> Some(lineNumber, row) | _, Error _ -> None)
+        // a group that lost a record would fail its group checks only for that reason, so it is not checked
+        let groupsWithFailedRecords = recordFailures |> List.choose _.groupId |> Set.ofList
+        let checkableRows =
+            goodRows
+            |> List.filter (fun (_, row) ->
+                groupsWithFailedRecords
+                |> Set.contains (row.baseStageEntryGroupId |> BaseStageEntryGroupId.value)
+                |> not)
+        let constructed = checkableRows |> List.map snd |> constructFromRaw context sourceFile
+        let groupFailures =
+            match constructed with
+            | Ok _ -> []
+            | Error failures ->
+                failures
+                |> List.map (fun (groupId, e) ->
+                    let lineNumbers =
+                        checkableRows
+                        |> List.filter (fun (_, row) -> row.baseStageEntryGroupId = groupId)
+                        |> List.map fst
+                    rejected lineNumbers (Some (groupId |> BaseStageEntryGroupId.value)) e)
+        let! entries =
+            match recordFailures @ groupFailures, constructed with
+            | [], Ok entries -> Ok entries
+            | failures, _ ->
+                let inFileOrder = failures |> List.sortBy (fun r -> r.lineNumbers |> List.min)
+                DataIngestionError.error
+                    (DataIngestionError.IngestionFileRejected(sourceFile |> SourceFile.value, inFileOrder))
         do! entries |> persistConstructed context
         return entries
     }
@@ -814,7 +846,20 @@ let post
             |> Result.map ignore
         return ()
     }
-    
+
+/// postWithTrialBalances posts, and returns the trial balance as of the run's date taken just before and just after.
+/// The caller owns the transaction, so a shadow post rolls back the post and leaves only the two snapshots.
+let postWithTrialBalances
+    (context: Context.Context)
+    : Result<TrialBalanceReport.TrialBalanceRowFlattened list * TrialBalanceReport.TrialBalanceRowFlattened list, IAppError> =
+    result {
+        let asOf = context |> Context.getInitiationInstant |> App.Utility.Calendar.dateFromInstant
+        let! before = TrialBalanceReport.fetchTrialBalanceData context asOf
+        do! post context
+        let! after = TrialBalanceReport.fetchTrialBalanceData context asOf
+        return before, after
+    }
+
 let fetchFiltered
     (context: Context.Context)
     (sort: FetchStageEntrySort option)
