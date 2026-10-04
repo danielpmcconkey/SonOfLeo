@@ -12,5 +12,5 @@ hits=$(grep -n 'Result\.isError' $(git ls-files -- 'Tests/*.fs'))
 if [[ -n "$hits" ]]; then
     echo "$hits"
     echo "$(wc -l <<< "$hits") Result.isError sites in Tests/ — match the expected error case instead (report-only until #149 lands)."
-    exit 0
+    exit 1
 fi
