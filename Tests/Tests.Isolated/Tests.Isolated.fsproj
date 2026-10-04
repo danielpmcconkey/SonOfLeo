@@ -35,6 +35,11 @@
     <Compile Include="Model\CashFlow\CashFlowComponent.fs" />
     <Compile Include="Model\CashFlow\MasterAgreementDataStates.fs" />
     <Compile Include="Model\CashFlow\TrimmedText.fs" />
+    <Compile Include="Model\QuantityAndPrice.fs" />
+    <Compile Include="Model\General\Person.fs" />
+    <Compile Include="Model\Positions\PositionsComponent.fs" />
+    <Compile Include="Model\Positions\Investments.fs" />
+    <Compile Include="Model\Positions\RealEstate.fs" />
   </ItemGroup>
 
   <ItemGroup>

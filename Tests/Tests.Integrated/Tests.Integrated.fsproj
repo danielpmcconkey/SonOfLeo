@@ -107,6 +107,18 @@
     <Compile Include="InterfaceBridge\AccountNamesInPayloads.fs" />
     <Compile Include="InterfaceBridge\CashFlowRoutes.fs" />
     <Compile Include="InterfaceBridge\PaymentAgreementLinkRoutes.fs" />
+    <Compile Include="CrossDomainOrchestration\PersonMaintenance.fs" />
+    <Compile Include="CrossDomainOrchestration\SecurityMaintenance.fs" />
+    <Compile Include="CrossDomainOrchestration\InvestmentAccountMaintenance.fs" />
+    <Compile Include="CrossDomainOrchestration\HoldingMaintenance.fs" />
+    <Compile Include="CrossDomainOrchestration\AccountSnapshotRecording.fs" />
+    <Compile Include="CrossDomainOrchestration\HoldingsAsOf.fs" />
+    <Compile Include="CrossDomainOrchestration\PropertyMaintenance.fs" />
+    <Compile Include="CrossDomainOrchestration\NetWorth.fs" />
+    <Compile Include="CrossDomainOrchestration\InvestmentWealthHistory.fs" />
+    <Compile Include="InterfaceBridge\PersonRoutes.fs" />
+    <Compile Include="InterfaceBridge\PositionsRoutes.fs" />
+    <Compile Include="InterfaceBridge\PositionsReportRoutes.fs" />
     <Compile Include="DataAccessLayer\DalTests.fs" />
   </ItemGroup>
 
