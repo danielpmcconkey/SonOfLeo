@@ -56,6 +56,10 @@ type CashFlowFixtureData =
       /// Payment on a 40.00 ledger-only line, so 60.00 is still owed.
       agreementCId: MasterAgreementId
       partlyPaidInvoiceCId: InvoiceId
+      /// The amount of every fixture Invoice: A's and B's, last month's and this month's, and C's.
+      invoiceAmount: decimal
+      /// The amount of the one Payment on C's Invoice.
+      partPaymentCAmount: decimal
       /// Outgo, monthly on the 1st, starting two months out. Its next instance falls before its start date, inside
       /// any horizon that reaches next month. It has no Instances.
       notYetStartedAgreementDId: MasterAgreementId
@@ -999,9 +1003,11 @@ type TestDataFixture() =
                         return agreementId, legId
                     }
 
+                let fixtureInvoiceAmount = 100.00M
+                let partPaymentCAmount = 40.00M
                 let createOpenInstance agreementId legId (instanceDate: LocalDate) (daysDue: int) =
                     result {
-                        let! amount = Money.fromDecimal 100.00M
+                        let! amount = Money.fromDecimal fixtureInvoiceAmount
                         let! created =
                             InstanceOrchestration.constructNewAndPersist
                                 context agreementId instanceDate
@@ -1094,10 +1100,10 @@ type TestDataFixture() =
                     }
 
                 let! agreementCId, legCId = createCashFlowAgreement "Fixture agreement C" 30
-                let! partPaymentLineId = ledgerOnlyDebitLine "Fixture agreement C part payment" 40.00M
+                let! partPaymentLineId = ledgerOnlyDebitLine "Fixture agreement C part payment" partPaymentCAmount
                 let! partlyPaidInvoiceCId =
                     result {
-                        let! amount = Money.fromDecimal 100.00M
+                        let! amount = Money.fromDecimal fixtureInvoiceAmount
                         let! created =
                             InstanceOrchestration.constructNewAndPersist
                                 context agreementCId firstOfThisMonth
@@ -1143,6 +1149,8 @@ type TestDataFixture() =
                       nextInstanceDateA = firstOfThisMonth.PlusMonths(1)
                       agreementCId = agreementCId
                       partlyPaidInvoiceCId = partlyPaidInvoiceCId
+                      invoiceAmount = fixtureInvoiceAmount
+                      partPaymentCAmount = partPaymentCAmount
                       notYetStartedAgreementDId = notYetStartedAgreementDId
                       unclaimedLedgerLineId = unclaimedLedgerLineId
                       paidPostedLineAId = paidPostedLineAId

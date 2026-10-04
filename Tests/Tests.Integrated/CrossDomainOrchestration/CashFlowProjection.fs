@@ -34,15 +34,17 @@ type CashFlowProjectionTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CF-8.3 REQ-CF-8.9 a partly paid Outgo Invoice contributes only its outstanding amount to projected outflows`` () =
-        (* C's 40.00 Payment is the only Payment on any Invoice still open against F-1280, so known outflows are the
-           listed Invoices' full amounts less exactly that. *)
-        let partPayment = 40.00M
+        (* The fixture's Invoices still open against F-1280 are this month's on A, B and C. Last month's are paid in
+           full. C's part payment is the only Payment on an open one, so known outflows are the three Invoices'
+           amounts less exactly that. *)
+        let openInvoices = [ cashFlow.openInvoiceAId; cashFlow.openInvoiceBId; cashFlow.partlyPaidInvoiceCId ]
         let context = Context.create NoTransaction FetchOnly
         result {
             let! account = projectOperatingCash context
-            Assert.Contains(cashFlow.partlyPaidInvoiceCId, account.invoices |> List.map _.invoiceId)
-            let fullAmounts = account.invoices |> List.sumBy (fun invoice -> invoice.amount |> CashFlowComponent.InvoiceAmount.value |> Money.amount)
-            Assert.Equal(fullAmounts - partPayment, account.knownOutflows |> Money.amount)
+            Assert.Equal<Set<InvoiceId>>(Set.ofList openInvoices, account.invoices |> List.map _.invoiceId |> Set.ofList)
+            let! expected =
+                (decimal openInvoices.Length) * cashFlow.invoiceAmount - cashFlow.partPaymentCAmount |> Money.fromDecimal
+            Assert.Equal(expected, account.knownOutflows)
         }
         |> railroadWrapper
 
@@ -52,7 +54,9 @@ type CashFlowProjectionTests(fixture: TestDataFixture) =
         result {
             let! account = projectOperatingCash context
             let partlyPaid = account.invoices |> List.find (fun invoice -> invoice.invoiceId = cashFlow.partlyPaidInvoiceCId)
-            Assert.Equal(100.00M, (partlyPaid.amount |> CashFlowComponent.InvoiceAmount.value) |> Money.amount)
-            Assert.Equal(100.00M - 40.00M, partlyPaid.outstanding |> Money.amount)
+            let! amount = cashFlow.invoiceAmount |> Money.fromDecimal
+            let! outstanding = cashFlow.invoiceAmount - cashFlow.partPaymentCAmount |> Money.fromDecimal
+            Assert.Equal(amount, partlyPaid.amount |> CashFlowComponent.InvoiceAmount.value)
+            Assert.Equal(outstanding, partlyPaid.outstanding)
         }
         |> railroadWrapper

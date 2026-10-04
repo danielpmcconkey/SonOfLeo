@@ -1478,8 +1478,14 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let listed = run.openInstances |> List.map (InstanceOrchestration.instance >> Instance.instanceId) |> Set.ofList
                 Assert.DoesNotContain(fulfilledByRunId, listed)
                 Assert.Contains(leftOpenId, listed)
-                let! unfulfilledNow = InstanceOrchestration.fetchOpenComposites context
-                let expected = unfulfilledNow |> List.map (InstanceOrchestration.instance >> Instance.instanceId) |> Set.ofList
+                (* the expected set comes from what the test and the fixture created, not from the system's own
+                   open-Instance query: the fixture's open Instances are this month's on A, B and C, none of which the
+                   run can pay, and the one this test left open *)
+                let cashFlow = fixture.Data.cashFlow
+                let instanceOfInvoice invoiceId = invoiceId |> Invoice.fetchById context |> Result.map Invoice.instanceId
+                let! fixtureB = instanceOfInvoice cashFlow.openInvoiceBId
+                let! fixtureC = instanceOfInvoice cashFlow.partlyPaidInvoiceCId
+                let expected = Set.ofList [ cashFlow.openInstanceAId; fixtureB; fixtureC; leftOpenId ]
                 Assert.Equal<Set<InstanceId>>(expected, listed)
             })
         |> railroadWrapper

@@ -215,9 +215,12 @@ type ProjectionRulesTests(fixture: TestDataFixture) =
                 let! _ = s.instance Outgo cashId outgoId s.today [ (outgoLegs[0], s.today.PlusDays(5), []) ]
                 let! projection = s.project 10
                 let account = accountIn projection cashId
-                Assert.NotEqual(0M, account.currentBalance |> amountOf)
-                Assert.NotEqual(0M, account.knownInflows |> amountOf)
-                Assert.NotEqual(0M, account.knownOutflows |> amountOf)
+                (* from the scenario's inputs: the 30.00 Payment is the balance, 100.00 less 30.00 is still to come in,
+                   the unpaid 100.00 Outgo Invoice is to go out, so the low is 30.00 + 70.00 - 100.00 *)
+                Assert.Equal(30.00M, account.currentBalance |> amountOf)
+                Assert.Equal(70.00M, account.knownInflows |> amountOf)
+                Assert.Equal(100.00M, account.knownOutflows |> amountOf)
+                Assert.Equal(0.00M, account.projectedLow |> amountOf)
                 Assert.Equal(
                     (account.currentBalance |> amountOf) + (account.knownInflows |> amountOf) - (account.knownOutflows |> amountOf),
                     account.projectedLow |> amountOf)
@@ -320,11 +323,15 @@ type ProjectionRulesTests(fixture: TestDataFixture) =
         rolledBack (fun s ->
             result {
                 let! cashId, _, _ = s.cashAccount None
-                let! agreementId, _, _ = s.agreement Outgo cashId 2
+                let! agreementId, _, legNames = s.agreement Outgo cashId 2
                 let! onEnd, _ = s.instance Outgo cashId agreementId (s.today.PlusDays(10)) []
                 let! dayAfter, _ = s.instance Outgo cashId agreementId (s.today.PlusDays(11)) []
                 let! projection = s.project 10
-                Assert.Equal(2, billsFor projection onEnd |> List.length)
+                let bills = billsFor projection onEnd
+                Assert.Equal<Set<string>>(
+                    Set.ofList legNames, bills |> List.map (fun b -> b.paymentAgreementName |> PaymentAgreementName.value) |> Set.ofList)
+                Assert.Equal(2, bills |> List.length)
+                Assert.All(bills, fun b -> Assert.Equal(s.today.PlusDays(10), b.instanceDate))
                 Assert.Empty(billsFor projection dayAfter)
             })
 
@@ -333,10 +340,14 @@ type ProjectionRulesTests(fixture: TestDataFixture) =
         rolledBack (fun s ->
             result {
                 let! cashId, _, _ = s.cashAccount None
-                let! agreementId, _, _ = s.agreement Outgo cashId 2
+                let! agreementId, _, legNames = s.agreement Outgo cashId 2
                 let! instanceId, _ = s.instance Outgo cashId agreementId (s.today.PlusDays(-60)) []
                 let! projection = s.project 10
-                Assert.Equal(2, billsFor projection instanceId |> List.length)
+                let bills = billsFor projection instanceId
+                Assert.Equal<Set<string>>(
+                    Set.ofList legNames, bills |> List.map (fun b -> b.paymentAgreementName |> PaymentAgreementName.value) |> Set.ofList)
+                Assert.Equal(2, bills |> List.length)
+                Assert.All(bills, fun b -> Assert.Equal(s.today.PlusDays(-60), b.instanceDate))
             })
 
     [<Fact>]
@@ -382,13 +393,14 @@ type ProjectionRulesTests(fixture: TestDataFixture) =
         rolledBack (fun s ->
             result {
                 let! cashId, code, _ = s.cashAccount None
-                let! all = Account.fetchAll s.Context false
+                (* the expected codes come from what the fixture built: its Cash accounts, less the bank it closed two
+                   months ago, plus the one this test made *)
                 let expected =
-                    all
+                    fixture.Data.accounts
                     |> List.filter (fun a ->
-                        a |> Account.accountSubType = Some Cash
-                        && a |> Account.activityPeriod |> ActivityPeriod.isActive s.today)
+                        a |> Account.accountSubType = Some Cash && a |> Account.accountId <> fixture.Data.closedBank1290Id)
                     |> List.map (Account.code >> AccountCode.value)
+                    |> List.append [ code ]
                     |> List.sort
                 let! projection = s.project 10
                 let codes = projection.accounts |> List.map (fun a -> a.accountCode |> AccountCode.value) |> List.sort
