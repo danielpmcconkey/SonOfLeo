@@ -411,3 +411,195 @@ test file you touched mechanically, the migration scripts Dan must apply,
 test status (which suites ran, where), `run-all.sh` output, and any
 requirement you believe is wrong. Don't mark anything done that you haven't
 verified.
+
+## 8. Report
+
+Branch `audit-remediation-20261003`, written 2026-10-04 by the remediation session. Everything below is pushed.
+Nothing has been merged to main and nothing was run against production.
+
+### 8.1 Where it stands
+
+- `dotnet build SonOfLeo.slnx`: green, no `warning FS`.
+- Tests.Isolated: **395 / 395 pass.**
+- Tests.Integrated, against the throwaway local `sonofleo_test` built by `setup-throwaway-test-db.sh`: **1339 / 1340 pass**,
+  two consecutive full runs. The one failure is SweepBehaviour REQ-CF-7.15 (see 8.5, a decision for Dan).
+- `bash Checks/run-all.sh`: 10 passed, 0 failed, 1 skipped. Traceability skips off main. `check-clock` passes.
+  `check-result-iserror` reached 0 sites and now exits 1 when it finds one.
+  `check-apperror-coverage` is report-only: 207 of 267 cases referenced. Repointing it is row #152, assigned to Hobson.
+- `bash Skills/SonOfLeoRequirementsAudit/traceability-audit.sh` on the branch:
+  - Invariant 1 (phantoms): clean.
+  - Invariant 2 (untested active REQs): clean.
+  - Stale waivers: REQ-SYS-6.1. It is waived in SystemWide.md, but the brief asked for it to be cited (A.14). Hobson should drop the waiver row.
+- `Skills/ArchiMate/validate.py`: VALID. `model_drift.py`: NO DRIFT.
+
+### 8.2 Migrations Dan must apply
+
+- `DbMigration/Scripts/202610031600-StoredRuleGroupShape.sql`. It converts the stored `rule_groups` JSON to the fixed shape (item 4) and stops rules matching on Memo.
+- `DbMigration/Scripts/202610031700-CancellationReasonNote.sql`. It adds the cancellation reason note (item 13).
+
+### 8.3 Src, by plan item
+
+All items 1–29 and 31–35 are implemented. Item 30 is this section's checks.
+
+| Item | Commit | Rows / REQs |
+|---|---|---|
+| 1 Fresh clock reads | fac9995 | REQ-SYS-3.4, RPT-3.2 |
+| 2–3 Pre-posting review rule and payments | 35e6776 | REQ-RPT-7.3, 7.4 |
+| 19 ClassificationError | cb74381 | |
+| 4 Rule-group DTO, Memo out | 897faf5 | REQ-CR-1.13, CR-2.2/1.25 withdrawn |
+| 5 Leg selection | 51bf462 | REQ-CF-12.4 |
+| 6 REQ-CF-6.9 withdrawn | 5a06715 | |
+| 7 Payment Agreement update and add-a-leg | 02c6056 | REQ-CF-14.8, 14.9 |
+| 8 Next-instance date | fc02223 | REQ-CF-14.2 |
+| 9–10 Link guard, link IDs | 04e1edd | REQ-CF-12.9, 12.7 |
+| 11 Payments-to-posted refuses voided targets | 50b0665 | REQ-CF-10.8 |
+| 12 Dedup paid repeats | 3620037 | REQ-STG-7.5.1 |
+| 13 Cancellation | 63be282 | REQ-CF-4.11–4.14, 5.17–5.19, 14.10 |
+| 14 Matching tie-break and blocker | cbfcd0b | REQ-CF-13.1, 13.4, 13.9 |
+| 15 modified_at | 5f5673b | REQ-SYS-3.1 |
+| 16 Look-back integrity | bd2b85e | REQ-RPT-5.4 |
+| 17 Read-only cash-flow routes | 86bf2ee | REQ-CF-14.11, 14.12 |
+| 18 Typed not-found | bd2409a | REQ-SYS-6.2/6.3 |
+| 20 Money compare and sign | 08ece4e | REQ-MON-2.10, 2.11 |
+| 21 Account names in returns | a092608 | REQ-NGUI-1.6 |
+| 22 Reconstitute validates | 261dc92 | |
+| 23 Ensure fiscal periods is atomic | f7397f1 | |
+| 24 Configuration | 3370c99 | |
+| 25 updateInitiationInstant moves to Tests.Helpers | 6b08833 | |
+| 26 Rule sort | 4956017 | REQ-CR-5.4 |
+| 27 Trimmed lookups | dcb34e7 | REQ-SYS-1.1 |
+| 28 Dead code | c4dba72 | |
+| 29 Small fixes | 9721815 | #188 and the rest |
+| 31 Lookup caches move | 84b1d00 | |
+| 32 Classification orchestration | 48530ec | |
+| 33 Order and DU qualification | 5f2e26a | Verified IL-identical: 0 differing methods across all assemblies |
+| 34 Model shape | a1c7b83, 0d2da3b, 1b0bbac, 8183f2f, 9bba5f4, 60a94c6, 96144dc, a6bb0c4, ae4d5d1 | #164/#192, #165, #166, #169/#198/#170, #171, #172, #190, #195, #201 |
+| 35 Business logic out of the UI tier | d1d3b1d | #162 |
+| Model | ee74cdb | ClassificationError component and capability; BridgeError removed; 53 serving edges added, 31 removed |
+
+Design decisions worth knowing:
+
+- **Cancellation (13):** cancelling an Instance leaves an Invoice that was already cancelled with its own note. A cancelled Instance takes no composite change at all.
+- **Posted pointer (#201):** the Posted pointer is `Posted of JournalEntryLineId * StageEntryLineId option`, and `TransactionPointer.resolve` holds the rule that Posted takes precedence. The side queries `fetchStageEntryLineIdById` and `fetchReferencedStageEntryLineIds` are gone. The checks read the pointer instead.
+- **UI tier (#162):**
+  - `StageEntryOrchestration.ingestFile` accepts or rejects a file's records as one unit, replacing the test-only `ingestRawToStage`.
+  - `postWithTrialBalances` takes the before and after snapshots. The route still decides commit or rollback.
+  - `MasterAgreementFieldUpdates` now carries `activeBeginUpdate` and `activeEndUpdate` separately. `AgreementOrchestration.updateAgreement` checks the period they leave, carrying over the date not updated, so the converter no longer reads the agreement. The dead `PostStageEntriesTrialBalancesResult` contract is gone.
+- **Item 21:** this item also carries B21's first bullet, debit and credit account names on PaymentAgreementReturn.
+
+### 8.4 Tests
+
+**Part A.** The names were committed as failing placeholders before any Src was read (b6d9df9; 101 names, graded with TestNameReview). After the Src work, five parallel workers implemented every placeholder, each in its own worktree with its own database. All their commits are on the branch, apart from one skipped commit described under "Merge note".
+
+- No Part A name was changed.
+- Zero placeholders remain.
+- Every new or changed assertion was perturbed, seen failing for the right reason, then restored and seen passing.
+- The mutation logs are in the session's scratchpad. For example, the link guard expecting `[Guid.Empty]` fails with "Collections differ".
+
+Part A items:
+
+- 1 Cancellation: 22 integrated and 3 isolated tests.
+- 2 Link guard.
+- 3 Voided target, with two affected Payments. Batch post alone leaves Payments Staged.
+- 4 Leg selection. The amount-split, refund, tie-by-default and unresolvable-tie tests are all in. The old 12.4 tests 1, 2, 3, 5 and 6 were deleted because the new tests duplicate them.
+- 5 REQ-CF-6.9 retired. The wrong-account scenarios are now REQ-CF-6.4 acceptances.
+- 6 Matching.
+- 7 Dedup: the declined-list theory covers Ingested, Classified, NoMatch and Conflict (see 8.6).
+- 8 Pre-posting review.
+- 9 Payment Agreement update.
+- 10 Listings.
+- 11 Master Agreement update.
+- 12 Money compare and sign.
+- 13 Look-back integrity.
+- 14 Same-value updates, plus the REQ-SYS-6.1 co-cites.
+- 15 Footer instant and processed-file name.
+- 16 Typed not-found.
+- 17 Account names in payloads: reflection finds all 14 return contracts that carry an account code, and 13 routes are exercised.
+- 18 REQ-DAL-2.2.
+- 19 Already retired in 897faf5.
+- 20 JE reads re-cited and deleted per #093, #094 and #099.
+- 21 Citations dropped.
+- 22 Every listed clarification.
+- 23 Checked: no REQ-SYS-3.1 tests exist on insert-only log records.
+
+**Part B.** Every row the brief lists is done: B.1–B.9 and B.10.
+
+- #051: already covered by the REQ-CF-14.2 same-name route test, so no duplicate was added.
+- #136: deleted.
+- #113: deleted.
+- New files:
+  - `Tests.Integrated/InterfaceBridge/PaymentAgreementLinkRoutes.fs` (#008)
+  - `Tests.Integrated/InterfaceBridge/CashFlowRoutes.fs` (#009)
+  - `Tests.Isolated/Model/CashFlow/TrimmedText.fs` (#135)
+- **#114 has landed.** Hobson needs to rewrite NGUI-AQ-1 in resolved-findings.
+- **B.10:** 0 `Result.isError` sites; the check flipped to `exit 1`. The #042/#134 constraint tests read the provider-neutral `DbException` (`SqlState` plus the constraint name in its message), so no test references Npgsql (dcb0a63).
+
+**Merge note.** Worker C's 994dd21, typed matches in InstanceDataStates, was skipped. It conflicted with worker A's rewrite of the same REQ-CF-4.9 and 4.10 tests, which already match typed cases and drive is-fulfilled through real Payment adds and deletes, as #022/#046 ask.
+
+**Previously failing tests, now resolved:**
+
+- PaymentDataStates REQ-CF-6.9, 8 tests: retired as withdrawn, rewritten as acceptances.
+- LinkageAndMatching, 3 tests: they were test errors under the new REQ-CF-12.4.
+  - The already-linked test's second rule now matches only the Debit line.
+  - The "one rule constrains line type, another doesn't" test now asserts no link, because the default finds no single line.
+- PrePostingReview REQ-RPT-7.3, 2 tests: #124/#314 now expects the priority-10 rule. The stale "empty rule name even when an older run…" test was deleted; the new placeholder 4 supersedes it.
+
+**Tests touched mechanically by the Src work**, by item:
+
+- B21 (A2): AccountCreateActivityBalance.
+- A4: FieldMatchEvaluation, RevisedRequirementsClassification, ClassificationRuleCrud, ClassificationRuleRoutes, ClassificationClaimantsAndRuns.
+- A6: DerivedStateRules.
+- A7: MasterAgreementDataStates, MaintenanceOperations, AgreementUpdate, RevisedRequirementsCashFlow.
+- A10: LinkageAndMatching.
+- A12: StagingIngestionRules.
+- A13: SweepBehaviour, LinkageAndMatching.
+- A14: InvoiceMatching.
+- B19: ClassificationClaimantsAndRuns, ClassificationRuleCrud, StageEntryClassification, StageEntryUpdate, ClassificationRuleRoutes, Isolated ClassificationRuleComponent.
+- B25: TestContext.fs, plus the call sites in 17 files.
+- B27: ClassificationRuleCrud.
+- B28: InstanceDataStates, JournalEntryVoiding, InvoiceDataStates, InvoiceStateByDirection, StageEntryUpdate, CashFlowMaintenance, DerivedStateRules, PaymentAgreementDataStates, MasterAgreementDataStates, LinkageAndMatching, InvoiceMatching. This removed the two cash-flow REQ-SYS-1.4 filter theories along with the filters they tested.
+- B29 (#188), payment tuple: TestDataStage, CashFlowMaintenance, DerivedInvoiceState, DerivedStateRules, InstanceDataStates, InvoiceMatching, JournalEntryVoiding, LinkageAndMatching, PaymentsToPosted, PrePostingReview, ProjectionRules, RevisedRequirementsCashFlow, StageEntryUpdate, StagingIngestionRules, SweepBehaviour.
+- C32: classify callers in 8 files.
+- C34 #165: renames in about 30 files.
+- C34 #169/#198/#170: private wrappers in about 28 files.
+- C34 #190: RevisedRequirementsClassification, StageEntryClassification, Isolated Classifier.
+- C34 #171: StageEntryUpdate.
+- C34 #172: IngestionRoutes.
+- C34 #201:
+  - The Posted pattern and construction in 12 files.
+  - The PaymentsToPosted REQ-CF-10.1 assertions now expect `Posted(je, Some staged)`.
+  - The PaymentDataStates REQ-CF-6.4 tests read the pointer back.
+- C35:
+  - StageEntryIngestion: new `StageTestData.ingestRows` helper, which narrows a file rejection to its first record's error.
+  - StageEntryFetching.
+  - AgreementUpdate, MasterAgreementDataStates, RevisedRequirementsCashFlow and SweepBehaviour: the period field split.
+
+### 8.5 Decision for Dan
+
+**SweepBehaviour REQ-CF-7.15 "when an Invoice fails to be created after other Instances and Invoices were already created in the run…"** fails. Src is not wrong.
+
+- The test provoked the failure by writing a zero expected amount on a leg.
+- Since item 22, reading that leg back rejects the row before the sweep creates anything. The run therefore fails before anything exists, and "none of them remains" would pass vacuously.
+- No other honest way was found to make Invoice creation fail part way through a sweep: the state comes from the direction, the legs are consistent by construction, and the database constraints match the domain.
+
+Options:
+
+- (a) waive or retire the "Invoice fails mid-sweep" clause; or
+- (b) allow a test-only failure hook in Src.
+
+The test is left failing, not weakened.
+
+### 8.6 Spec and disposition findings
+
+- **REQ-STG-7.5.1:** the brief's declined-list theory included Reviewed, but REQ-STG-7.2 says a Reviewed entry is never flagged. So a paid Reviewed repeat is not "declined because of a Payment". The theory uses Ingested, Classified, NoMatch and Conflict, and asserts that Reviewed is absent. The spec wins.
+- **Disposition #070** names `IngestionPaidStageEntryCannotBeExcluded`. The real case is `ClassificationError.ClassificationPaidStageEntryCannotBeExcluded`, and the test matches that.
+- **REQ-CF-12.4:** "no kept line … reported with the reason" looks unreachable when only one rule claims, because the kept lines are the matched lines. It is reachable when two claiming rules disagree on line type and the default finds no single line; worker B's test covers that case.
+- **REQ-CF-4.9:** is-fulfilled is derived (REQ-CF-9.11). A caller's "set is-fulfilled" is ignored and refused as a composite no-op, so the 4.9 rule holds only through derivation.
+- **InstanceOrchestration.constructNewAndPersist** returns a Payment without its posted-to-ledger date, because that date is derived on read. The created value differs from what is read back; what is stored is correct. Worth a look.
+- **Footer test:** cites REQ-SYS-3.4 only, because REQ-RPT-3.2 is waived (HTML structure).
+- **Leftovers:**
+  - isolated AccountComponent.fs still has four `isOk` sites (about lines 41, 54, 72 and 524) that no row covered;
+  - the AccountRoutes test "An account id that matches no account converts to AccountIdDoesntMatch…" cites no REQ;
+  - the fixture's classification patterns use a real merchant name (DoorDash). It predates this work and is not an institution or person, but it is worth a look in a public repo;
+  - worker E replaced real bank names in the isolated JournalEntryExternalReference tests with fictional ones.
+- **Model:** Hobson aligns the capability ownership for the classification move (#156/#163), and for ingestion acceptance now living in StageEntryOrchestration. Drift checks structure, not capabilities.
