@@ -32,7 +32,8 @@ never silently changes a reported figure. (2026-10-04)
 - **REQ-QP-3.2** The system must allow the conversion of a .NET decimal into a Price, validating every requirement in section 2.
 - **REQ-QP-3.3** The system will provide a function for converting a Quantity to a .NET decimal, and one for converting a Price to a .NET decimal.
 - **REQ-QP-3.4** The system will provide a means to compare two Quantity values, and two Price values: equal, less than, and greater than (and their inclusive forms).
-- **REQ-QP-3.5** The system will provide a function that multiplies a Quantity by a Price and returns the exact product as a .NET decimal. The product is not Money; a caller that needs Money converts it under REQ-MON-2.2.
+- **REQ-QP-3.5** The system will provide a function that multiplies a Quantity by a Price and returns the product as a .NET decimal, exact whenever the product is less than 10^16. The product is not Money; a caller that needs Money converts it under REQ-MON-2.2. (Amended 2026-10-04)
+  - *Why the bound:* a .NET decimal holds 28 to 29 significant digits, and the largest Quantity times the largest Price needs 32. Every product below 10^16 fits exactly. A larger product exceeds the largest Money value a million times over, so no market value could agree with it and REQ-POS-6.8 rejects it either way. (2026-10-04)
 
 ## Waived from testing
 

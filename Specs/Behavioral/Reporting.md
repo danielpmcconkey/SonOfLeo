@@ -112,7 +112,7 @@ property at market value in place of whatever cost the ledger carries for them.
   - *Why equity, not value:* investable wealth answers "what would we be worth if the house and its loan did not exist". Removing the value but keeping the mortgage would charge the household for a debt secured by an asset no longer counted. (2026-10-04)
 - **REQ-RPT-8.5** The computation returns:
   - the as-of date;
-  - each counted Asset account (code, name, balance) and each Liability account not a mortgage Account of a Property (code, name, balance);
+  - each counted Asset account (code, name, balance) and each Liability account not a mortgage Account of a Property owned on the date (code, name, balance) (amended 2026-10-04: a mortgage of a Property no longer owned still counts in net worth under REQ-RPT-8.2, so it is listed with the other liabilities);
   - each included Investment Account (name, owners' names, account group, tax treatment, snapshot date, provenance, total market value, contribution basis);
   - each owned Property (name, use, owners' names, value, the date of the Valuation it came from or an indication that it is the purchase basis, each mortgage Account with code, name and balance, and equity);
   - totals: counted ledger assets, investments, property values, liabilities, net worth, and investable wealth;

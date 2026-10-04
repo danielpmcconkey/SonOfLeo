@@ -88,7 +88,7 @@ references a Property.
 - **REQ-POS-3.2** No two Securities may share a name. Names compare exactly: case-sensitive, after trimming.
 - **REQ-POS-3.3** Security ticker may be null. When non-null it cannot be whitespace only (post-trim), its length cannot exceed 20 characters, and no two Securities may share it (exact, case-sensitive comparison).
   - *Why optional:* some holdings have no public ticker, such as an institutional share class inside an employer plan. (2026-10-04)
-- **REQ-POS-3.4** For each of the seven dimensions, a Security references at most one Dimension Value, and may reference none. A Dimension Value assigned to a Security's slot for a different dimension is rejected with a typed error naming the value and both dimensions.
+- **REQ-POS-3.4** For each of the seven dimensions, a Security references at most one Dimension Value of that dimension, and may reference none. (Amended 2026-10-04 — the clause rejecting a value placed in another dimension's slot is struck: values are given by dimension and name (REQ-POS-11.2), so no operation can place one there.)
 
 ## 4. Valid and invalid data states — Investment Account
 
@@ -101,7 +101,7 @@ references a Property.
   - *Why:* retirement accounts and health savings accounts are individual by law; only a taxable account may be held jointly. (2026-10-04)
 - **REQ-POS-4.7** Active begin cannot be null; active end may be null. Both are Calendar Dates, and active end may not be earlier than active begin. An Investment Account is active on a date when active begin is on or before it and active end is null or on or after it. Both boundaries are inclusive.
 - **REQ-POS-4.8** An Investment Account may be linked to one ledger Account. The linked Account must exist, be of type 'Asset' and have subtype 'Investment'; otherwise the operation fails with a typed error naming the account code and what is wrong.
-- **REQ-POS-4.9** A ledger Account may be linked to at most one Investment Account or Property, never to two of them, whether both are Investment Accounts, both are Properties, or one of each. A second link is rejected with a typed error naming the account code and the record already linked to it.
+- **REQ-POS-4.9** A ledger Account may be linked to at most one Investment Account and to at most one Property. A second link is rejected with a typed error naming the account code and the record already linked to it. (Amended 2026-10-04 — "or one of each" is struck: an Investment Account links only to an 'Investment' subtype (REQ-POS-4.8) and a Property only to a 'FixedAsset' subtype (REQ-POS-9.7), and an Account's subtype never changes, so one Account cannot be linked to both.)
   - *Why:* net worth replaces a linked account's balance with the market value of what it is linked to (REQ-RPT-8.2). An account standing for two things would have its balance removed once and two values added. (2026-10-04)
 
 ## 5. Valid and invalid data states — Holding
