@@ -110,7 +110,7 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-5.5 a line drawing two rules of unequal priority is written back with the winning rule's account, the result names the winner and carries both matching rules, and the run records exactly those two rules against the line`` () =
+    member _.``REQ-STG-5.5 REQ-STG-5.10 a line drawing two rules of unequal priority is written back with the winning rule's account, the result names the winner and carries both matching rules, and the run records exactly those two rules against the line`` () =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context

@@ -180,7 +180,7 @@ let private noLineUpdates (lineId: StageEntryLineId) : StageEntryLine.StageEntry
       journalEntryLineIdUpdate = NoChange }
 
 type private Scenario(fixture: TestDataFixture, initialContext: Context.Context) =
-    // one staged entry cannot hold two status transitions at one instant (REQ-STG-4.1.2), so every operation that
+    // one staged entry cannot hold two status transitions at one instant, so every operation that
     // changes a status runs after advance ()
     let mutable context = initialContext
     let cardSource =

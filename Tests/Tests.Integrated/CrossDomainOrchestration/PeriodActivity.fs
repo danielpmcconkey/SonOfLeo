@@ -358,4 +358,29 @@ type PeriodActivityTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-6.1 a parent Expense account with no lines of its own in the range is absent from period activity even when its children have lines in the range, and no child's lines appear under it`` () =
-        Assert.Fail "Not yet implemented"
+        (* The parent has a line of its own before the range, so it is an account with activity, just none in the
+           range. Each child must carry exactly its own line and net total: a roll-up would list the parent with the
+           children's 30.00 or fold a child's line into a sibling or the parent. *)
+        withAccounts (fun context accounts ->
+            let expense code parent =
+                createTestAccountFromPrimitives
+                    context code $"Period activity {code}" "Expense" (today.PlusYears(-1)) None (Some "OperatingExpense") parent None
+                |> Result.map snd
+            result {
+                let! expenseParent = expense "PA-5200" None
+                let! expenseChildLow = expense "PA-5210" (Some expenseParent)
+                let! expenseChildHigh = expense "PA-5290" (Some expenseParent)
+                let! parentEarlyId = single context "Period activity parent early" (beginDate.PlusDays(-1)) accounts expenseParent 50.00M "Debit"
+                let! lowId = single context "Period activity child low" inRange accounts expenseChildLow 10.00M "Debit"
+                let! highId = single context "Period activity child high" inRange accounts expenseChildHigh 20.00M "Debit"
+                let! rows = activity context
+                Assert.False(rows |> isListed "PA-5200")
+                Assert.DoesNotContain(parentEarlyId, rows |> allLineEntryIds)
+                Assert.Equal<JournalEntryHeaderId list>([ lowId ], (rows |> rowFor "PA-5210").lines |> List.map _.journalEntryId)
+                Assert.Equal<JournalEntryHeaderId list>([ highId ], (rows |> rowFor "PA-5290").lines |> List.map _.journalEntryId)
+                Assert.Equal(10.00M, rows |> netOf "PA-5210")
+                Assert.Equal(20.00M, rows |> netOf "PA-5290")
+                Assert.Equal(1, rows |> List.filter (fun r -> r.lines |> List.exists (fun l -> l.journalEntryId = lowId)) |> List.length)
+                Assert.Equal(1, rows |> List.filter (fun r -> r.lines |> List.exists (fun l -> l.journalEntryId = highId)) |> List.length)
+                return ()
+            })

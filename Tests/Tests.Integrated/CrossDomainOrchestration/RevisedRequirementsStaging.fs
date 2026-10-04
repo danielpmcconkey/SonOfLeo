@@ -43,7 +43,7 @@ module JE = Business.CrossDomainOrchestration.JournalEntryOrchestration.JournalE
    and a finally deletes every staged entry from it and the file itself. Everything else runs inside a transaction that
    rolls back. Staged entries are from TestCreditCardCo and carry a fresh tag in their description and reference; the
    context's instant is advanced before every operation that changes a status, because one staged entry cannot hold two
-   status transitions at one instant (REQ-STG-4.1.2). *)
+   status transitions at one instant. *)
 
 let private fresh () = Context.create NoTransaction FetchOnly
 

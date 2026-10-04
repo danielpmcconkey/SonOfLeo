@@ -663,10 +663,10 @@ type TestDataFixture() =
                         []
                 journalEntries <- sharedRefJe2 :: journalEntries
 
-                (* One entry carrying the same (fi, reference) pair twice. REQ-JE-4.10 appends a
-                   reference to an existing entry with no uniqueness check, so this is the state a
-                   re-run import or a double-entered reference leaves behind — REQ-JE-1.48 only
-                   speaks to duplicates across entries, not within one.
+                (* One entry carrying the same (fi, reference) pair twice. Appending a reference to an
+                   existing entry does not check for uniqueness, so this is the state a re-run import
+                   or a double-entered reference leaves behind; the ledger's duplicate-reference rule
+                   speaks only to duplicates across entries, not within one.
 
                    It exists to separate two quantities that the rest of the fixture keeps
                    accidentally equal: the number of reference rows matching a search, and the
@@ -877,8 +877,8 @@ type TestDataFixture() =
                 // Two lines of one staged entry share a description and a source, so the only
                 // fields that can tell them apart are LineType, Amount and Memo. Without a pair of
                 // rules like these there is no way to stage an entry whose two null-code lines
-                // resolve to two different accounts, and REQ-STG-5.2's "each line" clause cannot
-                // be observed at all.
+                // resolve to two different accounts, and the rule that classification assigns an
+                // account to each line on its own cannot be observed at all.
                 let! splitSourcePattern = StringSearchPattern.create testSplitBankStr
                 let splitSourceMatch = FieldMatch.Source(splitSourcePattern)
                 let! splitDebitRule =
@@ -902,7 +902,7 @@ type TestDataFixture() =
                 // nothing at all for Credit. One entry arriving with both lines null therefore
                 // produces a Conflict line and a NoMatch line at once, which is the only way to
                 // observe the precedence rule. TestSplitBank cannot serve: giving it a tied Debit
-                // rule turns grp-011 into a Conflict and REQ-STG-5.2's test with it. The Acme Insurance
+                // rule turns grp-011 into a Conflict, and the per-line assignment test with it. The Acme Insurance
                 // pair cannot either: they match on description, which both lines of an entry
                 // share, so both lines would conflict and no line would be left to no-match.
                 let! mixedSourcePattern = StringSearchPattern.create mixedOutcomeBankStr
@@ -1042,7 +1042,7 @@ type TestDataFixture() =
                 let! paidPostedLineBId =
                     createLinkedLine legBId "Fixture agreement B payment" firstOfLastMonth classified
                 (* posting is a later operation than staging: the staged entries already hold an Ingested transition
-                   at this context's instant, and one entry cannot hold two transitions at one instant (REQ-STG-4.1.2) *)
+                   at this context's instant, and one entry cannot hold two transitions at one instant *)
                 let waitUntilAfter (instant: Instant) =
                     while Clock.now() <= instant do
                         System.Threading.Thread.Sleep 5
