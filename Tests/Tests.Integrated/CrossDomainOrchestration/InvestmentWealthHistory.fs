@@ -5,6 +5,7 @@ open App.DataAccessLayer.DbTransaction
 open App.Operation.CoreAuditableAction
 open App.Utility.IAppError
 open App.Utility.Result
+open App.Utility
 open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Positions.PositionsAuditableAction
@@ -80,10 +81,11 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-RPT-9.2 a range spanning February gives a point on its last day, the 29th in a leap year and the 28th otherwise`` () =
         result {
-            let! leap = history readOnly (LocalDate(2004, 2, 10)) (LocalDate(2004, 3, 5)) ByAccount
-            let! common = history readOnly (LocalDate(2003, 2, 10)) (LocalDate(2003, 3, 5)) ByAccount
-            Assert.Equal<LocalDate list>([ LocalDate(2004, 2, 29) ], leap |> List.map (fun x -> x.monthEnd))
-            Assert.Equal<LocalDate list>([ LocalDate(2003, 2, 28) ], common |> List.map (fun x -> x.monthEnd))
+            // sentinel years well past the fixture: 2044 is a leap year, 2043 is not
+            let! leap = history readOnly (LocalDate(2044, 2, 10)) (LocalDate(2044, 3, 5)) ByAccount
+            let! common = history readOnly (LocalDate(2043, 2, 10)) (LocalDate(2043, 3, 5)) ByAccount
+            Assert.Equal<LocalDate list>([ LocalDate(2044, 2, 29) ], leap |> List.map (fun x -> x.monthEnd))
+            Assert.Equal<LocalDate list>([ LocalDate(2043, 2, 28) ], common |> List.map (fun x -> x.monthEnd))
         }
         |> railroadWrapper
 
@@ -200,12 +202,16 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-9.4 a range before the earliest snapshot and before the ledger's first fiscal period succeeds with a zero-total point for each month-end`` () =
-        history readOnly (LocalDate(2001, 1, 15)) (LocalDate(2001, 4, 30)) ByTaxTreatment
+        // twenty years back, long before the fixture's fiscal periods and its first snapshot
+        let today = Calendar.today ()
+        let first = LocalDate(today.Year - 20, today.Month, 1)
+        let monthEnd k = first.PlusMonths(k + 1).PlusDays(-1)
+        history readOnly (first.PlusDays(14)) (monthEnd 3) ByTaxTreatment
         |> Result.map (fun points ->
             Assert.Equal<(LocalDate * decimal * int) list>(
-                [ LocalDate(2001, 1, 31), 0.00M, 0
-                  LocalDate(2001, 2, 28), 0.00M, 0
-                  LocalDate(2001, 3, 31), 0.00M, 0
-                  LocalDate(2001, 4, 30), 0.00M, 0 ],
+                [ monthEnd 0, 0.00M, 0
+                  monthEnd 1, 0.00M, 0
+                  monthEnd 2, 0.00M, 0
+                  monthEnd 3, 0.00M, 0 ],
                 points |> List.map (fun x -> x.monthEnd, x.total |> Money.amount, x.totals.Length)))
         |> railroadWrapper
