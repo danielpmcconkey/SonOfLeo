@@ -33,20 +33,6 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
 
 
     // =========================================================================
-    // REQ-STG-5.1 — Classification runs against Ingested entries
-    // =========================================================================
-
-    [<Fact>]
-    member _.``REQ-STG-5.1 classifyStagedEntries processes entries with status Ingested`` () =
-        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
-            result {
-                let! fullResult = StageTestData.runPipeline context
-                Assert.NotEmpty(fullResult.classificationResults)
-            })
-        |> railroadWrapper
-
-
-    // =========================================================================
     // REQ-STG-5.3 — A parser-assigned account is not overridden
     // =========================================================================
 
@@ -124,7 +110,7 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-5.5 a line drawing two rules of unequal priority is written back with the winning rule's account and the winning rule's id`` () =
+    member _.``REQ-STG-5.5 a line drawing two rules of unequal priority is written back with the winning rule's account, the result names the winner and carries both matching rules, and the run records exactly those two rules against the line`` () =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
@@ -151,7 +137,7 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                    path proving the write works says nothing about the multi-match path. *)
                 return!
                     match (debitResults |> List.head).outcome with
-                    | ManyMatchesClearWinner (winner, _) ->
+                    | ManyMatchesClearWinner (winner, allMatches) ->
                         result {
                             let winnerAccountId =
                                 match winner.claimant with
@@ -164,9 +150,18 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                                the run's diagnostic rows record every rule that matched, the winner among them. *)
                             let doorDashRuleId = doorDashRule |> ClassificationRule.classificationRuleId
                             Assert.Equal(doorDashRuleId, winner.ruleId)
+                            let genericRuleId =
+                                fixture.Data.classificationRules
+                                |> List.find (fun r -> ruleNameOf r = "Source = TestBank then 5300")
+                                |> ClassificationRule.classificationRuleId
+                            Assert.Equal<Set<ClassificationRuleId>>(set [ doorDashRuleId; genericRuleId ], allMatches |> List.map (fun m -> m.ruleId) |> Set.ofList)
+                            Assert.Equal(2, allMatches |> List.length)
                             let! recordedRuleIds =
                                 debitLine |> StageTestData.recordedRuleIdsForLine context fullResult.classificationRunId
-                            Assert.Contains(doorDashRuleId, recordedRuleIds)
+                            Assert.Equal<Set<ClassificationRuleId>>(
+                                set [ doorDashRuleId; genericRuleId ],
+                                recordedRuleIds |> Set.ofList)
+                            Assert.Equal(2, recordedRuleIds |> List.length)
                             return ()
                         }
                     | other -> Error (TestingError $"Expected ManyMatchesClearWinner but got {other}")

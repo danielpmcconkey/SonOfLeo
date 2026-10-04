@@ -208,7 +208,19 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
-                Assert.Equal(12, fullResult.stagedEntries |> List.length)
+                (* One staged entry per input group, and each carries its group's FI reference. Both sides are
+                   derived from the rows handed in, so adding a group to the fixture cannot leave this stale. *)
+                let! rows = StageTestData.buildTestRows context
+                let expectedReferences =
+                    rows
+                    |> List.groupBy (fun r -> r.baseStageEntryGroupId)
+                    |> List.map (fun (_, groupRows) -> (List.head groupRows).fiReference |> JournalExternalReferenceText.value)
+                    |> List.sort
+                let actualReferences =
+                    fullResult.stagedEntries
+                    |> List.map (stageEntryHeader >> StageEntryHeader.fiReference >> JournalExternalReferenceText.value)
+                    |> List.sort
+                Assert.Equal<string list>(expectedReferences, actualReferences)
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription "DD DoorDash Order 8431927"
                 let transitions = entry |> statusTransitions
                 Assert.NotEmpty(transitions)
@@ -768,49 +780,27 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
-                // grp-008 is a ledger dup — its lines should still have their original codes
+                (* grp-008 is a ledger dup. Every line it ends with must be exactly a line it came in with: amount,
+                   line type, account (the Debit arrived without one and stays without one) and memo. *)
                 let dupEntry = fullResult.stagedEntries |> StageTestData.findByDescription "Fixture JE with reference"
                 Assert.Equal(Duplicate, StageTestData.latestStatus dupEntry)
-                let creditLine =
-                    dupEntry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Credit)
-                let! codeStr =
-                    creditLine
-                    |> StageEntryLine.accountId
-                    |> ``convert AccountId Option to AccountCodeString Option`` context
-                Assert.Equal(Some "F-1270", codeStr)
-            })
-        |> railroadWrapper
-
-
-    // =========================================================================
-    // REQ-STG-4.5 — Ignored entries count as dedup matches
-    // =========================================================================
-
-    [<Fact>]
-    member _.``REQ-STG-4.5 dedup treats Ignored entries as matches`` () =
-        // REQ-STG-4.5 says Ignored entries must be treated as dedup matches.
-        // The dedup query's WHERE clause excludes Duplicate/Posted/Ignored from being
-        // candidates (they're already handled), but the LEFT JOIN to in_stage_already
-        // does NOT exclude Ignored — so a new entry matching an Ignored entry's
-        // source+ref will be flagged as duplicate. We test this by verifying the
-        // dedup query's behavior: the query itself is tested in the production code.
-        // Here we verify the spec's intent via the fixture's dedup flow.
-        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
-            result {
-                let! sourceFile1 = "/tmp/test-ignored-setup.jsonl" |> SourceFile.create
-                let! row1 = StageTestData.makeRawRow context "grp-ign" today "Ignored entry" "TestBank" "REF-IGNORED-001" 30.00M "Debit" (Some "F-5350") None
-                let! row2 = StageTestData.makeRawRow context "grp-ign" today "Ignored entry" "TestBank" "REF-IGNORED-001" 30.00M "Credit" (Some "F-1270") None
-                let! firstResult = [ row1; row2 ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile1
-                let firstEntry = firstResult.stagedEntries |> List.head
-                let headerId = firstEntry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-                let contextForIgnore = context |> TestContext.updateInitiationInstant
-                do! headerId |> Business.FinancialServices.DataIngestion.StageEntryHeader.updateHeaderStatus contextForIgnore Ignored Operator
-                let contextForReimport = contextForIgnore |> TestContext.updateInitiationInstant
-                let! sourceFile2 = "/tmp/test-ignored-reimport.jsonl" |> SourceFile.create
-                let! row3 = StageTestData.makeRawRow context "grp-ign2" today "Reimport of ignored" "TestBank" "REF-IGNORED-001" 30.00M "Debit" (Some "F-5350") None
-                let! row4 = StageTestData.makeRawRow context "grp-ign2" today "Reimport of ignored" "TestBank" "REF-IGNORED-001" 30.00M "Credit" (Some "F-1270") None
-                let! secondResult = [ row3; row4 ] |> StageTestData.ingestDeduplicateAndClassify contextForReimport sourceFile2
-                Assert.NotEmpty(secondResult.newDuplicates)
+                let! rows = StageTestData.buildTestRows context
+                let expectedLines =
+                    rows
+                    |> List.filter (fun r -> r.baseStageEntryGroupId |> BaseStageEntryGroupId.value = "grp-008")
+                    |> List.map (fun r -> r.amount, r.entryType |> JournalEntryLineType.toString, r.accountId, r.memo)
+                    |> List.sortBy (fun (_, lineType, _, _) -> lineType)
+                let actualLines =
+                    dupEntry
+                    |> seLines
+                    |> List.map (fun l ->
+                        l |> StageEntryLine.amount,
+                        l |> StageEntryLine.lineType |> JournalEntryLineType.toString,
+                        l |> StageEntryLine.accountId,
+                        l |> StageEntryLine.memo)
+                    |> List.sortBy (fun (_, lineType, _, _) -> lineType)
+                Assert.Equal(2, expectedLines |> List.length)
+                Assert.Equal<(Money.Money * string * AccountComponent.AccountId option * JournalEntryLineMemo option) list>(expectedLines, actualLines)
             })
         |> railroadWrapper
 

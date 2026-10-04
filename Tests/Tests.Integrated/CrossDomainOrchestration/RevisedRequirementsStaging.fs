@@ -371,7 +371,7 @@ type RevisedRequirementsStagingTests(fixture: TestDataFixture) =
             })
 
     [<Fact>]
-    member _.``REQ-STG-7.2 an Ignored original keeps its status, and a later Ingested entry sharing its source and FI reference is flagged Duplicate`` () =
+    member _.``REQ-STG-4.5 REQ-STG-7.2 an Ignored original keeps its status, and a later Ingested entry sharing its source and FI reference is flagged Duplicate`` () =
         rolledBack fixture IngestDeduplicateStageEntries (fun s ->
             result {
                 let tag = newTag ()
