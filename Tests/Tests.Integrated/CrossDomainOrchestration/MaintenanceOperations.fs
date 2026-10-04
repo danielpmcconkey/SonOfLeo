@@ -509,7 +509,11 @@ type MaintenanceOperationsTests(fixture: TestDataFixture) =
                 let! secondLegInvoices = invoicesOfLeg made.legIds[1]
                 let! onFirst = paymentsPointingAt (pointerUuid first)
                 let! onSecond = paymentsPointingAt (pointerUuid second)
-                Assert.True(attempt |> Result.isError)
+                let () =
+                    match attempt with
+                    | Error (AsError (CashFlowError.CashflowInvoiceFullyPaidWithBlocker _)) -> ()
+                    | Error e -> Assert.Fail $"Wrong error. {e.DomainName}.{e.CaseName}: {e.ToMessage()}"
+                    | Ok _ -> Assert.Fail "Expected failure; got success"
                 Assert.Equal<LocalDate list>([ march 1 ], instances |> List.map Instance.instanceDate)
                 Assert.Empty(firstLegInvoices)
                 Assert.Empty(secondLegInvoices)
@@ -562,7 +566,11 @@ type MaintenanceOperationsTests(fixture: TestDataFixture) =
                 let! invoices = invoicesOfLeg made.legIds[1]
                 let! onLine = paymentsPointingAt (pointerUuid line)
                 let! instance = made.instanceId |> Instance.fetchById (fresh ())
-                Assert.True(attempt |> Result.isError)
+                let () =
+                    match attempt with
+                    | Error (AsError (CashFlowError.CashflowInvoiceFullyPaidWithBlocker _)) -> ()
+                    | Error e -> Assert.Fail $"Wrong error. {e.DomainName}.{e.CaseName}: {e.ToMessage()}"
+                    | Ok _ -> Assert.Fail "Expected failure; got success"
                 Assert.Empty(invoices)
                 Assert.Empty(onLine)
                 Assert.False(instance |> Instance.isFulfilled)
@@ -582,7 +590,12 @@ type MaintenanceOperationsTests(fixture: TestDataFixture) =
                 let! payments = paymentsOf invoiceId
                 let! onLine = paymentsPointingAt (pointerUuid line)
                 let! stored = storedInvoice invoiceId
-                Assert.True(attempt |> Result.isError)
+                let () =
+                    match attempt with
+                    | Error (AsError (CashFlowError.CashflowInvoiceFullyPaidWithBlocker uuid)) ->
+                        Assert.Equal(invoiceId |> InvoiceId.value, uuid)
+                    | Error e -> Assert.Fail $"Wrong error. {e.DomainName}.{e.CaseName}: {e.ToMessage()}"
+                    | Ok _ -> Assert.Fail "Expected failure; got success"
                 Assert.Empty(payments)
                 Assert.Empty(onLine)
                 Assert.Equal(NotYetPaid, ((stored |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.paymentState))
@@ -631,7 +644,12 @@ type MaintenanceOperationsTests(fixture: TestDataFixture) =
                         blockerUpdate = SetTo(Some Contracts.BlockerContract.NoFunds) }
                     |> sendInput "UpdateInvoice"
                 let! after = storedInvoice invoiceId
-                Assert.True(attempt |> Result.isError)
+                let () =
+                    match attempt with
+                    | Error (AsError (CashFlowError.CashflowInvoiceFullyPaidWithBlocker uuid)) ->
+                        Assert.Equal(invoiceId |> InvoiceId.value, uuid)
+                    | Error e -> Assert.Fail $"Wrong error. {e.DomainName}.{e.CaseName}: {e.ToMessage()}"
+                    | Ok _ -> Assert.Fail "Expected failure; got success"
                 Assert.Equal(FullyPaid, ((before |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.paymentState))
                 Assert.Equal(None, after |> Invoice.memo)
                 Assert.Equal(None, ((after |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.blocker))
