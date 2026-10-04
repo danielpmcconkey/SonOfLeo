@@ -213,6 +213,41 @@ let private blockerNote (text: string) =
     | Ok note -> note
     | Error e -> failwith (e.ToMessage())
 
+/// Fails unless the attempt was refused with an error `isExpected` accepts, naming whatever came back instead.
+let private expectRefusal (isExpected: IAppError -> bool) (attempt: Result<'a, IAppError>) =
+    match attempt with
+    | Error e when isExpected e -> ()
+    | Error e -> Assert.Fail $"Wrong error. {e.DomainName}.{e.CaseName}: {e.ToMessage()}"
+    | Ok _ -> Assert.Fail "Expected failure; got success"
+
+/// A payload the contract cannot carry (a null where the contract has no option, a blocker case it does not have, a
+/// note on a blocker that takes none) is refused loudly while it is deserialized into the contract; no domain case
+/// exists for it.
+let private refusedAsJsonFor<'contract> (e: IAppError) =
+    match e with
+    | AsError (UtilityError.JsonDeserializationFailed(typeName, _, _)) -> typeName = typeof<'contract>.ToString()
+    | _ -> false
+
+let private refusedAsCreateInvoiceJson = refusedAsJsonFor<Contracts.CreateInvoiceInput>
+
+let private refusedAsUpdateInvoiceJson = refusedAsJsonFor<Contracts.UpdateInvoiceInput>
+
+let private nonPositiveAmountOf (amount: string) (e: IAppError) =
+    match e with
+    | AsError (CashFlowError.CashflowInvoiceNonPositiveAmount(_, refused)) ->
+        refused = Decimal.Parse(amount, CultureInfo.InvariantCulture)
+    | _ -> false
+
+let private invalidInvoiceStateOf (state: string) (e: IAppError) =
+    match e with
+    | AsError (CashFlowError.CashflowInvalidInvoiceState refused) -> refused = state
+    | _ -> false
+
+let private emptyInvoiceMemo (e: IAppError) =
+    match e with
+    | AsError (CashFlowError.CashflowInvoiceMemoIsEmpty _) -> true
+    | _ -> false
+
 [<Collection("SharedTestData")>]
 type InvoiceDataStatesTests(fixture: TestDataFixture) =
 
@@ -254,10 +289,14 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
         withBuilt (fun make ->
             result {
                 let! made = make Outgo 1 []
-                let! json = createInvoicePayload (InstanceId.create ()) (invoiceFor made.legNames[0])
+                let missing = InstanceId.create ()
+                let! json = createInvoicePayload missing (invoiceFor made.legNames[0])
                 let attempt = send "CreateInvoice" json
                 let! leg = invoicesOfLeg (fresh ()) made.legIds[0]
-                Assert.True(attempt |> Result.isError)
+                attempt
+                |> expectRefusal (function
+                    | AsError (CashFlowError.CashflowInstanceIdDoesntExist uuid) -> uuid = (missing |> InstanceId.value)
+                    | _ -> false)
                 Assert.Empty(leg)
             })
 
@@ -270,14 +309,18 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let invoice =
                     (made.legIds[0], None, (InvoiceDate.create (march 1)), (DueDate.create (march 31)),
                      (InvoiceAmount.create amount), InvoiceReceived, None, None, [])
+                let missing = InstanceId.create ()
                 let update : InstanceOrchestration.InstanceCompositeUpdate =
                     { instanceUpdates =
-                        { instanceIdToUpdate = InstanceId.create (); isFulfilledUpdate = NoChange }
+                        { instanceIdToUpdate = missing; isFulfilledUpdate = NoChange }
                       invoiceCompositeUpdates = []
                       newInvoices = [ invoice ] }
                 let attempt = update |> InstanceOrchestration.updateInstanceComposite context
                 let! leg = invoicesOfLeg context made.legIds[0]
-                Assert.True(attempt |> Result.isError)
+                attempt
+                |> expectRefusal (function
+                    | AsError (CashFlowError.CashflowInstanceIdDoesntExist uuid) -> uuid = (missing |> InstanceId.value)
+                    | _ -> false)
                 Assert.Empty(leg)
             })
 
@@ -299,7 +342,10 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let attempt = createInvoiceEdited made.instanceId (invoiceFor made.legNames[0]) (fun n ->
                     n["paymentAgreementName"] <- JsonValue.Create($"No such leg {Guid.NewGuid():N}"))
                 let! onInstance = invoicesOfInstance (fresh ()) made.instanceId
-                Assert.True(attempt |> Result.isError)
+                attempt
+                |> expectRefusal (function
+                    | AsError (CashFlowError.CashflowPaymentAgreementNameDoesntMatchId name) -> name.StartsWith "No such leg "
+                    | _ -> false)
                 Assert.Empty(onInstance)
             })
 
@@ -319,7 +365,10 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                       newInvoices = [ invoice ] }
                 let attempt = update |> InstanceOrchestration.updateInstanceComposite context
                 let! onInstance = invoicesOfInstance context made.instanceId
-                Assert.True(attempt |> Result.isError)
+                attempt
+                |> expectRefusal (function
+                    | AsError (CashFlowError.CashflowPaymentAgreementIdDoesntExist _) -> true
+                    | _ -> false)
                 Assert.Empty(onInstance)
             })
 
@@ -333,7 +382,10 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                     createInvoicePayload made.instanceId (invoiceFor other.legNames[0]) |> Result.bind (send "CreateInvoice")
                 let! onInstance = invoicesOfInstance (fresh ()) made.instanceId
                 let! foreignLeg = invoicesOfLeg (fresh ()) other.legIds[0]
-                Assert.True(attempt |> Result.isError)
+                attempt
+                |> expectRefusal (function
+                    | AsError (CashFlowError.CashflowInvoiceDiamondMismatch _) -> true
+                    | _ -> false)
                 Assert.Empty(onInstance)
                 Assert.Empty(foreignLeg)
             })
@@ -352,7 +404,12 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                     | _ -> other.legNames[0]
                 let attempt = createInstancePayload made [ invoiceFor legName ]
                 let! dates = instanceDatesOf made
-                Assert.True(attempt |> Result.isError)
+                attempt
+                |> expectRefusal (fun e ->
+                    match paymentAgreement, e with
+                    | "Missing", AsError (CashFlowError.CashflowPaymentAgreementNameDoesntMatchId name) -> name = legName
+                    | "Foreign", AsError (CashFlowError.CashflowInvoiceDiamondMismatch _) -> true
+                    | _ -> false)
                 Assert.Equal<LocalDate list>([ march 1 ], dates)
             })
 
@@ -360,14 +417,15 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
     [<InlineData(null)>]
     [<InlineData("0.00")>]
     [<InlineData("-0.01")>]
-    member _.``REQ-CF-5.6 for each of null, zero and minus one cent, a CreateInvoice payload with that amount is rejected with a typed error and no Invoice is stored`` (amount:string) =
+    member _.``REQ-CF-5.6 for each of null, zero and minus one cent, a CreateInvoice payload with that amount is refused, the null as the payload is read and the others with a typed error, and no Invoice is stored`` (amount:string) =
         withBuilt (fun make ->
             result {
                 let! made = make Outgo 1 []
                 let attempt = createInvoiceEdited made.instanceId (invoiceFor made.legNames[0]) (fun n -> n["amount"] <- (if isNull amount then null else JsonValue.Create(Decimal.Parse(amount, CultureInfo.InvariantCulture)) :> JsonNode))
                 let! leg = invoicesOfLeg (fresh ()) made.legIds[0]
                 let! onInstance = invoicesOfInstance (fresh ()) made.instanceId
-                Assert.True(attempt |> Result.isError)
+                attempt
+                |> expectRefusal (if isNull amount then refusedAsCreateInvoiceJson else nonPositiveAmountOf amount)
                 Assert.Empty(leg)
                 Assert.Empty(onInstance)
             })
@@ -380,7 +438,10 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let attempt = createInvoiceEdited made.instanceId (invoiceFor made.legNames[0]) (fun n -> n["amount"] <- JsonValue.Create(100.005M))
                 let! leg = invoicesOfLeg (fresh ()) made.legIds[0]
                 let! onInstance = invoicesOfInstance (fresh ()) made.instanceId
-                Assert.True(attempt |> Result.isError)
+                attempt
+                |> expectRefusal (function
+                    | AsError (BizFinServError.MoneyFailedToConvertImproperPrecision raw) -> raw = 100.005M
+                    | _ -> false)
                 Assert.Empty(leg)
                 Assert.Empty(onInstance)
             })
@@ -398,7 +459,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
     [<InlineData(null)>]
     [<InlineData("0.00")>]
     [<InlineData("-0.01")>]
-    member _.``REQ-CF-5.6 for each of null, zero and minus one cent, an UpdateInvoice payload setting the amount to that value is rejected with a typed error and the Invoice is unchanged`` (amount:string) =
+    member _.``REQ-CF-5.6 for each of null, zero and minus one cent, an UpdateInvoice payload setting the amount to that value is refused, the null as the payload is read and the others with a typed error, and the Invoice is unchanged`` (amount:string) =
         withBuilt (fun make ->
             result {
                 let! made = make Outgo 1 [ 0 ]
@@ -406,21 +467,22 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let! before = storedInvoice invoiceId
                 let attempt = updateInvoiceSetting invoiceId "amountUpdate" (if isNull amount then "null" else amount)
                 let! after = storedInvoice invoiceId
-                Assert.True(attempt |> Result.isError)
+                attempt
+                |> expectRefusal (if isNull amount then refusedAsUpdateInvoiceJson else nonPositiveAmountOf amount)
                 Assert.Equal<Invoice.Invoice>(before, after)
             })
 
     [<Theory>]
     [<InlineData("invoiceDate")>]
     [<InlineData("dueDate")>]
-    member _.``REQ-CF-5.7 REQ-CF-5.8 for each of the invoice date and the due date, a CreateInvoice payload with that date null is rejected with a typed error and no Invoice is stored`` (field:string) =
+    member _.``REQ-CF-5.7 REQ-CF-5.8 for each of the invoice date and the due date, a CreateInvoice payload with that date null is refused as it is read and no Invoice is stored`` (field:string) =
         withBuilt (fun make ->
             result {
                 let! made = make Outgo 1 []
                 let attempt = createInvoiceEdited made.instanceId (invoiceFor made.legNames[0]) (fun n -> n[field] <- null)
                 let! leg = invoicesOfLeg (fresh ()) made.legIds[0]
                 let! onInstance = invoicesOfInstance (fresh ()) made.instanceId
-                Assert.True(attempt |> Result.isError)
+                attempt |> expectRefusal refusedAsCreateInvoiceJson
                 Assert.Empty(leg)
                 Assert.Empty(onInstance)
             })
@@ -439,7 +501,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
     [<Theory>]
     [<InlineData("invoiceDate")>]
     [<InlineData("dueDate")>]
-    member _.``REQ-CF-5.7 REQ-CF-5.8 for each of the invoice date and the due date, an UpdateInvoice payload setting that date to null is rejected with a typed error and the Invoice is unchanged`` (field:string) =
+    member _.``REQ-CF-5.7 REQ-CF-5.8 for each of the invoice date and the due date, an UpdateInvoice payload setting that date to null is refused as it is read and the Invoice is unchanged`` (field:string) =
         withBuilt (fun make ->
             result {
                 let! made = make Outgo 1 [ 0 ]
@@ -447,7 +509,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let! before = storedInvoice invoiceId
                 let attempt = updateInvoiceSetting invoiceId (field + "Update") "null"
                 let! after = storedInvoice invoiceId
-                Assert.True(attempt |> Result.isError)
+                attempt |> expectRefusal refusedAsUpdateInvoiceJson
                 Assert.Equal<Invoice.Invoice>(before, after)
             })
 
@@ -462,7 +524,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let attempt = createInvoiceEdited made.instanceId (invoiceFor made.legNames[0]) (fun n -> n["invoiceState"] <- JsonValue.Create(state))
                 let! leg = invoicesOfLeg (fresh ()) made.legIds[0]
                 let! onInstance = invoicesOfInstance (fresh ()) made.instanceId
-                Assert.True(attempt |> Result.isError)
+                attempt |> expectRefusal (invalidInvoiceStateOf state)
                 Assert.Empty(leg)
                 Assert.Empty(onInstance)
             })
@@ -498,7 +560,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let! before = storedInvoice invoiceId
                 let attempt = updateInvoiceSetting invoiceId "invoiceStateUpdate" (jsonString state)
                 let! after = storedInvoice invoiceId
-                Assert.True(attempt |> Result.isError)
+                attempt |> expectRefusal (invalidInvoiceStateOf state)
                 Assert.Equal<Invoice.Invoice>(before, after)
             })
 
@@ -534,14 +596,14 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
     [<InlineData("")>]
     [<InlineData("Broke")>]
     [<InlineData("nofunds")>]
-    member _.``REQ-CF-5.13 for each of the empty string, 'Broke' and 'nofunds', a CreateInvoice payload with that blocker state is rejected with a typed error and no Invoice is stored`` (blocker:string) =
+    member _.``REQ-CF-5.13 for each of the empty string, 'Broke' and 'nofunds', a CreateInvoice payload with that blocker state is refused as it is read and no Invoice is stored`` (blocker:string) =
         withBuilt (fun make ->
             result {
                 let! made = make Outgo 1 []
                 let attempt = createInvoiceEdited made.instanceId (invoiceFor made.legNames[0]) (fun n -> n["blocker"] <- blockerJson blocker None)
                 let! leg = invoicesOfLeg (fresh ()) made.legIds[0]
                 let! onInstance = invoicesOfInstance (fresh ()) made.instanceId
-                Assert.True(attempt |> Result.isError)
+                attempt |> expectRefusal refusedAsCreateInvoiceJson
                 Assert.Empty(leg)
                 Assert.Empty(onInstance)
             })
@@ -553,14 +615,19 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
     [<InlineData("Other", null)>]
     [<InlineData("Other", "")>]
     [<InlineData("Other", " \t ")>]
-    member _.``REQ-CF-5.14 for each of NeedsDecision and Other, a CreateInvoice payload giving that blocker with no note, an empty note, or a whitespace-only note is rejected with a typed error and no Invoice is stored`` (blocker:string, note:string) =
+    member _.``REQ-CF-5.14 for each of NeedsDecision and Other, a CreateInvoice payload giving that blocker with no note, an empty note, or a whitespace-only note is refused, the missing note as the payload is read and the others with a typed error, and no Invoice is stored`` (blocker:string, note:string) =
         withBuilt (fun make ->
             result {
                 let! made = make Outgo 1 []
                 let attempt = createInvoiceEdited made.instanceId (invoiceFor made.legNames[0]) (fun n -> n["blocker"] <- blockerJson blocker (Some [ jsonString note ]))
                 let! leg = invoicesOfLeg (fresh ()) made.legIds[0]
                 let! onInstance = invoicesOfInstance (fresh ()) made.instanceId
-                Assert.True(attempt |> Result.isError)
+                attempt
+                |> expectRefusal (fun e ->
+                    match isNull note, e with
+                    | true, _ -> refusedAsCreateInvoiceJson e
+                    | false, AsError (CashFlowError.CashflowBlockerNoteIsEmpty _) -> true
+                    | _ -> false)
                 Assert.Empty(leg)
                 Assert.Empty(onInstance)
             })
@@ -581,7 +648,10 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                     createInvoicePayload made.instanceId { invoiceFor made.legNames[0] with blocker = Some(noted 501) }
                     |> Result.bind (send "CreateInvoice")
                 let! leg = invoicesOfLeg (fresh ()) made.legIds[0]
-                Assert.True(attempt |> Result.isError)
+                attempt
+                |> expectRefusal (function
+                    | AsError (CashFlowError.CashflowBlockerNoteTooLong(_, limit)) -> limit = 500
+                    | _ -> false)
                 Assert.Empty(leg)
                 let! stored = createInvoice made.instanceId { invoiceFor made.legNames[0] with blocker = Some(noted 500) }
                 let storedNote =
@@ -594,20 +664,20 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
     [<Theory>]
     [<InlineData("NoFunds")>]
     [<InlineData("Irresponsible")>]
-    member _.``REQ-CF-5.14 for each of NoFunds and Irresponsible, a CreateInvoice payload giving that blocker with a note attached is rejected with a typed error and no Invoice is stored`` (blocker:string) =
+    member _.``REQ-CF-5.14 for each of NoFunds and Irresponsible, a CreateInvoice payload giving that blocker with a note attached is refused as it is read and no Invoice is stored`` (blocker:string) =
         withBuilt (fun make ->
             result {
                 let! made = make Outgo 1 []
                 let attempt = createInvoiceEdited made.instanceId (invoiceFor made.legNames[0]) (fun n -> n["blocker"] <- blockerJson blocker (Some [ jsonString "a note" ]))
                 let! leg = invoicesOfLeg (fresh ()) made.legIds[0]
                 let! onInstance = invoicesOfInstance (fresh ()) made.instanceId
-                Assert.True(attempt |> Result.isError)
+                attempt |> expectRefusal refusedAsCreateInvoiceJson
                 Assert.Empty(leg)
                 Assert.Empty(onInstance)
             })
 
     [<Fact>]
-    member _.``REQ-CF-5.14 an UpdateInvoice payload setting the blocker to NeedsDecision without a note is rejected with a typed error and the Invoice is unchanged`` () =
+    member _.``REQ-CF-5.14 an UpdateInvoice payload setting the blocker to NeedsDecision without a note is refused as it is read and the Invoice is unchanged`` () =
         withBuilt (fun make ->
             result {
                 let! made = make Outgo 1 [ 0 ]
@@ -615,7 +685,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let! before = storedInvoice invoiceId
                 let attempt = updateInvoiceSetting invoiceId "blockerUpdate" ((blockerJson "NeedsDecision" None).ToJsonString())
                 let! after = storedInvoice invoiceId
-                Assert.True(attempt |> Result.isError)
+                attempt |> expectRefusal refusedAsUpdateInvoiceJson
                 Assert.Equal<Invoice.Invoice>(before, after)
             })
 
@@ -641,7 +711,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
     [<Theory>]
     [<InlineData("NoFunds")>]
     [<InlineData("Irresponsible")>]
-    member _.``REQ-CF-5.14 for each of NoFunds and Irresponsible, an UpdateInvoice payload setting that blocker with a note attached is rejected with a typed error and the Invoice is unchanged`` (blocker:string) =
+    member _.``REQ-CF-5.14 for each of NoFunds and Irresponsible, an UpdateInvoice payload setting that blocker with a note attached is refused as it is read and the Invoice is unchanged`` (blocker:string) =
         withBuilt (fun make ->
             result {
                 let! made = make Outgo 1 [ 0 ]
@@ -649,7 +719,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let! before = storedInvoice invoiceId
                 let attempt = updateInvoiceSetting invoiceId "blockerUpdate" ((blockerJson blocker (Some [ jsonString "a note" ])).ToJsonString())
                 let! after = storedInvoice invoiceId
-                Assert.True(attempt |> Result.isError)
+                attempt |> expectRefusal refusedAsUpdateInvoiceJson
                 Assert.Equal<Invoice.Invoice>(before, after)
             })
 
@@ -673,7 +743,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let attempt = createInvoiceEdited made.instanceId (invoiceFor made.legNames[0]) (fun n -> n["memo"] <- JsonValue.Create(memo))
                 let! leg = invoicesOfLeg (fresh ()) made.legIds[0]
                 let! onInstance = invoicesOfInstance (fresh ()) made.instanceId
-                Assert.True(attempt |> Result.isError)
+                attempt |> expectRefusal emptyInvoiceMemo
                 Assert.Empty(leg)
                 Assert.Empty(onInstance)
             })
@@ -687,7 +757,10 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                     createInvoicePayload made.instanceId { invoiceFor made.legNames[0] with memo = Some(String('m', 2001)) }
                     |> Result.bind (send "CreateInvoice")
                 let! leg = invoicesOfLeg (fresh ()) made.legIds[0]
-                Assert.True(attempt |> Result.isError)
+                attempt
+                |> expectRefusal (function
+                    | AsError (CashFlowError.CashflowInvoiceMemoTooLong(_, limit)) -> limit = 2000
+                    | _ -> false)
                 Assert.Empty(leg)
                 let! stored = createInvoice made.instanceId { invoiceFor made.legNames[0] with memo = Some(String('m', 2000)) }
                 Assert.Equal(Some(String('m', 2000)), stored |> Invoice.memo |> Option.map InvoiceMemo.value)
@@ -705,7 +778,7 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let! before = storedInvoice invoiceId
                 let attempt = updateInvoiceSetting invoiceId "memoUpdate" (jsonString memo)
                 let! after = storedInvoice invoiceId
-                Assert.True(attempt |> Result.isError)
+                attempt |> expectRefusal emptyInvoiceMemo
                 Assert.Equal<Invoice.Invoice>(before, after)
             })
 
@@ -717,7 +790,12 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let attempt =
                     createInvoicePayload made.instanceId (invoiceFor made.legNames[0]) |> Result.bind (send "CreateInvoice")
                 let! onInstance = invoicesOfInstance (fresh ()) made.instanceId
-                Assert.True(attempt |> Result.isError)
+                attempt
+                |> expectRefusal (function
+                    | AsError (CashFlowError.CashflowInstanceManyInvoicesForPaymentAgreement(instance, leg, count)) ->
+                        instance = (made.instanceId |> InstanceId.value) && leg = (made.legIds[0] |> PaymentAgreementId.value)
+                        && count = 2
+                    | _ -> false)
                 Assert.Equal<InvoiceId list>([ made.invoiceIds[0] ], onInstance |> List.map Invoice.invoiceId)
             })
 
@@ -744,6 +822,10 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let! made = make Outgo 1 []
                 let attempt = createInstancePayload made [ invoiceFor made.legNames[0]; invoiceFor made.legNames[0] ]
                 let! dates = instanceDatesOf made
-                Assert.True(attempt |> Result.isError)
+                attempt
+                |> expectRefusal (function
+                    | AsError (CashFlowError.CashflowInstanceManyInvoicesForPaymentAgreement(_, leg, count)) ->
+                        leg = (made.legIds[0] |> PaymentAgreementId.value) && count = 2
+                    | _ -> false)
                 Assert.Equal<LocalDate list>([ march 1 ], dates)
             })
