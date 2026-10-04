@@ -160,7 +160,7 @@ let private toContract (pointer: TransactionPointer) =
     | Posted(line, _) -> Contracts.TransactionPointerContract.Posted(line |> JournalEntryLineId.value)
     | Staged line -> Contracts.TransactionPointerContract.Staged(line |> StageEntryLineId.value)
 
-let private paymentFor (pointer: TransactionPointer) (amount: decimal) : Contracts.CreatePaymentFieldsInput =
+let private paymentFor (pointer: TransactionPointer) : Contracts.CreatePaymentFieldsInput =
     { transactionPointer = pointer |> toContract
       postedToFiDate = None
       postedToLedgerDate = None
@@ -324,8 +324,8 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let invoiceId = made.invoiceIds[0]
                 let! first, _ = w.jeLine "F-2230" "Debit" 50.00M
                 let! second, _ = w.jeLine "F-2230" "Debit" 50.00M
-                let! _ = sendCreatePayment invoiceId (paymentFor first 50.00M)
-                let! _ = sendCreatePayment invoiceId (paymentFor second 50.00M)
+                let! _ = sendCreatePayment invoiceId (paymentFor first)
+                let! _ = sendCreatePayment invoiceId (paymentFor second)
                 let! payments = paymentsOf invoiceId
                 let ids = payments |> List.map (Payment.paymentId >> PaymentId.value)
                 Assert.Equal(2, ids |> List.distinct |> List.length)
@@ -338,7 +338,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
             result {
                 let! _ = w.make Outgo 1 [ 0 ]
                 let! line, _ = w.jeLine "F-2230" "Debit" 100.00M
-                let attempt = sendCreatePayment (InvoiceId.create ()) (paymentFor line 100.00M)
+                let attempt = sendCreatePayment (InvoiceId.create ()) (paymentFor line)
                 let! pointing = paymentsPointingAt (pointerUuid line)
                 Assert.True(attempt |> Result.isError)
                 Assert.Empty(pointing)
@@ -350,7 +350,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
             result {
                 let! made = w.make Outgo 2 [ 0; 1 ]
                 let! line, _ = w.jeLine "F-2230" "Debit" 100.00M
-                let! stored = createPayment made.invoiceIds[1] line (paymentFor line 100.00M)
+                let! stored = createPayment made.invoiceIds[1] line (paymentFor line)
                 let! onOther = paymentsOf made.invoiceIds[0]
                 Assert.Equal(made.invoiceIds[1], stored |> Payment.invoiceId)
                 Assert.Empty(onOther)
@@ -368,7 +368,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                     match pointer with
                     | "Posted" -> w.jeLine "F-2230" "Debit" 100.00M |> Result.map fst
                     | _ -> w.stagedLine "F-2230" "Debit" 100.00M
-                let! stored = createPayment invoiceId line (paymentFor line 100.00M)
+                let! stored = createPayment invoiceId line (paymentFor line)
                 let! readBack = stored |> Payment.paymentId |> Payment.fetchById (fresh ())
                 (* The pointer read back carries both columns, so reading back exactly the pointer sent shows the
                    other column is empty. *)
@@ -385,7 +385,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! line, _ = w.jeLine "F-2230" "Debit" 100.00M
                 let attempt = 
                     result {
-                        let! json = createPaymentPayload invoiceId (paymentFor line 100.00M)
+                        let! json = createPaymentPayload invoiceId (paymentFor line)
                         let node = JsonNode.Parse(json)
                         node["payment"].["transactionPointer"] <- null
                         return! send "CreatePayment" (node.ToJsonString())
@@ -402,7 +402,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! made = w.make Outgo 1 [ 0 ]
                 let invoiceId = made.invoiceIds[0]
                 let! stagedLine, jeLine, entryDate = w.postedStagedLine "F-2230" 30.00M 40.00M
-                let! _ = sendCreatePayment invoiceId (paymentFor stagedLine 30.00M)
+                let! _ = sendCreatePayment invoiceId (paymentFor stagedLine)
                 let! _ = routeUiCommandForTesting "CashFlow" "TransitionPaymentsToPosted" [] "{}"
                 let! payment = paymentsOf invoiceId |> Result.map List.exactlyOne
                 (* jeLine carries the staged line, so this checks both columns *)
@@ -423,8 +423,13 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                     match pointer with
                     | "Posted" -> w.jeLine "F-2230" "Debit" 40.00M |> Result.map fst
                     | _ -> w.stagedLine "F-2230" "Debit" 40.00M
-                (* Both amounts leave the 100.00 Invoice PartiallyPaid, so only the read-back amount can differ. *)
-                let! stored = createPayment invoiceId line (paymentFor line 30.00M)
+                (* The contract has no amount field, so the payload's 30.00 rides as an extra property the route must not
+                   honour. Both amounts leave the 100.00 Invoice PartiallyPaid, so only the read-back amount can differ. *)
+                let! json = createPaymentPayload invoiceId (paymentFor line)
+                let node = JsonNode.Parse(json)
+                node["payment"].["amount"] <- JsonValue.Create(30.00M)
+                let! _ = send "CreatePayment" (node.ToJsonString())
+                let! stored = paymentsOf invoiceId |> Result.map List.exactlyOne
                 Assert.Equal(40.00M, ((stored |> Payment.amount) |> CashFlowComponent.PaymentAmount.value) |> Money.amount)
             })
 
@@ -435,7 +440,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! made = w.make Outgo 1 [ 0 ]
                 let invoiceId = made.invoiceIds[0]
                 let! line, _ = w.jeLine "F-2230" "Debit" 100.00M
-                let! stored = createPayment invoiceId line { paymentFor line 100.00M with postedToFiDate = None }
+                let! stored = createPayment invoiceId line { paymentFor line with postedToFiDate = None }
                 Assert.Equal(None, stored |> Payment.postedToFiDate)
             })
 
@@ -446,7 +451,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! made = w.make Outgo 1 [ 0 ]
                 let invoiceId = made.invoiceIds[0]
                 let! line, _ = w.jeLine "F-2230" "Debit" 100.00M
-                let! stored = createPayment invoiceId line { paymentFor line 100.00M with postedToFiDate = Some(march 5) }
+                let! stored = createPayment invoiceId line { paymentFor line with postedToFiDate = Some(march 5) }
                 Assert.Equal(Some(march 5), stored |> Payment.postedToFiDate |> Option.map CashFlowComponent.PostedToFiDate.value)
             })
 
@@ -457,7 +462,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! made = w.make Outgo 1 [ 0 ]
                 let invoiceId = made.invoiceIds[0]
                 let! line, _ = w.jeLine "F-2230" "Debit" 100.00M
-                let! stored = createPayment invoiceId line { paymentFor line 100.00M with memo = None }
+                let! stored = createPayment invoiceId line { paymentFor line with memo = None }
                 Assert.Equal(None, stored |> Payment.memo)
             })
 
@@ -471,7 +476,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! made = w.make Outgo 1 [ 0 ]
                 let invoiceId = made.invoiceIds[0]
                 let! line, _ = w.jeLine "F-2230" "Debit" 100.00M
-                let attempt = sendCreatePayment invoiceId { paymentFor line 100.00M with memo = Some memo }
+                let attempt = sendCreatePayment invoiceId { paymentFor line with memo = Some memo }
                 let! payments = paymentsOf invoiceId
                 Assert.True(attempt |> Result.isError)
                 Assert.Empty(payments)
@@ -484,11 +489,11 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! made = w.make Outgo 1 [ 0 ]
                 let invoiceId = made.invoiceIds[0]
                 let! line, _ = w.jeLine "F-2230" "Debit" 100.00M
-                let attempt = sendCreatePayment invoiceId { paymentFor line 100.00M with memo = Some(String('m', 2001)) }
+                let attempt = sendCreatePayment invoiceId { paymentFor line with memo = Some(String('m', 2001)) }
                 let! payments = paymentsOf invoiceId
                 Assert.True(attempt |> Result.isError)
                 Assert.Empty(payments)
-                let! stored = createPayment invoiceId line { paymentFor line 100.00M with memo = Some(String('m', 2000)) }
+                let! stored = createPayment invoiceId line { paymentFor line with memo = Some(String('m', 2000)) }
                 Assert.Equal(Some(String('m', 2000)), stored |> Payment.memo |> Option.map PaymentMemo.value)
             })
 
@@ -499,45 +504,29 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! made = w.make Outgo 1 [ 0 ]
                 let invoiceId = made.invoiceIds[0]
                 let! line, _ = w.jeLine "F-2230" "Debit" 100.00M
-                let! stored = createPayment invoiceId line { paymentFor line 100.00M with memo = Some "  a memo  " }
+                let! stored = createPayment invoiceId line { paymentFor line with memo = Some "  a memo  " }
                 Assert.Contains("a memo", stored |> Payment.memo |> Option.map PaymentMemo.value |> Option.defaultValue "")
             })
 
-    [<Theory>]
-    [<InlineData("Income", "OtherAccount")>]
-    [<InlineData("Income", "UnusedAccount")>]
-    [<InlineData("Outgo", "OtherAccount")>]
-    [<InlineData("Outgo", "UnusedAccount")>]
-    member _.``REQ-CF-6.9 for each of Income and Outgo, and each of a line on the Payment Agreement's other account and a line on an account the agreement doesn't use, a CreatePayment payload pointing at that line is rejected with a typed error and no Payment is stored`` (direction':string, line:string) =
-        withWorld (fun w ->
-            result {
-                let d = direction direction'
-                let! made = w.make d 1 [ 0 ]
-                let invoiceId = made.invoiceIds[0]
-                let _, otherCode, unusedCode = accountsFor d
-                let! wrong, _ = w.jeLine (if line = "OtherAccount" then otherCode else unusedCode) "Debit" 100.00M
-                let attempt = sendCreatePayment invoiceId (paymentFor wrong 100.00M)
-                let! payments = paymentsOf invoiceId
-                Assert.True(attempt |> Result.isError)
-                Assert.Empty(payments)
-            })
+    (* A Payment Agreement's accounts are an expectation, not a constraint: a Payment may point at a line on any
+       account. These tests replace the withdrawn wrong-account rejection with acceptances. *)
 
     [<Theory>]
     [<InlineData("Posted")>]
     [<InlineData("Staged")>]
-    member _.``REQ-CF-6.9 for each of a journal entry line and a staged line on the Payment Agreement's other account, a CreatePayment payload pointing at it is rejected with a typed error and no Payment is stored`` (pointer:string) =
+    member _.``REQ-CF-6.4 for each of a journal entry line and a staged line on the Payment Agreement's other account, a CreatePayment payload pointing at it is stored with exactly that pointer`` (pointer:string) =
         withWorld (fun w ->
             result {
                 let! made = w.make Outgo 1 [ 0 ]
                 let invoiceId = made.invoiceIds[0]
+                let _, otherCode, _ = accountsFor Outgo
                 let! line =
                     match pointer with
-                    | "Posted" -> w.jeLine "F-1280" "Debit" 100.00M |> Result.map fst
-                    | _ -> w.stagedLine "F-1280" "Debit" 100.00M
-                let attempt = sendCreatePayment invoiceId (paymentFor line 100.00M)
-                let! payments = paymentsOf invoiceId
-                Assert.True(attempt |> Result.isError)
-                Assert.Empty(payments)
+                    | "Posted" -> w.jeLine otherCode "Debit" 100.00M |> Result.map fst
+                    | _ -> w.stagedLine otherCode "Debit" 100.00M
+                let! stored = createPayment invoiceId line (paymentFor line)
+                let! readBack = stored |> Payment.paymentId |> Payment.fetchById (fresh ())
+                Assert.Equal(line, readBack |> Payment.transactionPointer)
             })
 
     [<Theory>]
@@ -545,65 +534,105 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
     [<InlineData("Income", "Credit")>]
     [<InlineData("Outgo", "Debit")>]
     [<InlineData("Outgo", "Credit")>]
-    member _.``REQ-CF-6.9 for each of Income and Outgo, and each of a Debit line and a Credit line on the account the direction requires, a CreatePayment payload pointing at that line is stored`` (direction':string, lineType:string) =
+    member _.``REQ-CF-6.4 for each of Income and Outgo, and each of a Debit line and a Credit line on the account where the agreement's Payments are expected to land, a CreatePayment payload pointing at that line is stored`` (direction':string, lineType:string) =
         withWorld (fun w ->
             result {
                 let d = direction direction'
                 let! made = w.make d 1 [ 0 ]
                 let invoiceId = made.invoiceIds[0]
-                let requiredCode, _, _ = accountsFor d
-                let! line, _ = w.jeLine requiredCode lineType 100.00M
-                let! stored = createPayment invoiceId line (paymentFor line 100.00M)
+                let expectedCode, _, _ = accountsFor d
+                let! line, _ = w.jeLine expectedCode lineType 100.00M
+                let! stored = createPayment invoiceId line (paymentFor line)
                 Assert.Equal(line, stored |> Payment.transactionPointer)
             })
 
-    [<Theory>]
-    [<InlineData("WrongAccount")>]
-    [<InlineData("NoSuchLine")>]
-    member _.``REQ-CF-6.9 REQ-CF-6.11 for each of a line on the wrong account and a journal entry line ID that names no line, a CreateInvoice payload carrying a Payment pointing at it is rejected with a typed error and no Invoice is stored`` (bad:string) =
+    [<Fact>]
+    member _.``REQ-CF-6.4 a CreateInvoice payload carrying a Payment pointing at a line on an account the Payment Agreement does not name stores the Invoice with that Payment`` () =
         withWorld (fun w ->
             result {
                 let! made = w.make Outgo 2 [ 0 ]
-                let! line =
-                    match bad with
-                    | "WrongAccount" -> w.jeLine "F-4290" "Debit" 100.00M |> Result.map fst
-                    | _ -> Ok(Posted(JournalEntryLineId.fromGuid (Guid.NewGuid()), None))
-                let invoice = invoiceFor Outgo made.legNames[1] [ paymentFor line 100.00M ]
+                let _, _, unusedCode = accountsFor Outgo
+                let! line, _ = w.jeLine unusedCode "Debit" 100.00M
+                let invoice = invoiceFor Outgo made.legNames[1] [ paymentFor line ]
+                let! _ =
+                    ({ instanceId = made.instanceId |> InstanceId.value; invoice = invoice } : Contracts.CreateInvoiceInput)
+                    |> Json.toJson
+                    |> Result.bind (send "CreateInvoice")
+                let! invoices = invoicesOfLeg made.legIds[1]
+                let stored = Assert.Single(invoices)
+                let! payments = paymentsOf (stored |> Invoice.invoiceId)
+                let payment = Assert.Single(payments)
+                Assert.Equal(line, payment |> Payment.transactionPointer)
+            })
+
+    [<Fact>]
+    member _.``REQ-CF-6.4 a CreateInstance payload carrying a Payment pointing at a line on an account the Payment Agreement does not name stores the Instance, its Invoice and that Payment`` () =
+        withWorld (fun w ->
+            result {
+                let! made = w.make Outgo 1 [ 0 ]
+                let _, _, unusedCode = accountsFor Outgo
+                let! line, _ = w.jeLine unusedCode "Debit" 100.00M
+                let! _ =
+                    ({ masterAgreementName = made.agreementName
+                       instanceDate = april1
+                       invoices = [ invoiceFor Outgo made.legNames[0] [ paymentFor line ] ] } : Contracts.CreateInstanceInput)
+                    |> Json.toJson
+                    |> Result.bind (send "CreateInstance")
+                let! instances = [ made.agreementId ] |> Instance.fetchByMasterAgreementIdList (fresh ())
+                Assert.Equal<Set<LocalDate>>(set [ march 1; april1 ], instances |> List.map Instance.instanceDate |> Set.ofList)
+                let april = instances |> List.find (fun i -> i |> Instance.instanceDate = april1)
+                let! invoices = [ april |> Instance.instanceId ] |> Invoice.fetchByInstanceIdList (fresh ())
+                let invoice = Assert.Single(invoices)
+                let! payments = paymentsOf (invoice |> Invoice.invoiceId)
+                let payment = Assert.Single(payments)
+                Assert.Equal(line, payment |> Payment.transactionPointer)
+            })
+
+    [<Fact>]
+    member _.``REQ-CF-6.11 a CreateInvoice payload carrying a Payment whose journal entry line ID names no line is rejected with a typed error naming that ID, and no Invoice is stored`` () =
+        withWorld (fun w ->
+            result {
+                let! made = w.make Outgo 2 [ 0 ]
+                let missing = Guid.NewGuid()
+                let line = Posted(JournalEntryLineId.fromGuid missing, None)
+                let invoice = invoiceFor Outgo made.legNames[1] [ paymentFor line ]
                 let attempt =
                     ({ instanceId = made.instanceId |> InstanceId.value; invoice = invoice } : Contracts.CreateInvoiceInput)
                     |> Json.toJson
                     |> Result.bind (send "CreateInvoice")
                 let! invoices = invoicesOfLeg made.legIds[1]
-                let! pointing = paymentsPointingAt (pointerUuid line)
-                Assert.True(attempt |> Result.isError)
                 Assert.Empty(invoices)
-                Assert.Empty(pointing)
+                return!
+                    match attempt with
+                    | Error (AsError (LedgerError.JournalEntryLineIdDoesntExist named)) -> Assert.Equal(missing, named); Ok ()
+                    | Error e -> TestError.error (TestError.TestingError $"Wrong error. {e.ToMessage()}")
+                    | Ok _ -> TestError.error (TestError.TestingError "Expected failure; got success")
             })
 
-    [<Theory>]
-    [<InlineData("WrongAccount")>]
-    [<InlineData("NoSuchLine")>]
-    member _.``REQ-CF-6.9 REQ-CF-6.11 for each of a line on the wrong account and a journal entry line ID that names no line, a CreateInstance payload carrying a Payment pointing at it is rejected with a typed error and nothing from the payload is stored`` (bad:string) =
+    [<Fact>]
+    member _.``REQ-CF-6.11 a CreateInstance payload carrying a Payment whose journal entry line ID names no line is rejected with a typed error naming that ID, and nothing from the payload is stored`` () =
         withWorld (fun w ->
             result {
                 let! made = w.make Outgo 1 [ 0 ]
-                let! line =
-                    match bad with
-                    | "WrongAccount" -> w.jeLine "F-4290" "Debit" 100.00M |> Result.map fst
-                    | _ -> Ok(Posted(JournalEntryLineId.fromGuid (Guid.NewGuid()), None))
+                let missing = Guid.NewGuid()
+                let line = Posted(JournalEntryLineId.fromGuid missing, None)
                 let attempt =
                     ({ masterAgreementName = made.agreementName
                        instanceDate = april1
-                       invoices = [ invoiceFor Outgo made.legNames[0] [ paymentFor line 100.00M ] ] } : Contracts.CreateInstanceInput)
+                       invoices = [ invoiceFor Outgo made.legNames[0] [ paymentFor line ] ] } : Contracts.CreateInstanceInput)
                     |> Json.toJson
                     |> Result.bind (send "CreateInstance")
                 let! dates =
                     [ made.agreementId ] |> Instance.fetchByMasterAgreementIdList (fresh ())
                     |> Result.map (List.map Instance.instanceDate)
-                let! pointing = paymentsPointingAt (pointerUuid line)
-                Assert.True(attempt |> Result.isError)
+                let! pointing = paymentsPointingAt missing
                 Assert.Equal<LocalDate list>([ march 1 ], dates)
                 Assert.Empty(pointing)
+                return!
+                    match attempt with
+                    | Error (AsError (LedgerError.JournalEntryLineIdDoesntExist named)) -> Assert.Equal(missing, named); Ok ()
+                    | Error e -> TestError.error (TestError.TestingError $"Wrong error. {e.ToMessage()}")
+                    | Ok _ -> TestError.error (TestError.TestingError "Expected failure; got success")
             })
 
     [<Fact>]
@@ -612,7 +641,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
             result {
                 let! made = w.make Outgo 1 [ 0 ]
                 let! line, entryDate = w.jeLine "F-2230" "Debit" 100.00M
-                let! stored = createPayment made.invoiceIds[0] line { paymentFor line 100.00M with postedToLedgerDate = None }
+                let! stored = createPayment made.invoiceIds[0] line { paymentFor line with postedToLedgerDate = None }
                 Assert.Equal(Some entryDate, stored |> Payment.postedToLedgerDate |> Option.map CashFlowComponent.PostedToLedgerDate.value)
             })
 
@@ -622,7 +651,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
             result {
                 let! made = w.make Outgo 1 [ 0 ]
                 let! line = w.stagedLine "F-2230" "Debit" 100.00M
-                let! stored = createPayment made.invoiceIds[0] line (paymentFor line 100.00M)
+                let! stored = createPayment made.invoiceIds[0] line (paymentFor line)
                 Assert.Equal(None, stored |> Payment.postedToLedgerDate)
             })
 
@@ -632,7 +661,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
             result {
                 let! made = w.make Outgo 1 [ 0 ]
                 let! line, entryDate = w.jeLine "F-2230" "Debit" 100.00M
-                let! stored = createPayment made.invoiceIds[0] line { paymentFor line 100.00M with postedToLedgerDate = Some entryDate }
+                let! stored = createPayment made.invoiceIds[0] line { paymentFor line with postedToLedgerDate = Some entryDate }
                 Assert.Equal(Some entryDate, stored |> Payment.postedToLedgerDate |> Option.map CashFlowComponent.PostedToLedgerDate.value)
             })
 
@@ -643,7 +672,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! made = w.make Outgo 1 [ 0 ]
                 let invoiceId = made.invoiceIds[0]
                 let! line, entryDate = w.jeLine "F-2230" "Debit" 100.00M
-                let attempt = sendCreatePayment invoiceId { paymentFor line 100.00M with postedToLedgerDate = Some(entryDate.PlusDays(-1)) }
+                let attempt = sendCreatePayment invoiceId { paymentFor line with postedToLedgerDate = Some(entryDate.PlusDays(-1)) }
                 let! payments = paymentsOf invoiceId
                 Assert.True(attempt |> Result.isError)
                 Assert.Empty(payments)
@@ -656,7 +685,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! made = w.make Outgo 1 [ 0 ]
                 let invoiceId = made.invoiceIds[0]
                 let! line = w.stagedLine "F-2230" "Debit" 100.00M
-                let attempt = sendCreatePayment invoiceId { paymentFor line 100.00M with postedToLedgerDate = Some w.today }
+                let attempt = sendCreatePayment invoiceId { paymentFor line with postedToLedgerDate = Some w.today }
                 let! payments = paymentsOf invoiceId
                 Assert.True(attempt |> Result.isError)
                 Assert.Empty(payments)
@@ -670,18 +699,40 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
             result {
                 let! made = w.make Outgo 1 [ 0 ]
                 let invoiceId = made.invoiceIds[0]
+                let missing = Guid.NewGuid()
                 let line =
                     match pointer with
-                    | "Posted" -> Posted(JournalEntryLineId.fromGuid (Guid.NewGuid()), None)
-                    | _ -> Staged(StageEntryLineId.fromGuid (Guid.NewGuid()))
-                let attempt = sendCreatePayment invoiceId (paymentFor line 100.00M)
+                    | "Posted" -> Posted(JournalEntryLineId.fromGuid missing, None)
+                    | _ -> Staged(StageEntryLineId.fromGuid missing)
+                let attempt = sendCreatePayment invoiceId (paymentFor line)
                 let! payments = paymentsOf invoiceId
-                Assert.True(attempt |> Result.isError)
                 Assert.Empty(payments)
+                return!
+                    match pointer, attempt with
+                    | "Posted", Error (AsError (LedgerError.JournalEntryLineIdDoesntExist named)) -> Assert.Equal(missing, named); Ok ()
+                    | "Staged", Error (AsError (DataIngestionError.IngestionStageEntryLineIdDoesntExist named)) -> Assert.Equal(missing, named); Ok ()
+                    | _, Error e -> TestError.error (TestError.TestingError $"Wrong error. {e.ToMessage()}")
+                    | _, Ok _ -> TestError.error (TestError.TestingError "Expected failure; got success")
             })
-
-    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
 
     [<Fact>]
     member _.``REQ-CF-6.4 for each of Income and Outgo, a CreatePayment payload pointing at a line on an account the Payment Agreement does not name is stored with that pointer`` () =
-        Assert.Fail "Not yet implemented"
+        withWorld (fun w ->
+            [ Income; Outgo ]
+            |> List.map (fun d ->
+                result {
+                    let! made = w.make d 1 [ 0 ]
+                    let invoiceId = made.invoiceIds[0]
+                    let _, _, unusedCode = accountsFor d
+                    (* A journal entry line and a staged line on the account the agreement doesn't name, each 50.00. *)
+                    let! posted, _ = w.jeLine unusedCode "Debit" 50.00M
+                    let! staged = w.stagedLine unusedCode "Debit" 50.00M
+                    let! _ = sendCreatePayment invoiceId (paymentFor posted)
+                    let! _ = sendCreatePayment invoiceId (paymentFor staged)
+                    let! payments = paymentsOf invoiceId
+                    Assert.Equal<Set<TransactionPointer>>(
+                        set [ posted; staged ],
+                        payments |> List.map Payment.transactionPointer |> Set.ofList)
+                })
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore)
