@@ -3,6 +3,7 @@ module Tests.Integrated.CrossDomainOrchestration.PaymentsToPosted
 open System
 open App.Session
 open App.Utility
+open App.Utility.IAppError
 open App.Utility.Result
 open Business.General
 open Business.FinancialServices
@@ -21,6 +22,7 @@ open NodaTime
 open Tests.Helpers
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
+open Tests.Helpers.TestError
 open Xunit
 
 (* Every test builds its own Outgo agreements (debit F-2230, credit F-1280, monthly on the 1st) and Invoices inside a
@@ -121,12 +123,12 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             return staged |> debitLineOf
         }
 
-    /// A 100.00 Invoice on its own Instance dated invoiceDate, carrying Payments of the given amounts at the given
-    /// pointers. Returns the Invoice's id and its Payments' ids, in the order given.
-    member _.invoice agreementId legId (invoiceDate: LocalDate) (payments: (TransactionPointer * decimal) list) =
+    /// A 100.00 Invoice on its own Instance dated invoiceDate, carrying Payments at the given pointers (each Payment's
+    /// amount is its line's). Returns the Invoice's id and its Payments' ids, in the order given.
+    member _.invoice agreementId legId (invoiceDate: LocalDate) (payments: TransactionPointer list) =
         result {
             let! amount = Money.fromDecimal 100.00M
-            let newPayments = payments |> List.map (fun (pointer, _) -> (pointer, None, None, None))
+            let newPayments = payments |> List.map (fun pointer -> (pointer, None, None, None))
             let! created =
                 InstanceOrchestration.constructNewAndPersist
                     context agreementId invoiceDate
@@ -138,9 +140,19 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             (* Match each created Payment back to the pointer the test gave it. *)
             let paymentIds =
                 payments
-                |> List.map (fun (pointer, _) ->
+                |> List.map (fun pointer ->
                     createdPayments |> List.find (fun p -> p |> Payment.transactionPointer = pointer) |> Payment.paymentId)
             return invoiceId, paymentIds
+        }
+
+    /// Voids the journal entry the line belongs to. Returns that entry's header id.
+    member _.voidEntryOf (jeLineId: JournalEntryLineId) =
+        result {
+            let! line = jeLineId |> JournalEntryLine.fetchById context
+            let headerId = line |> JournalEntryLine.journalEntryHeaderId
+            let! reason = "Payments to posted test: the cash was posted to the wrong entry" |> CommentText.create
+            let! _ = headerId |> JournalEntryVoiding.voidJournalEntry context None reason
+            return headerId
         }
 
     member _.postedStateOf (invoiceId: InvoiceId) =
@@ -172,7 +184,7 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 let scenario = Scenario(fixture, context)
                 let! agreementId, legId = scenario.agreement "CF-10.1 moved"
                 let! stagedLineId, jeLineId = scenario.postedLine "CF-10.1 moved payment" 100.00M
-                let! _, paymentIds = scenario.invoice agreementId legId scenario.firstOfThisMonth [ (Staged stagedLineId, 100.00M) ]
+                let! _, paymentIds = scenario.invoice agreementId legId scenario.firstOfThisMonth [ Staged stagedLineId ]
                 let paymentId = paymentIds |> List.head
                 let! _ = CashFlowOps.transitionPaymentsToPosted context
                 let! payment = scenario.payment paymentId
@@ -192,9 +204,9 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 let! lineX1, jeX1 = scenario.postedLine "CF-10.1 every X last month" 100.00M
                 let! lineX2, jeX2 = scenario.postedLine "CF-10.1 every X this month" 100.00M
                 let! lineY, jeY = scenario.postedLine "CF-10.1 every Y" 100.00M
-                let! _, x1 = scenario.invoice agreementXId legXId scenario.firstOfLastMonth [ (Staged lineX1, 100.00M) ]
-                let! _, x2 = scenario.invoice agreementXId legXId scenario.firstOfThisMonth [ (Staged lineX2, 100.00M) ]
-                let! _, y = scenario.invoice agreementYId legYId scenario.firstOfThisMonth [ (Staged lineY, 100.00M) ]
+                let! _, x1 = scenario.invoice agreementXId legXId scenario.firstOfLastMonth [ Staged lineX1 ]
+                let! _, x2 = scenario.invoice agreementXId legXId scenario.firstOfThisMonth [ Staged lineX2 ]
+                let! _, y = scenario.invoice agreementYId legYId scenario.firstOfThisMonth [ Staged lineY ]
                 let! _ = CashFlowOps.transitionPaymentsToPosted context
                 let! pointers =
                     [ x1.Head; x2.Head; y.Head ]
@@ -211,7 +223,7 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 let scenario = Scenario(fixture, context)
                 let! agreementId, legId = scenario.agreement "CF-10.2 unposted"
                 let! lineId = scenario.unpostedLine "CF-10.2 unposted payment" 100.00M
-                let! _, paymentIds = scenario.invoice agreementId legId scenario.firstOfThisMonth [ (Staged lineId, 100.00M) ]
+                let! _, paymentIds = scenario.invoice agreementId legId scenario.firstOfThisMonth [ Staged lineId ]
                 let paymentId = paymentIds |> List.head
                 let! moved = CashFlowOps.transitionPaymentsToPosted context
                 let! payment = scenario.payment paymentId
@@ -227,7 +239,7 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 let scenario = Scenario(fixture, context)
                 let! agreementId, legId = scenario.agreement "CF-10.1 both pointers"
                 let! stagedLineId, jeLineId = scenario.postedLine "CF-10.1 both pointers payment" 100.00M
-                let! _, paymentIds = scenario.invoice agreementId legId scenario.firstOfThisMonth [ (Staged stagedLineId, 100.00M) ]
+                let! _, paymentIds = scenario.invoice agreementId legId scenario.firstOfThisMonth [ Staged stagedLineId ]
                 let paymentId = paymentIds |> List.head
                 (* The first run gives the Payment both pointers. *)
                 let! first = CashFlowOps.transitionPaymentsToPosted context
@@ -259,7 +271,7 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 let! line1, _ = scenario.postedLine "CF-10.4 all one" 60.00M
                 let! line2, _ = scenario.postedLine "CF-10.4 all two" 40.00M
                 let! invoiceId, _ =
-                    scenario.invoice agreementId legId scenario.firstOfThisMonth [ (Staged line1, 60.00M); (Staged line2, 40.00M) ]
+                    scenario.invoice agreementId legId scenario.firstOfThisMonth [ Staged line1; Staged line2 ]
                 let! before = scenario.postedStateOf invoiceId
                 Assert.Equal(NotHandled, before)
                 let! _ = CashFlowOps.transitionPaymentsToPosted context
@@ -278,7 +290,7 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 let! stagedLineId, _ = scenario.postedLine "CF-10.4 last staged" 60.00M
                 let! invoiceId, _ =
                     scenario.invoice agreementId legId scenario.firstOfThisMonth
-                        [ (Posted(ledgerLineId, None), 40.00M); (Staged stagedLineId, 60.00M) ]
+                        [ Posted(ledgerLineId, None); Staged stagedLineId ]
                 let! before = scenario.postedStateOf invoiceId
                 Assert.Equal(PartiallyPosted, before)
                 let! _ = CashFlowOps.transitionPaymentsToPosted context
@@ -297,7 +309,7 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 let! unpostedLineId = scenario.unpostedLine "CF-10.4 some unposted" 40.00M
                 let! invoiceId, _ =
                     scenario.invoice agreementId legId scenario.firstOfThisMonth
-                        [ (Staged postedLineId, 60.00M); (Staged unpostedLineId, 40.00M) ]
+                        [ Staged postedLineId; Staged unpostedLineId ]
                 let! before = scenario.postedStateOf invoiceId
                 Assert.Equal(NotHandled, before)
                 let! _ = CashFlowOps.transitionPaymentsToPosted context
@@ -313,7 +325,7 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 let scenario = Scenario(fixture, context)
                 let! agreementId, legId = scenario.agreement "CF-10.4 part paid"
                 let! lineId, _ = scenario.postedLine "CF-10.4 part paid payment" 40.00M
-                let! invoiceId, paymentIds = scenario.invoice agreementId legId scenario.firstOfThisMonth [ (Staged lineId, 40.00M) ]
+                let! invoiceId, paymentIds = scenario.invoice agreementId legId scenario.firstOfThisMonth [ Staged lineId ]
                 let! before = scenario.postedStateOf invoiceId
                 Assert.Equal(NotHandled, before)
                 let! moved = CashFlowOps.transitionPaymentsToPosted context
@@ -333,7 +345,7 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 let! unpostedLineId = scenario.unpostedLine "CF-10.4 none unposted" 60.00M
                 let! invoiceId, _ =
                     scenario.invoice agreementId legId scenario.firstOfThisMonth
-                        [ (Posted(ledgerLineId, None), 40.00M); (Staged unpostedLineId, 60.00M) ]
+                        [ Posted(ledgerLineId, None); Staged unpostedLineId ]
                 let! before = scenario.postedStateOf invoiceId
                 Assert.Equal(PartiallyPosted, before)
                 let! _ = CashFlowOps.transitionPaymentsToPosted context
@@ -356,7 +368,7 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 let! unpostedLineId = scenario.unpostedLine "CF-10.5 twice unposted" 40.00M
                 let! invoiceId, paymentIds =
                     scenario.invoice agreementId legId scenario.firstOfThisMonth
-                        [ (Staged postedLineId, 60.00M); (Staged unpostedLineId, 40.00M) ]
+                        [ Staged postedLineId; Staged unpostedLineId ]
                 let snapshot () =
                     result {
                         let! payments =
@@ -395,10 +407,10 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 let! lineX, jeX = scenario.postedLine "CF-10.7 listed X payment" 100.00M
                 let! lineY, jeY = scenario.postedLine "CF-10.7 listed Y payment" 60.00M
                 let! unpostedLineId = scenario.unpostedLine "CF-10.7 listed Y unposted" 40.00M
-                let! _, xPayments = scenario.invoice agreementXId legXId scenario.firstOfThisMonth [ (Staged lineX, 100.00M) ]
+                let! _, xPayments = scenario.invoice agreementXId legXId scenario.firstOfThisMonth [ Staged lineX ]
                 let! _, yPayments =
                     scenario.invoice agreementYId legYId scenario.firstOfThisMonth
-                        [ (Staged lineY, 60.00M); (Staged unpostedLineId, 40.00M) ]
+                        [ Staged lineY; Staged unpostedLineId ]
                 let! moved = CashFlowOps.transitionPaymentsToPosted context
                 let listed =
                     moved
@@ -413,16 +425,88 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
             })
         |> railroadWrapper
 
-    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+    // =========================================================================
+    // REQ-CF-10.8 — a voided target refuses the transition
+    // =========================================================================
 
     [<Fact>]
     member _.``REQ-CF-10.8 when the staged lines of two Payments were posted and both journal entries were then voided, the transition fails with a typed error naming each Payment with its journal entry`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback CashFlowTransitionPaymentsToPosted (fun context ->
+            result {
+                let scenario = Scenario(fixture, context)
+                let! agreementXId, legXId = scenario.agreement "CF-10.8 voided X"
+                let! agreementYId, legYId = scenario.agreement "CF-10.8 voided Y"
+                let! lineX, jeLineX = scenario.postedLine "CF-10.8 voided X payment" 100.00M
+                let! lineY, jeLineY = scenario.postedLine "CF-10.8 voided Y payment" 100.00M
+                let! _, xPayments = scenario.invoice agreementXId legXId scenario.firstOfThisMonth [ Staged lineX ]
+                let! _, yPayments = scenario.invoice agreementYId legYId scenario.firstOfThisMonth [ Staged lineY ]
+                let! entryX = scenario.voidEntryOf jeLineX
+                let! entryY = scenario.voidEntryOf jeLineY
+                let expected =
+                    [ (xPayments.Head |> PaymentId.value), (entryX |> JournalEntryHeaderId.value)
+                      (yPayments.Head |> PaymentId.value), (entryY |> JournalEntryHeaderId.value) ]
+                    |> List.sort
+                return!
+                    match CashFlowOps.transitionPaymentsToPosted context with
+                    | Error (AsError (CashFlowError.CashflowPaymentsTargetVoidedEntries named)) ->
+                        Assert.Equal<(Guid * Guid) list>(expected, named |> List.sort)
+                        Ok ()
+                    | Error e -> TestError.error (TestingError $"Wrong error. {e.ToMessage()}")
+                    | Ok _ -> TestError.error (TestingError "Expected failure; got success")
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-CF-10.8 a transition refused for a voided target writes nothing: a Payment in the same run whose line posted to an unvoided entry still has no journal entry line ID, and every Invoice keeps its posted state`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback CashFlowTransitionPaymentsToPosted (fun context ->
+            result {
+                let scenario = Scenario(fixture, context)
+                let! agreementXId, legXId = scenario.agreement "CF-10.8 nothing X"
+                let! agreementYId, legYId = scenario.agreement "CF-10.8 nothing Y"
+                let! voidedLine, voidedJeLine = scenario.postedLine "CF-10.8 nothing voided payment" 100.00M
+                let! keptLine, _ = scenario.postedLine "CF-10.8 nothing kept payment" 100.00M
+                let! voidedInvoiceId, _ = scenario.invoice agreementXId legXId scenario.firstOfThisMonth [ Staged voidedLine ]
+                let! keptInvoiceId, keptPayments = scenario.invoice agreementYId legYId scenario.firstOfThisMonth [ Staged keptLine ]
+                let! _ = scenario.voidEntryOf voidedJeLine
+                let! voidedStateBefore = scenario.postedStateOf voidedInvoiceId
+                let! keptStateBefore = scenario.postedStateOf keptInvoiceId
+                Assert.Equal(NotHandled, voidedStateBefore)
+                Assert.Equal(NotHandled, keptStateBefore)
+                let! _ =
+                    match CashFlowOps.transitionPaymentsToPosted context with
+                    | Error (AsError (CashFlowError.CashflowPaymentsTargetVoidedEntries _)) -> Ok ()
+                    | Error e -> TestError.error (TestingError $"Wrong error. {e.ToMessage()}")
+                    | Ok _ -> TestError.error (TestingError "Expected failure; got success")
+                let! kept = scenario.payment keptPayments.Head
+                Assert.Equal(Staged keptLine, kept |> Payment.transactionPointer)
+                let! voidedStateAfter = scenario.postedStateOf voidedInvoiceId
+                let! keptStateAfter = scenario.postedStateOf keptInvoiceId
+                Assert.Equal(voidedStateBefore, voidedStateAfter)
+                Assert.Equal(keptStateBefore, keptStateAfter)
+            })
+        |> railroadWrapper
+
+    // =========================================================================
+    // REQ-CF-6.4 — batch post leaves Payments alone
+    // =========================================================================
 
     [<Fact>]
     member _.``REQ-CF-6.4 batch post alone leaves a Payment whose staged line it posted Staged, with no journal entry line ID, and its Invoice's posted state unchanged`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback CashFlowTransitionPaymentsToPosted (fun context ->
+            result {
+                let scenario = Scenario(fixture, context)
+                let! agreementId, legId = scenario.agreement "CF-6.4 batch post"
+                let! lineId = scenario.unpostedLine "CF-6.4 batch post payment" 100.00M
+                let! invoiceId, paymentIds = scenario.invoice agreementId legId scenario.firstOfThisMonth [ Staged lineId ]
+                let! stateBefore = scenario.postedStateOf invoiceId
+                Assert.Equal(NotHandled, stateBefore)
+                do! StageEntryOrchestration.post (context |> TestContext.updateInitiationInstant)
+                (* The post reached the line: it now records the journal entry line it produced. *)
+                let! posted = [ lineId ] |> StageEntryLine.fetchByIdList context
+                Assert.True(posted |> List.exactlyOne |> StageEntryLine.journalEntryLineId |> Option.isSome)
+                let! payment = scenario.payment paymentIds.Head
+                Assert.Equal(Staged lineId, payment |> Payment.transactionPointer)
+                let! stateAfter = scenario.postedStateOf invoiceId
+                Assert.Equal(stateBefore, stateAfter)
+            })
+        |> railroadWrapper
