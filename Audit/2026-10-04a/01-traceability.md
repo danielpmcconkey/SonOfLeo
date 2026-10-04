@@ -1,0 +1,732 @@
+# Traceability Script and Checks Output
+
+```
+## bash /home/claude/SonOfLeo/Skills/SonOfLeoRequirementsAudit/traceability-audit.sh /home/claude/SonOfLeo
+
+(exit code 0)
+
+```
+=== Invariant 1: phantom references (tests -> nonexistent or withdrawn requirement) ===
+clean
+
+=== Invariant 2: active requirements with no test, no waiver, and not unenforceable ===
+clean
+
+=== Invariant 3: test annotations per requirement, descending ===
+     41 REQ-SYS-1.1
+     24 REQ-SYS-6.1
+     22 REQ-STG-10.2
+     21 REQ-SYS-6.2
+     15 REQ-CF-9.10
+     14 REQ-CR-5.3
+     13 REQ-STG-4.1
+     12 REQ-RPT-6.1
+     12 REQ-CF-13.7
+     11 REQ-STG-6.5
+     11 REQ-RPT-6.4
+     11 REQ-POS-11.2
+     11 REQ-CR-2.1
+     11 REQ-CF-14.2
+     11 REQ-CF-13.1
+     11 REQ-AC-3.12.1
+     10 REQ-STG-7.2
+     10 REQ-STG-6.2
+     10 REQ-POS-11.6
+     10 REQ-POS-11.5
+     10 REQ-POS-11.3
+     10 REQ-DAL-2.4
+     10 REQ-CR-6.1
+     10 REQ-CF-6.4
+     10 REQ-CF-12.3
+     10 REQ-AC-1.32
+     10 REQ-AC-1.31
+     10 REQ-AC-1.28
+      9 REQ-SYS-3.4
+      9 REQ-POS-11.9
+      9 REQ-JE-4.9
+      9 REQ-JE-3.5
+      9 REQ-CF-3.9
+      9 REQ-CF-14.5
+      9 REQ-CF-14.10
+      9 REQ-CF-13.9
+      9 REQ-CF-13.2
+      9 REQ-CF-12.4
+      9 REQ-AC-1.36
+      9 REQ-AC-1.35
+      9 REQ-AC-1.34
+      9 REQ-AC-1.33
+      9 REQ-AC-1.30
+      9 REQ-AC-1.29
+      8 REQ-SYS-6.3
+      8 REQ-POS-8.1
+      8 REQ-POS-11.8
+      8 REQ-CR-1.14
+      8 REQ-CF-12.7
+      8 REQ-AC-3.13.1
+      7 REQ-SYS-5.1
+      7 REQ-SYS-1.2
+      7 REQ-RPT-9.2
+      7 REQ-RPT-7.3
+      7 REQ-RPT-5.2
+      7 REQ-RPT-2.4
+      7 REQ-POS-11.1
+      7 REQ-PER-2.2
+      7 REQ-JE-5.3
+      7 REQ-JE-4.10
+      7 REQ-CF-9.8
+      7 REQ-CF-8.4
+      7 REQ-CF-6.10
+      7 REQ-CF-5.14
+      7 REQ-CF-4.9
+      7 REQ-CF-4.11
+      7 REQ-CF-3.8
+      7 REQ-CF-2.26
+      7 REQ-CF-2.25
+      7 REQ-CF-14.8
+      7 REQ-CF-13.4
+      7 REQ-AC-3.13
+      6 REQ-SYS-3.3
+      6 REQ-STG-9.2
+      6 REQ-RPT-8.2
+      6 REQ-RPT-5.1
+      6 REQ-QP-3.2
+      6 REQ-QP-3.1
+      6 REQ-POS-9.6
+      6 REQ-POS-5.4
+      6 REQ-POS-5.2
+      6 REQ-POS-4.6
+      6 REQ-JE-5.1
+      6 REQ-JE-4.4
+      6 REQ-CR-8.5
+      6 REQ-CF-9.3
+      6 REQ-CF-8.3
+      6 REQ-CF-8.2
+      6 REQ-CF-7.2
+      6 REQ-CF-5.17
+      6 REQ-CF-4.10
+      6 REQ-CF-3.6
+      6 REQ-CF-2.22
+      6 REQ-CF-10.4
+      6 REQ-AC-3.12
+      5 REQ-SYS-3.2
+      5 REQ-SYS-1.4
+      5 REQ-STG-9.4
+      5 REQ-STG-9.3
+      5 REQ-STG-7.5.1
+      5 REQ-STG-7.3
+      5 REQ-STG-6.4
+      5 REQ-STG-6.1
+      5 REQ-STG-3.2.1
+      5 REQ-STG-2.26
+      5 REQ-STG-10.6
+      5 REQ-STG-1.3
+      5 REQ-RPT-8.5
+      5 REQ-RPT-7.4
+      5 REQ-RPT-4.4
+      5 REQ-RPT-4.2
+      5 REQ-RPT-3.1
+      5 REQ-RPT-2.3
+      5 REQ-POS-9.1
+      5 REQ-POS-6.7
+      5 REQ-POS-4.7
+      5 REQ-POS-4.1
+      5 REQ-POS-3.3
+      5 REQ-NGUI-1.6
+      5 REQ-NGUI-1.5
+      5 REQ-NGUI-1.3
+      5 REQ-JE-3.7
+      5 REQ-JE-3.4
+      5 REQ-JE-3.2
+      5 REQ-JE-1.54
+      5 REQ-JE-1.25
+      5 REQ-FP-2.7
+      5 REQ-CR-8.2
+      5 REQ-CR-4.3
+      5 REQ-CR-1.5
+      5 REQ-CR-1.26
+      5 REQ-CR-1.16
+      5 REQ-CF-9.11
+      5 REQ-CF-7.1
+      5 REQ-CF-6.7
+      5 REQ-CF-5.15
+      5 REQ-CF-5.10
+      5 REQ-CF-4.8
+      5 REQ-CF-4.7
+      5 REQ-CF-3.7
+      5 REQ-CF-2.21
+      5 REQ-CF-14.6
+      5 REQ-CF-13.3
+      5 REQ-AC-4.9
+      5 REQ-AC-4.1
+      5 REQ-AC-3.12.3
+      5 REQ-AC-3.11
+      5 REQ-AC-1.50
+      5 REQ-AC-1.19
+      4 REQ-SYS-8.1
+      4 REQ-SYS-1.3
+      4 REQ-STG-9.10
+      4 REQ-STG-6.7
+      4 REQ-STG-2.12
+      4 REQ-STG-1.17
+      4 REQ-STG-1.14
+      4 REQ-RPT-9.5
+      4 REQ-RPT-8.6
+      4 REQ-RPT-7.7
+      4 REQ-RPT-5.4
+      4 REQ-RPT-4.1
+      4 REQ-POS-9.8
+      4 REQ-POS-9.4
+      4 REQ-POS-9.3
+      4 REQ-POS-7.5
+      4 REQ-POS-7.1
+      4 REQ-POS-4.5
+      4 REQ-POS-2.3
+      4 REQ-POS-10.4
+      4 REQ-PER-1.3
+      4 REQ-NGUI-1.3.1
+      4 REQ-JE-4.3
+      4 REQ-JE-2.15
+      4 REQ-JE-2.13
+      4 REQ-JE-2.11
+      4 REQ-JE-1.48
+      4 REQ-DAL-2.2
+      4 REQ-CR-5.5
+      4 REQ-CR-3.4
+      4 REQ-CR-2.6
+      4 REQ-CR-2.5
+      4 REQ-CR-2.4
+      4 REQ-CR-1.11
+      4 REQ-CF-8.1
+      4 REQ-CF-7.3
+      4 REQ-CF-7.14
+      4 REQ-CF-6.5
+      4 REQ-CF-5.6
+      4 REQ-CF-5.4
+      4 REQ-CF-5.19
+      4 REQ-CF-5.16
+      4 REQ-CF-4.6
+      4 REQ-CF-4.14
+      4 REQ-CF-3.10
+      4 REQ-CF-2.4
+      4 REQ-CF-14.4
+      4 REQ-CF-14.12
+      4 REQ-CF-12.5
+      4 REQ-CF-10.1
+      4 REQ-AC-4.8
+      4 REQ-AC-3.12.2
+      3 REQ-STG-8.5
+      3 REQ-STG-5.5
+      3 REQ-STG-5.2
+      3 REQ-STG-4.6
+      3 REQ-STG-4.4
+      3 REQ-STG-4.1.1
+      3 REQ-STG-3.4
+      3 REQ-STG-3.2
+      3 REQ-STG-3.12
+      3 REQ-STG-3.1
+      3 REQ-STG-2.6
+      3 REQ-STG-10.4
+      3 REQ-STG-10.3
+      3 REQ-STG-10.1
+      3 REQ-STG-1.6
+      3 REQ-STG-1.4
+      3 REQ-RPT-9.1
+      3 REQ-QP-2.3
+      3 REQ-QP-1.3
+      3 REQ-POS-9.7
+      3 REQ-POS-7.4
+      3 REQ-POS-7.3
+      3 REQ-POS-6.8
+      3 REQ-POS-6.3
+      3 REQ-POS-6.1
+      3 REQ-POS-5.3
+      3 REQ-POS-4.4
+      3 REQ-POS-4.3
+      3 REQ-POS-4.2
+      3 REQ-POS-3.2
+      3 REQ-POS-3.1
+      3 REQ-POS-2.2
+      3 REQ-POS-2.1
+      3 REQ-POS-10.3
+      3 REQ-POS-10.2
+      3 REQ-PER-2.4
+      3 REQ-PER-1.1
+      3 REQ-NGUI-4.4
+      3 REQ-NGUI-1.4
+      3 REQ-MON-2.3.1
+      3 REQ-MON-2.2.1
+      3 REQ-MON-2.2
+      3 REQ-MON-1.3
+      3 REQ-MON-1.2
+      3 REQ-JE-5.8
+      3 REQ-JE-3.8
+      3 REQ-JE-3.3
+      3 REQ-JE-3.1.1
+      3 REQ-JE-3.1
+      3 REQ-JE-2.7
+      3 REQ-JE-1.44
+      3 REQ-JE-1.42
+      3 REQ-JE-1.4
+      3 REQ-FP-4.2
+      3 REQ-FP-4.1
+      3 REQ-FP-3.6
+      3 REQ-FP-1.2
+      3 REQ-CR-8.3
+      3 REQ-CR-6.3
+      3 REQ-CR-5.4
+      3 REQ-CR-5.2
+      3 REQ-CR-5.1
+      3 REQ-CR-4.1
+      3 REQ-CR-3.7
+      3 REQ-CR-3.2
+      3 REQ-CR-2.7
+      3 REQ-CR-2.3
+      3 REQ-CR-1.4
+      3 REQ-CR-1.22
+      3 REQ-CR-1.12
+      3 REQ-CF-9.1
+      3 REQ-CF-7.8
+      3 REQ-CF-7.7
+      3 REQ-CF-7.6
+      3 REQ-CF-7.10
+      3 REQ-CF-6.11
+      3 REQ-CF-5.9
+      3 REQ-CF-5.8
+      3 REQ-CF-5.7
+      3 REQ-CF-5.3
+      3 REQ-CF-5.13
+      3 REQ-CF-4.3
+      3 REQ-CF-3.3
+      3 REQ-CF-2.9
+      3 REQ-CF-2.6
+      3 REQ-CF-2.20
+      3 REQ-CF-2.10
+      3 REQ-CF-14.9
+      3 REQ-CF-14.7
+      3 REQ-CF-14.11
+      3 REQ-CF-14.1
+      3 REQ-CF-12.9
+      3 REQ-CF-12.2
+      3 REQ-CF-12.1
+      3 REQ-CF-10.8
+      3 REQ-AC-4.6
+      3 REQ-AC-3.6
+      3 REQ-AC-3.4
+      3 REQ-AC-3.13.3
+      3 REQ-AC-2.22
+      3 REQ-AC-1.3
+      2 REQ-STG-9.7
+      2 REQ-STG-9.5
+      2 REQ-STG-7.5
+      2 REQ-STG-7.1
+      2 REQ-STG-6.3.2
+      2 REQ-STG-6.3.1
+      2 REQ-STG-6.3
+      2 REQ-STG-6.2.1
+      2 REQ-STG-5.9
+      2 REQ-STG-5.8
+      2 REQ-STG-5.7
+      2 REQ-STG-5.6
+      2 REQ-STG-5.4
+      2 REQ-STG-5.3
+      2 REQ-STG-5.11
+      2 REQ-STG-5.10
+      2 REQ-STG-5.1
+      2 REQ-STG-4.3
+      2 REQ-STG-4.2
+      2 REQ-STG-4.1.2
+      2 REQ-STG-3.9
+      2 REQ-STG-3.6
+      2 REQ-STG-3.15
+      2 REQ-STG-3.11
+      2 REQ-STG-2.7
+      2 REQ-STG-2.28
+      2 REQ-STG-2.25
+      2 REQ-STG-2.23
+      2 REQ-STG-2.21
+      2 REQ-STG-2.20
+      2 REQ-STG-2.2
+      2 REQ-STG-10.5
+      2 REQ-STG-1.15
+      2 REQ-STG-1.13
+      2 REQ-RPT-9.3
+      2 REQ-RPT-8.4
+      2 REQ-RPT-8.3
+      2 REQ-RPT-7.2
+      2 REQ-RPT-7.1
+      2 REQ-RPT-6.3
+      2 REQ-RPT-6.2
+      2 REQ-RPT-5.3
+      2 REQ-RPT-4.6
+      2 REQ-RPT-4.3
+      2 REQ-QP-3.5
+      2 REQ-QP-3.4
+      2 REQ-QP-2.2
+      2 REQ-QP-2.1
+      2 REQ-QP-1.2
+      2 REQ-QP-1.1
+      2 REQ-POS-9.5
+      2 REQ-POS-8.2
+      2 REQ-POS-7.2
+      2 REQ-POS-6.5
+      2 REQ-POS-6.4
+      2 REQ-POS-5.1
+      2 REQ-POS-4.9
+      2 REQ-POS-4.8
+      2 REQ-POS-3.4
+      2 REQ-POS-11.7
+      2 REQ-POS-11.4
+      2 REQ-POS-10.1
+      2 REQ-PER-2.3
+      2 REQ-PER-2.1
+      2 REQ-PER-1.5
+      2 REQ-NGUI-3.8
+      2 REQ-NGUI-3.6
+      2 REQ-MON-2.9.1
+      2 REQ-MON-2.6.1
+      2 REQ-MON-2.5.1
+      2 REQ-MON-2.4.5
+      2 REQ-JE-5.5
+      2 REQ-JE-3.5.1
+      2 REQ-JE-2.3
+      2 REQ-JE-2.12
+      2 REQ-JE-1.8
+      2 REQ-JE-1.7
+      2 REQ-JE-1.56
+      2 REQ-JE-1.55
+      2 REQ-JE-1.53
+      2 REQ-JE-1.5
+      2 REQ-JE-1.49
+      2 REQ-JE-1.46
+      2 REQ-JE-1.45
+      2 REQ-JE-1.28
+      2 REQ-JE-1.27
+      2 REQ-JE-1.13
+      2 REQ-FP-3.4
+      2 REQ-FP-3.2
+      2 REQ-FP-2.4
+      2 REQ-FP-1.5
+      2 REQ-CR-8.1
+      2 REQ-CR-6.4
+      2 REQ-CR-6.2
+      2 REQ-CR-4.5
+      2 REQ-CR-3.8
+      2 REQ-CR-3.6
+      2 REQ-CR-3.5
+      2 REQ-CR-1.9
+      2 REQ-CR-1.6
+      2 REQ-CR-1.23
+      2 REQ-CR-1.20
+      2 REQ-CR-1.19
+      2 REQ-CR-1.18
+      2 REQ-CR-1.15
+      2 REQ-CF-9.9
+      2 REQ-CF-9.5
+      2 REQ-CF-9.4
+      2 REQ-CF-8.9
+      2 REQ-CF-8.6
+      2 REQ-CF-7.9
+      2 REQ-CF-7.15
+      2 REQ-CF-6.6
+      2 REQ-CF-6.3
+      2 REQ-CF-5.5
+      2 REQ-CF-4.5
+      2 REQ-CF-4.13
+      2 REQ-CF-4.12
+      2 REQ-CF-3.5
+      2 REQ-CF-3.4
+      2 REQ-CF-2.7
+      2 REQ-CF-2.5
+      2 REQ-CF-2.3
+      2 REQ-CF-2.27
+      2 REQ-CF-2.24
+      2 REQ-CF-2.23
+      2 REQ-CF-2.19
+      2 REQ-CF-2.18
+      2 REQ-CF-2.11
+      2 REQ-CF-14.3
+      2 REQ-CF-13.8
+      2 REQ-CF-13.5
+      2 REQ-CF-12.8
+      2 REQ-CF-12.6
+      2 REQ-CF-10.7
+      2 REQ-CF-10.5
+      2 REQ-AC-4.5
+      2 REQ-AC-4.4
+      2 REQ-AC-4.3
+      2 REQ-AC-4.2
+      2 REQ-AC-3.7
+      2 REQ-AC-3.12.4
+      2 REQ-AC-3.10
+      2 REQ-AC-2.7
+      2 REQ-AC-2.4
+      2 REQ-AC-2.23
+      2 REQ-AC-2.21
+      2 REQ-AC-2.13
+      2 REQ-AC-1.8
+      2 REQ-AC-1.49
+      2 REQ-AC-1.48
+      2 REQ-AC-1.46
+      2 REQ-AC-1.20
+      2 REQ-AC-1.2
+      2 REQ-AC-1.18
+      1 REQ-SYS-7.1
+      1 REQ-STG-9.8
+      1 REQ-STG-9.11
+      1 REQ-STG-9.1
+      1 REQ-STG-8.4
+      1 REQ-STG-8.3
+      1 REQ-STG-8.2
+      1 REQ-STG-8.1
+      1 REQ-STG-6.6
+      1 REQ-STG-4.8
+      1 REQ-STG-4.5
+      1 REQ-STG-3.7
+      1 REQ-STG-3.3
+      1 REQ-STG-3.14
+      1 REQ-STG-3.13
+      1 REQ-STG-3.10
+      1 REQ-STG-2.9
+      1 REQ-STG-2.5
+      1 REQ-STG-2.4
+      1 REQ-STG-2.3
+      1 REQ-STG-2.27
+      1 REQ-STG-2.17
+      1 REQ-STG-2.15
+      1 REQ-STG-2.14
+      1 REQ-STG-2.13
+      1 REQ-STG-10.7
+      1 REQ-STG-1.9
+      1 REQ-STG-1.8
+      1 REQ-STG-1.7
+      1 REQ-STG-1.5
+      1 REQ-STG-1.12
+      1 REQ-STG-1.11
+      1 REQ-STG-1.10
+      1 REQ-RPT-9.4
+      1 REQ-RPT-8.1
+      1 REQ-RPT-7.6
+      1 REQ-RPT-7.5
+      1 REQ-RPT-4.5
+      1 REQ-RPT-2.2
+      1 REQ-RPT-1.9
+      1 REQ-RPT-1.8
+      1 REQ-RPT-1.7
+      1 REQ-RPT-1.6
+      1 REQ-RPT-1.5
+      1 REQ-RPT-1.4
+      1 REQ-RPT-1.2
+      1 REQ-RPT-1.11
+      1 REQ-RPT-1.10
+      1 REQ-QP-3.3
+      1 REQ-POS-9.2
+      1 REQ-POS-8.4
+      1 REQ-POS-8.3
+      1 REQ-POS-6.6
+      1 REQ-POS-6.2
+      1 REQ-PER-1.4
+      1 REQ-PER-1.2
+      1 REQ-NGUI-4.6
+      1 REQ-NGUI-4.5
+      1 REQ-NGUI-4.2
+      1 REQ-NGUI-3.9
+      1 REQ-NGUI-3.7
+      1 REQ-NGUI-3.11
+      1 REQ-NGUI-3.10
+      1 REQ-MON-2.9
+      1 REQ-MON-2.8
+      1 REQ-MON-2.6
+      1 REQ-MON-2.5
+      1 REQ-MON-2.4.6
+      1 REQ-MON-2.4.4
+      1 REQ-MON-2.4.3
+      1 REQ-MON-2.4.2
+      1 REQ-MON-2.4.1
+      1 REQ-MON-2.4
+      1 REQ-MON-2.3.2
+      1 REQ-MON-2.3
+      1 REQ-MON-2.11
+      1 REQ-MON-2.10
+      1 REQ-MON-1.4
+      1 REQ-JE-5.7
+      1 REQ-JE-5.6
+      1 REQ-JE-5.2
+      1 REQ-JE-4.7
+      1 REQ-JE-4.6
+      1 REQ-JE-4.5
+      1 REQ-JE-4.14
+      1 REQ-JE-4.13
+      1 REQ-JE-3.7.1
+      1 REQ-JE-2.9
+      1 REQ-JE-2.8
+      1 REQ-JE-2.6
+      1 REQ-JE-2.5
+      1 REQ-JE-2.4
+      1 REQ-JE-2.2
+      1 REQ-JE-2.1
+      1 REQ-JE-1.6
+      1 REQ-JE-1.52
+      1 REQ-JE-1.40
+      1 REQ-JE-1.26
+      1 REQ-JE-1.24
+      1 REQ-JE-1.22
+      1 REQ-JE-1.21
+      1 REQ-JE-1.12
+      1 REQ-JE-1.11
+      1 REQ-FP-4.2.1
+      1 REQ-FP-4.1.1
+      1 REQ-FP-3.5
+      1 REQ-FP-3.1
+      1 REQ-FP-2.6
+      1 REQ-FP-2.5
+      1 REQ-FP-2.3
+      1 REQ-FP-2.2
+      1 REQ-FP-2.1
+      1 REQ-FP-1.4
+      1 REQ-FP-1.3
+      1 REQ-CR-6.5
+      1 REQ-CR-5.6
+      1 REQ-CR-4.7
+      1 REQ-CR-4.6
+      1 REQ-CR-4.4
+      1 REQ-CR-3.3
+      1 REQ-CR-3.1
+      1 REQ-CR-2.9
+      1 REQ-CR-2.8
+      1 REQ-CR-1.8
+      1 REQ-CR-1.7
+      1 REQ-CR-1.3
+      1 REQ-CR-1.24
+      1 REQ-CF-9.7
+      1 REQ-CF-9.6
+      1 REQ-CF-9.2
+      1 REQ-CF-8.8
+      1 REQ-CF-8.7
+      1 REQ-CF-8.5
+      1 REQ-CF-8.10
+      1 REQ-CF-7.4
+      1 REQ-CF-7.16
+      1 REQ-CF-7.12
+      1 REQ-CF-7.11
+      1 REQ-CF-6.2
+      1 REQ-CF-5.2
+      1 REQ-CF-5.18
+      1 REQ-CF-3.11
+      1 REQ-CF-2.8
+      1 REQ-CF-2.17
+      1 REQ-CF-2.16
+      1 REQ-CF-2.15
+      1 REQ-CF-2.14
+      1 REQ-CF-2.13
+      1 REQ-CF-2.12
+      1 REQ-CF-13.6
+      1 REQ-CF-10.3
+      1 REQ-CF-10.2
+      1 REQ-AC-4.19
+      1 REQ-AC-3.9
+      1 REQ-AC-3.5
+      1 REQ-AC-3.3
+      1 REQ-AC-3.13.2
+      1 REQ-AC-2.9
+      1 REQ-AC-2.6
+      1 REQ-AC-2.20
+      1 REQ-AC-2.14
+      1 REQ-AC-1.7
+      1 REQ-AC-1.5
+      1 REQ-AC-1.45
+      1 REQ-AC-1.43
+      1 REQ-AC-1.42
+      1 REQ-AC-1.40
+      1 REQ-AC-1.4
+      1 REQ-AC-1.10
+```
+
+## bash /home/claude/SonOfLeo/Checks/run-all.sh
+
+(exit code 0)
+
+```
+PASS  check-apperror-coverage
+untested: AccountActiveEndBeforeBegin
+untested: AccountDeactivationFailedJournalEntryValidation
+untested: AccountParentAndChildAreSame
+untested: AccountUpdateNoOp
+untested: CadenceDateNotOnMonth
+untested: CashflowExternalInvoiceIdIsEmpty
+untested: CashflowExternalInvoiceIdTooLong
+untested: CashflowInstanceFulfilledWithNoInvoices
+untested: CashflowInstanceFulfilledWithUnpaidInvoice
+untested: CashflowInstanceIdListCannotBeEmpty
+untested: CashflowInstanceNotUnderMasterAgreement
+untested: CashflowInstanceUpdateNoOp
+untested: CashflowInvalidBlocker
+untested: CashflowInvalidBlockerRow
+untested: CashflowInvalidPaymentAmountRow
+untested: CashflowInvalidPaymentState
+untested: CashflowInvalidPaymentTransactionPointerRow
+untested: CashflowInvalidPostedState
+untested: CashflowInvoiceFullyPaidAmountMismatch
+untested: CashflowInvoiceIdListCannotBeEmpty
+untested: CashflowInvoiceNotUnderInstance
+untested: CashflowInvoicePartiallyPaidWithNoPayments
+untested: CashflowInvoicePartiallyPostedWithNoPostedPayment
+untested: CashflowInvoicePostedToLedgerRequiresFullyPaid
+untested: CashflowInvoicePostedToLedgerWithUnpostedPayment
+untested: CashflowInvoiceUpdateNoOp
+untested: CashflowMasterAgreementIdListCannotBeEmpty
+untested: CashflowMasterAgreementUpdateNoOp
+untested: CashflowPaymentAgreementIdListCannotBeEmpty
+untested: CashflowPaymentAgreementLinkUpdateNoOp
+untested: CashflowPaymentAgreementNotUnderMasterAgreement
+untested: CashflowPaymentAgreementUpdateNoOp
+untested: CashflowPaymentNotUnderInvoice
+untested: CashflowPaymentUpdateNoOp
+untested: ClassificationRuleIdListCannotBeEmpty
+untested: ClassificationRuleStoredGroupsInvalid
+untested: ConfigNotFound
+untested: ConfigReadError
+untested: DalConnectionStringConfigRetrievalError
+untested: DalConnectionStringEnvVarContainsConnectionString
+untested: DalConnectionStringEnvVarNotFound
+untested: DalConnectionStringIsEmpty
+untested: DalErrorDuringTransactionCommit
+untested: DalErrorDuringTransactionCreation
+untested: DalErrorDuringTransactionRollback
+untested: FileIoError
+untested: FiscalPeriodDatesDontMatchKey
+untested: FiscalPeriodNoPeriodMatchingId
+untested: IngestionSourceFileIsEmpty
+untested: IngestionStageEntryHeaderNoOp
+untested: IngestionStageEntryLineIdListCannotBeEmpty
+untested: IngestionStageEntryLineNoMatchingJournalEntryLine
+untested: IngestionStageEntryLineNoOp
+untested: IngestionStageHeaderIdListCannotBeEmpty
+untested: IngestionStatusTransitionList
+untested: InvalidCadenceRow
+untested: JournalEntryHeaderIdListCannotBeEmpty
+untested: JournalEntryVoidingCannotFetchFiscalPeriod
+untested: JsonSerializationFailed
+untested: MoneySplitFailedReconciliation
+untested: PersonIdDoesntExist
+untested: PositionsDimensionValueIdDoesntExist
+untested: PositionsHoldingDoesntExist
+untested: PositionsHoldingIdDoesntExist
+untested: PositionsInvestmentAccountIdDoesntExist
+untested: PositionsPropertyIdDoesntExist
+untested: PositionsSecurityIdDoesntExist
+AppError coverage: 290/357 cases referenced in Tests across 11 error types (report-only)
+PASS  check-clock
+PASS  check-compile-order
+PASS  check-confirm-naming
+PASS  check-hardwired-dates
+PASS  check-npgsql
+PASS  check-result-iserror
+PASS  check-test-ddl
+PASS  check-testingerror
+PASS  check-tomessage-wildcard
+SKIP  check-traceability
+on branch 'audit-2026-10-04a', not main: traceability is enforced on main after merge (README step 13)
+----
+10 passed, 0 failed, 1 skipped
+```
+```

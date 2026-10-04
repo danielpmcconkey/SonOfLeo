@@ -1,0 +1,28 @@
+# code-outward-coverage: App.Utility / App.Operation / App.Session
+
+## COV-JSON-1 — missing-requirement
+- **Location:** Src/App.Utility/Json.fs:22-44 (Json.missingFieldMessage / Json.fromJson); Specs/Behavioral/NonGraphicalInterface.md
+- **Summary:** No active REQ describes the behavior Dan called out this run: every route's payload deserialization now rejects a missing field with an error that names that field.
+- **Resolution:** dan-decides
+
+Commit 2387cde added `missingFieldMessage<'T>` to Json.fs (lines 22-38). When FSharp.SystemTextJson reports `Missing field for record type <T>: <x>` and T is the record being read, fromJson replaces the field name with the first declared record field that is not in the JSON object. Before this, a payload that sent `null` for an option field and left off a required field declared after it got an error naming the option field. Every operator and report route shares this code path. I checked the library source (v1.4.36, Helpers.fs `canBeSkipped`, Record.fs line 216). Under the default options Json.fs uses, an option field is MustBePresent. So the first field absent from the JSON is always a field the payload was required to send, and the fix behaves as Dan describes for top-level fields. The gap is in the specs. No active REQ in Specs/Behavioral says a payload missing a field is rejected with an error naming that field. NGUI-1.3.1 says only that the error payload comprises the error message. NGUI-2.2 (waived) says contracts enforce only required versus optional. The one place that discusses missing fields is the Withdrawn-table rationale for NGUI-2.5, which says deserialization 'fails on any missing field' but says nothing about naming it. The behavior is exercised: PositionsRoutes.fs tests at lines 426 (`without "activeBegin"`), 815 (`acquisitionDate`) and 830 (`purchaseBasis`, with `disposalDate = None` sent as null ahead of it, which is the exact regression case) assert `Assert.Contains(<field>, message)`. But those tests cite REQ-POS-4.7, 9.4 and 9.5, which only require the value to be non-null. Their 'naming the missing field' assertion goes beyond the cited REQs and protects a behavior that no requirement states.
+
+**Action:** Dan decides whether a missing payload field must be named in the error. If yes, add a REQ in NonGraphicalInterface.md section 2 or 3 (system-wide, since every route shares fromJson) and re-cite the three PositionsRoutes missing-field tests to it alongside the POS IDs. If no, treat the naming as an untracked convenience.
+
+**Why:** Dan's statement lists this as the one deliberate behavior change outside the slice, and it applies to every route. Without a REQ, nothing in the traceability gate keeps the regression fixed. The only tests that pin it cite Positions REQs whose text does not require it, so a later edit to those tests could drop the field-name assertion without breaking traceability.
+
+---
+
+## COV-JSON-2 — statement-delta
+- **Location:** Src/App.Utility/Json.fs:18-26; Src/Ui.InterfaceBridge/InterfaceContracts/PositionsContracts.fs:138-147; Src/Ui.InterfaceBridge/Routes/PositionsRoutes.fs:188
+- **Summary:** Dan says fromJson 'now names the field a payload actually left out', but the fix covers only the top-level record; a nested record (e.g. one snapshot inside an AccountSnapshot Record payload) still gets the old wrong field name, and no test covers the nested path.
+- **Resolution:** dan-decides
+
+missingFieldMessage builds its prefix from `typeof<'T>` and returns the library's message unchanged whenever that message does not start with `Missing field for record type {'T.FullName}: ` (line 25). The code comment says this on purpose ('When the record the library names is the one being read ... any other message is returned as the library gave it'). Payloads with nested contract records therefore keep the original bug. Concrete case: the AccountSnapshot Record route deserializes `AccountSnapshotRecordInput = { snapshots: AccountSnapshotInput list }` (PositionsRoutes.fs:188). AccountSnapshotInput declares `contributionBasis: decimal option` before the required `lines` (PositionsContracts.fs:138-144). Take a snapshot element that sends `"contributionBasis": null` and leaves off `lines`. In the library's ReadRestOfObject, contributionBasis counts toward requiredFieldCount, but its slot still holds the default (None). The fallback loop therefore names `contributionBasis`, the first default-valued MustBePresent field, as missing in AccountSnapshotInput. That record is not 'T, so fromJson returns the message unchanged, and the operator is told the wrong field is missing. This is exactly the defect 2387cde fixed at top level. AccountSnapshotLineContract (`reportedCostBasis: decimal option` is last, so no field follows it) and nested JournalEntry line contracts are also outside the fix. Every missing-field test (PositionsRoutes.fs lines 426, 815, 830) removes a top-level field through the `without` helper (line 46). No test covers a nested record.
+
+**Action:** Dan decides: either confirm the fix is meant to cover only top-level records and narrow the statement accordingly, or extend fromJson to name the field correctly in nested records and add a route test that leaves `lines` off a snapshot element whose contributionBasis is null.
+
+**Why:** Dan's mental model is that the shared deserializer now names the field a payload actually left out. For multi-record payloads, the Positions slice's own snapshot recording among them, it can still name a field the payload did send (as null). That is the confusing error the fix was meant to eliminate.
+
+---
+
