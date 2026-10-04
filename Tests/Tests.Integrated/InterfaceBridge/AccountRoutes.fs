@@ -34,6 +34,7 @@ open Business.FinancialServices.Classification.ClassificationAuditableAction
 open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.BizFinServError
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
 
 [<Collection("SharedTestData")>]
 type AccountRouteTests(fixture: TestDataFixture) =
@@ -43,13 +44,35 @@ type AccountRouteTests(fixture: TestDataFixture) =
         let mutable accountIdToCleanup: AccountId option = None
         try
             let context = Context.create NoTransaction FetchOnly
+            let parentId = fixture.Data.assets1000Id
+            let parentCode =
+                fixture.Data.accounts
+                |> List.find(fun a -> a |> Account.accountId = parentId)
+                |> Account.code |> AccountCode.value
+            let accountInput: AccountCreateInput =
+                { code = "AC-2.21"
+                  name = "Route-created cash account"
+                  accountTypeSt = "Asset"
+                  activeBegin = Calendar.today().PlusDays(-30)
+                  activeEnd = Some(Calendar.today().PlusYears(2))
+                  subType = Some "Cash"
+                  parentCode = Some parentCode
+                  reference = Some "route-ref-2.21" }
             result {
-                let accountInput = createAccountInput "AC-2.21"
                 let! payload = accountInput |> toJson<AccountCreateInput>
                 let! resultPayload = routeUiCommandForTesting "Account" "Create" [] payload
                 let! accountReturn = fromJson<AccountReturn> resultPayload
                 let! cleanUpId = accountReturn.code |> Business.FinancialServices.Ledger.Account.codeToId.fetch (context |> Context.getDatabaseTransaction)
                 accountIdToCleanup <- (cleanUpId |> AccountId.fromGuid |> Some)
+                // read back from the database, apart from the route's return
+                let! stored = cleanUpId |> AccountId.fromGuid |> Account.fetchById context
+                Assert.Equal(accountInput.name, stored |> Account.accountName |> AccountName.value)
+                Assert.Equal(AccountType.Asset, stored |> Account.accountType)
+                Assert.Equal(Some AccountSubtype.Cash, stored |> Account.accountSubType)
+                Assert.Equal(accountInput.activeBegin, stored |> Account.activityPeriod |> ActivityPeriod.activeBegin)
+                Assert.Equal(accountInput.activeEnd, stored |> Account.activityPeriod |> ActivityPeriod.activeEnd)
+                Assert.Equal(Some parentId, stored |> Account.parentId)
+                Assert.Equal(accountInput.reference, stored |> Account.externalReference |> Option.map AccountExternalReference.value)
                 return ()
             }
             |> railroadWrapper
@@ -149,16 +172,16 @@ type AccountRouteTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-AC-3.6 Account FetchByAccountType happy path``() =
         let explicitType = "Revenue"
-        let expected =
+        let expectedCodes =
             fixture.Data.accounts
-            |> List.filter(fun a -> a |> Account.accountType |> AccountType.toString = explicitType)
-            |> List.length
+            |> List.filter(fun a -> a |> Account.accountType = AccountType.Revenue)
+            |> List.map(fun a -> a |> Account.code |> AccountCode.value)
         result {
             let! payload = { accountTypeSt = explicitType } |> toJson<AccountFetchByAccountTypeInput>
             let! returnPayload = routeUiCommandForTesting "Account" "FetchByAccountType" [] payload
             let! fetchedAccounts = fromJson<AccountReturn list> returnPayload
-            fetchedAccounts |> List.forall(fun x -> x.accountTypeSt = explicitType) |> Assert.True
-            Assert.Equal(expected, fetchedAccounts |> List.length)
+            Assert.Equal<Set<string>>(expectedCodes |> Set.ofList, fetchedAccounts |> List.map _.code |> Set.ofList)
+            Assert.Equal(expectedCodes |> List.length, fetchedAccounts |> List.length)
             return ()
         }
         |> railroadWrapper
@@ -166,10 +189,12 @@ type AccountRouteTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-AC-3.7 Account FetchAll happy path``() =
         let expected = fixture.Data.totalAccounts
+        let expectedCodes = fixture.Data.accounts |> List.map(fun a -> a |> Account.code |> AccountCode.value) |> Set.ofList
         result {
             let! payload = { activeOnly = false } |> toJson<AccountFetchAllInput>
             let! returnPayload = routeUiCommandForTesting "Account" "FetchAll" [] payload
             let! fetchedAccounts = fromJson<AccountReturn list> returnPayload
+            Assert.Equal<Set<string>>(expectedCodes, fetchedAccounts |> List.map _.code |> Set.ofList)
             Assert.Equal(expected, fetchedAccounts |> List.length)
             return ()
         }
@@ -292,17 +317,20 @@ type AccountRouteTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-3.9 FetchActivity happy path``() =
-        let code = "F-2210"
-        let account =
+    member _.``REQ-AC-3.12 FetchActivity happy path``() =
+        let accountId = fixture.Data.mortgage2210Id
+        let code =
             fixture.Data.accounts
-            |> List.filter(fun a -> a |> Account.code |> AccountCode.value = code)
-            |> List.head
-        let accountId = account |> Account.accountId
-        let expected =
+            |> List.find(fun a -> a |> Account.accountId = accountId)
+            |> Account.code |> AccountCode.value
+        let expectedLines =
             fixture.Data.journalEntryLines
             |> List.filter(fun l -> l |> JournalEntryLine.accountId = accountId)
-            |> List.length
+        let expected = expectedLines |> List.length
+        let expectedLineAmounts =
+            expectedLines
+            |> List.map(fun l -> l |> JournalEntryLine.journalEntryLineId |> JournalEntryLineId.value, l |> JournalEntryLine.amount |> Money.amount)
+            |> Set.ofList
         result {
             let input: AccountActivityFetchInput =
                 { filter =
@@ -322,18 +350,42 @@ type AccountRouteTests(fixture: TestDataFixture) =
             let! returned = fromJson<AccountActivityReturn list> returnPayload
             let actual = returned |> List.length
             Assert.Equal(expected, actual)
+            Assert.Equal<Set<Guid * decimal>>(
+                expectedLineAmounts,
+                returned |> List.choose _.activityDetail |> List.map(fun d -> d.lineId, d.amount) |> Set.ofList)
             return ()
         }
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-3.6 FetchBalances route happy path``() =
+    member _.``REQ-AC-3.13 FetchBalances route returns each code's name, unvoided debit and credit totals and normal-balance net``() =
+        let unvoidedLines =
+            fixture.Data.journalEntries
+            |> List.filter(fun je ->
+                je |> JournalEntryOrchestration.header |> JournalEntryHeader.voidedAt |> Option.isNone)
+            |> List.collect JournalEntryOrchestration.jeLines
+        let expectedFor (accountId: AccountId) (debitNormal: bool) : AccountBalanceReturn =
+            let account = fixture.Data.accounts |> List.find(fun a -> a |> Account.accountId = accountId)
+            let sumOf lineType =
+                unvoidedLines
+                |> List.filter(fun l -> l |> JournalEntryLine.accountId = accountId && l |> JournalEntryLine.lineType = lineType)
+                |> List.sumBy(fun l -> l |> JournalEntryLine.amount |> Money.amount)
+            let debits = sumOf JournalEntryLineType.Debit
+            let credits = sumOf JournalEntryLineType.Credit
+            { accountCode = account |> Account.code |> AccountCode.value
+              accountName = account |> Account.accountName |> AccountName.value
+              totalDebits = debits
+              totalCredits = credits
+              netBalance = if debitNormal then debits - credits else credits - debits }
+        // a credit-normal Liability and a debit-normal Expense
+        let expected = [ expectedFor fixture.Data.mortgage2210Id false; expectedFor fixture.Data.food5350Id true ]
         result {
-            let input: AccountBalanceFetchByAccountListInput = { codes = [ "F-2210"; "F-5350" ]; asOf = None }
+            let input: AccountBalanceFetchByAccountListInput = { codes = expected |> List.map _.accountCode; asOf = None }
             let! payload = input |> toJson<AccountBalanceFetchByAccountListInput>
             let! returnPayload = routeUiCommandForTesting "Account" "FetchBalances" [] payload
             let! returned = fromJson<AccountBalanceReturn list> returnPayload
-            Assert.Equal(2, returned |> List.length)
+            Assert.All(expected, fun e -> Assert.NotEqual(0M, e.netBalance))
+            Assert.Equal<AccountBalanceReturn list>(expected |> List.sortBy _.accountCode, returned |> List.sortBy _.accountCode)
             return ()
         }
         |> railroadWrapper
@@ -477,7 +529,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
     [<InlineData("amount", "10.307", "MoneyFailedToConvertImproperPrecision")>]
     [<InlineData("amount", "19999999999.99", "MoneyFailedToConvertExceededMax")>]
     [<InlineData("amount", "-19999999999.99", "MoneyFailedToConvertBelowMin")>]
-    member _.``REQ-JE-3.9 FetchActivity validates all input as valid types``
+    member _.``REQ-AC-3.12.1 FetchActivity validates all input as valid types``
         (field: string, value: string, expectedError: string) =
         let convertValueToTemporalFilter () : Result<TemporalFilterInput, IAppError> =
             match value.IndexOf(':') with
@@ -630,7 +682,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
     [<InlineData("codeTooLong", "AccountCodeTooLong")>]
     [<InlineData("codeInvalid", "AccountCodeDoesntMatchAccountId")>]
     [<InlineData("emptyList", "AccountBalanceFetchInvalidArguments")>]
-    member _.``REQ-JE-3.6 FetchBalances validates input as valid types``
+    member _.``REQ-AC-3.11 REQ-AC-3.13.3 FetchBalances validates input as valid types``
         (scenario: string, expectedError: string) =
         let codesToUse =
             match scenario with

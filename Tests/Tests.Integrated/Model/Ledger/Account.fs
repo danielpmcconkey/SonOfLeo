@@ -79,21 +79,28 @@ type AccountTests(fixture: TestDataFixture) =
             cleanUpAccountId idToCleanUp |> ignore
 
     [<Fact>]
-    member _.``REQ-AC-1.5 Account code is case sensitive.``() =
+    member _.``REQ-AC-1.5 an account created under the lower-cased form of an existing account's code is a distinct account, and each code resolves to its own account``() =
+        let incumbentId = fixture.Data.assets1000Id
+        let incumbentCode =
+            fixture.Data.accounts |> List.find(fun a -> a |> Account.accountId = incumbentId) |> Account.code |> AccountCode.value
+        let lowered = incumbentCode.ToLowerInvariant()
+        Assert.NotEqual<string>(incumbentCode, lowered)
         runCommandRouteAndAutoRollback AccountCreate (fun context ->
-            let code = "f-1000"
             result {
-                let! returned =
+                let! created =
                     AccountCreation.constructNewAndPersist
                         context
-                        (code |> AccountCode.create |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage())))
+                        (lowered |> AccountCode.create |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage())))
                         genericAccountName
                         genericAccountType
                         genericActivityPeriod
                         genericAccountSubtype
                         genericAccountParentId
                         genericAccountReference
-                Assert.NotEqual(fixture.Data.assets1000Id, returned |> Account.accountId)
+                let! all = Account.fetchAll context false
+                let holderOf code = all |> List.filter(fun a -> a |> Account.code |> AccountCode.value = code) |> List.map Account.accountId
+                Assert.Equal<AccountId list>([ incumbentId ], holderOf incumbentCode)
+                Assert.Equal<AccountId list>([ created |> Account.accountId ], holderOf lowered)
                 return ()
             })
         |> railroadWrapper
@@ -160,45 +167,50 @@ type AccountTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-AC-3.6 fetch by account type returns matching accounts``() =
+    member _.``REQ-AC-3.6 fetch by account type returns exactly the accounts of that type``() =
         let context = Context.create NoTransaction FetchOnly
+        let expectedIds =
+            fixture.Data.accounts
+            |> List.filter(fun a -> a |> Account.accountType = AccountType.Equity)
+            |> List.map Account.accountId
         result {
-            let! fetchType = AccountType.fromString "Equity"
-            let! fetched = Account.fetchByAccountType context fetchType
-            let expectedIds = [ fixture.Data.equity3000Id; fixture.Data.retirement3030Id ]
-            expectedIds
-            |> List.forall(fun id -> fetched |> List.exists(fun a -> Account.accountId a = id))
-            |> Assert.True
-            fetched |> List.forall(fun a -> Account.accountType a = fetchType) |> Assert.True
+            let! fetched = Account.fetchByAccountType context AccountType.Equity
+            Assert.Equal<Set<AccountId>>(expectedIds |> Set.ofList, fetched |> List.map Account.accountId |> Set.ofList)
+            Assert.Equal(expectedIds |> List.length, fetched |> List.length)
             return ()
         }
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-AC-3.7 fetch all fetches everything``() =
-        let expectedCount = fixture.Data.accounts |> List.length
+    member _.``REQ-AC-3.7 fetch all returns exactly the fixture's accounts``() =
+        let expectedIds = fixture.Data.accounts |> List.map Account.accountId
         let context = Context.create NoTransaction FetchOnly
         result {
             let! fetched = Account.fetchAll context false
-            Assert.Equal(expectedCount, fetched |> List.length)
+            Assert.Equal<Set<AccountId>>(expectedIds |> Set.ofList, fetched |> List.map Account.accountId |> Set.ofList)
+            Assert.Equal(expectedIds |> List.length, fetched |> List.length)
             return ()
         }
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-AC-3.9 fetch all with active only fetches active accounts relative to system run time``() =
+    member _.``REQ-AC-3.9 fetch all with active only returns exactly the accounts whose activity window holds today``() =
         let today = Calendar.today()
-        let activeAccounts =
+        // REQ-AC-1.50 in plain comparisons on the fixture's stored dates
+        let expectedIds =
             fixture.Data.accounts
-            |> List.filter(fun a -> a |> Account.activityPeriod |> ActivityPeriod.isActive today)
-        let expectedCount = activeAccounts |> List.length
+            |> List.filter(fun a ->
+                let period = a |> Account.activityPeriod
+                let begins = period |> ActivityPeriod.activeBegin
+                let ends = period |> ActivityPeriod.activeEnd
+                begins <= today && (ends.IsNone || ends.Value >= today))
+            |> List.map Account.accountId
+        Assert.DoesNotContain(fixture.Data.closedBank1290Id, expectedIds)
         let context = Context.create NoTransaction FetchOnly
         result {
             let! fetched = Account.fetchAll context true
-            Assert.Equal(expectedCount, fetched |> List.length)
-            fixture.Data.closedBank1290Id
-            |> fun closedId -> fetched |> List.exists(fun a -> Account.accountId a = closedId)
-            |> Assert.False
+            Assert.Equal<Set<AccountId>>(expectedIds |> Set.ofList, fetched |> List.map Account.accountId |> Set.ofList)
+            Assert.Equal(expectedIds |> List.length, fetched |> List.length)
             return ()
         }
         |> railroadWrapper

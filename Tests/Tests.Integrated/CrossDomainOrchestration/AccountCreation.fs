@@ -22,26 +22,8 @@ open Tests.Helpers.SadPath
 open Tests.Helpers.GenericTestProperties
 open App.DataAccessLayer.DalError
 open Business.FinancialServices.Ledger.LedgerError
-
-[<Fact>]
-let ``REQ-AC-2.13 constructNew generates UUID`` () =
-    runCommandRouteAndAutoRollback AccountCreate (fun context ->
-        let code = "abc1" |> AccountCode.create |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
-        AccountCreation.constructNewAndPersist
-            context
-            code
-            genericAccountName
-            genericAccountType
-            genericActivityPeriod
-            genericAccountSubtype
-            genericAccountParentId
-            genericAccountReference
-        |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
-        |> Account.accountId
-        |> AccountId.value
-        |> fun id -> Assert.NotEqual(Guid.Empty, id)
-        Ok())
-    |> railroadWrapper
+open App.Utility.Result
+open Tests.Helpers
 
 [<Fact>]
 let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` () =
@@ -81,3 +63,54 @@ let ``REQ-AC-1.40 constructNew rejects non-existent parent ID`` () =
                 genericAccountReference
         isCorrectError result AccountIdDoesntMatch None)
     |> railroadWrapper
+
+[<Collection("SharedTestData")>]
+type AccountCreationTests(fixture: TestDataFixture) =
+
+    let createWith context (code: string) accountType subtype =
+        AccountCreation.constructNewAndPersist
+            context
+            (code |> AccountCode.create |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage())))
+            genericAccountName
+            accountType
+            genericActivityPeriod
+            subtype
+            genericAccountParentId
+            genericAccountReference
+
+    [<Fact>]
+    member _.``REQ-AC-2.13 two accounts created in one transaction get IDs distinct from each other and from every fixture account's ID``() =
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
+            result {
+                let! first = createWith context "AC-2.13-1" genericAccountType genericAccountSubtype
+                let! second = createWith context "AC-2.13-2" genericAccountType genericAccountSubtype
+                let firstId = first |> Account.accountId
+                let secondId = second |> Account.accountId
+                Assert.NotEqual(firstId, secondId)
+                let fixtureIds = fixture.Data.accounts |> List.map Account.accountId
+                Assert.DoesNotContain(firstId, fixtureIds)
+                Assert.DoesNotContain(secondId, fixtureIds)
+                return ()
+            })
+        |> railroadWrapper
+
+    [<Theory>]
+    [<InlineData("Equity")>]
+    [<InlineData("Liability")>]
+    member _.``REQ-AC-1.28 REQ-AC-1.31 REQ-AC-1.32 creating an Equity or a Liability account with the Cash subtype is refused with AccountInvalidTypeSubtypeCombo naming the pair, and no account is stored``(accountTypeString: string) =
+        runCommandRouteAndAutoRollback AccountCreate (fun context ->
+            result {
+                let! accountType = accountTypeString |> AccountType.fromString
+                let code = $"AC-1.28-{accountTypeString.Substring(0, 1)}"
+                let () =
+                    match createWith context code accountType (Some AccountSubtype.Cash) with
+                    | Error (AsError (AccountInvalidTypeSubtypeCombo (typeName, subtypeName))) ->
+                        Assert.Equal(accountTypeString, typeName)
+                        Assert.Equal(Some "Cash", subtypeName)
+                    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                    | Ok _ -> Assert.Fail "Expected failure; got success"
+                let! all = Account.fetchAll context false
+                Assert.DoesNotContain(code, all |> List.map (Account.code >> AccountCode.value))
+                return ()
+            })
+        |> railroadWrapper

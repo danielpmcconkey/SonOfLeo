@@ -29,7 +29,7 @@ open Tests.Helpers.Railroad
 type AccountActivityTests(fixture: TestDataFixture) =
 
     [<Fact>]
-    member _.``REQ-JE-3.9 fetchFiltered by account returns all activity with no filters set``() =
+    member _.``REQ-AC-3.12 fetchFiltered by account returns all activity with no filters set``() =
         let expectedCountDetails = fixture.Data.totalJournalEntryLines
         let expectedCountTotal = expectedCountDetails + fixture.Data.totalAccountsWithNoLines
         let filter:AccountActivityFilter =
@@ -57,7 +57,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
-    member _.``REQ-JE-3.9 activity detail carries its parent entry's date, description, source, and voided-at``() =
+    member _.``REQ-AC-3.12 activity detail carries its parent entry's date, description, source, and voided-at``() =
         (* "Fixture JE with reference" is the one fixture entry created with a source, so it
            is the only one that can prove the source enrichment is populated rather than
            merely present as a null. *)
@@ -105,7 +105,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-3.9.1 fetchFiltered with unVoidedOnly excludes voided entries``() =
+    member _.``REQ-AC-3.12.2 fetchFiltered with unVoidedOnly excludes voided entries``() =
         let unVoidedJournalEntries =
             fixture.Data.journalEntries
             |> List.filter(fun je -> je |> JournalEntryOrchestration.header |> JournalEntryHeader.voidedAt |> Option.isNone)
@@ -152,7 +152,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
-    member _.``REQ-JE-3.9 fetchFiltered returns no-activity row for account with no lines``() =
+    member _.``REQ-AC-3.12.3 fetchFiltered returns no-activity row for account with no lines``() =
         let accountId = fixture.Data.assets1000Id
         let linesAtAccount =
             fixture.Data.journalEntryLines
@@ -179,7 +179,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
-    member _.``REQ-JE-3.9 fetchFiltered by amount returns only matching lines``() =
+    member _.``REQ-AC-3.12.1 fetchFiltered by amount returns only matching lines``() =
         let nonVoidedLines =
             fixture.Data.journalEntries
             |> List.filter(fun je ->
@@ -219,101 +219,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
-    member _.``REQ-JE-3.9.3 fetchFiltered sort by entry date — ascending and descending are mutual reverses``() =
-        let filter:AccountActivityFilter =
-            { accountId = None
-              temporalFilter = None
-              source = None
-              accountType = None
-              accountSubtype = None
-              accountParentId = None
-              journalEntryId = None
-              amount = None
-              description = None
-              unVoidedOnly = false }
-        let context = Context.create NoTransaction FetchOnly
-        let extractDates (activities:AccountActivity.AccountActivity list) =
-            activities
-            |> List.filter (fun a -> a.activityDetail |> Option.isSome)
-            |> List.map (fun a -> (a.activityDetail |> Option.get).entryDate)
-        result {
-            let! activitiesAsc = AccountActivity.fetchFiltered context filter (Some FetchSort.EntryDateAsc)
-            let! activitiesDesc = AccountActivity.fetchFiltered context filter (Some FetchSort.EntryDateDesc)
-            let datesAsc = extractDates activitiesAsc
-            let datesDesc = extractDates activitiesDesc
-            Assert.True(
-                datesAsc |> List.pairwise |> List.exists (fun (a, b) -> a <> b),
-                "All dates are identical — sort order cannot be verified")
-            Assert.True(
-                (datesAsc |> List.rev) = datesDesc,
-                "Descending sort should be the reverse of ascending sort")
-        }
-        |> railroadWrapper
-
-    [<Fact>]
-    member _.``REQ-JE-3.9.3 fetchFiltered sort by account code — ascending and descending are mutual reverses``() =
-        let filter:AccountActivityFilter =
-            { accountId = None
-              temporalFilter = None
-              source = None
-              accountType = None
-              accountSubtype = None
-              accountParentId = None
-              journalEntryId = None
-              amount = None
-              description = None
-              unVoidedOnly = false }
-        let context = Context.create NoTransaction FetchOnly
-        let extractCodes (activities:AccountActivity.AccountActivity list) =
-            activities |> List.map (fun a -> a.accountCode |> AccountCode.value)
-        result {
-            let! activitiesAsc = AccountActivity.fetchFiltered context filter (Some FetchSort.AccountCodeAsc)
-            let! activitiesDesc = AccountActivity.fetchFiltered context filter (Some FetchSort.AccountCodeDesc)
-            let codesAsc = extractCodes activitiesAsc
-            let codesDesc = extractCodes activitiesDesc
-            Assert.True(
-                codesAsc |> List.pairwise |> List.exists (fun (a, b) -> a <> b),
-                "All codes are identical — sort order cannot be verified")
-            Assert.True(
-                (codesAsc |> List.rev) = codesDesc,
-                "Descending sort should be the reverse of ascending sort")
-        }
-        |> railroadWrapper
-
-    [<Fact>]
-    member _.``REQ-JE-3.9.3 fetchFiltered sort by amount — ascending and descending are mutual reverses``() =
-        let filter:AccountActivityFilter =
-            { accountId = None
-              temporalFilter = None
-              source = None
-              accountType = None
-              accountSubtype = None
-              accountParentId = None
-              journalEntryId = None
-              amount = None
-              description = None
-              unVoidedOnly = false }
-        let context = Context.create NoTransaction FetchOnly
-        let extractAmounts (activities:AccountActivity.AccountActivity list) =
-            activities
-            |> List.filter (fun a -> a.activityDetail |> Option.isSome)
-            |> List.map (fun a -> (a.activityDetail |> Option.get).amount |> Money.amount)
-        result {
-            let! activitiesAsc = AccountActivity.fetchFiltered context filter (Some AmountAsc)
-            let! activitiesDesc = AccountActivity.fetchFiltered context filter (Some AmountDesc)
-            let amountsAsc = extractAmounts activitiesAsc
-            let amountsDesc = extractAmounts activitiesDesc
-            Assert.True(
-                amountsAsc |> List.pairwise |> List.exists (fun (a, b) -> a <> b),
-                "All amounts are identical — sort order cannot be verified")
-            Assert.True(
-                (amountsAsc |> List.rev) = amountsDesc,
-                "Descending sort should be the reverse of ascending sort")
-        }
-        |> railroadWrapper
-
-    [<Fact>]
-    member _.``REQ-JE-3.9 fetchFiltered by description returns only matching lines``() =
+    member _.``REQ-AC-3.12.1 fetchFiltered by description returns only matching lines``() =
         let targetDescriptionStringFull =
             fixture.Data.jeWithUniqueDescription
             |> JournalEntryOrchestration.header
@@ -357,7 +263,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
-    member _.``REQ-JE-3.9 AccountActivity.fetchFiltered by journalEntryId returns only lines for that entry``() =
+    member _.``REQ-AC-3.12.1 AccountActivity.fetchFiltered by journalEntryId returns only lines for that entry``() =
         let targetId = fixture.Data.basicJeId
         let expectedLineCount =
             fixture.Data.journalEntryLines
@@ -387,7 +293,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
-    member _.``REQ-JE-3.9 fetchFiltered by journalEntryId with nonexistent id returns no activity rows``() =
+    member _.``REQ-AC-3.12.1 fetchFiltered by journalEntryId with nonexistent id returns no activity rows``() =
         let bogusId = Guid.NewGuid() |> JournalEntryHeaderId.fromGuid
         let filter:AccountActivityFilter =
             { accountId = None

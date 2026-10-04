@@ -32,7 +32,7 @@ open Business.FinancialServices.Ledger.LedgerError
 type AccountBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
-    member _.``REQ-JE-3.6 REQ-RPT-1.10 fetchByAccountIdList returns correct debit and credit totals``() =
+    member _.``REQ-AC-3.13 REQ-RPT-1.10 fetchByAccountIdList returns correct debit and credit totals``() =
         let context = Context.create NoTransaction FetchOnly
         let id1 = fixture.Data.mortgage2210Id
         let id2 = fixture.Data.food5350Id
@@ -66,7 +66,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-3.6 REQ-JE-4.7 REQ-RPT-1.8 fetchByAccountIdList excludes voided entry amounts``() =
+    member _.``REQ-AC-3.13.1 REQ-JE-4.7 REQ-RPT-1.8 fetchByAccountIdList excludes voided entry amounts``() =
         let context = Context.create NoTransaction FetchOnly
         let id1 = fixture.Data.creditCard2220Id
         let id2 = fixture.Data.entertainment5650Id
@@ -100,7 +100,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-3.6 fetchByAccountIdList returns zero balances for account with no activity``() =
+    member _.``REQ-AC-3.13.1 fetchByAccountIdList returns zero balances for account with no activity``() =
         let context = Context.create NoTransaction FetchOnly
         let result = fetchByAccountIdList context (Some [fixture.Data.assets1000Id]) None
         match result with
@@ -113,13 +113,13 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
-    member _.``REQ-JE-3.6 fetchByAccountIdList with empty list returns Error``() =
+    member _.``REQ-AC-3.13.3 fetchByAccountIdList with an empty list fails with AccountBalanceFetchInvalidArguments``() =
         let context = Context.create NoTransaction FetchOnly
         isCorrectErrorEmpty (fetchByAccountIdList context (Some []) None) AccountBalanceFetchInvalidArguments None
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-3.6.2 fetchByAccountIdList with asOf excludes entries after cutoff``() =
+    member _.``REQ-AC-3.13.1 fetchByAccountIdList with asOf excludes entries after cutoff``() =
         let context = Context.create NoTransaction FetchOnly
         let today = Calendar.today()
         let asOfDate = today.PlusDays(-2)
@@ -151,7 +151,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
-    member _.``REQ-JE-3.6.2 fetchByAccountIdList with asOf before all entries returns zero balances``() =
+    member _.``REQ-AC-3.13.1 fetchByAccountIdList with asOf before all entries returns zero balances``() =
         let context = Context.create NoTransaction FetchOnly
         let today = Calendar.today()
         let asOfDate = today.PlusDays(-4)
@@ -167,7 +167,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
-    member _.``REQ-JE-3.6.1 net balance is positive in normal-balance orientation``() =
+    member _.``REQ-AC-3.13 net balance is positive in normal-balance orientation``() =
         let amount = 200.00M
         let zero = 0M
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
