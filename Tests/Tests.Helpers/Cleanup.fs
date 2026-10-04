@@ -347,3 +347,76 @@ let cleanUpRuleMatchesOfRuleId (ruleId: ClassificationRuleId option) : Result<un
         let query = """delete from classification.rule_match WHERE classification_rule_id = @rule_id;"""
         executeNonQuery (context |> Context.getDatabaseTransaction) query parameters AnyQuantityIsAcceptable
         |> Result.map ignore
+
+//=================================================
+// Person and positions clean up
+//=================================================
+(* Route tests commit, and they address what they make by name, as the routes do. So these delete by name: each
+   takes the rows that hang off the entity first, then the entity. A name that matches nothing deletes nothing. *)
+
+let private executeCleanUpStatements (statements: (string * QueryParameter list) list) : Result<unit, IAppError> =
+    let context = Context.create NoTransaction FetchOnly
+    statements
+    |> List.fold
+        (fun acc (query, parameters) ->
+            acc
+            |> Result.bind (fun () ->
+                executeNonQuery (context |> Context.getDatabaseTransaction) query parameters AnyQuantityIsAcceptable
+                |> Result.map ignore))
+        (Ok())
+
+/// Deletes an Investment Account by name, with its snapshots and their lines, its Holdings and its owner rows.
+let cleanUpInvestmentAccountByName (name: string) : Result<unit, IAppError> =
+    let parameters = [ { name = "@name"; value = CharString name } ]
+    let ofAccount = "(select unique_id from positions.investment_account where account_name = @name)"
+    [ $"""delete from positions.account_snapshot_line WHERE account_snapshot_id IN
+            (select unique_id from positions.account_snapshot where investment_account_id IN {ofAccount});"""
+      $"""delete from positions.account_snapshot WHERE investment_account_id IN {ofAccount};"""
+      $"""delete from positions.holding WHERE investment_account_id IN {ofAccount};"""
+      $"""delete from positions.investment_account_owner WHERE investment_account_id IN {ofAccount};"""
+      """delete from positions.investment_account WHERE account_name = @name;""" ]
+    |> List.map (fun query -> query, parameters)
+    |> executeCleanUpStatements
+
+/// Deletes a Security by name, with any Holding of it and any snapshot line on such a Holding.
+let cleanUpSecurityByName (name: string) : Result<unit, IAppError> =
+    let parameters = [ { name = "@name"; value = CharString name } ]
+    let holdingsOf = "(select unique_id from positions.holding where security_id IN (select unique_id from positions.security where security_name = @name))"
+    [ $"""delete from positions.account_snapshot_line WHERE holding_id IN {holdingsOf};"""
+      $"""delete from positions.holding WHERE unique_id IN {holdingsOf};"""
+      """delete from positions.security WHERE security_name = @name;""" ]
+    |> List.map (fun query -> query, parameters)
+    |> executeCleanUpStatements
+
+/// Deletes a Dimension Value by dimension and name. A Security still pointing at it must go first.
+let cleanUpDimensionValueByName (dimension: string) (name: string) : Result<unit, IAppError> =
+    [ """delete from positions.dimension_value WHERE dimension = @dimension AND value_name = @name;""",
+      [ { name = "@dimension"; value = CharString dimension }; { name = "@name"; value = CharString name } ] ]
+    |> executeCleanUpStatements
+
+/// Deletes a Property by name, with its Valuations, its mortgage links and its owner rows.
+let cleanUpPropertyByName (name: string) : Result<unit, IAppError> =
+    let parameters = [ { name = "@name"; value = CharString name } ]
+    let ofProperty = "(select unique_id from positions.property where property_name = @name)"
+    [ $"""delete from positions.valuation WHERE property_id IN {ofProperty};"""
+      $"""delete from positions.property_mortgage_account WHERE property_id IN {ofProperty};"""
+      $"""delete from positions.property_owner WHERE property_id IN {ofProperty};"""
+      """delete from positions.property WHERE property_name = @name;""" ]
+    |> List.map (fun query -> query, parameters)
+    |> executeCleanUpStatements
+
+/// Deletes a Person by name. Accounts and Properties that list the Person as an owner must go first.
+let cleanUpPersonByName (name: string) : Result<unit, IAppError> =
+    [ """delete from general.person WHERE person_name = @name;""", [ { name = "@name"; value = CharString name } ] ]
+    |> executeCleanUpStatements
+
+/// Runs every clean up, even after one fails, and reports all the failures together.
+let cleanUpAll (cleanUps: (unit -> Result<unit, IAppError>) list) : Result<unit, IAppError> =
+    cleanUps
+    |> List.map (fun cleanUp -> cleanUp ())
+    |> List.choose (function
+        | Error e -> Some(e.ToMessage())
+        | Ok _ -> None)
+    |> function
+        | [] -> Ok()
+        | errors -> Error(TestingError $"""One or more clean ups failed||{errors |> String.concat "||"}""")
