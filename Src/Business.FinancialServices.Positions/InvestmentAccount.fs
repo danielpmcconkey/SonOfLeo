@@ -288,7 +288,3 @@ let update
             | None -> Ok()
         return! accountId |> fetchById context
     }
-
-/// Route-lifetime lookups between an Investment Account's ID and its name; see App.DataAccessLayer.LookupCache.
-let nameToId = App.DataAccessLayer.LookupCache.stringToIdCache "positions.investment_account" "account_name"
-let idToName = App.DataAccessLayer.LookupCache.idToStringCache "positions.investment_account" "account_name"

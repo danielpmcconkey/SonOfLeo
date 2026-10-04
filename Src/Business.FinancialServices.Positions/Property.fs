@@ -304,7 +304,3 @@ let update (context: Context.Context) (fieldUpdates: PropertyFieldUpdates) : Res
             | None -> Ok()
         return! propertyId |> fetchById context
     }
-
-/// Route-lifetime lookups between a Property's ID and its name; see App.DataAccessLayer.LookupCache.
-let nameToId = App.DataAccessLayer.LookupCache.stringToIdCache "positions.property" "property_name"
-let idToName = App.DataAccessLayer.LookupCache.idToStringCache "positions.property" "property_name"
