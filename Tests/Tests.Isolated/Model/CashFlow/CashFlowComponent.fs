@@ -18,16 +18,30 @@ let ``REQ-CF-7.1 for each of 0, -1 and 366, a sweep horizon of that many days is
         | _ -> false
     Assert.True(rejectedWithTheBound)
 
-// Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
-
 [<Fact>]
 let ``REQ-CF-4.11 REQ-CF-5.17 a cancellation reason note of exactly 500 characters is accepted and one of 501 characters is rejected as too long`` () =
-    Assert.Fail "Not yet implemented"
+    let atLimit = System.String('n', 500)
+    let overLimit = System.String('n', 501)
+    match atLimit |> CancellationReasonNote.create with
+    | Ok note -> Assert.Equal(atLimit, note |> CancellationReasonNote.value)
+    | Error e -> Assert.Fail $"Expected success; got {e.ToMessage()}"
+    match overLimit |> CancellationReasonNote.create with
+    | Error (AsError (CashflowCancellationReasonNoteTooLong (raw, limit))) ->
+        Assert.Equal(overLimit, raw)
+        Assert.Equal(500, limit)
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+    | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
 let ``REQ-CF-4.11 REQ-CF-5.17 for each of an empty string and a whitespace-only string, a cancellation reason note is rejected as empty`` () =
-    Assert.Fail "Not yet implemented"
+    for blank in [ ""; "   \t  " ] do
+        match blank |> CancellationReasonNote.create with
+        | Error (AsError (CashflowCancellationReasonNoteIsEmpty raw)) -> Assert.Equal(blank, raw)
+        | Error e -> Assert.Fail $"Wrong error for '{blank}'. {e.ToMessage()}"
+        | Ok _ -> Assert.Fail $"Expected failure for '{blank}'; got success"
 
 [<Fact>]
 let ``REQ-CF-4.11 REQ-CF-5.17 REQ-SYS-1.1 a cancellation reason note with leading and trailing whitespace holds the trimmed text`` () =
-    Assert.Fail "Not yet implemented"
+    match "  billed in error  " |> CancellationReasonNote.create with
+    | Ok note -> Assert.Equal("billed in error", note |> CancellationReasonNote.value)
+    | Error e -> Assert.Fail $"Expected success; got {e.ToMessage()}"
