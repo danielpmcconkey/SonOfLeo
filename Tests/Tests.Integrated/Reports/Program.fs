@@ -56,20 +56,28 @@ type ProgramTests(fixture: TestDataFixture) =
             let! path = File.createFullPath badPathRoot $"{badPathFile}.html"
             do! match textToWrite |> File.writeTextFile path with
                 | Ok _ -> Error (TestingError "expected failure but got success")
-                | Error intendedError -> 
-                    (* Only the first line is SonOfLeo's. The stack trace after it comes from the runtime, and its
-                       internal frames differ between the CLI's process and this one, so it is checked only for being
-                       there. *)
-                    let firstLine (text: string) = text.Split(Environment.NewLine).[0]
-                    let expectedFirstLine = intendedError.ToMessage() |> firstLine
+                | Error intendedError ->
+                    (* The message embeds the exception's stack trace. Its frame lines come from the runtime and
+                       differ between the CLI's process and this one, so they are stripped from both sides and
+                       everything else is compared whole. No requirement asks for a trace, so none is asserted. *)
+                    let withoutFrames (text: string) =
+                        text.Split('\n')
+                        |> Array.map (fun line -> line.TrimEnd('\r'))
+                        |> Array.filter (fun line ->
+                            not (Text.RegularExpressions.Regex.IsMatch(line, @"^\s+at \S"))
+                            && not (line.TrimStart().StartsWith("--- End of")))
+                        |> String.concat "\n"
+                        |> fun s -> s.TrimEnd()
+                    let expected = intendedError.ToMessage() |> withoutFrames
                     let args = [ "TrialBalance" ]
                     let payload =
                         badPathInput
                         |> toJson<TrialBalanceReportInput>
                         |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
-                    let _, _, e = runCli Reports args payload
-                    Assert.Equal(expectedFirstLine, firstLine e)
-                    Assert.Matches(@"(?m)^\s+at \S", e)
+                    let exitCode, _, e = runCli Reports args payload
+                    Assert.Equal(1, exitCode)
+                    Assert.NotEmpty(expected)
+                    Assert.Equal(expected, e |> withoutFrames)
                     Ok()
             return ()
         }

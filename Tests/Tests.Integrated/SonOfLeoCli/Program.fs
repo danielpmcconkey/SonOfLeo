@@ -47,7 +47,8 @@ type ProgramTests(fixture: TestDataFixture) =
             { code = code }
             |> toJson<AccountFetchByCodeInput>
             |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
-        let _, _, e = runCli SonOfLeoCli args payload
+        let exitCode, _, e = runCli SonOfLeoCli args payload
+        Assert.Equal(1, exitCode)
         Assert.Contains(expectedError, e)
 
     [<Fact>]

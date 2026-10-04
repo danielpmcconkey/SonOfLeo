@@ -85,8 +85,7 @@ type AccountRouteTests(fixture: TestDataFixture) =
     member _.``REQ-NGUI-1.5 Account Create fails with invalid parent code``() =
         let mutable accountIdToCleanup: AccountId option = None
         try
-            let badAccountCode = Some "BullS**t"
-            let context = Context.create NoTransaction FetchOnly
+            let badAccountCode = "BullS**t"
             result {
                 let accountInput =
                     { code = genericAccountCodeString
@@ -95,14 +94,25 @@ type AccountRouteTests(fixture: TestDataFixture) =
                       activeBegin = genericActiveBegin
                       activeEnd = genericActiveEnd
                       subType = genericAccountSubtype
-                      parentCode = badAccountCode
+                      parentCode = Some badAccountCode
                       reference = genericAccountReference }
                 let! payload = accountInput |> toJson<AccountCreateInput>
-                do!
-                    isCorrectError
-                        (routeUiCommandForTesting "Account" "Create" [] payload)
-                        AccountParentCodeInvalid
-                        (Some "This may cause other tests to fail.")
+                let () =
+                    match routeUiCommandForTesting "Account" "Create" [] payload with
+                    | Error (AsError (AccountParentCodeInvalid code)) -> Assert.Equal(badAccountCode, code)
+                    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                    | Ok returnPayload ->
+                        // record what the route wrongly created, so finally removes it, then fail
+                        accountIdToCleanup <-
+                            fromJson<AccountReturn> returnPayload
+                            |> Result.bind (fun created ->
+                                // read from the table, not the code cache, which may hold an earlier GenCode's ID
+                                Account.fetchAll (Context.create NoTransaction FetchOnly) false
+                                |> Result.map (List.tryFind (fun a -> a |> Account.code |> AccountCode.value = created.code)))
+                            |> Result.toOption
+                            |> Option.flatten
+                            |> Option.map Account.accountId
+                        Assert.Fail "Expected failure; got success"
                 return ()
             }
             |> railroadWrapper
