@@ -83,13 +83,28 @@ type PrePostingScenario(fixture: TestDataFixture, context: Context.Context) =
     member this.classifiedEntry (description: string) =
         this.stagedEntry description today [ ("Classified", "Classifier") ]
 
-    /// An active account rule with a unique name.
-    member _.accountRule (accountCode: string) (priority: int) =
+    /// An active account rule with the given name.
+    member _.namedAccountRule (name: string) (accountCode: string) (priority: int) =
         result {
             let! pattern = "pre-posting review test" |> StringSearchPattern.create
             return!
-                createClassificationRuleForTest context $"Pre-posting review test {Guid.NewGuid()}" accountCode priority
+                createClassificationRuleForTest context name accountCode priority
                     [ ("And", [ FieldMatch.Description pattern ], None) ]
+        }
+
+    /// An active account rule with a unique name.
+    member this.accountRule (accountCode: string) (priority: int) =
+        this.namedAccountRule $"Pre-posting review test {Guid.NewGuid()}" accountCode priority
+
+    /// An active payment-agreement-claimant rule with a unique name.
+    member _.paymentAgreementRule (legId: PaymentAgreementId) (priority: int) =
+        result {
+            let! pattern = "pre-posting review test" |> StringSearchPattern.create
+            let! name = $"Pre-posting review test {Guid.NewGuid()}" |> ClassificationRuleName.create
+            let! groups = [ ("And", [ FieldMatch.Description pattern ], None) ] |> createClassificationRuleGroupListForTest
+            return!
+                ClassificationOrchestration.constructNewAndPersist
+                    context name (ClassificationClaimant.PaymentAgreement legId) priority groups
         }
 
     /// Records one classification run matching each given rule against the line, at a later instant than any before.
@@ -134,18 +149,21 @@ type PrePostingScenario(fixture: TestDataFixture, context: Context.Context) =
         |> Result.map ignore
 
     /// An Invoice of invoiceAmount on its own Instance dated instanceDate, with one Payment on the staged line.
+    /// Returns the Invoice's ID.
     member _.invoicePaidByLine
         agreementId legId (instanceDate: LocalDate) (invoiceDate: LocalDate) (dueDate: LocalDate)
         (invoiceAmount: decimal) (line: StageEntryLine.StageEntryLine) =
         result {
             let! amount = Money.fromDecimal invoiceAmount
-            let! _ =
+            let! composite =
                 InstanceOrchestration.constructNewAndPersist
                     context agreementId instanceDate
                     [ (legId, None, InvoiceDate.create(invoiceDate), DueDate.create(dueDate), InvoiceAmount.create(amount),
                        InvoiceReceived, None, None,
                        [ (TransactionPointer.Staged (line |> StageEntryLine.stageEntryLineId), None, None, None) ]) ]
-            return ()
+            return
+                composite |> InstanceOrchestration.invoiceComposites |> List.head
+                |> InstanceOrchestration.invoice |> Invoice.invoiceId
         }
 
 module PrePostingReviewTestHelpers =
@@ -280,31 +298,16 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 let! entry = s.classifiedEntry "Pre-posting review 7.3 named"
                 let line = entry |> debitLine
                 let! olderRule = s.accountRule s.loanCode 50
-                let! lowerPriority = s.accountRule s.loanCode 10
-                let! winner = s.accountRule s.loanCode 20
+                let! winner = s.accountRule s.loanCode 10
+                let! loser = s.accountRule s.loanCode 20
                 let! otherAccount = s.accountRule s.cashCode 99
                 do! s.recordRun line [ olderRule ]
-                // the latest run: two rules carry the line's account, and the higher priority one is named
-                do! s.recordRun line [ lowerPriority; winner; otherAccount ]
+                // the latest run: two rules carry the line's account, and the winning priority (the lower value,
+                // REQ-CR-1.6) is named
+                do! s.recordRun line [ loser; winner; otherAccount ]
                 let! review = fetchPrePostingReview context
                 let! reviewed = reviewedLine review entry line
                 Assert.Equal(Some (winner |> ClassificationRule.classificationRuleName), reviewed.ruleName)
-                return ()
-            })
-
-    [<Fact>]
-    member _.``REQ-RPT-7.3 a line whose account no rule in its most recent classification run carries has an empty rule name, even when an older run recorded a rule with that account`` () =
-        inRolledBackTransaction (fun s context ->
-            result {
-                let! entry = s.classifiedEntry "Pre-posting review 7.3 changed"
-                let line = entry |> debitLine
-                let! olderRule = s.accountRule s.loanCode 50
-                let! latestRule = s.accountRule s.cashCode 50
-                do! s.recordRun line [ olderRule ]
-                do! s.recordRun line [ latestRule ]
-                let! review = fetchPrePostingReview context
-                let! reviewed = reviewedLine review entry line
-                Assert.Equal(None, reviewed.ruleName)
                 return ()
             })
 
@@ -347,7 +350,7 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 let instanceDate = LocalDate(s.Today.Year, s.Today.Month, 1)
                 let invoiceDate = instanceDate.PlusDays(-5)
                 let dueDate = instanceDate.PlusDays(10)
-                do! s.invoicePaidByLine agreementId legId instanceDate invoiceDate dueDate 120.00M line
+                let! _ = s.invoicePaidByLine agreementId legId instanceDate invoiceDate dueDate 120.00M line
                 let! review = fetchPrePostingReview context
                 let! reviewed = reviewedLine review entry line
                 Assert.True(reviewed.agreement.IsSome, "Expected the line to carry its agreement")
@@ -417,32 +420,159 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 return ()
             })
 
-    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
-
     [<Fact>]
     member _.``REQ-RPT-7.3 when two rules in the line's latest run claim its current account at different priorities, the line names the rule with the lower priority value`` () =
-        Assert.Fail "Not yet implemented"
+        inRolledBackTransaction (fun s context ->
+            result {
+                let! entry = s.classifiedEntry "Pre-posting review 7.3 priority"
+                let line = entry |> debitLine
+                let prefix = $"Pre-posting review 7.3 {Guid.NewGuid()}"
+                // the higher priority value sorts first by name, so only the priority can name the winner
+                let! loser = s.namedAccountRule $"{prefix} A" s.loanCode 20
+                let! winner = s.namedAccountRule $"{prefix} B" s.loanCode 10
+                do! s.recordRun line [ loser; winner ]
+                let! review = fetchPrePostingReview context
+                let! reviewed = reviewedLine review entry line
+                Assert.Equal(Some $"{prefix} B", reviewed.ruleName |> Option.map ClassificationRuleName.value)
+                return ()
+            })
 
     [<Fact>]
     member _.``REQ-RPT-7.3 when two rules in the line's latest run claim its current account at the same priority, the line names the one first by rule name`` () =
-        Assert.Fail "Not yet implemented"
+        inRolledBackTransaction (fun s context ->
+            result {
+                let! entry = s.classifiedEntry "Pre-posting review 7.3 name"
+                let line = entry |> debitLine
+                let prefix = $"Pre-posting review 7.3 {Guid.NewGuid()}"
+                // created and recorded second-name-first, so neither order can stand in for the name
+                let! second = s.namedAccountRule $"{prefix} B" s.loanCode 30
+                let! first = s.namedAccountRule $"{prefix} A" s.loanCode 30
+                do! s.recordRun line [ second; first ]
+                let! review = fetchPrePostingReview context
+                let! reviewed = reviewedLine review entry line
+                Assert.Equal(Some $"{prefix} A", reviewed.ruleName |> Option.map ClassificationRuleName.value)
+                return ()
+            })
 
     [<Fact>]
     member _.``REQ-RPT-7.3 when two runs both matched the line's current account with different rules, the line names the rule from the later run`` () =
-        Assert.Fail "Not yet implemented"
+        inRolledBackTransaction (fun s context ->
+            result {
+                let! entry = s.classifiedEntry "Pre-posting review 7.3 later run"
+                let line = entry |> debitLine
+                let prefix = $"Pre-posting review 7.3 {Guid.NewGuid()}"
+                // the earlier run's rule would win on priority and on name, so only the run can name the later one
+                let! earlier = s.namedAccountRule $"{prefix} A" s.loanCode 10
+                let! later = s.namedAccountRule $"{prefix} B" s.loanCode 50
+                do! s.recordRun line [ earlier ]
+                do! s.recordRun line [ later ]
+                let! review = fetchPrePostingReview context
+                let! reviewed = reviewedLine review entry line
+                Assert.Equal(Some $"{prefix} B", reviewed.ruleName |> Option.map ClassificationRuleName.value)
+                return ()
+            })
 
     [<Fact>]
     member _.``REQ-RPT-7.3 a later run that recorded the line only against a different account does not displace an earlier run's match with the line's current account`` () =
-        Assert.Fail "Not yet implemented"
+        inRolledBackTransaction (fun s context ->
+            result {
+                let! entry = s.classifiedEntry "Pre-posting review 7.3 other account later"
+                let line = entry |> debitLine
+                let! currentAccount = s.accountRule s.loanCode 50
+                let! otherAccount = s.accountRule s.cashCode 10
+                do! s.recordRun line [ currentAccount ]
+                do! s.recordRun line [ otherAccount ]
+                let! review = fetchPrePostingReview context
+                let! reviewed = reviewedLine review entry line
+                Assert.Equal(Some (currentAccount |> ClassificationRule.classificationRuleName), reviewed.ruleName)
+                return ()
+            })
 
     [<Fact>]
     member _.``REQ-RPT-7.3 when a payment-agreement claimant and an account claimant both match the line in its latest run, the line names the account claimant, whatever their priorities`` () =
-        Assert.Fail "Not yet implemented"
+        inRolledBackTransaction (fun s context ->
+            result {
+                // the leg's debit account is the line's account, so a review that read a claimant's agreement
+                // accounts would name the payment-agreement rule
+                let! _, legId = s.agreement "Pre-posting review 7.3 claimant" "Pre-posting review 7.3 claimant leg"
+                let! accountRule = s.accountRule s.loanCode 50
+                let! winningPaymentRule = s.paymentAgreementRule legId 1
+                let! losingPaymentRule = s.paymentAgreementRule legId 99
+                let! winsOnPriority = s.classifiedEntry "Pre-posting review 7.3 claimant ahead"
+                let! losesOnPriority = s.classifiedEntry "Pre-posting review 7.3 claimant behind"
+                do! s.recordRun (winsOnPriority |> debitLine) [ winningPaymentRule; accountRule ]
+                do! s.recordRun (losesOnPriority |> debitLine) [ losingPaymentRule; accountRule ]
+                let! review = fetchPrePostingReview context
+                let! ahead = reviewedLine review winsOnPriority (winsOnPriority |> debitLine)
+                let! behind = reviewedLine review losesOnPriority (losesOnPriority |> debitLine)
+                let expected = Some (accountRule |> ClassificationRule.classificationRuleName)
+                Assert.Equal(expected, ahead.ruleName)
+                Assert.Equal(expected, behind.ruleName)
+                return ()
+            })
 
     [<Fact>]
     member _.``REQ-RPT-7.4 a line referenced by several Payments carries each with its amount, its Invoice's invoice date, due date, amount and payment state, and its Instance's date`` () =
-        Assert.Fail "Not yet implemented"
+        inRolledBackTransaction (fun s context ->
+            result {
+                let! firstAgreementId, firstLegId = s.agreement "Pre-posting review 7.4 several A" "Pre-posting review 7.4 several A leg"
+                let! secondAgreementId, secondLegId = s.agreement "Pre-posting review 7.4 several B" "Pre-posting review 7.4 several B leg"
+                let! entry = s.classifiedEntry "Pre-posting review 7.4 several"
+                let line = entry |> debitLine
+                do! s.link firstLegId line
+                let firstOfThisMonth = LocalDate(s.Today.Year, s.Today.Month, 1)
+                // the staged line is 100.00, so it fully pays the 100.00 Invoice and partly pays the 250.00 one
+                let fully = (firstOfThisMonth, firstOfThisMonth.PlusDays(-3), firstOfThisMonth.PlusDays(7), 100.00M)
+                let partly = (firstOfThisMonth.PlusMonths(1), firstOfThisMonth.PlusDays(2), firstOfThisMonth.PlusDays(20), 250.00M)
+                let instanceDate (d, _, _, _) = d
+                let invoiceDate (_, d, _, _) = d
+                let dueDate (_, _, d, _) = d
+                let invoiceAmount (_, _, _, a) = a
+                let! fullyPaidId =
+                    s.invoicePaidByLine firstAgreementId firstLegId (instanceDate fully) (invoiceDate fully) (dueDate fully)
+                        (invoiceAmount fully) line
+                let! partlyPaidId =
+                    s.invoicePaidByLine secondAgreementId secondLegId (instanceDate partly) (invoiceDate partly) (dueDate partly)
+                        (invoiceAmount partly) line
+                let! review = fetchPrePostingReview context
+                let! reviewed = reviewedLine review entry line
+                Assert.Equal<Set<InvoiceId>>(set [ fullyPaidId; partlyPaidId ], reviewed.payments |> List.map _.invoiceId |> Set.ofList)
+                let check invoiceId expected expectedState =
+                    let payment = reviewed.payments |> List.find (fun p -> p.invoiceId = invoiceId)
+                    Assert.Equal(100.00M, payment.paymentAmount |> Money.amount)
+                    Assert.Equal(invoiceDate expected, payment.invoiceDate)
+                    Assert.Equal(dueDate expected, payment.dueDate)
+                    Assert.Equal(invoiceAmount expected, payment.invoiceAmount |> Money.amount)
+                    Assert.Equal(expectedState, payment.paymentState)
+                    Assert.Equal(instanceDate expected, payment.instanceDate)
+                check fullyPaidId fully FullyPaid
+                check partlyPaidId partly PartiallyPaid
+                return ()
+            })
 
     [<Fact>]
     member _.``REQ-RPT-7.4 Payments on a line are ordered by Instance date, and those sharing an Instance date by Invoice due date, whatever order they were created in`` () =
-        Assert.Fail "Not yet implemented"
+        inRolledBackTransaction (fun s context ->
+            result {
+                let! laterInstanceAgreementId, laterInstanceLegId = s.agreement "Pre-posting review 7.4 order A" "Pre-posting review 7.4 order A leg"
+                let! laterDueAgreementId, laterDueLegId = s.agreement "Pre-posting review 7.4 order B" "Pre-posting review 7.4 order B leg"
+                let! earlierDueAgreementId, earlierDueLegId = s.agreement "Pre-posting review 7.4 order C" "Pre-posting review 7.4 order C leg"
+                let! entry = s.classifiedEntry "Pre-posting review 7.4 order"
+                let line = entry |> debitLine
+                let firstOfThisMonth = LocalDate(s.Today.Year, s.Today.Month, 1)
+                let invoiceDate = firstOfThisMonth.PlusDays(-5)
+                // created in the reverse of the expected order; the later Instance has the earliest due date
+                let! laterInstance =
+                    s.invoicePaidByLine laterInstanceAgreementId laterInstanceLegId (firstOfThisMonth.PlusMonths(1))
+                        invoiceDate (firstOfThisMonth.PlusDays(1)) 300.00M line
+                let! laterDue =
+                    s.invoicePaidByLine laterDueAgreementId laterDueLegId firstOfThisMonth
+                        invoiceDate (firstOfThisMonth.PlusDays(20)) 300.00M line
+                let! earlierDue =
+                    s.invoicePaidByLine earlierDueAgreementId earlierDueLegId firstOfThisMonth
+                        invoiceDate (firstOfThisMonth.PlusDays(10)) 300.00M line
+                let! review = fetchPrePostingReview context
+                let! reviewed = reviewedLine review entry line
+                Assert.Equal<InvoiceId list>([ earlierDue; laterDue; laterInstance ], reviewed.payments |> List.map _.invoiceId)
+                return ()
+            })
