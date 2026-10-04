@@ -775,7 +775,7 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
             })
 
     [<Fact>]
-    member _.``REQ-STG-6.3.2 a manual update naming no fields is rejected with a typed error and nothing is written`` () =
+    member _.``REQ-STG-6.3.2 REQ-SYS-6.1 a manual update naming no fields is rejected with a typed error and nothing is written`` () =
         rolledBack fixture IngestUpdateStageEntry (fun s ->
             result {
                 let! entry = s.staged s.card $"NoOp-{newTag ()}" (Calendar.today ())

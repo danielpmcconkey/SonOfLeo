@@ -690,7 +690,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member this.``REQ-CR-6.2 an update with all five fields NoChange is rejected and leaves the stored rule, modified_at included, untouched``() =
+    member this.``REQ-CR-6.2 REQ-SYS-6.1 an update with all five fields NoChange is rejected and leaves the stored rule, modified_at included, untouched``() =
         runCommandRouteAndAutoRollback ClassificationUpdateRule (fun context ->
             result {
                 let ruleId = this.TwoGroupRule() |> idOf

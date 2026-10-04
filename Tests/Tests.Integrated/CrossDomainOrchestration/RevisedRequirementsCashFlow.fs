@@ -307,7 +307,7 @@ type RevisedRequirementsCashFlowTests(fixture: TestDataFixture) =
             })
 
     [<Fact>]
-    member _.``REQ-CF-14.2 an update to a master agreement that names no field to change is rejected with a typed error and the agreement is unchanged`` () =
+    member _.``REQ-CF-14.2 REQ-SYS-6.1 an update to a master agreement that names no field to change is rejected with a typed error and the agreement is unchanged`` () =
         rolledBack fixture (fun s ->
             result {
                 let! cashId = s.cashAccount ()
