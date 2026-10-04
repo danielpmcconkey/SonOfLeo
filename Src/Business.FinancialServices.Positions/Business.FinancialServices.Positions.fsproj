@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RootNamespace>Business.FinancialServices.Positions</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="PositionsError.fs" />
+    <Compile Include="PositionsAuditableAction.fs" />
+    <Compile Include="PositionsComponent.fs" />
+    <Compile Include="DimensionValue.fs" />
+    <Compile Include="Security.fs" />
+    <Compile Include="InvestmentAccount.fs" />
+    <Compile Include="Holding.fs" />
+    <Compile Include="AccountSnapshotHeader.fs" />
+    <Compile Include="AccountSnapshotLine.fs" />
+    <Compile Include="Property.fs" />
+    <Compile Include="Valuation.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\App.Utility\App.Utility.fsproj" />
+    <ProjectReference Include="..\App.DataAccessLayer\App.DataAccessLayer.fsproj" />
+    <ProjectReference Include="..\App.Session\App.Session.fsproj" />
+    <ProjectReference Include="..\Business.General\Business.General.fsproj" />
+    <ProjectReference Include="..\Business.FinancialServices\Business.FinancialServices.fsproj" />
+    <ProjectReference Include="..\Business.FinancialServices.Ledger\Business.FinancialServices.Ledger.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NodaTime" Version="3.3.4" />
+  </ItemGroup>
+
+</Project>

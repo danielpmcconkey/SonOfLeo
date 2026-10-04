@@ -12,6 +12,7 @@
     <Project Path="Src\Business.FinancialServices.CashFlow\Business.FinancialServices.CashFlow.fsproj" />
     <Project Path="Src\Business.FinancialServices.DataIngestion\Business.FinancialServices.DataIngestion.fsproj" />
     <Project Path="Src\Business.FinancialServices.Ledger\Business.FinancialServices.Ledger.fsproj" />
+    <Project Path="Src\Business.FinancialServices.Positions\Business.FinancialServices.Positions.fsproj" />
     <Project Path="Src\Business.FinancialServices.Classification\Business.FinancialServices.Classification.fsproj" />
     <Project Path="Src\Business.General\Business.General.fsproj" />
     <Project Path="Src\Ui.InterfaceBridge\Ui.InterfaceBridge.fsproj" />
