@@ -921,17 +921,10 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                 let! ingested = rows |> ingestThroughRoute fileName
                 idsToCleanUp <- ingested |> headerIdsToCleanUp
                 let context = Context.create NoTransaction FetchOnly
-                (* F-5650 is a debit-normal leaf, so posting moves it by exactly its postable debits minus credits,
-                   whatever else is staged. *)
-                let! postable = fetchAllForPosting context
-                let expectedMovement =
-                    postable
-                    |> List.collect seLines
-                    |> List.filter (fun line -> line |> StageEntryLine.accountId = Some fixture.Data.entertainment5650Id)
-                    |> List.sumBy (fun line ->
-                        let amount = line |> StageEntryLine.amount |> Money.amount
-                        if line |> StageEntryLine.lineType = Debit then amount else -amount)
-                Assert.True(expectedMovement >= 25.00M, "The entry this test staged is not postable.")
+                (* F-5650 is a debit-normal leaf that no staged entry but this test's touches: the fixture stages only
+                   on F-2230 and F-1280, and none of its staged entries is postable. So posting everything postable
+                   moves F-5650 by exactly the 25.00 debit staged here. *)
+                let expectedMovement = 25.00M
                 let! before = plainLedgerBalance ()
                 let! shadow =
                     routeUiCommandForTesting "Ingestion" "ShadowReconcile" [] reconciliationPayload

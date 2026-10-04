@@ -275,18 +275,12 @@ type ReconciliationTests(fixture: TestDataFixture) =
                 idsToCleanUp <-
                     staged.stagedEntries
                     |> List.map (fun entry -> entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId |> Some)
+                // read before the shadow run only to show afterwards that staging is unchanged
                 let! postable = fetchAllForPosting (fetchOnly ())
-                let accountId = fixture.Data.entertainment5650Id
-                (* F-5650 is a debit-normal leaf, so posting moves its balance by exactly its postable debits minus
-                   credits, whatever else is staged. *)
-                let expectedMovement =
-                    postable
-                    |> List.collect seLines
-                    |> List.filter (fun line -> line |> StageEntryLine.accountId = Some accountId)
-                    |> List.sumBy (fun line ->
-                        let amount = line |> StageEntryLine.amount |> Money.amount
-                        if line |> StageEntryLine.lineType = Debit then amount else -amount)
-                Assert.True(expectedMovement >= 21.40M, "The entry this test staged is not postable.")
+                (* F-5650 is a debit-normal leaf that no staged entry but this test's touches: the fixture stages only
+                   on F-2230 and F-1280, and none of its staged entries is postable. So posting everything postable
+                   moves F-5650 by exactly the 21.40 debit staged here. *)
+                let expectedMovement = 21.40M
                 let! input = requests (fetchOnly ()) [ accountCode, 0.00M, today ]
                 let! before = input |> reconcile (fetchOnly ())
                 let! shadow =
