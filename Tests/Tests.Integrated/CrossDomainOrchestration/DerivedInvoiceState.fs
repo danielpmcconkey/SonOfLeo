@@ -24,7 +24,7 @@ type DerivedInvoiceStateTests(fixture: TestDataFixture) =
             let instanceDate = cashFlow.nextInstanceDateA
             let! amount = Money.fromDecimal invoiceAmount
             let payments =
-                if withPayment then [ (Posted cashFlow.unclaimedLedgerLineId, None, None, None) ]
+                if withPayment then [ (Posted(cashFlow.unclaimedLedgerLineId, None), None, None, None) ]
                 else []
             let! created =
                 InstanceOrchestration.constructNewAndPersist

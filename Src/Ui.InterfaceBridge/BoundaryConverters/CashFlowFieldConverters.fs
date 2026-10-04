@@ -34,7 +34,7 @@ let ``convert [TransactionPointer] to [TransactionPointerContract]``
     (transactionPointer: TransactionPointer)
     : TransactionPointerContract =
     match transactionPointer with
-    | CashFlowComponent.Posted journalEntryLineId ->
+    | CashFlowComponent.Posted(journalEntryLineId, _) ->
         TransactionPointerContract.Posted(journalEntryLineId |> JournalEntryLineId.value)
     | CashFlowComponent.Staged stageEntryLineId ->
         TransactionPointerContract.Staged(stageEntryLineId |> StageEntryLineId.value)
@@ -353,7 +353,7 @@ let ``convert [TransactionPointerContract] to [TransactionPointer]``
     : TransactionPointer =
     match transactionPointerContract with
     | TransactionPointerContract.Posted journalEntryLineUuid ->
-        CashFlowComponent.Posted(journalEntryLineUuid |> JournalEntryLineId.fromGuid)
+        CashFlowComponent.Posted(journalEntryLineUuid |> JournalEntryLineId.fromGuid, None)
     | TransactionPointerContract.Staged stageEntryLineUuid ->
         CashFlowComponent.Staged(stageEntryLineUuid |> StageEntryLineId.fromGuid)
 

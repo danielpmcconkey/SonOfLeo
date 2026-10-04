@@ -152,12 +152,12 @@ let private send (verb: string) (json: string) = routeUiCommandForTesting "CashF
 
 let private pointerUuid (pointer: TransactionPointer) =
     match pointer with
-    | Posted line -> line |> JournalEntryLineId.value
+    | Posted(line, _) -> line |> JournalEntryLineId.value
     | Staged line -> line |> StageEntryLineId.value
 
 let private toContract (pointer: TransactionPointer) =
     match pointer with
-    | Posted line -> Contracts.TransactionPointerContract.Posted(line |> JournalEntryLineId.value)
+    | Posted(line, _) -> Contracts.TransactionPointerContract.Posted(line |> JournalEntryLineId.value)
     | Staged line -> Contracts.TransactionPointerContract.Staged(line |> StageEntryLineId.value)
 
 let private paymentFor (pointer: TransactionPointer) (amount: decimal) : Contracts.CreatePaymentFieldsInput =
@@ -243,7 +243,7 @@ type private World(fixture: TestDataFixture) =
                     |> JournalEntryOrchestration.jeLines
                     |> List.find (fun l -> l |> JournalEntryLine.accountId = accountIdOf code)
                     |> JournalEntryLine.journalEntryLineId
-                return Posted line, this.today
+                return Posted(line, None), this.today
             })
 
     /// A Classified staged entry with a line of the type and amount on the account. Returns the pointer to that line.
@@ -294,7 +294,7 @@ type private World(fixture: TestDataFixture) =
                     |> StageEntryOrchestration.seLines
                     |> List.find (fun l -> l |> StageEntryLine.accountId = Some(accountIdOf code))
                     |> StageEntryLine.stageEntryLineId
-                return Staged stagedLine, Posted(jeLineOn code), this.today
+                return Staged stagedLine, Posted(jeLineOn code, Some stagedLine), this.today
             })
 
 [<Collection("SharedTestData")>]
@@ -369,12 +369,11 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                     | "Posted" -> w.jeLine "F-2230" "Debit" 100.00M |> Result.map fst
                     | _ -> w.stagedLine "F-2230" "Debit" 100.00M
                 let! stored = createPayment invoiceId line (paymentFor line 100.00M)
-                let! stagedColumn = stored |> Payment.paymentId |> Payment.fetchStageEntryLineIdById (fresh ())
-                (* A stored journal entry line would read back as Posted, so a Staged read shows that column is empty. *)
+                let! readBack = stored |> Payment.paymentId |> Payment.fetchById (fresh ())
+                (* The pointer read back carries both columns, so reading back exactly the pointer sent shows the
+                   other column is empty. *)
                 Assert.Equal(line, stored |> Payment.transactionPointer)
-                match line with
-                | Posted _ -> Assert.Equal(None, stagedColumn)
-                | Staged stagedLine -> Assert.Equal(Some stagedLine, stagedColumn)
+                Assert.Equal(line, readBack |> Payment.transactionPointer)
             })
 
     [<Fact>]
@@ -406,10 +405,8 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! _ = sendCreatePayment invoiceId (paymentFor stagedLine 30.00M)
                 let! _ = routeUiCommandForTesting "CashFlow" "TransitionPaymentsToPosted" [] "{}"
                 let! payment = paymentsOf invoiceId |> Result.map List.exactlyOne
-                let! stagedColumn = payment |> Payment.paymentId |> Payment.fetchStageEntryLineIdById (fresh ())
-                let stagedLineId = match stagedLine with | Staged l -> Some l | Posted _ -> None
+                (* jeLine carries the staged line, so this checks both columns *)
                 Assert.Equal(jeLine, payment |> Payment.transactionPointer)
-                Assert.Equal(stagedLineId, stagedColumn)
                 Assert.Equal(40.00M, ((payment |> Payment.amount) |> CashFlowComponent.PaymentAmount.value) |> Money.amount)
                 Assert.Equal(Some entryDate, payment |> Payment.postedToLedgerDate |> Option.map CashFlowComponent.PostedToLedgerDate.value)
             })
@@ -570,7 +567,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! line =
                     match bad with
                     | "WrongAccount" -> w.jeLine "F-4290" "Debit" 100.00M |> Result.map fst
-                    | _ -> Ok(Posted(JournalEntryLineId.fromGuid (Guid.NewGuid())))
+                    | _ -> Ok(Posted(JournalEntryLineId.fromGuid (Guid.NewGuid()), None))
                 let invoice = invoiceFor Outgo made.legNames[1] [ paymentFor line 100.00M ]
                 let attempt =
                     ({ instanceId = made.instanceId |> InstanceId.value; invoice = invoice } : Contracts.CreateInvoiceInput)
@@ -593,7 +590,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! line =
                     match bad with
                     | "WrongAccount" -> w.jeLine "F-4290" "Debit" 100.00M |> Result.map fst
-                    | _ -> Ok(Posted(JournalEntryLineId.fromGuid (Guid.NewGuid())))
+                    | _ -> Ok(Posted(JournalEntryLineId.fromGuid (Guid.NewGuid()), None))
                 let attempt =
                     ({ masterAgreementName = made.agreementName
                        instanceDate = april1
@@ -675,7 +672,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let invoiceId = made.invoiceIds[0]
                 let line =
                     match pointer with
-                    | "Posted" -> Posted(JournalEntryLineId.fromGuid (Guid.NewGuid()))
+                    | "Posted" -> Posted(JournalEntryLineId.fromGuid (Guid.NewGuid()), None)
                     | _ -> Staged(StageEntryLineId.fromGuid (Guid.NewGuid()))
                 let attempt = sendCreatePayment invoiceId (paymentFor line 100.00M)
                 let! payments = paymentsOf invoiceId

@@ -179,7 +179,7 @@ let private linksOf (lineId: StageEntryLineId) = lineId |> PaymentAgreementLink.
 
 let private pointerUuid (pointer: TransactionPointer) =
     match pointer with
-    | Posted line -> line |> JournalEntryLineId.value
+    | Posted(line, _) -> line |> JournalEntryLineId.value
     | Staged line -> line |> StageEntryLineId.value
 
 let private pointersOf (invoiceId: InvoiceId) =
@@ -187,7 +187,7 @@ let private pointersOf (invoiceId: InvoiceId) =
 
 let private toContract (pointer: TransactionPointer) =
     match pointer with
-    | Posted line -> Contracts.TransactionPointerContract.Posted(line |> JournalEntryLineId.value)
+    | Posted(line, _) -> Contracts.TransactionPointerContract.Posted(line |> JournalEntryLineId.value)
     | Staged line -> Contracts.TransactionPointerContract.Staged(line |> StageEntryLineId.value)
 
 let private paymentFor (pointer: TransactionPointer) (amount: decimal) : Contracts.CreatePaymentFieldsInput =
@@ -313,7 +313,7 @@ type private World(fixture: TestDataFixture) =
                     |> JournalEntryOrchestration.jeLines
                     |> List.find (fun l -> l |> JournalEntryLine.accountId = accountIdOf "F-2230")
                     |> JournalEntryLine.journalEntryLineId
-                    |> Posted
+                    |> fun line -> Posted(line, None)
             })
 
     /// A Classified staged entry dated today with the description, a Debit line of the amount on F-2230 and a Credit

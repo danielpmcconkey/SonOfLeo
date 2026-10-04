@@ -65,7 +65,7 @@ let lineAmount
     (transactionPointer: CashFlowComponent.TransactionPointer)
     : Result<CashFlowComponent.PaymentAmount, IAppError> =
     match transactionPointer with
-    | CashFlowComponent.Posted journalEntryLineId ->
+    | CashFlowComponent.Posted(journalEntryLineId, _) ->
         journalEntryLineId |> JournalEntryLine.fetchById context
         |> whenNoRows (LedgerError.JournalEntryLineIdDoesntExist (journalEntryLineId |> JournalEntryLineId.value))
         |> Result.map (fun line -> (CashFlowComponent.PaymentAmount.create (line |> JournalEntryLine.amount)))
@@ -81,11 +81,11 @@ let confirmPayment
     (payment: Payment.Payment)
     : Result<unit, IAppError> =
     result {
-        // JE and SE existence is checked below via whichever half of the transactionPointer is actually populated;
-        // the other half isn't reachable off a reconstituted Payment (see transactionPointerFromColumns).
+        // line existence is checked below on the line the pointer resolves to: the journal entry line for a Posted
+        // pointer, which takes precedence over the staged line it keeps as provenance.
         let! journalEntryHeader =
             match payment |> Payment.transactionPointer with
-            | CashFlowComponent.Posted journalEntryLineId ->
+            | CashFlowComponent.Posted(journalEntryLineId, _) ->
                 // the pointer names a line, but the date checked below lives on the header, so this branch resolves
                 // one hop further than the staged branch needs to
                 let journalEntryLineUuid = journalEntryLineId |> JournalEntryLineId.value

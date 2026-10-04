@@ -1103,7 +1103,7 @@ type TestDataFixture() =
                                 context agreementCId firstOfThisMonth
                                 [ (legCId, None, InvoiceDate.create(firstOfThisMonth), DueDate.create(firstOfThisMonth.PlusDays(30)),
                                    InvoiceAmount.create(amount), InvoiceReceived, None, None,
-                                   [ (Posted partPaymentLineId, None, None, None) ]) ]
+                                   [ (Posted(partPaymentLineId, None), None, None, None) ]) ]
                         return
                             created |> InstanceOrchestration.invoiceComposites |> List.head
                             |> InstanceOrchestration.invoice |> Invoice.invoiceId

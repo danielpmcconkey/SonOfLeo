@@ -68,18 +68,14 @@ let create
 /// applyFieldUpdates folds the journal entry line update back into one pointer on the same Posted-wins rule the row
 /// decode uses.
 let applyFieldUpdates (fieldUpdates: PaymentFieldUpdates) (payment: Payment) : Result<Payment, IAppError> =
-    let currentJournalEntryLineId, currentStageEntryLineId =
-        match payment.transactionPointer with
-        | CashFlowComponent.Posted journalEntryLineId -> Some journalEntryLineId, None
-        | CashFlowComponent.Staged stageEntryLineId -> None, Some stageEntryLineId
     let journalEntryLineId =
-        fieldUpdates.journalEntryLineIdUpdate |> FieldUpdate.valueOrCurrent currentJournalEntryLineId
+        fieldUpdates.journalEntryLineIdUpdate
+        |> FieldUpdate.valueOrCurrent (payment.transactionPointer |> TransactionPointer.journalEntryLineId)
     result {
         let! transactionPointer =
-            match journalEntryLineId, currentStageEntryLineId with
-            | Some journalEntryLineId, _ -> Ok(CashFlowComponent.Posted journalEntryLineId)
-            | None, Some stageEntryLineId -> Ok(CashFlowComponent.Staged stageEntryLineId)
-            | None, None ->
+            match TransactionPointer.resolve journalEntryLineId (payment.transactionPointer |> TransactionPointer.stageEntryLineId) with
+            | Some transactionPointer -> Ok transactionPointer
+            | None ->
                 Error(
                     CashflowInvalidPaymentTransactionPointerRow
                         "neither journal_entry_line_id nor stage_entry_line_id was set; at least one must be set.")
@@ -88,9 +84,8 @@ let applyFieldUpdates (fieldUpdates: PaymentFieldUpdates) (payment: Payment) : R
     }
 
 let private transactionPointerToColumns (transactionPointer: TransactionPointer) : Guid option * Guid option =
-    match transactionPointer with
-    | CashFlowComponent.Posted journalEntryLineId -> (journalEntryLineId |> JournalEntryLineId.value |> Some), None
-    | CashFlowComponent.Staged stageEntryLineId -> None, (stageEntryLineId |> StageEntryLineId.value |> Some)
+    (transactionPointer |> TransactionPointer.journalEntryLineId |> Option.map JournalEntryLineId.value),
+    (transactionPointer |> TransactionPointer.stageEntryLineId |> Option.map StageEntryLineId.value)
 
 let persist
     (context: Context.Context)
@@ -131,13 +126,14 @@ let private transactionPointerFromColumns
     // Note: it is not an illegal state for the database to have both a stage reference and a ledger reference. Both
     // being populated is the normal end state, not corruption. Invoice matching creates the Payment pointing at the
     // staged line it matched. Once that line is posted, the transition to posted sets the journal entry line the line
-    // became and keeps the staged reference. Terminal state on happy path includes both values.
-    match journalEntryLineUuid, stageEntryLineUuid with
-    | Some journalEntryLineUuid, _ ->
-        journalEntryLineUuid |> JournalEntryLineId.fromGuid |> CashFlowComponent.Posted |> Ok
-    | None, Some stageEntryLineUuid ->
-        stageEntryLineUuid |> StageEntryLineId.fromGuid |> CashFlowComponent.Staged |> Ok
-    | None, None ->
+    // became and keeps the staged reference, which the Posted pointer carries.
+    match
+        TransactionPointer.resolve
+            (journalEntryLineUuid |> Option.map JournalEntryLineId.fromGuid)
+            (stageEntryLineUuid |> Option.map StageEntryLineId.fromGuid)
+    with
+    | Some transactionPointer -> Ok transactionPointer
+    | None ->
         Error(
             CashflowInvalidPaymentTransactionPointerRow
                 "neither journal_entry_line_id nor stage_entry_line_id was set; at least one must be set.")
@@ -300,51 +296,6 @@ let fetchByJournalEntryLineIdList
     let parameters = namesAndParameters |> List.map snd
     let predicate = $"pmt.journal_entry_line_id in ({names})"
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
-
-/// fetchStageEntryLineIdById reads the column rather than the Payment, because a posted payment's TransactionPointer
-/// resolves to the journal entry line and hides the stage line it was created from.
-let fetchStageEntryLineIdById
-    (context: Context.Context)
-    (paymentId: PaymentId)
-    : Result<StageEntryLineId option, IAppError> =
-    let mapRawForDbRead (row: RowReader) =
-        (row |> RowReader.getUuidOption "stage_entry_line_id"), ()
-    let reconstitute raw =
-        let stageEntryLineUuid, _ = raw
-        Ok stageEntryLineUuid
-    let queryStatement = "select stage_entry_line_id from cashflow.payment where unique_id = @unique_id"
-    let uuid = paymentId |> PaymentId.value
-    let parameters = [ { name = "@unique_id"; value = UniqueId uuid } ]
-    executeReaderQuery
-        (context |> Context.getDatabaseTransaction) queryStatement parameters mapRawForDbRead reconstitute
-        ExactlyOne
-    |> whenNoRows (CashflowPaymentIdDoesntExist uuid)
-    |> Result.map (fun rows -> rows |> List.head |> Option.map StageEntryLineId.fromGuid)
-
-/// fetchReferencedStageEntryLineIds returns which of the given stage lines any Payment references, Staged or Posted.
-/// It reads the column for the same reason as fetchStageEntryLineIdById: a posted payment's TransactionPointer no
-/// longer names its stage line.
-let fetchReferencedStageEntryLineIds
-    (context: Context.Context)
-    (lineIds: StageEntryLineId list)
-    : Result<StageEntryLineId list, IAppError> =
-    if lineIds |> List.isEmpty then Error DataIngestionError.IngestionStageEntryLineIdListCannotBeEmpty else
-    let namesAndParameters =
-        List.zip [ 1 .. lineIds.Length ] lineIds
-        |> List.map (fun (ordinal, id) ->
-            let name = $"@stageEntryLineId{ordinal}"
-            name, { name = name; value = UniqueId(id |> StageEntryLineId.value) })
-    let names = namesAndParameters |> List.map fst |> String.concat ", "
-    let parameters = namesAndParameters |> List.map snd
-    let mapRawForDbRead (row: RowReader) = (row |> RowReader.getUuid "stage_entry_line_id"), ()
-    let reconstitute raw =
-        let stageEntryLineUuid, _ = raw
-        Ok (stageEntryLineUuid |> StageEntryLineId.fromGuid)
-    let queryStatement =
-        $"select distinct stage_entry_line_id from cashflow.payment where stage_entry_line_id in ({names})"
-    executeReaderQuery
-        (context |> Context.getDatabaseTransaction) queryStatement parameters mapRawForDbRead reconstitute
-        AnyQuantityIsAcceptable
 
 let update
     (context: Context.Context)

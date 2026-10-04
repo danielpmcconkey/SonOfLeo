@@ -105,7 +105,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                 |> JournalEntryOrchestration.jeLines
                 |> List.find (fun l -> l |> JournalEntryLine.accountId = landing)
                 |> JournalEntryLine.journalEntryLineId
-                |> Posted
+                |> fun line -> Posted(line, None)
         }
 
     /// An Instance on the date with a 100.00 Invoice per (leg, due date, Payment amounts) given. Returns its id and its

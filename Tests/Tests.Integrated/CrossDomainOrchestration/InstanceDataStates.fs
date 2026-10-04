@@ -94,7 +94,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                 |> List.find (fun l -> l |> JournalEntryLine.accountId = loanId)
                 |> JournalEntryLine.journalEntryLineId
             let! money = Money.fromDecimal 100.00M
-            return (Posted line, None, None, None)
+            return (Posted(line, None), None, None, None)
         }
 
     /// A 100.00 Invoice for the leg, dated the Instance's date, with the Payments.

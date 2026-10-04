@@ -130,7 +130,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
         result {
             let! pointer =
                 match pay with
-                | PostedPay amount -> this.ledgerLineOn loanId amount |> Result.map Posted
+                | PostedPay amount -> this.ledgerLineOn loanId amount |> Result.map (fun line -> Posted(line, None))
                 | StagedPay amount -> this.stagedLine amount |> Result.map Staged
             return (pointer, None, None, None)
         }
@@ -451,7 +451,7 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 let attempt =
                     invoiceUpdate instanceId invoiceId
                     |> withInvoiceChange (fun u ->
-                        { u with newPayments = [ (Posted missingLine, None, None, None) ] })
+                        { u with newPayments = [ (Posted(missingLine, None), None, None, None) ] })
                     |> InstanceOrchestration.updateInstanceComposite s.Context
                 let rejectedForMissingLine =
                     match attempt with

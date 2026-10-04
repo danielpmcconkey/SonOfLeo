@@ -135,7 +135,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
             let debitLineId =
                 je |> jeLines |> List.find (fun l -> l |> JournalEntryLine.lineType = JournalEntryLineType.Debit)
                 |> JournalEntryLine.journalEntryLineId
-            let! paymentId = addPayment context (CashFlowComponent.Posted debitLineId)
+            let! paymentId = addPayment context (CashFlowComponent.Posted(debitLineId, None))
             return jeId, paymentId
         }
 

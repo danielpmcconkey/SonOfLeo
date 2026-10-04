@@ -313,7 +313,8 @@ let private headerIdsWithAPaidLine
         let! lines = headerIds |> StageEntryLine.fetchByHeaderIdList context
         if lines |> List.isEmpty then return [] else
         let! paidLineIds =
-            lines |> List.map StageEntryLine.stageEntryLineId |> CashFlow.Payment.fetchReferencedStageEntryLineIds context
+            lines |> List.map StageEntryLine.stageEntryLineId |> CashFlow.Payment.fetchByStageEntryLineIdList context
+            |> Result.map (List.choose (CashFlow.Payment.transactionPointer >> CashFlow.CashFlowComponent.TransactionPointer.stageEntryLineId))
         return
             lines
             |> List.filter (fun line -> paidLineIds |> List.contains (line |> StageEntryLine.stageEntryLineId))
@@ -514,7 +515,9 @@ let private protectionsOf
     if lineIds |> List.isEmpty then Ok [] else
     result {
         let! links = lineIds |> CashFlow.PaymentAgreementLink.fetchByStageEntryLineIdList context
-        let! paidLineIds = lineIds |> CashFlow.Payment.fetchReferencedStageEntryLineIds context
+        let! paidLineIds =
+            lineIds |> CashFlow.Payment.fetchByStageEntryLineIdList context
+            |> Result.map (List.choose (CashFlow.Payment.transactionPointer >> CashFlow.CashFlowComponent.TransactionPointer.stageEntryLineId))
         let! ruleMatches = lineIds |> Classification.RuleMatch.fetchByStageEntryLineIdList context
         let linkedLineIds = links |> List.map CashFlow.PaymentAgreementLink.stageEntryLineId
         let recordedLineIds = ruleMatches |> List.map Classification.RuleMatch.stageEntryLineId

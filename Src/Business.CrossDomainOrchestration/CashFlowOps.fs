@@ -415,7 +415,9 @@ let private matchInvoicesAndCreatePayments
             linkedLines |> List.map (fun line -> (line |> StageEntryLine.stageEntryLineId), line) |> Map.ofList
         // links outlive posting, so a line paid last week is still linked this week. any Payment that references
         // the line, Staged or Posted, takes it out of matching for good
-        let! paidLineIds = linkedLineIds |> Payment.fetchReferencedStageEntryLineIds context
+        let! paidLineIds =
+            linkedLineIds |> Payment.fetchByStageEntryLineIdList context
+            |> Result.map (List.choose (Payment.transactionPointer >> CashFlowComponent.TransactionPointer.stageEntryLineId))
         // an entry dedup or the operator has set aside moved no cash of its own
         let setAsideHeaderIds =
             headers
@@ -679,7 +681,7 @@ let deletePaymentAndItsLinkage
         let invoiceId = payment |> Payment.invoiceId
         let! invoice = invoiceId |> Invoice.fetchById context
         let instanceId = invoice |> Invoice.instanceId
-        let! stageEntryLineId = paymentId |> Payment.fetchStageEntryLineIdById context
+        let stageEntryLineId = payment |> Payment.transactionPointer |> CashFlowComponent.TransactionPointer.stageEntryLineId
         do!
             match stageEntryLineId with
             | None -> Ok ()

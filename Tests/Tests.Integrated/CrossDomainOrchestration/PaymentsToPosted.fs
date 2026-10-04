@@ -151,7 +151,9 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
 
     member _.payment (paymentId: PaymentId) = paymentId |> Payment.fetchById context
 
-    member _.stagedLineOf (paymentId: PaymentId) = paymentId |> Payment.fetchStageEntryLineIdById context
+    member _.stagedLineOf (paymentId: PaymentId) =
+        paymentId |> Payment.fetchById context
+        |> Result.map (Payment.transactionPointer >> TransactionPointer.stageEntryLineId)
 
 let private movedIds (transitions: PaymentPostingTransition list) =
     transitions |> List.map _.paymentId |> Set.ofList
@@ -174,7 +176,7 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 let paymentId = paymentIds |> List.head
                 let! _ = CashFlowOps.transitionPaymentsToPosted context
                 let! payment = scenario.payment paymentId
-                Assert.Equal(Posted jeLineId, payment |> Payment.transactionPointer)
+                Assert.Equal(Posted(jeLineId, Some stagedLineId), payment |> Payment.transactionPointer)
                 let! kept = scenario.stagedLineOf paymentId
                 Assert.Equal(Some stagedLineId, kept)
             })
@@ -198,7 +200,7 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                     [ x1.Head; x2.Head; y.Head ]
                     |> List.map (fun id -> scenario.payment id |> Result.map Payment.transactionPointer)
                     |> convertListOfResultsToResultsList
-                Assert.Equal<TransactionPointer list>([ Posted jeX1; Posted jeX2; Posted jeY ], pointers)
+                Assert.Equal<TransactionPointer list>([ Posted(jeX1, Some lineX1); Posted(jeX2, Some lineX2); Posted(jeY, Some lineY) ], pointers)
             })
         |> railroadWrapper
 
@@ -232,7 +234,7 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 Assert.Contains(paymentId, first |> movedIds)
                 let! before = scenario.payment paymentId
                 let! stagedBefore = scenario.stagedLineOf paymentId
-                Assert.Equal(Posted jeLineId, before |> Payment.transactionPointer)
+                Assert.Equal(Posted(jeLineId, Some stagedLineId), before |> Payment.transactionPointer)
                 Assert.Equal(Some stagedLineId, stagedBefore)
                 let! second = CashFlowOps.transitionPaymentsToPosted context
                 Assert.DoesNotContain(paymentId, second |> movedIds)
@@ -276,7 +278,7 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 let! stagedLineId, _ = scenario.postedLine "CF-10.4 last staged" 60.00M
                 let! invoiceId, _ =
                     scenario.invoice agreementId legId scenario.firstOfThisMonth
-                        [ (Posted ledgerLineId, 40.00M); (Staged stagedLineId, 60.00M) ]
+                        [ (Posted(ledgerLineId, None), 40.00M); (Staged stagedLineId, 60.00M) ]
                 let! before = scenario.postedStateOf invoiceId
                 Assert.Equal(PartiallyPosted, before)
                 let! _ = CashFlowOps.transitionPaymentsToPosted context
@@ -331,7 +333,7 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 let! unpostedLineId = scenario.unpostedLine "CF-10.4 none unposted" 60.00M
                 let! invoiceId, _ =
                     scenario.invoice agreementId legId scenario.firstOfThisMonth
-                        [ (Posted ledgerLineId, 40.00M); (Staged unpostedLineId, 60.00M) ]
+                        [ (Posted(ledgerLineId, None), 40.00M); (Staged unpostedLineId, 60.00M) ]
                 let! before = scenario.postedStateOf invoiceId
                 Assert.Equal(PartiallyPosted, before)
                 let! _ = CashFlowOps.transitionPaymentsToPosted context

@@ -180,7 +180,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                 result {
                     let! line = this.ledgerLine $"Sweep test payment {date}" paid
                     let! paidMoney = Money.fromDecimal paid
-                    return [ (Posted line, None, None, None) ]
+                    return [ (Posted(line, None), None, None, None) ]
                 }
             let invoices =
                 match legId with

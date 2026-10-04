@@ -231,7 +231,7 @@ type CashFlowMaintenanceTests(fixture: TestDataFixture) =
                     { instanceCompositeUpdate instanceId with
                         invoiceCompositeUpdates =
                             [ { invoiceCompositeUpdate (created |> invoiceIdOf) with
-                                  newPayments = [ (Posted missingId, None, None, None) ] } ] }
+                                  newPayments = [ (Posted(missingId, None), None, None, None) ] } ] }
                 do!
                     InstanceOrchestration.updateInstanceComposite context update
                     |> expectNotFound

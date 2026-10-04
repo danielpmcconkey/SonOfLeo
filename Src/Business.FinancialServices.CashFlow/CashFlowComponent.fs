@@ -293,9 +293,34 @@ module PaymentMemo =
         else
             Ok(PaymentMemo trimmed)
 
+/// A Payment's line. A Posted pointer keeps the staged line it was matched on, when it was matched on one, so the
+/// Payment holds every state its line moves through.
 type TransactionPointer =
-    | Posted of JournalEntryLineId
+    | Posted of JournalEntryLineId * StageEntryLineId option
     | Staged of StageEntryLineId
+
+module TransactionPointer =
+    /// resolve builds the pointer from the two line IDs a Payment can hold: the journal entry line takes precedence,
+    /// and None means neither is set.
+    let resolve
+        (journalEntryLineId: JournalEntryLineId option)
+        (stageEntryLineId: StageEntryLineId option)
+        : TransactionPointer option =
+        match journalEntryLineId, stageEntryLineId with
+        | Some journalEntryLineId, _ -> Some(Posted(journalEntryLineId, stageEntryLineId))
+        | None, Some stageEntryLineId -> Some(Staged stageEntryLineId)
+        | None, None -> None
+
+    let journalEntryLineId (transactionPointer: TransactionPointer) : JournalEntryLineId option =
+        match transactionPointer with
+        | Posted(journalEntryLineId, _) -> Some journalEntryLineId
+        | Staged _ -> None
+
+    /// stageEntryLineId is the staged line the Payment was matched on, whether or not it has since been posted.
+    let stageEntryLineId (transactionPointer: TransactionPointer) : StageEntryLineId option =
+        match transactionPointer with
+        | Posted(_, stageEntryLineId) -> stageEntryLineId
+        | Staged stageEntryLineId -> Some stageEntryLineId
 
 type ProjectionHorizonInDays = private {days: int}
 
