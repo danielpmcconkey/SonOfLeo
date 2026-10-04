@@ -117,6 +117,28 @@ let private cleaningUp (names: string list) (test: unit -> Result<unit, IAppErro
             | Error e -> cleanUpFailures.Add(e.ToMessage())
     Assert.Empty(cleanUpFailures)
 
+/// Fails unless the attempt was refused with an error `isExpected` accepts, naming whatever came back instead.
+let private expectRefusal (isExpected: IAppError -> bool) (attempt: Result<'a, IAppError>) =
+    match attempt with
+    | Error e when isExpected e -> ()
+    | Error e -> Assert.Fail $"Wrong error. {e.DomainName}.{e.CaseName}: {e.ToMessage()}"
+    | Ok _ -> Assert.Fail "Expected failure; got success"
+
+/// A payload the contract cannot carry is refused loudly while it is deserialized into the contract; no domain case
+/// exists for it.
+let private refusedAsJsonFor<'contract> (e: IAppError) =
+    match e with
+    | AsError (UtilityError.JsonDeserializationFailed(typeName, _, _)) -> typeName = typeof<'contract>.ToString()
+    | _ -> false
+
+/// Duplicate agreement names are enforced only by the database's unique constraint: no typed error exists for them,
+/// and the violation surfaces as the data access error carrying the constraint's name.
+let private uniqueViolationOf (constraintName: string) (e: IAppError) =
+    match e with
+    | AsError (App.DataAccessLayer.DalError.DalErrorDuringNonQueryExecution(:? Npgsql.PostgresException as pg)) ->
+        pg.SqlState = "23505" && pg.ConstraintName = constraintName
+    | _ -> false
+
 type private Scenario(fixture: TestDataFixture, context: Context.Context) =
     let accountIdOf code =
         fixture.Data.accounts |> List.find (fun a -> a |> Account.code |> AccountCode.value = code) |> Account.accountId
@@ -172,7 +194,7 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-CF-2.3 a CreateAgreement payload with a null agreement name is rejected with a typed error and no agreement is stored`` () =
+    member _.``REQ-CF-2.3 a CreateAgreement payload with a null agreement name is refused as it is read and no agreement is stored`` () =
         let counterparty = unique "CF-2.3 null name counterparty"
         cleaningUp [] (fun () ->
             result {
@@ -181,12 +203,12 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                 let attempt = createRoute (node.ToJsonString())
                 let! stored =
                     storedWhere (fresh ()) (fun m -> m |> MasterAgreement.counterparty |> Counterparty.value = counterparty)
-                Assert.True(attempt |> Result.isError)
+                attempt |> expectRefusal refusedAsJsonFor<Contracts.CreateAgreementInput>
                 Assert.Empty(stored)
             })
 
     [<Fact>]
-    member _.``REQ-CF-2.17 a CreateAgreement payload with a null counterparty is rejected with a typed error and no agreement is stored`` () =
+    member _.``REQ-CF-2.17 a CreateAgreement payload with a null counterparty is refused as it is read and no agreement is stored`` () =
         let name = unique "CF-2.17 null counterparty"
         cleaningUp [ name ] (fun () ->
             result {
@@ -194,12 +216,12 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                 node["counterparty"] <- null
                 let attempt = createRoute (node.ToJsonString())
                 let! stored = storedNamed (fresh ()) name
-                Assert.True(attempt |> Result.isError)
+                attempt |> expectRefusal refusedAsJsonFor<Contracts.CreateAgreementInput>
                 Assert.Empty(stored)
             })
 
     [<Fact>]
-    member _.``REQ-CF-2.8 a CreateAgreement payload naming a cadence other than Daily, Weekly, EveryOtherWeek, Monthly and Annually is rejected with a typed error and no agreement is stored`` () =
+    member _.``REQ-CF-2.8 a CreateAgreement payload naming a cadence other than Daily, Weekly, EveryOtherWeek, Monthly and Annually is refused as it is read and no agreement is stored`` () =
         let name = unique "CF-2.8 fortnightly"
         cleaningUp [ name ] (fun () ->
             result {
@@ -207,7 +229,7 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                 node["cadence"].["cadenceType"] <- JsonNode.Parse("""{"Case":"Fortnightly","Fields":["Monday"]}""")
                 let attempt = createRoute (node.ToJsonString())
                 let! stored = storedNamed (fresh ()) name
-                Assert.True(attempt |> Result.isError)
+                attempt |> expectRefusal refusedAsJsonFor<Contracts.CreateAgreementInput>
                 Assert.Empty(stored)
             })
 
@@ -269,7 +291,7 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-CF-2.6 creating an agreement with the name of an existing agreement is rejected with a typed error, no second agreement is stored and the existing one is unchanged`` () =
+    member _.``REQ-CF-2.6 creating an agreement with the name of an existing agreement is refused by the agreement name unique constraint, no second agreement is stored and the existing one is unchanged`` () =
         let name = unique "CF-2.6 duplicate"
         cleaningUp [ name ] (fun () ->
             result {
@@ -279,12 +301,12 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                     |> Json.toJson
                 let attempt = createRoute json
                 let! stored = storedNamed (fresh ()) name
-                Assert.True(attempt |> Result.isError)
+                attempt |> expectRefusal (uniqueViolationOf "master_agreement_agreement_name_key")
                 Assert.Equal<MasterAgreement.MasterAgreement list>([ existing ], stored)
             })
 
     [<Fact>]
-    member _.``REQ-CF-2.6 updating an agreement's name to the name of another existing agreement is rejected with a typed error and both stored agreements are unchanged`` () =
+    member _.``REQ-CF-2.6 updating an agreement's name to the name of another existing agreement is refused by the agreement name unique constraint and both stored agreements are unchanged`` () =
         let first = unique "CF-2.6 rename first"
         let second = unique "CF-2.6 rename second"
         cleaningUp [ first; second ] (fun () ->
@@ -294,7 +316,7 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                 let attempt = updateRoute { noUpdate second with agreementNameUpdate = SetTo first }
                 let! firstAfter = storedNamed (fresh ()) first
                 let! secondAfter = storedNamed (fresh ()) second
-                Assert.True(attempt |> Result.isError)
+                attempt |> expectRefusal (uniqueViolationOf "master_agreement_agreement_name_key")
                 Assert.Equal<MasterAgreement.MasterAgreement list>([ firstBefore ], firstAfter)
                 Assert.Equal<MasterAgreement.MasterAgreement list>([ secondBefore ], secondAfter)
             })
@@ -303,8 +325,8 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
     // REQ-CF-2.9 through 2.12 — the fields each cadence needs
     // =========================================================================
 
-    (* Sends the payload with its cadence type replaced by `broken`, then by `whole`. Returns whether the first was
-       refused, what was stored after it, and what was stored after the second. *)
+    (* Sends the payload with its cadence type replaced by `broken`, then by `whole`. Fails unless the first was refused
+       as it was read. Returns what was stored after it, and what was stored after the second. *)
     member private _.brokenThenWhole (name: string) (nextInstance: LocalDate) (broken: string) (whole: Contracts.CadenceTypeContract) =
         result {
             let! node = createInput name whole nextInstance |> toNode
@@ -314,48 +336,46 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
             let! json = createInput name whole nextInstance |> Json.toJson
             let! _ = createRoute json
             let! afterWhole = storedNamed (fresh ()) name
-            return (attempt |> Result.isError), afterBroken, afterWhole
+            attempt |> expectRefusal refusedAsJsonFor<Contracts.CreateAgreementInput>
+            return afterBroken, afterWhole
         }
 
     [<Fact>]
-    member this.``REQ-CF-2.9 a CreateAgreement payload with a Weekly cadence and no week day is rejected with a typed error and no agreement is stored, while the same payload with a week day is created`` () =
+    member this.``REQ-CF-2.9 a CreateAgreement payload with a Weekly cadence and no week day is refused as it is read and no agreement is stored, while the same payload with a week day is created`` () =
         let name = unique "CF-2.9 weekly"
         let monday = nextOn IsoDayOfWeek.Monday (today ())
         cleaningUp [ name ] (fun () ->
             result {
-                let! refused, afterBroken, afterWhole =
+                let! afterBroken, afterWhole =
                     this.brokenThenWhole name monday """{"Case":"Weekly","Fields":[]}""" (Contracts.Weekly "Monday")
-                Assert.True(refused)
                 Assert.Empty(afterBroken)
                 Assert.Equal(Cadence.Weekly Cadence.Monday, afterWhole |> List.exactlyOne |> MasterAgreement.cadence |> Cadence.cadenceType)
             })
 
     [<Fact>]
-    member this.``REQ-CF-2.9 a CreateAgreement payload with an EveryOtherWeek cadence and no week day is rejected with a typed error and no agreement is stored, while the same payload with a week day is created`` () =
+    member this.``REQ-CF-2.9 a CreateAgreement payload with an EveryOtherWeek cadence and no week day is refused as it is read and no agreement is stored, while the same payload with a week day is created`` () =
         let name = unique "CF-2.9 fortnightly"
         let monday = nextOn IsoDayOfWeek.Monday (today ())
         cleaningUp [ name ] (fun () ->
             result {
-                let! refused, afterBroken, afterWhole =
+                let! afterBroken, afterWhole =
                     this.brokenThenWhole name monday """{"Case":"EveryOtherWeek","Fields":[]}"""
                         (Contracts.EveryOtherWeek "Monday")
-                Assert.True(refused)
                 Assert.Empty(afterBroken)
                 Assert.Equal(Cadence.EveryOtherWeek Cadence.Monday, afterWhole |> List.exactlyOne |> MasterAgreement.cadence |> Cadence.cadenceType)
             })
 
     [<Fact>]
-    member this.``REQ-CF-2.10 a CreateAgreement payload with a Monthly cadence and no month day is rejected with a typed error and no agreement is stored, while the same payload with a month day is created`` () =
+    member this.``REQ-CF-2.10 a CreateAgreement payload with a Monthly cadence and no month day is refused as it is read and no agreement is stored, while the same payload with a month day is created`` () =
         let name = unique "CF-2.10 monthly"
         let t = today ()
         let first = LocalDate(t.Year, t.Month, 1).PlusMonths(1)
         cleaningUp [ name ] (fun () ->
             result {
-                let! refused, afterBroken, afterWhole =
+                let! afterBroken, afterWhole =
                     this.brokenThenWhole name first """{"Case":"Monthly","Fields":[]}"""
                         (Contracts.Monthly(Contracts.DateInMonth 1))
                 let! day1 = 1 |> Cadence.DateInMonthNumber.fromInt
-                Assert.True(refused)
                 Assert.Empty(afterBroken)
                 Assert.Equal(Cadence.Monthly(Cadence.DateInMonth day1), afterWhole |> List.exactlyOne |> MasterAgreement.cadence |> Cadence.cadenceType)
             })
@@ -386,7 +406,7 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
             })
 
     [<Fact>]
-    member _.``REQ-CF-2.10 a CreateAgreement payload with a Monthly nth-weekday month day that has a week number and no week day is rejected with a typed error and no agreement is stored`` () =
+    member _.``REQ-CF-2.10 a CreateAgreement payload with a Monthly nth-weekday month day that has a week number and no week day is refused as it is read and no agreement is stored`` () =
         let name = unique "CF-2.10 no week day"
         let t = today ()
         let nextMonth = LocalDate(t.Year, t.Month, 1).PlusMonths(1)
@@ -397,36 +417,34 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                 node["cadence"].["cadenceType"] <- JsonNode.Parse("""{"Case":"Monthly","Fields":[{"Case":"NthWeekDay","Fields":[2]}]}""")
                 let attempt = createRoute (node.ToJsonString())
                 let! stored = storedNamed (fresh ()) name
-                Assert.True(attempt |> Result.isError)
+                attempt |> expectRefusal refusedAsJsonFor<Contracts.CreateAgreementInput>
                 Assert.Empty(stored)
             })
 
     [<Fact>]
-    member this.``REQ-CF-2.11 a CreateAgreement payload with an Annually cadence and no month is rejected with a typed error and no agreement is stored, while the same payload with a month is created`` () =
+    member this.``REQ-CF-2.11 a CreateAgreement payload with an Annually cadence and no month is refused as it is read and no agreement is stored, while the same payload with a month is created`` () =
         let name = unique "CF-2.11 no month"
         let march = LocalDate((today ()).Year + 1, 3, 1)
         cleaningUp [ name ] (fun () ->
             result {
-                let! refused, afterBroken, afterWhole =
+                let! afterBroken, afterWhole =
                     this.brokenThenWhole name march """{"Case":"Annually","Fields":[{"Case":"DateInMonth","Fields":[1]}]}"""
                         (Contracts.Annually("March", Contracts.DateInMonth 1))
                 let! day1 = 1 |> Cadence.DateInMonthNumber.fromInt
-                Assert.True(refused)
                 Assert.Empty(afterBroken)
                 Assert.Equal(Cadence.Annually(Cadence.March, Cadence.DateInMonth day1), afterWhole |> List.exactlyOne |> MasterAgreement.cadence |> Cadence.cadenceType)
             })
 
     [<Fact>]
-    member this.``REQ-CF-2.11 a CreateAgreement payload with an Annually cadence and no month day is rejected with a typed error and no agreement is stored, while the same payload with a month day is created`` () =
+    member this.``REQ-CF-2.11 a CreateAgreement payload with an Annually cadence and no month day is refused as it is read and no agreement is stored, while the same payload with a month day is created`` () =
         let name = unique "CF-2.11 no month day"
         let march = LocalDate((today ()).Year + 1, 3, 1)
         cleaningUp [ name ] (fun () ->
             result {
-                let! refused, afterBroken, afterWhole =
+                let! afterBroken, afterWhole =
                     this.brokenThenWhole name march """{"Case":"Annually","Fields":["March"]}"""
                         (Contracts.Annually("March", Contracts.DateInMonth 1))
                 let! day1 = 1 |> Cadence.DateInMonthNumber.fromInt
-                Assert.True(refused)
                 Assert.Empty(afterBroken)
                 Assert.Equal(Cadence.Annually(Cadence.March, Cadence.DateInMonth day1), afterWhole |> List.exactlyOne |> MasterAgreement.cadence |> Cadence.cadenceType)
             })
@@ -473,12 +491,11 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                 let name = unique "CF-2.25 misfit"
                 let monday = nextOn IsoDayOfWeek.Monday s.today
                 let attempt = s.create name (Cadence.Weekly Cadence.Monday) (monday.PlusDays(1)) (s.today.PlusDays(-30)) None 1
-                let rejected =
-                    match attempt with
-                    | Error (AsError (BizGeneralError.CadenceDateNotOnWeekDay (d, "Monday"))) -> d = monday.PlusDays(1)
-                    | _ -> false
+                attempt
+                |> expectRefusal (function
+                    | AsError (BizGeneralError.CadenceDateNotOnWeekDay (d, "Monday")) -> d = monday.PlusDays(1)
+                    | _ -> false)
                 let! stored = s.stored name
-                Assert.True(rejected)
                 Assert.Empty(stored)
             })
 
@@ -496,7 +513,10 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                         { noUpdate name with
                             cadenceUpdate = SetTo { cadenceType = Contracts.Weekly "Monday"; nextInstance = monday.PlusDays(1) } }
                 let! after = storedNamed (fresh ()) name
-                Assert.True(attempt |> Result.isError)
+                attempt
+                |> expectRefusal (function
+                    | AsError (BizGeneralError.CadenceDateNotOnWeekDay(d, "Monday")) -> d = monday.PlusDays(1)
+                    | _ -> false)
                 Assert.Equal<MasterAgreement.MasterAgreement list>(before, after)
             })
 
@@ -543,14 +563,13 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                 let endingName = unique "CF-2.26 ends today"
                 let start = s.today.PlusDays(-30)
                 let attempt = s.daily endedName start (Some(s.today.PlusDays(-1)))
-                let rejected =
-                    match attempt with
-                    | Error (AsError (CashFlowError.CashflowMasterAgreementUnavailable _)) -> true
-                    | _ -> false
+                attempt
+                |> expectRefusal (function
+                    | AsError (CashFlowError.CashflowMasterAgreementUnavailable(_, _, _, activeEnd)) -> activeEnd = Some(s.today.PlusDays(-1))
+                    | _ -> false)
                 let! _ = s.daily endingName start (Some s.today)
                 let! ended = s.stored endedName
                 let! ending = s.stored endingName
-                Assert.True(rejected)
                 Assert.Empty(ended)
                 Assert.Equal(Some s.today, ending |> List.exactlyOne |> MasterAgreement.activityPeriod |> ActivityPeriod.activeEnd)
             })
@@ -567,7 +586,10 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                 let! _ = updateRoute { noUpdate name with activeEndUpdate = SetTo(Some t) }
                 let! afterAccepted = storedNamed (fresh ()) name
                 let endOf stored = stored |> List.exactlyOne |> MasterAgreement.activityPeriod |> ActivityPeriod.activeEnd
-                Assert.True(refused |> Result.isError)
+                refused
+                |> expectRefusal (function
+                    | AsError (CashFlowError.CashflowMasterAgreementUnavailable(_, _, _, activeEnd)) -> activeEnd = Some(t.PlusDays(-1))
+                    | _ -> false)
                 Assert.Equal(None, afterRefused |> endOf)
                 Assert.Equal(Some t, afterAccepted |> endOf)
             })
@@ -600,7 +622,12 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                 let! before = storedNamed (fresh ()) name
                 let attempt = updateRoute { noUpdate name with counterpartyUpdate = SetTo "Changed after it ended" }
                 let! after = storedNamed (fresh ()) name
-                Assert.True(attempt |> Result.isError)
+                attempt
+                |> expectRefusal (function
+                    | AsError (CashFlowError.CashflowMasterAgreementUnavailable(uuid, _, _, activeEnd)) ->
+                        uuid = (created |> MasterAgreement.agreementID |> MasterAgreementId.value)
+                        && activeEnd = Some(t.PlusDays(-1))
+                    | _ -> false)
                 Assert.Equal<MasterAgreement.MasterAgreement list>(before, after)
             })
 
@@ -615,14 +642,13 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                 let name = unique "CF-2.27 legs"
                 let start = s.today.PlusDays(-30)
                 let attempt = s.create name Cadence.Daily s.today start None 0
-                let rejected =
-                    match attempt with
-                    | Error (AsError CashFlowError.CashflowPaymentAgreementsListCannotBeEmpty) -> true
-                    | _ -> false
+                attempt
+                |> expectRefusal (function
+                    | AsError CashFlowError.CashflowPaymentAgreementsListCannotBeEmpty -> true
+                    | _ -> false)
                 let! afterNone = s.stored name
                 let! _ = s.create name Cadence.Daily s.today start None 1
                 let! afterOne = s.stored name
-                Assert.True(rejected)
                 Assert.Empty(afterNone)
                 Assert.Single(afterOne) |> ignore
             })
