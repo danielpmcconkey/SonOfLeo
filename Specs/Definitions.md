@@ -51,6 +51,12 @@ A record the system appends as a historical log and never updates: a classificat
 ## Postable (staged entry)
 A staged entry whose status is `'Classified'` or `'Reviewed'`. Only postable entries are eligible for shadow post or batch post. The posting process validates that every staged line has a non-null account. A manual update can make an entry postable while a line's account is still null (REQ-STG-4.4); such an entry fails shadow post, review and posting loudly (REQ-STG-9.4), and is never silently excluded.
 
+## Person
+A human with a relationship to a financial account or property the system tracks — an owner, for example. A Person is a record the system holds *about* someone (Person.md). It is not a User. (2026-10-04)
+
+## User
+An actor operating this system (see Actors). Being a User grants no relationship to any account, and being a Person grants no access to the system. The two are never treated as one, even when they are the same human. (2026-10-04)
+
 ## Interface
 The set of features, functions, services, windows, or reports that actors outside the system will trigger or consume.
 

@@ -1,6 +1,6 @@
 # Reporting
 
-Behavioral specs for the reporting domain. Reports are read-only computations over the ledger, producing structured data and optional rendered output. Reports never modify ledger state.
+Behavioral specs for the reporting domain. Reports are read-only computations over the ledger and positions (Positions.md), producing structured data and optional rendered output. Reports never modify ledger or positions state. (Positions added 2026-10-04)
 
 ## 1. Trial balance data
 
@@ -31,7 +31,7 @@ Behavioral specs for the reporting domain. Reports are read-only computations ov
 
 ## 3. HTML rendering
 
-REQ-RPT-3.1 to 3.6 apply to every rendered report (trial balance, balance-sheet integrity, period activity, pre-posting review), with "account row" read as any row that shows an account. The waivers on 3.2 to 3.6 cover every rendered report. (Scope stated 2026-10-03)
+REQ-RPT-3.1 to 3.6 apply to every rendered report (trial balance, balance-sheet integrity, period activity, pre-posting review), with "account row" read as any row that shows an account. The waivers on 3.2 to 3.6 cover every rendered report. (Scope stated 2026-10-03) For net worth (§8) and investment wealth history (§9), REQ-RPT-3.1, 3.2 and 3.5 apply; 3.3, 3.4 and 3.6 describe trial-balance account rows and do not. (2026-10-04)
 
 - **REQ-RPT-3.1** The rendered HTML report must contain a header section displaying the report title and the as-of Calendar Date.
 - **REQ-RPT-3.2** The rendered HTML report must contain a footer section displaying the instant at which the report was generated: the initiation instant of the operation that rendered it (REQ-SYS-3.4). (Amended 2026-10-03)
@@ -40,8 +40,6 @@ REQ-RPT-3.1 to 3.6 apply to every rendered report (trial balance, balance-sheet 
 - **REQ-RPT-3.5** The rendered HTML must include print-optimized CSS.
 - **REQ-RPT-3.6** Each account row must display three labeled monetary values: total credits, total debits, and net balance.
 
-
-**Design note — net worth.** Investment positions are not in the SonOfLeo ledger until the portfolio domain migrates (roadmap step 3). Until then, net worth is assembled outside the system from the balance sheet below (§5) plus position values from the portfolio source.
 
 ## 4. Reconciliation
 
@@ -94,6 +92,45 @@ What is about to post, line by line, with how each line was classified and what 
   - *Why:* Shadow post has already failed on such a line (DataIngestion REQ-STG-9.4), so reaching the review with one means the order was skipped. (2026-09-27)
 - **REQ-RPT-7.6** Entries are ordered by entry date, then source name, then fi_reference.
 - **REQ-RPT-7.7** The pre-posting review is a read-only report (REQ-RPT-2.6) and supports the output modes of §2. Date interpolation (REQ-RPT-2.4) appends the date the report runs, and the rendered header (REQ-RPT-3.1) shows that date and the number of entries and lines.
+
+## 8. Net worth
+
+What the household is worth on a date: the ledger's assets and liabilities, with investments and
+property at market value in place of whatever cost the ledger carries for them.
+
+- **REQ-RPT-8.1** The system must provide a net worth computation that accepts an as-of Calendar Date. The date must fall within an existing fiscal period; otherwise the computation fails with a typed error naming the date.
+  - *Why:* liabilities come only from the ledger, and the ledger holds nothing before its first fiscal period. A net worth for an earlier date would count every asset and no debt. Investment wealth over time (§9) has no such limit. (2026-10-04)
+- **REQ-RPT-8.2** Net worth is the sum of:
+  - the net balance, as of the date, of every Asset account that is not linked to an Investment Account or a Property (Positions REQ-POS-4.8, REQ-POS-9.7);
+  - the market value of every line in the holdings as of the date (Positions REQ-POS-8.1);
+  - the value on the date (Positions REQ-POS-10.4) of every Property owned on the date (Positions REQ-POS-9.4);
+
+  less the net balance, as of the date, of every Liability account. Balances follow the trial balance rules (REQ-RPT-1.8 to 1.10), each account's own balance only, with no roll-up into parents, so no amount is counted twice.
+  - *Why linked accounts are left out:* a linked ledger account carries an investment or a property at cost; its market value is already counted from Positions. (2026-10-04)
+- **REQ-RPT-8.3** A Property's equity on the date is its value less the net balance of each of its mortgage Accounts (Positions REQ-POS-9.8) as of the date.
+- **REQ-RPT-8.4** Investable wealth is net worth less the equity of the Property whose use is 'PrimaryResidence' and that is owned on the date, if there is one.
+  - *Why equity, not value:* investable wealth answers "what would we be worth if the house and its loan did not exist". Removing the value but keeping the mortgage would charge the household for a debt secured by an asset no longer counted. (2026-10-04)
+- **REQ-RPT-8.5** The computation returns:
+  - the as-of date;
+  - each counted Asset account (code, name, balance) and each Liability account not a mortgage Account of a Property (code, name, balance);
+  - each included Investment Account (name, owners' names, account group, tax treatment, snapshot date, provenance, total market value, contribution basis);
+  - each owned Property (name, use, owners' names, value, the date of the Valuation it came from or an indication that it is the purchase basis, each mortgage Account with code, name and balance, and equity);
+  - totals: counted ledger assets, investments, property values, liabilities, net worth, and investable wealth;
+  - investment market value totalled by tax treatment, and by account group.
+  - *Why the tax-treatment totals:* whether tax is owed on all of a balance, only its growth, or none of it is the first thing anyone settling the household's affairs needs to know. (2026-10-04)
+- **REQ-RPT-8.6** Net worth is a read-only report (REQ-RPT-2.6) and supports the output modes of §2: data-only, and rendered HTML written to a caller-provided path. Date interpolation (REQ-RPT-2.4) appends the as-of date.
+
+## 9. Investment wealth history
+
+How invested wealth has grown, month by month, split along any one line.
+
+- **REQ-RPT-9.1** The system must provide an investment wealth history computation that accepts a begin and an end Calendar Date and a grouping, one of: account, account group, tax treatment, owners, or any of the seven allocation dimensions (Positions REQ-POS-2.1). The end date may not be earlier than the begin date.
+- **REQ-RPT-9.2** The computation returns one point for every month-end date (the last day of a calendar month) on or after the begin date and on or before the end date, in date order. At each point, the holdings as of that date (Positions REQ-POS-8.1) are totalled by market value for each value of the grouping, with a total across all of them.
+  - *Why month-ends:* snapshots arrive weekly; a monthly series is what shows growth over years without weekly noise. (2026-10-04)
+- **REQ-RPT-9.3** Grouping by owners groups each account by its complete set of owners, so a jointly owned account is its own group, not split between its owners. Grouping by a dimension groups each line by its Security's value in that dimension; lines with no value in it are grouped as unassigned.
+- **REQ-RPT-9.4** Investment wealth history is not limited to fiscal periods. A point with no holdings is reported with a zero total.
+  - *Why:* investment history reaches back years before the ledger began. (2026-10-04)
+- **REQ-RPT-9.5** Investment wealth history is a read-only report (REQ-RPT-2.6) and supports the output modes of §2. Rendered, it is a table with one row per point and one column per group value. Date interpolation (REQ-RPT-2.4) appends the begin and end dates as `-yyyy-MM-dd_yyyy-MM-dd`.
 
 ## Waived from testing
 
