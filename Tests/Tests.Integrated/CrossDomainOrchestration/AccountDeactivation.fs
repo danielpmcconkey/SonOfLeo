@@ -27,6 +27,40 @@ open Business.FinancialServices.Ledger.LedgerError
 [<Collection("SharedTestData")>]
 type AccountDeactivationTests(fixture: TestDataFixture) =
 
+    (* The tests below build, inside their own rolled-back transaction, the account they deactivate and a Liability to
+       take the other side of its entries. Codes carry the requirement they serve. *)
+    let today = Calendar.today ()
+
+    let newAccount context code (activeEnd: NodaTime.LocalDate option) parent =
+        EntityFunctions.createTestAccountFromPrimitives
+            context code $"Deactivation test {code}" "Asset" (today.PlusYears(-1)) activeEnd (Some "Cash") parent None
+
+    let counterAccount context code =
+        EntityFunctions.createTestAccountFromPrimitives
+            context code $"Deactivation counter {code}" "Liability" (today.PlusYears(-1)) None (Some "CurrentLiability") None None
+        |> Result.map snd
+
+    let post context entryDate (lines: (AccountComponent.AccountId * decimal * string * string option) list) =
+        EntityFunctions.createTestJournalEntryFromPrimitives context "Deactivation test entry" None entryDate lines [] []
+        |> Result.map snd
+
+    let voidEntry context entryId =
+        result {
+            let! reason = "Voided before deactivation" |> JournalEntryComponent.CommentText.create
+            let! _ = entryId |> JournalEntryVoiding.voidJournalEntry context None reason
+            return ()
+        }
+
+    /// Deactivates the account at the requested end, then reads it back from the database and returns its active end.
+    let deactivateAndReadBack context (requestedEnd: NodaTime.LocalDate) (accountId: AccountComponent.AccountId) =
+        result {
+            let! account = accountId |> Account.fetchById context
+            let! _ = account |> deactivateAccount context (Some requestedEnd)
+            let! readBack = accountId |> Account.fetchById context
+            return readBack |> Account.activityPeriod |> activeEnd
+        }
+
+
     [<Fact>]
     member _.``REQ-AC-4.1 deactivateAccount sets active end and returns inactive account``() =
         let explicitDeactivationDate = Some(Calendar.today().PlusDays(-1))
@@ -122,18 +156,80 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
             })
         |> railroadWrapper
 
-// todo: we need a test for AccountDeactivationWithJournalEntriesDatedAfterDeactivationDate
+    [<Fact>]
+    member _.``REQ-AC-4.3 deactivateAccount succeeds for a parent whose only child's active end is before today, its active end reading back as the requested date``() =
+        runCommandRouteAndAutoRollback AccountDeactivate (fun context ->
+            result {
+                let! _, parentId = newAccount context "AC-4.3-P" None None
+                let! _ = newAccount context "AC-4.3-C" (Some(today.PlusDays(-1))) (Some parentId)
+                let! readBack = parentId |> deactivateAndReadBack context today
+                Assert.Equal(Some today, readBack)
+                return ()
+            })
+        |> railroadWrapper
 
-    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+    [<Fact>]
+    member _.``REQ-AC-4.4 deactivateAccount succeeds when unvoided lines net to zero alongside a voided one-sided entry, its active end reading back as the requested date``() =
+        runCommandRouteAndAutoRollback AccountDeactivate (fun context ->
+            result {
+                let! _, accountId = newAccount context "AC-4.4" None None
+                let! counterId = counterAccount context "AC-4.4-L"
+                let! _ = post context (today.PlusDays(-3)) [ (accountId, 20.00M, "Debit", None); (counterId, 20.00M, "Credit", None) ]
+                let! _ = post context (today.PlusDays(-2)) [ (counterId, 20.00M, "Debit", None); (accountId, 20.00M, "Credit", None) ]
+                let! oneSided = post context (today.PlusDays(-1)) [ (accountId, 50.00M, "Debit", None); (counterId, 50.00M, "Credit", None) ]
+                do! voidEntry context oneSided
+                let! readBack = accountId |> deactivateAndReadBack context today
+                Assert.Equal(Some today, readBack)
+                return ()
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-AC-4.5 deactivating an Account whose active end was scheduled in the future at creation is rejected with a typed error and the scheduled end is unchanged`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback AccountDeactivate (fun context ->
+            result {
+                let scheduledEnd = today.PlusDays(30)
+                let! account, accountId = newAccount context "AC-4.5" (Some scheduledEnd) None
+                let () =
+                    match account |> deactivateAccount context (Some today) with
+                    | Error (AsError (AccountAlreadyInactive (rejectedId, end'))) ->
+                        Assert.Equal(accountId |> AccountComponent.AccountId.value, rejectedId)
+                        Assert.Equal(scheduledEnd, end')
+                    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                    | Ok _ -> Assert.Fail "Expected failure; got success"
+                let! readBack = accountId |> Account.fetchById context
+                Assert.Equal(Some scheduledEnd, readBack |> Account.activityPeriod |> activeEnd)
+                return ()
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-AC-4.6 an Account referenced only by a line of a voided entry dated after the requested active end deactivates, its active end reading back as the requested date`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback AccountDeactivate (fun context ->
+            result {
+                let requestedEnd = today.PlusDays(-5)
+                let! _, accountId = newAccount context "AC-4.6" None None
+                let! counterId = counterAccount context "AC-4.6-L"
+                let! after = post context (requestedEnd.PlusDays(3)) [ (accountId, 15.00M, "Debit", None); (counterId, 15.00M, "Credit", None) ]
+                do! voidEntry context after
+                let! readBack = accountId |> deactivateAndReadBack context requestedEnd
+                Assert.Equal(Some requestedEnd, readBack)
+                return ()
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-AC-4.6 an Account with an unvoided entry dated exactly on the requested active end deactivates, its active end reading back as the requested date`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback AccountDeactivate (fun context ->
+            result {
+                let requestedEnd = today.PlusDays(-5)
+                let! _, accountId = newAccount context "AC-4.6" None None
+                let! counterId = counterAccount context "AC-4.6-L"
+                // two entries, so the balance is zero and only the entry dates are in question
+                let! _ = post context (requestedEnd.PlusDays(-1)) [ (accountId, 15.00M, "Debit", None); (counterId, 15.00M, "Credit", None) ]
+                let! _ = post context requestedEnd [ (counterId, 15.00M, "Debit", None); (accountId, 15.00M, "Credit", None) ]
+                let! readBack = accountId |> deactivateAndReadBack context requestedEnd
+                Assert.Equal(Some requestedEnd, readBack)
+                return ()
+            })
+        |> railroadWrapper

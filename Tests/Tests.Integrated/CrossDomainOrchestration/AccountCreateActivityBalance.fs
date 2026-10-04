@@ -759,11 +759,24 @@ type AccountCreateActivityBalanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-3.13.3 a balance query with an empty list of account codes fails with a typed error`` () =
-        let attempt = balances [] None
-        Assert.True(attempt |> Result.isError)
-
-    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+        match balances [] None with
+        | Error (AsError LedgerError.AccountBalanceFetchInvalidArguments) -> ()
+        | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+        | Ok returned -> Assert.Fail $"Expected failure; got {returned.Length} balances"
 
     [<Fact>]
     member _.``REQ-AC-3.12.3 with the unvoided-only flag set, an Account whose every line belongs to a voided entry is omitted, while an Account with no lines at all is still returned`` () =
-        Assert.Fail "Not yet implemented"
+        withLedger (fun ledger ->
+            result {
+                let! allVoided, allVoidedId = ledger.account "Asset" None None None
+                let! lineless, _ = ledger.account "Asset" None None None
+                let! _, liabilityId = ledger.account "Liability" None None None
+                let! entry =
+                    ledger.entry (ledger.current.startDate.PlusDays(1)) None "All voided test"
+                        [ (allVoidedId, 12.00M, "Debit", None); (liabilityId, 12.00M, "Credit", None) ]
+                let! _ = ledger.voidEntry entry
+                let! rows = activity { noFilter with unVoidedOnly = true } None
+                Assert.DoesNotContain(rows, fun r -> r.accountCode = allVoided)
+                let linelessRow = rows |> List.filter (fun r -> r.accountCode = lineless) |> List.exactlyOne
+                Assert.Equal(None, linelessRow.activityDetail)
+            })

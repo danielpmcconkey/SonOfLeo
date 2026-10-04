@@ -127,6 +127,58 @@ type BalanceSheetIntegrityTests(fixture: TestDataFixture) =
         { debits = 74.00M; credits = 74.00M; assets = 70.00M; liabilities = 20.00M; equity = 43.00M
           revenue = 11.00M; expenses = 4.00M; netIncome = 7.00M; residual = 0M }
 
+    (* The look-back tests retire an account of their own, BI-1100, whose balance they set with entries against the
+       BI-2000 liability. An entry posted before the account's active end has its created-at moved, in SQL, to noon on
+       a day before that end: every write in a test happens now, so an entry could not otherwise have been posted
+       before an end in the past. *)
+    let retiredEnd = today.PlusDays(-10)
+
+    let createRetiredCandidate (context: Context.Context) activeEnd =
+        createTestAccountFromPrimitives
+            context "BI-1100" "Integrity retired asset" "Asset" (today.PlusYears(-1)) activeEnd (Some "Cash") None None
+
+    let noonOn (date: NodaTime.LocalDate) =
+        date.At(NodaTime.LocalTime.Noon).InZoneLeniently(Clock.timeZoneLocal).ToInstant()
+
+    let postedOn (context: Context.Context) (date: NodaTime.LocalDate) (entryId: JournalEntryHeaderId) =
+        executeNonQuery
+            (context |> Context.getDatabaseTransaction)
+            "update ledger.journal_entry set created_at = @created_at where unique_id = @unique_id"
+            [ { name = "@created_at"; value = DbInstant(noonOn date) }
+              { name = "@unique_id"; value = UniqueId(entryId |> JournalEntryHeaderId.value) } ]
+            ExactlyOne
+
+    /// Debits the retired candidate 40.00 dated 20 days ago and credits it 40.00 dated 15 days ago, both posted 12 days
+    /// ago, so it holds zero when it is deactivated at retiredEnd. Returns the debit entry and the credit entry.
+    let zeroItBeforeItsEnd context (accounts: IntegrityAccounts) (retired: AccountId) =
+        result {
+            let! debitEntry =
+                post context "Integrity retired debit" (today.PlusDays(-20))
+                    [ (retired, 40.00M, "Debit", None); (accounts.liability, 40.00M, "Credit", None) ]
+            let! creditEntry =
+                post context "Integrity retired credit" (today.PlusDays(-15))
+                    [ (retired, 40.00M, "Credit", None); (accounts.liability, 40.00M, "Debit", None) ]
+            do! debitEntry |> postedOn context (today.PlusDays(-12))
+            do! creditEntry |> postedOn context (today.PlusDays(-12))
+            return debitEntry, creditEntry
+        }
+
+    let retire context (retired: Account.Account) =
+        result {
+            let! current = retired |> Account.accountId |> Account.fetchById context
+            let! _ = current |> AccountDeactivation.deactivateAccount context (Some retiredEnd)
+            return ()
+        }
+
+    let listedCodes (integrity: BalanceSheetIntegrity) =
+        integrity.deactivatedAccountsWithBalance |> List.map (fun a -> a.code |> AccountCode.value)
+
+    let listed code (integrity: BalanceSheetIntegrity) =
+        integrity.deactivatedAccountsWithBalance |> List.filter (fun a -> (a.code |> AccountCode.value) = code)
+
+    let entryIds (entries: JournalEntryHeader.JournalEntryHeader list) =
+        entries |> List.map JournalEntryHeader.journalEntryHeaderId |> Set.ofList
+
     let lineDatedRelativeToAsOf entryDate asOf expected =
         withAccounts (fun context accounts ->
             result {
@@ -276,20 +328,72 @@ type BalanceSheetIntegrityTests(fixture: TestDataFixture) =
                 return ()
             })
 
-    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
-
     [<Fact>]
     member _.``REQ-RPT-5.4 a journal entry backdated onto an account after the account was deactivated lists that account with its code, name, active-end date, its non-zero balance and that entry, and no entry posted before its active end`` () =
-        Assert.Fail "Not yet implemented"
+        withAccounts (fun context accounts ->
+            result {
+                let! retired, retiredId = createRetiredCandidate context None
+                let! _ = zeroItBeforeItsEnd context accounts retiredId
+                do! retire context retired
+                let! backdated =
+                    post context "Integrity backdated" (today.PlusDays(-12))
+                        [ (retiredId, 30.00M, "Debit", None); (accounts.liability, 30.00M, "Credit", None) ]
+                let! integrity = computeBalanceSheetIntegrity context today
+                let! expectedBalance = Money.fromDecimal 30.00M
+                let () =
+                    match listed "BI-1100" integrity with
+                    | [ account ] ->
+                        Assert.Equal("Integrity retired asset", account.accountName |> AccountName.value)
+                        Assert.Equal(retiredEnd, account.activeEnd)
+                        Assert.Equal(expectedBalance, account.balance)
+                        Assert.Equal<Set<JournalEntryHeaderId>>(Set.singleton backdated, account.entriesAfterActiveEnd |> entryIds)
+                    | other -> Assert.Fail $"Expected BI-1100 listed once; listed {other |> List.length} times among {listedCodes integrity}"
+                return ()
+            })
 
     [<Fact>]
     member _.``REQ-RPT-5.4 voiding, after an account was deactivated, an entry that zeroed it lists the account with the residue balance and the voided entry`` () =
-        Assert.Fail "Not yet implemented"
+        withAccounts (fun context accounts ->
+            result {
+                let! retired, retiredId = createRetiredCandidate context None
+                let! _, creditEntry = zeroItBeforeItsEnd context accounts retiredId
+                do! retire context retired
+                let! _ = creditEntry |> voidJournalEntry context None voidReason
+                let! integrity = computeBalanceSheetIntegrity context today
+                let! expectedBalance = Money.fromDecimal 40.00M
+                let () =
+                    match listed "BI-1100" integrity with
+                    | [ account ] ->
+                        Assert.Equal(expectedBalance, account.balance)
+                        Assert.Equal<Set<JournalEntryHeaderId>>(Set.singleton creditEntry, account.entriesAfterActiveEnd |> entryIds)
+                    | other -> Assert.Fail $"Expected BI-1100 listed once; listed {other |> List.length} times among {listedCodes integrity}"
+                return ()
+            })
 
     [<Fact>]
     member _.``REQ-RPT-5.4 a deactivated account whose balance is zero is not listed, and an active account with a non-zero balance is not listed`` () =
-        Assert.Fail "Not yet implemented"
+        withAccounts (fun context accounts ->
+            result {
+                let! retired, retiredId = createRetiredCandidate context None
+                let! _ = zeroItBeforeItsEnd context accounts retiredId
+                do! retire context retired
+                // BI-1000 stays active and holds 70.00
+                let! _ = post context "Integrity active holding" yesterday (everyTypeLines accounts)
+                let! integrity = computeBalanceSheetIntegrity context today
+                Assert.DoesNotContain("BI-1100", listedCodes integrity)
+                Assert.DoesNotContain("BI-1000", listedCodes integrity)
+                return ()
+            })
 
     [<Fact>]
     member _.``REQ-RPT-5.4 an account whose active end is today, with a non-zero balance, is not listed`` () =
-        Assert.Fail "Not yet implemented"
+        withAccounts (fun context accounts ->
+            result {
+                let! _, endsTodayId = createRetiredCandidate context (Some today)
+                let! _ =
+                    post context "Integrity ends today" yesterday
+                        [ (endsTodayId, 25.00M, "Debit", None); (accounts.liability, 25.00M, "Credit", None) ]
+                let! integrity = computeBalanceSheetIntegrity context today
+                Assert.DoesNotContain("BI-1100", listedCodes integrity)
+                return ()
+            })
