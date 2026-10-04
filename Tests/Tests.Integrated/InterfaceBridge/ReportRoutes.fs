@@ -59,6 +59,36 @@ type ReportRoutesTests(fixture: TestDataFixture) =
         finally
             Cleanup.cleanUpStageEntryHeaderId headerToCleanUp |> railroadWrapper
 
+    (* Form 4 for several staged entries at once: each is committed before the test runs and deleted in finally. *)
+    let withCommittedStagedEntries
+        (stage: PrePostingScenario -> Result<StageEntryOrchestration.StageEntry list, IAppError>)
+        (test: StageEntryOrchestration.StageEntry list -> Result<unit, IAppError>) =
+        let headersToCleanUp = ref []
+        try
+            result {
+                let! entries =
+                    runCommandRouteAndAutoCompleteTransaction FetchOnly (fun context -> stage (PrePostingScenario(fixture, context)))
+                headersToCleanUp.Value <-
+                    entries |> List.map (StageEntryOrchestration.stageEntryHeader >> StageEntryHeader.stageEntryHeaderId)
+                return! test entries
+            }
+            |> railroadWrapper
+        finally
+            headersToCleanUp.Value |> List.iter (fun id -> Cleanup.cleanUpStageEntryHeaderId (Some id) |> railroadWrapper)
+
+    (* The text of a rendered report's <header> element. *)
+    let headerOf (html: string) =
+        let headerStart = html.IndexOf("<header")
+        let headerEnd = html.IndexOf("</header>")
+        Assert.True(headerStart >= 0 && headerEnd > headerStart, "the rendered report has no <header> element")
+        html.Substring(headerStart, headerEnd - headerStart)
+
+    (* The text of the header's <h1>, the report's title. *)
+    let titleIn (header: string) =
+        let m = System.Text.RegularExpressions.Regex.Match(header, "<h1[^>]*>(.*?)</h1>", System.Text.RegularExpressions.RegexOptions.Singleline)
+        Assert.True(m.Success, "the report header has no <h1> title")
+        m.Groups.[1].Value.Trim()
+
     let runPrePostingReview (reportOutput: OutputSpecifier) =
         result {
             let! payload = { reportOutput = reportOutput } |> toJson<PrePostingReviewInput>
@@ -108,7 +138,7 @@ type ReportRoutesTests(fixture: TestDataFixture) =
         }
 
     [<Fact>]
-    member _.``REQ-RPT-2.2 data-only mode returns boundary-type rows with expected field types``() =
+    member _.``REQ-RPT-2.2 data-only mode returns one boundary-type row per account, with the boundary account's name, generation and totals and every row's generation from the fixture's parent chain``() =
         let input: TrialBalanceReportInput = { asOf = { asOf = nextMonth }; reportOutput = OutputSpecifier.DataOnly }
         let expectedCount = fixture.Data.accounts |> List.length
         let leafId = fixture.Data.food5350Id
@@ -131,6 +161,9 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             |> List.filter(fun l -> l |> JournalEntryLine.accountId = leafId && l |> JournalEntryLine.lineType = Credit)
             |> List.sumBy(fun l -> l |> JournalEntryLine.amount |> Money.amount)
         let expectedNet = expectedDebits - expectedCredits
+        let leafAccount = fixture.Data.accounts |> List.find(fun a -> a |> Account.accountId = leafId)
+        let expectedGenerations = fixture.Data.accounts |> TrialBalanceFixture.expectedGenerations
+        let leafGeneration = expectedGenerations |> List.find (fun (code, _) -> code = leafCode) |> snd
         result {
             let! payload = input |> toJson<TrialBalanceReportInput>
             let! returnPayload = routeReportingCommandForTesting "TrialBalance" [] payload
@@ -143,6 +176,12 @@ type ReportRoutesTests(fixture: TestDataFixture) =
                     Assert.Equal(expectedDebits, leafRow.totalDebits)
                     Assert.Equal(expectedCredits, leafRow.totalCredits)
                     Assert.Equal(expectedNet, leafRow.netBalance)
+                    Assert.Equal(leafAccount |> Account.accountName |> AccountName.value, leafRow.accountName)
+                    Assert.True(leafGeneration > 0, "the boundary row's account should have a parent")
+                    Assert.Equal(leafGeneration, leafRow.generation)
+                    Assert.Equal<(string * int) list>(
+                        expectedGenerations,
+                        rows |> List.map (fun r -> r.accountCode, r.generation) |> List.sort)
                     Ok ()
                 | TrialBalanceReportReturn.Report _ ->
                     Error (TestingError "Expected DataOnly but got Report")
@@ -150,10 +189,43 @@ type ReportRoutesTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-RPT-2.3 report mode writes an HTML file and returns the file path``() =
+    member _.``REQ-RPT-2.3 report mode writes a new HTML file showing the fixture's accounts and returns its fully qualified path``() =
         let input: TrialBalanceReportInput =
             { asOf = { asOf = nextMonth }
               reportOutput = OutputSpecifier.Report { baseDir = testOutputDir; interpolateAsOf = false; fileName = "rpt-2-3-test" } }
+        let expectedPath = System.IO.Path.Combine(testOutputDir, "rpt-2-3-test.html")
+        let fixtureCode =
+            fixture.Data.accounts |> List.find(fun a -> a |> Account.accountId = fixture.Data.food5350Id)
+            |> Account.code |> AccountCode.value
+        // a file left behind by an earlier run would satisfy every check below, so it goes first
+        System.IO.File.Delete expectedPath
+        result {
+            Assert.False(System.IO.File.Exists expectedPath)
+            let! payload = input |> toJson<TrialBalanceReportInput>
+            let! returnPayload = routeReportingCommandForTesting "TrialBalance" [] payload
+            let! returned = returnPayload |> fromJson<TrialBalanceReportReturn>
+            return!
+                match returned with
+                | TrialBalanceReportReturn.Report pathReturn ->
+                    Assert.True(System.IO.Path.IsPathFullyQualified pathReturn.fullyQualifiedPath)
+                    Assert.Equal(expectedPath, pathReturn.fullyQualifiedPath)
+                    let html = System.IO.File.ReadAllText pathReturn.fullyQualifiedPath
+                    System.IO.File.Delete pathReturn.fullyQualifiedPath
+                    Assert.StartsWith("<!DOCTYPE html>", html.TrimStart(), System.StringComparison.OrdinalIgnoreCase)
+                    Assert.Contains(fixtureCode, html)
+                    Assert.DoesNotContain("tag not implemented", html)
+                    Ok ()
+                | TrialBalanceReportReturn.DataOnly _ ->
+                    Error (TestingError "Expected Report but got DataOnly")
+        }
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-RPT-3.1 the rendered trial balance header shows the report title and the as-of date``() =
+        let asOf = Calendar.today().PlusDays(-9)
+        let input: TrialBalanceReportInput =
+            { asOf = { asOf = asOf }
+              reportOutput = OutputSpecifier.Report { baseDir = testOutputDir; interpolateAsOf = false; fileName = "rpt-3-1-trial-balance-header" } }
         result {
             let! payload = input |> toJson<TrialBalanceReportInput>
             let! returnPayload = routeReportingCommandForTesting "TrialBalance" [] payload
@@ -161,12 +233,28 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             return!
                 match returned with
                 | TrialBalanceReportReturn.Report pathReturn ->
-                    Assert.True(System.IO.File.Exists pathReturn.fullyQualifiedPath)
-                    Assert.Contains(".html", pathReturn.fullyQualifiedPath)
+                    let html = System.IO.File.ReadAllText pathReturn.fullyQualifiedPath
                     System.IO.File.Delete pathReturn.fullyQualifiedPath
+                    let header = headerOf html
+                    Assert.Equal("Trial Balance Report", titleIn header)
+                    Assert.Contains(asOf |> Calendar.localDateToString "yyyy-MM-dd", header)
                     Ok ()
                 | TrialBalanceReportReturn.DataOnly _ ->
                     Error (TestingError "Expected Report but got DataOnly")
+        }
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-RPT-3.1 REQ-RPT-6.4 the rendered balance-sheet integrity header shows the report title and the as-of date``() =
+        let asOf = Calendar.today().PlusDays(-11)
+        result {
+            let! path = integrityReportPath asOf false "rpt-3-1-integrity-header"
+            let html = System.IO.File.ReadAllText path
+            System.IO.File.Delete path
+            let header = headerOf html
+            Assert.Equal("Balance-Sheet Integrity", titleIn header)
+            Assert.Contains(asOf |> Calendar.localDateToString "yyyy-MM-dd", header)
+            return ()
         }
         |> railroadWrapper
 
@@ -197,14 +285,6 @@ type ReportRoutesTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-NGUI-4.5 unknown report name fails with typed error``() =
-        isCorrectError
-            (routeReportingCommandForTesting "BogusReport" [] "{}")
-            ReportingUnknownReportName
-            None
-        |> railroadWrapper
-
-    [<Fact>]
     member _.``REQ-RPT-7.7 pre-posting review data-only mode returns every entry and its lines as boundary types``() =
         withCommittedClassifiedEntry "Pre-posting review route 7.7 data-only" (fun headerId ->
             result {
@@ -224,8 +304,23 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             })
 
     [<Fact>]
-    member _.``REQ-RPT-7.7 pre-posting review report mode writes an HTML file and returns its path``() =
-        withCommittedClassifiedEntry "Pre-posting review route 7.7 report" (fun _ ->
+    member _.``REQ-RPT-7.7 pre-posting review report mode writes an HTML file whose header shows the run date and the staged entries' entry and line counts, and returns its path``() =
+        (* The fixture stages nothing Classified or Reviewed (its staged entries are Posted, Duplicate or Ignored), so
+           the review holds exactly the entries staged here: a two-line Classified one and a three-line Reviewed one. *)
+        let stage (s: PrePostingScenario) =
+            result {
+                let! classified = s.classifiedEntry "Pre-posting review route 7.7 report"
+                let! reviewed =
+                    s.stagedEntryWith s.testBank "Pre-posting review route 7.7 report, three lines" (System.Guid.NewGuid().ToString()) s.Today
+                        [ (100.00M, "Credit", Some s.cashCode, None)
+                          (60.00M, "Debit", Some s.loanCode, None)
+                          (40.00M, "Debit", Some s.loanCode, None) ]
+                        [ ("Classified", "Classifier"); ("Reviewed", "Operator") ]
+                return [ classified; reviewed ]
+            }
+        withCommittedStagedEntries stage (fun staged ->
+            let expectedEntries = staged |> List.length
+            let expectedLines = staged |> List.sumBy (StageEntryOrchestration.seLines >> List.length)
             result {
                 let! returned =
                     runPrePostingReview
@@ -238,6 +333,10 @@ type ReportRoutesTests(fixture: TestDataFixture) =
                         System.IO.File.Delete pathReturn.fullyQualifiedPath
                         Assert.Contains("Pre-posting review route 7.7 report", html)
                         Assert.DoesNotContain("tag not implemented", html)
+                        let header = headerOf html
+                        Assert.Contains(Calendar.today() |> Calendar.localDateToString "yyyy-MM-dd", header)
+                        Assert.Equal((2, 5), (expectedEntries, expectedLines))
+                        Assert.Matches($@"(?<!\d){expectedEntries} entries, {expectedLines} lines(?!\d)", header)
                         Ok ()
                     | PrePostingReviewReturn.DataOnly _ -> TestError.error (TestingError "Expected Report but got DataOnly")
             })

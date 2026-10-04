@@ -27,6 +27,19 @@ open App.Utility.IAppError
 open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 
+/// Expected values read from the fixture's own account list, never from the report.
+module TrialBalanceFixture =
+    /// Every account's (code, generation), the generation counted by walking parentId up to an account with no parent.
+    let expectedGenerations (accounts: Account list) : (string * int) list =
+        let byId = accounts |> List.map (fun a -> a |> Account.accountId, a) |> Map.ofList
+        let rec generationOf (a: Account) =
+            match a |> Account.parentId with
+            | None -> 0
+            | Some parent -> 1 + generationOf byId.[parent]
+        accounts
+        |> List.map (fun a -> a |> Account.code |> AccountCode.value, generationOf a)
+        |> List.sort
+
 [<Collection("SharedTestData")>]
 type TrialBalanceTests(fixture: TestDataFixture) =
 
@@ -136,14 +149,15 @@ type TrialBalanceTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-RPT-1.7 top-level accounts have generation 0 and children increment by 1 per level``() =
+    member _.``REQ-RPT-1.7 every account's generation is 0 with no parent and one more than its parent's otherwise``() =
+        let expected = fixture.Data.accounts |> TrialBalanceFixture.expectedGenerations
+        // the fixture nests at least three levels below a top-level account, so the walk is exercised
+        Assert.True(expected |> List.exists (fun (_, g) -> g >= 3), "the fixture has no account three levels deep")
         result {
             let! rows = prefetchedTb
-            let findGen code = (rows |> List.find(fun r -> r.accountCode |> AccountCode.value = code)).generation
-            Assert.Equal(0, findGen "F-5000")
-            Assert.Equal(1, findGen "F-5300")
-            Assert.Equal(2, findGen "F-5310")
-            Assert.Equal(3, findGen "F-5311")
+            Assert.Equal<(string * int) list>(
+                expected,
+                rows |> List.map (fun r -> r.accountCode |> AccountCode.value, r.generation) |> List.sort)
             return ()
         }
         |> railroadWrapper

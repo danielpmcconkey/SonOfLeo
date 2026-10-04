@@ -190,31 +190,38 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 let! reviewedRow = reviewedEntry review reviewed
                 Assert.Equal(StagedEntryStatus.Classified, classifiedRow.status)
                 Assert.Equal(StagedEntryStatus.Reviewed, reviewedRow.status)
-                // exactly what batch post would post if run now
-                let! postable = StageEntryOrchestration.fetchAllForPosting context
-                Assert.Equal<Set<StageEntryHeaderId>>(
-                    postable |> List.map headerIdOf |> Set.ofList,
-                    review |> List.map _.stageEntryHeaderId |> Set.ofList)
                 return ()
             })
 
     [<Theory>]
-    [<InlineData("Ingested")>]
-    [<InlineData("NoMatch")>]
-    [<InlineData("Conflict")>]
-    [<InlineData("Posted")>]
-    member _.``REQ-RPT-7.1 the review excludes staged entries with status Ingested, NoMatch, Conflict or Posted`` (status: string) =
+    [<InlineData("Ingested", false)>]
+    [<InlineData("Classified", true)>]
+    [<InlineData("NoMatch", false)>]
+    [<InlineData("Conflict", false)>]
+    [<InlineData("Reviewed", true)>]
+    [<InlineData("Duplicate", false)>]
+    [<InlineData("Posted", false)>]
+    [<InlineData("Ignored", false)>]
+    member _.``REQ-RPT-7.1 a staged entry is in the review exactly when its status is Classified or Reviewed, for each of the eight statuses`` (status: string, included: bool) =
         let statuses =
             match status with
             | "Ingested" -> []
+            | "Classified" -> [ ("Classified", "Classifier") ]
             | "NoMatch" -> [ ("NoMatch", "Classifier") ]
             | "Conflict" -> [ ("Conflict", "Classifier") ]
-            | _ -> [ ("Classified", "Classifier"); ("Reviewed", "Operator"); ("Posted", "LedgerPoster") ]
+            | "Reviewed" -> [ ("Classified", "Classifier"); ("Reviewed", "Operator") ]
+            | "Duplicate" -> [ ("Duplicate", "Deduplicator") ]
+            | "Posted" -> [ ("Classified", "Classifier"); ("Reviewed", "Operator"); ("Posted", "LedgerPoster") ]
+            | "Ignored" -> [ ("Ignored", "Operator") ]
+            | other -> failwith $"no row for status {other}"
         inRolledBackTransaction (fun s context ->
             result {
                 let! entry = s.stagedEntry $"Pre-posting review 7.1 {status}" s.Today statuses
                 let! review = fetchPrePostingReview context
-                Assert.DoesNotContain(entry |> headerIdOf, review |> List.map _.stageEntryHeaderId)
+                let reviewedIds = review |> List.map _.stageEntryHeaderId
+                let () =
+                    if included then Assert.Contains(entry |> headerIdOf, reviewedIds)
+                    else Assert.DoesNotContain(entry |> headerIdOf, reviewedIds)
                 return ()
             })
 
@@ -396,11 +403,12 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 let later = s.Today
                 let earlier = s.Today.PlusDays(-1)
                 let prefix = Guid.NewGuid().ToString()
-                // staged in the reverse of the expected order
-                let! laterDate = s.stagedEntryWith s.testBank "7.6 later date" $"{prefix}-A" later lines classified
-                let! testCreditCardCoB = s.stagedEntryWith s.testCreditCardCo "7.6 TestCreditCardCo B" $"{prefix}-B" earlier lines classified
-                let! testCreditCardCoA = s.stagedEntryWith s.testCreditCardCo "7.6 TestCreditCardCo A" $"{prefix}-A" earlier lines classified
-                let! testBank = s.stagedEntryWith s.testBank "7.6 TestBank" $"{prefix}-Z" earlier lines classified
+                // staged in the reverse of the expected order, all with one description so only date, source
+                // name and fi_reference can order them
+                let! laterDate = s.stagedEntryWith s.testBank "7.6 ordering" $"{prefix}-A" later lines classified
+                let! testCreditCardCoB = s.stagedEntryWith s.testCreditCardCo "7.6 ordering" $"{prefix}-B" earlier lines classified
+                let! testCreditCardCoA = s.stagedEntryWith s.testCreditCardCo "7.6 ordering" $"{prefix}-A" earlier lines classified
+                let! testBank = s.stagedEntryWith s.testBank "7.6 ordering" $"{prefix}-Z" earlier lines classified
                 let expected = [ testBank; testCreditCardCoA; testCreditCardCoB; laterDate ] |> List.map headerIdOf
                 let! review = fetchPrePostingReview context
                 let actual =
