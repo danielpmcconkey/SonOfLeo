@@ -106,6 +106,7 @@
     <Compile Include="InterfaceBridge\SameValueUpdates.fs" />
     <Compile Include="InterfaceBridge\AccountNamesInPayloads.fs" />
     <Compile Include="InterfaceBridge\CashFlowRoutes.fs" />
+    <Compile Include="InterfaceBridge\PaymentAgreementLinkRoutes.fs" />
     <Compile Include="DataAccessLayer\DalTests.fs" />
   </ItemGroup>
 
