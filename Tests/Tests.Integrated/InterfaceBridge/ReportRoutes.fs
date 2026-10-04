@@ -574,12 +574,94 @@ type ReportRoutesTests(fixture: TestDataFixture) =
         }
         |> railroadWrapper
 
-    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+    (* The routes build their own context, so a route test cannot see the initiation instant itself, only bracket it
+       between two clock reads. Each test below therefore makes two observations: the writer, handed an instant far
+       from now, renders that instant and no clock read of its own; and the route, run between two clock reads,
+       renders a moment inside that window. *)
 
     [<Fact>]
     member _.``REQ-SYS-3.4 a rendered report's footer instant is the operation's initiation instant, not a later clock read`` () =
-        Assert.Fail "Not yet implemented"
+        let footerText (html: string) =
+            let start = html.IndexOf("<footer")
+            let contentStart = html.IndexOf(">", start) + 1
+            html.Substring(contentStart, html.IndexOf("</footer>") - contentStart).Trim()
+        let localSeconds (instant: NodaTime.Instant) =
+            instant.InZone(Clock.timeZoneLocal).ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)
+        result {
+            // the writer renders the instant it is given
+            let handedIn = Clock.now().Minus(NodaTime.Duration.FromDays(400)).Minus(NodaTime.Duration.FromSeconds(3917L))
+            let! written =
+                Ui.InterfaceBridge.ReportWriters.TrialBalanceWriter.write
+                    { baseDir = testOutputDir; interpolateAsOf = false; fileName = "sys-3-4-footer-writer" } handedIn nextMonth []
+            let! writerPath =
+                match written with
+                | TrialBalanceReportReturn.Report pathReturn -> Ok pathReturn.fullyQualifiedPath
+                | TrialBalanceReportReturn.DataOnly _ -> TestError.error (TestingError "Expected Report but got DataOnly")
+            let writerHtml = System.IO.File.ReadAllText writerPath
+            System.IO.File.Delete writerPath
+            Assert.Equal($"Generated: {handedIn |> localSeconds}", writerHtml |> footerText)
+            // the route renders a moment inside the operation
+            let before = Clock.now()
+            let input: TrialBalanceReportInput =
+                { asOf = { asOf = nextMonth }
+                  reportOutput = OutputSpecifier.Report { baseDir = testOutputDir; interpolateAsOf = false; fileName = "sys-3-4-footer-route" } }
+            let! payload = input |> toJson<TrialBalanceReportInput>
+            let! returnPayload = routeReportingCommandForTesting "TrialBalance" [] payload
+            let after = Clock.now()
+            let! returned = returnPayload |> fromJson<TrialBalanceReportReturn>
+            let! routePath =
+                match returned with
+                | TrialBalanceReportReturn.Report pathReturn -> Ok pathReturn.fullyQualifiedPath
+                | TrialBalanceReportReturn.DataOnly _ -> TestError.error (TestingError "Expected Report but got DataOnly")
+            let routeHtml = System.IO.File.ReadAllText routePath
+            System.IO.File.Delete routePath
+            let secondsInWindow =
+                let first = NodaTime.Instant.FromUnixTimeSeconds(before.ToUnixTimeSeconds())
+                Seq.initInfinite (fun i -> first.Plus(NodaTime.Duration.FromSeconds(int64 i)))
+                |> Seq.takeWhile (fun i -> i <= after)
+                |> Seq.map (fun i -> $"Generated: {i |> localSeconds}")
+                |> List.ofSeq
+            Assert.Contains(routeHtml |> footerText, secondsInWindow)
+            return ()
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-3.4 REQ-RPT-7.7 the pre-posting review's run date, in its file name and its header, is the calendar date of the operation's initiation instant`` () =
-        Assert.Fail "Not yet implemented"
+        let headerText (html: string) =
+            let start = html.IndexOf("<header")
+            html.Substring(start, html.IndexOf("</header>") - start)
+        let dateStr (d: NodaTime.LocalDate) = d.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)
+        result {
+            // the writer names the file and heads the page with the run date it is given, not today's
+            let handedInDate = Calendar.today().PlusDays(-400)
+            let! written =
+                Ui.InterfaceBridge.ReportWriters.PrePostingReviewWriter.write
+                    { baseDir = testOutputDir; interpolateAsOf = true; fileName = "sys-3-4-run-date-writer" } (Clock.now()) handedInDate []
+            let! writerPath =
+                match written with
+                | PrePostingReviewReturn.Report pathReturn -> Ok pathReturn.fullyQualifiedPath
+                | PrePostingReviewReturn.DataOnly _ -> TestError.error (TestingError "Expected Report but got DataOnly")
+            let writerHtml = System.IO.File.ReadAllText writerPath
+            System.IO.File.Delete writerPath
+            Assert.Equal(System.IO.Path.Combine(testOutputDir, $"sys-3-4-run-date-writer-{handedInDate |> dateStr}.html"), writerPath)
+            Assert.Contains($">{handedInDate |> dateStr}<", writerHtml |> headerText)
+            // the route's run date is the date of a moment inside the operation
+            let before = Clock.now() |> Calendar.dateFromInstant
+            let! returned =
+                runPrePostingReview
+                    (OutputSpecifier.Report { baseDir = testOutputDir; interpolateAsOf = true; fileName = "sys-3-4-run-date-route" })
+            let after = Clock.now() |> Calendar.dateFromInstant
+            let! routePath =
+                match returned with
+                | PrePostingReviewReturn.Report pathReturn -> Ok pathReturn.fullyQualifiedPath
+                | PrePostingReviewReturn.DataOnly _ -> TestError.error (TestingError "Expected Report but got DataOnly")
+            let routeHtml = System.IO.File.ReadAllText routePath
+            System.IO.File.Delete routePath
+            // a run straddling midnight may carry either date, but its file name and header must agree
+            let runDate = if routePath.EndsWith($"-{after |> dateStr}.html") then after else before
+            Assert.Equal(System.IO.Path.Combine(testOutputDir, $"sys-3-4-run-date-route-{runDate |> dateStr}.html"), routePath)
+            Assert.Contains($">{runDate |> dateStr}<", routeHtml |> headerText)
+            return ()
+        }
+        |> railroadWrapper

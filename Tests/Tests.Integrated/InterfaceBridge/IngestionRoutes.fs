@@ -947,16 +947,137 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             | Ok () -> ()
             | Error e -> failwith (e.ToMessage())
 
-    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
-
+    (* The route builds its own context, so its initiation instant is read back from what the operation wrote with
+       it: the Ingested transition's instant. The file is moved after the entries commit, so a stamp taken from a
+       later clock read differs from it in the milliseconds. *)
     [<Fact>]
     member _.``REQ-SYS-3.4 a processed file's name prefix is the ingest operation's initiation instant, not a later clock read`` () =
-        Assert.Fail "Not yet implemented"
+        let fileName = "ingestion-route-sys-3-4-stamp.jsonl"
+        let fiReference = "REF-SYS-3-4-STAMP"
+        let mutable idsToCleanUp = []
+        try
+            writeImportFile fileName
+                [ rawRow "grp-sys-3-4" today "Processed name stamp group" "TestBank" fiReference "6.00" "Debit" (Some "F-5300") None
+                  rawRow "grp-sys-3-4" today "Processed name stamp group" "TestBank" fiReference "6.00" "Credit" (Some "F-1270") None ]
+            result {
+                let! _ = routeUiCommandForTesting "Ingestion" "IngestRawFileToStage" [] (ingestPayload fileName)
+                let! staged = fetchFilteredThroughRoute { noFilterInput with fiReference = Some fiReference }
+                idsToCleanUp <- staged |> headerIdsOf
+                let entry = Assert.Single(staged)
+                let! refetched = refetchStageEntry entry.stageEntryHeader.stageEntryHeaderId
+                let ingestedAt =
+                    refetched
+                    |> statusTransitions
+                    |> List.find (fun t -> t |> StageEntryStatusTransition.toStatus = Ingested)
+                    |> StageEntryStatusTransition.instant
+                let expectedStamp =
+                    ingestedAt.InZone(Clock.timeZoneLocal).ToString("yyyy-MM-dd.HHmmss.fff", Globalization.CultureInfo.InvariantCulture)
+                let processed = Directory.GetFiles(processedDir, $"*-{fileName}") |> Array.map Path.GetFileName
+                Assert.Equal<string array>([| $"{expectedStamp}-{fileName}" |], processed)
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            deleteImportFile fileName
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (e.ToMessage())
 
+    (* The entries are found by their fi_reference, not by the source file this test asserts. *)
     [<Fact>]
     member _.``REQ-STG-3.4 an ingested entry's source file is the full path the file was read from in the import directory, not the processed path it was moved to`` () =
-        Assert.Fail "Not yet implemented"
+        let fileName = "ingestion-route-stg-3-4-source-file.jsonl"
+        let mutable idsToCleanUp = []
+        try
+            writeImportFile fileName
+                [ rawRow "grp-stg-3-4-a" today "Source file group A" "TestBank" "REF-STG-3-4-A" "7.00" "Debit" (Some "F-5300") None
+                  rawRow "grp-stg-3-4-a" today "Source file group A" "TestBank" "REF-STG-3-4-A" "7.00" "Credit" (Some "F-1270") None
+                  rawRow "grp-stg-3-4-b" today "Source file group B" "TestBank" "REF-STG-3-4-B" "8.00" "Debit" (Some "F-5300") None
+                  rawRow "grp-stg-3-4-b" today "Source file group B" "TestBank" "REF-STG-3-4-B" "8.00" "Credit" (Some "F-1270") None ]
+            result {
+                let! _ = routeUiCommandForTesting "Ingestion" "IngestRawFileToStage" [] (ingestPayload fileName)
+                let! groupA = fetchFilteredThroughRoute { noFilterInput with fiReference = Some "REF-STG-3-4-A" }
+                let! groupB = fetchFilteredThroughRoute { noFilterInput with fiReference = Some "REF-STG-3-4-B" }
+                let staged = groupA @ groupB
+                idsToCleanUp <- staged |> headerIdsOf
+                Assert.Equal(2, staged |> List.length)
+                let processedPath = Assert.Single(Directory.GetFiles(processedDir, $"*-{fileName}"))
+                let importPath = Path.Combine(importDir, fileName)
+                Assert.NotEqual<string>(importPath, processedPath)
+                Assert.All(staged, fun entry -> Assert.Equal(importPath, entry.stageEntryHeader.sourceFile))
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            deleteImportFile fileName
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (e.ToMessage())
 
+    (* The contract has no journal entry ID fields, so the serializer cannot write them. The payload is edited by hand to
+       carry real posted IDs from the fixture, on the header, on a line update and on an added line. *)
     [<Fact>]
     member _.``REQ-STG-6.2 a manual update payload carrying a journal entry ID and journal entry line IDs applies its other fields and leaves the entry and its lines with no journal entry IDs`` () =
-        Assert.Fail "Not yet implemented"
+        let fileName = "ingestion-route-stg-6-2-je-ids.jsonl"
+        let mutable idsToCleanUp = []
+        let postedEntry =
+            fixture.Data.journalEntries |> List.find (fun je -> je |> header |> JournalEntryHeader.voidedAt |> Option.isNone)
+        let postedHeaderId = postedEntry |> header |> JournalEntryHeader.journalEntryHeaderId |> JournalEntryHeaderId.value
+        let postedLineIds =
+            postedEntry |> jeLines |> List.map (JournalEntryLine.journalEntryLineId >> JournalEntryLineId.value)
+        try
+            result {
+                let! ingested = twoValidGroups "REF-STG-6-2-JE-1" "REF-STG-6-2-JE-2" |> ingestThroughRoute fileName
+                idsToCleanUp <- ingested |> headerIdsToCleanUp
+                let toUpdate =
+                    ingested.stagedEntries |> List.find (fun entry -> entry.stageEntryHeader.fiReference = "REF-STG-6-2-JE-1")
+                let headerId = toUpdate.stageEntryHeader.stageEntryHeaderId
+                let debitLine = toUpdate.lines |> List.find (fun line -> line.lineType = "Debit")
+                // split the 42.10 debit into 32.10 and an added 10.00, and rename the entry
+                let! contractPayload =
+                    { stageEntryHeaderId = headerId
+                      sourceFileUpdate = NoChange
+                      entryDate = NoChange
+                      description = SetTo "STG-6.2 renamed despite journal entry IDs"
+                      ingestionSource = NoChange
+                      fiReference = NoChange
+                      status = NoChange
+                      lines =
+                        [ { stageEntryLineId = debitLine.stageEntryLineId
+                            amount = SetTo 32.10M
+                            lineType = NoChange
+                            accountCode = NoChange
+                            memo = SetTo (Some "STG-6.2 reduced") } ]
+                      linesToAdd = [ { amount = 10.00M; lineType = "Debit"; accountCode = Some "F-5350"; memo = Some "STG-6.2 added" } ]
+                      lineIdsToRemove = [] }
+                    |> toJson<UpdateStageEntryInput>
+                let node = Text.Json.Nodes.JsonNode.Parse(contractPayload).AsObject()
+                node["journalEntryHeaderId"] <- Text.Json.Nodes.JsonValue.Create(postedHeaderId)
+                node["lines"].[0].AsObject()["journalEntryLineId"] <- Text.Json.Nodes.JsonValue.Create(postedLineIds[0])
+                node["linesToAdd"].[0].AsObject()["journalEntryLineId"] <- Text.Json.Nodes.JsonValue.Create(postedLineIds[1])
+                let payload = node.ToJsonString()
+                Assert.Contains(postedHeaderId.ToString(), payload)
+                let! _ = routeUiCommandForTesting "Ingestion" "UpdateStageEntry" [] payload
+                let! refetched = refetchStageEntry headerId
+                let refetchedHeader = refetched |> stageEntryHeader
+                Assert.Equal("STG-6.2 renamed despite journal entry IDs", refetchedHeader |> StageEntryHeader.description |> JournalEntryDescription.value)
+                Assert.Equal(None, refetchedHeader |> StageEntryHeader.journalEntryHeaderId)
+                let refetchedLines =
+                    refetched
+                    |> seLines
+                    |> List.map (fun l ->
+                        l |> StageEntryLine.amount |> Money.amount,
+                        l |> StageEntryLine.memo |> Option.map JournalEntryLineMemo.value,
+                        l |> StageEntryLine.journalEntryLineId)
+                    |> List.sort
+                Assert.Equal<(decimal * string option * JournalEntryLineId option) list>(
+                    [ (10.00M, Some "STG-6.2 added", None); (32.10M, Some "STG-6.2 reduced", None); (42.10M, None, None) ],
+                    refetchedLines)
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            deleteImportFile fileName
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (e.ToMessage())
