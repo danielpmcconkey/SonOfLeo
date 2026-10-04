@@ -140,7 +140,8 @@ type FixtureData =
       journalEntryComments: JournalEntryComment.JournalEntryComment list
       ingestionSources: IngestionSource.IngestionSource list
       classificationRules: ClassificationRule.ClassificationRule list
-      cashFlow: CashFlowFixtureData }
+      cashFlow: CashFlowFixtureData
+      positions: PositionsFixtureData }
 
 type TestDataFixture() =
     let data =
@@ -179,7 +180,19 @@ type TestDataFixture() =
                             cashflow.instance,
                             cashflow.invoice,
                             cashflow.payment,
-                            cashflow.payment_agreement_link
+                            cashflow.payment_agreement_link,
+                            general.person,
+                            positions.dimension_value,
+                            positions.security,
+                            positions.investment_account,
+                            positions.investment_account_owner,
+                            positions.holding,
+                            positions.account_snapshot,
+                            positions.account_snapshot_line,
+                            positions.property,
+                            positions.property_owner,
+                            positions.property_mortgage_account,
+                            positions.valuation
                         CASCADE;
                 """
                 let! _ = executeNonQuery (context |> Context.getDatabaseTransaction) deleteQuery [] AnyQuantityIsAcceptable
@@ -1161,6 +1174,15 @@ type TestDataFixture() =
                       ignoredLineOutsideWindowId = ignoredLineOutsideWindowId }
 
                 // =============================================================================
+                // Positions archetypes (see PositionsFixture.fs)
+                // =============================================================================
+
+                let! positions, positionsAccounts, positionsEntries =
+                    PositionsFixture.stage context today assets1000Id liabilities2000Id equity3000Id
+                accounts <- positionsAccounts @ accounts
+                journalEntries <- positionsEntries @ journalEntries
+
+                // =============================================================================
                 // Calculate aggregate totals for fetch tests
                 // =============================================================================
 
@@ -1252,7 +1274,8 @@ type TestDataFixture() =
                       journalEntryComments = journalEntryComments
                       ingestionSources = ingestionSources
                       classificationRules = classificationRules
-                      cashFlow = cashFlow }
+                      cashFlow = cashFlow
+                      positions = positions }
             }
         stageResult |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
 

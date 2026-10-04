@@ -63,7 +63,9 @@ let private driven : Map<string, string list> =
           "DeactivatedAccountWithBalanceReturnRow", [ "accountCode" ]
           "ReconciliationReturnRow", [ "accountCode" ]
           "PeriodActivityAccountReturnRow", [ "accountCode" ]
-          "PrePostingLineReturnRow", [ "accountCode" ] ]
+          "PrePostingLineReturnRow", [ "accountCode" ]
+          "LedgerAccountReturn", [ "code" ]
+          "NetWorthLedgerAccountReturnRow", [ "code" ] ]
 
 let private isCodeField (name: string) = name = "code" || name.EndsWith "Code"
 
@@ -224,7 +226,11 @@ type AccountNamesInPayloadsTests(fixture: TestDataFixture) =
                       |> toJsonOf |> Result.bind (report "PeriodActivity")
                       "PrePostingLineReturnRow",
                       ({ reportOutput = ReportsContracts.DataOnly } : ReportsContracts.PrePostingReviewInput)
-                      |> toJsonOf |> Result.bind (report "PrePostingReview") ]
+                      |> toJsonOf |> Result.bind (report "PrePostingReview")
+                      "LedgerAccountReturn", routeUiCommandForTesting "Property" "List" [] ""
+                      "NetWorthLedgerAccountReturnRow",
+                      ({ asOf = { asOf = fixture.Data.positions.monthEnd3 }; reportOutput = ReportsContracts.DataOnly } : ReportsContracts.NetWorthInput)
+                      |> toJsonOf |> Result.bind (report "NetWorth") ]
                     |> List.map (fun (contract, payload) -> payload |> Result.map (fun p -> contract, p))
                     |> convertListOfResultsToResultsList
                 let! accounts = Account.fetchAll (Context.create NoTransaction FetchOnly) false

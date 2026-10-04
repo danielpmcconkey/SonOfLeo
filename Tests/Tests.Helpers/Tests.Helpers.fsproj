@@ -15,6 +15,7 @@
     <Compile Include="Railroad.fs" />
     <Compile Include="GenericTestProperties.fs" />
     <Compile Include="EntityFunctions.fs" />
+    <Compile Include="PositionsFixture.fs" />
     <Compile Include="TestDataStage.fs" />
     <Compile Include="RouteResolver.fs" />
     <Compile Include="CliExecutor.fs" />
