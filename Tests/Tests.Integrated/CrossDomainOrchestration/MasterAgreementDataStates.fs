@@ -521,6 +521,58 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
             })
 
     // =========================================================================
+    // REQ-CF-2.21 — the end date may equal the start date but not precede it
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-CF-2.21 a CreateAgreement payload whose end date is the day before its start date is rejected with a typed error and no agreement is stored, while one whose end date equals its start date is stored with that end date`` () =
+        (* Both dates are in the future so the payloads clear REQ-CF-2.26. *)
+        let refusedName = unique "CF-2.21 end before start"
+        let acceptedName = unique "CF-2.21 end on start"
+        let start = today().PlusDays(10)
+        let withPeriod name (activeEnd: LocalDate) =
+            { createInput name Contracts.Daily start with activeBegin = start; activeEnd = Some activeEnd }
+        cleaningUp [ refusedName; acceptedName ] (fun () ->
+            result {
+                let! refusedJson = withPeriod refusedName (start.PlusDays(-1)) |> Json.toJson
+                let attempt = createRoute refusedJson
+                let! acceptedJson = withPeriod acceptedName start |> Json.toJson
+                let! _ = createRoute acceptedJson
+                let! refused = storedNamed (fresh ()) refusedName
+                let! accepted = storedNamed (fresh ()) acceptedName
+                attempt
+                |> expectRefusal (function
+                    | AsError (BizGeneralError.ActiveEndBeforeBegin(activeBegin, activeEnd)) ->
+                        (activeBegin, activeEnd) = (start, Some(start.PlusDays(-1)))
+                    | _ -> false)
+                Assert.Empty(refused)
+                let period = accepted |> List.exactlyOne |> MasterAgreement.activityPeriod
+                Assert.Equal((start, Some start), (period |> ActivityPeriod.activeBegin, period |> ActivityPeriod.activeEnd))
+            })
+
+    [<Fact>]
+    member _.``REQ-CF-2.21 an UpdateAgreement payload setting the end date to the day before the stored start date is rejected with a typed error and the stored end date is unchanged, while setting it to the start date stores that end date`` () =
+        let name = unique "CF-2.21 end update"
+        let start = today().PlusDays(10)
+        cleaningUp [ name ] (fun () ->
+            result {
+                let! json = { createInput name Contracts.Daily start with activeBegin = start } |> Json.toJson
+                let! _ = createRoute json
+                let refused = updateRoute { noUpdate name with activeEndUpdate = SetTo(Some(start.PlusDays(-1))) }
+                let! afterRefused = storedNamed (fresh ()) name
+                let! _ = updateRoute { noUpdate name with activeEndUpdate = SetTo(Some start) }
+                let! afterAccepted = storedNamed (fresh ()) name
+                let endOf stored = stored |> List.exactlyOne |> MasterAgreement.activityPeriod |> ActivityPeriod.activeEnd
+                refused
+                |> expectRefusal (function
+                    | AsError (BizGeneralError.ActiveEndBeforeBegin(activeBegin, activeEnd)) ->
+                        (activeBegin, activeEnd) = (start, Some(start.PlusDays(-1)))
+                    | _ -> false)
+                Assert.Equal(None, afterRefused |> endOf)
+                Assert.Equal(Some start, afterAccepted |> endOf)
+            })
+
+    // =========================================================================
     // REQ-CF-2.26 — start and end dates against today
     // =========================================================================
 
