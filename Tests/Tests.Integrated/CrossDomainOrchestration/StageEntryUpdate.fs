@@ -755,8 +755,80 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
             })
         |> railroadWrapper
 
-    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+    (* Money itself holds zero and negative values, so a staged line's positivity is the staging layer's own check. The
+       edited rows set both legs to the same amount, so the entry stays balanced and only the amount is wrong. *)
+    [<Theory>]
+    [<InlineData("set both lines to", "0.00")>]
+    [<InlineData("set both lines to", "-1.00")>]
+    [<InlineData("add a line of", "0.00")>]
+    member _.``REQ-STG-2.12 a manual update that leaves a line with an amount of zero or less is rejected with the non-positive-amount error carrying the amount, and nothing is changed`` (change: string, amountStr: string) =
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let! fullResult = StageTestData.runPipeline context
+                let entry = fullResult.stagedEntries |> StageTestData.findByDescription "MARATHON PETRO 7218 ANYTOWN US"
+                let headerId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+                let contextForUpdate = context |> TestContext.updateInitiationInstant
+                let! before = headerId |> fetchByStageEntryHeaderId contextForUpdate
+                let expectedAmount = System.Decimal.Parse(amountStr, System.Globalization.CultureInfo.InvariantCulture)
+                let! amount = expectedAmount |> Money.fromDecimal
+                let lineUpdates, additions =
+                    match change with
+                    | "set both lines to" ->
+                        entry |> lineIdsOf |> List.map (fun id -> { (noChangeLineUpdates id) with amountUpdate = SetTo amount }), []
+                    | _ -> [], [ addition amount Debit (Some fixture.Data.entertainment5650Id) ]
+                return!
+                    updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) lineUpdates additions []
+                    |> expectRejection contextForUpdate headerId
+                        (function
+                         | AsError (IngestionStageLineNonPositiveAmount returned) -> returned = expectedAmount
+                         | _ -> false) before
+            })
+        |> railroadWrapper
 
+    (* "Recorded in a classification run" governs, not "evaluated by" one (audit #072/#244): a line the run evaluated
+       and no rule matched has no match row, so it can be removed. TestCreditCardCo's only fixture rule needs a
+       description this entry does not carry, so the run evaluates both uncoded debits and matches neither. *)
     [<Fact>]
     member _.``REQ-STG-6.5 after a classification run, an unmatched line of a NoMatch entry can be removed`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback IngestUpdateStageEntry (fun context ->
+            result {
+                let cardSource =
+                    fixture.Data.ingestionSources
+                    |> List.find (fun s -> s |> IngestionSource.name |> JournalRefFinancialInstitution.value = "TestCreditCardCo")
+                // an Ingested entry: the header is written with its Ingested transition, then its lines
+                let! header =
+                    createStageEntryHeaderForTest context "/tmp/stage-update-no-match.dat" "REQ-STG-6.5 nothing matches this"
+                        (System.Guid.NewGuid().ToString()) cardSource (Calendar.today())
+                let headerId = header |> StageEntryHeader.stageEntryHeaderId
+                let! _ =
+                    [ (50.00M, "Debit", None, None, None)
+                      (50.00M, "Credit", Some "F-1280", None, None)
+                      (20.00M, "Debit", None, None, None)
+                      (20.00M, "Credit", Some "F-1280", None, None) ]
+                    |> createStageEntryLineListForTest context headerId
+                let! entry = headerId |> fetchByStageEntryHeaderId context
+                let lineOf amount lineType =
+                    entry |> seLines
+                    |> List.find (fun l -> l |> StageEntryLine.amount |> Money.amount = amount && l |> StageEntryLine.lineType = lineType)
+                    |> StageEntryLine.stageEntryLineId
+                let unmatchedDebit = lineOf 20.00M Debit
+                let itsCredit = lineOf 20.00M Credit
+                let runContext = context |> TestContext.updateInitiationInstant
+                let! run = ClassificationOrchestration.classifyAccounts runContext
+                // the run evaluated the line, matched no rule, recorded nothing for it, and left the entry NoMatch
+                let evaluated = run.classificationResults |> List.filter (fun r -> r.candidate.lineIdOfCandidate = unmatchedDebit)
+                Assert.Equal<Classification.ClassificationComponent.ClassifierOutcome list>(
+                    [ Classification.ClassificationComponent.ClassifierOutcome.NoMatch ], evaluated |> List.map _.outcome)
+                let! recorded = [ unmatchedDebit ] |> Classification.RuleMatch.fetchByStageEntryLineIdList runContext
+                Assert.Empty(recorded)
+                let! afterRun = headerId |> fetchByStageEntryHeaderId runContext
+                Assert.Equal(Some StagedEntryStatus.NoMatch, afterRun |> stageEntryHeader |> StageEntryHeader.currentStatus)
+                let updateContext = runContext |> TestContext.updateInitiationInstant
+                let! updated =
+                    updateStageEntry updateContext (noChangeHeaderUpdates headerId) [] [] [ unmatchedDebit; itsCredit ]
+                let expected = [ lineOf 50.00M Debit; lineOf 50.00M Credit ] |> List.sort
+                Assert.Equal<StageEntryLineId list>(expected, updated |> lineIdsOf |> List.sort)
+                let! stored = headerId |> fetchByStageEntryHeaderId updateContext
+                Assert.Equal<StageEntryLineId list>(expected, stored |> lineIdsOf |> List.sort)
+            })
+        |> railroadWrapper

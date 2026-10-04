@@ -452,40 +452,64 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
             })
         |> railroadWrapper
 
-    (* Commented out pending Dan's decision. The spec's filter list for staged-entry fetches still names a
-       classification rule id, but Src dropped that filter in 511d01f when classification stopped stamping a rule id on
-       the staged line (matches now live in classification.rule_match, keyed by run). StageEntryFetchFilter carries
-       journalEntryHeaderId and journalEntryLineId in its place. Either the filter comes back by way of rule_match, or
-       the spec drops it and this test goes.
+    (* Only a posted staged entry carries journal entry IDs. The shared fixture posts two (its cash flow entries,
+       staged from CashFlowFixture.sourceFile); stageAll fetches them alongside the pipeline's unposted ones. *)
+    [<Fact>]
+    member _.``REQ-STG-10.2 fetchFiltered by journal entry id returns exactly the posted entry carrying it, with all of its lines, and an id no staged entry carries returns nothing``
+        ()
+        =
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                let! staged = stageAll context
+                let posted = staged |> List.filter (fun e -> e |> stageEntryHeader |> StageEntryHeader.journalEntryHeaderId |> Option.isSome)
+                Assert.True(posted.Length >= 2, "the fixture posts two staged entries")
+                Assert.NotEmpty(staged |> List.except posted)
+                let target = posted |> List.head
+                let targetJournalEntryId = target |> stageEntryHeader |> StageEntryHeader.journalEntryHeaderId
+                let! fetched = { noFilter with journalEntryHeaderId = targetJournalEntryId } |> fetchFiltered context None
+                let returned = Assert.Single(fetched)
+                Assert.Equal(target |> idOf, returned |> idOf)
+                Assert.Equal<StageEntryLineId list>(
+                    target |> seLines |> List.map StageEntryLine.stageEntryLineId |> List.sort,
+                    returned |> seLines |> List.map StageEntryLine.stageEntryLineId |> List.sort)
+                // a fixture journal entry that no staged entry was posted as
+                let stagedJournalEntryIds = posted |> List.choose (stageEntryHeader >> StageEntryHeader.journalEntryHeaderId)
+                let unstagedJournalEntryId =
+                    fixture.Data.journalEntries
+                    |> List.map (JournalEntryOrchestration.JournalEntryOrchestration.header >> JournalEntryHeader.journalEntryHeaderId)
+                    |> List.find (fun id -> stagedJournalEntryIds |> List.contains id |> not)
+                let! none = { noFilter with journalEntryHeaderId = Some unstagedJournalEntryId } |> fetchFiltered context None
+                Assert.Empty none
+            })
+        |> railroadWrapper
 
-    // [<Fact>]
-    // member _.``REQ-STG-10.2 fetchFiltered by classification rule id returns every entry having a line classified by that rule and no entry classified by another``
-    //     ()
-    //     =
-    //     runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
-    //         result {
-    //             let! staged = stageAll context
-    //             (* Which rule wins which line is the classifier's business; take whichever rule
-    //                the pipeline actually stamped onto the fewest entries so the exclusion half
-    //                has something to exclude. *)
-    //             let targetRuleId =
-    //                 staged
-    //                 |> List.collect(fun e -> e |> seLines |> List.choose StageEntryLine.accountClassificationRuleId)
-    //                 |> List.distinct
-    //                 |> List.head
-    //             let expected =
-    //                 staged
-    //                 |> List.filter(fun e ->
-    //                     e
-    //                     |> seLines
-    //                     |> List.exists(fun l -> l |> StageEntryLine.accountClassificationRuleId = Some targetRuleId))
-    //             let! fetched = { noFilter with classificationRuleId = Some targetRuleId } |> fetchFiltered context None
-    //             Assert.NotEmpty expected
-    //             Assert.Equal<StageEntryHeaderId list>(expected |> idsOf, fetched |> idsOf)
-    //             Assert.NotEmpty(staged |> List.except expected)
-    //         })
-    //     |> railroadWrapper
-    *)
+    [<Fact>]
+    member _.``REQ-STG-10.2 fetchFiltered by journal entry line id returns exactly the posted entry owning the staged line posted as it, with all of its lines, and a line id no staged line carries returns nothing``
+        ()
+        =
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                let! staged = stageAll context
+                let postedLines =
+                    staged |> List.collect (fun e -> e |> seLines |> List.choose (fun l -> l |> StageEntryLine.journalEntryLineId |> Option.map (fun id -> e, id)))
+                Assert.NotEmpty postedLines
+                let target, targetLineId = postedLines |> List.last
+                let! fetched = { noFilter with journalEntryLineId = Some targetLineId } |> fetchFiltered context None
+                let returned = Assert.Single(fetched)
+                Assert.Equal(target |> idOf, returned |> idOf)
+                Assert.Equal<StageEntryLineId list>(
+                    target |> seLines |> List.map StageEntryLine.stageEntryLineId |> List.sort,
+                    returned |> seLines |> List.map StageEntryLine.stageEntryLineId |> List.sort)
+                let stagedLineIds = postedLines |> List.map snd
+                let unstagedLineId =
+                    fixture.Data.journalEntries
+                    |> List.collect JournalEntryOrchestration.JournalEntryOrchestration.jeLines
+                    |> List.map JournalEntryLine.journalEntryLineId
+                    |> List.find (fun id -> stagedLineIds |> List.contains id |> not)
+                let! none = { noFilter with journalEntryLineId = Some unstagedLineId } |> fetchFiltered context None
+                Assert.Empty none
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-STG-10.2 fetchFiltered given both a status and an ingestion source returns only the entries satisfying both, not the union``
@@ -697,8 +721,41 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
             })
         |> railroadWrapper
 
-    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
-
     [<Fact>]
     member _.``REQ-STG-10.2 for each exact-match filter (source file, ingestion source, FI reference, memo), a value that is only a fragment of the stored value matches no entry, while the full value matches exactly the entries carrying it`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                let! staged = stageAll context
+                let memosOf e = e |> seLines |> List.choose (StageEntryLine.memo >> Option.map JournalEntryLineMemo.value)
+                (* Each case: the full stored value, a fragment of it no stored value equals, the filter built from
+                   either, and the entries carrying the full value, derived from the staged data. *)
+                let cases =
+                    [ "source file", otherSourceFilePath, "stg-test-other-source",
+                      (fun (v: string) -> v |> SourceFile.create |> Result.map (fun f -> { noFilter with sourceFile = Some f })),
+                      (fun e -> e |> sourceFileOf = otherSourceFilePath)
+                      "ingestion source", "TestSavings", "TestSav",
+                      (fun v -> v |> JournalRefFinancialInstitution.create |> Result.map (fun n -> { noFilter with ingestionSource = Some n })),
+                      (fun e -> e |> sourceNameOf = "TestSavings")
+                      "FI reference", "REF-OTHER-001", "REF-OTHER",
+                      (fun v -> v |> JournalExternalReferenceText.create |> Result.map (fun r -> { noFilter with fiReference = Some r })),
+                      (fun e -> e |> fiReferenceOf = "REF-OTHER-001")
+                      "memo", "Federal withholding", "withholding",
+                      (fun v -> v |> JournalEntryLineMemo.create |> Result.map (fun m -> { noFilter with memo = Some m })),
+                      (fun e -> e |> memosOf |> List.contains "Federal withholding") ]
+                return!
+                    cases
+                    |> List.map (fun (field, full, fragment, filterOf, carriesFull) ->
+                        result {
+                            let expected = staged |> List.filter carriesFull
+                            Assert.True(expected |> List.isEmpty |> not, $"{field}: no staged entry carries {full}")
+                            let! fullFilter = filterOf full
+                            let! fragmentFilter = filterOf fragment
+                            let! byFull = fullFilter |> fetchFiltered context None
+                            let! byFragment = fragmentFilter |> fetchFiltered context None
+                            Assert.Equal<StageEntryHeaderId list>(expected |> idsOf, byFull |> idsOf)
+                            Assert.True(byFragment |> List.isEmpty, $"{field}: the fragment {fragment} matched {byFragment.Length} entries")
+                        })
+                    |> convertListOfResultsToResultsList
+                    |> Result.map ignore
+            })
+        |> railroadWrapper

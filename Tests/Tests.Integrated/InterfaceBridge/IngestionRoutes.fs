@@ -853,6 +853,29 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             [ [ 3 ], Some "grp-mix-b", "JournalEntryLineTypeInvalid"
               [ 5 ], Some "grp-mix-c", "MoneyFailedToConvertImproperPrecision" ]
 
+    (* Money holds zero and negative values, so a line's positivity is staging's own check. Both records carry the
+       amount, so the group stays balanced and only the sign is wrong. *)
+    [<Theory>]
+    [<InlineData("zero", "0.00")>]
+    [<InlineData("negative", "-1.00")>]
+    member _.``REQ-STG-1.6 REQ-STG-2.12 IngestRawFileToStage rejects a file whose balanced group carries a zero or negative amount with the non-positive-amount error, and stages nothing`` (label: string, amount: string) =
+        let groupId = $"grp-route-amount-{label}"
+        assertRejectsExactly $"ingestion-route-amount-{label}.jsonl"
+            [ rawRow groupId today "Route non-positive amount" "TestBank" $"REF-ROUTE-AMOUNT-{label}" amount "Debit" (Some "F-5300") None
+              rawRow groupId today "Route non-positive amount" "TestBank" $"REF-ROUTE-AMOUNT-{label}" amount "Credit" (Some "F-1270") None ]
+            [ ([ 1; 2 ], Some groupId, "IngestionStageLineNonPositiveAmount") ]
+
+    (* group_id is required: an empty or whitespace-only one is refused on every record carrying it. *)
+    [<Theory>]
+    [<InlineData("empty", "")>]
+    [<InlineData("whitespace", "   ")>]
+    member _.``REQ-STG-1.4 IngestRawFileToStage rejects the file, naming the empty-group-id error on each record, when a group_id is empty or whitespace only, and stages nothing`` (label: string, groupId: string) =
+        assertRejectsExactly $"ingestion-route-group-id-{label}.jsonl"
+            [ rawRow groupId today "Route empty group id" "TestBank" $"REF-ROUTE-GROUP-{label}" "12.00" "Debit" (Some "F-5300") None
+              rawRow groupId today "Route empty group id" "TestBank" $"REF-ROUTE-GROUP-{label}" "12.00" "Credit" (Some "F-1270") None ]
+            [ ([ 1 ], Some groupId, "IngestionBaseStageEntryGroupIdIsEmpty")
+              ([ 2 ], Some groupId, "IngestionBaseStageEntryGroupIdIsEmpty") ]
+
     [<Fact>]
     member _.``REQ-STG-3.2.1 a line that is not valid JSON is reported by its line number alongside every other failing record, not instead of them`` () =
         let rows =

@@ -239,10 +239,9 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 (* grp-001 is built from exactly two raw rows, so it owes exactly two lines.
                    A floor would tolerate the line duplication it is meant to catch. *)
                 Assert.Equal(2, entry |> seLines |> List.length)
-                (* REQ-STG-2.7: status is no longer a column, so "cannot be null" means the
-                   derived value is present and agrees with the entry's own latest transition.
-                   The header reads it through the audit CTE and the transition list is
-                   fetched separately, so the two only agree if the derivation is right. *)
+                (* REQ-STG-2.7: the current status is present and is the entry's own latest transition. The header
+                   reads it through the audit CTE and the transition list is fetched separately, so the two only
+                   agree if the derivation is right. *)
                 Assert.Equal<StagedEntryStatus option>(
                     Some(entry |> StageTestData.latestStatus),
                     header |> StageEntryHeader.currentStatus)
