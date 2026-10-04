@@ -475,4 +475,263 @@ haven't verified.
 
 ## 8. Report
 
-*(The session appends here.)*
+Written 2026-10-04 by the Claude Code session that did both halves, Src and tests, on branch
+`positions`. Final pushed head is the commit carrying this report.
+
+### 8.1 What Dan needs to do
+
+1. **Apply the migrations, in this order:** `202610041000-CreateSchemaGeneralAndPerson.sql`,
+   `202610041010-CreateSchemaPositions.sql`, `202610041020-CreatePositionsTables.sql`,
+   `202610041030-TestRoleTruncateGeneralAndPositions.sql`. No production database was touched.
+2. **Rule on four spec findings** (§8.6). Two are requirements that cannot be reached
+   (REQ-POS-3.4's slot clause, REQ-POS-4.9's "one of each"), one is a precision limit
+   (REQ-QP-3.5), and one is a stale waiver the slice created (REQ-NGUI-1.4).
+3. **Look at one Src change outside the plan** (§8.4): `App.Utility.Json.fromJson` now names the
+   right missing field. It is shared by every route.
+
+### 8.2 Order followed
+
+1. Test names drafted from the spec alone, graded with `Skills/TestNameReview`, and committed as
+   282 failing placeholders (f48f2d3) before any Src was opened.
+2. Src, plan §4 Parts A to E: 8f56439 (A), f64c2a3 (B), e8bf66b (C), 8cb00e5 (D), d782798 (E).
+3. Tests: 19e6f8f, 692ffe3, cc869bf, 390603d, 9d1eb00, d255bbb, 2387cde, e475fdf.
+4. No committed test name was changed. A diff of every name against f48f2d3 shows none drifted,
+   and no placeholder remains.
+
+### 8.3 Src, by plan item
+
+**A. Foundations**
+- **1 Quantity and Price** (REQ-QP-1.1 to 3.5): `Quantity.fs` then `Price.fs` after `Money.fs` in
+  `Business.FinancialServices`. A seventh decimal place is rejected, never rounded.
+  `Price.multiplyQuantity` returns the exact `decimal`. Errors are in `BizFinServError`.
+- **2 Person** (REQ-PER-1.1 to 2.4): `Business.General/Person.fs` after `Cadence.fs`, with the new
+  `BizGeneralAuditableAction.fs` (PersonCreate, PersonUpdate). `Business.General` now references
+  App.Utility, App.DataAccessLayer and App.Session.
+- **3 Schema `general`**: migration 202610041000.
+
+**B. Positions domain**
+- **4 Project**: `Business.FinancialServices.Positions` with the compile list exactly as the plan
+  gives it. Investments files and real-estate files do not reference each other.
+- **5 Schema `positions`**: migrations 202610041010 (schema), 202610041020 (tables, all FKs
+  `ON DELETE RESTRICT`, no business-rule checks) and 202610041030 (test-role TRUNCATE).
+- **6 to 10**: Dimension Value, Security, Investment Account, Holding, snapshot header and line,
+  Property and Valuation. The 0.05 tolerance check is one commented function,
+  `AccountSnapshotLine.checkFigures`, which is the one sanctioned decimal-against-Money compare.
+  `Valuation.valueOn` is the pure value-on-a-date function.
+
+**C. Orchestration** (`Business.CrossDomainOrchestration`)
+- **11 Person**: `PersonOrchestration.fs`, placed at the base of the compile list (after
+  `FetchFilterAndSort.fs`, before the account orchestrators).
+- **12 Ledger links**: `PositionsLedgerLinks.fs`, called by both the account and property use cases.
+- **13 to 18**: `InvestmentOrchestration.fs`, `AccountSnapshotOrchestration.fs`,
+  `RealEstateOrchestration.fs`, `HoldingsAsOf.fs` (one read query), `NetWorth.fs` and
+  `InvestmentWealthHistory.fs`. All of them come after `CashFlowOps.fs` and before
+  `ClassificationOrchestration.fs`.
+
+**D. Interface**
+- **19 Command routes**: exactly the plan's table, registered in `Ui.OperatorCli/Program.fs` and
+  in `Tests.Helpers/RouteResolver.fs`. Contracts and converters for Person sit directly after the
+  shared ones; Positions pieces sit after cash flow and before classification.
+- **20 and 21 Report routes and writers**: `NetWorth` and `InvestmentWealthHistory`, read-only,
+  both output modes, with `-yyyy-MM-dd` and `-yyyy-MM-dd_yyyy-MM-dd` interpolation. The writers
+  produce HTML tables only.
+
+**E. Architecture model**
+- **22**: components, composition, serving and realization edges added. View layout is untouched.
+  `validate.py` reports VALID and `model_drift.py` reports NO DRIFT (output in §8.8).
+
+**Placement and design choices the plan left open**
+- **Name resolution.** Person and Positions names are resolved in orchestration, inside the
+  transaction, by `fetchByName`. I did not use `LookupCache`, because it lives for the whole
+  process and is never invalidated, so a rename would leave it stale. Ledger account codes are
+  still resolved at the bridge (`fallibleConverterAccountCodeToAccountId`). As a result, the
+  not-found tests stayed in their orchestration files and no test changed layer.
+- **Owners and mortgage accounts.** These live in child tables. They are read with the entity
+  through `string_agg` subselects and replaced whole on update (delete, then insert).
+- **Snapshot replacement.** The header row keeps its ID and created-at. Provenance, contribution
+  basis and modified-at are updated, and every line is deleted and re-inserted.
+- **Delete routes** return the record as it stood before the delete, which is the existing
+  convention.
+- **Net worth.** The mortgage of a Property not owned on the date still counts among the
+  liabilities, because every Liability account counts.
+- **ArchiMate capability groups.** Person goes under a new "General business functions" group,
+  because there was no Business.General group. The two reports go under the existing ledger
+  reporting functions, and their writers under report rendering.
+- **Shared component change.** `HtmlComponents` can now render Table, TableRow, TableHeadCell,
+  TableDataCell, H2 and H3. Before this, they rendered "tag not implemented".
+
+### 8.4 One Src change outside the plan
+
+The REQ-POS-9.5 route test first failed against Src. A Property Create payload with no
+`purchaseBasis` was rejected, but the message named `disposalDate`.
+
+FSharp.SystemTextJson 1.4.36 reports the first field it did not set, and it counts an option
+field sent as `null` as not set. So whenever a payload sends `null` for an option declared
+before a missing required field, the library names the option field.
+
+`App.Utility.Json.fromJson` now checks the payload's own top-level property names. When the
+library's message is about the record being read, it names the field the payload actually left
+off. Every other message passes through unchanged. A missing field in a nested record (for
+example, a snapshot line) still gets the library's message. The fix is 2387cde. The full suite
+passes with it.
+
+### 8.5 Tests, by brief item
+
+**Part A**
+- **A.2 Quantity and Price**: 17 isolated tests covering every boundary in both directions, the
+  round trip with scale, all comparisons, and exact products. The product case is
+  max × 2.123456 = 21234559999.999997876544, checked by hand and in Python.
+- **A.3 Person**: 3 isolated tests, 10 orchestration tests and 7 route tests.
+- **A.4 Dimension Values and Securities**: isolated name and length rules, plus 21 orchestration
+  tests.
+- **A.5 Investment Accounts**: 25 orchestration tests, theories included. They cover the
+  owner-count rule when tax treatment and owners change in the same update, both rejected and
+  accepted.
+- **A.6 Holdings**: 12 orchestration tests. The 5.3 error names both Securities, in both
+  directions.
+- **A.7 Snapshots**: isolated figure checks (tolerance at exactly 0.05 and at 0.050001, in both
+  directions) and 19 orchestration tests (atomicity, replacement, repeat within a request, empty
+  snapshot, six-place round trip).
+- **A.8 Holdings as of a date**: 10 orchestration tests.
+- **A.9 Properties and Valuations**: isolated owned-period and value-on-a-date tests, plus 34
+  orchestration tests, both primary-residence boundaries included.
+- **A.10 Net worth**: 15 orchestration tests. Every figure is derived by hand from the fixture as
+  of the end of month −3:
+  - net worth 207,945.00;
+  - investable wealth 87,945.00 (net worth less the residence's 120,000.00 equity);
+  - ledger assets 5,000.00, investments 12,920.00, properties 670,000.00, liabilities −25.00;
+  - by tax treatment: Taxable 7,120, TaxDeferred 4,000, Roth 1,500, Hsa 300.
+- **A.11 Investment wealth history**: 11 orchestration tests. Month-end totals for months −4
+  to −1 are 8,300.00, 12,920.00, 13,037.79 and 12,857.79. The tests cover every grouping kind,
+  owners and unassigned, a February in a leap and a common year, a pre-ledger range and end
+  before begin.
+- **A.12 Interface**: PersonRoutes (7), PositionsRoutes (42) and PositionsReportRoutes (9). Route
+  tests commit, so each makes its own uniquely named records and deletes them by name in a
+  `finally`, using new helpers in `Tests.Helpers/Cleanup.fs`. `AccountNamesInPayloads` was
+  extended to the new payloads.
+
+**Part B**
+- **B.1**: `general.person` and every `positions` table are in the TRUNCATE list.
+- **B.2**: `Tests.Helpers/PositionsFixture.fs` stages everything the brief lists. The fixture
+  uses its own ledger accounts (F-1260, F-1275, F-1510, F-2310, F-2320, F-3040), so existing
+  balances are unchanged. Every value is fictional.
+
+**Counts.** 282 test methods. Tests.Isolated went from 395 to 485 and Tests.Integrated from 1,339
+to 1,558, all passing.
+
+**Waiver proposed.** None. See §8.6 for the two unreachable clauses.
+
+### 8.6 Spec findings (Specs/ not edited)
+
+- **REQ-POS-3.4, slot clause.** "A Dimension Value assigned to a Security's slot for a different
+  dimension is rejected." This can't be reached through REQ-POS-11.2. Values are given by
+  dimension and name, so a value is always resolved within the dimension it is given for. I
+  wrote no test for that clause. The at-most-one clause is tested. Please either drop the
+  clause or waive it.
+- **REQ-POS-4.9, "or one of each".** This can't be reached. An Investment Account link needs
+  Asset/Investment (4.8), a Property link needs Asset/FixedAsset (9.7), and an account's subtype
+  can't change. The Investment–Investment and Property–Property cases are tested.
+- **REQ-QP-3.5, exact product.** Maximum × maximum needs 32 significant digits, and .NET
+  decimal holds 28 to 29. Products below about 10^16 are exact. The tests use
+  max × 2.123456 and 1.234567 × 2.5.
+- **REQ-NGUI-1.4, stale waiver.** The traceability audit now lists REQ-NGUI-1.4 under "Stale
+  waivers", because the slice's own committed test names cite it (account-code-not-found
+  routes). The waiver dates from 2026-07-06. Either the waiver goes, or the citation does; that
+  is Dan's call.
+- **Note, not a finding (REQ-POS-6.7).** Quantities and prices come back from `numeric(16,6)`
+  with scale 6, so 1 comes back as 1.000000. The value is exact; only the scale differs. Tests
+  compare decimal values. A zero wealth-history total comes back as 0 rather than 0.00.
+- **Note, not a finding.** In wealth history, an account whose latest snapshot is empty
+  contributes no group entry, rather than a zero entry for its group. Its contribution to the
+  total is still zero, and REQ-RPT-9.2 doesn't say which it should be.
+
+### 8.7 Fail-then-pass evidence
+
+Each test name was committed as a failing placeholder and seen failing. After it was written,
+every assertion was made to fail on purpose.
+
+- **Automated inversion.** 545 assertion sites across the 17 new test files. Each `Assert.Equal`
+  became NotEqual, each Contains became DoesNotContain, each Empty became NotEmpty, each True
+  became False, and each `expectError` became a mutant that fails when the expected error
+  arrives.
+  - It ran in 16 rounds, with one site per test per round, and the files were restored after
+    each round.
+  - **All 545 were killed.** 533 were killed by their own test, at the mutated line, with the
+    inverted assertion's message. 12 helper-function sites were killed through the tests that
+    use them.
+  - No untouched test failed in any round.
+  - Example output: `Assert.NotEqual() Failure: Collections are equal / Expected: Not
+    [Tuple ("Alex Example", Saturday, 12 April 1980), …]` for the Person List route.
+- **Hand perturbation of pattern-only tests.** The 11 tests whose only check is a pattern match
+  were perturbed by hand.
+  - Changing the expected error case failed all 17 empty and whitespace theory cases.
+  - 100.05 → 100.06 and 49.975 → 49.97 failed the "exactly 0.05 accepted" tests.
+  - 100.050001 → 100.05 and 99.949999 → 99.95 failed their "just over" halves.
+  - The two report-file interpolation tests fail through `writtenFresh`'s path assertion, which
+    was among the inverted helper sites.
+- **Hand perturbation of hand-derived figures:**
+  - net worth 207,945.00 → 207,945.01 fails with `Expected: 207945.01 / Actual: 207945.00`;
+  - wealth history 8,300.00 → 8,300.01 fails on the first point;
+  - the February point 2044-02-29 → 2044-02-28 fails;
+  - the pre-ledger zero 0.00 → 0.01 fails.
+
+  Each was restored and then passed.
+- **Against Src.** The REQ-POS-9.5 route test failed against the unfixed `Json.fromJson` (§8.4),
+  then passed after the fix.
+
+### 8.8 Final checks (all run on head before this report)
+
+Tests.Integrated ran against the throwaway `sonofleo_test` database in this container.
+
+```
+dotnet build SonOfLeo.slnx
+  Build succeeded.  0 Warning(s)  0 Error(s)
+
+dotnet test Tests/Tests.Isolated
+  Passed!  - Failed: 0, Passed: 485, Skipped: 0, Total: 485
+
+dotnet test Tests/Tests.Integrated   (SONOFLEO_TEST_CONNSTR → sonofleo_test)
+  Passed!  - Failed: 0, Passed: 1558, Skipped: 0, Total: 1558
+
+bash Checks/run-all.sh
+  PASS  check-apperror-coverage   (AppError coverage: 290/357, report-only)
+  PASS  check-clock
+  PASS  check-compile-order
+  PASS  check-confirm-naming
+  PASS  check-hardwired-dates
+  PASS  check-npgsql
+  PASS  check-result-iserror
+  PASS  check-test-ddl
+  PASS  check-testingerror
+  PASS  check-tomessage-wildcard
+  SKIP  check-traceability (on branch 'positions', not main: enforced on main after merge)
+  10 passed, 0 failed, 1 skipped
+
+python3 Skills/ArchiMate/validate.py
+  Elements: 651  Relationships: 2654  Findings: 0
+  VALID — no issues found.
+
+python3 Skills/ArchiMate/model_drift.py
+  NO DRIFT — the model and Src agree.
+
+bash Skills/SonOfLeoRequirementsAudit/traceability-audit.sh
+  Invariant 1: phantom references ........................ clean
+  Invariant 2: active requirements with no test/waiver ... clean
+  Stale waivers: REQ-NGUI-1.4   (see §8.6)
+```
+
+`check-hardwired-dates` first failed on two wealth-history tests that used 2001–2004 dates. They
+now use 2043/2044 sentinels and dates derived from today (e475fdf). Both were perturbed again
+and seen failing before being restored. The AppError coverage report lists six
+`Positions*IdDoesntExist` and `PersonIdDoesntExist` cases as untested. Those are ID-based guards
+that no route can reach, because every record is addressed by name.
+
+### 8.9 Name grading (Part A)
+
+The TestNameReview grader scored 17 names below 80. Every one was rewritten as the grader
+suggested before the placeholders were committed. That includes the route Update, Delete, Fetch
+and List names, the FetchAsOf equivalence and the one-sided list names. The grader's uncovered
+list was also added: the 5.3 reverse direction, case-differs and trimmed-text names for every
+entity, a whitespace-only Person update, a begin-equals-end month-end, and the 11.7 acquisition
+boundary. Two items were not named and are reported in §8.6 as unreachable: REQ-POS-3.4's slot
+clause and REQ-POS-4.9's mixed case.
