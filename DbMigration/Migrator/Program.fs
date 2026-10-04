@@ -45,7 +45,7 @@ type DmlRecord = {
 }
 
 let private fetchRegisteredMigrations (conn: NpgsqlConnection) =
-    use cmd = new NpgsqlCommand("select unique_id, up_file, created_at from migration.dml order by created_at", conn)
+    use cmd = new NpgsqlCommand("select unique_id, up_file, created_at from migration.dml order by created_at, up_file", conn)
     use reader = cmd.ExecuteReader()
     let mutable rows = []
     while reader.Read() do
@@ -85,7 +85,7 @@ let private recordHistory (conn: NpgsqlConnection) (dmlId: Guid) (envId: int) =
     cmd.ExecuteNonQuery() |> ignore
 
 let private discoverSqlFiles () =
-    let dir = Path.Combine(sqlDir, "DbMigration")
+    let dir = Path.Combine(sqlDir, "DbMigration", "Scripts")
     if not (Directory.Exists dir) then failwith $"SQL directory not found: {dir}"
     Directory.GetFiles(dir, "*.sql")
     |> Array.map (fun fullPath ->
@@ -149,7 +149,14 @@ let main _ =
         printfn "Nothing to apply."
         0
     else
-        printfn $"{pending.Length} migration(s) pending."
+        printfn $"{pending.Length} migration(s) pending for {envName}:"
+        for m in pending do
+            printfn $"  {m.upFile}"
+        printfn ""
+        printf "Apply them? (y/N): "
+        if Console.ReadLine().Trim().ToLowerInvariant() <> "y" then
+            printfn "Nothing applied."
+            exit 0
         use targetConn = new NpgsqlConnection(targetConnStr)
         targetConn.Open()
 
