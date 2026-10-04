@@ -791,7 +791,8 @@ let constructNewAndPersist
         let newNextInstance = Cadence.determineNextDateFromPrior instanceDate cadenceType
         let! newCadence = Cadence.create cadenceType { nextInstance = newNextInstance }
         do! masterAgreement |> MasterAgreement.updateCadence context newCadence |> Result.map ignore
-        return instanceComposite
+        // read back rather than return what was built: a Payment's posted-to-ledger date is derived on read
+        return! instanceId |> fetchCompositeByInstanceId context
     }
     
 

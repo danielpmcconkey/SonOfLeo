@@ -666,6 +666,25 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
             })
 
     [<Fact>]
+    member _.``REQ-CF-6.10 a CreateInstance payload carrying a Payment that points at a journal entry line and gives no posted-to-ledger date returns that Payment with the entry's date as its posted-to-ledger date`` () =
+        withWorld (fun w ->
+            result {
+                let! made = w.make Outgo 1 [ 0 ]
+                let! line, entryDate = w.jeLine "F-2230" "Debit" 100.00M
+                let! returned =
+                    ({ masterAgreementName = made.agreementName
+                       instanceDate = april1
+                       invoices = [ invoiceFor Outgo made.legNames[0] [ { paymentFor line with postedToLedgerDate = None } ] ] }
+                     : Contracts.CreateInstanceInput)
+                    |> Json.toJson
+                    |> Result.bind (send "CreateInstance")
+                    |> Result.bind Json.fromJson<Contracts.InstanceCompositeReturn>
+                let invoiceComposite = Assert.Single(returned.invoiceComposites)
+                let payment = Assert.Single(invoiceComposite.payments)
+                Assert.Equal(Some entryDate, payment.postedToLedgerDate)
+            })
+
+    [<Fact>]
     member _.``REQ-CF-6.10 a Payment pointing at a staged line reads back with no posted-to-ledger date`` () =
         withWorld (fun w ->
             result {
