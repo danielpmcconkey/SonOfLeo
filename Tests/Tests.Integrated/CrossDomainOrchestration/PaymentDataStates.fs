@@ -338,10 +338,15 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
             result {
                 let! _ = w.make Outgo 1 [ 0 ]
                 let! line, _ = w.jeLine "F-2230" "Debit" 100.00M
-                let attempt = sendCreatePayment (InvoiceId.create ()) (paymentFor line)
+                let missing = InvoiceId.create ()
+                let attempt = sendCreatePayment missing (paymentFor line)
                 let! pointing = paymentsPointingAt (pointerUuid line)
-                Assert.True(attempt |> Result.isError)
                 Assert.Empty(pointing)
+                return!
+                    match attempt with
+                    | Error (AsError (CashFlowError.CashflowInvoiceIdDoesntExist named)) -> Assert.Equal(missing |> InvoiceId.value, named); Ok ()
+                    | Error e -> TestError.error (TestError.TestingError $"Wrong error. {e.ToMessage()}")
+                    | Ok _ -> TestError.error (TestError.TestingError "Expected failure; got success")
             })
 
     [<Fact>]
@@ -377,7 +382,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
             })
 
     [<Fact>]
-    member _.``REQ-CF-6.4 a CreatePayment payload with a null transaction pointer is rejected with a typed error and no Payment is stored`` () =
+    member _.``REQ-CF-6.4 a CreatePayment payload with a null transaction pointer fails to deserialise and no Payment is stored`` () =
         withWorld (fun w ->
             result {
                 let! made = w.make Outgo 1 [ 0 ]
@@ -391,8 +396,12 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                         return! send "CreatePayment" (node.ToJsonString())
                     }
                 let! payments = paymentsOf invoiceId
-                Assert.True(attempt |> Result.isError)
                 Assert.Empty(payments)
+                return!
+                    match attempt with
+                    | Error (AsError (UtilityError.JsonDeserializationFailed _)) -> Ok ()
+                    | Error e -> TestError.error (TestError.TestingError $"Wrong error. {e.ToMessage()}")
+                    | Ok _ -> TestError.error (TestError.TestingError "Expected failure; got success")
             })
 
     [<Fact>]
@@ -478,8 +487,12 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! line, _ = w.jeLine "F-2230" "Debit" 100.00M
                 let attempt = sendCreatePayment invoiceId { paymentFor line with memo = Some memo }
                 let! payments = paymentsOf invoiceId
-                Assert.True(attempt |> Result.isError)
                 Assert.Empty(payments)
+                return!
+                    match attempt with
+                    | Error (AsError (CashFlowError.CashflowPaymentMemoIsEmpty named)) -> Assert.Equal<string>(memo, named); Ok ()
+                    | Error e -> TestError.error (TestError.TestingError $"Wrong error. {e.ToMessage()}")
+                    | Ok _ -> TestError.error (TestError.TestingError "Expected failure; got success")
             })
 
     [<Fact>]
@@ -491,8 +504,15 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! line, _ = w.jeLine "F-2230" "Debit" 100.00M
                 let attempt = sendCreatePayment invoiceId { paymentFor line with memo = Some(String('m', 2001)) }
                 let! payments = paymentsOf invoiceId
-                Assert.True(attempt |> Result.isError)
                 Assert.Empty(payments)
+                let! _ =
+                    match attempt with
+                    | Error (AsError (CashFlowError.CashflowPaymentMemoTooLong (named, limit))) ->
+                        Assert.Equal<string>(String('m', 2001), named)
+                        Assert.Equal(2000, limit)
+                        Ok ()
+                    | Error e -> TestError.error (TestError.TestingError $"Wrong error. {e.ToMessage()}")
+                    | Ok _ -> TestError.error (TestError.TestingError "Expected failure; got success")
                 let! stored = createPayment invoiceId line { paymentFor line with memo = Some(String('m', 2000)) }
                 Assert.Equal(Some(String('m', 2000)), stored |> Payment.memo |> Option.map PaymentMemo.value)
             })
@@ -674,8 +694,15 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! line, entryDate = w.jeLine "F-2230" "Debit" 100.00M
                 let attempt = sendCreatePayment invoiceId { paymentFor line with postedToLedgerDate = Some(entryDate.PlusDays(-1)) }
                 let! payments = paymentsOf invoiceId
-                Assert.True(attempt |> Result.isError)
                 Assert.Empty(payments)
+                return!
+                    match attempt with
+                    | Error (AsError (CashFlowError.CashflowPaymentPostedToLedgerDateMismatch (_, given, onEntry))) ->
+                        Assert.Equal(entryDate.PlusDays(-1), given)
+                        Assert.Equal(entryDate, onEntry)
+                        Ok ()
+                    | Error e -> TestError.error (TestError.TestingError $"Wrong error. {e.ToMessage()}")
+                    | Ok _ -> TestError.error (TestError.TestingError "Expected failure; got success")
             })
 
     [<Fact>]
@@ -687,8 +714,12 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let! line = w.stagedLine "F-2230" "Debit" 100.00M
                 let attempt = sendCreatePayment invoiceId { paymentFor line with postedToLedgerDate = Some w.today }
                 let! payments = paymentsOf invoiceId
-                Assert.True(attempt |> Result.isError)
                 Assert.Empty(payments)
+                return!
+                    match attempt with
+                    | Error (AsError (CashFlowError.CashflowPaymentPostedToLedgerDateWithoutJournalEntry _)) -> Ok ()
+                    | Error e -> TestError.error (TestError.TestingError $"Wrong error. {e.ToMessage()}")
+                    | Ok _ -> TestError.error (TestError.TestingError "Expected failure; got success")
             })
 
     [<Theory>]
