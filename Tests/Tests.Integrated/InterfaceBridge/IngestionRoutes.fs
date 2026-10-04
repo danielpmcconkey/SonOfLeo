@@ -427,7 +427,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
        nothing, so any ledger row it wrote is gone, and staging is exactly where the operator
        left it. *)
     [<Fact>]
-    member _.``REQ-STG-8.1 REQ-STG-8.4 PostStageEntries shadow route returns trial balances and leaves ledger and staging untouched`` () =
+    member _.``REQ-STG-8.1 REQ-STG-8.3 REQ-STG-8.4 PostStageEntries shadow route returns before and after trial balances differing by the staged debits, and leaves ledger and staging untouched`` () =
         let fileName = "ingestion-route-shadow-post.jsonl"
         let referenceOne = "REF-ROUTE-SHADOW-001"
         let referenceTwo = "REF-ROUTE-SHADOW-002"
@@ -568,8 +568,54 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             | Ok () -> ()
             | Error e -> failwith (e.ToMessage())
 
+    (* Shadow post builds its journal entries through batch post's validation path, so an entry the domain model
+       refuses fails the shadow run too; read from outside, nothing was posted and staging is as it was. *)
     [<Fact>]
-    member _.``REQ-STG-2.4 CreateIngestionSource route happy path`` () =
+    member _.``REQ-STG-8.2 PostStageEntries shadow route fails with the journal entry date error when a postable staged entry is dated in a closed fiscal period, posts nothing and leaves the entry Classified`` () =
+        let fileName = "ingestion-route-shadow-closed-period.jsonl"
+        let poisonReference = "REF-ROUTE-SHADOW-POISON"
+        let mutable idsToCleanUp = []
+        let mutable journalEntryIdsToCleanUp = []
+        try
+            result {
+                let closedPeriodDate =
+                    (fixture.Data.closedFiscalPeriod |> FiscalPeriod.startDate)
+                        .PlusDays(14)
+                        .ToString("yyyy-MM-dd", null)
+                let! ingested =
+                    [ rawRow "grp-route-shadow-poison" closedPeriodDate "Route shadow closed period group" "TestBank" poisonReference "9.00" "Debit" (Some "F-5300") None
+                      rawRow "grp-route-shadow-poison" closedPeriodDate "Route shadow closed period group" "TestBank" poisonReference "9.00" "Credit" (Some "F-1270") None ]
+                    |> ingestThroughRoute fileName
+                idsToCleanUp <- ingested |> headerIdsToCleanUp
+                let entry = Assert.Single(ingested.stagedEntries)
+                Assert.Equal(Some "Classified", entry.stageEntryHeader.status)
+                let! () =
+                    match postThroughRoute true with
+                    | Error (AsError (JournalEntryHeaderEntryDateInvalid _)) -> Ok ()
+                    | Error e -> Error (TestingError $"Wrong error. {e.DomainName}.{e.CaseName}: {e.ToMessage()}" :> IAppError)
+                    | Ok _ -> Error (TestingError "Expected the shadow post to fail on the closed period; it succeeded" :> IAppError)
+                let context = Context.create NoTransaction FetchOnly
+                let! financialInstitution = "TestBank" |> JournalRefFinancialInstitution.create
+                let! referenceText = poisonReference |> JournalExternalReferenceText.create
+                let! posted = fetchByReference context (Some financialInstitution) (Some referenceText)
+                journalEntryIdsToCleanUp <- posted |> List.map (header >> JournalEntryHeader.journalEntryHeaderId >> Some)
+                Assert.Empty(posted)
+                let! refetched = refetchStageEntry entry.stageEntryHeader.stageEntryHeaderId
+                Assert.Equal(Classified, refetched |> latestStatusOf)
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            deleteImportFile fileName
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (e.ToMessage())
+            match cleanUpJournalEntryList journalEntryIdsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (e.ToMessage())
+
+    [<Fact>]
+    member _.``REQ-STG-3.15 CreateIngestionSource route stores a source under the given name with a generated ID that ingestion's name lookup resolves`` () =
         let sourceName = "RouteTestCreditUnion"
         let mutable idToCleanUp = None
         try
@@ -839,7 +885,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             | Error e -> failwith (e.ToMessage())
 
     [<Fact>]
-    member _.``REQ-STG-3.2 REQ-STG-3.2.1 a file mixing valid and invalid records is rejected with one error listing every failing record, and only those, by line number, group_id and violation`` () =
+    member _.``REQ-STG-3.2 REQ-STG-3.2.1 REQ-STG-3.3 REQ-STG-3.10 a file mixing valid and invalid records is rejected with one error listing every failing record, and only those, by line number, group_id and violation, and stages nothing, its valid group included`` () =
         let rows =
             [ validRow "grp-mix-a" "Debit"
               validRow "grp-mix-a" "Credit"

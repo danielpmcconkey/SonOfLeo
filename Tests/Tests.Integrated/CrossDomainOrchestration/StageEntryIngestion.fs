@@ -433,11 +433,13 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
 
 
     // =========================================================================
-    // REQ-STG-3.3 REQ-STG-3.10 — All-or-nothing ingestion
+    // REQ-STG-1.14 — a group needs at least two records
     // =========================================================================
 
+    (* Nothing persisted can be seen from inside this rolled-back transaction, so the all-or-nothing claim belongs to
+       the route test that reads the stage afterwards; this one proves the single-record group is caught. *)
     [<Fact>]
-    member _.``REQ-STG-3.3 REQ-STG-3.10 one invalid group in a multi-group file rejects entire file`` () =
+    member _.``REQ-STG-1.14 a group of a single record is rejected with the insufficient-lines error, even alongside a valid group`` () =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! sourceFile = "/tmp/test-all-or-nothing.jsonl" |> SourceFile.create

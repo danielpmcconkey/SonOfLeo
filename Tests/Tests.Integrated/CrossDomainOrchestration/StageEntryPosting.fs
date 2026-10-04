@@ -137,12 +137,12 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
 
 
     // =========================================================================
-    // REQ-STG-8.2 REQ-STG-9.2 — Posting runs the real JE domain validation
+    // REQ-STG-9.2 — Posting runs the real JE domain validation
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-8.2 REQ-STG-9.2 shadow post fails when staged entry is in closed fiscal period`` () =
-        runCommandRouteAndAutoRollback IngestShadowPostStageEntries (fun context ->
+    member _.``REQ-STG-9.2 batch post fails with the journal entry date error when a postable staged entry is dated in a closed fiscal period`` () =
+        runCommandRouteAndAutoRollback IngestPostStageEntries (fun context ->
             result {
                 // create an entry in the closed period and mark it Reviewed so it's postable
                 let closedPeriodDate =
@@ -162,15 +162,15 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
 
 
     // =========================================================================
-    // REQ-STG-8.3 — Shadow post returns before and after trial balance, and the delta is real
+    // REQ-STG-9.2, 9.4 — each postable line reaches the ledger on its own account, amount and side
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-8.3 the difference between the two trial balances is the staged amount`` () =
-        runCommandRouteAndAutoRollback IngestShadowPostStageEntries (fun context ->
+    member _.``REQ-STG-9.2 REQ-STG-9.4 batch post moves each leaf account's trial balance debits and credits by exactly the postable staged amounts on that account`` () =
+        runCommandRouteAndAutoRollback IngestPostStageEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
-                (* What the shadow post is about to move is derived here from the staged rows
+                (* What the post is about to move is derived here from the staged rows
                    themselves, by the same rule fetchAllForPosting applies but without calling
                    it: an entry posts when its latest status is Classified or Reviewed and
                    every one of its lines carries an account code. *)
@@ -216,8 +216,8 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                     let expectedDebits = accountId |> stagedAmountFor Debit
                     let expectedCredits = accountId |> stagedAmountFor Credit
                     let accountCode = accountId |> accountCodeOf
-                    (* A zero here would make the two assertions below hold for a shadow post
-                       that moved nothing at all. *)
+                    (* A zero here would make the two assertions below hold for a post that
+                       moved nothing at all. *)
                     Assert.True(
                         expectedDebits + expectedCredits > 0M,
                         $"Nothing is staged against {accountCode |> AccountCode.value}, so its delta proves nothing.")
@@ -256,29 +256,6 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 let! posted = PostedJournalEntry.fetchByFiReference contextForPost fi fiReference
                 Assert.Equal(1, posted |> List.length)
                 Assert.Equal(4, posted |> List.exactlyOne |> PostedJournalEntry.lineCount)
-            })
-        |> railroadWrapper
-
-
-    // =========================================================================
-    // REQ-STG-9.1 — Batch post happy path
-    // =========================================================================
-
-    [<Fact>]
-    (* Deliberately toothless. This proves only that a full batch round trip does not blow
-       up; what the resulting journal entries contain is asserted by the tests below. *)
-    member _.``REQ-STG-9.1 batch post happy path`` () =
-        runCommandRouteAndAutoRollback IngestPostStageEntries (fun context ->
-            result {
-                let! _ = StageTestData.runPipeline context
-                (* The pipeline advances the context's instant as it goes, so posting has to
-                   run on a later one. Status is derived from the latest audit row by
-                   modified_at, and a Posted row stamped behind the pipeline's own Classified
-                   row would leave the entry looking unposted. *)
-                let contextForPost = context |> TestContext.updateInitiationInstant
-                do! Business.CrossDomainOrchestration.StageEntryOrchestration.post contextForPost
-                let! postablesAfter = fetchAllForPosting contextForPost
-                Assert.Equal(0, postablesAfter |> List.length)
             })
         |> railroadWrapper
 
