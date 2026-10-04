@@ -288,11 +288,11 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
 
 
     // =========================================================================
-    // REQ-STG-2.20 through 2.23 — Audit record field population
+    // REQ-STG-2.20, REQ-STG-2.21, REQ-STG-2.23 — Audit record field population
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-STG-2.20 REQ-STG-2.21 REQ-STG-2.22 REQ-STG-2.23 ingested entry has correct audit record`` () =
+    member _.``REQ-STG-2.20 REQ-STG-2.21 REQ-STG-2.23 ingested entry has correct audit record`` () =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context

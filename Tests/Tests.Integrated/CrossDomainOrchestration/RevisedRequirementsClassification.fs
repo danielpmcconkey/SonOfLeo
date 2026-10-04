@@ -277,25 +277,49 @@ type RevisedRequirementsClassificationTests(fixture: TestDataFixture) =
                     Assert.All(found, fun r -> Assert.True(r.claimantAtMatch.IsPaymentAgreement, $"{r.classificationRuleName}"))
             })
 
+    (* One row per thing a filter can name that resolves to nothing, each tied to the error its own field produces. The
+       partial and wrong-case rows start from an agreement whose full name resolves, so only the change to it can make
+       the filter fail. *)
     [<Theory>]
-    [<InlineData("part of the name")>]
-    [<InlineData("the name in the wrong case")>]
-    member _.``REQ-CR-5.6 the payment agreement claimant filter given part of an agreement's name, or the name in the wrong case, fails with a typed error`` (given: string) =
+    [<InlineData("an unknown account code")>]
+    [<InlineData("an unknown payment agreement name")>]
+    [<InlineData("part of a payment agreement's name")>]
+    [<InlineData("a payment agreement's name in the wrong case")>]
+    [<InlineData("an unknown claimant type")>]
+    member _.``REQ-CR-5.6 for each of an unknown account code, an unknown payment agreement name, part of a payment agreement's name, that name in the wrong case, and an unknown claimant type, a rule filter naming it fails with the typed error for that field, naming the value`` (given: string) =
         withCommitted fixture (fun c ->
             result {
                 let tag = newTag ()
-                let legName, _ = c.leg tag
-                let! _ = c.rule (newRuleInput $"Exact {tag}" (ClassificationClaimantInput.PaymentAgreement legName) (describedAsGroups tag))
-                (* The full name resolves, so only the change to it can make the filter fail. *)
-                let! exact = fetchFiltered { noFilter with paymentAgreementNameAtMatch = Some legName }
-                Assert.NotEmpty(exact)
-                let value = if given = "part of the name" then legName.Substring(0, legName.Length - 4) else legName.ToUpperInvariant()
-                let attempt = fetchFiltered { noFilter with paymentAgreementNameAtMatch = Some value }
-                let namesIt =
-                    match attempt with
-                    | Error (AsError (CashflowPaymentAgreementNameDoesntMatchId name)) -> name = value
-                    | _ -> false
-                Assert.True(namesIt, $"%A{attempt |> Result.map List.length |> Result.mapError (fun e -> e.ToMessage())}")
+                let! value =
+                    match given with
+                    | "part of a payment agreement's name"
+                    | "a payment agreement's name in the wrong case" ->
+                        result {
+                            let legName, _ = c.leg tag
+                            let! _ = c.rule (newRuleInput $"Exact {tag}" (ClassificationClaimantInput.PaymentAgreement legName) (describedAsGroups tag))
+                            let! exact = fetchFiltered { noFilter with paymentAgreementNameAtMatch = Some legName }
+                            Assert.NotEmpty(exact)
+                            return
+                                if given = "part of a payment agreement's name" then legName.Substring(0, legName.Length - 4)
+                                else legName.ToUpperInvariant()
+                        }
+                    // an account code is at most 10 characters, so an unknown one must be a well-formed code
+                    | "an unknown account code" -> Ok ("Z" + tag.Substring(1, 7))
+                    | _ -> Ok tag
+                let filter =
+                    match given with
+                    | "an unknown account code" -> { noFilter with accountCodeAtMatch = Some value }
+                    | "an unknown claimant type" -> { noFilter with claimantType = Some value }
+                    | _ -> { noFilter with paymentAgreementNameAtMatch = Some value }
+                return!
+                    match given, fetchFiltered filter with
+                    | "an unknown account code", Error (AsError (LedgerError.AccountCodeDoesntMatchAccountId named))
+                    | ("an unknown payment agreement name" | "part of a payment agreement's name" | "a payment agreement's name in the wrong case"), Error (AsError (CashflowPaymentAgreementNameDoesntMatchId named))
+                    | "an unknown claimant type", Error (AsError (ClassificationError.ClassificationInvalidClaimantType named)) ->
+                        Assert.Equal(value, named)
+                        Ok ()
+                    | _, Error e -> Error (TestError.TestingError $"Wrong error. {e.DomainName}.{e.CaseName}: {e.ToMessage()}" :> IAppError)
+                    | _, Ok found -> Error (TestError.TestingError $"Expected failure; got {found.Length} rules" :> IAppError)
             })
 
     [<Theory>]

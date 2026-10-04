@@ -346,37 +346,6 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
             })
 
     // =========================================================================
-    // REQ-CR-5.6 — filters naming things that don't exist
-    // =========================================================================
-
-    [<Theory>]
-    [<InlineData("account code")>]
-    [<InlineData("payment agreement name")>]
-    [<InlineData("claimant type")>]
-    member _.``REQ-CR-5.6 for each of an account code, a payment agreement name and a claimant type that resolves to nothing, a rule filter naming it fails with a typed error naming it`` (field: string) =
-        // an account code is at most 10 characters, so an unknown one must be a well-formed code
-        let missing = if field = "account code" then "Z" + Guid.NewGuid().ToString("N").Substring(0, 7) else newTag ()
-        let filter : Contracts.ClassificationRuleFilterInput =
-            { ruleId = None
-              nameLike = None
-              accountCodeAtMatch = (if field = "account code" then Some missing else None)
-              paymentAgreementNameAtMatch = (if field = "payment agreement name" then Some missing else None)
-              claimantType = (if field = "claimant type" then Some missing else None)
-              sourceLike = None
-              activeOnly = false }
-        let attempt =
-            ({ filter = filter; sort = None } : Contracts.FetchClassificationRuleFilteredInput)
-            |> Json.toJson
-            |> Result.bind (routeUiCommandForTesting "Classification" "FetchClassificationRuleFiltered" [])
-        let namesIt =
-            match attempt with
-            | Error (AsError (LedgerError.AccountCodeDoesntMatchAccountId n))
-            | Error (AsError (CashFlowError.CashflowPaymentAgreementNameDoesntMatchId n))
-            | Error (AsError (ClassificationInvalidClaimantType n)) -> n = missing
-            | _ -> false
-        Assert.True(namesIt)
-
-    // =========================================================================
     // REQ-CR-8.1, 8.2, 8.3 — what a run records
     // =========================================================================
 
@@ -559,13 +528,30 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                         })
                 rules.Add(ruleIdOf rule)
                 let first, second = runs
-                let! stored = first.runId |> RuleMatch.fetchByRunId (fresh ())
-                let! returned = fetchRun (first.runId |> ClassificationRunId.value)
-                Assert.Equal(2, stored.Length)
-                Assert.Equal<Set<Guid>>(
-                    stored |> List.map (RuleMatch.classificationMatchId >> ClassificationMatchId.value) |> Set.ofList,
-                    returned.matches |> List.map _.ruleMatchId |> Set.ofList)
                 Assert.NotEqual(first.runId, second.runId)
+                // every (line, rule) the first run's classifier reported matching, winners, losers and ties alike
+                let expectedPairs =
+                    first.results
+                    |> List.collect (fun r ->
+                        let matched =
+                            match r.outcome with
+                            | ClassifierOutcome.NoMatch -> []
+                            | ClassifierOutcome.OneMatch m -> [ m ]
+                            | ClassifierOutcome.ManyMatchesClearWinner (winner, losers) -> winner :: losers
+                            | ClassifierOutcome.ManyMatchesTied tied -> tied
+                        matched
+                        |> List.map (fun m ->
+                            r.candidate.lineIdOfCandidate |> StageEntryLineId.value, m.ruleId |> ClassificationRuleId.value))
+                    |> List.sort
+                Assert.Equal(2, expectedPairs.Length)
+                let! secondRows = second.runId |> RuleMatch.fetchByRunId (fresh ())
+                let secondIds = secondRows |> List.map (RuleMatch.classificationMatchId >> ClassificationMatchId.value)
+                Assert.Equal(2, secondIds.Length)
+                let! returned = fetchRun (first.runId |> ClassificationRunId.value)
+                Assert.Equal<(Guid * Guid) list>(
+                    expectedPairs,
+                    returned.matches |> List.map (fun m -> m.stageEntryLineId, m.classificationRuleId) |> List.sort)
+                Assert.All(secondIds, fun id -> Assert.DoesNotContain(id, returned.matches |> List.map _.ruleMatchId))
                 Assert.All(returned.matches, fun m ->
                     Assert.Equal<string>(rule |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value, m.classificationRuleName)
                     Assert.Equal(40, m.priority)
@@ -612,7 +598,7 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
             })
 
     [<Fact>]
-    member _.``REQ-CR-8.5 a run's match rows come back ordered by staged line, rows on the same line ordered by priority, and rows sharing line and priority ordered by rule name`` () =
+    member _.``REQ-CR-8.5 a run's match rows come back grouped by staged line, rows on the same line ordered by priority, and rows sharing line and priority ordered by rule name`` () =
         withCommitted (fun committed rules entries ->
             result {
                 let tag = newTag ()
@@ -632,10 +618,25 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                         })
                 made |> List.iter (ruleIdOf >> rules.Add)
                 let! returned = fetchRun (run.runId |> ClassificationRunId.value)
-                let keys = returned.matches |> List.map (fun m -> m.stageEntryLineId, m.priority, m.classificationRuleName)
-                Assert.Equal(6, keys.Length)
-                Assert.Equal<(Guid * int * string) list>(keys |> List.sort, keys)
-                Assert.Equal<int list>([ 5; 10; 10; 5; 10; 10 ], keys |> List.map (fun (_, p, _) -> p))
+                // the order between lines is unspecified, so the rows are cut into runs of one line each: there must be
+                // exactly one run per line, and each run carries c (5), then a and b (10, by name)
+                let runsOfOneLine =
+                    returned.matches
+                    |> List.fold (fun acc m ->
+                        match acc with
+                        | (lineId, rows) :: rest when lineId = m.stageEntryLineId -> (lineId, rows @ [ m ]) :: rest
+                        | _ -> (m.stageEntryLineId, [ m ]) :: acc) []
+                    |> List.rev
+                let expectedLines = run.results |> List.map (fun r -> r.candidate.lineIdOfCandidate |> StageEntryLineId.value)
+                Assert.Equal<Set<Guid>>(expectedLines |> Set.ofList, runsOfOneLine |> List.map fst |> Set.ofList)
+                Assert.Equal(expectedLines.Length, runsOfOneLine.Length)
+                let nameOf (rule: ClassificationRule.ClassificationRule) =
+                    rule |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value
+                let a, b, c = made[0], made[1], made[2]
+                Assert.All(runsOfOneLine, fun (_, rows) ->
+                    Assert.Equal<(int * string) list>(
+                        [ (5, c |> nameOf); (10, a |> nameOf); (10, b |> nameOf) ],
+                        rows |> List.map (fun m -> m.priority, m.classificationRuleName)))
             })
 
     [<Fact>]

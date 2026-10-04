@@ -34,6 +34,9 @@ open Business.FinancialServices.Classification.ClassificationError
    only way a caller can hand the system one. *)
 let private invalidPattern = "CR-1.26 (unclosed"
 
+(* An account code is at most 10 characters, and none in the fixture or any test starts with ZZ. *)
+let private unknownAccountCode = "ZZ-CR-4.3"
+
 let private groupMatching (field: string) (pattern: string) : ClassificationRuleGroupContract =
     let fieldMatch =
         match field with
@@ -347,9 +350,17 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
                     | Ok rule ->
                         idToCleanUp <- Some(rule.classificationRuleId |> ClassificationRuleId.fromGuid)
                         Assert.Fail "Expected the invalid pattern to be rejected; the rule was created"
-                let! name = ruleName |> ClassificationRuleName.create
-                let written = name |> ClassificationRule.fetchByName (Context.create App.DataAccessLayer.DbTransaction.NoTransaction App.Operation.CoreAuditableAction.FetchOnly)
-                Assert.True(written |> Result.isError, "no rule should have been written under that name")
+                // a rule written with the bad pattern would fail this read rather than pass it
+                let! named =
+                    this.FetchFiltered
+                        { ruleId = None
+                          nameLike = Some ruleName
+                          accountCodeAtMatch = None
+                          paymentAgreementNameAtMatch = None
+                          claimantType = None
+                          sourceLike = None
+                          activeOnly = false }
+                Assert.Empty(named)
             }
             |> railroadWrapper
         finally
@@ -385,6 +396,73 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
                 let! refetchedPayload = routeUiCommandForTesting "Classification" "FetchClassificationRuleById" [] byIdPayload
                 let! refetched = fromJson<ClassificationRuleReturn> refetchedPayload
                 Assert.Equal<ClassificationRuleGroupContract list>(validGroups, refetched.ruleGroups)
+            }
+            |> railroadWrapper
+        finally
+            cleanUpClassificationRuleId idToCleanUp |> ignore
+
+    // =========================================================================
+    // REQ-CR-4.3, 6.3 — an account claimant is named by an account code the caller supplies
+    // =========================================================================
+
+    [<Fact>]
+    member this.``REQ-CR-4.3 the new classification rule route given an account code that names no account fails with the account-code error carrying that code, and no rule is written``() =
+        let ruleName = "CR-4.3 unknown account code"
+        let mutable idToCleanUp = None
+        try
+            result {
+                let! () =
+                    match createThroughRoute ruleName unknownAccountCode 782 [ groupMatchingSource "CR-4.3 unknown" ] with
+                    | Error (AsError (LedgerError.AccountCodeDoesntMatchAccountId code)) ->
+                        Assert.Equal(unknownAccountCode, code)
+                        Ok ()
+                    | Error e -> Error (TestingError $"Wrong error. {e.DomainName}.{e.CaseName}: {e.ToMessage()}" :> IAppError)
+                    | Ok rule ->
+                        idToCleanUp <- Some(rule.classificationRuleId |> ClassificationRuleId.fromGuid)
+                        Error (TestingError "Expected the unknown account code to be rejected; the rule was created" :> IAppError)
+                let! named =
+                    this.FetchFiltered
+                        { ruleId = None
+                          nameLike = Some ruleName
+                          accountCodeAtMatch = None
+                          paymentAgreementNameAtMatch = None
+                          claimantType = None
+                          sourceLike = None
+                          activeOnly = false }
+                Assert.Empty(named)
+            }
+            |> railroadWrapper
+        finally
+            cleanUpClassificationRuleId idToCleanUp |> ignore
+
+    [<Fact>]
+    member _.``REQ-CR-6.3 the update classification rule route given an account code that names no account fails with the account-code error carrying that code, and the stored rule is unchanged``() =
+        let mutable idToCleanUp = None
+        try
+            result {
+                let! created = createThroughRoute "CR-6.3 unknown account code" accountCodeForNewRules 783 [ groupMatchingSource "CR-6.3 unknown" ]
+                idToCleanUp <- Some(created.classificationRuleId |> ClassificationRuleId.fromGuid)
+                let! payload =
+                    { classificationRuleId = created.classificationRuleId
+                      classificationRuleNameUpdate = SetTo "CR-6.3 renamed alongside the unknown code"
+                      claimantAtMatchUpdate = SetTo (ClassificationClaimantInput.Account unknownAccountCode)
+                      priorityUpdate = NoChange
+                      ruleGroupsUpdate = NoChange
+                      isActiveUpdate = NoChange }
+                    |> toJson<UpdateClassificationRuleInput>
+                let! () =
+                    match routeUiCommandForTesting "Classification" "UpdateClassificationRule" [] payload with
+                    | Error (AsError (LedgerError.AccountCodeDoesntMatchAccountId code)) ->
+                        Assert.Equal(unknownAccountCode, code)
+                        Ok ()
+                    | Error e -> Error (TestingError $"Wrong error. {e.DomainName}.{e.CaseName}: {e.ToMessage()}" :> IAppError)
+                    | Ok _ -> Error (TestingError "Expected the unknown account code to be rejected; the update succeeded" :> IAppError)
+                let! byIdPayload =
+                    { FetchClassificationRuleByIdInput.classificationRuleId = created.classificationRuleId }
+                    |> toJson<FetchClassificationRuleByIdInput>
+                let! refetchedPayload = routeUiCommandForTesting "Classification" "FetchClassificationRuleById" [] byIdPayload
+                let! refetched = fromJson<ClassificationRuleReturn> refetchedPayload
+                Assert.Equal(created, refetched)
             }
             |> railroadWrapper
         finally

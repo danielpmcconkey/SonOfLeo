@@ -89,7 +89,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-CR-4.1 REQ-CR-4.5 create returns the new rule bearing an id, a created_at and modified_at that are populated and equal, and the name, account, priority, and rule groups it was given`` () =
+    member _.``REQ-CR-4.1 REQ-CR-4.5 create returns the new rule bearing an id, a created_at and modified_at both equal to the operation's initiation instant, and the name, account, priority, and rule groups it was given`` () =
         runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let groups = [ groupOf [ Source(patternOf "TestReturnShape") ] ]
@@ -105,10 +105,9 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 Assert.Equal(777, created |> ClassificationRule.priority)
                 Assert.Equal<ClassificationRuleGroup list>(groups, created |> ClassificationRule.ruleGroups)
                 Assert.NotEqual(System.Guid.Empty, created |> idOf |> ClassificationRuleId.value)
-                Assert.Equal(
-                    created |> ClassificationRule.createdAt,
-                    created |> ClassificationRule.modifiedAt)
-                Assert.NotEqual(NodaTime.Instant.MinValue, created |> ClassificationRule.createdAt)
+                let initiated = context |> Context.getInitiationInstant
+                Assert.Equal(initiated, created |> ClassificationRule.createdAt)
+                Assert.Equal(initiated, created |> ClassificationRule.modifiedAt)
             })
         |> railroadWrapper
 
@@ -753,7 +752,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-CR-6.5 a successful update leaves modified_at later than the value it held before the update``() =
+    member _.``REQ-CR-6.5 a successful update sets modified_at to the updating operation's initiation instant and leaves created_at at the creating one's``() =
         runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let! created =
@@ -773,10 +772,9 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                         (SetTo(ruleNameOf "CR-6.5 timestamp moved"))
                         NoChange NoChange NoChange NoChange
                         (created |> idOf)
-                Assert.True(
-                    (updated |> ClassificationRule.modifiedAt) > (created |> ClassificationRule.modifiedAt),
-                    $"modified_at did not advance: {created |> ClassificationRule.modifiedAt} -> {updated |> ClassificationRule.modifiedAt}")
-                Assert.Equal(created |> ClassificationRule.createdAt, updated |> ClassificationRule.createdAt)
+                Assert.NotEqual(context |> Context.getInitiationInstant, laterContext |> Context.getInitiationInstant)
+                Assert.Equal(laterContext |> Context.getInitiationInstant, updated |> ClassificationRule.modifiedAt)
+                Assert.Equal(context |> Context.getInitiationInstant, updated |> ClassificationRule.createdAt)
             })
         |> railroadWrapper
 
@@ -897,8 +895,49 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
             })
         |> railroadWrapper
 
-    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
-
     [<Fact>]
     member _.``REQ-CR-5.4 sorted by account code, ascending or descending, every payment-agreement-claimant rule comes after every account-claimant rule, and the payment-agreement-claimant rules are ordered among themselves by name`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
+            result {
+                let accountIdOf code =
+                    fixture.Data.accounts |> List.find (fun a -> a |> Account.code |> AccountCode.value = code) |> Account.accountId
+                let tag = System.Guid.NewGuid().ToString("N").Substring(0, 10)
+                let! agreementName = $"CR-5.4 agreement {tag}" |> CashFlow.CashFlowComponent.AgreementName.create
+                let! first = 1 |> Cadence.DateInMonthNumber.fromInt
+                let! counterparty = "CR-5.4 counterparty" |> CashFlow.CashFlowComponent.Counterparty.create
+                let! activityPeriod =
+                    ActivityPeriod.create (App.Utility.Calendar.today().PlusYears(-1)) None ActivityPeriod.ConsideredAvailableBeforeBeginDate
+                let! legName = $"CR-5.4 leg {tag}" |> CashFlow.CashFlowComponent.PaymentAgreementName.create
+                let! agreement =
+                    AgreementOrchestration.constructNewAndPersist
+                        context agreementName CashFlow.CashFlowComponent.Outgo (Cadence.Monthly(Cadence.DateInMonth first))
+                        { nextInstance = NodaTime.LocalDate(2049, 3, 1) } counterparty activityPeriod None
+                        [ (legName, CashFlow.CashFlowComponent.DebitAccount.create (accountIdOf "F-2230"),
+                           CashFlow.CashFlowComponent.CreditAccount.create (accountIdOf "F-1280"), None, None, None) ]
+                let legId =
+                    agreement |> AgreementOrchestration.paymentAgreements |> List.head |> CashFlow.PaymentAgreement.paymentAgreementId
+                // created second-name-first, so creation order cannot stand in for the name order
+                let createPaymentAgreementRule suffix =
+                    ClassificationOrchestration.constructNewAndPersist
+                        context (ruleNameOf $"CR-5.4 {tag} {suffix}") (ClassificationClaimant.PaymentAgreement legId) 500
+                        [ groupOf [ Source(patternOf "CR-5.4 never matches") ] ]
+                let! _ = createPaymentAgreementRule "B"
+                let! _ = createPaymentAgreementRule "A"
+                let isPaymentAgreementRule (r: ClassificationRule.ClassificationRule) =
+                    match r |> ClassificationRule.classificationClaimant with
+                    | ClassificationClaimant.PaymentAgreement _ -> true
+                    | ClassificationClaimant.Account _ -> false
+                let fixturePaymentAgreementRuleNames = fixtureRules () |> List.filter isPaymentAgreementRule |> List.map nameOf
+                let expectedTail =
+                    fixturePaymentAgreementRuleNames @ [ $"CR-5.4 {tag} A"; $"CR-5.4 {tag} B" ] |> List.sortWith (fun a b -> System.String.CompareOrdinal(a, b))
+                let accountRuleCount = fixtureRules () |> List.filter (isPaymentAgreementRule >> not) |> List.length
+                let assertPaymentAgreementRulesLastByName (sorted: ClassificationRule.ClassificationRule list) =
+                    Assert.Equal(accountRuleCount + expectedTail.Length, sorted.Length)
+                    Assert.All(sorted |> List.take accountRuleCount, fun r -> Assert.False(r |> isPaymentAgreementRule, r |> nameOf))
+                    Assert.Equal<string list>(expectedTail, sorted |> List.skip accountRuleCount |> List.map nameOf)
+                let! ascending = ClassificationOrchestration.fetchRulesFiltered context noFilter (Some AccountCodeAsc)
+                assertPaymentAgreementRulesLastByName ascending
+                let! descending = ClassificationOrchestration.fetchRulesFiltered context noFilter (Some AccountCodeDesc)
+                assertPaymentAgreementRulesLastByName descending
+            })
+        |> railroadWrapper
