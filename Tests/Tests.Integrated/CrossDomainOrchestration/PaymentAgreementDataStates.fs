@@ -98,18 +98,38 @@ let private cleaningUp (names: string list) (test: unit -> Result<unit, IAppErro
             | Error e -> cleanUpFailures.Add(e.ToMessage())
     Assert.Empty(cleanUpFailures)
 
+/// Fails unless the attempt was refused with an error `isExpected` accepts, naming whatever came back instead.
+let private expectRefusal (isExpected: IAppError -> bool) (attempt: Result<'a, IAppError>) =
+    match attempt with
+    | Error e when isExpected e -> ()
+    | Error e -> Assert.Fail $"Wrong error. {e.DomainName}.{e.CaseName}: {e.ToMessage()}"
+    | Ok _ -> Assert.Fail "Expected failure; got success"
+
+/// The database constraint violation, of the given SQL state, that the data access layer surfaces carrying the
+/// constraint's name. Duplicate Payment Agreement names and an orphaned Payment Agreement have no typed error: only
+/// the constraint enforces them, and the violation is loud.
+let private constraintViolation (sqlState: string) (constraintName: string) (e: IAppError) =
+    match e with
+    | AsError (App.DataAccessLayer.DalError.DalErrorDuringNonQueryExecution(:? Npgsql.PostgresException as pg)) ->
+        pg.SqlState = sqlState && pg.ConstraintName = constraintName
+    | _ -> false
+
+let private duplicateLegName = constraintViolation "23505" "payment_agreement_payment_agreement_name_key"
+
 [<Collection("SharedTestData")>]
 type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
 
     let accountIdOf code =
         fixture.Data.accounts |> List.find (fun a -> a |> Account.code |> AccountCode.value = code) |> Account.accountId
 
-    /// Sends the payload, expecting it refused. Returns whether it was, and what is stored under the name after.
-    let refusedAndStored (name: string) (legs: Contracts.CreatePaymentAgreementFieldsInput list) =
+    /// Sends the payload, failing unless it is refused with an error `isExpected` accepts. Returns what is stored
+    /// under the name after.
+    let refusedAndStored (isExpected: IAppError -> bool) (name: string) (legs: Contracts.CreatePaymentAgreementFieldsInput list) =
         result {
             let attempt = create name legs
             let! stored = storedNamed (fresh ()) name
-            return (attempt |> Result.isError), stored
+            attempt |> expectRefusal isExpected
+            return stored
         }
 
     // =========================================================================
@@ -133,7 +153,7 @@ type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
     (* Below the route, because no route creates a Payment Agreement apart from its agreement. The write runs in a
        committing transaction of its own, which it rolls back when it fails, so what it left can be read afterwards. *)
     [<Fact>]
-    member _.``REQ-CF-3.3 writing a Payment Agreement at the model level whose Master Agreement ID names no stored agreement is rejected with a typed error and no Payment Agreement is stored`` () =
+    member _.``REQ-CF-3.3 writing a Payment Agreement at the model level whose Master Agreement ID names no stored agreement is refused by the master agreement foreign key and no Payment Agreement is stored`` () =
         let paymentAgreementId = PaymentAgreementId.create ()
         result {
             let attempt =
@@ -147,7 +167,7 @@ type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
                             |> PaymentAgreement.persist context
                     })
             let! stored = PaymentAgreement.fetchByPaymentAgreementIdList (fresh ()) [ paymentAgreementId ]
-            Assert.True(attempt |> Result.isError)
+            attempt |> expectRefusal (constraintViolation "23503" "payment_agreement_master_agreement_id_fkey")
             Assert.Empty(stored)
         }
         |> railroadWrapper
@@ -218,8 +238,13 @@ type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
         let name = unique "CF-3.7 non-positive"
         cleaningUp [ name ] (fun () ->
             result {
-                let! refused, stored = refusedAndStored name [ { leg (unique "CF-3.7 leg") with expectedAmount = Some(Decimal.Parse amount) } ]
-                Assert.True(refused)
+                let! stored =
+                    refusedAndStored
+                        (function
+                         | AsError (CashFlowError.CashflowPaymentAgreementNonPositiveExpectedAmount(_, refused)) ->
+                            refused = Decimal.Parse amount
+                         | _ -> false)
+                        name [ { leg (unique "CF-3.7 leg") with expectedAmount = Some(Decimal.Parse amount) } ]
                 Assert.Empty(stored)
             })
 
@@ -238,8 +263,12 @@ type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
         let name = unique "CF-3.7 fraction"
         cleaningUp [ name ] (fun () ->
             result {
-                let! refused, stored = refusedAndStored name [ { leg (unique "CF-3.7 leg") with expectedAmount = Some 100.005M } ]
-                Assert.True(refused)
+                let! stored =
+                    refusedAndStored
+                        (function
+                         | AsError (BizFinServError.MoneyFailedToConvertImproperPrecision raw) -> raw = 100.005M
+                         | _ -> false)
+                        name [ { leg (unique "CF-3.7 leg") with expectedAmount = Some 100.005M } ]
                 Assert.Empty(stored)
             })
 
@@ -273,8 +302,12 @@ type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
         let name = unique "CF-3.8 memo too long"
         cleaningUp [ name ] (fun () ->
             result {
-                let! refused, stored = refusedAndStored name [ { leg (unique "CF-3.8 leg") with memo = Some(String('m', 2001)) } ]
-                Assert.True(refused)
+                let! stored =
+                    refusedAndStored
+                        (function
+                         | AsError (CashFlowError.CashflowPaymentAgreementMemoTooLong(_, limit)) -> limit = 2000
+                         | _ -> false)
+                        name [ { leg (unique "CF-3.8 leg") with memo = Some(String('m', 2001)) } ]
                 Assert.Empty(stored)
             })
 
@@ -286,8 +319,12 @@ type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
         let name = unique "CF-3.8 blank memo"
         cleaningUp [ name ] (fun () ->
             result {
-                let! refused, stored = refusedAndStored name [ { leg (unique "CF-3.8 leg") with memo = Some text } ]
-                Assert.True(refused)
+                let! stored =
+                    refusedAndStored
+                        (function
+                         | AsError (CashFlowError.CashflowPaymentAgreementMemoIsEmpty _) -> true
+                         | _ -> false)
+                        name [ { leg (unique "CF-3.8 leg") with memo = Some text } ]
                 Assert.Empty(stored)
             })
 
@@ -322,7 +359,7 @@ type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
     [<InlineData("")>]
     [<InlineData(" ")>]
     [<InlineData(" \t  ")>]
-    member _.``REQ-CF-3.9 for each of null, the empty string, a single space and a string of spaces and tabs, creating an agreement whose Payment Agreement name is that value is rejected with a typed error and no agreement is stored`` (text: string) =
+    member _.``REQ-CF-3.9 for each of null, the empty string, a single space and a string of spaces and tabs, creating an agreement whose Payment Agreement name is that value is refused, the null as the payload is read and the others with a typed error, and no agreement is stored`` (text: string) =
         let name = unique "CF-3.9 blank name"
         cleaningUp [ name ] (fun () ->
             result {
@@ -331,7 +368,13 @@ type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
                 node["paymentAgreements"].[0].["paymentAgreementName"] <- (if isNull text then null else JsonValue.Create(text) :> JsonNode)
                 let attempt = createRoute (node.ToJsonString())
                 let! stored = storedNamed (fresh ()) name
-                Assert.True(attempt |> Result.isError)
+                attempt
+                |> expectRefusal (fun e ->
+                    match isNull text, e with
+                    | true, AsError (UtilityError.JsonDeserializationFailed(typeName, _, _)) ->
+                        typeName = typeof<Contracts.CreateAgreementInput>.ToString()
+                    | false, AsError (CashFlowError.CashflowPaymentAgreementNameIsEmpty _) -> true
+                    | _ -> false)
                 Assert.Empty(stored)
             })
 
@@ -351,8 +394,12 @@ type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
         let name = unique "CF-3.9 name too long"
         cleaningUp [ name ] (fun () ->
             result {
-                let! refused, stored = refusedAndStored name [ leg ((unique "CF-3.9 leg").PadRight(251, 'x')) ]
-                Assert.True(refused)
+                let! stored =
+                    refusedAndStored
+                        (function
+                         | AsError (CashFlowError.CashflowPaymentAgreementNameTooLong(_, limit)) -> limit = 250
+                         | _ -> false)
+                        name [ leg ((unique "CF-3.9 leg").PadRight(251, 'x')) ]
                 Assert.Empty(stored)
             })
 
@@ -380,7 +427,7 @@ type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
             })
 
     [<Fact>]
-    member _.``REQ-CF-3.9 creating an agreement whose Payment Agreement has the name of a Payment Agreement of another agreement is rejected with a typed error, no second agreement is stored and the existing Payment Agreement is unchanged`` () =
+    member _.``REQ-CF-3.9 creating an agreement whose Payment Agreement has the name of a Payment Agreement of another agreement is refused by the payment agreement name unique constraint, no second agreement is stored and the existing Payment Agreement is unchanged`` () =
         let first = unique "CF-3.9 first"
         let second = unique "CF-3.9 second"
         let legName = unique "CF-3.9 shared leg"
@@ -388,35 +435,34 @@ type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
             result {
                 let! _ = create first [ leg legName ]
                 let! before = storedLegsOf first
-                let! refused, stored = refusedAndStored second [ { leg legName with expectedAmount = Some 5.00M } ]
+                let! stored = refusedAndStored duplicateLegName second [ { leg legName with expectedAmount = Some 5.00M } ]
                 let! after = storedLegsOf first
-                Assert.True(refused)
                 Assert.Empty(stored)
                 Assert.Equal<PaymentAgreement.PaymentAgreement list>(before, after)
             })
 
     [<Fact>]
-    member _.``REQ-CF-3.9 REQ-SYS-1.1 creating an agreement whose Payment Agreement name differs from an existing Payment Agreement's name only by leading and trailing spaces is rejected with a typed error and no agreement is stored`` () =
+    member _.``REQ-CF-3.9 REQ-SYS-1.1 creating an agreement whose Payment Agreement name differs from an existing Payment Agreement's name only by leading and trailing spaces is refused by the payment agreement name unique constraint and no agreement is stored`` () =
         let first = unique "CF-3.9 padded first"
         let second = unique "CF-3.9 padded second"
         let legName = unique "CF-3.9 padded shared leg"
         cleaningUp [ first; second ] (fun () ->
             result {
                 let! _ = create first [ leg legName ]
-                let! refused, stored = refusedAndStored second [ leg $"  {legName} " ]
-                Assert.True(refused)
+                let! stored = refusedAndStored duplicateLegName second [ leg $"  {legName} " ]
                 Assert.Empty(stored)
             })
 
     [<Fact>]
-    member _.``REQ-CF-3.9 creating an agreement with two Payment Agreements of the same name is rejected with a typed error and no agreement is stored`` () =
+    member _.``REQ-CF-3.9 creating an agreement with two Payment Agreements of the same name is refused by the payment agreement name unique constraint and no agreement is stored`` () =
         let name = unique "CF-3.9 twins"
         let legName = unique "CF-3.9 twin leg"
         cleaningUp [ name ] (fun () ->
             result {
-                let! refused, stored =
-                    refusedAndStored name [ leg legName; { leg legName with debitAccountCode = "F-1280"; creditAccountCode = "F-4290" } ]
-                Assert.True(refused)
+                let! stored =
+                    refusedAndStored
+                        duplicateLegName name
+                        [ leg legName; { leg legName with debitAccountCode = "F-1280"; creditAccountCode = "F-4290" } ]
                 Assert.Empty(stored)
             })
 
@@ -443,8 +489,13 @@ type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
         let name = unique "CF-3.10 out of range"
         cleaningUp [ name ] (fun () ->
             result {
-                let! refused, stored = refusedAndStored name [ { leg (unique "CF-3.10 leg") with daysDueAfterInvoiceDate = Some days } ]
-                Assert.True(refused)
+                let! stored =
+                    refusedAndStored
+                        (function
+                         | AsError (CashFlowError.CashflowDaysDueAfterInvoiceDateBelowMin(refused, 0)) -> days = -1 && refused = days
+                         | AsError (CashFlowError.CashflowDaysDueAfterInvoiceDateExceededMax(refused, 365)) -> days = 366 && refused = days
+                         | _ -> false)
+                        name [ { leg (unique "CF-3.10 leg") with daysDueAfterInvoiceDate = Some days } ]
                 Assert.Empty(stored)
             })
 
