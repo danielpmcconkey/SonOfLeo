@@ -67,7 +67,7 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-5.2 constructNewAndPersist generates UUID and sets timestamps``() =
+    member _.``REQ-JE-5.2 constructNewAndPersist gives the comment an ID no fixture comment or its entry carries, and sets timestamps``() =
         let commentText =
             "Comment with secondary link"
             |> CommentText.create
@@ -82,10 +82,9 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
                     commentText
             match result with
             | Ok c ->
-                Assert.NotEqual(
-                    Guid.Empty,
-                    c |> JournalEntryComment.journalEntryCommentId |> JournalEntryCommentId.value
-                )
+                let id = c |> JournalEntryComment.journalEntryCommentId
+                Assert.DoesNotContain(id, fixture.Data.journalEntryComments |> List.map JournalEntryComment.journalEntryCommentId)
+                Assert.NotEqual(fixture.Data.basicJeId |> JournalEntryHeaderId.value, id |> JournalEntryCommentId.value)
                 Assert.Equal(expectedInstant, c |> JournalEntryComment.createdAt)
                 Assert.Equal(expectedInstant, c |> JournalEntryComment.modifiedAt)
                 Ok()

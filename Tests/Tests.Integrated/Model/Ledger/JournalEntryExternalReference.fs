@@ -92,7 +92,7 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-4.10 constructNewAndPersist generates a unique UUID for the new reference``() =
+    member _.``REQ-JE-4.10 constructNewAndPersist gives the new reference an ID no fixture reference or its entry carries``() =
         let fiAdd = "UuidBank" |> createJournalRefFinancialInstitutionFromString
         let refAdd = "UUID-001" |> createJournalExternalReferenceTextFromString
         runCommandRouteAndAutoRollback JournalEntryAddExternalReference (fun context ->
@@ -104,12 +104,9 @@ type JournalEntryExternalReferenceTests(fixture: TestDataFixture) =
                     refAdd
             match result with
             | Ok r ->
-                Assert.NotEqual(
-                    Guid.Empty,
-                    r
-                    |> journalEntryExternalReferenceId
-                    |> JournalEntryExternalReferenceId.value
-                )
+                let id = r |> journalEntryExternalReferenceId
+                Assert.DoesNotContain(id, fixture.Data.journalEntryExternalReferences |> List.map journalEntryExternalReferenceId)
+                Assert.NotEqual(fixture.Data.basicJeId |> JournalEntryHeaderId.value, id |> JournalEntryExternalReferenceId.value)
                 Ok()
             | Error e -> Error e)
         |> railroadWrapper
