@@ -216,13 +216,13 @@
           <element xsi:type="archimate:ApplicationFunction" name="Define operator CLI errors" id="id-4f1e30939ad2434c9843d4c4f37c9488">
             <documentation>Provide an exhaustive vocabulary of named failure modes. Every failure the system can produce has exactly one name in this vocabulary. The vocabulary is domain-partitioned and extensible only by adding new named entries — never by catch-all or generic categories.</documentation>
           </element>
-          <element xsi:type="archimate:ApplicationFunction" name="Define interface bridge errors" id="id-a00fff433b954d2daf250fc674180112">
-            <documentation>Provide an exhaustive vocabulary of named failure modes. Every failure the system can produce has exactly one name in this vocabulary. The vocabulary is domain-partitioned and extensible only by adding new named entries — never by catch-all or generic categories.</documentation>
-          </element>
           <element xsi:type="archimate:ApplicationFunction" name="Define cash flow errors" id="id-a19ee4383f8f4be58f54eac19b29a0d4">
             <documentation>Provide an exhaustive vocabulary of named failure modes. Every failure the system can produce has exactly one name in this vocabulary. The vocabulary is domain-partitioned and extensible only by adding new named entries — never by catch-all or generic categories.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Define data ingestion errors" id="id-f89fb1dc26b844d1a3771b75a0dc24c5">
+            <documentation>Provide an exhaustive vocabulary of named failure modes. Every failure the system can produce has exactly one name in this vocabulary. The vocabulary is domain-partitioned and extensible only by adding new named entries — never by catch-all or generic categories.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Define classification errors" id="id-372fa6c5f5ae4b8bb6c455fa7f645048">
             <documentation>Provide an exhaustive vocabulary of named failure modes. Every failure the system can produce has exactly one name in this vocabulary. The vocabulary is domain-partitioned and extensible only by adding new named entries — never by catch-all or generic categories.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Handle fallible option conversions" id="id-fc485aa391cf4dceb8df9cffd5d85936">
@@ -1225,6 +1225,9 @@
               <element xsi:type="archimate:ApplicationComponent" name="ClassificationAuditableAction" id="id-7f9cd9a02843435eb8bde206efa755e5">
                 <property key="path" value="Src/Business.FinancialServices.Classification/ClassificationAuditableAction.fs"/>
               </element>
+              <element xsi:type="archimate:ApplicationComponent" name="ClassificationError" id="id-3f13e7f9ec90422b9c7fac0a6bffdf69">
+                <property key="path" value="Src/Business.FinancialServices.Classification/ClassificationError.fs"/>
+              </element>
             </folder>
             <folder name="Business.FinancialServices.DataIngestion" id="id-7b472218f0c6419ab9139b32cd11ddd1">
               <element xsi:type="archimate:ApplicationComponent" name="Business.FinancialServices.DataIngestion" id="id-b8ccab77a22047f591b5b8e073ea8f3b">
@@ -1512,9 +1515,6 @@
             </folder>
             <element xsi:type="archimate:ApplicationComponent" name="Ui.InterfaceBridge" id="id-e327791f33c340e4bcd42c802d9af845">
               <property key="path" value="Src/Ui.InterfaceBridge/Ui.InterfaceBridge.fsproj"/>
-            </element>
-            <element xsi:type="archimate:ApplicationComponent" name="BridgeError" id="id-41d5cafd9e98405f8f6a20cc1960c0c0">
-              <property key="path" value="Src/Ui.InterfaceBridge/BridgeError.fs"/>
             </element>
             <element xsi:type="archimate:ApplicationComponent" name="CommandRoute" id="id-85f4ab68d64a4c8f9180fbeb819f6d9b">
               <property key="path" value="Src/Ui.InterfaceBridge/CommandRoute.fs"/>
@@ -1837,7 +1837,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-28ef4fd0af5e4d1c960e640409df530d" source="id-33f6c476f50e47e79f9d8362a77e9573" target="id-42ce503424164a36ae31d16dd377d9e3"/>
     <element xsi:type="archimate:ServingRelationship" id="id-c13139b13e0b4c529cddaccfddb19043" source="id-1694657833c44d4db27afa22dafbb540" target="id-8a5a9839498744a789c03ed01212c9db"/>
     <element xsi:type="archimate:ServingRelationship" id="id-427fe26cbc944506b271591eadd54177" source="id-9f3698c585ab451ba872a231119afba6" target="id-00408678ca0e46dbb40cbff22f6d5e35"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-be51db13ed54437996f0f67c8ad72407" source="id-799e585b79b940dcaf6207015e9b47b4" target="id-dbb69ba2db65482c9bdb7835dc128521"/>
     <element xsi:type="archimate:ServingRelationship" id="id-5704650dbca04362ba344bcfb40b1a2b" source="id-00187318dee746ff8e4a903394419eb8" target="id-219d22490aef4c85bc606b90690be18f"/>
     <element xsi:type="archimate:ServingRelationship" id="id-f7f24793482448f988be6bcbc6113a22" source="id-00187318dee746ff8e4a903394419eb8" target="id-a14775aac4f448c7ae9a6ca867898800"/>
     <element xsi:type="archimate:ServingRelationship" id="id-05c9e5d7b82c4db48fcc67d9c0db797d" source="id-00187318dee746ff8e4a903394419eb8" target="id-42ce503424164a36ae31d16dd377d9e3"/>
@@ -2477,7 +2476,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:CompositionRelationship" id="id-7d99e32bf62d43f8b3de749eb91cddf4" source="id-e327791f33c340e4bcd42c802d9af845" target="id-24b0f2ccb7474804a4f6046f10a23f3b"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-b5fff207e29e4e64b379726846476d3b" source="id-e327791f33c340e4bcd42c802d9af845" target="id-34a75c4585fe4476a911c76f0a075892"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-479fa7064aaa4dd398a0627a0263616b" source="id-e327791f33c340e4bcd42c802d9af845" target="id-3f1873e423174403bcc308c142a79d3f"/>
-    <element xsi:type="archimate:CompositionRelationship" id="id-15383d0fc98a42f79d33bbad049d6fb1" source="id-e327791f33c340e4bcd42c802d9af845" target="id-41d5cafd9e98405f8f6a20cc1960c0c0"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-f3b93f532881473d9193c2f2f28ca3aa" source="id-e327791f33c340e4bcd42c802d9af845" target="id-85f4ab68d64a4c8f9180fbeb819f6d9b"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-4a510dd4dd0345a18cd5ddd21b16f546" source="id-e327791f33c340e4bcd42c802d9af845" target="id-e471c6c33ac04787901e44932f3174d8"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-6e3e7fa0a8e94a6ba4d7f2cb05e9ab4d" source="id-e327791f33c340e4bcd42c802d9af845" target="id-f6eaf03d33014961ba338d52b1230122"/>
@@ -2572,7 +2570,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:RealizationRelationship" id="id-62ad0b2cd5194a1487894f75ecddacfd" source="id-31cf522d355f4d0db0a380fbf8d2daac" target="id-bdf8e1de36cc41cf9328712cefa66068"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-dcc64c5a7bd24c5a8906fd70e68ea9c9" source="id-3bab5cc0b3d542f8b050425f7a9cf7b6" target="id-bdf8e1de36cc41cf9328712cefa66068"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-0e2373db994940dd9dfd721894bb7817" source="id-3f1873e423174403bcc308c142a79d3f" target="id-bdf8e1de36cc41cf9328712cefa66068"/>
-    <element xsi:type="archimate:RealizationRelationship" id="id-2556467a2d35423e91090b0bbd2ec4dc" source="id-41d5cafd9e98405f8f6a20cc1960c0c0" target="id-f9fcbf5300da46368607ffa214b20d95"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-2de338d0ff0041e88250884be646d21a" source="id-42ce503424164a36ae31d16dd377d9e3" target="id-528f97ed3b1148e8aca8dbdeae897d00"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-a4b68e3685ae49bea64de8edfeb36633" source="id-42ce503424164a36ae31d16dd377d9e3" target="id-dd85fdb78c454d65bd2774a3f15ca42b"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-92ff775f78484527b16e8f41237bf928" source="id-42f13ba9c82c43d3834f8f3cdc04ea62" target="id-f9fcbf5300da46368607ffa214b20d95"/>
@@ -2729,7 +2726,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-6a9ac73dec304d97845e664e9b4316ca" source="id-00187318dee746ff8e4a903394419eb8" target="id-bfa0097578dc4adeae612056ec2a844f"/>
     <element xsi:type="archimate:ServingRelationship" id="id-bcfa94e30ace4fb3af7cd3e8a8f30adf" source="id-00187318dee746ff8e4a903394419eb8" target="id-db3aa71e8b314c9a886d35561868d6ab"/>
     <element xsi:type="archimate:ServingRelationship" id="id-ea5bd4f6629d4183b9e6df9ab35a6ce7" source="id-00408678ca0e46dbb40cbff22f6d5e35" target="id-10dcb90259d4487c83bfbcf2203dd333"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-5ac3475b0b8f42edb103dbba550232a2" source="id-00408678ca0e46dbb40cbff22f6d5e35" target="id-248203dd619a4da0be876a5b9b7c7434"/>
     <element xsi:type="archimate:ServingRelationship" id="id-f18551f509b5479ba34155b720cc7b97" source="id-00408678ca0e46dbb40cbff22f6d5e35" target="id-42ce503424164a36ae31d16dd377d9e3"/>
     <element xsi:type="archimate:ServingRelationship" id="id-f89faab92984474f9e2cb6cdf89ff45e" source="id-00408678ca0e46dbb40cbff22f6d5e35" target="id-bfa0097578dc4adeae612056ec2a844f"/>
     <element xsi:type="archimate:ServingRelationship" id="id-584b93293c234f9a85f141f17697c393" source="id-00408678ca0e46dbb40cbff22f6d5e35" target="id-feb0b85490c142b5b5fb6aca461568cf"/>
@@ -2739,7 +2735,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-51d7ebf1a2a04459b9ae78969430dc8b" source="id-0291cbfd15ac4f31b25938e5183214dd" target="id-218ec0abab324522ae07e89816a52231"/>
     <element xsi:type="archimate:ServingRelationship" id="id-f08a7d584268444c9f6259c4607ddfb9" source="id-0291cbfd15ac4f31b25938e5183214dd" target="id-248203dd619a4da0be876a5b9b7c7434"/>
     <element xsi:type="archimate:ServingRelationship" id="id-1e3d7a78006e41f5b84fdfe9304f365e" source="id-0291cbfd15ac4f31b25938e5183214dd" target="id-dbb69ba2db65482c9bdb7835dc128521"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-767153f0f999443aa69e54837788f60c" source="id-0291cbfd15ac4f31b25938e5183214dd" target="id-feb0b85490c142b5b5fb6aca461568cf"/>
     <element xsi:type="archimate:ServingRelationship" id="id-f0e4acda927342b5911a52d449ae5168" source="id-040e6ff751e2457ca15eb9f4300fbe63" target="id-c48faef19d194d93ae49109eed5bc28c"/>
     <element xsi:type="archimate:ServingRelationship" id="id-0441483554d94d59992f9c5f96762701" source="id-040e6ff751e2457ca15eb9f4300fbe63" target="id-dbb69ba2db65482c9bdb7835dc128521"/>
     <element xsi:type="archimate:ServingRelationship" id="id-30c11779b04f481a80851fc97c1417e6" source="id-086000a2a5a741b2aab0b8cba1053569" target="id-e327791f33c340e4bcd42c802d9af845"/>
@@ -2837,7 +2832,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-078b943f6a7a42f89be371d808def543" source="id-2224f7a8b5e24edc928b88a393ab0882" target="id-2aed1866bf58458da539f35aad93c359"/>
     <element xsi:type="archimate:ServingRelationship" id="id-32562d36d7b0486893369a2bd3b1bec3" source="id-2224f7a8b5e24edc928b88a393ab0882" target="id-31eaa383f6c643e5b9045f39f06da5c1"/>
     <element xsi:type="archimate:ServingRelationship" id="id-4215393210714e67a4ee5d78edfd3a71" source="id-2224f7a8b5e24edc928b88a393ab0882" target="id-33f6c476f50e47e79f9d8362a77e9573"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-f25abd67a0f045a0813c9dc92d468acc" source="id-2224f7a8b5e24edc928b88a393ab0882" target="id-41d5cafd9e98405f8f6a20cc1960c0c0"/>
     <element xsi:type="archimate:ServingRelationship" id="id-05617fc55e0e44dbb6c95d73bcd3af10" source="id-2224f7a8b5e24edc928b88a393ab0882" target="id-42f13ba9c82c43d3834f8f3cdc04ea62"/>
     <element xsi:type="archimate:ServingRelationship" id="id-ec649085b9df458284a9e1c1b8581cec" source="id-2224f7a8b5e24edc928b88a393ab0882" target="id-4573226f982d42e694af8c11bed33be6"/>
     <element xsi:type="archimate:ServingRelationship" id="id-1a5b9329d211451b9497e5b761eaf6a1" source="id-2224f7a8b5e24edc928b88a393ab0882" target="id-4898a4f475a24f47b2214b3c3c12a21f"/>
@@ -2921,11 +2915,9 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-d031d24aedbd4aee822314d990c96770" source="id-23ed52a7bb864ed39a75bf4b991dee2e" target="id-8d5f736bc36f4267b39999df2e4bac62"/>
     <element xsi:type="archimate:ServingRelationship" id="id-6a487f2840dc4e2395b56f63d43050ea" source="id-23ed52a7bb864ed39a75bf4b991dee2e" target="id-91c7bf1a8685498ab8c137da9d992670"/>
     <element xsi:type="archimate:ServingRelationship" id="id-88fcccb2b4724e44b6f3347ec6e20b7a" source="id-23ed52a7bb864ed39a75bf4b991dee2e" target="id-96ade8c3f0a14d17b41795a2f0699f41"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-c65b88a16a6f4ef5bd069c336c8fc2fc" source="id-23ed52a7bb864ed39a75bf4b991dee2e" target="id-a0f94d6e9580443d8b8f3d137fe4a9f6"/>
     <element xsi:type="archimate:ServingRelationship" id="id-311c88ce3f004109a749b50ef16f1326" source="id-23ed52a7bb864ed39a75bf4b991dee2e" target="id-a134ba2ed9614972bc862c8f246bdb70"/>
     <element xsi:type="archimate:ServingRelationship" id="id-45ab15e0c2404b7ba6b815762f1bcefd" source="id-23ed52a7bb864ed39a75bf4b991dee2e" target="id-a14775aac4f448c7ae9a6ca867898800"/>
     <element xsi:type="archimate:ServingRelationship" id="id-3d41b472bccd43a78b65d75009654b52" source="id-23ed52a7bb864ed39a75bf4b991dee2e" target="id-a2aef991be1547cdac4748ddd3669657"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-d914cf8a8da94ba3abcffbd9172a208d" source="id-23ed52a7bb864ed39a75bf4b991dee2e" target="id-a73ca28ad82346fa9f3dbe415ece3f76"/>
     <element xsi:type="archimate:ServingRelationship" id="id-be8026ef2f4f4e01b968fd8d79d87e6d" source="id-23ed52a7bb864ed39a75bf4b991dee2e" target="id-a904e2ff47574f3891756a8faad3302d"/>
     <element xsi:type="archimate:ServingRelationship" id="id-5006b1b4e5e042b9ae1d716ea34c86e8" source="id-23ed52a7bb864ed39a75bf4b991dee2e" target="id-ab8f0c0d5e434968b819f83515a1de3c"/>
     <element xsi:type="archimate:ServingRelationship" id="id-5aeadf6e6d184dee8f95ab2b93967c1b" source="id-23ed52a7bb864ed39a75bf4b991dee2e" target="id-af06be959cef491c93e88d49e19f8f08"/>
@@ -2939,7 +2931,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-2200b83df4df428bb0ee9cb6cd55a95e" source="id-23ed52a7bb864ed39a75bf4b991dee2e" target="id-ec44456c08a8496c9436155a25b44c74"/>
     <element xsi:type="archimate:ServingRelationship" id="id-e128032727aa4b3590f4b77b09d839b5" source="id-23ed52a7bb864ed39a75bf4b991dee2e" target="id-ed34af980b2e486ea5771bf8d2786582"/>
     <element xsi:type="archimate:ServingRelationship" id="id-822359d86d0947e2838cfb1aee4a759d" source="id-23ed52a7bb864ed39a75bf4b991dee2e" target="id-f49ed1bb242a4977b8fd54d25706c5d4"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-4e1a03da7e384e7283c962e0eab0ab1d" source="id-23ed52a7bb864ed39a75bf4b991dee2e" target="id-ff5527855cd54fa4af74058b49326210"/>
     <element xsi:type="archimate:ServingRelationship" id="id-fc3ebc247a144445bda0b28d6175f99e" source="id-248203dd619a4da0be876a5b9b7c7434" target="id-121f5429905048d6a2801064e5c83e85"/>
     <element xsi:type="archimate:ServingRelationship" id="id-4e14ddd9b8054373a26549352d06b6e7" source="id-248203dd619a4da0be876a5b9b7c7434" target="id-feb0b85490c142b5b5fb6aca461568cf"/>
     <element xsi:type="archimate:ServingRelationship" id="id-8835e67c13494b599db3414b42d592ea" source="id-2aed1866bf58458da539f35aad93c359" target="id-10dcb90259d4487c83bfbcf2203dd333"/>
@@ -2955,7 +2946,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-adb5dd9fcb774dea8be66109e1c25c72" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-00408678ca0e46dbb40cbff22f6d5e35"/>
     <element xsi:type="archimate:ServingRelationship" id="id-c60de500f43746e998e5ab7a371365ac" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-0291cbfd15ac4f31b25938e5183214dd"/>
     <element xsi:type="archimate:ServingRelationship" id="id-0c1180d2ab42404bbe0ae3c9d77e4807" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-10dd754cd5a040a3a262433add0b8437"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-d67b911267794c05b576ecd134f1a1a7" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-219d22490aef4c85bc606b90690be18f"/>
     <element xsi:type="archimate:ServingRelationship" id="id-2474f39237e447e1bd72ef26e650d3e8" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-4573226f982d42e694af8c11bed33be6"/>
     <element xsi:type="archimate:ServingRelationship" id="id-4bd8d33feaed47848bba0434cf576ea2" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-499ebe4582f94d25b6c2ad8a5457c2b0"/>
     <element xsi:type="archimate:ServingRelationship" id="id-7514658ff14540dfb363be8af741e160" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-5e49078f834e4fbca57e39b02a8e348c"/>
@@ -2975,7 +2965,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-e6ca0817b8634a9abeb6bc5e562e00ea" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-d177cceaf1d54a44a43f6bd309fb3c50"/>
     <element xsi:type="archimate:ServingRelationship" id="id-a458523dbbe64f3085293b62b4adc048" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-d35e2d11bdb249a880f734f29f875a2d"/>
     <element xsi:type="archimate:ServingRelationship" id="id-6c152700d0774eb2aa69746423dd0359" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-db3aa71e8b314c9a886d35561868d6ab"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-363be74726704c31a84ec6de5d7be029" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-dfe43646030e4ffe93307392260ffef8"/>
     <element xsi:type="archimate:ServingRelationship" id="id-4d0c99999bae4a179abdf68f76fb1169" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-e2a0832aae4349558e88ee9613c496ed"/>
     <element xsi:type="archimate:ServingRelationship" id="id-9576e8175f9c40f195ccc4176549e181" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-eb44affa1d9245d38e83dc6056100249"/>
     <element xsi:type="archimate:ServingRelationship" id="id-4f8c44e4705a418b87844eb7a328f9aa" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-f49ed1bb242a4977b8fd54d25706c5d4"/>
@@ -3034,7 +3023,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-bad9509e4fe545129d666c4e1bf365c2" source="id-33f6c476f50e47e79f9d8362a77e9573" target="id-db3aa71e8b314c9a886d35561868d6ab"/>
     <element xsi:type="archimate:ServingRelationship" id="id-94077879e78340498c1c167c3c49b3a4" source="id-33f6c476f50e47e79f9d8362a77e9573" target="id-dbb69ba2db65482c9bdb7835dc128521"/>
     <element xsi:type="archimate:ServingRelationship" id="id-7455366c00da49e6b6fd21066b4c05c4" source="id-33f6c476f50e47e79f9d8362a77e9573" target="id-dce47c12a92646c9ab1b65c898f9fb84"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-f883f1aa582941b899e47b91b58531a7" source="id-33f6c476f50e47e79f9d8362a77e9573" target="id-dfe43646030e4ffe93307392260ffef8"/>
     <element xsi:type="archimate:ServingRelationship" id="id-24fb2472b51f4ddfa679ba7477b52981" source="id-33f6c476f50e47e79f9d8362a77e9573" target="id-e2a0832aae4349558e88ee9613c496ed"/>
     <element xsi:type="archimate:ServingRelationship" id="id-e3855703b88441669d9417e4e0703ea9" source="id-33f6c476f50e47e79f9d8362a77e9573" target="id-eb44affa1d9245d38e83dc6056100249"/>
     <element xsi:type="archimate:ServingRelationship" id="id-d7ec07b9470e4eb89029f47d60414142" source="id-33f6c476f50e47e79f9d8362a77e9573" target="id-eec17b4265634be8a109d99cb568b1dc"/>
@@ -3220,7 +3208,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-c2c91bf0d21d4bfb9343db4b77da98d7" source="id-73beb61a7786474da68c3b4428d515ee" target="id-248203dd619a4da0be876a5b9b7c7434"/>
     <element xsi:type="archimate:ServingRelationship" id="id-744b20b9e8734694b904a26234278e8a" source="id-73beb61a7786474da68c3b4428d515ee" target="id-8a5a9839498744a789c03ed01212c9db"/>
     <element xsi:type="archimate:ServingRelationship" id="id-31afa804296047b8a29570f77571f0b4" source="id-73beb61a7786474da68c3b4428d515ee" target="id-c39225f89c0241eeae72483fe4aac7a6"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-7bb21791ca444f2e9cced44f63b58e68" source="id-73beb61a7786474da68c3b4428d515ee" target="id-dfe43646030e4ffe93307392260ffef8"/>
     <element xsi:type="archimate:ServingRelationship" id="id-3d08e062e6b643f2ab52f901fe71fd18" source="id-7496cb1ea0c44bc08de5553895668d6d" target="id-3bab5cc0b3d542f8b050425f7a9cf7b6"/>
     <element xsi:type="archimate:ServingRelationship" id="id-f2b1e1f8c821437ba1de5c87d216b7df" source="id-7496cb1ea0c44bc08de5553895668d6d" target="id-c884f3410cdd4f42a2a4f8add6f97d79"/>
     <element xsi:type="archimate:ServingRelationship" id="id-f27e64f35cf6490f9183849773bf73bd" source="id-7496cb1ea0c44bc08de5553895668d6d" target="id-cb82c2537d9945b682def7e169b221c2"/>
@@ -3245,7 +3232,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-97a04cdb426943c0a3b545f4d098324d" source="id-7ea2f88da19d45eabc1db394d44d1d8a" target="id-b8ccab77a22047f591b5b8e073ea8f3b"/>
     <element xsi:type="archimate:ServingRelationship" id="id-716c25d654854ee2843702409f149702" source="id-7f01c9afcc41494d9dd3718bf1e7d1b0" target="id-040e6ff751e2457ca15eb9f4300fbe63"/>
     <element xsi:type="archimate:ServingRelationship" id="id-ddf12c667dae42c696dc5a73136ae8f9" source="id-7f01c9afcc41494d9dd3718bf1e7d1b0" target="id-7848e00799394ec69a975dbb0504f133"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-c3212a6f1c444b168c713c4d7fa1878f" source="id-7f01c9afcc41494d9dd3718bf1e7d1b0" target="id-94733ae1f03d4d31aeb31b5441eb3cb6"/>
     <element xsi:type="archimate:ServingRelationship" id="id-a1c6a6a7480f46d6bb94adb1d42f0604" source="id-7f01c9afcc41494d9dd3718bf1e7d1b0" target="id-d1a9505473b74308aeba03538e7f7392"/>
     <element xsi:type="archimate:ServingRelationship" id="id-aa1a966c7f9e41108ce846ee3b67a138" source="id-7f01c9afcc41494d9dd3718bf1e7d1b0" target="id-e04dafa13d3d44238ed99c9611295944"/>
     <element xsi:type="archimate:ServingRelationship" id="id-bdfdfc97cdef43bbb23bd154ce55c9f7" source="id-7f48c39a5f754019abde0129a8004327" target="id-0291cbfd15ac4f31b25938e5183214dd"/>
@@ -3310,14 +3296,12 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-8c1b9a872fcc463cb6911516e97c601d" source="id-8a5a9839498744a789c03ed01212c9db" target="id-c39225f89c0241eeae72483fe4aac7a6"/>
     <element xsi:type="archimate:ServingRelationship" id="id-38fbf6798f6946a9876bd9829f23b4bc" source="id-8d5f736bc36f4267b39999df2e4bac62" target="id-0291cbfd15ac4f31b25938e5183214dd"/>
     <element xsi:type="archimate:ServingRelationship" id="id-f75ea48aa55942e5a0afda3861777716" source="id-8d5f736bc36f4267b39999df2e4bac62" target="id-218ec0abab324522ae07e89816a52231"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-a9d4c78164784df38cec8c64fa6abfa5" source="id-8d5f736bc36f4267b39999df2e4bac62" target="id-248203dd619a4da0be876a5b9b7c7434"/>
     <element xsi:type="archimate:ServingRelationship" id="id-181314438f2243daa99e1afc3f0d5018" source="id-8d5f736bc36f4267b39999df2e4bac62" target="id-644066f7792c421e8db20fc9fbf09c7d"/>
     <element xsi:type="archimate:ServingRelationship" id="id-77056454d400496b8fa4395c1c594493" source="id-8d5f736bc36f4267b39999df2e4bac62" target="id-dbb69ba2db65482c9bdb7835dc128521"/>
     <element xsi:type="archimate:ServingRelationship" id="id-d1b3c2b88f464bf798f62d509fe9a1b5" source="id-91c7bf1a8685498ab8c137da9d992670" target="id-0291cbfd15ac4f31b25938e5183214dd"/>
     <element xsi:type="archimate:ServingRelationship" id="id-316095b6af5d4e889be695c0b624a97d" source="id-91c7bf1a8685498ab8c137da9d992670" target="id-10dcb90259d4487c83bfbcf2203dd333"/>
     <element xsi:type="archimate:ServingRelationship" id="id-e4fce290c48747a78857c8270478a7e5" source="id-91c7bf1a8685498ab8c137da9d992670" target="id-218ec0abab324522ae07e89816a52231"/>
     <element xsi:type="archimate:ServingRelationship" id="id-5fa4d2fc356e41e6a5cc1d8661d4e82e" source="id-91c7bf1a8685498ab8c137da9d992670" target="id-219d22490aef4c85bc606b90690be18f"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-fc021b9c22f74c9c987b9bcb62d3dc72" source="id-91c7bf1a8685498ab8c137da9d992670" target="id-248203dd619a4da0be876a5b9b7c7434"/>
     <element xsi:type="archimate:ServingRelationship" id="id-ddd5116db6aa40d28b79af451330347a" source="id-91c7bf1a8685498ab8c137da9d992670" target="id-31cf522d355f4d0db0a380fbf8d2daac"/>
     <element xsi:type="archimate:ServingRelationship" id="id-3377210579274d15b032a6d67333962d" source="id-91c7bf1a8685498ab8c137da9d992670" target="id-3bab5cc0b3d542f8b050425f7a9cf7b6"/>
     <element xsi:type="archimate:ServingRelationship" id="id-c2c24f89288545e5b6a3399b48cfde77" source="id-91c7bf1a8685498ab8c137da9d992670" target="id-49b1819158074201a995f5ff9784ac45"/>
@@ -3338,7 +3322,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-4dc9dac55c6b439ba5944b41df5a1f24" source="id-94733ae1f03d4d31aeb31b5441eb3cb6" target="id-8a5a9839498744a789c03ed01212c9db"/>
     <element xsi:type="archimate:ServingRelationship" id="id-28ecf3a5e1704257b379f37da8188940" source="id-94733ae1f03d4d31aeb31b5441eb3cb6" target="id-a2aef991be1547cdac4748ddd3669657"/>
     <element xsi:type="archimate:ServingRelationship" id="id-09b7002addb74783a7c91a0eaa98e892" source="id-94733ae1f03d4d31aeb31b5441eb3cb6" target="id-c48faef19d194d93ae49109eed5bc28c"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-2b4c18ad6392421cabd29c1dd6fa88a7" source="id-94733ae1f03d4d31aeb31b5441eb3cb6" target="id-dbb69ba2db65482c9bdb7835dc128521"/>
     <element xsi:type="archimate:ServingRelationship" id="id-453a0e2fe54b4df3adb8f87f762fea9f" source="id-94733ae1f03d4d31aeb31b5441eb3cb6" target="id-dfe43646030e4ffe93307392260ffef8"/>
     <element xsi:type="archimate:ServingRelationship" id="id-04bda472fff2438490fd5df0b0489c29" source="id-94733ae1f03d4d31aeb31b5441eb3cb6" target="id-eb44affa1d9245d38e83dc6056100249"/>
     <element xsi:type="archimate:ServingRelationship" id="id-ade3640fc648412f886d5c59bd1f4190" source="id-94733ae1f03d4d31aeb31b5441eb3cb6" target="id-f49ed1bb242a4977b8fd54d25706c5d4"/>
@@ -3370,10 +3353,8 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-6850cca4ebf44b00947fcebb983d1b85" source="id-a134ba2ed9614972bc862c8f246bdb70" target="id-7f48c39a5f754019abde0129a8004327"/>
     <element xsi:type="archimate:ServingRelationship" id="id-bd1febd2cf1c453782740d4671dbd03f" source="id-a134ba2ed9614972bc862c8f246bdb70" target="id-8d5f736bc36f4267b39999df2e4bac62"/>
     <element xsi:type="archimate:ServingRelationship" id="id-5838902b9f4048b184f69df0aef0394b" source="id-a134ba2ed9614972bc862c8f246bdb70" target="id-96ade8c3f0a14d17b41795a2f0699f41"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-4ba18325065241d68a618bb4195cb236" source="id-a134ba2ed9614972bc862c8f246bdb70" target="id-a0f94d6e9580443d8b8f3d137fe4a9f6"/>
     <element xsi:type="archimate:ServingRelationship" id="id-fd387fc89a4d415ea0edc68397001601" source="id-a134ba2ed9614972bc862c8f246bdb70" target="id-a14775aac4f448c7ae9a6ca867898800"/>
     <element xsi:type="archimate:ServingRelationship" id="id-04716029c68b4b799598a246becd0414" source="id-a134ba2ed9614972bc862c8f246bdb70" target="id-a2aef991be1547cdac4748ddd3669657"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-ab9b2319ca5e476089745a9b4e3e4b98" source="id-a134ba2ed9614972bc862c8f246bdb70" target="id-a73ca28ad82346fa9f3dbe415ece3f76"/>
     <element xsi:type="archimate:ServingRelationship" id="id-bb112025a64a4c9786c424cd63478604" source="id-a134ba2ed9614972bc862c8f246bdb70" target="id-ab8f0c0d5e434968b819f83515a1de3c"/>
     <element xsi:type="archimate:ServingRelationship" id="id-f7dc2ef807a84f52ae338304ba3cea6d" source="id-a134ba2ed9614972bc862c8f246bdb70" target="id-bfa0097578dc4adeae612056ec2a844f"/>
     <element xsi:type="archimate:ServingRelationship" id="id-53e2ab0b2247408fa21e44d042a3b8ac" source="id-a134ba2ed9614972bc862c8f246bdb70" target="id-c42e80f3908649d98d25e5909184b1f8"/>
@@ -3381,10 +3362,8 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-f79272fdbd6d45449851c1ec11f141de" source="id-a134ba2ed9614972bc862c8f246bdb70" target="id-db3aa71e8b314c9a886d35561868d6ab"/>
     <element xsi:type="archimate:ServingRelationship" id="id-46c7ce5c19fd4663a606394eab3a4962" source="id-a134ba2ed9614972bc862c8f246bdb70" target="id-ec44456c08a8496c9436155a25b44c74"/>
     <element xsi:type="archimate:ServingRelationship" id="id-e826ba74a102408c825b1b4c9c0eebf2" source="id-a134ba2ed9614972bc862c8f246bdb70" target="id-f49ed1bb242a4977b8fd54d25706c5d4"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-e91f34e8d0c34c9191ce1012fb6d7562" source="id-a134ba2ed9614972bc862c8f246bdb70" target="id-ff5527855cd54fa4af74058b49326210"/>
     <element xsi:type="archimate:ServingRelationship" id="id-cde28b68f33a47889460f2780b4d0d38" source="id-a14775aac4f448c7ae9a6ca867898800" target="id-10dcb90259d4487c83bfbcf2203dd333"/>
     <element xsi:type="archimate:ServingRelationship" id="id-bbdcfdeeaeaa42868a37f27a67bd5bf4" source="id-a14775aac4f448c7ae9a6ca867898800" target="id-248203dd619a4da0be876a5b9b7c7434"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-b94ee6b19a924b09b7c88e8f27485bac" source="id-a14775aac4f448c7ae9a6ca867898800" target="id-feb0b85490c142b5b5fb6aca461568cf"/>
     <element xsi:type="archimate:ServingRelationship" id="id-bfa9562d30894fb78976e149c15066c4" source="id-a2aef991be1547cdac4748ddd3669657" target="id-c884f3410cdd4f42a2a4f8add6f97d79"/>
     <element xsi:type="archimate:ServingRelationship" id="id-397d919b1b804910a66d2c9cb8eb4102" source="id-a545fdd92c794111a0021fe4aefeba72" target="id-c48faef19d194d93ae49109eed5bc28c"/>
     <element xsi:type="archimate:ServingRelationship" id="id-b9010d695858439babf326b76368fa26" source="id-a73ca28ad82346fa9f3dbe415ece3f76" target="id-a0f94d6e9580443d8b8f3d137fe4a9f6"/>
@@ -3501,12 +3480,9 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-84f3aeb0695241ef8871223297e98581" source="id-bdac21a6973a46b19e272dec204da4dc" target="id-c39225f89c0241eeae72483fe4aac7a6"/>
     <element xsi:type="archimate:ServingRelationship" id="id-9313748b7d4c4fb5bd0c052d6a149160" source="id-bdac21a6973a46b19e272dec204da4dc" target="id-db3aa71e8b314c9a886d35561868d6ab"/>
     <element xsi:type="archimate:ServingRelationship" id="id-0e83607b767c41d7a469af7b415a65be" source="id-bdac21a6973a46b19e272dec204da4dc" target="id-dbb69ba2db65482c9bdb7835dc128521"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-753a5a9918404dbe9899cbcc6239e478" source="id-bdac21a6973a46b19e272dec204da4dc" target="id-dfe43646030e4ffe93307392260ffef8"/>
     <element xsi:type="archimate:ServingRelationship" id="id-a42ff840ae98414487e7c34906c5252e" source="id-bdac21a6973a46b19e272dec204da4dc" target="id-feb0b85490c142b5b5fb6aca461568cf"/>
     <element xsi:type="archimate:ServingRelationship" id="id-1345c014d37c4e629ede53dc6d615c63" source="id-be94be4541b14c5580fcd92334fdba80" target="id-6f9e8ef33f654b0494d74734dc3b1feb"/>
     <element xsi:type="archimate:ServingRelationship" id="id-3b6f64a8adf84edcb682bb3a5c1350fb" source="id-be94be4541b14c5580fcd92334fdba80" target="id-c14ec84175694bd9ab5911eb7e76c79b"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-5d822b5ac4884db7b817202bb0ba8734" source="id-bfa0097578dc4adeae612056ec2a844f" target="id-0291cbfd15ac4f31b25938e5183214dd"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-0980b4ef04ca47a4b059206f0c38d209" source="id-bfa0097578dc4adeae612056ec2a844f" target="id-248203dd619a4da0be876a5b9b7c7434"/>
     <element xsi:type="archimate:ServingRelationship" id="id-87d8082126c1490abf552e0ae2f78c9b" source="id-bfa0097578dc4adeae612056ec2a844f" target="id-feb0b85490c142b5b5fb6aca461568cf"/>
     <element xsi:type="archimate:ServingRelationship" id="id-24967f40cdcc43b7bf14ac9d921cbb89" source="id-c14ec84175694bd9ab5911eb7e76c79b" target="id-121f5429905048d6a2801064e5c83e85"/>
     <element xsi:type="archimate:ServingRelationship" id="id-81b31b3e20bd4f8c80df3de4bfc106ea" source="id-c14ec84175694bd9ab5911eb7e76c79b" target="id-219d22490aef4c85bc606b90690be18f"/>
@@ -3614,7 +3590,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-4698503cc6b2426fadbb56229d194451" source="id-c9d23b169bc242d485ebd34c9389fe5a" target="id-d35e2d11bdb249a880f734f29f875a2d"/>
     <element xsi:type="archimate:ServingRelationship" id="id-3468cc1f1c074f129e6182281f0f29a9" source="id-c9d23b169bc242d485ebd34c9389fe5a" target="id-db3aa71e8b314c9a886d35561868d6ab"/>
     <element xsi:type="archimate:ServingRelationship" id="id-259ef333dd8f434db4d02bdcedafd6be" source="id-c9d23b169bc242d485ebd34c9389fe5a" target="id-dbb69ba2db65482c9bdb7835dc128521"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-0bbbafd6b8c34393a58b4fbd668ac461" source="id-c9d23b169bc242d485ebd34c9389fe5a" target="id-dfe43646030e4ffe93307392260ffef8"/>
     <element xsi:type="archimate:ServingRelationship" id="id-f3ebd5e4335d427aa978a4d023b5bd25" source="id-c9d23b169bc242d485ebd34c9389fe5a" target="id-e2a0832aae4349558e88ee9613c496ed"/>
     <element xsi:type="archimate:ServingRelationship" id="id-c97b7ff81bf04918a49f36ad6235b6dc" source="id-c9d23b169bc242d485ebd34c9389fe5a" target="id-ec44456c08a8496c9436155a25b44c74"/>
     <element xsi:type="archimate:ServingRelationship" id="id-d528b692a2db4d99bbdcba41cb2566c1" source="id-c9d23b169bc242d485ebd34c9389fe5a" target="id-fc818143ad614ffd9ef5a4c2b7467337"/>
@@ -3636,7 +3611,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-8b24227c19fa4fd0839ddfda352fdddf" source="id-d1476fdd4b04462ba885221b4932ab05" target="id-8a5a9839498744a789c03ed01212c9db"/>
     <element xsi:type="archimate:ServingRelationship" id="id-2a85f65947df4b3783b06a7d3cf4f99d" source="id-d1476fdd4b04462ba885221b4932ab05" target="id-c39225f89c0241eeae72483fe4aac7a6"/>
     <element xsi:type="archimate:ServingRelationship" id="id-2297a43cb57d4c2ab589c3508c682383" source="id-d1a9505473b74308aeba03538e7f7392" target="id-7848e00799394ec69a975dbb0504f133"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-9f1835b3612f4ac79ff6eee1aed29c44" source="id-d1a9505473b74308aeba03538e7f7392" target="id-94733ae1f03d4d31aeb31b5441eb3cb6"/>
     <element xsi:type="archimate:ServingRelationship" id="id-f36c95a8e5a6498c889bf78303eee5d9" source="id-d1a9505473b74308aeba03538e7f7392" target="id-bb9d1dd7d6c64ca9b2da2f0bf36e7112"/>
     <element xsi:type="archimate:ServingRelationship" id="id-e9ad559c927843608c07b46b04e77282" source="id-d334f6c1bbc14cdba0704d4ac9dc0d24" target="id-ce65182fb7c946a5bf79961785d2daca"/>
     <element xsi:type="archimate:ServingRelationship" id="id-634023ab51cd47a4975d15f15830133e" source="id-d35e2d11bdb249a880f734f29f875a2d" target="id-c884f3410cdd4f42a2a4f8add6f97d79"/>
@@ -3708,14 +3682,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-10a39432bc2e4d59b8f05f70c0819c2f" source="id-ec44456c08a8496c9436155a25b44c74" target="id-a73ca28ad82346fa9f3dbe415ece3f76"/>
     <element xsi:type="archimate:ServingRelationship" id="id-5696aa9ed9fd4ba9ae7b5b0c76778500" source="id-ec44456c08a8496c9436155a25b44c74" target="id-d177cceaf1d54a44a43f6bd309fb3c50"/>
     <element xsi:type="archimate:ServingRelationship" id="id-79b7e76176f94070b145ff3341b69296" source="id-ec44456c08a8496c9436155a25b44c74" target="id-d35e2d11bdb249a880f734f29f875a2d"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-e5dda2cd864349dbaf92d0e344d56a35" source="id-ed34af980b2e486ea5771bf8d2786582" target="id-0291cbfd15ac4f31b25938e5183214dd"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-d78eb1b3110c4de1bf552a8ce2fba219" source="id-ed34af980b2e486ea5771bf8d2786582" target="id-2aed1866bf58458da539f35aad93c359"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-9e9d0a991cb345799a2323b2b1ae17b1" source="id-ed34af980b2e486ea5771bf8d2786582" target="id-49b1819158074201a995f5ff9784ac45"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-4575a26ab7d04389be209ec8865db0ea" source="id-ed34af980b2e486ea5771bf8d2786582" target="id-7bdc0d59baea421589de72c5c6149b76"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-212b3cc3868f4f6699df5fd3603f411c" source="id-ed34af980b2e486ea5771bf8d2786582" target="id-8a5a9839498744a789c03ed01212c9db"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-1fd3621617f84d99988bb8933b0ba609" source="id-ed34af980b2e486ea5771bf8d2786582" target="id-bfa0097578dc4adeae612056ec2a844f"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-3c8299f91b474b858ff95d37183ecdcb" source="id-ed34af980b2e486ea5771bf8d2786582" target="id-cb82c2537d9945b682def7e169b221c2"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-2f090c1f1f654ae1bcc92e1495dff6b7" source="id-ed34af980b2e486ea5771bf8d2786582" target="id-db3aa71e8b314c9a886d35561868d6ab"/>
     <element xsi:type="archimate:ServingRelationship" id="id-2fa554186e26463b8dba3b430890fa6b" source="id-eec17b4265634be8a109d99cb568b1dc" target="id-d35e2d11bdb249a880f734f29f875a2d"/>
     <element xsi:type="archimate:ServingRelationship" id="id-71b59cca05ec448e828de735e3370372" source="id-f49ed1bb242a4977b8fd54d25706c5d4" target="id-10dd754cd5a040a3a262433add0b8437"/>
     <element xsi:type="archimate:ServingRelationship" id="id-247b5d51a617467bbb39259d922a060f" source="id-f49ed1bb242a4977b8fd54d25706c5d4" target="id-248203dd619a4da0be876a5b9b7c7434"/>
@@ -3795,9 +3761,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:RealizationRelationship" id="id-82988fe700d24c57bfcb378b87168550" source="id-1694657833c44d4db27afa22dafbb540" target="id-a19ee4383f8f4be58f54eac19b29a0d4"/>
     <element xsi:type="archimate:SpecializationRelationship" id="id-da1c55cfb28f47c7b47e3f13f0fe8465" source="id-a19ee4383f8f4be58f54eac19b29a0d4" target="id-561c1208ca8b4d1986744e1342fad2b7"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-2e27fde66462473e8310d384c1a92e97" source="id-8d46e44f9f5d4751b8cd0c5613fa0653" target="id-a19ee4383f8f4be58f54eac19b29a0d4"/>
-    <element xsi:type="archimate:RealizationRelationship" id="id-652d9144c3904c0ab92a62a69973c81a" source="id-41d5cafd9e98405f8f6a20cc1960c0c0" target="id-a00fff433b954d2daf250fc674180112"/>
-    <element xsi:type="archimate:SpecializationRelationship" id="id-80c8fb6f8335420f8e619eabd3ee320c" source="id-a00fff433b954d2daf250fc674180112" target="id-561c1208ca8b4d1986744e1342fad2b7"/>
-    <element xsi:type="archimate:CompositionRelationship" id="id-af41e1eae9ca46d7b479af372339fd67" source="id-8d46e44f9f5d4751b8cd0c5613fa0653" target="id-a00fff433b954d2daf250fc674180112"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-1e15d07b19a84bb9853d5581ed9dbd91" source="id-42f13ba9c82c43d3834f8f3cdc04ea62" target="id-4f1e30939ad2434c9843d4c4f37c9488"/>
     <element xsi:type="archimate:SpecializationRelationship" id="id-fc0129ce4cbe4b8580ef7e61eba00da3" source="id-4f1e30939ad2434c9843d4c4f37c9488" target="id-561c1208ca8b4d1986744e1342fad2b7"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-9249ccf575314cf3857c9c4d68ae0882" source="id-8d46e44f9f5d4751b8cd0c5613fa0653" target="id-4f1e30939ad2434c9843d4c4f37c9488"/>
@@ -4022,6 +3985,64 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-08696bd7f16545f28a5b3c51ff54ec21" source="id-4898a4f475a24f47b2214b3c3c12a21f" target="id-a0f94d6e9580443d8b8f3d137fe4a9f6"/>
     <element xsi:type="archimate:ServingRelationship" id="id-a943d674b3064951aa854a86af97440e" source="id-1694657833c44d4db27afa22dafbb540" target="id-a0f94d6e9580443d8b8f3d137fe4a9f6"/>
     <element xsi:type="archimate:ServingRelationship" id="id-d05ea0c03b144f5995c48ae5f88b47ed" source="id-b2453322e8ee4fce8e95d88897fcb2e5" target="id-a0f94d6e9580443d8b8f3d137fe4a9f6"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-c3bcdc55d90b4ec890ec215752bb9260" source="id-17c5c889e74949189350161e6e6e1bda" target="id-3f13e7f9ec90422b9c7fac0a6bffdf69"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-d41455ca85a1435e8e6e8238f8a834f6" source="id-3f13e7f9ec90422b9c7fac0a6bffdf69" target="id-f9fcbf5300da46368607ffa214b20d95"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-011bc32cf2a14c71b01649fe7e57ebd0" source="id-3f13e7f9ec90422b9c7fac0a6bffdf69" target="id-372fa6c5f5ae4b8bb6c455fa7f645048"/>
+    <element xsi:type="archimate:SpecializationRelationship" id="id-b44fa5aadedb468798d6ec8ad2bab644" source="id-372fa6c5f5ae4b8bb6c455fa7f645048" target="id-561c1208ca8b4d1986744e1342fad2b7"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-27d889a6f5474f1a94421673792e32ce" source="id-8d46e44f9f5d4751b8cd0c5613fa0653" target="id-372fa6c5f5ae4b8bb6c455fa7f645048"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-fc57b900083241508b3878afaca8fe70" source="id-b0888d3ca8444c7bb03350365e3bceee" target="id-d1476fdd4b04462ba885221b4932ab05"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-76da438ef2df4b4ba48d81129797f119" source="id-b0888d3ca8444c7bb03350365e3bceee" target="id-ab8f0c0d5e434968b819f83515a1de3c"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-5dcb34e6b1b745dca4ebb327a1a26c83" source="id-b0888d3ca8444c7bb03350365e3bceee" target="id-7bc6db649abe4b08a677ec48ad1f5abc"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-7cba29b0899b4e499fc56f4f967e42d4" source="id-ed34af980b2e486ea5771bf8d2786582" target="id-ab8f0c0d5e434968b819f83515a1de3c"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-ed813044d4a44ae0b4c9427766f129a6" source="id-ed34af980b2e486ea5771bf8d2786582" target="id-7bc6db649abe4b08a677ec48ad1f5abc"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-096fcf7e4f8c4ca39bd6031ea08d0e83" source="id-ed34af980b2e486ea5771bf8d2786582" target="id-f49ed1bb242a4977b8fd54d25706c5d4"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-d89f9fb1f6af4f0db4a230e2fc4816c0" source="id-ed34af980b2e486ea5771bf8d2786582" target="id-c42e80f3908649d98d25e5909184b1f8"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-09c8bd8d2d594c5eafb0ccbe45e4f513" source="id-94733ae1f03d4d31aeb31b5441eb3cb6" target="id-f7ead7aa3e724f48919515eb096ea19f"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-eee5c34c308f42d88613982d6d4501ea" source="id-94733ae1f03d4d31aeb31b5441eb3cb6" target="id-0291cbfd15ac4f31b25938e5183214dd"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-7843e32aa0cf42bda0086a92f1a7dac9" source="id-7848e00799394ec69a975dbb0504f133" target="id-1952ca3057564ffd9efc33690174c125"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-ddccb29bcafc47af8821de1d34583d39" source="id-dce47c12a92646c9ab1b65c898f9fb84" target="id-a2aef991be1547cdac4748ddd3669657"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-d5a4f6ab9f144cfa9b2304c1b3e18119" source="id-dce47c12a92646c9ab1b65c898f9fb84" target="id-a0f94d6e9580443d8b8f3d137fe4a9f6"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-ca05a91494a4409d8da8107579d77591" source="id-dce47c12a92646c9ab1b65c898f9fb84" target="id-00408678ca0e46dbb40cbff22f6d5e35"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-a61b551a86214f3984a63e8ba978395d" source="id-dce47c12a92646c9ab1b65c898f9fb84" target="id-ec44456c08a8496c9436155a25b44c74"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-e747c2551d604004b936ae5f1d7a81b2" source="id-dce47c12a92646c9ab1b65c898f9fb84" target="id-4bfbb02e89c84a93b67c5e96abf671ee"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-5853f4965f6e4843bc3b22b2ba7b9239" source="id-dce47c12a92646c9ab1b65c898f9fb84" target="id-96ade8c3f0a14d17b41795a2f0699f41"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-8bb1cf6fbe814cf68fb6e037fc7a9df7" source="id-2224f7a8b5e24edc928b88a393ab0882" target="id-3f13e7f9ec90422b9c7fac0a6bffdf69"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-5b6cebc8400b436083d98986b8aa6254" source="id-248203dd619a4da0be876a5b9b7c7434" target="id-bfa0097578dc4adeae612056ec2a844f"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-a88a185842284c9ea7036836b35a046d" source="id-219d22490aef4c85bc606b90690be18f" target="id-bfa0097578dc4adeae612056ec2a844f"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-d2981ea527ad4d7dbea4e25ebe65ac24" source="id-0291cbfd15ac4f31b25938e5183214dd" target="id-bfa0097578dc4adeae612056ec2a844f"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-d161115c5e0d40e7908f34f88e82dfa9" source="id-10dd754cd5a040a3a262433add0b8437" target="id-0291cbfd15ac4f31b25938e5183214dd"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-4f5b4d8e28a54d8fbb3b486b4053f93f" source="id-ab8f0c0d5e434968b819f83515a1de3c" target="id-2aed1866bf58458da539f35aad93c359"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-ffa448dd39364369b6f92197237c0061" source="id-7bc6db649abe4b08a677ec48ad1f5abc" target="id-2aed1866bf58458da539f35aad93c359"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-4e7b9f82b8524671b5e28c2acde0c41d" source="id-a14775aac4f448c7ae9a6ca867898800" target="id-bfa0097578dc4adeae612056ec2a844f"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-cb329d8e4ef54e63acba004faf506ed3" source="id-a14775aac4f448c7ae9a6ca867898800" target="id-219d22490aef4c85bc606b90690be18f"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-63b86dc516a84ac7bb73f918bf971ddf" source="id-3f13e7f9ec90422b9c7fac0a6bffdf69" target="id-bfa0097578dc4adeae612056ec2a844f"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-64faf4d88726410f85eebe21a983f06a" source="id-3f13e7f9ec90422b9c7fac0a6bffdf69" target="id-499ebe4582f94d25b6c2ad8a5457c2b0"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-a469e1256a1845a8b757c414f8b1954f" source="id-3f13e7f9ec90422b9c7fac0a6bffdf69" target="id-00408678ca0e46dbb40cbff22f6d5e35"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-89d2ef4c10cf46c79a3657b1116224b0" source="id-3f13e7f9ec90422b9c7fac0a6bffdf69" target="id-42ce503424164a36ae31d16dd377d9e3"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-60883998738b47879675368d54d375da" source="id-8d5f736bc36f4267b39999df2e4bac62" target="id-bfa0097578dc4adeae612056ec2a844f"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-a1e348d8ae474009aab347cac2a50ad3" source="id-bdac21a6973a46b19e272dec204da4dc" target="id-bfa0097578dc4adeae612056ec2a844f"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-89d75ee55ec1422481a3ede5a7e8bc14" source="id-644066f7792c421e8db20fc9fbf09c7d" target="id-bfa0097578dc4adeae612056ec2a844f"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-95fb6d3b5fff463eb2491cfab24c3bda" source="id-db3aa71e8b314c9a886d35561868d6ab" target="id-bfa0097578dc4adeae612056ec2a844f"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-b3990249bb7a4921a8980ad9ebb31a8b" source="id-f49ed1bb242a4977b8fd54d25706c5d4" target="id-8a5a9839498744a789c03ed01212c9db"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-99133612dc4e40d9923619849337a316" source="id-f49ed1bb242a4977b8fd54d25706c5d4" target="id-bfa0097578dc4adeae612056ec2a844f"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-718123afec364b1ebe2995f4b2ff3c57" source="id-f49ed1bb242a4977b8fd54d25706c5d4" target="id-0291cbfd15ac4f31b25938e5183214dd"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-7c210f75862e4dd1ae8c752aebb62de3" source="id-f49ed1bb242a4977b8fd54d25706c5d4" target="id-db3aa71e8b314c9a886d35561868d6ab"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-67aa726c5f864774bea3ac1be8d619af" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-96ade8c3f0a14d17b41795a2f0699f41"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-2d5d98db78654f898b703f424fd1d66b" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-218ec0abab324522ae07e89816a52231"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-0f7caf66288540c2b2718bd48422e15c" source="id-31eaa383f6c643e5b9045f39f06da5c1" target="id-1952ca3057564ffd9efc33690174c125"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-d3ee85e0b9844bacb79f894f44b107c0" source="id-c42e80f3908649d98d25e5909184b1f8" target="id-49b1819158074201a995f5ff9784ac45"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-f9437ece2aa24c94a766cf339dab911c" source="id-c9d23b169bc242d485ebd34c9389fe5a" target="id-bfa0097578dc4adeae612056ec2a844f"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-ae3eb47d9268484a9237e4f8b3dd1413" source="id-c9d23b169bc242d485ebd34c9389fe5a" target="id-00408678ca0e46dbb40cbff22f6d5e35"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-039ee192323d4030ba15439de34300e5" source="id-c9d23b169bc242d485ebd34c9389fe5a" target="id-1952ca3057564ffd9efc33690174c125"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-9f9353512a8940d3b5802f61c0a5b824" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-f7ead7aa3e724f48919515eb096ea19f"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-2304c649d052445ebe22578e80a068aa" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-248203dd619a4da0be876a5b9b7c7434"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-6dfad24add404aec80f0d7d77c931693" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-730b79fef9c444ebb6c8283d4726dde9"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-4ba6f0a02a7b42f89b1d2b596cdaff0f" source="id-96ade8c3f0a14d17b41795a2f0699f41" target="id-1952ca3057564ffd9efc33690174c125"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-2b4d07cd282944ea9ede5ef77f78bfc2" source="id-7f48c39a5f754019abde0129a8004327" target="id-248203dd619a4da0be876a5b9b7c7434"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-8b1bc81d34bd438da9110768609be9b3" source="id-711461035eb14920a1028dd0df286572" target="id-248203dd619a4da0be876a5b9b7c7434"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-630e55a6257944dbb525b53a560293e6" source="id-8240122486e742a7be9833bce247abb0" target="id-00408678ca0e46dbb40cbff22f6d5e35"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-41ead985d1f24fbea5f02c4260c6603e" source="id-8240122486e742a7be9833bce247abb0" target="id-c9d23b169bc242d485ebd34c9389fe5a"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-fb6fc63af0d84bd687479ee0f9a5526d" source="id-6f9e8ef33f654b0494d74734dc3b1feb" target="id-f7ead7aa3e724f48919515eb096ea19f"/>
   </folder>
   <folder name="Views" id="id-75e0717f00f244fe89d04a8b9e32fac9" type="diagrams">
     <element xsi:type="archimate:ArchimateDiagramModel" name="Application tiers" id="id-398726ae0f1d4b0a896928395ae87a15">
@@ -5234,15 +5255,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
           <bounds x="25" y="30" width="2416" height="2070"/>
           <child xsi:type="archimate:DiagramObject" id="id-3f8030a61c7f4fc0aa023161f301b1e6" archimateElement="id-e327791f33c340e4bcd42c802d9af845">
             <bounds x="10" y="540" width="2396" height="1515"/>
-            <child xsi:type="archimate:DiagramObject" id="id-cd091ac6d92541c1ae75234d77cc52c8" archimateElement="id-41d5cafd9e98405f8f6a20cc1960c0c0">
-              <bounds x="10" y="1410" width="275" height="90"/>
-              <child xsi:type="archimate:DiagramObject" id="id-d40e56877e8c48ca8ffa677dc8ed52b4" archimateElement="id-f9fcbf5300da46368607ffa214b20d95">
-                <bounds x="10" y="20" width="120" height="55"/>
-              </child>
-              <child xsi:type="archimate:DiagramObject" id="id-a16fe3bd935a47649ad6bca0e852c1d7" archimateElement="id-a00fff433b954d2daf250fc674180112">
-                <bounds x="140" y="20" width="120" height="55"/>
-              </child>
-            </child>
             <child xsi:type="archimate:DiagramObject" id="id-c85641e21fe14a7eb3a4b042cdef9cff" archimateElement="id-85f4ab68d64a4c8f9180fbeb819f6d9b">
               <bounds x="300" y="1410" width="405" height="90"/>
               <child xsi:type="archimate:DiagramObject" id="id-6604364ef7b5427ab10b754cd51cd1df" archimateElement="id-201082f0a3a347a0bd7aa0e7cb1a9619">
