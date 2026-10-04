@@ -426,6 +426,34 @@ type InstanceDataStatesTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     // =========================================================================
+    // REQ-CF-4.8 — creating an Instance advances the next-instance date
+    // =========================================================================
+
+    (* 2047 is a common year and 2048 a leap year, so the last day of February moves from the 28th to the 29th. The
+       first Monday of March 2049 is the 1st; a year on, the first Monday of March 2050 is found by walking its first
+       week. *)
+    [<Theory>]
+    [<InlineData("AnnuallyNthWeekDay")>]
+    [<InlineData("AnnuallyFebruaryLast")>]
+    member _.``REQ-CF-4.8 for each of Annually nth-weekday and Annually (February, Last), creating an Instance advances the next-instance date to the rule's date a year on, from 28 February 2047 to 29 February 2048 for the last-day rule`` (cadence: string) =
+        rolledBack (fun s ->
+            result {
+                let! firstWeek = 1 |> Cadence.WeekInMonthNumber.fromInt
+                let cadenceType, instanceDate, expected =
+                    match cadence with
+                    | "AnnuallyNthWeekDay" ->
+                        Cadence.Annually(Cadence.March, Cadence.NthWeekDay(firstWeek, weekDay "Monday")), march 1,
+                        List.init 7 (fun i -> LocalDate(2050, 3, 1 + i)) |> List.find (fun d -> d.DayOfWeek = IsoDayOfWeek.Monday)
+                    | "AnnuallyFebruaryLast" ->
+                        Cadence.Annually(Cadence.February, Cadence.Last), LocalDate(2047, 2, 28), LocalDate(2048, 2, 29)
+                    | other -> failwith $"no cadence {other}"
+                let! agreementId, _ = s.agreement $"CF-4.8 {cadence}" cadenceType instanceDate 1
+                let! _ = s.instance agreementId instanceDate []
+                let! next = s.nextInstanceOf agreementId
+                Assert.Equal(expected, next)
+            })
+
+    // =========================================================================
     // REQ-CF-4.9 — is-fulfilled needs every Invoice FullyPaid
     // =========================================================================
 

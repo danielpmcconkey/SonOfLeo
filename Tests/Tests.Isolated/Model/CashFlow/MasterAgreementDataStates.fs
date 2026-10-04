@@ -143,7 +143,8 @@ let ``REQ-CF-2.16 for each of 1 and 4 a week-in-month number is accepted, and fo
 // REQ-CF-2.25 — the next-instance date fits the cadence
 // =========================================================================
 
-(* October 2026 starts on a Thursday: Monday the 5th, the second Tuesday is the 13th, the last day the 31st. *)
+(* October 2026 starts on a Thursday: Monday the 5th, the second Tuesday is the 13th, the last day the 31st. 2028 is a
+   leap year, so the last day of its February is the 29th and the 28th is not. *)
 [<Theory>]
 [<InlineData("Weekly")>]
 [<InlineData("EveryOtherWeek")>]
@@ -151,7 +152,9 @@ let ``REQ-CF-2.16 for each of 1 and 4 a week-in-month number is accepted, and fo
 [<InlineData("MonthlyNthWeekDay")>]
 [<InlineData("MonthlyLast")>]
 [<InlineData("Annually")>]
-let ``REQ-CF-2.25 for each of Weekly, EveryOtherWeek, Monthly date-in-month, Monthly nth-weekday, Monthly Last and Annually, a next-instance date that fits the rule is accepted and one that does not is rejected with a typed error naming that date and the rule`` (cadence: string) =
+[<InlineData("AnnuallyNthWeekDay")>]
+[<InlineData("AnnuallyFebruaryLast")>]
+let ``REQ-CF-2.25 for each of Weekly, EveryOtherWeek, Monthly date-in-month, Monthly nth-weekday, Monthly Last, Annually date-in-month, Annually nth-weekday and Annually (February, Last), a next-instance date that fits the rule is accepted and one that does not is rejected with a typed error naming that date and the rule`` (cadence: string) =
     let fifteenth = 15 |> Cadence.DateInMonthNumber.fromInt |> orFail
     let first = 1 |> Cadence.DateInMonthNumber.fromInt |> orFail
     let second = 2 |> Cadence.WeekInMonthNumber.fromInt |> orFail
@@ -180,11 +183,39 @@ let ``REQ-CF-2.25 for each of Weekly, EveryOtherWeek, Monthly date-in-month, Mon
              | CadenceDateNotOnAnnualDate (d, monthDay, month) ->
                  d = LocalDate(2027, 3, 2) && monthDay = "day 1" && month = "March"
              | _ -> false)
+        | "AnnuallyNthWeekDay" ->
+            Cadence.Annually(Cadence.October, Cadence.NthWeekDay(second, Cadence.Tuesday)), LocalDate(2026, 10, 13),
+            LocalDate(2026, 10, 20),
+            (function
+             | CadenceDateNotOnAnnualDate (d, monthDay, month) ->
+                 d = LocalDate(2026, 10, 20) && monthDay = "Tuesday number 2" && month = "October"
+             | _ -> false)
+        | "AnnuallyFebruaryLast" ->
+            Cadence.Annually(Cadence.February, Cadence.Last), LocalDate(2028, 2, 29), LocalDate(2028, 2, 28),
+            (function
+             | CadenceDateNotOnAnnualDate (d, monthDay, month) ->
+                 d = LocalDate(2028, 2, 28) && monthDay = "the last day" && month = "February"
+             | _ -> false)
         | other -> failwith $"no cadence {other}"
     let accepted = fitsCadence cadenceType fits |> Result.isOk
     let rejected = fitsCadence cadenceType doesNotFit |> rejectedWith (generalError namesDateAndRule)
     Assert.True(accepted)
     Assert.True(rejected)
+
+(* The second Tuesday of October 2027 is the 12th (the 1st is a Friday). *)
+[<Theory>]
+[<InlineData("AnnuallyNthWeekDay")>]
+[<InlineData("AnnuallyFebruaryLast")>]
+let ``REQ-CF-4.8 for each of Annually nth-weekday and Annually (February, Last), the cadence date following an on-rule date is the rule's date a year on, from 28 February 2027 to 29 February 2028 for the last-day rule`` (cadence: string) =
+    let second = 2 |> Cadence.WeekInMonthNumber.fromInt |> orFail
+    let cadenceType, from, expected =
+        match cadence with
+        | "AnnuallyNthWeekDay" ->
+            Cadence.Annually(Cadence.October, Cadence.NthWeekDay(second, Cadence.Tuesday)), LocalDate(2026, 10, 13),
+            LocalDate(2027, 10, 12)
+        | "AnnuallyFebruaryLast" -> Cadence.Annually(Cadence.February, Cadence.Last), LocalDate(2027, 2, 28), LocalDate(2028, 2, 29)
+        | other -> failwith $"no cadence {other}"
+    Assert.Equal(expected, Cadence.determineNextDateFromPrior from cadenceType)
 
 [<Fact>]
 let ``REQ-CF-2.25 a Monthly Last cadence accepts 28 February in a common year and 29 February in a leap year, and rejects 28 February in a leap year`` () =

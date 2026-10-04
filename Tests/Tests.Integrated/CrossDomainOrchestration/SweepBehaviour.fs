@@ -58,6 +58,15 @@ let private cadenceCase (name: string) (today: LocalDate) : Cadence.CadenceType 
             today.ToString("MMMM", Globalization.CultureInfo.InvariantCulture) |> Cadence.Month.fromString |> orFail
         Cadence.Annually(month, Cadence.DateInMonth(1 |> Cadence.DateInMonthNumber.fromInt |> orFail)),
         (fun d -> d.Month = today.Month && d.Day = 1)
+    | "AnnuallyNthWeekDay" ->
+        (* The second Tuesday of this month, every year: a Tuesday falling on the 8th through the 14th. *)
+        let month =
+            today.ToString("MMMM", Globalization.CultureInfo.InvariantCulture) |> Cadence.Month.fromString |> orFail
+        Cadence.Annually(month, Cadence.NthWeekDay(2 |> Cadence.WeekInMonthNumber.fromInt |> orFail, Cadence.Tuesday)),
+        (fun d -> d.Month = today.Month && d.DayOfWeek = IsoDayOfWeek.Tuesday && d.Day >= 8 && d.Day <= 14)
+    | "AnnuallyFebruaryLast" ->
+        (* The last day of February: the 28th, or the 29th in a leap year. *)
+        Cadence.Annually(Cadence.February, Cadence.Last), (fun d -> d.Month = 2 && d.PlusDays(1).Month = 3)
     | other -> failwith $"no cadence {other}"
 
 type private Scenario(fixture: TestDataFixture, context: Context.Context) =
@@ -429,17 +438,20 @@ type SweepBehaviourTests(fixture: TestDataFixture) =
     [<InlineData("MonthlyNthWeekDay")>]
     [<InlineData("MonthlyLast")>]
     [<InlineData("Annually")>]
-    member _.``REQ-CF-7.3 for each of Weekly, Monthly date-in-month, Monthly nth-weekday, Monthly Last and Annually, the sweep creates an Instance on exactly the dates the rule yields from the next-instance date through the horizon end`` (cadence: string) =
+    [<InlineData("AnnuallyNthWeekDay")>]
+    [<InlineData("AnnuallyFebruaryLast")>]
+    member _.``REQ-CF-7.3 for each of Weekly, Monthly date-in-month, Monthly nth-weekday, Monthly Last, Annually date-in-month, Annually nth-weekday and Annually (February, Last), the sweep creates an Instance on exactly the dates the rule yields from the next-instance date through the horizon end`` (cadence: string) =
         runCommandRouteAndAutoRollback CashFlowCreateUpcomingInstances (fun context ->
             result {
                 let s = Scenario(fixture, context)
                 let cadenceType, fits = cadenceCase cadence s.today
                 (* The first date the rule yields on or after 40 days ago, so the sweep has missed dates to fill too. *)
                 let nextInstance = datesFrom (s.today.PlusDays(-40)) (s.today.PlusDays(400)) fits |> List.head
-                let horizon = if cadence = "Annually" then 365 else 100
+                let horizon = if cadence.StartsWith "Annually" then 365 else 100
+                (* started before today whatever the next-instance date, so the agreement is active for the sweep *)
+                let start = if nextInstance < s.today then nextInstance.PlusDays(-30) else s.today.PlusDays(-30)
                 let! agreementId, _ =
-                    s.agreementWith $"CF-7.3 {cadence}" Outgo cadenceType nextInstance (nextInstance.PlusDays(-30)) None
-                        noInvoiceLeg
+                    s.agreementWith $"CF-7.3 {cadence}" Outgo cadenceType nextInstance start None noInvoiceLeg
                 let! _ = s.sweep horizon
                 let! dates = s.instanceDatesOf agreementId
                 Assert.Equal<LocalDate list>(datesFrom nextInstance (s.today.PlusDays(horizon)) fits, dates)
@@ -480,6 +492,27 @@ type SweepBehaviourTests(fixture: TestDataFixture) =
                 let! _ = s.sweep 11
                 let! next = s.nextInstanceOf agreementId
                 Assert.Equal(nextInstance.PlusDays(14), next)
+            })
+        |> railroadWrapper
+
+    [<Theory>]
+    [<InlineData("AnnuallyNthWeekDay")>]
+    [<InlineData("AnnuallyFebruaryLast")>]
+    member _.``REQ-CF-7.6 REQ-CF-4.8 for each of Annually nth-weekday and Annually (February, Last), after the sweep the next-instance date is the rule's first date after the last Instance the sweep created`` (cadence: string) =
+        runCommandRouteAndAutoRollback CashFlowCreateUpcomingInstances (fun context ->
+            result {
+                let s = Scenario(fixture, context)
+                let cadenceType, fits = cadenceCase cadence s.today
+                let nextInstance = datesFrom (s.today.PlusDays(-40)) (s.today.PlusDays(400)) fits |> List.head
+                let start = if nextInstance < s.today then nextInstance.PlusDays(-30) else s.today.PlusDays(-30)
+                let! agreementId, _ =
+                    s.agreementWith $"CF-4.8 {cadence}" Outgo cadenceType nextInstance start None noInvoiceLeg
+                let! _ = s.sweep 365
+                let! dates = s.instanceDatesOf agreementId
+                let! next = s.nextInstanceOf agreementId
+                let lastSwept = dates |> List.last
+                let expected = datesFrom (lastSwept.PlusDays(1)) (lastSwept.PlusDays(800)) fits |> List.head
+                Assert.Equal(expected, next)
             })
         |> railroadWrapper
 
