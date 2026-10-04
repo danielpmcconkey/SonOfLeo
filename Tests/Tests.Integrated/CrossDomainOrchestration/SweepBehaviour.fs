@@ -151,21 +151,6 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             return ()
         }
 
-    member _.setExpectedAmount (legId: PaymentAgreementId) (amount: decimal) =
-        result {
-            let! money = Money.fromDecimal amount
-            let! _ =
-                PaymentAgreement.update context
-                    { paymentAgreementIdToUpdate = legId
-                      paymentAgreementNameUpdate = NoChange
-                      debitAccountUpdate = NoChange
-                      creditAccountUpdate = NoChange
-                      expectedAmountUpdate = SetTo(Some money)
-                      daysDueAfterInvoiceDateUpdate = NoChange
-                      memoUpdate = NoChange }
-            return ()
-        }
-
     /// A journal entry for the amount; returns its Debit line, on F-2230.
     member this.ledgerLine (description: string) (amount: decimal) =
         result {
@@ -276,8 +261,8 @@ type SweepBehaviourTests(fixture: TestDataFixture) =
 
     let noInvoiceLeg = [ (None, None) ]
 
-    (* The two REQ-CF-7.15 tests commit their setup, because what they check is what a failed sweep leaves behind once
-       its transaction is gone, and a test that rolls back its own transaction can't see that. Each runs the sweep the
+    (* The REQ-CF-7.15 test commits its setup, because what it checks is what a failed sweep leaves behind once
+       its transaction is gone, and a test that rolls back its own transaction can't see that. It runs the sweep the
        way its route does, under a transaction that commits on success and rolls back on failure, then reads back from
        a fresh context. The sweep does not order the agreements it reads, so a Daily control agreement is made both
        before and after the failing one: whichever way the read runs, a control is swept before the failure. Every
@@ -727,23 +712,6 @@ type SweepBehaviourTests(fixture: TestDataFixture) =
                 })
             (function
              | AsError (CashFlowError.CashflowInstanceDateNotAfterLatestInstance _) -> true
-             | _ -> false)
-
-    [<Fact>]
-    member _.``REQ-CF-7.15 when an Invoice fails to be created after other Instances and Invoices were already created in the run, none of them remains and no next-instance date has moved`` () =
-        (* The failing agreement's leg has its expected amount set to zero at the model level, so the Invoice the
-           sweep builds for it fails validation. *)
-        sweepFailureLeavesNothing "invoice"
-            (fun s ->
-                result {
-                    let! failing, legIds =
-                        s.agreementWith "CF-7.15 invoice failing" Outgo Cadence.Daily s.today (s.today.PlusDays(-30))
-                            None [ (Some 100.00M, Some 0) ]
-                    do! s.setExpectedAmount legIds[0] 0.00M
-                    return failing
-                })
-            (function
-             | AsError (CashFlowError.CashflowInvoiceNonPositiveAmount _) -> true
              | _ -> false)
 
     [<Fact>]

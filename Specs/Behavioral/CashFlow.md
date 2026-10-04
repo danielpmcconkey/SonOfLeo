@@ -216,7 +216,8 @@ The projection sweep is a deterministic operation that ensures the event side of
 - **REQ-CF-7.13** The sweep is a deterministic `[DET]` operation. It requires no judgment and makes no classification or matching decisions.
 - **REQ-CF-7.14** The sweep returns every open Instance (REQ-CF-4.14), with its Invoices and their Payments, after it has run — not only those it created. (Amended 2026-10-03)
   - *Why:* The caller needs the whole open book for the Saturday review; what was just created is a subset of it. (2026-09-26)
-- **REQ-CF-7.15** The sweep is atomic: if any Instance or Invoice cannot be created, nothing the run created is kept.
+- **REQ-CF-7.15** The sweep is atomic: if any Instance cannot be created, nothing the run created is kept. (Amended 2026-10-04: the Invoice clause retired.)
+  - *Why:* Invoice creation cannot fail part way through a sweep: a leg's stored amount and state are validated when it is read, so the only way to provoke the failure is a direct database write — an unreachable state. The sweep still runs as one operation (REQ-SYS-8.1). (2026-10-04)
 - **REQ-CF-7.16** The sweep never creates an Instance dated after its Master Agreement's end date, even when that date falls inside the horizon.
 
 
