@@ -170,19 +170,24 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-3.5 REQ-JE-1.48 fetchByReference returns multiple entries when reference is shared``() =
+    member _.``REQ-JE-3.5 REQ-JE-1.48 fetchByReference returns exactly the entries that share the reference``() =
         let fiStr = "TestBank"
         let refStr = "F-SHARED-001"
         let context = Context.create NoTransaction FetchOnly
         result {
             let! fi = fiStr |> JournalRefFinancialInstitution.create
             let! refText = refStr |> JournalExternalReferenceText.create
-            let expected =
-                distinctEntryCountMatching (fun jer ->
+            let expectedIds =
+                fixture.Data.journalEntryExternalReferences
+                |> List.filter (fun jer ->
                     jer |> JournalEntryExternalReference.financialInstitution = fi
                     && jer |> JournalEntryExternalReference.referenceText = refText)
+                |> List.map JournalEntryExternalReference.journalEntryHeaderId
+                |> Set.ofList
+            Assert.True(expectedIds.Count > 1, "the fixture must share this reference across entries")
             let! fetched = fetchByReference context (Some fi) (Some refText)
-            Assert.Equal(expected, fetched |> List.length)
+            Assert.Equal<Set<JournalEntryHeaderId>>(expectedIds, fetched |> List.map (header >> JournalEntryHeader.journalEntryHeaderId) |> Set.ofList)
+            Assert.Equal(expectedIds.Count, fetched |> List.length)
             return ()
         }
         |> railroadWrapper

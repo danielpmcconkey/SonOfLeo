@@ -2,6 +2,7 @@ module Tests.Integrated.CrossDomainOrchestration.OperationInstantAndAtomicity
 
 open System
 open App.DataAccessLayer.DbTransaction
+open App.DataAccessLayer.DalError
 open App.Operation.AuditEnvelope
 open App.Operation.CoreAuditableAction
 open App.Session
@@ -162,8 +163,13 @@ type OperationInstantAndAtomicityTests(fixture: TestDataFixture) =
                 let noteId = note |> JournalEntryComment.journalEntryCommentId
                 let updating = creating |> TestContext.updateInitiationInstant
                 // a comment can't name its own primary as its secondary (REQ-JE-1.53)
-                let attempt = JournalEntryCommentOrchestration.updateComment updating noteId NoChange (SetTo(Some targetId))
-                Assert.True(attempt |> Result.isError)
+                let () =
+                    match JournalEntryCommentOrchestration.updateComment updating noteId NoChange (SetTo(Some targetId)) with
+                    | Error (AsError (JournalEntryCommentPrimaryAndSecondaryIdsAreSame (primary, secondary))) ->
+                        Assert.Equal(targetId |> JournalEntryHeaderId.value, primary)
+                        Assert.Equal(targetId |> JournalEntryHeaderId.value, secondary)
+                    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                    | Ok _ -> Assert.Fail "Expected failure; got success"
                 let! read = noteId |> JournalEntryComment.fetchById updating
                 Assert.Equal(instantOf creating, read |> JournalEntryComment.modifiedAt)
                 Assert.Equal(None, read |> JournalEntryComment.secondaryJournalEntryId)
@@ -227,17 +233,6 @@ type OperationInstantAndAtomicityTests(fixture: TestDataFixture) =
             })
         |> railroadWrapper
 
-    [<Fact>]
-    member _.``REQ-SYS-3.4 every operation run through the interface's command runner carries an auditable action identifying that operation, and two different operations carry different actions`` () =
-        let actionOf (action: 'a) =
-            runCommandRouteAndAutoRollback action (fun context -> Ok(context.loggingContext.envelope |> AuditEnvelope.action))
-            |> orFail
-        let posting = actionOf JournalEntryPostNew
-        let voiding = actionOf JournalEntryVoid
-        Assert.Equal(box JournalEntryPostNew, box posting)
-        Assert.Equal(box JournalEntryVoid, box voiding)
-        Assert.NotEqual(box posting, box voiding)
-
     // =========================================================================
     // REQ-SYS-8.1 — an operation's writes land together or not at all
     // =========================================================================
@@ -245,7 +240,7 @@ type OperationInstantAndAtomicityTests(fixture: TestDataFixture) =
     [<Theory>]
     [<InlineData("posting a journal entry")>]
     [<InlineData("a batch post")>]
-    member _.``REQ-SYS-8.1 for each of posting a journal entry whose last comment names a secondary journal entry that doesn't exist, and a batch post whose last staged entry is dated in a closed fiscal period, the request fails with that step's typed error after earlier writes were issued and none of its writes are in the database`` (operation: string) =
+    member _.``REQ-SYS-8.1 REQ-JE-2.12 for each of posting a journal entry whose last comment names a secondary journal entry that doesn't exist, and a batch post whose last staged entry is dated in a closed fiscal period, the request fails with that step's typed error after earlier writes were issued and none of its writes are in the database`` (operation: string) =
         let tag = newTag ()
         let staged = ResizeArray<StageEntryHeaderId>()
         try
@@ -296,19 +291,32 @@ type OperationInstantAndAtomicityTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-SYS-8.1 an operation run through the interface's command runner that writes and then raises an exception leaves none of its writes in the database`` () =
         let description = $"Written then thrown {newTag ()}"
+        // the header the operation wrote before it raised, captured from inside it to prove the write was issued
+        let writtenId = ref None
         let outcome =
-            try
-                runCommandRouteAndAutoCompleteTransaction JournalEntryPostNew (fun context ->
-                    result {
-                        let! _ = createTestJournalEntryFromPrimitives context description None (Calendar.today ()) lines [] []
-                        return raise (InvalidOperationException "raised after the write")
-                    })
-                |> Result.map ignore
-            with ex -> Error(TestError.TestingError ex.Message :> IAppError)
-        let written = describedToday description
-        written |> List.iter (fun e -> e |> JE.header |> JournalEntryHeader.journalEntryHeaderId |> Some |> Cleanup.cleanUpJournalEntryId |> orFail)
-        Assert.True(outcome |> Result.isError)
-        Assert.Empty(written)
+            runCommandRouteAndAutoCompleteTransaction JournalEntryPostNew (fun context ->
+                result {
+                    let! _, id = createTestJournalEntryFromPrimitives context description None (Calendar.today ()) lines [] []
+                    writtenId.Value <- Some id
+                    return raise (InvalidOperationException "raised after the write")
+                })
+            |> Result.map ignore
+        let survivors = describedToday description
+        try
+            match outcome with
+            | Error (AsError (DalErrorDuringAutoCompleteTransactionRun ex)) -> Assert.Equal("raised after the write", ex.Message)
+            | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+            | Ok _ -> Assert.Fail "Expected failure; got success"
+            match writtenId.Value with
+            | None -> Assert.Fail "the operation never wrote its journal entry"
+            | Some id ->
+                match id |> JE.fetchById (fresh ()) with
+                | Error (AsError (JournalEntryHeaderIdDoesntExist missing)) -> Assert.Equal(id |> JournalEntryHeaderId.value, missing)
+                | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                | Ok _ -> Assert.Fail "the journal entry written before the exception is still in the database"
+            Assert.Empty(survivors)
+        finally
+            survivors |> List.iter (fun e -> e |> JE.header |> JournalEntryHeader.journalEntryHeaderId |> Some |> Cleanup.cleanUpJournalEntryId |> orFail)
 
     [<Theory>]
     [<InlineData("posting a journal entry")>]

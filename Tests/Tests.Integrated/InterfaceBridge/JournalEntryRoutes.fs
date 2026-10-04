@@ -57,6 +57,9 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                 idToCleanUp <- returned.header.id |> JournalEntryHeaderId.fromGuid |> Some
                 Assert.Equal("CLI PostNew test", returned.header.description)
                 Assert.Equal(2, returned.lines |> List.length)
+                Assert.Equal<Set<string * decimal * string>>(
+                    input.lines |> List.map (fun l -> l.accountCode, l.amount, l.lineType) |> Set.ofList,
+                    returned.lines |> List.map (fun l -> l.accountCode, l.amount, l.lineType) |> Set.ofList)
                 return ()
             }
             |> railroadWrapper
@@ -96,6 +99,47 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                 | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
                 | Ok _ -> // clean-up on aisle four
                     Assert.Fail "Expected failure; got success. You have data to clean up"
+            }
+            |> railroadWrapper
+        finally
+            match cleanUpJournalEntryId idToCleanUp with
+            | Ok() -> ()
+            | Error e -> failwith(e.ToMessage())
+
+    [<Fact>]
+    member _.``REQ-JE-2.12 REQ-JE-1.13 a PostNew whose debits and credits differ is refused with JournalEntryDebitCreditMismatch and leaves no entry in the database``() =
+        let today = Calendar.today()
+        let description = $"Unbalanced route post {Guid.NewGuid():N}"
+        let input: JournalEntryInput =
+            { header = { description = description; source = None; entryDate = today }
+              lines =
+                [ { accountCode = "F-2210"; amount = 50.00M; lineType = "Debit"; memo = None }
+                  { accountCode = "F-5350"; amount = 49.99M; lineType = "Credit"; memo = None } ]
+              externalReferences = [ { financialInstitution = "Atomicity FI"; referenceText = description } ]
+              comments = [ { secondaryJournalEntryId = None; commentText = "never written" } ] }
+        let mutable idToCleanUp = None
+        try
+            result {
+                let! payload = input |> toJson<JournalEntryInput>
+                let () =
+                    match routeUiCommandForTesting "JournalEntry" "PostNew" [] payload with
+                    | Error (AsError (JournalEntryDebitCreditMismatch _)) -> ()
+                    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                    | Ok returnPayload ->
+                        idToCleanUp <-
+                            fromJson<JournalEntryReturn> returnPayload
+                            |> Result.toOption
+                            |> Option.map (fun r -> r.header.id |> JournalEntryHeaderId.fromGuid)
+                        Assert.Fail "Expected failure; got success"
+                // read from outside the route's transaction, after it has closed
+                let fresh = Context.create NoTransaction FetchOnly
+                let! onThatDay = fetchByDateRange fresh today today
+                Assert.Empty(onThatDay |> List.filter (fun je -> je |> header |> JournalEntryHeader.description |> JournalEntryDescription.value = description))
+                let! fi = "Atomicity FI" |> JournalRefFinancialInstitution.create
+                let! reference = description |> JournalExternalReferenceText.create
+                let! byReference = fetchByReference fresh (Some fi) (Some reference)
+                Assert.Empty(byReference)
+                return ()
             }
             |> railroadWrapper
         finally
@@ -203,16 +247,19 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
             |> List.filter(fun x -> x |> FiscalPeriod.periodKey |> FiscalPeriodKey.value = periodKey)
             |> List.head
         let periodId = period |> FiscalPeriod.fiscalPeriodId
-        let expected =
+        let expectedIds =
             fixture.Data.journalEntries
             |> List.filter(fun x -> x |> header |> JournalEntryHeader.entryDate |> EntryDate.fiscalPeriodId = periodId)
-            |> List.length
+            |> List.map(fun x -> x |> header |> JournalEntryHeader.journalEntryHeaderId |> JournalEntryHeaderId.value)
+        let expected = expectedIds |> List.length
         result {
             let! payload =
                 { JournalEntryFetchByPeriodInput.periodKey = periodKey } |> toJson<JournalEntryFetchByPeriodInput>
             let! returnPayload = routeUiCommandForTesting "JournalEntry" "FetchByPeriod" [] payload
             let! returned = fromJson<JournalEntryReturn list> returnPayload
+            Assert.NotEmpty(expectedIds)
             Assert.Equal(expected, returned |> List.length)
+            Assert.Equal<Set<Guid>>(expectedIds |> Set.ofList, returned |> List.map(fun je -> je.header.id) |> Set.ofList)
             return ()
         }
         |> railroadWrapper
@@ -263,18 +310,21 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.7 FetchByDateRange route happy path``() =
         let today = Calendar.today()
-        let expected =
+        let expectedIds =
             fixture.Data.journalEntries
             |> List.filter(fun je ->
                 let entryDate = je |> header |> JournalEntryHeader.entryDate |> EntryDate.entryDate
                 entryDate >= today && entryDate <= today)
-            |> List.length
+            |> List.map(fun je -> je |> header |> JournalEntryHeader.journalEntryHeaderId |> JournalEntryHeaderId.value)
+        let expected = expectedIds |> List.length
         result {
             let! payload =
                 { beginDate = today; endDateInclusive = today } |> toJson<JournalEntryFetchByDateRangeInput>
             let! returnPayload = routeUiCommandForTesting "JournalEntry" "FetchByDateRange" [] payload
             let! returned = fromJson<JournalEntryReturn list> returnPayload
+            Assert.NotEmpty(expectedIds)
             Assert.Equal(expected, returned |> List.length)
+            Assert.Equal<Set<Guid>>(expectedIds |> Set.ofList, returned |> List.map(fun je -> je.header.id) |> Set.ofList)
             return ()
         }
         |> railroadWrapper

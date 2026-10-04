@@ -31,12 +31,21 @@ open Business.FinancialServices.Ledger.LedgerError
 type FiscalPeriodTests(fixture: TestDataFixture) =
 
     [<Fact>]
-    member _.``REQ-FP-2.1 creating a fiscal period must generate a UUID``() =
+    member _.``REQ-FP-2.1 two fiscal periods created in one transaction get distinct generated IDs, each stored against its own key``() =
         runCommandRouteAndAutoRollback AccountCreate (fun context ->
             result {
-                let! fp = genericFiscalPeriodKey |> FiscalPeriodCreation.constructNewAndPersist context
-                let unique_id = FiscalPeriod.fiscalPeriodId fp |> FiscalPeriodId.value
-                Assert.NotEqual(unique_id, Guid.Empty)
+                let! firstKey = "2051-01" |> FiscalPeriodKey.fromString
+                let! secondKey = "2051-02" |> FiscalPeriodKey.fromString
+                let! first = firstKey |> FiscalPeriodCreation.constructNewAndPersist context
+                let! second = secondKey |> FiscalPeriodCreation.constructNewAndPersist context
+                Assert.NotEqual(first |> FiscalPeriod.fiscalPeriodId, second |> FiscalPeriod.fiscalPeriodId)
+                let fixtureIds = fixture.Data.fiscalPeriods |> List.map FiscalPeriod.fiscalPeriodId
+                Assert.DoesNotContain(first |> FiscalPeriod.fiscalPeriodId, fixtureIds)
+                Assert.DoesNotContain(second |> FiscalPeriod.fiscalPeriodId, fixtureIds)
+                let! storedFirst = FiscalPeriod.fetchIdByKey context "2051-01"
+                let! storedSecond = FiscalPeriod.fetchIdByKey context "2051-02"
+                Assert.Equal(first |> FiscalPeriod.fiscalPeriodId, storedFirst)
+                Assert.Equal(second |> FiscalPeriod.fiscalPeriodId, storedSecond)
                 ()
             })
         |> railroadWrapper
@@ -139,16 +148,17 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-FP-3.5 fetchAll with open only filters out closed periods``() =
+    member _.``REQ-FP-3.5 fetchAll with open only returns exactly the fixture's open periods``() =
         let context = Context.create NoTransaction FetchOnly
+        let expectedKeys =
+            fixture.Data.fiscalPeriods
+            |> List.filter FiscalPeriod.isOpen
+            |> List.map(FiscalPeriod.periodKey >> FiscalPeriodKey.value)
+            |> Set.ofList
         result {
             let! fetched = FiscalPeriod.fetchAll context true
-            fetched
-            |> List.exists(fun fp -> FiscalPeriod.fiscalPeriodId fp = fixture.Data.closedFiscalPeriodId)
-            |> Assert.False
-            fixture.Data.openFiscalPeriodIds
-            |> List.forall(fun id -> fetched |> List.exists(fun fp -> FiscalPeriod.fiscalPeriodId fp = id))
-            |> Assert.True
+            Assert.DoesNotContain(fixture.Data.closedFiscalPeriodId, fetched |> List.map FiscalPeriod.fiscalPeriodId)
+            Assert.Equal<Set<string>>(expectedKeys, fetched |> List.map(FiscalPeriod.periodKey >> FiscalPeriodKey.value) |> Set.ofList)
             ()
         }
         |> railroadWrapper

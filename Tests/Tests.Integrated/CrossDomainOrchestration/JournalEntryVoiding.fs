@@ -140,7 +140,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
         }
 
     [<Fact>]
-    member _.``REQ-JE-4.3 voidJournalEntryOrchestration sets voided_at on the entry``() =
+    member _.``REQ-JE-4.3 voidJournalEntryOrchestration sets voided_at to the void operation's initiation instant``() =
         let today = Calendar.today()
         runCommandRouteAndAutoRollback JournalEntryVoid (fun context ->
             result {
@@ -154,8 +154,13 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
                           (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
                         []
                         []
-                let! voided = jeId |> voidJournalEntry context None commentText
-                Assert.True(voided |> header |> JournalEntryHeader.voidedAt |> Option.isSome)
+                // a later operation than the post, so the post's instant can't stand in for the void's
+                let voiding = context |> TestContext.updateInitiationInstant
+                let expected = Some(voiding |> Context.getInitiationInstant)
+                let! voided = jeId |> voidJournalEntry voiding None commentText
+                Assert.Equal(expected, voided |> header |> JournalEntryHeader.voidedAt)
+                let! stored = jeId |> JournalEntryHeader.fetchById voiding
+                Assert.Equal(expected, stored |> JournalEntryHeader.voidedAt)
                 return ()
             })
         |> railroadWrapper

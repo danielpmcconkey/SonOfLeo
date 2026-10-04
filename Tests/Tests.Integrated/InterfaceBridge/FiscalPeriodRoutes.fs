@@ -75,6 +75,9 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
                 Assert.Equal(expected, returnedKey)
                 let! fetched = id |> FiscalPeriod.fetchById context
                 Assert.Equal(expected, FiscalPeriodKey.value(FiscalPeriod.periodKey fetched))
+                Assert.Equal(NodaTime.LocalDate(1993, 6, 1), fetched |> FiscalPeriod.startDate)
+                Assert.Equal(NodaTime.LocalDate(1993, 6, 30), fetched |> FiscalPeriod.endDate)
+                Assert.True(fetched |> FiscalPeriod.isOpen)
                 ()
             }
             |> railroadWrapper
@@ -213,7 +216,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-FP-2.4 Fiscal Period Create rejects invalid period key string``() =
+    member _.``REQ-FP-1.2 Fiscal Period Create rejects invalid period key string``() =
         let payload = createFiscalPeriodCreateInputPayload "abc"
         result {
             do!

@@ -55,67 +55,72 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-2.1 constructNewAndPersist generates a unique UUID for the header``() =
+    member _.``REQ-JE-2.1 two entries posted in one transaction get header IDs distinct from each other and from every fixture entry's``() =
+        let today = Calendar.today()
+        let lines = [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None); (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
+            result {
+                let! _, firstId = createTestJournalEntryFromPrimitives context "JE header id 1" None today lines [] []
+                let! _, secondId = createTestJournalEntryFromPrimitives context "JE header id 2" None today lines [] []
+                Assert.NotEqual(firstId, secondId)
+                let fixtureIds = fixture.Data.journalEntries |> List.map (header >> JournalEntryHeader.journalEntryHeaderId)
+                Assert.DoesNotContain(firstId, fixtureIds)
+                Assert.DoesNotContain(secondId, fixtureIds)
+                return ()
+            })
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-JE-2.2 REQ-JE-1.21 each line of a posted entry gets an ID distinct from its sibling's, from its header's and from every fixture line's``() =
         let today = Calendar.today()
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! _, jeHappyId = // the test helper resolves to constructNewAndPersist
+                let! je, headerId =
                     createTestJournalEntryFromPrimitives
                         context
-                        "JE create happy"
+                        "JE line ids"
                         None
                         today
                         [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
                           (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
                         []
                         []
-                Assert.NotEqual(Guid.Empty, jeHappyId |> JournalEntryHeaderId.value)
+                let lineIds = je |> jeLines |> List.map (JournalEntryLine.journalEntryLineId >> JournalEntryLineId.value)
+                Assert.Equal(2, lineIds |> List.distinct |> List.length)
+                Assert.DoesNotContain(headerId |> JournalEntryHeaderId.value, lineIds)
+                let fixtureLineIds = fixture.Data.journalEntryLines |> List.map (JournalEntryLine.journalEntryLineId >> JournalEntryLineId.value)
+                Assert.Empty(Set.intersect (Set.ofList lineIds) (Set.ofList fixtureLineIds))
                 return ()
             })
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-2.2 REQ-JE-1.21 constructNewAndPersist generates unique UUIDs for each line``() =
+    member _.``REQ-JE-2.9 REQ-JE-1.40 each external reference of a posted entry gets an ID distinct from its sibling's, from its entry's header and line IDs and from every fixture reference's``() =
         let today = Calendar.today()
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                let! jeHappy, _ = // the test helper resolves to constructNewAndPersist
+                let! je, headerId =
                     createTestJournalEntryFromPrimitives
                         context
-                        "JE create happy"
-                        None
-                        today
-                        [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
-                          (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
-                        []
-                        []
-                jeHappy
-                |> jeLines
-                |> List.map(fun x -> x |> JournalEntryLine.journalEntryLineId)
-                |> List.iter(fun x -> Assert.NotEqual(Guid.Empty, x |> JournalEntryLineId.value))
-                return ()
-            })
-        |> railroadWrapper
-
-    [<Fact>]
-    member _.``REQ-JE-2.9 REQ-JE-1.40 constructNewAndPersist generates unique UUIDs for each external reference``() =
-        let today = Calendar.today()
-        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
-            result {
-                let! jeHappy, _ = // the test helper resolves to constructNewAndPersist
-                    createTestJournalEntryFromPrimitives
-                        context
-                        "JE create happy"
+                        "JE reference ids"
                         None
                         today
                         [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
                           (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
                         [ ("TestBank", "F-SHARED-001"); ("TestBank", "TXN-001") ]
                         []
-                jeHappy
-                |> externalReferences
-                |> List.map(fun x -> x |> JournalEntryExternalReference.journalEntryExternalReferenceId)
-                |> List.iter(fun x -> Assert.NotEqual(Guid.Empty, x |> JournalEntryExternalReferenceId.value))
+                let referenceIds =
+                    je |> externalReferences
+                    |> List.map (JournalEntryExternalReference.journalEntryExternalReferenceId >> JournalEntryExternalReferenceId.value)
+                Assert.Equal(2, referenceIds |> List.distinct |> List.length)
+                let ownIds =
+                    (headerId |> JournalEntryHeaderId.value)
+                    :: (je |> jeLines |> List.map (JournalEntryLine.journalEntryLineId >> JournalEntryLineId.value))
+                Assert.Empty(Set.intersect (Set.ofList referenceIds) (Set.ofList ownIds))
+                let fixtureReferenceIds =
+                    fixture.Data.journalEntryExternalReferences
+                    |> List.map (JournalEntryExternalReference.journalEntryExternalReferenceId >> JournalEntryExternalReferenceId.value)
+                Assert.Empty(Set.intersect (Set.ofList referenceIds) (Set.ofList fixtureReferenceIds))
                 return ()
             })
         |> railroadWrapper
@@ -285,14 +290,19 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-1.48 constructNewAndPersist accepts duplicate source_fi/reference pairs``() =
+    member _.``REQ-JE-1.48 entries posted with a (source FI, reference) pair already used, on the same entry or on another, each keep their full reference list, duplicates included``() =
         let today = Calendar.today()
         let sameRef = ("TestBank", "F-SHARED-001")
         let explicitlySame = [ sameRef; sameRef ]
+        let storedPairs context entryId =
+            JournalEntryExternalReference.fetchByJournalEntryId context entryId
+            |> Result.map (List.map (fun r ->
+                r |> JournalEntryExternalReference.financialInstitution |> JournalRefFinancialInstitution.value,
+                r |> JournalEntryExternalReference.referenceText |> JournalExternalReferenceText.value))
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
             result {
-                // test that you can do it in one single entry 
-                let! _ = 
+                // the same pair twice on one entry
+                let! _, firstId =
                     createTestJournalEntryFromPrimitives
                         context
                         "REQ-JE-1.48 1"
@@ -302,9 +312,8 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                           (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
                         explicitlySame
                         []
-                
-                // now test that you can do it across different entities
-                let! _ =
+                // and again on a different entry; the fixture already carries this pair too
+                let! _, secondId =
                     createTestJournalEntryFromPrimitives
                         context
                         "REQ-JE-1.48 2"
@@ -312,8 +321,12 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                         today
                         [ (fixture.Data.entertainment5650Id, 286.04M, "Debit", None)
                           (fixture.Data.creditCard2220Id, 286.04M, "Credit", None) ]
-                        [sameRef]
+                        [ sameRef ]
                         []
+                let! firstPairs = storedPairs context firstId
+                let! secondPairs = storedPairs context secondId
+                Assert.Equal<(string * string) list>(explicitlySame, firstPairs)
+                Assert.Equal<(string * string) list>([ sameRef ], secondPairs)
                 return ()
             })
         |> railroadWrapper
@@ -332,7 +345,7 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-1.13 REQ-JE-2.12 constructNewAndPersist rejects unbalanced entry — debits != credits``() =
+    member _.``REQ-JE-1.13 constructNewAndPersist rejects unbalanced entry — debits != credits``() =
         let today = Calendar.today()
         let unbalancedLines =
             [ (fixture.Data.entertainment5650Id, 15.79M, "Debit", None)
