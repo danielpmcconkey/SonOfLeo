@@ -619,6 +619,9 @@
           <element xsi:type="archimate:ApplicationFunction" name="Data ingestion functions" id="id-36ac97d70705433a9598b367a0a37588">
             <documentation>Behaviours that move external financial data into the system's staging area, classify it, and prepare it for posting to the ledger. Members of this clade share a defining characteristic: they operate on data that has entered the system from an external source but has not yet become a permanent ledger record.</documentation>
           </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Apply an account classification run to staged entries" id="id-43344fba44b84e02ad916b23d1d096d2">
+            <documentation>Write a finished run's winning accounts to staged lines and re-derive each entry's status.</documentation>
+          </element>
           <element xsi:type="archimate:ApplicationFunction" name="Compute the pre-posting review" id="id-341bd6d751d14af2b07deb7e17244ab1">
             <documentation>List every staged entry the next batch post would post, line by line, with its account, the classification rule that assigned it, and any linked payment agreement with the Payments, Invoices and Instances behind it.</documentation>
           </element>
@@ -725,7 +728,7 @@
           <element xsi:type="archimate:ApplicationFunction" name="Reconstitute stage entry line records" id="id-eb291f2fdc7541e5a906bc3d55275988">
             <documentation>Given raw stored values representing a stage entry line, produce a validated line record.</documentation>
           </element>
-          <element xsi:type="archimate:ApplicationFunction" name="Ingest raw rows to stage" id="id-3fb4597dd00b4c4faf86e0a778a5af2b">
+          <element xsi:type="archimate:ApplicationFunction" name="Ingest a raw file to stage" id="id-3fb4597dd00b4c4faf86e0a778a5af2b">
             <documentation>Validate a raw file's rows and write them as staged entries, all or nothing.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Create an ingestion source" id="id-3dab923da92c4451bad1a6f4d0b5d7c4">
@@ -733,9 +736,6 @@
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Deduplicate staged entries" id="id-a7e4ae433ea2408bbb5baf5efb4536e9">
             <documentation>Mark every staged entry that duplicates one already in the database.</documentation>
-          </element>
-          <element xsi:type="archimate:ApplicationFunction" name="Classify staged entry accounts" id="id-965866b8c7bb4cc0a3f56aefff83e150">
-            <documentation>Run account classification over unresolved staged entries, write winning accounts, and re-derive each entry's status.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Update a staged entry" id="id-6f38ae043075454fbb87bdf9edecc79b">
             <documentation>Apply operator changes to a staged entry and its lines.</documentation>
@@ -756,6 +756,9 @@
         <folder name="Cash flow functions" id="id-8ac6f77351f94289941bd53c4587437c">
           <element xsi:type="archimate:ApplicationFunction" name="Cash flow functions" id="id-8caa490eafca4592894d0ecb5896e2f5">
             <documentation>Behaviours that model recurring obligations — agreements, their instances, invoices and payments — and project the cash they will move.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Apply a payment agreement classification run to cash flow" id="id-c9142e20344b404a804d628f8b29687c">
+            <documentation>From a finished run, link each uncontested line to its payment agreement, match invoices and create the payments that follow.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Define what &quot;agreement&quot;, &quot;instance&quot;, &quot;invoice&quot; and &quot;payment&quot; mean in cash flow" id="id-4a593584c92e427984d891d7b1667116">
             <documentation>The identifiers, names, states, directions and bounded values from which every cash flow entity is built.</documentation>
@@ -958,9 +961,6 @@
           <element xsi:type="archimate:ApplicationFunction" name="Create upcoming instances from cadences" id="id-59b89811621043e382b7f3681ecf416c">
             <documentation>Walk every active agreement's cadence and create the instances, and any fixed-amount invoices, within the horizon.</documentation>
           </element>
-          <element xsi:type="archimate:ApplicationFunction" name="Classify staged lines to payment agreements" id="id-c131f4e2cef643268e743109912c1484">
-            <documentation>Match staged lines to payment agreements, link each uncontested match, and create the payments that follow.</documentation>
-          </element>
           <element xsi:type="archimate:ApplicationFunction" name="Create a payment agreement link" id="id-554044340939420fb80e04ea2450d499">
             <documentation>Link a staged entry line to the payment agreement it satisfies, where classification left the decision to the operator.</documentation>
           </element>
@@ -977,6 +977,12 @@
         <folder name="Classification functions" id="id-0782d06bcb0c4e42a17757d56d1eadb5">
           <element xsi:type="archimate:ApplicationFunction" name="Classification functions" id="id-2cd1a6b0f4f14c808fb6e150aff6e050">
             <documentation>Behaviours that match staged lines against operator-authored rules to decide which account or payment agreement each line belongs to.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Classify staged entry accounts" id="id-965866b8c7bb4cc0a3f56aefff83e150">
+            <documentation>Run account classification over unresolved staged entries and record the run; data ingestion applies its outcome.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Classify staged lines to payment agreements" id="id-c131f4e2cef643268e743109912c1484">
+            <documentation>Run payment agreement classification over staged lines and record the run; cash flow applies its outcome.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Define what &quot;classification rule&quot; means in classification" id="id-56f957264e6f455dacc2ea4210d37a88">
             <documentation>The identifiers, names, search patterns, connectors, claimants, candidates and outcomes from which classification is built.</documentation>
@@ -2272,7 +2278,11 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:CompositionRelationship" id="id-2b13859e608b4e8fb0da191d2866c2f7" source="id-36ac97d70705433a9598b367a0a37588" target="id-57bc1f87ae9f4624ae7b9af73f1c9223"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-9878c7736ab04e6cbf15505a9e9c6976" source="id-36ac97d70705433a9598b367a0a37588" target="id-6f38ae043075454fbb87bdf9edecc79b"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-7d7c3034d22e4394ba162f4852414dd2" source="id-36ac97d70705433a9598b367a0a37588" target="id-8a8dc8f6fbc044698855d7c4365e8c6f"/>
-    <element xsi:type="archimate:CompositionRelationship" id="id-d21241af8f004bc48f013e5c5956a56f" source="id-36ac97d70705433a9598b367a0a37588" target="id-965866b8c7bb4cc0a3f56aefff83e150"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-d21241af8f004bc48f013e5c5956a56f" source="id-2cd1a6b0f4f14c808fb6e150aff6e050" target="id-965866b8c7bb4cc0a3f56aefff83e150"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-e349077fd66c4630ad6c75a2e34adc46" source="id-36ac97d70705433a9598b367a0a37588" target="id-43344fba44b84e02ad916b23d1d096d2"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-7eb50b7466ee44c6950ff382fda81047" source="id-8caa490eafca4592894d0ecb5896e2f5" target="id-c9142e20344b404a804d628f8b29687c"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-174c1122f5814cb1bcd26fdf9b950d06" source="id-0291cbfd15ac4f31b25938e5183214dd" target="id-43344fba44b84e02ad916b23d1d096d2"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-0a48722cb10f4d9aba38c0d0ce21afaf" source="id-248203dd619a4da0be876a5b9b7c7434" target="id-c9142e20344b404a804d628f8b29687c"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-1ba7f31c32eb472db0c52532e42756b3" source="id-36ac97d70705433a9598b367a0a37588" target="id-a7e4ae433ea2408bbb5baf5efb4536e9"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-0401b611980e471485dcd792afc90052" source="id-36ac97d70705433a9598b367a0a37588" target="id-afe4dad4097b46738298eef78168132f"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-a47771ed4ace4b628f681146474deaef" source="id-3a0087e23b964c45b051a57a2c128a0a" target="id-086000a2a5a741b2aab0b8cba1053569"/>
@@ -2399,7 +2409,7 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:CompositionRelationship" id="id-476dd48239e34556864013416766ed47" source="id-8caa490eafca4592894d0ecb5896e2f5" target="id-a77e27f9021149caa46442fd64d9e36b"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-6fdfc322c3414522b30ed2a9f559f0e7" source="id-8caa490eafca4592894d0ecb5896e2f5" target="id-b154f72c191346fbafc796d002aaf836"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-be5914e5b3bb47cbbe92fd0d5ed62f86" source="id-8caa490eafca4592894d0ecb5896e2f5" target="id-b9c8b44d6841404d9ce699cf3002f602"/>
-    <element xsi:type="archimate:CompositionRelationship" id="id-630d53c5f4ac46e589b1d36751a7aa91" source="id-8caa490eafca4592894d0ecb5896e2f5" target="id-c131f4e2cef643268e743109912c1484"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-630d53c5f4ac46e589b1d36751a7aa91" source="id-2cd1a6b0f4f14c808fb6e150aff6e050" target="id-c131f4e2cef643268e743109912c1484"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-e8f339964006460f9583983160ea22e4" source="id-8caa490eafca4592894d0ecb5896e2f5" target="id-c3be091ce8b94fcdbfe9276facb5d14e"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-6c42c2507a26463886159058c7ba1715" source="id-8caa490eafca4592894d0ecb5896e2f5" target="id-ca1df238ec054b0baa3d08b7528b58cf"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-a9bea39ced3644c687d7c17a4197fe8b" source="id-8caa490eafca4592894d0ecb5896e2f5" target="id-cbc4ad558c7e4c148d4914058bcc98a9"/>
@@ -2526,7 +2536,7 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:RealizationRelationship" id="id-7983148d5f5743fb8e36de73ac467052" source="id-0291cbfd15ac4f31b25938e5183214dd" target="id-57bc1f87ae9f4624ae7b9af73f1c9223"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-4b8d9ab315754c78b4fdb735a243cc03" source="id-0291cbfd15ac4f31b25938e5183214dd" target="id-6f38ae043075454fbb87bdf9edecc79b"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-a524c0cd082745adb1bff52ba7111f76" source="id-0291cbfd15ac4f31b25938e5183214dd" target="id-8a8dc8f6fbc044698855d7c4365e8c6f"/>
-    <element xsi:type="archimate:RealizationRelationship" id="id-5fbc12857d80417f8efe0567881da13c" source="id-0291cbfd15ac4f31b25938e5183214dd" target="id-965866b8c7bb4cc0a3f56aefff83e150"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-5fbc12857d80417f8efe0567881da13c" source="id-bfa0097578dc4adeae612056ec2a844f" target="id-965866b8c7bb4cc0a3f56aefff83e150"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-03f5c9b3cec5457cabecf63474a3ce98" source="id-0291cbfd15ac4f31b25938e5183214dd" target="id-a7e4ae433ea2408bbb5baf5efb4536e9"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-8c04240f68fa4faa9c3c10b0e4669456" source="id-0291cbfd15ac4f31b25938e5183214dd" target="id-afe4dad4097b46738298eef78168132f"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-ebe53798e78c4830b1d0b8441de1d328" source="id-086000a2a5a741b2aab0b8cba1053569" target="id-5d26474bdf7d4dc5be3762bee38db8b1"/>
@@ -2560,7 +2570,7 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:RealizationRelationship" id="id-ca60f95521a540edbc83c4704c3852fb" source="id-248203dd619a4da0be876a5b9b7c7434" target="id-59b89811621043e382b7f3681ecf416c"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-33d9c1c022a84e689b1c4db4f3e740b4" source="id-248203dd619a4da0be876a5b9b7c7434" target="id-91167aca25a847f99dfbd9dfe6dd7db1"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-79d6a8ae9401492a8223291365007211" source="id-248203dd619a4da0be876a5b9b7c7434" target="id-9762437af0e94a23ad53c8b54e561771"/>
-    <element xsi:type="archimate:RealizationRelationship" id="id-e18dfbcd2cf5430db6a4101a0466b2f6" source="id-248203dd619a4da0be876a5b9b7c7434" target="id-c131f4e2cef643268e743109912c1484"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-e18dfbcd2cf5430db6a4101a0466b2f6" source="id-bfa0097578dc4adeae612056ec2a844f" target="id-c131f4e2cef643268e743109912c1484"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-b763b09df8d644ca980a87f8ae46f5fd" source="id-24b0f2ccb7474804a4f6046f10a23f3b" target="id-7ab29727dd884711ae7ae55418d07364"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-6b234cf6fec14d7d87c57f01b91634c7" source="id-2aed1866bf58458da539f35aad93c359" target="id-819181a73eb242cd8eecc4e521c0ac53"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-e45924011922402ebcfb5cd2fb9d6079" source="id-2aed1866bf58458da539f35aad93c359" target="id-8e449d623cda4e4b9defc862e441bb80"/>

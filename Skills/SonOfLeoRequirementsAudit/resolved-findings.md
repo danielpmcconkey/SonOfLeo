@@ -185,7 +185,7 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 - **Status:** overruled
 - **Date:** 2026-08-20
 - **Scope:** Whether SonOfLeoCli's stderr test should use Assert.Equal instead of Assert.Contains
-- **Ruling:** The stderr output includes a trailing line break. The Reports CLI handles this by appending a newline to the expected message and using Assert.Equal; the main CLI uses Assert.Contains to check the error message is present within the response. Both approaches are equally safe — the Contains check verifies the entire expected error message is present. Changing either to match the other adds no safety. Do not re-flag.
+- **Ruling:** (Rewritten 2026-10-04 to describe the tests as they now stand.) The Reports CLI test compares stderr to the whole expected message with Assert.Equal, after stripping the runtime's stack-frame lines from both sides (they differ between the CLI's process and the test's; no requirement asks for a trace, so none is asserted). The main CLI test uses Assert.Contains on stderr, which includes a trailing line break: the check still requires the entire expected message to be present. Both are equally safe; changing either to match the other adds no safety. Do not re-flag.
 
 ## DB-STAGE-1: Staging Entities Missing created_at/modified_at
 - **Status:** overruled
