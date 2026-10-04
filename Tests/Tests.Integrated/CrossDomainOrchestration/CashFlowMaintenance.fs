@@ -14,12 +14,18 @@ open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.FetchFilters
 open App.DataAccessLayer.ExecuteReader
 open Ui.InterfaceBridge.CommandRoute
+open App.DataAccessLayer.DbTransaction
+open App.Operation.CoreAuditableAction
+open App.Utility.Json
 open NodaTime
 open Tests.Helpers
 open Tests.Helpers.Railroad
+open Tests.Helpers.RouteResolver
 open Tests.Helpers.TestError
 open App.Utility.IAppError
 open Xunit
+
+module Contracts = Ui.InterfaceBridge.InterfaceContracts.CashFlowContracts
 
 (* An Outgo agreement on the fixture's cash flow accounts (debit F-2230, credit F-1280), monthly on the 1st, with one
    100.00 leg. Returns the agreement's id and its leg's id. *)
@@ -129,6 +135,38 @@ let private expectNotFound (isExpected: IAppError -> System.Guid option) (expect
             Ok ()
         | None -> Error (TestingError $"Wrong error: {e.DomainName}.{e.CaseName}: {e.ToMessage()}")
     | Ok _ -> Error (TestingError "Expected failure; got success")
+
+let private noMasterAgreementChange agreementId : MasterAgreement.MasterAgreementFieldUpdates =
+    { agreementIdToUpdate = agreementId
+      agreementNameUpdate = FieldUpdate.NoChange
+      directionUpdate = FieldUpdate.NoChange
+      cadenceUpdate = FieldUpdate.NoChange
+      counterpartyUpdate = FieldUpdate.NoChange
+      activeBeginUpdate = FieldUpdate.NoChange
+      activeEndUpdate = FieldUpdate.NoChange
+      memoUpdate = FieldUpdate.NoChange }
+
+let private noLegChange legId : PaymentAgreement.PaymentAgreementFieldUpdates =
+    { paymentAgreementIdToUpdate = legId
+      paymentAgreementNameUpdate = FieldUpdate.NoChange
+      debitAccountUpdate = FieldUpdate.NoChange
+      creditAccountUpdate = FieldUpdate.NoChange
+      expectedAmountUpdate = FieldUpdate.NoChange
+      daysDueAfterInvoiceDateUpdate = FieldUpdate.NoChange
+      memoUpdate = FieldUpdate.NoChange }
+
+/// Every stored agreement tree, read from a fresh context once a route's transaction is gone.
+let private storedAgreements () =
+    ({ agreementIds = None; activeAgreementsOnly = false } : AgreementFilter)
+    |> AgreementOrchestration.fetchFiltered (Context.create NoTransaction FetchOnly) AnyQuantityIsAcceptable
+
+let private storedInvoices () =
+    storedAgreements ()
+    |> Result.map (List.collect AgreementOrchestration.invoices >> List.sortBy (Invoice.invoiceId >> InvoiceId.value))
+
+let private storedPayments () =
+    storedAgreements ()
+    |> Result.map (List.collect AgreementOrchestration.payments >> List.sortBy (Payment.paymentId >> PaymentId.value))
 
 [<Collection("SharedTestData")>]
 type CashFlowMaintenanceTests(fixture: TestDataFixture) =
@@ -283,24 +321,122 @@ type CashFlowMaintenanceTests(fixture: TestDataFixture) =
             })
         |> railroadWrapper
 
-    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+    // =========================================================================
+    // REQ-SYS-6.2, 6.3 — a fresh Guid reaches the domain's not-found error, never a generic row-count error
+    // =========================================================================
 
     [<Fact>]
     member _.``REQ-SYS-6.2 updating a Master Agreement by an ID no agreement holds fails with a typed not-found error naming the kind of record and the ID`` () =
-        Assert.Fail "Not yet implemented"
+        let missingId = MasterAgreementId.create ()
+        runCommandRouteAndAutoRollback CashFlowUpdateAgreement (fun context ->
+            result {
+                let! counterparty = "REQ-SYS-6.2 no such agreement" |> Counterparty.create
+                return!
+                    { noMasterAgreementChange missingId with counterpartyUpdate = FieldUpdate.SetTo counterparty }
+                    |> AgreementOrchestration.updateAgreement context [] []
+                    |> expectNotFound
+                        (function AsError (CashFlowError.CashflowMasterAgreementIdDoesntExist uuid) -> Some uuid | _ -> None)
+                        (missingId |> MasterAgreementId.value)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-6.2 updating a Payment Agreement by an ID no agreement holds fails with a typed not-found error naming the kind of record and the ID`` () =
-        Assert.Fail "Not yet implemented"
+        let missingId = PaymentAgreementId.create ()
+        runCommandRouteAndAutoRollback CashFlowUpdateAgreement (fun context ->
+            result {
+                let! legName = "REQ-SYS-6.2 no such leg" |> PaymentAgreementName.create
+                return!
+                    noMasterAgreementChange fixture.Data.cashFlow.agreementAId
+                    |> AgreementOrchestration.updateAgreement
+                        context [ { noLegChange missingId with paymentAgreementNameUpdate = FieldUpdate.SetTo legName } ] []
+                    |> expectNotFound
+                        (function AsError (CashFlowError.CashflowPaymentAgreementIdDoesntExist uuid) -> Some uuid | _ -> None)
+                        (missingId |> PaymentAgreementId.value)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-6.2 an UpdateInvoice payload whose Invoice ID names no Invoice fails with a typed not-found error naming the kind of record and the ID, and nothing is changed`` () =
-        Assert.Fail "Not yet implemented"
+        let missingId = InvoiceId.create ()
+        result {
+            let! before = storedInvoices ()
+            let! payload =
+                ({ invoiceId = missingId |> InvoiceId.value
+                   externalInvoiceIdUpdate = FieldUpdate.NoChange
+                   invoiceDateUpdate = FieldUpdate.NoChange
+                   dueDateUpdate = FieldUpdate.NoChange
+                   amountUpdate = FieldUpdate.NoChange
+                   invoiceStateUpdate = FieldUpdate.NoChange
+                   blockerUpdate = FieldUpdate.NoChange
+                   memoUpdate = FieldUpdate.SetTo(Some "REQ-SYS-6.2 no such invoice") } : Contracts.UpdateInvoiceInput)
+                |> Json.toJson
+            do!
+                routeUiCommandForTesting "CashFlow" "UpdateInvoice" [] payload
+                |> expectNotFound
+                    (function AsError (CashFlowError.CashflowInvoiceIdDoesntExist uuid) -> Some uuid | _ -> None)
+                    (missingId |> InvoiceId.value)
+            let! after = storedInvoices ()
+            Assert.Equal<Invoice.Invoice list>(before, after)
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-SYS-6.3 a CreatePayment payload whose Invoice ID names no Invoice fails with a typed not-found error naming the missing Invoice, and no Payment is stored`` () =
-        Assert.Fail "Not yet implemented"
+        let missingId = InvoiceId.create ()
+        let mutable paymentIdsToCleanUp : System.Guid list = []
+        try
+            result {
+                let! before = storedPayments ()
+                let! payload =
+                    ({ invoiceId = missingId |> InvoiceId.value
+                       payment =
+                         { transactionPointer =
+                             Contracts.TransactionPointerContract.Posted(
+                                 fixture.Data.cashFlow.unclaimedLedgerLineId |> JournalEntryComponent.JournalEntryLineId.value)
+                           postedToFiDate = None
+                           postedToLedgerDate = None
+                           memo = None } } : Contracts.CreatePaymentInput)
+                    |> Json.toJson
+                let attempt = routeUiCommandForTesting "CashFlow" "CreatePayment" [] payload
+                // a success would have stored a Payment; capture it for the finally before asserting anything
+                let beforeIds = before |> List.map (Payment.paymentId >> PaymentId.value)
+                paymentIdsToCleanUp <-
+                    match attempt |> Result.bind Json.fromJson<Contracts.InstanceCompositeReturn> with
+                    | Ok returned ->
+                        returned.invoiceComposites
+                        |> List.collect _.payments
+                        |> List.map _.paymentId
+                        |> List.filter (fun id -> beforeIds |> List.contains id |> not)
+                    | Error _ -> []
+                do!
+                    attempt
+                    |> expectNotFound
+                        (function AsError (CashFlowError.CashflowInvoiceIdDoesntExist uuid) -> Some uuid | _ -> None)
+                        (missingId |> InvoiceId.value)
+                let! after = storedPayments ()
+                Assert.Equal<Payment.Payment list>(before, after)
+            }
+            |> railroadWrapper
+        finally
+            for paymentId in paymentIdsToCleanUp do
+                ({ paymentId = paymentId } : Contracts.DeletePaymentInput)
+                |> Json.toJson
+                |> Result.bind (routeUiCommandForTesting "CashFlow" "DeletePayment" [])
+                |> ignore
 
     [<Fact>]
     member _.``REQ-SYS-6.2 a payload deleting a Payment Agreement Link by an ID no link holds fails with a typed not-found error naming the kind of record and the ID`` () =
-        Assert.Fail "Not yet implemented"
+        let missingId = PaymentAgreementLinkId.create ()
+        result {
+            let! payload =
+                ({ paymentAgreementLinkId = missingId |> PaymentAgreementLinkId.value }
+                 : Ui.InterfaceBridge.InterfaceContracts.ClassificationContracts.DeletePaymentAgreementLinkInput)
+                |> Json.toJson
+            return!
+                routeUiCommandForTesting "Classification" "DeletePaymentAgreementLink" [] payload
+                |> expectNotFound
+                    (function AsError (CashFlowError.CashflowPaymentAgreementLinkIdDoesntExist uuid) -> Some uuid | _ -> None)
+                    (missingId |> PaymentAgreementLinkId.value)
+        }
+        |> railroadWrapper
