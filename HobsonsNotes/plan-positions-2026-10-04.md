@@ -407,9 +407,9 @@ files: `PersonContracts.fs`, `PositionsContracts.fs`,
     properties with their mortgages and equity, liabilities, then totals,
     then the tax-treatment and account-group subtotals. Wealth history:
     one row per month-end, one column per group value, a total column.
-    REQ-RPT-3.x is scoped by its own text to the four existing reports, so
-    it does not bind these two; follow its conventions anyway, since they
-    cost nothing here (see §6).
+    §3 of `Reporting.md` binds both reports to REQ-RPT-3.1 (header), 3.2
+    (footer) and 3.5 (print CSS); 3.3, 3.4 and 3.6 describe trial-balance
+    account rows and do not apply.
 
 ### E. Architecture model
 
@@ -462,9 +462,6 @@ files: `PersonContracts.fs`, `PositionsContracts.fs`,
   holdings as of that date**, not present with zero (REQ-POS-8.1). An empty
   snapshot (no lines) is present with zero.
 - **Net worth fails outside a fiscal period; wealth history does not.**
-- **Rendered-report rules.** REQ-RPT-3's opening sentence lists the four
-  existing reports. If you think the new two should be bound by 3.1, 3.2,
-  3.4 and 3.5, say so in the report; Hobson will amend the spec.
 
 ## 7. When you finish
 
