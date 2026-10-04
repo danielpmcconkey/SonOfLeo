@@ -12,6 +12,7 @@ open App.Utility.IAppError
 open App.Utility.FieldUpdate
 open App.Utility.Json
 open App.Utility.Result
+open App.Utility.UtilityError
 open Business.General
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
@@ -214,13 +215,16 @@ type private Scenario(fixture: TestDataFixture, initialContext: Context.Context)
             path
 
     /// Fixture agreement A's next Instance, with one 100.00 Invoice on its leg paid by a Payment on the line.
-    member _.payOn (lineId: StageEntryLineId) =
+    member this.payOn (lineId: StageEntryLineId) = this.payOnAll [ lineId ]
+
+    /// Fixture agreement A's next Instance, with one 100.00 Invoice on its leg carrying a Payment on each line.
+    member _.payOnAll (lineIds: StageEntryLineId list) =
         result {
             let cashFlow = fixture.Data.cashFlow
             let date = cashFlow.nextInstanceDateA
             let! amount = Money.fromDecimal 100.00M
             let payments =
-                [ (CashFlowComponent.Staged lineId, None, None, None) ]
+                lineIds |> List.map (fun lineId -> (CashFlowComponent.Staged lineId, None, None, None))
             let! _ =
                 InstanceOrchestration.constructNewAndPersist context cashFlow.agreementAId date
                     [ (cashFlow.legAId, None, (CashFlowComponent.InvoiceDate.create date),
@@ -341,8 +345,14 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
         // a valid group alongside, so a partial ingestion would leave something behind
         withFile (misspelt @ validGroup "G2" tag 20.00M) (fun fileName path ->
             let attempt = ingest fileName
-            Assert.True(attempt |> Result.isError)
-            Assert.Empty(stagedFrom path |> orFail))
+            Assert.Empty(stagedFrom path |> orFail)
+            match attempt with
+            | Error (AsError (IngestionFileRejected (rejectedPath, records))) ->
+                Assert.Equal<string>(path, rejectedPath)
+                (* exactly the two misspelt records are rejected, not the valid group beside them *)
+                Assert.Equal<Set<int>>(set [ 1; 2 ], records |> List.collect _.lineNumbers |> Set.ofList)
+            | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+            | Ok _ -> Assert.Fail "Expected failure; got success")
 
     [<Theory>]
     [<InlineData("baseStageEntryGroupId")>]
@@ -422,11 +432,14 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
         let before = allSourceIds () |> orFail
         let attempt = createSourceThroughRoute payload
         let after = allSourceIds () |> orFail
-        match attempt with
-        | Ok made -> cleanUpSource made.ingestionSourceId
-        | Error _ -> ()
-        Assert.True(attempt |> Result.isError)
         Assert.Equal<Set<Guid>>(before, after)
+        match kind, attempt with
+        | "null", Error (AsError (JsonDeserializationFailed _)) -> ()
+        | ("empty" | "whitespace only"), Error (AsError (LedgerError.JournalRefFinancialInstitutionIsEmpty _)) -> ()
+        | _, Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+        | _, Ok made ->
+            cleanUpSource made.ingestionSourceId
+            Assert.Fail "Expected failure; got success"
 
     [<Fact>]
     member _.``REQ-STG-2.26 an ingestion source name of 100 characters is stored, and one of 101 is rejected with a typed error and not stored`` () =
@@ -441,11 +454,19 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                 let! readBack = name |> IngestionSource.fetchByName (fresh ())
                 Assert.Equal(stored.ingestionSourceId, readBack |> IngestionSource.ingestionSourceId |> IngestionSourceId.value)
                 let! before = allSourceIds ()
-                let attempt = namePayload (nameOfLength 101) |> createSourceThroughRoute
+                let tooLongName = nameOfLength 101
+                let attempt = namePayload tooLongName |> createSourceThroughRoute
                 attempt |> Result.iter (fun tooLong -> made.Add tooLong.ingestionSourceId)
                 let! after = allSourceIds ()
-                Assert.True(attempt |> Result.isError)
                 Assert.Equal<Set<Guid>>(before, after)
+                return!
+                    match attempt with
+                    | Error (AsError (LedgerError.JournalRefFinancialInstitutionTooLong (named, limit))) ->
+                        Assert.Equal<string>(tooLongName, named)
+                        Assert.Equal(100, limit)
+                        Ok ()
+                    | Error e -> TestError.error (TestError.TestingError $"Wrong error. {e.ToMessage()}")
+                    | Ok _ -> TestError.error (TestError.TestingError "Expected failure; got success")
             }
             |> railroadWrapper
         finally
@@ -551,9 +572,16 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                 | "missing processed directory" -> { fileName = fileName; importDir = importDir; processedDir = absent }
                 | _ -> { fileName = $"absent-{tag}.jsonl"; importDir = importDir; processedDir = processedDir }
             let attempt = ingestInput input
-            Assert.True(attempt |> Result.isError)
             Assert.Empty(stagedFrom path |> orFail)
-            Assert.Empty(stagedFrom (Path.Combine(input.importDir, input.fileName)) |> orFail))
+            Assert.Empty(stagedFrom (Path.Combine(input.importDir, input.fileName)) |> orFail)
+            (* A missing import directory surfaces as the file being absent from it. *)
+            match case, attempt with
+            | "missing processed directory", Error (AsError (FileIoDirectoryDoesntExist named)) ->
+                Assert.Equal<string>(absent, named)
+            | ("missing import directory" | "file absent"), Error (AsError (FileIoFileDoesntExist named)) ->
+                Assert.Equal<string>(Path.Combine(input.importDir, input.fileName), named)
+            | _, Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+            | _, Ok _ -> Assert.Fail "Expected failure; got success")
 
     [<Fact>]
     member _.``REQ-STG-3.13 ingestion returns every staged entry it created and no other, each with its header, all of its lines and its status transitions`` () =
@@ -792,9 +820,16 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                 s.advance ()
                 let! target = status |> StagedEntryStatus.fromString
                 let attempt = s.update { (entry |> headerIdOf |> noHeaderUpdates) with statusUpdate = SetTo target } []
-                Assert.True(attempt |> Result.isError)
                 let! after = refetch s.Context entry
                 Assert.Equal(Some StagedEntryStatus.Classified, after |> statusOf)
+                return!
+                    match attempt with
+                    | Error (AsError (ClassificationError.ClassificationPaidStageEntryCannotBeExcluded (named, namedStatus))) ->
+                        Assert.Equal(entry |> headerIdOf |> StageEntryHeaderId.value, named)
+                        Assert.Equal<string>(status, namedStatus)
+                        Ok ()
+                    | Error e -> TestError.error (TestError.TestingError $"Wrong error. {e.ToMessage()}")
+                    | Ok _ -> TestError.error (TestError.TestingError "Expected failure; got success")
             })
 
     [<Fact>]
@@ -815,7 +850,7 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                 // a repeat without a Payment is flagged, so the pass did find these repeats
                 Assert.Equal(Some StagedEntryStatus.Duplicate, unpaidAfter |> statusOf)
                 Assert.Equal(Some StagedEntryStatus.Ingested, paidAfter |> statusOf)
-                Assert.Contains(paid |> headerIdOf, remaining.ingested |> List.map headerIdOf)
+                Assert.Contains(paid |> headerIdOf, remaining.declinedForPayment |> List.map headerIdOf)
             })
 
     // =========================================================================
@@ -1000,12 +1035,66 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                 Assert.All(recorded, fun id -> Assert.Contains(id, journalLineIds))
             })
 
-    // Placeholders named from the spec before the implementation was read (audit 2026-10-03a, brief Part A).
+    // =========================================================================
+    // REQ-STG-7.5.1 — the repeats deduplication declined because of a Payment
+    // =========================================================================
 
     [<Fact>]
     member _.``REQ-STG-7.5.1 REQ-STG-6.7 for each of Ingested, Classified, NoMatch and Conflict, a paid repeat that deduplication declines to flag is in the result's declined list and keeps its status`` () =
-        Assert.Fail "Not yet implemented"
+        rolledBack fixture IngestDeduplicateStageEntries (fun s ->
+            result {
+                let tag = newTag ()
+                let cases = [ "Ingested", []; "Classified", [ "Classified" ]; "NoMatch", [ "NoMatch" ]; "Conflict", [ "Conflict" ] ]
+                (* Each case's original, ingested first, then its paid repeat in the case's status. *)
+                let! originals = cases |> List.map (fun (status, _) -> s.cardEntry $"{status}-{tag}" true []) |> convertListOfResultsToResultsList
+                s.advance ()
+                let! repeats =
+                    cases
+                    |> List.map (fun (status, path) -> s.cardEntry $"{status}-{tag}" true path |> Result.map (fun entry -> status, entry))
+                    |> convertListOfResultsToResultsList
+                do! repeats |> List.map (fun (_, entry) -> entry |> lineOfType Debit |> StageEntryLine.stageEntryLineId) |> s.payOnAll
+                s.advance ()
+                let! result = deduplicateStagedEntries s.Context
+                let declined = result.declinedForPayment |> List.map headerIdOf |> Set.ofList
+                Assert.All(repeats, fun (_, repeat) -> Assert.Contains(repeat |> headerIdOf, declined))
+                let! statuses =
+                    repeats
+                    |> List.map (fun (status, repeat) ->
+                        refetch s.Context repeat
+                        |> Result.map (fun after -> status, after |> statusOf |> Option.map StagedEntryStatus.toString))
+                    |> convertListOfResultsToResultsList
+                Assert.All(statuses, fun (status, current) -> Assert.Equal(Some status, current))
+                (* The originals are not repeats, so they are not declined. *)
+                Assert.All(originals, fun original -> Assert.DoesNotContain(original |> headerIdOf, declined))
+            })
 
     [<Fact>]
     member _.``REQ-STG-7.5.1 deduplication's declined list holds no repeat without a Payment, which is flagged Duplicate instead, no paid Reviewed repeat, which dedup never flags, and no entry that is not a repeat`` () =
-        Assert.Fail "Not yet implemented"
+        rolledBack fixture IngestDeduplicateStageEntries (fun s ->
+            result {
+                let tag = newTag ()
+                let! _ = s.cardEntry $"Unpaid-{tag}" true []
+                let! _ = s.cardEntry $"Reviewed-{tag}" true []
+                let! _ = s.cardEntry $"Declined-{tag}" true []
+                s.advance ()
+                let! unpaidRepeat = s.cardEntry $"Unpaid-{tag}" true [ "Classified" ]
+                let! reviewedRepeat = s.cardEntry $"Reviewed-{tag}" true [ "Classified"; "Reviewed" ]
+                let! declinedRepeat = s.cardEntry $"Declined-{tag}" true [ "Classified" ]
+                let! notARepeat = s.cardEntry $"Single-{tag}" true [ "Classified" ]
+                do!
+                    [ reviewedRepeat; declinedRepeat; notARepeat ]
+                    |> List.map (fun entry -> entry |> lineOfType Debit |> StageEntryLine.stageEntryLineId)
+                    |> s.payOnAll
+                s.advance ()
+                let! result = deduplicateStagedEntries s.Context
+                let declined = result.declinedForPayment |> List.map headerIdOf |> Set.ofList
+                (* The pass did decline a paid repeat, so the list is live. *)
+                Assert.Contains(declinedRepeat |> headerIdOf, declined)
+                Assert.DoesNotContain(unpaidRepeat |> headerIdOf, declined)
+                Assert.DoesNotContain(reviewedRepeat |> headerIdOf, declined)
+                Assert.DoesNotContain(notARepeat |> headerIdOf, declined)
+                let! unpaidAfter = refetch s.Context unpaidRepeat
+                let! reviewedAfter = refetch s.Context reviewedRepeat
+                Assert.Equal(Some StagedEntryStatus.Duplicate, unpaidAfter |> statusOf)
+                Assert.Equal(Some StagedEntryStatus.Reviewed, reviewedAfter |> statusOf)
+            })
