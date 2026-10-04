@@ -525,7 +525,7 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
                 let invoiceId = made.invoiceIds[0]
                 let! line, _ = w.jeLine "F-2230" "Debit" 100.00M
                 let! stored = createPayment invoiceId line { paymentFor line with memo = Some "  a memo  " }
-                Assert.Contains("a memo", stored |> Payment.memo |> Option.map PaymentMemo.value |> Option.defaultValue "")
+                Assert.Equal(Some "a memo", stored |> Payment.memo |> Option.map PaymentMemo.value)
             })
 
     (* A Payment Agreement's accounts are an expectation, not a constraint: a Payment may point at a line on any
