@@ -9,14 +9,20 @@ open Business.FinancialServices
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.CashFlow.CashFlowAuditableAction
+open Business.FinancialServices.Ledger
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.CrossDomainOrchestration
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
 open Ui.InterfaceBridge.CommandRoute
 open Tests.Helpers
+open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
 open Xunit
 
 (* Creates an Outgo, monthly-on-the-1st agreement with one leg, then reads it back by ID. The
-   leg is only there because an agreement cannot exist without one. *)
+   leg is only there because an agreement cannot exist without one. Returns the agreement read back, and the
+   Master Agreement and Payment Agreement records built from the inputs, with the IDs the creation assigned and both
+   timestamps the instant the context was initiated, for whole-record comparison. *)
 let private createAndReadBack
     (context: App.Session.Context.Context)
     (fixture: TestDataFixture)
@@ -48,7 +54,16 @@ let private createAndReadBack
                 activityPeriod agreementMemo [ leg ]
         let agreementId = created |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
         let! readBack = agreementId |> AgreementOrchestration.fetchByMasterAgreementId context
-        return readBack |> AgreementOrchestration.masterAgreement
+        let now = context |> App.Session.Context.getInitiationInstant
+        let! cadence = Cadence.create cadenceType { nextInstance = nextInstance }
+        let expectedMaster =
+            MasterAgreement.create agreementId agreementName Outgo cadence counterparty activityPeriod agreementMemo now now
+        let legId = created |> AgreementOrchestration.paymentAgreements |> List.exactlyOne |> PaymentAgreement.paymentAgreementId
+        let expectedLeg =
+            PaymentAgreement.create
+                legId agreementId legName (DebitAccount.create fixture.Data.mortgage2210Id)
+                (CreditAccount.create fixture.Data.moneyMarket1270Id) None None None now now
+        return readBack, expectedMaster, expectedLeg
     }
 
 let private firstOfNextMonth () =
@@ -68,12 +83,15 @@ type AgreementCreationTests(fixture: TestDataFixture) =
         let nextInstance = firstOfNextMonth ()
         runCommandRouteAndAutoRollback CashFlowCreateAgreement (fun context ->
             result {
-                let! readBack =
+                let! agreement, expectedMaster, expectedLeg =
                     createAndReadBack context fixture "CF-2.21 open-ended" startDate None None nextInstance
+                let readBack = agreement |> AgreementOrchestration.masterAgreement
                 Assert.Equal(startDate, readBack |> MasterAgreement.activityPeriod |> ActivityPeriod.activeBegin)
                 Assert.Equal(nextInstance, (readBack |> MasterAgreement.cadence |> Cadence.nextInstance).nextInstance)
                 Assert.Equal(None, readBack |> MasterAgreement.activityPeriod |> ActivityPeriod.activeEnd)
                 Assert.Equal(None, readBack |> MasterAgreement.memo |> Option.map AgreementMemo.value)
+                Assert.Equal(expectedMaster, readBack)
+                Assert.Equal<PaymentAgreement.PaymentAgreement list>([ expectedLeg ], agreement |> AgreementOrchestration.paymentAgreements)
             })
         |> railroadWrapper
 
@@ -85,12 +103,62 @@ type AgreementCreationTests(fixture: TestDataFixture) =
         let memo = "Fixture agreement memo"
         runCommandRouteAndAutoRollback CashFlowCreateAgreement (fun context ->
             result {
-                let! readBack =
+                let! agreement, expectedMaster, expectedLeg =
                     createAndReadBack context fixture "CF-2.22 bounded" startDate (Some endDate) (Some memo) nextInstance
+                let readBack = agreement |> AgreementOrchestration.masterAgreement
                 Assert.Equal(startDate, readBack |> MasterAgreement.activityPeriod |> ActivityPeriod.activeBegin)
                 Assert.Equal(nextInstance, (readBack |> MasterAgreement.cadence |> Cadence.nextInstance).nextInstance)
                 Assert.Equal(Some endDate, readBack |> MasterAgreement.activityPeriod |> ActivityPeriod.activeEnd)
                 Assert.Equal(Some memo, readBack |> MasterAgreement.memo |> Option.map AgreementMemo.value)
+                Assert.Equal(expectedMaster, readBack)
+                Assert.Equal<PaymentAgreement.PaymentAgreement list>([ expectedLeg ], agreement |> AgreementOrchestration.paymentAgreements)
+            })
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-SYS-5.1 an Instance and its Invoice each read back by ID equal to the records created, and the Invoice's Payment reads back with every value it was created with and its journal entry's date as its posted-to-ledger date, each with created and modified timestamps the instant they were created`` () =
+        let nextInstance = firstOfNextMonth ()
+        runCommandRouteAndAutoRollback CashFlowCreateAgreement (fun context ->
+            result {
+                let! agreement, _, leg =
+                    createAndReadBack context fixture "SYS-5.1 instance" (Calendar.today().PlusMonths(-2)) None None nextInstance
+                let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
+                let! entry, _ =
+                    createTestJournalEntryFromPrimitives
+                        context "SYS-5.1 instance payment" None (Calendar.today())
+                        [ (fixture.Data.mortgage2210Id, 100.00M, "Debit", None)
+                          (fixture.Data.moneyMarket1270Id, 100.00M, "Credit", None) ] [] []
+                let line =
+                    entry
+                    |> JournalEntryOrchestration.jeLines
+                    |> List.find (fun l -> l |> JournalEntryLine.accountId = fixture.Data.mortgage2210Id)
+                    |> JournalEntryLine.journalEntryLineId
+                let! amount = Money.fromDecimal 100.00M
+                let! memo = "SYS-5.1 payment memo" |> PaymentMemo.create
+                let! created =
+                    InstanceOrchestration.constructNewAndPersist context agreementId nextInstance
+                        [ (leg |> PaymentAgreement.paymentAgreementId, None, InvoiceDate.create nextInstance,
+                           DueDate.create (nextInstance.PlusDays(30)), InvoiceAmount.create amount, InvoiceReceived, None, None,
+                           [ (Posted(line, None), None, None, Some memo) ]) ]
+                let instance = created |> InstanceOrchestration.instance
+                let invoiceComposite = created |> InstanceOrchestration.invoiceComposites |> List.exactlyOne
+                let invoice = invoiceComposite |> InstanceOrchestration.invoice
+                let payment = invoiceComposite |> InstanceOrchestration.payments |> List.exactlyOne
+                let! instanceBack = instance |> Instance.instanceId |> Instance.fetchById context
+                let! invoiceBack = invoice |> Invoice.invoiceId |> Invoice.fetchById context
+                let! paymentBack = payment |> Payment.paymentId |> Payment.fetchById context
+                let now = context |> App.Session.Context.getInitiationInstant
+                Assert.Equal(instance, instanceBack)
+                Assert.Equal(invoice, invoiceBack)
+                (* The posted-to-ledger date is not stored: it is read from the journal entry the pointer names. *)
+                let expectedPayment =
+                    Payment.create
+                        (payment |> Payment.paymentId) (invoice |> Invoice.invoiceId) (Posted(line, None))
+                        (PaymentAmount.create amount) None (Some(PostedToLedgerDate.create (Calendar.today()))) (Some memo) now now
+                Assert.Equal(expectedPayment, paymentBack)
+                Assert.Equal((now, now), (instanceBack |> Instance.createdAt, instanceBack |> Instance.modifiedAt))
+                Assert.Equal((now, now), (invoiceBack |> Invoice.createdAt, invoiceBack |> Invoice.modifiedAt))
+                Assert.Equal((now, now), (paymentBack |> Payment.createdAt, paymentBack |> Payment.modifiedAt))
             })
         |> railroadWrapper
 
