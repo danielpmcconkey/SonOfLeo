@@ -25,7 +25,7 @@ let ``REQ-JE-1.42 JournalRefFinancialInstitution.create rejects empty string`` (
 
 [<Fact>]
 let ``REQ-JE-1.42 JournalRefFinancialInstitution.create rejects whitespace-only string`` () =
-    isCorrectError (JournalRefFinancialInstitution.create "") JournalRefFinancialInstitutionIsEmpty None
+    isCorrectError (JournalRefFinancialInstitution.create "     ") JournalRefFinancialInstitutionIsEmpty None
     |> railroadWrapper
 
 [<Fact>]
@@ -35,12 +35,14 @@ let ``REQ-JE-1.49 JournalRefFinancialInstitution.create rejects string exceeding
 
 [<Fact>]
 let ``REQ-JE-1.49 JournalRefFinancialInstitution.create accepts string at exactly 100 characters`` () =
-    let result = JournalRefFinancialInstitution.create(String('A', 100))
-    Assert.True(Result.isOk result)
+    let input = String('A', 100)
+    match JournalRefFinancialInstitution.create input with
+    | Ok constructed -> Assert.Equal(input, JournalRefFinancialInstitution.value constructed)
+    | Error e -> Assert.Fail(e.ToMessage())
 
 [<Fact>]
 let ``REQ-SYS-1.1 JournalRefFinancialInstitution.create trims whitespace`` () =
-    let trimmed = "Chase"
+    let trimmed = "Example Credit Union"
     let result = JournalRefFinancialInstitution.create $"  {trimmed}   "
     match result with
     | Error e -> Assert.Fail(e.ToMessage())
@@ -48,8 +50,10 @@ let ``REQ-SYS-1.1 JournalRefFinancialInstitution.create trims whitespace`` () =
 
 [<Fact>]
 let ``REQ-JE-1.42 JournalRefFinancialInstitution.create accepts valid string`` () =
-    let result = JournalRefFinancialInstitution.create "Wells Fargo"
-    Assert.True(Result.isOk result)
+    let input = "Example Savings Bank"
+    match JournalRefFinancialInstitution.create input with
+    | Ok constructed -> Assert.Equal(input, JournalRefFinancialInstitution.value constructed)
+    | Error e -> Assert.Fail(e.ToMessage())
 
 // =============================================================================
 // JournalExternalReferenceText
@@ -62,7 +66,7 @@ let ``REQ-JE-1.44 JournalExternalReferenceText.create rejects empty string`` () 
 
 [<Fact>]
 let ``REQ-JE-1.44 JournalExternalReferenceText.create rejects whitespace-only string`` () =
-    isCorrectError (JournalExternalReferenceText.create "") JournalEntryReferenceTextIsEmpty None
+    isCorrectError (JournalExternalReferenceText.create "     ") JournalEntryReferenceTextIsEmpty None
     |> railroadWrapper
 
 [<Fact>]
@@ -72,8 +76,10 @@ let ``REQ-JE-1.45 JournalExternalReferenceText.create rejects string exceeding 1
 
 [<Fact>]
 let ``REQ-JE-1.45 JournalExternalReferenceText.create accepts string at exactly 100 characters`` () =
-    let result = JournalExternalReferenceText.create(String('A', 100))
-    Assert.True(Result.isOk result)
+    let input = String('A', 100)
+    match JournalExternalReferenceText.create input with
+    | Ok constructed -> Assert.Equal(input, JournalExternalReferenceText.value constructed)
+    | Error e -> Assert.Fail(e.ToMessage())
 
 [<Fact>]
 let ``REQ-SYS-1.1 JournalExternalReferenceText.create trims whitespace`` () =
@@ -85,5 +91,7 @@ let ``REQ-SYS-1.1 JournalExternalReferenceText.create trims whitespace`` () =
 
 [<Fact>]
 let ``REQ-JE-1.44 JournalExternalReferenceText.create accepts valid string`` () =
-    let result = JournalExternalReferenceText.create "REF-12345"
-    Assert.True(Result.isOk result)
+    let input = "REF-12345"
+    match JournalExternalReferenceText.create input with
+    | Ok constructed -> Assert.Equal(input, JournalExternalReferenceText.value constructed)
+    | Error e -> Assert.Fail(e.ToMessage())

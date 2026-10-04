@@ -19,6 +19,39 @@ open Business.FinancialServices.BizFinServError
 // fromDecimal
 // =============================================================================
 
+let private dec (text: string) = Decimal.Parse(text, Globalization.CultureInfo.InvariantCulture)
+
+let private decs (text: string) = text.Split('|') |> Array.map dec |> List.ofArray
+
+/// Splits the amount n ways and returns the share amounts, failing the test on an error.
+let private shareAmounts (amountText: string) (n: int) =
+    fromDecimal (dec amountText)
+    |> Result.bind (fun source -> splitByN source n)
+    |> Result.map (List.map amount)
+    |> Result.defaultWith (fun (e: IAppError) -> failwith (e.ToMessage()))
+
+[<Theory>]
+[<InlineData("9999999999.99")>]
+[<InlineData("-9999999999.99")>]
+let ``REQ-MON-1.2 REQ-MON-1.3 fromDecimal accepts the literal limits 9,999,999,999.99 and -9,999,999,999.99`` (limit: string) =
+    match fromDecimal (dec limit) with
+    | Ok m -> Assert.Equal(dec limit, amount m)
+    | Error e -> Assert.Fail(e.ToMessage())
+
+[<Fact>]
+let ``REQ-MON-1.2 fromDecimal rejects 10,000,000,000.00 as exceeding the maximum`` () =
+    match fromDecimal 10000000000.00M with
+    | Error (AsError (MoneyFailedToConvertExceededMax _)) -> ()
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+    | Ok _ -> Assert.Fail "Expected failure; got success"
+
+[<Fact>]
+let ``REQ-MON-1.3 fromDecimal rejects -10,000,000,000.00 as below the minimum`` () =
+    match fromDecimal -10000000000.00M with
+    | Error (AsError (MoneyFailedToConvertBelowMin _)) -> ()
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+    | Ok _ -> Assert.Fail "Expected failure; got success"
+
 [<Fact>]
 let ``REQ-MON-2.2 fromDecimal accepts valid 2dp amount`` () =
     let amount_d = 3.99M
@@ -105,42 +138,33 @@ let ``REQ-MON-2.3.1 fromDecimal list must check min value`` () =
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
-let ``REQ-MON-2.3.2 fromDecimal list preserves sort order`` () =
-    let list_d = [ -3.99M; 12.24M; 27194338M ]
-    let result = fromDecimalList list_d
-    match result with
+let ``REQ-MON-2.3.2 fromDecimalList returns unsorted input, duplicates included, in its original positions`` () =
+    let list_d = [ 12.24M; -3.99M; 27194338M; -3.99M; 0.01M ]
+    match fromDecimalList list_d with
     | Error e -> Assert.Fail(e.ToMessage())
-    | Ok list_m -> List.zip list_d list_m |> List.iter(fun (d, m) -> Assert.Equal(d, amount m))
-
+    | Ok list_m -> Assert.Equal<decimal list>(list_d, list_m |> List.map amount)
 
 // =============================================================================
 // splitByN
 // =============================================================================
 
 [<Fact>]
-let ``REQ-MON-2.4 splitByN returns exactly n shares that sum back to the amount it was given`` () =
-    (* Ok [] and Ok [ source ] — no split at all — both satisfied the old Assert.True. *)
-    let expected = 111.17M
-    result {
-        let! source = fromDecimal expected
-        let! shares = splitByN source 3
-        Assert.Equal(3, shares |> List.length)
-        Assert.Equal(expected, shares |> List.sumBy amount)
-        return ()
-    }
-    |> railroadWrapper
+let ``REQ-MON-2.4 splitByN splits 111.17 three ways into 37.05, 37.06 and 37.06`` () =
+    Assert.Equal<decimal list>([ 37.05M; 37.06M; 37.06M ], shareAmounts "111.17" 3)
 
-[<Fact>]
-let ``REQ-MON-2.4.1 splitByN produces parts that sum exactly to original`` () =
-    let expected = 111.17M
-    result {
-        let! source = fromDecimal expected
-        let! shares = splitByN source 3
-        let! sumTotal = shares |> sumList
-        Assert.Equal(expected, amount sumTotal)
-        return ()
-    }
-    |> railroadWrapper
+[<Theory>]
+[<InlineData("111.17", 3)>] // rounded share above the quotient: remainder subtracted
+[<InlineData("100.00", 3)>] // rounded share below the quotient: remainder added
+[<InlineData("-100.00", 3)>]
+[<InlineData("-1.05", 2)>]
+[<InlineData("0.01", 3)>]
+[<InlineData("419.97", 30)>]
+[<InlineData("9999999999.99", 2)>]
+[<InlineData("-9999999999.99", 2)>]
+let ``REQ-MON-2.4.1 splitByN returns n shares that sum exactly to the original amount`` (amountText: string, n: int) =
+    let shares = shareAmounts amountText n
+    Assert.Equal(n, shares |> List.length)
+    Assert.Equal(dec amountText, shares |> List.sum)
 
 [<Fact>]
 let ``REQ-MON-2.4.2 splitByN rejects zero-ways split requests`` () =
@@ -184,39 +208,21 @@ let ``REQ-MON-2.4.6 splitByN rejects negative-ways split requests`` () =
     }
     |> railroadWrapper
 
-[<Fact>]
-let ``REQ-MON-2.4.4 splitByN rounds using midway rounding up`` () =
-    let n = 1.05M
-    let m = 2
-    let expected = 0.53M // banker's would round at 0.52
-    result {
-        let! source = fromDecimal n
-        let! shares = splitByN source m
-        let secondShare = amount shares[1] // get the second, because the first would carry the uneven remainder
-        Assert.Equal(expected, secondShare)
-        return ()
-    }
-    |> railroadWrapper
+[<Theory>]
+[<InlineData("1.05", 2, "0.52|0.53")>] // banker's rounding would give 0.52 for the second share
+[<InlineData("-1.05", 2, "-0.52|-0.53")>] // rounding toward positive infinity would give -0.52
+let ``REQ-MON-2.4.4 splitByN rounds a midway share away from zero`` (amountText: string, n: int, expectedText: string) =
+    Assert.Equal<decimal list>(decs expectedText, shareAmounts amountText n)
 
 [<Fact>]
-let ``REQ-MON-2.4.5 splitByN applies uneven remainder entirely to the first share`` () =
-    let n = 419.97M
-    let m = 30
-    let sharesBeforeRounding = n / decimal m //13.999M
-    let rounded = Math.Round(sharesBeforeRounding, 2, MidpointRounding.AwayFromZero) // 14M
-    let roundedAtM = rounded * decimal m // 420M
-    let expectedRemainder = roundedAtM - n // 0.03M
-    let expectedFirst = rounded - expectedRemainder // 13.97M
-    result {
-        let! source = fromDecimal n
-        let! shares = splitByN source m
-        let firstShare = amount shares[0]
-        let secondShare = amount shares[1] // check the second to see if the non-remainder-adjusted amounts are right while we're here
-        Assert.Equal(expectedFirst, firstShare)
-        Assert.Equal(rounded, secondShare)
-        return ()
-    }
-    |> railroadWrapper
+let ``REQ-MON-2.4.5 splitByN subtracts the whole remainder from the first share when the rounded share is above the quotient`` () =
+    // 419.97 / 30 = 13.999, rounded to 14.00; thirty of those overshoot by 0.03, taken from the first share
+    Assert.Equal<decimal list>(13.97M :: List.replicate 29 14.00M, shareAmounts "419.97" 30)
+
+[<Fact>]
+let ``REQ-MON-2.4.5 splitByN adds the whole remainder to the first share when the rounded share is below the quotient`` () =
+    // 100.00 / 3 = 33.333.., rounded to 33.33; three of those fall short by 0.01, added to the first share
+    Assert.Equal<decimal list>([ 33.34M; 33.33M; 33.33M ], shareAmounts "100.00" 3)
 
 // =============================================================================
 // add / subtract

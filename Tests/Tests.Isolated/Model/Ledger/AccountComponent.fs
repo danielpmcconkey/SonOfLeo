@@ -82,30 +82,29 @@ let ``REQ-SYS-1.1 AccountName trims leading and trailing whitespace`` () =
 // AccountType
 // =============================================================================
 
-[<Fact>]
-let ``REQ-AC-2.4 REQ-AC-1.10 AccountType fromString accepts Asset`` () =
-    Assert.True(Result.isOk(AccountType.fromString "Asset"))
+let accountTypeNames: obj[] list =
+    [ [| "Asset"; AccountType.Asset |]
+      [| "Liability"; AccountType.Liability |]
+      [| "Equity"; AccountType.Equity |]
+      [| "Revenue"; AccountType.Revenue |]
+      [| "Expense"; AccountType.Expense |] ]
 
-[<Fact>]
-let ``REQ-AC-2.4 REQ-AC-1.10 AccountType fromString accepts Liability`` () =
-    Assert.True(Result.isOk(AccountType.fromString "Liability"))
+[<Theory>]
+[<MemberData(nameof accountTypeNames)>]
+let ``REQ-AC-2.4 REQ-AC-1.10 AccountType fromString maps each enumerated type name to its own type`` (name: string, expected: AccountType) =
+    match AccountType.fromString name with
+    | Ok actual -> Assert.Equal(expected, actual)
+    | Error e -> Assert.Fail $"Expected {name} to be accepted; got {e.ToMessage()}"
 
-[<Fact>]
-let ``REQ-AC-2.4 REQ-AC-1.10 AccountType fromString accepts Equity`` () =
-    Assert.True(Result.isOk(AccountType.fromString "Equity"))
-
-[<Fact>]
-let ``REQ-AC-2.4 REQ-AC-1.10 AccountType fromString accepts Revenue`` () =
-    Assert.True(Result.isOk(AccountType.fromString "Revenue"))
-
-[<Fact>]
-let ``REQ-AC-2.4 REQ-AC-1.10 AccountType fromString accepts Expense`` () =
-    Assert.True(Result.isOk(AccountType.fromString "Expense"))
-
-[<Fact>]
-let ``REQ-AC-2.4 AccountType fromString rejects invalid type name`` () =
-    isCorrectError (AccountType.fromString "Valley Girl") AccountTypeInvalid None
-    |> railroadWrapper
+[<Theory>]
+[<InlineData("Valley Girl")>]
+[<InlineData("asset")>]
+[<InlineData("EXPENSE")>]
+let ``REQ-AC-2.4 AccountType fromString rejects a name that is not exactly an enumerated type name, including a case variant, with AccountTypeInvalid carrying it`` (name: string) =
+    match AccountType.fromString name with
+    | Error (AsError (AccountTypeInvalid rejected)) -> Assert.Equal(name, rejected)
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+    | Ok t -> Assert.Fail $"Expected failure; got {t}"
 
 [<Fact>]
 let ``REQ-SYS-1.1 AccountType fromString trims input before matching`` () =
@@ -117,46 +116,32 @@ let ``REQ-SYS-1.1 AccountType fromString trims input before matching`` () =
 // AccountSubtype
 // =============================================================================
 
-[<Fact>]
-let ``REQ-AC-1.18 AccountSubtype fromString accepts Cash`` () =
-    Assert.True(Result.isOk(AccountSubtype.fromString "Cash"))
+let accountSubtypeNames: obj[] list =
+    [ [| "Cash"; AccountSubtype.Cash |]
+      [| "CurrentLiability"; AccountSubtype.CurrentLiability |]
+      [| "FixedAsset"; AccountSubtype.FixedAsset |]
+      [| "Investment"; AccountSubtype.Investment |]
+      [| "LongTermLiability"; AccountSubtype.LongTermLiability |]
+      [| "OperatingExpense"; AccountSubtype.OperatingExpense |]
+      [| "OperatingRevenue"; AccountSubtype.OperatingRevenue |]
+      [| "OtherRevenue"; AccountSubtype.OtherRevenue |]
+      [| "OtherExpense"; AccountSubtype.OtherExpense |] ]
 
-[<Fact>]
-let ``REQ-AC-1.18 AccountSubtype fromString accepts CurrentLiability`` () =
-    Assert.True(Result.isOk(AccountSubtype.fromString "CurrentLiability"))
+[<Theory>]
+[<MemberData(nameof accountSubtypeNames)>]
+let ``REQ-AC-1.18 AccountSubtype fromString maps each enumerated subtype name to its own subtype`` (name: string, expected: AccountSubtype) =
+    match AccountSubtype.fromString name with
+    | Ok actual -> Assert.Equal(expected, actual)
+    | Error e -> Assert.Fail $"Expected {name} to be accepted; got {e.ToMessage()}"
 
-[<Fact>]
-let ``REQ-AC-1.18 AccountSubtype fromString accepts FixedAsset`` () =
-    Assert.True(Result.isOk(AccountSubtype.fromString "FixedAsset"))
-
-[<Fact>]
-let ``REQ-AC-1.18 AccountSubtype fromString accepts Investment`` () =
-    Assert.True(Result.isOk(AccountSubtype.fromString "Investment"))
-
-[<Fact>]
-let ``REQ-AC-1.18 AccountSubtype fromString accepts LongTermLiability`` () =
-    Assert.True(Result.isOk(AccountSubtype.fromString "LongTermLiability"))
-
-[<Fact>]
-let ``REQ-AC-1.18 AccountSubtype fromString accepts OperatingExpense`` () =
-    Assert.True(Result.isOk(AccountSubtype.fromString "OperatingExpense"))
-
-[<Fact>]
-let ``REQ-AC-1.18 AccountSubtype fromString accepts OperatingRevenue`` () =
-    Assert.True(Result.isOk(AccountSubtype.fromString "OperatingRevenue"))
-
-[<Fact>]
-let ``REQ-AC-1.18 AccountSubtype fromString accepts OtherRevenue`` () =
-    Assert.True(Result.isOk(AccountSubtype.fromString "OtherRevenue"))
-
-[<Fact>]
-let ``REQ-AC-1.18 AccountSubtype fromString accepts OtherExpense`` () =
-    Assert.True(Result.isOk(AccountSubtype.fromString "OtherExpense"))
-
-[<Fact>]
-let ``REQ-AC-1.18 AccountSubtype fromString rejects invalid subtype name`` () =
-    isCorrectError (AccountSubtype.fromString "Ladies' lingerie") AccountSubtypeInvalid None
-    |> railroadWrapper
+[<Theory>]
+[<InlineData("Ladies' lingerie")>]
+[<InlineData("cash")>]
+let ``REQ-AC-1.18 AccountSubtype fromString rejects a name that is not exactly an enumerated subtype name, including a case variant, with AccountSubtypeInvalid carrying it`` (name: string) =
+    match AccountSubtype.fromString name with
+    | Error (AsError (AccountSubtypeInvalid rejected)) -> Assert.Equal(name, rejected)
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+    | Ok t -> Assert.Fail $"Expected failure; got {t}"
 
 [<Fact>]
 let ``REQ-SYS-1.1 AccountSubtype fromString trims input before matching`` () =

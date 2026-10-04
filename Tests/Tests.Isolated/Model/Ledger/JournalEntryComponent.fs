@@ -36,8 +36,10 @@ let ``REQ-JE-1.54 CommentText.create rejects string exceeding 2000 characters`` 
 
 [<Fact>]
 let ``REQ-JE-1.54 CommentText.create accepts string at exactly 2000 characters`` () =
-    let result = CommentText.create(String('A', 2000))
-    Assert.True(Result.isOk result)
+    let input = String('A', 2000)
+    match CommentText.create input with
+    | Ok constructed -> Assert.Equal(input, CommentText.value constructed)
+    | Error e -> Assert.Fail(e.ToMessage())
 
 [<Fact>]
 let ``REQ-SYS-1.1 CommentText.create trims whitespace`` () =
@@ -49,8 +51,10 @@ let ``REQ-SYS-1.1 CommentText.create trims whitespace`` () =
 
 [<Fact>]
 let ``REQ-JE-1.54 CommentText.create accepts valid string`` () =
-    let result = CommentText.create "Voided due to duplicate import"
-    Assert.True(Result.isOk result)
+    let input = "Voided due to duplicate import"
+    match CommentText.create input with
+    | Ok constructed -> Assert.Equal(input, CommentText.value constructed)
+    | Error e -> Assert.Fail(e.ToMessage())
 
 // =============================================================================
 // Description
@@ -73,8 +77,10 @@ let ``REQ-JE-1.5 Description.create rejects string exceeding 1000 characters`` (
 
 [<Fact>]
 let ``REQ-JE-1.5 Description.create accepts string at exactly 1000 characters`` () =
-    let result = JournalEntryDescription.create(String('A', 1000))
-    Assert.True(Result.isOk result)
+    let input = String('A', 1000)
+    match JournalEntryDescription.create input with
+    | Ok constructed -> Assert.Equal(input, JournalEntryDescription.value constructed)
+    | Error e -> Assert.Fail(e.ToMessage())
 
 [<Fact>]
 let ``REQ-SYS-1.1 Description.create trims leading and trailing whitespace`` () =
@@ -85,9 +91,11 @@ let ``REQ-SYS-1.1 Description.create trims leading and trailing whitespace`` () 
     | Ok d -> Assert.Equal(trimmed, JournalEntryDescription.value d)
 
 [<Fact>]
-let ``REQ-JE-1.3 Description.create accepts valid non-empty string`` () =
-    let result = JournalEntryDescription.create "Monthly rent payment"
-    Assert.True(Result.isOk result)
+let ``REQ-JE-1.4 Description.create accepts valid non-empty string`` () =
+    let input = "Monthly rent payment"
+    match JournalEntryDescription.create input with
+    | Ok constructed -> Assert.Equal(input, JournalEntryDescription.value constructed)
+    | Error e -> Assert.Fail(e.ToMessage())
 
 // =============================================================================
 // Source
@@ -110,8 +118,10 @@ let ``REQ-JE-1.8 Source.create rejects string exceeding 50 characters`` () =
 
 [<Fact>]
 let ``REQ-JE-1.8 Source.create accepts string at exactly 50 characters`` () =
-    let result = JournalEntrySource.create(String('A', 50))
-    Assert.True(Result.isOk result)
+    let input = String('A', 50)
+    match JournalEntrySource.create input with
+    | Ok constructed -> Assert.Equal(input, JournalEntrySource.value constructed)
+    | Error e -> Assert.Fail(e.ToMessage())
 
 [<Fact>]
 let ``REQ-SYS-1.1 Source.create trims leading and trailing whitespace`` () =
@@ -182,8 +192,10 @@ let ``REQ-JE-1.28 LineMemo.create rejects string exceeding 1000 characters`` () 
 
 [<Fact>]
 let ``REQ-JE-1.28 LineMemo.create accepts string at exactly 1000 characters`` () =
-    let result = JournalEntryLineMemo.create(String('A', 1000))
-    Assert.True(Result.isOk result)
+    let input = String('A', 1000)
+    match JournalEntryLineMemo.create input with
+    | Ok constructed -> Assert.Equal(input, JournalEntryLineMemo.value constructed)
+    | Error e -> Assert.Fail(e.ToMessage())
 
 [<Fact>]
 let ``REQ-SYS-1.1 LineMemo.create trims leading and trailing whitespace`` () =
