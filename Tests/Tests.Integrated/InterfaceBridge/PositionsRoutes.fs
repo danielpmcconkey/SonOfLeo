@@ -440,7 +440,7 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
             result {
                 let! payload = accountInput name |> without "activeBegin"
                 send "InvestmentAccount" "Create" payload
-                |> expectError missingField (fun message -> Assert.Contains("activeBegin", message))
+                |> expectError missingField (fun message -> Assert.Equal($"Missing field for record type {typeof<Ui.InterfaceBridge.InterfaceContracts.PositionsContracts.InvestmentAccountCreateInput>.FullName}: activeBegin", message))
                 let! stored = storedAccount name
                 Assert.Empty(stored)
             }
@@ -829,7 +829,7 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
             result {
                 let! payload = propertyInput name [] |> without "acquisitionDate"
                 send "Property" "Create" payload
-                |> expectError missingField (fun message -> Assert.Contains("acquisitionDate", message))
+                |> expectError missingField (fun message -> Assert.Equal($"Missing field for record type {typeof<Ui.InterfaceBridge.InterfaceContracts.PositionsContracts.PropertyCreateInput>.FullName}: acquisitionDate", message))
                 let! stored = storedProperty name
                 Assert.Empty(stored)
             }
@@ -844,7 +844,7 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
             result {
                 let! payload = propertyInput name [] |> without "purchaseBasis"
                 send "Property" "Create" payload
-                |> expectError missingField (fun message -> Assert.Contains("purchaseBasis", message))
+                |> expectError missingField (fun message -> Assert.Equal($"Missing field for record type {typeof<Ui.InterfaceBridge.InterfaceContracts.PositionsContracts.PropertyCreateInput>.FullName}: purchaseBasis", message))
                 let! stored = storedProperty name
                 Assert.Empty(stored)
             }
