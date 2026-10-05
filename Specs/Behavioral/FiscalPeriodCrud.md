@@ -10,8 +10,8 @@ Service-level behavioral specs for creating, reading, and updating fiscal period
 - **REQ-FP-1.1** Fiscal period key cannot be null
 - **REQ-FP-1.2** Fiscal period key must match the format `YYYY-MM` where YYYY is a four-digit year and MM is a two-digit month (01–12). 
 - **REQ-FP-1.3** No 2 (or more) fiscal period records may share the same period key. (Period key must be unique)
-- **REQ-FP-1.4** Fiscal period start date is derived from the key as the first day of the indicated month (e.g., key "2026-07" → start date 2026-07-01). It is not a caller-provided value.
-- **REQ-FP-1.5** Fiscal period end date is derived from the key as the last day of the indicated month (e.g., key "2026-07" → end date 2026-07-31; key "2026-02" → end date 2026-02-28 or 2026-02-29 in a leap year). It is not a caller-provided value.
+- **REQ-FP-1.4** Fiscal period start date is derived from the key as the first day of the indicated month (e.g., key "2026-07" → start date 2026-07-01). (Amended 2026-10-05)
+- **REQ-FP-1.5** Fiscal period end date is derived from the key as the last day of the indicated month (e.g., key "2026-07" → end date 2026-07-31; key "2026-02" → end date 2026-02-28 or 2026-02-29 in a leap year). (Amended 2026-10-05)
 - **REQ-FP-1.6** Fiscal period ID cannot be null
 - **REQ-FP-1.7** Fiscal period ID must be unique
 - **REQ-FP-1.8** Fiscal period "is open" flag must be a boolean value and cannot be null
@@ -21,7 +21,7 @@ Service-level behavioral specs for creating, reading, and updating fiscal period
 
 - **REQ-FP-2.1** When creating a fiscal period, the system must generate a unique UUID for the ID (new UUIDs may not be passed in).
 - **REQ-FP-2.2** When creating a fiscal period, the system must reject any duplicated period key.
-- **REQ-FP-2.3** When creating a fiscal period, the system must compute the start and end dates from the key. The caller provides only the key.
+- **REQ-FP-2.3** When creating a fiscal period, the system must compute the start and end dates from the key. (Amended 2026-10-05)
 - **REQ-FP-2.3.1** The system will not allow the creating actor to specify start and end dates
 - **REQ-FP-2.4** When creating a fiscal period, if all validations pass, the creation function must persist the fully validated record in the database and return a fiscal period record with the created ID, computed dates, and created/modified timestamps.
 - **REQ-FP-2.5** The system must provide a means to create a new fiscal period.
@@ -64,7 +64,7 @@ construction pattern) but deliberately not verified by tests.
 |---|---|---|
 | REQ-FP-1.1 | It's an impossible state to represent in this model | Dan, 2026-06-21 |
 | REQ-FP-1.6 | It's an impossible state to represent in this model | Dan, 2026-06-21 |
-| REQ-FP-1.7 | It's an impossible state to test, given the constructNew function always creates the UUID at runtime | Dan, 2026-06-21 |
+| REQ-FP-1.7 | Enforced by the primary-key constraint; only the system generates IDs (REQ-FP-2.1). (Reason corrected 2026-10-05) | Dan, 2026-06-21 |
 | REQ-FP-1.8 | It's an impossible state to represent in this model | Dan, 2026-06-21 |
 | REQ-FP-2.3.1 | You cannot test for the absence of something | Dan, 2026-06-21 |
 | REQ-FP-2.6.1 | You cannot test for the absence of something | Dan, 2026-06-21 |

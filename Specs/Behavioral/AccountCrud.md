@@ -1,6 +1,6 @@
 # Account CRUD
 
-Service-level behavioral specs for creating, updating, and deactivating chart-of-accounts entries. All scenarios exercise the service layer and verify the service rejects invalid inputs with meaningful error messages before any DB round-trip where possible. Cross-cutting policies (string trimming, data-state enforcement at every operation, audit timestamps, deletion) live in SystemWide.md and apply to everything below.
+Service-level behavioral specs for creating, updating, and deactivating chart-of-accounts entries. All scenarios exercise the service layer and verify the service rejects invalid inputs with meaningful error messages before any DB round-trip where possible. Cross-cutting policies live in SystemWide.md and apply to everything below.
 
 ## 1. Valid and invalid data states for the Account type and related types
 
@@ -52,7 +52,7 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-1.45** An account record's "active end" may be null
 - **REQ-AC-1.46** An account record's "active end" may not be earlier than its "active begin". Equality is permitted and represents an account active for exactly one day (the inclusive single-day window).
 - **REQ-AC-1.47** An Account record's parent ID can never reference one of its descendent accounts.
-- **REQ-AC-1.48** An Account record is considered not active relative to a reference Calendar Date when its "active end" is non-null and is earlier than that reference date (the active-end date itself is still active — the boundary is inclusive).
+- **REQ-AC-1.48** An Account record is "deactivated" relative to a reference Calendar Date when its "active end" is non-null and is earlier than that reference date (the active-end date itself is not deactivated — the boundary is inclusive). A deactivated Account is not active (REQ-AC-1.50). An Account whose "active begin" is later than the reference date is not active, but is not deactivated. (Amended 2026-10-05)
   - **REQ-AC-1.48.1** The reference point is a Calendar Date and is context-dependent: it may be the current date (the calendar date (REQ-SYS-7.1) of the operation's initiation instant (REQ-SYS-3.4)) or a date specific to the operation (e.g., a transaction's entry date). Each requirement that references activity status must specify which reference point applies.
 - **REQ-AC-1.49** Account external reference cannot be whitespace only (pre-trimmed) or empty
 - **REQ-AC-1.50** An Account record is considered "active" relative to a reference Calendar Date when its "active begin" is earlier than or equal to that reference date AND (its "active end" is null OR its "active end" is later than or equal to that reference date). Both boundaries are inclusive.
@@ -121,6 +121,7 @@ Service-level behavioral specs for creating, updating, and deactivating chart-of
 - **REQ-AC-4.2** When an Account deactivation is requested, the system must reject any request where the "active end" date would be earlier than the "active begin" date (equality permitted, per REQ-AC-1.46).
 - **REQ-AC-4.3** When an Account deactivation is requested, the system must reject any request where the Account to be deactivated has active children accounts (reference as-of the current date — the calendar date (REQ-SYS-7.1) of the operation's initiation instant (REQ-SYS-3.4)). (Amended 2026-10-03)
 - **REQ-AC-4.4** When an Account deactivation is requested, the system must reject any request where the Account has a non-zero balance at the time of the request.
+  - *Note:* There are no closing entries yet (deferred), so a Revenue or Expense Account keeps its lifetime balance; one that has ever been used cannot be deactivated until closing entries exist. (2026-10-05)
 - **REQ-AC-4.5** When an Account deactivation is requested, the system must reject any request where the Account already has a non-null "active end" date, including a future end scheduled at creation (REQ-AC-2.23). There is no means to move a scheduled end earlier. (Amended 2026-10-03)
 - **REQ-AC-4.6** When an Account deactivation is requested, the system must reject any request where the Account is referenced by a line of an unvoided journal entry whose entry date is later than the provided "active end" date (a pure Calendar Date comparison; the inclusive boundary means an entry dated on the active-end date is permitted). Lines of voided entries do not block deactivation. (Amended 2026-10-03)
 - **REQ-AC-4.7** stricken
@@ -197,7 +198,7 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 | REQ-AC-1.13 | Account type name of 'Equity' must map to the database ID of 3 | Removed Account Type as a separate DB lookup |
 | REQ-AC-1.14 | Account type name of 'Revenue' must map to the database ID of 4 | Removed Account Type as a separate DB lookup |
 | REQ-AC-1.15 | Account type name of 'Expense' must map to the database ID of 5 | Removed Account Type as a separate DB lookup |
-| REQ-AC-1.24  | Account is active should default to true if a null value is provided | Replaced by `active_begin` and `active_end` timestamps |
+| REQ-AC-1.24  | Account is active should default to true if a null value is provided | Replaced by the active-begin / active-end Calendar Dates (REQ-AC-1.42–1.50). (Reason corrected 2026-10-05) |
 | REQ-AC-1.25  | Account created at should default to the current runtime timestamp at time of database creation of the record | Superseded by REQ-SYS-3.2 |
 | REQ-AC-1.26  | Account modified at should default to the current runtime timestamp at time of database creation of the record | Superseded by REQ-SYS-3.2 |
 | REQ-AC-1.27  | Account modified at should be updated to the current runtime timestamp at time of database update of the record | Superseded by REQ-SYS-3.3 |
@@ -205,7 +206,7 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 | REQ-AC-2.1   | When creating an Account record, either through primitive types or through defined types, all raw string values must be trimmed of any leading or trailing white space before being added to the persistence layer or being returned to the caller of the function. | Superseded by REQ-SYS-1.1 |
 | REQ-AC-2.2   | When creating an Account record, the database must be able to persist strings with full UTF-8 support. | Moved to DAL-level requirement (REQ-DAL-3.4) |
 | REQ-AC-2.3   | When creating an Account record, any string field must be stored in the database with case-perfect fidelity (post-trim). | Superseded by REQ-SYS-5.1 |
-| REQ-AC-2.5   | When creating an Account record, if the provided "is active" value is null, the newly created Account record will be active. | Replaced by `active_begin` and `active_end` timestamps |
+| REQ-AC-2.5   | When creating an Account record, if the provided "is active" value is null, the newly created Account record will be active. | Replaced by the active-begin / active-end Calendar Dates (REQ-AC-1.42–1.50). (Reason corrected 2026-10-05) |
 | REQ-AC-2.11  | When creating an Account record, the system must generate a "created at" timestamp that represents the system clock at time of creation. | Superseded by REQ-SYS-3.2 |
 | REQ-AC-2.12  | When creating an Account record, the system must generate a "modified at" timestamp that represents the system clock at time of creation. | Superseded by REQ-SYS-3.2 |
 | REQ-AC-2.15  | The persistence layer must persist all Account properties in such a way as to be able to perfectly reconstitute the Account type upon subsequent read. | Superseded by REQ-SYS-5.1 |

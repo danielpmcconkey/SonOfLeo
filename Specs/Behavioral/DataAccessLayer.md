@@ -25,7 +25,7 @@ Generic database functions: connecting, executing queries, parameterization, and
 - **REQ-DAL-1.17** All data access functions must fail with an error if the value of ConnectionStringEnvVar is not the name of a an actual environment variable, resolvable at runtime
 - **REQ-DAL-1.18** All data access functions must fail with an error if the resolved value of the ConnectionStringEnvVar environment variable is white-space only
 - **REQ-DAL-1.19** The system must trim the final connection string before attempting connection
-- **REQ-DAL-1.20** Each build configuration of an interface executable (the operator CLI and the report CLI) must define a unique ConnectionStringEnvVar value. The env var name used in Debug/Development must differ from the one used in Release/Production. The integration test suite and the development data stager are single-environment by design: the test suite always uses the test database's env var, and the stager always uses the development database's. (Scoped 2026-10-03)
+- **REQ-DAL-1.20** Within each interface executable (the operator CLI and the report CLI), the Debug/Development and Release/Production build configurations must name different ConnectionStringEnvVar values. The executables share the value for the same environment. The integration test suite and the development data stager are single-environment by design: the test suite always uses the test database's env var, and the stager always uses the development database's. (Scoped 2026-10-03; reworded 2026-10-05 — read literally, "unique" required the two executables to differ, which they deliberately do not)
 
 ## 2. Query execution
 
@@ -62,10 +62,10 @@ construction pattern) but deliberately not verified by tests.
 | REQ-DAL-1.18 | Enforced in code (fails with a typed AppError), but impossible to provoke from the test harness without corrupting the environment | Dan, 2026-08-02 |
 | REQ-DAL-1.19 | Enforced in code (trim before connection), but impossible to provoke — the test harness always connects with the correctly configured env var | Dan, 2026-08-02 |
 | REQ-DAL-1.20 | It's a build-configuration fact, not something we can dynamically test. I've manually verified it works | Dan, 2026-07-06 |
-| REQ-DAL-2.1 | Negative existence claim — "all inserted data must be parameterized." Enforced by code review and the parameterization pattern in ExecuteReader/ExecuteScalar/ExecuteNonQuery | Dan, 2026-08-02 |
+| REQ-DAL-2.1 | Negative existence claim — "all inserted data must be parameterized." Enforced by code review and the DAL's parameterized-query pattern. (Reason restated 2026-10-05 without code names.) | Dan, 2026-08-02 |
 | REQ-DAL-2.3 | Negative existence claim — "all user-input values must be parameterized." Enforced by code review and the parameterization pattern | Dan, 2026-08-02 |
 | REQ-DAL-3.1 | Architectural fact — every integration test proves the DAL interfaces with PostgreSQL | Dan, 2026-08-02 |
-| REQ-DAL-3.2 | Enforced by module structure — callers reference `DataAccessLayer.*` modules, never Npgsql directly. Checked by `check-npgsql.sh` | Dan, 2026-08-02 |
+| REQ-DAL-3.2 | Enforced by project structure and the Npgsql boundary check. (Reason restated 2026-10-05 without code names.) | Dan, 2026-08-02 |
 | REQ-DAL-3.4 | Schema/config fact — database created with UTF-8 encoding. Verified by `psql \l` | Dan, 2026-08-02 |
 | REQ-DAL-3.5 | Schema/config fact — database created with en_US.UTF-8 collation. Verified by `psql \l` | Dan, 2026-08-02 |
 | REQ-DAL-3.7 | It's impossible to test that a behavior isn't present | Dan, 2026-07-06 |
@@ -77,7 +77,7 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 | ID | Why it cannot be enforced | Approved |
 |---|---|---|
 | REQ-DAL-3.2.1 | Policy statement — client modules "can pass non-ANSI-generic SQL if needed." This permits an exception, not a testable constraint | Dan, 2026-08-02 |
-| REQ-DAL-3.3 | Operational requirement — "distinct production database where testing is not permitted." Enforced by environment isolation (separate env vars, network restrictions), not by application code | Dan, 2026-08-02 |
+| REQ-DAL-3.3 | Operational requirement — "distinct production database where testing is not permitted." Separate env vars make the separation possible, but nothing stops a human pointing a test or development configuration at production. (Reason restated 2026-10-05; it had read "enforced", contradicting this table.) | Dan, 2026-08-02 |
 | REQ-DAL-3.6 | Policy statement — "generally not enforce business logic in the database layer." Binds database administrators and developers, not code | Dan, 2026-08-02 |
 
 ## Withdrawn

@@ -10,8 +10,9 @@ anything that combines them (net worth, investable wealth) is a cross-domain com
 cash basis and carries an investment or a property, if at all, at cost; Positions carries what
 it is worth. No Positions operation creates, alters or reads a journal entry. A ledger account
 that stands for an investment account or a property is *linked* to it, and the link has one
-job: when net worth is computed, the linked account's cost balance is replaced by the market
-value Positions holds, so nothing is counted twice (REQ-RPT-8.2). (2026-10-04)
+job: when net worth is computed, each linked account's cost balance is replaced by the market
+value Positions holds, so nothing is counted twice (REQ-RPT-8.2). (2026-10-04; "each" amended
+2026-10-05 — a Property may link several ledger asset accounts, REQ-POS-9.7.)
 
 **Design note — reported figures, recorded verbatim.** Every quantity, price, market value and
 cost basis in an account snapshot is the figure the institution reported, stored exactly as
@@ -68,7 +69,7 @@ Investment Account; each snapshot line references a Holding of that account.
 
 - **Property.** A piece of real estate. Has owners, a use (primary residence or rental), an
   acquisition date and purchase basis, an optional disposal date, and optional links to its
-  ledger asset account and its mortgage liability accounts.
+  ledger asset accounts and its mortgage liability accounts.
 - **Valuation.** What a Property was judged to be worth on a date, and on what basis (an
   estimate, an appraisal).
 
@@ -101,7 +102,7 @@ references a Property.
   - *Why:* retirement accounts and health savings accounts are individual by law; only a taxable account may be held jointly. (2026-10-04)
 - **REQ-POS-4.7** Active begin cannot be null; active end may be null. Both are Calendar Dates, and active end may not be earlier than active begin. An Investment Account is active on a date when active begin is on or before it and active end is null or on or after it. Both boundaries are inclusive.
 - **REQ-POS-4.8** An Investment Account may be linked to one ledger Account. The linked Account must exist, be of type 'Asset' and have subtype 'Investment'; otherwise the operation fails with a typed error naming the account code and what is wrong.
-- **REQ-POS-4.9** A ledger Account may be linked to at most one Investment Account and to at most one Property. A second link is rejected with a typed error naming the account code and the record already linked to it. (Amended 2026-10-04 — "or one of each" is struck: an Investment Account links only to an 'Investment' subtype (REQ-POS-4.8) and a Property only to a 'FixedAsset' subtype (REQ-POS-9.7), and an Account's subtype never changes, so one Account cannot be linked to both.)
+- **REQ-POS-4.9** A ledger Account may be linked to at most one Investment Account. A second link is rejected with a typed error naming the account code and the Investment Account already linked to it. (Amended 2026-10-04 — "or one of each" is struck: an Investment Account links only to an 'Investment' subtype (REQ-POS-4.8) and a Property only to a 'FixedAsset' subtype (REQ-POS-9.7), and an Account's subtype never changes, so one Account cannot be linked to both. Amended 2026-10-05 — the Property half moved to REQ-POS-9.7: investments and real estate are peers, and each states its own link rule.)
   - *Why:* net worth replaces a linked account's balance with the market value of what it is linked to (REQ-RPT-8.2). An account standing for two things would have its balance removed once and two values added. (2026-10-04)
 
 ## 5. Valid and invalid data states — Holding
@@ -111,6 +112,8 @@ references a Property.
   - *Why per holding:* an institution elects the basis method for each security in an account, not for the account. One taxable account can hold average-cost funds and specific-lot funds side by side. Outside a taxable account, no sale is a taxable event, so basis method means nothing. (2026-10-04)
 - **REQ-POS-5.3** Changing an Investment Account's tax treatment is rejected when a Holding in that account would then break REQ-POS-5.2. The error names every such Holding's security.
 - **REQ-POS-5.4** Changing an Investment Account's owners is rejected when the result would break REQ-POS-4.5 or REQ-POS-4.6, including when a tax-treatment change in the same operation would.
+- **REQ-POS-5.5** Changing an Investment Account's tax treatment away from 'Roth' is rejected while any of its Account Snapshots carries a contribution basis. The error names the account and the earliest and latest such snapshot dates. (2026-10-05)
+  - *Why not clear the basis instead:* a contribution basis is a figure the institution reported, recorded verbatim (design note above). Clearing it would destroy evidence; keeping it on a non-Roth account would break REQ-POS-6.4. (2026-10-05)
 
 ## 6. Valid and invalid data states — Account Snapshot
 
@@ -135,7 +138,7 @@ references a Property.
   - *Why:* re-recording a week's figures is how a corrected or re-downloaded report is applied, and the institution's latest statement of a date's figures is the authority. Rejecting it would make every correction a delete followed by a record. (2026-10-04)
 - **REQ-POS-7.3** Recording returns each Account Snapshot as stored, with whether it replaced an existing one.
 - **REQ-POS-7.4** The system must provide a means to delete the Account Snapshot for a given Investment Account and date. A date with no snapshot fails with a typed not-found error naming the account and date.
-- **REQ-POS-7.5** The system must provide a read-only means to fetch the Account Snapshot for a given Investment Account and date, and a read-only means to list an Investment Account's snapshot dates, with each one's provenance, between two Calendar Dates inclusive, in date order.
+- **REQ-POS-7.5** The system must provide a read-only means to fetch the Account Snapshot for a given Investment Account and date, and a read-only means to list an Investment Account's snapshot dates, with each one's provenance, between two Calendar Dates inclusive, in date order. The end date may not be earlier than the begin date; otherwise the listing fails with a typed error naming both dates. (End-date rule added 2026-10-05)
 
 ## 8. Holdings as of a date
 
@@ -160,8 +163,9 @@ from the data consumes.
 - **REQ-POS-9.5** Purchase basis cannot be null and must be a valid Money value greater than zero.
 - **REQ-POS-9.6** At most one Property whose use is 'PrimaryResidence' may be owned on any one date. A create or update that would make two primary residences owned on the same date is rejected with a typed error naming both.
   - *Why:* investable wealth excludes the primary residence (REQ-RPT-8.4). Two of them on one date would mean one is mislabelled. (2026-10-04)
-- **REQ-POS-9.7** A Property may be linked to one ledger asset Account. The linked Account must exist, be of type 'Asset' and have subtype 'FixedAsset'; otherwise the operation fails with a typed error naming the account code and what is wrong. REQ-POS-4.9 applies.
-- **REQ-POS-9.8** A Property may be linked to zero or more ledger mortgage Accounts. Each must exist and be of type 'Liability'; otherwise the operation fails with a typed error naming the account code. A ledger Account may be a mortgage Account of at most one Property; a second is rejected with a typed error naming the account code and the Property already linked.
+- **REQ-POS-9.7** A Property may be linked to zero or more ledger asset Accounts. Each must exist, be of type 'Asset' and have subtype 'FixedAsset'; otherwise the operation fails with a typed error naming the account code and what is wrong. The same ledger Account may not appear twice among one Property's asset Accounts; a repeat is rejected with a typed error naming the account code. A ledger Account may be an asset Account of at most one Property; a second is rejected with a typed error naming the account code and the Property already linked. (Amended 2026-10-05 — a set of asset Accounts, not one; and the at-most-one rule, formerly shared with Investment Accounts under REQ-POS-4.9, is stated here.)
+  - *Why a set:* the ledger may carry one property across several FixedAsset accounts (the purchase, capitalised costs, depreciation). The Property's value replaces all of them in net worth (REQ-RPT-8.2); any left unlinked would be counted on top of it. (2026-10-05)
+- **REQ-POS-9.8** A Property may be linked to zero or more ledger mortgage Accounts. Each must exist and be of type 'Liability'; otherwise the operation fails with a typed error naming the account code. The same ledger Account may not appear twice among one Property's mortgage Accounts; a repeat is rejected with a typed error naming the account code. A ledger Account may be a mortgage Account of at most one Property; a second is rejected with a typed error naming the account code and the Property already linked. (Repeat rule added 2026-10-05)
 
 ## 10. Valid and invalid data states — Valuation
 
@@ -178,10 +182,16 @@ from the data consumes.
 - **REQ-POS-11.3** The system must provide a means to create an Investment Account; to update its name, institution, account group, tax treatment, owners (given as the complete new set), active begin, active end (set or clear) and linked ledger Account (set or clear), the account addressed by its current name; and a read-only means to list every Investment Account ordered by name with everything REQ-POS-8.2 lists for an account except the snapshot fields, plus its active begin and active end. Owners are given by Person name and the ledger Account by code.
 - **REQ-POS-11.4** An update to an Investment Account's active period is rejected when any of its Account Snapshots would then fall outside it. The error names the earliest and latest offending snapshot dates.
 - **REQ-POS-11.5** The system must provide a means to create a Holding (Investment Account and Security by name, and basis method), to change a Holding's basis method subject to REQ-POS-5.2, and a read-only means to list Holdings, optionally limited to one Investment Account, ordered by account name and then Security name, each with its basis method.
-- **REQ-POS-11.6** The system must provide a means to create a Property; to update its name, use, owners (given as the complete new set), acquisition date, disposal date (set or clear), purchase basis, linked ledger asset Account (set or clear) and mortgage Accounts (given as the complete new set), the Property addressed by its current name; and a read-only means to list every Property ordered by name, with its owners' names and its linked Accounts' codes and names.
+- **REQ-POS-11.6** The system must provide a means to create a Property; to update its name, use, owners (given as the complete new set), acquisition date, disposal date (set or clear), purchase basis, asset Accounts (given as the complete new set; amended 2026-10-05, formerly one Account set or cleared) and mortgage Accounts (given as the complete new set), the Property addressed by its current name; and a read-only means to list every Property ordered by name, with its owners' names and its linked Accounts' codes and names.
 - **REQ-POS-11.7** An update to a Property's acquisition or disposal date is rejected when any of its Valuations would then fall outside the range REQ-POS-10.3 allows. The error names the earliest and latest offending valuation dates.
 - **REQ-POS-11.8** The system must provide a means to record a Valuation. Recording a Valuation for a Property and date that already has one replaces its value and basis; this is a deliberate exception to REQ-SYS-6.1, made under REQ-SYS-6.1.1, for the reason given at REQ-POS-7.2. The system must provide a means to delete a Valuation, and a read-only means to list a Property's Valuations in date order.
 - **REQ-POS-11.9** A Dimension Value, Security, Investment Account or Property name given to any operation that does not match an existing record fails with a typed error naming the kind of record and the name. A Dimension Value is matched within the dimension given.
+- **REQ-POS-11.10** The system must provide a means to delete a Holding, given by Investment Account and Security name. A Holding that any Account Snapshot line references is not deleted; the operation fails with a typed error naming the account and the security. (2026-10-05)
+- **REQ-POS-11.11** The system must provide a means to delete a Property, addressed by name. A Property that has any Valuation is not deleted; the operation fails with a typed error naming the Property. Deleting a Property removes its owners and ledger links with it. (2026-10-05)
+- **REQ-POS-11.12** The system must not provide a user interface for hard-deleting a Dimension Value. (2026-10-05)
+- **REQ-POS-11.13** The system must not provide a user interface for hard-deleting a Security. (2026-10-05)
+- **REQ-POS-11.14** The system must not provide a user interface for hard-deleting an Investment Account. (2026-10-05)
+  - *Why no delete for these three:* each is referenced by recorded history (Securities by Holdings and snapshot lines, Investment Accounts by snapshots), and an account that has closed is ended by its active end (REQ-POS-4.7), not removed. The rare mistaken record is corrected directly in the database. (2026-10-05)
 
 ## Waived from testing
 
@@ -190,7 +200,9 @@ construction pattern) but deliberately not verified by tests.
 
 | ID | Reason testing is waived | Approved |
 |---|---|---|
-|  |  |  |
+| REQ-POS-11.12 | A negative existence claim over the entire API surface ("no function exposes a hard delete") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-10-05 (audit 2026-10-04a #007) |
+| REQ-POS-11.13 | A negative existence claim over the entire API surface ("no function exposes a hard delete") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-10-05 (audit 2026-10-04a #007) |
+| REQ-POS-11.14 | A negative existence claim over the entire API surface ("no function exposes a hard delete") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-10-05 (audit 2026-10-04a #007) |
 
 ## Unenforceable
 

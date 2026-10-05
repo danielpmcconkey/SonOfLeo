@@ -2,14 +2,14 @@
 name: SonOfLeo:SrcDeveloper
 description: >
   This skill should be used when writing or modifying F# source under SonOfLeo's Src/
-  directory — new entity CRUD, new domain primitives, AppError cases, ModelOrchestrator
+  directory — new entity CRUD, new domain primitives, AppError cases, Business.CrossDomainOrchestration
   functions (constructNewAndPersist, composite create/read, orchestrated updates),
   InterfaceBridge work (interface contracts, boundary converters, use case routes), a DbMigration
   script that a Src change depends on, or any Src implementation task Dan hands off — including
   reviewing a commit before fixing what it broke. Covers the entity/component/composite type
-  taxonomy, the Model/ CRUD function shape (persist / reconstitute / mapRawForDbRead /
-  query / fetchAny / fetchById / update), the ModelOrchestrator function
-  shape and the five reasons a function belongs there, what InterfaceBridge is for and how its
+  taxonomy, the Business-tier entity module CRUD function shape (persist / reconstitute /
+  mapRawForDbRead / query / fetchAny / fetchById / update), the Business.CrossDomainOrchestration
+  function shape and the five reasons a function belongs there, what InterfaceBridge is for and how its
   contracts and converters are named, AppError and FieldUpdate conventions, the mechanical checks
   in Checks/, and the working relationship with Dan. Triggers on "build out X's CRUD", "write the
   Src for", "add a domain type", "finish persist", "build the orchestrator for", "write an
@@ -38,7 +38,7 @@ explicit invitation, one task at a time.
 - **No `.md` or agent files in this repo**, except a skill file Dan explicitly asks for (this
   file is that exception, not a precedent for writing docs unprompted).
 - **Build after every change.** There is no REPL feedback loop here — `dotnet build` on the
-  touched project, plus at least one downstream consumer project (`ModelOrchestrator`,
+  touched project, plus at least one downstream consumer project (`Business.CrossDomainOrchestration`,
   `Tests.Isolated`, `Tests.Integrated`) when the change touches a widely-shared file like
   `AppError.fs`, is the only verification available before handing back.
 - **Surface a blocker instead of guessing past it.** If finishing a task needs a change
@@ -56,7 +56,7 @@ explicit invitation, one task at a time.
   permission first — this specific type of small addition is pre-approved.
 - **Matching an established structural convention** even where the immediate task didn't spell
   it out — e.g. making a bare public record `private` with accessors + `create` when adding
-  CRUD to it, because every other entity type in `Model/` already works that way. Flag the
+  CRUD to it, because every other entity type in the Business-tier entity modules already works that way. Flag the
   choice in the hand-off; don't silently deviate from it.
 
 ## Everything else: propose, don't decide
@@ -123,7 +123,7 @@ starting to bug me." One or two lines. If it needs a paragraph it belongs in the
 
 **Form.** `//` for ordinary comments — `(* *)` is effectively retired, with one instance left in
 `Src/` (`LookupCache.fs:10`). `///` still means a caller-facing caveat that compiles into XML docs
-(`ModelOrchestrator.fsproj` sets `GenerateDocumentationFile=true`): a transaction risk, a "this
+(`Business.CrossDomainOrchestration.fsproj` sets `GenerateDocumentationFile=true`): a transaction risk, a "this
 isn't set-based" warning, a deliberate narrowing like the two survivors above. Never a
 restatement.
 
@@ -141,34 +141,36 @@ deliberate, move on," not being polite about it.
   persistence). Independently persisted. `MasterAgreement`, `PaymentAgreement`,
   `ClassificationRule`.
 - **Component type** — a part of a future or existing composite, shaped exactly like an entity
-  type, but meant to be assembled with siblings above the `Model/` layer. `StageEntryHeader`,
+  type, but meant to be assembled with siblings above the Business-tier entity modules. `StageEntryHeader`,
   `StageEntryLine`, `StageEntryStatusTransition` compose into `StageEntry` in
-  `ModelOrchestrator`. This is why `Flow.paymentAgreements` came out of `MasterAgreement` —
+  `Business.CrossDomainOrchestration`. This is why `Flow.paymentAgreements` came out of `MasterAgreement` —
   a single-table `reconstitute` cannot honestly populate a child list, so that composition
   belongs in an orchestrator-level type (`Obligation`, mirroring `StageEntry`), not embedded in
   the entity.
 - **Composite type** — multi-part, built and validated at the orchestrator (`JournalEntry`,
   `StageEntry`). Collection-level rules (≥2 lines, debits = credits) live there, not in any one
   component.
-- **Interface contract** — DTOs at the CLI boundary, owned by `InterfaceBridge`. Not a `Model/`
+- **Interface contract** — DTOs at the CLI boundary, owned by `InterfaceBridge`. Not a Business-tier
   concern.
 
 **Then decide where it lives: the lowest compile tier that can see everything it references**
 (`CompoundedLearnings/articles/architecture/type-placement-by-compile-tier.md`). Walk the
 `<Compile Include>` order and take the first file that already sees every dependency — don't place
 by which domain owns the concept. When a slice's own component file can't see one of them, check
-the tier *below* before concluding `Model/` is closed: `ClassificationComponent.fs` is the
+the tier *below* before concluding the Business-tier entity modules are closed: `ClassificationComponent.fs` is the
 last component tier and holds `PaymentAgreementClaimCluster` for exactly that reason. Only a type
-referencing a composite is genuinely forced into `ModelOrchestrator/`, and it goes beside that
+referencing a composite is genuinely forced into `Business.CrossDomainOrchestration`, and it goes beside that
 composite. A clean build proves nothing here — the top of an orchestrator file sees everything,
 which is how basic types accumulated in `CashFlowOps.fs` in the first place.
 
 ## The Component-file convention
 
-Every domain slice with more than one sibling entity gets exactly one `*Component.fs` file
-holding every shared ID, enum, and bounded-string value object for the whole slice —
-`AccountComponent.fs`, `JournalEntryComponent.fs`, `StageEntryComponent.fs`,
-`CashFlowComponent.fs`. It is a flat file, not sub-organized by category, though related types
+Component types are defined in a components module in the lowest tier of their business
+domain — always, even when the domain has a single entity. Each slice gets exactly one
+`*Component.fs` file, compiled before its entity modules, holding every shared ID, enum, and
+bounded-string value object for the whole slice — `AccountComponent.fs`,
+`JournalEntryComponent.fs`, `StageEntryComponent.fs`, `CashFlowComponent.fs`, and
+`PersonComponent.fs` for Person's lone entity. Don't define them inside the entity module. It is a flat file, not sub-organized by category, though related types
 (all the `*Memo` types, a `Cadence`-and-its-parts cluster) should sit contiguously. Don't split
 it further preemptively — `AccountComponent.fs` exists because `Account.fs` itself was getting
 huge, not because the component file was. Splitting is worth reconsidering only once a
@@ -206,7 +208,7 @@ let fooId f = f.fooId
 let create (fooId: FooId) (...) : Foo = { fooId = fooId; ... }
 ```
 
-Private by default. A type whose analogs elsewhere in `Model/` are private must be private too,
+Private by default. A type whose analogs elsewhere in the Business-tier entity modules are private must be private too,
 unless a documented, Dan-approved rationale sits at the definition site
 (`Src/README.md`, "Two conventions the code follows silently"). If you're adding accessors to
 a type that's still a bare public record, make it private as part of that change — check first
@@ -424,9 +426,9 @@ easy to violate by accident:
 - `DataAccessLayer` — the only project allowed to touch Npgsql
   (`Checks/check-npgsql.sh`). `QueryParameterValue`, `RowReader`, `buildReadQuery`,
   `executeReaderQuery`/`executeNonQuery` are the whole surface a domain module needs.
-- `Model.Money` — all money arithmetic goes through it (`add`, `subtractVal1FromVal2`,
+- `Business.FinancialServices.Money` — all money arithmetic goes through it (`add`, `subtractVal1FromVal2`,
   `sumList`, `splitByN`); never arithmetic on a raw `decimal` money value.
-- `Model.LookupCache` — account code ↔ ID, fiscal period key ↔ ID. Don't hand-write that
+- `App.DataAccessLayer.LookupCache` — account code ↔ ID, fiscal period key ↔ ID. Don't hand-write that
   lookup.
 
 ## Validation — four layers, and where a check may live in SQL
@@ -465,21 +467,21 @@ call site beats brevity at the definition. Variables are never single-letter or 
 outside a short, fully-graspable lambda (`fun x -> x + 1` is fine; `let ca = ...` for
 `creditAccount` is not).
 
-## Orchestration — what `ModelOrchestrator/` is for and how it's shaped
+## Orchestration — what `Business.CrossDomainOrchestration` is for and how it's shaped
 
 (`CompoundedLearnings/articles/architecture/orchestration-layer.md` has the full reasoning and
 examples behind every point below — read it before building a new composite or orchestrated
 function, not just when something feels ambiguous.)
 
-**Five reasons a function lives here, not in `Model/`** (Dan's own framing):
-1. Cross-domain composition in the direction `Model/` can't take without a circular reference
+**Five reasons a function lives here, not in a Business-tier entity module** (Dan's own framing):
+1. Cross-domain composition in the direction the entity modules can't take without a circular reference
    — `JournalEntryLine` depends on `Account` (intrinsic, one-way), but closing an account needs
    to check `JournalEntry` balances, which would be the reverse dependency. That check lives in
    `AccountDeactivation.fs`, not `Account.fs`.
 2. Composite validation — a composite invariant (JE needs ≥2 lines, debits = credits) can't be
-   checked in `Model/` because the components need something (a header id) that doesn't exist
+   checked in the entity modules because the components need something (a header id) that doesn't exist
    until DB insertion. This is the one place a non-negotiable rule is *forced* up a layer —
-   Model-level type constraints must always resolve to true/no-error, no exceptions, and this
+   Entity-module type constraints must always resolve to true/no-error, no exceptions, and this
    is the deliberate escape hatch for the one case where that's structurally impossible. It is
    not a general license to move validation up because it's more convenient there.
 3. Orchestrated events — a multi-step process triggered by one UI action that succeeds or fails
@@ -500,7 +502,7 @@ Start by assuming one orchestrator will work. Pivot as needed." For a new domain
 file and split later if it gets unwieldy — same size-based judgment as the Component-file
 convention, not a naming taxonomy to reverse-engineer.
 
-**`constructNewAndPersist`** — the orchestrator's validate+create+persist verb (`Model/`'s
+**`constructNewAndPersist`** — the orchestrator's validate+create+persist verb (an entity module's
 equivalent is `persist`, persistence only). Always fallible, returning `Result` up to
 `InterfaceBridge`, which commits or rolls back the transaction based on the outcome. It carried a
 standard doc comment on every entity until 2026-09-07, when Dan deleted all eight — the
@@ -562,12 +564,12 @@ exactly which orchestrated sub-update failed) is Dan's call.
 child updates needs its own composite-level guard, or the header-only/line-only cases produce
 invalid SQL.
 
-**Naming: an orchestrator update is never called bare `update`.** `Model/`'s update verb is
+**Naming: an orchestrator update is never called bare `update`.** An entity module's update verb is
 always `update`; the orchestrator layer names an update for what it updates
 (`updateComment`, `updateFiAndReferenceText`, `updateClassificationRule`, `updateStageEntry`,
 `AccountDeactivation.updateActiveEnd`), since an orchestrator update is often composing more
-than one `Model/`-level update. Same rule for the other persistence verbs — a bare `persist`,
-`query`, or `delete` in `ModelOrchestrator/` is a naming bug.
+than one entity-module update. Same rule for the other persistence verbs — a bare `persist`,
+`query`, or `delete` in `Business.CrossDomainOrchestration` is a naming bug.
 
 Commenting rules for this layer are the same as everywhere else — see the Commenting section.
 
@@ -580,7 +582,7 @@ built — not as a field on `MasterAgreement` itself.
 Dan's own list of what this layer does: define the interface contracts; define the use case
 routes; turn user input (primitives) into DDD-valid types; turn model types back into
 primitives; set the context (audit type, database context); manage commit/rollback; and call
-the `Model/` and `ModelOrchestrator/` functions the use case needs. Nothing else belongs here,
+the entity-module and `Business.CrossDomainOrchestration` functions the use case needs. Nothing else belongs here,
 and none of those belong anywhere else.
 
 Three directories, and a change to a model type usually ripples through all three:
@@ -597,7 +599,7 @@ named `fallibleConverterXToY` instead, since they aren't part of that index.
 
 **An entity crosses the boundary under a human-typed key, not a guid.** Accounts go out and come
 back as codes, fiscal periods as period keys, payment agreements as names — each backed by a
-`LookupCache` pair (`Model.LookupCache`, never a hand-written lookup) and a
+`LookupCache` pair (`App.DataAccessLayer.LookupCache`, never a hand-written lookup) and a
 `<Concept>DoesntMatch<Id>` `AppError` for the miss. When a new entity needs to be addressable
 from the CLI, it needs such a key: a validated, DB-unique string column, not its uuid. The
 exception is input a machine authors rather than a person — `BaseStageRawRowInput` carries a raw

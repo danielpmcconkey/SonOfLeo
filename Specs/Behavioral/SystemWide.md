@@ -14,6 +14,7 @@ per entity. Generic requirements state policy and scope, not vague aspiration.
 - **REQ-SYS-1.3** An optional (nullable) text field, when provided, may never hold a value that is empty or whitespace-only post-trim. Absence must be represented as null, never as an empty string.
 - **REQ-SYS-1.4** A partial-match ("contains") filter treats the caller's text literally. Characters that are special to the underlying matching mechanism (such as `%` and `_` in SQL `LIKE`) match only themselves.
   - *Why:* A search for "50%" must not match every description containing "50". (2026-09-26)
+- **REQ-SYS-1.5** An entity spec may exempt a named field from REQ-SYS-1.1 through 1.3 only by stating the exemption explicitly in that spec (as REQ-CR-1.18 does). Absent such a statement, REQ-SYS-1.1 through 1.3 apply. (2026-10-05)
 
 ## 2. Legal data-state enforcement
 
@@ -48,7 +49,7 @@ domain-level decision, made in each entity's spec (for Accounts, see REQ-AC-5.1)
   - For an update, "would change nothing" means the request names no field to change. A field set to the value it already holds counts as named, and the update succeeds. This is the system default for every update operation; an entity spec need not restate it. (Amended 2026-10-03)
   - *Why an unchanged value is not a no-op:* REQ-SYS-6.1 exists to surface a caller who believes the system is in a different state. A caller re-sending a value the record already holds believes nothing wrong, and comparing every field to its stored value buys nothing. (2026-10-03)
 - **REQ-SYS-6.1.1** Any exception to REQ-SYS-6.1 (an operation deliberately permitted to be idempotent) must be stated explicitly in the relevant entity spec; absent such a statement, the no-op rejection applies.
-- **REQ-SYS-6.2** An operation that updates or deletes a record identified by ID, where no record has that ID, fails with a typed not-found error naming the kind of record and the ID. It must not surface as a generic database or row-count error.
+- **REQ-SYS-6.2** An operation that updates or deletes a record addressed by the key the interface uses (an ID, a name, or a parent and a date), where no record has that key, fails with a typed not-found error naming the kind of record and the key. It must not surface as a generic database or row-count error. (Amended 2026-10-05)
 - **REQ-SYS-6.3** When an operation sets a reference to another record (for example, a comment's secondary journal entry), the referenced record must exist. A missing referent fails with a typed not-found error before any write, on update as well as on create.
   - *Why:* Relying on the database's foreign key check produces an error the caller cannot act on. (2026-09-26)
 
@@ -72,7 +73,7 @@ construction pattern) but deliberately not verified by tests.
 |---|---|---|
 | REQ-SYS-3.1 | it's too general for a test and you can't test that there isn't a violation | Dan, 2026-07-06 |
 | REQ-SYS-2.1.1 | it's too general for a test and you can't test that there isn't a violation | Dan, 2026-07-06 |
-| REQ-SYS-2.1.2 | it's too general for a test and you can't test that there isn't a violation | Dan, 2026-07-06 |
+| REQ-SYS-2.1.2 | The first sentence is too general to test; the exceptions it names are tested under REQ-SYS-6.2 and REQ-SYS-6.3. (Reason restated 2026-10-05) | Dan, 2026-07-06 |
 | REQ-SYS-6.1.1 | simply untestable | Dan, 2026-07-06 |
 | REQ-SYS-2.1 | Too general for a dedicated test — enforced per-entity by each entity's data-state tests and REQ-SYS-2.1.1/2.1.2 | Dan, 2026-08-02 |
 
@@ -82,7 +83,7 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 
 | ID | Why it cannot be enforced | Approved |
 |---|---|---|
-|  |  |  |
+| REQ-SYS-1.5 | A rule for whoever writes an entity spec, not a behaviour of the system. It binds spec authors and auditors. | Hobson, 2026-10-05 (delegated by Dan) |
 
 ## Withdrawn
 

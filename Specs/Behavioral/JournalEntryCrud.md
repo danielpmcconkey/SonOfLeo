@@ -6,7 +6,7 @@ Service-level behavioral specs for posting, reading, and voiding journal entries
 
 **Design note — references.** What LeoBloom stored as one overloaded `reference` string is split into two distinct concepts:
 - **External references** — an external transaction identifier (`reference`) and the source financial institution (`source_fi`) it belongs to. Audit traceability only.
-- **Comments** — free text, which may additionally name a second, related entry. The relation is stated by the requirement that creates the comment (e.g. a correcting entry naming the one it corrects, REQ-JE-4.8).
+- **Comments** — free text, which may additionally name a second, related entry. The link records no direction and no relation; any specific relation is stated in the comment's text. The one exception is a void-reason comment, whose secondary entry is the voided entry's replacement (REQ-JE-4.4).
 
 Deduplication of imported source rows is the **importer's** concern, handled in the stage layer — it is not a ledger concern, so the synthetic composite dedup keys LeoBloom kept on the ledger do not exist here.
 
@@ -29,7 +29,7 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-1.10** Journal entry date is a Calendar Date (LocalDate) with no time component
 - **REQ-JE-1.11** Journal entry date must fall within the start and end dates (inclusive) of the fiscal period it is assigned to
 - **REQ-JE-1.12** A journal entry must have at least 2 lines
-- **REQ-JE-1.13** The sum of all debit line amounts must exactly equal the sum of all credit line amounts (balanced entry). Under the positive-amount + entry-type model (REQ-JE-1.24/1.25) this equality is the realization of the Decisions-log invariant "a journal entry's lines sum to zero"; the two are not in conflict.
+- **REQ-JE-1.13** The sum of all debit line amounts must exactly equal the sum of all credit line amounts (balanced entry). (Amended 2026-10-05)
 - **REQ-JE-1.14** The void marker (`voided_at`) is a nullable Instant: null means the entry is active; a non-null value means the entry was voided at that instant. It is not one of the immutable posted fields (REQ-JE-4.1) — it changes only via the void operation (REQ-JE-4.3).
 
 ### Lines
@@ -62,7 +62,7 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 
 - **REQ-JE-1.50** Comment ID cannot be null and must be unique (UUID)
 - **REQ-JE-1.51** Comment primary journal entry ID cannot be null (`primary_journal_entry_id` foreign key)
-- **REQ-JE-1.52** Comment secondary journal entry ID is nullable (`secondary_journal_entry_id` foreign key). When set, it names a related entry. The link itself carries no direction: each requirement that creates a comment with a secondary entry names the relation it records (REQ-JE-4.4: the voided entry's replacement; REQ-JE-4.8: the original being corrected). (Amended 2026-10-03)
+- **REQ-JE-1.52** Comment secondary journal entry ID is nullable (`secondary_journal_entry_id` foreign key). When set, it names a related entry. The link carries no direction and no stored relation: it records only that the two entries are related. REQ-JE-4.4 gives the secondary entry of a void-reason comment its meaning (the voided entry's replacement); any other relation is stated in the comment's text. (Amended 2026-10-03, 2026-10-05)
 - **REQ-JE-1.53** When the secondary journal entry ID is set, it cannot equal the primary journal entry ID (an entry cannot link to itself)
 - **REQ-JE-1.54** Comment text cannot be null or whitespace only (post-trim per REQ-SYS-1.1) and cannot exceed 2000 characters. The null clause is waived (see REQ-JE-1.3).
 - **REQ-JE-1.55** A journal entry may carry zero or more comments
@@ -85,7 +85,7 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-2.12** When posting a journal entry, if any validation fails, no rows may be persisted (atomicity).
 - **REQ-JE-2.13** The system must provide a means to post a new journal entry.
 - **REQ-JE-2.14** The system must not allow the creation of a new journal entry that is already voided.
-- **REQ-JE-2.15** When posting a journal entry, the caller may supply zero or more comments. Each is created with the new entry as its primary journal entry and is validated as any other new comment (REQ-JE-1.52–1.54, REQ-JE-5.8).
+- **REQ-JE-2.15** When posting a journal entry, the caller may supply zero or more comments. Each is created with the new entry as its primary journal entry and is validated as any other new comment (REQ-JE-1.52–1.54, REQ-JE-5.8). A secondary entry named here records only that the entries are related (REQ-JE-1.52); any specific relation is stated in the comment's text. (Amended 2026-10-05)
 
 
 ## 3. Read behaviors
@@ -102,7 +102,7 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-3.6.2** *(Withdrawn 2026-10-03 — see the Withdrawn table.)*
 - **REQ-JE-3.7** The system must be able to retrieve all journal entries whose entry date falls within a caller-provided date range (start date and end date, both inclusive Calendar Dates). The result is a set of complete journal entries (per REQ-JE-3.1).
 - **REQ-JE-3.7.1** When the start date is after the end date, the retrieval must fail with a typed error.
-- **REQ-JE-3.8** The system must be able to retrieve all journal entries carrying at least one external reference whose source FI matches a caller-provided value. Unlike REQ-JE-3.5, this requires only the FI — no reference value. The result is a set of complete journal entries (per REQ-JE-3.1).
+- **REQ-JE-3.8** *(Withdrawn 2026-10-05 — see the Withdrawn table.)*
 - **REQ-JE-3.9** *(Withdrawn 2026-10-03 — see the Withdrawn table.)*
 - **REQ-JE-3.9.1** *(Withdrawn 2026-10-03 — see the Withdrawn table.)*
 - **REQ-JE-3.9.3** *(Withdrawn 2026-10-03 — see the Withdrawn table.)*
@@ -128,7 +128,7 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 
 ## 5. Comment behaviors
 
-- **REQ-JE-5.1** The system must provide a means to attach a comment to a journal entry, optionally naming a secondary, related journal entry (REQ-JE-1.52).
+- **REQ-JE-5.1** The system must provide a means to attach a comment to a journal entry, optionally naming a secondary, related journal entry (REQ-JE-1.52). The secondary link records only that the entries are related; any specific relation is stated in the comment's text. (Amended 2026-10-05)
 - **REQ-JE-5.2** When a comment is created, the system must generate a unique UUID and set its created/modified timestamps (per REQ-SYS-3.2).
 - **REQ-JE-5.3** The system must provide a means to amend a comment's text. Amending updates the modified-at timestamp (per REQ-SYS-3.3).
 - **REQ-JE-5.4** stricken
@@ -162,7 +162,8 @@ construction pattern) but deliberately not verified by tests.
 | REQ-JE-1.51 | The primary entry ID is a non-nullable identifier with a not-null foreign key, and the primary entry's existence is checked before the comment is written (tested under REQ-JE-5.8). (Reason restated 2026-10-03) | Dan, 2026-07-03 |
 | REQ-JE-1.3 | A null is loud: the interface contract's description field is non-optional, so the deserializer rejects a null or missing value, and a null reaching the constructor throws. Same treatment as REQ-JE-1.1/1.9. The same waiver covers the null clauses of REQ-JE-1.42, 1.44 and 1.54, whose remaining clauses are tested. | Dan, 2026-10-03 |
 | REQ-JE-1.14 | Enforced by the type definition — `voidedAt` is `Instant option` on the header type. Void behavior tested under REQ-JE-4.3/4.7 | Dan, 2026-08-02 |
-| REQ-JE-2.14 | Enforced structurally — no creation input contract exposes `voidedAt` (`JournalContracts.fs`: it appears only on `JournalEntryHeaderReturn`). Model-layer reconstitution legitimately carries `voidedAt`; reconstitution is not creation. | Dan, 2026-08-02 |
+| REQ-JE-2.14 | Enforced structurally — no creation input carries a void marker; it appears only on the entry the system returns. Reconstituting a stored entry legitimately carries the void marker; reconstitution is not creation. (Reason restated 2026-10-05) | Dan, 2026-08-02 |
+| REQ-JE-5.6 | Enforced structurally — no comment update input accepts a primary journal entry, so the link has no path to change and a test of the update cannot fail. Same shape as REQ-JE-2.14 and REQ-JE-4.1. | Hobson, 2026-10-05 (delegated by Dan) |
 | REQ-JE-4.1 | A negative existence claim over the entire API surface ("no function exposes an update path for these fields") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-06-22 |
 | REQ-JE-4.2 | The prohibition "no spec, requirement, or tooling may characterize journal entries as immutable" is a negative existence claim over documentation and the API surface; the positive behaviors it depends on (void, comments) are tested under REQ-JE-4.3/4.7/5.x. Enforced by review. | Dan, 2026-06-22 |
 | REQ-JE-6.1 | A negative existence claim over the entire API surface ("no function exposes a hard delete") cannot be proven by a unit test; enforced by code review and periodic adversarial audit. | Dan, 2026-06-22 |
@@ -193,3 +194,4 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 | REQ-JE-3.9 | The system must be able to retrieve all journal entry lines for a given account, enriched with their parent entry's `entry_date`, `description`, `source`, and `voided_at`. | Superseded by REQ-AC-3.12–3.12.2 (account activity), which also specify the filters, their conjunction and the line-less Account row. (2026-10-03) |
 | REQ-JE-3.9.1 | The caller may filter to non-voided entries only (per REQ-JE-4.7). The enriched fields are a boundary-only return type. | Superseded by REQ-AC-3.12.1/3.12.2. (2026-10-03) |
 | REQ-JE-3.9.3 | The result can be ordered by entry date, account code, or amount (either ascending or descending) at the caller's choosing. | Superseded by REQ-AC-3.12.4. (2026-10-03) |
+| REQ-JE-3.8 | The system must be able to retrieve all journal entries carrying at least one external reference whose source FI matches a caller-provided value. Unlike REQ-JE-3.5, this requires only the FI — no reference value. The result is a set of complete journal entries (per REQ-JE-3.1). | Superseded by REQ-JE-3.5's FI-only mode (added 2026-09-26). (2026-10-05) |

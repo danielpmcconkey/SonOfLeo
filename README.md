@@ -45,8 +45,8 @@ the tests that hold it to account.
 | 13 | Run the traceability script on `main` | Dan or Hobson |
 | 14 | Run the audit process; it names the gaps we missed | Dan |
 
-Step 13 is manual on purpose. `Checks/check-traceability.sh` exits 0 on any branch that is
-not `main`, because the invariant it enforces — every active requirement tested or waived —
+Step 13 is manual on purpose. `Checks/check-traceability.sh` reports SKIP (exit 2, which
+`Checks/run-all.sh` counts as skipped, not failed) on any branch that is not `main`, because the invariant it enforces — every active requirement tested or waived —
 *cannot* hold mid-slice: the spec lands before the tests exist. Gating every commit on it
 once produced a chicken-and-egg where nothing could be committed until dummy tests were
 written first.

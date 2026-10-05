@@ -48,6 +48,9 @@ A record in `ingestion.staged_entry_line` representing one future journal entry 
 ## Insert-only log records
 A record the system appends as a historical log and never updates: a classification match row (`classification.rule_match`, REQ-CR-8.4) and a staged entry status transition (`ingestion.staged_entry_audit`). An insert-only log record is **not an entity** per this document's Entity definition, although a user action inserts it: it has no life after insertion, so a "modified at" would always equal "created at". Entity-level policies (e.g. REQ-SYS-3.1 timestamps) do not apply. (2026-10-03)
 
+## Component rows
+A record that exists only as a part of its parent: an account snapshot line (`positions.account_snapshot_line`, part of an account snapshot), an owner set (`positions.investment_account_owner`, `positions.property_owner`) and a property's ledger-account sets (`positions.property_asset_account`, `positions.property_mortgage_account`, part of a property). Component rows are written and removed only together with their parent and are never updated in place; a change replaces them. A component row is **not an entity** per this document's Entity definition — REQ-SYS-3.1 does not apply, and the parent's timestamps cover it. (2026-10-05)
+
 ## Postable (staged entry)
 A staged entry whose status is `'Classified'` or `'Reviewed'`. Only postable entries are eligible for shadow post or batch post. The posting process validates that every staged line has a non-null account. A manual update can make an entry postable while a line's account is still null (REQ-STG-4.4); such an entry fails shadow post, review and posting loudly (REQ-STG-9.4), and is never silently excluded.
 

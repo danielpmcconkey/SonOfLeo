@@ -31,7 +31,7 @@ Behavioral specs for the reporting domain. Reports are read-only computations ov
 
 ## 3. HTML rendering
 
-REQ-RPT-3.1 to 3.6 apply to every rendered report (trial balance, balance-sheet integrity, period activity, pre-posting review), with "account row" read as any row that shows an account. The waivers on 3.2 to 3.6 cover every rendered report. (Scope stated 2026-10-03) For net worth (§8) and investment wealth history (§9), REQ-RPT-3.1, 3.2 and 3.5 apply; 3.3, 3.4 and 3.6 describe trial-balance account rows and do not. (2026-10-04)
+REQ-RPT-3.1, 3.2 and 3.5 apply to every rendered report (trial balance, balance-sheet integrity, period activity, pre-posting review, net worth, investment wealth history), and the waivers on 3.2 and 3.5 cover every rendered report. REQ-RPT-3.3, 3.4 and 3.6 describe trial-balance account rows and apply to the trial balance only, as do their waivers. (Scope stated 2026-10-03; net worth and investment wealth history added 2026-10-04; amended 2026-10-05 — 3.3, 3.4 and 3.6 narrowed to the trial balance, which is the only report with trial-balance account rows.)
 
 - **REQ-RPT-3.1** The rendered HTML report must contain a header section displaying the report title and the as-of Calendar Date.
 - **REQ-RPT-3.2** The rendered HTML report must contain a footer section displaying the instant at which the report was generated: the initiation instant of the operation that rendered it (REQ-SYS-3.4). (Amended 2026-10-03)
@@ -101,7 +101,7 @@ property at market value in place of whatever cost the ledger carries for them.
 - **REQ-RPT-8.1** The system must provide a net worth computation that accepts an as-of Calendar Date. The date must fall within an existing fiscal period; otherwise the computation fails with a typed error naming the date.
   - *Why:* liabilities come only from the ledger, and the ledger holds nothing before its first fiscal period. A net worth for an earlier date would count every asset and no debt. Investment wealth over time (§9) has no such limit. (2026-10-04)
 - **REQ-RPT-8.2** Net worth is the sum of:
-  - the net balance, as of the date, of every Asset account that is not linked to an Investment Account or a Property (Positions REQ-POS-4.8, REQ-POS-9.7);
+  - the net balance, as of the date, of every Asset account that is not linked to an Investment Account or a Property (Positions REQ-POS-4.8, REQ-POS-9.7). A Property may link several asset accounts; its value replaces all of them (amended 2026-10-05);
   - the market value of every line in the holdings as of the date (Positions REQ-POS-8.1);
   - the value on the date (Positions REQ-POS-10.4) of every Property owned on the date (Positions REQ-POS-9.4);
 
@@ -115,7 +115,7 @@ property at market value in place of whatever cost the ledger carries for them.
   - each counted Asset account (code, name, balance) and each Liability account not a mortgage Account of a Property owned on the date (code, name, balance) (amended 2026-10-04: a mortgage of a Property no longer owned still counts in net worth under REQ-RPT-8.2, so it is listed with the other liabilities);
   - each included Investment Account (name, owners' names, account group, tax treatment, snapshot date, provenance, total market value, contribution basis);
   - each owned Property (name, use, owners' names, value, the date of the Valuation it came from or an indication that it is the purchase basis, each mortgage Account with code, name and balance, and equity);
-  - totals: counted ledger assets, investments, property values, liabilities, net worth, and investable wealth;
+  - totals: counted ledger assets, investments, property values, liabilities (the Liability accounts listed above), mortgages of owned Properties, net worth, and investable wealth. Counted ledger assets plus investments plus property values, less liabilities and less mortgages of owned Properties, equals net worth (amended 2026-10-05: the owned-property mortgages total is added so the totals add up to net worth);
   - investment market value totalled by tax treatment, and by account group.
   - *Why the tax-treatment totals:* whether tax is owed on all of a balance, only its growth, or none of it is the first thing anyone settling the household's affairs needs to know. (2026-10-04)
 - **REQ-RPT-8.6** Net worth is a read-only report (REQ-RPT-2.6) and supports the output modes of §2: data-only, and rendered HTML written to a caller-provided path. Date interpolation (REQ-RPT-2.4) appends the as-of date.
@@ -125,12 +125,12 @@ property at market value in place of whatever cost the ledger carries for them.
 How invested wealth has grown, month by month, split along any one line.
 
 - **REQ-RPT-9.1** The system must provide an investment wealth history computation that accepts a begin and an end Calendar Date and a grouping, one of: account, account group, tax treatment, owners, or any of the seven allocation dimensions (Positions REQ-POS-2.1). The end date may not be earlier than the begin date.
-- **REQ-RPT-9.2** The computation returns one point for every month-end date (the last day of a calendar month) on or after the begin date and on or before the end date, in date order. At each point, the holdings as of that date (Positions REQ-POS-8.1) are totalled by market value for each value of the grouping, with a total across all of them.
+- **REQ-RPT-9.2** The computation returns one point for every month-end date (the last day of a calendar month) on or after the begin date and on or before the end date, in date order. At each point, the holdings as of that date (Positions REQ-POS-8.1) are totalled by market value for each value of the grouping, with a total across all of them. Every grouping value that has holdings at any point in the range appears at every point; at a point where it has no holdings its total is 0.00, not absent. (Amended 2026-10-05)
   - *Why month-ends:* snapshots arrive weekly; a monthly series is what shows growth over years without weekly noise. (2026-10-04)
 - **REQ-RPT-9.3** Grouping by owners groups each account by its complete set of owners, so a jointly owned account is its own group, not split between its owners. Grouping by a dimension groups each line by its Security's value in that dimension; lines with no value in it are grouped as unassigned.
 - **REQ-RPT-9.4** Investment wealth history is not limited to fiscal periods. A point with no holdings is reported with a zero total.
   - *Why:* investment history reaches back years before the ledger began. (2026-10-04)
-- **REQ-RPT-9.5** Investment wealth history is a read-only report (REQ-RPT-2.6) and supports the output modes of §2. Rendered, it is a table with one row per point and one column per group value. Date interpolation (REQ-RPT-2.4) appends the begin and end dates as `-yyyy-MM-dd_yyyy-MM-dd`.
+- **REQ-RPT-9.5** Investment wealth history is a read-only report (REQ-RPT-2.6) and supports the output modes of §2. Rendered, it is a table with one row per point and one column per group value; a group with no holdings at a point shows 0.00, not a blank cell (REQ-RPT-9.2). Date interpolation (REQ-RPT-2.4) appends the begin and end dates as `-yyyy-MM-dd_yyyy-MM-dd`. The rendered header (REQ-RPT-3.1) shows the begin and end dates and the grouping in place of an as-of date. (Amended 2026-10-05)
 
 ## Waived from testing
 

@@ -631,12 +631,6 @@
             <element xsi:type="archimate:ApplicationFunction" name="Summarize revenue and expense activity over a date range" id="id-8bfcba70be354a68b7ebcc9687cd3f96">
               <documentation>For a begin and end date, inclusive, list every Revenue and Expense account with non-voided activity in the range, in trial balance order, with its net total in its normal-balance direction and each contributing journal entry line ordered by entry date then journal entry ID.</documentation>
             </element>
-            <element xsi:type="archimate:ApplicationFunction" name="Compute net worth as of a date" id="id-1c603084628d4fdca297b45ba6584126">
-              <documentation>Unlinked ledger assets, investments at market value and owned property at value, less liabilities; with property equity, investable wealth and investment subtotals.</documentation>
-            </element>
-            <element xsi:type="archimate:ApplicationFunction" name="Compute investment wealth history" id="id-388c19e0382746e78c2f98e99d58cbdd">
-              <documentation>Holdings as of each month-end in a range, totalled by one grouping.</documentation>
-            </element>
           </folder>
           <element xsi:type="archimate:ApplicationFunction" name="Ledger functions" id="id-02a684e5afd946a8949031f15694a733">
             <documentation>Behaviours that define and maintain the structure and content of the general ledger — accounts, fiscal periods, journal entries, and the rules that govern them. Members of this clade share a defining characteristic: they operate on the permanent record of financial activity.</documentation>
@@ -1041,6 +1035,12 @@
           <element xsi:type="archimate:ApplicationFunction" name="Fetch holdings as of a date" id="id-322237740d184926a2cc67b23ef3c531">
             <documentation>For every investment account active on a date, its latest snapshot on or before the date with the details of each line's security and holding.</documentation>
           </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Compute net worth as of a date" id="id-1c603084628d4fdca297b45ba6584126">
+            <documentation>Unlinked ledger assets, investments at market value and owned property at value, less liabilities; with property equity, investable wealth and investment subtotals.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Compute investment wealth history" id="id-388c19e0382746e78c2f98e99d58cbdd">
+            <documentation>Holdings as of each month-end in a range, totalled by one grouping.</documentation>
+          </element>
         </folder>
         <folder name="Classification functions" id="id-0782d06bcb0c4e42a17757d56d1eadb5">
           <element xsi:type="archimate:ApplicationFunction" name="Classification functions" id="id-2cd1a6b0f4f14c808fb6e150aff6e050">
@@ -1137,7 +1137,7 @@
           <documentation>Behaviours about the household itself rather than its money: the people who own what is recorded.</documentation>
         </element>
         <element xsi:type="archimate:ApplicationFunction" name="Maintain persons" id="id-11b15e6b16724996ac1c0aec1ddb400b">
-          <documentation>Create, rename and list the people who own accounts and property, each addressed by a unique name.</documentation>
+          <documentation>Create, update (name and birthdate) and list the people who own accounts and property, each addressed by a unique name.</documentation>
         </element>
       </folder>
     </folder>
@@ -4001,6 +4001,8 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:RealizationRelationship" id="id-68df1ebf0b86426ca29d611ada0de45d" source="id-7ea2f88da19d45eabc1db394d44d1d8a" target="id-8e032f4523fa44838b3e510933718422"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-a8c0484a1fab42019b8746578141aad8" source="id-b8ccab77a22047f591b5b8e073ea8f3b" target="id-8e032f4523fa44838b3e510933718422"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-9a0c5de81b8d4a7b87f1d6171de1990d" source="id-028369b6e73f4224b389b1cb9e325930" target="id-8e032f4523fa44838b3e510933718422"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-1cda9e9d8ba844dfa4085dbcbd274539" source="id-98eeedd15ea9461e987d5a877ef678a9" target="id-8e032f4523fa44838b3e510933718422"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-45f60606e2fb4475b36efd430c1772c5" source="id-98eeedd15ea9461e987d5a877ef678a9" target="id-2042ff5d257b4f2ebb67a50e953b2590"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-9bb8d5344fbb4ed0a59c29f24bcc0d54" source="id-17c5c889e74949189350161e6e6e1bda" target="id-8e032f4523fa44838b3e510933718422"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-60ef4a5d36c842c78c33aff668c07e2e" source="id-e327791f33c340e4bcd42c802d9af845" target="id-8e032f4523fa44838b3e510933718422"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-3540ba761c594cf1b3c07985b995e809" source="id-ab7491ebef214f898c509ef67c192b84" target="id-8e032f4523fa44838b3e510933718422"/>
@@ -4256,8 +4258,8 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:CompositionRelationship" id="id-96563534fd224aecb8a7fdfc2a61e9e0" source="id-05d26ab59cae4a77850a00c0bca2fd44" target="id-bd29c282c1fa48559399c79d2b20ab2d"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-2044ce699ff0453fb497dfcd4d7a6dc2" source="id-05d26ab59cae4a77850a00c0bca2fd44" target="id-fb17a759226e4a07863f608cd7476fe6"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-398636f5e56c44e18da8104d990281a6" source="id-05d26ab59cae4a77850a00c0bca2fd44" target="id-322237740d184926a2cc67b23ef3c531"/>
-    <element xsi:type="archimate:CompositionRelationship" id="id-c7161ea36f694c4eaca97c695990e9b5" source="id-1432d98bd0e54feebfc8249427edfc34" target="id-1c603084628d4fdca297b45ba6584126"/>
-    <element xsi:type="archimate:CompositionRelationship" id="id-141389567cd74231a498680ee1b1b1f6" source="id-1432d98bd0e54feebfc8249427edfc34" target="id-388c19e0382746e78c2f98e99d58cbdd"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-c7161ea36f694c4eaca97c695990e9b5" source="id-05d26ab59cae4a77850a00c0bca2fd44" target="id-1c603084628d4fdca297b45ba6584126"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-141389567cd74231a498680ee1b1b1f6" source="id-05d26ab59cae4a77850a00c0bca2fd44" target="id-388c19e0382746e78c2f98e99d58cbdd"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-44b2e5778f2d48bbbf424db900206172" source="id-81f15056b78a44a5afab257a640f65a1" target="id-59d9df6f1c48493ab3d1d5cc380ffb6e"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-5738193b80824c7081d6b269d5b51a1d" source="id-81f15056b78a44a5afab257a640f65a1" target="id-fab1bf3a75674aab9b6bcf6458476f16"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-9f1a9801e66a47359894cb515b90d24e" source="id-5a130e86cd8742d09dcf8812c42b82d9" target="id-c3d1833c84da41f4a4ce59fda58ebe11"/>

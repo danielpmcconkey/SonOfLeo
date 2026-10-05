@@ -54,8 +54,9 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 ## AMB-13: Money Multiplication Prohibition Boundary
 - **Status:** overruled
 - **Date:** 2026-06-13
-- **Scope:** Whether Money.md needs to clarify operator vs behavioral prohibition
+- **Scope:** Whether REQ-MON-2.7/2.7.1 need to clarify operator vs behavioral prohibition
 - **Ruling:** The code already doesn't define * and / operators on Money. The convention says "can't do it." There's nothing more to do here.
+- **Authority (updated 2026-10-05):** The Money convention cited above was retired. The prohibition now lives in REQ-MON-2.7/2.7.1 and the money-arithmetic-boundaries article; the ruling stands against them.
 
 
 ## IE-4: Equity Subtypes Not Future-Proofed
@@ -65,7 +66,8 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 - **Ruling:** The subtype isn't the only or obvious way to identify retained earnings. Could use code, name, or a flag. Speculating on the mechanism before knowing what period closure needs just cements a guess.
 
 ## DEC-1: Convention "Must" vs Requirement "Must"
-- **Status:** overruled
+- **Status:** retired (2026-10-05)
+- **Retired because:** Absorbed. The convention docs were removed on 2026-07-30; the CompoundedLearnings audit-conduct articles conventions-without-reqs and requirements-stricter-than-conventions now govern this question.
 - **Date:** 2026-07-06
 - **Scope:** Whether convention "must" and requirement "must" need formal disambiguation
 - **Ruling:** De facto resolved. Convention docs hold prose guidance and design rationale. Behavioral specs hold REQ-labeled testable requirements. When a convention encodes a testable rule, it gets extracted to a REQ ID in the behavioral spec (Money.md established this pattern). The two "musts" serve different purposes and do not conflict.
@@ -76,11 +78,12 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 - **Scope:** Whether REQs can contain non-assertable language
 - **Ruling:** As long as the language doesn't create ambiguity or encourage test writers to write bullshit tests, additional elaboration is fine. 
 
-## SS-3: SystemWide.md todo Comment
+## SS-3: todo Comments Are Not Directives
 - **Status:** overruled
 - **Date:** 2026-06-13
 - **Scope:** Whether `todo` comments must be in reference to an existing REQ
 - **Ruling:** Dan uses Rider's todo function as either 1. a "note to self" to remind him what to implement next; or 2. a note to the LLMs that I have intentionally not yet implemented something that would otherwise belong in that section. To-do remarks are always intentionally placed and should not be evaluated in an audit as any sort of stand-alone directive. 
+- **Note (Hobson, 2026-10-05):** A todo is not a waiver. An active REQ next to a todo is still tested, waived in the spec's Waived table, or unenforceable; if it is none of these, flag it.
 
 ## DEC-3: REQ-AC-1.39 Self-Parent Enforcement
 - **Status:** overruled
@@ -155,6 +158,7 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 - **Date:** 2026-08-02
 - **Revisit when:** Dan schedules the closing-entries slice
 - **Ruling:** FP closing (`is_open` toggle) is a posting lock only. GAAP closing entries (annual retained-earnings sweep) are a planned, unscheduled enhancement — not abandoned, not incomplete. The design session happens when Dan schedules that slice. Do not flag closing as incomplete.
+- **Scope extended (Hobson, 2026-10-05):** Also covers the absence of any ordering across periods: each period opens and closes on its own, so closing a month does not freeze its ending balances (posting or voiding in an earlier, still-open month changes them). Ordering and frozen balances belong to the deferred closing slice. Do not flag them separately.
 
 ## CLAUDE-MD: No Repo-Level Agent Entry Point
 - **Status:** overruled
@@ -170,14 +174,14 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 
 ## DAL-EFFICACY: DAL Test Efficacy Not Applicable
 - **Status:** overruled
-- **Date:** 2026-08-20 (verbiage corrected 2026-08-22; rewritten 2026-10-03)
+- **Date:** 2026-08-20 (verbiage corrected 2026-08-22; rewritten 2026-10-03 and 2026-10-05)
 - **Scope:** Whether the DAL needs a test-efficacy audit pass
-- **Ruling:** REQ-DAL-1.14–1.20, 2.1–2.3 and 3.1–3.7 (including 3.2.1) are waived from testing or unenforceable, and are validated transitively through the domain tests that exercise the DAL. Do not flag the absence of efficacy findings for those IDs. REQ-DAL-2.4 (added 2026-09-26) is tested directly and is in scope for test-efficacy passes. If a waiver on any of the IDs above is removed (audit 2026-10-03a moves REQ-DAL-2.2 to tested once its tests are cited), that ID is in scope too — check the Waived table, not this list. This ruling covers test-efficacy only — it does not suppress spec-quality, ambiguity, or contradiction audits against DataAccessLayer.md.
+- **Ruling:** The IDs in DataAccessLayer.md's Waived table are validated transitively through the domain tests that exercise the DAL; do not flag the absence of efficacy findings for them. The IDs in its Unenforceable table bind humans, not code. Every other active DAL ID is tested directly and is in scope for test-efficacy passes. The spec's tables are authoritative: read them, not a list here. This ruling covers test-efficacy only — it does not suppress spec-quality, ambiguity, or contradiction audits against DataAccessLayer.md.
 
 ## IDIOM-JE-1: REQ-JE-3.6.1 Net Balance Sign Test
 - **Status:** retired (2026-10-03)
 - **Date:** 2026-08-20
-- **Retired:** REQ-JE-3.6.x was withdrawn on 2026-10-03, superseded by REQ-AC-3.13/3.13.1, and its tests are being retired or re-cited. If a sign-direction test is re-cited to REQ-AC-3.13, the reasoning below still applies to it.
+- **Retired:** REQ-JE-3.6.x was withdrawn on 2026-10-03, superseded by REQ-AC-3.13/3.13.1, and its tests are being retired or re-cited.
 - **Scope:** Whether the REQ-JE-3.6.1 net-balance test's `> zero` assertion is a cowardly inequality
 - **Ruling:** The rest of the 3.6 suite asserts correct amounts; this specific test is about sign direction (net balance is positive when debits exceed credits). The `> zero` assertion is appropriate for a sign-direction test. Do not re-flag.
 
@@ -211,3 +215,27 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 - **Date:** 2026-10-03
 - **Scope:** Whether a route-level happy-path test that takes its expected value from the same orchestrator computation the route calls (e.g. trial balance data, balance-sheet integrity, period activity) is Specimen 6
 - **Ruling:** Not Specimen 6 when both hold: (1) the test is a route test, whose job is routing and conversion, not the computation; and (2) the computation has its own tests that derive their expected values from fixtures, independently of the code under test. Then the orchestrator is an independently verified oracle. A precondition such as `>= 2` rows is a non-vacuity guard, not the asserted value. Specimen 6 still applies when the computation has no independent test, or when the test is the computation's own test.
+
+## UNIQUE-DB: Uniqueness Backed by a DB Constraint Fails Loudly
+- **Status:** overruled
+- **Date:** 2026-10-03 (recorded 2026-10-05)
+- **Scope:** Whether a uniqueness rule enforced by a database UNIQUE constraint needs a typed error, a test that pins the constraint as the cause of the rejection, or a separate test on the update path (rename, re-code, re-ticker)
+- **Ruling:** No. A duplicate is a loud database rejection: the statement aborts and nothing is written, and REQ-SYS-2.1.2 lets rejections that need DB state fall through to constraints. A test that accepts the DAL's non-query error is sound when its name promises only that the duplicate is refused; any other cause of failure would break the happy paths that share the statement. No typed error; no message string-matching. The same holds on the update path: a regressed guard still fails loudly with nothing written. Precedent: audit 2026-10-03a #034 and #088; re-flagged as 2026-10-04a #017 and #039. Do not re-flag.
+
+## DECIMAL-SCALE: Precision Is About Value, Not Decimal Scale
+- **Status:** overruled
+- **Date:** 2026-10-03 (extended to Quantity and Price 2026-10-04)
+- **Scope:** Whether Money, Quantity or Price must reject, or normalize, a decimal whose scale exceeds the precision limit while its value does not (e.g. 3.990M as Money, 1.5000000M as Quantity or Price), and whether tests must cover that case
+- **Ruling:** The precision REQs (REQ-MON-1.4, REQ-QP-1.3, REQ-QP-2.3) are rules about value. 3.990M is a two-decimal value; trailing-zero scale is representation, not precision. Value equality holds, and persistence normalizes to the column's scale (two places for Money, six for Quantity and Price). No silent wrong data, so nothing to spec or test. Source: audit 2026-10-03a #111 (Money); extended to Quantity and Price in 2026-10-04a #064, #076 and #174. Do not re-flag.
+
+## REPORT-RECORDS: Read-Only Report and View Outputs May Be Public Records
+- **Status:** overruled
+- **Date:** 2026-10-05
+- **Scope:** Whether read-only report and view output records (rows, lines and composites returned by a report or view read) must be private with accessor functions, rather than public records the UI tier reads by field
+- **Ruling:** Dan, 2026-10-05: public report row types follow the precedent in Business.CrossDomainOrchestration.TrialBalanceReport (public row records read by field). Read-only report and view outputs are exempt from the private/accessor constraint. Source: audit 2026-10-04a #112.
+
+## REPORT-SQL: A Report Read May Be One Cross-Schema SELECT
+- **Status:** overruled
+- **Date:** 2026-10-05
+- **Scope:** Whether a report read in orchestration may run its own SQL joining tables across schemas, rather than composing each domain module's query and reconstitute
+- **Ruling:** Dan, 2026-10-05: a report read may be built from one cross-schema SELECT in orchestration (precedent AccountActivity, AccountBalance). Source: audit 2026-10-04a #113.

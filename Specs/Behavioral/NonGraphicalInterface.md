@@ -56,6 +56,7 @@ construction pattern) but deliberately not verified by tests.
 |----------------|---|------------------|
 | REQ-NGUI-1.1 | It's too broadly scoped | Dan, 2026-06-18  |
 | REQ-NGUI-1.2 | There are no use cases that meet this yet | Dan, 2026-06-18 |
+| REQ-NGUI-1.4 | You can't test a negative and it's also quite clear by the interface contracts that codes are present | Dan, 2026-07-06 | 
 | REQ-NGUI-2.1   | It's too broadly scoped | Dan, 2026-06-18  |
 | REQ-NGUI-2.1.1 | It's too broadly scoped | Dan, 2026-06-18  |
 | REQ-NGUI-2.2   | It's too broadly scoped | Dan, 2026-06-18  |
