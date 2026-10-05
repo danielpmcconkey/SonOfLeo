@@ -25,7 +25,7 @@ open Business.FinancialServices.Ledger.LedgerError
 type JournalEntryExternalReferenceOrchestrationTests(fixture: TestDataFixture) =
 
     [<Fact>]
-    member _.``REQ-JE-4.9 updateFiAndReferenceText rejects no-op when both fields are NoChange``() =
+    member _.``REQ-SYS-6.1 updateFiAndReferenceText rejects no-op when both fields are NoChange``() =
         let referenceId = fixture.Data.jeWithRefExtRefId
         runCommandRouteAndAutoRollback JournalEntryUpdateExternalReference (fun context ->
             let result =

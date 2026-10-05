@@ -104,9 +104,9 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback AccountDeactivate (fun context ->
             result {
                 let! original = Account.fetchById context fixture.Data.moneyMarket1270Id
-                let equalEnd = Some(original |> Account.activityPeriod |> activeBegin)
-                let! account = fixture.Data.moneyMarket1270Id |> Account.fetchById context
-                let! _ = account |> deactivateAccount context equalEnd
+                let beginDate = original |> Account.activityPeriod |> activeBegin
+                let! storedEnd = fixture.Data.moneyMarket1270Id |> deactivateAndReadBack context beginDate
+                Assert.Equal(Some beginDate, storedEnd)
                 return ()
             })
         |> railroadWrapper
@@ -120,6 +120,25 @@ type AccountDeactivationTests(fixture: TestDataFixture) =
                 do!
                     isCorrectError
                         (account |> deactivateAccount context goodActiveEnd)
+                        AccountActiveChildrenBeforeDeactivation
+                        None
+                return ()
+            })
+        |> railroadWrapper
+
+    [<Theory>]
+    [<InlineData(0)>]
+    [<InlineData(30)>]
+    member _.``REQ-AC-4.3 deactivateAccount rejects a parent whose only child's active end is today or later, the child being active as of the current date``(childEndOffsetDays: int) =
+        (* The requested end is tomorrow: judged as of the requested end, a child ending today would no longer be
+           active, and a child with any active end is not open-ended, so only the current-date reading rejects. *)
+        runCommandRouteAndAutoRollback AccountDeactivate (fun context ->
+            result {
+                let! parent, parentId = newAccount context "AC-4.3-P" None None
+                let! _ = newAccount context "AC-4.3-C" (Some(today.PlusDays(childEndOffsetDays))) (Some parentId)
+                do!
+                    isCorrectError
+                        (parent |> deactivateAccount context (Some(today.PlusDays(1))))
                         AccountActiveChildrenBeforeDeactivation
                         None
                 return ()

@@ -49,7 +49,15 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
                         []
                 let actual = jeHappy |> header |> JournalEntryHeader.description |> JournalEntryDescription.value
                 Assert.Equal(expected, actual)
-                Assert.Equal(2, jeHappy |> jeLines |> List.length)
+                let expectedLines =
+                    set [ (fixture.Data.entertainment5650Id, 86.04M, JournalEntryLineType.Debit)
+                          (fixture.Data.creditCard2220Id, 86.04M, JournalEntryLineType.Credit) ]
+                let returnedLines =
+                    jeHappy
+                    |> jeLines
+                    |> List.map (fun l -> l |> JournalEntryLine.accountId, l |> JournalEntryLine.amount |> Money.amount, l |> JournalEntryLine.lineType)
+                Assert.Equal<Set<AccountId * decimal * JournalEntryLineType>>(expectedLines, returnedLines |> Set.ofList)
+                Assert.Equal(2, returnedLines |> List.length)
                 return ()
             })
         |> railroadWrapper
@@ -403,8 +411,43 @@ type JournalEntryCreationTests(fixture: TestDataFixture) =
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
 
+    [<Theory>]
+    [<InlineData("first")>]
+    [<InlineData("last")>]
+    member _.``REQ-JE-2.5 REQ-JE-1.11 an entry posted on the first or last day of an open fiscal period is assigned the fixture period whose start and end dates contain that day``(day: string) =
+        let currentPeriod =
+            fixture.Data.fiscalPeriods
+            |> List.find (fun fp ->
+                fp |> FiscalPeriod.startDate <= Calendar.today() && Calendar.today() <= (fp |> FiscalPeriod.endDate))
+        let entryDate =
+            match day with
+            | "first" -> currentPeriod |> FiscalPeriod.startDate
+            | _ -> currentPeriod |> FiscalPeriod.endDate
+        let expectedPeriodId =
+            fixture.Data.fiscalPeriods
+            |> List.filter (fun fp -> fp |> FiscalPeriod.startDate <= entryDate && entryDate <= (fp |> FiscalPeriod.endDate))
+            |> List.exactlyOne
+            |> FiscalPeriod.fiscalPeriodId
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
+            result {
+                let! posted, _ =
+                    createTestJournalEntryFromPrimitives
+                        context
+                        $"JE period derivation {day}"
+                        None
+                        entryDate
+                        [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
+                          (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
+                        []
+                        []
+                Assert.Equal(entryDate, posted |> header |> JournalEntryHeader.entryDate |> EntryDate.entryDate)
+                Assert.Equal(expectedPeriodId, posted |> header |> JournalEntryHeader.entryDate |> EntryDate.fiscalPeriodId)
+                return ()
+            })
+        |> railroadWrapper
+
     [<Fact>]
-    member _.``REQ-JE-2.5 REQ-JE-2.6 REQ-JE-1.11 constructNewAndPersist rejects entry date w/ no matching fiscal period``() =
+    member _.``REQ-JE-2.6 constructNewAndPersist rejects entry date w/ no matching fiscal period``() =
         let today = Calendar.today()
         let badDate = today.PlusYears(-3)
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->

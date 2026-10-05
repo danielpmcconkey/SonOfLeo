@@ -2,15 +2,7 @@ module Tests.Helpers.RouteResolver
 
 
 open App.DataAccessLayer.DbTransaction
-open Ui.InterfaceBridge.Routes.AccountRoutes
-open Ui.InterfaceBridge.Routes.FiscalPeriodRoutes
-open Ui.InterfaceBridge.Routes.IngestionRoutes
-open Ui.InterfaceBridge.Routes.JournalEntryRoutes
 open Ui.InterfaceBridge.Routes.ReportRoutes
-open Ui.InterfaceBridge.Routes.ClassificationRoutes
-open Ui.InterfaceBridge.Routes.CashFlowRoutes
-open Ui.InterfaceBridge.Routes.PersonRoutes
-open Ui.InterfaceBridge.Routes.PositionsRoutes
 open Ui.OperatorCli.OperatorCliError
 open Ui.ReportCli.ReportCliError
 open App.Utility.IAppError
@@ -18,9 +10,8 @@ open Tests.Helpers.TestError
 open Tests.Helpers.SadPath
 
 
-let commandRoutes =
-    accountDomainCommandRoutes @ fiscalPeriodDomainCommandRoutes @ journalEntryDomainCommandRoutes @ ingestionDomainCommandRoutes @ classificationDomainCommandRoutes @ cashFlowDomainCommandRoutes
-    @ personDomainCommandRoutes @ positionsDomainCommandRoutes
+// The shipped operator CLI's own route table, so a domain the executable can't reach can't be reached here either.
+let commandRoutes = Program.commandRoutes
 
 let routeUiCommandForTesting
     (domain: string)

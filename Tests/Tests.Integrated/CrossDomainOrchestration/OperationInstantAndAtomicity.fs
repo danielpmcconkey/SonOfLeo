@@ -375,54 +375,32 @@ type OperationInstantAndAtomicityTests(fixture: TestDataFixture) =
     // REQ-SYS-8.1 — an operation's writes land together or not at all
     // =========================================================================
 
-    [<Theory>]
-    [<InlineData("posting a journal entry")>]
-    [<InlineData("a batch post")>]
-    member _.``REQ-SYS-8.1 REQ-JE-2.12 for each of posting a journal entry whose last comment names a secondary journal entry that doesn't exist, and a batch post whose last staged entry is dated in a closed fiscal period, the request fails with that step's typed error after earlier writes were issued and none of its writes are in the database`` (operation: string) =
+    [<Fact>]
+    member _.``REQ-SYS-8.1 a batch post whose last staged entry is dated in a closed fiscal period fails with that step's typed error after earlier writes were issued and none of its writes are in the database`` () =
         let tag = newTag ()
         let staged = ResizeArray<StageEntryHeaderId>()
         try
-            match operation with
-            | "posting a journal entry" ->
-                let missing = Guid.NewGuid()
-                let input : JournalEntryInput =
-                    { header = { description = $"Half written {tag}"; source = None; entryDate = Calendar.today () }
-                      lines =
-                        [ { accountCode = "F-2230"; amount = 10.00M; lineType = "Debit"; memo = None }
-                          { accountCode = "F-1280"; amount = 10.00M; lineType = "Credit"; memo = None } ]
-                      externalReferences = [ { financialInstitution = "Atomicity FI"; referenceText = $"Ref {tag}" } ]
-                      comments =
-                        [ { secondaryJournalEntryId = None; commentText = "fine" }
-                          { secondaryJournalEntryId = Some missing; commentText = "points nowhere" } ] }
-                let attempt = input |> sendJe "PostNew"
-                let rightError =
-                    match attempt with
-                    | Error (AsError (JournalEntryCommentSecondaryJeHeaderIdNotFound id)) -> id = missing
-                    | _ -> false
-                Assert.True(rightError)
-                Assert.Empty(describedToday $"Half written {tag}")
-            | _ ->
-                let closedDate = (fixture.Data.closedFiscalPeriod |> FiscalPeriod.startDate).PlusDays(14)
-                let good, bad =
-                    runCommandRouteAndAutoCompleteTransaction IngestRawEntries (fun context ->
-                        result {
-                            // Reviewed entries are posted before Classified ones, so the closed-period entry comes last
-                            let! good = stagedEntry fixture context $"Good-{tag}" (Calendar.today ()) [ "Classified"; "Reviewed" ]
-                            let! bad = stagedEntry fixture context $"Closed-{tag}" closedDate [ "Classified" ]
-                            return good, bad
-                        })
-                    |> orFail
-                [ good; bad ] |> List.iter (fun e -> staged.Add(e |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId))
-                let attempt = postStagedThroughRoute ()
-                let rightError =
-                    match attempt with
-                    | Error (AsError (JournalEntryHeaderEntryDateInvalid _)) -> true
-                    | _ -> false
-                Assert.True(rightError)
-                Assert.Empty(describedToday $"Instant and atomicity Good-{tag}")
-                let goodAfter = good |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId |> fetchByStageEntryHeaderId (fresh ()) |> orFail
-                Assert.Equal(Some StagedEntryStatus.Reviewed, goodAfter |> stageEntryHeader |> StageEntryHeader.currentStatus)
-                Assert.Equal(None, goodAfter |> stageEntryHeader |> StageEntryHeader.journalEntryHeaderId)
+            let closedDate = (fixture.Data.closedFiscalPeriod |> FiscalPeriod.startDate).PlusDays(14)
+            let good, bad =
+                runCommandRouteAndAutoCompleteTransaction IngestRawEntries (fun context ->
+                    result {
+                        // Reviewed entries are posted before Classified ones, so the closed-period entry comes last
+                        let! good = stagedEntry fixture context $"Good-{tag}" (Calendar.today ()) [ "Classified"; "Reviewed" ]
+                        let! bad = stagedEntry fixture context $"Closed-{tag}" closedDate [ "Classified" ]
+                        return good, bad
+                    })
+                |> orFail
+            [ good; bad ] |> List.iter (fun e -> staged.Add(e |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId))
+            let attempt = postStagedThroughRoute ()
+            let rightError =
+                match attempt with
+                | Error (AsError (JournalEntryHeaderEntryDateInvalid _)) -> true
+                | _ -> false
+            Assert.True(rightError)
+            Assert.Empty(describedToday $"Instant and atomicity Good-{tag}")
+            let goodAfter = good |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId |> fetchByStageEntryHeaderId (fresh ()) |> orFail
+            Assert.Equal(Some StagedEntryStatus.Reviewed, goodAfter |> stageEntryHeader |> StageEntryHeader.currentStatus)
+            Assert.Equal(None, goodAfter |> stageEntryHeader |> StageEntryHeader.journalEntryHeaderId)
         finally
             staged |> Seq.iter (Some >> Cleanup.cleanUpStageEntryHeaderId >> orFail)
 

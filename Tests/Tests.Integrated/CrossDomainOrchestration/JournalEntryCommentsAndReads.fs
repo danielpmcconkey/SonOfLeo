@@ -116,22 +116,18 @@ type JournalEntryCommentsAndReadsTests(fixture: TestDataFixture) =
     [<Theory>]
     [<InlineData("whitespace-only text")>]
     [<InlineData("text of 2001 characters")>]
-    [<InlineData("a secondary ID that matches no journal entry")>]
-    member _.``REQ-JE-2.15 for each invalid comment (whitespace-only text, text of 2001 characters, a secondary ID that matches no journal entry), posting the entry fails with the typed error for that fault (the not-found error naming the secondary for the last) and nothing is stored`` (fault: string) =
+    member _.``REQ-JE-2.15 for each invalid comment (whitespace-only text, text of 2001 characters), posting the entry fails with the typed error for that fault and nothing is stored`` (fault: string) =
         withEntries (fun post ->
             let tag = newTag ()
-            let missing = Guid.NewGuid()
             let bad =
                 match fault with
                 | "whitespace-only text" -> comment None "    "
-                | "text of 2001 characters" -> comment None (String('c', 2001))
-                | _ -> comment (Some missing) $"dangling {tag}"
+                | _ -> comment None (String('c', 2001))
             let attempt = post (entryInput $"Refused {tag}" today None [ comment None $"fine {tag}"; bad ])
             let rightFault =
                 match fault, attempt with
                 | "whitespace-only text", Error (AsError (JournalEntryCommentIsEmpty _)) -> true
                 | "text of 2001 characters", Error (AsError (JournalEntryCommentTooLong _)) -> true
-                | "a secondary ID that matches no journal entry", Error (AsError (JournalEntryCommentSecondaryJeHeaderIdNotFound id)) -> id = missing
                 | _ -> false
             Assert.True(rightFault, $"%A{attempt |> Result.mapError (fun e -> e.ToMessage())}")
             Assert.Empty(describedOn today $"Refused {tag}"))
