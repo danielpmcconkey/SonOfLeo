@@ -12,6 +12,7 @@ open App.Utility.Json.Json
 open Tests.Helpers
 open Tests.Helpers.CliExecutor
 open Tests.Helpers.Railroad
+open Tests.Helpers.RouteResolver
 open App.Utility
 open App.Utility.IAppError
 open Tests.Helpers.TestError
@@ -92,9 +93,21 @@ type ProgramTests(fixture: TestDataFixture) =
             |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         let exitCode, p, _ = runCli Reports args payload
         Assert.Equal(0, exitCode)
+        (* The trial balance computation has its own fixture-derived tests, so the route is the oracle for what the
+           CLI's stdout carries (ROUTE-ORACLE). *)
+        let rowsOf (returned: TrialBalanceReportReturn) =
+            match returned with
+            | TrialBalanceReportReturn.DataOnly rows ->
+                Ok(rows |> List.map (fun r -> r.accountCode, r.accountName, r.totalDebits, r.totalCredits))
+            | TrialBalanceReportReturn.Report _ -> TestError.error (TestingError "Expected DataOnly but got Report")
         result {
-            let! fetched = p |> fromJson<TrialBalanceReportReturn>
-            Assert.True(fetched.IsDataOnly)
+            let! fetched = p |> fromJson<TrialBalanceReportReturn> |> Result.bind rowsOf
+            let! routed =
+                routeReportingCommandForTesting "TrialBalance" [] payload
+                |> Result.bind fromJson<TrialBalanceReportReturn>
+                |> Result.bind rowsOf
+            Assert.True(routed.Length >= 2, "the route returned fewer than two trial balance rows")
+            Assert.Equal<(string * string * decimal * decimal) list>(routed, fetched)
             return ()
         } |> railroadWrapper
 
@@ -105,8 +118,9 @@ type ProgramTests(fixture: TestDataFixture) =
             standardInput
             |> toJson<TrialBalanceReportInput>
             |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
-        let exitCode, _, _ = runCli Reports args payload
-        (exitCode = 1) |> Assert.True
+        let exitCode, _, e = runCli Reports args payload
+        Assert.Equal(1, exitCode)
+        Assert.Equal("Unknown report: trialbalance.", e.Trim())
 
     [<Fact>]
     member _.``REQ-NGUI-4.5 Incorrect routes must exit with an appropriate error``() =

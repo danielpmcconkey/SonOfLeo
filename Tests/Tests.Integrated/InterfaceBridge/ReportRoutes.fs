@@ -16,6 +16,8 @@ open Business.CrossDomainOrchestration.JournalEntryOrchestration
 open Business.CrossDomainOrchestration.JournalEntryOrchestration.JournalEntryOrchestration
 open Tests.Helpers
 open Tests.Helpers.Railroad
+open Tests.Helpers.EntityFunctions
+open Business.FinancialServices.Ledger.LedgerAuditableAction
 open Tests.Helpers.RouteResolver
 open Tests.Helpers.SadPath
 open App.Utility
@@ -304,7 +306,7 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             })
 
     [<Fact>]
-    member _.``REQ-RPT-7.7 pre-posting review report mode writes an HTML file whose header shows the run date and the staged entries' entry and line counts, and returns its path``() =
+    member _.``REQ-RPT-7.7 REQ-RPT-3.1 pre-posting review report mode writes an HTML file whose header shows the report title, the run date and the staged entries' entry and line counts, and returns its path``() =
         (* The fixture stages nothing Classified or Reviewed (its staged entries are Posted, Duplicate or Ignored), so
            the review holds exactly the entries staged here: a two-line Classified one and a three-line Reviewed one. *)
         let stage (s: PrePostingScenario) =
@@ -334,6 +336,7 @@ type ReportRoutesTests(fixture: TestDataFixture) =
                         Assert.Contains("Pre-posting review route 7.7 report", html)
                         Assert.DoesNotContain("tag not implemented", html)
                         let header = headerOf html
+                        Assert.Equal("Pre-Posting Review", titleIn header)
                         Assert.Contains(Calendar.today() |> Calendar.localDateToString "yyyy-MM-dd", header)
                         Assert.Equal((2, 5), (expectedEntries, expectedLines))
                         Assert.Matches($@"(?<!\d){expectedEntries} entries, {expectedLines} lines(?!\d)", header)
@@ -438,6 +441,66 @@ type ReportRoutesTests(fixture: TestDataFixture) =
                 | BalanceSheetIntegrityReturn.Report _ -> TestError.error (TestingError "Expected DataOnly but got Report")
         }
         |> railroadWrapper
+
+    (* Form 4: the route reads through its own connection, so every write is committed and deleted in finally. RPT-6.4
+       is zeroed by a 40.00 debit and credit dated 20 and 15 days ago, deactivated with an active end 10 days ago, then
+       debited 30.00 dated 12 days ago. All three entries are posted today, after its active end. *)
+    [<Fact>]
+    member _.``REQ-RPT-6.4 REQ-RPT-5.4 the integrity report route in data-only mode returns a deactivated account holding a balance with its code, name, active end, balance and the entries posted after its active end``() =
+        let today = Calendar.today()
+        let activeEnd = today.PlusDays(-10)
+        let mutable accountsToCleanUp = []
+        let mutable entriesToCleanUp = []
+        try
+            result {
+                let! retiredId, liabilityId =
+                    runCommandRouteAndAutoCompleteTransaction AccountCreate (fun context ->
+                        result {
+                            let! _, retiredId =
+                                createTestAccountFromPrimitives
+                                    context "RPT-6.4" "Report route retired asset" "Asset" (today.PlusYears(-1)) None (Some "Cash") None None
+                            let! _, liabilityId =
+                                createTestAccountFromPrimitives
+                                    context "RPT-6.4L" "Report route liability" "Liability" (today.PlusYears(-1)) None
+                                    (Some "CurrentLiability") None None
+                            return retiredId, liabilityId
+                        })
+                accountsToCleanUp <- [ Some retiredId; Some liabilityId ]
+                let post description (date: NodaTime.LocalDate) retiredSide liabilitySide amount =
+                    runCommandRouteAndAutoCompleteTransaction JournalEntryPostNew (fun context ->
+                        createTestJournalEntryFromPrimitives
+                            context description None date
+                            [ (retiredId, amount, retiredSide, None); (liabilityId, amount, liabilitySide, None) ] [] []
+                        |> Result.map snd)
+                    |> Result.map (fun id ->
+                        entriesToCleanUp <- Some id :: entriesToCleanUp
+                        id)
+                let! debit = post "Report route retired debit" (today.PlusDays(-20)) "Debit" "Credit" 40.00M
+                let! credit = post "Report route retired credit" (today.PlusDays(-15)) "Credit" "Debit" 40.00M
+                let! _ =
+                    runCommandRouteAndAutoCompleteTransaction AccountDeactivate (fun context ->
+                        retiredId |> Account.fetchById context
+                        |> Result.bind (AccountDeactivation.deactivateAccount context (Some activeEnd)))
+                let! backdated = post "Report route retired backdated" (today.PlusDays(-12)) "Debit" "Credit" 30.00M
+                let! returned = runIntegrity today OutputSpecifier.DataOnly
+                return!
+                    match returned with
+                    | BalanceSheetIntegrityReturn.DataOnly row ->
+                        match row.deactivatedAccountsWithBalance |> List.filter (fun a -> a.accountCode = "RPT-6.4") with
+                        | [ account ] ->
+                            Assert.Equal(("RPT-6.4", "Report route retired asset", activeEnd, 30.00M),
+                                         (account.accountCode, account.accountName, account.activeEnd, account.balance))
+                            Assert.Equal<Set<System.Guid>>(
+                                [ debit; credit; backdated ] |> List.map JournalEntryHeaderId.value |> Set.ofList,
+                                account.entriesAfterActiveEnd |> List.map _.journalEntryId |> Set.ofList)
+                            Ok ()
+                        | other -> TestError.error (TestingError $"Expected RPT-6.4 listed once; listed {other |> List.length} times")
+                    | BalanceSheetIntegrityReturn.Report _ -> TestError.error (TestingError "Expected DataOnly but got Report")
+            }
+            |> railroadWrapper
+        finally
+            Cleanup.cleanUpJournalEntryList entriesToCleanUp |> railroadWrapper
+            Cleanup.cleanUpAccountList accountsToCleanUp |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-6.4 REQ-RPT-2.3 the integrity report route in report mode returns a fully qualified path at which an HTML file now exists``() =
@@ -557,17 +620,15 @@ type ReportRoutesTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-RPT-6.4 REQ-RPT-3.1 the period activity rendered report header shows the begin and end dates of the range``() =
+    member _.``REQ-RPT-6.4 REQ-RPT-3.1 the period activity rendered report header shows the report title and the begin and end dates of the range``() =
         let b = activityBegin |> Calendar.localDateToString "yyyy-MM-dd"
         let e = activityEnd |> Calendar.localDateToString "yyyy-MM-dd"
         result {
             let! path = periodActivityReportPath false "rpt-6-4-activity-header"
             let html = System.IO.File.ReadAllText path
             System.IO.File.Delete path
-            let headerStart = html.IndexOf("<header")
-            let headerEnd = html.IndexOf("</header>")
-            Assert.True(headerStart >= 0 && headerEnd > headerStart)
-            let header = html.Substring(headerStart, headerEnd - headerStart)
+            let header = headerOf html
+            Assert.Equal("Period Activity", titleIn header)
             Assert.Contains(b, header)
             Assert.Contains(e, header)
             return ()

@@ -18,6 +18,7 @@ open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.CrossDomainOrchestration.JournalEntryOrchestration
 open Business.CrossDomainOrchestration.JournalEntryOrchestration.JournalEntryOrchestration
 open Business.CrossDomainOrchestration.TrialBalanceReport
+open Ui.InterfaceBridge.CommandRoute
 open Tests.Helpers
 open Tests.Helpers.Railroad
 open App.Utility
@@ -59,6 +60,25 @@ type TrialBalanceTests(fixture: TestDataFixture) =
             l |> JournalEntryLine.accountId = accountId
             && l |> JournalEntryLine.lineType = lineType)
         |> List.sumBy(fun l -> l |> JournalEntryLine.amount |> Money.amount)
+
+    /// An account's own fixture debits and credits plus those of every account below it, summed from fixture lines.
+    let rolledUpFromFixture parentId =
+        let rec isDescendantOf targetParentId accountId =
+            match fixture.Data.accounts |> List.tryFind(fun a -> a |> Account.accountId = accountId) with
+            | None -> false
+            | Some acct ->
+                match acct |> Account.parentId with
+                | None -> false
+                | Some pid -> pid = targetParentId || isDescendantOf targetParentId pid
+        let descendantIds =
+            fixture.Data.accounts
+            |> List.filter(fun a -> isDescendantOf parentId (a |> Account.accountId))
+            |> List.map Account.accountId
+        let allIds = parentId :: descendantIds
+        allIds |> List.sumBy(fun id -> sumLinesForAccount id Debit), allIds |> List.sumBy(fun id -> sumLinesForAccount id Credit)
+
+    let codeOfId accountId =
+        fixture.Data.accounts |> List.find(fun a -> a |> Account.accountId = accountId) |> Account.code
 
     [<Fact>]
     member _.``REQ-RPT-1.2 trial balance includes inactive accounts and accounts with no journal entry activity``() =
@@ -102,22 +122,8 @@ type TrialBalanceTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-RPT-1.5 parent account row includes its own values plus recursive child roll-up``() =
         let parentId = fixture.Data.expenses5000Id
-        let parentAccount = fixture.Data.accounts |> List.find(fun a -> a |> Account.accountId = parentId)
-        let parentCode = parentAccount |> Account.code
-        let rec isDescendantOf targetParentId accountId =
-            match fixture.Data.accounts |> List.tryFind(fun a -> a |> Account.accountId = accountId) with
-            | None -> false
-            | Some acct ->
-                match acct |> Account.parentId with
-                | None -> false
-                | Some pid -> pid = targetParentId || isDescendantOf targetParentId pid
-        let descendantIds =
-            fixture.Data.accounts
-            |> List.filter(fun a -> isDescendantOf parentId (a |> Account.accountId))
-            |> List.map Account.accountId
-        let allIds = parentId :: descendantIds
-        let expectedDebits = allIds |> List.sumBy(fun id -> sumLinesForAccount id Debit)
-        let expectedCredits = allIds |> List.sumBy(fun id -> sumLinesForAccount id Credit)
+        let parentCode = codeOfId parentId
+        let expectedDebits, expectedCredits = rolledUpFromFixture parentId
         let expectedNet = expectedDebits - expectedCredits
         result {
             let! rows = prefetchedTb
@@ -127,6 +133,40 @@ type TrialBalanceTests(fixture: TestDataFixture) =
             Assert.Equal(expectedNet, parentRow.netBalance |> Money.amount)
             return ()
         }
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-RPT-1.5 an entry posted to an account three levels below a parent is in the rolled-up totals of its parent, grandparent and great-grandparent``() =
+        // F-5311 sits under F-5310, which sits under F-5300, which sits under F-5000
+        let posted = 412.37M
+        let leafId = fixture.Data.healthInsuranceMedical5311Id
+        let ancestors =
+            [ fixture.Data.healthInsurance5310Id; fixture.Data.personalExpenses5300Id; fixture.Data.expenses5000Id ]
+        let parentOf id =
+            fixture.Data.accounts |> List.find(fun a -> a |> Account.accountId = id) |> Account.parentId
+        Assert.Equal<AccountId option list>(
+            ancestors |> List.map Some,
+            [ parentOf leafId; parentOf ancestors.[0]; parentOf ancestors.[1] ])
+        let expected =
+            ancestors
+            |> List.map (fun id ->
+                let debits, credits = rolledUpFromFixture id
+                codeOfId id, debits + posted, credits)
+        runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
+            result {
+                let! _ =
+                    EntityFunctions.createTestJournalEntryFromPrimitives
+                        context "Trial balance three-level roll-up" None (Calendar.today())
+                        [ (leafId, posted, "Debit", None); (fixture.Data.moneyMarket1270Id, posted, "Credit", None) ] [] []
+                let! rows = fetchTrialBalanceData context nextMonth
+                Assert.Equal<(AccountCode * decimal * decimal) list>(
+                    expected,
+                    ancestors
+                    |> List.map (fun id ->
+                        let row = rows |> List.find(fun r -> r.accountCode = codeOfId id)
+                        row.accountCode, row.totalDebits |> Money.amount, row.totalCredits |> Money.amount))
+                return ()
+            })
         |> railroadWrapper
 
     [<Fact>]
@@ -199,14 +239,22 @@ type TrialBalanceTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-RPT-1.11 account with no qualifying activity appears with zero credits debits and net``() =
-        let noActivityCode =
-            fixture.Data.accounts
-            |> List.find(fun a -> a |> Account.accountId = fixture.Data.retirement3030Id)
-            |> Account.code
+    member _.``REQ-RPT-1.11 an account whose only lines are dated after the as-of date appears with zero credits debits and net``() =
+        // F-5700 Temporal Expense has lines, every one dated after the day before its earliest unvoided line
+        let accountId = fixture.Data.temporalExpense5700Id
+        let accountCode = codeOfId accountId
+        let entriesOnAccount =
+            fixture.Data.journalEntries
+            |> List.filter(fun je -> je |> jeLines |> List.exists(fun l -> l |> JournalEntryLine.accountId = accountId))
+        let isVoided je = je |> header |> JournalEntryHeader.voidedAt |> Option.isSome
+        let entryDateOf je = je |> header |> JournalEntryHeader.entryDate |> EntryDate.entryDate
+        let asOf =
+            (entriesOnAccount |> List.filter (isVoided >> not) |> List.map entryDateOf |> List.min).PlusDays(-1)
+        Assert.NotEmpty(entriesOnAccount)
+        Assert.All(entriesOnAccount, fun je -> Assert.True(isVoided je || entryDateOf je > asOf))
         result {
-            let! rows = prefetchedTb
-            let row = rows |> List.find(fun r -> r.accountCode = noActivityCode)
+            let! rows = fetchTrialBalanceData context asOf
+            let row = rows |> List.find(fun r -> r.accountCode = accountCode)
             Assert.Equal(0M, row.totalDebits |> Money.amount)
             Assert.Equal(0M, row.totalCredits |> Money.amount)
             Assert.Equal(0M, row.netBalance |> Money.amount)
