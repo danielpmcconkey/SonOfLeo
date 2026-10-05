@@ -407,7 +407,12 @@ type InvestmentAccountMaintenanceTests(fixture: TestDataFixture) =
                 Assert.Equal(TaxTreatment.Roth, updated |> InvestmentAccount.taxTreatment)
                 let! sam401kId = PositionsLookups.investmentAccountIdOf context PF.sam401k
                 let! holdings = listHoldings context (Some sam401kId)
-                Assert.Equal(2, holdings.Length)
+                Assert.Equal<(string * BasisMethod option) list>(
+                    [ PF.bondFund, None; PF.totalMarket, None ],
+                    holdings |> List.map (fun v -> v.securityName, v.holding |> Holding.basisMethod))
+                let! found = listed context PF.sam401k
+                let _, _, _, treatment, _, _, _, _ = found |> List.exactlyOne
+                Assert.Equal(TaxTreatment.Roth, treatment)
             })
         |> railroadWrapper
 
@@ -466,12 +471,56 @@ type InvestmentAccountMaintenanceTests(fixture: TestDataFixture) =
                 all |> List.map summary))
         |> railroadWrapper
 
-    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+    [<Fact>]
+    member _.``REQ-POS-11.3 REQ-PER-2.4 an Investment Account update giving an owner name that matches no Person fails with a typed error naming that name, and the owners are unchanged`` () =
+        runCommandRouteAndAutoRollback PositionsUpdateInvestmentAccount (fun context ->
+            result {
+                updateInvestmentAccount
+                    context { noChange PF.jointBrokerage with ownersUpdate = SetTo [ toPersonName PF.alex; toPersonName "Ghost Example" ] }
+                |> expectError (function AsError (PersonNameDoesntMatchId n) -> Some n | _ -> None) (fun n -> Assert.Equal("Ghost Example", n))
+                let! owners = ownersOf context PF.jointBrokerage
+                Assert.Equal<string list>([ PF.alex; PF.sam ], owners)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-POS-5.5 changing a Roth account's tax treatment to TaxDeferred while three of its snapshots, recorded out of date order, carry a contribution basis is rejected with a typed error naming the account and the earliest and latest of those snapshot dates, and the account stays Roth`` () =
-        Assert.Fail "Not yet implemented"
+        let p = fixture.Data.positions
+        runCommandRouteAndAutoRollback PositionsUpdateInvestmentAccount (fun context ->
+            result {
+                let! account = createInvestmentAccount context (newAccount "Basis Roth" TaxTreatment.Roth [ PF.sam ] None begin' None)
+                let accountId = account |> InvestmentAccount.investmentAccountId
+                let withBasis date amount : AccountSnapshotOrchestration.Snapshot =
+                    accountId, date, Reported, Some(toContributionBasis amount), []
+                // recorded d3, d1, d2: the first and last recorded are not the earliest and latest dated
+                let! _ =
+                    AccountSnapshotOrchestration.recordSnapshots
+                        context [ withBasis p.d3 300.00M; withBasis p.d1 100.00M; withBasis p.d2 200.00M ]
+                updateInvestmentAccount context { noChange "Basis Roth" with taxTreatmentUpdate = SetTo TaxTreatment.TaxDeferred }
+                |> expectError
+                    (function AsError (PositionsTaxTreatmentChangeStrandsContributionBasis (a, earliest, latest)) -> Some(a, earliest, latest) | _ -> None)
+                    (fun found -> Assert.Equal(("Basis Roth", p.d1, p.d3), found))
+                let! found = listed context "Basis Roth"
+                let _, _, _, treatment, _, _, _, _ = found |> List.exactlyOne
+                Assert.Equal(TaxTreatment.Roth, treatment)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-POS-5.5 a Roth account with snapshots, none of which carries a contribution basis, changes to TaxDeferred and reads back TaxDeferred`` () =
-        Assert.Fail "Not yet implemented"
+        let p = fixture.Data.positions
+        runCommandRouteAndAutoRollback PositionsUpdateInvestmentAccount (fun context ->
+            result {
+                let! account = createInvestmentAccount context (newAccount "Basisless Roth" TaxTreatment.Roth [ PF.sam ] None begin' None)
+                let accountId = account |> InvestmentAccount.investmentAccountId
+                let noBasis date : AccountSnapshotOrchestration.Snapshot = accountId, date, Reported, None, []
+                let! recorded = AccountSnapshotOrchestration.recordSnapshots context [ noBasis p.d1; noBasis p.d2 ]
+                Assert.Equal<LocalDate list>(
+                    [ p.d1; p.d2 ],
+                    recorded |> List.map (fun r -> r.snapshot.header |> AccountSnapshotHeader.snapshotDate))
+                let! _ = updateInvestmentAccount context { noChange "Basisless Roth" with taxTreatmentUpdate = SetTo TaxTreatment.TaxDeferred }
+                let! found = listed context "Basisless Roth"
+                let _, _, _, treatment, _, _, _, _ = found |> List.exactlyOne
+                Assert.Equal(TaxTreatment.TaxDeferred, treatment)
+            })
+        |> railroadWrapper

@@ -23,6 +23,9 @@ open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
 open Business.FinancialServices.DataIngestion.StageEntryComponent
+open Business.FinancialServices.Positions
+open Business.FinancialServices.Positions.PositionsAuditableAction
+open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.StageEntryOrchestration
 open Ui.InterfaceBridge.CommandRoute
@@ -76,6 +79,141 @@ let private describedToday (description: string) =
     JE.fetchByDateRange (fresh ()) (Calendar.today ()) (Calendar.today ())
     |> orFail
     |> List.filter (fun e -> e |> JE.header |> JournalEntryHeader.description |> JournalEntryDescription.value = description)
+
+/// One record of the kind, created under the creating context. Gives back a read of its stored created-at and modified-at,
+/// and an update of it (for an Account Snapshot or a Valuation, recording the same date again).
+let private createdRecord (fixture: TestDataFixture) (kind: string) (creating: Context.Context) =
+    let p = fixture.Data.positions
+    let stamps (createdAt: 'r -> Instant) (modifiedAt: 'r -> Instant) (read: Result<'r, IAppError>) =
+        read |> Result.map (fun r -> createdAt r, modifiedAt r)
+    let ignoreResult (r: Result<'a, IAppError>) = r |> Result.map ignore
+    result {
+        let! samId = PositionsLookups.personIdOf creating PositionsFixture.sam
+        let! jordanCustodialId = PositionsLookups.investmentAccountIdOf creating PositionsFixture.jordanCustodial
+        let! rentalId = PositionsLookups.propertyIdOf creating PositionsFixture.rental
+        match kind with
+        | "Person" ->
+            let! person =
+                PositionsValues.toPersonName "Instant Example"
+                |> fun name -> PersonOrchestration.constructNewAndPersist creating name (LocalDate(1990, 6, 1))
+            let personId = person |> Business.General.Person.personId
+            let read context =
+                personId
+                |> Business.General.Person.fetchById context
+                |> stamps Business.General.Person.createdAt Business.General.Person.modifiedAt
+            let update context =
+                PersonOrchestration.updatePerson
+                    context
+                    { personIdToUpdate = personId
+                      personNameUpdate = SetTo(PositionsValues.toPersonName "Instant Example Renamed")
+                      birthdateUpdate = NoChange }
+                |> ignoreResult
+            return read, update
+        | "Dimension Value" ->
+            let! dimensionValue =
+                DimensionValueOrchestration.constructNewAndPersist creating Sector (PositionsValues.toDimensionValueName "Instant Sector")
+            let dimensionValueId = dimensionValue |> DimensionValue.dimensionValueId
+            let read context =
+                dimensionValueId |> DimensionValue.fetchById context |> stamps DimensionValue.createdAt DimensionValue.modifiedAt
+            let update context =
+                DimensionValueOrchestration.renameDimensionValue
+                    context
+                    { dimensionValueIdToUpdate = dimensionValueId
+                      dimensionValueNameUpdate = SetTo(PositionsValues.toDimensionValueName "Instant Sector Renamed") }
+                |> ignoreResult
+            return read, update
+        | "Security" ->
+            let! security =
+                SecurityOrchestration.constructNewAndPersist creating (PositionsValues.toSecurityName "Instant Example Fund") None []
+            let securityId = security |> Security.securityId
+            let read context = securityId |> Security.fetchById context |> stamps Security.createdAt Security.modifiedAt
+            let update context =
+                SecurityOrchestration.updateSecurity context securityId NoChange (SetTo(Some(PositionsValues.toTicker "INSTX"))) []
+                |> ignoreResult
+            return read, update
+        | "Investment Account" ->
+            let! account =
+                InvestmentAccountOrchestration.constructNewAndPersist
+                    creating
+                    (PositionsValues.toAccountName "Instant Brokerage")
+                    (PositionsValues.toInstitution "Example Brokerage")
+                    (PositionsValues.toAccountGroup "Brokerage")
+                    Taxable
+                    [ samId ]
+                    (PositionsValues.toActivityPeriod p.accountsActiveBegin None)
+                    None
+            let accountId = account |> InvestmentAccount.investmentAccountId
+            let read context =
+                accountId |> InvestmentAccount.fetchById context |> stamps InvestmentAccount.createdAt InvestmentAccount.modifiedAt
+            let update context =
+                InvestmentAccountOrchestration.updateInvestmentAccount
+                    context
+                    { investmentAccountIdToUpdate = accountId
+                      investmentAccountNameUpdate = NoChange
+                      institutionUpdate = SetTo(PositionsValues.toInstitution "Example Discount Brokerage")
+                      accountGroupUpdate = NoChange
+                      taxTreatmentUpdate = NoChange
+                      ownersUpdate = NoChange
+                      activityPeriodUpdate = NoChange
+                      ledgerAccountIdUpdate = NoChange }
+                |> ignoreResult
+            return read, update
+        | "Holding" ->
+            let! securityId = PositionsLookups.securityIdOf creating PositionsFixture.totalMarket
+            let! holding = HoldingOrchestration.constructNewAndPersist creating jordanCustodialId securityId (Some AverageCost)
+            let holdingId = holding |> Holding.holdingId
+            let read context = holdingId |> Holding.fetchById context |> stamps Holding.createdAt Holding.modifiedAt
+            let update context =
+                HoldingOrchestration.changeHoldingBasisMethod context jordanCustodialId securityId (Some SpecificLot) |> ignoreResult
+            return read, update
+        | "Account Snapshot" ->
+            let! _ = AccountSnapshotOrchestration.recordSnapshots creating [ jordanCustodialId, p.d2, Reported, None, [] ]
+            let read context =
+                AccountSnapshotHeader.fetchByInvestmentAccountAndDate context jordanCustodialId p.d2
+                |> Result.map Option.get
+                |> stamps AccountSnapshotHeader.createdAt AccountSnapshotHeader.modifiedAt
+            let update context =
+                AccountSnapshotOrchestration.recordSnapshots context [ jordanCustodialId, p.d2, Imported, None, [] ] |> ignoreResult
+            return read, update
+        | "Property" ->
+            let! property =
+                RealEstateOrchestration.constructNewAndPersist
+                    creating
+                    (PositionsValues.toPropertyName "Instant Cabin")
+                    Rental
+                    [ samId ]
+                    (PositionsValues.toOwnedPeriod p.rentalAcquired None)
+                    (PositionsValues.toPurchaseBasis 90000.00M)
+                    []
+                    []
+            let propertyId = property |> Property.propertyId
+            let read context = propertyId |> Property.fetchById context |> stamps Property.createdAt Property.modifiedAt
+            let update context =
+                RealEstateOrchestration.updateProperty
+                    context
+                    { propertyIdToUpdate = propertyId
+                      propertyNameUpdate = NoChange
+                      propertyUseUpdate = NoChange
+                      ownedPeriodUpdate = NoChange
+                      purchaseBasisUpdate = SetTo(PositionsValues.toPurchaseBasis 95000.00M)
+                      assetAccountIdsUpdate = NoChange
+                      ownersUpdate = NoChange
+                      mortgageAccountIdsUpdate = NoChange }
+                |> ignoreResult
+            return read, update
+        | "Valuation" ->
+            let! valuation =
+                RealEstateOrchestration.recordValuation
+                    creating rentalId p.d2 (PositionsValues.toValuationValue 260000.00M) (PositionsValues.toValuationBasis "Broker opinion")
+            let valuationId = valuation |> Valuation.valuationId
+            let read context = valuationId |> Valuation.fetchById context |> stamps Valuation.createdAt Valuation.modifiedAt
+            let update context =
+                RealEstateOrchestration.recordValuation
+                    context rentalId p.d2 (PositionsValues.toValuationValue 265000.00M) (PositionsValues.toValuationBasis "Appraisal")
+                |> ignoreResult
+            return read, update
+        | other -> return failwith $"No record kind \"{other}\""
+    }
 
 let private postStagedThroughRoute () =
     ({ isShadow = false } : PostStageEntriesInput)
@@ -368,12 +506,45 @@ type OperationInstantAndAtomicityTests(fixture: TestDataFixture) =
             staged |> Seq.iter (Some >> Cleanup.cleanUpStageEntryHeaderId >> orFail)
             entries |> Seq.iter (Some >> Cleanup.cleanUpJournalEntryId >> orFail)
 
-    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+    // =========================================================================
+    // REQ-SYS-3.2 and REQ-SYS-3.3 — Person and the Positions records
+    // =========================================================================
 
-    [<Fact>]
-    member _.``REQ-SYS-3.2 for each of Person, Dimension Value, Security, Investment Account, Holding, Account Snapshot, Property and Valuation, creating one under a clock that advances on every read sets its created-at and modified-at both to the operation's initiation instant`` () =
-        Assert.Fail "Not yet implemented"
+    [<Theory>]
+    [<InlineData("Person")>]
+    [<InlineData("Dimension Value")>]
+    [<InlineData("Security")>]
+    [<InlineData("Investment Account")>]
+    [<InlineData("Holding")>]
+    [<InlineData("Account Snapshot")>]
+    [<InlineData("Property")>]
+    [<InlineData("Valuation")>]
+    member _.``REQ-SYS-3.2 for each of Person, Dimension Value, Security, Investment Account, Holding, Account Snapshot, Property and Valuation, creating one under a clock that advances on every read sets its created-at and modified-at both to the operation's initiation instant`` (kind: string) =
+        runCommandRouteAndAutoRollback PositionsCreateProperty (fun creating ->
+            result {
+                let! read, _ = createdRecord fixture kind creating
+                let! createdAt, modifiedAt = read creating
+                Assert.Equal((instantOf creating, instantOf creating), (createdAt, modifiedAt))
+            })
+        |> railroadWrapper
 
-    [<Fact>]
-    member _.``REQ-SYS-3.3 for each update to a Person, Dimension Value, Security, Investment Account, Holding, Account Snapshot (re-recorded), Property and Valuation (re-recorded), under a clock that advances on every read, the record's modified-at is set to the operation's initiation instant and its created-at is unchanged`` () =
-        Assert.Fail "Not yet implemented"
+    [<Theory>]
+    [<InlineData("Person")>]
+    [<InlineData("Dimension Value")>]
+    [<InlineData("Security")>]
+    [<InlineData("Investment Account")>]
+    [<InlineData("Holding")>]
+    [<InlineData("Account Snapshot")>]
+    [<InlineData("Property")>]
+    [<InlineData("Valuation")>]
+    member _.``REQ-SYS-3.3 for each update to a Person, Dimension Value, Security, Investment Account, Holding, Account Snapshot (re-recorded), Property and Valuation (re-recorded), under a clock that advances on every read, the record's modified-at is set to the operation's initiation instant and its created-at is unchanged`` (kind: string) =
+        runCommandRouteAndAutoRollback PositionsUpdateProperty (fun creating ->
+            result {
+                let! read, update = createdRecord fixture kind creating
+                let updating = creating |> TestContext.updateInitiationInstant
+                Assert.True(instantOf updating > instantOf creating, "the updating operation's instant is not later than the creating one's")
+                do! update updating
+                let! createdAt, modifiedAt = read updating
+                Assert.Equal((instantOf creating, instantOf updating), (createdAt, modifiedAt))
+            })
+        |> railroadWrapper

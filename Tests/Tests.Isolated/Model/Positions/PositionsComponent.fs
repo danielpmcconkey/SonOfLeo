@@ -214,12 +214,37 @@ let ``REQ-POS-10.2 a valuation basis of exactly 100 characters is accepted and o
         | PositionsValuationBasisTooLong (_, limit) -> Some limit
         | _ -> None)
 
-// Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+/// Each text parsed bare and wrapped in whitespace, beside the case it must parse to.
+let private parsedBareAndPadded (parse: string -> Result<'a, IAppError>) (expected: (string * 'a) list) =
+    expected
+    |> List.map (fun (text, case) -> text, case, parse text |> mustSucceed, parse $" \t{text}  " |> mustSucceed)
+
+let private assertEachParsesToItsCase<'a when 'a: equality> (results: (string * 'a * 'a * 'a) list) =
+    for _, case, bare, padded in results do
+        Assert.Equal<'a>(case, bare)
+        Assert.Equal<'a>(case, padded)
 
 [<Fact>]
 let ``REQ-SYS-1.1 for each Positions value an operator gives as text (dimension, tax treatment, basis method, provenance, use), every allowed value wrapped in whitespace parses to the same case as the bare value`` () =
-    Assert.Fail "Not yet implemented"
+    parsedBareAndPadded Dimension.fromString
+        [ "InvestmentType", InvestmentType; "MarketCap", MarketCap; "IndexType", IndexType; "Sector", Sector
+          "Region", Region; "Objective", Objective; "Benchmark", Benchmark ]
+    |> assertEachParsesToItsCase
+    parsedBareAndPadded TaxTreatment.fromString
+        [ "Taxable", Taxable; "TaxDeferred", TaxDeferred; "Roth", Roth; "Hsa", Hsa ]
+    |> assertEachParsesToItsCase
+    parsedBareAndPadded BasisMethod.fromString [ "AverageCost", AverageCost; "SpecificLot", SpecificLot ]
+    |> assertEachParsesToItsCase
+    parsedBareAndPadded Provenance.fromString [ "Reported", Reported; "Imported", Imported ]
+    |> assertEachParsesToItsCase
+    parsedBareAndPadded PropertyUse.fromString [ "PrimaryResidence", PrimaryResidence; "Rental", Rental ]
+    |> assertEachParsesToItsCase
 
 [<Fact>]
 let ``REQ-SYS-1.1 every investment wealth grouping wrapped in whitespace parses to the same grouping as the bare value`` () =
-    Assert.Fail "Not yet implemented"
+    parsedBareAndPadded WealthGrouping.fromString
+        [ "Account", ByAccount; "AccountGroup", ByAccountGroup; "TaxTreatment", ByTaxTreatment; "Owners", ByOwners
+          "InvestmentType", ByDimension InvestmentType; "MarketCap", ByDimension MarketCap
+          "IndexType", ByDimension IndexType; "Sector", ByDimension Sector; "Region", ByDimension Region
+          "Objective", ByDimension Objective; "Benchmark", ByDimension Benchmark ]
+    |> assertEachParsesToItsCase

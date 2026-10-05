@@ -315,7 +315,7 @@ type PropertyMaintenanceTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-POS-9.7 REQ-POS-4.9 linking a Property's asset account to a ledger account already another Property's asset account is rejected with a typed error naming the code and that other Property`` () =
+    member _.``REQ-POS-9.7 linking a Property's asset account to a ledger account already another Property's asset account is rejected with a typed error naming the code and that other Property`` () =
         runCommandRouteAndAutoRollback PositionsUpdateProperty (fun context ->
             updateProperty context { noChange PF.rental with assetAccountIdsUpdate = SetTo [ p.residenceAtCost1510Id ] }
             |> expectError
@@ -534,7 +534,7 @@ type PropertyMaintenanceTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-POS-11.8 REQ-SYS-6.1 deleting a Valuation for a date on which the Property has none fails with a typed error naming the Property and the date`` () =
+    member _.``REQ-POS-11.8 REQ-SYS-6.2 deleting a Valuation for a date on which the Property has none fails with a typed error naming the Property and the date`` () =
         runCommandRouteAndAutoRollback PositionsDeleteValuation (fun context ->
             withPropertyId context PF.residence (fun propertyId -> deleteValuation context propertyId (p.valuation1.PlusDays(1)))
             |> expectError
@@ -565,16 +565,74 @@ type PropertyMaintenanceTests(fixture: TestDataFixture) =
             |> Ok)
         |> railroadWrapper
 
-    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+    [<Fact>]
+    member _.``REQ-POS-11.6 an update giving a Property's mortgage accounts as the one it already has plus a new one leaves it linked to both`` () =
+        runCommandRouteAndAutoRollback PositionsUpdateProperty (fun context ->
+            result {
+                let! _ =
+                    updateProperty
+                        context { noChange PF.residence with mortgageAccountIdsUpdate = SetTo [ p.residenceMortgage2310Id; accountIdOf "F-2210" ] }
+                let! (_, _, _, _, _, _, _, mortgages) = listedOne context PF.residence
+                Assert.Equal<(string * string) list>(
+                    [ "F-2210", "Mortgage Payable"; "F-2310", "Fixture Residence Mortgage" ], mortgages)
+            })
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-POS-11.6 REQ-PER-2.4 a Property update giving an owner name that matches no Person fails with a typed error naming that name, and the owners are unchanged`` () =
+        runCommandRouteAndAutoRollback PositionsUpdateProperty (fun context ->
+            result {
+                updateProperty context { noChange PF.residence with ownersUpdate = SetTo [ toPersonName PF.sam; toPersonName "Ghost Example" ] }
+                |> expectError (function AsError (PersonNameDoesntMatchId n) -> Some n | _ -> None) (fun n -> Assert.Equal("Ghost Example", n))
+                let! (_, _, owners, _, _, _, _, _) = listedOne context PF.residence
+                Assert.Equal<string list>([ PF.alex; PF.sam ], owners)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-POS-11.11 deleting a Property with no Valuation removes it with its owners and ledger links, after which its former asset and mortgage accounts can each be linked to another Property`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback PositionsDeleteProperty (fun context ->
+            result {
+                let! assetId = fixedAssetAccount context fixture "T-1593" "Test Chalet at Cost"
+                let loanId = accountIdOf "F-2230"
+                let! _ =
+                    createProperty
+                        context (newProperty "Short Lived Chalet" Rental [ PF.sam; PF.alex ] p.rentalAcquired None 80000.00M (Some assetId) [ loanId ])
+                // the owner rows' foreign key restricts a Property's delete, so a delete that succeeds took the owners with it
+                let! _ = withPropertyId context "Short Lived Chalet" (deleteProperty context)
+                let! gone = listed context "Short Lived Chalet"
+                Assert.Empty(gone)
+                let! _ =
+                    createProperty
+                        context (newProperty "Successor Chalet" Rental [ PF.sam ] p.rentalAcquired None 85000.00M (Some assetId) [ loanId ])
+                let! (_, _, _, _, _, _, assets, mortgages) = listedOne context "Successor Chalet"
+                Assert.Equal<(string * string) list>([ "T-1593", "Test Chalet at Cost" ], assets)
+                Assert.Equal<(string * string) list>([ "F-2230", "Fixture Loan Payable" ], mortgages)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-POS-11.11 deleting a Property that has a Valuation is rejected with a typed error naming the Property, and the Property, its owners and its ledger links remain`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback PositionsDeleteProperty (fun context ->
+            result {
+                withPropertyId context PF.residence (deleteProperty context)
+                |> expectError
+                    (function AsError (PositionsPropertyHasValuations n) -> Some n | _ -> None)
+                    (fun n -> Assert.Equal(PF.residence, n))
+                let! found = listedOne context PF.residence
+                Assert.Equal<PropertySummary>(
+                    (PF.residence, PrimaryResidence, [ PF.alex; PF.sam ], p.residenceAcquired, None, 400000.00M,
+                     [ "F-1510", "Fixture Residence at Cost" ], [ "F-2310", "Fixture Residence Mortgage" ]),
+                    found)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-POS-11.11 REQ-SYS-6.2 deleting a Property by a name that matches no Property fails with a typed not-found error naming Property and the name`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback PositionsDeleteProperty (fun context ->
+            withPropertyId context "99 Missing Street" (deleteProperty context)
+            |> expectError
+                (function AsError (PositionsPropertyNameDoesntMatch n) -> Some n | _ -> None)
+                (fun n -> Assert.Equal("99 Missing Street", n))
+            |> Ok)
+        |> railroadWrapper

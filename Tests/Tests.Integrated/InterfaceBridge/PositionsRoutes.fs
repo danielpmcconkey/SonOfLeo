@@ -212,6 +212,14 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
             return ()
         }
 
+    /// A FixedAsset account under the fixture's assets parent, committed so the routes can resolve its code. Each test
+    /// that makes one gives it a code no other test uses, because the code-to-ID lookup outlives the account.
+    let committedFixedAsset code name =
+        runCommandRouteAndAutoCompleteTransaction FetchOnly (fun context ->
+            createTestAccountFromPrimitives
+                context code name "Asset" p.accountsActiveBegin None (Some "FixedAsset") (Some fixture.Data.assets1000Id) None)
+        |> Result.map snd
+
     /// A Rental owned by Sam, acquired on the fixture's rental date, with no asset account and the given mortgages.
     let propertyInput name mortgages : C.PropertyCreateInput =
         { propertyName = name
@@ -441,7 +449,7 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
             cleanUp [ fun () -> cleanUpInvestmentAccountByName name ]
 
     [<Fact>]
-    member _.``REQ-POS-4.8 REQ-NGUI-1.4 an InvestmentAccount Create payload whose ledger account code matches no account fails with a typed error naming the code, and no account is created`` () =
+    member _.``REQ-POS-4.8 REQ-NGUI-1.5 an InvestmentAccount Create payload whose ledger account code matches no account fails with a typed error naming the code, and no account is created`` () =
         let name = unique "Route Account"
         try
             result {
@@ -845,7 +853,7 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
             cleanUp [ fun () -> cleanUpPropertyByName name ]
 
     [<Fact>]
-    member _.``REQ-POS-9.7 REQ-NGUI-1.4 a Property Create payload whose asset account code matches no account fails with a typed error naming the code`` () =
+    member _.``REQ-POS-9.7 REQ-NGUI-1.5 a Property Create payload whose asset account code matches no account fails with a typed error naming the code`` () =
         let name = unique "Route Property"
         try
             result {
@@ -859,7 +867,7 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
             cleanUp [ fun () -> cleanUpPropertyByName name ]
 
     [<Fact>]
-    member _.``REQ-POS-9.8 REQ-NGUI-1.4 a Property Create payload whose mortgage account code matches no account fails with a typed error naming the code`` () =
+    member _.``REQ-POS-9.8 REQ-NGUI-1.5 a Property Create payload whose mortgage account code matches no account fails with a typed error naming the code`` () =
         let name = unique "Route Property"
         try
             result {
@@ -988,40 +996,160 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
         }
         |> railroadWrapper
 
-    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+    // ---- Deletes, asset account sets, repeats and the empty snapshot list ----
 
     [<Fact>]
     member _.``REQ-POS-11.10 a Holding Delete payload removes only the Holding of the account and Security given: the Holding List route no longer returns it and still returns the account's other Holdings`` () =
-        Assert.Fail "Not yet implemented"
+        let name = unique "Route Account"
+        try
+            result {
+                do! accountHoldingTotalMarket name
+                let! _ = createHolding name PF.international (Some "SpecificLot")
+                let! deleted =
+                    call<C.HoldingDeleteInput, C.HoldingReturn> "Holding" "Delete" { accountName = name; securityName = PF.international }
+                Assert.Equal((name, PF.international, Some "SpecificLot"), deleted |> holdingSummary)
+                let! listed = listHoldings (Some name)
+                Assert.Equal<(string * string * string option) list>(
+                    [ name, PF.totalMarket, Some "AverageCost" ],
+                    listed |> List.map holdingSummary)
+            }
+            |> railroadWrapper
+        finally
+            cleanUp [ fun () -> cleanUpInvestmentAccountByName name ]
 
     [<Fact>]
     member _.``REQ-POS-11.11 a Property Delete payload removes only the Property named: the Property List route no longer returns it and still returns every other Property`` () =
-        Assert.Fail "Not yet implemented"
+        let name = unique "Route Property"
+        try
+            result {
+                let! _ = createProperty (propertyInput name [ "F-2230" ])
+                let! deleted = call<C.PropertyDeleteInput, C.PropertyReturn> "Property" "Delete" { propertyName = name }
+                Assert.Equal(name, deleted.propertyName)
+                let! listed = listProperties ()
+                Assert.Equal<string list>(
+                    [ PF.residence; PF.rental; PF.formerResidence ], listed |> List.map (fun x -> x.propertyName))
+            }
+            |> railroadWrapper
+        finally
+            cleanUp [ fun () -> cleanUpPropertyByName name ]
 
     [<Fact>]
     member _.``REQ-POS-11.6 REQ-POS-9.7 a Property Create payload with two asset accounts creates the Property linked to both, and the return and the Property List route each carry both codes with their names`` () =
-        Assert.Fail "Not yet implemented"
+        let name = unique "Route Property"
+        let mutable accountIds = []
+        try
+            result {
+                let! house = committedFixedAsset "T-1594" "Route House at Cost"
+                accountIds <- Some house :: accountIds
+                let! improvements = committedFixedAsset "T-1595" "Route House Improvements"
+                accountIds <- Some improvements :: accountIds
+                let! returned = createProperty { propertyInput name [] with assetAccountCodes = [ "T-1595"; "T-1594" ] }
+                let expected = [ ledger "T-1594" "Route House at Cost"; ledger "T-1595" "Route House Improvements" ]
+                Assert.Equal<C.LedgerAccountReturn list>(expected, returned.assetAccounts)
+                let! stored = storedProperty name
+                let _, _, _, _, _, _, storedAssets, _ = stored |> List.exactlyOne
+                Assert.Equal<C.LedgerAccountReturn list>(expected, storedAssets)
+            }
+            |> railroadWrapper
+        finally
+            cleanUp ((fun () -> cleanUpPropertyByName name) :: (accountIds |> List.map (fun id () -> cleanUpAccountId id)))
 
     [<Fact>]
     member _.``REQ-POS-11.6 REQ-POS-9.7 a Property Update payload giving a new set of two asset accounts replaces the stored set, so the Property is linked to exactly those two and not to the one it had`` () =
-        Assert.Fail "Not yet implemented"
+        let name = unique "Route Property"
+        let mutable accountIds = []
+        try
+            result {
+                let! original = committedFixedAsset "T-1596" "Route Barn at Cost"
+                accountIds <- Some original :: accountIds
+                let! landAccount = committedFixedAsset "T-1597" "Route Land at Cost"
+                accountIds <- Some landAccount :: accountIds
+                let! building = committedFixedAsset "T-1598" "Route Building at Cost"
+                accountIds <- Some building :: accountIds
+                let! _ = createProperty { propertyInput name [] with assetAccountCodes = [ "T-1596" ] }
+                let! returned = updateProperty { noPropertyChange name with assetAccountCodesUpdate = SetTo [ "T-1598"; "T-1597" ] }
+                let expected = [ ledger "T-1597" "Route Land at Cost"; ledger "T-1598" "Route Building at Cost" ]
+                Assert.Equal<C.LedgerAccountReturn list>(expected, returned.assetAccounts)
+                let! stored = storedProperty name
+                let _, _, _, _, _, _, storedAssets, _ = stored |> List.exactlyOne
+                Assert.Equal<C.LedgerAccountReturn list>(expected, storedAssets)
+            }
+            |> railroadWrapper
+        finally
+            cleanUp ((fun () -> cleanUpPropertyByName name) :: (accountIds |> List.map (fun id () -> cleanUpAccountId id)))
 
     [<Fact>]
     member _.``REQ-POS-9.7 a Property Create payload giving the same asset account code twice is rejected with a typed error naming the code, and no Property is created`` () =
-        Assert.Fail "Not yet implemented"
+        let name = unique "Route Property"
+        let mutable accountId = None
+        try
+            result {
+                let! cottage = committedFixedAsset "T-1599" "Route Cottage at Cost"
+                accountId <- Some cottage
+                createProperty { propertyInput name [] with assetAccountCodes = [ "T-1599"; "T-1599" ] }
+                |> expectError
+                    (function AsError (PositionsPropertyAssetAccountRepeated (n, code)) -> Some(n, code) | _ -> None)
+                    (fun found -> Assert.Equal((name, "T-1599"), found))
+                let! stored = storedProperty name
+                Assert.Empty(stored)
+            }
+            |> railroadWrapper
+        finally
+            cleanUp [ (fun () -> cleanUpPropertyByName name); (fun () -> cleanUpAccountId accountId) ]
 
     [<Fact>]
     member _.``REQ-POS-9.7 a Property Create payload naming as an asset account one already linked to another Property is rejected with a typed error naming the code and that Property, and no Property is created`` () =
-        Assert.Fail "Not yet implemented"
+        let name = unique "Route Property"
+        try
+            result {
+                createProperty { propertyInput name [] with assetAccountCodes = [ "F-1510" ] }
+                |> expectError
+                    (function AsError (PositionsAssetAccountAlreadyLinked (code, other)) -> Some(code, other) | _ -> None)
+                    (fun found -> Assert.Equal(("F-1510", PF.residence), found))
+                let! stored = storedProperty name
+                Assert.Empty(stored)
+            }
+            |> railroadWrapper
+        finally
+            cleanUp [ fun () -> cleanUpPropertyByName name ]
 
-    [<Fact>]
-    member _.``REQ-POS-9.7 for each of an Asset account of a subtype other than FixedAsset and an account of a type other than Asset, a Property Create payload naming it as an asset account is rejected with a typed error naming the code and what is wrong, and no Property is created`` () =
-        Assert.Fail "Not yet implemented"
+    [<Theory>]
+    [<InlineData("F-1270", "Asset", "Cash")>]
+    [<InlineData("F-2220", "Liability", "CurrentLiability")>]
+    member _.``REQ-POS-9.7 for each of an Asset account of a subtype other than FixedAsset and an account of a type other than Asset, a Property Create payload naming it as an asset account is rejected with a typed error naming the code and what is wrong, and no Property is created`` (code: string, accountType: string, subtype: string) =
+        let name = unique "Route Property"
+        try
+            result {
+                createProperty { propertyInput name [] with assetAccountCodes = [ code ] }
+                |> expectError
+                    (function AsError (PositionsPropertyLedgerAccountNotAssetFixedAsset (c, t, s)) -> Some(c, t, s) | _ -> None)
+                    (fun found -> Assert.Equal((code, accountType, Some subtype), found))
+                let! stored = storedProperty name
+                Assert.Empty(stored)
+            }
+            |> railroadWrapper
+        finally
+            cleanUp [ fun () -> cleanUpPropertyByName name ]
 
     [<Fact>]
     member _.``REQ-POS-9.8 a Property Create payload giving the same mortgage account code twice is rejected with a typed error naming the code, and no Property is created`` () =
-        Assert.Fail "Not yet implemented"
+        let name = unique "Route Property"
+        try
+            result {
+                createProperty (propertyInput name [ "F-2230"; "F-2210"; "F-2230" ])
+                |> expectError
+                    (function AsError (PositionsPropertyMortgageAccountRepeated (n, code)) -> Some(n, code) | _ -> None)
+                    (fun found -> Assert.Equal((name, "F-2230"), found))
+                let! stored = storedProperty name
+                Assert.Empty(stored)
+            }
+            |> railroadWrapper
+        finally
+            cleanUp [ fun () -> cleanUpPropertyByName name ]
 
     [<Fact>]
     member _.``REQ-POS-7.1 REQ-SYS-6.1 an AccountSnapshot Record payload with an empty list of snapshots is rejected with a typed no-snapshots error`` () =
-        Assert.Fail "Not yet implemented"
+        record []
+        |> expectError (function AsError PositionsSnapshotListIsEmpty -> Some() | _ -> None) ignore
+        |> Ok
+        |> railroadWrapper
