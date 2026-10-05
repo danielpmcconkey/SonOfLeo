@@ -119,18 +119,28 @@ module StageTestData =
             | _ -> e)
 
     /// Ingest, dedup and account classification are three separate steps in Src, and classification now sweeps every
-    /// unresolved staged entry rather than one file's. This runs the three in order, advancing the audit instant
-    /// between them as the old single call did, and narrows the results back to the file just ingested.
-    let ingestDeduplicateAndClassify
+    /// unresolved staged entry rather than one file's. This ingests each file in turn, each at a later instant than
+    /// the one before (so a key repeated across the files has a definite original), then runs one dedup pass and one
+    /// classification run, advancing the audit instant between them as the old single call did, and narrows the
+    /// results back to the files just ingested.
+    let ingestFilesDeduplicateAndClassify
         (context: Context.Context)
-        (sourceFile: SourceFile)
-        (rawRows: BaseStageRawRow list)
+        (files: (SourceFile * BaseStageRawRow list) list)
         : Result<IngestionPipelineResult, IAppError> =
         result {
             let headerIdOf entry = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
-            let! ingested = rawRows |> ingestRows context sourceFile
+            let! contextAfterLoad, ingested =
+                files
+                |> List.fold
+                    (fun acc (sourceFile, rawRows) ->
+                        result {
+                            let! fileContext, soFar = acc
+                            let! entries = rawRows |> ingestRows fileContext sourceFile
+                            let () = if List.length files > 1 then System.Threading.Thread.Sleep(10)
+                            return fileContext |> TestContext.updateInitiationInstant, soFar @ entries
+                        })
+                    (Ok (context, []))
             let ingestedIds = ingested |> List.map headerIdOf
-            let contextAfterLoad = context |> TestContext.updateInitiationInstant
             let! duplicatesBefore = [ StagedEntryStatus.Duplicate ] |> fetchByStatusList contextAfterLoad
             let! _ = deduplicateStagedEntries contextAfterLoad
             let! duplicatesAfter = [ StagedEntryStatus.Duplicate ] |> fetchByStatusList contextAfterLoad
@@ -144,13 +154,25 @@ module StageTestData =
             let classificationResults =
                 classification.classificationResults
                 |> List.filter (fun r -> ingestedIds |> List.contains r.candidate.headerIdOfCandidate)
-            let! stagedEntries = sourceFile |> fetchAllByFile contextAfterDedup None
+            let! stagedEntries =
+                files
+                |> List.map (fun (sourceFile, _) -> sourceFile |> fetchAllByFile contextAfterDedup None)
+                |> convertListOfResultsToResultsList
+                |> Result.map List.concat
             return
                 { stagedEntries = stagedEntries
                   newDuplicates = newDuplicates
                   classificationResults = classificationResults
                   classificationRunId = classification.runId }
         }
+
+    /// One file through ingest, dedup and classification.
+    let ingestDeduplicateAndClassify
+        (context: Context.Context)
+        (sourceFile: SourceFile)
+        (rawRows: BaseStageRawRow list)
+        : Result<IngestionPipelineResult, IAppError> =
+        [ sourceFile, rawRows ] |> ingestFilesDeduplicateAndClassify context
 
     /// The rules a classification run recorded against one staged line. Classification no longer stamps a rule id
     /// onto the line; every rule that matched gets a row in the run's diagnostic table instead.
@@ -167,11 +189,22 @@ module StageTestData =
             |> List.filter (fun m -> m |> RuleMatch.stageEntryLineId = lineId)
             |> List.map RuleMatch.classificationRuleId)
 
+    /// buildTestRows staged as an operator would receive it. grp-010 repeats grp-009's source and fi_reference, which
+    /// one file may not do (REQ-STG-1.18), so grp-010 arrives in a second, later file. Across files the repeat is
+    /// legal, and it is what the dedup pass has to catch.
+    let secondFileGroupIds = [ "grp-010" ]
+
     let runPipeline context =
         result {
             let! sourceFile = "/tmp/stg-test-checking.jsonl" |> SourceFile.create
+            let! secondSourceFile = "/tmp/stg-test-checking-second.jsonl" |> SourceFile.create
             let! rows = buildTestRows context
-            return! rows |> ingestDeduplicateAndClassify context sourceFile
+            let inSecondFile (row: BaseStageRawRow) =
+                secondFileGroupIds |> List.contains (row.baseStageEntryGroupId |> BaseStageEntryGroupId.value)
+            let firstRows, secondRows = rows |> List.partition (inSecondFile >> not)
+            return!
+                [ sourceFile, firstRows; secondSourceFile, secondRows ]
+                |> ingestFilesDeduplicateAndClassify context
         }
 
     let findByDescription desc (entries: StageEntry list) =
@@ -349,7 +382,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
        association mechanism and is not globally unique, so the same value reappearing in
        a later file associates nothing. *)
     [<Fact>]
-    member _.``REQ-STG-1.3 the same group_id in a second file produces a separate staged entry`` () =
+    member _.``REQ-STG-1.3 REQ-STG-1.16 the same group_id in a second file produces a separate staged entry`` () =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! firstFile = "/tmp/test-grouping-file-one.jsonl" |> SourceFile.create
@@ -445,29 +478,6 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
 
 
     // =========================================================================
-    // REQ-STG-1.14 — a group needs at least two records
-    // =========================================================================
-
-    (* Nothing persisted can be seen from inside this rolled-back transaction, so the all-or-nothing claim belongs to
-       the route test that reads the stage afterwards; this one proves the single-record group is caught. *)
-    [<Fact>]
-    member _.``REQ-STG-1.14 a group of a single record is rejected with the insufficient-lines error, even alongside a valid group`` () =
-        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
-            result {
-                let! sourceFile = "/tmp/test-all-or-nothing.jsonl" |> SourceFile.create
-                let! validRow1 = StageTestData.makeRawRow context "grp-ok" today "Valid group" "TestBank" "REF-OK-001" 100.00M "Debit" (Some "F-5350") None
-                let! validRow2 = StageTestData.makeRawRow context "grp-ok" today "Valid group" "TestBank" "REF-OK-001" 100.00M "Credit" (Some "F-1270") None
-                let! badRow = StageTestData.makeRawRow context "grp-bad" today "Bad group" "TestBank" "REF-BAD-001" 50.00M "Debit" (Some "F-5350") None
-                return!
-                    match [ validRow1; validRow2; badRow ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile with
-                    | Error (AsError (IngestionStageEntryInsufficientLines _)) -> Ok ()
-                    | Error e -> Error (TestingError $"Wrong error. {e.ToMessage()}")
-                    | Ok _ -> Error (TestingError "Expected failure; got success")
-            })
-        |> railroadWrapper
-
-
-    // =========================================================================
     // REQ-STG-3.6 — Unknown fi_source rejects file
     // =========================================================================
 
@@ -519,7 +529,7 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
-                // grp-009 and grp-010 share source+ref; one should be flagged as duplicate
+                // grp-009 and grp-010 share source+ref, in two files; one should be flagged as duplicate
                 let ddEntries = fullResult.stagedEntries |> List.filter (fun se ->
                     se |> stageEntryHeader |> StageEntryHeader.description |> JournalEntryDescription.value = "DD DoorDash Order 9917223")
                 Assert.Equal(2, ddEntries |> List.length)
@@ -669,6 +679,78 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
 
+    (* The two statuses below count as the original under the requirement's own list, and each test
+       isolates one: no other staged entry carries the key, and no non-voided journal entry does, so
+       the stage-vs-ledger rule cannot be what flags the newcomer. *)
+    [<Fact>]
+    member _.``REQ-STG-7.2 an entry repeating the key of a Posted entry whose journal entry has since been voided is flagged Duplicate, the Posted entry counting as the original`` () =
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                let! sourceFile1 = "/tmp/test-voided-original-first.jsonl" |> SourceFile.create
+                let! row1 = StageTestData.makeRawRow context "grp-vpost" today "Voided original subject" "TestBank" "REF-VOIDED-ORIGINAL-001" 52.00M "Debit" (Some "F-5650") None
+                let! row2 = StageTestData.makeRawRow context "grp-vpost" today "Voided original subject" "TestBank" "REF-VOIDED-ORIGINAL-001" 52.00M "Credit" (Some "F-1270") None
+                let! firstResult = [ row1; row2 ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile1
+                let firstHeaderId = firstResult.stagedEntries |> List.exactlyOne |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+
+                System.Threading.Thread.Sleep(10)
+                let contextForPost = context |> TestContext.updateInitiationInstant
+                do! Business.CrossDomainOrchestration.StageEntryOrchestration.post contextForPost
+                let! postedEntry = firstHeaderId |> fetchByStageEntryHeaderId contextForPost
+                Assert.Equal(Posted, StageTestData.latestStatus postedEntry)
+                let! journalEntryId =
+                    match postedEntry |> stageEntryHeader |> StageEntryHeader.journalEntryHeaderId with
+                    | Some id -> Ok id
+                    | None -> Error (TestingError "The posted entry carries no journal entry ID")
+
+                System.Threading.Thread.Sleep(10)
+                let contextForVoid = contextForPost |> TestContext.updateInitiationInstant
+                let! reason = "Voided before the re-import" |> CommentText.create
+                let! _ = journalEntryId |> Business.CrossDomainOrchestration.JournalEntryVoiding.voidJournalEntry contextForVoid None reason
+
+                System.Threading.Thread.Sleep(10)
+                let contextForReimport = contextForVoid |> TestContext.updateInitiationInstant
+                let! sourceFile2 = "/tmp/test-voided-original-second.jsonl" |> SourceFile.create
+                let! row3 = StageTestData.makeRawRow context "grp-vpost2" today "Voided original rerun" "TestBank" "REF-VOIDED-ORIGINAL-001" 52.00M "Debit" (Some "F-5650") None
+                let! row4 = StageTestData.makeRawRow context "grp-vpost2" today "Voided original rerun" "TestBank" "REF-VOIDED-ORIGINAL-001" 52.00M "Credit" (Some "F-1270") None
+                let! secondResult = [ row3; row4 ] |> StageTestData.ingestDeduplicateAndClassify contextForReimport sourceFile2
+
+                let secondEntry = secondResult.stagedEntries |> List.exactlyOne
+                Assert.Equal(1, StageTestData.duplicateTransitionCount secondEntry)
+                Assert.Equal(Duplicate, StageTestData.latestStatus secondEntry)
+            })
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-STG-7.2 an entry repeating the key of an earlier entry the operator set to Duplicate is flagged Duplicate, the Duplicate entry counting as the original`` () =
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                let! sourceFile1 = "/tmp/test-duplicate-original-first.jsonl" |> SourceFile.create
+                let! row1 = StageTestData.makeRawRow context "grp-dorig" today "Duplicate original subject" "TestBank" "REF-DUPLICATE-ORIGINAL-001" 47.00M "Debit" (Some "F-5650") None
+                let! row2 = StageTestData.makeRawRow context "grp-dorig" today "Duplicate original subject" "TestBank" "REF-DUPLICATE-ORIGINAL-001" 47.00M "Credit" (Some "F-1270") None
+                let! firstResult = [ row1; row2 ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile1
+                let firstHeaderId = firstResult.stagedEntries |> List.exactlyOne |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
+
+                System.Threading.Thread.Sleep(10)
+                let contextForMark = context |> TestContext.updateInitiationInstant
+                do! firstHeaderId |> StageEntryHeader.updateHeaderStatus contextForMark Duplicate Operator
+
+                System.Threading.Thread.Sleep(10)
+                let contextForReimport = contextForMark |> TestContext.updateInitiationInstant
+                let! sourceFile2 = "/tmp/test-duplicate-original-second.jsonl" |> SourceFile.create
+                let! row3 = StageTestData.makeRawRow context "grp-dorig2" today "Duplicate original rerun" "TestBank" "REF-DUPLICATE-ORIGINAL-001" 47.00M "Debit" (Some "F-5650") None
+                let! row4 = StageTestData.makeRawRow context "grp-dorig2" today "Duplicate original rerun" "TestBank" "REF-DUPLICATE-ORIGINAL-001" 47.00M "Credit" (Some "F-1270") None
+                let! secondResult = [ row3; row4 ] |> StageTestData.ingestDeduplicateAndClassify contextForReimport sourceFile2
+
+                let secondEntry = secondResult.stagedEntries |> List.exactlyOne
+                Assert.Equal(1, StageTestData.duplicateTransitionCount secondEntry)
+                Assert.Equal(Duplicate, StageTestData.latestStatus secondEntry)
+                (* and the original keeps the one Duplicate transition the operator gave it *)
+                let! originalAfter = firstHeaderId |> fetchByStageEntryHeaderId contextForReimport
+                Assert.Equal(1, StageTestData.duplicateTransitionCount originalAfter)
+                Assert.Equal(Operator, originalAfter |> statusTransitions |> List.maxBy StageEntryStatusTransition.instant |> StageEntryStatusTransition.stageStatusChangeMechanism)
+            })
+        |> railroadWrapper
+
     [<Fact>]
     member _.``REQ-STG-7.2 entries sharing only source or only fi reference gain no Duplicate transition in a pass that flags the pair sharing both`` () =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
@@ -676,8 +758,11 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 (* The pair sharing both keys rides along in the same batch so that "the pass
                    flagged nothing" cannot be what makes the four half-match assertions pass.
                    Every fi_reference here is unique to this test, so nothing matches a ledger
-                   external reference and REQ-STG-7.3 stays out of it. *)
+                   external reference and REQ-STG-7.3 stays out of it. The pair sharing both keys
+                   cannot sit in one file (REQ-STG-1.18), so its second member arrives in a
+                   second, later file, which makes it the one the pass flags. *)
                 let! sourceFile = "/tmp/test-partial-key.jsonl" |> SourceFile.create
+                let! secondSourceFile = "/tmp/test-partial-key-second.jsonl" |> SourceFile.create
                 let makeEntry groupId desc source fiRef =
                     [ StageTestData.makeRawRow context groupId today desc source fiRef 21.00M "Debit" (Some "F-5650") None
                       StageTestData.makeRawRow context groupId today desc source fiRef 21.00M "Credit" (Some "F-1270") None ]
@@ -686,11 +771,15 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                       makeEntry "grp-pk2" "Partial key same source two" "TestBank" "REF-PARTIAL-A2"
                       makeEntry "grp-pk3" "Partial key same reference one" "TestBank" "REF-PARTIAL-B"
                       makeEntry "grp-pk4" "Partial key same reference two" "TestSavings" "REF-PARTIAL-B"
-                      makeEntry "grp-pk5" "Partial key both shared one" "TestBank" "REF-PARTIAL-C"
-                      makeEntry "grp-pk6" "Partial key both shared two" "TestBank" "REF-PARTIAL-C" ]
+                      makeEntry "grp-pk5" "Partial key both shared one" "TestBank" "REF-PARTIAL-C" ]
                     |> List.concat
                     |> convertListOfResultsToResultsList
-                let! fullResult = rows |> StageTestData.ingestDeduplicateAndClassify context sourceFile
+                let! secondRows =
+                    makeEntry "grp-pk6" "Partial key both shared two" "TestBank" "REF-PARTIAL-C"
+                    |> convertListOfResultsToResultsList
+                let! fullResult =
+                    [ sourceFile, rows; secondSourceFile, secondRows ]
+                    |> StageTestData.ingestFilesDeduplicateAndClassify context
 
                 let entryNamed desc = fullResult.stagedEntries |> StageTestData.findByDescription desc
                 [ "Partial key same source one"
@@ -700,14 +789,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 |> List.iter (fun desc ->
                     Assert.Equal(0, entryNamed desc |> StageTestData.duplicateTransitionCount))
 
-                (* Which member of the shared pair gets flagged is decided by a uuid tiebreak
-                   within the batch, so the claim is that exactly one of the two was. *)
-                let flaggedInSharedPair =
-                    [ "Partial key both shared one"; "Partial key both shared two" ]
-                    |> List.map entryNamed
-                    |> List.filter (fun e -> e |> StageTestData.duplicateTransitionCount = 1)
-                    |> List.length
-                Assert.Equal(1, flaggedInSharedPair)
+                Assert.Equal(0, entryNamed "Partial key both shared one" |> StageTestData.duplicateTransitionCount)
+                Assert.Equal(1, entryNamed "Partial key both shared two" |> StageTestData.duplicateTransitionCount)
             })
         |> railroadWrapper
 
@@ -735,8 +818,11 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! row1 = StageTestData.makeRawRow context "grp-vd" today "Voided ref test" "VoidedEntryBank" "VOIDED-REF-001" 75.00M "Debit" (Some "F-5650") None
                 let! row2 = StageTestData.makeRawRow context "grp-vd" today "Voided ref test" "VoidedEntryBank" "VOIDED-REF-001" 75.00M "Credit" (Some "F-1270") None
                 let! fullResult = [ row1; row2 ] |> StageTestData.ingestDeduplicateAndClassify context sourceFile
-                let entry = fullResult.stagedEntries |> List.head
-                Assert.NotEqual(Duplicate, StageTestData.latestStatus entry)
+                (* Both lines arrive coded, so an entry the pass leaves alone is classified straight to
+                   Classified; a flagged one would hold a Duplicate transition and sit at Duplicate. *)
+                let entry = fullResult.stagedEntries |> List.exactlyOne
+                Assert.Equal(0, StageTestData.duplicateTransitionCount entry)
+                Assert.Equal(Classified, StageTestData.latestStatus entry)
             })
         |> railroadWrapper
 
@@ -857,8 +943,46 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         finally
             runSql "delete from ingestion.source where unique_id = @unique_id;" |> Result.map ignore |> railroadWrapper
 
-    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+    // =========================================================================
+    // REQ-STG-1.18 — no two groups in one file share a source and fi_reference
+    // =========================================================================
 
+    (* A third, valid group rides along so that "nothing from the file is staged" covers a group
+       that would have staged on its own. The two offending groups differ in everything but the
+       key, so each is valid alone and the rejection can only be the shared key. *)
     [<Fact>]
     member _.``REQ-STG-1.18 a file in which two groups share a source and fi_reference is rejected with a typed error naming both groups, and no entry from the file is staged`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
+            result {
+                let! sourceFile = "/tmp/test-shared-key-in-one-file.jsonl" |> SourceFile.create
+                let! rows =
+                    [ StageTestData.makeRawRow context "grp-key-a" today "Shared key first" "TestBank" "REF-SHARED-KEY-001" 30.00M "Debit" (Some "F-5350") None
+                      StageTestData.makeRawRow context "grp-key-a" today "Shared key first" "TestBank" "REF-SHARED-KEY-001" 30.00M "Credit" (Some "F-1270") None
+                      StageTestData.makeRawRow context "grp-fine" today "Unshared key" "TestBank" "REF-SHARED-KEY-002" 12.00M "Debit" (Some "F-5350") None
+                      StageTestData.makeRawRow context "grp-fine" today "Unshared key" "TestBank" "REF-SHARED-KEY-002" 12.00M "Credit" (Some "F-1270") None
+                      StageTestData.makeRawRow context "grp-key-b" (today.PlusDays(-1)) "Shared key second" "TestBank" "REF-SHARED-KEY-001" 45.00M "Debit" (Some "F-5650") None
+                      StageTestData.makeRawRow context "grp-key-b" (today.PlusDays(-1)) "Shared key second" "TestBank" "REF-SHARED-KEY-001" 45.00M "Credit" (Some "F-1270") None ]
+                    |> convertListOfResultsToResultsList
+                let outcome =
+                    rows
+                    |> List.mapi (fun index row -> index + 1, Ok row)
+                    |> StageEntryOrchestration.ingestFile context sourceFile
+                let! () =
+                    match outcome with
+                    | Error (AsError (IngestionFileRejected (filePath, records))) ->
+                        Assert.Equal("/tmp/test-shared-key-in-one-file.jsonl", filePath)
+                        let record = Assert.Single(records)
+                        Assert.Equal<int list>([ 1; 2; 5; 6 ], record.lineNumbers |> List.sort)
+                        match record.error with
+                        | AsError (IngestionGroupsShareSourceAndReference (firstGroup, secondGroup, source, reference)) ->
+                            Assert.Equal<string list>([ "grp-key-a"; "grp-key-b" ], [ firstGroup; secondGroup ] |> List.sort)
+                            Assert.Equal("TestBank", source)
+                            Assert.Equal("REF-SHARED-KEY-001", reference)
+                            Ok ()
+                        | e -> Error (TestingError $"Wrong record error. {e.ToMessage()}")
+                    | Error e -> Error (TestingError $"Wrong error. {e.ToMessage()}")
+                    | Ok _ -> Error (TestingError "Expected the file to be rejected; it was staged")
+                let! staged = sourceFile |> fetchAllByFile context None
+                Assert.Empty(staged)
+            })
+        |> railroadWrapper

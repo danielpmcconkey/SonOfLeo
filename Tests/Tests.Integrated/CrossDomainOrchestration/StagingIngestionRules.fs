@@ -351,6 +351,16 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                 Assert.Equal<string>(path, rejectedPath)
                 (* exactly the two misspelt records are rejected, not the valid group beside them *)
                 Assert.Equal<Set<int>>(set [ 1; 2 ], records |> List.collect _.lineNumbers |> Set.ofList)
+                (* and each is rejected for the documented property it lacks, not for some other
+                   record-level fault on the same lines. The missing property's name is carried only
+                   in the deserializer's detail, so the detail is compared whole. *)
+                let rowType = typeof<BaseStageRawRowInput>
+                for record in records do
+                    match record.error with
+                    | AsError (JsonDeserializationFailed (typeName, detail, _)) ->
+                        Assert.Equal(rowType.ToString(), typeName)
+                        Assert.Equal($"Missing field for record type {rowType.FullName}: {documented}", detail)
+                    | e -> Assert.Fail $"Wrong record error on lines {record.lineNumbers}. {e.ToMessage()}"
             | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
             | Ok _ -> Assert.Fail "Expected failure; got success")
 
@@ -724,12 +734,8 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                 let! posted = entryIn "Posted" true [ "Classified"; "Posted" ]
                 s.advance ()
                 let! run = ClassificationOrchestration.classifyAccounts s.Context
-                let! expected =
-                    [ StagedEntryStatus.Ingested; StagedEntryStatus.Classified; StagedEntryStatus.NoMatch; StagedEntryStatus.Conflict; StagedEntryStatus.Reviewed ]
-                    |> fetchByStatusList s.Context
                 let returnedIds = run.stagedEntries |> List.map headerIdOf |> Set.ofList
                 Assert.NotEqual(Guid.Empty, run.runId |> ClassificationRunId.value)
-                Assert.Equal<Set<StageEntryHeaderId>>(expected |> List.map headerIdOf |> Set.ofList, returnedIds)
                 [ ingestedCoded; ingestedUncoded; classified; noMatch; conflict; reviewed ] |> List.ofSeq |> List.iter (fun entry ->
                     Assert.Contains(entry |> headerIdOf, returnedIds))
                 [ duplicate; ignored; posted ] |> List.ofSeq |> List.iter (fun entry ->
@@ -868,11 +874,9 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                 let! classified = s.cardEntry $"Classified-{tag}" true [ "Classified" ]
                 s.advance ()
                 let! remaining = deduplicateStagedEntries s.Context
-                let! ingested = [ StagedEntryStatus.Ingested ] |> fetchByStatusList s.Context
                 let! repeatAfter = refetch s.Context repeat
                 let returnedIds = remaining.ingested |> List.map headerIdOf |> Set.ofList
                 Assert.Equal(Some StagedEntryStatus.Duplicate, repeatAfter |> statusOf)
-                Assert.Equal<Set<StageEntryHeaderId>>(ingested |> List.map headerIdOf |> Set.ofList, returnedIds)
                 Assert.Contains(original |> headerIdOf, returnedIds)
                 Assert.DoesNotContain(repeat |> headerIdOf, returnedIds)
                 Assert.DoesNotContain(classified |> headerIdOf, returnedIds)

@@ -291,9 +291,8 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 let! sourceFile = "/tmp/test-je-source-provenance.jsonl" |> SourceFile.create
                 (* Two entries differing in the institution they came from and nothing else
                    that matters here. The source names how these rows got into the ledger, so
-                   both journal entries have to carry the same one -- were it derived from the
-                   staged entry at all, these two would disagree. The label itself is not
-                   asserted: the requirement calls it fixed, not any particular string. *)
+                   both journal entries carry the label the requirement names -- were it derived
+                   from the staged entry at all, these two would disagree. *)
                 let! bankDebit = StageTestData.makeRawRow context "grp-prov-a" today "Provenance from the bank" "TestBank" "REF-PROV-001" 25.00M "Debit" (Some "F-5300") None
                 let! bankCredit = StageTestData.makeRawRow context "grp-prov-a" today "Provenance from the bank" "TestBank" "REF-PROV-001" 25.00M "Credit" (Some "F-1270") None
                 let! savingsDebit = StageTestData.makeRawRow context "grp-prov-b" today "Provenance from the savings" "TestSavings" "REF-PROV-002" 31.00M "Debit" (Some "F-5300") None
@@ -317,10 +316,9 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                     }
                 let! fromBank = sourceOfPosted "Provenance from the bank"
                 let! fromSavings = sourceOfPosted "Provenance from the savings"
-                Assert.True(fromBank |> Option.isSome, "A posted journal entry must carry a source")
-                Assert.Equal<string option>(fromBank, fromSavings)
-                (* and it is provenance, not identity: which institution the money came from
-                   lives on the external reference instead *)
+                Assert.Equal<string option>(Some "Data ingestion import", fromBank)
+                Assert.Equal<string option>(Some "Data ingestion import", fromSavings)
+                (* the two entries really did come from two institutions *)
                 let institutionNames =
                     staged.stagedEntries
                     |> List.map (fun entry ->
@@ -330,9 +328,7 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                         |> IngestionSource.name
                         |> JournalRefFinancialInstitution.value)
                     |> List.distinct
-                Assert.Equal(2, institutionNames |> List.length)
-                institutionNames
-                |> List.iter (fun name -> Assert.NotEqual<string option>(Some name, fromBank))
+                Assert.Equal<string list>([ "TestBank"; "TestSavings" ], institutionNames |> List.sort)
             })
         |> railroadWrapper
 
