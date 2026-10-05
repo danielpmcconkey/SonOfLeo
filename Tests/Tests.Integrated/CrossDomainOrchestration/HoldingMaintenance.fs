@@ -159,3 +159,17 @@ type HoldingMaintenanceTests(fixture: TestDataFixture) =
             Assert.Equal<HoldingSummary list>(
                 [ PF.sam401k, PF.bondFund, None; PF.sam401k, PF.totalMarket, None ], holdings))
         |> railroadWrapper
+
+    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+    [<Fact>]
+    member _.``REQ-POS-11.10 deleting a Holding that no snapshot line references removes it, and listing the account's Holdings no longer shows that Security while the account's other Holdings remain`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-11.10 deleting a Holding that a snapshot line references is rejected with a typed error naming the account and the Security, and the Holding remains`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-11.10 REQ-SYS-6.2 deleting a Holding of a Security the account does not hold fails with a typed not-found error naming Holding, the account and the Security`` () =
+        Assert.Fail "Not yet implemented"

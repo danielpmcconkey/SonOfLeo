@@ -941,3 +941,13 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 assertPaymentAgreementRulesLastByName descending
             })
         |> railroadWrapper
+
+    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+    [<Fact>]
+    member _.``REQ-CR-5.4 for each of account code ascending and descending, rules sharing an account code come back ordered by rule name`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CR-5.4 for each of priority ascending and descending, rules sharing a priority come back ordered by rule name`` () =
+        Assert.Fail "Not yet implemented"

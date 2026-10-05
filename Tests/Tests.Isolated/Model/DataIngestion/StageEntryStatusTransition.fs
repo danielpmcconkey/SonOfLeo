@@ -187,3 +187,9 @@ let ``REQ-STG-4.6 validTransitions from None returns only Ingested`` () =
     let transitions = validTransitions None
     Assert.Equal(1, transitions |> List.length)
     Assert.Equal(Ingested, transitions |> List.head)
+
+// Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+[<Fact>]
+let ``REQ-SYS-1.1 for each data ingestion value an operator gives as text, every allowed value wrapped in whitespace parses to the same case as the bare value`` () =
+    Assert.Fail "Not yet implemented"

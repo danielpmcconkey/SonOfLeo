@@ -545,3 +545,17 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                     let state = invoice |> Invoice.invoiceLifeCycleState
                     Assert.Equal((PartiallyPaid, PartiallyPosted), ((state |> CashFlowComponent.InvoiceLifeCycleState.paymentState), (state |> CashFlowComponent.InvoiceLifeCycleState.postedState)))
                 })
+
+    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+    [<Fact>]
+    member _.``REQ-CF-9.10 raising a FullyPaid, PostedToLedger Invoice's amount above its Payments makes it PartiallyPaid and PartiallyPosted and its Instance no longer fulfilled, with no call other than the amount change`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-9.10 adding a new unpaid Invoice to a fulfilled Instance makes the Instance no longer fulfilled, with no call other than the add`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-9.10 cancelling an Instance's one unpaid Invoice, when its other Invoice is FullyPaid, makes the Instance fulfilled, with no call other than the cancel`` () =
+        Assert.Fail "Not yet implemented"

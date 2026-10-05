@@ -499,3 +499,17 @@ type PropertyMaintenanceTests(fixture: TestDataFixture) =
                 (fun n -> Assert.Equal("99 Missing Street", n))
             |> Ok)
         |> railroadWrapper
+
+    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+    [<Fact>]
+    member _.``REQ-POS-11.11 deleting a Property with no Valuation removes it with its owners and ledger links, after which its former asset and mortgage accounts can each be linked to another Property`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-11.11 deleting a Property that has a Valuation is rejected with a typed error naming the Property, and the Property, its owners and its ledger links remain`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-11.11 REQ-SYS-6.2 deleting a Property by a name that matches no Property fails with a typed not-found error naming Property and the name`` () =
+        Assert.Fail "Not yet implemented"

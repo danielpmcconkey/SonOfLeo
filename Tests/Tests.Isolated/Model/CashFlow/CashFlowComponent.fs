@@ -45,3 +45,17 @@ let ``REQ-CF-4.11 REQ-CF-5.17 REQ-SYS-1.1 a cancellation reason note with leadin
     match "  billed in error  " |> CancellationReasonNote.create with
     | Ok note -> Assert.Equal("billed in error", note |> CancellationReasonNote.value)
     | Error e -> Assert.Fail $"Expected success; got {e.ToMessage()}"
+
+// Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+[<Fact>]
+let ``REQ-CF-5.20 REQ-SYS-1.1 an external invoice ID of only whitespace is rejected with a typed empty-ID error`` () =
+    Assert.Fail "Not yet implemented"
+
+[<Fact>]
+let ``REQ-CF-5.20 an external invoice ID of 101 characters is rejected with a typed too-long error, and one of exactly 100 characters is accepted and holds those 100 characters`` () =
+    Assert.Fail "Not yet implemented"
+
+[<Fact>]
+let ``REQ-SYS-1.1 for each CashFlow value an operator gives as text, every allowed value wrapped in whitespace parses to the same case as the bare value`` () =
+    Assert.Fail "Not yet implemented"

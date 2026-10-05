@@ -261,3 +261,17 @@ type PositionsReportRoutesTests(fixture: TestDataFixture) =
         |> expectError
             (function AsError (PositionsInvalidWealthGrouping raw) -> Some raw | _ -> None)
             (fun raw -> Assert.Equal("Colour", raw))
+
+    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+    [<Fact>]
+    member _.``REQ-RPT-8.5 REQ-RPT-8.6 the rendered net worth Totals block shows the owned-property mortgages total, and the counted ledger assets, investments and property values it shows less its liabilities and owned-property mortgages equal the net worth it shows, with a nonzero owned-property mortgages total`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-9.5 the rendered wealth history shows 0.00, not a blank cell, for a group at a month-end where it has no holdings`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-9.5 REQ-RPT-3.1 the rendered wealth history header shows the begin date, end date and grouping, and no as-of date`` () =
+        Assert.Fail "Not yet implemented"

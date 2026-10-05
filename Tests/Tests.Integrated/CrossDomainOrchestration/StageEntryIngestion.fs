@@ -856,3 +856,9 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
             |> railroadWrapper
         finally
             runSql "delete from ingestion.source where unique_id = @unique_id;" |> Result.map ignore |> railroadWrapper
+
+    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+    [<Fact>]
+    member _.``REQ-STG-1.18 a file in which two groups share a source and fi_reference is rejected with a typed error naming both groups, and no entry from the file is staged`` () =
+        Assert.Fail "Not yet implemented"

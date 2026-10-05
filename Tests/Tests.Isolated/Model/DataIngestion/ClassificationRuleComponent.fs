@@ -161,3 +161,9 @@ let ``REQ-CR-1.9 ClassificationGroupConnector.fromString rejects a connector nam
     | Error (AsError (ClassificationInvalidGroupConnector returned)) -> Assert.Equal(raw, returned)
     | Error other -> Assert.Fail $"Wrong error. Expected ClassificationInvalidGroupConnector but got {other}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
+
+// Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+[<Fact>]
+let ``REQ-SYS-1.1 for each classification rule value an operator gives as text, every allowed value wrapped in whitespace parses to the same case as the bare value`` () =
+    Assert.Fail "Not yet implemented"

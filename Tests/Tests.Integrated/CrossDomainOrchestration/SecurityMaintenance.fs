@@ -277,3 +277,9 @@ type SecurityMaintenanceTests(fixture: TestDataFixture) =
                   PositionsFixture.totalMarket, Some "EXTMX", withValues allSevenOfTotalMarket ],
                 all |> List.map summary))
         |> railroadWrapper
+
+    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+    [<Fact>]
+    member _.``REQ-POS-11.1 REQ-SYS-6.1 renaming a Dimension Value to the name it already has succeeds, the value is stored in its dimension under that same name, and its modified-at advances`` () =
+        Assert.Fail "Not yet implemented"

@@ -367,3 +367,13 @@ type OperationInstantAndAtomicityTests(fixture: TestDataFixture) =
             // staged entries first: posting links each staged header and line to the journal entry it made
             staged |> Seq.iter (Some >> Cleanup.cleanUpStageEntryHeaderId >> orFail)
             entries |> Seq.iter (Some >> Cleanup.cleanUpJournalEntryId >> orFail)
+
+    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+    [<Fact>]
+    member _.``REQ-SYS-3.2 for each of Person, Dimension Value, Security, Investment Account, Holding, Account Snapshot, Property and Valuation, creating one under a clock that advances on every read sets its created-at and modified-at both to the operation's initiation instant`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-SYS-3.3 for each update to a Person, Dimension Value, Security, Investment Account, Holding, Account Snapshot (re-recorded), Property and Valuation (re-recorded), under a clock that advances on every read, the record's modified-at is set to the operation's initiation instant and its created-at is unchanged`` () =
+        Assert.Fail "Not yet implemented"

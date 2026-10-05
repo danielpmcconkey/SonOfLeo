@@ -213,3 +213,13 @@ let ``REQ-POS-10.2 a valuation basis of exactly 100 characters is accepted and o
     checkLimit 100 ValuationBasis.create ValuationBasis.value (function
         | PositionsValuationBasisTooLong (_, limit) -> Some limit
         | _ -> None)
+
+// Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+[<Fact>]
+let ``REQ-SYS-1.1 for each Positions value an operator gives as text (dimension, tax treatment, basis method, provenance, use), every allowed value wrapped in whitespace parses to the same case as the bare value`` () =
+    Assert.Fail "Not yet implemented"
+
+[<Fact>]
+let ``REQ-SYS-1.1 every investment wealth grouping wrapped in whitespace parses to the same grouping as the bare value`` () =
+    Assert.Fail "Not yet implemented"

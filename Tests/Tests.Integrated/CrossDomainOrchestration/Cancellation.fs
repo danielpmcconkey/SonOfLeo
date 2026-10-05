@@ -722,3 +722,9 @@ type CancellationTests(fixture: TestDataFixture) =
                 Assert.Empty(payments)
                 Assert.Empty(onInvoice)
             })
+
+    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+    [<Fact>]
+    member _.``REQ-CF-4.12 cancelling an Instance one of whose Invoices is already cancelled leaves that Invoice's own reason note, while every other Invoice becomes cancelled carrying the Instance's note`` () =
+        Assert.Fail "Not yet implemented"

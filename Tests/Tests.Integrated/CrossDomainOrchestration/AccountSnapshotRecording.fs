@@ -322,3 +322,9 @@ type AccountSnapshotRecordingTests(fixture: TestDataFixture) =
             Assert.Equal<(LocalDate * Provenance) list>([ p.d1, Imported; p.d3, Reported ], retirement)
         }
         |> railroadWrapper
+
+    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+    [<Fact>]
+    member _.``REQ-POS-7.5 listing an account's snapshot dates with the end date the day before the begin date fails with a typed error naming both dates`` () =
+        Assert.Fail "Not yet implemented"

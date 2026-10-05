@@ -215,3 +215,13 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
                   monthEnd 3, 0.00M, 0 ],
                 points |> List.map (fun x -> x.monthEnd, x.total |> Money.amount, x.totals.Length)))
         |> railroadWrapper
+
+    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+    [<Fact>]
+    member _.``REQ-RPT-9.2 grouped by account, over a range in which one account has holdings at the first month-end and none at the last, that account appears at every point, with 0.00 at the last`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-9.2 grouped by account, an account whose first holdings fall after the first month-end of the range appears at every earlier point with 0.00`` () =
+        Assert.Fail "Not yet implemented"

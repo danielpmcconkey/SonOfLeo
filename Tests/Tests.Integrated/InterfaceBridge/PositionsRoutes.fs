@@ -984,3 +984,41 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
             Assert.Empty(rentalListed)
         }
         |> railroadWrapper
+
+    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+    [<Fact>]
+    member _.``REQ-POS-11.10 a Holding Delete payload removes only the Holding of the account and Security given: the Holding List route no longer returns it and still returns the account's other Holdings`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-11.11 a Property Delete payload removes only the Property named: the Property List route no longer returns it and still returns every other Property`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-11.6 REQ-POS-9.7 a Property Create payload with two asset accounts creates the Property linked to both, and the return and the Property List route each carry both codes with their names`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-11.6 REQ-POS-9.7 a Property Update payload giving a new set of two asset accounts replaces the stored set, so the Property is linked to exactly those two and not to the one it had`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-9.7 a Property Create payload giving the same asset account code twice is rejected with a typed error naming the code, and no Property is created`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-9.7 a Property Create payload naming as an asset account one already linked to another Property is rejected with a typed error naming the code and that Property, and no Property is created`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-9.7 for each of an Asset account of a subtype other than FixedAsset and an account of a type other than Asset, a Property Create payload naming it as an asset account is rejected with a typed error naming the code and what is wrong, and no Property is created`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-9.8 a Property Create payload giving the same mortgage account code twice is rejected with a typed error naming the code, and no Property is created`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-7.1 REQ-SYS-6.1 an AccountSnapshot Record payload with an empty list of snapshots is rejected with a typed no-snapshots error`` () =
+        Assert.Fail "Not yet implemented"

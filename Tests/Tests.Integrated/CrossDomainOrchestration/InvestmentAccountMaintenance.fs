@@ -409,3 +409,13 @@ type InvestmentAccountMaintenanceTests(fixture: TestDataFixture) =
                   PF.samHsa, "Example Health Bank", "Health", TaxTreatment.Hsa, [ PF.sam ], None, begin', None ],
                 all |> List.map summary))
         |> railroadWrapper
+
+    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+    [<Fact>]
+    member _.``REQ-POS-5.5 changing a Roth account's tax treatment to TaxDeferred while three of its snapshots, recorded out of date order, carry a contribution basis is rejected with a typed error naming the account and the earliest and latest of those snapshot dates, and the account stays Roth`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-5.5 a Roth account with snapshots, none of which carries a contribution basis, changes to TaxDeferred and reads back TaxDeferred`` () =
+        Assert.Fail "Not yet implemented"

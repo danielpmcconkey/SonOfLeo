@@ -229,3 +229,17 @@ type NetWorthTests(fixture: TestDataFixture) =
                 [ "Brokerage", 7120.00M; "Health", 300.00M; "Retirement", 5500.00M ],
                 result.investmentsByAccountGroup |> List.map (fun (g, m) -> g, m |> amount)))
         |> railroadWrapper
+
+    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+    [<Fact>]
+    member _.``REQ-RPT-8.2 a Property linked to two asset accounts that both carry ledger balances: on a date the Property is owned neither account is among the counted ledger assets, and net worth counts the Property's value once and neither balance`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-8.5 the owned-property mortgages total sums the as-of balances of the mortgage accounts of Properties owned on the date and excludes the mortgage of a Property disposed before the date`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-8.5 counted ledger assets plus investments plus property values, less liabilities and less owned-property mortgages, equals the net worth the computation returns, with a nonzero owned-property mortgages total`` () =
+        Assert.Fail "Not yet implemented"

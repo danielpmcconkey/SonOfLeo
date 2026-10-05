@@ -179,3 +179,9 @@ type CashFlowRouteTests(fixture: TestDataFixture) =
             Assert.True((before = after), "the database changed")
         }
         |> railroadWrapper
+
+    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+
+    [<Fact>]
+    member _.``REQ-CF-14.8 an UpdateAgreement payload naming a Payment Agreement of a different Master Agreement is rejected with a typed error, and both agreements are unchanged`` () =
+        Assert.Fail "Not yet implemented"
