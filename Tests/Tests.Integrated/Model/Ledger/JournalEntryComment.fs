@@ -203,23 +203,6 @@ type JournalEntryCommentTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-5.6 updateComment does not change the primary JE link``() =
-        runCommandRouteAndAutoRollback JournalEntryUpdateComment (fun context ->
-            result {
-                let! textUpdate = "Primary link unchanged" |> CommentText.create |> Result.map SetTo
-                let secondaryIdUpdate = NoChange
-                let! updatedComment =
-                    JournalEntryCommentOrchestration.updateComment
-                        context
-                        fixture.Data.fixtureCommentId
-                        textUpdate
-                        secondaryIdUpdate
-                Assert.Equal(fixture.Data.basicJeId, updatedComment |> JournalEntryComment.primaryJournalEntryId)
-                return ()
-            })
-        |> railroadWrapper
-
-    [<Fact>]
     member _.``REQ-SYS-5.1 comment round-trips through persistence with all fields intact``() =
         let commentText =
             "Round-trip comment"

@@ -216,7 +216,7 @@ type AccountTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-AC-2.6 parent ID must reference existing account``() =
+    member _.``REQ-AC-1.40 REQ-AC-2.6 parent ID must reference existing account``() =
         runCommandRouteAndAutoRollback AccountCreate (fun context ->
             let parentId = Guid.NewGuid()
             let code = "AC-2.6"
@@ -237,20 +237,31 @@ type AccountTests(fixture: TestDataFixture) =
             | Ok _ -> Error(TestingError $"Expected failure; succeeded"))
         |> railroadWrapper
 
-    [<Fact>]
-    member _.``REQ-AC-2.7 parent account must be active at AuditEnvelope instant--positive``() =
+    [<Theory>]
+    [<InlineData(0)>]
+    [<InlineData(30)>]
+    member _.``REQ-AC-2.7 creating a child under a parent whose active end is today or later succeeds and the stored child carries that parent``(parentEndOffsetDays: int) =
         runCommandRouteAndAutoRollback AccountCreate (fun context ->
-            let code = "AC-2.7-C"
-            let parentAccountId = fixture.Data.revenue4000Id |> Some
-            AccountCreation.constructNewAndPersist
-                context
-                (code |> AccountCode.create |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage())))
-                genericAccountName
-                genericAccountType
-                genericActivityPeriod
-                genericAccountSubtype
-                parentAccountId
-                genericAccountReference)
+            result {
+                let parentEnd = Calendar.today().PlusDays(parentEndOffsetDays)
+                let! _, parentId =
+                    EntityFunctions.createTestAccountFromPrimitives
+                        context "AC-2.7-P" "Parent ending today or later" genericAccountTypeString genericActiveBegin
+                        (Some parentEnd) genericAccountSubtype None None
+                let! child =
+                    AccountCreation.constructNewAndPersist
+                        context
+                        ("AC-2.7-C" |> AccountCode.create |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage())))
+                        genericAccountName
+                        genericAccountType
+                        genericActivityPeriod
+                        genericAccountSubtype
+                        (Some parentId)
+                        genericAccountReference
+                let! stored = child |> Account.accountId |> Account.fetchById context
+                Assert.Equal(Some parentId, stored |> Account.parentId)
+                return ()
+            })
         |> railroadWrapper
 
     [<Fact>]

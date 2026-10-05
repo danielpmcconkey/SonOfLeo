@@ -26,7 +26,7 @@ open App.Utility.Result
 open Tests.Helpers
 
 [<Fact>]
-let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` () =
+let ``REQ-AC-2.14 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` () =
     runCommandRouteAndAutoRollback AccountCreate (fun context ->
         let code = "abc2" |> AccountCode.create |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         let expected = context |> Context.getInitiationInstant
@@ -44,24 +44,6 @@ let ``REQ-AC-2.13 REQ-SYS-3.2 constructNew sets timestamps from AuditEnvelope`` 
         Assert.Equal(expected, Account.createdAt account)
         Assert.Equal(expected, Account.modifiedAt account)
         Ok())
-    |> railroadWrapper
-
-[<Fact>]
-let ``REQ-AC-1.40 constructNew rejects non-existent parent ID`` () =
-    runCommandRouteAndAutoRollback AccountCreate (fun context ->
-        let code = "ac140" |> AccountCode.create |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
-        let bogusParentId = Some(Guid.NewGuid() |> AccountId.fromGuid)
-        let result =
-            AccountCreation.constructNewAndPersist
-                context
-                code
-                genericAccountName
-                genericAccountType
-                genericActivityPeriod
-                genericAccountSubtype
-                bogusParentId
-                genericAccountReference
-        isCorrectError result AccountIdDoesntMatch None)
     |> railroadWrapper
 
 [<Collection("SharedTestData")>]

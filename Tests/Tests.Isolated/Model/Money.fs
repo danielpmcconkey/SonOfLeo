@@ -39,14 +39,14 @@ let ``REQ-MON-1.2 REQ-MON-1.3 fromDecimal accepts the literal limits 9,999,999,9
     | Error e -> Assert.Fail(e.ToMessage())
 
 [<Fact>]
-let ``REQ-MON-1.2 fromDecimal rejects 10,000,000,000.00 as exceeding the maximum`` () =
+let ``REQ-MON-1.2 REQ-MON-2.2.1 fromDecimal rejects 10,000,000,000.00 as exceeding the maximum`` () =
     match fromDecimal 10000000000.00M with
     | Error (AsError (MoneyFailedToConvertExceededMax _)) -> ()
     | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
-let ``REQ-MON-1.3 fromDecimal rejects -10,000,000,000.00 as below the minimum`` () =
+let ``REQ-MON-1.3 REQ-MON-2.2.1 fromDecimal rejects -10,000,000,000.00 as below the minimum`` () =
     match fromDecimal -10000000000.00M with
     | Error (AsError (MoneyFailedToConvertBelowMin _)) -> ()
     | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
@@ -76,24 +76,6 @@ let ``REQ-MON-2.2.1 REQ-MON-1.4 fromDecimal rejects amount with more than 2dp pr
     let result = fromDecimal amount_d
     match result with
     | Error (AsError (MoneyFailedToConvertImproperPrecision _)) -> ()
-    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
-    | Ok _ -> Assert.Fail "Expected failure; got success"
-
-[<Fact>]
-let ``REQ-MON-2.2.1 REQ-MON-1.2 fromDecimal rejects amount exceeding maxMoney`` () =
-    let amount_d = maxMoney + 0.01M
-    let result = fromDecimal amount_d
-    match result with
-    | Error (AsError (MoneyFailedToConvertExceededMax _)) -> ()
-    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
-    | Ok _ -> Assert.Fail "Expected failure; got success"
-
-[<Fact>]
-let ``REQ-MON-2.2.1 REQ-MON-1.3 fromDecimal rejects amount below minMoney`` () =
-    let amount_d = minMoney - 0.01M
-    let result = fromDecimal amount_d
-    match result with
-    | Error (AsError (MoneyFailedToConvertBelowMin _)) -> ()
     | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 

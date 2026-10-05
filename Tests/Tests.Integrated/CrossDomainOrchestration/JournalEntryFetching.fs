@@ -208,53 +208,45 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-3.8 fetchByReference with FI only returns all entries for that FI``() =
+    member _.``REQ-JE-3.5 fetchByReference with FI only returns exactly the entries carrying a reference from that FI``() =
         let fiStr = "TestBank"
         let context = Context.create NoTransaction FetchOnly
         result {
             let! fi = fiStr |> JournalRefFinancialInstitution.create
-            let expected =
-                distinctEntryCountMatching (fun jer ->
-                    jer |> JournalEntryExternalReference.financialInstitution = fi)
+            let expectedIds =
+                fixture.Data.journalEntryExternalReferences
+                |> List.filter (fun jer -> jer |> JournalEntryExternalReference.financialInstitution = fi)
+                |> List.map JournalEntryExternalReference.journalEntryHeaderId
+                |> Set.ofList
+            Assert.NotEmpty(expectedIds)
             let! fetched = fetchByReference context (Some fi) None
-            Assert.Equal(expected, fetched |> List.length)
-            Assert.All(
-                fetched,
-                fun fetchedEntry ->
-                    Assert.Contains(
-                        fi,
-                        fetchedEntry
-                        |> externalReferences
-                        |> List.map JournalEntryExternalReference.financialInstitution))
+            Assert.Equal<Set<JournalEntryHeaderId>>(expectedIds, fetched |> List.map (header >> JournalEntryHeader.journalEntryHeaderId) |> Set.ofList)
+            Assert.Equal(expectedIds.Count, fetched |> List.length)
             return ()
         }
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-3.8 fetchByReference with reference text only only returns all entries that match``() =
+    member _.``REQ-JE-3.5 fetchByReference with reference text only returns exactly the entries carrying that reference text``() =
         let refStr = "TXN-001"
         let context = Context.create NoTransaction FetchOnly
         result {
             let! refText = refStr |> JournalExternalReferenceText.create
-            let expected =
-                distinctEntryCountMatching (fun jer ->
-                    jer |> JournalEntryExternalReference.referenceText = refText)
+            let expectedIds =
+                fixture.Data.journalEntryExternalReferences
+                |> List.filter (fun jer -> jer |> JournalEntryExternalReference.referenceText = refText)
+                |> List.map JournalEntryExternalReference.journalEntryHeaderId
+                |> Set.ofList
+            Assert.NotEmpty(expectedIds)
             let! fetched = fetchByReference context None (Some refText)
-            Assert.Equal(expected, fetched |> List.length)
-            Assert.All(
-                fetched,
-                fun fetchedEntry ->
-                    Assert.Contains(
-                        refText,
-                        fetchedEntry
-                        |> externalReferences
-                        |> List.map JournalEntryExternalReference.referenceText))
+            Assert.Equal<Set<JournalEntryHeaderId>>(expectedIds, fetched |> List.map (header >> JournalEntryHeader.journalEntryHeaderId) |> Set.ofList)
+            Assert.Equal(expectedIds.Count, fetched |> List.length)
             return ()
         }
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-3.5 REQ-JE-3.8 fetchByReference with both parameters None returns Error``() =
+    member _.``REQ-JE-3.5.1 fetchByReference with both parameters None returns Error``() =
         let context = Context.create NoTransaction FetchOnly
         match fetchByReference context None None with
         | Error (AsError (JournalEntryFetchByReferenceBothArgumentsNull)) -> ()

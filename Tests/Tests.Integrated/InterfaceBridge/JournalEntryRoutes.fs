@@ -227,12 +227,18 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-3.2 FetchById route happy path``() =
         let expected = fixture.Data.basicJeId |> JournalEntryHeaderId.value
+        let expectedDescription =
+            fixture.Data.journalEntries
+            |> List.map header
+            |> List.find (fun h -> h |> JournalEntryHeader.journalEntryHeaderId = fixture.Data.basicJeId)
+            |> JournalEntryHeader.description
+            |> JournalEntryDescription.value
         result {
             let! payload = { JournalEntryFetchByIdInput.id = expected } |> toJson<JournalEntryFetchByIdInput>
             let! returnPayload = routeUiCommandForTesting "JournalEntry" "FetchById" [] payload
             let! returned = fromJson<JournalEntryReturn> returnPayload
             Assert.Equal(expected, returned.header.id)
-            Assert.Equal("Basic journal entry", returned.header.description)
+            Assert.Equal(expectedDescription, returned.header.description)
             return ()
         }
         |> railroadWrapper
@@ -502,40 +508,6 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
             | Ok() -> ()
             | Error e -> Assert.Fail(e.ToMessage())
 
-    [<Fact>]
-    member _.``REQ-JE-3.7 FetchByDateRange rejects begin date after end date``() =
-        let today = Calendar.today()
-        let yesterday = today.PlusDays(-1)
-        result {
-            let! payload =
-                { beginDate = today; endDateInclusive = yesterday } |> toJson<JournalEntryFetchByDateRangeInput>
-            do!
-                isCorrectError
-                    (routeUiCommandForTesting "JournalEntry" "FetchByDateRange" [] payload)
-                    JournalEntryFetchByDateRangeBeginAfterEnd
-                    None
-            return ()
-        }
-        |> railroadWrapper
-
-    [<Fact>]
-    member _.``REQ-JE-5.1 AddComment rejects non-existent secondary JE header ID``() =
-        let primaryJeId = fixture.Data.basicJeId |> JournalEntryHeaderId.value
-        let bogusSecondaryId = Guid.NewGuid()
-        let input: JournalEntryAddCommentInput =
-            { journalEntryId = primaryJeId
-              comment = { secondaryJournalEntryId = Some bogusSecondaryId; commentText = "Test comment" } }
-        result {
-            let! payload = input |> toJson<JournalEntryAddCommentInput>
-            do!
-                isCorrectError
-                    (routeUiCommandForTesting "JournalEntry" "AddComment" [] payload)
-                    JournalEntryCommentSecondaryJeHeaderIdNotFound
-                    None
-            return ()
-        }
-        |> railroadWrapper
-
     [<Theory>]
     [<InlineData("commentEmpty", "JournalEntryCommentIsEmpty")>]
     [<InlineData("commentTooLong", "JournalEntryCommentTooLong")>]
@@ -637,18 +609,15 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     [<InlineData("reference",
                  "01234567890123456789012345678901234567890123456789L01234567890123456789012345678901234567890123456789LC",
                  "JournalEntryReferenceTextTooLong")>]
-    [<InlineData("bothNull", "", "JournalEntryFetchByReferenceBothArgumentsNull")>]
     member _.``REQ-JE-3.5 FetchByExternalReference validates input as valid types``
         (field: string, value: string, expectedError: string) =
         let fiToUse =
             match field with
             | "fi" -> Some value
-            | "bothNull" -> None
             | _ -> Some "TestBank"
         let referenceToUse =
             match field with
             | "reference" -> Some value
-            | "bothNull" -> None
             | _ -> Some "TXN-001"
         let input: JournalEntryFetchByExternalReferenceInput =
             { fi = fiToUse; reference = referenceToUse }

@@ -23,6 +23,7 @@ open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
 open Business.FinancialServices.Classification.ClassificationAuditableAction
 open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open App.DataAccessLayer.DalError
+open Ui.InterfaceBridge.CommandRoute
 
 
 let errorRowCount ()
@@ -65,6 +66,20 @@ let ``REQ-DAL-2.2 an update requiring exactly one row that touches none returns 
         (executeNonQuery (context |> Context.getDatabaseTransaction) "update ledger.account set code = code where 1 = 2;" [] ExactlyOne)
         (App.DataAccessLayer.DalError.DalNoOp ("", 0))
         None
+    |> railroadWrapper
+
+[<Fact>]
+let ``REQ-DAL-2.2 an update requiring exactly one row that touches two returns DalResultantRowsDidntMatchExpectation carrying the expectation and the count`` () =
+    runCommandRouteAndAutoRollback FiscalPeriodCreate (fun context ->
+        let touchesTwo =
+            "update ledger.account set code = code where unique_id in (select unique_id from ledger.account order by code limit 2);"
+        match executeNonQuery (context |> Context.getDatabaseTransaction) touchesTwo [] ExactlyOne with
+        | Error (AsError (DalResultantRowsDidntMatchExpectation (expectation, actual))) ->
+            Assert.Equal("ExactlyOne", expectation)
+            Assert.Equal(2, actual)
+        | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+        | Ok _ -> Assert.Fail "Expected failure; got success"
+        Ok())
     |> railroadWrapper
 
 [<Fact>]
@@ -140,33 +155,39 @@ let private confirmReleased (inUseBefore: int64) : Result<unit, IAppError> =
         Assert.False(probeExists, "the probe fiscal period exists, so the transaction committed instead of rolling back")
     }
 
-(* The caches are process-wide and never invalidated, so these run inside the shared fixture's collection: a cache
-   loaded before the fixture truncates and restages the tables would hand later tests the previous run's IDs. *)
+(* The production caches are process-wide and never invalidated, so these run inside the shared fixture's collection:
+   a cache loaded before the fixture truncates and restages the tables would hand later tests the previous run's IDs. *)
 [<Collection("SharedTestData")>]
 type ConnectionReleaseTests(fixture: Tests.Helpers.TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-DAL-2.4 fetching through every lookup cache leaves no session idle in a transaction and the pool's in-use count where it started`` () =
+        (* A production cache another test already loaded would skip the load, the only part of a fetch that opens a
+           transaction, so this builds a fresh cache over each production cache's table and column. A fresh cache
+           always loads in full on its first fetch, whatever ran before. *)
         let inUseBefore = connectionsInUse()
-        // each cache loads in full on its first fetch; the keys need not exist
         let noTransaction = Context.create NoTransaction FetchOnly |> Context.getDatabaseTransaction
-        let missingName = "REQ-DAL-2.4 no such key"
+        let missingName = "a key no table holds"
         let missingId = Guid.NewGuid()
+        let byString table column =
+            (App.DataAccessLayer.LookupCache.stringToIdCache table column).fetch noTransaction missingName |> Result.map ignore
+        let byId table column =
+            (App.DataAccessLayer.LookupCache.idToStringCache table column).fetch noTransaction missingId |> Result.map ignore
         let fetches : Result<unit, IAppError> list =
-            [ Business.FinancialServices.Ledger.Account.codeToId.fetch noTransaction missingName |> Result.map ignore
-              Business.FinancialServices.Ledger.Account.idToCode.fetch noTransaction missingId |> Result.map ignore
-              Business.FinancialServices.Ledger.Account.idToName.fetch noTransaction missingId |> Result.map ignore
-              Business.FinancialServices.Ledger.FiscalPeriod.keyToId.fetch noTransaction missingName |> Result.map ignore
-              Business.FinancialServices.Ledger.FiscalPeriod.idToKey.fetch noTransaction missingId |> Result.map ignore
-              Business.FinancialServices.CashFlow.MasterAgreement.nameToId.fetch noTransaction missingName |> Result.map ignore
-              Business.FinancialServices.CashFlow.MasterAgreement.idToName.fetch noTransaction missingId |> Result.map ignore
-              Business.FinancialServices.CashFlow.PaymentAgreement.nameToId.fetch noTransaction missingName |> Result.map ignore
-              Business.FinancialServices.CashFlow.PaymentAgreement.idToName.fetch noTransaction missingId |> Result.map ignore ]
+            [ byString "ledger.account" "code"
+              byId "ledger.account" "code"
+              byId "ledger.account" "account_name"
+              byString "ledger.fiscal_period" "period_key"
+              byId "ledger.fiscal_period" "period_key"
+              byString "cashflow.master_agreement" "agreement_name"
+              byId "cashflow.master_agreement" "agreement_name"
+              byString "cashflow.payment_agreement" "payment_agreement_name"
+              byId "cashflow.payment_agreement" "payment_agreement_name" ]
         // a missing key is DalNoOp from the single-row read that follows the load; anything else means the load failed
         for fetched in fetches do
             match fetched with
             | Error (AsError (DalNoOp _)) -> ()
-            | other -> Assert.Fail $"Expected the cache to load and then miss; got {other}"
+            | other -> Assert.Fail $"Expected the fresh cache to load in full and then miss the key; got {other}"
         result {
             let! idle = sessionsIdleInTransaction()
             Assert.Equal(0L, idle)

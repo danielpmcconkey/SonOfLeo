@@ -117,7 +117,7 @@ type RevisedRequirementsLedgerTests(fixture: TestDataFixture) =
     // =========================================================================
 
     [<Fact>]
-    member _.``REQ-JE-2.11 posting a journal entry whose last comment names a secondary journal entry that doesn't exist fails and stores none of its header, lines, external references or earlier comments`` () =
+    member _.``REQ-JE-2.11 REQ-JE-2.12 REQ-JE-2.15 posting a journal entry whose last comment names a secondary journal entry that doesn't exist fails and stores none of its header, lines, external references or earlier comments`` () =
         withEntries (fun post _ ->
             let tag = newTag ()
             let missing = Guid.NewGuid()

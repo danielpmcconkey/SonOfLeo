@@ -119,6 +119,29 @@ type PersonMaintenanceTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
+    member _.``REQ-PER-2.2 updating only a Person's name, its birthdate left unchanged, stores the new name and keeps the birthdate it had`` () =
+        runCommandRouteAndAutoRollback PersonUpdate (fun context ->
+            result {
+                let! updated = updatePerson context PositionsFixture.jordan (SetTo(toPersonName "Jordan Renamed Only")) NoChange
+                Assert.Equal(("Jordan Renamed Only", PositionsFixture.jordanBirthdate), updated |> summary)
+                let! fetched = fetchPersonByName context "Jordan Renamed Only"
+                Assert.Equal(("Jordan Renamed Only", PositionsFixture.jordanBirthdate), fetched |> summary)
+            })
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-PER-2.2 updating only a Person's birthdate, its name left unchanged, stores the new birthdate and keeps the name it had`` () =
+        runCommandRouteAndAutoRollback PersonUpdate (fun context ->
+            result {
+                let newBirth = LocalDate(1979, 9, 21)
+                let! updated = updatePerson context PositionsFixture.jordan NoChange (SetTo newBirth)
+                Assert.Equal((PositionsFixture.jordan, newBirth), updated |> summary)
+                let! fetched = fetchPersonByName context PositionsFixture.jordan
+                Assert.Equal((PositionsFixture.jordan, newBirth), fetched |> summary)
+            })
+        |> railroadWrapper
+
+    [<Fact>]
     member _.``REQ-PER-2.2 REQ-PER-1.3 renaming a Person to another Person's name is rejected with a typed error naming the name, and neither Person changes`` () =
         runCommandRouteAndAutoRollback PersonUpdate (fun context ->
             result {

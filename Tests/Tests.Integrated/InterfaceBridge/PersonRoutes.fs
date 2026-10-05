@@ -76,16 +76,40 @@ type PersonRoutesTests(fixture: TestDataFixture) =
         try
             result {
                 let payload = $"""{{"personName": "{name}"}}"""
+                let inputType = typeof<Contracts.PersonCreateInput>
                 send "Create" payload
                 |> expectError
-                    (function AsError (JsonDeserializationFailed (_, message, _)) -> Some message | _ -> None)
-                    (fun message -> Assert.Contains("birthdate", message))
+                    (function AsError (JsonDeserializationFailed (typeName, message, _)) -> Some(typeName, message) | _ -> None)
+                    (fun (typeName, message) ->
+                        Assert.Equal(inputType.ToString(), typeName)
+                        Assert.Equal($"Missing field for record type {inputType.FullName}: birthdate", message))
                 let! stored = storedAs name
                 Assert.Empty(stored)
             }
             |> railroadWrapper
         finally
             cleanUp [ name ]
+
+    [<Fact>]
+    member _.``REQ-PER-2.1 REQ-PER-1.1 a Person Create payload with a whitespace-only name is rejected with a typed empty-name error, and no Person is created`` () =
+        let created = ResizeArray<string>()
+        try
+            let names () = PersonOrchestration.listPersons (fresh ()) |> Result.map (List.map (fun p -> p |> personName |> PersonName.value))
+            let before = names ()
+            match create " \t " (LocalDate(1991, 6, 15)) with
+            | Error (AsError (PersonNameIsEmpty raw)) -> Assert.Equal(" \t ", raw)
+            | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+            | Ok returned ->
+                created.Add returned.personName
+                Assert.Fail "Expected failure; got success"
+            result {
+                let! before = before
+                let! after = names ()
+                Assert.Equal<string list>(before, after)
+            }
+            |> railroadWrapper
+        finally
+            cleanUp (created |> List.ofSeq)
 
     [<Fact>]
     member _.``REQ-PER-2.2 a Person Update payload naming a new name and birthdate changes both, and the return carries the new values`` () =

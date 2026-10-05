@@ -31,20 +31,24 @@ open Business.FinancialServices.Ledger.LedgerError
 [<Collection("SharedTestData")>]
 type AccountBalanceTests(fixture: TestDataFixture) =
 
+    /// The sum of one account's lines of one type across the fixture's unvoided journal entries, from fixture data alone.
+    let unvoidedSum accountId lineType =
+        fixture.Data.journalEntries
+        |> List.filter (fun je -> je |> header |> JournalEntryHeader.voidedAt |> Option.isNone)
+        |> List.collect jeLines
+        |> List.filter (fun l -> l |> JournalEntryLine.accountId = accountId && l |> JournalEntryLine.lineType = lineType)
+        |> List.sumBy (fun l -> l |> JournalEntryLine.amount |> Money.amount)
+
     [<Fact>]
     member _.``REQ-AC-3.13 REQ-RPT-1.10 fetchByAccountIdList returns correct debit and credit totals``() =
         let context = Context.create NoTransaction FetchOnly
         let id1 = fixture.Data.mortgage2210Id
         let id2 = fixture.Data.food5350Id
         let accountsList = [ id1; id2 ]
-        let expectedDebits1 =
-            fixture.Data.journalEntryLines |> sumJournalEntryLinesByAccountIdAndType context false id1 Debit
-        let expectedCredits1 =
-            fixture.Data.journalEntryLines |> sumJournalEntryLinesByAccountIdAndType context false id1 Credit
-        let expectedDebits2 =
-            fixture.Data.journalEntryLines |> sumJournalEntryLinesByAccountIdAndType context false id2 Debit
-        let expectedCredits2 =
-            fixture.Data.journalEntryLines |> sumJournalEntryLinesByAccountIdAndType context false id2 Credit
+        let expectedDebits1 = unvoidedSum id1 Debit
+        let expectedCredits1 = unvoidedSum id1 Credit
+        let expectedDebits2 = unvoidedSum id2 Debit
+        let expectedCredits2 = unvoidedSum id2 Credit
         let expectedBal1 = expectedCredits1 - expectedDebits1 // liability
         let expectedBal2 = expectedDebits2 - expectedCredits2 // expense
         let result = fetchByAccountIdList context (Some accountsList) None
@@ -167,7 +171,7 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
-    member _.``REQ-AC-3.13 net balance is positive in normal-balance orientation``() =
+    member _.``REQ-AC-3.13 the net balances of a debit-normal and a credit-normal account each holding one side of an entry both equal its amount in normal-balance orientation``() =
         let amount = 200.00M
         let zero = 0M
         runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
@@ -194,10 +198,10 @@ type AccountBalanceTests(fixture: TestDataFixture) =
                 let revenueBal = balances |> List.find(fun b -> (b |> Business.CrossDomainOrchestration.AccountBalance.accountId) = revenueId)
                 Assert.Equal(amount, (expenseBal |> Business.CrossDomainOrchestration.AccountBalance.totalDebits) |> Money.amount)
                 Assert.Equal(zero, (expenseBal |> Business.CrossDomainOrchestration.AccountBalance.totalCredits) |> Money.amount)
-                Assert.True((expenseBal |> Business.CrossDomainOrchestration.AccountBalance.netBalance) |> Money.amount > zero)
+                Assert.Equal(amount, (expenseBal |> Business.CrossDomainOrchestration.AccountBalance.netBalance) |> Money.amount)
                 Assert.Equal(zero, (revenueBal |> Business.CrossDomainOrchestration.AccountBalance.totalDebits) |> Money.amount)
                 Assert.Equal(amount, (revenueBal |> Business.CrossDomainOrchestration.AccountBalance.totalCredits) |> Money.amount)
-                Assert.True((revenueBal |> Business.CrossDomainOrchestration.AccountBalance.netBalance) |> Money.amount > zero)
+                Assert.Equal(amount, (revenueBal |> Business.CrossDomainOrchestration.AccountBalance.netBalance) |> Money.amount)
                 return ()
             })
         |> railroadWrapper

@@ -29,9 +29,17 @@ open Tests.Helpers.Railroad
 type AccountActivityTests(fixture: TestDataFixture) =
 
     [<Fact>]
-    member _.``REQ-AC-3.12 fetchFiltered by account returns all activity with no filters set``() =
-        let expectedCountDetails = fixture.Data.totalJournalEntryLines
-        let expectedCountTotal = expectedCountDetails + fixture.Data.totalAccountsWithNoLines
+    member _.``REQ-AC-3.12 fetchFiltered with no filters set returns one row per fixture journal entry line and one line-less row per account without lines``() =
+        let lineRows =
+            fixture.Data.journalEntryLines
+            |> List.map (fun l -> l |> JournalEntryLine.accountId, Some(l |> JournalEntryLine.journalEntryLineId))
+        let accountsWithLines = lineRows |> List.map fst |> Set.ofList
+        let lineLessRows =
+            fixture.Data.accounts
+            |> List.map Account.accountId
+            |> List.filter (fun id -> accountsWithLines |> Set.contains id |> not)
+            |> List.map (fun id -> id, None)
+        let expectedRows = lineRows @ lineLessRows
         let filter:AccountActivityFilter =
             { accountId = None
               temporalFilter = None
@@ -47,13 +55,9 @@ type AccountActivityTests(fixture: TestDataFixture) =
         let result = AccountActivity.fetchFiltered context filter None
         match result with
         | Ok activities ->
-            Assert.Equal(expectedCountTotal, activities |> List.length)
-            let withDetail = activities |> List.filter(fun a -> a.activityDetail |> Option.isSome)
-            Assert.Equal(expectedCountDetails, withDetail |> List.length)
-            let detail = (withDetail |> List.head).activityDetail |> Option.get
-            let descriptionText = detail.journalEntryDescription |> JournalEntryDescription.value
-            Assert.False(String.IsNullOrWhiteSpace descriptionText)
-            Assert.NotEqual(Guid.Empty, detail.journalEntryHeaderId |> JournalEntryHeaderId.value)
+            let returnedRows = activities |> List.map (fun a -> a.accountId, a.activityDetail |> Option.map _.lineId)
+            Assert.Equal<Set<AccountId * JournalEntryLineId option>>(expectedRows |> Set.ofList, returnedRows |> Set.ofList)
+            Assert.Equal(expectedRows |> List.length, returnedRows |> List.length)
         | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
@@ -179,21 +183,18 @@ type AccountActivityTests(fixture: TestDataFixture) =
         | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]
-    member _.``REQ-AC-3.12.1 fetchFiltered by amount returns only matching lines``() =
-        let nonVoidedLines =
-            fixture.Data.journalEntries
-            |> List.filter(fun je ->
-                je |> JournalEntryOrchestration.header |> JournalEntryHeader.voidedAt |> Option.isNone)
-            |> List.collect JournalEntryOrchestration.jeLines
+    member _.``REQ-AC-3.12.1 REQ-AC-3.12.2 fetchFiltered by amount returns exactly the lines of that amount, voided entries' lines included``() =
+        (* The flag is off, so the population is every fixture line, voided entries' included. *)
+        let allLines = fixture.Data.journalEntryLines
         let targetAmountDecimal =
-            nonVoidedLines
+            allLines
             |> List.countBy(fun l -> l |> JournalEntryLine.amount |> Money.amount)
             |> List.maxBy snd
             |> fst
-        let expectedCount =
-            nonVoidedLines
+        let expectedLineIds =
+            allLines
             |> List.filter(fun l -> l |> JournalEntryLine.amount |> Money.amount = targetAmountDecimal)
-            |> List.length
+            |> List.map JournalEntryLine.journalEntryLineId
         let targetAmount =
             targetAmountDecimal |> Money.fromDecimal |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
         let filter:AccountActivityFilter =
@@ -211,11 +212,9 @@ type AccountActivityTests(fixture: TestDataFixture) =
         let result = AccountActivity.fetchFiltered context filter None
         match result with
         | Ok activities ->
-            let withDetail = activities |> List.filter(fun a -> a.activityDetail |> Option.isSome)
-            Assert.Equal(expectedCount, withDetail |> List.length)
-            for activity in withDetail do
-                let detail = activity.activityDetail |> Option.get
-                Assert.Equal(targetAmountDecimal, detail.amount |> Money.amount)
+            let returnedLineIds = activities |> List.choose (fun a -> a.activityDetail |> Option.map _.lineId)
+            Assert.Equal<Set<JournalEntryLineId>>(expectedLineIds |> Set.ofList, returnedLineIds |> Set.ofList)
+            Assert.Equal(expectedLineIds |> List.length, activities |> List.length)
         | Error e -> Assert.Fail(e.ToMessage())
 
     [<Fact>]

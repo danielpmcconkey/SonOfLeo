@@ -133,16 +133,15 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-FP-3.4 fetchAll without filter happy path``() =
+    member _.``REQ-FP-3.4 fetchAll without filter returns exactly the fixture's periods, open and closed``() =
         let context = Context.create NoTransaction FetchOnly
+        let expectedKeys =
+            fixture.Data.fiscalPeriods
+            |> List.map(FiscalPeriod.periodKey >> FiscalPeriodKey.value)
+            |> List.sort
         result {
             let! fetched = FiscalPeriod.fetchAll context false
-            fixture.Data.openFiscalPeriodIds
-            |> List.forall(fun id -> fetched |> List.exists(fun fp -> FiscalPeriod.fiscalPeriodId fp = id))
-            |> Assert.True
-            fetched
-            |> List.exists(fun fp -> FiscalPeriod.fiscalPeriodId fp = fixture.Data.closedFiscalPeriodId)
-            |> Assert.True
+            Assert.Equal<string list>(expectedKeys, fetched |> List.map(FiscalPeriod.periodKey >> FiscalPeriodKey.value) |> List.sort)
             ()
         }
         |> railroadWrapper
@@ -168,8 +167,12 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback AccountCreate (fun context ->
             result {
                 let id = fixture.Data.openFiscalPeriodIds |> List.head
+                let expectedKey =
+                    fixture.Data.fiscalPeriods |> List.find (fun fp -> FiscalPeriod.fiscalPeriodId fp = id) |> FiscalPeriod.periodKey
                 let! closed = id |> FiscalPeriod.closeFiscalPeriod context
                 Assert.False(FiscalPeriod.isOpen closed)
+                Assert.Equal(id, closed |> FiscalPeriod.fiscalPeriodId)
+                Assert.Equal(expectedKey, closed |> FiscalPeriod.periodKey)
                 ()
             })
         |> railroadWrapper
@@ -198,8 +201,13 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
     member _.``REQ-FP-4.2 reopenFiscalPeriod happy path``() =
         runCommandRouteAndAutoRollback AccountCreate (fun context ->
             result {
-                let! reopened = fixture.Data.closedFiscalPeriodId |> FiscalPeriod.reopenFiscalPeriod context
+                let id = fixture.Data.closedFiscalPeriodId
+                let expectedKey =
+                    fixture.Data.fiscalPeriods |> List.find (fun fp -> FiscalPeriod.fiscalPeriodId fp = id) |> FiscalPeriod.periodKey
+                let! reopened = id |> FiscalPeriod.reopenFiscalPeriod context
                 Assert.True(FiscalPeriod.isOpen reopened)
+                Assert.Equal(id, reopened |> FiscalPeriod.fiscalPeriodId)
+                Assert.Equal(expectedKey, reopened |> FiscalPeriod.periodKey)
                 ()
             })
         |> railroadWrapper

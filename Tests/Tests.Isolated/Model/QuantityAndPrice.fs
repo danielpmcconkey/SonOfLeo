@@ -150,5 +150,6 @@ let ``REQ-QP-3.5 a Quantity of 1.234567 times a Price of 2.5 is exactly 3.086417
 [<InlineData("0.000001", "0.000001", "0.000000000001")>]
 [<InlineData("9999999999.999999", "0.000001", "9999.999999999999")>]
 [<InlineData("9999999999.999999", "2.123456", "21234559999.999997876544")>]
-let ``REQ-QP-3.5 a Quantity times a Price is the exact decimal product for each of several pairs, including a zero Price and the maximum Quantity at a six-place Price`` (q: string, p: string, expected: string) =
+[<InlineData("9999999999.999999", "999999.999999", "9999999999989999.000000000001")>]
+let ``REQ-QP-3.5 a Quantity times a Price is the exact decimal product for each of several pairs, including a zero Price, the maximum Quantity at a six-place Price, and a product just below 10^16 carrying twelve decimal places`` (q: string, p: string, expected: string) =
     Assert.Equal(dec expected, Price.multiplyQuantity (quantity (dec q)) (price (dec p)))
