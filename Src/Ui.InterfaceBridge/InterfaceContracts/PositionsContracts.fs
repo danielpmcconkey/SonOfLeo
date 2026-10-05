@@ -97,6 +97,8 @@ type HoldingCreateInput = { accountName: string; securityName: string; basisMeth
 
 type HoldingUpdateBasisMethodInput = { accountName: string; securityName: string; basisMethod: string option }
 
+type HoldingDeleteInput = { accountName: string; securityName: string }
+
 type HoldingListInput = { accountName: string option }
 
 type HoldingFetchAsOfInput = { asOf: LocalDate }
@@ -175,7 +177,7 @@ type PropertyReturn = {
     acquisitionDate: LocalDate
     disposalDate: LocalDate option
     purchaseBasis: decimal
-    assetAccount: LedgerAccountReturn option
+    assetAccounts: LedgerAccountReturn list
     mortgageAccounts: LedgerAccountReturn list
     createdAt: Instant
     modifiedAt: Instant
@@ -188,11 +190,12 @@ type PropertyCreateInput = {
     acquisitionDate: LocalDate
     disposalDate: LocalDate option
     purchaseBasis: decimal
-    assetAccountCode: string option
+    assetAccountCodes: string list
     mortgageAccountCodes: string list
 }
 
-// the Property is addressed by its current name; ownersUpdate and mortgageAccountCodesUpdate carry complete new sets
+// the Property is addressed by its current name; ownersUpdate, assetAccountCodesUpdate and mortgageAccountCodesUpdate
+// carry complete new sets
 type PropertyUpdateInput = {
     propertyName: string
     propertyNameUpdate: FieldUpdate<string>
@@ -201,9 +204,11 @@ type PropertyUpdateInput = {
     acquisitionDateUpdate: FieldUpdate<LocalDate>
     disposalDateUpdate: FieldUpdate<LocalDate option>
     purchaseBasisUpdate: FieldUpdate<decimal>
-    assetAccountCodeUpdate: FieldUpdate<string option>
+    assetAccountCodesUpdate: FieldUpdate<string list>
     mortgageAccountCodesUpdate: FieldUpdate<string list>
 }
+
+type PropertyDeleteInput = { propertyName: string }
 
 // ---- Valuations ----
 

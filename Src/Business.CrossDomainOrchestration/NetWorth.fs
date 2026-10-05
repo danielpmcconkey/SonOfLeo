@@ -29,12 +29,6 @@ type NetWorthInvestmentAccount = {
     contributionBasis: Money.Money option
 }
 
-/// Where a Property's value came from: the Valuation dated so, or its purchase basis when it has none on or before the
-/// date.
-type PropertyValueSource =
-    | ValuationDated of LocalDate
-    | PurchaseBasisValue
-
 type NetWorthProperty = {
     propertyName: string
     propertyUse: PropertyUse
@@ -55,6 +49,7 @@ type NetWorth = {
     totalInvestments: Money.Money
     totalPropertyValues: Money.Money
     totalLiabilities: Money.Money
+    totalOwnedPropertyMortgages: Money.Money
     netWorth: Money.Money
     investableWealth: Money.Money
     investmentsByTaxTreatment: (TaxTreatment * Money.Money) list
@@ -98,13 +93,13 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
         let! valuations = Valuation.fetchAll context
         let linkedAssetIds =
             (investmentAccounts |> List.choose InvestmentAccount.ledgerAccountId)
-            @ (properties |> List.choose Property.ledgerAssetAccountId)
             |> Set.ofList
+            |> Set.union (properties |> List.map Property.assetAccountIds |> Set.unionMany)
         let ownedProperties =
             properties
             |> List.filter (fun p -> p |> Property.ownedPeriod |> OwnedPeriod.isOwnedOn asOf)
             |> List.sortBy (Property.propertyName >> PropertyName.value)
-        let ownedMortgageIds = ownedProperties |> List.collect Property.mortgageAccountIds |> Set.ofList
+        let ownedMortgageIds = ownedProperties |> List.map Property.mortgageAccountIds |> Set.unionMany
 
         let assetAccounts =
             ledgerAccounts
@@ -141,20 +136,12 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
             ownedProperties
             |> List.map (fun property ->
                 result {
-                    let value = Valuation.valueOn asOf property valuations
-                    let source =
-                        valuations
-                        |> List.filter (fun v ->
-                            Valuation.propertyId v = Property.propertyId property && Valuation.valuationDate v <= asOf)
-                        |> List.map Valuation.valuationDate
-                        |> List.sortDescending
-                        |> List.tryHead
-                        |> Option.map ValuationDated
-                        |> Option.defaultValue PurchaseBasisValue
+                    let value, source = Valuation.valueOn asOf property valuations
                     let! ownerNames = property |> Property.owners |> PersonOrchestration.personNamesOf context
                     let mortgageRows =
                         property
                         |> Property.mortgageAccountIds
+                        |> Set.toList
                         |> List.choose (fun id -> accountById |> Map.tryFind id)
                         |> List.map rowOf
                         |> List.sortBy (fun r -> r.code)
@@ -175,9 +162,10 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
         let! totalInvestments = investmentRows |> List.map (fun r -> r.marketValue) |> sumOf
         let! totalPropertyValues = propertyRows |> List.map (fun r -> r.value) |> sumOf
         let! totalLiabilities = liabilityAccounts |> List.map (fun r -> r.balance) |> sumOf
-        let! totalMortgages = propertyRows |> List.collect (fun r -> r.mortgageAccounts) |> List.map (fun r -> r.balance) |> sumOf
+        let! totalOwnedPropertyMortgages =
+            propertyRows |> List.collect (fun r -> r.mortgageAccounts) |> List.map (fun r -> r.balance) |> sumOf
         let! grossAssets = sumOf [ totalLedgerAssets; totalInvestments; totalPropertyValues ]
-        let! allLiabilities = Money.add totalLiabilities totalMortgages
+        let! allLiabilities = Money.add totalLiabilities totalOwnedPropertyMortgages
         let! netWorth = Money.subtractVal1FromVal2 allLiabilities grossAssets
         let! investableWealth =
             match propertyRows |> List.tryFind (fun r -> r.propertyUse = PropertyUse.PrimaryResidence) with
@@ -195,6 +183,7 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
               totalInvestments = totalInvestments
               totalPropertyValues = totalPropertyValues
               totalLiabilities = totalLiabilities
+              totalOwnedPropertyMortgages = totalOwnedPropertyMortgages
               netWorth = netWorth
               investableWealth = investableWealth
               investmentsByTaxTreatment = byTaxTreatment

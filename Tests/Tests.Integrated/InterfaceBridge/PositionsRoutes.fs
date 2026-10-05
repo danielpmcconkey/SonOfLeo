@@ -149,10 +149,10 @@ let private fetchSnapshot account date =
 // ---- Properties ----
 
 type private PropertySummary =
-    string * string * string list * LocalDate * LocalDate option * decimal * C.LedgerAccountReturn option * C.LedgerAccountReturn list
+    string * string * string list * LocalDate * LocalDate option * decimal * C.LedgerAccountReturn list * C.LedgerAccountReturn list
 
 let private propertySummary (p: C.PropertyReturn) : PropertySummary =
-    p.propertyName, p.propertyUse, p.owners, p.acquisitionDate, p.disposalDate, p.purchaseBasis, p.assetAccount, p.mortgageAccounts
+    p.propertyName, p.propertyUse, p.owners, p.acquisitionDate, p.disposalDate, p.purchaseBasis, p.assetAccounts, p.mortgageAccounts
 
 let private listProperties () = send "Property" "List" "" |> Result.bind Json.fromJson<C.PropertyReturn list>
 
@@ -171,7 +171,7 @@ let private noPropertyChange name : C.PropertyUpdateInput =
       acquisitionDateUpdate = NoChange
       disposalDateUpdate = NoChange
       purchaseBasisUpdate = NoChange
-      assetAccountCodeUpdate = NoChange
+      assetAccountCodesUpdate = NoChange
       mortgageAccountCodesUpdate = NoChange }
 
 // ---- Valuations ----
@@ -217,7 +217,7 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
           acquisitionDate = p.rentalAcquired
           disposalDate = None
           purchaseBasis = 180000.00M
-          assetAccountCode = None
+          assetAccountCodes = []
           mortgageAccountCodes = mortgages }
 
     // ---- Dimension Values ----
@@ -798,10 +798,10 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
                             owners = [ PF.sam; PF.alex ]
                             disposalDate = Some disposed
                             purchaseBasis = 175000.50M
-                            assetAccountCode = Some "T-1591" }
+                            assetAccountCodes = [ "T-1591" ] }
                 let expected =
                     name, "Rental", [ PF.alex; PF.sam ], p.rentalAcquired, Some disposed, 175000.50M,
-                    Some(ledger "T-1591" "Route Cabin at Cost"),
+                    [ ledger "T-1591" "Route Cabin at Cost" ],
                     [ ledger "F-2220" "Credit Card"; ledger "F-2230" "Fixture Loan Payable" ]
                 Assert.Equal(expected, returned |> propertySummary)
                 let! stored = storedProperty name
@@ -846,7 +846,7 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
         let name = unique "Route Property"
         try
             result {
-                createProperty { propertyInput name [] with assetAccountCode = Some "F-1599" }
+                createProperty { propertyInput name [] with assetAccountCodes = [ "F-1599" ] }
                 |> expectError codeNotFound (fun code -> Assert.Equal("F-1599", code))
                 let! stored = storedProperty name
                 Assert.Empty(stored)
@@ -881,7 +881,7 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
                             purchaseBasisUpdate = SetTo 222222.22M
                             mortgageAccountCodesUpdate = SetTo [ "F-2230"; "F-2220" ] }
                 let expected =
-                    name, "Rental", [ PF.sam ], p.rentalAcquired, None, 222222.22M, None,
+                    name, "Rental", [ PF.sam ], p.rentalAcquired, None, 222222.22M, [],
                     [ ledger "F-2220" "Credit Card"; ledger "F-2230" "Fixture Loan Payable" ]
                 Assert.Equal(expected, returned |> propertySummary)
                 let! stored = storedProperty name
@@ -925,11 +925,11 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
     member _.``REQ-POS-11.6 REQ-NGUI-1.6 the Property List route returns every Property ordered by name, each linked ledger account's name beside its code`` () =
         result {
             let! listed = listProperties ()
-            Assert.Equal<(string * C.LedgerAccountReturn option * C.LedgerAccountReturn list) list>(
-                [ PF.residence, Some(ledger "F-1510" "Fixture Residence at Cost"), [ ledger "F-2310" "Fixture Residence Mortgage" ]
-                  PF.rental, None, [ ledger "F-2320" "Fixture Rental Mortgage" ]
-                  PF.formerResidence, None, [] ],
-                listed |> List.map (fun x -> x.propertyName, x.assetAccount, x.mortgageAccounts))
+            Assert.Equal<(string * C.LedgerAccountReturn list * C.LedgerAccountReturn list) list>(
+                [ PF.residence, [ ledger "F-1510" "Fixture Residence at Cost" ], [ ledger "F-2310" "Fixture Residence Mortgage" ]
+                  PF.rental, [], [ ledger "F-2320" "Fixture Rental Mortgage" ]
+                  PF.formerResidence, [], [] ],
+                listed |> List.map (fun x -> x.propertyName, x.assetAccounts, x.mortgageAccounts))
         }
         |> railroadWrapper
 

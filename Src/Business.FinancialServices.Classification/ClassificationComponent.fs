@@ -48,7 +48,7 @@ module NumericSearchOperator =
         | ExactlyEqual -> "ExactlyEqual"
         
     let fromString str =
-        match str with
+        match (str: string).Trim() with
         | "GreaterThan" -> Ok GreaterThan
         | "LessThan" -> Ok LessThan
         | "GreaterThanOrEqualTo" -> Ok GreaterThanOrEqualTo
@@ -109,7 +109,7 @@ module ClassificationGroupConnector =
         | Or -> "Or"
     
     let fromString str =
-        match str with
+        match (str: string).Trim() with
         | "And" -> Ok And
         | "Or" -> Ok Or
         | _ -> error (ClassificationInvalidGroupConnector str)
@@ -195,7 +195,7 @@ module ClassificationClaimantType =
         | PaymentAgreementClaimant -> "PaymentAgreementClaimant"
 
     let fromString str =
-        match str with
+        match (str: string).Trim() with
         | "AccountClaimant" -> Ok AccountClaimant
         | "PaymentAgreementClaimant" -> Ok PaymentAgreementClaimant
         | _ -> Error (ClassificationInvalidClaimantType str)

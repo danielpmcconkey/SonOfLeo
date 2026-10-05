@@ -9,34 +9,6 @@ open Business.FinancialServices.Positions.PositionsError
 open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration.HoldingsAsOf
 
-type WealthGrouping =
-    | ByAccount
-    | ByAccountGroup
-    | ByTaxTreatment
-    | ByOwners
-    | ByDimension of Dimension
-
-module WealthGrouping =
-    let all =
-        [ ByAccount; ByAccountGroup; ByTaxTreatment; ByOwners ] @ (Dimension.all |> List.map ByDimension)
-    let toString grouping =
-        match grouping with
-        | ByAccount -> "Account"
-        | ByAccountGroup -> "AccountGroup"
-        | ByTaxTreatment -> "TaxTreatment"
-        | ByOwners -> "Owners"
-        | ByDimension dimension -> dimension |> Dimension.toString
-    let fromString (raw: string) : Result<WealthGrouping, IAppError> =
-        match all |> List.tryFind (fun g -> toString g = raw) with
-        | Some grouping -> Ok grouping
-        | None -> error (PositionsInvalidWealthGrouping raw)
-
-/// One value of the grouping. Owners is the complete owner set of an account, so a joint account is its own group.
-type WealthGroup =
-    | GroupName of string
-    | GroupOwners of string list
-    | Unassigned
-
 type WealthPoint = {
     monthEnd: LocalDate
     totals: (WealthGroup * Money.Money) list
@@ -99,6 +71,18 @@ let computeInvestmentWealthHistory
     if endDate < beginDate then
         error (PositionsWealthHistoryEndBeforeBegin(beginDate, endDate))
     else
-        monthEndsBetween beginDate endDate
-        |> List.map (pointAt context grouping)
-        |> convertListOfResultsToResultsList
+        result {
+            let! points =
+                monthEndsBetween beginDate endDate
+                |> List.map (pointAt context grouping)
+                |> convertListOfResultsToResultsList
+            let! zero = Money.fromDecimal 0M
+            let groups = points |> List.collect (fun p -> p.totals |> List.map fst) |> List.distinct
+            let withEveryGroup (point: WealthPoint) =
+                let missing =
+                    groups
+                    |> List.filter (fun g -> not (point.totals |> List.exists (fun (present, _) -> present = g)))
+                    |> List.map (fun g -> g, zero)
+                { point with totals = point.totals @ missing |> List.sortBy fst }
+            return points |> List.map withEveryGroup
+        }

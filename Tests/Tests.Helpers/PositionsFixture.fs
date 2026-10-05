@@ -298,7 +298,7 @@ module PositionsFixture =
                       snapshot oldBrokerage d1 Reported None [ line international 40M 25.00M 1000.00M (Some 950.00M) ] ]
 
             // Properties and Valuations
-            let property name propertyUse owners acquired disposed basis assetAccountId mortgageIds =
+            let property name propertyUse owners acquired disposed basis assetAccountIds mortgageIds =
                 result {
                     let! name = PropertyName.create name
                     let! period = OwnedPeriod.create acquired disposed
@@ -311,17 +311,17 @@ module PositionsFixture =
                               owners = owners |> List.map personName
                               ownedPeriod = period
                               purchaseBasis = basis
-                              ledgerAssetAccountId = assetAccountId
+                              assetAccountIds = assetAccountIds
                               mortgageAccountIds = mortgageIds }
                 }
             let formerResidenceAcquired = today.PlusYears(-6)
             let! _ =
                 property formerResidence PrimaryResidence [ alex ] formerResidenceAcquired (Some formerResidenceDisposed)
-                    200000.00M None []
+                    200000.00M [] []
             let! _ =
                 property residence PrimaryResidence [ alex; sam ] residenceAcquired None 400000.00M
-                    (Some residenceAtCostId) [ residenceMortgageId ]
-            let! _ = property rental Rental [ sam ] lastYear None 250000.00M None [ rentalMortgageId ]
+                    [ residenceAtCostId ] [ residenceMortgageId ]
+            let! _ = property rental Rental [ sam ] lastYear None 250000.00M [] [ rentalMortgageId ]
             let valuation date value basis =
                 result {
                     let! name = PropertyName.create residence

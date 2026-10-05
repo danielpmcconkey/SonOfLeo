@@ -49,12 +49,12 @@ let create
 
 let tolerance = 0.05M
 
-/// Checks one line's reported figures against each other. The figures are recorded verbatim, so nothing is derived
+/// Confirms one line's reported figures against each other. The figures are recorded verbatim, so nothing is derived
 /// or corrected here; a line that doesn't hold together is refused. The labels only name the line in the error.
-let checkFigures
-    (accountName: string)
+let confirmFigures
+    (accountLabel: string)
     (snapshotDate: LocalDate)
-    (securityName: string)
+    (securityLabel: string)
     (quantity: Quantity.Quantity)
     (price: Price.Price)
     (marketValue: Money.Money)
@@ -65,20 +65,20 @@ let checkFigures
     let product = Price.multiplyQuantity quantity price
     let marketValueAmount = marketValue |> Money.amount
     if not (quantity |> Quantity.isPositive) then
-        error (PositionsSnapshotLineQuantityNotPositive(accountName, snapshotDate, securityName))
+        error (PositionsSnapshotLineQuantityNotPositive(accountLabel, snapshotDate, securityLabel))
     elif marketValue |> Money.isNegative then
-        error (PositionsSnapshotLineMarketValueNegative(accountName, snapshotDate, securityName, marketValueAmount))
+        error (PositionsSnapshotLineMarketValueNegative(accountLabel, snapshotDate, securityLabel, marketValueAmount))
     else
         match reportedCostBasis with
         | Some costBasis when costBasis |> Money.isNegative ->
             error (
                 PositionsSnapshotLineCostBasisNegative(
-                    accountName, snapshotDate, securityName, costBasis |> Money.amount
+                    accountLabel, snapshotDate, securityLabel, costBasis |> Money.amount
                 )
             )
         | _ when Math.Abs(product - marketValueAmount) > tolerance ->
             error (
-                PositionsSnapshotLineOutsideTolerance(accountName, snapshotDate, securityName, product, marketValueAmount)
+                PositionsSnapshotLineOutsideTolerance(accountLabel, snapshotDate, securityLabel, product, marketValueAmount)
             )
         | _ -> Ok()
 
@@ -111,11 +111,15 @@ let deleteByAccountSnapshot (context: Context.Context) (accountSnapshotId: Accou
 
 let private reconstitute raw =
     result {
-        let uuid, snapshotId, holdingId, quantityRaw, priceRaw, marketValueRaw, costBasisRaw = raw
+        let uuid, snapshotId, investmentAccountId, snapshotDate, holdingId, quantityRaw, priceRaw, marketValueRaw,
+            costBasisRaw = raw
         let! quantity = quantityRaw |> Quantity.fromDecimal
         let! price = priceRaw |> Price.fromDecimal
         let! marketValue = marketValueRaw |> Money.fromDecimal
         let! costBasis = costBasisRaw |> convertOptionToDesiredTypeWithFallibleConverter Money.fromDecimal
+        do!
+            confirmFigures
+                $"{investmentAccountId}" snapshotDate $"holding {holdingId}" quantity price marketValue costBasis
         return
             create
                 (uuid |> AccountSnapshotLineId.fromGuid)
@@ -130,6 +134,8 @@ let private reconstitute raw =
 let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getUuid "unique_id"),
     (row |> RowReader.getUuid "account_snapshot_id"),
+    (row |> RowReader.getUuid "investment_account_id"),
+    (row |> RowReader.getDate "snapshot_date"),
     (row |> RowReader.getUuid "holding_id"),
     (row |> RowReader.getNumeric "quantity"),
     (row |> RowReader.getNumeric "price"),
@@ -153,24 +159,29 @@ let query
     executeReaderQuery
         (context |> Context.getDatabaseTransaction) queryStatement parameters mapRawForDbRead reconstitute expectedRows
 
+let private fetchAny
+    (context: Context.Context)
+    (predicate: string option)
+    (limit: int option)
+    (parameters: QueryParameter list)
+    : Result<AccountSnapshotLine list, IAppError> =
+    let select =
+        """
+        snapl.unique_id, snapl.account_snapshot_id, snaplh.investment_account_id, snaplh.snapshot_date, snapl.holding_id,
+        snapl.quantity, snapl.price, snapl.market_value, snapl.reported_cost_basis"""
+    let joins = [ "join positions.account_snapshot snaplh on snaplh.unique_id = snapl.account_snapshot_id" ]
+    query context None select (Some joins) predicate limit None None parameters AnyQuantityIsAcceptable
+
 let fetchByAccountSnapshot
     (context: Context.Context)
     (accountSnapshotId: AccountSnapshotId)
     : Result<AccountSnapshotLine list, IAppError> =
-    let select =
-        """
-        snapl.unique_id, snapl.account_snapshot_id, snapl.holding_id, snapl.quantity, snapl.price, snapl.market_value,
-        snapl.reported_cost_basis"""
     let parameters =
         [ { name = "@account_snapshot_id"; value = UniqueId(accountSnapshotId |> AccountSnapshotId.value) } ]
-    query
-        context
-        None
-        select
-        None
-        (Some "snapl.account_snapshot_id = @account_snapshot_id")
-        None
-        None
-        None
-        parameters
-        AnyQuantityIsAcceptable
+    fetchAny context (Some "snapl.account_snapshot_id = @account_snapshot_id") None parameters
+
+/// Whether any snapshot line references the Holding.
+let existsForHolding (context: Context.Context) (holdingId: HoldingId) : Result<bool, IAppError> =
+    let parameters = [ { name = "@holding_id"; value = UniqueId(holdingId |> HoldingId.value) } ]
+    fetchAny context (Some "snapl.holding_id = @holding_id") (Some 1) parameters
+    |> Result.map (List.isEmpty >> not)

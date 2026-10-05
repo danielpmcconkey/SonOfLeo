@@ -228,7 +228,7 @@ let ``convert [PropertyView] to [PropertyReturn]`` (view: PropertyView) : Proper
       acquisitionDate = period |> OwnedPeriod.acquisitionDate
       disposalDate = period |> OwnedPeriod.disposalDate
       purchaseBasis = property |> Property.purchaseBasis |> PurchaseBasis.value |> Money.amount
-      assetAccount = view.ledgerAssetAccountCodeAndName |> Option.map ``convert [string * string] to [LedgerAccountReturn]``
+      assetAccounts = view.assetAccountCodesAndNames |> List.map ``convert [string * string] to [LedgerAccountReturn]``
       mortgageAccounts = view.mortgageAccountCodesAndNames |> List.map ``convert [string * string] to [LedgerAccountReturn]``
       createdAt = property |> Property.createdAt
       modifiedAt = property |> Property.modifiedAt }
@@ -246,9 +246,10 @@ let ``convert [PropertyCreateInput] to [NewProperty]``
         let! owners = input.owners |> ``convert [string list] to [PersonName list]``
         let! ownedPeriod = OwnedPeriod.create input.acquisitionDate input.disposalDate
         let! purchaseBasis = input.purchaseBasis |> ``convert [decimal] to [PurchaseBasis]``
-        let! assetAccountId =
-            input.assetAccountCode
-            |> convertOptionToDesiredTypeWithFallibleConverter (fallibleConverterAccountCodeToAccountId context)
+        let! assetAccountIds =
+            input.assetAccountCodes
+            |> List.map (fallibleConverterAccountCodeToAccountId context)
+            |> convertListOfResultsToResultsList
         let! mortgageAccountIds =
             input.mortgageAccountCodes
             |> List.map (fallibleConverterAccountCodeToAccountId context)
@@ -259,7 +260,7 @@ let ``convert [PropertyCreateInput] to [NewProperty]``
               owners = owners
               ownedPeriod = ownedPeriod
               purchaseBasis = purchaseBasis
-              ledgerAssetAccountId = assetAccountId
+              assetAccountIds = assetAccountIds
               mortgageAccountIds = mortgageAccountIds }
     }
 
@@ -276,9 +277,7 @@ let ``convert [PropertyUpdateInput] to [PropertyUpdate]``
         let! ownersUpdate = input.ownersUpdate |> convertFieldUpdateToNewTypeFallible ``convert [string list] to [PersonName list]``
         let! purchaseBasisUpdate =
             input.purchaseBasisUpdate |> convertFieldUpdateToNewTypeFallible ``convert [decimal] to [PurchaseBasis]``
-        let! assetAccountIdUpdate =
-            input.assetAccountCodeUpdate
-            |> convertFieldUpdateOptionToNewTypeOptionFallible (fallibleConverterAccountCodeToAccountId context)
+        let! assetAccountIdsUpdate = input.assetAccountCodesUpdate |> convertFieldUpdateToNewTypeFallible accountIdsOf
         let! mortgageAccountIdsUpdate = input.mortgageAccountCodesUpdate |> convertFieldUpdateToNewTypeFallible accountIdsOf
         return
             { currentName = currentName
@@ -288,7 +287,7 @@ let ``convert [PropertyUpdateInput] to [PropertyUpdate]``
               acquisitionDateUpdate = input.acquisitionDateUpdate
               disposalDateUpdate = input.disposalDateUpdate
               purchaseBasisUpdate = purchaseBasisUpdate
-              ledgerAssetAccountIdUpdate = assetAccountIdUpdate
+              assetAccountIdsUpdate = assetAccountIdsUpdate
               mortgageAccountIdsUpdate = mortgageAccountIdsUpdate }
     }
 

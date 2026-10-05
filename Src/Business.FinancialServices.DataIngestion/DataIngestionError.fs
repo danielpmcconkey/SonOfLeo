@@ -11,6 +11,7 @@ type DataIngestionError =
     | IngestionBaseStageEntryGroupIdIsEmpty of string
     | IngestionBaseStageEntryGroupIdTooLong of string * int
     | IngestionBaseStageGroupIdDistinctDataViolation of string
+    | IngestionGroupsShareSourceAndReference of string * string * string * string
     | IngestionInvalidStagedEntryStatus of string
     | IngestionInvalidStageStatusChangeMechanism of string
     | IngestionInvalidStageStatusTransition of string option * string
@@ -46,6 +47,7 @@ type DataIngestionError =
             | IngestionBaseStageEntryGroupIdIsEmpty str -> $"BaseStageEntryGroupId cannot be empty. Provided value is {str}."
             | IngestionBaseStageEntryGroupIdTooLong (str, max) -> $"BaseStageEntryGroupId cannot exceed {max} characters. Provided value is {str}."
             | IngestionBaseStageGroupIdDistinctDataViolation str -> $"More than one combination of \"header\" data found for BaseStageEntryGroupId {str}"
+            | IngestionGroupsShareSourceAndReference (firstGroup, secondGroup, source, reference) -> $"Groups {firstGroup} and {secondGroup} share source {source} and FI reference {reference}; no two groups in one file may."
             | IngestionInvalidStagedEntryStatus str -> $"Provided string of '{str}' is not a valid StagedEntryStatus."
             | IngestionInvalidStageStatusChangeMechanism str -> $"Provided string of '{str}' is not a valid StageStatusChangeMechanism."
             | IngestionInvalidStageStatusTransition (fromStr, toStr) -> $"Invalid stage status transition. Cannot move from {fromStr} to {toStr}."

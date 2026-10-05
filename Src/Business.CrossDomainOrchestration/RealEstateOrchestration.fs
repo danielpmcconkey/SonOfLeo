@@ -8,6 +8,7 @@ open App.Utility.FieldUpdate
 open App.Session
 open Business.General.Person
 open Business.FinancialServices
+open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Positions
 open Business.FinancialServices.Positions.PositionsError
@@ -20,11 +21,11 @@ type NewProperty = {
     owners: PersonName list
     ownedPeriod: OwnedPeriod
     purchaseBasis: PurchaseBasis
-    ledgerAssetAccountId: AccountId option
+    assetAccountIds: AccountId list
     mortgageAccountIds: AccountId list
 }
 
-/// ownersUpdate and mortgageAccountIdsUpdate each carry the complete new set.
+/// ownersUpdate, assetAccountIdsUpdate and mortgageAccountIdsUpdate each carry the complete new set.
 type PropertyUpdate = {
     currentName: PropertyName
     nameUpdate: FieldUpdate<PropertyName>
@@ -33,7 +34,7 @@ type PropertyUpdate = {
     acquisitionDateUpdate: FieldUpdate<LocalDate>
     disposalDateUpdate: FieldUpdate<LocalDate option>
     purchaseBasisUpdate: FieldUpdate<PurchaseBasis>
-    ledgerAssetAccountIdUpdate: FieldUpdate<AccountId option>
+    assetAccountIdsUpdate: FieldUpdate<AccountId list>
     mortgageAccountIdsUpdate: FieldUpdate<AccountId list>
 }
 
@@ -41,7 +42,7 @@ type PropertyUpdate = {
 type PropertyView = {
     property: Property.Property
     ownerNames: string list
-    ledgerAssetAccountCodeAndName: (string * string) option
+    assetAccountCodesAndNames: (string * string) list
     mortgageAccountCodesAndNames: (string * string) list
 }
 
@@ -70,7 +71,7 @@ let private resolveOwners
     (context: Context.Context)
     (propertyName: PropertyName)
     (owners: PersonName list)
-    : Result<PersonId list, IAppError> =
+    : Result<Set<PersonId>, IAppError> =
     let shownName = propertyName |> PropertyName.value
     result {
         do! if owners |> List.isEmpty then error (PositionsPropertyHasNoOwners shownName) else Ok()
@@ -80,7 +81,7 @@ let private resolveOwners
             | None -> Ok()
         let! persons =
             owners |> List.map (PersonOrchestration.fetchPersonByName context) |> convertListOfResultsToResultsList
-        return persons |> List.map personId
+        return persons |> List.map personId |> Set.ofList
     }
 
 // Owned periods are half-open (the disposal date is not owned), so one residence may be acquired on the day another is
@@ -115,11 +116,66 @@ let private confirmOnePrimaryResidence
             | None -> return ()
         }
 
-let private confirmMortgageLinks (context: Context.Context) (self: PropertyId option) (accountIds: AccountId list) =
-    accountIds
-    |> List.map (confirmMortgageLink context self)
-    |> convertListOfResultsToResultsList
-    |> Result.map ignore
+let private confirmNoAccountRepeated
+    (context: Context.Context)
+    (propertyName: PropertyName)
+    (repeatedError: string * string -> PositionsError)
+    (accountIds: AccountId list)
+    : Result<unit, IAppError> =
+    match accountIds |> List.countBy id |> List.tryFind (fun (_, count) -> count > 1) with
+    | Some(repeated, _) ->
+        result {
+            let! code, _ = repeated |> ledgerAccountCodeAndName context
+            return! error (repeatedError(propertyName |> PropertyName.value, code))
+        }
+    | None -> Ok()
+
+let private confirmAssetLink (context: Context.Context) (self: PropertyId) (accountId: AccountId) : Result<unit, IAppError> =
+    result {
+        let! account = accountId |> fetchLedgerAccount context
+        do!
+            match account |> Account.accountType, account |> Account.accountSubType with
+            | AccountType.Asset, Some AccountSubtype.FixedAsset -> Ok()
+            | _ ->
+                let accountType, subtype = describeType account
+                error (PositionsPropertyLedgerAccountNotAssetFixedAsset(codeOf account, accountType, subtype))
+        let! linked = accountId |> Property.fetchByAssetAccountId context
+        match linked with
+        | Some other when other |> Property.propertyId <> self ->
+            let name = other |> Property.propertyName |> PropertyName.value
+            return! error (PositionsAssetAccountAlreadyLinked(codeOf account, name))
+        | _ -> return ()
+    }
+
+let private confirmMortgageLink (context: Context.Context) (self: PropertyId) (accountId: AccountId) : Result<unit, IAppError> =
+    result {
+        let! account = accountId |> fetchLedgerAccount context
+        do!
+            match account |> Account.accountType with
+            | AccountType.Liability -> Ok()
+            | other -> error (PositionsMortgageAccountNotLiability(codeOf account, other |> AccountType.toString))
+        let! linked = accountId |> Property.fetchByMortgageAccountId context
+        match linked with
+        | Some other when other |> Property.propertyId <> self ->
+            let name = other |> Property.propertyName |> PropertyName.value
+            return! error (PositionsMortgageAccountAlreadyLinked(codeOf account, name))
+        | _ -> return ()
+    }
+
+/// Confirms each account may be linked to this Property, and returns them as a set.
+let private resolveLinks
+    (context: Context.Context)
+    (self: PropertyId)
+    (propertyName: PropertyName)
+    (repeatedError: string * string -> PositionsError)
+    (confirmLink: Context.Context -> PropertyId -> AccountId -> Result<unit, IAppError>)
+    (accountIds: AccountId list)
+    : Result<Set<AccountId>, IAppError> =
+    result {
+        do! confirmNoAccountRepeated context propertyName repeatedError accountIds
+        do! accountIds |> List.map (confirmLink context self) |> convertListOfResultsToResultsList |> Result.map ignore
+        return accountIds |> Set.ofList
+    }
 
 let createProperty (context: Context.Context) (newProperty: NewProperty) : Result<Property.Property, IAppError> =
     let instant = context |> Context.getInitiationInstant
@@ -128,11 +184,14 @@ let createProperty (context: Context.Context) (newProperty: NewProperty) : Resul
         do! confirmPropertyNameFree context newProperty.name None
         let! owners = resolveOwners context newProperty.name newProperty.owners
         do! confirmOnePrimaryResidence context None newProperty.name newProperty.propertyUse newProperty.ownedPeriod
-        do!
-            match newProperty.ledgerAssetAccountId with
-            | Some accountId -> accountId |> confirmPropertyAssetLink context (Some propertyId)
-            | None -> Ok()
-        do! confirmMortgageLinks context (Some propertyId) newProperty.mortgageAccountIds
+        let! assetAccountIds =
+            resolveLinks
+                context propertyId newProperty.name PositionsPropertyAssetAccountRepeated confirmAssetLink
+                newProperty.assetAccountIds
+        let! mortgageAccountIds =
+            resolveLinks
+                context propertyId newProperty.name PositionsPropertyMortgageAccountRepeated confirmMortgageLink
+                newProperty.mortgageAccountIds
         let property =
             Property.create
                 propertyId
@@ -140,9 +199,9 @@ let createProperty (context: Context.Context) (newProperty: NewProperty) : Resul
                 newProperty.propertyUse
                 newProperty.ownedPeriod
                 newProperty.purchaseBasis
-                newProperty.ledgerAssetAccountId
+                assetAccountIds
                 owners
-                newProperty.mortgageAccountIds
+                mortgageAccountIds
                 instant
                 instant
         do! property |> Property.persist context
@@ -204,14 +263,16 @@ let updateProperty (context: Context.Context) (propertyUpdate: PropertyUpdate) :
                 resultingName
                 (propertyUpdate.propertyUseUpdate |> valueOrCurrent (property |> Property.propertyUse))
                 (ownedPeriodUpdate |> valueOrCurrent (property |> Property.ownedPeriod))
-        do!
-            match propertyUpdate.ledgerAssetAccountIdUpdate with
-            | SetTo(Some accountId) -> accountId |> confirmPropertyAssetLink context (Some self)
-            | _ -> Ok()
-        do!
-            match propertyUpdate.mortgageAccountIdsUpdate with
-            | SetTo accountIds -> confirmMortgageLinks context (Some self) accountIds
-            | NoChange -> Ok()
+        let! assetAccountIdsUpdate =
+            propertyUpdate.assetAccountIdsUpdate
+            |> convertFieldUpdateToNewTypeFallible (
+                resolveLinks context self resultingName PositionsPropertyAssetAccountRepeated confirmAssetLink
+            )
+        let! mortgageAccountIdsUpdate =
+            propertyUpdate.mortgageAccountIdsUpdate
+            |> convertFieldUpdateToNewTypeFallible (
+                resolveLinks context self resultingName PositionsPropertyMortgageAccountRepeated confirmMortgageLink
+            )
         return!
             Property.update
                 context
@@ -220,28 +281,27 @@ let updateProperty (context: Context.Context) (propertyUpdate: PropertyUpdate) :
                   propertyUseUpdate = propertyUpdate.propertyUseUpdate
                   ownedPeriodUpdate = ownedPeriodUpdate
                   purchaseBasisUpdate = propertyUpdate.purchaseBasisUpdate
-                  ledgerAssetAccountIdUpdate = propertyUpdate.ledgerAssetAccountIdUpdate
+                  assetAccountIdsUpdate = assetAccountIdsUpdate
                   ownersUpdate = ownersUpdate
-                  mortgageAccountIdsUpdate = propertyUpdate.mortgageAccountIdsUpdate }
+                  mortgageAccountIdsUpdate = mortgageAccountIdsUpdate }
     }
 
 let viewProperty (context: Context.Context) (property: Property.Property) : Result<PropertyView, IAppError> =
     result {
         let! ownerNames = property |> Property.owners |> PersonOrchestration.personNamesOf context
-        let! assetAccount =
-            property
-            |> Property.ledgerAssetAccountId
-            |> convertOptionToDesiredTypeWithFallibleConverter (ledgerAccountCodeAndName context)
-        let! mortgageAccounts =
-            property
-            |> Property.mortgageAccountIds
+        let codesAndNamesOf accountIds =
+            accountIds
+            |> Set.toList
             |> List.map (ledgerAccountCodeAndName context)
             |> convertListOfResultsToResultsList
+            |> Result.map (List.sortBy fst)
+        let! assetAccounts = property |> Property.assetAccountIds |> codesAndNamesOf
+        let! mortgageAccounts = property |> Property.mortgageAccountIds |> codesAndNamesOf
         return
             { property = property
               ownerNames = ownerNames
-              ledgerAssetAccountCodeAndName = assetAccount
-              mortgageAccountCodesAndNames = mortgageAccounts |> List.sortBy fst }
+              assetAccountCodesAndNames = assetAccounts
+              mortgageAccountCodesAndNames = mortgageAccounts }
     }
 
 let listProperties (context: Context.Context) : Result<PropertyView list, IAppError> =
@@ -252,6 +312,20 @@ let listProperties (context: Context.Context) : Result<PropertyView list, IAppEr
             |> List.sortBy (Property.propertyName >> PropertyName.value)
             |> List.map (viewProperty context)
             |> convertListOfResultsToResultsList
+    }
+
+/// Deletes the Property with its owners and ledger links, and returns it as it stood before deletion.
+let deleteProperty (context: Context.Context) (propertyName: PropertyName) : Result<Property.Property, IAppError> =
+    result {
+        let! property = fetchPropertyByName context propertyName
+        let! valuations = property |> Property.propertyId |> Valuation.fetchByProperty context
+        do!
+            if valuations |> List.isEmpty then
+                Ok()
+            else
+                error (PositionsPropertyHasValuations(propertyName |> PropertyName.value))
+        do! property |> Property.propertyId |> Property.delete context
+        return property
     }
 
 let recordValuation

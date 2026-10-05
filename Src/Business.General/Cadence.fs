@@ -17,7 +17,7 @@ type WeekDay =
 
 module WeekDay =
     let fromString str =
-        match str with
+        match (str: string).Trim() with
         | "Sunday" -> Ok Sunday
         | "Monday" -> Ok Monday
         | "Tuesday" -> Ok Tuesday
@@ -87,7 +87,7 @@ module Month =
         | November -> "November"
         | December -> "December"
     let fromString str =
-        match str with
+        match (str: string).Trim() with
         | "January" -> Ok January
         | "February" -> Ok February
         | "March" -> Ok March

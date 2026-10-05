@@ -22,7 +22,7 @@ type InvestmentAccount = private {
     institution: Institution
     accountGroup: AccountGroup
     taxTreatment: TaxTreatment
-    owners: PersonId list
+    owners: Set<PersonId>
     activityPeriod: ActivityPeriod.ActivityPeriod
     ledgerAccountId: AccountId option
     createdAt: Instant
@@ -36,7 +36,7 @@ type InvestmentAccountFieldUpdates = {
     institutionUpdate: FieldUpdate<Institution>
     accountGroupUpdate: FieldUpdate<AccountGroup>
     taxTreatmentUpdate: FieldUpdate<TaxTreatment>
-    ownersUpdate: FieldUpdate<PersonId list>
+    ownersUpdate: FieldUpdate<Set<PersonId>>
     activityPeriodUpdate: FieldUpdate<ActivityPeriod.ActivityPeriod>
     ledgerAccountIdUpdate: FieldUpdate<AccountId option>
 }
@@ -58,7 +58,7 @@ let create
     (institution: Institution)
     (accountGroup: AccountGroup)
     (taxTreatment: TaxTreatment)
-    (owners: PersonId list)
+    (owners: Set<PersonId>)
     (activityPeriod: ActivityPeriod.ActivityPeriod)
     (ledgerAccountId: AccountId option)
     (createdAt: Instant)
@@ -69,7 +69,7 @@ let create
       institution = institution
       accountGroup = accountGroup
       taxTreatment = taxTreatment
-      owners = owners |> List.distinct |> List.sortBy PersonId.value
+      owners = owners
       activityPeriod =
         activityPeriod
         |> ActivityPeriod.insistBeginValidationBehavior ActivityPeriod.NotConsideredAvailableBeforeBeginDate
@@ -80,13 +80,14 @@ let create
 let private persistOwners
     (context: Context.Context)
     (investmentAccountId: InvestmentAccountId)
-    (owners: PersonId list)
+    (owners: Set<PersonId>)
     : Result<unit, IAppError> =
     let queryStatement =
         """
         insert into positions.investment_account_owner(investment_account_id, person_id)
         values (@investment_account_id, @person_id);"""
     owners
+    |> Set.toList
     |> List.map (fun owner ->
         let parameters =
             [ { name = "@investment_account_id"; value = UniqueId(investmentAccountId |> InvestmentAccountId.value) }
@@ -132,10 +133,10 @@ let persist (context: Context.Context) (investmentAccount: InvestmentAccount) : 
         do! persistOwners context investmentAccount.investmentAccountId investmentAccount.owners
     }
 
-let private parseIdList (raw: string option) : Guid list =
+let private parseIdSet (raw: string option) : Set<Guid> =
     match raw with
-    | None -> []
-    | Some joined -> joined.Split(',') |> Array.map Guid.Parse |> Array.toList
+    | None -> Set.empty
+    | Some joined -> joined.Split(',') |> Array.map Guid.Parse |> Set.ofArray
 
 let private reconstitute raw =
     result {
@@ -146,7 +147,13 @@ let private reconstitute raw =
         let! group = groupStr |> AccountGroup.create
         let! treatment = treatmentStr |> TaxTreatment.fromString
         let! period = ActivityPeriod.create activeBegin activeEnd ActivityPeriod.NotConsideredAvailableBeforeBeginDate
-        let owners = ownerIds |> parseIdList |> List.map PersonId.fromGuid
+        let owners = ownerIds |> parseIdSet |> Set.map PersonId.fromGuid
+        do! if owners |> Set.isEmpty then error (PositionsInvestmentAccountHasNoOwners nameStr) else Ok()
+        do!
+            if owners.Count > 1 && not (treatment |> TaxTreatment.allowsJointOwnership) then
+                error (PositionsInvestmentAccountOwnersNotAllowed(nameStr, treatmentStr, owners.Count))
+            else
+                Ok()
         return
             create
                 (uuid |> InvestmentAccountId.fromGuid)
@@ -284,7 +291,7 @@ let update
             match ownersUpdate with
             | Some newOwners ->
                 deleteOwners context accountId
-                |> Result.bind (fun () -> persistOwners context accountId (newOwners |> List.distinct))
+                |> Result.bind (fun () -> persistOwners context accountId newOwners)
             | None -> Ok()
         return! accountId |> fetchById context
     }

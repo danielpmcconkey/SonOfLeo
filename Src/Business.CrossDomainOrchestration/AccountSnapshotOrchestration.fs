@@ -116,7 +116,7 @@ let private buildLine
             | Some h -> Ok h
             | None -> error (PositionsSnapshotSecurityNotHeld(accountName, securityName))
         do!
-            AccountSnapshotLine.checkFigures
+            AccountSnapshotLine.confirmFigures
                 accountName
                 snapshotDate
                 securityName
@@ -207,6 +207,7 @@ let private recordOne (context: Context.Context) (input: SnapshotInput) : Result
 /// Records every snapshot or, on the first failure, returns its error; the caller's transaction makes that all or none.
 let recordSnapshots (context: Context.Context) (inputs: SnapshotInput list) : Result<RecordedSnapshot list, IAppError> =
     result {
+        do! if inputs |> List.isEmpty then error PositionsSnapshotListIsEmpty else Ok()
         do! confirmNoRepeatedSnapshot inputs
         return! inputs |> List.map (recordOne context) |> convertListOfResultsToResultsList
     }
@@ -261,6 +262,7 @@ let listSnapshotDates
     (endDate: LocalDate)
     : Result<(LocalDate * Provenance) list, IAppError> =
     result {
+        do! if endDate < beginDate then error (PositionsSnapshotDatesEndBeforeBegin(beginDate, endDate)) else Ok()
         let! account = fetchInvestmentAccountByName context accountName
         let! headers =
             AccountSnapshotHeader.fetchByInvestmentAccountBetween

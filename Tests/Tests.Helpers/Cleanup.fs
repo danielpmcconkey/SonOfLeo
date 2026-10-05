@@ -394,12 +394,13 @@ let cleanUpDimensionValueByName (dimension: string) (name: string) : Result<unit
       [ { name = "@dimension"; value = CharString dimension }; { name = "@name"; value = CharString name } ] ]
     |> executeCleanUpStatements
 
-/// Deletes a Property by name, with its Valuations, its mortgage links and its owner rows.
+/// Deletes a Property by name, with its Valuations, its asset and mortgage links and its owner rows.
 let cleanUpPropertyByName (name: string) : Result<unit, IAppError> =
     let parameters = [ { name = "@name"; value = CharString name } ]
     let ofProperty = "(select unique_id from positions.property where property_name = @name)"
     [ $"""delete from positions.valuation WHERE property_id IN {ofProperty};"""
       $"""delete from positions.property_mortgage_account WHERE property_id IN {ofProperty};"""
+      $"""delete from positions.property_asset_account WHERE property_id IN {ofProperty};"""
       $"""delete from positions.property_owner WHERE property_id IN {ofProperty};"""
       """delete from positions.property WHERE property_name = @name;""" ]
     |> List.map (fun query -> query, parameters)

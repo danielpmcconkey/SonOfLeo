@@ -193,8 +193,8 @@ type InvestmentAccountMaintenanceTests(fixture: TestDataFixture) =
             updateInvestmentAccount
                 context { noChange PF.jordanCustodial with ledgerAccountIdUpdate = SetTo(Some fixture.Data.positions.brokerageAtCost1260Id) }
             |> expectError
-                (function AsError (PositionsLedgerAccountAlreadyLinked (c, kind, n)) -> Some(c, kind, n) | _ -> None)
-                (fun found -> Assert.Equal(("F-1260", "Investment Account", PF.alexBrokerage), found))
+                (function AsError (PositionsInvestmentLedgerAccountAlreadyLinked (c, n)) -> Some(c, n) | _ -> None)
+                (fun found -> Assert.Equal(("F-1260", PF.alexBrokerage), found))
             |> Ok)
         |> railroadWrapper
 

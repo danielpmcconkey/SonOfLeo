@@ -196,6 +196,7 @@ type NetWorthReturnRow = {
     totalInvestments: decimal
     totalPropertyValues: decimal
     totalLiabilities: decimal
+    totalOwnedPropertyMortgages: decimal
     netWorth: decimal
     investableWealth: decimal
     investmentsByTaxTreatment: NetWorthGroupTotalReturnRow list

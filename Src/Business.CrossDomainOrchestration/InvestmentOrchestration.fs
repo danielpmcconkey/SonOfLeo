@@ -7,6 +7,7 @@ open App.Utility.FieldUpdate
 open App.Session
 open Business.General
 open Business.General.Person
+open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Positions
 open Business.FinancialServices.Positions.PositionsError
@@ -35,14 +36,17 @@ let private confirmDimensionValueNameFree
     (context: Context.Context)
     (dimension: Dimension)
     (name: DimensionValueName)
+    (self: DimensionValueId option)
     : Result<unit, IAppError> =
     result {
         let! found = DimensionValue.fetchByDimensionAndName context dimension name
-        if found |> Option.isSome then
+        match found with
+        | Some dimensionValue when Some(dimensionValue |> DimensionValue.dimensionValueId) <> self ->
             return!
                 error (
                     PositionsDimensionValueAlreadyExists(dimension |> Dimension.toString, name |> DimensionValueName.value)
                 )
+        | _ -> return ()
     }
 
 let createDimensionValue
@@ -53,7 +57,7 @@ let createDimensionValue
     let instant = context |> Context.getInitiationInstant
     let dimensionValue = DimensionValue.create (DimensionValueId.create ()) dimension name instant instant
     result {
-        do! confirmDimensionValueNameFree context dimension name
+        do! confirmDimensionValueNameFree context dimension name None
         do! dimensionValue |> DimensionValue.persist context
         return dimensionValue
     }
@@ -66,7 +70,7 @@ let renameDimensionValue
     : Result<DimensionValue.DimensionValue, IAppError> =
     result {
         let! dimensionValue = dimensionValueByName context dimension currentName
-        do! confirmDimensionValueNameFree context dimension newName
+        do! confirmDimensionValueNameFree context dimension newName (Some(dimensionValue |> DimensionValue.dimensionValueId))
         return! dimensionValue |> DimensionValue.dimensionValueId |> DimensionValue.rename context newName
     }
 
@@ -263,12 +267,33 @@ let private confirmInvestmentAccountNameFree
         | _ -> return ()
     }
 
+let private confirmInvestmentAccountLink
+    (context: Context.Context)
+    (self: InvestmentAccountId)
+    (ledgerAccountId: AccountId)
+    : Result<unit, IAppError> =
+    result {
+        let! account = ledgerAccountId |> fetchLedgerAccount context
+        do!
+            match account |> Account.accountType, account |> Account.accountSubType with
+            | AccountType.Asset, Some AccountSubtype.Investment -> Ok()
+            | _ ->
+                let accountType, subtype = describeType account
+                error (PositionsInvestmentLedgerAccountNotAssetInvestment(codeOf account, accountType, subtype))
+        let! linked = ledgerAccountId |> InvestmentAccount.fetchByLedgerAccountId context
+        match linked with
+        | Some other when other |> InvestmentAccount.investmentAccountId <> self ->
+            let name = other |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value
+            return! error (PositionsInvestmentLedgerAccountAlreadyLinked(codeOf account, name))
+        | _ -> return ()
+    }
+
 let private resolveOwners
     (context: Context.Context)
     (accountName: InvestmentAccountName)
     (taxTreatment: TaxTreatment)
     (owners: PersonName list)
-    : Result<PersonId list, IAppError> =
+    : Result<Set<PersonId>, IAppError> =
     let shownName = accountName |> InvestmentAccountName.value
     let ownerNames = owners |> List.map PersonName.value
     result {
@@ -288,7 +313,7 @@ let private resolveOwners
                 )
             else
                 Ok()
-        return persons |> List.map personId
+        return persons |> List.map personId |> Set.ofList
     }
 
 let createInvestmentAccount
@@ -302,7 +327,7 @@ let createInvestmentAccount
         let! owners = resolveOwners context newAccount.name newAccount.taxTreatment newAccount.owners
         do!
             match newAccount.ledgerAccountId with
-            | Some ledgerAccountId -> ledgerAccountId |> confirmInvestmentAccountLink context (Some investmentAccountId)
+            | Some ledgerAccountId -> ledgerAccountId |> confirmInvestmentAccountLink context investmentAccountId
             | None -> Ok()
         let account =
             InvestmentAccount.create
@@ -345,6 +370,35 @@ let private confirmHoldingsAllowTaxTreatment
                 )
     }
 
+// Only a Roth account's snapshot carries a contribution basis, and a recorded basis is never cleared, so an account
+// whose snapshots carry one stays Roth.
+let private confirmNoContributionBasisStranded
+    (context: Context.Context)
+    (account: InvestmentAccount.InvestmentAccount)
+    (taxTreatment: TaxTreatment)
+    : Result<unit, IAppError> =
+    match account |> InvestmentAccount.taxTreatment, taxTreatment with
+    | TaxTreatment.Roth, TaxTreatment.Roth -> Ok()
+    | TaxTreatment.Roth, _ ->
+        result {
+            let! snapshots =
+                account |> InvestmentAccount.investmentAccountId |> AccountSnapshotHeader.fetchByInvestmentAccount context
+            let datesWithBasis =
+                snapshots
+                |> List.filter (AccountSnapshotHeader.contributionBasis >> Option.isSome)
+                |> List.map AccountSnapshotHeader.snapshotDate
+            if not (datesWithBasis |> List.isEmpty) then
+                return!
+                    error (
+                        PositionsTaxTreatmentChangeStrandsContributionBasis(
+                            account |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value,
+                            datesWithBasis |> List.min,
+                            datesWithBasis |> List.max
+                        )
+                    )
+        }
+    | _ -> Ok()
+
 let private confirmPeriodKeepsSnapshots
     (context: Context.Context)
     (account: InvestmentAccount.InvestmentAccount)
@@ -384,7 +438,7 @@ let updateInvestmentAccount
             match accountUpdate.ownersUpdate with
             | SetTo owners -> resolveOwners context resultingName resultingTreatment owners |> Result.map SetTo
             | NoChange ->
-                let currentOwnerCount = account |> InvestmentAccount.owners |> List.length
+                let currentOwnerCount = account |> InvestmentAccount.owners |> Set.count
                 if currentOwnerCount > 1 && not (resultingTreatment |> TaxTreatment.allowsJointOwnership) then
                     error (
                         PositionsInvestmentAccountOwnersNotAllowed(
@@ -398,6 +452,10 @@ let updateInvestmentAccount
         do!
             match accountUpdate.taxTreatmentUpdate with
             | SetTo newTreatment -> confirmHoldingsAllowTaxTreatment context account newTreatment
+            | NoChange -> Ok()
+        do!
+            match accountUpdate.taxTreatmentUpdate with
+            | SetTo newTreatment -> confirmNoContributionBasisStranded context account newTreatment
             | NoChange -> Ok()
         let! activityPeriodUpdate =
             match accountUpdate.activeBeginUpdate, accountUpdate.activeEndUpdate with
@@ -415,7 +473,7 @@ let updateInvestmentAccount
                 }
         do!
             match accountUpdate.ledgerAccountIdUpdate with
-            | SetTo(Some ledgerAccountId) -> ledgerAccountId |> confirmInvestmentAccountLink context (Some self)
+            | SetTo(Some ledgerAccountId) -> ledgerAccountId |> confirmInvestmentAccountLink context self
             | _ -> Ok()
         return!
             InvestmentAccount.update
@@ -531,6 +589,33 @@ let changeHoldingBasisMethod
                 )
         do! confirmBasisMethodAllowed account security basisMethod
         return! holding |> Holding.holdingId |> Holding.updateBasisMethod context basisMethod
+    }
+
+/// Deletes the Holding and returns it as it stood before deletion.
+let deleteHolding
+    (context: Context.Context)
+    (accountName: InvestmentAccountName)
+    (securityName: SecurityName)
+    : Result<Holding.Holding, IAppError> =
+    let shownAccount = accountName |> InvestmentAccountName.value
+    let shownSecurity = securityName |> SecurityName.value
+    result {
+        let! account = fetchInvestmentAccountByName context accountName
+        let! security = fetchSecurityByName context securityName
+        let! existing =
+            Holding.fetchByInvestmentAccountAndSecurity
+                context
+                (account |> InvestmentAccount.investmentAccountId)
+                (security |> Security.securityId)
+        let! holding =
+            match existing with
+            | Some holding -> Ok holding
+            | None -> error (PositionsHoldingDoesntExist(shownAccount, shownSecurity))
+        let holdingId = holding |> Holding.holdingId
+        let! referenced = holdingId |> AccountSnapshotLine.existsForHolding context
+        do! if referenced then error (PositionsHoldingReferencedBySnapshots(shownAccount, shownSecurity)) else Ok()
+        do! holdingId |> Holding.delete context
+        return holding
     }
 
 let viewHolding (context: Context.Context) (holding: Holding.Holding) : Result<HoldingView, IAppError> =

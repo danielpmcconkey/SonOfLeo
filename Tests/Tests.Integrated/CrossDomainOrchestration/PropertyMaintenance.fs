@@ -29,7 +29,7 @@ module PF = PositionsFixture
 /// A Property as the list shows it: name, use, owners' names, acquisition date, disposal date, purchase basis, asset
 /// account and mortgage accounts.
 type private PropertySummary =
-    string * PropertyUse * string list * LocalDate * LocalDate option * decimal * (string * string) option * (string * string) list
+    string * PropertyUse * string list * LocalDate * LocalDate option * decimal * (string * string) list * (string * string) list
 
 let private summary (view: PropertyView) : PropertySummary =
     let p = view.property
@@ -39,7 +39,7 @@ let private summary (view: PropertyView) : PropertySummary =
     p |> Property.ownedPeriod |> OwnedPeriod.acquisitionDate,
     p |> Property.ownedPeriod |> OwnedPeriod.disposalDate,
     p |> Property.purchaseBasis |> PurchaseBasis.value |> Money.amount,
-    view.ledgerAssetAccountCodeAndName,
+    view.assetAccountCodesAndNames,
     view.mortgageAccountCodesAndNames
 
 let private listed context name =
@@ -53,7 +53,7 @@ let private newProperty name propertyUse (owners: string list) acquired disposed
       owners = owners |> List.map toPersonName
       ownedPeriod = toOwnedPeriod acquired disposed
       purchaseBasis = toPurchaseBasis basis
-      ledgerAssetAccountId = asset
+      assetAccountIds = asset |> Option.toList
       mortgageAccountIds = mortgages }
 
 let private noChange name =
@@ -64,7 +64,7 @@ let private noChange name =
       acquisitionDateUpdate = NoChange
       disposalDateUpdate = NoChange
       purchaseBasisUpdate = NoChange
-      ledgerAssetAccountIdUpdate = NoChange
+      assetAccountIdsUpdate = NoChange
       mortgageAccountIdsUpdate = NoChange }
 
 /// A FixedAsset account of the test's own, unlinked, inside the test's transaction.
@@ -112,7 +112,7 @@ type PropertyMaintenanceTests(fixture: TestDataFixture) =
                 let! found = listedOne context "56 Example Lane"
                 Assert.Equal<PropertySummary>(
                     ("56 Example Lane", Rental, [ PF.alex; PF.sam ], acquired, Some disposed, 175000.00M,
-                     Some("T-1590", "Test Cabin at Cost"), [ "F-2230", "Fixture Loan Payable" ]),
+                     [ "T-1590", "Test Cabin at Cost" ], [ "F-2230", "Fixture Loan Payable" ]),
                     found)
             })
         |> railroadWrapper
@@ -252,10 +252,10 @@ type PropertyMaintenanceTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-POS-9.7 REQ-POS-4.9 linking a Property's asset account to a ledger account already another Property's asset account is rejected with a typed error naming the code and that other Property`` () =
         runCommandRouteAndAutoRollback PositionsUpdateProperty (fun context ->
-            updateProperty context { noChange PF.rental with ledgerAssetAccountIdUpdate = SetTo(Some p.residenceAtCost1510Id) }
+            updateProperty context { noChange PF.rental with assetAccountIdsUpdate = SetTo [ p.residenceAtCost1510Id ] }
             |> expectError
-                (function AsError (PositionsLedgerAccountAlreadyLinked (c, kind, n)) -> Some(c, kind, n) | _ -> None)
-                (fun found -> Assert.Equal(("F-1510", "Property", PF.residence), found))
+                (function AsError (PositionsAssetAccountAlreadyLinked (c, n)) -> Some(c, n) | _ -> None)
+                (fun found -> Assert.Equal(("F-1510", PF.residence), found))
             |> Ok)
         |> railroadWrapper
 
@@ -308,11 +308,11 @@ type PropertyMaintenanceTests(fixture: TestDataFixture) =
                             acquisitionDateUpdate = SetTo acquired
                             disposalDateUpdate = SetTo(Some p.residenceAcquired)
                             purchaseBasisUpdate = SetTo(toPurchaseBasis 260000.00M)
-                            ledgerAssetAccountIdUpdate = SetTo(Some assetId) }
+                            assetAccountIdsUpdate = SetTo [ assetId ] }
                 let! found = listedOne context "56 Example Townhouse"
                 Assert.Equal<PropertySummary>(
                     ("56 Example Townhouse", PrimaryResidence, [ PF.sam ], acquired, Some p.residenceAcquired, 260000.00M,
-                     Some("T-1591", "Test Townhouse at Cost"), [ "F-2320", "Fixture Rental Mortgage" ]),
+                     [ "T-1591", "Test Townhouse at Cost" ], [ "F-2320", "Fixture Rental Mortgage" ]),
                     found)
                 let! old = listed context PF.rental
                 Assert.Empty(old)
@@ -344,10 +344,10 @@ type PropertyMaintenanceTests(fixture: TestDataFixture) =
                     createProperty
                         context
                         (newProperty "Sold Shed" Rental [ PF.sam ] p.rentalAcquired (Some(p.rentalAcquired.PlusMonths(2))) 5000.00M (Some assetId) [])
-                let! _ = updateProperty context { noChange "Sold Shed" with disposalDateUpdate = SetTo None; ledgerAssetAccountIdUpdate = SetTo None }
+                let! _ = updateProperty context { noChange "Sold Shed" with disposalDateUpdate = SetTo None; assetAccountIdsUpdate = SetTo [] }
                 let! (_, _, _, _, disposed, _, asset, _) = listedOne context "Sold Shed"
                 Assert.Equal(None, disposed)
-                Assert.Equal(None, asset)
+                Assert.Empty(asset)
             })
         |> railroadWrapper
 
@@ -393,10 +393,10 @@ type PropertyMaintenanceTests(fixture: TestDataFixture) =
         |> Result.map (fun all ->
             Assert.Equal<PropertySummary list>(
                 [ PF.residence, PrimaryResidence, [ PF.alex; PF.sam ], p.residenceAcquired, None, 400000.00M,
-                  Some("F-1510", "Fixture Residence at Cost"), [ "F-2310", "Fixture Residence Mortgage" ]
-                  PF.rental, Rental, [ PF.sam ], p.rentalAcquired, None, 250000.00M, None, [ "F-2320", "Fixture Rental Mortgage" ]
+                  [ "F-1510", "Fixture Residence at Cost" ], [ "F-2310", "Fixture Residence Mortgage" ]
+                  PF.rental, Rental, [ PF.sam ], p.rentalAcquired, None, 250000.00M, [], [ "F-2320", "Fixture Rental Mortgage" ]
                   PF.formerResidence, PrimaryResidence, [ PF.alex ], p.formerResidenceAcquired, Some p.formerResidenceDisposed,
-                  200000.00M, None, [] ],
+                  200000.00M, [], [] ],
                 all |> List.map summary))
         |> railroadWrapper
 

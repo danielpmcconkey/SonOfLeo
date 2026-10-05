@@ -22,7 +22,7 @@ type StagedEntryStatus =
     | Ignored // the entry has problems and should not be added. usually a terminal status, can go to reviewed
 
 module StagedEntryStatus =
-    let fromString str = str |> function
+    let fromString (str: string) = str.Trim() |> function
         | "Ingested" -> Ok Ingested
         | "Classified" -> Ok Classified
         | "NoMatch" -> Ok NoMatch
@@ -51,7 +51,7 @@ type StageStatusChangeMechanism =
     | LedgerPoster // the process that posts staged data to the ledger
 
 module StageStatusChangeMechanism =
-    let fromString str = str |> function
+    let fromString (str: string) = str.Trim() |> function
         | "StageIngestion" -> Ok StageIngestion
         | "Classifier" -> Ok Classifier
         | "Deduplicator" -> Ok Deduplicator

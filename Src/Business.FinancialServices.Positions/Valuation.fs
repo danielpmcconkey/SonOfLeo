@@ -45,15 +45,20 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
-/// A Property's value on a date: its latest Valuation dated on or before the date, else its purchase basis.
-let valueOn (date: LocalDate) (property: Property.Property) (valuations: Valuation list) : Money.Money =
+/// A Property's value on a date and where it came from: its latest Valuation dated on or before the date, else its
+/// purchase basis.
+let valueOn
+    (date: LocalDate)
+    (property: Property.Property)
+    (valuations: Valuation list)
+    : Money.Money * PropertyValueSource =
     valuations
     |> List.filter (fun v -> v.propertyId = (property |> Property.propertyId) && v.valuationDate <= date)
     |> List.sortByDescending (fun v -> v.valuationDate)
     |> List.tryHead
     |> function
-        | Some latest -> latest.valuationValue |> ValuationValue.value
-        | None -> property |> Property.purchaseBasis |> PurchaseBasis.value
+        | Some latest -> (latest.valuationValue |> ValuationValue.value), ValuationDated latest.valuationDate
+        | None -> (property |> Property.purchaseBasis |> PurchaseBasis.value), PurchaseBasisValue
 
 let persist (context: Context.Context) (valuation: Valuation) : Result<unit, IAppError> =
     let queryStatement =

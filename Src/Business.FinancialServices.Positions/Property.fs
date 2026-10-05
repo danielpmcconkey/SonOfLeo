@@ -22,23 +22,23 @@ type Property = private {
     propertyUse: PropertyUse
     ownedPeriod: OwnedPeriod
     purchaseBasis: PurchaseBasis
-    ledgerAssetAccountId: AccountId option
-    owners: PersonId list
-    mortgageAccountIds: AccountId list
+    assetAccountIds: Set<AccountId>
+    owners: Set<PersonId>
+    mortgageAccountIds: Set<AccountId>
     createdAt: Instant
     modifiedAt: Instant
 }
 
-/// An ownersUpdate or mortgageAccountIdsUpdate carries the complete new set.
+/// An ownersUpdate, assetAccountIdsUpdate or mortgageAccountIdsUpdate carries the complete new set.
 type PropertyFieldUpdates = {
     propertyIdToUpdate: PropertyId
     propertyNameUpdate: FieldUpdate<PropertyName>
     propertyUseUpdate: FieldUpdate<PropertyUse>
     ownedPeriodUpdate: FieldUpdate<OwnedPeriod>
     purchaseBasisUpdate: FieldUpdate<PurchaseBasis>
-    ledgerAssetAccountIdUpdate: FieldUpdate<AccountId option>
-    ownersUpdate: FieldUpdate<PersonId list>
-    mortgageAccountIdsUpdate: FieldUpdate<AccountId list>
+    assetAccountIdsUpdate: FieldUpdate<Set<AccountId>>
+    ownersUpdate: FieldUpdate<Set<PersonId>>
+    mortgageAccountIdsUpdate: FieldUpdate<Set<AccountId>>
 }
 
 let propertyId p = p.propertyId
@@ -46,7 +46,7 @@ let propertyName p = p.propertyName
 let propertyUse p = p.propertyUse
 let ownedPeriod p = p.ownedPeriod
 let purchaseBasis p = p.purchaseBasis
-let ledgerAssetAccountId p = p.ledgerAssetAccountId
+let assetAccountIds p = p.assetAccountIds
 let owners p = p.owners
 let mortgageAccountIds p = p.mortgageAccountIds
 let createdAt p = p.createdAt
@@ -58,9 +58,9 @@ let create
     (propertyUse: PropertyUse)
     (ownedPeriod: OwnedPeriod)
     (purchaseBasis: PurchaseBasis)
-    (ledgerAssetAccountId: AccountId option)
-    (owners: PersonId list)
-    (mortgageAccountIds: AccountId list)
+    (assetAccountIds: Set<AccountId>)
+    (owners: Set<PersonId>)
+    (mortgageAccountIds: Set<AccountId>)
     (createdAt: Instant)
     (modifiedAt: Instant)
     : Property =
@@ -69,9 +69,9 @@ let create
       propertyUse = propertyUse
       ownedPeriod = ownedPeriod
       purchaseBasis = purchaseBasis
-      ledgerAssetAccountId = ledgerAssetAccountId
-      owners = owners |> List.distinct |> List.sortBy PersonId.value
-      mortgageAccountIds = mortgageAccountIds |> List.distinct |> List.sortBy AccountId.value
+      assetAccountIds = assetAccountIds
+      owners = owners
+      mortgageAccountIds = mortgageAccountIds
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
@@ -83,13 +83,14 @@ let private persistChildren
     (table: string)
     (column: string)
     (propertyId: PropertyId)
-    (childIds: Guid list)
+    (childIds: Set<Guid>)
     : Result<unit, IAppError> =
     let queryStatement =
         $"""
         insert into positions.{table}(property_id, {column})
         values (@property_id, @child_id);"""
     childIds
+    |> Set.toList
     |> List.map (fun childId ->
         let parameters = [ propertyParameter propertyId; { name = "@child_id"; value = UniqueId childId } ]
         executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne)
@@ -104,12 +105,17 @@ let private deleteChildren (context: Context.Context) (table: string) (propertyI
     executeNonQuery
         (context |> Context.getDatabaseTransaction) queryStatement [ propertyParameter propertyId ] AnyQuantityIsAcceptable
 
-let private persistOwners context propertyId (owners: PersonId list) =
-    owners |> List.map PersonId.value |> persistChildren context "property_owner" "person_id" propertyId
+let private persistOwners context propertyId (owners: Set<PersonId>) =
+    owners |> Set.map PersonId.value |> persistChildren context "property_owner" "person_id" propertyId
 
-let private persistMortgageAccounts context propertyId (accountIds: AccountId list) =
+let private persistAssetAccounts context propertyId (accountIds: Set<AccountId>) =
     accountIds
-    |> List.map AccountId.value
+    |> Set.map AccountId.value
+    |> persistChildren context "property_asset_account" "ledger_account_id" propertyId
+
+let private persistMortgageAccounts context propertyId (accountIds: Set<AccountId>) =
+    accountIds
+    |> Set.map AccountId.value
     |> persistChildren context "property_mortgage_account" "ledger_account_id" propertyId
 
 let persist (context: Context.Context) (property: Property) : Result<unit, IAppError> =
@@ -117,10 +123,10 @@ let persist (context: Context.Context) (property: Property) : Result<unit, IAppE
         """
         insert into positions.property(
             unique_id, property_name, property_use, acquisition_date, disposal_date, purchase_basis,
-            ledger_asset_account_id, created_at, modified_at)
+            created_at, modified_at)
         values (
             @unique_id, @property_name, @property_use, @acquisition_date, @disposal_date, @purchase_basis,
-            @ledger_asset_account_id, @created_at, @modified_at);"""
+            @created_at, @modified_at);"""
     let parameters =
         [ { name = "@unique_id"; value = UniqueId(property.propertyId |> PropertyId.value) }
           { name = "@property_name"; value = CharString(property.propertyName |> PropertyName.value) }
@@ -128,29 +134,29 @@ let persist (context: Context.Context) (property: Property) : Result<unit, IAppE
           { name = "@acquisition_date"; value = DbLocalDate(property.ownedPeriod |> OwnedPeriod.acquisitionDate) }
           { name = "@disposal_date"; value = NullableDbLocalDate(property.ownedPeriod |> OwnedPeriod.disposalDate) }
           { name = "@purchase_basis"; value = Numeric(property.purchaseBasis |> PurchaseBasis.value |> Money.amount) }
-          { name = "@ledger_asset_account_id"
-            value = NullableUniqueId(property.ledgerAssetAccountId |> Option.map AccountId.value) }
           { name = "@created_at"; value = DbInstant property.createdAt }
           { name = "@modified_at"; value = DbInstant property.modifiedAt } ]
     result {
         do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
         do! persistOwners context property.propertyId property.owners
+        do! persistAssetAccounts context property.propertyId property.assetAccountIds
         do! persistMortgageAccounts context property.propertyId property.mortgageAccountIds
     }
 
-let private parseIdList (raw: string option) : Guid list =
+let private parseIdSet (raw: string option) : Set<Guid> =
     match raw with
-    | None -> []
-    | Some joined -> joined.Split(',') |> Array.map Guid.Parse |> Array.toList
+    | None -> Set.empty
+    | Some joined -> joined.Split(',') |> Array.map Guid.Parse |> Set.ofArray
 
 let private reconstitute raw =
     result {
-        let uuid, nameStr, useStr, acquisitionDate, disposalDate, purchaseBasisRaw, ledgerId, ownerIds, mortgageIds,
+        let uuid, nameStr, useStr, acquisitionDate, disposalDate, purchaseBasisRaw, assetIds, ownerIds, mortgageIds,
             createdAt, modifiedAt = raw
         let! name = nameStr |> PropertyName.create
         let! propertyUse = useStr |> PropertyUse.fromString
         let! ownedPeriod = OwnedPeriod.create acquisitionDate disposalDate
         let! purchaseBasis = purchaseBasisRaw |> Money.fromDecimal |> Result.bind PurchaseBasis.create
+        do! if ownerIds |> Option.isNone then error (PositionsPropertyHasNoOwners nameStr) else Ok()
         return
             create
                 (uuid |> PropertyId.fromGuid)
@@ -158,9 +164,9 @@ let private reconstitute raw =
                 propertyUse
                 ownedPeriod
                 purchaseBasis
-                (ledgerId |> Option.map AccountId.fromGuid)
-                (ownerIds |> parseIdList |> List.map PersonId.fromGuid)
-                (mortgageIds |> parseIdList |> List.map AccountId.fromGuid)
+                (assetIds |> parseIdSet |> Set.map AccountId.fromGuid)
+                (ownerIds |> parseIdSet |> Set.map PersonId.fromGuid)
+                (mortgageIds |> parseIdSet |> Set.map AccountId.fromGuid)
                 createdAt
                 modifiedAt
     }
@@ -172,7 +178,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getDate "acquisition_date"),
     (row |> RowReader.getDateOption "disposal_date"),
     (row |> RowReader.getNumeric "purchase_basis"),
-    (row |> RowReader.getUuidOption "ledger_asset_account_id"),
+    (row |> RowReader.getStringOption "asset_account_ids"),
     (row |> RowReader.getStringOption "owner_ids"),
     (row |> RowReader.getStringOption "mortgage_account_ids"),
     (row |> RowReader.getInstant "created_at"),
@@ -204,7 +210,10 @@ let private fetchAny
     let select =
         """
         prop.unique_id, prop.property_name, prop.property_use, prop.acquisition_date, prop.disposal_date,
-        prop.purchase_basis, prop.ledger_asset_account_id,
+        prop.purchase_basis,
+        (select string_agg(paa.ledger_account_id::text, ',' order by paa.ledger_account_id)
+         from positions.property_asset_account paa
+         where paa.property_id = prop.unique_id) as asset_account_ids,
         (select string_agg(prow.person_id::text, ',' order by prow.person_id)
          from positions.property_owner prow
          where prow.property_id = prop.unique_id) as owner_ids,
@@ -228,9 +237,13 @@ let fetchByName (context: Context.Context) (propertyName: PropertyName) : Result
     fetchAny context (Some "prop.property_name = @property_name") parameters AnyQuantityIsAcceptable
     |> Result.map List.tryHead
 
-let fetchByLedgerAssetAccountId (context: Context.Context) (accountId: AccountId) : Result<Property option, IAppError> =
+let fetchByAssetAccountId (context: Context.Context) (accountId: AccountId) : Result<Property option, IAppError> =
     let parameters = [ { name = "@ledger_account_id"; value = UniqueId(accountId |> AccountId.value) } ]
-    fetchAny context (Some "prop.ledger_asset_account_id = @ledger_account_id") parameters AnyQuantityIsAcceptable
+    let predicate =
+        """
+        exists (select 1 from positions.property_asset_account paaf
+                where paaf.property_id = prop.unique_id and paaf.ledger_account_id = @ledger_account_id)"""
+    fetchAny context (Some predicate) parameters AnyQuantityIsAcceptable
     |> Result.map List.tryHead
 
 let fetchByMortgageAccountId (context: Context.Context) (accountId: AccountId) : Result<Property option, IAppError> =
@@ -261,14 +274,11 @@ let update (context: Context.Context) (fieldUpdates: PropertyFieldUpdates) : Res
           fieldUpdates.purchaseBasisUpdate
           |> mapNoChangeToOptionWithConversion (fun b ->
               [ "purchase_basis = @purchase_basis",
-                { name = "@purchase_basis"; value = Numeric(b |> PurchaseBasis.value |> Money.amount) } ])
-          fieldUpdates.ledgerAssetAccountIdUpdate
-          |> mapNoChangeToOptionWithConversion (fun l ->
-              [ "ledger_asset_account_id = @ledger_asset_account_id",
-                { name = "@ledger_asset_account_id"; value = NullableUniqueId(l |> Option.map AccountId.value) } ]) ]
+                { name = "@purchase_basis"; value = Numeric(b |> PurchaseBasis.value |> Money.amount) } ]) ]
         |> List.choose id
         |> List.concat
     let ownersUpdate = fieldUpdates.ownersUpdate |> mapNoChangeToOptionWithConversion id
+    let assetUpdate = fieldUpdates.assetAccountIdsUpdate |> mapNoChangeToOptionWithConversion id
     let mortgageUpdate = fieldUpdates.mortgageAccountIdsUpdate |> mapNoChangeToOptionWithConversion id
     let setClauses = columnUpdates |> List.map (fun (clause, _) -> $"{clause}, ") |> String.concat ""
     let parameters =
@@ -282,7 +292,10 @@ let update (context: Context.Context) (fieldUpdates: PropertyFieldUpdates) : Res
         where unique_id = @unique_id;"""
     result {
         do!
-            if columnUpdates |> List.isEmpty && ownersUpdate |> Option.isNone && mortgageUpdate |> Option.isNone then
+            if columnUpdates |> List.isEmpty
+               && ownersUpdate |> Option.isNone
+               && assetUpdate |> Option.isNone
+               && mortgageUpdate |> Option.isNone then
                 error PositionsPropertyUpdateNoOp
             else
                 Ok()
@@ -293,14 +306,35 @@ let update (context: Context.Context) (fieldUpdates: PropertyFieldUpdates) : Res
             match ownersUpdate with
             | Some newOwners ->
                 deleteChildren context "property_owner" propertyId
-                |> Result.bind (fun () -> persistOwners context propertyId (newOwners |> List.distinct))
+                |> Result.bind (fun () -> persistOwners context propertyId newOwners)
+            | None -> Ok()
+        do!
+            match assetUpdate with
+            | Some newAssetAccounts ->
+                deleteChildren context "property_asset_account" propertyId
+                |> Result.bind (fun () -> persistAssetAccounts context propertyId newAssetAccounts)
             | None -> Ok()
         do!
             match mortgageUpdate with
             | Some newMortgageAccounts ->
                 deleteChildren context "property_mortgage_account" propertyId
-                |> Result.bind (fun () ->
-                    persistMortgageAccounts context propertyId (newMortgageAccounts |> List.distinct))
+                |> Result.bind (fun () -> persistMortgageAccounts context propertyId newMortgageAccounts)
             | None -> Ok()
         return! propertyId |> fetchById context
+    }
+
+/// Removes the Property with its owners and ledger links.
+let delete (context: Context.Context) (propertyId: PropertyId) : Result<unit, IAppError> =
+    let queryStatement =
+        """
+        delete from positions.property
+        where unique_id = @property_id;"""
+    result {
+        do! deleteChildren context "property_owner" propertyId
+        do! deleteChildren context "property_asset_account" propertyId
+        do! deleteChildren context "property_mortgage_account" propertyId
+        do!
+            executeNonQuery
+                (context |> Context.getDatabaseTransaction) queryStatement [ propertyParameter propertyId ] ExactlyOne
+            |> whenNoRows (PositionsPropertyIdDoesntExist(propertyId |> PropertyId.value))
     }

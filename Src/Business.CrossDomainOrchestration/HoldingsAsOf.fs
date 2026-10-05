@@ -8,6 +8,7 @@ open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.Session
 open Business.FinancialServices
+open Business.FinancialServices.Positions
 open Business.FinancialServices.Positions.PositionsComponent
 
 type HoldingsAsOfLine = {
@@ -89,6 +90,9 @@ let private reconstituteLine (raw: RawRow) : Result<HoldingsAsOfLine option, IAp
             let! marketValue = marketValueRaw |> Money.fromDecimal
             let! costBasis = raw.reportedCostBasis |> convertOptionToDesiredTypeWithFallibleConverter Money.fromDecimal
             let! basisMethod = raw.basisMethod |> convertOptionToDesiredTypeWithFallibleConverter BasisMethod.fromString
+            do!
+                AccountSnapshotLine.confirmFigures
+                    raw.accountName raw.snapshotDate securityName quantity price marketValue costBasis
             return
                 Some
                     { securityName = securityName

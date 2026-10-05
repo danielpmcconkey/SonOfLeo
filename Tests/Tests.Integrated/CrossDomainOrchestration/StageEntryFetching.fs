@@ -76,7 +76,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
           sourceFile = None
           temporalFilter = None
           description = None
-          ingestionSource = None
+          ingestionSourceId = None
           fiReference = None
           status = None
           stageEntryLineId = None
@@ -297,8 +297,12 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
             result {
                 let! staged = stageAll context
                 let expected = staged |> List.filter(fun e -> e |> sourceNameOf = "TestSavings")
-                let! source = "TestSavings" |> JournalRefFinancialInstitution.create
-                let! fetched = { noFilter with ingestionSource = Some source } |> fetchFiltered context None
+                let! source =
+                    "TestSavings"
+                    |> JournalRefFinancialInstitution.create
+                    |> Result.bind (IngestionSource.fetchByName context)
+                    |> Result.map IngestionSource.ingestionSourceId
+                let! fetched = { noFilter with ingestionSourceId = Some source } |> fetchFiltered context None
                 Assert.Equal(expected |> List.length, fetched |> List.length)
                 Assert.Equal<StageEntryHeaderId list>(expected |> idsOf, fetched |> idsOf)
                 Assert.All(fetched, fun e -> Assert.Equal("TestSavings", e |> sourceNameOf))
@@ -531,9 +535,13 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                     byStatus |> List.filter(fun e -> bySource |> List.exists(fun other -> idOf other = idOf e))
                 let unionCount =
                     (byStatus @ bySource) |> List.map idOf |> List.distinct |> List.length
-                let! source = "TestBank" |> JournalRefFinancialInstitution.create
+                let! source =
+                    "TestBank"
+                    |> JournalRefFinancialInstitution.create
+                    |> Result.bind (IngestionSource.fetchByName context)
+                    |> Result.map IngestionSource.ingestionSourceId
                 let! fetched =
-                    { noFilter with status = Some targetStatus; ingestionSource = Some source }
+                    { noFilter with status = Some targetStatus; ingestionSourceId = Some source }
                     |> fetchFiltered context None
                 (* Without a strict subset on both sides the conjunction claim proves nothing. *)
                 Assert.True(intersection |> List.length < unionCount)
@@ -722,7 +730,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-STG-10.2 for each exact-match filter (source file, ingestion source, FI reference, memo), a value that is only a fragment of the stored value matches no entry, while the full value matches exactly the entries carrying it`` () =
+    member _.``REQ-STG-10.2 for each exact-match filter (source file, FI reference, memo), a value that is only a fragment of the stored value matches no entry, while the full value matches exactly the entries carrying it`` () =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! staged = stageAll context
@@ -733,9 +741,6 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                     [ "source file", otherSourceFilePath, "stg-test-other-source",
                       (fun (v: string) -> v |> SourceFile.create |> Result.map (fun f -> { noFilter with sourceFile = Some f })),
                       (fun e -> e |> sourceFileOf = otherSourceFilePath)
-                      "ingestion source", "TestSavings", "TestSav",
-                      (fun v -> v |> JournalRefFinancialInstitution.create |> Result.map (fun n -> { noFilter with ingestionSource = Some n })),
-                      (fun e -> e |> sourceNameOf = "TestSavings")
                       "FI reference", "REF-OTHER-001", "REF-OTHER",
                       (fun v -> v |> JournalExternalReferenceText.create |> Result.map (fun r -> { noFilter with fiReference = Some r })),
                       (fun e -> e |> fiReferenceOf = "REF-OTHER-001")

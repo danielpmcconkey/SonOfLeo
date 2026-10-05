@@ -9,6 +9,8 @@ type PositionsAuditableAction =
     | PositionsCreateProperty
     | PositionsCreateSecurity
     | PositionsDeleteAccountSnapshot
+    | PositionsDeleteHolding
+    | PositionsDeleteProperty
     | PositionsDeleteValuation
     | PositionsRecordAccountSnapshots
     | PositionsRecordValuation

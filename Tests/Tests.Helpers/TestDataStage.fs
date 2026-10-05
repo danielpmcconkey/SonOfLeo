@@ -191,6 +191,7 @@ type TestDataFixture() =
                             positions.account_snapshot_line,
                             positions.property,
                             positions.property_owner,
+                            positions.property_asset_account,
                             positions.property_mortgage_account,
                             positions.valuation
                         CASCADE;

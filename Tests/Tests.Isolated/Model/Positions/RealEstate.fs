@@ -24,9 +24,9 @@ let private propertyWith (purchaseBasis: decimal) =
         PrimaryResidence
         (OwnedPeriod.create acquired None |> mustSucceed)
         (PurchaseBasis.create (money purchaseBasis) |> mustSucceed)
-        None
-        [ PersonId.create () ]
-        []
+        Set.empty
+        (Set.singleton (PersonId.create ()))
+        Set.empty
         instant
         instant
 
@@ -92,7 +92,7 @@ let ``REQ-POS-10.4 a Property's value on a date is the value of its latest Valua
         [ valuationOf property (acquired.PlusMonths(1)) 310000.00M
           valuationOf property (acquired.PlusMonths(5)) 330000.00M
           valuationOf property (acquired.PlusMonths(3)) 320000.00M ]
-    let value = Valuation.valueOn (acquired.PlusMonths(4)) property valuations
+    let value, _ = Valuation.valueOn (acquired.PlusMonths(4)) property valuations
     Assert.Equal(320000.00M, value |> Money.amount)
 
 [<Fact>]
@@ -102,16 +102,16 @@ let ``REQ-POS-10.4 a Valuation dated on the date itself is the one that gives th
     let valuations =
         [ valuationOf property (date.PlusDays(-1)) 315000.00M
           valuationOf property date 322500.00M ]
-    Assert.Equal(322500.00M, Valuation.valueOn date property valuations |> Money.amount)
+    Assert.Equal(322500.00M, Valuation.valueOn date property valuations |> fst |> Money.amount)
 
 [<Fact>]
 let ``REQ-POS-10.4 a Property whose only Valuations are dated after the date is worth its purchase basis on that date`` () =
     let property = propertyWith 300000.00M
     let valuations = [ valuationOf property (acquired.PlusMonths(6)) 340000.00M ]
-    Assert.Equal(300000.00M, Valuation.valueOn (acquired.PlusMonths(5)) property valuations |> Money.amount)
+    Assert.Equal(300000.00M, Valuation.valueOn (acquired.PlusMonths(5)) property valuations |> fst |> Money.amount)
 
 [<Fact>]
 let ``REQ-POS-10.4 a Property with no Valuations is worth its purchase basis on any date`` () =
     let property = propertyWith 287500.00M
     for date in [ acquired; acquired.PlusYears(3) ] do
-        Assert.Equal(287500.00M, Valuation.valueOn date property [] |> Money.amount)
+        Assert.Equal(287500.00M, Valuation.valueOn date property [] |> fst |> Money.amount)

@@ -220,9 +220,13 @@ let ``convert [StageEntryFetchFilterInput] to [StageEntryFetchFilter]``
             |> ``convert TemporalFilterInput Option To TemporalFilter Option`` context
         let! description =
             filterInput.description |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryDescription.create
-        let! ingestionSource =
+        let! ingestionSourceId =
             filterInput.ingestionSource
-            |> convertOptionToDesiredTypeWithFallibleConverter JournalRefFinancialInstitution.create
+            |> convertOptionToDesiredTypeWithFallibleConverter (fun name ->
+                name
+                |> JournalRefFinancialInstitution.create
+                |> Result.bind (IngestionSource.fetchByName context)
+                |> Result.map IngestionSource.ingestionSourceId)
         let! fiReference =
             filterInput.fiReference
             |> convertOptionToDesiredTypeWithFallibleConverter JournalExternalReferenceText.create
@@ -239,7 +243,7 @@ let ``convert [StageEntryFetchFilterInput] to [StageEntryFetchFilter]``
             sourceFile = sourceFile
             temporalFilter = temporalFilter
             description = description
-            ingestionSource = ingestionSource
+            ingestionSourceId = ingestionSourceId
             fiReference = fiReference
             status = status
             stageEntryLineId = stageEntryLineId

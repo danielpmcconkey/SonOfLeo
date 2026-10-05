@@ -129,11 +129,12 @@ let fetchRulesFiltered
         let orderBy =
             match sort with
             | None -> None
-            // payment-agreement claimants have no account code: last in either direction, by name among themselves
-            | Some AccountCodeAsc -> Some "a.code asc nulls last, case when a.code is null then cr.rule_name end asc"
-            | Some AccountCodeDesc -> Some "a.code desc nulls last, case when a.code is null then cr.rule_name end asc"
-            | Some PriorityAsc -> Some "cr.priority asc"
-            | Some PriorityDesc -> Some "cr.priority desc"
+            // payment-agreement claimants have no account code: last in either direction. Ties on the sort key, those
+            // claimants included, are ordered by rule name.
+            | Some AccountCodeAsc -> Some "a.code asc nulls last, cr.rule_name asc"
+            | Some AccountCodeDesc -> Some "a.code desc nulls last, cr.rule_name asc"
+            | Some PriorityAsc -> Some "cr.priority asc, cr.rule_name asc"
+            | Some PriorityDesc -> Some "cr.priority desc, cr.rule_name asc"
         
         let join =
             Some [ "left join ledger.account a on cr.account_at_match = a.unique_id"

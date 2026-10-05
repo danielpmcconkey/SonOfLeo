@@ -73,8 +73,9 @@ let listPersons (context: Context.Context) : Result<Person list, IAppError> =
     fetchAll context |> Result.map (List.sortBy (personName >> PersonName.value))
 
 /// The names of these Persons, ordered by name.
-let personNamesOf (context: Context.Context) (personIds: PersonId list) : Result<string list, IAppError> =
+let personNamesOf (context: Context.Context) (personIds: Set<PersonId>) : Result<string list, IAppError> =
     personIds
+    |> Set.toList
     |> List.map (fetchById context >> Result.map (personName >> PersonName.value))
     |> convertListOfResultsToResultsList
     |> Result.map List.sort

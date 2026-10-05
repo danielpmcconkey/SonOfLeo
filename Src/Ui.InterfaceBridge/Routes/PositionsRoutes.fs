@@ -159,6 +159,16 @@ let private updateHoldingBasisMethod payload _ =
             return! holdingReturn context holding
         })
 
+let private deleteHolding payload _ =
+    runCommandRouteAndAutoCompleteTransaction PositionsDeleteHolding (fun context ->
+        result {
+            let! input = Json.fromJson<HoldingDeleteInput> payload
+            let! accountName = input.accountName |> InvestmentAccountName.create
+            let! securityName = input.securityName |> SecurityName.create
+            let! deleted = InvestmentOrchestration.deleteHolding context accountName securityName
+            return! holdingReturn context deleted
+        })
+
 let private listHoldings payload _ =
     readOnly (fun context ->
         result {
@@ -252,6 +262,15 @@ let private updateProperty payload _ =
             let! propertyUpdate = input |> ``convert [PropertyUpdateInput] to [PropertyUpdate]`` context
             let! property = RealEstateOrchestration.updateProperty context propertyUpdate
             return! propertyReturn context property
+        })
+
+let private deleteProperty payload _ =
+    runCommandRouteAndAutoCompleteTransaction PositionsDeleteProperty (fun context ->
+        result {
+            let! input = Json.fromJson<PropertyDeleteInput> payload
+            let! propertyName = input.propertyName |> PropertyName.create
+            let! deleted = RealEstateOrchestration.deleteProperty context propertyName
+            return! propertyReturn context deleted
         })
 
 let private listProperties _ _ =
@@ -376,6 +395,13 @@ let positionsDomainCommandRoutes =
         outputContract = typeof<HoldingReturn>.Name
         handler = updateHoldingBasisMethod }
       { domain = "Holding"
+        verb = "Delete"
+        description =
+          "Delete the Holding of a Security in an Investment Account, given by account and Security name. Refused while any Account Snapshot line references it. Returns the Holding as it stood."
+        inputContract = typeof<HoldingDeleteInput>.Name
+        outputContract = typeof<HoldingReturn>.Name
+        handler = deleteHolding }
+      { domain = "Holding"
         verb = "List"
         description =
           "List Holdings, optionally of one Investment Account, ordered by account name then Security name, each with its basis method. Read-only."
@@ -419,17 +445,24 @@ let positionsDomainCommandRoutes =
       { domain = "Property"
         verb = "Create"
         description =
-          "Create a Property: name, use (PrimaryResidence or Rental), owners by Person name, acquisition and optional disposal date, purchase basis, an optional asset account by code (Asset, subtype FixedAsset) and any mortgage accounts by code (Liability)."
+          "Create a Property: name, use (PrimaryResidence or Rental), owners by Person name, acquisition and optional disposal date, purchase basis, any asset accounts by code (Asset, subtype FixedAsset) and any mortgage accounts by code (Liability)."
         inputContract = typeof<PropertyCreateInput>.Name
         outputContract = typeof<PropertyReturn>.Name
         handler = createProperty }
       { domain = "Property"
         verb = "Update"
         description =
-          "Update any of a Property's fields, the Property addressed by its current name. Owners and mortgage accounts are given as complete new sets; disposal date and asset account can be cleared."
+          "Update any of a Property's fields, the Property addressed by its current name. Owners, asset accounts and mortgage accounts are given as complete new sets; the disposal date can be cleared."
         inputContract = typeof<PropertyUpdateInput>.Name
         outputContract = typeof<PropertyReturn>.Name
         handler = updateProperty }
+      { domain = "Property"
+        verb = "Delete"
+        description =
+          "Delete a Property, addressed by name, with its owners and ledger links. Refused while it has any Valuation. Returns the Property as it stood."
+        inputContract = typeof<PropertyDeleteInput>.Name
+        outputContract = typeof<PropertyReturn>.Name
+        handler = deleteProperty }
       { domain = "Property"
         verb = "List"
         description =

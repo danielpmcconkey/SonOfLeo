@@ -158,3 +158,13 @@ let updateBasisMethod
             |> whenNoRows (PositionsHoldingIdDoesntExist uuid)
         return! holdingId |> fetchById context
     }
+
+let delete (context: Context.Context) (holdingId: HoldingId) : Result<unit, IAppError> =
+    let uuid = holdingId |> HoldingId.value
+    let queryStatement =
+        """
+        delete from positions.holding
+        where unique_id = @unique_id;"""
+    executeNonQuery
+        (context |> Context.getDatabaseTransaction) queryStatement [ { name = "@unique_id"; value = UniqueId uuid } ] ExactlyOne
+    |> whenNoRows (PositionsHoldingIdDoesntExist uuid)

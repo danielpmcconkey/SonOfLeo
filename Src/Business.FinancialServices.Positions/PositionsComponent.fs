@@ -86,7 +86,7 @@ module Dimension =
         | Objective -> "Objective"
         | Benchmark -> "Benchmark"
     let fromString (raw: string) : Result<Dimension, IAppError> =
-        match all |> List.tryFind (fun d -> toString d = raw) with
+        match all |> List.tryFind (fun d -> toString d = raw.Trim()) with
         | Some dimension -> Ok dimension
         | None -> error (PositionsInvalidDimension raw)
     /// The security table's column holding this dimension's value.
@@ -167,7 +167,7 @@ module TaxTreatment =
         | Roth -> "Roth"
         | Hsa -> "Hsa"
     let fromString (raw: string) : Result<TaxTreatment, IAppError> =
-        match all |> List.tryFind (fun t -> toString t = raw) with
+        match all |> List.tryFind (fun t -> toString t = raw.Trim()) with
         | Some taxTreatment -> Ok taxTreatment
         | None -> error (PositionsInvalidTaxTreatment raw)
     let allowsJointOwnership taxTreatment = taxTreatment = Taxable
@@ -182,7 +182,7 @@ module BasisMethod =
         | AverageCost -> "AverageCost"
         | SpecificLot -> "SpecificLot"
     let fromString (raw: string) : Result<BasisMethod, IAppError> =
-        match raw with
+        match raw.Trim() with
         | "AverageCost" -> Ok AverageCost
         | "SpecificLot" -> Ok SpecificLot
         | _ -> error (PositionsInvalidBasisMethod raw)
@@ -204,7 +204,7 @@ module Provenance =
         | Reported -> "Reported"
         | Imported -> "Imported"
     let fromString (raw: string) : Result<Provenance, IAppError> =
-        match raw with
+        match raw.Trim() with
         | "Reported" -> Ok Reported
         | "Imported" -> Ok Imported
         | _ -> error (PositionsInvalidProvenance raw)
@@ -228,7 +228,7 @@ module PropertyUse =
         | PrimaryResidence -> "PrimaryResidence"
         | Rental -> "Rental"
     let fromString (raw: string) : Result<PropertyUse, IAppError> =
-        match raw with
+        match raw.Trim() with
         | "PrimaryResidence" -> Ok PrimaryResidence
         | "Rental" -> Ok Rental
         | _ -> error (PositionsInvalidPropertyUse raw)
@@ -296,3 +296,37 @@ module OwnedPeriod =
             | Some disposal -> other.acquisitionDate < disposal
             | None -> true
         startsBeforeOtherEnds && otherStartsBeforeThisEnds
+
+/// Where a Property's value on a date came from: the Valuation dated so, or its purchase basis when it has none on or
+/// before the date.
+type PropertyValueSource =
+    | ValuationDated of LocalDate
+    | PurchaseBasisValue
+
+type WealthGrouping =
+    | ByAccount
+    | ByAccountGroup
+    | ByTaxTreatment
+    | ByOwners
+    | ByDimension of Dimension
+
+module WealthGrouping =
+    let all =
+        [ ByAccount; ByAccountGroup; ByTaxTreatment; ByOwners ] @ (Dimension.all |> List.map ByDimension)
+    let toString grouping =
+        match grouping with
+        | ByAccount -> "Account"
+        | ByAccountGroup -> "AccountGroup"
+        | ByTaxTreatment -> "TaxTreatment"
+        | ByOwners -> "Owners"
+        | ByDimension dimension -> dimension |> Dimension.toString
+    let fromString (raw: string) : Result<WealthGrouping, IAppError> =
+        match all |> List.tryFind (fun g -> toString g = raw.Trim()) with
+        | Some grouping -> Ok grouping
+        | None -> error (PositionsInvalidWealthGrouping raw)
+
+/// One value of a wealth grouping. Owners is the complete owner set of an account, so a joint account is its own group.
+type WealthGroup =
+    | GroupName of string
+    | GroupOwners of string list
+    | Unassigned

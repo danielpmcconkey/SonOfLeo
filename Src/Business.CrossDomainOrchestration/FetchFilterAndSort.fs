@@ -66,7 +66,7 @@ type StageEntryFetchFilter =
       sourceFile: SourceFile option
       temporalFilter: TemporalFilter option
       description: JournalEntryDescription option
-      ingestionSource: JournalRefFinancialInstitution option
+      ingestionSourceId: IngestionSourceId option
       fiReference: JournalExternalReferenceText option
       status: StagedEntryStatus option
       stageEntryLineId: StageEntryLineId option

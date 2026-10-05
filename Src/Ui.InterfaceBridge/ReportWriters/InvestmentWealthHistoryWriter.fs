@@ -6,6 +6,7 @@ open App.Utility.Result
 open App.Utility.File
 open App.Utility.Calendar
 open Business.FinancialServices
+open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration.InvestmentWealthHistory
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Ui.InterfaceBridge.ReportVisualizationAssets.HtmlComponents
@@ -88,8 +89,8 @@ let write
              @ [ element 100000 (TableHeadCell "Total") (Class "total") [] ])
     let moneyText (m: Money.Money) = m |> Money.toAccountingString
     let pointRow i (point: WealthPoint) =
-        let amountIn group =
-            point.totals |> List.tryFind (fun (g, _) -> g = group) |> Option.map (snd >> moneyText) |> Option.defaultValue ""
+        // every point carries every group, at zero where it has no holdings
+        let amountIn group = point.totals |> List.find (fun (g, _) -> g = group) |> snd |> moneyText
         element (10 + i) TableRow NoIdentifier
             ([ element 1 (TableDataCell(point.monthEnd |> dateString)) (Class "date") [] ]
              @ (groups |> List.mapi (fun j g -> element (10 + j) (TableDataCell(amountIn g)) NoIdentifier []))

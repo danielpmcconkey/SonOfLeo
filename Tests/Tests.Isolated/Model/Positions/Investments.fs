@@ -26,7 +26,7 @@ let private accountWith (activeEnd: LocalDate option) =
         (Institution.create "Example Brokerage" |> mustSucceed)
         (AccountGroup.create "Brokerage" |> mustSucceed)
         TaxTreatment.Taxable
-        [ PersonId.create () ]
+        (Set.singleton (PersonId.create ()))
         period
         None
         instant
@@ -101,7 +101,7 @@ let private prc d = Price.fromDecimal d |> mustSucceed
 let private money d = Money.fromDecimal d |> mustSucceed
 
 let private check quantity price marketValue costBasis =
-    AccountSnapshotLine.checkFigures
+    AccountSnapshotLine.confirmFigures
         "Alex Brokerage" snapshotDate "Example Total Market Index Fund"
         (qty quantity) (prc price) (money marketValue) (costBasis |> Option.map money)
 

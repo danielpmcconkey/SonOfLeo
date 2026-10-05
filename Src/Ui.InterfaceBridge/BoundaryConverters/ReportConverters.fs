@@ -11,6 +11,7 @@ open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.Classification.ClassificationComponent
+open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration.TrialBalanceReport
 open Business.CrossDomainOrchestration.BalanceSheetIntegrity
 open Business.CrossDomainOrchestration.PeriodActivity
@@ -187,6 +188,7 @@ let ``convert [NetWorth] to [NetWorthReturnRow]`` (netWorth: NetWorth) : NetWort
       totalInvestments = netWorth.totalInvestments |> Money.amount
       totalPropertyValues = netWorth.totalPropertyValues |> Money.amount
       totalLiabilities = netWorth.totalLiabilities |> Money.amount
+      totalOwnedPropertyMortgages = netWorth.totalOwnedPropertyMortgages |> Money.amount
       netWorth = netWorth.netWorth |> Money.amount
       investableWealth = netWorth.investableWealth |> Money.amount
       investmentsByTaxTreatment =

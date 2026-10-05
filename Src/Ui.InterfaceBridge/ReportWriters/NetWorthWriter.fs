@@ -139,6 +139,7 @@ let private totalsBlock ordinal (netWorth: NetWorth) =
               line 1 "Investments" netWorth.totalInvestments
               line 2 "Property values" netWorth.totalPropertyValues
               line 3 "Liabilities" netWorth.totalLiabilities
+              line 4 "Mortgages of owned properties" netWorth.totalOwnedPropertyMortgages
               row 20 (Some "total") [ (fun o -> textCell o "Net worth"); (fun o -> moneyCell o netWorth.netWorth) ]
               row 21 (Some "total") [ (fun o -> textCell o "Investable wealth"); (fun o -> moneyCell o netWorth.investableWealth) ] ] ]
 

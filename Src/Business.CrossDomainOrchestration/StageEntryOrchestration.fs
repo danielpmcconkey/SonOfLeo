@@ -463,6 +463,30 @@ let ingestFile
                 |> Set.contains (row.baseStageEntryGroupId |> BaseStageEntryGroupId.value)
                 |> not)
         let constructed = checkableRows |> List.map snd |> constructFromRaw context sourceFile
+        let sharedKeyFailures =
+            checkableRows
+            |> List.map (fun (_, row) ->
+                (row.fiSource |> JournalRefFinancialInstitution.value, row.fiReference |> JournalExternalReferenceText.value),
+                row.baseStageEntryGroupId)
+            |> List.distinct
+            |> List.groupBy fst
+            |> List.choose (fun ((source, reference), keyedGroups) ->
+                match keyedGroups |> List.map snd with
+                | first :: second :: _ ->
+                    let lineNumbers =
+                        checkableRows
+                        |> List.filter (fun (_, row) ->
+                            row.baseStageEntryGroupId = first || row.baseStageEntryGroupId = second)
+                        |> List.map fst
+                    let shared =
+                        DataIngestionError.IngestionGroupsShareSourceAndReference(
+                            first |> BaseStageEntryGroupId.value,
+                            second |> BaseStageEntryGroupId.value,
+                            source,
+                            reference
+                        )
+                    Some(rejected lineNumbers None (shared :> IAppError))
+                | _ -> None)
         let groupFailures =
             match constructed with
             | Ok _ -> []
@@ -475,7 +499,7 @@ let ingestFile
                         |> List.map fst
                     rejected lineNumbers (Some (groupId |> BaseStageEntryGroupId.value)) e)
         let! entries =
-            match recordFailures @ groupFailures, constructed with
+            match recordFailures @ groupFailures @ sharedKeyFailures, constructed with
             | [], Ok entries -> Ok entries
             | failures, _ ->
                 let inFileOrder = failures |> List.sortBy (fun r -> r.lineNumbers |> List.min)
@@ -905,10 +929,9 @@ let fetchFiltered
               ("stage_entry_description like @stage_entry_description",
                { name = "@stage_entry_description"; value = CharString(likeStr) }))
 
-          filter.ingestionSource
+          filter.ingestionSourceId
           |> Option.map(fun x ->
-              ("source_name = @source_name",
-               { name = "@source_name"; value = CharString(x |> JournalRefFinancialInstitution.value) }))
+              ("source_id = @source_id", { name = "@source_id"; value = UniqueId(x |> IngestionSourceId.value) }))
 
           filter.fiReference
           |> Option.map(fun x ->

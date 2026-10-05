@@ -62,7 +62,7 @@ type FlowDirection =
     
 module FlowDirection =
     let fromString str =
-        match str with
+        match (str: string).Trim() with
         | "Income" -> Ok Income
         | "Outgo" -> Ok Outgo
         | _ -> error (CashflowInvalidFlowDirection str)
@@ -88,7 +88,7 @@ module InvoiceState =
             | Outgo -> [InvoiceExpected; InvoiceReceived]
         validWith |> List.contains invoiceState
     let fromString str =
-        match str with
+        match (str: string).Trim() with
         | "InvoiceGenerated" -> Ok InvoiceGenerated
         | "InvoiceSent" -> Ok InvoiceSent
         | "InvoiceExpected" -> Ok InvoiceExpected
@@ -108,7 +108,7 @@ type PaymentState =
 
 module PaymentState =
     let fromString str =
-        match str with
+        match (str: string).Trim() with
         | "NotYetPaid" -> Ok NotYetPaid
         | "PartiallyPaid" -> Ok PartiallyPaid
         | "FullyPaid" -> Ok FullyPaid
@@ -126,7 +126,7 @@ type PostedState =
 
 module PostedState =
     let fromString str =
-        match str with
+        match (str: string).Trim() with
         | "NotHandled" -> Ok NotHandled
         | "PartiallyPosted" -> Ok PartiallyPosted
         | "PostedToLedger" -> Ok PostedToLedger

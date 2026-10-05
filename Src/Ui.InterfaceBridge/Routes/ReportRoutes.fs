@@ -6,6 +6,7 @@ open App.Utility.Json
 open App.Operation.CoreAuditableAction
 open App.DataAccessLayer.DbTransaction
 open App.Session
+open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration.TrialBalanceReport
 open Business.CrossDomainOrchestration.BalanceSheetIntegrity
 open Business.CrossDomainOrchestration.PeriodActivity
