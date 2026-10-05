@@ -397,3 +397,65 @@ type PaymentAgreementUpdateTests(fixture: TestDataFixture) =
                     | Ok _ -> Assert.Fail "Expected failure; got success"
                 Assert.Equal<(MasterAgreement.MasterAgreement * PaymentAgreement.PaymentAgreement list) list>(before, after)
             })
+
+    (* A non-positive expected amount has a typed error. A duplicate name has none: only the database's unique
+       constraint refuses it, loudly, and the refusal is accepted as the data access layer's non-query error
+       (resolved finding UNIQUE-DB). *)
+    [<Theory>]
+    [<InlineData("zeroAmount")>]
+    [<InlineData("duplicateName")>]
+    member _.``REQ-CF-14.8 REQ-CF-3.7 REQ-CF-3.9 for each of an expected amount of 0.00 and a name another Payment Agreement holds, an UpdateAgreement payload updating a Payment Agreement to it is refused, and both agreements are unchanged`` (case: string) =
+        let name = unique "CF-14.8 section 3"
+        let otherName = unique "CF-14.8 section 3 other"
+        cleaningUp [ name; otherName ] (fun () ->
+            result {
+                let! _ = createRoute name
+                let! _ = createRoute otherName
+                let! before = stored name
+                let! otherBefore = stored otherName
+                let legName = $"{name} leg"
+                let update =
+                    if case = "zeroAmount" then { noLegUpdate legName with expectedAmountUpdate = SetTo(Some 0.00M) }
+                    else { noLegUpdate legName with paymentAgreementNameUpdate = SetTo $"{otherName} leg" }
+                let attempt = legUpdate name update |> updateRoute
+                let! after = stored name
+                let! otherAfter = stored otherName
+                let legUuid = before |> List.exactlyOne |> snd |> List.exactlyOne |> PaymentAgreement.paymentAgreementId |> PaymentAgreementId.value
+                let () =
+                    match case, attempt with
+                    | "zeroAmount", Error (AsError (CashFlowError.CashflowPaymentAgreementNonPositiveExpectedAmount(uuid, amount))) ->
+                        Assert.Equal((legUuid, 0.00M), (uuid, amount))
+                    | "duplicateName", Error (AsError (App.DataAccessLayer.DalError.DalErrorDuringNonQueryExecution _)) -> ()
+                    | _, Error e -> Assert.Fail $"Wrong error. {e.DomainName}.{e.CaseName}: {e.ToMessage()}"
+                    | _, Ok _ -> Assert.Fail "Expected failure; got success"
+                Assert.Equal<(MasterAgreement.MasterAgreement * PaymentAgreement.PaymentAgreement list) list>(before, after)
+                Assert.Equal<(MasterAgreement.MasterAgreement * PaymentAgreement.PaymentAgreement list) list>(otherBefore, otherAfter)
+            })
+
+    [<Theory>]
+    [<InlineData("zeroAmount")>]
+    [<InlineData("duplicateName")>]
+    member _.``REQ-CF-14.9 REQ-CF-3.7 REQ-CF-3.9 for each of an expected amount of 0.00 and a name another Payment Agreement holds, an UpdateAgreement payload adding a Payment Agreement with it is refused, and the Master Agreement keeps exactly its original legs`` (case: string) =
+        let name = unique "CF-14.9 section 3"
+        let added : Contracts.CreatePaymentAgreementFieldsInput =
+            { paymentAgreementName = if case = "zeroAmount" then $"{name} second leg" else $"{name} leg"
+              debitAccountCode = "F-2230"
+              creditAccountCode = "F-1280"
+              expectedAmount = Some(if case = "zeroAmount" then 0.00M else 75.25M)
+              daysDueAfterInvoiceDate = Some 10
+              memo = None }
+        cleaningUp [ name ] (fun () ->
+            result {
+                let! _ = createRoute name
+                let! before = stored name
+                let attempt = { noUpdate name with newPaymentAgreements = [ added ] } |> updateRoute
+                let! after = stored name
+                let () =
+                    match case, attempt with
+                    | "zeroAmount", Error (AsError (CashFlowError.CashflowPaymentAgreementNonPositiveExpectedAmount(_, amount))) ->
+                        Assert.Equal(0.00M, amount)
+                    | "duplicateName", Error (AsError (App.DataAccessLayer.DalError.DalErrorDuringNonQueryExecution _)) -> ()
+                    | _, Error e -> Assert.Fail $"Wrong error. {e.DomainName}.{e.CaseName}: {e.ToMessage()}"
+                    | _, Ok _ -> Assert.Fail "Expected failure; got success"
+                Assert.Equal<(MasterAgreement.MasterAgreement * PaymentAgreement.PaymentAgreement list) list>(before, after)
+            })

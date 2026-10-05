@@ -243,6 +243,15 @@ let private noAgreementChange (name: string) : Contracts.UpdateAgreementInput =
       paymentAgreementUpdates = []
       newPaymentAgreements = [] }
 
+let private noLegChange (name: string) : Contracts.UpdatePaymentAgreementInput =
+    { paymentAgreementName = name
+      paymentAgreementNameUpdate = NoChange
+      debitAccountCodeUpdate = NoChange
+      creditAccountCodeUpdate = NoChange
+      expectedAmountUpdate = NoChange
+      daysDueAfterInvoiceDateUpdate = NoChange
+      memoUpdate = NoChange }
+
 let private legInput (name: string) (debitCode: string) (creditCode: string) : Contracts.CreatePaymentAgreementFieldsInput =
     { paymentAgreementName = name
       debitAccountCode = debitCode
@@ -790,7 +799,8 @@ type MaintenanceOperationsTests(fixture: TestDataFixture) =
     [<Theory>]
     [<InlineData("CreateInstance")>]
     [<InlineData("CreateInvoice")>]
-    member _.``REQ-CF-14.7 for every route whose payload names a Payment Agreement (CreateInstance, CreateInvoice), a Payment Agreement name that matches nothing fails with a typed error naming it`` (route:string) =
+    [<InlineData("UpdateAgreement")>]
+    member _.``REQ-CF-14.7 for every route whose payload names a Payment Agreement (CreateInstance, CreateInvoice, UpdateAgreement), a Payment Agreement name that matches nothing fails with a typed error naming it`` (route:string) =
         withWorld (fun w ->
             result {
                 let! made = w.monthly 1 []
@@ -798,7 +808,11 @@ type MaintenanceOperationsTests(fixture: TestDataFixture) =
                 let attempt =
                     match route with
                     | "CreateInstance" -> createInstance made.agreementName april1 [ invoiceFor name None [] ]
-                    | _ -> createInvoice made.instanceId (invoiceFor name None [])
+                    | "CreateInvoice" -> createInvoice made.instanceId (invoiceFor name None [])
+                    | _ ->
+                        sendInput route
+                            { noAgreementChange made.agreementName with
+                                paymentAgreementUpdates = [ { noLegChange name with memoUpdate = SetTo(Some "a memo") } ] }
                 let namesIt =
                     match attempt with
                     | Error (AsError (CashFlowError.CashflowPaymentAgreementNameDoesntMatchId n)) -> n = name

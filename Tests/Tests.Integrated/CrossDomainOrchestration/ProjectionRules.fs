@@ -377,7 +377,7 @@ type ProjectionRulesTests(fixture: TestDataFixture) =
             })
 
     [<Fact>]
-    member _.``REQ-CF-8.5 two projections with the same horizon over unchanged data give identical results, including the order of accounts, Invoices and bills to chase`` () =
+    member _.``REQ-CF-8.11 two projections with the same horizon over unchanged data give identical results, including the order of accounts, Invoices and bills to chase`` () =
         rolledBack (fun s ->
             result {
                 let! cashId, _, _ = s.cashAccount None

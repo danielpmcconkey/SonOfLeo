@@ -422,6 +422,30 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
+    member _.``REQ-CR-5.3 fetchRulesFiltered by source pattern fragment returns the rule with a Source match carrying it in chainOne and the rule with one in chainTwo, and not the rule carrying it only in a Description match`` () =
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
+            result {
+                let tag = "CR53" + System.Guid.NewGuid().ToString("N").Substring(0, 10)
+                let create name groups =
+                    ClassificationOrchestration.constructNewAndPersist
+                        context (ruleNameOf name) (ClassificationClaimant.Account fixture.Data.food5350Id) 900 groups
+                let! _ = create $"CR-5.3 {tag} chainOne Source" [ groupOf [ Source(patternOf $"Bank {tag} East") ] ]
+                let! _ = create $"CR-5.3 {tag} Description only" [ groupOf [ Description(patternOf $"Bank {tag} East") ] ]
+                let! _ =
+                    create $"CR-5.3 {tag} chainTwo Source"
+                        [ ClassificationRuleGroup.create Or
+                              (chainOf [ Description(patternOf "CR-5.3 never matches") ])
+                              (Some(chainOf [ Source(patternOf $"Bank {tag} West") ])) ]
+                let! source = tag |> JournalEntryComponent.JournalRefFinancialInstitution.create
+                let! found =
+                    ClassificationOrchestration.fetchRulesFiltered context { noFilter with sourceLike = Some source } None
+                Assert.Equal<string list>(
+                    [ $"CR-5.3 {tag} chainOne Source"; $"CR-5.3 {tag} chainTwo Source" ],
+                    found |> namesOf)
+            })
+        |> railroadWrapper
+
+    [<Fact>]
     member _.``REQ-CR-5.3 fetchRulesFiltered with activeOnly true omits the inactive rule that its other filters would otherwise have returned`` () =
         runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
@@ -498,13 +522,14 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
             })
         |> railroadWrapper
 
-    // Ascending and descending are asserted against each other rather than against a
+    // Ascending and descending keys are asserted against each other rather than against a
     // hand-written order: the reverse of one must be the other, which a query that ignored the
-    // direction could not satisfy.
+    // direction could not satisfy. The keys reverse, not the rules: rules tied on a key are
+    // ordered by name in both directions, which the tie tests further down pin.
     [<Theory>]
     [<InlineData("code")>]
     [<InlineData("priority")>]
-    member _.``REQ-CR-5.4 fetchRulesFiltered sorted ascending returns rules in increasing order of the named key, and sorted descending returns the exact reverse``(key: string) =
+    member _.``REQ-CR-5.4 fetchRulesFiltered sorted ascending returns rules in increasing order of the named key, and sorted descending returns those keys in exactly the reverse order``(key: string) =
         runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let asc, desc =
@@ -533,28 +558,22 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-CR-5.4 fetchRulesFiltered sorted by priority ascending places no rule before one of lower priority, and places rules tied at the same priority adjacent to each other``() =
+    member _.``REQ-CR-5.4 fetchRulesFiltered sorted by priority ascending returns the fixture's rules in exactly increasing priority, rules tied at the same priority ordered by rule name``() =
         runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
             result {
                 let! sorted = ClassificationOrchestration.fetchRulesFiltered context noFilter (Some PriorityAsc)
-                let priorities = sorted |> List.map ClassificationRule.priority
-                Assert.Equal<int list>(priorities |> List.sort, priorities)
-                // A tie exists in the fixture, so the adjacency claim below is about real data.
+                // Ties exist in the fixture (priorities 50, 60 and 500), so the name order below is about real data.
                 let tied =
-                    priorities
-                    |> List.countBy id
+                    fixtureRules ()
+                    |> List.countBy ClassificationRule.priority
                     |> List.filter (fun (_, n) -> n > 1)
                 Assert.NotEmpty(tied)
-                // Every priority occupies one unbroken run: the number of distinct values equals
-                // the number of runs. A stable sort that scattered a tie would break this.
-                let runs =
-                    priorities
-                    |> List.fold (fun acc p ->
-                        match acc with
-                        | (prev: int) :: _ when prev = p -> acc
-                        | _ -> p :: acc) []
-                    |> List.length
-                Assert.Equal(priorities |> List.distinct |> List.length, runs)
+                // The database collates rule names in byte order, the same order as F#'s string compare.
+                let expected =
+                    fixtureRules ()
+                    |> List.sortBy (fun r -> r |> ClassificationRule.priority, nameOf r)
+                    |> List.map nameOf
+                Assert.Equal<string list>(expected, sorted |> List.map nameOf)
             })
         |> railroadWrapper
 
@@ -942,12 +961,59 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
             })
         |> railroadWrapper
 
-    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+    (* The rules below are named to fall among the fixture's rules on the same key, and are created out of name order,
+       so neither creation order nor a sort on the key alone can produce the expected order. The database collates
+       rule names in byte order, the same order as F#'s string compare. *)
 
     [<Fact>]
     member _.``REQ-CR-5.4 for each of account code ascending and descending, rules sharing an account code come back ordered by rule name`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
+            result {
+                // F-5350 already claims three fixture rules: "Source = MixedOutcomeBank ...", "Source = TestBank ..."
+                // and "Source = TestSplitBank ..."
+                let! created =
+                    [ for name in [ "Source = Zed CR-5.4 then 5350"; "Acme CR-5.4 then 5350"; "Source = Nonesuch CR-5.4 then 5350" ] ->
+                        ClassificationOrchestration.constructNewAndPersist
+                            context (ruleNameOf name) (ClassificationClaimant.Account fixture.Data.food5350Id) 900
+                            [ groupOf [ Source(patternOf "CR-5.4 never matches") ] ] ]
+                    |> convertListOfResultsToResultsList
+                let all = fixtureRules () @ created
+                let! keyed =
+                    all
+                    |> List.map (fun r -> codeStrOf context r |> Result.map (fun code -> code, nameOf r))
+                    |> convertListOfResultsToResultsList
+                let sharedCode = keyed |> List.filter (fun (code, _) -> code = "F-5350")
+                Assert.Equal(6, sharedCode.Length)
+                let expectedAscending = keyed |> List.sortBy id |> List.map snd
+                let expectedDescending =
+                    keyed |> List.groupBy fst |> List.sortByDescending fst
+                    |> List.collect (fun (_, rules) -> rules |> List.map snd |> List.sort)
+                let! ascending = ClassificationOrchestration.fetchRulesFiltered context noFilter (Some AccountCodeAsc)
+                let! descending = ClassificationOrchestration.fetchRulesFiltered context noFilter (Some AccountCodeDesc)
+                Assert.Equal<string list>(expectedAscending, ascending |> List.map nameOf)
+                Assert.Equal<string list>(expectedDescending, descending |> List.map nameOf)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-CR-5.4 for each of priority ascending and descending, rules sharing a priority come back ordered by rule name`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback ClassificationNewRule (fun context ->
+            result {
+                // priority 500 already holds "Acme Insurance to 5300" and "Acme Insurance to 5650"
+                let! created =
+                    [ for name in [ "Zed CR-5.4 at 500"; "Acme Insurance to 5310 CR-5.4"; "Acme Assurance CR-5.4" ] ->
+                        ClassificationOrchestration.constructNewAndPersist
+                            context (ruleNameOf name) (ClassificationClaimant.Account fixture.Data.food5350Id) 500
+                            [ groupOf [ Source(patternOf "CR-5.4 never matches") ] ] ]
+                    |> convertListOfResultsToResultsList
+                let all = fixtureRules () @ created
+                let keyed = all |> List.map (fun r -> r |> ClassificationRule.priority, nameOf r)
+                Assert.Equal(5, keyed |> List.filter (fun (priority, _) -> priority = 500) |> List.length)
+                let expectedAscending = keyed |> List.sortBy id |> List.map snd
+                let expectedDescending = keyed |> List.sortBy (fun (priority, name) -> -priority, name) |> List.map snd
+                let! ascending = ClassificationOrchestration.fetchRulesFiltered context noFilter (Some PriorityAsc)
+                let! descending = ClassificationOrchestration.fetchRulesFiltered context noFilter (Some PriorityDesc)
+                Assert.Equal<string list>(expectedAscending, ascending |> List.map nameOf)
+                Assert.Equal<string list>(expectedDescending, descending |> List.map nameOf)
+            })
+        |> railroadWrapper

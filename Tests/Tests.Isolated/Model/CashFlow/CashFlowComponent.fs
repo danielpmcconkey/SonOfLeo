@@ -1,6 +1,7 @@
 module Tests.Isolated.Model.CashFlow.CashFlowComponent
 
 open App.Utility.IAppError
+open Business.General
 open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.CashFlow.CashFlowError
 open Xunit
@@ -46,16 +47,49 @@ let ``REQ-CF-4.11 REQ-CF-5.17 REQ-SYS-1.1 a cancellation reason note with leadin
     | Ok note -> Assert.Equal("billed in error", note |> CancellationReasonNote.value)
     | Error e -> Assert.Fail $"Expected success; got {e.ToMessage()}"
 
-// Placeholders committed before the Src was read (audit 2026-10-04a remediation)
-
 [<Fact>]
 let ``REQ-CF-5.20 REQ-SYS-1.1 an external invoice ID of only whitespace is rejected with a typed empty-ID error`` () =
-    Assert.Fail "Not yet implemented"
+    match "   " |> ExternalInvoiceId.create with
+    | Error (AsError (CashflowExternalInvoiceIdIsEmpty raw)) -> Assert.Equal("   ", raw)
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+    | Ok _ -> Assert.Fail "Expected failure; got success"
 
 [<Fact>]
 let ``REQ-CF-5.20 an external invoice ID of 101 characters is rejected with a typed too-long error, and one of exactly 100 characters is accepted and holds those 100 characters`` () =
-    Assert.Fail "Not yet implemented"
+    let atLimit = System.String('x', 100)
+    let overLimit = System.String('x', 101)
+    match overLimit |> ExternalInvoiceId.create with
+    | Error (AsError (CashflowExternalInvoiceIdTooLong (raw, limit))) ->
+        Assert.Equal(overLimit, raw)
+        Assert.Equal(100, limit)
+    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+    | Ok _ -> Assert.Fail "Expected failure; got success"
+    match atLimit |> ExternalInvoiceId.create with
+    | Ok eid -> Assert.Equal(atLimit, eid |> ExternalInvoiceId.value)
+    | Error e -> Assert.Fail $"Expected success; got {e.ToMessage()}"
 
+(* The CashFlow values an operator types: flow direction and invoice state, and a cadence's week day and month.
+   Payment state and posted state are never caller input (REQ-CF-9.11), and a blocker arrives as a tagged union. *)
 [<Fact>]
 let ``REQ-SYS-1.1 for each CashFlow value an operator gives as text, every allowed value wrapped in whitespace parses to the same case as the bare value`` () =
-    Assert.Fail "Not yet implemented"
+    let padded (text: string) = $" \t  {text} \t "
+    let parsePadded (fromString: string -> Result<'a, IAppError>) (names: string list) =
+        names |> List.map (fun name ->
+            match padded name |> fromString with
+            | Ok parsed -> parsed
+            | Error e -> failwith $"'{padded name}' was rejected: {e.ToMessage()}")
+    Assert.Equal<FlowDirection list>([ Income; Outgo ], parsePadded FlowDirection.fromString [ "Income"; "Outgo" ])
+    Assert.Equal<InvoiceState list>(
+        [ InvoiceGenerated; InvoiceSent; InvoiceExpected; InvoiceReceived ],
+        parsePadded InvoiceState.fromString [ "InvoiceGenerated"; "InvoiceSent"; "InvoiceExpected"; "InvoiceReceived" ])
+    Assert.Equal<Cadence.WeekDay list>(
+        [ Cadence.Sunday; Cadence.Monday; Cadence.Tuesday; Cadence.Wednesday; Cadence.Thursday; Cadence.Friday
+          Cadence.Saturday ],
+        parsePadded Cadence.WeekDay.fromString
+            [ "Sunday"; "Monday"; "Tuesday"; "Wednesday"; "Thursday"; "Friday"; "Saturday" ])
+    Assert.Equal<Cadence.Month list>(
+        [ Cadence.January; Cadence.February; Cadence.March; Cadence.April; Cadence.May; Cadence.June
+          Cadence.July; Cadence.August; Cadence.September; Cadence.October; Cadence.November; Cadence.December ],
+        parsePadded Cadence.Month.fromString
+            [ "January"; "February"; "March"; "April"; "May"; "June"; "July"; "August"; "September"; "October"
+              "November"; "December" ])

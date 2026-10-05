@@ -546,16 +546,67 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                     Assert.Equal((PartiallyPaid, PartiallyPosted), ((state |> CashFlowComponent.InvoiceLifeCycleState.paymentState), (state |> CashFlowComponent.InvoiceLifeCycleState.postedState)))
                 })
 
-    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+    // =========================================================================
+    // REQ-CF-9.10 — the Invoice-level triggers: amount change, Invoice add, Invoice cancel
+    // =========================================================================
 
     [<Fact>]
     member _.``REQ-CF-9.10 raising a FullyPaid, PostedToLedger Invoice's amount above its Payments makes it PartiallyPaid and PartiallyPosted and its Instance no longer fulfilled, with no call other than the amount change`` () =
-        Assert.Fail "Not yet implemented"
+        rolledBack (fun s ->
+            result {
+                let! agreementId, legIds, _ = s.agreement "CF-9.10 amount raised"
+                let! instanceId, invoices = s.instance agreementId [ (legIds[0], None, [ PostedPay 60.00M; PostedPay 40.00M ]) ]
+                let invoiceId, _ = invoices[0]
+                let! before = s.statesOf invoiceId
+                let! fulfilledBefore = s.isFulfilled instanceId
+                Assert.Equal((FullyPaid, PostedToLedger), before)
+                Assert.True(fulfilledBefore)
+                let! raised = Money.fromDecimal 150.00M
+                let! _ =
+                    invoiceUpdate instanceId invoiceId
+                    |> withInvoiceChange (fun u ->
+                        { u with invoiceUpdates = { u.invoiceUpdates with amountUpdate = SetTo(InvoiceAmount.create raised) } })
+                    |> InstanceOrchestration.updateInstanceComposite s.Context
+                let! after = s.statesOf invoiceId
+                let! fulfilled = s.isFulfilled instanceId
+                Assert.Equal((PartiallyPaid, PartiallyPosted), after)
+                Assert.False(fulfilled)
+            })
 
     [<Fact>]
     member _.``REQ-CF-9.10 adding a new unpaid Invoice to a fulfilled Instance makes the Instance no longer fulfilled, with no call other than the add`` () =
-        Assert.Fail "Not yet implemented"
+        rolledBack (fun s ->
+            result {
+                let! agreementId, legIds, _ = s.agreement "CF-9.10 invoice added"
+                let! instanceId, _ = s.instance agreementId [ (legIds[0], None, [ PostedPay 100.00M ]) ]
+                let! fulfilledBefore = s.isFulfilled instanceId
+                Assert.True(fulfilledBefore)
+                let! amount = Money.fromDecimal 100.00M
+                let date = s.firstOfThisMonth
+                let added =
+                    (legIds[1], None, InvoiceDate.create date, DueDate.create (date.PlusDays(30)),
+                     InvoiceAmount.create amount, InvoiceReceived, None, None, [])
+                let update: InstanceOrchestration.InstanceCompositeUpdate =
+                    { instanceUpdates = { instanceIdToUpdate = instanceId; isFulfilledUpdate = NoChange }
+                      invoiceCompositeUpdates = []
+                      newInvoices = [ added ] }
+                let! _ = update |> InstanceOrchestration.updateInstanceComposite s.Context
+                let! fulfilled = s.isFulfilled instanceId
+                Assert.False(fulfilled)
+            })
 
     [<Fact>]
     member _.``REQ-CF-9.10 cancelling an Instance's one unpaid Invoice, when its other Invoice is FullyPaid, makes the Instance fulfilled, with no call other than the cancel`` () =
-        Assert.Fail "Not yet implemented"
+        rolledBack (fun s ->
+            result {
+                let! agreementId, legIds, _ = s.agreement "CF-9.10 invoice cancelled"
+                let! instanceId, invoices =
+                    s.instance agreementId [ (legIds[0], None, [ PostedPay 100.00M ]); (legIds[1], None, []) ]
+                let unpaidInvoiceId, _ = invoices[1]
+                let! fulfilledBefore = s.isFulfilled instanceId
+                Assert.False(fulfilledBefore)
+                let! note = "not billed this period" |> CancellationReasonNote.create
+                let! _ = unpaidInvoiceId |> InstanceOrchestration.cancelInvoice s.Context note
+                let! fulfilled = s.isFulfilled instanceId
+                Assert.True(fulfilled)
+            })

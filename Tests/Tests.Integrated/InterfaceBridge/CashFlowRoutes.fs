@@ -180,8 +180,91 @@ type CashFlowRouteTests(fixture: TestDataFixture) =
         }
         |> railroadWrapper
 
-    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
-
     [<Fact>]
     member _.``REQ-CF-14.8 an UpdateAgreement payload naming a Payment Agreement of a different Master Agreement is rejected with a typed error, and both agreements are unchanged`` () =
-        Assert.Fail "Not yet implemented"
+        (* Two agreements of the test's own, made through CreateAgreement. The update names the first agreement and the
+           second agreement's leg, and would change that leg's memo. *)
+        let name = $"CF-14.8 route own leg {Guid.NewGuid():N}"
+        let otherName = $"CF-14.8 route other leg {Guid.NewGuid():N}"
+        let today = Calendar.today ()
+        let createInput (agreementName: string) : Contracts.CreateAgreementInput =
+            { agreementName = agreementName
+              direction = "Outgo"
+              cadence = { cadenceType = Contracts.Daily; nextInstance = today }
+              counterparty = "Route update test counterparty"
+              activeBegin = today.PlusDays(-30)
+              activeEnd = None
+              memo = None
+              paymentAgreements =
+                [ { paymentAgreementName = $"{agreementName} leg"
+                    debitAccountCode = "F-2230"
+                    creditAccountCode = "F-1280"
+                    expectedAmount = Some 100.00M
+                    daysDueAfterInvoiceDate = Some 0
+                    memo = Some "Original leg memo" } ] }
+        let treeNamed (agreementName: string) =
+            ({ agreementIds = None; activeAgreementsOnly = false } : Business.CrossDomainOrchestration.FetchFilters.AgreementFilter)
+            |> Business.CrossDomainOrchestration.AgreementOrchestration.fetchFiltered (fresh ()) AnyQuantityIsAcceptable
+            |> Result.map (
+                List.filter (fun a ->
+                    a |> Business.CrossDomainOrchestration.AgreementOrchestration.masterAgreement
+                    |> MasterAgreement.agreementName |> AgreementName.value = agreementName))
+        let cleanUpFailures = ResizeArray<string>()
+        try
+            result {
+                let! _ = createInput name |> Json.toJson |> Result.bind (routeUiCommandForTesting "CashFlow" "CreateAgreement" [])
+                let! _ = createInput otherName |> Json.toJson |> Result.bind (routeUiCommandForTesting "CashFlow" "CreateAgreement" [])
+                let! before = treeNamed name
+                let! otherBefore = treeNamed otherName
+                let agreementUuid =
+                    before |> List.exactlyOne
+                    |> Business.CrossDomainOrchestration.AgreementOrchestration.masterAgreement
+                    |> MasterAgreement.agreementID |> MasterAgreementId.value
+                let otherLegUuid =
+                    otherBefore |> List.exactlyOne
+                    |> Business.CrossDomainOrchestration.AgreementOrchestration.paymentAgreements |> List.exactlyOne
+                    |> PaymentAgreement.paymentAgreementId |> PaymentAgreementId.value
+                let update : Contracts.UpdateAgreementInput =
+                    { agreementName = name
+                      agreementNameUpdate = FieldUpdate.NoChange
+                      directionUpdate = FieldUpdate.NoChange
+                      cadenceUpdate = FieldUpdate.NoChange
+                      counterpartyUpdate = FieldUpdate.NoChange
+                      activeBeginUpdate = FieldUpdate.NoChange
+                      activeEndUpdate = FieldUpdate.NoChange
+                      memoUpdate = FieldUpdate.NoChange
+                      paymentAgreementUpdates =
+                        [ { paymentAgreementName = $"{otherName} leg"
+                            paymentAgreementNameUpdate = FieldUpdate.NoChange
+                            debitAccountCodeUpdate = FieldUpdate.NoChange
+                            creditAccountCodeUpdate = FieldUpdate.NoChange
+                            expectedAmountUpdate = FieldUpdate.NoChange
+                            daysDueAfterInvoiceDateUpdate = FieldUpdate.NoChange
+                            memoUpdate = FieldUpdate.SetTo(Some "Changed through the wrong agreement") } ]
+                      newPaymentAgreements = [] }
+                let attempt = update |> Json.toJson |> Result.bind (routeUiCommandForTesting "CashFlow" "UpdateAgreement" [])
+                let! after = treeNamed name
+                let! otherAfter = treeNamed otherName
+                let () =
+                    match attempt with
+                    | Error (AsError (CashFlowError.CashflowPaymentAgreementNotUnderMasterAgreement(legUuid, masterUuid))) ->
+                        Assert.Equal((otherLegUuid, agreementUuid), (legUuid, masterUuid))
+                    | Error e -> Assert.Fail $"Wrong error. {e.DomainName}.{e.CaseName}: {e.ToMessage()}"
+                    | Ok _ -> Assert.Fail "Expected failure; got success"
+                Assert.Equal<Business.CrossDomainOrchestration.AgreementOrchestration.Agreement list>(before, after)
+                Assert.Equal<Business.CrossDomainOrchestration.AgreementOrchestration.Agreement list>(otherBefore, otherAfter)
+            }
+            |> railroadWrapper
+        finally
+            for agreementName in [ name; otherName ] do
+                match treeNamed agreementName with
+                | Ok trees ->
+                    for tree in trees do
+                        let uuid =
+                            tree |> Business.CrossDomainOrchestration.AgreementOrchestration.masterAgreement
+                            |> MasterAgreement.agreementID |> MasterAgreementId.value
+                        match Cleanup.cleanUpMasterAgreementTree (Some uuid) with
+                        | Ok () -> ()
+                        | Error e -> cleanUpFailures.Add(e.ToMessage())
+                | Error e -> cleanUpFailures.Add(e.ToMessage())
+        Assert.Empty(cleanUpFailures)

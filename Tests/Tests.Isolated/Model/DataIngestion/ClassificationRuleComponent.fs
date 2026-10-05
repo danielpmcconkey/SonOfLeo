@@ -162,8 +162,26 @@ let ``REQ-CR-1.9 ClassificationGroupConnector.fromString rejects a connector nam
     | Error other -> Assert.Fail $"Wrong error. Expected ClassificationInvalidGroupConnector but got {other}"
     | Ok _ -> Assert.Fail "Expected failure; got success"
 
-// Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+// =============================================================================
+// Enum inputs are trimmed
+// =============================================================================
 
+(* The classification rule values an operator types: a money match's operator, a rule group's connector, and the
+   claimant type a rule filter names. *)
 [<Fact>]
 let ``REQ-SYS-1.1 for each classification rule value an operator gives as text, every allowed value wrapped in whitespace parses to the same case as the bare value`` () =
-    Assert.Fail "Not yet implemented"
+    let padded (text: string) = $" \t  {text} \t "
+    let parsePadded (fromString: string -> Result<'a, 'e>) (names: string list) =
+        names |> List.map (fun name ->
+            match padded name |> fromString with
+            | Ok parsed -> parsed
+            | Error e -> failwith $"'{padded name}' was rejected: %A{e}")
+    Assert.Equal<NumericSearchOperator list>(
+        [ GreaterThan; LessThan; GreaterThanOrEqualTo; LessThanOrEqualTo; ExactlyEqual ],
+        parsePadded NumericSearchOperator.fromString
+            [ "GreaterThan"; "LessThan"; "GreaterThanOrEqualTo"; "LessThanOrEqualTo"; "ExactlyEqual" ])
+    Assert.Equal<ClassificationGroupConnector list>(
+        [ And; Or ], parsePadded ClassificationGroupConnector.fromString [ "And"; "Or" ])
+    Assert.Equal<ClassificationClaimantType list>(
+        [ AccountClaimant; PaymentAgreementClaimant ],
+        parsePadded ClassificationClaimantType.fromString [ "AccountClaimant"; "PaymentAgreementClaimant" ])
