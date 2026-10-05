@@ -7,9 +7,9 @@ open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
-open Business.CrossDomainOrchestration.JournalEntryOrchestration
 open Business.CrossDomainOrchestration.FetchFilters
 open Business.CrossDomainOrchestration.AccountActivity
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
 open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
 open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 open Ui.InterfaceBridge.BoundaryConverters.SharedContractConverters

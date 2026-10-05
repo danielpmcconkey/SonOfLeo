@@ -6,9 +6,9 @@ open App.Utility.FieldUpdate
 open App.Operation.CoreAuditableAction
 open App.DataAccessLayer.DbTransaction
 open App.Session
+open Business.General.BizGeneralAuditableAction
 open Business.General.PersonComponent
 open Business.General.Person
-open Business.General.BizGeneralAuditableAction
 open Business.CrossDomainOrchestration
 open Ui.InterfaceBridge.InterfaceContracts.SharedContracts
 open Ui.InterfaceBridge.InterfaceContracts.PersonContracts

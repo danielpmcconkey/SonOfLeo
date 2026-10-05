@@ -2,8 +2,8 @@ module Business.FinancialServices.Ledger.JournalEntryHeader
 
 open NodaTime
 open App.Utility.IAppError
-open App.Utility.FieldUpdate
 open App.Utility.Result
+open App.Utility.FieldUpdate
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteNonQuery

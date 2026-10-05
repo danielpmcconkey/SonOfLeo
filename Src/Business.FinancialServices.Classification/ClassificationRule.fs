@@ -2,9 +2,9 @@ module Business.FinancialServices.Classification.ClassificationRule
 
 open NodaTime
 open App.Utility.IAppError
-open App.Utility.FieldUpdate
 open App.Utility.Result
 open App.Utility.Json.Json
+open App.Utility.FieldUpdate
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteNonQuery

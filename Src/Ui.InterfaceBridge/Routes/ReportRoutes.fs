@@ -14,9 +14,9 @@ open Business.CrossDomainOrchestration.Reconciliation
 open Business.CrossDomainOrchestration.PrePostingReview
 open Business.CrossDomainOrchestration.NetWorth
 open Business.CrossDomainOrchestration.InvestmentWealthHistory
-open Ui.InterfaceBridge.ReportWriters
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Ui.InterfaceBridge.BoundaryConverters.ReportConverters
+open Ui.InterfaceBridge.ReportWriters
 open Ui.InterfaceBridge.CommandRoute
 
 let private trialBalance payload _ =

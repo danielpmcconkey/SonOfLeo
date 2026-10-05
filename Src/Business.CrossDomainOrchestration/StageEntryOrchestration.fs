@@ -17,8 +17,8 @@ open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.DataIngestion.BaseStageEntry
 open Business.FinancialServices.Classification.ClassificationComponent
-open Business.CrossDomainOrchestration.JournalEntryOrchestration
 open Business.CrossDomainOrchestration.FetchFilters
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
 
 type StageEntry =
     private {

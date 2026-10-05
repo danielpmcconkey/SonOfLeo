@@ -1,8 +1,8 @@
 module Business.CrossDomainOrchestration.JournalEntryVoiding
 
 open App.Utility.IAppError
-open App.Utility.FieldUpdate
 open App.Utility.Result
+open App.Utility.FieldUpdate
 open App.DataAccessLayer.DalError
 open App.DataAccessLayer.ExecuteReader
 open App.Session
