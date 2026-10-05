@@ -4,6 +4,7 @@ open NodaTime
 open App.Utility.IAppError
 open Business.General
 open Business.General.BizGeneralError
+open Business.General.PersonComponent
 open Business.General.Person
 open Business.FinancialServices
 open Business.FinancialServices.Positions

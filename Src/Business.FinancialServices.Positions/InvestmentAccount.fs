@@ -11,6 +11,7 @@ open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
 open Business.General
+open Business.General.PersonComponent
 open Business.General.Person
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Positions.PositionsError

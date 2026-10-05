@@ -11,6 +11,7 @@ open App.Utility.Json
 open App.Utility.Result
 open App.Utility.UtilityError
 open Business.General.BizGeneralError
+open Business.General.PersonComponent
 open Business.General.Person
 open Business.CrossDomainOrchestration
 open Tests.Helpers

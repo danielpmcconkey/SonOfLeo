@@ -2,6 +2,7 @@ module Ui.InterfaceBridge.BoundaryConverters.PersonFieldConverters
 
 open App.Utility.IAppError
 open App.Utility.Result
+open Business.General.PersonComponent
 open Business.General.Person
 open Ui.InterfaceBridge.InterfaceContracts.PersonContracts
 

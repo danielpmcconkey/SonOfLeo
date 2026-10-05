@@ -68,7 +68,7 @@ let private createSecurity payload _ =
             let! input = Json.fromJson<SecurityCreateInput> payload
             let! name = input.securityName |> SecurityName.create
             let! ticker = input.ticker |> convertOptionToDesiredTypeWithFallibleConverter Ticker.create
-            let! dimensionValues = input.dimensionValues |> ``convert [DimensionValueReturn list] to [(Dimension * DimensionValueName) list]``
+            let! dimensionValues = input.dimensionValues |> ``convert [SecurityDimensionValueInput list] to [(Dimension * DimensionValueName) list]``
             let! security = InvestmentOrchestration.createSecurity context name ticker dimensionValues
             return! securityReturn context security
         })

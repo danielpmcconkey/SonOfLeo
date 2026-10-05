@@ -69,8 +69,11 @@ let private listDimension dimension =
 
 let private uniqueTicker () = $"RT{Guid.NewGuid():N}".Substring(0, 12).ToUpperInvariant()
 
-let private createSecurity name ticker values =
-    call<C.SecurityCreateInput, C.SecurityReturn> "Security" "Create" { securityName = name; ticker = ticker; dimensionValues = values }
+let private createSecurity name ticker (values: C.DimensionValueReturn list) =
+    let dimensionValues: C.SecurityDimensionValueInput list =
+        values |> List.map (fun v -> { dimension = v.dimension; valueName = v.valueName })
+    call<C.SecurityCreateInput, C.SecurityReturn> "Security" "Create"
+        { securityName = name; ticker = ticker; dimensionValues = dimensionValues }
 
 let private updateSecurity (input: C.SecurityUpdateInput) = call<C.SecurityUpdateInput, C.SecurityReturn> "Security" "Update" input
 
@@ -127,7 +130,7 @@ let private listHoldings (account: string option) =
 
 // ---- Account Snapshots ----
 
-let private line security quantity price marketValue cost : C.AccountSnapshotLineContract =
+let private line security quantity price marketValue cost : C.AccountSnapshotLineInput =
     { securityName = security; quantity = quantity; price = price; marketValue = marketValue; reportedCostBasis = cost }
 
 let private snapshotOf account date lines : C.AccountSnapshotInput =
@@ -136,7 +139,7 @@ let private snapshotOf account date lines : C.AccountSnapshotInput =
 let private record (snapshots: C.AccountSnapshotInput list) =
     call<C.AccountSnapshotRecordInput, C.RecordedAccountSnapshotReturn list> "AccountSnapshot" "Record" { snapshots = snapshots }
 
-let private lineSummary (l: C.AccountSnapshotLineContract) = l.securityName, l.quantity, l.price, l.marketValue, l.reportedCostBasis
+let private lineSummary (l: C.AccountSnapshotLineReturn) = l.securityName, l.quantity, l.price, l.marketValue, l.reportedCostBasis
 
 let private listDates account beginDate endDate =
     call<C.AccountSnapshotListDatesInput, C.AccountSnapshotDateReturn list> "AccountSnapshot" "ListDates"

@@ -27,10 +27,12 @@ type SecurityReturn = {
     modifiedAt: Instant
 }
 
+type SecurityDimensionValueInput = { dimension: string; valueName: string }
+
 type SecurityCreateInput = {
     securityName: string
     ticker: string option
-    dimensionValues: DimensionValueReturn list
+    dimensionValues: SecurityDimensionValueInput list
 }
 
 // a dimension given with a valueName is set to it; given with none, it is cleared; not given, it is unchanged
@@ -129,7 +131,7 @@ type HoldingsAsOfAccountReturn = {
 
 // ---- Account Snapshots ----
 
-type AccountSnapshotLineContract = {
+type AccountSnapshotLineInput = {
     securityName: string
     quantity: decimal
     price: decimal
@@ -142,18 +144,26 @@ type AccountSnapshotInput = {
     snapshotDate: LocalDate
     provenance: string
     contributionBasis: decimal option
-    lines: AccountSnapshotLineContract list
+    lines: AccountSnapshotLineInput list
 }
 
 // every snapshot is recorded, or none is
 type AccountSnapshotRecordInput = { snapshots: AccountSnapshotInput list }
+
+type AccountSnapshotLineReturn = {
+    securityName: string
+    quantity: decimal
+    price: decimal
+    marketValue: decimal
+    reportedCostBasis: decimal option
+}
 
 type AccountSnapshotReturn = {
     accountName: string
     snapshotDate: LocalDate
     provenance: string
     contributionBasis: decimal option
-    lines: AccountSnapshotLineContract list
+    lines: AccountSnapshotLineReturn list
     createdAt: Instant
     modifiedAt: Instant
 }

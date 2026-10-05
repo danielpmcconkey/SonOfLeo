@@ -6,6 +6,7 @@ open App.Utility.Result
 open App.Utility.FieldUpdate
 open App.Session
 open Business.General
+open Business.General.PersonComponent
 open Business.General.Person
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent

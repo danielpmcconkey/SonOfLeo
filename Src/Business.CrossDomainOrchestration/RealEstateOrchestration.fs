@@ -6,6 +6,7 @@ open App.Utility.IAppError
 open App.Utility.Result
 open App.Utility.FieldUpdate
 open App.Session
+open Business.General.PersonComponent
 open Business.General.Person
 open Business.FinancialServices
 open Business.FinancialServices.Ledger

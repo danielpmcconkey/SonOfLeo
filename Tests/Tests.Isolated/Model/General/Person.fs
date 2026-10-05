@@ -1,6 +1,7 @@
 module Tests.Isolated.Model.General.Person
 
 open App.Utility.IAppError
+open Business.General.PersonComponent
 open Business.General.Person
 open Business.General.BizGeneralError
 open Tests.Helpers.TestError

@@ -5,6 +5,7 @@ open App.Utility
 open App.Utility.IAppError
 open App.Utility.Result
 open Business.General
+open Business.General.PersonComponent
 open Business.General.Person
 open Business.FinancialServices
 open Business.FinancialServices.Ledger

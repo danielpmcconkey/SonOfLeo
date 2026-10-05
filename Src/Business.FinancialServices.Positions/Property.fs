@@ -10,6 +10,7 @@ open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
+open Business.General.PersonComponent
 open Business.General.Person
 open Business.FinancialServices
 open Business.FinancialServices.Ledger.AccountComponent

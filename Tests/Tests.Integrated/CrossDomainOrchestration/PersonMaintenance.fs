@@ -10,6 +10,7 @@ open App.Utility.Result
 open App.Session
 open Business.General.BizGeneralAuditableAction
 open Business.General.BizGeneralError
+open Business.General.PersonComponent
 open Business.General.Person
 open Business.CrossDomainOrchestration
 open Ui.InterfaceBridge.CommandRoute

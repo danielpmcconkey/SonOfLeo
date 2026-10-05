@@ -11,6 +11,7 @@
     <Compile Include="BizGeneralAuditableAction.fs" />
     <Compile Include="ActivityPeriod.fs" />
     <Compile Include="Cadence.fs" />
+    <Compile Include="PersonComponent.fs" />
     <Compile Include="Person.fs" />
   </ItemGroup>
 

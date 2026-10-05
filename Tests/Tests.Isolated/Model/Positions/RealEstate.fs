@@ -2,6 +2,7 @@ module Tests.Isolated.Model.Positions.RealEstate
 
 open NodaTime
 open App.Utility.IAppError
+open Business.General.PersonComponent
 open Business.General.Person
 open Business.FinancialServices
 open Business.FinancialServices.Positions

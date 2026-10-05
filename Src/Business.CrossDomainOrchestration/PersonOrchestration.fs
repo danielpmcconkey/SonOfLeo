@@ -7,6 +7,7 @@ open App.Utility.Result
 open App.Utility.FieldUpdate
 open App.Session
 open Business.General.BizGeneralError
+open Business.General.PersonComponent
 open Business.General.Person
 
 let private confirmBirthdateNotInFuture (context: Context.Context) (birthdate: LocalDate) : Result<unit, IAppError> =

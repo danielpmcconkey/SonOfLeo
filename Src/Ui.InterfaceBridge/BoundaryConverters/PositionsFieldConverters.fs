@@ -43,8 +43,8 @@ let ``convert [SecurityView] to [SecurityReturn]`` (view: SecurityView) : Securi
       createdAt = view.security |> Security.createdAt
       modifiedAt = view.security |> Security.modifiedAt }
 
-let ``convert [DimensionValueReturn list] to [(Dimension * DimensionValueName) list]``
-    (values: DimensionValueReturn list)
+let ``convert [SecurityDimensionValueInput list] to [(Dimension * DimensionValueName) list]``
+    (values: SecurityDimensionValueInput list)
     : Result<(Dimension * DimensionValueName) list, IAppError> =
     values
     |> List.map (fun v ->
@@ -209,11 +209,12 @@ let ``convert [SnapshotView] to [AccountSnapshotReturn]`` (view: SnapshotView) :
       lines =
         view.lines
         |> List.map (fun l ->
-            { securityName = l.securityName
-              quantity = l.line |> AccountSnapshotLine.quantity |> Quantity.amount
-              price = l.line |> AccountSnapshotLine.price |> Price.amount
-              marketValue = l.line |> AccountSnapshotLine.marketValue |> Money.amount
-              reportedCostBasis = l.line |> AccountSnapshotLine.reportedCostBasis |> Option.map Money.amount })
+            ({ securityName = l.securityName
+               quantity = l.line |> AccountSnapshotLine.quantity |> Quantity.amount
+               price = l.line |> AccountSnapshotLine.price |> Price.amount
+               marketValue = l.line |> AccountSnapshotLine.marketValue |> Money.amount
+               reportedCostBasis = l.line |> AccountSnapshotLine.reportedCostBasis |> Option.map Money.amount }
+             : AccountSnapshotLineReturn))
       createdAt = view.header |> AccountSnapshotHeader.createdAt
       modifiedAt = view.header |> AccountSnapshotHeader.modifiedAt }
 
