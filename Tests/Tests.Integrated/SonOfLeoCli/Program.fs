@@ -87,8 +87,9 @@ type ProgramTests(fixture: TestDataFixture) =
             { activeOnly = true }
             |> toJson<AccountFetchAllInput>
             |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
-        let exitCode, _, _ = runCli SonOfLeoCli args payload
-        (exitCode = 1) |> Assert.True
+        let exitCode, _, e = runCli SonOfLeoCli args payload
+        Assert.Equal(1, exitCode)
+        Assert.Equal("Unknown command: account FetchAll", e.Trim())
 
     [<Fact>]
     member _.``REQ-NGUI-3.8 The verb argument is case sensitive``() =
@@ -97,8 +98,9 @@ type ProgramTests(fixture: TestDataFixture) =
             { activeOnly = true }
             |> toJson<AccountFetchAllInput>
             |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage()))
-        let exitCode, _, _ = runCli SonOfLeoCli args payload
-        (exitCode = 1) |> Assert.True
+        let exitCode, _, e = runCli SonOfLeoCli args payload
+        Assert.Equal(1, exitCode)
+        Assert.Equal("Unknown command: Account fetchAll", e.Trim())
 
     [<Fact>]
     member _.``REQ-NGUI-3.9 Incorrect routes must exit with an appropriate error``() =

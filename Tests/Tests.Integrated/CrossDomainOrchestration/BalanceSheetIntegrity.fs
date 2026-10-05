@@ -352,6 +352,29 @@ type BalanceSheetIntegrityTests(fixture: TestDataFixture) =
             })
 
     [<Fact>]
+    member _.``REQ-RPT-5.4 with an as-of date earlier than a retired account's active end, the account is still listed, at its balance as of the operation's current date`` () =
+        withAccounts (fun context accounts ->
+            result {
+                let! retired, retiredId = createRetiredCandidate context None
+                let! _ = zeroItBeforeItsEnd context accounts retiredId
+                do! retire context retired
+                let! _ =
+                    post context "Integrity backdated, early as-of" (today.PlusDays(-12))
+                        [ (retiredId, 30.00M, "Debit", None); (accounts.liability, 30.00M, "Credit", None) ]
+                (* As of 25 days ago the account was active (its end is 10 days ago) and held nothing (its first entry
+                   is dated 20 days ago), so a look-back anchored on the as-of date would not list it. *)
+                let earlyAsOf = today.PlusDays(-25)
+                Assert.True(earlyAsOf < retiredEnd)
+                let! integrity = computeBalanceSheetIntegrity context earlyAsOf
+                let! expectedBalance = Money.fromDecimal 30.00M
+                let () =
+                    match listed "BI-1100" integrity with
+                    | [ account ] -> Assert.Equal(expectedBalance, account.balance)
+                    | other -> Assert.Fail $"Expected BI-1100 listed once; listed {other |> List.length} times among {listedCodes integrity}"
+                return ()
+            })
+
+    [<Fact>]
     member _.``REQ-RPT-5.4 voiding, after an account was deactivated, an entry that zeroed it lists the account with the residue balance and the voided entry`` () =
         withAccounts (fun context accounts ->
             result {

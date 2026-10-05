@@ -11,7 +11,9 @@ open Business.FinancialServices
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.Positions.PositionsComponent
 open Business.FinancialServices.Positions.PositionsError
+open Business.FinancialServices.Positions.PositionsAuditableAction
 open Business.CrossDomainOrchestration
+open Business.CrossDomainOrchestration.JournalEntryOrchestration
 open Business.CrossDomainOrchestration.NetWorth
 open Ui.InterfaceBridge.CommandRoute
 open Tests.Helpers
@@ -156,24 +158,44 @@ type NetWorthTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-RPT-8.5 the result carries the as-of date, and each counted Asset account and each non-mortgage Liability account with its code, name and balance`` () =
+    member _.``REQ-RPT-8.5 the result carries the as-of date, and each counted Asset account and each Liability account not a mortgage of a Property owned on the date, with its code, name and balance`` () =
+        (* Expected rows from the fixture's own account and entry lists: every Asset account but the two linked to Positions,
+           every Liability account but the mortgages of the two Properties owned on the date, each at its own balance
+           from the fixture's unvoided lines dated on or before the date, in its normal-balance direction. *)
+        let linkedAssets = set [ p.brokerageAtCost1260Id; p.residenceAtCost1510Id ]
+        let ownedMortgages = set [ p.residenceMortgage2310Id; p.rentalMortgage2320Id ]
+        let linesToDate =
+            fixture.Data.journalEntries
+            |> List.filter (fun je ->
+                let h = je |> JournalEntryOrchestration.header
+                h |> Ledger.JournalEntryHeader.voidedAt |> Option.isNone
+                && h |> Ledger.JournalEntryHeader.entryDate |> EntryDate.entryDate <= p.monthEnd3)
+            |> List.collect JournalEntryOrchestration.jeLines
+        let sumOf accountId lineType =
+            linesToDate
+            |> List.filter (fun l -> Ledger.JournalEntryLine.accountId l = accountId && Ledger.JournalEntryLine.lineType l = lineType)
+            |> List.sumBy (Ledger.JournalEntryLine.amount >> Money.amount)
+        let expectedRows accountType excluded (balanceOf: Ledger.AccountComponent.AccountId -> decimal) =
+            fixture.Data.accounts
+            |> List.filter (fun a -> Ledger.Account.accountType a = accountType)
+            |> List.filter (fun a -> not (excluded |> Set.contains (Ledger.Account.accountId a)))
+            |> List.map (fun a ->
+                a |> Ledger.Account.code |> Ledger.AccountComponent.AccountCode.value,
+                a |> Ledger.Account.accountName |> Ledger.AccountComponent.AccountName.value,
+                a |> Ledger.Account.accountId |> balanceOf)
+            |> List.sortBy (fun (code, _, _) -> code)
+        let expectedAssets =
+            expectedRows Ledger.AccountComponent.AccountType.Asset linkedAssets (fun id -> sumOf id Debit - sumOf id Credit)
+        let expectedLiabilities =
+            expectedRows Ledger.AccountComponent.AccountType.Liability ownedMortgages (fun id -> sumOf id Credit - sumOf id Debit)
         netWorthAsOf p.monthEnd3
         |> Result.map (fun result ->
             Assert.Equal(p.monthEnd3, result.asOf)
-            Assert.Equal<(string * string * decimal) list>(
-                [ "F-1000", "Assets", 0.00M
-                  "F-1250", "Roth IRA", 0.00M
-                  "F-1270", "Money Market", 0.00M
-                  "F-1275", "Fixture Positions Cash", 5000.00M
-                  "F-1280", "Fixture Operating Cash", 0.00M
-                  "F-1290", "Closed Bank", 0.00M ],
-                result.assetAccounts |> rows)
-            Assert.Equal<(string * string * decimal) list>(
-                [ "F-2000", "Liabilities", 0.00M
-                  "F-2210", "Mortgage Payable", -25.00M
-                  "F-2220", "Credit Card", 0.00M
-                  "F-2230", "Fixture Loan Payable", 0.00M ],
-                result.liabilityAccounts |> rows))
+            // the fixture's Positions cash and the closed period's mortgage payment, so the derivation is not all zeros
+            Assert.Contains(("F-1275", "Fixture Positions Cash", 5000.00M), expectedAssets)
+            Assert.Contains(("F-2210", "Mortgage Payable", -25.00M), expectedLiabilities)
+            Assert.Equal<(string * string * decimal) list>(expectedAssets, result.assetAccounts |> rows)
+            Assert.Equal<(string * string * decimal) list>(expectedLiabilities, result.liabilityAccounts |> rows))
         |> railroadWrapper
 
     [<Fact>]
@@ -230,16 +252,95 @@ type NetWorthTests(fixture: TestDataFixture) =
                 result.investmentsByAccountGroup |> List.map (fun (g, m) -> g, m |> amount)))
         |> railroadWrapper
 
-    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
-
     [<Fact>]
     member _.``REQ-RPT-8.2 a Property linked to two asset accounts that both carry ledger balances: on a date the Property is owned neither account is among the counted ledger assets, and net worth counts the Property's value once and neither balance`` () =
-        Assert.Fail "Not yet implemented"
+        (* In a rolled-back transaction: two FixedAsset accounts carrying 60,000.00 and 90,000.00, both linked to a
+           Rental bought a year ago for 150,000.00 with no Valuations. Net worth as of the end of month -3 is the
+           fixture's 207,945.00 plus that 150,000.00; counting either balance as well would add 60,000.00 or 90,000.00. *)
+        runCommandRouteAndAutoRollback PositionsCreateProperty (fun context ->
+            result {
+                let fixedAsset code name =
+                    createTestAccountFromPrimitives
+                        context code name "Asset" p.accountsActiveBegin None (Some "FixedAsset") None None
+                    |> Result.map snd
+                let! landId = fixedAsset "RPT-8.2A" "Two-asset property land at cost"
+                let! buildingId = fixedAsset "RPT-8.2B" "Two-asset property building at cost"
+                let! _ =
+                    createTestJournalEntryFromPrimitives
+                        context "Two-asset property purchase" None p.ledgerEntryDate
+                        [ (landId, 60000.00M, "Debit", None)
+                          (buildingId, 90000.00M, "Debit", None)
+                          (p.positionsEquity3040Id, 150000.00M, "Credit", None) ] [] []
+                let! sam = PositionsLookups.personIdOf context PF.sam
+                let! _ =
+                    RealEstateOrchestration.constructNewAndPersist
+                        context (toPropertyName "56 Example Lane") Rental [ sam ]
+                        (toOwnedPeriod p.rentalAcquired None) (toPurchaseBasis 150000.00M) [ landId; buildingId ] []
+                let! result = computeNetWorth context p.monthEnd3
+                Assert.DoesNotContain("RPT-8.2A", result.assetAccounts |> codes)
+                Assert.DoesNotContain("RPT-8.2B", result.assetAccounts |> codes)
+                Assert.Equal(5000.00M, result.totalLedgerAssets |> amount)
+                Assert.Equal(150000.00M, (result |> property "56 Example Lane").value |> amount)
+                Assert.Equal(820000.00M, result.totalPropertyValues |> amount)
+                Assert.Equal(357945.00M, result.netWorth |> amount)
+            })
+        |> railroadWrapper
+
+    (* In a rolled-back transaction: a Liability account carrying 50,000.00, the mortgage of a Rental disposed of on the
+       10th of month -3, before the end of month -3. *)
+    member private _.WithDisposedMortgagedProperty(test: Context.Context -> Result<unit, IAppError>) =
+        runCommandRouteAndAutoRollback PositionsCreateProperty (fun context ->
+            result {
+                let! _, mortgageId =
+                    createTestAccountFromPrimitives
+                        context "RPT-8.5M" "Disposed property mortgage" "Liability" p.accountsActiveBegin None
+                        (Some "LongTermLiability") None None
+                let! _ =
+                    createTestJournalEntryFromPrimitives
+                        context "Disposed property mortgage" None p.ledgerEntryDate
+                        [ (p.positionsEquity3040Id, 50000.00M, "Debit", None); (mortgageId, 50000.00M, "Credit", None) ] [] []
+                let! sam = PositionsLookups.personIdOf context PF.sam
+                let! _ =
+                    RealEstateOrchestration.constructNewAndPersist
+                        context (toPropertyName "78 Sold Example Court") Rental [ sam ]
+                        (toOwnedPeriod p.rentalAcquired (Some p.d2)) (toPurchaseBasis 120000.00M) [] [ mortgageId ]
+                return! test context
+            })
+        |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-RPT-8.5 the owned-property mortgages total sums the as-of balances of the mortgage accounts of Properties owned on the date and excludes the mortgage of a Property disposed before the date`` () =
-        Assert.Fail "Not yet implemented"
+    member this.``REQ-RPT-8.5 the owned-property mortgages total sums the as-of balances of the mortgage accounts of Properties owned on the date and excludes the mortgage of a Property disposed before the date`` () =
+        this.WithDisposedMortgagedProperty(fun context ->
+            result {
+                let! result = computeNetWorth context p.monthEnd3
+                // F-2310 300,000.00 (12 Example Street) + F-2320 180,000.00 (34 Example Avenue); not RPT-8.5M's 50,000.00
+                Assert.Equal(480000.00M, result.totalOwnedPropertyMortgages |> amount)
+            })
+
+    [<Fact>]
+    member this.``REQ-RPT-8.5 REQ-RPT-8.2 the mortgage of a Property disposed of before the date is listed among the Liability accounts at its as-of balance and subtracted from net worth once, and the Property is not among the owned Properties`` () =
+        this.WithDisposedMortgagedProperty(fun context ->
+            result {
+                let! result = computeNetWorth context p.monthEnd3
+                Assert.Equal<(string * string * decimal) list>(
+                    [ "RPT-8.5M", "Disposed property mortgage", 50000.00M ],
+                    result.liabilityAccounts |> rows |> List.filter (fun (code, _, _) -> code = "RPT-8.5M"))
+                Assert.Equal(49975.00M, result.totalLiabilities |> amount)
+                // subtracted twice it would be 107,945.00; not at all, 207,945.00
+                Assert.Equal(157945.00M, result.netWorth |> amount)
+                Assert.Equal<string list>([ PF.residence; PF.rental ], result.properties |> List.map (fun x -> x.propertyName))
+            })
 
     [<Fact>]
     member _.``REQ-RPT-8.5 counted ledger assets plus investments plus property values, less liabilities and less owned-property mortgages, equals the net worth the computation returns, with a nonzero owned-property mortgages total`` () =
-        Assert.Fail "Not yet implemented"
+        netWorthAsOf p.monthEnd3
+        |> Result.map (fun result ->
+            Assert.Equal(480000.00M, result.totalOwnedPropertyMortgages |> amount)
+            // 5,000.00 + 12,920.00 + 670,000.00 - (-25.00) - 480,000.00
+            Assert.Equal(
+                207945.00M,
+                (result.totalLedgerAssets |> amount) + (result.totalInvestments |> amount)
+                + (result.totalPropertyValues |> amount) - (result.totalLiabilities |> amount)
+                - (result.totalOwnedPropertyMortgages |> amount))
+            Assert.Equal(207945.00M, result.netWorth |> amount))
+        |> railroadWrapper

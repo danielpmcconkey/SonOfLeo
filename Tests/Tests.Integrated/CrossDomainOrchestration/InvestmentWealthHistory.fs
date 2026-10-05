@@ -92,20 +92,26 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
     member _.``REQ-RPT-9.2 grouped by account, each point's per-account totals and grand total equal the hand-summed market values of the holdings as of that month-end`` () =
         history readOnly p.monthEnd4 p.monthEnd1 ByAccount
         |> Result.map (fun points ->
+            (* Every account with holdings at any of the four points appears at all four (REQ-RPT-9.2 as amended),
+               at 0.00 where it holds nothing: Joint Brokerage before its first snapshot at d2, Old Brokerage after its
+               active end, and Sam HSA from d3 on, whose latest snapshot has no lines. *)
             let expected =
                 [ p.monthEnd4,
-                  [ PF.alexBrokerage, 1500.00M; PF.alexRoth, 1500.00M; PF.oldBrokerage, 1000.00M; PF.sam401k, 4000.00M; PF.samHsa, 300.00M ],
+                  [ PF.alexBrokerage, 1500.00M; PF.alexRoth, 1500.00M; PF.jointBrokerage, 0.00M; PF.oldBrokerage, 1000.00M
+                    PF.sam401k, 4000.00M; PF.samHsa, 300.00M ],
                   8300.00M
                   p.monthEnd3,
-                  [ PF.alexBrokerage, 1620.00M; PF.alexRoth, 1500.00M; PF.jointBrokerage, 5500.00M; PF.sam401k, 4000.00M; PF.samHsa, 300.00M ],
+                  [ PF.alexBrokerage, 1620.00M; PF.alexRoth, 1500.00M; PF.jointBrokerage, 5500.00M; PF.oldBrokerage, 0.00M
+                    PF.sam401k, 4000.00M; PF.samHsa, 300.00M ],
                   12920.00M
                   p.monthEnd2,
-                  [ PF.alexBrokerage, 1810.00M; PF.alexRoth, 1500.00M; PF.jointBrokerage, 5500.00M; PF.sam401k, 4227.79M ],
+                  [ PF.alexBrokerage, 1810.00M; PF.alexRoth, 1500.00M; PF.jointBrokerage, 5500.00M; PF.oldBrokerage, 0.00M
+                    PF.sam401k, 4227.79M; PF.samHsa, 0.00M ],
                   13037.79M
                   p.monthEnd1,
-                  [ PF.alexBrokerage, 1380.00M; PF.alexRoth, 1500.00M; PF.jointBrokerage, 5750.00M; PF.sam401k, 4227.79M ],
+                  [ PF.alexBrokerage, 1380.00M; PF.alexRoth, 1500.00M; PF.jointBrokerage, 5750.00M; PF.oldBrokerage, 0.00M
+                    PF.sam401k, 4227.79M; PF.samHsa, 0.00M ],
                   12857.79M ]
-                // Sam HSA's latest snapshot from d3 on has no lines, so it holds nothing to total
                 |> List.map (fun (date, totals, total) ->
                     date, totals |> List.map (fun (n, v) -> GroupName n, v) |> Map.ofList, total)
             Assert.Equal<(LocalDate * Map<WealthGroup, decimal> * decimal) list>(
@@ -209,12 +215,22 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
                 points |> List.map (fun x -> x.monthEnd, x.total |> Money.amount, x.totals.Length)))
         |> railroadWrapper
 
-    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
-
     [<Fact>]
     member _.``REQ-RPT-9.2 grouped by account, over a range in which one account has holdings at the first month-end and none at the last, that account appears at every point, with 0.00 at the last`` () =
-        Assert.Fail "Not yet implemented"
+        // Sam HSA holds 300.00 until its d3 snapshot, which has no lines
+        history readOnly p.monthEnd3 p.monthEnd2 ByAccount
+        |> Result.map (fun points ->
+            Assert.Equal<(LocalDate * decimal option) list>(
+                [ p.monthEnd3, Some 300.00M; p.monthEnd2, Some 0.00M ],
+                points |> List.map (fun x -> x.monthEnd, x |> totalsOf |> Map.tryFind (GroupName PF.samHsa))))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-9.2 grouped by account, an account whose first holdings fall after the first month-end of the range appears at every earlier point with 0.00`` () =
-        Assert.Fail "Not yet implemented"
+        // Joint Brokerage's first snapshot is d2, in month -3
+        history readOnly p.monthEnd4 p.monthEnd3 ByAccount
+        |> Result.map (fun points ->
+            Assert.Equal<(LocalDate * decimal option) list>(
+                [ p.monthEnd4, Some 0.00M; p.monthEnd3, Some 5500.00M ],
+                points |> List.map (fun x -> x.monthEnd, x |> totalsOf |> Map.tryFind (GroupName PF.jointBrokerage))))
+        |> railroadWrapper

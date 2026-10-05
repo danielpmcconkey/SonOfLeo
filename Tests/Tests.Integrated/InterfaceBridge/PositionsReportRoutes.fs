@@ -262,16 +262,73 @@ type PositionsReportRoutesTests(fixture: TestDataFixture) =
             (function AsError (PositionsInvalidWealthGrouping raw) -> Some raw | _ -> None)
             (fun raw -> Assert.Equal("Colour", raw))
 
-    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
-
     [<Fact>]
     member _.``REQ-RPT-8.5 REQ-RPT-8.6 the rendered net worth Totals block shows the owned-property mortgages total, and the counted ledger assets, investments and property values it shows less its liabilities and owned-property mortgages equal the net worth it shows, with a nonzero owned-property mortgages total`` () =
-        Assert.Fail "Not yet implemented"
+        writtenFresh
+            (Path.Combine(outputDir, "rpt-8-5-net-worth-totals.html"))
+            (fun () -> netWorthReportPath p.monthEnd3 false "rpt-8-5-net-worth-totals")
+        |> Result.map (fun html ->
+            // the Totals block runs from its heading to the end of its table; each row is a label and an amount
+            let heading = Regex.Match(html, "<h2[^>]*>Totals</h2>")
+            let start = if heading.Success then heading.Index else -1
+            Assert.True(start >= 0, "the rendered net worth has no Totals block")
+            let block = html.Substring(start, html.IndexOf("</table>", start) - start)
+            let totals =
+                Regex.Matches(block, "<tr[^>]*>(.*?)</tr>", RegexOptions.Singleline)
+                |> Seq.map (fun m -> m.Groups.[1].Value |> cellsIn "td")
+                |> Seq.choose (function
+                    | [ label; shown ] ->
+                        Some(label, System.Decimal.Parse(shown, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture))
+                    | _ -> None)
+                |> Map.ofSeq
+            let shown label =
+                match totals |> Map.tryFind label with
+                | Some value -> value
+                | None -> failwith $"the Totals block shows no '{label}' among {totals |> Map.keys |> List.ofSeq}"
+            // the mortgages of 12 Example Street (300,000.00) and 34 Example Avenue (180,000.00) as of the end of month -3
+            Assert.Equal(480000.00M, shown "Mortgages of owned properties")
+            Assert.Equal(
+                shown "Net worth",
+                shown "Counted ledger assets" + shown "Investments" + shown "Property values" - shown "Liabilities"
+                - shown "Mortgages of owned properties"))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-9.5 the rendered wealth history shows 0.00, not a blank cell, for a group at a month-end where it has no holdings`` () =
-        Assert.Fail "Not yet implemented"
+        writtenFresh
+            (Path.Combine(outputDir, "rpt-9-5-wealth-history-zero.html"))
+            (fun () -> wealthReportPath p.monthEnd4 p.monthEnd1 false "rpt-9-5-wealth-history-zero")
+        |> Result.map (fun html ->
+            (* By Region at the end of month -1 nothing International is held: Alex Brokerage's d4 snapshot dropped the
+               international fund and Old Brokerage has ended. Domestic: 1,380.00 + 500.00 + 5,750.00 + 2,152.50;
+               Unassigned: 1,000.00 + 2,075.29. *)
+            Assert.Equal<string list>([ "Month end"; "Domestic"; "International"; "Unassigned"; "Total" ], html |> cellsIn "th")
+            let lastRow =
+                Regex.Matches(html, "<tr[^>]*>(.*?)</tr>", RegexOptions.Singleline)
+                |> Seq.map (fun m -> m.Groups.[1].Value |> cellsIn "td")
+                |> Seq.filter (fun cells -> cells |> List.tryHead = Some(dateText p.monthEnd1))
+                |> Seq.exactlyOne
+            Assert.Equal<string list>([ dateText p.monthEnd1; "9,782.50"; "0.00"; "3,075.29"; "12,857.79" ], lastRow))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-9.5 REQ-RPT-3.1 the rendered wealth history header shows the begin date, end date and grouping, and no as-of date`` () =
-        Assert.Fail "Not yet implemented"
+        writtenFresh
+            (Path.Combine(outputDir, "rpt-9-5-wealth-history-range-header.html"))
+            (fun () ->
+                runWealthHistory p.monthEnd4 p.monthEnd2 "TaxTreatment"
+                    (OutputSpecifier.Report { baseDir = outputDir; interpolateAsOf = false; fileName = "rpt-9-5-wealth-history-range-header" })
+                |> Result.bind (function
+                    | InvestmentWealthHistoryReturn.Report pathReturn -> Ok pathReturn.fullyQualifiedPath
+                    | InvestmentWealthHistoryReturn.DataOnly _ -> Error(TestingError "Expected Report but got DataOnly")))
+        |> Result.map (fun html ->
+            let header = headerOf html
+            let text = Regex.Replace(header.Substring(header.IndexOf("</h1>")), "<[^>]+>", "").Trim()
+            Assert.Equal("Investment Wealth History", titleIn header)
+            // the begin and end dates are the only dates shown, so no as-of date stands beside them
+            Assert.Equal<string list>(
+                [ dateText p.monthEnd4; dateText p.monthEnd2 ],
+                Regex.Matches(header, @"\d{4}-\d{2}-\d{2}") |> Seq.map _.Value |> List.ofSeq)
+            Assert.Contains("TaxTreatment", text)
+            Assert.DoesNotContain("As of", text))
+        |> railroadWrapper
