@@ -320,8 +320,23 @@ type SecurityMaintenanceTests(fixture: TestDataFixture) =
                 all |> List.map summary))
         |> railroadWrapper
 
-    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
-
     [<Fact>]
     member _.``REQ-POS-11.1 REQ-SYS-6.1 renaming a Dimension Value to the name it already has succeeds, the value is stored in its dimension under that same name, and its modified-at advances`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback PositionsRenameDimensionValue (fun context ->
+            result {
+                let! dimensionValueId = PositionsLookups.dimensionValueIdOf context Region "International"
+                let! before = dimensionValueId |> DimensionValue.fetchById context
+                let! _ =
+                    renameDimensionValue context Region (toDimensionValueName "International") (toDimensionValueName "International")
+                let! after = dimensionValueId |> DimensionValue.fetchById context
+                Assert.Equal(
+                    (Region, "International"),
+                    (after |> DimensionValue.dimension, after |> DimensionValue.dimensionValueName |> DimensionValueName.value))
+                let! regionValues = valueNamesIn context Region
+                Assert.Equal<string list>([ "Domestic"; "International" ], regionValues)
+                Assert.Equal(context |> Context.getInitiationInstant, after |> DimensionValue.modifiedAt)
+                Assert.True(
+                    (after |> DimensionValue.modifiedAt) > (before |> DimensionValue.modifiedAt),
+                    $"modified-at {after |> DimensionValue.modifiedAt} did not advance past {before |> DimensionValue.modifiedAt}")
+            })
+        |> railroadWrapper

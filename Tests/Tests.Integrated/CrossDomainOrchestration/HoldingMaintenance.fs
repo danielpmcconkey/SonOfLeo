@@ -175,16 +175,46 @@ type HoldingMaintenanceTests(fixture: TestDataFixture) =
                 [ PF.sam401k, PF.bondFund, None; PF.sam401k, PF.totalMarket, None ], holdings))
         |> railroadWrapper
 
-    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
-
     [<Fact>]
     member _.``REQ-POS-11.10 deleting a Holding that no snapshot line references removes it, and listing the account's Holdings no longer shows that Security while the account's other Holdings remain`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback PositionsDeleteHolding (fun context ->
+            result {
+                let! _ = create context PF.alexRoth PF.stableValue None
+                let! before = holdingsOf context PF.alexRoth
+                Assert.Contains((PF.alexRoth, PF.stableValue, None), before)
+                let! accountId, securityId = withIds context PF.alexRoth PF.stableValue
+                let! _ = deleteHolding context accountId securityId
+                let! after = holdingsOf context PF.alexRoth
+                Assert.Equal<HoldingSummary list>(
+                    [ PF.alexRoth, PF.bondFund, None; PF.alexRoth, PF.totalMarket, None ], after)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-POS-11.10 deleting a Holding that a snapshot line references is rejected with a typed error naming the account and the Security, and the Holding remains`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback PositionsDeleteHolding (fun context ->
+            result {
+                let! accountId, securityId = withIds context PF.alexBrokerage PF.international
+                deleteHolding context accountId securityId
+                |> expectError
+                    (function AsError (PositionsHoldingReferencedBySnapshots (a, s)) -> Some(a, s) | _ -> None)
+                    (fun found -> Assert.Equal((PF.alexBrokerage, PF.international), found))
+                let! holdings = holdingsOf context PF.alexBrokerage
+                Assert.Equal<HoldingSummary list>(
+                    [ PF.alexBrokerage, PF.international, Some SpecificLot
+                      PF.alexBrokerage, PF.totalMarket, Some AverageCost ],
+                    holdings)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-POS-11.10 REQ-SYS-6.2 deleting a Holding of a Security the account does not hold fails with a typed not-found error naming Holding, the account and the Security`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback PositionsDeleteHolding (fun context ->
+            result {
+                let! accountId, securityId = withIds context PF.jordanCustodial PF.totalMarket
+                deleteHolding context accountId securityId
+                |> expectError
+                    (function AsError (PositionsHoldingDoesntExist (a, s)) -> Some(a, s) | _ -> None)
+                    (fun found -> Assert.Equal((PF.jordanCustodial, PF.totalMarket), found))
+            })
+        |> railroadWrapper

@@ -342,8 +342,11 @@ type AccountSnapshotRecordingTests(fixture: TestDataFixture) =
         }
         |> railroadWrapper
 
-    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
-
     [<Fact>]
     member _.``REQ-POS-7.5 listing an account's snapshot dates with the end date the day before the begin date fails with a typed error naming both dates`` () =
-        Assert.Fail "Not yet implemented"
+        listSnapshotDates (Context.create NoTransaction FetchOnly) PF.alexBrokerage p.d2 (p.d2.PlusDays(-1))
+        |> expectError
+            (function AsError (PositionsSnapshotDatesEndBeforeBegin (b, e)) -> Some(b, e) | _ -> None)
+            (fun found -> Assert.Equal((p.d2, p.d2.PlusDays(-1)), found))
+        |> Ok
+        |> railroadWrapper
