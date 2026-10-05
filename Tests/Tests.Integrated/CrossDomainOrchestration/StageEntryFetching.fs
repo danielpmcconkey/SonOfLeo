@@ -37,7 +37,8 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
 
     static let today = Calendar.today()
 
-    (* The twelve rows StageTestData stages all carry one source file and all fall within
+    (* The groups StageTestData stages carry one of two source files (grp-010 arrives in a second
+       file, since one file may not repeat a source and fi_reference) and all fall within
        today-3..today. Neither the source-file filter nor the fiscal-period filter can prove
        it excludes anything against data that uniform, so this second group supplies the
        counterexample: a different file, a date two months back, and an fi_reference that
@@ -666,37 +667,52 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
         =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
+                (* Every expected value comes from the raw rows handed to ingestion or from what
+                   the pipeline must have done to them, never from a staged entry read back
+                   through the same composition fetchFiltered uses. The payroll group's four
+                   lines all arrive coded, so ingestion stages it, dedup finds nothing to flag,
+                   and classification moves it to Classified: exactly two transitions. *)
                 let! staged = stageAll context
-                let payroll = staged |> findByDescription "PAYROLL DEPOSIT ACME CORP"
+                let! rows = StageTestData.buildTestRows context
+                let payrollRows = rows |> List.filter (fun r -> r.baseStageEntryGroupId |> BaseStageEntry.BaseStageEntryGroupId.value = "grp-007")
+                let first = payrollRows |> List.head
+                let payroll = staged |> findByDescription (first.description |> JournalEntryDescription.value)
                 let! fetched =
                     { noFilter with stageEntryHeaderId = Some(payroll |> idOf) } |> fetchFiltered context None
-                Assert.Equal(1, fetched |> List.length)
-                let returned = fetched |> List.head
+                let returned = Assert.Single(fetched)
 
-                Assert.Equal(payroll |> descriptionOf, returned |> descriptionOf)
-                Assert.Equal(payroll |> entryDateOf, returned |> entryDateOf)
-                Assert.Equal(payroll |> sourceNameOf, returned |> sourceNameOf)
-                Assert.Equal<StagedEntryStatus option>(payroll |> statusOf, returned |> statusOf)
-                Assert.Equal(payroll |> fiReferenceOf, returned |> fiReferenceOf)
-                Assert.Equal(payroll |> sourceFileOf, returned |> sourceFileOf)
+                Assert.Equal(first.description |> JournalEntryDescription.value, returned |> descriptionOf)
+                Assert.Equal(first.entryDate, returned |> entryDateOf)
+                Assert.Equal(first.fiSource |> JournalRefFinancialInstitution.value, returned |> sourceNameOf)
+                Assert.Equal<StagedEntryStatus option>(Some Classified, returned |> statusOf)
+                Assert.Equal(first.fiReference |> JournalExternalReferenceText.value, returned |> fiReferenceOf)
+                Assert.Equal("/tmp/stg-test-checking.jsonl", returned |> sourceFileOf)
 
-                Assert.Equal<StageEntryLineId list>(
-                    payroll |> seLines |> List.map StageEntryLine.stageEntryLineId |> List.sort,
-                    returned |> seLines |> List.map StageEntryLine.stageEntryLineId |> List.sort)
-                Assert.Equal<Money.Money list>(
-                    payroll |> seLines |> List.map StageEntryLine.amount |> List.sort,
-                    returned |> seLines |> List.map StageEntryLine.amount |> List.sort)
-
-                Assert.NotEmpty(returned |> statusTransitions)
-                Assert.Equal<StageEntryStatusTransitionId list>(
-                    payroll
-                    |> statusTransitions
-                    |> List.map StageEntryStatusTransition.stageEntryStatusTransitionId
+                let lineKey (amount, lineType, accountId, memo) = amount |> Money.amount, lineType, accountId, memo
+                Assert.Equal<(decimal * string * AccountComponent.AccountId option * JournalEntryLineMemo option) list>(
+                    payrollRows
+                    |> List.map (fun r -> lineKey (r.amount, r.entryType |> JournalEntryLineType.toString, r.accountId, r.memo))
                     |> List.sort,
                     returned
-                    |> statusTransitions
-                    |> List.map StageEntryStatusTransition.stageEntryStatusTransitionId
+                    |> seLines
+                    |> List.map (fun l ->
+                        lineKey (
+                            l |> StageEntryLine.amount,
+                            l |> StageEntryLine.lineType |> JournalEntryLineType.toString,
+                            l |> StageEntryLine.accountId,
+                            l |> StageEntryLine.memo))
                     |> List.sort)
+
+                Assert.Equal<(StagedEntryStatus option * StagedEntryStatus * StageStatusChangeMechanism) list>(
+                    [ None, Ingested, StageIngestion
+                      Some Ingested, Classified, Classifier ],
+                    returned
+                    |> statusTransitions
+                    |> List.sortBy StageEntryStatusTransition.instant
+                    |> List.map (fun t ->
+                        t |> StageEntryStatusTransition.fromStatus,
+                        t |> StageEntryStatusTransition.toStatus,
+                        t |> StageEntryStatusTransition.stageStatusChangeMechanism))
             })
         |> railroadWrapper
 

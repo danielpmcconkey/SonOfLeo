@@ -436,6 +436,11 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             result {
                 let! ingested = twoValidGroups referenceOne referenceTwo |> ingestThroughRoute fileName
                 idsToCleanUp <- ingested |> headerIdsToCleanUp
+                let refetchAll () =
+                    ingested.stagedEntries
+                    |> List.map (fun entry -> refetchStageEntry entry.stageEntryHeader.stageEntryHeaderId)
+                    |> convertListOfResultsToResultsList
+                let! stagingBefore = refetchAll ()
                 let! postResult = postThroughRoute true
                 Assert.True(postResult.wasRolledBack, "The shadow route must report that it rolled back")
                 Assert.NotEmpty(postResult.trialBalanceBefore)
@@ -456,9 +461,13 @@ type IngestionRouteTests(fixture: TestDataFixture) =
                 let! secondPosted = fetchByReference context (Some financialInstitution) (Some secondReference)
                 Assert.Empty(firstPosted)
                 Assert.Empty(secondPosted)
-                // and staging is untouched: the entries are still sitting there postable
-                let! refetched = refetchStageEntry (ingested.stagedEntries |> List.head).stageEntryHeader.stageEntryHeaderId
-                Assert.Equal(Classified, refetched |> latestStatusOf)
+                (* and staging is untouched: every entry the file staged reads back exactly as it did
+                   before the shadow post, header (status and journal entry ID included), lines (with
+                   their journal entry line IDs) and status transitions, still sitting there postable *)
+                let! stagingAfter = refetchAll ()
+                Assert.Equal(2, stagingBefore |> List.length)
+                Assert.Equal<StageEntry list>(stagingBefore, stagingAfter)
+                Assert.All(stagingAfter, fun entry -> Assert.Equal(Classified, entry |> latestStatusOf))
                 return ()
             }
             |> railroadWrapper
@@ -647,46 +656,31 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             result {
                 let! ingested = twoAccountedGroups |> ingestThroughRoute fileName
                 idsToCleanUp <- ingested |> headerIdsToCleanUp
-                let staged =
-                    ingested.stagedEntries
-                    |> List.find (fun entry -> entry.stageEntryHeader.fiReference = "REF-ROUTE-FETCH-001")
 
+                (* Every expected value is one this test wrote into the file, or the trail the
+                   pipeline owes a group whose lines all arrive coded: staged by ingestion, left
+                   alone by dedup, moved to Classified by the classifier. *)
                 let! fetched =
                     fetchFilteredThroughRoute { noFilterInput with fiReference = Some "REF-ROUTE-FETCH-001" }
-                Assert.Equal(1, fetched |> List.length)
-                let returned = fetched |> List.head
+                let returned = Assert.Single(fetched)
 
-                Assert.Equal(staged.stageEntryHeader.stageEntryHeaderId, returned.stageEntryHeader.stageEntryHeaderId)
                 Assert.Equal("Route fetch first group", returned.stageEntryHeader.description)
                 Assert.Equal("TestBank", returned.stageEntryHeader.ingestionSource)
-                Assert.Equal(staged.stageEntryHeader.entryDate, returned.stageEntryHeader.entryDate)
-                Assert.Equal(staged.stageEntryHeader.status, returned.stageEntryHeader.status)
+                Assert.Equal(Calendar.today(), returned.stageEntryHeader.entryDate)
+                Assert.Equal(Path.Combine(importDir, fileName), returned.stageEntryHeader.sourceFile)
+                Assert.Equal(Some "Classified", returned.stageEntryHeader.status)
 
-                Assert.Equal(2, returned.lines |> List.length)
-                Assert.Equal<decimal list>(
-                    staged.lines |> List.map (fun line -> line.amount) |> List.sort,
-                    returned.lines |> List.map (fun line -> line.amount) |> List.sort)
-                Assert.Equal<string list>(
-                    [ "Credit"; "Debit" ],
-                    returned.lines |> List.map (fun line -> line.lineType) |> List.sort)
+                Assert.Equal<(decimal * string * string option) list>(
+                    [ 18.00M, "Credit", Some "F-1270"; 18.00M, "Debit", Some "F-5300" ],
+                    returned.lines |> List.map (fun line -> line.amount, line.lineType, line.accountCode) |> List.sort)
 
                 (* The transition history is what REQ-STG-10.6 exists for: without it the caller
                    has to make a second round trip to learn how the entry reached its status. *)
-                Assert.NotEmpty returned.statusTransitions
-                Assert.Equal<Guid list>(
-                    staged.statusTransitions
-                    |> List.map (fun transition -> transition.stageEntryStatusTransitionId)
-                    |> List.sort,
+                Assert.Equal<(string option * string * string) list>(
+                    [ None, "Ingested", "StageIngestion"; Some "Ingested", "Classified", "Classifier" ],
                     returned.statusTransitions
-                    |> List.map (fun transition -> transition.stageEntryStatusTransitionId)
-                    |> List.sort)
-                let returnedStatus = returned.stageEntryHeader.status
-                Assert.True(
-                    returnedStatus.IsSome,
-                    "the returned entry carries no current status, so REQ-STG-10.6's trail cannot be checked against it")
-                Assert.Contains(
-                    returnedStatus.Value,
-                    returned.statusTransitions |> List.map (fun transition -> transition.toStatus))
+                    |> List.sortBy (fun transition -> transition.instant)
+                    |> List.map (fun transition -> transition.fromStatus, transition.toStatus, transition.stageStatusChangeMechanism))
                 return ()
             }
             |> railroadWrapper
@@ -1151,8 +1145,53 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             | Ok () -> ()
             | Error e -> failwith (e.ToMessage())
 
-    // Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+    // =========================================================================
+    // REQ-STG-10.2 REQ-STG-10.7 — the ingestion source filter is given by name
+    // =========================================================================
 
+    (* The source filter arrives at the route as a name and reaches the query as an id, so this is
+       the only layer where that conversion is exercised. The file carries one entry from each of
+       two sources, and each source's name must bring back its own entry and not the other's: a
+       conversion resolving every name to one source, or a filter ignored outright, fails one of
+       the two. The source-file filter confines the answer to this file's entries. *)
+    [<Fact>]
+    member _.``REQ-STG-10.2 FetchStageEntryFiltered route resolves an ingestion source name to the source whose entries it returns`` () =
+        let fileName = "fetch-filtered-source-name.jsonl"
+        let mutable idsToCleanUp = []
+        try
+            result {
+                let rows =
+                    [ rawRow "grp-route-src-a" today "Route source name bank" "TestBank" "REF-ROUTE-SRC-001" "14.00" "Debit" (Some "F-5300") None
+                      rawRow "grp-route-src-a" today "Route source name bank" "TestBank" "REF-ROUTE-SRC-001" "14.00" "Credit" (Some "F-1270") None
+                      rawRow "grp-route-src-b" today "Route source name savings" "TestSavings" "REF-ROUTE-SRC-002" "16.00" "Debit" (Some "F-5300") None
+                      rawRow "grp-route-src-b" today "Route source name savings" "TestSavings" "REF-ROUTE-SRC-002" "16.00" "Credit" (Some "F-1270") None ]
+                let! ingested = rows |> ingestThroughRoute fileName
+                idsToCleanUp <- ingested |> headerIdsToCleanUp
+                let sourceFile = Path.Combine(importDir, fileName)
+                let idFor reference =
+                    ingested.stagedEntries
+                    |> List.find (fun entry -> entry.stageEntryHeader.fiReference = reference)
+                    |> fun entry -> entry.stageEntryHeader.stageEntryHeaderId
+                let! byBank =
+                    fetchFilteredThroughRoute { noFilterInput with sourceFile = Some sourceFile; ingestionSource = Some "TestBank" }
+                Assert.Equal<Guid list>([ idFor "REF-ROUTE-SRC-001" ], byBank |> List.map (fun entry -> entry.stageEntryHeader.stageEntryHeaderId))
+                let! bySavings =
+                    fetchFilteredThroughRoute { noFilterInput with sourceFile = Some sourceFile; ingestionSource = Some "TestSavings" }
+                Assert.Equal<Guid list>([ idFor "REF-ROUTE-SRC-002" ], bySavings |> List.map (fun entry -> entry.stageEntryHeader.stageEntryHeaderId))
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            deleteImportFile fileName
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (e.ToMessage())
+
+    (* The conversion fails at the boundary, before the query is built, so nothing is staged and
+       nothing needs cleaning up. *)
     [<Fact>]
     member _.``REQ-STG-10.7 FetchStageEntryFiltered route rejects an ingestion source name matching no source with a typed error naming that name, rather than returning an empty list`` () =
-        Assert.Fail "Not yet implemented"
+        match fetchFilteredThroughRoute { noFilterInput with ingestionSource = Some "NoSuchIngestionBank" } with
+        | Error (AsError (DataIngestionError.IngestionSourceNameNotFound name)) -> Assert.Equal("NoSuchIngestionBank", name)
+        | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+        | Ok fetched -> Assert.Fail $"Expected an unknown source name to be an error; got a list of {fetched |> List.length} entries"

@@ -59,11 +59,11 @@ let ``REQ-STG-4.1 StagedEntryStatus.fromString rejects invalid string`` () =
 
 
 // =============================================================================
-// REQ-STG-4.1 — StageStatusChangeMechanism.fromString
+// REQ-STG-2.23 — StageStatusChangeMechanism.fromString
 // =============================================================================
 
 [<Fact>]
-let ``REQ-STG-4.1 StageStatusChangeMechanism.fromString accepts all valid values`` () =
+let ``REQ-STG-2.23 StageStatusChangeMechanism.fromString accepts all valid values`` () =
     let expected = [ StageIngestion; Classifier; Deduplicator; Operator; LedgerPoster ]
     let inputs = [ "StageIngestion"; "Classifier"; "Deduplicator"; "Operator"; "LedgerPoster" ]
     let results = inputs |> List.map StageStatusChangeMechanism.fromString
@@ -73,7 +73,7 @@ let ``REQ-STG-4.1 StageStatusChangeMechanism.fromString accepts all valid values
     Assert.Equal<StageStatusChangeMechanism list>(expected, values)
 
 [<Fact>]
-let ``REQ-STG-4.1 StageStatusChangeMechanism.fromString rejects invalid string`` () =
+let ``REQ-STG-2.23 StageStatusChangeMechanism.fromString rejects invalid string`` () =
     match StageStatusChangeMechanism.fromString "Bogus" with
     | Error (AsError (IngestionInvalidStageStatusChangeMechanism _)) -> ()
     | Error e -> Assert.Fail $"Wrong error: {e.ToMessage()}"
@@ -188,8 +188,65 @@ let ``REQ-STG-4.6 validTransitions from None returns only Ingested`` () =
     Assert.Equal(1, transitions |> List.length)
     Assert.Equal(Ingested, transitions |> List.head)
 
-// Placeholders committed before the Src was read (audit 2026-10-04a remediation)
+// =============================================================================
+// REQ-STG-2.6 — SourceFile.create rejects an empty or whitespace-only source file
+// =============================================================================
 
-[<Fact>]
-let ``REQ-SYS-1.1 for each data ingestion value an operator gives as text, every allowed value wrapped in whitespace parses to the same case as the bare value`` () =
-    Assert.Fail "Not yet implemented"
+[<Theory>]
+[<InlineData("")>]
+[<InlineData("   ")>]
+let ``REQ-STG-2.6 SourceFile.create rejects an empty or whitespace-only source file with the empty-source-file error`` (raw: string) =
+    match SourceFile.create raw with
+    | Error (AsError (IngestionSourceFileIsEmpty _)) -> ()
+    | Error e -> Assert.Fail $"Wrong error: {e.ToMessage()}"
+    | Ok _ -> Assert.Fail "Expected failure; got success"
+
+
+// =============================================================================
+// REQ-SYS-1.1 — the ingestion enums an operator types are trimmed before matching
+// =============================================================================
+
+(* The operator gives a status as text in the staged-entry filter and the manual update, and a
+   change mechanism in the manual update payload. Each allowed value, padded on both sides,
+   must land on the case its bare text names. The expected case is written out here rather
+   than taken from parsing the bare text, so a parser that mapped a name to the wrong case
+   for padded and bare input alike still fails. *)
+let private padded (text: string) = $" \t {text}  "
+
+[<Theory>]
+[<InlineData("status", "Ingested")>]
+[<InlineData("status", "Classified")>]
+[<InlineData("status", "NoMatch")>]
+[<InlineData("status", "Conflict")>]
+[<InlineData("status", "Reviewed")>]
+[<InlineData("status", "Duplicate")>]
+[<InlineData("status", "Posted")>]
+[<InlineData("status", "Ignored")>]
+[<InlineData("mechanism", "StageIngestion")>]
+[<InlineData("mechanism", "Classifier")>]
+[<InlineData("mechanism", "Deduplicator")>]
+[<InlineData("mechanism", "Operator")>]
+[<InlineData("mechanism", "LedgerPoster")>]
+let ``REQ-SYS-1.1 for each data ingestion value an operator gives as text, every allowed value wrapped in whitespace parses to the same case as the bare value`` (kind: string, text: string) =
+    let fail (e: IAppError) = Assert.Fail $"'{padded text}' was rejected: {e.ToMessage()}"
+    match kind with
+    | "status" ->
+        let expected =
+            [ "Ingested", Ingested; "Classified", Classified; "NoMatch", NoMatch; "Conflict", Conflict
+              "Reviewed", Reviewed; "Duplicate", Duplicate; "Posted", Posted; "Ignored", Ignored ]
+            |> List.find (fst >> (=) text)
+            |> snd
+        match padded text |> StagedEntryStatus.fromString with
+        | Ok parsed -> Assert.Equal(expected, parsed)
+        | Error e -> fail e
+        Assert.Equal(StagedEntryStatus.fromString text, padded text |> StagedEntryStatus.fromString)
+    | _ ->
+        let expected =
+            [ "StageIngestion", StageIngestion; "Classifier", Classifier; "Deduplicator", Deduplicator
+              "Operator", Operator; "LedgerPoster", LedgerPoster ]
+            |> List.find (fst >> (=) text)
+            |> snd
+        match padded text |> StageStatusChangeMechanism.fromString with
+        | Ok parsed -> Assert.Equal(expected, parsed)
+        | Error e -> fail e
+        Assert.Equal(StageStatusChangeMechanism.fromString text, padded text |> StageStatusChangeMechanism.fromString)

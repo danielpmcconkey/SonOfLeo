@@ -992,6 +992,7 @@ let fetchFiltered
                 se.unique_id as stage_entry_id,
                 se.entry_date,
                 se.description as stage_entry_description,
+                se.source_id,
                 src.source_name,
                 se.fi_reference,
                 se.source_file,
