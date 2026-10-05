@@ -12,7 +12,7 @@ let private getConnectionStringConfig () : Result<string, IAppError> =
         let! configVal =
             getConfigValue<string> "ConnectionStringEnvVar"
             |> Result.mapError(fun e -> (DalConnectionStringConfigRetrievalError (e.ToMessage())))
-        do! if String.IsNullOrWhiteSpace(configVal) then Error DalConnectionStringEnvVarNotFound else Ok()
+        do! if String.IsNullOrWhiteSpace(configVal) then Error DalConnectionStringEnvVarSettingIsEmpty else Ok()
         return configVal
     }
 

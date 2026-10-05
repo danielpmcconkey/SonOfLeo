@@ -236,14 +236,7 @@ module JournalEntryOrchestration =
                 JournalEntryHeader.query context joinOption predicate None sort parameters AnyQuantityIsAcceptable
             let deduped = headersDuplicates |> List.distinctBy(fun h -> h |> JournalEntryHeader.journalEntryHeaderId)
             let dedupedCount = deduped |> List.length
-            do! match expectedRows with
-                | Zero when dedupedCount = 0 -> Ok()
-                | ExactlyOne when dedupedCount = 1 -> Ok()
-                | OneOrMany when dedupedCount >= 1 -> Ok()
-                | AnyQuantityIsAcceptable -> Ok()
-                // same rule as the DAL's own row check: zero rows where rows were required is DalNoOp
-                | ExactlyOne | OneOrMany when dedupedCount = 0 -> Error(DalNoOp(expectedRows.ToString(), dedupedCount))
-                | _ -> Error(DalResultantRowsDidntMatchExpectation(expectedRows.ToString(), dedupedCount))
+            do! confirmNumRows dedupedCount expectedRows
             return deduped
         }
 

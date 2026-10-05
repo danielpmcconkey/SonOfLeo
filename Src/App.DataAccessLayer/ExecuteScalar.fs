@@ -1,7 +1,6 @@
 module App.DataAccessLayer.ExecuteScalar
 
 open System
-open NodaTime
 open Npgsql
 open App.Utility.IAppError
 open App.Utility.Result
@@ -19,36 +18,6 @@ let stringUnboxing (objRaw: obj) : Result<string, IAppError> =
     with ex ->
         Error(DalErrorDuringStringUnboxing ex)
 
-let stringOptionUnboxing (objRaw: obj) : Result<string option, IAppError> =
-    try
-        if objRaw = null || objRaw = DBNull.Value then
-            Ok None
-        else
-            Ok(Some(objRaw :?> string))
-    with ex ->
-        Error(DalErrorDuringStringOptionUnboxing ex)
-
-let intUnboxing (objRaw: obj) : Result<int, IAppError> =
-    try
-        if objRaw = null || objRaw = DBNull.Value then
-            Error DalIntUnboxingReturnedNull
-        else
-            let unboxed: int = objRaw |> unbox
-            Ok unboxed
-    with ex ->
-        Error(DalErrorDuringIntUnboxing ex)
-
-let intOptionUnboxing (objRaw: obj) : Result<int option, IAppError> =
-    try
-        if objRaw = null || objRaw = DBNull.Value then
-            Ok None
-        else
-
-            let unboxed: int = objRaw |> unbox
-            Ok(Some unboxed)
-    with ex ->
-        Error(DalErrorDuringIntOptionUnboxing ex)
-
 let longUnboxing (objRaw: obj) : Result<int64, IAppError> =
     try
         if objRaw = null || objRaw = DBNull.Value then
@@ -58,96 +27,6 @@ let longUnboxing (objRaw: obj) : Result<int64, IAppError> =
             Ok unboxed
     with ex ->
         Error(DalErrorDuringLongUnboxing ex)
-
-let longOptionUnboxing (objRaw: obj) : Result<int64 option, IAppError> =
-    try
-        if objRaw = null || objRaw = DBNull.Value then
-            Ok None
-        else
-            let unboxed: int64 = objRaw |> unbox
-            Ok(Some unboxed)
-    with ex ->
-        Error(DalErrorDuringLongOptionUnboxing ex)
-
-let decimalUnboxing (objRaw: obj) : Result<decimal, IAppError> =
-    try
-        if objRaw = null || objRaw = DBNull.Value then
-            Error DalDecimalUnboxingReturnedNull
-        else
-            let unboxed: decimal = objRaw |> unbox
-            Ok unboxed
-    with ex ->
-        Error(DalErrorDuringDecimalUnboxing ex)
-
-let decimalOptionUnboxing (objRaw: obj) : Result<decimal option, IAppError> =
-    try
-        if objRaw = null || objRaw = DBNull.Value then
-            Ok None
-        else
-            let unboxed: decimal = objRaw |> unbox
-            Ok(Some unboxed)
-    with ex ->
-        Error(DalErrorDuringDecimalOptionUnboxing ex)
-
-let localDateUnboxing (objRaw: obj) : Result<LocalDate, IAppError> =
-    try
-        if objRaw = null || objRaw = DBNull.Value then
-            Error DalLocalDateUnboxingReturnedNull
-        else
-            let unboxed: LocalDate = objRaw |> unbox
-            Ok unboxed
-    with ex ->
-        Error(DalErrorDuringLocalDateUnboxing ex)
-
-let localDateOptionUnboxing (objRaw: obj) : Result<LocalDate option, IAppError> =
-    try
-        if objRaw = null || objRaw = DBNull.Value then
-            Ok None
-        else
-            let unboxed: LocalDate = objRaw |> unbox
-            Ok(Some unboxed)
-    with ex ->
-        Error(DalErrorDuringLocalDateOptionUnboxing ex)
-
-let instantUnboxing (objRaw: obj) : Result<Instant, IAppError> =
-    try
-        if objRaw = null || objRaw = DBNull.Value then
-            Error DalInstantUnboxingReturnedNull
-        else
-            let unboxed: Instant = objRaw |> unbox
-            Ok unboxed
-    with ex ->
-        Error(DalErrorDuringInstantUnboxing ex)
-
-let instantOptionUnboxing (objRaw: obj) : Result<Instant option, IAppError> =
-    try
-        if objRaw = null || objRaw = DBNull.Value then
-            Ok None
-        else
-            let unboxed: Instant = objRaw |> unbox
-            Ok(Some unboxed)
-    with ex ->
-        Error(DalErrorDuringInstantOptionUnboxing ex)
-
-let uuidUnboxing (objRaw: obj) : Result<Guid, IAppError> =
-    try
-        if objRaw = null || objRaw = DBNull.Value then
-            Error DalUuidUnboxingReturnedNull
-        else
-            let unboxed: Guid = objRaw |> unbox
-            Ok unboxed
-    with ex ->
-        Error(DalErrorDuringUuidUnboxing ex)
-
-let uuidOptionUnboxing (objRaw: obj) : Result<Guid option, IAppError> =
-    try
-        if objRaw = null || objRaw = DBNull.Value then
-            Ok None
-        else
-            let unboxed: Guid = objRaw |> unbox
-            Ok(Some unboxed)
-    with ex ->
-        Error(DalErrorDuringUuidOptionUnboxing ex)
 
 let executeScalar
     (dbTransaction: DbTransaction)

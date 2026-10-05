@@ -48,16 +48,6 @@ let private isPostedPayment (payment: Payment.Payment) : bool =
     | CashFlowComponent.Posted _ -> true
     | CashFlowComponent.Staged _ -> false
 
-let private confirmPaymentIsUnderInvoice
-    (invoiceId: CashFlowComponent.InvoiceId)
-    (payment: Payment.Payment)
-    : Result<unit, IAppError> =
-    if payment |> Payment.invoiceId = invoiceId then Ok ()
-    else
-        let paymentUuid = payment |> Payment.paymentId |> CashFlowComponent.PaymentId.value
-        let invoiceUuid = invoiceId |> CashFlowComponent.InvoiceId.value
-        Error(CashFlowError.CashflowPaymentNotUnderInvoice(paymentUuid, invoiceUuid))
-
 /// lineAmount is the amount of the line a transaction pointer names. A Payment's amount is its line's; no caller
 /// supplies one (REQ-CF-6.5, REQ-CF-9.8).
 let lineAmount
@@ -187,13 +177,7 @@ let private confirmInvoiceComposite
     : Result<unit, IAppError> =
     let invoice = invoiceComposite.invoice
     let payments = invoiceComposite.payments
-    let invoiceId = invoice |> Invoice.invoiceId
     result {
-        do!
-            payments
-            |> List.map (confirmPaymentIsUnderInvoice invoiceId)
-            |> convertListOfResultsToResultsList
-            |> Result.map ignore
         let paymentAgreementId = invoice |> Invoice.paymentAgreementId
         let! paymentAgreement =
             let paymentAgreementUuid = paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value
@@ -533,22 +517,6 @@ let private preConstructInvoiceComposite
                 | Some paymentUpdate -> payment |> Payment.applyFieldUpdates paymentUpdate
                 | None -> Ok payment)
             |> convertListOfResultsToResultsList
-        do!
-            (invoiceCompositeUpdate.paymentUpdates |> List.map _.paymentIdToUpdate)
-            @ invoiceCompositeUpdate.paymentIdsToDelete
-            |> List.map (fun paymentId ->
-                if current.payments |> List.exists (fun payment -> payment |> Payment.paymentId = paymentId) then Ok ()
-                else
-                    let paymentUuid = paymentId |> CashFlowComponent.PaymentId.value
-                    let invoiceUuid = invoiceId |> CashFlowComponent.InvoiceId.value
-                    // a Payment that exists nowhere is not found; one that exists belongs to another Invoice
-                    paymentId
-                    |> Payment.fetchById context
-                    |> whenNoRows (CashFlowError.CashflowPaymentIdDoesntExist paymentUuid)
-                    |> Result.bind (fun _ ->
-                        CashFlowError.error(CashFlowError.CashflowPaymentNotUnderInvoice(paymentUuid, invoiceUuid))))
-            |> convertListOfResultsToResultsList
-            |> Result.map ignore
         let now = context |> Context.getInitiationInstant
         let! newPayments =
             invoiceCompositeUpdate.newPayments

@@ -12,19 +12,14 @@ open App.DataAccessLayer.DbTransaction
 open App.DataAccessLayer.QueryParameter
 
 type AcceptableExpectedRows =
-    | Zero
     | ExactlyOne
-    | OneOrMany
     | AnyQuantityIsAcceptable
 
-let internal confirmNumRows (numRows: int) (expectation: AcceptableExpectedRows) : Result<unit, IAppError> =
+let confirmNumRows (numRows: int) (expectation: AcceptableExpectedRows) : Result<unit, IAppError> =
     match expectation with
-    | Zero when numRows = 0 -> Ok()
     | ExactlyOne when numRows = 1 -> Ok()
-    | OneOrMany when numRows >= 1 -> Ok()
     | AnyQuantityIsAcceptable -> Ok()
     | ExactlyOne when numRows = 0 -> Error(DalNoOp(expectation.ToString(), numRows))
-    | OneOrMany when numRows = 0 -> Error(DalNoOp(expectation.ToString(), numRows))
     | _ -> Error(DalResultantRowsDidntMatchExpectation(expectation.ToString(), numRows))
 
 type RowReader = private { reader: Common.DbDataReader }
@@ -81,12 +76,6 @@ module RowReader =
             Some(r.reader.GetGuid(ordinal))
     let getBool (col: string) (r: RowReader) =
         r.reader.GetBoolean(r.reader.GetOrdinal(col))
-    let getBoolOption (col: string) (r: RowReader) : bool option =
-        let ordinal = r.reader.GetOrdinal(col)
-        if r.reader.IsDBNull(ordinal) then
-            None
-        else
-            Some(r.reader.GetBoolean(ordinal))
 
 let rec private readRawRows
     (reader: Common.DbDataReader)

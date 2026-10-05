@@ -30,7 +30,7 @@ let runCommandRouteAndAutoCompleteTransaction auditAction
     let context = Context.create NewTransaction auditAction
     runWithAutoCompleteTransaction (context |> Context.getDatabaseTransaction) (fun () -> func context)
 
-/// runFuncAndAutoRollback is used mostly for testing, though we also use it for shadow posting. It creates a context
+/// runCommandRouteAndAutoRollback is used mostly for testing, though we also use it for shadow posting. It creates a context
 /// and automatically rolls back any database changes at the end (whether the func succeeds, fails, or raises).
 let runCommandRouteAndAutoRollback auditAction (func: Context.Context -> Result<'T, IAppError>) : Result<'T, IAppError> =
     let context = Context.create NewTransaction auditAction

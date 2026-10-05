@@ -11,8 +11,8 @@ item behaves; this tells you the item exists and roughly what it is for.
 Three tiers, `App` ← `Business` ← `Ui`:
 
 - `App.Utility`, `App.DataAccessLayer`, `App.Operation`, `App.Session`
-- `Business.General`, `Business.FinancialServices`,
-  `Business.FinancialServices.{Ledger,DataIngestion,CashFlow,Classification}`,
+- `Business.General` (Person, Cadence, ActivityPeriod), `Business.FinancialServices` (Money, Quantity, Price),
+  `Business.FinancialServices.{Ledger,DataIngestion,CashFlow,Classification,Positions}`,
   `Business.CrossDomainOrchestration`
 - `Ui.InterfaceBridge`, `Ui.OperatorCli`, `Ui.ReportCli`
 
@@ -33,9 +33,10 @@ blindly.
 | `App.Utility.FieldUpdate` | `NoChange \| SetTo`. Converters: `map`, `mapNoChangeToOptionWithConversion`, `convertFieldUpdateToNewTypeFallible`, `convertFieldUpdateOptionToNewTypeOption`, `convertFieldUpdateOptionToNewTypeOptionFallible` | Writing FieldUpdate plumbing by hand. Using an option/flag to mean "don't update this field". |
 | `App.Utility.Clock` / `App.Utility.Calendar` | `Calendar.dateFromInstant` on the operation's initiation instant; `Clock.instantToString` for formatting | `DateTime.Now`, `DateTimeOffset.UtcNow`, `SystemClock`; a fresh `Clock.now()` / `Calendar.today()` anywhere in Src outside Clock, Calendar and AuditEnvelope (REQ-SYS-3.4). Enforced by `Checks/check-clock.sh`. |
 | `App.DataAccessLayer` | `QueryParameterValue`, `AcceptableExpectedRows`, `buildReadQuery`, `RowReader`, the execute functions, `DbTransaction` | Touching Npgsql anywhere else. Enforced by `Checks/check-npgsql.sh`. Interpolating a value into SQL — structural fragments only. |
-| `App.DataAccessLayer.LookupCache` | Account code ↔ ID and fiscal period key ↔ ID | Hand-writing a code-to-ID lookup query. It exists. |
+| `App.DataAccessLayer.LookupCache` | The generic route-lifetime column ↔ ID cache factories (`stringToIdCache`, `idToStringCache`). Each entity module that needs one binds it to its own table and column (`Account.codeToId`, `FiscalPeriod.keyToId`, `MasterAgreement.nameToId`, …). | Hand-writing a name-to-ID lookup query. Bind a cache in the entity module instead. |
+| `Business.FinancialServices.Quantity` / `Price` | A Positions quantity or price: six decimal places, and the one sanctioned exact product, `Price.multiplyQuantity` (REQ-MON-2.1, REQ-POS-6.8) | Multiplying a quantity by a price as raw `decimal`s. |
 | `Business.FinancialServices.Money` | All money arithmetic — `add`, `subtractVal1FromVal2`, `sumList`, `splitByN` | Arithmetic on raw `decimal` money values. |
-| `App.Session.Context` / `App.Operation.AuditEnvelope` | One context per user action — its transaction and its single instant — created at the route handler (`Context.create`) and threaded down. `Ui.InterfaceBridge.CommandRoute.runFuncAndAutoRollback` is the rolled-back bracket. | A fresh `Clock.now()` or `Calendar.today()` anywhere in an operation, read or write. |
+| `App.Session.Context` / `App.Operation.AuditEnvelope` | One context per user action — its transaction and its single instant — created at the route handler (`Context.create`) and threaded down. `Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoRollback` is the rolled-back bracket. | A fresh `Clock.now()` or `Calendar.today()` anywhere in an operation, read or write. |
 | `App.Utility.Json` | `Json.fromJson<'T>` / `Json.toJson<'T>` | Constructing your own `JsonSerializerOptions`. |
 
 ## Two conventions the code follows silently

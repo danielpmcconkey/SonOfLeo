@@ -60,7 +60,9 @@ approved_waiver_ids                > "$tmp/waived"
 section_ids "Unenforceable"       > "$tmp/unenforceable"
 
 # ---- scan destinations ------------------------------------------------------
-grep -hoE "$ID_RE" "${TEST_FILES[@]}" 2>/dev/null | sort > "$tmp/test_all" || true
+# Only an ID inside a backtick test-method name counts. An ID in a comment, a string or a helper's
+# body is not a test of that requirement.
+grep -hoE '``[^`]+``' "${TEST_FILES[@]}" 2>/dev/null | grep -oE "$ID_RE" | sort > "$tmp/test_all" || true
 sort -u "$tmp/test_all" > "$tmp/test_refs"
 cp "$tmp/test_refs" "$tmp/all_refs"
 
@@ -73,7 +75,7 @@ echo "=== Invariant 1: phantom references (tests -> nonexistent or withdrawn req
 if [[ -s "$tmp/phantoms" ]]; then
     show_refs() {  # exact-ID match: not followed by another digit or sub-number
         local esc; esc=$(sed 's/\./\\./g' <<< "$1")
-        grep -nE "${esc}([^.0-9]|\$)" "${TEST_FILES[@]}" 2>/dev/null | sed 's/^/    /'
+        grep -nE "\`\`[^\`]*${esc}([^.0-9\`][^\`]*)?\`\`" "${TEST_FILES[@]}" 2>/dev/null | sed 's/^/    /'
     }
     while read -r id; do
         echo "WITHDRAWN: $id is referenced but withdrawn:"

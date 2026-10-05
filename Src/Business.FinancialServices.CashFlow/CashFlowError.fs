@@ -91,7 +91,6 @@ type CashFlowError =
     | CashflowPaymentsTargetVoidedEntries of (Guid * Guid) list
     | CashflowPaymentMemoIsEmpty of string
     | CashflowPaymentMemoTooLong of string * int
-    | CashflowPaymentNotUnderInvoice of Guid * Guid
     | CashflowPaymentPostedToLedgerDateMismatch of Guid * LocalDate * LocalDate
     | CashflowPaymentPostedToLedgerDateWithoutJournalEntry of Guid
     | CashflowPaymentUpdateNoOp
@@ -208,7 +207,6 @@ type CashFlowError =
                 $"Journal entry {journalEntryUuid} cannot be voided while Payments point at its lines: {payments}. Re-point or remove each Payment first, or correct the entry with an adjusting entry instead."
             | CashflowPaymentMemoIsEmpty memo -> $"PaymentMemo cannot be empty. Provided Memo is {memo}."
             | CashflowPaymentMemoTooLong(memo, max) -> $"PaymentMemo cannot exceed {max} characters. Provided Memo is {memo}."
-            | CashflowPaymentNotUnderInvoice(paymentId, invoiceId) -> $"Payment {paymentId} does not belong to Invoice {invoiceId}."
             | CashflowPaymentPostedToLedgerDateMismatch(paymentId, provided, actual) -> $"Payment {paymentId}'s postedToLedgerDate ({provided}) does not match its journal entry's entry date ({actual})."
             | CashflowPaymentPostedToLedgerDateWithoutJournalEntry paymentId -> $"Payment {paymentId} has a postedToLedgerDate set but its transactionPointer is not Posted to a journal entry."
             | CashflowPaymentUpdateNoOp -> "Updating the Payment record failed because at least one updatable parameter must be set."

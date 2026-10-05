@@ -34,7 +34,6 @@ let securityId s = s.securityId
 let securityName s = s.securityName
 let ticker s = s.ticker
 let dimensionValues s = s.dimensionValues
-let dimensionValueIn (dimension: Dimension) s = s.dimensionValues |> Map.tryFind dimension
 let createdAt s = s.createdAt
 let modifiedAt s = s.modifiedAt
 
