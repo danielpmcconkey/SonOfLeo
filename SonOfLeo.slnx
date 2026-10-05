@@ -10,10 +10,10 @@
     <Project Path="Src\App.Utility\App.Utility.fsproj" />
     <Project Path="Src\Business.CrossDomainOrchestration\Business.CrossDomainOrchestration.fsproj" />
     <Project Path="Src\Business.FinancialServices.CashFlow\Business.FinancialServices.CashFlow.fsproj" />
+    <Project Path="Src\Business.FinancialServices.Classification\Business.FinancialServices.Classification.fsproj" />
     <Project Path="Src\Business.FinancialServices.DataIngestion\Business.FinancialServices.DataIngestion.fsproj" />
     <Project Path="Src\Business.FinancialServices.Ledger\Business.FinancialServices.Ledger.fsproj" />
     <Project Path="Src\Business.FinancialServices.Positions\Business.FinancialServices.Positions.fsproj" />
-    <Project Path="Src\Business.FinancialServices.Classification\Business.FinancialServices.Classification.fsproj" />
     <Project Path="Src\Business.General\Business.General.fsproj" />
     <Project Path="Src\Ui.InterfaceBridge\Ui.InterfaceBridge.fsproj" />
     <Project Path="Src\Ui.OperatorCli\Ui.OperatorCli.fsproj" />
@@ -25,4 +25,5 @@
     <Project Path="Tests\Tests.Helpers\Tests.Helpers.fsproj" />
   </Folder>
   <Project Path="DevDataStage/DevDataStage.fsproj" />
+  <Project Path="LeoBloomMigrator\LeoBloomMigrator.fsproj" Type="Classic F#" />
 </Solution>
